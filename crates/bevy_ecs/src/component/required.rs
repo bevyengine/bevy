@@ -307,6 +307,11 @@ impl RequiredComponents {
     pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.all.keys().copied()
     }
+
+    /// Iterates the ids of all required components. This is only directly required components.
+    pub fn iter_direct_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.direct.keys().copied()
+    }
 }
 
 impl Components {
@@ -357,7 +362,7 @@ impl Components {
         &mut self,
         requiree: ComponentId,
         required: ComponentId,
-        constructor: fn() -> R,
+        constructor: impl Fn() -> R + 'static,
     ) -> Result<(), RequiredComponentsError> {
         // First step: validate inputs and return errors.
 
@@ -635,7 +640,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
     pub unsafe fn register_required_by_id<C: Component>(
         &mut self,
         component_id: ComponentId,
-        constructor: fn() -> C,
+        constructor: impl Fn() -> C + 'static,
     ) {
         // SAFETY:
         // - the caller guarantees `component_id` is a valid component in `components` for `C`;

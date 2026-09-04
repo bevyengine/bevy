@@ -46,17 +46,38 @@ use bevy_pbr::{
 };
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
+///
+/// The plugin is part of `DefaultPlugins` when the `dev` feature is enabled.
+/// The overlay is hidden by default. To control it from the keyboard, insert a
+/// [`RenderDebugOverlayKeybindings`] resource with
+/// [`enable_keybindings`](RenderDebugOverlayKeybindings::enable_keybindings) set to `true`:
+///
+/// ```
+/// # use bevy_dev_tools::render_debug::RenderDebugOverlayKeybindings;
+/// # use bevy_ecs::prelude::World;
+/// # use bevy_utils::default;
+/// let mut world = World::new();
+/// world.insert_resource(RenderDebugOverlayKeybindings {
+///     enable_keybindings: true,
+///     ..default()
+/// });
+/// ```
+///
+/// With the default keybindings, `F1` enables the overlay and cycles through the
+/// supported modes, `F2` cycles the overlay opacity. The overlay is drawn on every
+/// camera.
 #[derive(Default)]
 pub struct RenderDebugOverlayPlugin;
 
 impl Plugin for RenderDebugOverlayPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "debug_overlay.wgsl");
+        embedded_asset!(app, "debug_overlay.wesl");
 
         app.register_type::<RenderDebugOverlay>()
             .register_type::<GlobalRenderDebugOverlay>()
             .init_resource::<GlobalRenderDebugOverlay>()
             .add_message::<RenderDebugOverlayEvent>()
+            .init_resource::<RenderDebugOverlayKeybindings>()
             .add_plugins((
                 ExtractResourcePlugin::<GlobalRenderDebugOverlay>::default(),
                 ExtractComponentPlugin::<RenderDebugOverlay>::default(),
@@ -98,16 +119,49 @@ impl Plugin for RenderDebugOverlayPlugin {
     }
 }
 
-/// Automatically attach keybinds to make render debug overlays available to users without code
-/// changes when the feature is enabled.
+/// Resource for configuring the [`RenderDebugOverlayPlugin`] keyboard shortcuts.
+///
+/// Keybindings are disabled by default. Set
+/// [`enable_keybindings`](RenderDebugOverlayKeybindings::enable_keybindings)
+/// to `true` to enable them.
+///
+/// Defaults to `F1` for cycling through the debug modes and `F2` for cycling
+/// the overlay opacity.
+#[derive(Resource, Clone, Copy)]
+pub struct RenderDebugOverlayKeybindings {
+    /// Whether to enable the automatic keybindings
+    pub enable_keybindings: bool,
+    /// Key used to cycle to the next supported debug overlay mode. Defaults to F1
+    pub cycle_mode: KeyCode,
+    /// Key used to cycle the overlay opacity. Defaults to F2
+    pub cycle_opacity: KeyCode,
+}
+
+/// Default keybindings are F1 and F2
+impl Default for RenderDebugOverlayKeybindings {
+    fn default() -> Self {
+        Self {
+            enable_keybindings: false,
+            cycle_mode: KeyCode::F1,
+            cycle_opacity: KeyCode::F2,
+        }
+    }
+}
+
+/// Attach keybinds to make render debug overlays available to users when keybindings are enabled
 pub fn handle_input(
     keyboard: Res<ButtonInput<KeyCode>>,
+    keybindings: Res<RenderDebugOverlayKeybindings>,
     mut events: MessageWriter<RenderDebugOverlayEvent>,
 ) {
-    if keyboard.just_pressed(KeyCode::F1) {
+    if !keybindings.enable_keybindings {
+        return;
+    }
+
+    if keyboard.just_pressed(keybindings.cycle_mode) {
         events.write(RenderDebugOverlayEvent::CycleMode);
     }
-    if keyboard.just_pressed(KeyCode::F2) {
+    if keyboard.just_pressed(keybindings.cycle_opacity) {
         events.write(RenderDebugOverlayEvent::CycleOpacity);
     }
 }
@@ -272,6 +326,7 @@ pub enum RenderDebugOverlayEvent {
 /// Overwrites the default [`GlobalRenderDebugOverlay`] resource.
 #[derive(Component, Clone, ExtractComponent, Reflect, PartialEq)]
 #[reflect(Component, Default)]
+#[extract_app(RenderApp)]
 pub struct RenderDebugOverlay {
     /// Enables or disables drawing the overlay.
     pub enabled: bool,
@@ -295,6 +350,7 @@ impl Default for RenderDebugOverlay {
 /// Can be overwritten by using a [`RenderDebugOverlay`] component.
 #[derive(Resource, Clone, ExtractResource, ExtractComponent, Reflect, PartialEq)]
 #[reflect(Resource, Default)]
+#[extract_app(RenderApp)]
 pub struct GlobalRenderDebugOverlay {
     /// Enables or disables drawing the overlay.
     pub enabled: bool,
@@ -388,7 +444,7 @@ fn init_render_debug_overlay_pipeline(
     );
 
     let res = RenderDebugOverlayPipeline {
-        shader: asset_server.load("embedded://bevy_dev_tools/debug_overlay.wgsl"),
+        shader: asset_server.load("embedded://bevy_dev_tools/debug_overlay.wesl"),
         mesh_view_layouts: mesh_view_layouts.clone(),
         bind_group_layout,
         bind_group_layout_descriptor,

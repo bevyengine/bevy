@@ -177,8 +177,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 }
             }
 
-            fn to_dynamic_enum(&self) -> #bevy_reflect_path::enums::DynamicEnum {
-                #bevy_reflect_path::enums::DynamicEnum::from_ref::<Self>(self)
+            fn to_dynamic_enum(&self) -> #FQResult<#bevy_reflect_path::enums::DynamicEnum, #bevy_reflect_path::ReflectCloneError> {
+                #bevy_reflect_path::enums::DynamicEnum::try_from_ref::<Self>(self)
             }
         }
 
@@ -334,7 +334,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
 
         /// Process the field value to account for remote types.
         ///
-        /// If the field is a remote type, then the value will be transmuted accordingly.
+        /// If the field is a remote type, then the value will be converted accordingly.
         fn process_field_value(
             ident: &Ident,
             field: &StructField,

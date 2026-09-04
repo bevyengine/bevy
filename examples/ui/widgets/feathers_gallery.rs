@@ -2,46 +2,49 @@
 
 use bevy::{
     color::palettes,
-    ecs::VariantDefaults,
     feathers::{
         constants::{fonts, icons},
         containers::*,
         controls::*,
-        cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
-        display::{icon, label, label_dim, label_small},
+        display::{caption, icon, label, label_dim, label_small},
         font_styles::InheritableFont,
         palette,
         rounded_corners::RoundedCorners,
-        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
+        theme::{ThemeBackgroundColor, UiTheme},
         tokens, FeathersPlugins,
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
+    picking::cursor::{EntityCursor, OverrideCursor},
     prelude::*,
     text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled, Selected},
     ui_widgets::{
-        checkbox_self_update, listbox_update_selection, radio_self_update, slider_self_update,
-        Activate, ActivateOnPress, RadioGroup, RequestClose, SliderPrecision, SliderStep,
-        SliderValue, ValueChange,
+        checkbox_self_update, listbox_update_selection,
+        popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
+        radio_self_update, slider_self_update, Activate, ActivateOnPress, RadioGroup, RequestClose,
+        SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
     window::SystemCursorIcon,
 };
+use std::sync::Arc;
 
 /// A struct to hold the state of various widgets shown in the demo.
 #[derive(Resource)]
 struct DemoWidgetStates {
     rgb_color: Srgba,
     hsl_color: Hsla,
+    okhsl_color: Okhsla,
     scalar_prop: f32,
     vec3_prop: Vec3,
 }
 
-#[derive(Component, Clone, Copy, PartialEq, FromTemplate)]
+#[derive(Component, Clone, Copy, PartialEq, Default)]
 enum SwatchType {
     #[default]
     Rgb,
     Hsl,
+    Okhsl,
 }
 
 #[derive(Component, Clone, Copy, Default)]
@@ -51,9 +54,12 @@ struct HexColorInput;
 struct DemoDisabledButton;
 
 #[derive(Component, Clone, Copy, Default)]
+struct DemoDialogToggle;
+
+#[derive(Component, Clone, Copy, Default)]
 struct DemoScalarField;
 
-#[derive(Component, Clone, Copy, Default, VariantDefaults)]
+#[derive(Component, Clone, Copy, Default)]
 enum DemoVec3Field {
     #[default]
     X,
@@ -68,6 +74,7 @@ fn main() {
         .insert_resource(DemoWidgetStates {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
             hsl_color: palettes::tailwind::AMBER_800.into(),
+            okhsl_color: palettes::tailwind::AMBER_800.into(),
             scalar_prop: 7.0,
             vec3_prop: Vec3::new(10.1, 7.124, 100.0),
         })
@@ -77,11 +84,11 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, demo_root()]
+    bsn_list![Camera2d, @demo_root()]
 }
 
-fn demo_root() -> impl Scene {
-    bsn! {
+fn demo_root() -> Box<dyn Scene> {
+    Box::new(bsn! {
         Node {
             width: percent(100),
             height: percent(100),
@@ -94,13 +101,114 @@ fn demo_root() -> impl Scene {
         TabGroup
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children[
-            demo_column_1(),
-            demo_column_2(),
+            @demo_column_1(),
+            @demo_column_2(),
+            @demo_column_3(),
         ]
+    })
+}
+
+#[derive(Component, Debug, Clone, Default, PartialEq)]
+enum Months {
+    #[default]
+    Jan,
+    Feb,
+    Mar,
+    Apr,
+    May,
+    Jun,
+    Jul,
+    Aug,
+    Sep,
+    Oct,
+    Nov,
+    Dec,
+}
+
+impl Months {
+    const ALL: [Months; 12] = [
+        Months::Jan,
+        Months::Feb,
+        Months::Mar,
+        Months::Apr,
+        Months::May,
+        Months::Jun,
+        Months::Jul,
+        Months::Aug,
+        Months::Sep,
+        Months::Oct,
+        Months::Nov,
+        Months::Dec,
+    ];
+
+    fn to_str(&self) -> &'static str {
+        match self {
+            Months::Jan => "January",
+            Months::Feb => "February",
+            Months::Mar => "March",
+            Months::Apr => "April",
+            Months::May => "May",
+            Months::Jun => "June",
+            Months::Jul => "July",
+            Months::Aug => "August",
+            Months::Sep => "September",
+            Months::Oct => "October",
+            Months::Nov => "November",
+            Months::Dec => "December",
+        }
     }
 }
 
 fn demo_column_1() -> impl Scene {
+    // Lazily-constructed menu popup
+    let popup: Arc<dyn Fn() -> Box<dyn Scene> + Sync + Send> = Arc::new(|| {
+        Box::new(bsn!(
+            @FeathersMenuPopup
+            // Override popover placement to right-align the popup
+            Popover {
+                positions: vec![
+                    PopoverPlacement {
+                        side: PopoverSide::Bottom,
+                        align: PopoverAlign::End,
+                        gap: 2.0,
+                    },
+                    PopoverPlacement {
+                        side: PopoverSide::Top,
+                        align: PopoverAlign::End,
+                        gap: 2.0,
+                    },
+                ],
+                window_margin: 10.0,
+            }
+            Children [
+                (
+                    @FeathersMenuItem {
+                        @caption: bsn! { @caption("MenuItem 4") }
+                    }
+                    on(|_: On<Activate>| {
+                        info!("Menu item 4 clicked!");
+                    })
+                ),
+                (
+                    @FeathersMenuItem {
+                        @caption: bsn! { @caption("MenuItem 5") }
+                    }
+                    on(|_: On<Activate>| {
+                        info!("Menu item 5 clicked!");
+                    })
+                ),
+                (
+                    @FeathersMenuItem {
+                        @caption: bsn! { @caption("MenuItem 6") }
+                    }
+                    on(|_: On<Activate>| {
+                        info!("Menu item 6 clicked!");
+                    })
+                )
+            ]
+        ))
+    });
+
     bsn! {
         Node {
             display: Display::Flex,
@@ -124,7 +232,7 @@ fn demo_column_1() -> impl Scene {
                 Children [
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Normal") ThemedText }
+                            @caption: bsn! { @caption("Normal") }
                         }
                         Node {
                             flex_grow: 1.0,
@@ -137,7 +245,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Disabled") ThemedText },
+                            @caption: bsn! { @caption("Disabled") },
                         }
                         Node {
                             flex_grow: 1.0,
@@ -151,7 +259,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Primary") ThemedText },
+                            @caption: bsn! { @caption("Primary") },
                             @variant: ButtonVariant::Primary,
                         }
                         AccessibleLabel("Primary")
@@ -167,7 +275,7 @@ fn demo_column_1() -> impl Scene {
                         Children [
                             (
                                 @FeathersMenuButton {
-                                    @caption: bsn! { Text("Menu") ThemedText }
+                                    @caption: bsn! { @caption("Menu") }
                                 }
                                 AccessibleLabel("Menu Example")
                                 Node {
@@ -179,7 +287,7 @@ fn demo_column_1() -> impl Scene {
                                 Children [
                                     (
                                         @FeathersMenuItem {
-                                            @caption: bsn! { Text("MenuItem 1") ThemedText }
+                                            @caption: bsn! { @caption("MenuItem 1") }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 1 clicked!");
@@ -187,7 +295,7 @@ fn demo_column_1() -> impl Scene {
                                     ),
                                     (
                                         @FeathersMenuItem {
-                                            @caption: bsn! { Text("MenuItem 2") ThemedText }
+                                            @caption: bsn! { @caption("MenuItem 2") }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 2 clicked!");
@@ -196,7 +304,7 @@ fn demo_column_1() -> impl Scene {
                                     @FeathersMenuDivider,
                                     (
                                         @FeathersMenuItem {
-                                            @caption: bsn! { Text("MenuItem 3") ThemedText }
+                                            @caption: bsn! { @caption("MenuItem 3") }
                                         }
                                         on(|_: On<Activate>| {
                                             info!("Menu item 3 clicked!");
@@ -205,8 +313,70 @@ fn demo_column_1() -> impl Scene {
                                 ]
                             )
                         ]
+                    ),
+                    (
+                        @FeathersLazyMenu { popup }
+                        Children [
+                            (
+                                @FeathersMenuToolButton {
+                                    @caption: bsn! { @caption("\u{0398}") }
+                                }
+                                AccessibleLabel("Menu Example")
+                                Node {
+                                    flex_grow: 1.0,
+                                }
+                            )
+                        ]
                     )
                 ]
+            ),
+            (
+                @FeathersSelect {
+                    @options: {list_rows_from_strings([
+                        "One",
+                        "Two",
+                        "Three",
+                    ], Some(0))},
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(|change: On<ValueChange<Entity>>, q_options: Query<&OptionIndex>| {
+                    let Ok(option) = q_options.get(change.value) else {
+                        info!("Select changed, not sure");
+                        return;
+                    };
+                    info!("Select changed to index {}", option.0);
+                })
+            ),
+            (
+                @FeathersSelect {
+                    @options: {
+                        Box::new(
+                            Months::ALL
+                                .into_iter()
+                                .map(|m| -> Box<dyn SceneList> {
+                                    let label = m.to_str();
+                                    if m == Months::default() {
+                                        bsn! { @FeathersListRow Selected m Children [ @caption(label) ] }.into()
+                                    } else {
+                                        bsn! { @FeathersListRow m Children [ @caption(label) ] }.into()
+                                    }
+                                })
+                                .collect::<Vec<_>>(),
+                        ) as Box<dyn SceneList>
+                    },
+                    @max_visible: 6,
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(|change: On<ValueChange<Entity>>, q_months: Query<&Months>| {
+                    let Ok(month) = q_months.get(change.value) else {
+                        return;
+                    };
+                    info!("Select changed to {:?}", month);
+                })
             ),
             (
                 Node {
@@ -219,7 +389,7 @@ fn demo_column_1() -> impl Scene {
                 Children [
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Left") ThemedText },
+                            @caption: bsn! { @caption("Left") },
                             @corners: RoundedCorners::Left,
                         }
                         Node {
@@ -232,7 +402,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Center") ThemedText },
+                            @caption: bsn! { @caption("Center") },
                             @corners: RoundedCorners::None,
                         }
                         Node {
@@ -245,7 +415,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Right") ThemedText },
+                            @caption: bsn! { @caption("Right") },
                             @variant: ButtonVariant::Primary,
                             @corners: RoundedCorners::Right,
                         }
@@ -270,7 +440,7 @@ fn demo_column_1() -> impl Scene {
                 Children [
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Toggle override") ThemedText },
+                            @caption: bsn! { @caption("Toggle override") },
                         }
                         Node {
                             flex_grow: 1.0,
@@ -286,7 +456,7 @@ fn demo_column_1() -> impl Scene {
                     ),
                     (
                         @FeathersButton {
-                            @caption: bsn! { Text("Quit\u{2026}") ThemedText },
+                            @caption: bsn! { @caption("Quit\u{2026}") },
                         }
                         Node {
                             flex_grow: 1.0,
@@ -296,53 +466,63 @@ fn demo_column_1() -> impl Scene {
                 ]
             ),
             (
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    column_gap: px(8),
+                }
+                Children [
+                    @label("Dialog:"),
+                    (
+                        @FeathersToggleSwitch
+                        DemoDialogToggle
+                        on(toggle_demo_dialog)
+                    ),
+                ]
+            ),
+            (
                 @FeathersCheckbox {
-                    @caption: bsn! { Text("Checkbox") ThemedText }
+                    @caption: bsn! { @caption("Checkbox") }
                 }
                 Checked
                 AccessibleLabel("Checkbox Example")
-                on(
-                    |change: On<ValueChange<bool>>,
-                        query: Query<Entity, With<DemoDisabledButton>>,
-                        mut commands: Commands| {
-                        info!("Checkbox clicked!");
-                        let mut button = commands.entity(query.single().unwrap());
-                        if change.value {
-                            button.insert(InteractionDisabled);
-                        } else {
-                            button.remove::<InteractionDisabled>();
-                        }
-                        let mut checkbox = commands.entity(change.source);
-                        if change.value {
-                            checkbox.insert(Checked);
-                        } else {
-                            checkbox.remove::<Checked>();
-                        }
+                on(|change: On<ValueChange<bool>>, query: Query<Entity, With<DemoDisabledButton>>, mut commands: Commands| {
+                    info!("Checkbox clicked!");
+                    let mut button = commands.entity(query.single().unwrap());
+                    if change.value {
+                        button.insert(InteractionDisabled);
+                    } else {
+                        button.remove::<InteractionDisabled>();
                     }
-                )
+                    let mut checkbox = commands.entity(change.source);
+                    if change.value {
+                        checkbox.insert(Checked);
+                    } else {
+                        checkbox.remove::<Checked>();
+                    }
+                })
             ),
             (
                 @FeathersCheckbox {
-                    @caption: bsn! { Text("Fast Click Checkbox") ThemedText }
+                    @caption: bsn! { @caption("Fast Click Checkbox") }
                 }
                 ActivateOnPress
                 AccessibleLabel("Fast Click Checkbox Example")
-                on(
-                    |change: On<ValueChange<bool>>,
-                     mut commands: Commands| {
-                        info!("Checkbox clicked!");
-                        let mut checkbox = commands.entity(change.source);
-                        if change.value {
-                            checkbox.insert(Checked);
-                        } else {
-                            checkbox.remove::<Checked>();
-                        }
+                on(|change: On<ValueChange<bool>>, mut commands: Commands| {
+                    info!("Checkbox clicked!");
+                    let mut checkbox = commands.entity(change.source);
+                    if change.value {
+                        checkbox.insert(Checked);
+                    } else {
+                        checkbox.remove::<Checked>();
                     }
-                )
+                })
             ),
             (
                 @FeathersCheckbox {
-                    @caption: bsn! { Text("Disabled") ThemedText },
+                    @caption: bsn! { @caption("Disabled") },
                 }
                 InteractionDisabled
                 AccessibleLabel("Disabled Checkbox Example")
@@ -352,7 +532,7 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 @FeathersCheckbox {
-                    @caption: bsn! { Text("Checked+Disabled") ThemedText }
+                    @caption: bsn! { @caption("Checked+Disabled") }
                 }
                 InteractionDisabled
                 Checked
@@ -381,22 +561,22 @@ fn demo_column_1() -> impl Scene {
                         Children [
                             (
                                 @FeathersRadio {
-                                    @caption: bsn! { Text("One") ThemedText }
+                                    @caption: bsn! { @caption("One") }
                                 }
                                 Checked
                             ),
                             @FeathersRadio {
-                                @caption: bsn! { Text("Two") ThemedText }
+                                @caption: bsn! { @caption("Two") }
                             },
                             (
                                 @FeathersRadio {
-                                    @caption: bsn! { Text("Fast Click") ThemedText }
+                                    @caption: bsn! { @caption("Fast Click") }
                                 }
                                 ActivateOnPress
                             ),
                             (
                                 @FeathersRadio {
-                                    @caption: bsn! { Text("Disabled") ThemedText }
+                                    @caption: bsn! { @caption("Disabled") }
                                 }
                                 InteractionDisabled
                             ),
@@ -423,8 +603,8 @@ fn demo_column_1() -> impl Scene {
             (
                 @FeathersSlider {
                     @max: 100.0,
-                    @value: 20.0,
                 }
+                SliderValue(20.0)
                 SliderStep(10.)
                 SliderPrecision(2)
                 on(slider_self_update)
@@ -438,9 +618,9 @@ fn demo_column_1() -> impl Scene {
                     column_gap: px(4),
                 }
                 Children [
-                    label("Srgba"),
+                    @label("Srgba"),
                     // Spacer
-                    flex_spacer(),
+                    @flex_spacer(),
                     // Text input
                     (
                         @FeathersTextInputContainer
@@ -522,7 +702,7 @@ fn demo_column_1() -> impl Scene {
                     justify_content: JustifyContent::SpaceBetween,
                 }
                 Children [
-                    label("Hsl"),
+                    @label("Hsl"),
                     (@FeathersColorSwatch SwatchType::Hsl)
                 ]
             ),
@@ -555,6 +735,55 @@ fn demo_column_1() -> impl Scene {
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.lightness = change.value;
                 })
+            ),
+            (
+                Node {
+                    display: Display::Flex,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceBetween,
+                }
+                Children [
+                    @label("Okhsl"),
+                    (@FeathersColorSwatch SwatchType::Okhsl)
+                ]
+            ),
+            (
+                @FeathersColorPlane::OkhslHueLightness
+                on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
+                    color.okhsl_color.hue = change.value.x * 360.0;
+                    color.okhsl_color.lightness = change.value.y;
+                })
+            ),
+            (
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::OkhslHue
+                }
+                AccessibleLabel("Okhsl Hue Channel")
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                    color.okhsl_color.hue = change.value;
+                })
+            ),
+            (
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::OkhslSaturation
+                }
+                AccessibleLabel("Okhsl Saturation Channel")
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                    color.okhsl_color.saturation = change.value;
+                })
+            ),
+            (
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::OkhslLightness
+                }
+                AccessibleLabel("Okhsl Lightness Channel")
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                    color.okhsl_color.lightness = change.value;
+                })
             )
         ]
     }
@@ -574,88 +803,83 @@ fn demo_column_2() -> impl Scene {
         }
         Children [
             (
-                pane() Children [
-                    pane_header() Children [
+                @pane() Children [
+                    @pane_header() Children [
                         @FeathersToolButton {
                             @variant: ButtonVariant::Primary,
-                            @caption: bsn! { Text("\u{0398}") ThemedText }
+                            @caption: bsn! { @caption("\u{0398}") }
                         },
-                        pane_header_divider(),
+                        @pane_header_divider(),
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                            @caption: bsn! { Text("\u{00BC}") ThemedText }
-                        },
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Plain,
-                            @caption: bsn! { Text("\u{00BD}") ThemedText }
+                            @caption: bsn! { @caption("\u{00BC}") }
                         },
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                            @caption: bsn! { Text("\u{00BE}") ThemedText }
+                            @caption: bsn! { @caption("\u{00BD}") }
                         },
-                        pane_header_divider(),
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                            @caption: bsn! { icon(icons::CHEVRON_DOWN) }
+                            @caption: bsn! { @caption("\u{00BE}") }
                         },
-                        flex_spacer(),
+                        @pane_header_divider(),
                         @FeathersToolButton {
                             @variant: ButtonVariant::Plain,
-                            @caption: bsn! { icon(icons::X) }
+                            @caption: bsn! { @icon(icons::CHEVRON_DOWN) }
+                        },
+                        @flex_spacer(),
+                        @FeathersToolButton {
+                            @variant: ButtonVariant::Plain,
+                            @caption: bsn! { @icon(icons::X) }
                         },
                     ],
                     (
-                        pane_body() Children [
-                            label_dim("A standard editor pane"),
-                            subpane() Children [
-                                subpane_header() Children [
-                                    (Text("Left") ThemedText),
-                                    (Text("Center") ThemedText),
-                                    (Text("Right") ThemedText)
+                        @pane_body() Children [
+                            @label_dim("A standard editor pane"),
+                            @subpane() Children [
+                                @subpane_header() Children [
+                                    @caption("Left"),
+                                    @caption("Center"),
+                                    @caption("Right")
                                 ],
-                                subpane_body() Children [
-                                    label_dim("A standard sub-pane"),
-                                    group()
+                                @subpane_body() Children [
+                                    @label_dim("A standard sub-pane"),
+                                    @group()
                                     Children [
-                                        group_header() Children [
-                                            (Text("Group") ThemedText),
+                                        @group_header() Children [
+                                            @caption("Group"),
                                         ],
-                                        group_body()
+                                        @group_body()
                                         Children [
-                                            label("A standard group"),
-                                            label_small("Scalar property"),
+                                            @label("A standard group"),
+                                            @label_small("Scalar property"),
                                             (
                                                 @FeathersNumberInput
                                                 DemoScalarField
+                                                NumberInputPrecision(2)
+                                                HardLimit::f32(0.0..=100.0)
                                                 Node {
                                                     flex_grow: 1.0,
                                                     max_width: px(100),
                                                 }
-                                                on(
-                                                    |value_change: On<ValueChange<f32>>,
-                                                    mut states: ResMut<DemoWidgetStates>| {
-                                                    if value_change.is_final {
-                                                        states.scalar_prop = value_change.value;
-                                                    }
+                                                on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                                    states.scalar_prop = value_change.value;
                                                 })
                                             ),
-                                            label_small("Scalar property (copy)"),
+                                            @label_small("Scalar property (copy)"),
                                             (
                                                 @FeathersNumberInput
                                                 DemoScalarField
+                                                NumberInputPrecision(4)
                                                 Node {
                                                     flex_grow: 1.0,
                                                     max_width: px(100),
                                                 }
-                                                on(
-                                                    |value_change: On<ValueChange<f32>>,
-                                                    mut states: ResMut<DemoWidgetStates>| {
-                                                    if value_change.is_final {
-                                                        states.scalar_prop = value_change.value;
-                                                    }
+                                                on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                                    states.scalar_prop = value_change.value;
                                                 })
                                             ),
-                                            label_small("Vec3 property"),
+                                            @label_small("Vec3 property"),
                                             Node {
                                                 display: Display::Flex,
                                                 flex_direction: FlexDirection::Row,
@@ -669,17 +893,14 @@ fn demo_column_2() -> impl Scene {
                                                         @sigil_color: tokens::TEXT_INPUT_X_AXIS,
                                                         @label_text: "X",
                                                     }
+                                                    NumberInputPrecision(2)
                                                     DemoVec3Field::X
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
                                                     BorderColor::all(palette::X_AXIS)
-                                                    on(
-                                                        |value_change: On<ValueChange<f32>>,
-                                                        mut states: ResMut<DemoWidgetStates>| {
-                                                        if value_change.is_final {
-                                                            states.vec3_prop.x = value_change.value;
-                                                        }
+                                                    on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                                        states.vec3_prop.x = value_change.value;
                                                     })
                                                 ),
                                                 (
@@ -687,16 +908,13 @@ fn demo_column_2() -> impl Scene {
                                                         @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
                                                         @label_text: "Y",
                                                     }
+                                                    NumberInputPrecision(2)
                                                     DemoVec3Field::Y
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
-                                                    on(
-                                                        |value_change: On<ValueChange<f32>>,
-                                                        mut states: ResMut<DemoWidgetStates>| {
-                                                        if value_change.is_final {
-                                                            states.vec3_prop.y = value_change.value;
-                                                        }
+                                                    on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                                        states.vec3_prop.y = value_change.value;
                                                     })
                                                 ),
                                                 (
@@ -704,17 +922,73 @@ fn demo_column_2() -> impl Scene {
                                                         @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
                                                         @label_text: "Z",
                                                     }
+                                                    NumberInputPrecision(2)
                                                     DemoVec3Field::Z
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
-                                                    on(
-                                                        |value_change: On<ValueChange<f32>>,
-                                                        mut states: ResMut<DemoWidgetStates>| {
-                                                        if value_change.is_final {
-                                                            states.vec3_prop.z = value_change.value;
-                                                        }
+                                                    on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                                        states.vec3_prop.z = value_change.value;
                                                     })
+                                                ),
+                                            ],
+                                            @label_small("Color property"),
+                                            Node {
+                                                display: Display::Flex,
+                                                flex_direction: FlexDirection::Row,
+                                                column_gap: px(6),
+                                                align_items: AlignItems::Center,
+                                                justify_content: JustifyContent::SpaceBetween,
+                                            }
+                                            Children [
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_X_AXIS,
+                                                        @label_text: "R",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                    BorderColor::all(palette::X_AXIS)
+                                                ),
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
+                                                        @label_text: "G",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                ),
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
+                                                        @label_text: "B",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                ),
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_W_AXIS,
+                                                        @label_text: "A",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
                                                 ),
                                             ],
                                         ],
@@ -725,25 +999,25 @@ fn demo_column_2() -> impl Scene {
                     ),
                 ]
             ),
-            subpane() Children [
-                subpane_header() Children [
-                    (Text("List") ThemedText),
+            @subpane() Children [
+                @subpane_header() Children [
+                    @caption("List"),
                 ],
-                subpane_body() Children [
+                @subpane_body() Children [
                     @FeathersListView {
                         @rows: {bsn_list![
-                            @FeathersListRow Children [(Text("First World") ThemedText)],
-                            @FeathersListRow Selected Children [(Text("Second Nature") ThemedText)],
-                            @FeathersListRow Children [(Text("Third Degree") ThemedText)],
-                            @FeathersListRow InteractionDisabled Children [(Text("Fourth Wall") ThemedText)],
-                            @FeathersListRow Children [(Text("Fifth Column") ThemedText)],
-                            @FeathersListRow Children [(Text("Sixth Sense") ThemedText)],
-                            @FeathersListRow Children [(Text("Seventh Heaven") ThemedText)],
-                            @FeathersListRow Children [(Text("Eighth Wonder") ThemedText)],
-                            @FeathersListRow Children [(Text("Ninth Inning") ThemedText)],
-                            @FeathersListRow Children [(Text("Tenth Amendment") ThemedText)],
-                            @FeathersListRow Children [(Text("Eleventh Hour") ThemedText)],
-                            @FeathersListRow Children [(Text("Twelfth Night") ThemedText)],
+                            @FeathersListRow Children [@caption("First World")],
+                            @FeathersListRow Selected Children [@caption("Second Nature")],
+                            @FeathersListRow Children [@caption("Third Degree")],
+                            @FeathersListRow InteractionDisabled Children [@caption("Fourth Wall")],
+                            @FeathersListRow Children [@caption("Fifth Column")],
+                            @FeathersListRow Children [@caption("Sixth Sense")],
+                            @FeathersListRow Children [@caption("Seventh Heaven")],
+                            @FeathersListRow Children [@caption("Eighth Wonder")],
+                            @FeathersListRow Children [@caption("Ninth Inning")],
+                            @FeathersListRow Children [@caption("Tenth Amendment")],
+                            @FeathersListRow Children [@caption("Eleventh Hour")],
+                            @FeathersListRow Children [@caption("Twelfth Night")],
                         ]}
                     }
                     Node {
@@ -756,11 +1030,56 @@ fn demo_column_2() -> impl Scene {
     }
 }
 
+fn demo_column_3() -> impl Scene {
+    bsn! {
+        Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Stretch,
+            justify_content: JustifyContent::Start,
+            padding: px(8),
+            row_gap: px(8),
+            width: percent(15),
+            min_width: px(100),
+        }
+        Children [
+            (
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                }
+                Children [
+                    @label("Armor Tint"),
+                    @FeathersColorInput
+                    ColorInputValue(palettes::tailwind::AMBER_600)
+                    on(color_input_self_update)
+                ]
+            ),
+            (
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                }
+                Children [
+                    @label("Skin Color"),
+                    @FeathersColorInput
+                    ColorInputValue(palettes::tailwind::BLUE_800)
+                    on(color_input_self_update)
+                ]
+            )
+        ]
+    }
+}
+
 fn update_colors(
     states: Res<DemoWidgetStates>,
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
-    mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<FeathersColorSwatch>>,
-    mut color_planes: Query<&mut ColorPlaneValue, With<FeathersColorPlane>>,
+    swatches: Query<(Entity, &SwatchType), With<FeathersColorSwatch>>,
+    mut color_planes: Query<(&mut ColorPlaneValue, &FeathersColorPlane)>,
     q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
     q_scalar_input: Query<Entity, With<DemoScalarField>>,
     q_vec3_input: Query<(Entity, &DemoVec3Field)>,
@@ -806,6 +1125,24 @@ fn update_colors(
                         .entity(slider_ent)
                         .insert(SliderValue(states.hsl_color.lightness));
                 }
+                ColorChannel::OkhslHue => {
+                    base.0 = states.okhsl_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(states.okhsl_color.hue));
+                }
+                ColorChannel::OkhslSaturation => {
+                    base.0 = states.okhsl_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(states.okhsl_color.saturation));
+                }
+                ColorChannel::OkhslLightness => {
+                    base.0 = states.okhsl_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(states.okhsl_color.lightness));
+                }
                 ColorChannel::Alpha => {
                     base.0 = states.rgb_color.into();
                     commands
@@ -815,17 +1152,54 @@ fn update_colors(
             }
         }
 
-        for (mut swatch_value, swatch_type) in swatches.iter_mut() {
-            swatch_value.0 = match swatch_type {
-                SwatchType::Rgb => states.rgb_color.into(),
-                SwatchType::Hsl => states.hsl_color.into(),
-            };
+        for (swatch_ent, swatch_type) in swatches.iter() {
+            commands
+                .entity(swatch_ent)
+                .insert(ColorSwatchValue(match swatch_type {
+                    SwatchType::Rgb => states.rgb_color.into(),
+                    SwatchType::Hsl => states.hsl_color.into(),
+                    SwatchType::Okhsl => states.okhsl_color.into(),
+                }));
         }
 
-        for mut plane_value in color_planes.iter_mut() {
-            plane_value.0.x = states.rgb_color.red;
-            plane_value.0.y = states.rgb_color.blue;
-            plane_value.0.z = states.rgb_color.green;
+        for (mut plane_value, plane_type) in color_planes.iter_mut() {
+            match plane_type {
+                FeathersColorPlane::OkhslHueLightness => {
+                    plane_value.0.x = states.okhsl_color.hue / 360.0;
+                    plane_value.0.y = states.okhsl_color.lightness;
+                    plane_value.0.z = states.okhsl_color.saturation;
+                }
+                FeathersColorPlane::OkhslHueSaturation => {
+                    plane_value.0.x = states.okhsl_color.hue / 360.0;
+                    plane_value.0.y = states.okhsl_color.saturation;
+                    plane_value.0.z = states.okhsl_color.lightness;
+                }
+                FeathersColorPlane::HueLightness => {
+                    plane_value.0.x = states.hsl_color.hue / 360.0;
+                    plane_value.0.y = states.hsl_color.lightness;
+                    plane_value.0.z = states.hsl_color.saturation;
+                }
+                FeathersColorPlane::HueSaturation => {
+                    plane_value.0.x = states.hsl_color.hue / 360.0;
+                    plane_value.0.y = states.hsl_color.saturation;
+                    plane_value.0.z = states.hsl_color.lightness;
+                }
+                FeathersColorPlane::RedBlue => {
+                    plane_value.0.x = states.rgb_color.red;
+                    plane_value.0.y = states.rgb_color.blue;
+                    plane_value.0.z = states.rgb_color.green;
+                }
+                FeathersColorPlane::GreenBlue => {
+                    plane_value.0.x = states.rgb_color.green;
+                    plane_value.0.y = states.rgb_color.blue;
+                    plane_value.0.z = states.rgb_color.red;
+                }
+                FeathersColorPlane::RedGreen => {
+                    plane_value.0.x = states.rgb_color.red;
+                    plane_value.0.y = states.rgb_color.green;
+                    plane_value.0.z = states.rgb_color.blue;
+                }
+            }
         }
 
         // Only update the hex input field when it's not focused, otherwise it interferes
@@ -837,10 +1211,9 @@ fn update_colors(
         }
 
         for scalar_input_ent in q_scalar_input.iter() {
-            commands.trigger(UpdateNumberInput {
-                entity: scalar_input_ent,
-                value: NumberInputValue::F32(states.scalar_prop),
-            });
+            commands
+                .entity(scalar_input_ent)
+                .insert(NumberInputValue::F32(states.scalar_prop));
         }
 
         for (vec3_input_ent, axis) in q_vec3_input.iter() {
@@ -850,10 +1223,9 @@ fn update_colors(
                 DemoVec3Field::Z => states.vec3_prop.z,
             };
 
-            commands.trigger(UpdateNumberInput {
-                entity: vec3_input_ent,
-                value: NumberInputValue::F32(new_value),
-            });
+            commands
+                .entity(vec3_input_ent)
+                .insert(NumberInputValue::F32(new_value));
         }
     }
 }
@@ -879,17 +1251,16 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                 @width: px(320),
                 @contents: bsn_list! {
                     @FeathersDialogHeader Children [
-                        Text("Quit Feathers Gallery") ThemedText,
+                        @caption("Quit Feathers Gallery"),
                         @FeathersDialogClose
                     ],
                     @FeathersDialogBody Children [
-                        Text("Are you really sure you want to quit? I mean, really, really sure?")
-                        ThemedText
+                        @caption("Are you really sure you want to quit? I mean, really, really sure?")
                     ],
                     @FeathersDialogFooter Children [
                         (
                             @FeathersButton {
-                                @caption: bsn! { Text("Cancel") ThemedText },
+                                @caption: bsn! { @caption("Cancel") },
                             }
                             AccessibleLabel("Cancel")
                             on(|activate: On<Activate>, mut commands: Commands| {
@@ -898,7 +1269,7 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                         ),
                         (
                             @FeathersButton {
-                                @caption: bsn! { Text("Exit Application") ThemedText },
+                                @caption: bsn! { @caption("Exit Application") },
                                 @variant: ButtonVariant::Primary,
                             }
                             AccessibleLabel("Exit Application")
@@ -914,4 +1285,37 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                 commands.entity(close.event_target()).despawn();
             })
         ));
+}
+
+fn toggle_demo_dialog(
+    change: On<ValueChange<bool>>,
+    mut commands: Commands,
+    dialogs: Query<Entity, With<FeathersFloatingDialog>>,
+) {
+    let toggle = change.source;
+    if change.value {
+        commands.entity(toggle).insert(Checked);
+        // Spawn at the root rather than as a child of the toggle, so clicks on the
+        // dialog don't bubble up to the toggle switch.
+        commands.spawn_scene(bsn! {
+            @FeathersFloatingDialog {
+                @title: {"Hello".to_string()},
+                @width: px(280),
+                @contents: bsn_list! {
+                    @caption("Close this dialog to unset the toggle.")
+                }
+            }
+            // The dialog despawns itself on close; this just clears the toggle.
+            on(|_close: On<RequestClose>, mut commands: Commands, toggles: Query<Entity, With<DemoDialogToggle>>| {
+                for toggle in toggles.iter() {
+                    commands.entity(toggle).remove::<Checked>();
+                }
+            })
+        });
+    } else {
+        commands.entity(toggle).remove::<Checked>();
+        for dialog in dialogs.iter() {
+            commands.entity(dialog).despawn();
+        }
+    }
 }

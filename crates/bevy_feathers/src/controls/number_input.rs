@@ -1,40 +1,77 @@
-use bevy_app::PropagateOver;
+use std::{f32::consts::PI, ops::RangeInclusive};
+
+use bevy_app::{Plugin, PreUpdate, PropagateOver};
+use bevy_color::Color;
 use bevy_ecs::{
+    change_detection::DetectChanges,
     component::Component,
     entity::Entity,
     event::EntityEvent,
     hierarchy::{ChildOf, Children},
+    lifecycle::{Add, Insert, Remove},
     observer::On,
-    query::With,
-    reflect::{ReflectComponent, ReflectEvent},
-    relationship::Relationship,
+    query::{Changed, Has, Or, With, Without},
+    reflect::ReflectComponent,
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
 };
-use bevy_input::keyboard::{KeyCode, KeyboardInput};
-use bevy_input_focus::{FocusLost, FocusedInput, InputFocus};
-use bevy_log::warn;
+use bevy_input::{
+    keyboard::{Key, KeyCode, KeyboardInput},
+    ButtonInput,
+};
+use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems};
+use bevy_log::{warn, warn_once};
+use bevy_math::{ops, Rot2};
+use bevy_picking::{
+    cursor::EntityCursor,
+    events::{
+        PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+    },
+    hover::Hovered,
+    pointer::PointerButton,
+    PickingSystems,
+};
+use bevy_platform::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{
-    EditableText, EditableTextFilter, FontSourceTemplate, TextEdit, TextEditChange, TextFont,
+    EditableText, FontSourceTemplate, Justify, LineHeight, TextEdit, TextFont, TextLayout,
+    TextReadWriteMode,
 };
-use bevy_ui::{px, widget::Text, AlignItems, AlignSelf, Display, JustifyContent, Node, UiRect};
-use bevy_ui_widgets::{SelectAllOnFocus, ValueChange};
+use bevy_ui::{
+    percent, px, widget::Text, AlignItems, AlignSelf, BackgroundGradient, ColorStop, ComputedNode,
+    ComputedUiRenderTargetInfo, Display, Gradient, InteractionDisabled, InterpolationColorSpace,
+    JustifyContent, LinearGradient, Node, PositionType, UiGlobalTransform, UiRect, UiScale,
+    UiTransform,
+};
+use bevy_ui_widgets::ValueChange;
+use smol_str::SmolStr;
 
 use crate::{
-    constants::{fonts, size},
-    controls::{FeathersTextInput, FeathersTextInputContainer},
-    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeTextColor, ThemeToken},
+    constants::{fonts, icons, size},
+    controls::{FeathersSlider, FeathersTextInput, FeathersTextInputContainer},
+    display::icon,
+    rounded_corners::RoundedCorners,
+    theme::{
+        SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor, ThemeContext, ThemeTextColor,
+        ThemeToken, UiTheme,
+    },
     tokens,
 };
 
+/// Threshold used to distinguish between a "click" and a "drag" gesture.
+const DRAG_THRESHOLD_DISTANCE: f32 = 0.5;
+
+const BASE_DRAG_SPEED: f64 = 0.01f64;
+
 /// Widget that permits text entry of floating-point numbers. This widget implements two-way
 /// synchronization:
-/// * when the widget has focus, it emits values (via a [`ValueChange<T>`]) event as the user types.
+/// * it emits values (via a [`ValueChange<T>`]) event as the user types or drags.
 ///   The type of ``T`` will be ``f32``, ``f64``, ``i32``, or ``i64`` depending on the
-///   ``number_format`` parameter.
-/// * when the widget does not have focus, it listens for [`UpdateNumberInput`] events, and replaces
+///   [`NumberInputValue`] component variant.
+/// * it listens for the insertion of the [`NumberInputValue`] component, and replaces
 ///   the contents of the text buffer based on the value in that event.
 ///
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersNumberInputProps`].
@@ -47,13 +84,19 @@ use crate::{
 /// synchronize this value with the [`FeathersNumberInput`] widget in both directions:
 /// * When a [`ValueChange`] event is received, update the app-specific property.
 /// * When the app-specific property changes - either in response to a [`ValueChange`] event, or
-///   because of some other action, trigger an [`UpdateNumberInput`] entity event to update the
+///   because of some other action, insert a [`NumberInputValue`] component to update the
 ///   displayed value.
-// TODO: Add text_input field validation when it becomes available.
-#[derive(SceneComponent, Default, Clone)]
+///
+/// The `is_final` boolean in [`ValueChange`] is set to false while dragging, however you should
+/// still update the widget in response to these events, as otherwise the user won't be able to
+/// see the updated value.
+///
+/// Additional components can be inserted into this widget to customize the behavior: see
+/// [`SoftLimit`], [`HardLimit`], [`NumberInputPrecision`], and [`NumberInputStep`].
+#[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersNumberInputProps)]
-#[derive(Reflect)]
 #[reflect(Component, Default, Clone)]
+#[require(NumberInputValue)]
 pub struct FeathersNumberInput;
 
 /// Props used to construct a [`FeathersNumberInput`] scene.
@@ -64,32 +107,51 @@ pub struct FeathersNumberInputProps {
     /// A caption to be placed on the left side of the input, next to the colored stripe.
     /// Usually one of "X", "Y" or "Z".
     pub label_text: Option<&'static str>,
-    /// Indicate what size numbers we are editing.
-    pub number_format: NumberFormat,
 }
 
 impl Default for FeathersNumberInputProps {
     fn default() -> Self {
         Self {
-            sigil_color: tokens::TEXT_INPUT_BG,
+            sigil_color: tokens::TEXT_INPUT_LABEL_BG,
             label_text: None,
-            number_format: NumberFormat::F32,
         }
     }
 }
+
+/// Marks the decrement (left-end) chevron of a number input.
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component)]
+struct NumberInputDecrement;
+
+/// Marks the increment (right-end) chevron of a number input.
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component)]
+struct NumberInputIncrement;
 
 impl FeathersNumberInput {
     fn scene(props: FeathersNumberInputProps) -> impl Scene {
         bsn! {
             @FeathersTextInputContainer
+            Node {
+                column_gap: px(0),
+                border: UiRect {
+                    left: px(if props.label_text.is_some() { 4.0 } else { 0.0 }),
+                },
+                padding: UiRect {
+                    left: px(0.0),
+                    right: px(0.0),
+                },
+            }
             ThemeBorderColor({props.sigil_color})
             FeathersNumberInput
-            template_value(props.number_format)
-            on(number_input_on_update)
+            on(number_input_on_insert_value)
+            on(number_input_on_insert_disabled)
+            on(number_input_on_remove_disabled)
             Children [
                 {
-                    match props.label_text {
-                        Some(text) => Box::new(bsn_list!(
+                    // Label section
+                    props.label_text.map(|text| {
+                        bsn_list!(
                             Node {
                                 display: Display::Flex,
                                 align_items: AlignItems::Center,
@@ -107,29 +169,107 @@ impl FeathersNumberInput {
                                 PropagateOver<TextFont>
                                 ThemeTextColor(tokens::TEXT_INPUT_TEXT)
                             ]
-                        )) as Box<dyn SceneList>,
-                        None => Box::new(bsn_list!()) as Box<dyn SceneList>
+                        )
+                    })
+                },
+
+                (
+                    // The editable text entity
+                    @FeathersTextInput {
+                        @max_characters: 30usize, // 20 digits + units
                     }
-                }
-                @FeathersTextInput {
-                    @max_characters: 20usize,
-                }
-                SelectAllOnFocus
-                on(number_input_on_text_change)
-                on(number_input_on_enter_key)
-                on(number_input_on_focus_loss)
-                EditableTextFilter::new(|c| {
-                    c.is_ascii_digit() || matches!(c, '.' | '-' | '+' | 'e' | 'E')
-                }),
+                    DragState
+                    Node {
+                        flex_grow: 1.0,
+                        align_items: AlignItems::Center,
+                        align_self: AlignSelf::Stretch,
+                        border_radius: {
+                            if props.label_text.is_some() {
+                                RoundedCorners::Right.to_border_radius(4.0)
+                            } else {
+                                RoundedCorners::All.to_border_radius(4.0)
+                            }
+                        },
+                    }
+                    Hovered
+                    LineHeight::Px(24.0) // TODO: Make const for this
+                    TextLayout {
+                        justify: Justify::Center,
+                    }
+                    ThemeTextColor(tokens::TEXT_INPUT_TEXT)
+                    // Use a gradient to draw the moving bar, this lets us round corners
+                    BackgroundGradient(vec![Gradient::Linear(LinearGradient {
+                        angle: PI * 0.5,
+                        stops: vec![
+                            ColorStop::new(Color::NONE, percent(0)),
+                            ColorStop::new(Color::NONE, percent(50)),
+                            ColorStop::new(Color::NONE, percent(50)),
+                            ColorStop::new(Color::NONE, percent(100)),
+                        ],
+                        color_space: InterpolationColorSpace::Srgba,
+                    })])
+                    EntityCursor::System(bevy_window::SystemCursorIcon::ColResize)
+                    on(number_input_init)
+                    on(number_input_on_enter_key)
+                    on(number_input_on_focus_gained)
+                    on(number_input_on_focus_lost)
+                    on(number_input_hovered)
+                    on(update_chevron_visibility)
+                    Children [
+                        (
+                            // Invisible child on top of input field which intercepts drag
+                            // events (conditionally) and handles scrubbing gestures.
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: px(0),
+                                top: px(0),
+                                bottom: px(0),
+                                right: px(0),
+                            }
+                            on(scrubber_on_press)
+                            on(scrubber_on_release)
+                            on(scrubber_on_drag_start)
+                            on(scrubber_on_drag)
+                            on(scrubber_on_drag_end)
+                            on(scrubber_on_drag_cancel)
+                        ),
+                        (
+                            // The decrement chevron of a number input
+                            Node {
+                                position_type: PositionType::Absolute,
+                                display: Display::None,
+                                left: px(4),
+                            }
+                            NumberInputDecrement
+                            Children [
+                                @icon(icons::CHEVRON_DOWN)
+                                UiTransform {
+                                    rotation: Rot2::radians(std::f32::consts::FRAC_PI_2)
+                                }
+                            ]
+                        ),
+                        (
+                            // The increment chevron of a number input
+                            Node {
+                                position_type: PositionType::Absolute,
+                                display: Display::None,
+                                right: px(4),
+                            }
+                            NumberInputIncrement
+                            Children [
+                                @icon(icons::CHEVRON_RIGHT),
+                            ]
+                        ),
+                    ]
+                ),
             ]
         }
     }
 }
 
-/// Used to indicate what format of numbers we are editing. This primarily affects the type
+/// Used to indicate what format of numbers we are editing. This affects the type
 /// of [`ValueChange`] event that is emitted.
-#[derive(Component, Default, Clone, Copy, Reflect)]
-#[reflect(Component, Default, Clone)]
+#[derive(Default, Clone, Copy, Reflect)]
 pub enum NumberFormat {
     /// A 32-bit float
     #[default]
@@ -143,7 +283,8 @@ pub enum NumberFormat {
 }
 
 /// Represents numbers in different formats.
-#[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
+#[component(immutable)]
 pub enum NumberInputValue {
     /// An `f32` value
     F32(f32),
@@ -166,126 +307,1111 @@ impl core::fmt::Display for NumberInputValue {
     }
 }
 
-/// Event which can be sent to the number input widget to update the displayed value.
-#[derive(Clone, EntityEvent, Reflect)]
-#[reflect(Event, Clone)]
-pub struct UpdateNumberInput {
-    /// Target widget
-    pub entity: Entity,
+impl NumberInputValue {
+    fn format(&self) -> NumberFormat {
+        match self {
+            Self::F32(_) => NumberFormat::F32,
+            Self::F64(_) => NumberFormat::F64,
+            Self::I32(_) => NumberFormat::I32,
+            Self::I64(_) => NumberFormat::I64,
+        }
+    }
 
-    /// Value to change to
-    pub value: NumberInputValue,
+    fn parse_from(value: &str, fmt: NumberFormat) -> Result<Self, String> {
+        match fmt {
+            NumberFormat::F32 => value
+                .parse::<f32>()
+                .map(NumberInputValue::F32)
+                .map_err(|_| format!("Could not parse '{}' as f32", value)),
+            NumberFormat::F64 => value
+                .parse::<f64>()
+                .map(NumberInputValue::F64)
+                .map_err(|_| format!("Could not parse '{}' as f64", value)),
+            NumberFormat::I32 => value
+                .parse::<i32>()
+                .map(NumberInputValue::I32)
+                .map_err(|_| format!("Could not parse '{}' as i32", value)),
+            NumberFormat::I64 => value
+                .parse::<i64>()
+                .map(NumberInputValue::I64)
+                .map_err(|_| format!("Could not parse '{}' as i64", value)),
+        }
+    }
+
+    /// Offset this value by `delta` (in value units), preserving the variant.
+    fn offset_by(self, delta: f64) -> Self {
+        match self {
+            NumberInputValue::F32(v) => NumberInputValue::F32(v + delta as f32),
+            NumberInputValue::F64(v) => NumberInputValue::F64(v + delta),
+            NumberInputValue::I32(v) => {
+                NumberInputValue::I32(v.saturating_add(delta.round() as i32))
+            }
+            NumberInputValue::I64(v) => {
+                NumberInputValue::I64(v.saturating_add(delta.round() as i64))
+            }
+        }
+    }
+
+    /// Scale this value by `scale` (in value units), preserving the variant.
+    fn scale_by(self, scale: f64) -> Self {
+        match self {
+            NumberInputValue::F32(v) => NumberInputValue::F32((v as f64 * scale) as f32),
+            NumberInputValue::F64(v) => NumberInputValue::F64(v * scale),
+            NumberInputValue::I32(v) => NumberInputValue::I32((v as f64 * scale).round() as i32),
+            NumberInputValue::I64(v) => NumberInputValue::I64((v as f64 * scale).round() as i64),
+        }
+    }
+
+    fn as_f64(&self) -> f64 {
+        match *self {
+            NumberInputValue::F32(v) => v as f64,
+            NumberInputValue::F64(v) => v,
+            NumberInputValue::I32(v) => v as f64,
+            NumberInputValue::I64(v) => v as f64,
+        }
+    }
 }
 
-fn number_input_on_text_change(
-    change: On<TextEditChange>,
-    q_parent: Query<&ChildOf>,
-    q_number_input: Query<&NumberFormat, With<FeathersNumberInput>>,
-    q_text_input: Query<&EditableText>,
+impl Default for NumberInputValue {
+    fn default() -> Self {
+        Self::F32(0.0)
+    }
+}
+
+/// Represents numeric limits in different number formats.
+#[derive(Debug, PartialEq, Clone, Reflect)]
+pub enum NumberInputRange {
+    /// An 'f32' range.
+    F32(RangeInclusive<f32>),
+    /// An 'f64' range.
+    F64(RangeInclusive<f64>),
+    /// An 'i32' range.
+    I32(RangeInclusive<i32>),
+    /// An 'i64' range.
+    I64(RangeInclusive<i64>),
+}
+
+impl NumberInputRange {
+    /// Clamp a numeric value of varying type to be within this range.
+    pub fn clamp(&self, n: NumberInputValue) -> NumberInputValue {
+        match (self, n) {
+            (Self::F32(r), NumberInputValue::F32(v)) => {
+                NumberInputValue::F32(v.clamp(*r.start(), *r.end()))
+            }
+            (Self::F64(r), NumberInputValue::F64(v)) => {
+                NumberInputValue::F64(v.clamp(*r.start(), *r.end()))
+            }
+            (Self::I32(r), NumberInputValue::I32(v)) => {
+                NumberInputValue::I32(v.clamp(*r.start(), *r.end()))
+            }
+            (Self::I64(r), NumberInputValue::I64(v)) => {
+                NumberInputValue::I64(v.clamp(*r.start(), *r.end()))
+            }
+            (range, value) => {
+                warn_once!("Number input range type mismatch: {range:?} {value:?}");
+                n
+            }
+        }
+    }
+
+    /// Wrap a numeric value of varying type to be within this range.
+    pub fn wrap(&self, n: NumberInputValue) -> NumberInputValue {
+        match (self, n) {
+            (Self::F32(r), NumberInputValue::F32(v)) => {
+                let range = r.end() - r.start();
+                NumberInputValue::F32(r.start() + (v - r.start()).rem_euclid(range))
+            }
+            (Self::F64(r), NumberInputValue::F64(v)) => {
+                let range = r.end() - r.start();
+                NumberInputValue::F64(r.start() + (v - r.start()).rem_euclid(range))
+            }
+            (Self::I32(r), NumberInputValue::I32(v)) => {
+                let range = r.end() - r.start();
+                NumberInputValue::I32(r.start() + (v - r.start()).rem_euclid(range))
+            }
+            (Self::I64(r), NumberInputValue::I64(v)) => {
+                let range = r.end() - r.start();
+                NumberInputValue::I64(r.start() + (v - r.start()).rem_euclid(range))
+            }
+            (range, value) => {
+                warn_once!("Number input range type mismatch: {range:?} {value:?}");
+                n
+            }
+        }
+    }
+
+    /// Compute the position of the thumb on the slide bar, as a value between 0 and 1, taking
+    /// into account the proportion of the value between the minimum and maximum limits.
+    pub fn thumb_position(&self, value: NumberInputValue) -> f32 {
+        match (self, value) {
+            (Self::F32(range), NumberInputValue::F32(n)) => {
+                if range.end() > range.start() {
+                    (n - range.start()) / (range.end() - range.start())
+                } else {
+                    0.5
+                }
+            }
+
+            (Self::F64(range), NumberInputValue::F64(n)) => {
+                if range.end() > range.start() {
+                    ((n - range.start()) / (range.end() - range.start())) as f32
+                } else {
+                    0.5
+                }
+            }
+
+            (Self::I32(range), NumberInputValue::I32(n)) => {
+                if range.end() > range.start() {
+                    (n - range.start()) as f32 / (range.end() - range.start()) as f32
+                } else {
+                    0.5
+                }
+            }
+
+            (Self::I64(range), NumberInputValue::I64(n)) => {
+                if range.end() > range.start() {
+                    (n - range.start()) as f32 / (range.end() - range.start()) as f32
+                } else {
+                    0.5
+                }
+            }
+
+            (range, value) => {
+                warn_once!("Number input range type mismatch: {range:?} {value:?}");
+                0.5
+            }
+        }
+    }
+}
+
+impl Default for NumberInputRange {
+    fn default() -> Self {
+        Self::F32(0.0..=0.0)
+    }
+}
+
+/// A soft limit represents the range of values that can be reached via dragging. Values outside
+/// this range can still be entered by typing.
+#[derive(Component, Default, Clone, Reflect)]
+pub struct SoftLimit(pub NumberInputRange);
+
+impl SoftLimit {
+    /// Create a [`SoftLimit`] for `f32` values.
+    pub fn f32(range: RangeInclusive<f32>) -> Self {
+        Self(NumberInputRange::F32(range))
+    }
+
+    /// Create a [`SoftLimit`] for `f64` values.
+    pub fn f64(range: RangeInclusive<f64>) -> Self {
+        Self(NumberInputRange::F64(range))
+    }
+
+    /// Create a [`SoftLimit`] for `i32` values.
+    pub fn i32(range: RangeInclusive<i32>) -> Self {
+        Self(NumberInputRange::I32(range))
+    }
+
+    /// Create a [`SoftLimit`] for `i64` values.
+    pub fn i64(range: RangeInclusive<i64>) -> Self {
+        Self(NumberInputRange::I64(range))
+    }
+}
+
+/// A hard limit represents an absolute constraint on the value. Values outside this range will
+/// be clamped within the range.
+// Note: Similar in concept to `SliderRange`, but the latter only handles f32s.
+#[derive(Component, Default, Clone, Reflect)]
+pub struct HardLimit(pub NumberInputRange);
+
+impl HardLimit {
+    /// Create a [`HardLimit`] for `f32` values.
+    pub fn f32(range: RangeInclusive<f32>) -> Self {
+        Self(NumberInputRange::F32(range))
+    }
+
+    /// Create a [`HardLimit`] for `f64` values.
+    pub fn f64(range: RangeInclusive<f64>) -> Self {
+        Self(NumberInputRange::F64(range))
+    }
+
+    /// Create a [`HardLimit`] for `i32` values.
+    pub fn i32(range: RangeInclusive<i32>) -> Self {
+        Self(NumberInputRange::I32(range))
+    }
+
+    /// Create a [`HardLimit`] for `i64` values.
+    pub fn i64(range: RangeInclusive<i64>) -> Self {
+        Self(NumberInputRange::I64(range))
+    }
+}
+
+/// A component which controls the rounding of the number value during dragging. This is also used
+/// as a heuristic to determine drag speed when there is no soft limit or step size specified.
+///
+/// Stepping is not affected, although presumably the step size will be an integer multiple of the
+/// rounding factor. This also doesn't prevent the edited value from being set to non-rounded values
+/// by other means, such as manually entering digits via a numeric input field.
+///
+/// The value in this component represents the number of decimal places of desired precision, so a
+/// value of 2 would round to the nearest 1/100th. A value of -3 would round to the nearest
+/// thousand.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
+pub struct NumberInputPrecision(pub i32);
+
+impl NumberInputPrecision {
+    fn round_f32(&self, value: f32) -> f32 {
+        let factor = ops::powf(10.0_f32, self.0 as f32);
+        (value * factor).round() / factor
+    }
+
+    fn round_f64(&self, value: f64) -> f64 {
+        let factor = f64::powf(10.0_f64, self.0 as f64);
+        (value * factor).round() / factor
+    }
+
+    fn round(&self, value: NumberInputValue) -> NumberInputValue {
+        match value {
+            NumberInputValue::F32(v) => NumberInputValue::F32(self.round_f32(v)),
+            NumberInputValue::F64(v) => NumberInputValue::F64(self.round_f64(v)),
+            // Decimal-place rounding only affects integers at negative precision
+            // (round to 10/100/...); left as identity for now.
+            other => other,
+        }
+    }
+}
+
+impl Default for NumberInputPrecision {
+    fn default() -> Self {
+        Self(2)
+    }
+}
+
+/// A component which controls the step size when incrementing or decrementing the value.
+/// This also is used as a heuristic to determine drag speed when there is no soft limit present.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
+pub struct NumberInputStep(pub f64);
+
+impl Default for NumberInputStep {
+    fn default() -> Self {
+        Self(1.0f64)
+    }
+}
+
+/// Indicates whether the number input should wrap around the min/max value.
+/// This component only applies to [`HardLimit`].
+#[derive(Component, Default, Debug, PartialEq, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
+pub enum NumberInputWrap {
+    /// The number input will not wrap around the min/max value.
+    #[default]
+    NoWrap,
+    /// The number input will wrap around the min/max value.
+    Wrap,
+}
+
+/// Indicates the type of quantity (length, angle, time, etc.) being edited, as
+/// well as the preferred unit (meters, degrees, seconds, etc.).
+///
+/// The enclosed string should be the id of a [`UnitsFormat`] that has previously been registered,
+/// such as ``length_meters`` or ``angle_degrees``.
+///
+/// Note on serialization: it intended that this component, like most feathers-related
+/// component be serializable via reflection, so that it can be edited in the planned Bevy scene
+/// editor. The objects pointed to by this id, however, are static and not meant to be serialized.
+#[derive(Component, Default, Debug, Clone, Reflect)]
+#[reflect(Component, Default)]
+pub struct NumberInputUnits(pub SmolStr);
+
+impl NumberInputUnits {
+    /// Construct a [`NumberInputUnits`] instance from a static string slice. The string should
+    /// be the id of a previously-registered [`UnitsFormat`].
+    pub fn new_static(text: &'static str) -> Self {
+        Self(SmolStr::new_static(text))
+    }
+
+    /// Construct a [`NumberInputUnits`] instance from a string slice. The string should
+    /// be the id of a previously-registered [`UnitsFormat`].
+    pub fn new_inline(text: &str) -> Self {
+        Self(SmolStr::new_inline(text))
+    }
+
+    /// Construct a [`NumberInputUnits`] given a [`UnitsFormat`] reference, which must have been
+    /// previously registered.
+    pub fn new(format: &dyn UnitsFormat) -> Self {
+        Self(SmolStr::new_static(format.id()))
+    }
+}
+
+/// Manage state transitions between scrubbing and dragging modes
+#[derive(Default, Clone, Reflect, PartialEq, Debug)]
+enum EditMode {
+    /// Neither scrubbing nor dragging (unfocused)
+    #[default]
+    Idle,
+    /// Drag value via scrubbing
+    Scrubbing,
+    /// Edit value by typing
+    Editing,
+}
+
+/// Component used to manage the state of a number during dragging ("scrubbing"). This component
+/// lives on the text edit entity, not the widget root.
+///
+/// State transitions:
+///
+/// if not editing, then a click puts us into "dragging" mode. Once the drag is finished
+/// we check max movement, if it's less than the threshold, we transition to "editing" mode.
+///
+/// Loss of focus, or hitting the return key, cancels "editing" mode.
+///
+/// Changing [`EditMode`] affects:
+/// * Cursor shape
+/// * [`TextReadWriteMode`]
+/// * How drag events are handled
+/// * Background and text color (not yet implemented).
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component)]
+struct DragState {
+    /// Whether the input is currently being dragged.
+    mode: EditMode,
+
+    /// Conversion factor from pixels dragged to value
+    drag_speed: f64,
+
+    /// Similar to drag distance in the drag event, but includes scaling caused by modifier keys.
+    value_offset: f64,
+
+    /// The maximum absolute distance during the drag - used to detect click vs drag gesture.
+    max_distance: f32,
+
+    /// The value of the input when dragging started.
+    base_value: NumberInputValue,
+}
+
+/// Observer which sets the text content of the field when the number value component changes.
+fn number_input_on_insert_value(
+    update: On<Insert<NumberInputValue>>,
+    q_children: Query<&Children>,
+    q_number_input: Query<
+        (
+            &NumberInputValue,
+            Option<&SoftLimit>,
+            Option<&HardLimit>,
+            Option<&NumberInputUnits>,
+        ),
+        With<FeathersNumberInput>,
+    >,
+    mut q_text_input: Query<(&mut EditableText, &mut BackgroundGradient, &DragState)>,
+    units_registry: Res<UnitsRegistry>,
+) {
+    let text_input_id = q_children
+        .iter_descendants(update.event_target())
+        .find(|e| q_text_input.contains(*e));
+
+    if let Ok((&input_value, soft_limit, hard_limit, units)) =
+        q_number_input.get(update.event_target())
+        && let Some(text_id) = text_input_id
+    {
+        let clamped_value = match hard_limit {
+            Some(limit) => limit.0.clamp(input_value),
+            None => input_value,
+        };
+        let (mut editable_text, mut gradient, drag_state) = q_text_input.get_mut(text_id).unwrap();
+        let new_digits = units_registry
+            .resolve(units)
+            .format(clamped_value, drag_state.mode == EditMode::Editing);
+        if editable_text.value() != &new_digits {
+            editable_text.queue_edit(TextEdit::SelectAll);
+            editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
+        }
+
+        update_slider_pos(&clamped_value, soft_limit, &mut gradient);
+    }
+}
+
+/// Observer changes the colors based on disabled status.
+fn number_input_on_insert_disabled(
+    insert: On<Insert<InteractionDisabled>>,
+    q_children: Query<&Children>,
+    q_number_input: Query<
+        (Has<InteractionDisabled>, Option<&ThemeContext>),
+        With<FeathersNumberInput>,
+    >,
+    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
+    theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
     mut commands: Commands,
 ) {
-    let Ok(parent) = q_parent.get(change.event_target()) else {
-        return;
-    };
+    let text_input_id = q_children
+        .iter_descendants(insert.event_target())
+        .find(|e| q_text_input.contains(*e));
 
-    let Ok(number_format) = q_number_input.get(parent.get()) else {
-        return;
-    };
-
-    let Ok(editable_text) = q_text_input.get(change.event_target()) else {
-        return;
-    };
-
-    let text_value = editable_text.value().to_string();
-    emit_value_change(text_value, *number_format, parent.0, &mut commands, false);
+    if let Some(text_id) = text_input_id
+        && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
+        && let Ok((is_disabled, theme_context)) = q_number_input.get(insert.event_target())
+    {
+        set_slidebar_styles(
+            text_id,
+            &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
+            is_disabled,
+            false,
+            hovered,
+            input_focus.get() == Some(text_id),
+            &mut gradient,
+            &mut commands,
+        );
+        commands.entity(text_id).insert(TextReadWriteMode::ReadOnly);
+    }
 }
 
-fn number_input_on_update(
-    update: On<UpdateNumberInput>,
+/// Observer changes the colors based on disabled status.
+fn number_input_on_remove_disabled(
+    remove: On<Remove<InteractionDisabled>>,
     q_children: Query<&Children>,
-    q_number_input: Query<(), With<FeathersNumberInput>>,
-    mut q_text_input: Query<&mut EditableText>,
-    focus: Res<InputFocus>,
+    q_number_input: Query<
+        (Has<InteractionDisabled>, Option<&ThemeContext>),
+        With<FeathersNumberInput>,
+    >,
+    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
+    theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
+    mut commands: Commands,
 ) {
-    if !q_number_input.contains(update.event_target()) {
-        return;
-    };
+    let text_input_id = q_children
+        .iter_descendants(remove.event_target())
+        .find(|e| q_text_input.contains(*e));
 
-    let Ok(children) = q_children.get(update.event_target()) else {
-        return;
-    };
+    if let Some(text_id) = text_input_id
+        && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
+        && let Ok((is_disabled, theme_context)) = q_number_input.get(remove.event_target())
+    {
+        set_slidebar_styles(
+            text_id,
+            &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
+            is_disabled,
+            false,
+            hovered,
+            input_focus.get() == Some(text_id),
+            &mut gradient,
+            &mut commands,
+        );
+        commands.entity(text_id).insert(TextReadWriteMode::Editable);
+    }
+}
 
-    for child_id in children.iter() {
-        if focus.get() != Some(*child_id)
-            && let Ok(mut editable_text) = q_text_input.get_mut(*child_id)
-        {
-            let new_digits = update.value.to_string();
-            let old_digits = editable_text.value().to_string();
-            if old_digits != new_digits {
-                editable_text.queue_edit(TextEdit::SelectAll);
-                editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
-            }
-            break;
+/// Observer which initializes the text edit once it has completed spawning.
+fn number_input_init(
+    insert: On<Add<EditableText>>,
+    q_parent: Query<&ChildOf>,
+    q_number_input: Query<
+        (
+            &NumberInputValue,
+            Option<&SoftLimit>,
+            Has<InteractionDisabled>,
+            Option<&ThemeContext>,
+            Option<&NumberInputUnits>,
+        ),
+        With<FeathersNumberInput>,
+    >,
+    mut q_text_input: Query<(
+        &mut EditableText,
+        &Hovered,
+        &mut BackgroundGradient,
+        &DragState,
+    )>,
+    theme: Res<UiTheme>,
+    units_registry: Res<UnitsRegistry>,
+    input_focus: Res<InputFocus>,
+    mut commands: Commands,
+) {
+    let text_id = insert.event_target();
+    if let Ok((mut editable_text, &Hovered(hovered), mut gradient, drag_state)) =
+        q_text_input.get_mut(text_id)
+        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
+        && let Ok((input_value, limit, is_disabled, theme_context, units)) =
+            q_number_input.get(root_id)
+    {
+        let new_digits = units_registry
+            .resolve(units)
+            .format(*input_value, drag_state.mode == EditMode::Editing);
+        let old_digits = editable_text.value().to_string();
+        if old_digits != new_digits {
+            editable_text.queue_edit(TextEdit::SelectAll);
+            editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
         }
+
+        update_slider_pos(input_value, limit, &mut gradient);
+        set_slidebar_styles(
+            text_id,
+            &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
+            is_disabled,
+            false,
+            hovered,
+            input_focus.get() == Some(text_id),
+            &mut gradient,
+            &mut commands,
+        );
+        if is_disabled {
+            commands.entity(text_id).insert(TextReadWriteMode::ReadOnly);
+        }
+    }
+}
+
+/// Observer which looks for changes in the hover state.
+fn number_input_hovered(
+    insert: On<Insert<Hovered>>,
+    q_parent: Query<&ChildOf>,
+    q_number_input: Query<
+        (Has<InteractionDisabled>, Option<&ThemeContext>),
+        With<FeathersNumberInput>,
+    >,
+    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient, &DragState)>,
+    theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
+    mut commands: Commands,
+) {
+    let text_id = insert.event_target();
+    if let Ok((&Hovered(hovered), mut gradient, drag_state)) = q_text_input.get_mut(text_id)
+        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
+        && let Ok((is_disabled, theme_context)) = q_number_input.get(root_id)
+    {
+        set_slidebar_styles(
+            text_id,
+            &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
+            is_disabled,
+            drag_state.mode == EditMode::Scrubbing,
+            hovered,
+            input_focus.get() == Some(text_id),
+            &mut gradient,
+            &mut commands,
+        );
     }
 }
 
 fn number_input_on_enter_key(
     key_input: On<FocusedInput<KeyboardInput>>,
     q_parent: Query<&ChildOf>,
-    q_number_input: Query<&NumberFormat, With<FeathersNumberInput>>,
-    q_text_input: Query<&EditableText>,
+    q_number_input: Query<
+        (
+            &NumberInputValue,
+            Option<&HardLimit>,
+            Option<&NumberInputWrap>,
+            Option<&NumberInputUnits>,
+        ),
+        With<FeathersNumberInput>,
+    >,
+    mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
     if key_input.input.key_code != KeyCode::Enter {
         return;
     }
 
-    let Ok(parent) = q_parent.get(key_input.event_target()) else {
-        return;
-    };
-
-    let Ok(number_format) = q_number_input.get(parent.get()) else {
-        return;
-    };
-
-    let Ok(editable_text) = q_text_input.get(key_input.event_target()) else {
-        return;
-    };
-
-    let text_value = editable_text.value().to_string();
-    emit_value_change(text_value, *number_format, parent.0, &mut commands, true);
+    let text_id = key_input.event_target();
+    if let Ok(&ChildOf(root)) = q_parent.get(text_id)
+        && let Ok((input_value, hard_limit, wrap, units)) = q_number_input.get(root)
+        && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
+    {
+        let text_value = editable_text.value().to_string();
+        drag_state.mode = EditMode::Idle; // Boot us out of editing mode
+        commands
+            .entity(text_id)
+            .insert(TextReadWriteMode::Static) // Hide selection
+            .insert(EntityCursor::System(
+                bevy_window::SystemCursorIcon::ColResize,
+            ));
+        emit_value_change(
+            text_value,
+            input_value.format(),
+            units_registry.resolve(units),
+            root,
+            hard_limit,
+            wrap,
+            &mut commands,
+            true,
+        );
+    }
 }
 
-fn number_input_on_focus_loss(
+fn number_input_on_focus_gained(focus_gained: On<FocusGained>, mut commands: Commands) {
+    // Change cursor to I-Beam.
+    let editable_text_id = focus_gained.event_target();
+    commands
+        .entity(editable_text_id)
+        .insert(EntityCursor::System(bevy_window::SystemCursorIcon::Text));
+}
+
+fn number_input_on_focus_lost(
     focus_lost: On<FocusLost>,
     q_parent: Query<&ChildOf>,
-    q_number_input: Query<&NumberFormat, With<FeathersNumberInput>>,
-    mut q_text_input: Query<&mut EditableText>,
+    q_number_input: Query<
+        (
+            &NumberInputValue,
+            Has<InteractionDisabled>,
+            Option<&HardLimit>,
+            Option<&NumberInputWrap>,
+            Option<&NumberInputUnits>,
+        ),
+        With<FeathersNumberInput>,
+    >,
+    mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
     let editable_text_id = focus_lost.event_target();
 
-    let Ok(parent) = q_parent.get(editable_text_id) else {
-        return;
+    if let Ok(&ChildOf(root)) = q_parent.get(editable_text_id)
+        && let Ok((input_value, disabled, hard_limit, wrap, units)) = q_number_input.get(root)
+        && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
+    {
+        let text_value = editable_text.value().to_string();
+        emit_value_change(
+            text_value,
+            input_value.format(),
+            units_registry.resolve(units),
+            root,
+            hard_limit,
+            wrap,
+            &mut commands,
+            true,
+        );
+
+        drag_state.mode = EditMode::Idle;
+
+        // Restore cursor and rwmode back to normal.
+        commands
+            .entity(editable_text_id)
+            .insert(EntityCursor::System(
+                bevy_window::SystemCursorIcon::ColResize,
+            ))
+            .insert(if disabled {
+                TextReadWriteMode::ReadOnly
+            } else {
+                TextReadWriteMode::Static
+            });
+    }
+}
+
+fn scrubber_on_press(
+    mut press: On<PointerPress>,
+    mut q_text_input: Query<&mut DragState>,
+    q_number_input: Query<Has<InteractionDisabled>, With<FeathersNumberInput>>,
+    q_parent: Query<&ChildOf>,
+    mut commands: Commands,
+) {
+    if let Ok(&ChildOf(text_id)) = q_parent.get(press.event_target())
+        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
+        && let Ok(disabled) = q_number_input.get(root_id)
+        && let Ok(mut drag_state) = q_text_input.get_mut(text_id)
+    {
+        drag_state.max_distance = 0.0;
+        if disabled {
+            drag_state.mode = EditMode::Idle;
+            commands.entity(text_id).insert(TextReadWriteMode::ReadOnly);
+            press.propagate(false);
+        } else if drag_state.mode == EditMode::Editing {
+            // Let events propagate to text edit if editing mode.
+            commands.entity(text_id).insert(TextReadWriteMode::Editable);
+        } else {
+            drag_state.mode = EditMode::Scrubbing;
+            commands.entity(text_id).insert(TextReadWriteMode::Static);
+            press.propagate(false);
+        }
+    }
+}
+
+fn scrubber_on_release(
+    mut release: On<PointerRelease>,
+    mut q_text: Query<(
+        &mut EditableText,
+        &mut DragState,
+        &ComputedNode,
+        &ComputedUiRenderTargetInfo,
+        &UiGlobalTransform,
+    )>,
+    q_parent: Query<&ChildOf>,
+    q_units: Query<(&NumberInputValue, Option<&NumberInputUnits>), Without<InteractionDisabled>>,
+    ui_scale: Res<UiScale>,
+    units_registry: Res<UnitsRegistry>,
+    mut commands: Commands,
+) {
+    if let Ok(&ChildOf(text_id)) = q_parent.get(release.event_target())
+        && let Ok((mut editable_text, mut drag_state, node, target, transform)) =
+            q_text.get_mut(text_id)
+        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
+        && let Ok((value, units)) = q_units.get(root_id)
+    {
+        // If we're in editing mode, let event propagate so that text input can handle it.
+        if drag_state.mode == EditMode::Editing {
+            return;
+        }
+
+        release.propagate(false);
+
+        // Copy of logic from EditableText / text_input, but done on pointer up instead of down.
+        if drag_state.max_distance <= DRAG_THRESHOLD_DISTANCE {
+            if release.button != PointerButton::Primary {
+                return;
+            }
+
+            if editable_text.is_composing() {
+                // The IME is active; all input needs to be routed there, including pointer presses.
+                return;
+            }
+
+            let Some(local_pos) = transform.try_inverse().map(|inverse| {
+                inverse
+                    .transform_point2(release.pointer.position * target.scale_factor() / ui_scale.0)
+                    - node.content_box().min
+                    + editable_text.viewport.offset
+            }) else {
+                return;
+            };
+
+            drag_state.mode = EditMode::Editing;
+            commands
+                .entity(text_id)
+                .insert(TextReadWriteMode::Editable)
+                .insert(EntityCursor::System(bevy_window::SystemCursorIcon::Text));
+
+            // Replace the text before editing; this let's us change the degree symbol (°), which
+            // is hard to type, into `d`, which is easier.
+            let editable_digits = units_registry.resolve(units).format(*value, true);
+            let old_digits = editable_text.value().to_string();
+            if old_digits != editable_digits {
+                editable_text.queue_edit(TextEdit::SelectAll);
+                editable_text.queue_edit(TextEdit::Insert(editable_digits.into()));
+            }
+            editable_text.queue_edit(TextEdit::MoveToPoint(local_pos));
+        }
+    }
+}
+
+fn scrubber_on_drag_start(
+    mut drag_start: On<PointerDragStart>,
+    q_root: Query<(
+        &NumberInputValue,
+        Option<&SoftLimit>,
+        Option<&NumberInputPrecision>,
+        Option<&NumberInputStep>,
+        Has<InteractionDisabled>,
+        Option<&ThemeContext>,
+    )>,
+    mut q_text_input: Query<(&mut BackgroundGradient, &mut DragState)>,
+    mut q_scrubber: Query<&ComputedNode>,
+    q_parent: Query<&ChildOf>,
+    input_focus: Res<InputFocus>,
+    theme: Res<UiTheme>,
+    mut commands: Commands,
+) {
+    if let Ok(&ChildOf(text_id)) = q_parent.get(drag_start.event_target())
+        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
+        && let Ok((input_value, soft_limit, precision, step, disabled, theme_context)) =
+            q_root.get(root_id)
+        && let Ok((mut gradient, mut drag)) = q_text_input.get_mut(text_id)
+        && !disabled
+        && let Ok(node) = q_scrubber.get_mut(drag_start.event_target())
+        && drag.mode == EditMode::Scrubbing
+    {
+        let slider_size = (node.size().x * node.inverse_scale_factor).max(1.0) as f64;
+        drag_start.propagate(false);
+        drag.base_value = *input_value;
+        drag.max_distance = 0.0;
+        drag.value_offset = 0.0f64;
+        // Use various heuristics to determine drag speed based on which components are present.
+        drag.drag_speed = if let Some(SoftLimit(nrange)) = soft_limit {
+            match nrange {
+                NumberInputRange::F32(range) => (range.end() - range.start()) as f64 / slider_size,
+                NumberInputRange::F64(range) => (range.end() - range.start()) / slider_size,
+                NumberInputRange::I32(range) => (range.end() - range.start()) as f64 / slider_size,
+                NumberInputRange::I64(range) => (range.end() - range.start()) as f64 / slider_size,
+            }
+        } else if let Some(NumberInputStep(step)) = step {
+            *step * BASE_DRAG_SPEED
+        } else if matches!(input_value.format(), NumberFormat::I32 | NumberFormat::I64) {
+            // Treat integers as having a step size of 1
+            BASE_DRAG_SPEED
+        } else if let Some(prec) = precision {
+            // Derive from precision
+            10.0_f64.powf(-(prec.0 as f64))
+        } else {
+            // No clues present, so we'll have to guess. Use an adaptive algorithm based on
+            // present value; this determines the nearest power of 10 to the current magnitude.
+            let m = input_value.as_f64().abs();
+            let decade = if m >= 1.0 { m.log10().floor() } else { 0.0 };
+            BASE_DRAG_SPEED * 10f64.powf(decade)
+        };
+
+        set_slidebar_styles(
+            text_id,
+            &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
+            disabled,
+            true,
+            false,
+            input_focus.get() == Some(text_id),
+            &mut gradient,
+            &mut commands,
+        );
+    }
+}
+
+fn scrubber_on_drag(
+    mut drag: On<PointerDrag>,
+    q_root: Query<(
+        Option<&SoftLimit>,
+        Option<&HardLimit>,
+        Option<&NumberInputPrecision>,
+        Has<InteractionDisabled>,
+        Option<&NumberInputWrap>,
+    )>,
+    mut q_text_input: Query<&mut DragState>,
+    mut q_scrubber: Query<&UiGlobalTransform>,
+    q_parent: Query<&ChildOf>,
+    mut commands: Commands,
+    ui_scale: Res<UiScale>,
+    keys: Res<ButtonInput<Key>>,
+) {
+    if let Ok(&ChildOf(text_id)) = q_parent.get(drag.event_target())
+        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
+        && let Ok((soft_limit, hard_limit, precision, disabled, wrap)) = q_root.get(root_id)
+        && let Ok(mut drag_state) = q_text_input.get_mut(text_id)
+        && let Ok(transform) = q_scrubber.get_mut(drag.entity)
+        && drag_state.mode == EditMode::Scrubbing
+    {
+        drag_state.max_distance = drag_state.max_distance.max(drag.distance.length());
+        drag.propagate(false);
+        if !disabled && drag_state.max_distance > DRAG_THRESHOLD_DISTANCE {
+            let drag_delta = transform.transform_vector2(drag.delta / ui_scale.0).x;
+            let mut delta = drag_delta as f64 * drag_state.drag_speed;
+            if keys.pressed(Key::Shift) {
+                delta *= 0.1;
+            }
+            drag_state.value_offset += delta;
+            emit_drag_value_change(
+                &mut commands,
+                root_id,
+                soft_limit,
+                hard_limit,
+                precision,
+                wrap,
+                &mut drag_state,
+                false,
+            );
+        }
+    }
+}
+
+fn scrubber_on_drag_end(
+    mut drag_end: On<PointerDragEnd>,
+    q_root: Query<(
+        Option<&SoftLimit>,
+        Option<&HardLimit>,
+        Option<&NumberInputPrecision>,
+        Has<InteractionDisabled>,
+        Option<&NumberInputWrap>,
+        Option<&ThemeContext>,
+    )>,
+    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient, &mut DragState)>,
+    q_parent: Query<&ChildOf>,
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+) {
+    if let Ok(&ChildOf(text_id)) = q_parent.get(drag_end.event_target())
+        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
+        && let Ok((soft_limit, hard_limit, precision, disabled, wrap, theme_context)) =
+            q_root.get(root_id)
+        && let Ok((&Hovered(hovered), mut gradient, mut drag_state)) = q_text_input.get_mut(text_id)
+        && drag_state.mode == EditMode::Scrubbing
+    {
+        drag_end.propagate(false);
+        if !disabled {
+            emit_drag_value_change(
+                &mut commands,
+                root_id,
+                soft_limit,
+                hard_limit,
+                precision,
+                wrap,
+                &mut drag_state,
+                true,
+            );
+        }
+        set_slidebar_styles(
+            text_id,
+            &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
+            disabled,
+            false,
+            hovered,
+            false,
+            &mut gradient,
+            &mut commands,
+        );
+    }
+}
+
+fn scrubber_on_drag_cancel(
+    mut drag_cancel: On<PointerCancel>,
+    q_parent: Query<&ChildOf>,
+    mut q_text_input: Query<(
+        &Hovered,
+        &mut BackgroundGradient,
+        &mut DragState,
+        Option<&ThemeContext>,
+    )>,
+    theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
+    mut commands: Commands,
+) {
+    if let Ok(&ChildOf(text_id)) = q_parent.get(drag_cancel.event_target())
+        && let Ok((&Hovered(hovered), mut gradient, mut drag_state, theme_context)) =
+            q_text_input.get_mut(text_id)
+    {
+        set_slidebar_styles(
+            text_id,
+            &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
+            false,
+            false,
+            hovered,
+            input_focus.get() == Some(text_id),
+            &mut gradient,
+            &mut commands,
+        );
+        drag_cancel.propagate(false);
+        drag_state.mode = EditMode::Idle;
+    }
+}
+
+fn update_slider_pos(
+    input_value: &NumberInputValue,
+    limit: Option<&SoftLimit>,
+    gradient: &mut BackgroundGradient,
+) {
+    if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
+        let percent_value = if let Some(SoftLimit(range)) = limit {
+            (range.thumb_position(*input_value) * 100.0).clamp(0.0, 100.0)
+        } else {
+            // If there's no soft limit, then don't show the slide bar.
+            0.0
+        };
+        linear_gradient.stops[1].point = percent(percent_value);
+        linear_gradient.stops[2].point = percent(percent_value);
+    }
+}
+
+fn set_slidebar_styles(
+    slidebar_id: Entity,
+    theme: &UiTheme,
+    context: SurfaceLevel,
+    disabled: bool,
+    pressed: bool,
+    hovered: bool,
+    focused: bool,
+    gradient: &mut BackgroundGradient,
+    commands: &mut Commands,
+) {
+    let bar_color = theme.context_color(
+        &if disabled {
+            tokens::SLIDER_BAR_DISABLED
+        } else if pressed {
+            tokens::SLIDER_BAR_PRESSED
+        } else if hovered {
+            tokens::SLIDER_BAR_HOVER
+        } else {
+            tokens::SLIDER_BAR
+        },
+        context,
+    );
+
+    let bg_color = theme.context_color(
+        &if focused {
+            tokens::TEXT_INPUT_BG
+        } else if disabled {
+            tokens::SLIDER_BG_DISABLED
+        } else if pressed {
+            tokens::SLIDER_BG_PRESSED
+        } else if hovered {
+            tokens::SLIDER_BG_HOVER
+        } else {
+            tokens::SLIDER_BG
+        },
+        context,
+    );
+
+    let font_color_token = match disabled {
+        true => tokens::TEXT_INPUT_TEXT_DISABLED,
+        false => tokens::TEXT_INPUT_TEXT,
     };
 
-    let Ok(number_format) = q_number_input.get(parent.get()) else {
-        return;
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::ColResize,
     };
 
-    let Ok(editable_text) = q_text_input.get_mut(editable_text_id) else {
-        return;
+    if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
+        linear_gradient.stops[0].color = bar_color;
+        linear_gradient.stops[1].color = bar_color;
+        linear_gradient.stops[2].color = bg_color;
+        linear_gradient.stops[3].color = bg_color;
+    }
+
+    // Change cursor shape and text color
+    commands
+        .entity(slidebar_id)
+        .insert(EntityCursor::System(cursor_shape))
+        .insert(ThemeTextColor(font_color_token));
+}
+
+fn emit_drag_value_change(
+    commands: &mut Commands,
+    source: Entity,
+    soft_limit: Option<&SoftLimit>,
+    hard_limit: Option<&HardLimit>,
+    precision: Option<&NumberInputPrecision>,
+    wrap: Option<&NumberInputWrap>,
+    drag_state: &mut DragState,
+    is_final: bool,
+) {
+    // Relative scrub: always measured from the value at drag start.
+    let mut value = drag_state.base_value.offset_by(drag_state.value_offset);
+
+    // Dragging is confined to the soft range; typing can still exceed it.
+    if let Some(SoftLimit(range)) = soft_limit {
+        value = range.clamp(value);
+    }
+    if let Some(precision) = precision {
+        value = precision.round(value);
+    }
+    // Hard limit is absolute and always applied last.
+    let value = match (wrap, hard_limit) {
+        (Some(NumberInputWrap::Wrap), Some(HardLimit(range))) => range.wrap(value),
+        (Some(NumberInputWrap::Wrap), None) => {
+            warn_once!("NumberInputWrap::Wrap specified without a HardLimit; ignoring wrap");
+            value
+        }
+        (_, Some(HardLimit(range))) => range.clamp(value),
+        (_, None) => value,
     };
 
-    let text_value = editable_text.value().to_string();
-    emit_value_change(text_value, *number_format, parent.0, &mut commands, true);
+    trigger_value_change(commands, value, source, is_final);
 }
 
 fn emit_value_change(
     text_value: String,
     format: NumberFormat,
+    units: &'static dyn UnitsFormat,
     source: Entity,
+    hard_limit: Option<&HardLimit>,
+    wrap: Option<&NumberInputWrap>,
     commands: &mut Commands,
     is_final: bool,
 ) {
@@ -294,66 +1420,656 @@ fn emit_value_change(
         return;
     }
 
-    match format {
-        NumberFormat::F32 => {
-            match text_value.parse::<f32>() {
-                Ok(new_value) => {
-                    commands.trigger(ValueChange {
-                        source,
-                        value: new_value,
-                        is_final,
-                    });
+    let Ok(new_value) = units.parse(text_value.to_owned(), format) else {
+        // TODO: should handle errors better than this
+        warn!("number input parsing failed, invalid format");
+        return;
+    };
+
+    let value = match (wrap, hard_limit) {
+        (Some(NumberInputWrap::Wrap), Some(HardLimit(range))) => range.wrap(new_value),
+        (Some(NumberInputWrap::Wrap), None) => {
+            warn_once!("NumberInputWrap::Wrap specified without a HardLimit; ignoring wrap");
+            new_value
+        }
+        (_, Some(HardLimit(range))) => range.clamp(new_value),
+        (_, None) => new_value,
+    };
+
+    trigger_value_change(commands, value, source, is_final);
+}
+
+/// Decompose the input value enum and trigger a [`ValueChange`] with the appropriate generic
+/// parameter type based on the enum variant.
+fn trigger_value_change(
+    commands: &mut Commands,
+    value: NumberInputValue,
+    source: Entity,
+    is_final: bool,
+) {
+    match value {
+        NumberInputValue::F32(value) => commands.trigger(ValueChange {
+            source,
+            value,
+            is_final,
+        }),
+        NumberInputValue::F64(value) => commands.trigger(ValueChange {
+            source,
+            value,
+            is_final,
+        }),
+        NumberInputValue::I32(value) => commands.trigger(ValueChange {
+            source,
+            value,
+            is_final,
+        }),
+        NumberInputValue::I64(value) => commands.trigger(ValueChange {
+            source,
+            value,
+            is_final,
+        }),
+    }
+}
+
+/// Re-apply the slidebar gradient colors for every number input when the theme changes.
+fn update_slidebar_styles_theme(
+    q_children: Query<&Children>,
+    q_number_input: Query<
+        (Entity, Has<InteractionDisabled>, Option<&ThemeContext>),
+        With<FeathersNumberInput>,
+    >,
+    // Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems.
+    mut q_text_input: Query<
+        (&Hovered, &mut BackgroundGradient),
+        (With<FeathersTextInput>, Without<FeathersSlider>),
+    >,
+    theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
+    mut commands: Commands,
+) {
+    if !theme.is_changed() {
+        return;
+    }
+    for (root_entity, is_disabled, theme_context) in q_number_input.iter() {
+        let Some(text_entity) = q_children
+            .iter_descendants(root_entity)
+            .find(|e| q_text_input.contains(*e))
+        else {
+            continue;
+        };
+        if let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_entity) {
+            set_slidebar_styles(
+                text_entity,
+                &theme,
+                theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
+                is_disabled,
+                false,
+                hovered,
+                input_focus.get() == Some(text_entity),
+                &mut gradient,
+                &mut commands,
+            );
+        }
+    }
+}
+
+/// Re-apply the slidebar gradient colors for every number input when the theme context changes.
+fn update_slidebar_styles_context(
+    q_children: Query<&Children>,
+    q_number_input: Query<
+        (Entity, Has<InteractionDisabled>, Option<&ThemeContext>),
+        (With<FeathersNumberInput>, Changed<ThemeContext>),
+    >,
+    // Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems.
+    mut q_text_input: Query<
+        (&Hovered, &mut BackgroundGradient),
+        (With<FeathersTextInput>, Without<FeathersSlider>),
+    >,
+    theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
+    mut commands: Commands,
+) {
+    for (root_entity, is_disabled, theme_context) in q_number_input.iter() {
+        let Some(text_entity) = q_children
+            .iter_descendants(root_entity)
+            .find(|e| q_text_input.contains(*e))
+        else {
+            continue;
+        };
+        if let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_entity) {
+            set_slidebar_styles(
+                text_entity,
+                &theme,
+                theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
+                is_disabled,
+                false,
+                hovered,
+                input_focus.get() == Some(text_entity),
+                &mut gradient,
+                &mut commands,
+            );
+        }
+    }
+}
+
+// Updates the visibility of the chevron buttons based on the hover state and value limits.
+fn update_chevron_visibility(
+    hover: On<Insert<Hovered>>,
+    q_hovered: Query<&Hovered>,
+    q_parent: Query<&ChildOf>,
+    q_number_input: Query<
+        (&NumberInputValue, Option<&HardLimit>, Has<SoftLimit>),
+        With<FeathersNumberInput>,
+    >,
+    q_children: Query<&Children>,
+    mut q_chevron: Query<
+        (
+            &mut Node,
+            Has<NumberInputDecrement>,
+            Has<NumberInputIncrement>,
+        ),
+        Or<(With<NumberInputDecrement>, With<NumberInputIncrement>)>,
+    >,
+) {
+    let text_input = hover.entity;
+    let Ok(hovered) = q_hovered.get(text_input) else {
+        return;
+    };
+    let Ok(&ChildOf(root)) = q_parent.get(text_input) else {
+        return;
+    };
+    let Ok((value, hard_limit, has_soft_limit)) = q_number_input.get(root) else {
+        return;
+    };
+    let base_visible = hovered.0 && !has_soft_limit;
+
+    let (is_at_min, is_at_max) = if let Some(HardLimit(range)) = hard_limit {
+        (is_at_limit_min(value, range), is_at_limit_max(value, range))
+    } else {
+        (false, false)
+    };
+
+    for child in q_children.iter_descendants(text_input) {
+        if let Ok((mut node, is_dec, is_inc)) = q_chevron.get_mut(child) {
+            let disabled_by_limit = (is_at_min && is_dec) || (is_at_max && is_inc);
+            node.display = if base_visible && !disabled_by_limit {
+                Display::Block
+            } else {
+                Display::None
+            };
+        }
+    }
+}
+
+// Checks if the value is at the minimum limit of the range.
+fn is_at_limit_min(value: &NumberInputValue, range: &NumberInputRange) -> bool {
+    match (range, value) {
+        (NumberInputRange::F32(r), NumberInputValue::F32(v)) => v <= r.start(),
+        (NumberInputRange::F64(r), NumberInputValue::F64(v)) => v <= r.start(),
+        (NumberInputRange::I32(r), NumberInputValue::I32(v)) => v <= r.start(),
+        (NumberInputRange::I64(r), NumberInputValue::I64(v)) => v <= r.start(),
+        _ => false,
+    }
+}
+
+// Checks if the value is at the maximum limit of the range.
+fn is_at_limit_max(value: &NumberInputValue, range: &NumberInputRange) -> bool {
+    match (range, value) {
+        (NumberInputRange::F32(r), NumberInputValue::F32(v)) => v >= r.end(),
+        (NumberInputRange::F64(r), NumberInputValue::F64(v)) => v >= r.end(),
+        (NumberInputRange::I32(r), NumberInputValue::I32(v)) => v >= r.end(),
+        (NumberInputRange::I64(r), NumberInputValue::I64(v)) => v >= r.end(),
+        _ => false,
+    }
+}
+
+/// Trait that represents numerical units such as meters, seconds, degrees, etc.
+/// [`UnitsFormat`] objects are static constants; a reference to this object can be associated
+/// with a number input widget to allow display and conversion of number values with units.
+/// The units are not actually stored with the numeric quantity, and are only used for display
+/// and editing.
+///
+/// A [`UnitsFormat`] must be added to the [`UnitsRegistry`] resource before it can be used.
+/// Widgets reference the units indirectly by id, allowing them to be serialized.
+pub trait UnitsFormat: Send + Sync {
+    /// Unique id of this format, e.g. ``"length_meters"``. This will be stored in the
+    /// [`NumberInputUnits`] component and used to locate this object in the units registry.
+    ///
+    ///  The naming convention is `<dimension>_<preferred_display_unit>`, so examples are
+    /// `length_meters`, `time_seconds`, or `angle_degrees`.
+    fn id(&self) -> &'static str;
+
+    /// Format the value as a string, with the default units. The `editing` parameter allows us
+    /// to format the string differently when the user is editing than when displaying or scrubbing.
+    /// This can be used, for example, to transform the unicode degree symbol, (°), which is hard
+    /// to type, into something easier.
+    fn format(&self, value: NumberInputValue, editing: bool) -> String;
+
+    /// Parse the input value into a numerical quantity. If the string includes a units signifier,
+    /// convert the value into the canonical units.
+    fn parse(&self, value: String, fmt: NumberFormat) -> Result<NumberInputValue, String>;
+}
+
+/// A [`UnitsFormat`] meaning "no units", which is the default units. This just does straight-up
+/// number parsing and formatting with no suffix.
+pub struct Dimensionless;
+
+impl UnitsFormat for Dimensionless {
+    fn id(&self) -> &'static str {
+        "none"
+    }
+
+    fn format(&self, value: NumberInputValue, _editing: bool) -> String {
+        value.to_string()
+    }
+
+    fn parse(&self, value: String, fmt: NumberFormat) -> Result<NumberInputValue, String> {
+        NumberInputValue::parse_from(value.as_str(), fmt)
+    }
+}
+
+/// Contains the definition of a "standard metrical unit". The [`StandardUnitKind`] struct maintains
+/// a table of these items.
+pub struct StandardUnitItem {
+    /// e.g. ["km"], or ["cm"], first entry is canonical
+    pub suffixes: &'static [&'static str],
+    /// multiply a value in this unit to get the base unit (meters, radians, kg...)
+    pub scale: f64,
+}
+
+/// A trait that provides an implementation of standard metrical units like meters or seconds.
+///  The purpose of this struct is to provide an easy and convenient implementation of the
+/// [`UnitsFormat`] trait. Whereas [`UnitsFormat`] allows arbitrary transformations between the
+/// canonical units and the display units (including advanced use cases like log-scale conversion),
+/// the [`StandardUnitKind`] just maintains a fixed, flat table of units, with an associated scale
+/// factor for each one.
+pub trait StandardUnitKind: Send + Sync {
+    /// Lookup key for this unit type. The naming convention is `<dimension>_<preferred_display_unit>`,
+    /// so examples are `length_meters`, `time_seconds`, or `angle_degrees`.
+    ///
+    /// This lookup key gets stored in the [`NumberInputUnits`] component.
+    const ID: &'static str;
+
+    /// Returns a reference to the table of units. Each entry in the table represents a single
+    /// unit. For each unit, there's a scaling factor and a list of possible suffixes.
+    fn units(&self) -> &'static [StandardUnitItem];
+
+    /// Identifies the index of the table entry representing the canonical unit. This is the unit
+    /// that is used for the value's internal representation, which is contained in the
+    /// [`ValueChange`] event. For example, the canonical unit of [`LengthMeters`] is meters,
+    /// suffix "m", which is table index 0.
+    fn canonical_index(&self) -> usize {
+        0
+    }
+
+    /// Returns the table index of the preferred display unit (as an index in the units table).
+    /// Most of the time this will be the same as the canonical unit; however in some cases
+    /// (such as angles), an alternate unit may be more user-friendly (e.g. degrees instead of
+    /// radians).
+    ///
+    /// For example, the display unit for [`AngleDegrees`] is degrees, even though the canonical
+    /// unit is radians.
+    fn display_index(&self) -> usize {
+        self.canonical_index()
+    }
+
+    /// Returns the table index of the preferred editing unit (as an index in the units table).
+    /// Most of the time this will be the same as the canonical unit, or the display unit;
+    /// however, in cases where the display unit is hard to type (like ° or μs), this lets us
+    /// choose a different suffix.
+    fn editing_index(&self) -> usize {
+        self.display_index()
+    }
+}
+
+/// Blanket impl of [`UnitsFormat`] for [`StandardUnitKind`]
+impl<S: StandardUnitKind> UnitsFormat for S {
+    fn id(&self) -> &'static str {
+        Self::ID
+    }
+
+    fn format(&self, value: NumberInputValue, editing: bool) -> String {
+        let units_table = self.units();
+        let display_unit = &units_table[if editing {
+            self.editing_index()
+        } else {
+            self.display_index()
+        }];
+        let canonical_unit = &units_table[self.canonical_index()];
+
+        // Convert from canonical units to display units. This is the inverse of the scaling
+        // applied in `parse`, which multiplies by `editing.scale / canonical.scale`.
+        let scale = canonical_unit.scale / display_unit.scale;
+
+        // Format at the value's native precision.
+        let display_value = match value {
+            NumberInputValue::F32(v) => format!("{}", (v as f64 * scale) as f32),
+            NumberInputValue::F64(v) => format!("{}", v * scale),
+            NumberInputValue::I32(v) => format!("{}", v as f64 * scale),
+            NumberInputValue::I64(v) => format!("{}", v as f64 * scale),
+        };
+
+        // Append the display suffix
+        format!("{}{}", display_value, display_unit.suffixes[0])
+    }
+
+    fn parse(&self, value: String, fmt: NumberFormat) -> Result<NumberInputValue, String> {
+        // Parse the input string, isolate the units token, find matching unit in table.
+        // This will eventually be a parser to support complex exprs.
+        let trimmed = value.trim();
+
+        // Find where the numeric part ends (after the last digit, decimal point, or exponent)
+        let mut magnitude_end = 0;
+        let mut has_dot = false;
+        let mut has_exp = false;
+
+        // TODO: replace with a better parser, once we settle on a standard parser for Bevy.
+        for (i, c) in trimmed.chars().enumerate() {
+            match c {
+                '0'..='9' | '+' | '-' => {
+                    magnitude_end = i + 1;
                 }
-                Err(_) => {
-                    // TODO: Emit a validation error once these are defined
-                    warn!("Invalid floating-point number in text edit");
+                '.' if !has_dot && !has_exp => {
+                    has_dot = true;
+                    magnitude_end = i + 1;
+                }
+                'e' | 'E' if !has_exp => {
+                    has_exp = true;
+                    magnitude_end = i + 1;
+                }
+                ' ' | '\t' => {
+                    // Allow whitespace, but don't extend magnitude_end
+                }
+                _ => {
+                    // First non-numeric character found
+                    break;
                 }
             }
         }
-        NumberFormat::F64 => {
-            match text_value.parse::<f64>() {
-                Ok(new_value) => {
-                    commands.trigger(ValueChange {
-                        source,
-                        value: new_value,
-                        is_final,
-                    });
-                }
-                Err(_) => {
-                    // TODO: Emit a validation error once these are defined
-                    warn!("Invalid floating-point number in text edit");
-                }
+
+        let magnitude_str = trimmed[..magnitude_end].trim();
+        let suffix_str = trimmed[magnitude_end..].trim();
+
+        // Parse the magnitude
+        let magnitude = NumberInputValue::parse_from(magnitude_str, fmt)?;
+
+        // Find matching unit suffix
+        let units_table = self.units();
+        let canonical_unit = &units_table[self.canonical_index()];
+
+        let editing_unit = if suffix_str.is_empty() {
+            // If no suffix provided, use the default display unit
+            &units_table[self.display_index()]
+        } else {
+            // Search for matching suffix in any unit
+            units_table
+                .iter()
+                .find(|unit| unit.suffixes.contains(&suffix_str))
+                .ok_or_else(|| format!("Unknown unit suffix: '{}'", suffix_str))?
+        };
+
+        // Scale by editing units
+        let scale_factor = editing_unit.scale / canonical_unit.scale;
+        Ok(magnitude.scale_by(scale_factor))
+    }
+}
+
+/// Unit representing length, where the preferred unit is meters.
+pub struct LengthMeters;
+
+impl StandardUnitKind for LengthMeters {
+    const ID: &'static str = "length_meters";
+
+    fn units(&self) -> &'static [StandardUnitItem] {
+        &[
+            // Metric
+            StandardUnitItem {
+                suffixes: &["m"],
+                scale: 1.0,
+            },
+            StandardUnitItem {
+                suffixes: &["km"],
+                scale: 1000.0,
+            },
+            StandardUnitItem {
+                suffixes: &["cm"],
+                scale: 0.01,
+            },
+            StandardUnitItem {
+                suffixes: &["mm"],
+                scale: 0.001,
+            },
+            // Imperial
+            StandardUnitItem {
+                suffixes: &["ft"],
+                scale: 0.3048,
+            },
+            StandardUnitItem {
+                suffixes: &["in"],
+                scale: 0.0254,
+            },
+            StandardUnitItem {
+                suffixes: &["mi"],
+                scale: 1609.34,
+            },
+        ]
+    }
+}
+
+/// Unit representing time, where the preferred unit is seconds.
+pub struct TimeSeconds;
+
+impl StandardUnitKind for TimeSeconds {
+    const ID: &'static str = "time_seconds";
+
+    fn units(&self) -> &'static [StandardUnitItem] {
+        &[
+            StandardUnitItem {
+                suffixes: &["s"],
+                scale: 1.0,
+            },
+            StandardUnitItem {
+                suffixes: &["ks"],
+                scale: 1000.0,
+            },
+            StandardUnitItem {
+                suffixes: &["cs"],
+                scale: 0.01,
+            },
+            StandardUnitItem {
+                suffixes: &["ms"],
+                scale: 0.001,
+            },
+        ]
+    }
+}
+
+/// Unit representing an angle. Internally this is represented as radians, but the preferred
+/// display format is degrees. This will display the degree symbol (°) except when in editing
+/// mode, in which case it will use the suffix "d" which is easier to type.
+pub struct AngleDegrees;
+
+impl StandardUnitKind for AngleDegrees {
+    const ID: &'static str = "angle_degrees";
+
+    fn units(&self) -> &'static [StandardUnitItem] {
+        &[
+            StandardUnitItem {
+                suffixes: &["rad"],
+                scale: 1.0,
+            },
+            StandardUnitItem {
+                suffixes: &["°"],
+                scale: std::f64::consts::PI / 180.0f64,
+            },
+            StandardUnitItem {
+                suffixes: &["d", "deg"],
+                scale: std::f64::consts::PI / 180.0f64,
+            },
+        ]
+    }
+
+    /// Override display to show degrees, not radians
+    fn display_index(&self) -> usize {
+        1
+    }
+
+    /// When editing, show "d" rather than degree symbol.
+    fn editing_index(&self) -> usize {
+        2
+    }
+}
+
+/// Resource which contains registry of various units, which allows unit definitions to be serialized
+/// and references in the editor.
+#[derive(Resource, Default)]
+pub struct UnitsRegistry(HashMap<&'static str, &'static dyn UnitsFormat>);
+
+impl UnitsRegistry {
+    /// Register a new [`UnitsFormat`].
+    pub fn insert(&mut self, unit_format: &'static dyn UnitsFormat) -> &mut Self {
+        self.0.insert(unit_format.id(), unit_format);
+        self
+    }
+
+    /// Look up a [`UnitsFormat`] by name, defaulting to [`Dimensionless`] if it cannot be found,
+    /// or if the name is not present.
+    pub fn resolve(&self, units: Option<&NumberInputUnits>) -> &'static dyn UnitsFormat {
+        match units {
+            None => &Dimensionless,
+            Some(NumberInputUnits(name)) => {
+                self.0.get(name.as_str()).copied().unwrap_or_else(|| {
+                    warn_once!(
+                        "Unit format '{}' not found in registry, using Dimensionless",
+                        name
+                    );
+                    &Dimensionless
+                })
             }
         }
-        NumberFormat::I32 => {
-            match text_value.parse::<i32>() {
-                Ok(new_value) => {
-                    commands.trigger(ValueChange {
-                        source,
-                        value: new_value,
-                        is_final,
-                    });
-                }
-                Err(_) => {
-                    // TODO: Emit a validation error once these are defined
-                    warn!("Invalid integer number in text edit");
-                }
-            }
+    }
+}
+
+/// Plugin which keeps number-input slidebar colors in sync with the theme.
+pub struct NumberInputPlugin;
+
+impl Plugin for NumberInputPlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        let mut registry = UnitsRegistry::default();
+        registry.insert(&Dimensionless);
+        registry.insert(&LengthMeters);
+        registry.insert(&TimeSeconds);
+        registry.insert(&AngleDegrees);
+        app.insert_resource(registry);
+
+        app.add_systems(
+            PreUpdate,
+            (update_slidebar_styles_context, update_slidebar_styles_theme)
+                .chain()
+                .in_set(PickingSystems::Last)
+                // After Dispatch systems so that these systems use the most updated `InputFocus`.
+                .after(InputFocusSystems::Dispatch),
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_length_meters_format() {
+        let length = LengthMeters;
+        let value = NumberInputValue::F64(100.0);
+        let formatted = length.format(value, false);
+        assert_eq!(formatted, "100m");
+    }
+
+    #[test]
+    fn test_length_meters_parse() {
+        let length = LengthMeters;
+        let result = length.parse("100m".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - 100.0).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
         }
-        NumberFormat::I64 => {
-            match text_value.parse::<i64>() {
-                Ok(new_value) => {
-                    commands.trigger(ValueChange {
-                        source,
-                        value: new_value,
-                        is_final,
-                    });
-                }
-                Err(_) => {
-                    // TODO: Emit a validation error once these are defined
-                    warn!("Invalid integer number in text edit");
-                }
-            }
+    }
+
+    #[test]
+    fn test_length_meters_convert_km_to_m() {
+        let length = LengthMeters;
+        let result = length.parse("1km".to_string(), NumberFormat::F64);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - 1000.0).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_length_meters_convert_mm_to_m() {
+        let length = LengthMeters;
+        let result = length.parse("1mm".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - 0.001).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_angle_degrees_format() {
+        let angle = AngleDegrees;
+        let value = NumberInputValue::F64(std::f64::consts::PI / 4.0); // 45 degrees in radians
+        let formatted = angle.format(value, false);
+        assert_eq!(formatted, "45°");
+
+        let formatted = angle.format(value, true);
+        assert_eq!(formatted, "45d");
+    }
+
+    #[test]
+    fn test_angle_degrees_parse() {
+        let angle = AngleDegrees;
+        let result = angle.parse("45d".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - std::f64::consts::PI / 4.0).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_angle_degrees_convert_rad_to_deg() {
+        let angle = AngleDegrees;
+        let result = angle.parse("1rad".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - 1.0).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_angle_degrees_parse_deg_suffix() {
+        let angle = AngleDegrees;
+        let result = angle.parse("90deg".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - std::f64::consts::PI / 2.0).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_negative_numbers() {
+        let length = LengthMeters;
+        let result = length.parse("-100".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - (-100.0)).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+
+        let result = length.parse("-50.5cm".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - (-0.505)).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
         }
     }
 }

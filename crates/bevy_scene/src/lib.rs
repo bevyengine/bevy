@@ -300,19 +300,13 @@
 //! [`FromTemplate`] derivers still have access to a default constructor of sorts though: the derive generates a companion struct
 //! for `YourType` named `YourTypeTemplate` which implements `Default`, so `YourTypeTemplate::default()` serves the same purpose.
 //!
-//! #### Enums in bsn
+//! #### Enums in BSN
 //!
-//! Enums are special-cased to allow for better implicit defaults: [`bsn!`] requires that enums have defaults for all variant arms, not just the type as a whole.
-//!
-//! When [`bsn!`] encounters a Enum, it will try to get the default value for the variant using static methods like `default_{variant_lower}`.
-//! To help with setting up these methods, theres a pseudo-`derive` called [`VariantDefaults`](bevy_ecs::VariantDefaults).
-//! It works like a normal `derive` macro, but without a matching Trait. It just generates a impl block with the `default_{variant_lower}` static methods.
-//!
-//! Deriving [`FromTemplate`] also implies/works like [`VariantDefaults`](bevy_ecs::VariantDefaults).
+//! Unlike structs in BSN, Enums require specifying every field, just like you would in normal Rust. This is because Rust has no concept of "variant defaults".
 //!
 //! ## Composition
 //!
-//! Composition relies on patching to work nicely, allowing you to include other scenes in the current ones.
+//! Composition relies on patching, which allows you to include other scenes in the current ones by layering them "on top".
 //! All of their patches will be applied at the position they're included.
 //!
 //! Example:
@@ -342,7 +336,7 @@
 //!
 //! // Include `enemy()` and patch just the `max` field:
 //! world.spawn_scene(bsn! {
-//!     enemy()
+//!     @enemy()
 //!     Health { max: 200 }
 //! });
 //! ```
@@ -371,12 +365,12 @@
 //! This scene includes an uncached "enemy" scene:
 //! ```ignore
 //! bsn! {
-//!     enemy()
+//!     @enemy()
 //!     Health { max: 200 }
 //! }
 //! ```
 //!
-//! This scene caches the "enemy" scene by adding the  `:` prefix (however caching scene functions like this is not currently supported)
+//! This scene caches the "enemy" scene by using the  `:` prefix (however caching scene functions like this is not currently supported)
 //! ```ignore
 //! bsn! {
 //!     :enemy
@@ -497,7 +491,7 @@
 //! }
 //!
 //! // Call it like an ordinary Rust function
-//! commands.spawn_scene(bsn! { enemy(200, "goblin") });
+//! commands.spawn_scene(bsn! { @enemy(200, "goblin") });
 //! ```
 //!
 //! Braces are required when the macro would otherwise misparse the expression
@@ -505,16 +499,14 @@
 //!
 //! ### Dynamic template values
 //!
-//! A [`Template`] value, such as an instance of a Component, cannot be directly passed in to a `bsn!` block, as `bsn!`
-//! expects "scene variables" in that position. Instead use `template_value(...)` which accepts a given component [`Template`] value
-//! and returns a [`Scene`] implementation for it.
+//! A [`Template`] value, such as an instance of a Component, can directly passed in to a `bsn!` block.
 //!
 //! ```ignore
 //! fn enemy(translation: Vec3){
 //!     let transform = Transform::from_translation(translation);
 //!     bsn! {
 //!         #Foo
-//!         template_value(transform)
+//!         transform
 //!     }
 //!
 //! }
@@ -531,14 +523,28 @@
 //! bsn! {
 //!     #Foo
 //!     template(|ctx| {
-//!         Foo(ctx.resource::<MyAssetCollection>().get("generated_asset_name"))
+//!         Ok(GameMap(ctx.resource::<MyAssetCollection>().get("generated_asset_name")?))
 //!     })
 //! }
 //! ```
 //!
 //! ### Expressions as scenes
 //!
-//! You can insert a [`Scene`] or [`SceneList`] in another Scene using curly-bracketed expressions:
+//! You can insert a [`Scene`] in another Scene using `@{}`:
+//!
+//! ```ignore
+//! fn widget(scene: impl Scene) -> impl Scene {
+//!     bsn! {
+//!         Node
+//!         @{scene}
+//!     }
+//! }
+//!
+//! let items = bsn_list![#A, #B, #C]; // or bsn! if container takes a `impl Scene`
+//! commands.spawn_scene(container(items));
+//! ```
+//!
+//! You can insert a [`SceneList`] in another Scene using curly-bracketed expressions inside of a relationship:
 //!
 //! ```ignore
 //! fn container(contents: impl SceneList) -> impl Scene {
@@ -898,6 +904,7 @@
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[expect(deprecated, reason = "easier migrations")]
     pub use crate::{
         bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
         EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneComponent, SceneList,
@@ -930,137 +937,10 @@ use bevy_app::{App, Plugin, SceneSpawnerSystems, SpawnScene};
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
 
-/// Creates a `Scene` using BSN (Bevy Scene Notation) syntax.
-///
-/// These docs primarily contain syntax
-/// See [`bevy_scene`](crate) module-level docs for in-depth details about usage and interactions.
-///
-///
-/// ## Syntax Reference
-///
-/// The syntax consists of scene entries which are listed below, which all act on the scene in some way.
-/// Often, this is by inserting/patching a component or its values or including other scenes.
-/// Scene entries can have prefix characters which specify/disambiguate the following entry.
-///
-/// ```text
-/// bsn! {
-///     <scene entry>
-///     :<cached scene include>
-///     #<name>
-///     @<SceneComponent>
-///     ~<custom Template>
-/// }
-/// ```
-///
-/// ### Scene entries
-/// | Examples                                   | Explanation                                                                                                    |
-/// | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-/// | `CompA`                                    | A unit or default component. Fields, if any exist, will be default                                             |
-/// | `CompA(val)`<br>`CompA(val, val)`          | Tuple Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)  |
-/// | `CompA { name: val }`                      | Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)        |
-/// | `mymodule::CompA { name: val }`            | Same as above, but referring to the component by module path                                                   |
-/// | `CompA { name }`                           | Component with Rust's "field assignment shorthand". Evaluates to `CompA { name: name.into() }`                 |
-/// | `MyEnum::Variant`                          | Enum Component `MyEnum` with the `Variant` variant                                                             |
-/// | `template_value(component)`                | Insert the component value from a variable `component`                                                         |
-/// | `template_value(CompA::from_str("foo"))`   | Insert the component value by immediately calling the constructor                                              |
-/// | `template(|context| { ... })`              | Register a function/closure returning a Template (eg. Component). Its passed [`context`] allowing World access |
-/// | `~MyType`<br>`~MyType {name: var}`         | Type implementing [`Template`], the prefix is used to distinguish it from Components which use [`FromTemplate`]|
-/// | **Including Scenes**                       |                                                                                                                |
-/// | `scene()`<br>`scene(val)`                  | Include the result of a `impl `[`Scene`] function                                                              |
-/// | `{ expr }`                                 | Include the result of `expr`, which should be a [`Scene`]                                                      |
-/// | `@MySceneComp`                             | Include a [`SceneComponent`]. Fields, if any exist, will be default                                            |
-/// | `@MySceneComp { @prop: val }`              | Include a [`SceneComponent`] with a `prop` field, passed to this components scene function                     |
-/// | `@MySceneComp { name: val }`               | Include a [`SceneComponent`] with a normal field, works the same as it does for normal components              |
-/// | `@MySceneComp { @prop: val1, name: val2 }` | Include a [`SceneComponent`] with both a `prop` and a field                                                    |
-/// | `:"scene.bsn"`                             | <div class="warning">Asset format not yet implemented!</div> Include a cached scene asset file                  |
-/// | `:scene()`<br>`:@MySceneComp`              | <div class="warning">Caching for scene includes not yet implemented!</div> Include a cached scene function     |
-/// | **Named entity references**                |                                                                                                                |
-/// | `#MyName`                                  | Becomes `Name("MyName")` when used as a `part` of a scene                                                      |
-/// | `CompA(#MyName)`<br>`scene(#MyName)`       | Referring to the entity which was named `MyName` in this scope, results in an [`EntityTemplate`] being passed  |
-/// | `Name("Foo")`                              | Manually sets the Name component, can be put after a `#MyName` to use a custom name while allowing references  |
-/// | **Observers**                              |                                                                                                                |
-/// | `on(\|ev: On<Ev>\| { … })`                 | Attaches an entity [`observer`] for the [`EntityEvent`] `Ev` to this entity. In this example, using a closure  |
-/// | `on(my_observer)`                          | Attaches an entity [`observer`] for the [`EntityEvent`] `Ev` to this entity. In this example, using a function |
-/// | **Relationships**                          |                                                                                                                |
-/// | `Children []`                              | Spawns each entry as a child of this entity, see **Scene Lists** below for details                             |
-/// | `ChildOf(entity)`                          | Makes **this** entity a child of `entity`, accepts an [`Entity`] or a `#Name` reference ([`EntityTemplate`])    |
-/// | `MyRel []`                                 | Like `Children`, but uses any `RelationshipTarget` component                                                   |
-///
-/// [`context`]: bevy_ecs::template::TemplateContext
-/// [`EntityTemplate`]: bevy_ecs::template::EntityTemplate
-/// ### Scene Lists
-///
-/// In `bsn_list!` and Relationships a list of scenes delimited by `[]` is allowed.
-/// Unlike parts of a scene, which are whitespace-separated, the scenes in a scene list are comma-separated.
-///
-/// Note: examples are part of a relationship like `Children [<example here>]` or a list macro like `bsn_list![<example here>]`
-///
-/// | Example                      | Meaning                                                                                                               |
-/// | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-/// | `[ #Child1 CompA, #Child2 ]`     | Spawns 2 children, one with `(Name("Child1"), CompA::default())` and the other with `Name("Child2")`              |
-/// | `[ (#Child1 CompA), (#Child2) ]` | Same as above, with explicit parentheses                                                                          |
-/// | `[ #First, { expr }, #Last ]`   | Spawns an entity with name `First`, then every entity from the `SceneList` returned by expr, then one named `Last` |
-/// | `[ #First, ({ expr }), #Last ]` | Same as above, but the `expr` should result in a `Scene` and will only spawn one entity using it                   |
-///
-/// ### Values
-///
-/// Values in BSN (as in `val`,`val1` etc used above) are generally any literal Rust values, plus a few bsn-specific quirks.
-///
-///
-/// | Example                          | Meaning       | Explanation                                                                             |
-/// | -------------------------------- | ------------- | --------------------------------------------------------------------------------------- |
-/// | `1`                              | Unsigned int  | Positive number, common types: [`usize`], [`u8`], [`u32`], [`u64`]                      |
-/// | `1` or `-1`                      | Signed int    | Positive or negative number, common types: `i32`, `i64`                                 |
-/// | `1.1` or `-0.1` or `1.` or `-2.` | Float         | Floating point number, common types: `f32`, `f64`                                       |
-/// | `true` or `false`                | Bool          | Boolean, type: [`bool`]                                                                 |
-/// | `"somename"`                     | String        | Text, types: `String` or `&'static str`                                                 |
-/// | `"mypicture.png"`                | Asset path    | Asset, when used in a field which expects a [`Handle`] to the matching `Asset` type     |
-/// | `some_function(1)`                        | Function call | Calls a function with the provided arguments                                            |
-/// | `GREEN`                          | Constant      | Fixed value, must be in scope                                                           |
-/// | `std::f32::consts::PI`           | Constant      | Fixed value, uses full path so doesn't need to be in scope                              |
-/// | **Expression syntax**            |               |                                                                                         |
-/// | `{ 1 + 2 }`                      | Expression    | Any rust expression works in `{}`, in this case addition of 2 integers                  |
-/// | `{ vec![true, false] }`          | Vector        | An expression returning a [`Vec`], a collection of multiple items of one specific type. |
-/// | `{ bsn!{ Text("foo") Style } }`  | Scene         | Sometimes, you may need to pass a small `Scene` as a value to something else            |
-///
-/// ### Other Rust syntax
-///
-/// If you're new to Rust, you might struggle with some of its syntax when you see it in or around BSN.
-/// Here are some syntax snippets which haven't been shown so far:
-///
-/// | Syntax            | Meaning       | Explanation                                                     |
-/// | ----------------- | ------------- | --------------------------------------------------------------- |
-/// | `\|param\| { … }` | Closure       | A closure; effectively an unnamed function                      |
-/// | `Vec<T>`          | Generic type  | A type with a generic type parameter `T`                        |
-/// | `//`              | Comment       | Line comment; all text after `//` on the same line is ignored   |
-/// | `/* */`           | Block comment | Standard Rust block comment; all text inside `/* */` is ignored |
-/// | `bsn! { … }`      | Macro call    | Calls a macro on the value inside of the braces                 |
-///
-/// ### Syntax example
-// Note: the actual syntax example comes from the original bevy_scene_macros::bsn docs.
-// rustdoc appends these #[doc(inline)] docs before those
-// rust-analyzer ignores these docs and only shows the original ones, see https://github.com/rust-lang/rust-analyzer/issues/14079
-// despite those being #[doc(hidden)]
-//
-#[doc(inline)]
 pub use bevy_scene_macros::bsn;
 
-/// Creates a `SceneList` using BSN (Bevy Scene Notation) syntax.
-///
-/// This is useful when you want multiple root entities in your scene
-/// that do not share a common parent, or if you want to create multiple scenes at once.
-///
-/// Like in [`bsn!`], commas separate entities,
-/// while whitespace separates components on the same entity.
-///
-/// All root entries in a [`bsn_list!`] share a single name scope, so sibling root entities
-/// can cross-reference each other by `#Name`.
-/// This is not possible with separate [`bsn!`] calls, and is a key motivation for using [`bsn_list!`].
-///
-/// See [`bsn!`] for more details on syntax.
-/// See the `bevy_scene` crate docs for a high-level overview of the key concepts.
-#[doc(inline)]
 pub use bevy_scene_macros::bsn_list;
+
 pub use bevy_scene_macros::SceneComponent;
 
 /// Adds support for spawning Bevy Scenes. See [`Scene`], [`SceneList`], [`ScenePatch`], and the [`bsn!`] macro for more information.
@@ -1084,9 +964,17 @@ impl Plugin for ScenePlugin {
     }
 }
 
+/// An [`Event`] triggered for each entity in a scene after it (and all of its children) have been fully spawned.
+/// This will only be triggered when a scene (and its dependencies) have been fully loaded.
+#[derive(EntityEvent, Copy, Clone, Debug)]
+pub struct Ready {
+    /// The "ready" entity.
+    pub entity: Entity,
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_scene, ScenePlugin};
+    use crate::{self as bevy_scene, Ready, ScenePlugin};
     use crate::{prelude::*, ScenePatch};
     use alloc::sync::Arc;
     use bevy_app::{App, TaskPoolPlugin};
@@ -1101,6 +989,7 @@ mod tests {
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
     use bevy_scene_macros::SceneComponent;
+    use std::ops::Range;
     use std::path::Path;
     use std::sync::Mutex;
 
@@ -1112,6 +1001,18 @@ mod tests {
             ScenePlugin,
         ));
         app
+    }
+
+    #[test]
+    fn supports_fully_qualified_component_paths() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        assert!(world
+            .spawn_scene(bsn! {
+              ::bevy_ecs::prelude::Children[]
+            })
+            .is_ok());
     }
 
     #[test]
@@ -1128,7 +1029,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                @a()
                 Position { x: 1. }
                 Children [ #Y ]
             }
@@ -1182,7 +1083,7 @@ mod tests {
         fn b() -> impl Scene {
             bsn! {
                 Position { x: 1., y: 1., z: 1. }
-                a()
+                @a()
             }
         }
 
@@ -1245,25 +1146,7 @@ mod tests {
         app.finish();
         app.cleanup();
         // Create a fake loader to act as a ScenePatch loaded from a file.
-        app.register_asset_loader(FakeSceneLoader);
-
-        #[derive(TypePath)]
-        struct FakeSceneLoader;
-
-        impl AssetLoader for FakeSceneLoader {
-            type Asset = ScenePatch;
-            type Error = std::io::Error;
-            type Settings = ();
-
-            async fn load(
-                &self,
-                _reader: &mut dyn bevy_asset::io::Reader,
-                _settings: &Self::Settings,
-                load_context: &mut bevy_asset::LoadContext<'_>,
-            ) -> Result<Self::Asset, Self::Error> {
-                Ok(ScenePatch::load_with(load_context, a()))
-            }
-        }
+        app.register_asset_loader(FakeSceneLoader::new(a));
 
         // Insert an asset that the fake loader can fake read.
         dir.insert_asset_text(Path::new("a.bsn"), "");
@@ -1334,7 +1217,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                @a()
                 Position { x: 1. }
                 Children [ #Y ]
             }
@@ -1460,7 +1343,7 @@ mod tests {
             bsn! {
                 #X
                 Children [
-                    (b() Reference(#X))
+                    (@b() Reference(#X))
                 ]
             }
         }
@@ -1471,7 +1354,7 @@ mod tests {
                 #X
                 Children [
                     Reference(#X),
-                    (inline Reference(#X)),
+                    (@{inline} Reference(#X)),
                 ]
             }
         }
@@ -1567,7 +1450,7 @@ mod tests {
                         Reference(#Y)
                     ]
                 ),
-                (b() #Z)
+                (@b() #Z)
             ]
         }
 
@@ -1617,7 +1500,7 @@ mod tests {
 
         fn scene() -> impl Scene {
             bsn! {
-                on(|explode: On<Explode>, mut exploded: ResMut<Exploded>|{
+                on(|explode: On<Explode>, mut exploded: ResMut<Exploded>| {
                     exploded.0 = Some(explode.0);
                 })
             }
@@ -1628,6 +1511,380 @@ mod tests {
         let exploded = world.resource::<Exploded>();
         assert_eq!(exploded.0, Some(id));
     }
+
+    #[test]
+    fn struct_update_in_init_position() {
+        #[derive(Component, Default, Clone, PartialEq, Debug)]
+        enum Shape {
+            #[default]
+            Empty,
+            Rect(Size),
+        }
+
+        #[derive(Default, Clone, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        fn wide() -> Size {
+            Size {
+                width: 100,
+                height: 1,
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { Shape::Rect(Size { height: 5, ..wide() }) })
+            .unwrap();
+
+        assert_eq!(
+            &Shape::Rect(Size {
+                width: 100,
+                height: 5
+            }),
+            entity.get::<Shape>().unwrap()
+        );
+    }
+
+    #[test]
+    fn struct_update_in_patch_position() {
+        #[derive(Component, Default, Clone, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        let wide = Size {
+            width: 100,
+            height: 1,
+        };
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { Size { height: 5, ..wide } })
+            .unwrap();
+
+        assert_eq!(
+            &Size {
+                width: 100,
+                height: 5
+            },
+            entity.get::<Size>().unwrap()
+        );
+    }
+
+    #[test]
+    fn nested_struct_update_in_patch_position() {
+        #[derive(Component, Default, Clone, PartialEq, Debug)]
+        struct Layout {
+            size: Size,
+        }
+
+        #[derive(Default, Clone, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        let wide = Size {
+            width: 100,
+            height: 1,
+        };
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { Layout { size: Size { height: 5, ..wide } } })
+            .unwrap();
+
+        assert_eq!(
+            &Layout {
+                size: Size {
+                    width: 100,
+                    height: 5
+                }
+            },
+            entity.get::<Layout>().unwrap()
+        );
+    }
+
+    #[test]
+    fn struct_update_in_scene_component() {
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(PanelProps)]
+        struct Panel {
+            size: Size,
+        }
+
+        #[derive(Default, Clone, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        #[derive(Default)]
+        struct PanelProps {
+            size: Size,
+        }
+
+        impl Panel {
+            fn scene(_props: PanelProps) -> impl Scene {
+                bsn! {}
+            }
+        }
+
+        fn wide() -> Size {
+            Size {
+                width: 100,
+                height: 1,
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world
+            .spawn_scene(bsn! { @Panel { size: Size { height: 5, ..wide() } } })
+            .unwrap();
+        world
+            .spawn_scene(bsn! { @Panel { @size: Size { height: 5, ..wide() } } })
+            .unwrap();
+    }
+
+    #[test]
+    fn entity_reference_in_template_function() {
+        use bevy_ecs::template::EntityTemplate;
+        #[derive(Component, Clone, FromTemplate, PartialEq, Debug)]
+        struct Target {
+            entity: Entity,
+        }
+
+        fn target(entity: EntityTemplate) -> TargetTemplate {
+            TargetTemplate { entity }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entities = world
+            .spawn_scene_list(bsn_list! {
+                #A,
+                target(#A)
+            })
+            .unwrap();
+
+        assert_eq!(
+            &Target {
+                entity: entities[0]
+            },
+            world.entity(entities[1]).get::<Target>().unwrap()
+        );
+    }
+
+    #[test]
+    fn scene_variable_without_parentheses() {
+        fn wrapper(contents: impl Scene) -> impl Scene {
+            bsn! { @contents }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(wrapper(bsn! { #A })).unwrap();
+    }
+
+    #[test]
+    fn const_in_entry_position() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+        }
+
+        const WIDE: Size = Size { width: 100 };
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(bsn! { WIDE }).unwrap();
+
+        assert_eq!(&WIDE, entity.get::<Size>().unwrap());
+    }
+
+    #[test]
+    fn range_with_non_literal_bounds() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Span(Range<u32>);
+
+        let count = 5u32;
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(bsn! { Span(0..2) }).unwrap();
+        world.spawn_scene(bsn! { Span(0..count) }).unwrap();
+    }
+
+    #[test]
+    fn template_prefix_with_dot_expression() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        impl Size {
+            fn new(width: u32) -> Self {
+                Size { width, height: 0 }
+            }
+
+            fn tall(mut self) -> Self {
+                self.height = 100;
+                self
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(bsn! { Size::new(1).tall() }).unwrap();
+        world.spawn_scene(bsn! { ~Size::new(1).tall() }).unwrap();
+    }
+
+    #[test]
+    fn tuple_index_in_dot_expression() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+        }
+
+        struct Holder(Size);
+
+        let holder = Holder(Size { width: 1 });
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(bsn! { holder.0.clone() }).unwrap();
+    }
+
+    #[test]
+    fn closure_field_with_generic_return_type() {
+        #[derive(Clone)]
+        struct Handler<T>(Arc<dyn Fn(u32) -> T + Send + Sync>);
+
+        impl<T: Default + 'static> Default for Handler<T> {
+            fn default() -> Self {
+                Handler(Arc::new(|_| T::default()))
+            }
+        }
+
+        impl<T, F: Fn(u32) -> T + Send + Sync + 'static> From<F> for Handler<T> {
+            fn from(function: F) -> Self {
+                Handler(Arc::new(function))
+            }
+        }
+
+        #[derive(Component, Clone, Default)]
+        struct Handlers {
+            one: Handler<u32>,
+            many: Handler<Vec<u32>>,
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! {
+                Handlers {
+                    one: |x| -> u32 { x },
+                    many: |x| -> Vec<u32> { vec![x] },
+                }
+            })
+            .unwrap();
+
+        let handlers = entity.get::<Handlers>().unwrap();
+        assert_eq!(2, (handlers.one.0)(2));
+        assert_eq!(vec![2], (handlers.many.0)(2));
+    }
+
+    #[test]
+    fn template_expression_syntax() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(bsn! { ~{Size { width: 10 }} }).unwrap();
+    }
+
+    #[test]
+    fn dot_chained_constructor_resolves_through_from_template() {
+        use bevy_ecs::template::TemplateContext;
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        #[derive(Default)]
+        struct SizeTemplate {
+            width: u32,
+            height: u32,
+        }
+
+        impl SizeTemplate {
+            fn new(width: u32) -> Self {
+                SizeTemplate { width, height: 0 }
+            }
+
+            fn tall(mut self) -> Self {
+                self.height = 100;
+                self
+            }
+        }
+
+        impl Template for SizeTemplate {
+            type Output = Size;
+
+            fn build_template(&self, _context: &mut TemplateContext) -> Result<Size> {
+                Ok(Size {
+                    width: self.width,
+                    height: self.height,
+                })
+            }
+
+            fn clone_template(&self) -> Self {
+                SizeTemplate {
+                    width: self.width,
+                    height: self.height,
+                }
+            }
+        }
+
+        impl FromTemplate for Size {
+            type Template = SizeTemplate;
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let plain = world.spawn_scene(bsn! { Size::new(2) }).unwrap();
+        assert_eq!(
+            &Size {
+                width: 2,
+                height: 0
+            },
+            plain.get::<Size>().unwrap()
+        );
+
+        let chained = world.spawn_scene(bsn! { Size::new(2).tall() }).unwrap();
+        assert_eq!(
+            &Size {
+                width: 2,
+                height: 100
+            },
+            chained.get::<Size>().unwrap()
+        );
+    }
+
     #[test]
     fn primitive_literals() {
         #![allow(dead_code, reason = "test")]
@@ -1732,7 +1989,7 @@ mod tests {
                 #Root
                 Children [
                     #First,
-                    ({item}),
+                    @{item},
                     #Last
                 ]
             }
@@ -1763,14 +2020,14 @@ mod tests {
             let scene: Box<dyn Scene> = if is_boss {
                 Box::new(bsn! {
                     Boss
-                    Children [ unit(false, level - 1) #Grunt1, unit(false, level - 1) #Grunt2]
+                    Children [ @unit(false, level - 1) #Grunt1, @unit(false, level - 1) #Grunt2]
                 })
             } else {
                 Box::new(bsn! { Grunt })
             };
             bsn! {
                 Level(level)
-                {scene}
+                @{scene}
             }
         }
         let mut app = test_app();
@@ -1825,7 +2082,7 @@ mod tests {
 
         fn unit_with_armor(unit_base: impl Scene) -> impl Scene {
             bsn! {
-                {unit_base}
+                @{unit_base}
                 Armor(50)
             }
         }
@@ -1841,7 +2098,7 @@ mod tests {
 
         // inheritance is the same!
         let entity_b = bsn! {
-            armor()
+            @armor()
             Health { current: 100, max: 100 }
         };
         let idb = world.spawn_scene(entity_b).unwrap().id();
@@ -1857,61 +2114,118 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
-        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
+        #[derive(Component, Default, Clone, PartialEq, Eq, Debug)]
         enum Foo {
-            #[default]
             Bar {
                 x: u32,
                 y: u32,
                 z: u32,
             },
-            Baz(usize),
+            Baz(Nested),
+            #[default]
             Qux,
+        }
+
+        #[derive(Default, Clone, PartialEq, Eq, Debug)]
+        struct Nested {
+            a: usize,
+            b: usize,
         }
 
         fn a() -> impl Scene {
             bsn! {
-                Foo::Baz(10)
+                Foo
             }
         }
 
         fn b() -> impl Scene {
             bsn! {
-                a()
-                Foo::Bar { x: 1 }
+                @a()
+                Foo::Bar { x: 1, y: 2, z: 3 }
             }
         }
 
         fn c() -> impl Scene {
             bsn! {
-                b()
-                Foo::Bar { y: 2 }
+                @b()
+                Foo::Baz(Nested { a: 10 })
             }
         }
 
         fn d() -> impl Scene {
             bsn! {
-                c()
+                @c()
                 Foo::Qux
             }
         }
 
-        let id = world.spawn_scene(c()).unwrap().id();
-        let root = world.entity(id);
+        fn custom_nested() -> Nested {
+            Nested { a: 1, b: 2 }
+        }
 
-        let foo = root.get::<Foo>().unwrap();
-        assert_eq!(Foo::Bar { x: 1, y: 2, z: 0 }, *foo);
+        fn e() -> impl Scene {
+            bsn! {
+                @b()
+                Foo::Baz(Nested { a: 3, ..custom_nested() })
+            }
+        }
 
-        let id = world.spawn_scene(a()).unwrap().id();
-        let root = world.entity(id);
+        let entity = world.spawn_scene(a()).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
+        assert_eq!(Foo::default(), *foo);
 
-        let foo = root.get::<Foo>().unwrap();
-        assert_eq!(Foo::Baz(10), *foo);
+        let entity = world.spawn_scene(b()).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
+        assert_eq!(Foo::Bar { x: 1, y: 2, z: 3 }, *foo);
 
-        let id = world.spawn_scene(d()).unwrap().id();
-        let root = world.entity(id);
-        let foo = root.get::<Foo>().unwrap();
+        let entity = world.spawn_scene(c()).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
+        assert_eq!(Foo::Baz(Nested { a: 10, b: 0 }), *foo);
+
+        let entity = world.spawn_scene(d()).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
         assert_eq!(Foo::Qux, *foo);
+
+        let entity = world.spawn_scene(e()).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
+        assert_eq!(Foo::Baz(Nested { a: 3, b: 2 }), *foo);
+    }
+
+    #[test]
+    fn enum_from_template() {
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
+        enum Foo {
+            Entity(Entity),
+            #[default]
+            None,
+        }
+
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
+        struct Bar {
+            foo: Foo,
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entities = world
+            .spawn_scene_list(bsn_list! {
+                #A,
+                Foo::Entity(#A),
+                Bar { foo: FooTemplate::Entity(#A) }
+            })
+            .unwrap();
+
+        assert_eq!(
+            &Foo::Entity(entities[0]),
+            world.entity(entities[1]).get::<Foo>().unwrap()
+        );
+
+        assert_eq!(
+            &Bar {
+                foo: Foo::Entity(entities[0])
+            },
+            world.entity(entities[2]).get::<Bar>().unwrap()
+        );
     }
 
     #[test]
@@ -1941,7 +2255,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                @a()
                 Foo {
                     y: 2,
                     nested: Bar(2),
@@ -1991,7 +2305,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                @a()
                 Foo {
                     y: 2,
                     nested: Bar(2),
@@ -2130,7 +2444,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                @a()
                 Foo::<Position> {
                     value: Position { y: 2 },
                     number: 10,
@@ -2149,18 +2463,6 @@ mod tests {
                 number: 10
             }
         );
-    }
-
-    #[test]
-    fn empty_scene_expressions() {
-        let mut app = test_app();
-        let world = app.world_mut();
-        fn a() -> impl Scene {
-            bsn! {
-                {}
-            }
-        }
-        world.spawn_scene(a()).unwrap();
     }
 
     #[test]
@@ -2489,22 +2791,24 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
+        let placeholder_widget = world.spawn_empty().id();
+
         let pass_expr = bsn! {
             #Name
             Children [
-                widget(Entity::PLACEHOLDER.into())
+                @widget(placeholder_widget.into())
             ]
         };
         let entity = world.spawn_scene(pass_expr).unwrap().id();
         let root = world.entity(entity);
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
-        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
+        assert_eq!(child_widget.0, placeholder_widget);
 
         let pass_name = bsn! {
             #Name
             Children [
-                widget(#Name)
+                @widget(#Name)
             ]
         };
         let entity = world.spawn_scene(pass_name).unwrap().id();
@@ -2520,7 +2824,7 @@ mod tests {
             Name({format!("Foo{i}")})
             Children [
                 #Name
-                widget(#Root)
+                @widget(#Root)
             ]
         };
         let entity = world.spawn_scene(pass_name_expr).unwrap().id();
@@ -2557,10 +2861,12 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
+        let placeholder_widget = world.spawn_empty().id();
+
         let prop_expr = bsn! {
             Children [
                 @Widget {
-                    @entity: Entity::PLACEHOLDER
+                    @entity: placeholder_widget
                 }
             ]
         };
@@ -2568,7 +2874,7 @@ mod tests {
         let root = world.entity(entity);
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
-        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
+        assert_eq!(child_widget.0, placeholder_widget);
         let scene_prop = bsn! {
             #Name
             Children [
@@ -2582,6 +2888,30 @@ mod tests {
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, entity);
+    }
+
+    #[test]
+    fn scene_component_enum() {
+        #[derive(SceneComponent, FromTemplate)]
+        enum Widget {
+            #[default]
+            X,
+        }
+
+        impl Widget {
+            fn scene() -> impl Scene {
+                bsn! {}
+            }
+        }
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let entity = world
+            .spawn_scene(bsn! {
+                @Widget::X
+            })
+            .unwrap();
+        assert!(matches!(entity.get::<Widget>().unwrap(), Widget::X));
     }
 
     #[test]
@@ -2752,9 +3082,9 @@ mod tests {
         // Copy of the macro from bevy_scene/macros/src/lib.rs
         // why? because it should be tested
         // why not doctests? because the macro can't depend on this crate
-        // why not include! it here and include_str! it in the docs? because rust-analyzer ignores #[doc = include_str!()] and this is mostly a showcase for rust-analyzer
+        // why not include! it here and include_str! it in the docs? because rust-analyzer inline docs ignores #[doc = include_str!()]
         let scene = bsn! {
-            some_scene()        // include a scene function
+            @some_scene()        // include a scene function
             #SomeName           // entity name, will insert Name("SomeName")
             ComponentA          // component without a value will use default
             ComponentB(0.0)     // passing a value, other fields will use default
@@ -2768,24 +3098,26 @@ mod tests {
             Children [                   // spawning multiple related entities using a RelationshipTarget component
                 #Child1 ComponentA       // whitespace doesn't have to be newlines
                 ,                        // entities are comma-separated
-                (other_scene() #Child3), // parentheses around a single entity are optional
+                (@other_scene() #Child3), // parentheses around a single entity are optional
                 Link(#SomeName),         // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
                 @MySceneComponent {      // components which derive SceneComponent have scenes and can be inherited from
                     @some_prop: 3,       // props, look like fields prefixed with @ but end up passed to the components scene as arguments
                     normal_field: 5      // while normal fields are the actual fields of the component
                 },
-                Node {
-                    width: some_var      // you can directly use variables without {}
-                }
-                ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
-                @Container {
-                    @items: {
-                        bsn_list![                // sometimes you may need to nest macro calls
-                            #item1 SomeComponent, // note: the name #item1 here is in its own scope
-                            some_scene() #item2
-                        ]
+                (
+                    Node {
+                        width: some_var      // you can directly use variables without {}
                     }
-                }
+                    ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
+                    @Container {
+                        @items: {
+                            bsn_list![                // sometimes you may need to nest macro calls
+                                #item1 SomeComponent, // note: the name #item1 here is in its own scope
+                                @some_scene() #item2
+                            ]
+                        }
+                    }
+                )
             ]
         };
         // just checking it spawns correctly
@@ -2882,6 +3214,48 @@ mod tests {
     }
 
     #[test]
+    fn enum_variant_subexpressions_are_hoisted() {
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug, Clone)]
+        enum FontSource {
+            #[default]
+            Handle { value: String },
+        }
+
+        struct Config {
+            value: String,
+        }
+
+        fn make_scene(config: &Config) -> impl Scene {
+            bsn! {
+                Children [
+                    (FontSource::Handle { value: { config.value.clone() } }),
+                    (FontSource::Handle { value: { config.value.clone() } }),
+                ]
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let config = Config {
+            value: "test".to_string(),
+        };
+        let entity = world.spawn_scene(make_scene(&config)).unwrap().id();
+        let children = world.entity(entity).get::<Children>().unwrap();
+        assert_eq!(
+            world.entity(children[0]).get::<FontSource>().unwrap(),
+            &FontSource::Handle {
+                value: "test".to_string(),
+            }
+        );
+        assert_eq!(
+            world.entity(children[1]).get::<FontSource>().unwrap(),
+            &FontSource::Handle {
+                value: "test".to_string(),
+            }
+        );
+    }
+
+    #[test]
     fn field_name_shorthand() {
         let mut app = test_app();
         let world = app.world_mut();
@@ -2954,9 +3328,217 @@ mod tests {
         let entity = world
             .spawn_scene(bsn! {
                 #MaybeFoo
-                {optional_component}
+                @{optional_component}
             })
             .unwrap();
         assert!(entity.get::<Foo>().is_some());
+    }
+
+    #[test]
+    fn scene_nested_entity_references() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, FromTemplate)]
+        struct Ref(Entity);
+
+        let patch = bsn! {
+            #patch
+            Children [
+                Ref(#patch)
+            ]
+        };
+
+        let root = bsn! {
+            #root
+            @{patch}
+        };
+
+        let expected_id = Some(world.spawn_scene(root).unwrap().id());
+        let actual_id = world
+            .query::<&Ref>()
+            .query(world)
+            .single()
+            .ok()
+            .map(|r| r.0);
+
+        assert_eq!(expected_id, actual_id);
+    }
+
+    #[test]
+    fn scene_list_nested_entity_references() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Component, FromTemplate)]
+        struct Ref(Entity);
+
+        let patch = bsn! {
+            #patch
+            Children [
+                Ref(#patch)
+            ]
+        };
+
+        let root = bsn_list! {
+            #root @{patch}
+        };
+
+        let expected_id = Some(world.spawn_scene_list(root).unwrap()[0]);
+        let actual_id = world
+            .query::<&Ref>()
+            .query(world)
+            .single()
+            .ok()
+            .map(|r| r.0);
+
+        assert_eq!(expected_id, actual_id);
+    }
+
+    #[test]
+    fn ready_event() {
+        #[derive(Component, FromTemplate)]
+        struct Foo(usize);
+
+        fn root() -> impl Scene {
+            bsn! {
+                Foo(0)
+                Children [ :"child.bsn" ]
+            }
+        }
+
+        fn child() -> impl Scene {
+            bsn! {
+                Foo(1)
+                Children [ Foo(2), Foo(3) ]
+            }
+        }
+
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(root)]
+        struct AWidget;
+
+        let mut app = App::new();
+        let dir = Dir::default();
+        let dir_clone = dir.clone();
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader {
+                    root: dir_clone.clone(),
+                })
+            }),
+        );
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            ScenePlugin,
+        ));
+
+        let ready_tracker = Arc::new(Mutex::new(Vec::new()));
+        let cloned_tracker = ready_tracker.clone();
+
+        app.add_observer(move |ready: On<Ready>| {
+            cloned_tracker.lock().unwrap().push(ready.entity);
+        });
+
+        app.finish();
+        app.cleanup();
+        // Create a fake loader to act as a ScenePatch loaded from a file.
+        app.register_asset_loader(FakeSceneLoader::new(child));
+
+        // Insert an asset that the fake loader can fake read.
+        dir.insert_asset_text(Path::new("child.bsn"), "");
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load("child.bsn");
+        assert!(app.world().get_resource::<Assets<ScenePatch>>().is_some());
+        run_app_until(&mut app, || asset_server.is_loaded(&handle));
+        let patch = app
+            .world()
+            .resource::<Assets<ScenePatch>>()
+            .get(&handle)
+            .unwrap();
+        assert!(patch.resolved.is_some());
+
+        let world = app.world_mut();
+        let root_id = world.spawn_scene(bsn! {@AWidget}).unwrap().id();
+        let root = world.entity(root_id);
+
+        assert!(root.get::<AWidget>().is_some());
+        assert_eq!(root.get::<Foo>().unwrap().0, 0);
+        let children = root.get::<Children>().unwrap();
+        assert_eq!(children.len(), 1);
+
+        let child_id = children[0];
+        let child = world.entity(child_id);
+        assert_eq!(child.get::<Foo>().unwrap().0, 1);
+        let grand_children = child.get::<Children>().unwrap();
+        assert_eq!(grand_children.len(), 2);
+        let grand_child_1 = grand_children[0];
+        let grand_child_2 = grand_children[1];
+        assert_eq!(world.entity(grand_child_1).get::<Foo>().unwrap().0, 2);
+        assert_eq!(world.entity(grand_child_2).get::<Foo>().unwrap().0, 3);
+
+        let ready_events = ready_tracker.lock().unwrap();
+        assert_eq!(
+            *ready_events,
+            vec![grand_child_1, grand_child_2, child_id, root_id]
+        );
+    }
+
+    #[test]
+    fn range_scene_value() {
+        #[derive(Component, Default, Clone)]
+        struct X(Range<i32>);
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(bsn! { X(0..10) }).unwrap();
+        let x = entity.get::<X>().unwrap();
+        assert_eq!(x.0, 0..10);
+    }
+
+    #[test]
+    fn associated_const_ambiguity() {
+        #[derive(Component, Clone, Debug, PartialEq, Eq)]
+        enum Foo {
+            I32(i32),
+        }
+
+        impl Default for Foo {
+            fn default() -> Self {
+                Self::I32(0)
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(bsn! { Foo::I32(1) }).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
+        assert_eq!(foo, &Foo::I32(1));
+    }
+
+    #[derive(TypePath)]
+    struct FakeSceneLoader(Box<dyn Fn() -> Box<dyn Scene> + Send + Sync + 'static>);
+
+    impl FakeSceneLoader {
+        fn new<F: Fn() -> S + Send + Sync + 'static, S: Scene>(func: F) -> Self {
+            Self(Box::new(move || Box::new(func())))
+        }
+    }
+
+    impl AssetLoader for FakeSceneLoader {
+        type Asset = ScenePatch;
+        type Error = std::io::Error;
+        type Settings = ();
+
+        async fn load(
+            &self,
+            _reader: &mut dyn bevy_asset::io::Reader,
+            _settings: &Self::Settings,
+            load_context: &mut bevy_asset::LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            Ok(ScenePatch::load_with(load_context, (self.0)()))
+        }
     }
 }
