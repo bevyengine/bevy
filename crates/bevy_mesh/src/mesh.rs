@@ -1048,19 +1048,22 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
-    pub fn compress_positions(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
+    pub fn compress_positions(&mut self) -> Result<&mut Mesh, MeshAttributeCompressionError> {
         let mut attr = Mesh::ATTRIBUTE_POSITION;
         let Some(values) = self.attribute(attr) else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr.id));
+            return Err(MeshAttributeCompressionError::MissingAttribute(attr.id));
         };
         if values.is_empty() {
-            return Err(MeshVertexCompressionError::EmptyAttribute(attr));
+            return Err(MeshAttributeCompressionError::EmptyAttribute(attr));
         }
 
         let expected = VertexFormat::Snorm16x4;
         let Some(aabb) = Self::compute_aabb(values) else {
             return Err(
-                MeshVertexCompressionError::UnsupportedAttributeForCompression { attr, expected },
+                MeshAttributeCompressionError::UnsupportedAttributeForCompression {
+                    attr,
+                    expected,
+                },
             );
         };
         attr.format = expected;
@@ -1074,18 +1077,21 @@ impl Mesh {
         &mut self,
         mut attr: MeshVertexAttribute,
         on_compressed: impl Fn(&mut Mesh, Aabb2d),
-    ) -> Result<&mut Mesh, MeshVertexCompressionError> {
+    ) -> Result<&mut Mesh, MeshAttributeCompressionError> {
         let Some(values) = self.attribute(attr) else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr.id));
+            return Err(MeshAttributeCompressionError::MissingAttribute(attr.id));
         };
         if values.is_empty() {
-            return Err(MeshVertexCompressionError::EmptyAttribute(attr));
+            return Err(MeshAttributeCompressionError::EmptyAttribute(attr));
         }
 
         let expected = VertexFormat::Unorm16x2;
         let Some(uv_range) = Self::compute_uv_range(values) else {
             return Err(
-                MeshVertexCompressionError::UnsupportedAttributeForCompression { attr, expected },
+                MeshAttributeCompressionError::UnsupportedAttributeForCompression {
+                    attr,
+                    expected,
+                },
             );
         };
         attr.format = expected;
@@ -1101,7 +1107,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
-    pub fn compress_uv0(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
+    pub fn compress_uv0(&mut self) -> Result<&mut Mesh, MeshAttributeCompressionError> {
         self.compress_uvs(Mesh::ATTRIBUTE_UV_0, |mesh, uv_range| {
             mesh.final_uv_ranges[0] = Some(uv_range);
             mesh.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_UV0;
@@ -1115,7 +1121,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
-    pub fn compress_uv1(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
+    pub fn compress_uv1(&mut self) -> Result<&mut Mesh, MeshAttributeCompressionError> {
         self.compress_uvs(Mesh::ATTRIBUTE_UV_1, |mesh, uv_range| {
             mesh.final_uv_ranges[1] = Some(uv_range);
             mesh.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_UV1;
@@ -1129,16 +1135,19 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
-    pub fn compress_normals(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
+    pub fn compress_normals(&mut self) -> Result<&mut Mesh, MeshAttributeCompressionError> {
         let mut attr = Mesh::ATTRIBUTE_NORMAL;
         let Some(values) = self.attribute(attr) else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr.id));
+            return Err(MeshAttributeCompressionError::MissingAttribute(attr.id));
         };
 
         let expected = VertexFormat::Snorm16x2;
         let Some(values) = values.create_octahedral_encode_normals() else {
             return Err(
-                MeshVertexCompressionError::UnsupportedAttributeForCompression { attr, expected },
+                MeshAttributeCompressionError::UnsupportedAttributeForCompression {
+                    attr,
+                    expected,
+                },
             );
         };
         attr.format = expected;
@@ -1154,16 +1163,19 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
-    pub fn compress_tangents(&mut self) -> Result<&mut Mesh, MeshVertexCompressionError> {
+    pub fn compress_tangents(&mut self) -> Result<&mut Mesh, MeshAttributeCompressionError> {
         let mut attr = Mesh::ATTRIBUTE_TANGENT;
         let Some(values) = self.attribute(attr) else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr.id));
+            return Err(MeshAttributeCompressionError::MissingAttribute(attr.id));
         };
 
         let expected = VertexFormat::Snorm16x2;
         let Some(values) = values.create_octahedral_encode_tangents() else {
             return Err(
-                MeshVertexCompressionError::UnsupportedAttributeForCompression { attr, expected },
+                MeshAttributeCompressionError::UnsupportedAttributeForCompression {
+                    attr,
+                    expected,
+                },
             );
         };
         attr.format = expected;
@@ -1182,16 +1194,18 @@ impl Mesh {
         &mut self,
         attr_id: impl Into<MeshVertexAttributeId>,
         quantization: AttributeQuantization,
-    ) -> Result<&mut Mesh, MeshVertexCompressionError> {
+    ) -> Result<&mut Mesh, MeshAttributeCompressionError> {
         let attr_id = attr_id.into();
         let Some(MeshAttributeData { attribute, values }) =
             self.attributes.as_mut().unwrap().get_mut(&attr_id)
         else {
-            return Err(MeshVertexCompressionError::MissingAttribute(attr_id));
+            return Err(MeshAttributeCompressionError::MissingAttribute(attr_id));
         };
         let Some(quantized_values) = values.create_quantized_values(quantization) else {
             return Err(
-                MeshVertexCompressionError::UnsupportedAttributeForQuantizing { attr: *attribute },
+                MeshAttributeCompressionError::UnsupportedAttributeForQuantizing {
+                    attr: *attribute,
+                },
             );
         };
         attribute.format = (&quantized_values).into();
@@ -1204,7 +1218,7 @@ impl Mesh {
     pub fn quantize_colors(
         &mut self,
         quantization: AttributeQuantization,
-    ) -> Result<&mut Mesh, MeshVertexCompressionError> {
+    ) -> Result<&mut Mesh, MeshAttributeCompressionError> {
         self.quantize_float32_attribute(Mesh::ATTRIBUTE_COLOR, quantization)
     }
 
@@ -1213,7 +1227,7 @@ impl Mesh {
     pub fn quantize_joint_weights(
         &mut self,
         quantization: AttributeQuantization,
-    ) -> Result<&mut Mesh, MeshVertexCompressionError> {
+    ) -> Result<&mut Mesh, MeshAttributeCompressionError> {
         self.quantize_float32_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, quantization)
     }
 
@@ -3108,7 +3122,7 @@ impl MeshDeserializer {
 
 /// Error that can occur when compressing/quantizing mesh vertex attributes.
 #[derive(Error, Debug, Clone)]
-pub enum MeshVertexCompressionError {
+pub enum MeshAttributeCompressionError {
     #[error("Vertex attribute {0:?} doesn't exist")]
     MissingAttribute(MeshVertexAttributeId),
     #[error("Vertex attribute {0:?} must not be empty")]
