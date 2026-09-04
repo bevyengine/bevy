@@ -3,8 +3,8 @@ import bevy_pbr::render::pbr_lighting::{D_GGX, V_SmithGGXCorrelated, specular_mu
 import bevy_pbr::render::pbr_functions::calculate_F0_dielectric;
 import bevy_pbr::render::utils::{rand_f, sample_cosine_hemisphere};
 import bevy_render::maths::{PI, orthonormalize};
-import bevy_solari::scene::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid};
-import bevy_solari::scene::bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD, brdf_dfg_lut, brdf_dfg_lut_sampler};
+import package::scene::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid};
+import package::scene::bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD, brdf_dfg_lut, brdf_dfg_lut_sampler};
 
 enable wgpu_ray_query;
 

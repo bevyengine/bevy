@@ -23,7 +23,7 @@ use crate::{
 };
 use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
+use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr::NonNull};
 use thiserror::Error;
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
@@ -83,7 +83,7 @@ use thiserror::Error;
 /// ```
 #[derive(Copy, Clone)]
 pub struct UnsafeWorldCell<'w> {
-    ptr: *mut World,
+    ptr: NonNull<World>,
     #[cfg(debug_assertions)]
     allows_mutable_access: bool,
     _marker: PhantomData<(&'w World, &'w UnsafeCell<World>)>,
@@ -111,7 +111,7 @@ impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     pub(crate) fn new_readonly(world: &'w World) -> Self {
         Self {
-            ptr: ptr::from_ref(world).cast_mut(),
+            ptr: NonNull::from_ref(world),
             #[cfg(debug_assertions)]
             allows_mutable_access: false,
             _marker: PhantomData,
@@ -122,9 +122,59 @@ impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     pub(crate) fn new_mutable(world: &'w mut World) -> Self {
         Self {
-            ptr: ptr::from_mut(world),
+            ptr: NonNull::from_mut(world),
             #[cfg(debug_assertions)]
             allows_mutable_access: true,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Creates a pointer from [`UnsafeWorldCell`] that allows mutable access.
+    ///
+    /// This function is safe because to use a raw pointer once must dereference it in an unsafe
+    /// block
+    pub fn as_ptr_mut(self) -> *mut World {
+        #[cfg(debug_assertions)]
+        self.assert_allows_mutable_access();
+        self.ptr.as_ptr()
+    }
+
+    /// Creates a pointer from [`UnsafeWorldCell`] that does not allow mutable access.
+    ///
+    /// This function is safe because to use a raw pointer once must dereference it in an unsafe
+    /// block
+    pub fn as_ptr_ref(self) -> *const World {
+        self.ptr.as_ptr().cast_const()
+    }
+
+    /// Creates [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
+    /// everything mutably
+    /// # Safety
+    /// - `world` must be a pointer obtained from [`UnsafeWorldCell::as_ptr_mut`]
+    ///   within the lifetime of the original [`UnsafeWorldCell`] it was obtained from
+    #[inline]
+    pub unsafe fn new_mutable_from_ptr(world: *mut World) -> Self {
+        Self {
+            // SAFETY: caller ensures that the pointer came from a already valid `UnsafeWorldCell`
+            ptr: unsafe { NonNull::new(world).debug_checked_unwrap() },
+            #[cfg(debug_assertions)]
+            allows_mutable_access: true,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Creates a [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
+    /// everything immutably
+    /// # Safety
+    /// - `world` must be a pointer obtained from [`UnsafeWorldCell::as_ptr_ref`]
+    ///   within the lifetime of the original [`UnsafeWorldCell`] it was obtained from
+    #[inline]
+    pub unsafe fn new_readonly_from_ptr(world: *const World) -> Self {
+        Self {
+            // SAFETY: caller ensures that the pointer came from a already valid `UnsafeWorldCell`
+            ptr: unsafe { NonNull::new(world.cast_mut()).debug_checked_unwrap() },
+            #[cfg(debug_assertions)]
+            allows_mutable_access: false,
             _marker: PhantomData,
         }
     }
@@ -196,11 +246,11 @@ impl<'w> UnsafeWorldCell<'w> {
     /// let archetypes = world_cell.archetypes();
     /// ```
     #[inline]
-    pub unsafe fn world_mut(self) -> &'w mut World {
+    pub unsafe fn world_mut(mut self) -> &'w mut World {
         self.assert_allows_mutable_access();
         // SAFETY:
         // - caller ensures the created `&mut World` is the only borrow of world
-        unsafe { &mut *self.ptr }
+        unsafe { self.ptr.as_mut() }
     }
 
     /// Gets a reference to the [`&World`](World) this [`UnsafeWorldCell`] belongs to.
@@ -249,7 +299,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - caller ensures that the returned `&World` is not used in a way that would conflict
         //   with any existing mutable borrows of world data
-        unsafe { &*self.ptr }
+        unsafe { self.ptr.as_ref() }
     }
 
     /// Retrieves this world's unique [ID](WorldId).
@@ -698,7 +748,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - caller ensures there are no existing references
         // - caller ensures that we have permission to access the queue
-        let command_queue = unsafe { &mut *(*self.ptr).command_queue.get() };
+        let command_queue = unsafe { &mut *(*self.ptr.as_ptr()).command_queue.get() };
 
         Commands::new_from_entities(command_queue, self.entity_allocator(), self.entities())
     }
@@ -710,7 +760,8 @@ impl<'w> UnsafeWorldCell<'w> {
         self.assert_allows_mutable_access();
         // SAFETY: Caller ensure there are no outstanding references
         unsafe {
-            (*self.ptr).last_trigger_id = (*self.ptr).last_trigger_id.wrapping_add(1);
+            (*self.ptr.as_ptr()).last_trigger_id =
+                (*self.ptr.as_ptr()).last_trigger_id.wrapping_add(1);
         }
     }
 
