@@ -194,16 +194,16 @@ fn ui() -> impl Scene {
     bsn! {
         Node
         Children [
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
         ]
     }
 }

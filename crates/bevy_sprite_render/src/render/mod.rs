@@ -1,8 +1,7 @@
 use core::ops::Range;
 
-use crate::ComputedTextureSlices;
-use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Assets, Handle};
-use bevy_camera::{visibility::ViewVisibility, CompositingSpace};
+use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Handle};
+use bevy_camera::CompositingSpace;
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
@@ -17,7 +16,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{Image, TextureAtlasLayout};
+use bevy_image::Image;
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
@@ -36,7 +35,6 @@ use bevy_render::{
         *,
     },
     renderer::{RenderDevice, RenderQueue},
-    sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::{
         texture_format_from_code, texture_format_to_code, ExtractedView, Msaa, ViewUniform,
@@ -45,7 +43,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_shader::{Shader, ShaderDefVal};
-use bevy_sprite::{Anchor, Sprite, SpriteScalingMode};
+use bevy_sprite::{Sprite, SpriteScalingMode};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -364,86 +362,6 @@ pub fn extract_sprite_events(
 
     for event in image_events.read() {
         images.push(*event);
-    }
-}
-
-pub fn extract_sprites(
-    mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut extracted_slices: ResMut<ExtractedSlices>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    sprite_query: Extract<
-        Query<(
-            Entity,
-            RenderEntity,
-            &ViewVisibility,
-            &Sprite,
-            &GlobalTransform,
-            &Anchor,
-            Option<&ComputedTextureSlices>,
-        )>,
-    >,
-) {
-    extracted_sprites.sprites.clear();
-    extracted_slices.slices.clear();
-    for (main_entity, render_entity, view_visibility, sprite, transform, anchor, slices) in
-        sprite_query.iter()
-    {
-        if !view_visibility.get() {
-            continue;
-        }
-
-        if let Some(slices) = slices {
-            let start = extracted_slices.slices.len();
-            extracted_slices
-                .slices
-                .extend(slices.extract_slices(sprite, anchor.as_vec()));
-            let end = extracted_slices.slices.len();
-            extracted_sprites.sprites.push(ExtractedSprite {
-                main_entity,
-                render_entity,
-                color: sprite.color.into(),
-                transform: *transform,
-                flip_x: sprite.flip_x,
-                flip_y: sprite.flip_y,
-                image_handle_id: sprite.image.id(),
-                kind: ExtractedSpriteKind::Slices {
-                    indices: start..end,
-                },
-            });
-        } else {
-            let atlas_rect = sprite
-                .texture_atlas
-                .as_ref()
-                .and_then(|s| s.texture_rect(&texture_atlases).map(|r| r.as_rect()));
-            let rect = match (atlas_rect, sprite.rect) {
-                (None, None) => None,
-                (None, Some(sprite_rect)) => Some(sprite_rect),
-                (Some(atlas_rect), None) => Some(atlas_rect),
-                (Some(atlas_rect), Some(mut sprite_rect)) => {
-                    sprite_rect.min += atlas_rect.min;
-                    sprite_rect.max += atlas_rect.min;
-                    Some(sprite_rect)
-                }
-            };
-
-            // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-            extracted_sprites.sprites.push(ExtractedSprite {
-                main_entity,
-                render_entity,
-                color: sprite.color.into(),
-                transform: *transform,
-                flip_x: sprite.flip_x,
-                flip_y: sprite.flip_y,
-                image_handle_id: sprite.image.id(),
-                kind: ExtractedSpriteKind::Single {
-                    anchor: anchor.as_vec(),
-                    rect,
-                    scaling_mode: sprite.image_mode.scale(),
-                    // Pass the custom size
-                    custom_size: sprite.custom_size,
-                },
-            });
-        }
     }
 }
 

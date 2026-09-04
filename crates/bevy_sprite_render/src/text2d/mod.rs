@@ -49,6 +49,9 @@ pub fn extract_text2d_sprite(
         )>,
     >,
 ) {
+    extracted_sprites.sprites.clear();
+    extracted_slices.slices.clear();
+
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
 
