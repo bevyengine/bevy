@@ -3283,7 +3283,7 @@ mod tests {
     }
 
     #[test]
-    fn ghost_nodes_ui_transform_translates_child() {
+    fn changing_ghost_nodes_ui_transform_translates_child() {
         let mut app = setup_ui_test_app();
 
         let world = app.world_mut();
@@ -3312,6 +3312,60 @@ mod tests {
 
         world.get_mut::<UiTransform>(ghost).unwrap().translation =
             Val2::px(translation.x, translation.y);
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(
+            world.get::<UiGlobalTransform>(child).unwrap().translation,
+            translation
+        );
+        assert_eq!(
+            world.get::<UiGlobalTransform>(ghost).unwrap().translation,
+            translation
+        );
+        assert_eq!(
+            world.get::<UiGlobalTransform>(root).unwrap().translation,
+            Vec2::ZERO
+        );
+    }
+
+    #[test]
+    fn ghost_nodes_global_transform_persists_update() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+
+        let translation = Vec2::new(5., 10.);
+
+        let child = world.spawn(Node::default()).id();
+        let ghost = world
+            .spawn((
+                GhostNode,
+                UiTransform::from_translation(Val2::px(translation.x, translation.y)),
+            ))
+            .add_child(child)
+            .id();
+        let root = world.spawn(Node::default()).add_child(ghost).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(
+            world.get::<UiGlobalTransform>(child).unwrap().translation,
+            translation
+        );
+        assert_eq!(
+            world.get::<UiGlobalTransform>(ghost).unwrap().translation,
+            translation
+        );
+        assert_eq!(
+            world.get::<UiGlobalTransform>(root).unwrap().translation,
+            Vec2::ZERO
+        );
+
+        // Spawn another node to trigger a tree update
+        world.spawn(Node::default());
 
         app.update();
         let world = app.world_mut();
