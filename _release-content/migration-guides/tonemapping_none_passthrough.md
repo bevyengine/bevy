@@ -18,8 +18,8 @@ commands.spawn((Camera3d::default(), Tonemapping::None));
 commands.spawn((Camera3d::default(), Tonemapping::Linear));
 ```
 
-`Camera2d` defaults to `Tonemapping::None`, so a `Camera2d` with `DebandDither::Enabled` or
-`ColorGrading` now renders without them. Add `Tonemapping::Linear` to keep the 0.19 result.
+`Camera2d` now defaults to `Tonemapping::Linear`. No change is needed for 2D cameras. A
+`Camera2d` with `Hdr` now runs the tonemapping pass.
 
 Bevy logs a warning for a camera that combines `Tonemapping::None` with `DebandDither::Enabled`
 or a non-default `ColorGrading`.
