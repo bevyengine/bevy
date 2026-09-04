@@ -789,7 +789,7 @@ impl<'w> DeferredWorld<'w> {
     #[track_caller]
     pub fn trigger<E: Event>(&mut self, event: E)
     where
-        for<'a> EventTriggerState<'a, E>: Default,
+        EventTriggerState<'static, E>: Default,
     {
         self.commands().trigger(event);
     }

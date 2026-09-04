@@ -2355,7 +2355,7 @@ impl<'w> EntityWorldMut<'w> {
     #[track_caller]
     pub fn trigger<E: EntityEvent>(&mut self, event_fn: impl FnOnce(Entity) -> E) -> &mut Self
     where
-        for<'t> EventTriggerState<'t, E>: Default,
+        EventTriggerState<'static, E>: Default,
     {
         let mut event = (event_fn)(self.entity);
         let caller = MaybeLocation::caller();

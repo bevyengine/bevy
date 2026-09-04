@@ -283,7 +283,7 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command {
 #[track_caller]
 pub fn trigger<E: Event>(mut event: E) -> impl Command
 where
-    for<'a> EventTriggerState<'a, E>: Default,
+    EventTriggerState<'static, E>: Default,
 {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
@@ -301,7 +301,7 @@ pub fn trigger_with<E: Event>(
     mut trigger: EventTriggerState<'static, E>,
 ) -> impl Command
 where
-    for<'a> EventTriggerState<'a, E>: Send + Sync,
+    EventTriggerState<'static, E>: Send + Sync,
 {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {

@@ -1096,7 +1096,7 @@ impl<'w, 's> Commands<'w, 's> {
     #[track_caller]
     pub fn trigger<E: Event>(&mut self, event: E)
     where
-        for<'a> EventTriggerState<'a, E>: Default,
+        EventTriggerState<'static, E>: Default,
     {
         self.queue(command::trigger(event));
     }
@@ -1108,7 +1108,7 @@ impl<'w, 's> Commands<'w, 's> {
     #[track_caller]
     pub fn trigger_with<E: Event>(&mut self, event: E, trigger: EventTriggerState<'static, E>)
     where
-        for<'a> EventTriggerState<'a, E>: Send + Sync,
+        EventTriggerState<'static, E>: Send + Sync,
     {
         self.queue(command::trigger_with(event, trigger));
     }
@@ -2287,7 +2287,7 @@ impl<'a> EntityCommands<'a> {
     #[track_caller]
     pub fn trigger<E: EntityEvent>(&mut self, event_fn: impl FnOnce(Entity) -> E) -> &mut Self
     where
-        for<'t> EventTriggerState<'t, E>: Default,
+        EventTriggerState<'static, E>: Default,
     {
         let event = (event_fn)(self.entity);
         self.commands.trigger(event);

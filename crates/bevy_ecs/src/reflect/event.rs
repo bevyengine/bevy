@@ -58,7 +58,7 @@ impl ReflectEventFns {
     /// before overriding some of the functions to create a custom implementation.
     pub fn new<E: Event + FromReflect + TypePath>() -> Self
     where
-        for<'a> EventTriggerState<'a, E>: Default,
+        EventTriggerState<'static, E>: Default,
     {
         <ReflectEvent as CreateTypeData<E>>::create_type_data(()).0
     }
@@ -124,7 +124,7 @@ impl ReflectEvent {
 
 impl<E: Event + Reflect + TypePath> CreateTypeData<E> for ReflectEvent
 where
-    for<'a> EventTriggerState<'a, E>: Default,
+    EventTriggerState<'static, E>: Default,
 {
     fn create_type_data(_input: ()) -> Self {
         ReflectEvent(ReflectEventFns {
