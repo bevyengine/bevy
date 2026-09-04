@@ -270,11 +270,11 @@ fn update_wheel_color(
 
         if let Ok(material_node) = q_material_node.get(*inner_ent) {
             // Node component exists, update it
-            if let Some(mut material) = r_materials.get_mut(material_node.id()) {
-                if material.hue != wheel_value.hue || material.scale != scale {
-                    material.hue = wheel_value.hue;
-                    material.scale = scale;
-                }
+            if let Some(mut material) = r_materials.get_mut(material_node.id())
+                && (material.hue != wheel_value.hue || material.scale != scale)
+            {
+                material.hue = wheel_value.hue;
+                material.scale = scale;
             }
         } else {
             // Insert new node component
