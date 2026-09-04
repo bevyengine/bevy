@@ -14,6 +14,7 @@ proc-macro = true
 [dependencies]
 bevy_macro_utils = { path = "../bevy_macro_utils", version = "0.20.0-dev" }
 encase_derive_impl = "0.12"
+quote = "1.0"
 
 [lints]
 workspace = true
