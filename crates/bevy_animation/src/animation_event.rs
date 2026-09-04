@@ -24,12 +24,7 @@ pub struct AnimationEventTrigger {
     pub target: Entity,
 }
 
-#[expect(
-    unsafe_code,
-    reason = "We must implement this trait to define a custom Trigger, which is required to be unsafe due to safety considerations within bevy_ecs."
-)]
-// SAFETY: `AnimationEventTrigger` has no lifetimes.
-unsafe impl<E: AnimationEvent + Event<Trigger = AnimationEventTrigger>> Trigger<E>
+impl<E: AnimationEvent + Event<Trigger = AnimationEventTrigger>> Trigger<E>
     for AnimationEventTrigger
 {
     type State<'input> = AnimationEventTrigger;
@@ -41,6 +36,10 @@ unsafe impl<E: AnimationEvent + Event<Trigger = AnimationEventTrigger>> Trigger<
         }
     }
 
+    #[expect(
+        unsafe_code,
+        reason = "We must implement this function to define a custom Trigger, which is required to be unsafe due to safety considerations within bevy_ecs."
+    )]
     unsafe fn trigger(
         state: &mut Self::State<'_>,
         world: DeferredWorld,

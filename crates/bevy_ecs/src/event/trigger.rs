@@ -22,13 +22,7 @@ use core::{fmt, marker::PhantomData};
 /// - [`EntityTrigger`]: The [`EntityEvent`] derive defaults to using this
 /// - [`PropagateEntityTrigger`]: The [`EntityEvent`] derive uses this when propagation is enabled.
 /// - [`EntityComponentsTrigger`]: Used by Bevy's [component lifecycle events](crate::lifecycle).
-///
-/// # Safety
-///
-/// For any `'long: 'short`, `State<'long>` must have the same layout as
-/// `State<'short>` and must be valid to reinterpret as `State<'short>` for
-/// the duration of the shorter borrow.
-pub unsafe trait Trigger<E: Event<Trigger = Self>>: Sized + 'static {
+pub trait Trigger<E: Event<Trigger = Self>>: Sized + 'static {
     /// The type that gets passed to [`World::trigger`] and [`Commands::trigger`]
     /// that holds the state for an observer trigger.
     ///
@@ -78,8 +72,7 @@ pub type EventTriggerView<'a, E> = <<E as Event>::Trigger as Trigger<E>>::View<'
 #[derive(Default, Debug)]
 pub struct GlobalTrigger;
 
-// SAFETY: `GlobalTrigger` has no lifetimes.
-unsafe impl<E: Event<Trigger = Self>> Trigger<E> for GlobalTrigger {
+impl<E: Event<Trigger = Self>> Trigger<E> for GlobalTrigger {
     type State<'input> = GlobalTrigger;
     type View<'input> = GlobalTrigger;
 
@@ -153,8 +146,7 @@ impl GlobalTrigger {
 #[derive(Default, Debug)]
 pub struct EntityTrigger;
 
-// SAFETY: `EntityTrigger` has no lifetimes.
-unsafe impl<E: EntityEvent<Trigger = Self>> Trigger<E> for EntityTrigger {
+impl<E: EntityEvent<Trigger = Self>> Trigger<E> for EntityTrigger {
     type State<'input> = EntityTrigger;
     type View<'input> = EntityTrigger;
 
@@ -271,20 +263,6 @@ where
     _marker: PhantomData<(E, T)>,
 }
 
-/// Mutable view of a [`PropagateEntityTrigger`] for the current observer trigger.
-pub struct PropagateEntityTriggerItem<'input, const AUTO_PROPAGATE: bool, E, T>
-where
-    E: EntityEvent,
-    T: Traversal<E>,
-{
-    /// The original [`Entity`] the [`Event`] was _first_ triggered for.
-    pub original_event_target: Entity,
-    /// Whether or not to continue propagating using the `T` [`Traversal`]. If this is false,
-    /// The [`Traversal`] will stop on the current entity.
-    pub propagate: &'input mut bool,
-    _marker: PhantomData<(E, T)>,
-}
-
 impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Default
     for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
 {
@@ -309,22 +287,16 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> fmt::Debug
     }
 }
 
-// SAFETY: `PropagateEntityTrigger` has no lifetimes.
-unsafe impl<const AUTO_PROPAGATE: bool, E, T> Trigger<E>
-    for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
+impl<const AUTO_PROPAGATE: bool, E, T> Trigger<E> for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
 where
     E: EntityEvent<Trigger = Self> + SetEntityEventTarget,
     T: Traversal<E>,
 {
     type State<'input> = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>;
-    type View<'input> = PropagateEntityTriggerItem<'input, AUTO_PROPAGATE, E, T>;
+    type View<'input> = &'input mut PropagateEntityTrigger<AUTO_PROPAGATE, E, T>;
 
     fn reborrow<'input>(state: &'input mut Self::State<'_>) -> Self::View<'input> {
-        PropagateEntityTriggerItem {
-            original_event_target: state.original_event_target,
-            propagate: &mut state.propagate,
-            _marker: PhantomData,
-        }
+        state
     }
 
     unsafe fn trigger(
@@ -476,8 +448,7 @@ pub struct EntityComponentsTrigger<'a> {
     pub new_archetype: Option<&'a Archetype>,
 }
 
-// SAFETY: `EntityComponentsTrigger<'a>` is covariant over `'a`.
-unsafe impl<E: EntityEvent<Trigger = Self>> Trigger<E> for EntityComponentsTrigger<'static> {
+impl<E: EntityEvent<Trigger = Self>> Trigger<E> for EntityComponentsTrigger<'static> {
     type State<'input> = EntityComponentsTrigger<'input>;
     type View<'input> = EntityComponentsTrigger<'input>;
 

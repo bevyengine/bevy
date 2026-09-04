@@ -22,16 +22,10 @@ use core::{
 /// includes control over event propagation.
 ///
 /// [system parameter]: crate::system::SystemParam
-// SAFETY WARNING!
-// this type must _never_ expose anything with the 'i lifetime
-// See the safety discussion on `Trigger` for more details.
 pub struct On<'i, E: EventPattern> {
     observer: Entity,
-    // SAFETY WARNING: never expose this 'i lifetime
     event: &'i mut E::Event,
-    // SAFETY WARNING: never expose this 'i lifetime
     trigger: EventTriggerView<'i, E::Event>,
-    // SAFETY WARNING: never expose this 'i lifetime
     trigger_context: &'i TriggerContext,
 }
 
@@ -141,14 +135,14 @@ where
     ///
     /// [`Traversal`]: crate::traversal::Traversal
     pub fn propagate(&mut self, should_propagate: bool) {
-        *self.trigger.propagate = should_propagate;
+        self.trigger.propagate = should_propagate;
     }
 
     /// Returns the value of the flag that controls event propagation. See [`propagate`] for more information.
     ///
     /// [`propagate`]: On::propagate
     pub fn get_propagate(&self) -> bool {
-        *self.trigger.propagate
+        self.trigger.propagate
     }
 }
 
@@ -156,7 +150,7 @@ impl<'i, E> Debug for On<'i, E>
 where
     E: EventPattern,
     E::Event: Event + Debug,
-    for<'a> EventTriggerView<'a, E::Event>: Debug,
+    EventTriggerView<'i, E::Event>: Debug,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("On")

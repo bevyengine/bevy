@@ -68,9 +68,8 @@ pub(super) unsafe fn observer_system_runner<E: EventPattern, S: ObserverSystem<E
     }
 
     // SAFETY: Caller ensures `trigger_ptr` is castable to `&mut E::Event::Trigger::State<'_>`.
-    // `Trigger`'s safety contract ensures that `Trigger::State<'long>` can be
-    // safely reborrowed as `Trigger::State<'short>` for any `'long: 'short`.
-    // Then, `Trigger::reborrow` ensures that the observer only receives the shorter lifetime.
+    // Because the `PtrMut` might contain arbitrary lifetimes, we must use `Trigger::reborrow`
+    // to ensure that the observer only witnesses the shortest lifetime of the trigger state.
     let trigger: &mut EventTriggerState<'_, E::Event> = unsafe { trigger_ptr.deref_mut() };
 
     let on: On<E> = On::new(

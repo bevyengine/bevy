@@ -62,7 +62,7 @@ impl World {
     #[track_caller]
     pub fn trigger<E: Event>(&mut self, mut event: E)
     where
-        for<'a> EventTriggerState<'a, E>: Default,
+        EventTriggerState<'static, E>: Default,
     {
         self.trigger_ref_with_caller(
             &mut event,
@@ -86,7 +86,7 @@ impl World {
     #[track_caller]
     pub fn trigger_ref<E: Event>(&mut self, event: &mut E)
     where
-        for<'a> EventTriggerState<'a, E>: Default,
+        EventTriggerState<'static, E>: Default,
     {
         self.trigger_ref_with_caller(
             event,
