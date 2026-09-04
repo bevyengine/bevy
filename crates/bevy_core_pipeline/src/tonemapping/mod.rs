@@ -2,10 +2,12 @@ use bevy_app::prelude::*;
 use bevy_asset::{
     embedded_asset, load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages,
 };
+use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_log::error;
+use bevy_log::warn;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -16,7 +18,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, ViewTarget, ViewUniform},
+    view::{ColorGrading, ExtractedView, ViewTarget, ViewUniform},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
@@ -88,6 +90,8 @@ impl Plugin for TonemappingPlugin {
             ExtractComponentPlugin::<DebandDither>::default(),
         ));
 
+        app.add_systems(PostUpdate, check_tonemapping_none);
+
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -98,6 +102,46 @@ impl Plugin for TonemappingPlugin {
                 Render,
                 prepare_view_tonemapping_pipelines.in_set(RenderSystems::Prepare),
             );
+    }
+}
+
+/// Warns when a camera has [`Tonemapping::None`] together with
+/// [`DebandDither::Enabled`] or a non-default [`ColorGrading`], since neither
+/// has any effect without tonemapping.
+pub fn check_tonemapping_none(
+    cameras: Query<
+        (
+            NameOrEntity,
+            &Tonemapping,
+            Option<&DebandDither>,
+            Option<&ColorGrading>,
+        ),
+        (
+            With<Camera>,
+            Or<(
+                Changed<Tonemapping>,
+                Changed<DebandDither>,
+                Changed<ColorGrading>,
+            )>,
+        ),
+    >,
+) {
+    for (camera, tonemapping, dither, color_grading) in &cameras {
+        if tonemapping.is_enabled() {
+            continue;
+        }
+        if dither == Some(&DebandDither::Enabled) {
+            warn!(
+                "Camera {camera} has `Tonemapping::None` with `DebandDither::Enabled`, so dithering has no effect. \
+                Use `Tonemapping::Linear` to keep dithering, or set `DebandDither::Disabled`."
+            );
+        }
+        if color_grading.is_some_and(|grading| *grading != ColorGrading::default()) {
+            warn!(
+                "Camera {camera} has `Tonemapping::None` with a non-default `ColorGrading`, so color grading has no effect. \
+                Use `Tonemapping::Linear` to keep color grading, or set `ColorGrading::default()`."
+            );
+        }
     }
 }
 
