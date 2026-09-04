@@ -446,6 +446,8 @@ fn update_uinode_geometry_recursive(
         maybe_children,
     )) = computed_nodes_query.get_mut(entity)
     {
+        // We skip any non-root `FixedNode`s, otherwise they would get updated twice.
+        // Unless they are `GhostNode`s since `GhostNode` overrides `FixedNode`.
         if is_fixed_node && !is_ghost_node && root != entity {
             return;
         }
