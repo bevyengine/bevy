@@ -104,7 +104,7 @@ fn parse_dlss_quality(value: &str) -> Result<DlssPerfQualityMode, String> {
 /// Where the converted glTF binaries are published. The `https` asset source fetches
 /// them from here, and `web_asset_cache` keeps them in `.web-asset-cache` afterwards.
 const BASE_URL: &str =
-    "https://github.com/pavlov-net/bevy-examples/releases/download/zero-day-assets-v1";
+    "https://github.com/bevyengine/bevy_asset_files/releases/download/zero-day-assets-v1";
 
 /// The scene to load. Only the asset filename differs between measures.
 // Keep the shared `Measure` prefix, which matches the Zero-Day asset names.

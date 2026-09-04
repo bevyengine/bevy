@@ -7,7 +7,7 @@ lights. The example plays the film's animation and follows the film camera.
 ## Getting the scene
 
 The example downloads the scene itself through Bevy's `https` asset source, from the
-[`zero-day-assets-v1` release](https://github.com/pavlov-net/bevy-examples/releases/tag/zero-day-assets-v1).
+[`zero-day-assets-v1` release](https://github.com/bevyengine/bevy_asset_files/releases/tag/zero-day-assets-v1).
 Nothing to do up front, but the first run fetches roughly 500 MB and the window stays
 black until that finishes. The `web_asset_cache` feature keeps the download in
 `.web-asset-cache` at the repository root, so later runs load from disk.
