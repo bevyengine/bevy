@@ -13,8 +13,10 @@ const MIN_DIAMETER: f32 = MIN_HEIGHT - 2.0 * PADDING;
 struct ColorPlaneUniform {
   // Hue in degrees, in the range [0, 360).
   hue : f32,
+  // Scale (physical pixels / logical pixels)
+  scale: f32,
 @if(SIXTEEN_BYTE_ALIGNMENT)
-  _webgl2_padding_12b : vec3<f32>,
+  _webgl2_padding_8b : vec2<f32>,
 }
 
 @group(1) @binding(0) var<uniform> uniform_data : ColorPlaneUniform;
@@ -31,19 +33,20 @@ fn line_distance(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
 
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
-    let min_side = max(min(in.size.x, in.size.y), MIN_DIAMETER);
+    let scale = uniform_data.scale;
+    let min_side = max(min(in.size.x, in.size.y), MIN_DIAMETER * scale);
     let diameters = min_side / in.size;
     // UV space is from -0.5 to 0.5
     let centered = (in.uv - vec2(0.5)) / diameters;
     let radial = length(centered);
     let aa = fwidth(radial);
 
-    let inner_radius = 0.5 - RING_WIDTH / min_side;
+    let inner_radius = 0.5 - RING_WIDTH * scale / min_side;
     let ring_hue = fract(atan2(centered.y, centered.x) / PI_2);
     let ring_alpha = smoothstep(inner_radius - aa, inner_radius, radial)
         - smoothstep(0.5 - aa, 0.5, radial);
 
-    let triangle_radius = 0.5 - (RING_WIDTH + 2.0 * SPACING) / min_side;
+    let triangle_radius = 0.5 - (RING_WIDTH + 2.0 * SPACING) * scale / min_side;
     let triangle_hue = fract(uniform_data.hue / 360.0);
     let hue_angle = radians(uniform_data.hue);
     let white_angle = hue_angle + PI_2 / 3.0;

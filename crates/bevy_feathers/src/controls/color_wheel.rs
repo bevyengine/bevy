@@ -151,9 +151,12 @@ struct ColorWheelMaterial {
     #[uniform(0)]
     hue: f32,
 
+    #[uniform(0)]
+    scale: f32,
+
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     #[uniform(0)]
-    _webgl2_padding_12b: bevy_math::Vec3,
+    _webgl2_padding_8b: bevy_math::Vec2,
 }
 
 impl UiMaterial for ColorWheelMaterial {
@@ -243,6 +246,7 @@ fn triangle_corners(hue_angle: f32, triangle_radius: f32) -> (Vec2, Vec2, Vec2) 
 fn update_wheel_color(
     q_color_wheel: Query<(Entity, Ref<FeathersColorWheel>, Ref<ColorWheelValue>)>,
     q_children: Query<&Children>,
+    q_info: Query<Ref<ComputedUiRenderTargetInfo>>,
     q_material_node: Query<&MaterialNode<ColorWheelMaterial>>,
     q_computed_node: Query<Ref<ComputedNode>>,
     mut q_node: Query<&mut Node>,
@@ -258,22 +262,32 @@ fn update_wheel_color(
             continue;
         };
 
-        let value_changed = wheel.is_changed() || wheel_value.is_changed();
+        // Scale computed for current frame in UiSystems::Propagate
+        let Ok(inner_info) = q_info.get(*inner_ent) else {
+            continue;
+        };
+        let scale = inner_info.scale_factor();
 
         if let Ok(material_node) = q_material_node.get(*inner_ent) {
             // Node component exists, update it
-            if value_changed && let Some(mut material) = r_materials.get_mut(material_node.id()) {
-                material.hue = wheel_value.hue;
+            if let Some(mut material) = r_materials.get_mut(material_node.id()) {
+                if material.hue != wheel_value.hue || material.scale != scale {
+                    material.hue = wheel_value.hue;
+                    material.scale = scale;
+                }
             }
         } else {
             // Insert new node component
             let material = r_materials.add(ColorWheelMaterial {
                 hue: wheel_value.hue,
+                scale,
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                _webgl2_padding_12b: Default::default(),
+                _webgl2_padding_8b: Default::default(),
             });
             commands.entity(*inner_ent).insert(MaterialNode(material));
         }
+
+        let value_changed = wheel.is_changed() || wheel_value.is_changed();
 
         // The thumb positions depend on the inner node's layout size, so they also must be
         // refreshed when the node is resized, not just when the value changes.
@@ -296,23 +310,24 @@ fn update_wheel_color(
             continue;
         };
 
+        // Get size in logical pixels to account for screen scaling.
+        let size = inner_node.size() * inner_node.inverse_scale_factor();
+
         // Ensure square aspect ratio.
-        let min_side = inner_node.size().min_element();
+        let min_side = size.min_element();
         if min_side <= 0.0 {
             continue;
         }
         let min_side = min_side.max(MIN_DIAMETER);
-        let scale = inner_node.inverse_scale_factor();
-        let center = inner_node.size() * scale * 0.5;
+        let center = size * 0.5;
 
         // Position the triangle thumb relative to the corners.
         let hue_angle = wheel_value.hue.to_radians();
         let triangle_radius = min_side * 0.5 - (RING_WIDTH + 2.0 * SPACING);
         let (hue_point, white_point, black_point) = triangle_corners(hue_angle, triangle_radius);
-        let offset = (hue_point
+        let offset = hue_point
             + (white_point - hue_point) * wheel_value.whiteness
-            + (black_point - hue_point) * wheel_value.blackness)
-            * scale;
+            + (black_point - hue_point) * wheel_value.blackness;
         let left = px(center.x + offset.x);
         let top = px(center.y + offset.y);
         if thumb_node.left != left || thumb_node.top != top {
@@ -330,8 +345,7 @@ fn update_wheel_color(
         };
 
         // Position ring thumb centered in the ring width and at the hue value.
-        let ring_offset =
-            Vec2::from_angle(wheel_value.hue.to_radians()) * (min_side - RING_WIDTH) * 0.5 * scale;
+        let ring_offset = Vec2::from_angle(hue_angle) * (min_side - RING_WIDTH) * 0.5;
         let ring_left = px(center.x + ring_offset.x);
         let ring_top = px(center.y + ring_offset.y);
         if ring_thumb_node.left != ring_left || ring_thumb_node.top != ring_top {
@@ -356,9 +370,11 @@ fn get_segment_value(
     drag_segment: Option<ColorWheelSegment>,
 ) -> Option<(ColorWheelSegment, ColorWheelValue)> {
     let inverse_transform = transform.try_inverse()?;
+    let inverse_scale = node.inverse_scale_factor();
     let local = inverse_transform
-        .transform_point2(pointer_position * node_target.scale_factor() / ui_scale);
-    let min_side = node.size().min_element();
+        .transform_point2(pointer_position * node_target.scale_factor() / ui_scale)
+        * inverse_scale;
+    let min_side = node.size().min_element() * inverse_scale;
     if min_side <= 0.0 {
         return None;
     }
@@ -604,8 +620,13 @@ pub struct ColorWheelPlugin;
 impl Plugin for ColorWheelPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins(UiMaterialPlugin::<ColorWheelMaterial>::default());
-        // Ensure thumbs stay inside ring/triangle on next frame when layout changes
-        app.add_systems(PostUpdate, update_wheel_color.before(UiSystems::Layout));
+        // Ensure thumbs stay inside ring/triangle on next frame when scale and/or layout change
+        app.add_systems(
+            PostUpdate,
+            update_wheel_color
+                .after(UiSystems::Propagate)
+                .before(UiSystems::Layout)
+        );
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)
             .add_observer(on_drag)
