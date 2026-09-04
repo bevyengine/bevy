@@ -614,7 +614,14 @@ impl ToExtents for UVec3 {
 /// ## Remote Inspection
 ///
 /// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use
-/// `SerializedImage`, which requires the `serialize` feature.
+#[cfg_attr(
+    feature = "serialize",
+    doc = "[`SerializedImage`](crate::SerializedImage)."
+)]
+#[cfg_attr(
+    not(feature = "serialize"),
+    doc = "`SerializedImage`, which requires the `serialize` feature."
+)]
 /// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
 #[derive(Asset, Debug, Clone, PartialEq)]
 #[cfg_attr(
