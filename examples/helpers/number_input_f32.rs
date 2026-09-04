@@ -33,15 +33,14 @@ where
                 align_items: AlignItems::Center,
                 column_gap: px(5),
             }
-            Children [
+            #{
                 Node {
                     align_items: AlignItems::Center,
                     width: px(150),
                 }
-                Children [
-                    @label(name)
-                ],
-
+                # @label(name)
+            }
+            #{
                 identifier
                 @FeathersNumberInput
                 NumberInputValue::F32(value)
@@ -52,7 +51,7 @@ where
                     flex_grow: 1.0,
                     min_width: px(50),
                 }
-            ]
+            }
         })
     } else {
         Box::new(bsn! {
@@ -60,15 +59,14 @@ where
                 align_items: AlignItems::Center,
                 column_gap: px(5),
             }
-            Children [
+            #{
                 Node {
                     align_items: AlignItems::Center,
                     width: px(150),
                 }
-                Children [
-                    @label(name)
-                ],
-
+                # @label(name)
+            }
+            #{
                 @FeathersNumberInput
                 NumberInputValue::F32(value)
                 precision
@@ -78,7 +76,7 @@ where
                     flex_grow: 1.0,
                     min_width: px(50),
                 }
-            ]
+            }
         })
     }
 }

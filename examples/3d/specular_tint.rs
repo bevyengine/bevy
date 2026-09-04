@@ -181,16 +181,14 @@ fn shift_hue(
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
         @main_ui_node_scene()
-        Children [
-            @feathers_option_buttons(
-                "Toggle specular tint",
-                &[
-                    (TintType::Solid, "SOLID"),
-                    (TintType::Map,   "MAP"),
-                ],
-                0,
-            )
-        ]
+        # @feathers_option_buttons(
+            "Toggle specular tint",
+            &[
+                (TintType::Solid, "SOLID"),
+                (TintType::Map,   "MAP"),
+            ],
+            0,
+        )
     });
 }
 

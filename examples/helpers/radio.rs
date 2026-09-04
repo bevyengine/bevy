@@ -65,10 +65,8 @@ where
             column_gap: px(5),
         }
         RadioGroup
-        Children [
-            @label(title),
-            {buttons}
-        ]
+        # @label(title)
+        #{{ buttons }}
     }
 }
 

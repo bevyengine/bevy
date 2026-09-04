@@ -157,16 +157,14 @@ fn spawn_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
         @main_ui_node_scene()
-        Children [
-            @feathers_option_buttons(
-                "Parallax Correction",
-                &[
-                    (PccmEnableStatus::Enabled, "On"),
-                    (PccmEnableStatus::Disabled, "Off"),
-                ],
-                0,
-            )
-        ]
+        # @feathers_option_buttons(
+            "Parallax Correction",
+            &[
+                (PccmEnableStatus::Enabled, "On"),
+                (PccmEnableStatus::Disabled, "Off"),
+            ],
+            0,
+        )
     });
 }
 

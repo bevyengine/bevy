@@ -203,116 +203,86 @@ fn panels(palette: &[Color; 4]) -> impl Scene {
         Node {
             width: percent(100)
         }
-        Children [
-            #LeftPanel
+        #LeftPanel {
             Node {
                 width: percent(50),
                 height: px(520),
                 justify_content: JustifyContent::Center,
             }
-            Children [
+            #{
                 Node {
                     padding: UiRect::all(px(10)),
                 }
                 BackgroundColor(Color::WHITE)
-                Children [
+                #{
                     Node
                     BackgroundColor(Color::BLACK)
-                    Children [
-                        #LeftGrandParent
+                    #LeftGrandParent {
                         @left_panel_node_base(500, 0)
                         Outline {
                             width: px(4),
                             color: DARK_CYAN,
                             offset: px(10),
                         }
-                        Children [
-                            Node {
-                                width: px(100),
-                                height: px(500),
-                            },
-
-                            #LeftParent
+                        #{ Node { width: px(100), height: px(500) } }
+                        #LeftParent {
                             @left_panel_node_base(400, 1)
-                            Children [
-                                Node {
-                                    width: px(100),
-                                    height: px(400),
-                                },
-
-                                #LeftChild
+                            #{ Node { width: px(100), height: px(400) } }
+                            #LeftChild {
                                 @left_panel_node_base(300, 2)
-                                Children [
-                                    Node {
-                                        width: px(100),
-                                        height: px(300),
-                                    },
-
-                                    #LeftGrandChild
+                                #{ Node { width: px(100), height: px(300) } }
+                                #LeftGrandChild {
                                     Node {
                                         width: px(200),
                                         height: px(200),
 
                                     }
                                     BackgroundColor(palette[3])
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
-            ],
-
-            #RightPanel
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        #RightPanel {
             Node {
                 width: percent(50),
                 justify_content: JustifyContent::Center,
             }
-            Children [
+            #{
                 Node {
                     padding: UiRect::all(px(10)),
                 }
                 BackgroundColor(Color::WHITE)
-                Children [
-                    #RightGrandParent
+                #RightGrandParent {
                     @right_panel_node_base(500, 0)
                     Outline {
                         width: px(4),
                         color: DARK_CYAN,
                         offset: px(10),
                     }
-                    Children [
-                        @feathers_select_display(#LeftGrandParent),
-                        @feathers_select_visibility(#LeftGrandParent),
-
-                        #RightParent
+                    # @feathers_select_display(#LeftGrandParent)
+                    # @feathers_select_visibility(#LeftGrandParent)
+                    #RightParent {
                         @right_panel_node_base(400, 1)
-                        Children [
-                            @feathers_select_display(#LeftParent),
-                            @feathers_select_visibility(#LeftParent),
-
-                            #RightChild
+                        # @feathers_select_display(#LeftParent)
+                        # @feathers_select_visibility(#LeftParent)
+                        #RightChild {
                             @right_panel_node_base(300, 2)
-                            Children [
-                                @feathers_select_display(#LeftChild),
-                                @feathers_select_visibility(#LeftChild),
-
-                                #RightGrandChild
+                            # @feathers_select_display(#LeftChild)
+                            # @feathers_select_visibility(#LeftChild)
+                            #RightGrandChild {
                                 @right_panel_node_base(200, 3)
-                                Children [
-                                    @feathers_select_display(#LeftGrandChild),
-                                    @feathers_select_visibility(#LeftGrandChild),
-
-                                    Node {
-                                        width: px(100),
-                                        height: px(100),
-                                    }
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
-            ],
-        ]
+                                # @feathers_select_display(#LeftGrandChild)
+                                # @feathers_select_visibility(#LeftGrandChild)
+                                #{ Node { width: px(100), height: px(100) } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -324,8 +294,14 @@ fn feathers_select_display(target: EntityTemplate) -> impl Scene {
         @FeathersSelect {
             @options: {
                 bsn_list! {
-                    @FeathersListRow Selected OptionIndex(0) NodeDisplaySetting::Flex Children[@caption(format!("Display::{:?}", Display::Flex))],
-                    @FeathersListRow OptionIndex(1) NodeDisplaySetting::None Children[@caption(format!("Display::{:?}", Display::None))],
+                    #{
+                        @FeathersListRow Selected OptionIndex(0) NodeDisplaySetting::Flex
+                        # @caption(format!("Display::{:?}", Display::Flex))
+                    }
+                    #{
+                        @FeathersListRow OptionIndex(1) NodeDisplaySetting::None
+                        # @caption(format!("Display::{:?}", Display::None))
+                    }
                 }
             }
         }
@@ -340,9 +316,19 @@ fn feathers_select_visibility(target: EntityTemplate) -> impl Scene {
         @FeathersSelect {
             @options: {
                 bsn_list! {
-                    @FeathersListRow Selected OptionIndex(0) NodeVisibilitySetting::Inherited Children[@caption(format!("Visibility::{:?}", Visibility::Inherited))],
-                    @FeathersListRow OptionIndex(1) NodeVisibilitySetting::Visible Children[@caption(format!("Visibility::{:?}", Visibility::Visible))],
-                    @FeathersListRow OptionIndex(2) NodeVisibilitySetting::Hidden Children[@caption(format!("Visibility::{:?}", Visibility::Hidden))],
+                    #{
+                        @FeathersListRow Selected OptionIndex(0) NodeVisibilitySetting::Inherited
+                        # @caption(format!("Visibility::{:?}", Visibility::Inherited))
+                    }
+                    #{
+                        @FeathersListRow OptionIndex(1) NodeVisibilitySetting::Visible
+                        # @caption(format!("Visibility::{:?}", Visibility::Visible))
+                    }
+                    #{
+
+                        @FeathersListRow OptionIndex(2) NodeVisibilitySetting::Hidden
+                        # @caption(format!("Visibility::{:?}", Visibility::Hidden))
+                    }
                 }
             }
         }

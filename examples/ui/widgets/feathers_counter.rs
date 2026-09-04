@@ -40,7 +40,10 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, @demo_root()]
+    bsn_list![
+        #{ Camera2d }
+        # @demo_root()
+    ]
 }
 
 fn demo_root() -> impl Scene {
@@ -52,34 +55,33 @@ fn demo_root() -> impl Scene {
             justify_content: JustifyContent::Center,
         }
         ThemeBackgroundColor(tokens::WINDOW_BG)
-        Children[(
+        #{
             Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
             }
-            Children [
-                (
-                    @FeathersButton
-                    on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
-                        counter.0 -= 1;
-                    })
-                    Children [ @caption("-1") ]
-                ),
-                (
-                    Node {
-                        margin: UiRect::horizontal(px(10.0)),
-                    }
-                    @caption("0") CounterText
-                ),
-                (
-                    @FeathersButton
-                    on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
-                        counter.0 += 1;
-                    })
-                    Children [ @caption("+1") ]
-                )
-            ]
-        )]
+            #{
+                @FeathersButton
+                on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
+                    counter.0 -= 1;
+                })
+                # @caption("-1")
+            }
+            #{
+                Node {
+                    margin: UiRect::horizontal(px(10.0)),
+                }
+                @caption("0")
+                CounterText
+            }
+            #{
+                @FeathersButton
+                on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
+                    counter.0 += 1;
+                })
+                # @caption("+1")
+            }
+        }
     }
 }
 

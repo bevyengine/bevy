@@ -285,101 +285,99 @@ fn rotate_light(
 fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
     commands.spawn_scene(bsn! {
         @main_ui_node_scene()
-        Children [
-            @feathers_option_buttons(
-                "Contact Shadows",
-                &[
-                    (
-                        ExampleSetting::ContactShadows(ContactShadowState::Enabled),
-                        "On"
-                    ),
-                    (
-                        ExampleSetting::ContactShadows(ContactShadowState::Disabled),
-                        "Off"
-                    ),
-                ],
-                {
-                    if app_status.contact_shadows == ContactShadowState::Enabled {
-                        0
-                    }
-                    else {
-                        1
-                    }
-                },
-            ),
-            @feathers_option_buttons(
-                "Shadow Maps",
-                &[
-                    (ExampleSetting::ShadowMaps(ShadowMaps::Enabled), "On"),
-                    (ExampleSetting::ShadowMaps(ShadowMaps::Disabled), "Off"),
-                ],
-                {
-                    if app_status.shadow_maps == ShadowMaps::Enabled {
-                        0
-                    }
-                    else {
-                        1
-                    }
-                },
-            ),
-            @feathers_option_buttons(
-                "Light Rotation",
-                &[
-                    (ExampleSetting::LightRotation(LightRotation::Rotating), "On"),
-                    (
-                        ExampleSetting::LightRotation(LightRotation::Stationary),
-                        "Off"
-                    ),
-                ],
-                {
-                    if app_status.light_rotation == LightRotation::Rotating {
-                        0
-                    }
-                    else {
-                        1
-                    }
-                },
-            ),
-            @feathers_option_buttons(
-                "Light Type",
-                &[
-                    (
-                        ExampleSetting::LightType(LightType::Directional),
-                        "Directional"
-                    ),
-                    (ExampleSetting::LightType(LightType::Point), "Point"),
-                    (ExampleSetting::LightType(LightType::Spot), "Spot"),
-                ],
-                {
-                    match app_status.light_type {
-                        LightType::Directional => 0,
-                        LightType::Point => 1,
-                        LightType::Spot => 2,
-                    }
-                },
-            ),
-            @feathers_option_buttons(
-                "Receive Shadows",
-                &[
-                    (
-                        ExampleSetting::ReceiveShadows(ReceiveShadows::Enabled),
-                        "On"
-                    ),
-                    (
-                        ExampleSetting::ReceiveShadows(ReceiveShadows::Disabled),
-                        "Off"
-                    ),
-                ],
-                {
-                    if app_status.receive_shadows == ReceiveShadows::Enabled {
-                        0
-                    }
-                    else {
-                        1
-                    }
-                },
-            ),
-        ]
+        # @feathers_option_buttons(
+            "Contact Shadows",
+            &[
+                (
+                    ExampleSetting::ContactShadows(ContactShadowState::Enabled),
+                    "On"
+                ),
+                (
+                    ExampleSetting::ContactShadows(ContactShadowState::Disabled),
+                    "Off"
+                ),
+            ],
+            {
+                if app_status.contact_shadows == ContactShadowState::Enabled {
+                    0
+                }
+                else {
+                    1
+                }
+            },
+        )
+        # @feathers_option_buttons(
+            "Shadow Maps",
+            &[
+                (ExampleSetting::ShadowMaps(ShadowMaps::Enabled), "On"),
+                (ExampleSetting::ShadowMaps(ShadowMaps::Disabled), "Off"),
+            ],
+            {
+                if app_status.shadow_maps == ShadowMaps::Enabled {
+                    0
+                }
+                else {
+                    1
+                }
+            },
+        )
+        # @feathers_option_buttons(
+            "Light Rotation",
+            &[
+                (ExampleSetting::LightRotation(LightRotation::Rotating), "On"),
+                (
+                    ExampleSetting::LightRotation(LightRotation::Stationary),
+                    "Off"
+                ),
+            ],
+            {
+                if app_status.light_rotation == LightRotation::Rotating {
+                    0
+                }
+                else {
+                    1
+                }
+            },
+        )
+        # @feathers_option_buttons(
+            "Light Type",
+            &[
+                (
+                    ExampleSetting::LightType(LightType::Directional),
+                    "Directional"
+                ),
+                (ExampleSetting::LightType(LightType::Point), "Point"),
+                (ExampleSetting::LightType(LightType::Spot), "Spot"),
+            ],
+            {
+                match app_status.light_type {
+                    LightType::Directional => 0,
+                    LightType::Point => 1,
+                    LightType::Spot => 2,
+                }
+            },
+        )
+        # @feathers_option_buttons(
+            "Receive Shadows",
+            &[
+                (
+                    ExampleSetting::ReceiveShadows(ReceiveShadows::Enabled),
+                    "On"
+                ),
+                (
+                    ExampleSetting::ReceiveShadows(ReceiveShadows::Disabled),
+                    "Off"
+                ),
+            ],
+            {
+                if app_status.receive_shadows == ReceiveShadows::Enabled {
+                    0
+                }
+                else {
+                    1
+                }
+            },
+        )
     });
 }
 

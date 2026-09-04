@@ -463,58 +463,56 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_setting
 fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
     commands.spawn_scene(bsn! {
         @main_ui_node_scene()
-        Children[
-            @feathers_option_buttons(
-                "SSR",
-                &[
-                    (SsrOn(true), "On"),
-                    (SsrOn(false), "Off"),
-                ],
-                0,
-            ),
-            @feathers_option_buttons(
-                "Model",
-                &[
-                    (DisplayedModel::Cube, "Cube"),
-                    (
-                        DisplayedModel::FlightHelmet,
-                        "Flight Helmet",
-                    ),
-                    (DisplayedModel::Capsules, "Capsules"),
-                ],
-                0,
-            ),
-            @feathers_option_buttons(
-                "Base",
-                &[
-                    (DisplayedBase::Water, "Water"),
-                    (DisplayedBase::Metallic, "Metallic"),
-                    (DisplayedBase::RedPlane, "Red Plane"),
-                ],
-                0,
-            ),
-            @range_row(
-                "Min Roughness",
-                app_settings.min_perceptual_roughness.start,
-                app_settings.min_perceptual_roughness.end,
-                AppNumberInput::MinRoughnessStart,
-                AppNumberInput::MinRoughnessEnd,
-            ),
-            @range_row(
-                "Max Roughness",
-                app_settings.max_perceptual_roughness.start,
-                app_settings.max_perceptual_roughness.end,
-                AppNumberInput::MaxRoughnessStart,
-                AppNumberInput::MaxRoughnessEnd,
-            ),
-            @range_row(
-                "Edge Fadeout",
-                app_settings.edge_fadeout.start,
-                app_settings.edge_fadeout.end,
-                AppNumberInput::EdgeFadeoutStart,
-                AppNumberInput::EdgeFadeoutEnd,
-            ),
-        ]
+        # @feathers_option_buttons(
+            "SSR",
+            &[
+                (SsrOn(true), "On"),
+                (SsrOn(false), "Off"),
+            ],
+            0,
+        )
+        # @feathers_option_buttons(
+            "Model",
+            &[
+                (DisplayedModel::Cube, "Cube"),
+                (
+                    DisplayedModel::FlightHelmet,
+                    "Flight Helmet",
+                ),
+                (DisplayedModel::Capsules, "Capsules"),
+            ],
+            0,
+        )
+        # @feathers_option_buttons(
+            "Base",
+            &[
+                (DisplayedBase::Water, "Water"),
+                (DisplayedBase::Metallic, "Metallic"),
+                (DisplayedBase::RedPlane, "Red Plane"),
+            ],
+            0,
+        )
+        # @range_row(
+            "Min Roughness",
+            app_settings.min_perceptual_roughness.start,
+            app_settings.min_perceptual_roughness.end,
+            AppNumberInput::MinRoughnessStart,
+            AppNumberInput::MinRoughnessEnd,
+        )
+        # @range_row(
+            "Max Roughness",
+            app_settings.max_perceptual_roughness.start,
+            app_settings.max_perceptual_roughness.end,
+            AppNumberInput::MaxRoughnessStart,
+            AppNumberInput::MaxRoughnessEnd,
+        )
+        # @range_row(
+            "Edge Fadeout",
+            app_settings.edge_fadeout.start,
+            app_settings.edge_fadeout.end,
+            AppNumberInput::EdgeFadeoutStart,
+            AppNumberInput::EdgeFadeoutEnd,
+        )
     });
 }
 
@@ -529,28 +527,23 @@ fn range_row(
         Node {
             align_items: AlignItems::Center,
         }
-        Children[
+        #{
             Node {
                 width: px(150),
             }
-            Children[
-                @label(title.to_string())
-            ],
-
-            @range_controls(
-                start_value,
-                start_number_input
-            ),
-
+            # @label(title.to_string())
+        }
+        # @range_controls(
+            start_value,
+            start_number_input
+        )
+        #{
             Node {
                 margin: UiRect::horizontal(px(10)),
             }
-            Children [
-                @label_small("to".to_string())
-            ],
-
-            @range_controls(end_value, end_number_input),
-        ]
+            # @label_small("to".to_string())
+        }
+        # @range_controls(end_value, end_number_input)
     }
 }
 

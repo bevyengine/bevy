@@ -78,7 +78,7 @@ pub trait BsnTokenStream: Parse {
 
 impl BsnTokenStream for BsnRoot {
     fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        let tokens = self.0.to_tokens(ctx);
+        let tokens = self.0.into_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
@@ -198,7 +198,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
         Ok(quote! { #bevy_scene::auto_nest_tuple!(#(#scene_impls),*) })
     }
 
-    pub fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    pub fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         self.try_to_tokens(ctx)
             .unwrap_or_else(|e| e.to_compile_error())
     }
@@ -320,8 +320,8 @@ impl BsnEntry {
                     ::Relationship, _>::new(#scenes)
                 })
             }
-            BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
-            BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
+            BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.into_tokens(ctx)?),
+            BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.into_tokens(ctx)?),
             BsnEntry::TemplateValue(token_stream) => EntryResult::CombinedSceneFunction(quote! {
                 _scene.insert_template(#token_stream);
             }),
@@ -336,13 +336,13 @@ impl BsnEntry {
 }
 
 impl BsnScene {
-    fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let bevy_scene = ctx.bevy_scene;
         match self {
             BsnScene::Asset(lit) => Ok(quote! {
                 #bevy_scene::CachedSceneAsset::from(#lit)
             }),
-            BsnScene::Fn(func) => Ok(func.to_tokens(ctx)),
+            BsnScene::Fn(func) => Ok(func.into_tokens(ctx)),
             BsnScene::SceneComponent(bsn_type) => {
                 let props = format_ident!("__props");
                 let props_ref = format_ident!("__props_ref");
@@ -778,7 +778,7 @@ impl BsnTokenStream for BsnSceneListItems {
         let bevy_scene = ctx.bevy_scene;
         let scenes = self.0.into_iter().map(|s| match s {
             BsnSceneListItem::Scene(bsn) => {
-                let tokens = bsn.to_tokens(ctx);
+                let tokens = bsn.into_tokens(ctx);
                 quote! {#bevy_scene::EntityScene(#tokens)}
             }
             BsnSceneListItem::SceneListExpression(expression) => expression.0,
@@ -789,7 +789,7 @@ impl BsnTokenStream for BsnSceneListItems {
 }
 
 impl BsnSceneFn {
-    fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let bevy_scene = ctx.bevy_scene;
         let args = self.args.to_tokens(ctx);
         let path = &self.path;

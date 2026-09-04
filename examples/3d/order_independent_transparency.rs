@@ -268,7 +268,7 @@ fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
         on (|mut event: On<PointerDrag>| {
             event.propagate(false);
         })
-        Children [
+        #{
             RadioGroupSetting::ChangeScene
             @feathers_option_buttons(
                 "Scene ([←] or [→])",
@@ -278,8 +278,9 @@ fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
                     .map(|(i, scene)| (AppSetting::ChangeScene(i), scene.1))
                     .collect::<Vec<_>>()),
                 app_state.current_scene_id,
-            ),
-
+            )
+        }
+        #{
             RadioGroupSetting::EnableOIT
             @feathers_option_buttons(
                 "Order Independent [T]ransparency",
@@ -292,8 +293,9 @@ fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
                 } else {
                     1
                 }
-            ),
-
+            )
+        }
+        #{
             RadioGroupSetting::UseDepthPrepass
             @feathers_option_buttons(
                 "[D]epth Prepass",
@@ -306,8 +308,8 @@ fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
                 } else {
                     1
                 }
-            ),
-        ]
+            )
+        }
     });
 }
 

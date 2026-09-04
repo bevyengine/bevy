@@ -181,9 +181,7 @@ fn setup_ui(mut commands: Commands) {
             left: px(12),
             top: px(12),
         }
-        Children [
-            Text("Click on a button to toggle animations for its associated bones")
-        ]
+        #{ Text("Click on a button to toggle animations for its associated bones") }
     });
 
     // Add the buttons that allow the user to toggle mask groups on and off.
@@ -192,17 +190,15 @@ fn setup_ui(mut commands: Commands) {
         Node {
             align_items: AlignItems::Start,
         }
-        Children [
-            @feathers_option_buttons("Head", &make_animation_controls(MASK_GROUP_HEAD), 2),
-            @label("--"),
-            @feathers_option_buttons("Front Left Leg", &make_animation_controls(MASK_GROUP_LEFT_FRONT_LEG), 2),
-            @feathers_option_buttons("Front Right Leg", &make_animation_controls(MASK_GROUP_RIGHT_FRONT_LEG), 2),
-            @label("--"),
-            @feathers_option_buttons("Hind Left Leg", &make_animation_controls(MASK_GROUP_LEFT_HIND_LEG), 2),
-            @feathers_option_buttons("Hind Right Leg", &make_animation_controls(MASK_GROUP_RIGHT_HIND_LEG), 2),
-            @label("--"),
-            @feathers_option_buttons("Tail", &make_animation_controls(MASK_GROUP_TAIL), 2),
-        ]
+        # @feathers_option_buttons("Head", &make_animation_controls(MASK_GROUP_HEAD), 2)
+        # @label("--")
+        # @feathers_option_buttons("Front Left Leg", &make_animation_controls(MASK_GROUP_LEFT_FRONT_LEG), 2)
+        # @feathers_option_buttons("Front Right Leg", &make_animation_controls(MASK_GROUP_RIGHT_FRONT_LEG), 2)
+        # @label("--")
+        # @feathers_option_buttons("Hind Left Leg", &make_animation_controls(MASK_GROUP_LEFT_HIND_LEG), 2)
+        # @feathers_option_buttons("Hind Right Leg", &make_animation_controls(MASK_GROUP_RIGHT_HIND_LEG), 2)
+        # @label("--")
+        # @feathers_option_buttons("Tail", &make_animation_controls(MASK_GROUP_TAIL), 2)
     });
 }
 

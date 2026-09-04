@@ -663,16 +663,14 @@ impl fmt::Display for OcclusionCullingSetting {
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
         @main_ui_node_scene()
-        Children [
-            @feathers_option_buttons(
-                "Toggle occlusion culling",
-                &[
-                    (OcclusionCullingSetting::On, "ON"),
-                    (OcclusionCullingSetting::Off, "OFF"),
-                ],
-                0,
-            )
-        ]
+        # @feathers_option_buttons(
+            "Toggle occlusion culling",
+            &[
+                (OcclusionCullingSetting::On, "ON"),
+                (OcclusionCullingSetting::Off, "OFF"),
+            ],
+            0,
+        )
     });
 }
 

@@ -201,36 +201,34 @@ fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
         @radio::main_ui_node_scene()
-        Children [
-            @radio::feathers_option_buttons(
-                "Light Type",
-                &[
-                    (LightType::Directional, "Directional"),
-                    (LightType::Point, "Point"),
-                    (LightType::Spot, "Spot"),
-                ],
-                0,
-            ),
-            @radio::feathers_option_buttons(
-                "Shadow Filter",
-                &[
-                    (
-                        ShadowFilter::NonTemporal,
-                        "Non-Temporal",
-                    ),
-                    (ShadowFilter::Temporal, "Temporal"),
-                ],
-                0,
-            ),
-            @radio::feathers_option_buttons(
-                "Soft Shadows",
-                &[
-                    (SoftShadows(true), "On"),
-                    (SoftShadows(false), "Off"),
-                ],
-                0,
-            ),
-        ]
+        # @radio::feathers_option_buttons(
+            "Light Type",
+            &[
+                (LightType::Directional, "Directional"),
+                (LightType::Point, "Point"),
+                (LightType::Spot, "Spot"),
+            ],
+            0,
+        )
+        # @radio::feathers_option_buttons(
+            "Shadow Filter",
+            &[
+                (
+                    ShadowFilter::NonTemporal,
+                    "Non-Temporal",
+                ),
+                (ShadowFilter::Temporal, "Temporal"),
+            ],
+            0,
+        )
+        # @radio::feathers_option_buttons(
+            "Soft Shadows",
+            &[
+                (SoftShadows(true), "On"),
+                (SoftShadows(false), "Off"),
+            ],
+            0,
+        )
     });
 }
 

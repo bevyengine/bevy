@@ -63,18 +63,18 @@ fn spawn_scene(
     );
 
     commands.spawn_scene_list(bsn_list! [
-        (
+        #{
             Mesh3d(floor_mesh)
             MeshMaterial3d::<StandardMaterial>(asset_value(Color::WHITE))
             Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
-        ),
-        (
+        }
+        #{
             Mesh3d(sphere_mesh)
             MeshMaterial3d::<StandardMaterial>(asset_value(sphere_material))
             Transform::from_xyz(0.0, 1.0, 0.0)
             Rotating
-        ),
-        (
+        }
+        #{
             DirectionalLight {
                 illuminance: 7300.0,
                 shadow_maps_enabled: true,
@@ -85,8 +85,8 @@ fn spawn_scene(
                 maximum_distance: 20.0,
                 ..default()
             }.build()
-        ),
-        (
+        }
+        #{
             Camera3d
             Hdr
             Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y)
@@ -95,7 +95,7 @@ fn spawn_scene(
                 specular_map: specular_env_map,
                 intensity: 1200.0,
             }
-        )
+        }
     ]);
 }
 

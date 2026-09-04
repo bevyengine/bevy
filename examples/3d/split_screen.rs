@@ -124,10 +124,8 @@ fn setup(
                 align_items: AlignItems::Center,
                 padding: UiRect::all(px(20)),
             }
-            Children [
-                @rotate_button("<", Direction::Left),
-                @rotate_button(">", Direction::Right),
-            ]
+            # @rotate_button("<", Direction::Left)
+            # @rotate_button(">", Direction::Right)
         }
     }
 

@@ -26,14 +26,14 @@ where
                 align_items: AlignItems::Center,
                 column_gap: px(5),
             }
-            Children [
+            #{
                 @FeathersCheckbox {
                     @caption: bsn! { @caption(option_name) }
                 }
                 Hovered
                 identifier
                 on(checkbox_self_update)
-            ]
+            }
         })
     } else {
         Box::new(bsn! {
@@ -41,13 +41,13 @@ where
                 align_items: AlignItems::Center,
                 column_gap: px(5),
             }
-            Children [
+            #{
                 @FeathersCheckbox {
                     @caption: bsn! { @caption(option_name) }
                 }
                 Hovered
                 on(checkbox_self_update)
-            ]
+            }
         })
     }
 }

@@ -325,14 +325,14 @@ fn spawn_buttons(commands: &mut Commands) {
     // control.
     commands.spawn_scene(bsn! {
         @main_ui_node_scene()
-        Children [@feathers_option_buttons(
+        # @feathers_option_buttons(
             "Drag Action",
             &[
                 (DragAction::MoveCamera, "Move Camera"),
                 (DragAction::MoveFox, "Move Fox"),
             ],
             0,
-        )]
+        )
     });
 }
 

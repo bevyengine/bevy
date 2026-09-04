@@ -193,8 +193,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
             @main_ui_node_scene()
-            Children [
-                @feathers_option_buttons(
+            # @feathers_option_buttons(
                 "Lighting",
                 &[
                     (LightingMode::Baked, "Baked"),
@@ -203,7 +202,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (LightingMode::RealTime, "Real-Time"),
                 ],
                 2 // Initially set to MixedIndirect
-            )]
+            )
     });
 }
 

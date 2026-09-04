@@ -112,14 +112,12 @@ fn add_buttons(commands: &mut Commands, color_grading: &ColorGrading) {
             left: px(12),
             bottom: px(12),
         }
-        Children [
-            // Create the first pane, which contains the global controls.
-            @pane_for_global_controls(color_grading),
-            // Create the following panes for individual controls.
-            @pane_for_section(SectionColorGradingName::Highlights, color_grading),
-            @pane_for_section(SectionColorGradingName::Midtones, color_grading),
-            @pane_for_section(SectionColorGradingName::Shadows, color_grading),
-        ]
+        // Create the first pane, which contains the global controls.
+        # @pane_for_global_controls(color_grading)
+        // Create the following panes for individual controls.
+        # @pane_for_section(SectionColorGradingName::Highlights, color_grading)
+        # @pane_for_section(SectionColorGradingName::Midtones, color_grading)
+        # @pane_for_section(SectionColorGradingName::Shadows, color_grading)
     });
 }
 
@@ -131,28 +129,25 @@ fn pane_for_global_controls(color_grading: &ColorGrading) -> impl Scene {
 
     bsn! {
         @pane()
-        Children [
+        #{
             // Spawn the label ("Highlights", etc.)
             @pane_header()
-            Children[
+            #{
                 Node {
                     width: px(120)
                     align_self: AlignSelf::Start,
                 }
-                Children [
-                    @label("Global Settings")
-                ]
-            ],
-
+                # @label("Global Settings")
+            }
+        }
+        #{
             // Spawn the buttons
             @pane_body()
-            Children [
-                @make_button(GlobalColorGradingSetting::Exposure),
-                @make_button(GlobalColorGradingSetting::Temperature),
-                @make_button(GlobalColorGradingSetting::Tint),
-                @make_button(GlobalColorGradingSetting::Hue),
-            ]
-        ]
+            # @make_button(GlobalColorGradingSetting::Exposure)
+            # @make_button(GlobalColorGradingSetting::Temperature)
+            # @make_button(GlobalColorGradingSetting::Tint)
+            # @make_button(GlobalColorGradingSetting::Hue)
+        }
     }
 }
 
@@ -168,29 +163,26 @@ fn pane_for_section(section: SectionColorGradingName, color_grading: &ColorGradi
 
     bsn! {
         @pane()
-        Children [
-            // Spawn the label ("Highlights", etc.)
+        // Spawn the label ("Highlights", etc.)
+        #{
             @pane_header()
-            Children [
+            #{
                 Node {
                     width: px(120),
                     align_self: AlignSelf::Start,
                 }
-                Children [
-                    @label(section.to_string())
-                ],
-            ],
-
-            // Spawn the buttons.
+                # @label(section.to_string())
+            }
+        }
+        #{
             @pane_body()
-            Children[
-                @make_button(SectionColorGradingSetting::Saturation),
-                @make_button(SectionColorGradingSetting::Contrast),
-                @make_button(SectionColorGradingSetting::Gamma),
-                @make_button(SectionColorGradingSetting::Gain),
-                @make_button(SectionColorGradingSetting::Lift),
-            ]
-        ]
+            // Spawn the buttons.
+            # @make_button(SectionColorGradingSetting::Saturation)
+            # @make_button(SectionColorGradingSetting::Contrast)
+            # @make_button(SectionColorGradingSetting::Gamma)
+            # @make_button(SectionColorGradingSetting::Gain)
+            # @make_button(SectionColorGradingSetting::Lift)
+        }
     }
 }
 
@@ -209,14 +201,13 @@ fn number_input_for_value(
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
         }
-        Children [
+        #{
             Node {
                 width: px(120),
             }
-            Children[
-                @label(setting_label)
-            ],
-
+            # @label(setting_label)
+        }
+        #{
             Node {
                 align_items: AlignItems::Center,
                 width: px(50),
@@ -226,7 +217,7 @@ fn number_input_for_value(
             setting
             NumberInputPrecision(2)
             HardLimit::f32(0. ..=10.)
-        ]
+        }
     }
 }
 
@@ -454,10 +445,10 @@ fn add_help_text(commands: &mut Commands) {
             left: px(12),
             top: px(12),
         }
-        Children [
+        #{
             Text("Drag a setting's input value to change the scene.\n\
                 Click into an input field to change values via keyboard.\n\
                 Values must be between 0 and 10.")
-        ]
+        }
     });
 }

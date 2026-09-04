@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, mut rng: ResMut<SeededRng>) {
             width: percent(100),
             height: percent(100),
         }
-        Children [
+        #{
             @FeathersButton {
                 @caption: bsn! { @caption("Button") }
             }
@@ -97,6 +97,6 @@ fn setup(mut commands: Commands, mut rng: ResMut<SeededRng>) {
             }
             BorderColor::all(Color::WHITE)
             on(on_button_click)
-        ]
+        }
     });
 }
