@@ -237,6 +237,7 @@ pub fn ui_layout_system(
             &mut ComputedNode,
             &mut UiGlobalTransform,
             &mut ComputedLayout,
+            Has<GhostNode>,
         )>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
@@ -327,18 +328,21 @@ pub fn ui_layout_system(
         child_stack.clear();
     }
 
+    // Finish if there weren't any changes that might have changed the entity hierarchy.
     if !needs_full_walk {
         return;
     }
 
+    // Clear any UI node entities that became unreachable due to hierarchy changes.
     node_queries.p1().par_iter_mut().for_each(
-        |(mut node, mut global_transform, mut computed_layout)| {
+        |(mut node, mut global_transform, mut computed_layout, is_ghost)| {
             if !computed_layout.reached() {
                 computed_layout.clear();
             }
             computed_layout.set_reached(false);
 
-            if computed_layout.has_layout() {
+            // `GhostNode`s are stepped over during the layout walk. They aren't given a layout and are never `reached`.
+            if is_ghost || computed_layout.has_layout() {
                 return;
             }
 
