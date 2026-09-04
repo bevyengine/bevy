@@ -3281,4 +3281,52 @@ mod tests {
 
         assert!(world.get::<CalculatedClip>(grandchild).is_some());
     }
+
+    #[test]
+    fn ghost_nodes_ui_transform_translates_child() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+
+        let child = world.spawn(Node::default()).id();
+        let ghost = world.spawn(GhostNode).add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(ghost).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(
+            world.get::<UiGlobalTransform>(child).unwrap().translation,
+            Vec2::ZERO
+        );
+        assert_eq!(
+            world.get::<UiGlobalTransform>(ghost).unwrap().translation,
+            Vec2::ZERO
+        );
+        assert_eq!(
+            world.get::<UiGlobalTransform>(root).unwrap().translation,
+            Vec2::ZERO
+        );
+
+        let translation = Vec2::new(5., 10.);
+
+        world.get_mut::<UiTransform>(ghost).unwrap().translation =
+            Val2::px(translation.x, translation.y);
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(
+            world.get::<UiGlobalTransform>(child).unwrap().translation,
+            translation
+        );
+        assert_eq!(
+            world.get::<UiGlobalTransform>(ghost).unwrap().translation,
+            translation
+        );
+        assert_eq!(
+            world.get::<UiGlobalTransform>(root).unwrap().translation,
+            Vec2::ZERO
+        );
+    }
 }
