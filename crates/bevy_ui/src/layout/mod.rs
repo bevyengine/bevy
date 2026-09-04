@@ -149,11 +149,11 @@ pub fn sync_taffy_styles_with_nodes(
         });
 }
 
-/// Identify UI subtrees that need an update.
-/// On finding one, sets `UiTreeChanged` changed, then walks up the tree setting
-/// all its ancestors `UiTreeChanged`.
+/// Identify entities whose UI layout input components have been changed, added or removed.
+/// Mark their `UiTreeChanged` component changed, then walk up the tree and mark
+/// each ancestor's `UiTreeChanged` changed.
 pub fn mark_dirty_ui_trees(
-    changed: Query<
+    changed_ui_components_query: Query<
         Entity,
         (
             Or<(
@@ -168,6 +168,7 @@ pub fn mark_dirty_ui_trees(
                 Changed<ChildOf>,
                 Added<FixedNode>,
                 Added<GhostNode>,
+                Added<OverrideClip>,
             )>,
             With<Node>,
         ),
@@ -179,6 +180,7 @@ pub fn mark_dirty_ui_trees(
     mut removed_child_ofs: RemovedComponents<ChildOf>,
     mut removed_nodes: RemovedComponents<Node>,
     mut removed_ghost_nodes: RemovedComponents<GhostNode>,
+    mut removed_override_clip: RemovedComponents<OverrideClip>,
     mut trees: Query<(&mut UiTreeChanged, Option<&ChildOf>)>,
 ) {
     let removed = removed_outlines
@@ -187,11 +189,11 @@ pub fn mark_dirty_ui_trees(
         .chain(removed_ignore_scrolls.read())
         .chain(removed_fixed_nodes.read())
         .chain(removed_child_ofs.read())
-        .chain(removed_nodes.read());
+        .chain(removed_nodes.read())
+        .chain(removed_ghost_nodes.read())
+        .chain(removed_override_clip.read());
 
-    let removed = removed.chain(removed_ghost_nodes.read());
-
-    for mut next in changed.iter().chain(removed) {
+    for mut next in changed_ui_components_query.iter().chain(removed) {
         while let Ok((mut tree, maybe_child_of)) = trees.get_mut(next) {
             // If tree was added since the last update, `is_changed` will be set before this system began
             // so we can't know if it was already visited.
