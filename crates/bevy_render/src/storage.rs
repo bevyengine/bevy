@@ -416,6 +416,8 @@ mod tests {
         world::World,
     };
 
+    use bevy_asset::Assets;
+
     use crate::test_utils::create_dummy_device;
 
     /// Runs the extraction step of the [`RenderAsset`] pipeline on `source` and
@@ -432,22 +434,37 @@ mod tests {
     /// noop wgpu device (no real GPU required), optionally reusing
     /// `previous_asset`. The same device must be used across prepares when GPU
     /// buffers from a previous prepare are passed in.
+    ///
+    /// Returns the prepared GPU buffer along with the
+    /// [`RenderChangedShaderBuffers`] resource, so tests can verify which asset
+    /// ids were recorded as needing their bind groups invalidated.
     fn prepare(
+        asset_id: AssetId<ShaderBuffer>,
         extracted: ShaderBuffer,
         previous_asset: Option<&GpuShaderBuffer>,
         device: &RenderDevice,
         queue: &RenderQueue,
-    ) -> GpuShaderBuffer {
+    ) -> (GpuShaderBuffer, RenderChangedShaderBuffers) {
         let mut world = World::new();
         world.insert_resource(device.clone());
         world.insert_resource(queue.clone());
-        let mut system_state =
-            SystemState::<(SRes<RenderDevice>, SRes<RenderQueue>)>::new(&mut world);
-        let mut params = system_state
-            .get_mut(&mut world)
-            .expect("RenderDevice and RenderQueue resources should be present");
-        GpuShaderBuffer::prepare_asset(extracted, AssetId::default(), &mut params, previous_asset)
-            .expect("shader buffer should be prepared successfully")
+        world.insert_resource(RenderChangedShaderBuffers::default());
+        let mut system_state = SystemState::<(
+            SRes<RenderDevice>,
+            SRes<RenderQueue>,
+            SResMut<RenderChangedShaderBuffers>,
+        )>::new(&mut world);
+        let gpu_buffer = {
+            let mut params = system_state.get_mut(&mut world).expect(
+                "RenderDevice, RenderQueue and RenderChangedShaderBuffers resources should be present",
+            );
+            GpuShaderBuffer::prepare_asset(extracted, asset_id, &mut params, previous_asset)
+                .expect("shader buffer should be prepared successfully")
+        };
+        let changed_buffer = world
+            .remove_resource::<RenderChangedShaderBuffers>()
+            .expect("RenderChangedShaderBuffers resource should be present");
+        (gpu_buffer, changed_buffer)
     }
 
     /// Runs the full extract + prepare pipeline on a device shared with the
@@ -459,7 +476,9 @@ mod tests {
         queue: &RenderQueue,
     ) -> GpuShaderBuffer {
         let extracted = extract(source, previous_asset);
-        prepare(extracted, previous_asset, device, queue)
+        let mut assets = Assets::<ShaderBuffer>::default();
+        let asset_id = assets.add(extracted.clone()).id();
+        prepare(asset_id, extracted, previous_asset, device, queue).0
     }
 
     /// Runs the full pipeline on a fresh dummy device, for tests that don't
@@ -600,22 +619,41 @@ mod tests {
     /// Verifies that an unchanged buffer reuses the existing GPU buffer instead
     /// of allocating a new one, and that changing the buffer size or losing the
     /// data invalidates the reuse.
+    ///
+    /// Also verifies that [`RenderChangedShaderBuffers`] only records
+    /// [`ShaderBuffer`]s whose GPU buffer identity changed: creating or
+    /// reallocating the buffer records the asset id, while reusing the existing
+    /// buffer does not.
     #[test]
     fn reuses_gpu_buffer_when_unchanged() {
         let (device, queue) = create_dummy_device();
 
-        let mut source = ShaderBuffer::new(vec![1u32, 2, 3], RenderAssetUsages::default());
-        let first = extract_and_prepare(&mut source, None, &device, &queue);
+        let mut assets = Assets::<ShaderBuffer>::default();
+        let handle = assets.add(ShaderBuffer::new(
+            vec![1u32, 2, 3],
+            RenderAssetUsages::default(),
+        ));
+        let asset_id = handle.id();
 
-        // Same size/usage/label: the existing buffer is reused.
-        let mut source = ShaderBuffer::new(vec![4u32, 5, 6], RenderAssetUsages::default());
-        let second = extract_and_prepare(&mut source, Some(&first), &device, &queue);
+        // Creating the buffer records it as changed.
+        let extracted = extract(&mut *assets.get_mut(asset_id).unwrap(), None);
+        let (first, changed) = prepare(asset_id, extracted, None, &device, &queue);
+        assert!(changed.contains(&asset_id));
+
+        // Same size/usage/label: the existing buffer is reused and its contents
+        // are updated in place, so nothing is recorded as changed.
+        assets.get_mut(asset_id).unwrap().extend([4u32, 5, 6]);
+        let extracted = extract(&mut *assets.get_mut(asset_id).unwrap(), Some(&first));
+        let (second, changed) = prepare(asset_id, extracted, Some(&first), &device, &queue);
         assert_eq!(second.buffer.id(), first.buffer.id());
+        assert!(changed.is_empty());
 
-        // A different buffer size forces a new allocation.
-        let mut source = ShaderBuffer::new(vec![1u32], RenderAssetUsages::default());
-        let resized = extract_and_prepare(&mut source, Some(&first), &device, &queue);
+        // A different buffer size forces a new allocation, which is recorded.
+        assets.get_mut(asset_id).unwrap().extend([7u32]);
+        let extracted = extract(&mut *assets.get_mut(asset_id).unwrap(), Some(&first));
+        let (resized, changed) = prepare(asset_id, extracted, Some(&first), &device, &queue);
         assert_ne!(resized.buffer.id(), first.buffer.id());
         assert_eq!(resized.buffer.size(), 4);
+        assert!(changed.contains(&asset_id));
     }
 }
