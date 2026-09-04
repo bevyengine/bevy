@@ -452,7 +452,11 @@ fn update_uinode_geometry_recursive(
             return;
         }
 
-        if !force_update && !tree_changed.is_changed() {
+        if !force_update
+            && !tree_changed.is_changed()
+            && !computed_layout.layout_changed()
+            && !computed_layout.subtree_dirty()
+        {
             return;
         }
 
@@ -508,10 +512,6 @@ fn update_uinode_geometry_recursive(
                 child_stack.truncate(start);
                 return;
             }
-        }
-
-        if !force_update && !computed_layout.layout_changed() && !computed_layout.subtree_dirty() {
-            return;
         }
 
         let use_rounding = maybe_layout_config
