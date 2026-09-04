@@ -3242,4 +3242,41 @@ mod tests {
             world.get::<UiGlobalTransform>(b).unwrap().translation
         );
     }
+
+    #[test]
+    fn clipping_updates_when_override_clip_is_inserted_or_removed() {
+        let mut app = setup_ui_test_app();
+
+        let grandchild = app.world_mut().spawn(Node::default()).id();
+        let child = app
+            .world_mut()
+            .spawn(Node::default())
+            .add_child(grandchild)
+            .id();
+        app.world_mut()
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+        let world = app.world_mut();
+
+        assert!(world.get::<CalculatedClip>(grandchild).is_some());
+
+        world.entity_mut(child).insert(OverrideClip);
+
+        app.update();
+        let world = app.world_mut();
+
+        assert!(world.get::<CalculatedClip>(grandchild).is_none());
+
+        world.entity_mut(child).remove::<OverrideClip>();
+
+        app.update();
+        let world = app.world_mut();
+
+        assert!(world.get::<CalculatedClip>(grandchild).is_some());
+    }
 }
