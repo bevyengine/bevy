@@ -202,7 +202,6 @@ fn update_bloom_settings(
 /// Get the next Tonemapping algorithm
 fn next_tonemap(tonemapping: &Tonemapping) -> Tonemapping {
     match tonemapping {
-        Tonemapping::None => Tonemapping::Linear,
         Tonemapping::Linear => Tonemapping::AcesFitted,
         Tonemapping::AcesFitted => Tonemapping::AgX,
         Tonemapping::AgX => Tonemapping::BlenderFilmic,
@@ -211,6 +210,6 @@ fn next_tonemap(tonemapping: &Tonemapping) -> Tonemapping {
         Tonemapping::ReinhardLuminance => Tonemapping::SomewhatBoringDisplayTransform,
         Tonemapping::SomewhatBoringDisplayTransform => Tonemapping::TonyMcMapface,
         Tonemapping::TonyMcMapface => Tonemapping::KhronosPbrNeutral,
-        Tonemapping::KhronosPbrNeutral => Tonemapping::Linear,
+        Tonemapping::None | Tonemapping::KhronosPbrNeutral => Tonemapping::Linear,
     }
 }
