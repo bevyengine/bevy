@@ -347,15 +347,13 @@ impl RenderAsset for GpuShaderBuffer {
                 label: Some(&*source_asset.label),
                 usage: source_asset.buffer_usage,
                 size: buffer_size,
-                mapped_at_creation: true,
+                mapped_at_creation: if buffer_size == 0 { false } else { true },
             };
-            if buffer_size == 0 {
-                // Skip mapping if the buffer is zero sized
-                desc.mapped_at_creation = false;
-                render_device.create_buffer(&desc)
-            } else {
-                desc.mapped_at_creation = true;
-                let buffer = render_device.create_buffer(&desc);
+            
+            let buffer = render_device.create_buffer(&desc);
+                            
+            // Skip mapping if the buffer is zero sized
+            if buffer_size != 0 {
                 // Upload at most `buffer_size` bytes. If the data is shorter, the
                 // remaining bytes stay zero-initialized; if it's longer, the tail
                 // is truncated.
@@ -502,17 +500,17 @@ mod tests {
         );
 
         // The buffer size defaults to the data length (3 * 4 = 12 bytes).
-        assert_eq!(source.buffer_size(), 12);
+        assert_eq!(source.buffer_size(), 3 * size_of::<u32>());
         assert_eq!(source.cast_slice::<u32>(), Some(&[1, 2, 3][..]));
 
         let gpu = extract_and_prepare_on_new_device(&mut source, None);
 
         // Extraction moved the CPU data out of the source asset, leaving it
         // uninitialized but keeping its buffer size.
-        assert!(matches!(source.data, ShaderBufferData::Uninitialized(12)));
+        assert!(matches!(source.data, ShaderBufferData::Uninitialized(3 * size_of::<u32>())));
 
         // The GPU buffer has the buffer size and all extracted data uploaded.
-        assert_eq!(gpu.buffer.size(), 12);
+        assert_eq!(gpu.buffer.size(), 3 * size_of::<u32>());
         assert!(gpu.had_data);
         assert_eq!(gpu.label, source.label);
         assert_eq!(gpu.buffer_usage, source.buffer_usage);
