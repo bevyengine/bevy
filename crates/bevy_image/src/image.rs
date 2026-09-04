@@ -1549,10 +1549,9 @@ impl Image {
         self.clone()
             .try_into_dynamic()
             .ok()
-            // `Rgba16Float` and `Rgba32Float` inputs are unsupported. `TextureAtlasBuilder`
-            // relies on `None` here to skip them. Letting them through would clamp and
-            // scale to 8 bits without converting linear to sRGB, and store that as
-            // `Rgba8UnormSrgb`, a dark, clipped texture.
+            // `Rgba16Float` and `Rgba32Float` inputs return `None`. `image`
+            // would clamp them to 8 bits with no sRGB encode, and the
+            // `Rgba8UnormSrgb` result would be dark and clipped.
             .filter(|img| {
                 !matches!(
                     img,
