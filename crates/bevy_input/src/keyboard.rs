@@ -214,7 +214,7 @@ impl PressedKeys {
     }
 
     /// Register that a [`Key`] is pressed by one fewer [`KeyCode`] & perform any necessary cleanup
-    /// 
+    ///
     /// Returns `Some(Key)` that has been released, or `None` if no [`Key`] has been released.
     fn release_key(&mut self, logical_key: Key) -> Option<Key> {
         let pressing_key_codes = self.held_keys.get_mut(&logical_key)?;
@@ -2060,20 +2060,18 @@ mod tests {
                 .collect::<Vec<Key>>(),
             []
         );
-        assert!(
-            app.world_mut()
-                .get_resource::<PressedKeys>()
-                .unwrap()
-                .held_key_codes
-                .is_empty()
-        );
-        assert!(
-            app.world_mut()
-                .get_resource::<PressedKeys>()
-                .unwrap()
-                .held_keys
-                .is_empty()
-        );
+        assert!(app
+            .world_mut()
+            .get_resource::<PressedKeys>()
+            .unwrap()
+            .held_key_codes
+            .is_empty());
+        assert!(app
+            .world_mut()
+            .get_resource::<PressedKeys>()
+            .unwrap()
+            .held_keys
+            .is_empty());
 
         app.world_mut().write_message(KeyboardInput {
             key_code: KeyCode::AltLeft,
