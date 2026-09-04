@@ -39,6 +39,7 @@ use bevy_mesh::{
     MeshVertexBufferLayoutRef,
 };
 use bevy_render::prelude::Msaa;
+use bevy_render::RenderSystems::PrepareAssets;
 use bevy_render::{
     batching::{
         gpu_preprocessing::IndirectParametersMetadata,
@@ -59,8 +60,8 @@ use bevy_render::{
     sync_world::{MainEntity, MainEntityHashMap},
     texture::{FallbackImage, GpuImage},
     view::{
-        texture_format_from_code, texture_format_to_code, ExtractedView, ResolveCompositingSpaces,
-        ResolvedCompositingSpace, ViewUniform, ViewUniformOffset, ViewUniforms,
+        texture_format_from_code, texture_format_to_code, ExtractedView, ViewUniform,
+        ViewUniformOffset, ViewUniforms,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
@@ -109,9 +110,7 @@ impl Plugin for Mesh2dRenderPlugin {
                     Render,
                     (
                         prepare_pending_mesh_material2d_queues.in_set(RenderSystems::Specialize),
-                        check_views_need_specialization
-                            .in_set(RenderSystems::CreateViews)
-                            .after(ResolveCompositingSpaces),
+                        check_views_need_specialization.in_set(PrepareAssets),
                         batch_and_prepare_binned_render_phase::<Opaque2d, Mesh2dPipeline>
                             .in_set(RenderSystems::PrepareResources),
                         batch_and_prepare_binned_render_phase::<AlphaMask2d, Mesh2dPipeline>
@@ -144,15 +143,24 @@ pub fn check_views_need_specialization(
         &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        Option<&ResolvedCompositingSpace>,
     )>,
 ) {
-    for (view_entity, view, camera, msaa, tonemapping, dither, resolved_space) in &cameras {
+    for (view_entity, view, camera, msaa, tonemapping, dither) in &cameras {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_target_format(view.target_format)
-            | Mesh2dPipelineKey::from_compositing_space(ResolvedCompositingSpace::space(
-                resolved_space,
-            ));
+            | Mesh2dPipelineKey::from_target_format(view.target_format);
+
+        if camera
+            .compositing_space
+            .is_some_and(|s| s == CompositingSpace::Srgb)
+        {
+            view_key |= Mesh2dPipelineKey::SRGB_COMPOSITING;
+        }
+        if camera
+            .compositing_space
+            .is_some_and(|s| s == CompositingSpace::Oklab)
+        {
+            view_key |= Mesh2dPipelineKey::OKLAB_COMPOSITING;
+        }
 
         if !camera.hdr
             && let Some(tonemapping) = tonemapping
@@ -676,16 +684,6 @@ impl Mesh2dPipelineKey {
             & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
         texture_format_from_code(code)
             .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
-    }
-
-    /// Key bits for a view's resolved [`CompositingSpace`].
-    #[inline]
-    pub fn from_compositing_space(space: Option<CompositingSpace>) -> Self {
-        match space {
-            Some(CompositingSpace::Srgb) => Self::SRGB_COMPOSITING,
-            Some(CompositingSpace::Oklab) => Self::OKLAB_COMPOSITING,
-            Some(CompositingSpace::Linear) | None => Self::NONE,
-        }
     }
 
     pub fn msaa_samples(&self) -> u32 {
