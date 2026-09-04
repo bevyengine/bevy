@@ -3387,4 +3387,179 @@ mod tests {
             Vec2::ZERO
         );
     }
+
+    #[test]
+    fn nodes_that_are_parented_to_a_non_ui_node_are_cleared() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+
+        let node = world
+            .spawn(Node {
+                width: px(10),
+                height: px(10),
+                ..default()
+            })
+            .id();
+        let child = world
+            .spawn(Node {
+                width: px(10),
+                height: px(10),
+                ..default()
+            })
+            .id();
+        let non_ui_root = world.spawn_empty().add_child(child).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(
+            world.get::<ComputedNode>(node).unwrap().size(),
+            Vec2::splat(10.)
+        );
+        assert_eq!(world.get::<ComputedNode>(child).unwrap().size(), Vec2::ZERO);
+
+        world.entity_mut(node).insert(ChildOf(non_ui_root));
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(world.get::<ComputedNode>(node).unwrap().size(), Vec2::ZERO);
+        assert_eq!(world.get::<ComputedNode>(child).unwrap().size(), Vec2::ZERO);
+
+        world.entity_mut(non_ui_root).detach_all_children();
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(
+            world.get::<ComputedNode>(node).unwrap().size(),
+            Vec2::splat(10.)
+        );
+        assert_eq!(
+            world.get::<ComputedNode>(child).unwrap().size(),
+            Vec2::splat(10.)
+        );
+    }
+
+    #[test]
+    fn fixed_nodes_that_are_parented_to_a_non_ui_node_are_cleared() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+
+        let node = world
+            .spawn((
+                FixedNode,
+                Node {
+                    width: px(10),
+                    height: px(10),
+                    ..default()
+                },
+            ))
+            .id();
+        let child = world
+            .spawn((
+                FixedNode,
+                Node {
+                    width: px(10),
+                    height: px(10),
+                    ..default()
+                },
+            ))
+            .id();
+        let non_ui_root = world.spawn_empty().add_child(child).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(
+            world.get::<ComputedNode>(node).unwrap().size(),
+            Vec2::splat(10.)
+        );
+        assert_eq!(world.get::<ComputedNode>(child).unwrap().size(), Vec2::ZERO);
+
+        world.entity_mut(node).insert(ChildOf(non_ui_root));
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(world.get::<ComputedNode>(node).unwrap().size(), Vec2::ZERO);
+        assert_eq!(world.get::<ComputedNode>(child).unwrap().size(), Vec2::ZERO);
+
+        world.entity_mut(non_ui_root).detach_all_children();
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(
+            world.get::<ComputedNode>(node).unwrap().size(),
+            Vec2::splat(10.)
+        );
+        assert_eq!(
+            world.get::<ComputedNode>(child).unwrap().size(),
+            Vec2::splat(10.)
+        );
+    }
+
+    #[test]
+    fn nodes_that_become_ghosts_and_are_detached_at_the_same_time_are_cleared() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+
+        let child = world
+            .spawn(Node {
+                width: px(10),
+                height: px(10),
+                ..default()
+            })
+            .id();
+        let root = world.spawn(Node::default()).add_child(child).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        world.entity_mut(root).detach_all_children();
+        world.entity_mut(child).insert(GhostNode);
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(
+            world.get::<ComputedNode>(child).unwrap().size(),
+            Vec2::splat(0.)
+        );
+    }
+
+    #[test]
+    fn nodes_that_become_ghosts_and_are_parented_to_a_non_ui_node_at_the_same_time_are_cleared() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+
+        let node = world
+            .spawn(Node {
+                width: px(10),
+                height: px(10),
+                ..default()
+            })
+            .id();
+        let empty_root = world.spawn_empty().id();
+
+        app.update();
+        let world = app.world_mut();
+
+        world
+            .entity_mut(node)
+            .insert((ChildOf(empty_root), GhostNode));
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(
+            world.get::<ComputedNode>(node).unwrap().size(),
+            Vec2::splat(0.)
+        );
+    }
 }
