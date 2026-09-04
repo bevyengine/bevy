@@ -68,6 +68,9 @@ pub struct ShaderBuffer {
     pub asset_usage: RenderAssetUsages,
     /// Whether this buffer should be copied on the GPU when resized.
     /// The buffer should have `BufferUsages::COPY_SRC | BufferUsages::COPY_DST` usages to be copyable.
+    ///
+    /// This has no effect if data is [`ShaderBufferData::Initialized`], where GPU buffer is always populated
+    /// using CPU data when GPU buffer is resized.
     pub copy_on_resize: bool,
 }
 
@@ -208,8 +211,13 @@ impl ShaderBuffer {
 
     /// Resizes the CPU data and buffer to the new size.
     ///
-    /// If CPU data is present, it will be truncated or zero-extended.
-    /// If no CPU data is present, the GPU buffer will be reallocated. Preserves GPU data If `copy_on_resize` is true.
+    /// If CPU data is present, the GPU buffer will be re-populated using CPU data.
+    /// Any remaining part that lacks CPU data is implicitly zero-initialized by wgpu.
+    ///
+    /// If CPU data is not present, the entire GPU buffer will be reallocated and implicitly zero-initialized by wgpu.
+    /// If `copy_on_resize` is true, previous buffer will attempt to be copied to this buffer.
+    ///
+    /// CPU data is truncated or zero-extended, too.
     pub fn resize(&mut self, new_size: wgpu_types::BufferAddress) {
         match self.data {
             ShaderBufferData::Initialized {
@@ -225,7 +233,15 @@ impl ShaderBuffer {
         }
     }
 
-    /// Resizes the buffer to the new size. CPU data is unchanged.
+    /// Resizes the GPU buffer to the new size.
+    ///
+    /// If CPU data is present, the GPU buffer will be re-populated using CPU data.
+    /// Any remaining part that lacks CPU data is implicitly zero-initialized by wgpu.
+    ///
+    /// If CPU data is not present, the entire GPU buffer will be reallocated and implicitly zero-initialized by wgpu.
+    /// If `copy_on_resize` is true, previous buffer will attempt to be copied to this buffer.
+    ///
+    /// CPU data is unchanged.
     pub fn resize_buffer(&mut self, new_size: wgpu_types::BufferAddress) {
         match self.data {
             ShaderBufferData::Initialized {
@@ -343,15 +359,15 @@ impl RenderAsset for GpuShaderBuffer {
             prev.buffer.clone()
         } else if let ShaderBufferData::Initialized { data, buffer_size } = source_asset.data {
             changed_shader_buffers.insert(asset_id);
-            let mut desc = BufferDescriptor {
+            let desc = BufferDescriptor {
                 label: Some(&*source_asset.label),
                 usage: source_asset.buffer_usage,
                 size: buffer_size,
-                mapped_at_creation: if buffer_size == 0 { false } else { true },
+                mapped_at_creation: buffer_size != 0,
             };
-            
+
             let buffer = render_device.create_buffer(&desc);
-                            
+
             // Skip mapping if the buffer is zero sized
             if buffer_size != 0 {
                 // Upload at most `buffer_size` bytes. If the data is shorter, the
@@ -363,8 +379,8 @@ impl RenderAsset for GpuShaderBuffer {
                     .unwrap()
                     .copy_from_slice(&data[..upload_len]);
                 buffer.unmap();
-                buffer
             }
+            buffer
         } else {
             changed_shader_buffers.insert(asset_id);
             let new_buffer = render_device.create_buffer(&BufferDescriptor {
@@ -498,19 +514,20 @@ mod tests {
             vec![1u32, 2, 3],
             RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
         );
+        let size = 3 * size_of::<u32>() as u64;
 
         // The buffer size defaults to the data length (3 * 4 = 12 bytes).
-        assert_eq!(source.buffer_size(), 3 * size_of::<u32>());
+        assert_eq!(source.buffer_size(), size);
         assert_eq!(source.cast_slice::<u32>(), Some(&[1, 2, 3][..]));
 
         let gpu = extract_and_prepare_on_new_device(&mut source, None);
 
         // Extraction moved the CPU data out of the source asset, leaving it
         // uninitialized but keeping its buffer size.
-        assert!(matches!(source.data, ShaderBufferData::Uninitialized(3 * size_of::<u32>())));
+        assert!(matches!(source.data, ShaderBufferData::Uninitialized(s) if s == size));
 
         // The GPU buffer has the buffer size and all extracted data uploaded.
-        assert_eq!(gpu.buffer.size(), 3 * size_of::<u32>());
+        assert_eq!(gpu.buffer.size(), size);
         assert!(gpu.had_data);
         assert_eq!(gpu.label, source.label);
         assert_eq!(gpu.buffer_usage, source.buffer_usage);
