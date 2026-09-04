@@ -1067,7 +1067,12 @@ impl Mesh {
             );
         };
         attr.format = expected;
-        self.insert_attribute(attr, values.create_compressed_positions(aabb).unwrap());
+        self.insert_attribute(
+            attr,
+            values
+                .create_compressed_positions(aabb)
+                .expect("Compression should succeed since `compute_aabb` is checked above"),
+        );
         self.final_aabb = Some(aabb);
         self.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_POSITION;
         Ok(self)
@@ -1095,7 +1100,12 @@ impl Mesh {
             );
         };
         attr.format = expected;
-        self.insert_attribute(attr, values.create_compressed_uvs(uv_range).unwrap());
+        self.insert_attribute(
+            attr,
+            values
+                .create_compressed_uvs(uv_range)
+                .expect("Compression should succeed since `compute_uv_range` is checked above"),
+        );
         on_compressed(self, uv_range);
         Ok(self)
     }
@@ -1248,48 +1258,85 @@ impl Mesh {
     }
 
     /// Compress the mesh with [`MeshCompressionArgs`] using `Mesh::compress_*` and `Mesh::quantize_*` methods.
-    /// Any failed compression is just ignored.
+    ///
+    /// If any compression error except [`MeshAttributeCompressionError::MissingAttribute`] (which is ignored) occurs,
+    /// returns a `Vec` of the errors.
+    ///
+    /// This is best-effort: any failed compression won't prevent other compressions.
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
-    pub fn compressed_mesh(mut self, args: MeshCompressionArgs) -> Mesh {
+    pub fn compress(
+        &mut self,
+        args: MeshCompressionArgs,
+    ) -> Result<(), Vec<MeshAttributeCompressionError>> {
+        let mut errors = Vec::new();
+        let mut push_error_ignore_missing_attribute =
+            |res: Result<&mut Mesh, MeshAttributeCompressionError>| {
+                match res {
+                    Ok(_) => {}
+                    Err(err) => match err {
+                        MeshAttributeCompressionError::MissingAttribute(_) => {}
+                        e => errors.push(e),
+                    },
+                };
+            };
+
         if args
             .compress_attributes
             .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
         {
-            let _ = self.compress_positions();
+            push_error_ignore_missing_attribute(self.compress_positions());
         }
         if args
             .compress_attributes
             .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL)
         {
-            let _ = self.compress_normals();
+            push_error_ignore_missing_attribute(self.compress_normals());
         }
         if args
             .compress_attributes
             .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT)
         {
-            let _ = self.compress_tangents();
+            push_error_ignore_missing_attribute(self.compress_tangents());
         }
         if args
             .compress_attributes
             .contains(MeshAttributeCompressionFlags::COMPRESS_UV0)
         {
-            let _ = self.compress_uv0();
+            push_error_ignore_missing_attribute(self.compress_uv0());
         }
         if args
             .compress_attributes
             .contains(MeshAttributeCompressionFlags::COMPRESS_UV1)
         {
-            let _ = self.compress_uv1();
+            push_error_ignore_missing_attribute(self.compress_uv1());
         }
         for (attr, quantization) in args.quantize_attributes.iter().copied() {
-            let _ = self.quantize_float32_attribute(attr, quantization);
+            push_error_ignore_missing_attribute(
+                self.quantize_float32_attribute(attr, quantization),
+            );
         }
         if args.compress_indices {
             self.compress_indices();
         }
-        self
+        errors.is_empty().ok_or(errors)
+    }
+
+    /// Same as [`Self::compress`], except this is passed by value instead of by mutable reference.
+    #[expect(
+        clippy::result_large_err,
+        reason = "Returning the passed `Mesh` in `Err`"
+    )]
+    pub fn compressed_mesh(
+        mut self,
+        args: MeshCompressionArgs,
+    ) -> Result<Mesh, (Mesh, Vec<MeshAttributeCompressionError>)> {
+        let result = self.compress(args);
+        match result {
+            Ok(_) => Ok(self),
+            Err(err) => Err((self, err)),
+        }
     }
 
     /// Computes and returns the vertex data of the mesh as bytes.

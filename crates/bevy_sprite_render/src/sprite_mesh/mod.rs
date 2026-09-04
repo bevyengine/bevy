@@ -66,6 +66,7 @@ fn add_mesh(
                 .build()
                 .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL);
             mesh.compressed_mesh(MeshCompressionArgs::regular())
+                .unwrap()
         })
     });
     for entity in sprites {
