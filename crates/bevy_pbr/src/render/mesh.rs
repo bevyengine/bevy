@@ -2335,9 +2335,7 @@ fn collect_gpu_culled_meshes_for_subview(
         render_view_visible_mesh_entities
             .entities_gpu_culling
             .insert(*main_entity, Entity::PLACEHOLDER);
-        render_view_visible_mesh_entities
-            .added_entities
-            .push((Entity::PLACEHOLDER, *main_entity));
+        render_view_visible_mesh_entities.add_entity((Entity::PLACEHOLDER, *main_entity));
         any_added = true;
     }
 
@@ -2363,9 +2361,7 @@ fn collect_gpu_culled_meshes_for_subview(
                 render_view_visible_mesh_entities
                     .entities_gpu_culling
                     .insert(*main_entity, Entity::PLACEHOLDER);
-                render_view_visible_mesh_entities
-                    .added_entities
-                    .push((Entity::PLACEHOLDER, *main_entity));
+                render_view_visible_mesh_entities.add_entity((Entity::PLACEHOLDER, *main_entity));
                 any_added = true;
             }
             (true, false) => {
