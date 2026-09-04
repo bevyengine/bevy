@@ -3194,4 +3194,50 @@ mod tests {
             .size()
             .abs_diff_eq(Vec2::new(50., 30.), 1e-5));
     }
+
+    #[test]
+    fn reflowed_siblings_are_updated() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child_node = Node {
+            width: px(10),
+            height: px(10),
+            ..default()
+        };
+
+        let a = world.spawn(child_node.clone()).id();
+        let b = world.spawn(child_node.clone()).id();
+
+        // `RowReverse` aligns the children to the root's right edge,
+        // so the root's geometry won't change when we update child a.
+        world
+            .spawn(Node {
+                width: px(100),
+                height: px(20),
+                flex_direction: FlexDirection::RowReverse,
+                ..default()
+            })
+            .add_children(&[a, b]);
+
+        app.update();
+        let world = app.world_mut();
+
+        let a_translation = world.get::<UiGlobalTransform>(a).unwrap().translation;
+        let b_translation = world.get::<UiGlobalTransform>(b).unwrap().translation;
+
+        world.get_mut::<Node>(a).unwrap().width = px(20);
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_ne!(
+            a_translation,
+            world.get::<UiGlobalTransform>(a).unwrap().translation
+        );
+        assert_ne!(
+            b_translation,
+            world.get::<UiGlobalTransform>(b).unwrap().translation
+        );
+    }
 }
