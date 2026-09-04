@@ -111,7 +111,7 @@ impl Plugin for TonemappingPlugin {
 pub fn check_tonemapping_none(
     cameras: Query<
         (
-            Entity,
+            NameOrEntity,
             &Tonemapping,
             Option<&DebandDither>,
             Option<&ColorGrading>,
@@ -126,19 +126,19 @@ pub fn check_tonemapping_none(
         ),
     >,
 ) {
-    for (entity, tonemapping, dither, color_grading) in &cameras {
+    for (camera, tonemapping, dither, color_grading) in &cameras {
         if tonemapping.is_enabled() {
             continue;
         }
         if dither == Some(&DebandDither::Enabled) {
             warn!(
-                "Entity {entity} has `Tonemapping::None` with `DebandDither::Enabled`, so dithering has no effect. \
+                "Camera {camera} has `Tonemapping::None` with `DebandDither::Enabled`, so dithering has no effect. \
                 Use `Tonemapping::Linear` to keep dithering, or set `DebandDither::Disabled`."
             );
         }
         if color_grading.is_some_and(|grading| *grading != ColorGrading::default()) {
             warn!(
-                "Entity {entity} has `Tonemapping::None` with a non-default `ColorGrading`, so color grading has no effect. \
+                "Camera {camera} has `Tonemapping::None` with a non-default `ColorGrading`, so color grading has no effect. \
                 Use `Tonemapping::Linear` to keep color grading, or set `ColorGrading::default()`."
             );
         }
