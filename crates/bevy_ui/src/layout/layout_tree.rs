@@ -110,12 +110,12 @@ pub(super) fn node_id_entity(node_id: NodeId) -> Entity {
 }
 
 pub(super) fn collect_ui_children(
-    entity: Entity,
+    parent: Entity,
     ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
     child_stack: &mut Vec<NodeId>,
     ghost_stack: &mut Vec<Entity>,
 ) -> bool {
-    let Ok((children, _, _)) = ui_children.get(entity) else {
+    let Ok((children, _, _)) = ui_children.get(parent) else {
         return false;
     };
 
@@ -125,7 +125,7 @@ pub(super) fn collect_ui_children(
             continue;
         };
         if is_ghost {
-            ghost_stack.push(entity);
+            ghost_stack.push(child);
             dirty_ghost |= tree_changed.is_changed()
                 | collect_ui_children(child, ui_children, child_stack, ghost_stack);
         } else {
