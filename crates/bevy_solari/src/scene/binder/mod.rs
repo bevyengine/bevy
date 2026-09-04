@@ -16,11 +16,9 @@ use self::lights::LightState;
 use self::tlas::TlasState;
 pub use self::tlas::{build_raytracing_tlas, TlasInstanceSetupPipeline};
 use super::{blas::BlasManager, extract::StandardMaterialAssets, RaytracingMesh3d};
-use crate::realtime::SolariLighting;
 use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
-    query::With,
     resource::Resource,
     system::{Query, Res, ResMut},
     world::{FromWorld, World},
@@ -34,6 +32,14 @@ use bevy_render::{
     texture::GpuImage,
 };
 use tracing::info_span;
+
+/// Insert this resource into the render world to make the raytracing scene retain the previous
+/// frame's TLAS and the light id translation table that maps into it.
+///
+/// This is useful for temporal techniques that need last frame's data. Retaining it costs a second
+/// TLAS allocation and rebuild, so the scene only does so while something asks for it.
+#[derive(Resource, Default)]
+pub struct RaytracingSceneNeedsPreviousFrameData;
 
 #[derive(Resource)]
 pub struct RaytracingSceneBindings {
@@ -102,7 +108,7 @@ pub fn prepare_raytracing_scene_resources(
     changed_instances: Query<Entity, ChangedInstanceFilter>,
     mut removed_instances: RemovedComponents<RaytracingMesh3d>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
-    lighting_views: Query<(), With<SolariLighting>>,
+    needs_previous_frame_data: Option<Res<RaytracingSceneNeedsPreviousFrameData>>,
     mesh_allocator: Res<MeshAllocator>,
     blas_manager: Res<BlasManager>,
     material_assets: Res<StandardMaterialAssets>,
@@ -115,9 +121,10 @@ pub fn prepare_raytracing_scene_resources(
     mut bindings: ResMut<RaytracingSceneBindings>,
 ) {
     let bindings = &mut *bindings;
+    let needs_previous_frame_data = needs_previous_frame_data.is_some();
 
     // Roll light ids over before any removal or compaction writes this frame's translations
-    bindings.lights.begin_frame(!lighting_views.is_empty());
+    bindings.lights.begin_frame(needs_previous_frame_data);
 
     // Update material and texture assets
     bindings
@@ -163,6 +170,7 @@ pub fn prepare_raytracing_scene_resources(
         &mut bindings.bind_groups,
         &render_device,
         build_ready,
+        needs_previous_frame_data,
     );
 }
 

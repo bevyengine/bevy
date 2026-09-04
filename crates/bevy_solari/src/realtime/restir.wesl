@@ -5,7 +5,7 @@ import bevy_pbr::render::utils::{rand_f, rand_u, sample_disk};
 import bevy_render::utils::octahedral_decode;
 import package::scene::brdf::{brdf_pdf, evaluate_brdf, F_AB};
 import package::realtime::gbuffer_utils::{gpixel_resolve, permute_pixel, pixel_dissimilar};
-import package::realtime::initial_path::{generate_initial_reservoir, InitialSamplingResult};
+import package::realtime::initial_path::{generate_initial_path, InitialSamplingResult};
 import package::realtime::bindings::{depth_buffer, empty_reservoir, gbuffer, motion_vectors, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, constants, view, view_output};
 import package::scene::sampling::{balance_heuristic, calculate_resolved_light_contribution, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
 import package::scene::bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MAX, RAY_T_MIN, ResolvedMaterial};
@@ -29,8 +29,8 @@ fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin
     }
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
-    let initial = generate_initial_reservoir(surface.world_position, surface.world_normal, surface.material, workgroup_id.xy, global_id.xy, &rng);
-    textureStore(view_output, global_id.xy, vec4(initial.non_resampled_radiance, 0.0));
+    let initial = generate_initial_path(surface.world_position, surface.world_normal, surface.material, workgroup_id.xy, global_id.xy, &rng);
+    textureStore(view_output, global_id.xy, vec4(initial.radiance, 0.0));
 
     let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
     let previous_camera_homogeneous = previous_view.world_from_clip * (previous_view.clip_from_view * vec4(0.0, 0.0, 0.0, 1.0));
@@ -56,10 +56,6 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
     let input_reservoir = reservoirs_b[pixel_index];
-    let wo = normalize(view.world_position - surface.world_position);
-    let NdotV = max(dot(surface.world_normal, wo), 0.0001);
-    let F_ab = F_AB(surface.material.perceptual_roughness, NdotV);
-
     let spatial = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
     let merge_result = merge_reservoirs(input_reservoir, surface.world_position, surface.world_normal, surface.material,
         spatial.reservoir, spatial.world_position, spatial.world_normal, spatial.material, view.world_position, &rng);
@@ -346,7 +342,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
         // Bounce-0 BRDF-emissive sample (directly-visible light). The seed field carries the light
         // triangle's bitcast area pdf, and the stored radiance is the raw emission. Rebuild the MIS
         // weight against this surface's NEE strategy, the dual of nee_mis_weight above and a mirror
-        // of the emissive candidate in generate_initial_reservoir.
+        // of the emissive candidate in generate_initial_path.
         if reservoir.light_sample.seed != 0u {
             let area_pdf = bitcast<f32>(reservoir.light_sample.seed);
             let light_normal = octahedral_decode(reservoir.sample_point_world_normal);
