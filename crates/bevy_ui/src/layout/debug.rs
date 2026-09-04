@@ -30,7 +30,7 @@ pub fn print_ui_layout_tree(
             .get(entity)
             .is_ok_and(|(_, is_ghost, _)| is_ghost)
         {
-            collect_ui_children(entity, &ui_hierarchy, &mut root_stack);
+            collect_ui_children(entity, &ui_hierarchy, &mut root_stack, &mut vec![]);
         } else {
             root_stack.push(entity_node_id(entity));
         }

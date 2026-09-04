@@ -113,6 +113,7 @@ pub(super) fn collect_ui_children(
     entity: Entity,
     ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
     child_stack: &mut Vec<NodeId>,
+    ghost_stack: &mut Vec<Entity>,
 ) -> bool {
     let Ok((children, _, _)) = ui_children.get(entity) else {
         return false;
@@ -124,8 +125,9 @@ pub(super) fn collect_ui_children(
             continue;
         };
         if is_ghost {
-            dirty_ghost |=
-                tree_changed.is_changed() | collect_ui_children(child, ui_children, child_stack);
+            ghost_stack.push(entity);
+            dirty_ghost |= tree_changed.is_changed()
+                | collect_ui_children(child, ui_children, child_stack, ghost_stack);
         } else {
             child_stack.push(entity_node_id(child));
         }
@@ -297,6 +299,7 @@ pub(crate) fn compute_layout(
     rem_size: RemSize,
     child_stack: &mut Vec<NodeId>,
     needs_full_walk: bool,
+    ghost_stack: &mut Vec<Entity>,
 ) -> Result<(), LayoutError> {
     let Some((dirty, _)) = sync_runtime_layout_tree(
         ui_root_entity,
@@ -308,6 +311,7 @@ pub(crate) fn compute_layout(
         rem_size,
         child_stack,
         needs_full_walk,
+        ghost_stack,
     ) else {
         return Err(LayoutError::InvalidHierarchy);
     };
@@ -402,6 +406,7 @@ fn sync_runtime_layout_tree<'a>(
     rem_size: RemSize,
     child_stack: &mut Vec<NodeId>,
     needs_full_walk: bool,
+    ghost_stack: &mut Vec<Entity>,
 ) -> Option<(bool, bool)> {
     let Ok((
         style,
@@ -432,7 +437,7 @@ fn sync_runtime_layout_tree<'a>(
     let mut subtree_dirty = false;
     let mut computed_subtree_dirty = false;
     let start = child_stack.len();
-    let dirty_ghost = collect_ui_children(entity, ui_children, child_stack);
+    let dirty_ghost = collect_ui_children(entity, ui_children, child_stack, ghost_stack);
     let end = child_stack.len();
     let mut child_count = 0;
     for child_index in start..end {
@@ -447,6 +452,7 @@ fn sync_runtime_layout_tree<'a>(
             rem_size,
             child_stack,
             needs_full_walk,
+            ghost_stack,
         ) {
             child_stack[start + child_count] = child_node;
             child_count += 1;

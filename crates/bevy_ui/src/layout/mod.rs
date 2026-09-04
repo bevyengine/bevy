@@ -258,9 +258,13 @@ pub fn ui_layout_system(
         RemovedComponents<GhostNode>,
     ),
     rem_size: Res<RemSize>,
-    mut child_stack: Local<Vec<taffy::NodeId>>,
-    mut root_stack: Local<Vec<taffy::NodeId>>,
-    mut fixed_node_changes: Local<Vec<Entity>>,
+
+    (mut child_stack, mut root_stack, mut fixed_node_changes, mut ghost_stack): (
+        Local<Vec<taffy::NodeId>>,
+        Local<Vec<taffy::NodeId>>,
+        Local<Vec<Entity>>,
+        Local<Vec<Entity>>,
+    ),
 ) {
     // Using a vec to track their changes since `FixedNode`s should be rare, and rarely updated.
     fixed_node_changes.clear();
@@ -287,12 +291,19 @@ pub fn ui_layout_system(
     removed_fixed_nodes.clear();
 
     root_stack.clear();
+    ghost_stack.clear();
+
     for ui_root_entity in ui_root_node_query.iter() {
         if ui_children
             .get(ui_root_entity)
             .is_ok_and(|(_, is_ghost, _)| is_ghost)
         {
-            collect_ui_children(ui_root_entity, &ui_children, &mut root_stack);
+            collect_ui_children(
+                ui_root_entity,
+                &ui_children,
+                &mut root_stack,
+                &mut ghost_stack,
+            );
         } else {
             root_stack.push(entity_node_id(ui_root_entity));
         }
@@ -324,6 +335,7 @@ pub fn ui_layout_system(
             *rem_size,
             &mut child_stack,
             needs_full_walk,
+            &mut ghost_stack,
         );
         child_stack.clear();
     }
@@ -333,16 +345,24 @@ pub fn ui_layout_system(
         return;
     }
 
+    // `GhostNode`s are stepped over during layout, so need to mark them separately as live UI nodes
+    // so they aren't cleared below.
+    for ghost_node in ghost_stack.iter() {
+        if let Ok(mut computed_layout) = computed_layout_query.get_mut(*ghost_node) {
+            computed_layout.bypass_change_detection().set_reached(true);
+        }
+    }
+
     // Clear any UI node entities that became unreachable due to hierarchy changes.
     node_queries.p1().par_iter_mut().for_each(
         |(mut node, mut global_transform, mut computed_layout, is_ghost)| {
-            if !computed_layout.reached() {
+            let reached = computed_layout.reached();
+            if !reached {
                 computed_layout.clear();
             }
             computed_layout.set_reached(false);
 
-            // `GhostNode`s are stepped over during the layout walk. They aren't given a layout and are never `reached`.
-            if is_ghost || computed_layout.has_layout() {
+            if (is_ghost && reached) || computed_layout.has_layout() {
                 return;
             }
 
@@ -1239,6 +1259,7 @@ mod tests {
             mut font_system: ResMut<bevy_text::FontCx>,
             rem_size: Res<RemSize>,
             mut child_stack: Local<Vec<taffy::NodeId>>,
+            mut ghost_stack: Local<Vec<Entity>>,
         ) {
             compute_layout(
                 root_node_entity,
@@ -1253,6 +1274,7 @@ mod tests {
                 *rem_size,
                 &mut child_stack,
                 true,
+                &mut ghost_stack,
             )
             .unwrap();
         }
