@@ -5,11 +5,13 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Hand
 use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    camera::{DirtySpecializations, ExtractedCamera},
+    camera::{extract_dirty_sort_keys, DirtySortKeys, DirtySpecializations, ExtractedCamera},
+    erased_render_asset::ErasedRenderAssets,
     material_bind_groups::{
         MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
     },
     mesh::{allocator::MeshSlabId, MeshMetadata, MeshMetadataFallbackBuffer},
+    render_phase::ViewSortedRenderPhases,
     render_resource::binding_types::{storage_buffer_read_only, uniform_buffer_sized},
     sync_world::MainEntityHashSet,
     RenderStartup,
@@ -33,7 +35,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{Affine3, Affine3Ext, Vec4};
+use bevy_math::{Affine3, Affine3Ext, FloatOrd, Vec4};
 use bevy_mesh::{
     BaseMeshPipelineKey, Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshTag,
     MeshVertexBufferLayoutRef,
@@ -52,7 +54,8 @@ use bevy_render::{
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
-        PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, TrackedRenderPass,
+        sort_phase_system, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+        TrackedRenderPass,
     },
     render_resource::{binding_types::uniform_buffer, *},
     renderer::RenderDevice,
@@ -69,6 +72,8 @@ use bevy_utils::default;
 use nonmax::NonMaxU32;
 use static_assertions::const_assert_eq;
 use tracing::error;
+
+use super::PreparedMaterial2d;
 
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
@@ -103,12 +108,18 @@ impl Plugin for Mesh2dRenderPlugin {
                     ),
                 )
                 .allow_ambiguous_resource::<BatchedInstanceBuffer<Mesh2dUniform>>()
-                .add_systems(ExtractSchedule, extract_2d_meshes)
+                .add_systems(
+                    ExtractSchedule,
+                    (extract_2d_meshes, extract_dirty_sort_keys::<Mesh2d>),
+                )
                 .init_resource::<PendingMeshMaterial2dQueues>()
                 .add_systems(
                     Render,
                     (
                         prepare_pending_mesh_material2d_queues.in_set(RenderSystems::Specialize),
+                        refresh_mesh2d_sort_keys
+                            .in_set(RenderSystems::PhaseSort)
+                            .before(sort_phase_system::<Transparent2d>),
                         check_views_need_specialization
                             .in_set(RenderSystems::CreateViews)
                             .after(ResolveCompositingSpaces),
@@ -1127,5 +1138,40 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
             }
         }
         RenderCommandResult::Success
+    }
+}
+
+/// Sets the sort key of the retained `Transparent2d` item of every mesh in
+/// [`DirtySortKeys`] from the mesh's current `z`.
+pub fn refresh_mesh2d_sort_keys(
+    dirty_sort_keys: Res<DirtySortKeys>,
+    render_mesh_instances: Res<RenderMesh2dInstances>,
+    render_material_instances: Res<RenderMaterial2dInstances>,
+    render_materials: Res<ErasedRenderAssets<PreparedMaterial2d>>,
+    mut transparent_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+) {
+    for main_entity in dirty_sort_keys.iter() {
+        let key = (Entity::PLACEHOLDER, *main_entity);
+        let mut items = transparent_phases
+            .values_mut()
+            .filter_map(|phase| phase.items.get_mut(&key))
+            .peekable();
+        if items.peek().is_none() {
+            continue;
+        }
+
+        let Some(mesh_instance) = render_mesh_instances.get(main_entity) else {
+            continue;
+        };
+        let Some(material) = render_material_instances
+            .get(main_entity)
+            .and_then(|asset_id| render_materials.get(*asset_id))
+        else {
+            continue;
+        };
+        let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
+        for item in items {
+            item.sort_key = FloatOrd(mesh_z + material.properties.depth_bias);
+        }
     }
 }

@@ -9,6 +9,7 @@ use bevy_camera::{
     visibility::{NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange},
     Camera, Projection,
 };
+use bevy_core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -37,7 +38,7 @@ use bevy_mesh::{
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::batching::gpu_preprocessing::{
-    BufferDataInput, PreviousInstanceInputUniformBuffer,
+    BatchedInstanceBuffers, BufferDataInput, PreviousInstanceInputUniformBuffer,
 };
 use bevy_render::impl_atomic_pod;
 use bevy_render::material_bind_groups::{
@@ -48,6 +49,7 @@ use bevy_render::mesh::morph::{
     MorphTargetImage, MorphTargetsResource, RenderMorphTargetAllocator,
 };
 use bevy_render::mesh::MeshMetadataFallbackBuffer;
+use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
@@ -60,8 +62,9 @@ use bevy_render::{
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
-        BinnedRenderPhasePlugin, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, RenderCommand,
-        RenderCommandResult, SortedRenderPhasePlugin, TrackedRenderPass,
+        sort_phase_system, BinnedRenderPhasePlugin, InputUniformIndex, PhaseItem,
+        PhaseItemExtraIndex, RenderCommand, RenderCommandResult, SortedRenderPhasePlugin,
+        TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
@@ -98,7 +101,9 @@ use crate::{
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
-use bevy_render::camera::{DirtySpecializations, ExtractedCamera, TemporalJitter};
+use bevy_render::camera::{
+    extract_dirty_sort_keys, DirtySortKeys, DirtySpecializations, ExtractedCamera, TemporalJitter,
+};
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::{
@@ -203,6 +208,7 @@ impl Plugin for MeshRenderPlugin {
                     (
                         extract_skins,
                         extract_morphs,
+                        extract_dirty_sort_keys::<Mesh3d>,
                         gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
                             .before(MeshExtractionSystems),
                     ),
@@ -210,6 +216,10 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
+                        refresh_mesh_sort_keys
+                            .in_set(RenderSystems::PhaseSort)
+                            .before(sort_phase_system::<Transparent3d>)
+                            .before(sort_phase_system::<Transmissive3d>),
                         set_mesh_motion_vector_flags.in_set(RenderSystems::PrepareMeshes),
                         prepare_skins.in_set(RenderSystems::PrepareResources),
                         write_morph_buffers.in_set(RenderSystems::PrepareResourcesFlush),
@@ -4814,6 +4824,56 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             },
         }
         RenderCommandResult::Success
+    }
+}
+
+/// Moves the retained `Transparent3d` and `Transmissive3d` items of every mesh
+/// in [`DirtySortKeys`] to the mesh's current center.
+pub fn refresh_mesh_sort_keys(
+    dirty_sort_keys: Res<DirtySortKeys>,
+    render_mesh_instances: Res<RenderMeshInstances>,
+    mesh_assets: Res<RenderAssets<RenderMesh>>,
+    batched_instance_buffers: Option<Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>>,
+    mut transparent_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
+    mut transmissive_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
+) {
+    for main_entity in dirty_sort_keys.iter() {
+        let key = (Entity::PLACEHOLDER, *main_entity);
+        let transparent_items = transparent_phases
+            .values_mut()
+            .filter_map(|phase| phase.items.get_mut(&key))
+            .map(|item| &mut item.sorting_info);
+        let transmissive_items = transmissive_phases
+            .values_mut()
+            .filter_map(|phase| phase.items.get_mut(&key))
+            .map(|item| &mut item.sorting_info);
+        let mut mesh_centers = transparent_items
+            .chain(transmissive_items)
+            .filter_map(|sorting_info| match sorting_info {
+                TransparentSortingInfo3d::Sorted { mesh_center, .. } => Some(mesh_center),
+                TransparentSortingInfo3d::AlwaysOnTop => None,
+            })
+            .peekable();
+        if mesh_centers.peek().is_none() {
+            continue;
+        }
+
+        let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*main_entity) else {
+            continue;
+        };
+        let Some(mesh) = mesh_assets.get(mesh_instance.mesh_asset_id()) else {
+            continue;
+        };
+        let center = get_mesh_instance_world_from_local(
+            *main_entity,
+            mesh_instance.current_uniform_index,
+            &render_mesh_instances,
+            batched_instance_buffers.as_deref(),
+        )
+        .transform_point3(mesh.aabb_center);
+        for mesh_center in mesh_centers {
+            *mesh_center = center;
+        }
     }
 }
 
