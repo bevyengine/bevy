@@ -1,4 +1,4 @@
-use bevy_math::{Affine3A, Dir3, Vec2, Vec3, Vec3A};
+use bevy_math::{Affine3A, Dir3, Mat4, Vec2, Vec3, Vec3A};
 use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 use bevy_reflect::Reflect;
 use bevy_shape::{Aabb3d, Ray3d};
@@ -40,6 +40,7 @@ pub struct RayTriangleHit {
 pub(super) fn ray_intersection_over_mesh(
     mesh: &Mesh,
     transform: &Affine3A,
+    skinning_matrices: Option<&[Mat4]>,
     ray: Ray3d,
     cull: Backfaces,
 ) -> Option<RayMeshHit> {
@@ -57,6 +58,44 @@ pub(super) fn ray_intersection_over_mesh(
         .try_attribute(Mesh::ATTRIBUTE_NORMAL)
         .ok()
         .and_then(|normal_values| normal_values.as_float3());
+
+    let skinned_positions;
+    // Apply skinning if skinning matrices are provided. If not, use the original positions and normals.
+    let (positions, normals, transform) = if let Some(skinning_matrices) = skinning_matrices {
+        let VertexAttributeValues::Uint16x4(joint_indices) =
+            mesh.try_attribute(Mesh::ATTRIBUTE_JOINT_INDEX).ok()?
+        else {
+            return None;
+        };
+        let VertexAttributeValues::Float32x4(joint_weights) =
+            mesh.try_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT).ok()?
+        else {
+            return None;
+        };
+        skinned_positions = positions
+            .iter()
+            .zip(joint_indices)
+            .zip(joint_weights)
+            .map(|((&position, indices), weights)| {
+                indices
+                    .iter()
+                    .zip(weights)
+                    .try_fold(Vec3::ZERO, |position_sum, (&index, &weight)| {
+                        Some(
+                            position_sum
+                                + skinning_matrices
+                                    .get(index as usize)?
+                                    .transform_point3(position.into())
+                                    * weight,
+                        )
+                    })
+                    .map(|position| position.to_array())
+            })
+            .collect::<Option<Vec<_>>>()?;
+        (skinned_positions.as_slice(), None, &Affine3A::IDENTITY)
+    } else {
+        (positions, normals, transform)
+    };
 
     let uvs = mesh
         .try_attribute(Mesh::ATTRIBUTE_UV_0)
