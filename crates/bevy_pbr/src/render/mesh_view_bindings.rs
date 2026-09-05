@@ -32,7 +32,7 @@ use bevy_render::{
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
         Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
-        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT, VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE,
     },
 };
 use core::fmt::Write;
@@ -350,7 +350,13 @@ fn layout_entries(
                 buffer_layout(
                     visibility_ranges_buffer_binding_type,
                     false,
-                    Some(Vec4::min_size()),
+                    Some(match visibility_ranges_buffer_binding_type {
+                        BufferBindingType::Uniform => Vec4::min_size().saturating_mul(
+                            NonZero::new(VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE as u64)
+                                .expect("the uniform array holds at least one element"),
+                        ),
+                        BufferBindingType::Storage { .. } => Vec4::min_size(),
+                    }),
                 )
                 .visibility(ShaderStages::VERTEX),
             ),
