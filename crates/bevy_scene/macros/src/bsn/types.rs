@@ -80,6 +80,7 @@ pub enum BsnScene {
 pub struct BsnConstructor {
     pub type_path: Path,
     pub function: Ident,
+    pub function_generics: Option<syn::AngleBracketedGenericArguments>,
     pub args: BsnFnArgs,
 }
 

@@ -163,11 +163,19 @@ impl BsnEntry {
                 }
                 PathType::Const => BsnEntry::TemplateValue(path.to_token_stream()),
                 PathType::TypeFunction => {
-                    let function = take_last_path_ident(&mut path).unwrap();
+                    let syn::PathSegment {
+                        ident: function,
+                        arguments,
+                    } = take_last_path_segment(&mut path).unwrap();
+                    let function_generics = match arguments {
+                        syn::PathArguments::AngleBracketed(args) => Some(args),
+                        _ => None,
+                    };
                     let args = input.parse::<BsnFnArgs>()?;
                     let constructor = BsnConstructor {
                         type_path: path,
                         function,
+                        function_generics,
                         args,
                     };
                     let dot_expression = if input.peek(Dot) {
@@ -674,8 +682,12 @@ impl Parse for EntityNameIdent {
     }
 }
 
-fn take_last_path_ident(path: &mut Path) -> Option<Ident> {
-    let ident = path.segments.pop().map(|s| s.into_value().ident);
+fn take_last_path_segment(path: &mut Path) -> Option<syn::PathSegment> {
+    let segment = path.segments.pop().map(|s| s.into_value());
     path.segments.pop_punct();
-    ident
+    segment
+}
+
+fn take_last_path_ident(path: &mut Path) -> Option<Ident> {
+    take_last_path_segment(path).map(|segment| segment.ident)
 }
