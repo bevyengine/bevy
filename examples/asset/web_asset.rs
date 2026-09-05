@@ -1,7 +1,6 @@
 //! Example usage of the `https` asset source to load assets from the web.
 //!
-//! Run with the feature `https`, and optionally `web_asset_cache`
-//! for a simple caching mechanism that never invalidates.
+//! Run with the feature `https`, and optionally `web_asset_cache` for http caching.
 //!
 use bevy::{asset::io::web::WebAssetPlugin, prelude::*};
 
