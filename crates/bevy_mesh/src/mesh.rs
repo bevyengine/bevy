@@ -1225,7 +1225,7 @@ impl Mesh {
 
     /// Quantize `Float32x4` colors to the format of `quantization` using [`Mesh::quantize_float32_attribute`].
     /// [`AttributeQuantization::Unorm8`] is recommended if you don't need higher precision or floating-point range.
-    pub fn compress_colors(
+    pub fn quantize_colors(
         &mut self,
         quantization: AttributeQuantization,
     ) -> Result<&mut Mesh, MeshAttributeCompressionError> {
@@ -1234,7 +1234,7 @@ impl Mesh {
 
     /// Quantize `Float32x4` joint weights to the format of `quantization` using [`Mesh::quantize_float32_attribute`].
     /// [`AttributeQuantization::Unorm16`] is recommended.
-    pub fn compress_joint_weights(
+    pub fn quantize_joint_weights(
         &mut self,
         quantization: AttributeQuantization,
     ) -> Result<&mut Mesh, MeshAttributeCompressionError> {
@@ -3876,7 +3876,7 @@ mod tests {
         );
         let mut mesh_color_f16 = mesh.clone();
 
-        mesh.compress_colors(AttributeQuantization::Unorm8).unwrap();
+        mesh.quantize_colors(AttributeQuantization::Unorm8).unwrap();
         assert_eq!(
             mesh.attribute_compression,
             MeshAttributeCompressionFlags::empty()
@@ -3892,7 +3892,7 @@ mod tests {
         );
 
         mesh_color_f16
-            .compress_colors(AttributeQuantization::Float16)
+            .quantize_colors(AttributeQuantization::Float16)
             .unwrap();
         assert_eq!(
             mesh_color_f16.attribute_compression,
@@ -3938,7 +3938,7 @@ mod tests {
             ],
         );
 
-        mesh.compress_joint_weights(AttributeQuantization::Unorm16)
+        mesh.quantize_joint_weights(AttributeQuantization::Unorm16)
             .unwrap();
         assert_eq!(
             mesh.attribute_compression,
