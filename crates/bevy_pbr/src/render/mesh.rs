@@ -1909,6 +1909,7 @@ pub fn extract_meshes_for_cpu_building(
 /// All the data that we need from a mesh in the main world.
 type GpuMeshExtractionQuery = (
     Entity,
+    Read<ViewVisibility>,
     Read<GlobalTransform>,
     Option<Read<PreviousGlobalTransform>>,
     Option<Read<Lightmap>>,
@@ -2121,6 +2122,7 @@ pub fn extract_meshes_for_gpu_building(
 fn extract_mesh_for_gpu_building(
     (
         entity,
+        view_visibility,
         transform,
         previous_transform,
         lightmap,
@@ -2143,8 +2145,11 @@ fn extract_mesh_for_gpu_building(
     queue: &mut RenderMeshInstanceGpuQueue,
     any_gpu_culling: bool,
 ) {
-    // Note: `ViewVisibility` isn't checked here because of that depends on cpu culling path,
-    // and the cpu culling path completely ignores Mesh3d tagged with NoCpuCulling
+    // If the entity is invisible, remove it.
+    if !view_visibility.get() {
+        queue.remove(entity.into(), any_gpu_culling);
+        return;
+    }
 
     // If the entity has a visibility range, determine its LOD index.
     let mut lod_index = None;
