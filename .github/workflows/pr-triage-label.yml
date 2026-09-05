@@ -1,0 +1,17 @@
+name: Auto Label PR with S-Needs-Triage
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  label-pr-triage:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: "write"
+    steps:
+      - name: Add label to PR
+        run: gh pr edit "$PR_NUMBER" --add-label "S-Needs-Triage"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
