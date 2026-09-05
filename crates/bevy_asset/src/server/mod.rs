@@ -945,8 +945,12 @@ impl AssetServer {
                 )
                 .await?;
 
-            if let Some(meta_transform) = input_handle.meta_transform() {
-                (*meta_transform)(&mut *meta);
+            {
+                let infos = self.read_infos();
+                let info = infos.get(asset_id).unwrap();
+                if let Some(meta_transform) = info.meta_transform.as_ref() {
+                    (*meta_transform)(&mut *meta);
+                }
             }
 
             if requested_type != loader.asset_type_id() {
