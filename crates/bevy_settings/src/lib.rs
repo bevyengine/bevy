@@ -1,6 +1,18 @@
 //! Framework for saving and loading user settings files in Bevy
 //! applications.
 //!
+//! The core of the framework is [`SettingsPlugin`], which
+//! loads and synchronizes settings with the filesystem or browser
+//! local storage, depending on platform.
+//!
+//! Settings are loaded into resources that implement [`SettingsGroup`](trait@SettingsGroup),
+//! which is best implemented using the derive macro [`SettingsGroup`](derive@SettingsGroup).
+//! In addition, the resource must have the `#[reflect(SettingsGroup, Default)]` annotation in
+//! order to be saved and loaded by the plugin.
+//!
+//! Once all these conditions are met, and when [`SettingsPlugin`] is added, systems can query
+//! for settings using [`Res`] and [`ResMut`] like any other resource.
+//!
 //! Refer to [`SettingsPlugin`] for detailed usage information.
 
 use core::any::TypeId;
@@ -20,8 +32,8 @@ use bevy_log::warn;
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{TypedReflectDeserializer, TypedReflectSerializer},
-    CreateTypeData, FromReflect, PartialReflect, ReflectMut, TypeInfo, TypePath, TypeRegistration,
-    TypeRegistry,
+    CreateTypeData, FromReflect, PartialReflect, Reflect, ReflectMut, TypeInfo, TypePath,
+    TypeRegistration, TypeRegistry,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -39,6 +51,12 @@ use store_fs::SettingsStore;
 use store_wasm::SettingsStore;
 
 /// Plugin to orchestrate loading and saving settings.
+///
+/// When added to an app, `SettingsPlugin` will load settings from storage (either the filesystem
+/// or browser local storage) into resources that implement the [`SettingsGroup`](trait@SettingsGroup),
+/// [`Default`], and [`Reflect`] traits, and, in
+/// addition, are also annotated with `#[reflect(Default, SettingsGroup)]`. The plugin can also be used
+/// to write these settings back to storage after they are changed.
 ///
 /// You are required to provide a unique application name, so that your settings don't overwrite
 /// those of other apps. To ensure global uniqueness, it is recommended to use a
@@ -154,6 +172,9 @@ impl Plugin for SettingsPlugin {
 
 /// Trait which identifies a type as corresponding to a section with a settings file.
 ///
+/// In order for [`SettingsPlugin`] to do anything with types that implement this trait, the type must also
+/// be annotated with `#[reflect(SettingsGroup, Default)]`.
+///
 /// You can override the name of the section with `settings_group(group = "<name>")`.
 /// For enum `SettingGroup`s, you can also override the name of its key with `settings_group(key = "<name>")`
 /// The name should be in ``snake_case`` to be consistent with TOML style.
@@ -164,7 +185,11 @@ impl Plugin for SettingsPlugin {
 /// `settings_group(file = "<filename>")`. This should be the base name of the file without the
 /// extension. The default name is `settings`, which will cause the settings to be written out
 /// to `settings.toml` in the app's settings directory.
-pub trait SettingsGroup: Resource {
+///
+/// Since these resources are loaded from storage, it is possible for them to be modified by hand by users,
+/// so it's important to not rely on the validity of the data. In particular, it is important to ensure you do not
+/// rely on any invariants of the input data to ensure safety elsewhere in your code.
+pub trait SettingsGroup: Resource + Reflect + Default {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
 
@@ -437,14 +462,22 @@ fn build_settings_registry(
     };
     file_index.save_timer.pause(); // Ensure timer is initially paused
 
+    let mut errors = Vec::new();
     // Scan through types looking for resources that have the necessary traits and
     // annotations.
     for ty in types.iter() {
-        if !ty.contains::<ReflectDefault>() {
+        // All types that are relevant
+        let Some(reflect_group) = ty.data::<ReflectSettingsGroup>() else {
             continue;
         };
 
-        let Some(reflect_group) = ty.data::<ReflectSettingsGroup>() else {
+        if !ty.contains::<ReflectDefault>() {
+            // Collect all the errors into a single list so that a user can see all of them at once rather than chasing them
+            // down one by one as they fix the errors.
+            errors.push(format!(
+                "Type {} has #[reflect(SettingsGroup)], which requires #[reflect(Default)]. It will not be saved or loaded.",
+                ty.type_info().type_path()
+            ));
             continue;
         };
 
@@ -459,6 +492,9 @@ fn build_settings_registry(
             });
         pending_file.last_save = last_save;
         pending_file.resource_types.push(ty.type_id());
+    }
+    if !errors.is_empty() {
+        panic!("{}", errors.join("\n"));
     }
 
     file_index

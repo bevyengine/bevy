@@ -634,6 +634,12 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// test = true
 /// ```
 ///
+/// Note that it's possible to make multiple different settings types share the same file,
+/// group, and even key. When loading, all fields sharing the same key will load from that
+/// same key. If the value is not valid for the type of a field, that field will be reset to
+/// the default value in that settings type. If two or more types are contending for a single
+/// key, which type ultimately saves in that key is not specified.
+///
 /// ## File Override
 /// ```ignore
 /// #[derive(SettingsGroup)]
