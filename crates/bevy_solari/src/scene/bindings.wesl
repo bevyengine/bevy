@@ -211,12 +211,14 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
 
     let transform_3x3 = mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz);
 
+    let cofactor = mat3x3(cross(transform_3x3[1], transform_3x3[2]), cross(transform_3x3[2], transform_3x3[0]), cross(transform_3x3[0], transform_3x3[1]));
+    let determinant = dot(transform_3x3[0], cofactor[0]);
+    let determinant_sign = select(sign(determinant), 1.0, determinant == 0.0);
+
     let local_tangent = mat3x3(vertices[0].tangent.xyz, vertices[1].tangent.xyz, vertices[2].tangent.xyz) * barycentrics;
-    let world_tangent = vec4(normalize(transform_3x3 * local_tangent), vertices[0].tangent.w);
+    let world_tangent = vec4(normalize(transform_3x3 * local_tangent), vertices[0].tangent.w * determinant_sign);
 
     let local_normal = mat3x3(vertices[0].normal, vertices[1].normal, vertices[2].normal) * barycentrics; // TODO: Use barycentric lerp, ray_hit.object_to_world, cross product geo normal
-    let cofactor = mat3x3(cross(transform_3x3[1], transform_3x3[2]), cross(transform_3x3[2], transform_3x3[0]), cross(transform_3x3[0], transform_3x3[1]));
-    let determinant_sign = sign(dot(transform_3x3[0], cofactor[0]));
     var world_normal = normalize(determinant_sign * (cofactor * local_normal));
 
     let geometric_world_normal = world_normal;

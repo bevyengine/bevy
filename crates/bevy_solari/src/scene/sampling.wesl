@@ -14,7 +14,7 @@ fn balance_heuristic(f: f32, g: f32) -> f32 {
     if f == 0.0 {
         return 0.0;
     }
-    // Two INF pdfs (delta strategies for the same direction) give INF / INF = NaN; split evenly so the weights still sum to 1
+    // When NaN, fall back to even weights of 0.5 : 0.5
     let weight = 1.0 / (1.0 + (g / f));
     return select(weight, 0.5, isnan(weight));
 }
