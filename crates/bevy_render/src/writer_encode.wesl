@@ -1,5 +1,5 @@
-// Encodes a fragment's output color for the view's compositing space, so
-// blending happens in that space. The upscaling blit decodes back to linear.
+//! Encodes a fragment's output color for the view's compositing space, so
+//! blending happens in that space. The upscaling blit decodes back to linear.
 
 @if(COMPOSITING_SPACE_SRGB)
 import package::color_operations::linear_to_srgb;

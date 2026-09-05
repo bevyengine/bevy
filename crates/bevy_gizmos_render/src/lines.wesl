@@ -161,8 +161,8 @@ struct FragmentOutput {
     @location(0) color: vec4<f32>,
 };
 
-// Gizmos draw into the view's main texture, so every fragment function
-// encodes for the compositing space.
+/// Gizmos draw into the view's main texture, so every fragment function
+/// encodes for the compositing space.
 @fragment
 fn fragment_solid(in: FragmentInput) -> FragmentOutput {
     return FragmentOutput(writer_encode(in.color));

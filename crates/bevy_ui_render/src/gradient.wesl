@@ -53,7 +53,7 @@ struct GradientVertexOutput {
     @location(4) @interpolate(flat) radius_y: vec4<f32>,
     @location(5) @interpolate(flat) border: vec4<f32>,
 
-    // Position relative to the center of the rectangle.
+    /// Position relative to the center of the rectangle.
     @location(6) point: vec2<f32>,
     @location(7) @interpolate(flat) g_start: vec2<f32>,
     @location(8) @interpolate(flat) dir: vec2<f32>,
@@ -71,11 +71,11 @@ fn vertex(
     @location(1) vertex_uv: vec2<f32>,
     @location(2) flags: u32,
 
-    // x: top left, y: top right, z: bottom right, w: bottom left.
+    /// x: top left, y: top right, z: bottom right, w: bottom left.
     @location(3) radius_x: vec4<f32>,
     @location(4) radius_y: vec4<f32>,
 
-    // x: left, y: top, z: right, w: bottom.
+    /// x: left, y: top, z: right, w: bottom.
     @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
     @location(7) point: vec2<f32>,
@@ -171,7 +171,7 @@ fn conic_distance(
     return (((angle - start) % TAU) + TAU) % TAU;
 }
 
-// Mix the colors, choosing the appropriate interpolation method for the given color space
+/// Mix the colors, choosing the appropriate interpolation method for the given color space
 fn mix_colors(
     start_color: vec3<f32>,
     end_color: vec3<f32>,
@@ -198,7 +198,7 @@ fn mix_colors(
     return mix(start_color, end_color, t);
 }
 
-// Convert a color from the interpolation color space to linear rgba
+/// Convert a color from the interpolation color space to linear rgba
 fn convert_to_linear_rgba(
     color: vec4<f32>,
 ) -> vec4<f32> {

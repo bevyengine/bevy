@@ -28,7 +28,7 @@ struct VertexOutput {
     @location(5) @interpolate(flat) radius_y: vec4<f32>,
     @location(6) @interpolate(flat) border: vec4<f32>,
 
-    // Position relative to the center of the rectangle.
+    /// Position relative to the center of the rectangle.
     @location(7) point: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
@@ -40,11 +40,11 @@ fn vertex(
     @location(2) vertex_color: vec4<f32>,
     @location(3) flags: u32,
 
-    // x: top left, y: top right, z: bottom right, w: bottom left.
+    /// x: top left, y: top right, z: bottom right, w: bottom left.
     @location(4) radius_x: vec4<f32>,
     @location(5) radius_y: vec4<f32>,
 
-    // x: left, y: top, z: right, w: bottom.
+    /// x: left, y: top, z: right, w: bottom.
     @location(6) border: vec4<f32>,
     @location(7) size: vec2<f32>,
     @location(8) point: vec2<f32>,
@@ -67,13 +67,13 @@ fn vertex(
 @group(1) @binding(1) var sprite_sampler: sampler;
 
 
-// Returns the radius of the corner closest to the given point.
-//
-// Arguments:
-//  - `point`          -> The point used to choose the closest corner.
-//  - `corner_radii_x` -> The horizontal radius of each rounded corner.
-//  - `corner_radii_y` -> The vertical radius of each rounded corner.
-//                        Both ordered x: top left, y: top right, z: bottom right, w: bottom left.
+/// Returns the radius of the corner closest to the given point.
+///
+/// Arguments:
+///  - `point`          -> The point used to choose the closest corner.
+///  - `corner_radii_x` -> The horizontal radius of each rounded corner.
+///  - `corner_radii_y` -> The vertical radius of each rounded corner.
+///                        Both ordered x: top left, y: top right, z: bottom right, w: bottom left.
 fn select_corner_radius(
     point: vec2<f32>,
     corner_radii_x: vec4<f32>,
@@ -83,23 +83,23 @@ fn select_corner_radius(
     // Else select top left (x) and top right corner radius (y).
     let rxs = select(corner_radii_x.xy, corner_radii_x.wz, 0.0 < point.y);
     let rys = select(corner_radii_y.xy, corner_radii_y.wz, 0.0 < point.y);
-    // w and z are swapped above so that both pairs are in left to right order, otherwise this second 
+    // w and z are swapped above so that both pairs are in left to right order, otherwise this second
     // select statement would return the incorrect value for the bottom pair.
     return vec2(select(rxs.x, rxs.y, 0.0 < point.x), select(rys.x, rys.y, 0.0 < point.x));
 }
 
-// The returned value is the shortest distance from the given point to the boundary of the rounded 
-// box.
-// 
-// Negative values indicate that the point is inside the rounded box, positive values that the point 
-// is outside, and zero is exactly on the boundary.
-//
-// Arguments: 
-//  - `point`           -> The function will return the distance from this point to the closest point on 
-//                          the boundary.
-//  - `size`            -> The maximum width and height of the box.
-//  - `corner_radii_x`   -> The horizontal semi-axis of each rounded corner. Ordered counter clockwise starting top left.
-//  - `corner_radii_y`   -> The vertical semi-axis of each rounded corner. Ordered counter clockwise starting top left.
+/// The returned value is the shortest distance from the given point to the boundary of the rounded
+/// box.
+///
+/// Negative values indicate that the point is inside the rounded box, positive values that the point
+/// is outside, and zero is exactly on the boundary.
+///
+/// Arguments:
+///  - `point`           -> The function will return the distance from this point to the closest point on
+///                          the boundary.
+///  - `size`            -> The maximum width and height of the box.
+///  - `corner_radii_x`   -> The horizontal semi-axis of each rounded corner. Ordered counter clockwise starting top left.
+///  - `corner_radii_y`   -> The vertical semi-axis of each rounded corner. Ordered counter clockwise starting top left.
 fn sd_rounded_box(
     point: vec2<f32>,
     size: vec2<f32>,
@@ -117,7 +117,7 @@ fn sd_rounded_box(
     let q = corner_to_point + radius;
     let edge_distance = max(q.x - radius.x, q.y - radius.y);
     let inv_radii_sq = 1.0 / (radius * radius);
-    let corner_distance = distance_to_ellipse_approx(q, inv_radii_sq, 1.0); 
+    let corner_distance = distance_to_ellipse_approx(q, inv_radii_sq, 1.0);
     return select(edge_distance, corner_distance, q.x > 0.0 && q.y > 0.0);
 }
 
@@ -166,29 +166,29 @@ fn nearest_border_active(point_vs_mid: vec2<f32>, size: vec2<f32>, width: vec4<f
     if (flags & BORDER_ANY) == BORDER_ANY {
         return true;
     }
- 
+
     // get point vs top left
     let point = clamp(point_vs_mid + size * 0.49999, vec2(0.0), size);
- 
+
     let left = point.x / width.x;
     let top = point.y / width.y;
     let right = (size.x - point.x) / width.z;
     let bottom = (size.y - point.y) / width.w;
- 
+
     let min_dist = min(min(left, top), min(right, bottom));
- 
+
     return (enabled(flags, BORDER_LEFT) && min_dist == left) ||
-        (enabled(flags, BORDER_TOP) && min_dist == top) || 
-        (enabled(flags, BORDER_RIGHT) && min_dist == right) || 
+        (enabled(flags, BORDER_TOP) && min_dist == top) ||
+        (enabled(flags, BORDER_RIGHT) && min_dist == right) ||
         (enabled(flags, BORDER_BOTTOM) && min_dist == bottom);
 }
 
-// UI shaders call this on their final color, including custom UiMaterial shaders.
+/// UI shaders call this on their final color, including custom UiMaterial shaders.
 fn encode_output(color: vec4<f32>) -> vec4<f32> {
     return writer_encode(color);
 }
 
-// get alpha for antialiasing for sdf
+/// get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
     return saturate(0.5 - distance);
@@ -211,13 +211,13 @@ fn draw_uinode_border(
     // Signed distance from the exterior boundary.
     let external_distance = sd_rounded_box(point, size, radius_x, radius_y);
 
-    // Signed distance from the border's internal edge (the signed distance is negative if the point 
+    // Signed distance from the border's internal edge (the signed distance is negative if the point
     // is inside the rect but not on the border).
     // If the border size is set to zero, this is the same as the external distance.
     let internal_distance = sd_inset_rounded_box(point, size, radius_x, radius_y, border);
 
     // Signed distance from the border (the intersection of the rect with its border).
-    // Points inside the border have negative signed distance. Any point outside the border, whether 
+    // Points inside the border have negative signed distance. Any point outside the border, whether
     // outside the outside edge, or inside the inner edge have positive signed distance.
     let border_distance = max(external_distance, -internal_distance);
 
@@ -225,9 +225,9 @@ fn draw_uinode_border(
     let nearest_border = select(0.0, 1.0, nearest_border_active(point, size, border, flags));
 
     @if(ANTI_ALIAS)
-    // At external edges with no border, `border_distance` is equal to zero. 
-    // This select statement ensures we only perform anti-aliasing where a non-zero width border 
-    // is present, otherwise an outline about the external boundary would be drawn even without 
+    // At external edges with no border, `border_distance` is equal to zero.
+    // This select statement ensures we only perform anti-aliasing where a non-zero width border
+    // is present, otherwise an outline about the external boundary would be drawn even without
     // a border.
     let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
     @else
@@ -261,7 +261,7 @@ fn draw_uinode_background(
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
 
-    // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
+    // Only use the color sampled from the texture if the `TEXTURED` flag is enabled.
     // This allows us to draw both textured and untextured shapes together in the same batch.
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
@@ -274,24 +274,24 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     return encode_output(out);
 }
 
-// One iteration of Newton's method on the 2D equation of an ellipse:  
-//  
-//     E(x, y) = x^2/a^2 + y^2/b^2 - 1  
-//  
-// The Jacobian of this equation is:  
-//  
-//     J(E(x, y)) = [ 2*x/a^2 2*y/b^2 ]  
-//  
-// We approximate the distance with:  
-//  
-//     E(x, y) / ||J(E(x, y))||  
-//  
-// See G. Taubin, "Distance Approximations for Rasterizing Implicit  
-// Curves", section 3.  
-//  
-// A scale relative to the unit scale of the ellipse may be passed in to cause  
-// the math to degenerate to length(p) when scale is 0, or otherwise give the  
-// normal distance approximation if scale is 1.
+/// One iteration of Newton's method on the 2D equation of an ellipse:
+///
+///     E(x, y) = x^2/a^2 + y^2/b^2 - 1
+///
+/// The Jacobian of this equation is:
+///
+///     J(E(x, y)) = [ 2*x/a^2 2*y/b^2 ]
+///
+/// We approximate the distance with:
+///
+///     E(x, y) / ||J(E(x, y))||
+///
+/// See G. Taubin, "Distance Approximations for Rasterizing Implicit
+/// Curves", section 3.
+///
+/// A scale relative to the unit scale of the ellipse may be passed in to cause
+/// the math to degenerate to length(p) when scale is 0, or otherwise give the
+/// normal distance approximation if scale is 1.
 fn distance_to_ellipse_approx(p: vec2<f32>, inv_radii_sq: vec2<f32>, scale: f32) -> f32 {
     let p_r = p * inv_radii_sq;
     let g = dot(p, p_r) - scale;
