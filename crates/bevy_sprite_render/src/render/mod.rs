@@ -21,7 +21,7 @@ use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, TonemapInShader},
     view::{RenderVisibleEntities, ResolvedCompositingSpace, RetainedViewEntity},
 };
 use bevy_render::{
@@ -162,6 +162,25 @@ impl SpritePipelineKey {
             Some(CompositingSpace::Srgb) => Self::SRGB_COMPOSITING,
             Some(CompositingSpace::Oklab) => Self::OKLAB_COMPOSITING,
             Some(CompositingSpace::Linear) | None => Self::NONE,
+        }
+    }
+
+    /// The `TONEMAP_METHOD_*` bits for a tonemapping method. Specialization
+    /// reads them only when [`Self::TONEMAP_IN_SHADER`] is also set.
+    #[inline]
+    const fn from_tonemapping(tonemapping: Tonemapping) -> Self {
+        match tonemapping {
+            Tonemapping::None | Tonemapping::Linear => Self::TONEMAP_METHOD_LINEAR,
+            Tonemapping::Reinhard => Self::TONEMAP_METHOD_REINHARD,
+            Tonemapping::ReinhardLuminance => Self::TONEMAP_METHOD_REINHARD_LUMINANCE,
+            Tonemapping::AcesFitted => Self::TONEMAP_METHOD_ACES_FITTED,
+            Tonemapping::AgX => Self::TONEMAP_METHOD_AGX,
+            Tonemapping::SomewhatBoringDisplayTransform => {
+                Self::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            }
+            Tonemapping::TonyMcMapface => Self::TONEMAP_METHOD_TONY_MC_MAPFACE,
+            Tonemapping::BlenderFilmic => Self::TONEMAP_METHOD_BLENDER_FILMIC,
+            Tonemapping::KhronosPbrNeutral => Self::TONEMAP_METHOD_PBR_NEUTRAL,
         }
     }
 }
@@ -432,19 +451,23 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     extracted_sprites: Res<ExtractedSprites>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut cameras: Query<(
-        &RenderVisibleEntities,
-        &ExtractedCamera,
-        &ExtractedView,
-        &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-        Option<&ResolvedCompositingSpace>,
-    )>,
+    mut cameras: Query<
+        (
+            &RenderVisibleEntities,
+            &ExtractedView,
+            &Msaa,
+            Option<&Tonemapping>,
+            Option<&DebandDither>,
+            Option<&ResolvedCompositingSpace>,
+            Has<TonemapInShader>,
+        ),
+        With<ExtractedCamera>,
+    >,
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (visible_entities, camera, view, msaa, tonemapping, dither, resolved_space) in &mut cameras
+    for (visible_entities, view, msaa, tonemapping, dither, resolved_space, tonemap_in_shader) in
+        &mut cameras
     {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
@@ -457,26 +480,9 @@ pub fn queue_sprites(
                 resolved_space,
             ));
 
-        if !camera.hdr
-            && let Some(tonemapping) = tonemapping
-            && tonemapping.is_enabled()
-        {
+        if tonemap_in_shader && let Some(tonemapping) = tonemapping {
             view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
-            view_key |= match tonemapping {
-                Tonemapping::None | Tonemapping::Linear => SpritePipelineKey::TONEMAP_METHOD_LINEAR,
-                Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
-                Tonemapping::ReinhardLuminance => {
-                    SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
-                }
-                Tonemapping::AcesFitted => SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED,
-                Tonemapping::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
-                Tonemapping::SomewhatBoringDisplayTransform => {
-                    SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-                }
-                Tonemapping::TonyMcMapface => SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-                Tonemapping::BlenderFilmic => SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-                Tonemapping::KhronosPbrNeutral => SpritePipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
-            };
+            view_key |= SpritePipelineKey::from_tonemapping(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= SpritePipelineKey::DEBAND_DITHER;
             }

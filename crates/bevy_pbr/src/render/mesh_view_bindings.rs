@@ -16,7 +16,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::Has,
+    query::{Has, With},
     resource::Resource,
     system::{Commands, Query, Res},
 };
@@ -24,14 +24,14 @@ use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
 use bevy_platform::sync::Arc;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::TonemapInShader,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
-        Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
+        ExtractedView, Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
 };
@@ -644,34 +644,36 @@ pub fn prepare_mesh_view_bind_groups(
         Res<FogMeta>,
         Res<ViewUniforms>,
     ),
-    views: Query<(
-        Entity,
-        Option<&ExtractedCamera>,
-        &ViewShadowBindings,
-        &ViewClusterBindings,
-        &Msaa,
-        Option<&ScreenSpaceAmbientOcclusionResources>,
-        Option<&ViewPrepassTextures>,
-        Option<&ViewTransmissionTexture>,
-        Option<&AtmosphereTextures>,
-        Option<&AtmosphereBuffer>,
-        &Tonemapping,
+    views: Query<
         (
-            Option<&RenderViewLightProbes<EnvironmentMapLight>>,
-            Option<&RenderViewLightProbes<IrradianceVolume>>,
+            Entity,
+            &ViewShadowBindings,
+            &ViewClusterBindings,
+            &Msaa,
+            Option<&ScreenSpaceAmbientOcclusionResources>,
+            Option<&ViewPrepassTextures>,
+            Option<&ViewTransmissionTexture>,
+            Option<&AtmosphereTextures>,
+            Option<&AtmosphereBuffer>,
+            (&Tonemapping, Has<TonemapInShader>),
+            (
+                Option<&RenderViewLightProbes<EnvironmentMapLight>>,
+                Option<&RenderViewLightProbes<IrradianceVolume>>,
+            ),
+            Has<ExtractedAtmosphere>,
+            (
+                &ViewUniformOffset,
+                &ViewLightsUniformOffset,
+                &ViewLightProbesUniformOffset,
+                Option<&ViewFogUniformOffset>,
+                Option<&ViewScreenSpaceReflectionsUniformOffset>,
+                Option<&ViewContactShadowsUniformOffset>,
+                Option<&OrderIndependentTransparencySettingsOffset>,
+                Has<ScreenSpaceTransmission>,
+            ),
         ),
-        Has<ExtractedAtmosphere>,
-        (
-            &ViewUniformOffset,
-            &ViewLightsUniformOffset,
-            &ViewLightProbesUniformOffset,
-            Option<&ViewFogUniformOffset>,
-            Option<&ViewScreenSpaceReflectionsUniformOffset>,
-            Option<&ViewContactShadowsUniformOffset>,
-            Option<&OrderIndependentTransparencySettingsOffset>,
-            Has<ScreenSpaceTransmission>,
-        ),
-    )>,
+        With<ExtractedView>,
+    >,
     (images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<GpuImage>>,
         Res<FallbackImage>,
@@ -719,7 +721,6 @@ pub fn prepare_mesh_view_bind_groups(
     ) {
         for (
             entity,
-            camera,
             shadow_bindings,
             cluster_bindings,
             msaa,
@@ -728,7 +729,7 @@ pub fn prepare_mesh_view_bind_groups(
             transmission_texture,
             atmosphere_textures,
             atmosphere_buffer,
-            tonemapping,
+            (tonemapping, tonemap_in_shader),
             (render_view_environment_maps, render_view_irradiance_volumes),
             has_atmosphere,
             (
@@ -759,8 +760,6 @@ pub fn prepare_mesh_view_bind_groups(
                     .collect();
             }
 
-            let tonemap_in_shader =
-                camera.is_none_or(|camera| !camera.hdr) && tonemapping.is_enabled();
             let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
             let mut offsets = ArrayVec::from_iter([

@@ -33,7 +33,9 @@ use bevy_render::{
     },
     renderer::{RenderContext, ViewQuery},
     sync_component::SyncComponent,
-    view::{prepare_view_targets, Msaa, ViewDepthStencilTexture, ViewTarget},
+    view::{
+        prepare_view_targets, Msaa, NeedsSceneLinearTarget, ViewDepthStencilTexture, ViewTarget,
+    },
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -72,7 +74,7 @@ pub mod pipeline;
 /// ````
 #[derive(Reflect, Component, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(MotionVectorPrepass)]
+#[require(MotionVectorPrepass, NeedsSceneLinearTarget)]
 pub struct MotionBlur {
     /// The strength of motion blur from `0.0` to `1.0`.
     ///
