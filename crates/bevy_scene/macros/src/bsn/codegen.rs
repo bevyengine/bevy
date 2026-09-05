@@ -1153,7 +1153,7 @@ mod tests {
             proc_macro2::Span::call_site(),
             "Test Error",
         ));
-        let root = BsnListRoot(BsnSceneListItems(vec![]));
+        let root = BsnListRoot(BsnSceneListItems(vec![], vec![]));
 
         // Act
         let res = root.to_tokens(&mut ctx).to_string();
