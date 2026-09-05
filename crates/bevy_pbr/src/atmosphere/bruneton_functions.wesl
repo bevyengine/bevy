@@ -53,7 +53,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
-import bevy_pbr::atmosphere::{
+import package::atmosphere::{
     types::Atmosphere,
     bindings::atmosphere,
     functions::{get_local_r, sample_transmittance_lut},

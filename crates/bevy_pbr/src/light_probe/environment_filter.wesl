@@ -1,5 +1,5 @@
 import bevy_render::maths::PI;
-import bevy_pbr::render::{
+import package::render::{
     pbr_lighting as lighting,
     utils::{sample_cosine_hemisphere, dir_to_cube_uv, sample_cube_dir, hammersley_2d, rand_vec2f}
 };

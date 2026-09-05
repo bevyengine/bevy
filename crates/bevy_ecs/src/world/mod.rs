@@ -461,7 +461,7 @@ impl World {
     /// ```
     pub fn register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: impl Fn() -> R + 'static,
     ) {
         self.try_register_required_components_with::<T, R>(constructor)
             .unwrap();
@@ -572,7 +572,7 @@ impl World {
     /// ```
     pub fn try_register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: impl Fn() -> R + 'static,
     ) -> Result<(), RequiredComponentsError> {
         let requiree = self.register_component::<T>();
 

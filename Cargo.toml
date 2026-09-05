@@ -202,6 +202,7 @@ common_api = [
   "bevy_animation",
   "bevy_camera",
   "bevy_color",
+  "bevy_curve",
   "bevy_gizmos",
   "bevy_image",
   "bevy_mesh",
@@ -287,6 +288,9 @@ sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
 # Provides animation functionality
 bevy_animation = ["bevy_internal/bevy_animation"]
 
+# Provides mathematical curve functionality
+bevy_curve = ["bevy_internal/bevy_curve"]
+
 # Provides asset functionality
 bevy_asset = ["bevy_internal/bevy_asset"]
 
@@ -304,6 +308,9 @@ bevy_post_process = ["bevy_internal/bevy_post_process"]
 
 # Provides various anti-aliasing solutions
 bevy_anti_alias = ["bevy_internal/bevy_anti_alias"]
+
+# Provides the ability to extract entities from an ECS main world to a sub world
+bevy_extract = ["bevy_internal/bevy_extract"]
 
 # Adds gamepad support
 bevy_gilrs = ["gamepad", "bevy_internal/bevy_gilrs"]
@@ -388,6 +395,9 @@ free_camera = ["bevy_internal/free_camera"]
 
 # Enables the pan camera from bevy_camera_controller
 pan_camera = ["bevy_internal/pan_camera"]
+
+# Enables the pan orbit camera from bevy_camera_controller
+pan_orbit_camera = ["bevy_internal/pan_orbit_camera"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
@@ -753,6 +763,7 @@ bytemuck = "1"
 bevy_animation = { path = "crates/bevy_animation", version = "0.20.0-dev", default-features = false }
 bevy_asset = { path = "crates/bevy_asset", version = "0.20.0-dev", default-features = false }
 bevy_ecs = { path = "crates/bevy_ecs", version = "0.20.0-dev", default-features = false }
+bevy_extract = { path = "crates/bevy_extract", version = "0.20.0-dev", default-features = false }
 bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.20.0-dev", default-features = false }
 bevy_image = { path = "crates/bevy_image", version = "0.20.0-dev", default-features = false }
 bevy_reflect = { path = "crates/bevy_reflect", version = "0.20.0-dev", default-features = false }
@@ -3222,6 +3233,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "sprite_material"
+path = "examples/shader/sprite_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_material]
+name = "Sprite Material"
+description = "A custom shader for sprites"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "shader_prepass"
 path = "examples/shader/shader_prepass.rs"
 doc-scrape-examples = true
@@ -3476,17 +3498,6 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
-name = "many_animated_sprite_meshes"
-path = "examples/stress_tests/many_animated_sprite_meshes.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.many_animated_sprite_meshes]
-name = "Many Animated Sprite Meshes"
-description = "Displays many animated sprite meshes in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
-category = "Stress Tests"
-wasm = false
-
-[[example]]
 name = "many_buttons"
 path = "examples/stress_tests/many_buttons.rs"
 doc-scrape-examples = true
@@ -3606,17 +3617,6 @@ name = "Many Sprites"
 description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
-
-[[example]]
-name = "many_sprite_meshes"
-path = "examples/stress_tests/many_sprite_meshes.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.many_sprite_meshes]
-name = "Many Sprite Meshes"
-description = "Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
-category = "Stress Tests"
-wasm = false
 
 [[example]]
 name = "many_text2d"
@@ -5172,6 +5172,17 @@ category = "Picking"
 wasm = true
 
 [[example]]
+name = "draggable_slider"
+path = "examples/picking/draggable_slider.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.draggable_slider]
+name = "Draggable Slider"
+description = "Demonstrates pointer capture using a draggable slider"
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
 doc-scrape-examples = true
@@ -5474,6 +5485,17 @@ category = "Usage"
 wasm = true
 
 [[example]]
+name = "headless_tabs"
+path = "examples/ui/widgets/headless_tabs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_tabs]
+name = "Headless Tabs"
+description = "Demonstrates controlled and self-updating headless tab lists"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "standard_widgets_observers"
 path = "examples/ui/widgets/standard_widgets_observers.rs"
 doc-scrape-examples = true
@@ -5591,6 +5613,42 @@ category = "Camera"
 wasm = true
 
 [[example]]
+name = "pan_orbit_camera_cad"
+path = "examples/camera/pan_orbit_camera_cad.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+
+[package.metadata.example.pan_orbit_camera_cad]
+name = "Pan Orbit Camera"
+description = "CAD-like controls and setup for PanOrbitCamera"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "pan_orbit_camera_minimal"
+path = "examples/camera/pan_orbit_camera_minimal.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+
+[package.metadata.example.pan_orbit_camera_minimal]
+name = "Minimal Pan Orbit Camera"
+description = "Minimum setup for working PanOrbitCamera"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "pan_orbit_camera_ortho"
+path = "examples/camera/pan_orbit_camera_ortho.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+
+[package.metadata.example.pan_orbit_camera_ortho]
+name = "Orthographic Pan Orbit Camera"
+description = "Using Pan Orbit Camera in orthographic-only projection"
+category = "Camera"
+wasm = true
+
+[[example]]
 name = "contiguous_query"
 path = "examples/ecs/contiguous_query.rs"
 doc-scrape-examples = true
@@ -5671,3 +5729,14 @@ name = "Material - 2D Bindless"
 description = "Demonstrates bindless materials in 2D"
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "gpu_component_array_buffer"
+path = "examples/shader/gpu_component_array_buffer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gpu_component_array_buffer]
+name = "GPU Component Array Buffer"
+description = "Shows how to expose per-mesh-instance data to the GPU"
+category = "Shaders"
+wasm = true
