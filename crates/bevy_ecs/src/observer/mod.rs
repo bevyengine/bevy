@@ -206,7 +206,7 @@ impl World {
     ) {
         // SAFETY: We have exclusive access via `&mut self` and will not
         // access observer storage through the returned `DeferredWorld`.
-        let Some((world, observers)) = (unsafe { self.split_for_event(event_key) }) else {
+        let Some((mut world, observers)) = (unsafe { self.split_for_event(event_key) }) else {
             return;
         };
 
@@ -214,6 +214,11 @@ impl World {
             event_key,
             caller: MaybeLocation::caller(),
         };
+
+        // SAFETY: no outstanding world references besides `observers`
+        unsafe {
+            world.as_unsafe_world_cell().increment_trigger_id();
+        }
 
         // SAFETY:
         // - `observers` come from `world` and correspond to `event_key`
@@ -264,6 +269,11 @@ impl World {
             event_key,
             caller: MaybeLocation::caller(),
         };
+
+        // SAFETY: no outstanding world references besides `observers`
+        unsafe {
+            world.as_unsafe_world_cell().increment_trigger_id();
+        }
 
         // SAFETY:
         // - `observers` come from `world` and correspond to `event_key`
