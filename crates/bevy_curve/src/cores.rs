@@ -6,7 +6,7 @@
 //! provided methods all maintain the invariants, so this is only a concern if you manually mutate
 //! the fields.
 
-use crate::ops;
+use bevy_math::ops;
 
 use super::interval::Interval;
 use core::fmt::Debug;
@@ -67,8 +67,8 @@ impl<T> InterpolationDatum<T> {
 ///
 /// # Example
 /// ```rust
-/// # use bevy_math::curve::*;
-/// # use bevy_math::curve::cores::*;
+/// # use bevy_curve::prelude::*;
+/// # use bevy_curve::cores::*;
 /// // Let's make a curve that interpolates evenly spaced samples using either linear interpolation
 /// // or step "interpolation" — i.e. just using the most recent sample as the source of truth.
 /// enum InterpolationMode {
@@ -267,8 +267,8 @@ pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDat
 ///
 /// # Example
 /// ```rust
-/// # use bevy_math::curve::*;
-/// # use bevy_math::curve::cores::*;
+/// # use bevy_curve::prelude::*;
+/// # use bevy_curve::cores::*;
 /// // Let's make a curve formed by interpolating rotations.
 /// // We'll support two common modes of interpolation:
 /// // - Normalized linear: First do linear interpolation, then normalize to get a valid rotation.
@@ -439,7 +439,7 @@ impl<T> UnevenCore<T> {
     /// the function `f` should generally be injective over the set of sample times, otherwise
     /// data will be deleted.
     ///
-    /// [`CurveExt::reparametrize`]: crate::curve::CurveExt::reparametrize
+    /// [`CurveExt::reparametrize`]: crate::CurveExt::reparametrize
     #[must_use]
     pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenCore<T> {
         let mut timed_samples = self
@@ -696,7 +696,7 @@ pub fn uneven_interp(times: &[f32], t: f32) -> InterpolationDatum<usize> {
 #[cfg(all(test, feature = "alloc"))]
 mod tests {
     use super::{ChunkedUnevenCore, EvenCore, UnevenCore};
-    use crate::curve::{cores::InterpolationDatum, interval};
+    use crate::{cores::InterpolationDatum, interval};
     use alloc::vec;
     use approx::{assert_abs_diff_eq, AbsDiffEq};
 

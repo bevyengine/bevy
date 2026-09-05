@@ -20,14 +20,12 @@
 //! counterpart.
 //!
 //! [`with_derivative`]: CurveWithDerivative::with_derivative
-//! [`by_ref`]: crate::curve::CurveExt::by_ref
+//! [`by_ref`]: crate::CurveExt::by_ref
 
 pub mod adaptor_impls;
 
-use crate::{
-    common_traits::{HasTangent, WithDerivative, WithTwoDerivatives},
-    curve::{Curve, Interval},
-};
+use crate::{Curve, Interval};
+use bevy_math::common_traits::{HasTangent, WithDerivative, WithTwoDerivatives};
 use core::ops::Deref;
 
 #[cfg(feature = "bevy_reflect")]

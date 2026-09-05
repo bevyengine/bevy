@@ -84,7 +84,11 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, @demo_root()]
+    bsn_list![
+        Camera2d
+        --
+        @demo_root()
+    ]
 }
 
 fn demo_root() -> Box<dyn Scene> {
@@ -101,8 +105,9 @@ fn demo_root() -> Box<dyn Scene> {
         TabGroup
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children[
-            @demo_column_1(),
-            @demo_column_2(),
+            @demo_column_1() --
+            @demo_column_2() --
+            @demo_column_3() --
         ]
     })
 }
@@ -574,10 +579,8 @@ fn demo_column_1() -> impl Scene {
             Children [
                 @label("Srgba")
                 --
-                // Spacer
                 @flex_spacer()
                 --
-                // Text input
                 @FeathersTextInputContainer
                 Node {
                     flex_grow: 0.
@@ -965,10 +968,55 @@ fn demo_column_2() -> impl Scene {
     }
 }
 
+fn demo_column_3() -> impl Scene {
+    bsn! {
+        Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Stretch,
+            justify_content: JustifyContent::Start,
+            padding: px(8),
+            row_gap: px(8),
+            width: percent(15),
+            min_width: px(100),
+        }
+        Children [
+            (
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                }
+                Children [
+                    @label("Armor Tint"),
+                    @FeathersColorInput
+                    ColorInputValue(palettes::tailwind::AMBER_600)
+                    on(color_input_self_update)
+                ]
+            ),
+            (
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                }
+                Children [
+                    @label("Skin Color"),
+                    @FeathersColorInput
+                    ColorInputValue(palettes::tailwind::BLUE_800)
+                    on(color_input_self_update)
+                ]
+            )
+        ]
+    }
+}
+
 fn update_colors(
     states: Res<DemoWidgetStates>,
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
-    mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<FeathersColorSwatch>>,
+    swatches: Query<(Entity, &SwatchType), With<FeathersColorSwatch>>,
     mut color_planes: Query<(&mut ColorPlaneValue, &FeathersColorPlane)>,
     q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
     q_scalar_input: Query<Entity, With<DemoScalarField>>,
@@ -1042,34 +1090,36 @@ fn update_colors(
             }
         }
 
-        for (mut swatch_value, swatch_type) in swatches.iter_mut() {
-            swatch_value.0 = match swatch_type {
-                SwatchType::Rgb => states.rgb_color.into(),
-                SwatchType::Hsl => states.hsl_color.into(),
-                SwatchType::Okhsl => states.okhsl_color.into(),
-            };
+        for (swatch_ent, swatch_type) in swatches.iter() {
+            commands
+                .entity(swatch_ent)
+                .insert(ColorSwatchValue(match swatch_type {
+                    SwatchType::Rgb => states.rgb_color.into(),
+                    SwatchType::Hsl => states.hsl_color.into(),
+                    SwatchType::Okhsl => states.okhsl_color.into(),
+                }));
         }
 
         for (mut plane_value, plane_type) in color_planes.iter_mut() {
             match plane_type {
                 FeathersColorPlane::OkhslHueLightness => {
                     plane_value.0.x = states.okhsl_color.hue / 360.0;
-                    plane_value.0.y = 1.0 - states.okhsl_color.lightness;
+                    plane_value.0.y = states.okhsl_color.lightness;
                     plane_value.0.z = states.okhsl_color.saturation;
                 }
                 FeathersColorPlane::OkhslHueSaturation => {
                     plane_value.0.x = states.okhsl_color.hue / 360.0;
-                    plane_value.0.y = 1.0 - states.okhsl_color.saturation;
+                    plane_value.0.y = states.okhsl_color.saturation;
                     plane_value.0.z = states.okhsl_color.lightness;
                 }
                 FeathersColorPlane::HueLightness => {
                     plane_value.0.x = states.hsl_color.hue / 360.0;
-                    plane_value.0.y = 1.0 - states.hsl_color.lightness;
+                    plane_value.0.y = states.hsl_color.lightness;
                     plane_value.0.z = states.hsl_color.saturation;
                 }
                 FeathersColorPlane::HueSaturation => {
                     plane_value.0.x = states.hsl_color.hue / 360.0;
-                    plane_value.0.y = 1.0 - states.hsl_color.saturation;
+                    plane_value.0.y = states.hsl_color.saturation;
                     plane_value.0.z = states.hsl_color.lightness;
                 }
                 FeathersColorPlane::RedBlue => {
