@@ -45,11 +45,7 @@ pub struct CityAssets {
     pub tree_large_lod: (Handle<Mesh>, Handle<StandardMaterial>),
     pub path_stones_long: Handle<WorldAsset>,
     pub fence: Handle<WorldAsset>,
-    /// Default visibility ranges used for all building types
-    pub visibility_ranges: Vec<VisibilityRange>,
-    /// Cars have a different set of ranges because they are smaller than buildings and can
-    /// therefore be a bit more aggressive
-    pub car_visibility_ranges: Vec<VisibilityRange>,
+    pub traffic_lights: Handle<WorldAsset>,
 }
 
 impl CityAssets {
@@ -432,28 +428,9 @@ pub fn load_assets(
         GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/fence.glb"))
     );
 
-    // These UVs have been manually defined so the top of the uv cube matches the primary roof color
-    // and the walls the primary wall colors. The kenney assets used the same uv pattern for each
-    // asset pack and defines color variations by swapping the texture but using the same UVs.
-    let low_density_lod_uv = (
-        Rect::new(0.0, 1.0 - 0.75, 0.062, 1.0 - 0.5),
-        Rect::new(0.375, 1.0 - 0.499, 0.437, 1.0 - 0.251),
-    );
-    let medium_density_lod_uv = (
-        Rect::new(0.626, 1.0 - 0.249, 0.687, 1.0 - 0.0),
-        Rect::new(0.375, 1.0 - 0.499, 0.437, 1.0 - 0.251),
-    );
-    let high_density_lod_uv = (
-        Rect::new(0.626, 1.0 - 0.249, 0.687, 1.0 - 0.0),
-        Rect::new(0.375, 1.0 - 0.499, 0.437, 1.0 - 0.251),
-    );
-
-    // Cars currently use an hardcoded box because they aren't as easy as buildings to identify
-    // a primary color
-    let car_lod = (
-        meshes.add(Cuboid::new(1.0, 1.0, 2.5)),
-        materials.add(StandardMaterial::default()),
-    );
+    let traffic_lights: Handle<WorldAsset> =
+        load_asset!(GltfAssetLabel::Scene(0)
+            .from_asset(format!("{base_url}/city-kit-roads/light-square.glb")));
 
     commands.insert_resource(CityAssets {
         untyped_assets,
@@ -476,30 +453,7 @@ pub fn load_assets(
         tree_large_lod,
         path_stones_long,
         fence,
-        visibility_ranges: vec![
-            VisibilityRange {
-                start_margin: 0.0..0.0,
-                end_margin: args.lod_min_range - 1.0..args.lod_min_range + 1.0,
-                use_aabb: false,
-            },
-            VisibilityRange {
-                start_margin: args.lod_min_range - 1.0..args.lod_min_range + 1.0,
-                end_margin: args.lod_max_range..args.lod_max_range,
-                use_aabb: false,
-            },
-        ],
-        car_visibility_ranges: vec![
-            VisibilityRange {
-                start_margin: 0.0..0.0,
-                end_margin: args.car_lod_min_range - 1.0..args.car_lod_min_range + 1.0,
-                use_aabb: false,
-            },
-            VisibilityRange {
-                start_margin: args.car_lod_min_range - 1.0..args.car_lod_min_range + 1.0,
-                end_margin: args.car_lod_max_range..args.car_lod_max_range,
-                use_aabb: false,
-            },
-        ],
+        traffic_lights,
     });
 }
 

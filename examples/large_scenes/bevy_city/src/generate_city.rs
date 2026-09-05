@@ -97,6 +97,9 @@ pub fn spawn_city(
         });
 }
 
+#[derive(Component)]
+pub struct TrafficLight;
+
 fn spawn_roads_and_cars<R: RngExt>(
     commands: &mut ChildSpawnerCommands,
     assets: &CityAssets,
@@ -236,6 +239,23 @@ fn spawn_roads_and_cars<R: RngExt>(
                 }
             }
         });
+    let corners = [
+        (
+            Vec3::new(-0.4, 0.0, -0.4),
+            5.0 * std::f32::consts::FRAC_PI_4,
+        ),
+        (Vec3::new(0.4, 0.0, -0.4), 3.0 * std::f32::consts::FRAC_PI_4),
+        (Vec3::new(0.4, 0.0, 0.4), std::f32::consts::FRAC_PI_4),
+        (Vec3::new(-0.4, 0.0, 0.4), 7.0 * std::f32::consts::FRAC_PI_4),
+    ];
+    for (pos, rot) in corners {
+        commands.spawn((
+            WorldAssetRoot(assets.traffic_lights.clone()),
+            Transform::from_translation(pos + offset)
+                .with_rotation(Quat::from_axis_angle(Vec3::Y, rot)),
+            TrafficLight,
+        ));
+    }
 }
 
 fn spawn_low_density<R: RngExt>(

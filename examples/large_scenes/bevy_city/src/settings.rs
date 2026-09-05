@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use bevy::{
     camera::visibility::NoCpuCulling,
     camera_controller::free_camera::FreeCameraState,
@@ -12,14 +13,20 @@ use bevy::{
     ui::Checked,
     ui_widgets::{checkbox_self_update, Activate, ValueChange},
 };
-use rand::RngExt;
 
+#[allow(unused_imports)]
 use crate::assets::CityAssets;
-use crate::generate_city::{spawn_city, CityRoot, CityStats};
+#[allow(unused_imports)]
+use crate::generate_city::{spawn_city, CityRoot, TrafficLight};
+#[allow(unused_imports)]
+use crate::CitySpawned;
+#[allow(unused_imports)]
+use rand::RngExt;
 
 #[derive(Resource)]
 pub struct Settings {
     pub simulate_cars: bool,
+    pub traffic_lights: bool,
     pub shadow_maps_enabled: bool,
     pub contact_shadows_enabled: bool,
     pub wireframe_enabled: bool,
@@ -30,6 +37,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             simulate_cars: true,
+            traffic_lights: true,
             shadow_maps_enabled: true,
             contact_shadows_enabled: true,
             wireframe_enabled: false,
@@ -91,9 +99,32 @@ pub fn settings_ui() -> impl Scene {
                         }
                     )
                 ),
-                (
-                    @FeathersCheckbox {
-                        @caption: bsn! { @caption("Contact shadows enabled") }
+            (
+                :FeathersCheckbox {
+                    @caption: {bsn! { Text("Traffic lights") ThemedText }}
+            }
+            Checked
+            on(checkbox_self_update)
+            on(
+                |change: On<ValueChange<bool>>,
+                mut settings: ResMut<Settings>,
+                mut traffic_light: Query<&mut Visibility, With<TrafficLight>>|
+                {
+                    settings.traffic_lights = change.value;
+                    let vis = if change.value {
+                        Visibility::Inherited
+                    }
+                    else {
+                        Visibility::Hidden
+                    };
+                    for mut v in &mut traffic_light {
+                                *v = vis;
+                    }
+                })
+        ),
+            (
+                    :FeathersCheckbox {
+                        @caption: {bsn! { Text("Contact shadows enabled") ThemedText }}
                     }
                     Checked
                     on(checkbox_self_update)
