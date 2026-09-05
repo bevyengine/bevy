@@ -156,7 +156,7 @@ struct ColorWheelMaterial {
 
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     #[uniform(0)]
-    _webgl2_padding_8b: bevy_math::Vec2,
+    _webgl2_padding_8b: Vec2,
 }
 
 impl UiMaterial for ColorWheelMaterial {

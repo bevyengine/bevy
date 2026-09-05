@@ -1111,7 +1111,7 @@ fn set_pane_visible(
     set_node_visible(
         q_node,
         refs.hsl_group,
-        if mode == ColorInputMode::HSPlane || mode == ColorInputMode::Wheel {
+        if mode == ColorInputMode::Wheel || mode == ColorInputMode::HSPlane {
             Display::Grid
         } else {
             Display::None
