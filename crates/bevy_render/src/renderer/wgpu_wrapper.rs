@@ -95,4 +95,41 @@ macro_rules! wgpu_wrapper {
     };
 }
 
+/// Implements `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` for a `wgpu_wrapper!` type
+/// by proxying the operations to the wrapped wgpu resource, which implements them via wgpu's
+/// `impl_eq_ord_hash_proxy` macro.
+///
+/// This works on every platform: on native the wrapper holds the wgpu resource
+/// directly, and on web with atomics it dereferences the `SendWrapper` to reach it.
+macro_rules! impl_eq_ord_hash_wrapper {
+    ($name:ident) => {
+        impl ::core::cmp::PartialEq for $name {
+            fn eq(&self, other: &Self) -> bool {
+                ::core::ops::Deref::deref(self) == ::core::ops::Deref::deref(other)
+            }
+        }
+
+        impl ::core::cmp::Eq for $name {}
+
+        impl ::core::cmp::PartialOrd for $name {
+            fn partial_cmp(&self, other: &Self) -> Option<::core::cmp::Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        impl ::core::cmp::Ord for $name {
+            fn cmp(&self, other: &Self) -> ::core::cmp::Ordering {
+                ::core::ops::Deref::deref(self).cmp(::core::ops::Deref::deref(other))
+            }
+        }
+
+        impl ::core::hash::Hash for $name {
+            fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
+                ::core::ops::Deref::deref(self).hash(state);
+            }
+        }
+    };
+}
+
+pub(crate) use impl_eq_ord_hash_wrapper;
 pub(crate) use wgpu_wrapper;

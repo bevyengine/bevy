@@ -285,7 +285,7 @@ pub struct FallbackBindlessResources {
 pub struct FallbackBuffer(Buffer);
 
 /// The `wgpu` ID of a single bindless or non-bindless resource.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 enum BindingResourceId {
     /// A buffer.
     Buffer(BufferId),

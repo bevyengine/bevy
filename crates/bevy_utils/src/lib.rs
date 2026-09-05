@@ -57,7 +57,6 @@ pub mod prelude {
     pub use disqualified::ShortName;
 }
 
-mod atomic_id;
 mod bloom_filter;
 pub use bloom_filter::*;
 mod debug_info;

@@ -9,7 +9,7 @@ pub use render_context::{
 };
 pub use render_device::*;
 
-pub(crate) use wgpu_wrapper::wgpu_wrapper;
+pub(crate) use wgpu_wrapper::{impl_eq_ord_hash_wrapper, wgpu_wrapper};
 
 use crate::{
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},

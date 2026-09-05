@@ -1191,7 +1191,7 @@ pub fn queue_material2d_meshes(
 }
 
 /// The bind group ID that a single 2D material has been assigned to.
-#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
+#[derive(Component, Clone, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct Material2dBindGroupId(pub Option<BindGroupId>);
 
 /// Data prepared for a [`Material2d`] instance.

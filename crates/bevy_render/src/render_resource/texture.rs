@@ -1,19 +1,22 @@
-use crate::renderer::{wgpu_wrapper, RenderDevice, RenderQueue};
+use crate::renderer::{impl_eq_ord_hash_wrapper, wgpu_wrapper, RenderDevice, RenderQueue};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
     world::{FromWorld, World},
 };
 use bevy_image::ImageSamplerDescriptor;
-use bevy_utils::define_atomic_id;
 use core::ops::Deref;
-
-define_atomic_id!(TextureId);
 
 wgpu_wrapper! {
     #[derive(Clone, Debug)]
     struct WgpuTexture(wgpu::Texture);
 }
+
+impl_eq_ord_hash_wrapper!(WgpuTexture);
+
+/// An opaque identifier for a [`Texture`], backed by the wrapped wgpu [`Texture`](wgpu::Texture).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TextureId(WgpuTexture);
 
 /// A GPU-accessible texture.
 ///
@@ -30,7 +33,6 @@ wgpu_wrapper! {
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 #[derive(Clone, Debug)]
 pub struct Texture {
-    id: TextureId,
     value: WgpuTexture,
 }
 
@@ -38,7 +40,7 @@ impl Texture {
     /// Returns the [`TextureId`].
     #[inline]
     pub fn id(&self) -> TextureId {
-        self.id
+        TextureId(self.value.clone())
     }
 
     /// Creates a view of this texture.
@@ -50,7 +52,6 @@ impl Texture {
 impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
-            id: TextureId::new(),
             value: WgpuTexture::new(value),
         }
     }
@@ -65,8 +66,6 @@ impl Deref for Texture {
     }
 }
 
-define_atomic_id!(TextureViewId);
-
 wgpu_wrapper! {
     #[derive(Clone, Debug)]
     struct WgpuTextureView(wgpu::TextureView);
@@ -74,10 +73,15 @@ wgpu_wrapper! {
     struct WgpuSurfaceTexture(wgpu::SurfaceTexture);
 }
 
+impl_eq_ord_hash_wrapper!(WgpuTextureView);
+
+/// An opaque identifier for a [`TextureView`], backed by the wrapped wgpu [`TextureView`](wgpu::TextureView).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TextureViewId(WgpuTextureView);
+
 /// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
 #[derive(Clone, Debug)]
 pub struct TextureView {
-    id: TextureViewId,
     value: WgpuTextureView,
 }
 
@@ -95,14 +99,13 @@ impl TextureView {
     /// Returns the [`TextureViewId`].
     #[inline]
     pub fn id(&self) -> TextureViewId {
-        self.id
+        TextureViewId(self.value.clone())
     }
 }
 
 impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
-            id: TextureViewId::new(),
             value: WgpuTextureView::new(value),
         }
     }
@@ -134,12 +137,16 @@ impl Deref for SurfaceTexture {
     }
 }
 
-define_atomic_id!(SamplerId);
-
 wgpu_wrapper! {
     #[derive(Clone, Debug)]
     struct WgpuSampler(wgpu::Sampler);
 }
+
+impl_eq_ord_hash_wrapper!(WgpuSampler);
+
+/// An opaque identifier for a [`Sampler`], backed by the wrapped wgpu [`Sampler`](wgpu::Sampler).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SamplerId(WgpuSampler);
 
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
 /// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
@@ -148,7 +155,6 @@ wgpu_wrapper! {
 /// Can be created via [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
 #[derive(Clone, Debug)]
 pub struct Sampler {
-    id: SamplerId,
     value: WgpuSampler,
 }
 
@@ -156,14 +162,13 @@ impl Sampler {
     /// Returns the [`SamplerId`].
     #[inline]
     pub fn id(&self) -> SamplerId {
-        self.id
+        SamplerId(self.value.clone())
     }
 }
 
 impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
-            id: SamplerId::new(),
             value: WgpuSampler::new(value),
         }
     }

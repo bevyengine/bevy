@@ -2,7 +2,7 @@ use crate::{
     material_bind_groups::FallbackBuffer,
     render_asset::RenderAssets,
     render_resource::{BindGroupLayout, Buffer, PipelineCache, Sampler, TextureView},
-    renderer::{wgpu_wrapper, RenderDevice},
+    renderer::{impl_eq_ord_hash_wrapper, wgpu_wrapper, RenderDevice},
     storage::{GpuShaderBuffer, ShaderBuffer},
     texture::GpuImage,
 };
@@ -11,7 +11,6 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_material::descriptor::BindGroupLayoutDescriptor;
 pub use bevy_render_macros::AsBindGroup;
-use bevy_utils::define_atomic_id;
 use core::ops::Deref;
 use encase::ShaderType;
 use std::ops::Range;
@@ -23,12 +22,16 @@ use wgpu::{
 
 use super::{BindlessDescriptor, BindlessSlabResourceLimit};
 
-define_atomic_id!(BindGroupId);
-
 wgpu_wrapper! {
     #[derive(Clone, Debug)]
     struct WgpuBindGroup(wgpu::BindGroup);
 }
+
+impl_eq_ord_hash_wrapper!(WgpuBindGroup);
+
+/// An opaque identifier for a [`BindGroup`], backed by the wrapped wgpu [`BindGroup`](wgpu::BindGroup).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct BindGroupId(WgpuBindGroup);
 
 /// Bind groups are responsible for binding render resources (e.g. buffers, textures, samplers)
 /// to a [`TrackedRenderPass`](crate::render_phase::TrackedRenderPass).
@@ -41,7 +44,6 @@ wgpu_wrapper! {
 /// Can be created via [`RenderDevice::create_bind_group`](RenderDevice::create_bind_group).
 #[derive(Clone, Debug)]
 pub struct BindGroup {
-    id: BindGroupId,
     value: WgpuBindGroup,
 }
 
@@ -49,13 +51,13 @@ impl BindGroup {
     /// Returns the [`BindGroupId`] representing the unique ID of the bind group.
     #[inline]
     pub fn id(&self) -> BindGroupId {
-        self.id
+        BindGroupId(self.value.clone())
     }
 }
 
 impl PartialEq for BindGroup {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.value == other.value
     }
 }
 
@@ -63,14 +65,13 @@ impl Eq for BindGroup {}
 
 impl core::hash::Hash for BindGroup {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.id.0.hash(state);
+        self.value.hash(state);
     }
 }
 
 impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
-            id: BindGroupId::new(),
             value: WgpuBindGroup::new(value),
         }
     }
