@@ -1557,6 +1557,15 @@ impl Image {
         self.clone()
             .try_into_dynamic()
             .ok()
+            // `Rgba16Float` and `Rgba32Float` inputs return `None`. `image`
+            // would clamp them to 8 bits with no sRGB encode, and the
+            // `Rgba8UnormSrgb` result would be dark and clipped.
+            .filter(|img| {
+                !matches!(
+                    img,
+                    image::DynamicImage::ImageRgb32F(_) | image::DynamicImage::ImageRgba32F(_)
+                )
+            })
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => {
                     Some((image::DynamicImage::ImageLuma8(img.into_luma8()), false))
