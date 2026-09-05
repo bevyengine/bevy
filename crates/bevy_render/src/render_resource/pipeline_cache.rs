@@ -17,10 +17,13 @@ use bevy_ecs::{
     system::{Res, ResMut},
 };
 use bevy_log::error;
-use bevy_platform::collections::{hash_map::RawEntryMut, HashMap, HashSet};
+use bevy_platform::collections::{
+    hash_map::{EntryRef, RawEntryMut},
+    Equivalent, HashMap, HashSet,
+};
 use bevy_shader::{
-    CachedPipelineId, Shader, ShaderCache, ShaderCacheError, ShaderCacheSource, ShaderDefVal,
-    ValidateShader,
+    CachedPipelineId, ProcessedShader, Shader, ShaderCache, ShaderCacheError, ShaderCacheSource,
+    ShaderDefVal, ValidateShader,
 };
 use bevy_tasks::Task;
 use bevy_utils::default;
@@ -92,7 +95,7 @@ type LayoutCacheKey = (
 
 wgpu_wrapper! {
     struct WgpuPipelineLayout(PipelineLayout);
-
+    #[derive(Clone)]
     struct WgpuShaderModule(ShaderModule);
 }
 
@@ -129,19 +132,18 @@ impl LayoutCache {
     }
 }
 
-fn load_module(
-    render_device: &RenderDevice,
-    shader_source: ShaderCacheSource,
-    validate_shader: &ValidateShader,
+async fn load_module<'a>(
+    render_device: &'a RenderDevice,
+    processed_shader: &ProcessedShader,
 ) -> Result<WgpuShaderModule, ShaderCacheError> {
-    let shader_source = match shader_source {
+    let shader_source = match &processed_shader.source {
         #[cfg(feature = "shader_format_spirv")]
         ShaderCacheSource::SpirV(data) => wgpu::util::make_spirv(data),
         #[cfg(not(feature = "shader_format_spirv"))]
         ShaderCacheSource::SpirV(_) => {
             unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
         }
-        ShaderCacheSource::Wgsl(src) => ShaderSource::Wgsl(Cow::Owned(src)),
+        ShaderCacheSource::Wgsl(src) => ShaderSource::Wgsl(Cow::Borrowed(src)),
     };
     let module_descriptor = ShaderModuleDescriptor {
         label: None,
@@ -152,7 +154,7 @@ fn load_module(
         .wgpu_device()
         .push_error_scope(wgpu::ErrorFilter::Validation);
 
-    let shader_module = WgpuShaderModule::new(match validate_shader {
+    let shader_module = WgpuShaderModule::new(match &processed_shader.validate_shader {
         ValidateShader::Enabled => {
             render_device.create_and_validate_shader_module(module_descriptor)
         }
@@ -164,19 +166,73 @@ fn load_module(
         },
     });
 
-    let error = scope.pop();
+    let error = scope.pop().await;
 
-    // `now_or_never` will return Some if the future is ready and None otherwise.
-    // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
-    // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
-    // and on wasm the error will be handled by wgpu and crash the application.
-    if let Some(Some(wgpu::Error::Validation { description, .. })) =
-        bevy_tasks::futures::now_or_never(error)
-    {
-        return Err(ShaderCacheError::CreateShaderModule(description));
+    let validation_error = if let Some(wgpu::Error::Validation { description, .. }) = error {
+        Some(description)
+    } else {
+        None
+    };
+
+    let shader_compilation_msg = shader_module.get_compilation_info().await.messages;
+    for msg in shader_compilation_msg.iter() {
+        match msg.message_type {
+            wgpu::CompilationMessageType::Error => {
+                // wgpu validation error already contains shader compilation error so we don't print it twice.
+                //
+                // TODO: Uncomment this once wgpu no longer includes compilation error in validation error.
+                // bevy_log::error!("Shader compilation: {} at {:?}", msg.message, msg.location);
+            }
+            wgpu::CompilationMessageType::Warning => {
+                bevy_log::warn!("Shader compilation: {} at {:?}", msg.message, msg.location);
+            }
+            wgpu::CompilationMessageType::Info => {
+                bevy_log::info!("Shader compilation: {} at {:?}", msg.message, msg.location);
+            }
+        }
+    }
+
+    if let Some(validation_error) = validation_error {
+        return Err(ShaderCacheError::CreateShaderModule(validation_error));
     }
 
     Ok(shader_module)
+}
+
+/// Fetches a compiled [`ShaderModule`] from `shader_module_cache`, compiling it with
+/// [`load_module`] and caching the result on a cache miss.
+async fn get_or_create_shader_module(
+    device: &RenderDevice,
+    shader_module_cache: &mut HashMap<ShaderModuleCacheKey, WgpuShaderModule>,
+    shader_id: &AssetId<Shader>,
+    shader_defs: &[ShaderDefVal],
+    processed_shader: &ProcessedShader,
+) -> Result<WgpuShaderModule, ShaderCacheError> {
+    match shader_module_cache.entry_ref(&ShaderModuleCacheKeyRef(shader_id, shader_defs)) {
+        EntryRef::Occupied(occupied_entry) => Ok(occupied_entry.get().clone()),
+        EntryRef::Vacant(vacant_entry_ref) => {
+            let module = load_module(device, processed_shader).await?;
+            Ok(vacant_entry_ref
+                .insert_with_key(ShaderModuleCacheKey(*shader_id, shader_defs.into()), module)
+                .clone())
+        }
+    }
+}
+
+/// Creates the pipeline layout for a pipeline, or returns `None` when the pipeline has no
+/// layout and no immediate size.
+fn get_or_create_pipeline_layout(
+    layout_cache: &mut LayoutCache,
+    device: &RenderDevice,
+    bind_group_layouts: &[BindGroupLayout],
+    descriptor_layout: &[BindGroupLayoutDescriptor],
+    immediate_size: u32,
+) -> Option<Arc<WgpuPipelineLayout>> {
+    if descriptor_layout.is_empty() && immediate_size == 0 {
+        None
+    } else {
+        Some(layout_cache.get(device, bind_group_layouts, immediate_size))
+    }
 }
 
 #[derive(Default)]
@@ -202,6 +258,18 @@ impl BindGroupLayoutCache {
     }
 }
 
+#[derive(Hash, PartialEq, Eq)]
+struct ShaderModuleCacheKey(AssetId<Shader>, Box<[ShaderDefVal]>);
+
+#[derive(Hash, PartialEq, Eq)]
+struct ShaderModuleCacheKeyRef<'a>(&'a AssetId<Shader>, &'a [ShaderDefVal]);
+
+impl Equivalent<ShaderModuleCacheKey> for ShaderModuleCacheKeyRef<'_> {
+    fn equivalent(&self, key: &ShaderModuleCacheKey) -> bool {
+        self.0 == &key.0 && self.1 == key.1.as_ref()
+    }
+}
+
 /// Cache for render and compute pipelines.
 ///
 /// The cache stores existing render and compute pipelines allocated on the GPU, as well as
@@ -218,7 +286,8 @@ impl BindGroupLayoutCache {
 pub struct PipelineCache {
     layout_cache: Arc<Mutex<LayoutCache>>,
     bindgroup_layout_cache: Arc<Mutex<BindGroupLayoutCache>>,
-    shader_cache: Arc<Mutex<ShaderCache<WgpuShaderModule, RenderDevice>>>,
+    shader_cache: Arc<Mutex<ShaderCache>>,
+    shader_module_cache: Arc<async_lock::Mutex<HashMap<ShaderModuleCacheKey, WgpuShaderModule>>>,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
@@ -273,7 +342,8 @@ impl PipelineCache {
         ));
 
         Self {
-            shader_cache: Arc::new(Mutex::new(ShaderCache::new(device.clone(), load_module))),
+            shader_cache: Arc::new(Mutex::new(ShaderCache::new())),
+            shader_module_cache: default(),
             device,
             layout_cache: default(),
             bindgroup_layout_cache: default(),
@@ -361,6 +431,9 @@ impl PipelineCache {
     }
 
     /// Wait for a render pipeline to finish compiling.
+    ///
+    /// Note: this can be used on web because `ShaderModule` creation is async.
+    #[cfg(not(target_arch = "wasm32"))]
     #[inline]
     pub fn block_on_render_pipeline(&mut self, id: CachedRenderPipelineId) {
         if self.pipelines.len() <= id.id() {
@@ -462,24 +535,60 @@ impl PipelineCache {
             .get(&self.device, bind_group_layout_descriptor)
     }
 
+    /// Drops all cached shader modules that were compiled from the given shader.
+    ///
+    /// On wasm32 there is no way to block on the lock, so this is best-effort: if a pipeline
+    /// task currently holds it, the stale modules are left in place until the next cleanup.
+    fn clear_shader_modules(&self, shader: AssetId<Shader>) {
+        #[cfg(not(target_arch = "wasm32"))]
+        self.shader_module_cache
+            .lock_blocking()
+            .retain(|key, _| key.0 != shader);
+        #[cfg(target_arch = "wasm32")]
+        if let Some(mut shader_module_cache) = self.shader_module_cache.try_lock() {
+            shader_module_cache.retain(|key, _| key.0 != shader);
+        }
+    }
+
     /// Inserts a [`Shader`] into this cache with the provided [`AssetId`].
     pub fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
+
         let pipelines_to_queue = shader_cache.set_shader(id, shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
             self.waiting_pipelines.insert(cached_pipeline);
         }
+
+        // The shader may have been modified: drop any compiled modules built from the
+        // previous version of this shader so they get recompiled.
+        self.clear_shader_modules(id);
     }
 
     /// Removes a [`Shader`] from this cache if it exists.
     pub fn remove_shader(&mut self, shader: AssetId<Shader>) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
+
         let pipelines_to_queue = shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
             self.waiting_pipelines.insert(cached_pipeline);
         }
+
+        // Drop all compiled shader modules built from the removed shader.
+        self.clear_shader_modules(shader);
+    }
+
+    /// Collects the GPU bind group layouts for a pipeline's layout descriptors.
+    fn collect_bind_group_layouts(
+        &self,
+        layout: &[BindGroupLayoutDescriptor],
+    ) -> SmallVec<[BindGroupLayout; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]> {
+        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
+        layout
+            .iter()
+            .map(|descriptor| bindgroup_layout_cache.get(&self.device, descriptor))
+            .collect()
     }
 
     fn start_create_render_pipeline(
@@ -489,47 +598,66 @@ impl PipelineCache {
     ) -> CachedPipelineState {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
+        let shader_module_cache = self.shader_module_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
-        let bind_group_layout = descriptor
-            .layout
-            .iter()
-            .map(|bind_group_layout_descriptor| {
-                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor)
-            })
-            .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
+        let bind_group_layout = self.collect_bind_group_layouts(&descriptor.layout);
 
         create_pipeline_task(
             async move {
-                let mut shader_cache = shader_cache.lock().unwrap();
-                let mut layout_cache = layout_cache.lock().unwrap();
+                let (vertex_module, fragment_module, layout) = {
+                    let mut shader_cache = shader_cache.lock().unwrap();
+                    let mut layout_cache = layout_cache.lock().unwrap();
 
-                let vertex_module = match shader_cache.get(
-                    id,
-                    descriptor.vertex.shader.id(),
+                    let vertex_module = shader_cache.get(
+                        id,
+                        descriptor.vertex.shader.id(),
+                        &descriptor.vertex.shader_defs,
+                    )?;
+
+                    let fragment_module = match &descriptor.fragment {
+                        Some(fragment) => Some(shader_cache.get(
+                            id,
+                            fragment.shader.id(),
+                            &fragment.shader_defs,
+                        )?),
+                        None => None,
+                    };
+
+                    let layout = get_or_create_pipeline_layout(
+                        &mut layout_cache,
+                        &device,
+                        &bind_group_layout,
+                        &descriptor.layout,
+                        descriptor.immediate_size,
+                    );
+
+                    (vertex_module, fragment_module, layout)
+                };
+
+                let mut shader_module_cache = shader_module_cache.lock().await;
+
+                let vertex_module = get_or_create_shader_module(
+                    &device,
+                    &mut shader_module_cache,
+                    &descriptor.vertex.shader.id(),
                     &descriptor.vertex.shader_defs,
-                ) {
-                    Ok(module) => module,
-                    Err(err) => return Err(err),
-                };
+                    &vertex_module,
+                )
+                .await?;
 
-                let fragment_module = match &descriptor.fragment {
-                    Some(fragment) => {
-                        match shader_cache.get(id, fragment.shader.id(), &fragment.shader_defs) {
-                            Ok(module) => Some(module),
-                            Err(err) => return Err(err),
-                        }
-                    }
-                    None => None,
+                let fragment_module = match (&fragment_module, &descriptor.fragment) {
+                    (Some(fragment_module), Some(desc_fragment)) => Some(
+                        get_or_create_shader_module(
+                            &device,
+                            &mut shader_module_cache,
+                            &desc_fragment.shader.id(),
+                            &desc_fragment.shader_defs,
+                            fragment_module,
+                        )
+                        .await?,
+                    ),
+                    _ => None,
                 };
-
-                let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
-                    None
-                } else {
-                    Some(layout_cache.get(&device, &bind_group_layout, descriptor.immediate_size))
-                };
-
-                drop((shader_cache, layout_cache));
 
                 let vertex_buffer_layouts = descriptor
                     .vertex
@@ -612,33 +740,29 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
-        let bind_group_layout = descriptor
-            .layout
-            .iter()
-            .map(|bind_group_layout_descriptor| {
-                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor)
-            })
-            .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
+        let bind_group_layout = self.collect_bind_group_layouts(&descriptor.layout);
 
         create_pipeline_task(
             async move {
-                let mut shader_cache = shader_cache.lock().unwrap();
-                let mut layout_cache = layout_cache.lock().unwrap();
+                let (compute_module, layout) = {
+                    let mut shader_cache = shader_cache.lock().unwrap();
+                    let mut layout_cache = layout_cache.lock().unwrap();
 
-                let compute_module =
-                    match shader_cache.get(id, descriptor.shader.id(), &descriptor.shader_defs) {
-                        Ok(module) => module,
-                        Err(err) => return Err(err),
-                    };
+                    let compute_module =
+                        shader_cache.get(id, descriptor.shader.id(), &descriptor.shader_defs)?;
 
-                let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
-                    None
-                } else {
-                    Some(layout_cache.get(&device, &bind_group_layout, descriptor.immediate_size))
+                    let layout = get_or_create_pipeline_layout(
+                        &mut layout_cache,
+                        &device,
+                        &bind_group_layout,
+                        &descriptor.layout,
+                        descriptor.immediate_size,
+                    );
+
+                    (compute_module, layout)
                 };
 
-                drop((shader_cache, layout_cache));
+                let compute_module = load_module(&device, &compute_module).await?;
 
                 let constants: Vec<(&str, f64)> = descriptor
                     .constants
@@ -736,8 +860,8 @@ impl PipelineCache {
                     error!("failed to process shader error:\n{}", error_detail);
                     return;
                 }
-                ShaderCacheError::CreateShaderModule(description) => {
-                    error!("failed to create shader module: {}", description);
+                ShaderCacheError::CreateShaderModule { .. } => {
+                    error!("{err}");
                     return;
                 }
             },
@@ -841,6 +965,31 @@ fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+fn create_pipeline_task(
+    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + 'static,
+    _sync: bool,
+) -> CachedPipelineState {
+    // On wasm, `block_on` is unsupported there ("condvar wait not supported").
+    // Spawn onto the task pool instead, which runs tasks on the JS event loop.
+    // The task is polled by [`PipelineCache::process_queue`] until it completes.
+    CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn_local(task))
+}
+
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(target_os = "macos", not(feature = "multi_threaded"))
+))]
+fn create_pipeline_task(
+    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + Send + 'static,
+    _sync: bool,
+) -> CachedPipelineState {
+    match bevy_tasks::block_on(task) {
+        Ok(pipeline) => CachedPipelineState::Ok(pipeline),
+        Err(err) => CachedPipelineState::Err(err),
+    }
+}
+
 #[cfg(all(
     not(target_arch = "wasm32"),
     not(target_os = "macos"),
@@ -854,21 +1003,6 @@ fn create_pipeline_task(
         return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
     }
 
-    match bevy_tasks::block_on(task) {
-        Ok(pipeline) => CachedPipelineState::Ok(pipeline),
-        Err(err) => CachedPipelineState::Err(err),
-    }
-}
-
-#[cfg(any(
-    target_arch = "wasm32",
-    target_os = "macos",
-    not(feature = "multi_threaded")
-))]
-fn create_pipeline_task(
-    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + Send + 'static,
-    _sync: bool,
-) -> CachedPipelineState {
     match bevy_tasks::block_on(task) {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
