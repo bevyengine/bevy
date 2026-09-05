@@ -1,7 +1,7 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    system::{ResMut, SystemParam, SystemParamItem},
+    system::{ResMut, SystemParamFetch, SystemParamItem},
 };
 use gpu_preprocessing::UntypedPhaseIndirectParametersBuffers;
 use nonmax::NonMaxU32;
@@ -78,7 +78,7 @@ impl<T: PartialEq> BatchSetMeta<T> {
 pub trait GetBatchData {
     /// The system parameters [`GetBatchData::get_batch_data`] needs in
     /// order to compute the batch data.
-    type Param: SystemParam + 'static;
+    type Param: SystemParamFetch<()> + 'static;
     /// Data used for comparison between phase items to decide whether items can
     /// be batched.
     ///

@@ -372,6 +372,8 @@ fn derive_system_param_impl(
 
     let fields_alias =
         ensure_no_collision(format_ident!("__StructFieldsAlias"), token_stream.clone());
+    let system_input_ident =
+        ensure_no_collision(format_ident!("__SystemInput"), token_stream.clone());
 
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
@@ -467,18 +469,23 @@ fn derive_system_param_impl(
                 fn queue(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: #path::world::DeferredWorld) {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::queue(&mut state.state, system_meta, world);
                 }
+            }
 
+            unsafe impl<#system_input_ident: #path::system::SystemInput, #punctuated_generics> #path::system::SystemParamFetch<#system_input_ident> for
+                #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents> #where_clause
+            {
                 #[inline]
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                     change_tick: #path::change_detection::Tick,
+                    input: &#system_input_ident::Inner<'_>,
                 ) -> #FQResult<Self::Item<'w, 's>, #path::system::SystemParamValidationError> {
                     let (#(#tuple_patterns,)*) = &mut state.state;
                     #(
                         let #field_locals = unsafe {
-                            <#field_types as #path::system::SystemParam>::get_param(#field_locals, system_meta, world, change_tick)
+                            <#field_types as #path::system::SystemParamFetch<#system_input_ident>>::get_param(#field_locals, system_meta, world, change_tick, input)
                         }.map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
                     )*
                     #FQResult::Ok(#struct_name {

@@ -13,7 +13,7 @@ use crate::{
     system::{
         DynSystemParam, DynSystemParamState, FromInput, FunctionSystem, If, IntoResult, IntoSystem,
         Local, ParamSet, Query, ReadOnlySystem, System, SystemAccess, SystemInput, SystemMeta,
-        SystemParam, SystemParamFunction, SystemParamValidationError,
+        SystemParam, SystemParamFetch, SystemParamFunction, SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
@@ -754,7 +754,9 @@ pub struct DynParamBuilder<'a>(Box<dyn FnOnce(&mut World) -> DynSystemParamState
 impl<'a> DynParamBuilder<'a> {
     /// Creates a new [`DynParamBuilder`] by wrapping a [`SystemParamBuilder`] of any type.
     /// The built [`DynSystemParam`] can be downcast to `T`.
-    pub fn new<T: SystemParam + 'static>(builder: impl SystemParamBuilder<T> + 'a) -> Self {
+    pub fn new<T: SystemParamFetch<()> + 'static>(
+        builder: impl SystemParamBuilder<T> + 'a,
+    ) -> Self {
         Self(Box::new(|world| {
             DynSystemParamState::new::<T>(builder.build(world))
         }))

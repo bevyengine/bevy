@@ -15,14 +15,16 @@ use crate::{
         QueryState, ReadOnlyQueryData,
     },
     resource::{Resource, ResourceEntities, IS_RESOURCE},
-    system::{Query, Single, SystemAccess, SystemMeta, SystemState},
+    system::{
+        Query, Single, SystemAccess, SystemInput, SystemMeta, SystemState, Target, TargetEntity,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
 #[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 use crate::world::{FilteredResources, FilteredResourcesMut};
 
-use alloc::{borrow::Cow, boxed::Box, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, string::ToString, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
 use bevy_ptr::UnsafeCellDeref;
@@ -40,6 +42,11 @@ use super::Populated;
 use variadics_please::{all_tuples, all_tuples_enumerated};
 
 /// A parameter that can be used in a [`System`](super::System).
+///
+/// In order to fetch data from the [`World`], a system parameter must also
+/// implement [`SystemParamFetch<I>`] for some [`SystemInput`] `I` (usually for any `I`).
+///
+/// See [`SystemParamFetch`] for more information.
 ///
 /// # Derive
 ///
@@ -258,7 +265,54 @@ pub unsafe trait SystemParam: Sized {
         reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
     )]
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
+}
 
+/// A [`SystemParam`] that can be constructed with a given [`SystemInput`].
+///
+/// This trait enables system params to fetch their data based on the input
+/// provided to the system, in a compile-time checked manner. For example,
+/// [`Target<D, F>`] provides ergonomic access to query data for an entity that
+/// is passed in as a system input.
+///
+/// See [`SystemParam`] for more information.
+///
+/// # Note for implementors
+///
+/// In addition to implementing [`SystemParam`], you must also implement this trait
+/// for the same type and for the [`SystemInput`] types you want to support.
+/// If you want to support any [`SystemInput`] type, or don't need system input at all,
+/// you can implement it like so:
+///
+/// ```rust,no_run
+/// # use bevy_ecs::system::{SystemParam, SystemInput, SystemParamFetch};
+/// pub struct MySystemParam;
+///
+/// impl SystemParam for MySystemParam {
+///     // ...
+/// }
+///
+/// // This allows your system param to be used with any system input type,
+/// // including `()` (i.e. no input).
+/// impl<I: SystemInput> SystemParamFetch<I> for MySystemParam {
+///     // ...
+/// }
+///
+/// // You SHOULD NOT do the following, as it will prevent your system param
+/// // from being used in other system types, like observers:
+/// impl SystemParamFetch<()> for MySystemParam {
+///     // ...
+/// }
+/// ```
+///
+/// See [`Target<D, F>`] for an example of a [`SystemParam`]
+/// that is implemented for a specific [`SystemInput`] type.
+///
+/// # Safety
+///
+/// [`SystemParamFetch::get_param`] must only access things registered in [`SystemParam::init_access`].
+///
+/// [`Target<D, F>`]: crate::system::Target
+pub unsafe trait SystemParamFetch<I: SystemInput>: SystemParam {
     /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
     ///
     /// This method also validates that the param can be acquired. If validation fails,
@@ -285,6 +339,7 @@ pub unsafe trait SystemParam: Sized {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
+        input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError>;
 }
 
@@ -325,13 +380,19 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         let component_access_set = system_access.require_shared_access::<Self>(system_meta);
         state.init_access(Some(system_meta.name()), component_access_set, world.into());
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, D: QueryData + 'static, F: QueryFilter + 'static> SystemParamFetch<I>
+    for Query<'_, '_, D, F>
+{
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
@@ -361,13 +422,19 @@ unsafe impl<'a, 'b, D: IterQueryData + 'static, F: QueryFilter + 'static> System
     ) {
         Query::init_access(state, system_meta, system_access, world);
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, D: IterQueryData + 'static, F: QueryFilter + 'static>
+    SystemParamFetch<I> for Single<'_, '_, D, F>
+{
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
         // The caller ensures the world matches the one used in init_state.
@@ -414,16 +481,30 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     ) {
         Query::init_access(state, system_meta, system_access, world);
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, D: IterQueryData + 'static, F: QueryFilter + 'static>
+    SystemParamFetch<I> for Populated<'_, '_, D, F>
+{
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
+        input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: Delegate to existing `SystemParam` implementations.
-        let query = unsafe { Query::get_param(state, system_meta, world, change_tick) }?;
+        let query = unsafe {
+            <Query<D, F> as SystemParamFetch<I>>::get_param(
+                state,
+                system_meta,
+                world,
+                change_tick,
+                input,
+            )
+        }?;
         if query.is_empty() {
             Err(SystemParamValidationError::skipped::<Self>(
                 "No matching entities",
@@ -437,6 +518,60 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
     for Populated<'w, 's, D, F>
+{
+}
+
+// SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
+// this Query conflicts with any prior access, a panic will occur.
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Target<'_, '_, D, F> {
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = Target<'w, 's, D, F>;
+
+    fn init_state(world: &mut World) -> Self::State {
+        Query::init_state(world)
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        system_access: &mut SystemAccess,
+        world: &mut World,
+    ) {
+        Query::init_access(state, system_meta, system_access, world);
+    }
+}
+
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I, D, F> SystemParamFetch<I> for Target<'_, '_, D, F>
+where
+    I: for<'i> SystemInput<Inner<'i>: TargetEntity>,
+    D: IterQueryData + 'static,
+    F: QueryFilter + 'static,
+{
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+        input: &I::Inner<'_>,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        let target = input.target();
+        // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
+        // The caller ensures the world matches the one used in init_state.
+        let query =
+            unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) };
+        Ok(Target {
+            item: query
+                .get_inner(target)
+                .map_err(|e| SystemParamValidationError::skipped::<Self>(e.to_string()))?,
+            _filter: PhantomData,
+        })
+    }
+}
+
+// SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
+unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Target<'_, '_, D, F>
 {
 }
 
@@ -620,12 +755,18 @@ macro_rules! impl_param_set {
                 <($($param,)*) as SystemParam>::queue(state, system_meta, world.reborrow());
             }
 
+        }
+
+        // SAFETY: `get_param` only accesses things registered in `init_access`.
+        unsafe impl<I: SystemInput, $($param: SystemParamFetch<I>,)*> SystemParamFetch<I> for ParamSet<'_, '_, ($($param,)*)>
+        {
             #[inline]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
                 change_tick: Tick,
+                input: &I::Inner<'_>,
             ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
                 // Validate each sub-param eagerly so that the system is correctly
                 // skipped by the executor when any sub-param is unavailable.
@@ -634,7 +775,7 @@ macro_rules! impl_param_set {
                 // validate_param + get_param pattern.
                 $(
                     // SAFETY: Upheld by caller.
-                    drop(unsafe { $param::get_param(&mut state.$index, system_meta, world, change_tick) }?);
+                    drop(unsafe { $param::get_param(&mut state.$index, system_meta, world, change_tick, input) }?);
                 )*
 
                 Ok(ParamSet {
@@ -646,7 +787,7 @@ macro_rules! impl_param_set {
             }
         }
 
-        impl<'w, 's, $($param: SystemParam,)*> ParamSet<'w, 's, ($($param,)*)>
+        impl<'w, 's, $($param: SystemParamFetch<()>,)*> ParamSet<'w, 's, ($($param,)*)>
         {
             $(
                 /// Gets exclusive access to the parameter at index
@@ -658,7 +799,7 @@ macro_rules! impl_param_set {
                     // Conflicting params in ParamSet are not accessible at the same time
                     // ParamSets are guaranteed to not conflict with other SystemParams
                     unsafe {
-                        $param::get_param(&mut self.param_states.$index, &self.system_meta, self.world, self.change_tick)
+                        $param::get_param(&mut self.param_states.$index, &self.system_meta, self.world, self.change_tick, &())
                     }
                     .unwrap_or_else(|err| panic!("ParamSet parameter validation failed: {err}"))
                 }
@@ -701,13 +842,17 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             panic!("error[B0002]: Res<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
         }
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, T: Resource> SystemParamFetch<I> for Res<'_, T> {
     #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         let (ptr, ticks) = world.get_resource_with_ticks(component_id).ok_or_else(|| {
             SystemParamValidationError::invalid::<Self>("Resource does not exist")
@@ -754,13 +899,19 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
             panic!("error[B0002]: ResMut<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access or using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
         }
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, T: Resource<Mutability = Mutable>> SystemParamFetch<I>
+    for ResMut<'_, T>
+{
     #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         let value = world.get_resource_mut_by_id(component_id).ok_or_else(|| {
             SystemParamValidationError::invalid::<Self>("Resource does not exist")
@@ -805,13 +956,17 @@ unsafe impl SystemParam for &'_ World {
             );
         }
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput> SystemParamFetch<I> for &'_ World {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: Read-only access to the entire world was registered in `init_access`.
         Ok(unsafe { world.world() })
@@ -836,13 +991,17 @@ unsafe impl SystemParam for &'_ mut World {
 
         system_access.require_exclusive_access::<Self>(system_meta);
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput> SystemParamFetch<I> for &'_ mut World {
     #[inline]
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: Write access to the entire world was registered in `init_access`.
         Ok(unsafe { world.world_mut() })
@@ -872,12 +1031,17 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
             );
         }
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput> SystemParamFetch<I> for DeferredWorld<'_> {
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: Write access to the entire world was registered in `init_access`
         Ok(unsafe { world.into_deferred() })
@@ -1062,13 +1226,17 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _world: &mut World,
     ) {
     }
+}
 
+// SAFETY: only local state is accessed
+unsafe impl<I: SystemInput, T: FromWorld + Send + 'static> SystemParamFetch<I> for Local<'_, T> {
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(Local(state.get()))
     }
@@ -1266,13 +1434,17 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         state.get().queue(system_meta, world);
     }
+}
 
+// SAFETY: Only local state is accessed.
+unsafe impl<I: SystemInput, T: SystemBuffer> SystemParamFetch<I> for Deferred<'_, T> {
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(Deferred(state.get()))
     }
@@ -1297,13 +1469,17 @@ unsafe impl SystemParam for NonSendMarker {
     ) {
         system_meta.set_non_send();
     }
+}
 
+// SAFETY: No world access.
+unsafe impl<I: SystemInput> SystemParamFetch<I> for NonSendMarker {
     #[inline]
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         Ok(Self(PhantomData))
     }
@@ -1343,13 +1519,17 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             );
         }
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, T: 'static> SystemParamFetch<I> for NonSend<'_, T> {
     #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         let (ptr, ticks) = world.get_non_send_with_ticks(component_id).ok_or_else(|| {
             SystemParamValidationError::invalid::<Self>("Non-send data not found")
@@ -1389,13 +1569,17 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             );
         }
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, T: 'static> SystemParamFetch<I> for NonSendMut<'_, T> {
     #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         let (ptr, ticks) = world.get_non_send_with_ticks(component_id).ok_or_else(|| {
             SystemParamValidationError::invalid::<Self>("Non-send data not found")
@@ -1425,13 +1609,17 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     ) {
         system_access.require_shared_access::<Self>(system_meta);
     }
+}
 
+// SAFETY: no component value access
+unsafe impl<'a, I: SystemInput> SystemParamFetch<I> for &'a Archetypes {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(world.archetypes())
     }
@@ -1455,13 +1643,17 @@ unsafe impl<'a> SystemParam for &'a ResourceEntities {
     ) {
         system_access.require_shared_access::<Self>(system_meta);
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<'a, I: SystemInput> SystemParamFetch<I> for &'a ResourceEntities {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(world.resource_entities())
     }
@@ -1485,13 +1677,17 @@ unsafe impl<'a> SystemParam for &'a Components {
     ) {
         system_access.require_shared_access::<Self>(system_meta);
     }
+}
 
+// SAFETY: no component value access
+unsafe impl<'a, I: SystemInput> SystemParamFetch<I> for &'a Components {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(world.components())
     }
@@ -1515,13 +1711,17 @@ unsafe impl<'a> SystemParam for &'a Entities {
     ) {
         system_access.require_shared_access::<Self>(system_meta);
     }
+}
 
+// SAFETY: no component value access
+unsafe impl<'a, I: SystemInput> SystemParamFetch<I> for &'a Entities {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(world.entities())
     }
@@ -1545,13 +1745,17 @@ unsafe impl<'a> SystemParam for &'a EntityAllocator {
     ) {
         system_access.require_shared_access::<Self>(system_meta);
     }
+}
 
+// SAFETY: no component value access
+unsafe impl<'a, I: SystemInput> SystemParamFetch<I> for &'a EntityAllocator {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(world.entity_allocator())
     }
@@ -1575,13 +1779,17 @@ unsafe impl<'a> SystemParam for &'a Bundles {
     ) {
         system_access.require_shared_access::<Self>(system_meta);
     }
+}
 
+// SAFETY: no component value access
+unsafe impl<'a, I: SystemInput> SystemParamFetch<I> for &'a Bundles {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(world.bundles())
     }
@@ -1633,13 +1841,17 @@ unsafe impl SystemParam for SystemChangeTick {
         _world: &mut World,
     ) {
     }
+}
 
+// SAFETY: `SystemChangeTick` doesn't require any world access
+unsafe impl<I: SystemInput> SystemParamFetch<I> for SystemChangeTick {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(SystemChangeTick {
             last_run: system_meta.last_run,
@@ -1667,23 +1879,27 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
         T::init_access(state, system_meta, system_access, world);
     }
 
-    #[inline]
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
-        change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        // SAFETY: Upheld by caller
-        Ok(unsafe { T::get_param(state, system_meta, world, change_tick) }.ok())
-    }
-
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         T::apply(state, system_meta, world);
     }
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
+    }
+}
+
+// SAFETY: Delegates to `T`, which ensures the safety requirements are met
+unsafe impl<I: SystemInput, T: SystemParamFetch<I>> SystemParamFetch<I> for Option<T> {
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+        input: &I::Inner<'_>,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        // SAFETY: Upheld by caller
+        Ok(unsafe { T::get_param(state, system_meta, world, change_tick, input) }.ok())
     }
 }
 
@@ -1709,23 +1925,29 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
         T::init_access(state, system_meta, system_access, world);
     }
 
-    #[inline]
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
-        change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        // SAFETY: Upheld by caller
-        Ok(unsafe { T::get_param(state, system_meta, world, change_tick) })
-    }
-
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         T::apply(state, system_meta, world);
     }
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
+    }
+}
+
+// SAFETY: Delegates to `T`, which ensures the safety requirements are met
+unsafe impl<I: SystemInput, T: SystemParamFetch<I>> SystemParamFetch<I>
+    for Result<T, SystemParamValidationError>
+{
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+        input: &I::Inner<'_>,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        // SAFETY: Upheld by caller
+        Ok(unsafe { T::get_param(state, system_meta, world, change_tick, input) })
     }
 }
 
@@ -1804,28 +2026,32 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
         T::init_access(state, system_meta, system_access, world);
     }
 
-    #[inline]
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
-        change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        // SAFETY: Upheld by caller.
-        unsafe { T::get_param(state, system_meta, world, change_tick) }
-            .map(If)
-            .map_err(|mut e| {
-                e.skipped = true;
-                e
-            })
-    }
-
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         T::apply(state, system_meta, world);
     }
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
+    }
+}
+
+// SAFETY: Delegates to `T`, which ensures the safety requirements are met
+unsafe impl<I: SystemInput, T: SystemParamFetch<I>> SystemParamFetch<I> for If<T> {
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+        input: &I::Inner<'_>,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        // SAFETY: Upheld by caller.
+        unsafe { T::get_param(state, system_meta, world, change_tick, input) }
+            .map(If)
+            .map_err(|mut e| {
+                e.skipped = true;
+                e
+            })
     }
 }
 
@@ -1854,22 +2080,6 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         }
     }
 
-    #[inline]
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
-        change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        state
-            .iter_mut()
-            // SAFETY:
-            // - We initialized the access for each parameter in `init_access`, so the caller ensures we have access to any world data needed by each param.
-            // - The caller ensures this was the world used to initialize our state, and we used that world to initialize parameter states
-            .map(|state| unsafe { T::get_param(state, system_meta, world, change_tick) })
-            .collect()
-    }
-
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         for state in state {
             T::apply(state, system_meta, world);
@@ -1880,6 +2090,26 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         for state in state {
             T::queue(state, system_meta, world.reborrow());
         }
+    }
+}
+
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, T: SystemParamFetch<I>> SystemParamFetch<I> for Vec<T> {
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+        input: &I::Inner<'_>,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        state
+            .iter_mut()
+            // SAFETY:
+            // - We initialized the access for each parameter in `init_access`, so the caller ensures we have access to any world data needed by each param.
+            // - The caller ensures this was the world used to initialize our state, and we used that world to initialize parameter states
+            .map(|state| unsafe { T::get_param(state, system_meta, world, change_tick, input) })
+            .collect()
     }
 }
 
@@ -1915,31 +2145,6 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         }
     }
 
-    #[inline]
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
-        change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        // Validate each sub-param eagerly so that the system is correctly
-        // skipped by the executor when any sub-param is unavailable.
-        // PERF: the sub-params will be fetched again lazily when accessed through
-        // the ParamSet, but this is no worse than the previous
-        // validate_param + get_param pattern.
-        for s in state.iter_mut() {
-            // SAFETY: Upheld by caller.
-            drop(unsafe { T::get_param(s, system_meta, world, change_tick) }?);
-        }
-
-        Ok(ParamSet {
-            param_states: state,
-            system_meta: system_meta.clone(),
-            world,
-            change_tick,
-        })
-    }
-
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         for state in state {
             T::apply(state, system_meta, world);
@@ -1953,7 +2158,38 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
     }
 }
 
-impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, T: SystemParamFetch<I>> SystemParamFetch<I>
+    for ParamSet<'_, '_, Vec<T>>
+{
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+        input: &I::Inner<'_>,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        // Validate each sub-param eagerly so that the system is correctly
+        // skipped by the executor when any sub-param is unavailable.
+        // PERF: the sub-params will be fetched again lazily when accessed through
+        // the ParamSet, but this is no worse than the previous
+        // validate_param + get_param pattern.
+        for s in state.iter_mut() {
+            // SAFETY: Upheld by caller.
+            drop(unsafe { T::get_param(s, system_meta, world, change_tick, input) }?);
+        }
+
+        Ok(ParamSet {
+            param_states: state,
+            system_meta: system_meta.clone(),
+            world,
+            change_tick,
+        })
+    }
+}
+
+impl<T: SystemParamFetch<()>> ParamSet<'_, '_, Vec<T>> {
     /// Accesses the parameter at the given index.
     /// No other parameters may be accessed while this one is active.
     pub fn get_mut(&mut self, index: usize) -> T::Item<'_, '_> {
@@ -1967,6 +2203,7 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
                 &self.system_meta,
                 self.world,
                 self.change_tick,
+                &(),
             )
             .unwrap()
         }
@@ -1980,8 +2217,10 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
                 // - We initialized the access for each parameter, so the caller ensures we have access to any world data needed by any param.
                 //   We have mutable access to the ParamSet, so no other params in the set are active.
                 // - The caller of `get_param` ensured that this was the world used to initialize our state, and we used that world to initialize parameter states
-                unsafe { T::get_param(state, &self.system_meta, self.world, self.change_tick) }
-                    .unwrap_or_else(|err| panic!("ParamSet parameter validation failed: {err}")),
+                unsafe {
+                    T::get_param(state, &self.system_meta, self.world, self.change_tick, &())
+                }
+                .unwrap_or_else(|err| panic!("ParamSet parameter validation failed: {err}")),
             );
         });
     }
@@ -2009,22 +2248,6 @@ unsafe impl<T: SystemParam, const N: usize> SystemParam for SmallVec<[T; N]> {
         }
     }
 
-    #[inline]
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
-        change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        state
-            .iter_mut()
-            // SAFETY:
-            // - We initialized the access for each parameter in `init_access`, so the caller ensures we have access to any world data needed by each param.
-            // - The caller ensures this was the world used to initialize our state, and we used that world to initialize parameter states
-            .map(|state| unsafe { T::get_param(state, system_meta, world, change_tick) })
-            .collect()
-    }
-
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         for state in state {
             T::apply(state, system_meta, world);
@@ -2035,6 +2258,28 @@ unsafe impl<T: SystemParam, const N: usize> SystemParam for SmallVec<[T; N]> {
         for state in state {
             T::queue(state, system_meta, world.reborrow());
         }
+    }
+}
+
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, T: SystemParamFetch<I>, const N: usize> SystemParamFetch<I>
+    for SmallVec<[T; N]>
+{
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+        input: &I::Inner<'_>,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        state
+            .iter_mut()
+            // SAFETY:
+            // - We initialized the access for each parameter in `init_access`, so the caller ensures we have access to any world data needed by each param.
+            // - The caller ensures this was the world used to initialize our state, and we used that world to initialize parameter states
+            .map(|state| unsafe { T::get_param(state, system_meta, world, change_tick, input) })
+            .collect()
     }
 }
 
@@ -2088,7 +2333,24 @@ macro_rules! impl_system_param_tuple {
             fn queue(($($param,)*): &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
                 $($param::queue($param, system_meta, world.reborrow());)*
             }
+        }
 
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is in a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use some of the parameters."
+        )]
+        #[allow(clippy::unused_unit, reason = "Zero length tuple is unit.")]
+        $(#[$meta])*
+        // SAFETY: implementers of each `SystemParam` in the tuple have validated their impls
+        unsafe impl<I: SystemInput, $($param: SystemParamFetch<I>),*> SystemParamFetch<I> for ($($param,)*) {
             #[inline]
             #[track_caller]
             unsafe fn get_param<'w, 's>(
@@ -2096,6 +2358,7 @@ macro_rules! impl_system_param_tuple {
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
                 change_tick: Tick,
+                input: &I::Inner<'_>
             ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
                 let ($($param,)*) = state;
 
@@ -2109,7 +2372,7 @@ macro_rules! impl_system_param_tuple {
                         clippy::unused_unit,
                         reason = "Zero-length tuples won't have any params to get."
                     )]
-                    Ok(($($param::get_param($param, system_meta, world, change_tick)?,)*))
+                    Ok(($($param::get_param($param, system_meta, world, change_tick, input)?,)*))
                 }
             }
         }
@@ -2256,16 +2519,23 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         P::queue(state, system_meta, world);
     }
+}
 
+// SAFETY: all methods are just delegated to `P`'s `SystemParam` implementation
+unsafe impl<I: SystemInput, P: SystemParamFetch<I> + 'static> SystemParamFetch<I>
+    for StaticSystemParam<'_, '_, P>
+{
     #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
+        input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: Defer to the safety of P::SystemParam
-        unsafe { P::get_param(state, system_meta, world, change_tick) }.map(StaticSystemParam)
+        unsafe { P::get_param(state, system_meta, world, change_tick, input) }
+            .map(StaticSystemParam)
     }
 }
 
@@ -2283,13 +2553,17 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
         _world: &mut World,
     ) {
     }
+}
 
+// SAFETY: No world access.
+unsafe impl<I: SystemInput, T: ?Sized> SystemParamFetch<I> for PhantomData<T> {
     #[inline]
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         Ok(PhantomData)
     }
@@ -2316,12 +2590,18 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         _world: &mut World,
     ) {
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, D: QueryData + 'static, F: QueryFilter + 'static> SystemParamFetch<I>
+    for &'_ mut QueryState<D, F>
+{
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         Ok(state)
     }
@@ -2349,12 +2629,18 @@ unsafe impl<P: SystemParam + 'static> SystemParam for &'_ mut SystemState<P> {
         _world: &mut World,
     ) {
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, P: SystemParam + 'static> SystemParamFetch<I>
+    for &'_ mut SystemState<P>
+{
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         Ok(state)
     }
@@ -2451,20 +2737,20 @@ impl<'w, 's> DynSystemParam<'w, 's> {
     }
 
     /// Returns `true` if the inner system param is the same as `T`.
-    pub fn is<T: SystemParam>(&self) -> bool
+    pub fn is<T: SystemParamFetch<()>>(&self) -> bool
     // See downcast() function for an explanation of the where clause
     where
-        T::Item<'static, 'static>: SystemParam<Item<'w, 's> = T> + 'static,
+        T::Item<'static, 'static>: SystemParamFetch<(), Item<'w, 's> = T> + 'static,
     {
         self.state.is::<ParamState<T::Item<'static, 'static>>>()
     }
 
     /// Returns the inner system param if it is the correct type.
     /// This consumes the dyn param, so the returned param can have its original world and state lifetimes.
-    pub fn downcast<T: SystemParam>(self) -> Option<T>
+    pub fn downcast<T: SystemParamFetch<()>>(self) -> Option<T>
     // See downcast() function for an explanation of the where clause
     where
-        T::Item<'static, 'static>: SystemParam<Item<'w, 's> = T> + 'static,
+        T::Item<'static, 'static>: SystemParamFetch<(), Item<'w, 's> = T> + 'static,
     {
         // SAFETY:
         // - `DynSystemParam::new()` ensures `state` is a `ParamState<T>`, that the world matches,
@@ -2475,10 +2761,10 @@ impl<'w, 's> DynSystemParam<'w, 's> {
 
     /// Returns the inner system parameter if it is the correct type.
     /// This borrows the dyn param, so the returned param is only valid for the duration of that borrow.
-    pub fn downcast_mut<'a, T: SystemParam>(&'a mut self) -> Option<T>
+    pub fn downcast_mut<'a, T: SystemParamFetch<()>>(&'a mut self) -> Option<T>
     // See downcast() function for an explanation of the where clause
     where
-        T::Item<'static, 'static>: SystemParam<Item<'a, 'a> = T> + 'static,
+        T::Item<'static, 'static>: SystemParamFetch<(), Item<'a, 'a> = T> + 'static,
     {
         // SAFETY:
         // - `DynSystemParam::new()` ensures `state` is a `ParamState<T>`, that the world matches,
@@ -2492,10 +2778,12 @@ impl<'w, 's> DynSystemParam<'w, 's> {
     /// but since it only performs read access it can keep the original world lifetime.
     /// This can be useful with methods like [`Query::iter_inner()`] or [`Res::into_inner()`]
     /// to obtain references with the original world lifetime.
-    pub fn downcast_mut_inner<'a, T: ReadOnlySystemParam>(&'a mut self) -> Option<T>
+    pub fn downcast_mut_inner<'a, T: ReadOnlySystemParam + SystemParamFetch<()>>(
+        &'a mut self,
+    ) -> Option<T>
     // See downcast() function for an explanation of the where clause
     where
-        T::Item<'static, 'static>: SystemParam<Item<'w, 'a> = T> + 'static,
+        T::Item<'static, 'static>: SystemParamFetch<(), Item<'w, 'a> = T> + 'static,
     {
         // SAFETY:
         // - `DynSystemParam::new()` ensures `state` is a `ParamState<T>`, that the world matches,
@@ -2511,7 +2799,7 @@ impl<'w, 's> DynSystemParam<'w, 's> {
 ///   in [`init_state`](SystemParam::init_state) for the inner system param.
 /// - `world` must be the same `World` that was used to initialize
 ///   [`state`](SystemParam::init_state) for the inner system param.
-unsafe fn downcast<'w, 's, T: SystemParam>(
+unsafe fn downcast<'w, 's, T: SystemParamFetch<()>>(
     state: &'s mut dyn Any,
     system_meta: &SystemMeta,
     world: UnsafeWorldCell<'w>,
@@ -2526,7 +2814,7 @@ unsafe fn downcast<'w, 's, T: SystemParam>(
 // Every actual `SystemParam` implementation has `T::Item == T` up to lifetimes,
 // so they should all work with this constraint.
 where
-    T::Item<'static, 'static>: SystemParam<Item<'w, 's> = T> + 'static,
+    T::Item<'static, 'static>: SystemParamFetch<(), Item<'w, 's> = T> + 'static,
 {
     state
         .downcast_mut::<ParamState<T::Item<'static, 'static>>>()
@@ -2535,7 +2823,7 @@ where
             // - The caller ensures the world has access for the underlying system param,
             //   and since the downcast succeeded, the underlying system param is T.
             // - The caller ensures the `world` matches.
-            unsafe { T::Item::get_param(&mut state.0, system_meta, world, change_tick) }.ok()
+            unsafe { T::Item::get_param(&mut state.0, system_meta, world, change_tick, &()) }.ok()
         })
 }
 
@@ -2543,7 +2831,7 @@ where
 pub struct DynSystemParamState(Box<dyn DynParamState>);
 
 impl DynSystemParamState {
-    pub(crate) fn new<T: SystemParam + 'static>(state: T::State) -> Self {
+    pub(crate) fn new<T: SystemParamFetch<()> + 'static>(state: T::State) -> Self {
         Self(Box::new(ParamState::<T>(state)))
     }
 }
@@ -2580,9 +2868,9 @@ trait DynParamState: Sync + Send + Any {
 }
 
 /// A wrapper around a [`SystemParam::State`] that can be used as a trait object in a [`DynSystemParam`].
-struct ParamState<T: SystemParam>(T::State);
+struct ParamState<T: SystemParamFetch<()>>(T::State);
 
-impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
+impl<T: SystemParamFetch<()> + 'static> DynParamState for ParamState<T> {
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
         T::apply(&mut self.0, system_meta, world);
     }
@@ -2607,7 +2895,7 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         change_tick: Tick,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Upheld by caller.
-        unsafe { T::get_param(&mut self.0, system_meta, world, change_tick) }.map(drop)
+        unsafe { T::get_param(&mut self.0, system_meta, world, change_tick, &()) }.map(drop)
     }
 }
 
@@ -2630,12 +2918,24 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         state.0.init_access(system_meta, system_access, world);
     }
 
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        state.0.apply(system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        state.0.queue(system_meta, world);
+    }
+}
+
+// SAFETY: Delegates to the wrapped parameter, which ensures the safety requirements are met
+unsafe impl SystemParamFetch<()> for DynSystemParam<'_, '_> {
     #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
+        _input: &(),
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // Validate the inner parameter eagerly so that systems using DynSystemParam
         // are correctly skipped by the executor when the inner param is unavailable.
@@ -2649,14 +2949,6 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         Ok(unsafe {
             DynSystemParam::new(state.0.as_mut(), world, system_meta.clone(), change_tick)
         })
-    }
-
-    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-        state.0.apply(system_meta, world);
-    }
-
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
-        state.0.queue(system_meta, world);
     }
 }
 
@@ -2688,12 +2980,17 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
+unsafe impl<I: SystemInput> SystemParamFetch<I> for FilteredResources<'_, '_> {
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
         // and we registered all resource access in `state``.
@@ -2733,12 +3030,17 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+#[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
+unsafe impl<I: SystemInput> SystemParamFetch<I> for FilteredResourcesMut<'_, '_> {
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
         // and we registered all resource access in `state``.

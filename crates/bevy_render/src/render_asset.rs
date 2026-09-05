@@ -7,7 +7,7 @@ use bevy_asset::{Asset, AssetEvent, AssetId, Assets, RenderAssetUsages};
 use bevy_ecs::{
     prelude::{Commands, IntoScheduleConfigs, Local, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
-    system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
+    system::{ScheduleSystem, StaticSystemParam, SystemParamFetch, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
 use bevy_log::{debug, error};
@@ -51,7 +51,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
     ///
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
-    type Param: SystemParam;
+    type Param: SystemParamFetch<()>;
 
     /// Whether or not to unload the asset after extracting it to the render world.
     #[inline]

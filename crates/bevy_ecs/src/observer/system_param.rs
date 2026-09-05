@@ -4,6 +4,7 @@ use crate::{
     change_detection::MaybeLocation,
     event::{Event, EventKey, EventPattern, EventPatternTrigger, PropagateEntityTrigger},
     prelude::*,
+    system::TargetEntity,
     traversal::Traversal,
 };
 use bevy_ptr::Ptr;
@@ -172,6 +173,12 @@ impl<'w, 't, E: EventPattern> Deref for On<'w, 't, E> {
 impl<'w, 't, E: EventPattern> DerefMut for On<'w, 't, E> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.event
+    }
+}
+
+impl<E: EventPattern<Event: EntityEvent>> TargetEntity for On<'_, '_, E> {
+    fn target(&self) -> Entity {
+        self.event().event_target()
     }
 }
 

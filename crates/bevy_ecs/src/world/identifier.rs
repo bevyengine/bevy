@@ -1,7 +1,10 @@
 use crate::{
     change_detection::Tick,
     storage::SparseSetIndex,
-    system::{SystemAccess, SystemMeta, SystemParam, SystemParamValidationError},
+    system::{
+        SystemAccess, SystemInput, SystemMeta, SystemParam, SystemParamFetch,
+        SystemParamValidationError,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_platform::sync::atomic::{AtomicUsize, Ordering};
@@ -74,13 +77,17 @@ unsafe impl SystemParam for WorldId {
     ) {
         system_access.require_shared_access::<Self>(system_meta);
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput> SystemParamFetch<I> for WorldId {
     #[inline]
     unsafe fn get_param<'world, 'state>(
         _: &'state mut Self::State,
         _: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         _: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         Ok(world.id())
     }

@@ -62,8 +62,8 @@ use crate::{
     relationship::RelationshipHookMode,
     storage::SparseSet,
     system::{
-        Local, ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam,
-        SystemParamValidationError,
+        Local, ReadOnlySystemParam, SystemAccess, SystemInput, SystemMeta, SystemParam,
+        SystemParamFetch, SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
@@ -692,7 +692,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
 // SAFETY: Only reads World removed component messages
 unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentMessages {}
 
-// SAFETY: no component value access.
+// SAFETY: World metadata is registered and accessed.
 unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
     type State = ();
     type Item<'w, 's> = &'w RemovedComponentMessages;
@@ -707,13 +707,17 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
     ) {
         system_access.require_shared_access::<Self>(system_meta);
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput> SystemParamFetch<I> for &'_ RemovedComponentMessages {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(world.removed_components())
     }

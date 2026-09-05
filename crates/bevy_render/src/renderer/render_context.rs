@@ -9,7 +9,7 @@ use bevy_ecs::component::ComponentId;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::{QueryData, QueryFilter, QueryState};
 use bevy_ecs::system::{
-    Deferred, SystemAccess, SystemBuffer, SystemMeta, SystemName, SystemParam,
+    Deferred, SystemAccess, SystemBuffer, SystemMeta, SystemName, SystemParam, SystemParamFetch,
     SystemParamValidationError,
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
@@ -370,13 +370,19 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
             world,
         );
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I: SystemInput, D: QueryData + 'static, F: QueryFilter + 'static> SystemParamFetch<I>
+    for ViewQuery<'_, '_, D, F>
+{
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: We have registered resource read access in init_access
         let current_view = unsafe { world.get_resource::<CurrentView>() };

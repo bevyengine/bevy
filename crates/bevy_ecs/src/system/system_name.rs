@@ -2,7 +2,8 @@ use crate::{
     change_detection::Tick,
     prelude::World,
     system::{
-        ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError,
+        ReadOnlySystemParam, SystemAccess, SystemInput, SystemMeta, SystemParam, SystemParamFetch,
+        SystemParamValidationError,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -50,7 +51,7 @@ impl SystemName {
     }
 }
 
-// SAFETY: no component value access
+// SAFETY: No world access is required.
 unsafe impl SystemParam for SystemName {
     type State = ();
     type Item<'w, 's> = SystemName;
@@ -64,13 +65,17 @@ unsafe impl SystemParam for SystemName {
         _world: &mut World,
     ) {
     }
+}
 
+// SAFETY: No world access is required.
+unsafe impl<I: SystemInput> SystemParamFetch<I> for SystemName {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
+        _input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(SystemName(system_meta.name.clone()))
     }

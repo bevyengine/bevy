@@ -3,8 +3,8 @@ use bevy_ecs::{
     change_detection::Tick,
     prelude::*,
     system::{
-        ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam, SystemParamItem,
-        SystemParamValidationError, SystemState,
+        ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam, SystemParamFetch,
+        SystemParamItem, SystemParamValidationError, SystemState,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -89,26 +89,35 @@ where
     ) {
         Res::<MainWorld>::init_access(&state.main_world_state, system_meta, system_access, world);
     }
+}
 
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I, P> SystemParamFetch<I> for Extract<'_, '_, P>
+where
+    I: SystemInput,
+    P: ReadOnlySystemParam + SystemParamFetch<I>,
+{
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
+        input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY:
         // - The caller ensures that `world` is the same one that `init_state` was called with.
         // - The caller ensures that no other `SystemParam`s will conflict with the accesses we have registered.
         let main_world = unsafe {
-            Res::<MainWorld>::get_param(
+            <Res<MainWorld> as SystemParamFetch<()>>::get_param(
                 &mut state.main_world_state,
                 system_meta,
                 world,
                 change_tick,
+                &(),
             )?
         };
-        let item = state.state.get(main_world.into_inner())?;
+        let item = state.state.get_with(main_world.into_inner(), input)?;
         Ok(Extract { item })
     }
 }

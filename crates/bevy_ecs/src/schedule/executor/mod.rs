@@ -586,8 +586,8 @@ mod validation_tests {
         schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
         system::{
             DynParamBuilder, DynSystemParam, Local, ParamBuilder, ParamSet, Query, Res, ResMut,
-            RunSystemError, RunSystemOnce, Single, SystemAccess, SystemMeta, SystemParam,
-            SystemParamBuilder, SystemParamValidationError,
+            RunSystemError, RunSystemOnce, Single, SystemAccess, SystemInput, SystemMeta,
+            SystemParam, SystemParamBuilder, SystemParamFetch, SystemParamValidationError,
         },
         world::World,
     };
@@ -619,12 +619,16 @@ mod validation_tests {
             _world: &mut World,
         ) {
         }
+    }
 
+    // SAFETY: No world data is accessed.
+    unsafe impl<I: SystemInput> SystemParamFetch<I> for AlwaysInvalid {
         unsafe fn get_param<'world, 'state>(
             _state: &'state mut Self::State,
             _system_meta: &SystemMeta,
             _world: crate::world::unsafe_world_cell::UnsafeWorldCell<'world>,
             _change_tick: crate::change_detection::Tick,
+            _input: &I::Inner<'_>,
         ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
             Err(SystemParamValidationError::invalid::<Self>(
                 "always invalid",

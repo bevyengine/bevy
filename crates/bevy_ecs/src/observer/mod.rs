@@ -482,6 +482,7 @@ mod tests {
         lifecycle::RemoveEvent,
         observer::{Discard, ObservedBy, Observer},
         prelude::*,
+        system::Target,
         world::DeferredWorld,
     };
 
@@ -1924,5 +1925,19 @@ mod tests {
         world.entity_mut(observer).despawn();
 
         assert!(!world.entity(target).contains::<ObservedBy>());
+    }
+
+    #[test]
+    fn observer_target_query() {
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn(ChildOf(e1)).id();
+
+        world.add_observer(move |_: On<EntityEventA>, target: Target<&ChildOf>| {
+            assert_eq!(target.0, e1);
+        });
+        world.flush();
+
+        world.trigger(EntityEventA(e2));
     }
 }
