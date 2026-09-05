@@ -26,7 +26,6 @@ use bevy_light::{
     Cascades, DirectionalLight, DirectionalLightShadowMap, GlobalAmbientLight, PointLight,
     PointLightShadowMap, RectLight, ShadowFilteringMethod, SpotLight, VolumetricLight,
 };
-use bevy_log::warn_once;
 use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     MaterialProperties,
@@ -681,20 +680,7 @@ pub fn extract_lights(
             ));
         }
 
-        // `outer_angle` must be <π/2.
-        let (inner_angle, outer_angle) = {
-            let mut outer_angle = spot_light.outer_angle;
-            if outer_angle >= core::f32::consts::FRAC_PI_2 {
-                warn_once!(
-                    "A `SpotLight` has `outer_angle` {} >= π/2 (~1.57079), clamping it to just below π/2. \
-                     Spot lights require `outer_angle < π/2`",
-                    outer_angle
-                );
-                outer_angle = core::f32::consts::FRAC_PI_2 - 1e-4;
-            }
-            // Keep inner_angle <= outer_angle after clamping.
-            (spot_light.inner_angle.min(outer_angle), outer_angle)
-        };
+        let (inner_angle, outer_angle) = spot_light.clamped_angles();
 
         let texel_size = 2.0 * ops::tan(outer_angle) / directional_light_shadow_map.size as f32;
 
