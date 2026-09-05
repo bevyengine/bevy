@@ -182,11 +182,11 @@ fn light_probe_iterator_new(
 ) -> LightProbeIterator {
     return LightProbeIterator(
         0,
-        u32(select(
+        select(
             light_probes.reflection_probe_count,
             light_probes.irradiance_volume_count,
             is_irradiance_volume
-        )),
+        ),
         world_position,
         is_irradiance_volume
     );

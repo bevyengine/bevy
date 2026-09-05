@@ -129,10 +129,10 @@ pub struct LightProbesUniform {
     irradiance_volumes: [RenderLightProbe; MAX_VIEW_LIGHT_PROBES],
 
     /// The number of reflection probes in the list.
-    reflection_probe_count: i32,
+    reflection_probe_count: u32,
 
     /// The number of irradiance volumes in the list.
-    irradiance_volume_count: i32,
+    irradiance_volume_count: u32,
 
     /// The index of the diffuse and specular environment maps associated with
     /// the view itself. This is used as a fallback if no reflection probe in
@@ -512,11 +512,11 @@ fn upload_light_probes(
             reflection_probe_count: render_view_environment_maps
                 .map(RenderViewLightProbes::len)
                 .unwrap_or_default()
-                .min(MAX_VIEW_LIGHT_PROBES) as i32,
+                .min(MAX_VIEW_LIGHT_PROBES) as u32,
             irradiance_volume_count: render_view_irradiance_volumes
                 .map(RenderViewLightProbes::len)
                 .unwrap_or_default()
-                .min(MAX_VIEW_LIGHT_PROBES) as i32,
+                .min(MAX_VIEW_LIGHT_PROBES) as u32,
             view_cubemap_index: match maybe_view_light_probe_info {
                 Some(view_light_probe_info) => view_light_probe_info.cubemap_index,
                 None => -1,
