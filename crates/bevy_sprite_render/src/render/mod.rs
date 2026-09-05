@@ -212,10 +212,10 @@ impl SpecializedRenderPipeline for SpritePipeline {
         }
 
         if key.contains(SpritePipelineKey::SRGB_COMPOSITING) {
-            shader_defs.push("SRGB_OUTPUT".into());
+            shader_defs.push("COMPOSITING_SPACE_SRGB".into());
         }
         if key.contains(SpritePipelineKey::OKLAB_COMPOSITING) {
-            shader_defs.push("OKLAB_OUTPUT".into());
+            shader_defs.push("COMPOSITING_SPACE_OKLAB".into());
         }
 
         let format = key.target_format();

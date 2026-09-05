@@ -23,7 +23,7 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, Msaa},
+    view::{ExtractedView, Msaa, ResolvedCompositingSpace},
     Render, RenderApp, RenderSystems,
 };
 use bevy_render::{GpuResourceAppExt, RenderStartup};
@@ -108,10 +108,11 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let format = key.mesh_key.target_format();
 
-        let shader_defs = vec![
+        let mut shader_defs = vec![
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
         ];
+        key.mesh_key.push_compositing_space_defs(&mut shader_defs);
 
         let layout = vec![
             self.mesh_pipeline.view_layout.clone(),
@@ -190,10 +191,11 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let format = key.mesh_key.target_format();
 
-        let shader_defs = vec![
+        let mut shader_defs = vec![
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
         ];
+        key.mesh_key.push_compositing_space_defs(&mut shader_defs);
 
         let layout = vec![
             self.mesh_pipeline.view_layout.clone(),
@@ -287,7 +289,12 @@ fn queue_line_and_joint_gizmos_2d(
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     line_gizmo_entities: Res<LineGizmoEntities>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(&ExtractedView, &Msaa, Option<&RenderLayers>)>,
+    views: Query<(
+        &ExtractedView,
+        &Msaa,
+        Option<&RenderLayers>,
+        Option<&ResolvedCompositingSpace>,
+    )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
     let draw_line_function_strip = draw_functions
@@ -299,14 +306,17 @@ fn queue_line_and_joint_gizmos_2d(
         .get_id::<DrawLineJointGizmo2d>()
         .unwrap();
 
-    for (view, msaa, render_layers) in &mut views {
+    for (view, msaa, render_layers, resolved_space) in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_target_format(view.target_format);
+            | Mesh2dPipelineKey::from_target_format(view.target_format)
+            | Mesh2dPipelineKey::from_compositing_space(ResolvedCompositingSpace::space(
+                resolved_space,
+            ));
 
         let render_layers = render_layers.unwrap_or_default();
         for (entity, config) in &line_gizmos {
