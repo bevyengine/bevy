@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use bevy_app::prelude::*;
 use bevy_camera::{prelude::*, ScalingMode};
+use bevy_curve::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_log::error_once;
 use bevy_math::{prelude::*, DQuat, DVec3};

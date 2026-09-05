@@ -22,6 +22,8 @@ env:
   CARGO_PROFILE_DEV_DEBUG: 0
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
+  # Keep in sync between all workflows
+  RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
 jobs:
   build-and-install-on-iOS:
@@ -33,9 +35,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal
+          rustup override set stable
+          cargo -V
 
       - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
@@ -67,9 +71,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal
+          rustup override set stable
+          cargo -V
 
       - name: Set up JDK 17
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
@@ -113,10 +119,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          target: wasm32-unknown-unknown
-          toolchain: stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal
+          rustup target add wasm32-unknown-unknown --toolchain stable
+          rustup override set stable
+          cargo -V
 
       - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
@@ -145,7 +153,7 @@ jobs:
 
       - name: First Wasm build
         env:
-          RUSTFLAGS: --cfg getrandom_backend="wasm_js"
+          RUSTFLAGS: '-C debuginfo=0 -D warnings --cfg getrandom_backend="wasm_js"'
         run: |
           cargo build --release --example testbed_ui --target wasm32-unknown-unknown
 
@@ -175,15 +183,15 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal
+          rustup override set stable
+          cargo -V
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build
         run: cargo build -p ${{ matrix.crate }} --no-default-features
-        env:
-          RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   build-without-default-features-status:
     if: |
@@ -207,9 +215,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+      - name: Install toolchain
+        run: |
+          rustup toolchain install ${{ env.NIGHTLY_TOOLCHAIN }} --no-self-update --profile=minimal
+          rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
+          cargo -V
       - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           # key won't match, will rely on restore-keys
@@ -239,9 +249,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal
+          rustup override set stable
+          cargo -V
       - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           # key won't match, will rely on restore-keys
