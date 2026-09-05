@@ -7,7 +7,9 @@ use bevy_ecs::{
     error::Result,
     event::{EntityEvent, EventPattern},
     name::Name,
+    observer::ObserverSystemExt,
     relationship::Relationship,
+    schedule::{AndEager, SystemCondition},
     system::IntoObserverSystem,
     template::{FnTemplate, FromTemplate, SceneEntityReference, Template, TemplateContext},
 };
@@ -537,6 +539,57 @@ impl<L: SceneList> SceneList for SceneListScope<L> {
 /// [`Observer`]: bevy_ecs::observer::Observer
 pub struct OnTemplate<I, E, M>(pub I, pub PhantomData<fn() -> (E, M)>);
 
+/// A [`Template`] / [`Scene`] that will create an [`Observer`] of a given [`EntityEvent`] on the current [`Scene`] entity, with a run condition.
+/// This is typically initialized using the [`OnTemplate::run_if()`] function, which returns a [`ConditionalOnTemplate`].
+///
+/// [`Observer`]: bevy_ecs::observer::Observer
+pub struct ConditionalOnTemplate<I, E, M, C, CM>(pub I, pub PhantomData<fn() -> (E, M, CM)>, pub C);
+
+impl<I, E, M> OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M> + Clone,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
+{
+    /// Adds a run condition to this observer. All conditions must return `true` for the observer to run (AND semantics).
+    ///
+    /// **Note:** Chained `.run_if()` calls do **not** short-circuit — all conditions run every time to maintain correct change detection ticks. If you need
+    /// short-circuit behavior, use `.run_if(a.and(b))`, but be aware this may cause stale `Changed<T>` detection if the second condition is frequently skipped.
+    pub fn run_if<C, CM>(self, condition: C) -> ConditionalOnTemplate<I, E, M, C, CM>
+    where
+        C: SystemCondition<CM> + Clone,
+        CM: 'static,
+    {
+        ConditionalOnTemplate(self.0, PhantomData, condition)
+    }
+}
+
+impl<I, E, M, C, CM> ConditionalOnTemplate<I, E, M, C, CM>
+where
+    I: IntoObserverSystem<E, M> + Clone,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
+    C: SystemCondition<CM> + Clone,
+    CM: 'static,
+{
+    /// Adds a run condition to this observer. All conditions must return `true` for the observer to run (AND semantics).
+    ///
+    /// **Note:** Chained `.run_if()` calls do **not** short-circuit — all conditions run every time to maintain correct change detection ticks. If you need
+    /// short-circuit behavior, use `.run_if(a.and(b))`, but be aware this may cause stale `Changed<T>` detection if the second condition is frequently skipped.
+    pub fn run_if<D, DM>(
+        self,
+        condition: D,
+    ) -> ConditionalOnTemplate<I, E, M, AndEager<C::System, D::System>, CM>
+    where
+        D: SystemCondition<DM>,
+        C::System: Clone,
+        D::System: Clone,
+        DM: 'static,
+    {
+        ConditionalOnTemplate(self.0, PhantomData, self.2.and_eager(condition))
+    }
+}
+
 impl<I, E, M> Template for OnTemplate<I, E, M>
 where
     I: IntoObserverSystem<E, M> + Clone,
@@ -567,6 +620,46 @@ where
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
         scene.push_template(OnTemplate(self.0, PhantomData));
+        Ok(())
+    }
+}
+
+impl<I, E, M, C, CM> Template for ConditionalOnTemplate<I, E, M, C, CM>
+where
+    I: IntoObserverSystem<E, M> + Clone,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
+    C: SystemCondition<CM> + Clone,
+    CM: 'static,
+{
+    type Output = EmptySceneEffect;
+
+    fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
+        context
+            .entity
+            .observe(self.0.clone().run_if(self.2.clone()));
+        Ok(EmptySceneEffect)
+    }
+
+    fn clone_template(&self) -> Self {
+        Self(self.0.clone(), PhantomData, self.2.clone())
+    }
+}
+
+impl<I, E, M, C, CM> Scene for ConditionalOnTemplate<I, E, M, C, CM>
+where
+    I: IntoObserverSystem<E, M> + Clone + Send + Sync,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
+    C: SystemCondition<CM> + Clone + Send + Sync + 'static,
+    CM: 'static,
+{
+    fn resolve(
+        self,
+        _context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        scene.push_template(ConditionalOnTemplate(self.0, PhantomData, self.2));
         Ok(())
     }
 }
