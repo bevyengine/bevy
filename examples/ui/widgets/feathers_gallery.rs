@@ -104,10 +104,12 @@ fn demo_root() -> Box<dyn Scene> {
         }
         TabGroup
         ThemeBackgroundColor(tokens::WINDOW_BG)
-        Children[
-            @demo_column_1() --
-            @demo_column_2() --
-            @demo_column_3() --
+        Children [
+            @demo_column_1()
+            --
+            @demo_column_2()
+            --
+            @demo_column_3()
         ]
     })
 }
@@ -316,11 +318,11 @@ fn demo_column_1() -> impl Scene {
             ]
             --
             @FeathersSelect {
-                @options: {list_rows_from_strings([
+                @options: list_rows_from_strings([
                     "One",
                     "Two",
                     "Three",
-                ], Some(0))},
+                ], Some(0)),
             }
             Node {
                 flex_grow: 1.0,
