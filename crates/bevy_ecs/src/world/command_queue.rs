@@ -4,24 +4,23 @@ use crate::{
     world::{DeferredWorld, World},
 };
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use bevy_ptr::{OwningPtr, Unaligned};
 use core::{
     fmt::Debug,
     mem::{size_of, MaybeUninit},
-    ptr::{addr_of_mut, NonNull},
+    ptr::NonNull,
 };
 use log::warn;
 
 #[cfg(feature = "std")]
-use crate::error::{BevyError, ErrorContext, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER};
+use crate::error::{BevyError, ErrorContext};
+#[cfg(feature = "std")]
+use alloc::boxed::Box;
 #[cfg(feature = "std")]
 use bevy_utils::DebugName;
 #[cfg(feature = "std")]
-use std::{
-    backtrace::Backtrace,
-    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
-};
+use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
@@ -47,8 +46,6 @@ pub struct CommandQueue {
     /// to store the command itself. To interpret these bytes, a pointer must
     /// be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
     pub(crate) bytes: Vec<MaybeUninit<u8>>,
-    /// Index into `bytes` at which unapplied commands start.
-    pub(crate) cursor: usize,
     pub(crate) caller: MaybeLocation,
     /// Always emit a warning if a command is dropped before it is applied.
     /// Defaults to `true`.
@@ -63,19 +60,10 @@ impl Default for CommandQueue {
     fn default() -> Self {
         Self {
             bytes: Default::default(),
-            cursor: Default::default(),
             caller: MaybeLocation::caller(),
             warn_on_unapplied: true,
         }
     }
-}
-
-/// Wraps pointers to a [`CommandQueue`], used internally to avoid stacked borrow rules when
-/// partially applying the world's command queue recursively
-#[derive(Clone)]
-pub(crate) struct RawCommandQueue {
-    pub(crate) bytes: NonNull<Vec<MaybeUninit<u8>>>,
-    pub(crate) cursor: NonNull<usize>,
 }
 
 // CommandQueue needs to implement Debug manually, rather than deriving it, because the derived impl just prints
@@ -104,7 +92,6 @@ impl CommandQueue {
     pub fn silent() -> Self {
         CommandQueue {
             bytes: Default::default(),
-            cursor: Default::default(),
             caller: MaybeLocation::caller(),
             warn_on_unapplied: false,
         }
@@ -112,83 +99,7 @@ impl CommandQueue {
 
     /// Push a [`Command`] onto the queue.
     #[inline]
-    pub fn push(&mut self, command: impl Command<Out = ()>) {
-        // SAFETY: self is guaranteed to live for the lifetime of this method
-        unsafe {
-            self.get_raw().push(command);
-        }
-    }
-
-    /// Execute the queued [`Command`]s in the world after applying any commands in the world's internal queue.
-    /// This clears the queue.
-    #[inline]
-    pub fn apply(&mut self, world: &mut World) {
-        // flush the world's internal queue
-        world.flush_commands();
-
-        // SAFETY: A reference is always a valid pointer
-        unsafe {
-            self.get_raw().apply_or_drop_queued(Some(world));
-        }
-    }
-
-    /// Take all commands from `other` and append them to `self`, leaving `other` empty
-    pub fn append(&mut self, other: &mut CommandQueue) {
-        self.bytes.append(&mut other.bytes);
-    }
-
-    /// Returns false if there are any commands in the queue
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.cursor >= self.bytes.len()
-    }
-
-    /// Returns a [`RawCommandQueue`] instance sharing the underlying command queue.
-    pub(crate) fn get_raw(&mut self) -> RawCommandQueue {
-        // SAFETY: self is always valid memory
-        unsafe {
-            RawCommandQueue {
-                bytes: NonNull::new_unchecked(addr_of_mut!(self.bytes)),
-                cursor: NonNull::new_unchecked(addr_of_mut!(self.cursor)),
-            }
-        }
-    }
-
-    /// Silences drop warning if commands are unapplied.
-    pub fn silence_drop_warning(&mut self) {
-        self.warn_on_unapplied = false;
-    }
-}
-
-impl RawCommandQueue {
-    /// Returns a new `RawCommandQueue` instance, this must be manually dropped.
-    pub(crate) fn new() -> Self {
-        // SAFETY: Pointers returned by `Box::into_raw` are guaranteed to be non null
-        unsafe {
-            Self {
-                bytes: NonNull::new_unchecked(Box::into_raw(Box::default())),
-                cursor: NonNull::new_unchecked(Box::into_raw(Box::new(0usize))),
-            }
-        }
-    }
-
-    /// Returns true if the queue is empty.
-    ///
-    /// # Safety
-    /// - Caller ensures that `bytes` and `cursor` point to valid memory
-    /// - there is no other unsynchonized access to the same underlying queue
-    pub unsafe fn is_empty(&self) -> bool {
-        // SAFETY: Pointers are guaranteed to be valid by requirements on `.clone_unsafe`
-        (unsafe { *self.cursor.as_ref() }) >= (unsafe { self.bytes.as_ref() }).len()
-    }
-
-    /// Push a [`Command`] onto the queue.
-    ///
-    /// # Safety
-    /// - Caller ensures that `self` has not outlived the underlying queue
-    /// - there is no other unsynchonized access to the same underlying queue
-    #[inline]
-    pub unsafe fn push<C: Command<Out = ()>>(&mut self, command: C) {
+    pub fn push<C: Command<Out = ()>>(&mut self, command: C) {
         // Stores a command alongside its metadata.
         // `repr(C)` prevents the compiler from reordering the fields,
         // while `repr(packed)` prevents the compiler from inserting padding bytes.
@@ -237,17 +148,14 @@ impl RawCommandQueue {
             },
         };
 
-        // SAFETY: There are no outstanding references to self.bytes
-        let bytes = unsafe { self.bytes.as_mut() };
-
-        let old_len = bytes.len();
+        let old_len = self.bytes.len();
 
         // Reserve enough bytes for both the metadata and the command itself.
-        bytes.reserve(size_of::<Packed<C>>());
+        self.bytes.reserve(size_of::<Packed<C>>());
 
         // Pointer to the bytes at the end of the buffer.
         // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
-        let ptr = unsafe { bytes.as_mut_ptr().add(old_len) };
+        let ptr = unsafe { self.bytes.as_mut_ptr().add(old_len) };
 
         // Write the metadata into the buffer, followed by the command.
         // We are using a packed struct to write them both as one operation.
@@ -263,22 +171,43 @@ impl RawCommandQueue {
         // SAFETY: The new length is guaranteed to fit in the vector's capacity,
         // due to the call to `.reserve()` above.
         unsafe {
-            bytes.set_len(old_len + size_of::<Packed<C>>());
+            self.bytes.set_len(old_len + size_of::<Packed<C>>());
         }
     }
 
-    /// If `world` is [`Some`], this will apply the queued [commands](`Command`).
-    /// If `world` is [`None`], this will drop the queued [commands](`Command`) (without applying them).
+    /// Execute the queued [`Command`]s in the world after applying any commands in the world's internal queue.
     /// This clears the queue.
-    ///
-    /// # Safety
-    /// - `self` has not outlived the underlying queue
-    /// - there is no other unsynchonized access to the same underlying queue
     #[inline]
-    pub(crate) unsafe fn apply_or_drop_queued(&mut self, world: Option<&mut World>) {
-        // SAFETY: Caller ensures `self` has not outlived the queue.
-        // and that there is no other unsynchronized access.
-        unsafe { CommandQueueRunner::new(self).run(world) };
+    pub fn apply(&mut self, world: &mut World) {
+        // flush the world's internal queue
+        world.flush_commands();
+        // SAFETY:
+        // * `self` is always returned
+        // * The first command always start at 0
+        // * `&mut self` prevents all other access to this queue
+        let mut runner = unsafe { CommandQueueRunner::new((self, world), |(queue, _)| queue, 0) };
+        runner.run(|(_, world)| Some(world));
+    }
+
+    /// Take all commands from `other` and append them to `self`, leaving `other` empty
+    pub fn append(&mut self, other: &mut CommandQueue) {
+        self.bytes.append(&mut other.bytes);
+    }
+
+    /// Returns false if there are any commands in the queue
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+
+    /// The number of bytes of commands in the queue.
+    pub(crate) fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    /// Silences drop warning if commands are unapplied.
+    pub fn silence_drop_warning(&mut self) {
+        self.warn_on_unapplied = false;
     }
 }
 
@@ -291,8 +220,12 @@ impl Drop for CommandQueue {
                 warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply?");
             }
         }
-        // SAFETY: A reference is always a valid pointer
-        unsafe { self.get_raw().apply_or_drop_queued(None) };
+        // Dropping a `CommandQueueRunner` will drop all unapplied commands.
+        // SAFETY:
+        // * `self` is always returned
+        // * The first command always start at 0
+        // * `&mut self` prevents all other access to this queue
+        unsafe { drop(CommandQueueRunner::new(self, |queue| queue, 0)) };
     }
 }
 
@@ -312,27 +245,41 @@ impl SystemBuffer for CommandQueue {
 
 /// A RAII guard used while running commands to ensure
 /// that unapplied commands are dropped during unwind.
-struct CommandQueueRunner<'a> {
-    command_queue: &'a mut RawCommandQueue,
+pub(crate) struct CommandQueueRunner<D, F>
+where
+    F: Fn(&mut D) -> &mut CommandQueue,
+{
+    data: D,
+    command_queue: F,
     local_cursor: usize,
     start: usize,
     stop: usize,
 }
 
-impl<'a> CommandQueueRunner<'a> {
+impl<D, F> CommandQueueRunner<D, F>
+where
+    F: Fn(&mut D) -> &mut CommandQueue,
+{
+    /// Constructs a new [`CommandQueueRunner`] for the given queue.
+    ///
+    /// This applies or drops commands from `start` to the current end of the queue,
+    /// and will truncate the queue to `start` when dropped.
+    ///
+    /// Stores references to just the [`World`] (when running the world command queue), to just a [`CommandQueue`] (when dropping), or both (when running any other queues).
+    /// In the case of the world's command queue, this allows us to fetch a new reference to the queue after every command, as the command can invalidate it due to receiving the `&mut World`.
+    /// References to other command queues can be stored directly.
+    ///
     /// # Safety
-    /// - `self` has not outlived the underlying queue
-    /// - there is no other unsynchonized access to the same underlying queue
-    unsafe fn new(command_queue: &'a mut RawCommandQueue) -> Self {
-        // SAFETY: Queue is life & there is no other unsynchronized access
-        let start = unsafe { command_queue.cursor.read() };
-        // SAFETY: Queue is life & there is no other unsynchronized access
-        let stop = unsafe { command_queue.bytes.as_ref().len() };
-        // SAFETY: we are setting the global cursor to the current length to prevent the executing commands from applying
-        // the remaining commands currently in this list. This is safe.
-        unsafe { command_queue.cursor.write(stop) };
-
+    ///
+    /// * `command_queue(&mut data)` must always return the same queue.
+    /// * `start` is the index of the first byte of a command in the queue,
+    ///   or the length of the queue
+    /// * Until the `CommandQueueRunner` is dropped, nothing else may
+    ///   access commands between `start` and `command_queue.len()`
+    pub unsafe fn new(mut data: D, command_queue: F, start: usize) -> Self {
+        let stop = command_queue(&mut data).len();
         Self {
+            data,
             command_queue,
             local_cursor: start,
             start,
@@ -340,21 +287,21 @@ impl<'a> CommandQueueRunner<'a> {
         }
     }
 
-    fn run(&mut self, mut world: Option<&mut World>) {
-        #[cfg(feature = "std")]
-        {
-            PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
-        }
-
+    /// Applies or drops the commands in the queue.
+    ///
+    /// If `world` returns [`Some`], this will apply the queued [commands](`Command`) to that `World`.
+    /// If `world` returns [`None`], this will drop the queued [commands](`Command`) (without applying them).
+    pub fn run(&mut self, world: impl Fn(&mut D) -> Option<&mut World>) {
         while self.local_cursor < self.stop {
+            let command_queue = (self.command_queue)(&mut self.data);
+
             // We must re-read the pointer to the allocation before each command
             // as the previous might have cause a reallocation.
             // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
             // Since we know that the cursor is in bounds, it must point to the start of a new command.
             let meta = unsafe {
-                self.command_queue
+                command_queue
                     .bytes
-                    .as_mut()
                     .as_mut_ptr()
                     .add(self.local_cursor)
                     .cast::<CommandMeta>()
@@ -369,9 +316,8 @@ impl<'a> CommandQueueRunner<'a> {
             // `cmd` points to a valid address of a stored command, so it must be non-null.
             let cmd = unsafe {
                 OwningPtr::<Unaligned>::new(NonNull::new_unchecked(
-                    self.command_queue
+                    command_queue
                         .bytes
-                        .as_mut()
                         .as_mut_ptr()
                         .add(self.local_cursor)
                         .cast(),
@@ -386,7 +332,7 @@ impl<'a> CommandQueueRunner<'a> {
             unsafe {
                 (meta.consume_command_and_get_size)(
                     cmd,
-                    world.as_deref_mut(),
+                    world(&mut self.data),
                     &mut self.local_cursor,
                 );
             }
@@ -405,31 +351,28 @@ fn handle_panic_payload(
     payload: Box<dyn core::any::Any + Send>,
     name: DebugName,
 ) {
-    let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
-    if panic_originates_from_error_handler {
-        resume_unwind(payload)
-    }
     let Some(world) = world else {
         resume_unwind(payload)
     };
-    let error =
-        BevyError::new_with_backtrace(Severity::Panic, "Command panicked", Backtrace::disabled());
+    let error = BevyError::panic("Command panicked", payload);
     world.fallback_error_handler()(error, ErrorContext::Command { name });
 }
 
-impl Drop for CommandQueueRunner<'_> {
+impl<D, F> Drop for CommandQueueRunner<D, F>
+where
+    F: Fn(&mut D) -> &mut CommandQueue,
+{
     fn drop(&mut self) {
         // Drop any unapplied commands before resetting the length.
         // If `run` completed successfully then this will do nothing.
-        self.run(None);
+        self.run(|_| None);
+
+        let command_queue = (self.command_queue)(&mut self.data);
 
         // Reset the buffer: all commands past the original `start` cursor have been applied.
         // SAFETY: we are setting the length of bytes to the original length, minus the length of the original
         // list of commands being considered. All bytes remaining in the Vec are still valid, unapplied commands.
-        unsafe {
-            self.command_queue.bytes.as_mut().set_len(self.start);
-            *self.command_queue.cursor.as_mut() = self.start;
-        }
+        unsafe { command_queue.bytes.set_len(self.start) };
     }
 }
 

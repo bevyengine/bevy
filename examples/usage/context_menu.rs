@@ -2,10 +2,10 @@
 
 use bevy::{
     color::palettes::basic,
+    ecs::event::PropagateEntityTrigger,
     prelude::*,
     ui_widgets::{ListBox, ListItem, ValueChange},
 };
-use std::fmt::Debug;
 
 /// event opening a new context menu at position `pos`
 #[derive(Event)]
@@ -35,17 +35,18 @@ fn main() {
         .add_systems(Startup, setup)
         .add_observer(on_trigger_menu)
         .add_observer(on_trigger_close_menus)
-        .add_observer(text_color_on_hover::<Out>(basic::WHITE.into()))
-        .add_observer(text_color_on_hover::<Over>(basic::RED.into()))
+        .add_observer(text_color_on_hover::<PointerOut>(basic::WHITE.into()))
+        .add_observer(text_color_on_hover::<PointerOver>(basic::RED.into()))
         .run();
 }
 
 /// helper function to reduce code duplication when generating almost identical observers for the hover text color change effect
-fn text_color_on_hover<T: Debug + Clone + Reflect>(
+fn text_color_on_hover<
+    E: PointerEvent + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<true, E, PointerTraversal>>,
+>(
     color: Color,
-) -> impl FnMut(On<Pointer<T>>, Query<&mut TextColor, With<ContextMenuItemText>>, Query<&Children>)
-{
-    move |mut event: On<Pointer<T>>,
+) -> impl FnMut(On<E>, Query<&mut TextColor, With<ContextMenuItemText>>, Query<&Children>) {
+    move |mut event: On<E>,
           mut text_color: Query<&mut TextColor, With<ContextMenuItemText>>,
           children: Query<&Children>| {
         let Ok(children) = children.get(event.original_event_target()) else {
@@ -66,14 +67,14 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     commands.spawn_scene(bsn! {
-        background()
-        on(|event: On<Pointer<Press>>, query: Query<(), With<ContextMenu>>, mut commands: Commands| {
-            debug!("click: {}", event.pointer_location.position);
+        @background()
+        on(|press: On<PointerPress>, query: Query<(), With<ContextMenu>>, mut commands: Commands| {
+            debug!("click: {}", press.pointer.position);
 
             if query.is_empty() {
                 // Open the context menu at the pointer location if one does not exist
                 commands.trigger(OpenContextMenu {
-                    pos: event.pointer_location.position,
+                    pos: press.pointer.position,
                 });
             } else {
                 // Close the context menu if it exists
@@ -101,7 +102,7 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
     debug!("open context menu at: {pos}");
 
     commands.spawn_scene(bsn! {
-        Name::new("context menu")
+        #ContextMenu
         ContextMenu
         Node {
             position_type: PositionType::Absolute,
@@ -114,11 +115,11 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
         BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1))
         ListBox
         Children [
-            context_item("fuchsia", basic::FUCHSIA),
-            context_item("gray", basic::GRAY),
-            context_item("maroon", basic::MAROON),
-            context_item("purple", basic::PURPLE),
-            context_item("teal", basic::TEAL),
+            @context_item("fuchsia", basic::FUCHSIA),
+            @context_item("gray", basic::GRAY),
+            @context_item("maroon", basic::MAROON),
+            @context_item("purple", basic::PURPLE),
+            @context_item("teal", basic::TEAL),
         ]
         on(|event: On<ValueChange<Entity>>,
             menu_items: Query<&ContextMenuItem, With<ListItem>>,
@@ -138,7 +139,7 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
 
 fn context_item(text: &'static str, col: Srgba) -> impl Scene {
     bsn! {
-        Name::new(format!("item-{text}"))
+        Name(format!("item-{text}"))
         ListItem
         ContextMenuItem(col)
         Node {
@@ -147,7 +148,7 @@ fn context_item(text: &'static str, col: Srgba) -> impl Scene {
         Children [
             ContextMenuItemText
             Pickable::IGNORE
-            Text::new(text)
+            Text(text)
             TextFont {
                 font_size: FontSize::Px(24.0),
             }
@@ -158,7 +159,7 @@ fn context_item(text: &'static str, col: Srgba) -> impl Scene {
 
 fn background() -> impl Scene {
     bsn! {
-        Name::new("background")
+        #Background
         Node {
             width: percent(100),
             height: percent(100),

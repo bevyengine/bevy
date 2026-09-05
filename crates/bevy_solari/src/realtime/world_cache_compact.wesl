@@ -1,5 +1,5 @@
-import bevy_solari::realtime::world_cache_query::WORLD_CACHE_EMPTY_CELL;
-import bevy_solari::realtime::bindings::{
+import package::realtime::world_cache_query::WORLD_CACHE_EMPTY_CELL;
+import package::realtime::bindings::{
     world_cache,
 };
 

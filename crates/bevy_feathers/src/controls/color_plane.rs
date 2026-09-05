@@ -1,8 +1,7 @@
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
@@ -11,11 +10,11 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
-    template::FromTemplate,
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_picking::{
-    events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press},
+    cursor::EntityCursor,
+    events::{PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress},
     Pickable,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
@@ -30,7 +29,9 @@ use bevy_ui::{
 use bevy_ui_render::{prelude::UiMaterial, ui_material::MaterialNode, UiMaterialPlugin};
 use bevy_ui_widgets::ValueChange;
 
-use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
+use crate::{palette, theme::ThemeBackgroundColor, tokens};
+
+const COLOR_PLANE_THUMB_SIZE: f32 = 10.0;
 
 /// A "color plane" widget, which is a 2d picker that allows selecting two
 /// components of a color space.
@@ -39,7 +40,8 @@ use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
 ///
 /// The control emits a [`ValueChange<Vec2>`] representing the current x and y values, ranging
 /// from 0 to 1. The control accepts a [`Vec3`] input value, where the third component ('z')
-/// is used to provide the fixed constant channel for the background gradient.
+/// is used to provide the fixed constant channel for the background gradient. Note that
+/// the Y component is inverted, so that upward movement increases the value.
 ///
 /// The control does not do any color space conversions internally, other than the shader code
 /// for displaying gradients. Avoiding excess conversions helps avoid gimble-lock problems when
@@ -47,9 +49,7 @@ use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
 ///
 /// **Note:** For information on how widget state is managed
 /// and how to respond to state changes, see the [`bevy_ui_widgets` documentation](bevy_ui_widgets).
-#[derive(
-    SceneComponent, FromTemplate, Debug, Reflect, Copy, PartialEq, Eq, Hash, Default, Clone,
-)]
+#[derive(SceneComponent, Debug, Reflect, Copy, PartialEq, Eq, Hash, Default, Clone)]
 #[reflect(Component)]
 #[require(ColorPlaneDragState)]
 pub enum FeathersColorPlane {
@@ -64,12 +64,16 @@ pub enum FeathersColorPlane {
     /// Show hue on the horizontal axis and lightness on the vertical.
     #[default]
     HueLightness,
+    /// Show OKHSL hue on horizontal axis and saturation on vertical.
+    OkhslHueSaturation,
+    /// Show OKHSL hue on horizontal axis and lightness on vertical.
+    OkhslHueLightness,
 }
 
 /// Component that contains the two components of the selected color, as well as the "z" value.
 /// The x and y values determine the placement of the thumb element, while the z value controls
 /// the background gradient.
-#[derive(Component, Default, Clone, Reflect)]
+#[derive(Component, Default, Clone, PartialEq, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct ColorPlaneValue(pub Vec3);
 
@@ -130,6 +134,8 @@ impl UiMaterial for ColorPlaneMaterial {
             FeathersColorPlane::GreenBlue => "PLANE_GB",
             FeathersColorPlane::HueSaturation => "PLANE_HS",
             FeathersColorPlane::HueLightness => "PLANE_HL",
+            FeathersColorPlane::OkhslHueSaturation => "PLANE_OKHS",
+            FeathersColorPlane::OkhslHueLightness => "PLANE_OKHL",
         };
         descriptor.fragment.as_mut().unwrap().shader_defs =
             vec![ShaderDefVal::Bool(plane_def.into(), true)];
@@ -180,67 +186,6 @@ impl FeathersColorPlane {
     }
 }
 
-/// Template function to spawn a "color plane", which is a 2d picker that allows selecting two
-/// components of a color space.
-///
-/// The control emits a [`ValueChange<Vec2>`] representing the current x and y values, ranging
-/// from 0 to 1. The control accepts a [`Vec3`] input value, where the third component ('z')
-/// is used to provide the fixed constant channel for the background gradient.
-///
-/// The control does not do any color space conversions internally, other than the shader code
-/// for displaying gradients. Avoiding excess conversions helps avoid gimble-lock problems when
-/// implementing a color picker for cylindrical color spaces such as HSL.
-///
-/// # Arguments
-/// * `overrides` - a bundle of components that are merged in with the normal swatch components.
-#[deprecated(since = "0.19.0", note = "Use the color_plane() BSN function")]
-pub fn color_plane_bundle<B: Bundle>(plane: FeathersColorPlane, overrides: B) -> impl Bundle {
-    (
-        Node {
-            display: Display::Flex,
-            min_height: px(100.0),
-            align_self: AlignSelf::Stretch,
-            padding: UiRect::all(px(4)),
-            border_radius: BorderRadius::all(px(5)),
-            ..Default::default()
-        },
-        plane,
-        ColorPlaneValue::default(),
-        ThemeBackgroundColor(tokens::COLOR_PLANE_BG),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Crosshair),
-        overrides,
-        children![(
-            Node {
-                align_self: AlignSelf::Stretch,
-                flex_grow: 1.0,
-                ..Default::default()
-            },
-            ColorPlaneInner,
-            children![(
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: percent(0),
-                    top: percent(0),
-                    width: px(10),
-                    height: px(10),
-                    border: UiRect::all(px(1)),
-                    border_radius: BorderRadius::MAX,
-                    ..Default::default()
-                },
-                ColorPlaneThumb,
-                BorderColor::all(palette::WHITE),
-                Outline {
-                    width: px(1),
-                    offset: px(0),
-                    color: palette::BLACK
-                },
-                Pickable::IGNORE,
-                UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
-            )],
-        ),],
-    )
-}
-
 fn update_plane_color(
     q_color_plane: Query<
         (Entity, &FeathersColorPlane, &ColorPlaneValue),
@@ -248,7 +193,6 @@ fn update_plane_color(
     >,
     q_children: Query<&Children>,
     q_material_node: Query<&MaterialNode<ColorPlaneMaterial>>,
-    mut q_node: Query<&mut Node>,
     mut r_materials: ResMut<Assets<ColorPlaneMaterial>>,
     mut commands: Commands,
 ) {
@@ -278,21 +222,45 @@ fn update_plane_color(
             });
             commands.entity(*inner_ent).insert(MaterialNode(material));
         }
+    }
+}
 
-        // Find the thumb.
+fn update_plane_thumb_position(
+    q_color_plane: Query<(Entity, &ColorPlaneValue), With<FeathersColorPlane>>,
+    q_children: Query<&Children>,
+    q_computed_node: Query<&ComputedNode>,
+    mut q_transform: Query<&mut UiTransform>,
+) {
+    for (plane_ent, plane_value) in &q_color_plane {
+        let Ok(children) = q_children.get(plane_ent) else {
+            continue;
+        };
+        let Some(inner_ent) = children.first() else {
+            continue;
+        };
         let Ok(children_inner) = q_children.get(*inner_ent) else {
             continue;
         };
         let Some(thumb_ent) = children_inner.first() else {
             continue;
         };
-
-        let Ok(mut thumb_node) = q_node.get_mut(*thumb_ent) else {
+        let Ok(inner_node) = q_computed_node.get(*inner_ent) else {
             continue;
         };
-
-        thumb_node.left = percent(plane_value.0.x * 100.0);
-        thumb_node.top = percent(plane_value.0.y * 100.0);
+        let Ok(mut thumb_transform) = q_transform.get_mut(*thumb_ent) else {
+            continue;
+        };
+        let inner_size = inner_node.size() * inner_node.inverse_scale_factor;
+        if inner_size.x > 0.0 && inner_size.y > 0.0 {
+            let mut updated_transform = *thumb_transform;
+            // `ColorPlaneValue` is in channel space, where y increases upward, while
+            // the transform is in screen space (+y down), so the y component is inverted.
+            updated_transform.translation = Val2::new(
+                px(plane_value.0.x * inner_size.x - COLOR_PLANE_THUMB_SIZE * 0.5),
+                px((1.0 - plane_value.0.y) * inner_size.y - COLOR_PLANE_THUMB_SIZE * 0.5),
+            );
+            thumb_transform.set_if_neq(updated_transform);
+        }
     }
 }
 
@@ -313,15 +281,19 @@ fn emit_color_plane_value_change(
         return;
     };
 
+    let value = (pos + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE);
+
     commands.trigger(ValueChange {
         source,
-        value: (pos + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE),
+        // `normalize_point` is in screen space (+y down), while the plane's value is in
+        // channel space, where y increases upward.
+        value: Vec2::new(value.x, 1.0 - value.y),
         is_final,
     });
 }
 
 fn on_pointer_press(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     q_color_planes: Query<Has<InteractionDisabled>, With<FeathersColorPlane>>,
     q_color_plane_inner: Query<
         (
@@ -346,7 +318,7 @@ fn on_pointer_press(
                 node,
                 node_target,
                 transform,
-                press.pointer_location.position,
+                press.pointer.position,
                 ui_scale.0,
                 false,
             );
@@ -355,7 +327,7 @@ fn on_pointer_press(
 }
 
 fn on_drag_start(
-    mut drag_start: On<Pointer<DragStart>>,
+    mut drag_start: On<PointerDragStart>,
     mut q_color_planes: Query<
         (&mut ColorPlaneDragState, Has<InteractionDisabled>),
         With<FeathersColorPlane>,
@@ -373,7 +345,7 @@ fn on_drag_start(
 }
 
 fn on_drag(
-    mut drag: On<Pointer<Drag>>,
+    mut drag: On<PointerDrag>,
     q_color_planes: Query<
         (&ColorPlaneDragState, Has<InteractionDisabled>),
         With<FeathersColorPlane>,
@@ -401,7 +373,7 @@ fn on_drag(
                 node,
                 node_target,
                 transform,
-                drag.pointer_location.position,
+                drag.pointer.position,
                 ui_scale.0,
                 false,
             );
@@ -410,7 +382,7 @@ fn on_drag(
 }
 
 fn on_drag_end(
-    mut drag_end: On<Pointer<DragEnd>>,
+    mut drag_end: On<PointerDragEnd>,
     mut q_color_planes: Query<
         (&mut ColorPlaneDragState, Has<InteractionDisabled>),
         With<FeathersColorPlane>,
@@ -438,7 +410,7 @@ fn on_drag_end(
                 node,
                 node_target,
                 transform,
-                drag_end.pointer_location.position,
+                drag_end.pointer.position,
                 ui_scale.0,
                 true,
             );
@@ -448,7 +420,7 @@ fn on_drag_end(
 }
 
 fn on_drag_cancel(
-    drag_cancel: On<Pointer<Cancel>>,
+    drag_cancel: On<PointerCancel>,
     mut q_color_planes: Query<&mut ColorPlaneDragState, With<FeathersColorPlane>>,
     q_color_plane_inner: Query<&ChildOf, With<ColorPlaneInner>>,
 ) {
@@ -465,8 +437,10 @@ pub struct ColorPlanePlugin;
 impl Plugin for ColorPlanePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins(UiMaterialPlugin::<ColorPlaneMaterial>::default());
-        // `update_plane_color` modifies a node's `left` and `top`
-        app.add_systems(PostUpdate, update_plane_color.before(UiSystems::Layout));
+        app.add_systems(
+            PostUpdate,
+            (update_plane_color, update_plane_thumb_position).before(UiSystems::Layout),
+        );
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)
             .add_observer(on_drag)

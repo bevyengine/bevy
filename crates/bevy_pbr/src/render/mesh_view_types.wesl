@@ -1,10 +1,10 @@
 struct ClusteredLight {
-    // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
-    // For spot lights: the direction (x,z), spot_scale and spot_offset
+    /// For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
+    /// For spot lights: the direction (x,z), spot_scale and spot_offset
     light_custom_data: vec4<f32>,
     color_inverse_square_range: vec4<f32>,
     position_radius: vec4<f32>,
-    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
+    /// 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
@@ -21,6 +21,7 @@ const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 1u << 2u;
 const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 1u << 3u;
 const POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32            = 1u << 4u;
 const POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT: u32                         = 1u << 5u;
+const POINT_LIGHT_FLAGS_RECT_LIGHT_BIT: u32                         = 1u << 6u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,
@@ -32,7 +33,7 @@ struct DirectionalLight {
     cascades: array<DirectionalCascade, constants::MAX_CASCADES_PER_LIGHT>,
     color: vec4<f32>,
     direction_to_light: vec3<f32>,
-    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
+    /// 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     soft_shadow_size: f32,
     shadow_depth_bias: f32,
@@ -61,21 +62,21 @@ struct RectLight {
 };
 
 struct Lights {
-    // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
+    /// NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
     directional_lights: array<DirectionalLight, u32(constants::MAX_DIRECTIONAL_LIGHTS)>,
     ambient_color: vec4<f32>,
-    // x/y/z dimensions and n_clusters in w
+    /// x/y/z dimensions and n_clusters in w
     cluster_dimensions: vec4<u32>,
-    // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
-    //
-    // For perspective projections:
-    // z is (cluster_dimensions.z - 1) / log(far / near)
-    // w is (cluster_dimensions.z - 1) * log(near) / log(far / near)
-    //
-    // For orthographic projections:
-    // NOTE: near and far are +ve but -z is infront of the camera
-    // z is -near
-    // w is cluster_dimensions.z / (-far - -near)
+    /// xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
+    ///
+    /// For perspective projections:
+    /// z is (cluster_dimensions.z - 1) / log(far / near)
+    /// w is (cluster_dimensions.z - 1) * log(near) / log(far / near)
+    ///
+    /// For orthographic projections:
+    /// NOTE: near and far are +ve but -z is infront of the camera
+    /// z is -near
+    /// w is cluster_dimensions.z / (-far - -near)
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
@@ -89,15 +90,15 @@ const AMBIENT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESHES_BIT: u32           = 1u << 
 struct Fog {
     base_color: vec4<f32>,
     directional_light_color: vec4<f32>,
-    // `be` and `bi` are allocated differently depending on the fog mode
-    //
-    // For Linear Fog:
-    //     be.x = start, be.y = end
-    // For Exponential and ExponentialSquared Fog:
-    //     be.x = density
-    // For Atmospheric Fog:
-    //     be = per-channel extinction density
-    //     bi = per-channel inscattering density
+    /// `be` and `bi` are allocated differently depending on the fog mode
+    ///
+    /// For Linear Fog:
+    ///     be.x = start, be.y = end
+    /// For Exponential and ExponentialSquared Fog:
+    ///     be.x = density
+    /// For Atmospheric Fog:
+    ///     be = per-channel extinction density
+    ///     bi = per-channel inscattering density
     be: vec3<f32>,
     directional_light_exponent: f32,
     bi: vec3<f32>,
@@ -129,63 +130,63 @@ struct ClusteredLights {
 };
 @if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct ClusterableObjectIndexLists {
-    // each u32 contains 4 u8 indices into the ClusterableObjects array
+    /// each u32 contains 4 u8 indices into the ClusterableObjects array
     data: array<vec4<u32>, 1024u>,
 };
 @if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct ClusterOffsetsAndCounts {
-    // each u32 contains a 24-bit index into ClusterableObjectIndexLists in the high 24 bits
-    // and an 8-bit count of the number of lights in the low 8 bits
+    /// each u32 contains a 24-bit index into ClusterableObjectIndexLists in the high 24 bits
+    /// and an 8-bit count of the number of lights in the low 8 bits
     data: array<vec4<u32>, 1024u>,
 };
 
-// Whether this light probe contributes diffuse light to lightmapped meshes.
+/// Whether this light probe contributes diffuse light to lightmapped meshes.
 const LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE: u32 = 1;
-// Whether this light probe has parallax correction enabled.
+/// Whether this light probe has parallax correction enabled.
 const LIGHT_PROBE_FLAG_PARALLAX_CORRECT:                 u32 = 2;
 
 struct LightProbe {
-    // This is stored as the transpose in order to save space in this structure.
-    // It'll be transposed in the `environment_map_light` function.
+    /// This is stored as the transpose in order to save space in this structure.
+    /// It'll be transposed in the `environment_map_light` function.
     light_from_world_transposed: mat3x4<f32>,
-    // The falloff region, specified as a fraction of the light probe's
-    // bounding box.
+    /// The falloff region, specified as a fraction of the light probe's
+    /// bounding box.
     falloff: vec3<f32>,
     bounding_sphere_radius: f32,
-    // The boundaries of the simulated space used for parallax correction,
-    // specified as *half* extents in light probe space.
+    /// The boundaries of the simulated space used for parallax correction,
+    /// specified as *half* extents in light probe space.
     parallax_correction_bounds: vec3<f32>,
     intensity: f32,
     world_position: vec3<f32>,
     cubemap_index: i32,
-    // Various flags that apply to this light probe.
+    /// Various flags that apply to this light probe.
     flags: u32,
 };
 
 struct LightProbes {
-    // This must match `MAX_VIEW_LIGHT_PROBES` on the Rust side.
+    /// This must match `MAX_VIEW_LIGHT_PROBES` on the Rust side.
     reflection_probes: array<LightProbe, 8u>,
     irradiance_volumes: array<LightProbe, 8u>,
     reflection_probe_count: i32,
     irradiance_volume_count: i32,
-    // The index of the view environment map cubemap binding, or -1 if there's
-    // no such cubemap.
+    /// The index of the view environment map cubemap binding, or -1 if there's
+    /// no such cubemap.
     view_cubemap_index: i32,
-    // The smallest valid mipmap level for the specular environment cubemap
-    // associated with the view.
+    /// The smallest valid mipmap level for the specular environment cubemap
+    /// associated with the view.
     smallest_specular_mip_level_for_view: u32,
     view_rotation: vec4<f32>,
-    // The intensity of the environment map associated with the view.
+    /// The intensity of the environment map associated with the view.
     intensity_for_view: f32,
-    // Whether the environment map attached to the view affects the diffuse
-    // lighting for lightmapped meshes.
+    /// Whether the environment map attached to the view affects the diffuse
+    /// lighting for lightmapped meshes.
     view_environment_map_affects_lightmapped_mesh_diffuse: u32,
 };
 
-// Settings for screen space reflections.
-//
-// For more information on these settings, see the documentation for
-// `bevy_pbr::ssr::ScreenSpaceReflections`.
+/// Settings for screen space reflections.
+///
+/// For more information on these settings, see the documentation for
+/// `package::ssr::ScreenSpaceReflections`.
 struct ScreenSpaceReflectionsSettings {
     min_perceptual_roughness: f32,
     min_perceptual_roughness_fully_active: f32,
@@ -200,7 +201,7 @@ struct ScreenSpaceReflectionsSettings {
     use_secant: u32,
 };
 
-// See the `ContactShadows` rust struct.
+/// See the `ContactShadows` rust struct.
 struct ContactShadowsSettings {
     linear_steps: u32,
     thickness: f32,
@@ -210,11 +211,11 @@ struct ContactShadowsSettings {
 };
 
 struct EnvironmentMapUniform {
-    // Transformation matrix for the environment cubemaps in world space.
+    /// Transformation matrix for the environment cubemaps in world space.
     transform: mat4x4<f32>,
 };
 
-// Shader version of the order independent transparency settings component.
+/// Shader version of the order independent transparency settings component.
 struct OrderIndependentTransparencySettings {
   sorted_fragment_max_count: u32,
   fragments_per_pixel_average: f32,

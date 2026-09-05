@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     render::{
         pbr_types,
         pbr_bindings,
@@ -19,25 +19,25 @@ import bevy_pbr::{
     },
     ssr::raymarch,
 };
-import bevy_pbr::render::mesh_view_bindings::globals;
-import bevy_pbr::render::view_transformations::{position_world_to_ndc};
+import package::render::mesh_view_bindings::globals;
+import package::render::view_transformations::{position_world_to_ndc};
 import bevy_render::maths::{E, powsafe};
 
-@if(STANDARD_MATERIAL_SPECULAR_TRANSMISSION) import bevy_pbr::transmission;
+@if(STANDARD_MATERIAL_SPECULAR_TRANSMISSION) import package::transmission;
 
-@if(IRRADIANCE_VOLUME) import bevy_pbr::light_probe::irradiance_volume;
+@if(IRRADIANCE_VOLUME) import package::light_probe::irradiance_volume;
 
-@if(MESHLET_MESH_MATERIAL_PASS) import bevy_pbr::meshlet::visibility_buffer_resolve::VertexOutput;
-@elif(PREPASS_PIPELINE) import bevy_pbr::prepass::io::VertexOutput;
-@else import bevy_pbr::render::forward_io::VertexOutput;
+@if(MESHLET_MESH_MATERIAL_PASS) import package::meshlet::visibility_buffer_resolve::VertexOutput;
+@elif(PREPASS_PIPELINE) import package::prepass::io::VertexOutput;
+@else import package::render::forward_io::VertexOutput;
 
-@if(ENVIRONMENT_MAP) import bevy_pbr::light_probe::environment_map;
+@if(ENVIRONMENT_MAP) import package::light_probe::environment_map;
 
 @if(TONEMAP_IN_SHADER) import bevy_core_pipeline::tonemapping::{tone_mapping, screen_space_dither};
 
 
-// Biasing info needed to sample from a texture. How this is done depends on
-// whether we're rendering meshlets or regular meshes.
+/// Biasing info needed to sample from a texture. How this is done depends on
+/// whether we're rendering meshlets or regular meshes.
 struct SampleBias {
     @if(MESHLET_MESH_MATERIAL_PASS)
     ddx_uv: vec2<f32>,
@@ -47,13 +47,13 @@ struct SampleBias {
     mip_bias: f32,
 }
 
-// This is the standard 4x4 ordered dithering pattern from [1].
-//
-// We can't use `array<vec4<u32>, 4>` because they can't be indexed dynamically
-// due to Naga limitations. So instead we pack into a single `vec4` and extract
-// individual bytes.
-//
-// [1]: https://en.wikipedia.org/wiki/Ordered_dithering#Threshold_map
+/// This is the standard 4x4 ordered dithering pattern from [1].
+///
+/// We can't use `array<vec4<u32>, 4>` because they can't be indexed dynamically
+/// due to Naga limitations. So instead we pack into a single `vec4` and extract
+/// individual bytes.
+///
+/// [1]: https://en.wikipedia.org/wiki/Ordered_dithering#Threshold_map
 const DITHER_THRESHOLD_MAP: vec4<u32> = vec4(
     0x0a020800,
     0x060e040c,
@@ -61,20 +61,20 @@ const DITHER_THRESHOLD_MAP: vec4<u32> = vec4(
     0x050d070f
 );
 
-// Processes a visibility range dither value and discards the fragment if
-// needed.
-//
-// Visibility ranges, also known as HLODs, are crossfades between different
-// levels of detail.
-//
-// The `dither` value ranges from [-16, 16]. When zooming out, positive values
-// are used for meshes that are in the process of disappearing, while negative
-// values are used for meshes that are in the process of appearing. In other
-// words, when the camera is moving backwards, the `dither` value counts up from
-// -16 to 0 when the object is fading in, stays at 0 while the object is
-// visible, and then counts up to 16 while the object is fading out.
-// Distinguishing between negative and positive values allows the dither
-// patterns for different LOD levels of a single mesh to mesh together properly.
+/// Processes a visibility range dither value and discards the fragment if
+/// needed.
+///
+/// Visibility ranges, also known as HLODs, are crossfades between different
+/// levels of detail.
+///
+/// The `dither` value ranges from [-16, 16]. When zooming out, positive values
+/// are used for meshes that are in the process of disappearing, while negative
+/// values are used for meshes that are in the process of appearing. In other
+/// words, when the camera is moving backwards, the `dither` value counts up from
+/// -16 to 0 when the object is fading in, stays at 0 while the object is
+/// visible, and then counts up to 16 while the object is fading out.
+/// Distinguishing between negative and positive values allows the dither
+/// patterns for different LOD levels of a single mesh to mesh together properly.
 @if(VISIBILITY_RANGE_DITHER)
 fn visibility_range_dither(frag_coord: vec4<f32>, dither: i32) {
     // If `dither` is 0, the object is visible.
@@ -141,10 +141,10 @@ fn winding_corrected_front_facing(mesh_flags: u32, is_front: bool) -> bool {
     return is_front == positive_determinant;
 }
 
-// Calculates the three TBN vectors according to [mikktspace]. Returns a matrix
-// with T, B, N columns in that order.
-//
-// [mikktspace]: http://www.mikktspace.com/
+/// Calculates the three TBN vectors according to [mikktspace]. Returns a matrix
+/// with T, B, N columns in that order.
+///
+/// [mikktspace]: http://www.mikktspace.com/
 fn calculate_tbn_mikktspace(world_normal: vec3<f32>, world_tangent: vec4<f32>) -> mat3x3<f32> {
     // NOTE: The mikktspace method of normal mapping explicitly requires that the world normal NOT
     // be re-normalized in the fragment shader. This is primarily to match the way mikktspace
@@ -212,11 +212,11 @@ fn apply_normal_mapping(
     return normalize(N);
 }
 
-// Modifies the normal to achieve a better approximate direction from the
-// environment map when using anisotropy.
-//
-// This follows the suggested implementation in the `KHR_materials_anisotropy` specification:
-// https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md#image-based-lighting
+/// Modifies the normal to achieve a better approximate direction from the
+/// environment map when using anisotropy.
+///
+/// This follows the suggested implementation in the `KHR_materials_anisotropy` specification:
+/// https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md#image-based-lighting
 @if(STANDARD_MATERIAL_ANISOTROPY)
 fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingInput>) {
     // Unpack.
@@ -246,8 +246,8 @@ fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingIn
     (*lighting_input).layers[LAYER_BASE].R = R;
 }
 
-// NOTE: Correctly calculates the view vector depending on whether
-// the projection is orthographic or perspective.
+/// NOTE: Correctly calculates the view vector depending on whether
+/// the projection is orthographic or perspective.
 fn calculate_view(
     world_position: vec4<f32>,
     is_orthographic: bool,
@@ -263,7 +263,7 @@ fn calculate_view(
     return V;
 }
 
-// Diffuse strength is inversely related to metallicity, specular and diffuse transmission
+/// Diffuse strength is inversely related to metallicity, specular and diffuse transmission
 fn calculate_diffuse_color(
     base_color: vec3<f32>,
     metallic: f32,
@@ -274,13 +274,13 @@ fn calculate_diffuse_color(
         (1.0 - diffuse_transmission);
 }
 
-// Remapping [0,1] reflectance to F0 for dielectrics
+/// Remapping [0,1] reflectance to F0 for dielectrics
 fn calculate_F0_dielectric(reflectance: vec3<f32>) -> vec3<f32> {
     return 0.16 * reflectance * reflectance;
 }
 
-// Remapping [0,1] reflectance to F0
-// See https://google.github.io/filament/Filament.md.html#materialsystem/parameterization/remapping
+/// Remapping [0,1] reflectance to F0
+/// See https://google.github.io/filament/Filament.md.html#materialsystem/parameterization/remapping
 fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) -> vec3<f32> {
     return mix(calculate_F0_dielectric(reflectance), base_color, metallic);
 }
@@ -515,7 +515,7 @@ fn apply_pbr_lighting(
 
     // Spot lights (direct)
     for (var i: u32 = clusterable_object_index_ranges.first_spot_light_index_offset;
-            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i < clusterable_object_index_ranges.first_rect_light_index_offset;
             i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
 
@@ -642,15 +642,28 @@ fn apply_pbr_lighting(
 
 @if(AREA_LIGHT_LUTS) {
     // Rect lights
-    let n_rect_lights = view_bindings::lights.n_rect_lights;
-    for (var i: u32 = 0u; i < n_rect_lights; i = i + 1u) {
+    // This combines a clustered path if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    // and a non-clustered fallback for WebGL2.
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+    let rect_light_start = clusterable_object_index_ranges.first_rect_light_index_offset;
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+    let rect_light_end = clusterable_object_index_ranges.first_reflection_probe_index_offset;
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+    let rect_light_start = 0u;
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+    let rect_light_end = view_bindings::lights.n_rect_lights;
+    for (var i: u32 = rect_light_start; i < rect_light_end; i = i + 1u) {
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+        var light = lighting::unpack_clustered_rect_light(clustering::get_clusterable_object_id(i));
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+        var light = view_bindings::lights.rect_lights[i];
         let enable_diffuse = true;
-        let light_contrib = lighting::rect_light(i, &lighting_input, enable_diffuse);
+        let light_contrib = lighting::rect_light(&light, &lighting_input, enable_diffuse);
         direct_light += light_contrib;
 
     @if(STANDARD_MATERIAL_DIFFUSE_TRANSMISSION) {
         let transmitted_light_contrib =
-            lighting::rect_light(i, &transmissive_lighting_input, enable_diffuse);
+            lighting::rect_light(&light, &transmissive_lighting_input, enable_diffuse);
         transmitted_light += transmitted_light_contrib;
     }
     }
@@ -897,13 +910,13 @@ fn apply_fog(
     }
 
     if fog_params.mode == mesh_view_types::FOG_MODE_LINEAR {
-        return bevy_pbr::render::fog::linear_fog(fog_params, input_color, distance, scattering);
+        return package::render::fog::linear_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL {
-        return bevy_pbr::render::fog::exponential_fog(fog_params, input_color, distance, scattering);
+        return package::render::fog::exponential_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL_SQUARED {
-        return bevy_pbr::render::fog::exponential_squared_fog(fog_params, input_color, distance, scattering);
+        return package::render::fog::exponential_squared_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_ATMOSPHERIC {
-        return bevy_pbr::render::fog::atmospheric_fog(fog_params, input_color, distance, scattering);
+        return package::render::fog::atmospheric_fog(fog_params, input_color, distance, scattering);
     } else {
         return input_color;
     }
@@ -960,8 +973,8 @@ fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32
 }
 }
 
-// fog, alpha premultiply
-// for non-hdr cameras, tonemapping and debanding
+/// fog, alpha premultiply
+/// for non-hdr cameras, tonemapping and debanding
 fn main_pass_post_lighting_processing(
     pbr_input: pbr_types::PbrInput,
     input_color: vec4<f32>,

@@ -1,4 +1,4 @@
-import bevy_sprite_render::mesh2d::{
+import package::mesh2d::{
     vertex_output::VertexOutput,
     view_bindings::view,
     bindings::mesh,
@@ -15,13 +15,13 @@ import bevy_render::color_operations::linear_rgb_to_oklab;
 struct ColorMaterial {
     color: vec4<f32>,
     uv_transform: mat3x3<f32>,
-    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
+    /// 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
 };
 
 @if(BINDLESS) {
-// The index table for bindless operation.
+/// The index table for bindless operation.
 struct ColorMaterialBindings {
     material: u32,          // 0
     color_texture: u32,     // 1

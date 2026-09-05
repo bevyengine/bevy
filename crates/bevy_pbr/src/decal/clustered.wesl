@@ -1,82 +1,82 @@
-// Support code for clustered decals.
-//
-// This module provides an iterator API, which you may wish to use in your own
-// shaders if you want clustered decals to provide textures other than the base
-// color. The iterator API allows you to iterate over all decals affecting the
-// current fragment. Use `clustered_decal_iterator_new()` and
-// `clustered_decal_iterator_next()` as follows:
-//
-//      let view_z = get_view_z(vec4(world_position, 1.0));
-//      let is_orthographic = view_is_orthographic();
-//
-//      let cluster_index =
-//          clustered_forward::view_fragment_cluster_index(frag_coord, view_z, is_orthographic);
-//      var clusterable_object_index_ranges =
-//          clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
-//
-//      var iterator = clustered_decal_iterator_new(world_position, &clusterable_object_index_ranges);
-//      while (clustered_decal_iterator_next(&iterator)) {
-//          ... sample from the texture at iterator.texture_index at iterator.uv ...
-//      }
-//
-// In this way, in conjunction with a custom material, you can provide your own
-// texture arrays that mirror `mesh_view_bindings::clustered_decal_textures` in
-// order to support decals with normal maps, etc.
-//
-// Note that the order in which decals are returned is currently unpredictable,
-// though generally stable from frame to frame.
+//! Support code for clustered decals.
+//!
+//! This module provides an iterator API, which you may wish to use in your own
+//! shaders if you want clustered decals to provide textures other than the base
+//! color. The iterator API allows you to iterate over all decals affecting the
+//! current fragment. Use `clustered_decal_iterator_new()` and
+//! `clustered_decal_iterator_next()` as follows:
+//!
+//!      let view_z = get_view_z(vec4(world_position, 1.0));
+//!      let is_orthographic = view_is_orthographic();
+//!
+//!      let cluster_index =
+//!          clustered_forward::view_fragment_cluster_index(frag_coord, view_z, is_orthographic);
+//!      var clusterable_object_index_ranges =
+//!          clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
+//!
+//!      var iterator = clustered_decal_iterator_new(world_position, &clusterable_object_index_ranges);
+//!      while (clustered_decal_iterator_next(&iterator)) {
+//!          ... sample from the texture at iterator.texture_index at iterator.uv ...
+//!      }
+//!
+//! In this way, in conjunction with a custom material, you can provide your own
+//! texture arrays that mirror `mesh_view_bindings::clustered_decal_textures` in
+//! order to support decals with normal maps, etc.
+//!
+//! Note that the order in which decals are returned is currently unpredictable,
+//! though generally stable from frame to frame.
 
-import bevy_pbr::render::clustered_forward;
-import bevy_pbr::render::clustered_forward::ClusterableObjectIndexRanges;
-import bevy_pbr::render::mesh_view_bindings;
-import bevy_pbr::render::pbr_functions;
-import bevy_pbr::render::pbr_types::PbrInput;
-import bevy_pbr::render::utils::porter_duff_over;
+import package::render::clustered_forward;
+import package::render::clustered_forward::ClusterableObjectIndexRanges;
+import package::render::mesh_view_bindings;
+import package::render::pbr_functions;
+import package::render::pbr_types::PbrInput;
+import package::render::utils::porter_duff_over;
 import bevy_render::maths;
 
-@if(MESHLET_MESH_MATERIAL_PASS) import bevy_pbr::meshlet::visibility_buffer_resolve::VertexOutput;
-@elif(PREPASS_PIPELINE) import bevy_pbr::prepass::io::VertexOutput;
-@else import bevy_pbr::render::forward_io::VertexOutput;
+@if(MESHLET_MESH_MATERIAL_PASS) import package::meshlet::visibility_buffer_resolve::VertexOutput;
+@elif(PREPASS_PIPELINE) import package::prepass::io::VertexOutput;
+@else import package::render::forward_io::VertexOutput;
 
-// An object that allows stepping through all clustered decals that affect a
-// single fragment.
+/// An object that allows stepping through all clustered decals that affect a
+/// single fragment.
 struct ClusteredDecalIterator {
-    // Public fields follow:
-    // The index of the decal base color texture in the binding array.
+    /// Public fields follow:
+    /// The index of the decal base color texture in the binding array.
     base_color_texture_index: i32,
-    // The index of the decal normal map texture in the binding array.
+    /// The index of the decal normal map texture in the binding array.
     normal_map_texture_index: i32,
-    // The index of the decal metallic-roughness texture in the binding array.
+    /// The index of the decal metallic-roughness texture in the binding array.
     metallic_roughness_texture_index: i32,
-    // The index of the decal emissive texture in the binding array.
+    /// The index of the decal emissive texture in the binding array.
     emissive_texture_index: i32,
-    // The UV coordinates at which to sample that decal texture.
+    /// The UV coordinates at which to sample that decal texture.
     uv: vec2<f32>,
-    // A custom tag you can use for your own purposes.
+    /// A custom tag you can use for your own purposes.
     tag: u32,
 
-    // Private fields follow:
-    // The current offset of the index in the `ClusterableObjectIndexRanges` list.
+    /// Private fields follow:
+    /// The current offset of the index in the `ClusterableObjectIndexRanges` list.
     decal_index_offset: i32,
-    // The end offset of the index in the `ClusterableObjectIndexRanges` list.
+    /// The end offset of the index in the `ClusterableObjectIndexRanges` list.
     end_offset: i32,
-    // The world-space position of the fragment.
+    /// The world-space position of the fragment.
     world_position: vec3<f32>,
 }
 
 @if(CLUSTERED_DECALS_ARE_USABLE)
 
-// Creates a new iterator over the decals at the current fragment.
-//
-// You can retrieve `clusterable_object_index_ranges` as follows:
-//
-//      let view_z = get_view_z(world_position);
-//      let is_orthographic = view_is_orthographic();
-//
-//      let cluster_index =
-//          clustered_forward::view_fragment_cluster_index(frag_coord, view_z, is_orthographic);
-//      var clusterable_object_index_ranges =
-//          clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
+/// Creates a new iterator over the decals at the current fragment.
+///
+/// You can retrieve `clusterable_object_index_ranges` as follows:
+///
+///      let view_z = get_view_z(world_position);
+///      let is_orthographic = view_is_orthographic();
+///
+///      let cluster_index =
+///          clustered_forward::view_fragment_cluster_index(frag_coord, view_z, is_orthographic);
+///      var clusterable_object_index_ranges =
+///          clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
 fn clustered_decal_iterator_new(
     world_position: vec3<f32>,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>
@@ -97,11 +97,11 @@ fn clustered_decal_iterator_new(
 }
 
 @if(CLUSTERED_DECALS_ARE_USABLE)
-// Populates the `iterator.texture_index` and `iterator.uv` fields for the next
-// decal overlapping the current world position.
-//
-// Returns true if another decal was found or false if no more decals were found
-// for this position.
+/// Populates the `iterator.texture_index` and `iterator.uv` fields for the next
+/// decal overlapping the current world position.
+///
+/// Returns true if another decal was found or false if no more decals were found
+/// for this position.
 fn clustered_decal_iterator_next(iterator: ptr<function, ClusteredDecalIterator>) -> bool {
     if ((*iterator).decal_index_offset == (*iterator).end_offset) {
         return false;
@@ -144,7 +144,7 @@ fn clustered_decal_iterator_next(iterator: ptr<function, ClusteredDecalIterator>
     return false;
 }
 
-// Returns the view-space Z coordinate for the given world position.
+/// Returns the view-space Z coordinate for the given world position.
 fn get_view_z(world_position: vec3<f32>) -> f32 {
     return dot(vec4<f32>(
         mesh_view_bindings::view.view_from_world[0].z,
@@ -154,8 +154,8 @@ fn get_view_z(world_position: vec3<f32>) -> f32 {
     ), vec4(world_position, 1.0));
 }
 
-// Returns true if the current view describes an orthographic projection or
-// false otherwise.
+/// Returns true if the current view describes an orthographic projection or
+/// false otherwise.
 fn view_is_orthographic() -> bool {
     return mesh_view_bindings::view.clip_from_view[3].w == 1.0;
 }

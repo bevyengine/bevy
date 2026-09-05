@@ -1,4 +1,6 @@
-import bevy_pbr::{
+//! Compute shader for rasterizing small clusters into a visibility buffer.
+
+import package::{
     meshlet::bindings::{
         meshlet_cluster_meshlet_ids,
         meshlets,
@@ -20,8 +22,6 @@ import bevy_pbr::{
     },
 };
 import bevy_render::maths::affine3_to_square;
-
-/// Compute shader for rasterizing small clusters into a visibility buffer.
 
 // TODO: Fixed-point math and top-left rule
 

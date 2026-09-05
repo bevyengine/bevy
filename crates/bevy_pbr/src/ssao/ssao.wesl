@@ -1,14 +1,14 @@
-// Visibility Bitmask Ambient Occlusion (VBAO)
-// Paper: ttps://ar5iv.labs.arxiv.org/html/2301.11376
-
-// Source code heavily based on XeGTAO v1.30 from Intel
-// https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
-
-// Source code based on the existing XeGTAO implementation and
-// https://cdrinmatane.github.io/posts/ssaovb-code/
-
-// Source code base on SSRT3 implementation
-// https://github.com/cdrinmatane/SSRT3
+//! Visibility Bitmask Ambient Occlusion (VBAO)
+//! Paper: ttps://ar5iv.labs.arxiv.org/html/2301.11376
+//!
+//! Source code heavily based on XeGTAO v1.30 from Intel
+//! https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
+//!
+//! Source code based on the existing XeGTAO implementation and
+//! https://cdrinmatane.github.io/posts/ssaovb-code/
+//!
+//! Source code base on SSRT3 implementation
+//! https://github.com/cdrinmatane/SSRT3
 
 import bevy_render::maths::fast_acos;
 
@@ -46,7 +46,7 @@ fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     return fract(0.5 + f32(index) * vec2<f32>(0.75487766624669276005, 0.5698402909980532659114));
 }
 
-// Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
+/// Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
 fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 {
     // Sample the pixel's depth and 4 depths around it
     let uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
@@ -75,8 +75,8 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
     return depth_center;
 }
 
-fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
-    var world_normal = textureSampleLevel(normals, point_clamp_sampler, uv, 0.0).xyz;
+fn load_normal_view_space(uv_normals: vec2<f32>) -> vec3<f32> {
+    var world_normal = textureSampleLevel(normals, point_clamp_sampler, uv_normals, 0.0).xyz;
     world_normal = (world_normal * 2.0) - 1.0;
     let view_from_world = mat3x3<f32>(
         view.view_from_world[0].xyz,
@@ -125,7 +125,7 @@ fn processSample(
         fast_acos(dot(normalize(delta_position_back_face), view_vec)),
     );
 
-    front_back_horizon = saturate(fma(vec2(sampling_direction), -front_back_horizon, n));
+    front_back_horizon = saturate(fma(vec2(sampling_direction), -front_back_horizon * (1.0 / PI), n));
     front_back_horizon = select(front_back_horizon.xy, front_back_horizon.yx, sampling_direction >= 0.0);
 
     *bitmask = updateSectors(front_back_horizon.x, front_back_horizon.y, samples_per_slice, *bitmask);
@@ -144,7 +144,9 @@ fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     pixel_depth += 0.00001; // Avoid depth precision issues
 
     let pixel_position = reconstruct_view_space_position(pixel_depth, uv);
-    let pixel_normal = load_normal_view_space(uv);
+    let normals_size = vec2<f32>(textureDimensions(normals));
+    let uv_normals = (vec2<f32>(pixel_coordinates) + 0.5 + view.viewport.xy) / normals_size;
+    let pixel_normal = load_normal_view_space(uv_normals);
     let view_vec = normalize(-pixel_position);
 
     let noise = load_noise(pixel_coordinates);

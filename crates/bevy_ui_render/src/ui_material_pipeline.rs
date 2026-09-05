@@ -1,3 +1,4 @@
+use crate::clipping::clip_polygon;
 use crate::ui_material::{MaterialNode, UiMaterial, UiMaterialKey};
 use crate::*;
 use bevy_asset::*;
@@ -11,6 +12,8 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
+use bevy_render::material_bind_groups::FallbackBuffer;
+use bevy_render::storage::GpuShaderBuffer;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -50,7 +53,10 @@ where
 
         app.init_asset::<M>()
             .register_type::<MaterialNode<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>, GpuImage>::default());
+            .add_plugins(RenderAssetPlugin::<
+                PreparedUiMaterial<M>,
+                (GpuImage, GpuShaderBuffer),
+            >::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -298,7 +304,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub border: BorderRect,
     pub border_radius: [[f32; 4]; 2],
     pub material: AssetId<M>,
-    pub clip: Option<Rect>,
+    pub clip: Option<CalculatedClip>,
 }
 
 /// A render-world resource that stores all material nodes in the scene.
@@ -347,6 +353,18 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             )>,
         >,
     >,
+    unfiltered_uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &ComputedStackIndex,
+            &UiGlobalTransform,
+            &MaterialNode<M>,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedUiTargetCamera,
+        )>,
+    >,
     camera_map: Extract<UiCameraMap>,
     (
         mut removed_computed_node_query,
@@ -384,7 +402,9 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     ) in uinode_query.iter().chain(
         nodes_to_reextract
             .into_iter()
-            .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok()),
+            .map(|main_entity| main_entity.entity())
+            .chain(removed_calculated_clip_query.read())
+            .filter_map(|entity| unfiltered_uinode_query.get(entity).ok()),
     ) {
         let main_entity = MainEntity::from(entity);
 
@@ -442,7 +462,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                     },
                     border: computed_node.border(),
                     border_radius: computed_node.border_radius().into(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip: clip.cloned(),
                 },
             );
     }
@@ -456,7 +476,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         .chain(removed_ui_global_transform_query.read())
         .chain(removed_material_node_query.read())
         .chain(removed_inherited_visibility_query.read())
-        .chain(removed_calculated_clip_query.read())
         .chain(removed_computed_ui_target_camera_query.read())
     {
         let main_entity = MainEntity::from(main_entity);
@@ -536,98 +555,51 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
                     let rect_size = uinode_rect.size();
 
-                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                        extracted_uinode
-                            .transform
-                            .transform_point2(pos * rect_size)
-                            .extend(1.0)
-                    });
+                    let positions = QUAD_VERTEX_POSITIONS
+                        .map(|pos| extracted_uinode.transform.transform_point2(pos * rect_size));
 
-                    let positions_diff = if let Some(clip) = extracted_uinode.clip {
-                        [
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[0].x, 0.),
-                                f32::max(clip.min.y - positions[0].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[1].x, 0.),
-                                f32::max(clip.min.y - positions[1].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[2].x, 0.),
-                                f32::min(clip.max.y - positions[2].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[3].x, 0.),
-                                f32::min(clip.max.y - positions[3].y, 0.),
-                            ),
-                        ]
-                    } else {
-                        [Vec2::ZERO; 4]
-                    };
-
-                    let positions_clipped = [
-                        positions[0] + positions_diff[0].extend(0.),
-                        positions[1] + positions_diff[1].extend(0.),
-                        positions[2] + positions_diff[2].extend(0.),
-                        positions[3] + positions_diff[3].extend(0.),
-                    ];
-
-                    let transformed_rect_size = extracted_uinode
-                        .transform
-                        .transform_vector2(rect_size)
-                        .abs();
-
-                    // Don't try to cull nodes that have a rotation
-                    // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-                    // In those two cases, the culling check can proceed normally as corners will be on
-                    // horizontal / vertical lines
-                    // For all other angles, bypass the culling check
-                    // This does not properly handles all rotations on all axis
-                    if extracted_uinode.transform.x_axis[1] == 0.0 {
-                        // Cull nodes that are completely clipped
-                        if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-                        {
-                            continue;
-                        }
-                    }
                     let uvs = [
-                        Vec2::new(
-                            uinode_rect.min.x + positions_diff[0].x,
-                            uinode_rect.min.y + positions_diff[0].y,
-                        ),
-                        Vec2::new(
-                            uinode_rect.max.x + positions_diff[1].x,
-                            uinode_rect.min.y + positions_diff[1].y,
-                        ),
-                        Vec2::new(
-                            uinode_rect.max.x + positions_diff[2].x,
-                            uinode_rect.max.y + positions_diff[2].y,
-                        ),
-                        Vec2::new(
-                            uinode_rect.min.x + positions_diff[3].x,
-                            uinode_rect.max.y + positions_diff[3].y,
-                        ),
+                        Vec2::new(uinode_rect.min.x, uinode_rect.min.y),
+                        Vec2::new(uinode_rect.max.x, uinode_rect.min.y),
+                        Vec2::new(uinode_rect.max.x, uinode_rect.max.y),
+                        Vec2::new(uinode_rect.min.x, uinode_rect.max.y),
                     ]
                     .map(|pos| pos / uinode_rect.max);
 
-                    for i in QUAD_INDICES {
-                        ui_meta.vertices.push(UiMaterialVertex {
-                            position: positions_clipped[i].into(),
-                            uv: uvs[i].into(),
-                            size: extracted_uinode.rect.size().into(),
-                            radius: extracted_uinode.border_radius,
-                            border: [
-                                extracted_uinode.border.min_inset.x,
-                                extracted_uinode.border.min_inset.y,
-                                extracted_uinode.border.max_inset.x,
-                                extracted_uinode.border.max_inset.y,
-                            ],
-                        });
+                    let polygon = [
+                        (positions[0], uvs[0]),
+                        (positions[1], uvs[1]),
+                        (positions[2], uvs[2]),
+                        (positions[3], uvs[3]),
+                    ];
+                    let clipped_polygon =
+                        clip_polygon(extracted_uinode.clip.as_ref(), &polygon, Vec2::lerp);
+                    if clipped_polygon.is_empty() {
+                        continue;
                     }
 
-                    index += QUAD_INDICES.len() as u32;
+                    for i in 1..clipped_polygon.len() - 1 {
+                        for vertex in [
+                            clipped_polygon[0],
+                            clipped_polygon[i],
+                            clipped_polygon[i + 1],
+                        ] {
+                            ui_meta.vertices.push(UiMaterialVertex {
+                                position: vertex.0.extend(1.0).into(),
+                                uv: vertex.1.into(),
+                                size: extracted_uinode.rect.size().into(),
+                                radius: extracted_uinode.border_radius,
+                                border: [
+                                    extracted_uinode.border.min_inset.x,
+                                    extracted_uinode.border.min_inset.y,
+                                    extracted_uinode.border.max_inset.x,
+                                    extracted_uinode.border.max_inset.y,
+                                ],
+                            });
+                        }
+                    }
+
+                    index += 3 * (clipped_polygon.len() as u32 - 2);
                     existing_batch.unwrap().1.range.end = index;
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else {
@@ -653,6 +625,8 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     type Param = (
         SRes<RenderDevice>,
         SRes<PipelineCache>,
+        SRes<FallbackBuffer>,
+        SRes<RenderAssets<GpuShaderBuffer>>,
         SRes<UiMaterialPipeline<M>>,
         M::Param,
     );
@@ -660,9 +634,14 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     fn prepare_asset(
         material: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        (render_device, pipeline_cache, pipeline, material_param): &mut SystemParamItem<
-            Self::Param,
-        >,
+        (
+            render_device,
+            pipeline_cache,
+            fallback_buffer,
+            shader_buffer_assets,
+            pipeline,
+            material_param,
+        ): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let bind_group_data = material.bind_group_data();
@@ -670,6 +649,8 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
             &pipeline.ui_layout.clone(),
             render_device,
             pipeline_cache,
+            fallback_buffer,
+            shader_buffer_assets,
             material_param,
         ) {
             Ok(prepared) => Ok(PreparedUiMaterial {

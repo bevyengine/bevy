@@ -1,7 +1,7 @@
 import bevy_pbr::render::pbr_lighting::D_GGX;
 import bevy_pbr::render::utils::{rand_vec2f, rand_u, rand_range_u};
 import bevy_render::maths::{PI_2, orthonormalize};
-import bevy_solari::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
+import package::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
 
 enable wgpu_ray_query;
 
@@ -17,8 +17,8 @@ fn balance_heuristic(f: f32, g: f32) -> f32 {
     return max(0.0, 1.0 / (1.0 + (g / f)));
 }
 
-// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
-// Result is invalid when output.z <= 0.0, and must be discarded
+/// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
+/// Result is invalid when output.z <= 0.0, and must be discarded
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
@@ -47,7 +47,7 @@ fn ggx_vndf_sample_invalid(ray_tangent: vec3<f32>) -> bool {
     return !(ray_tangent.z > 0.0);
 }
 
-// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
+/// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
 fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
@@ -106,9 +106,9 @@ struct ResolvedLightSample {
 struct LightContribution {
     radiance: vec3<f32>,
     inverse_pdf: f32,
-    // inverse_pdf may not be in solid angle measure (e.g. area measure)
-    // but inverse_solid_angle_pdf is always in solid angle measure
-    // for cases where it's required, e.g. MIS between light sampling techniques
+    /// inverse_pdf may not be in solid angle measure (e.g. area measure)
+    /// but inverse_solid_angle_pdf is always in solid angle measure
+    /// for cases where it's required, e.g. MIS between light sampling techniques
     inverse_solid_angle_pdf: f32,
     wi: vec3<f32>,
     brdf_rays_can_hit: bool,
@@ -246,7 +246,7 @@ fn trace_visibility_previous_frame(ray_origin: vec3<f32>, point: vec4<f32>) -> f
     return f32(ray_hit.kind == RAY_QUERY_INTERSECTION_NONE);
 }
 
-// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec22%3A297
+/// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec22%3A297
 fn triangle_barycentrics(seed: u32) -> vec3<f32> {
     var rng = seed;
     var barycentrics = rand_vec2f(&rng);

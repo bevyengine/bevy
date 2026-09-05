@@ -251,7 +251,7 @@ impl List for DynamicList {
     }
 
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
-        self.values.drain(..).collect()
+        core::mem::take(&mut self.values)
     }
 }
 

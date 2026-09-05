@@ -1,4 +1,4 @@
-import bevy_pbr::render::{
+import package::render::{
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     mesh_view_bindings as view_bindings,
     shadow_sampling::{
@@ -142,10 +142,10 @@ fn get_cascade_index(light_id: u32, view_z: f32) -> u32 {
     return (*light).num_cascades;
 }
 
-// Converts from world space to the uv position in the light's shadow map.
-//
-// The depth is stored in the return value's z coordinate. If the return value's
-// w coordinate is 0.0, then we landed outside the shadow map entirely.
+/// Converts from world space to the uv position in the light's shadow map.
+///
+/// The depth is stored in the return value's z coordinate. If the return value's
+/// w coordinate is 0.0, then we landed outside the shadow map entirely.
 fn world_to_directional_light_local(
     light_id: u32,
     cascade_index: u32,

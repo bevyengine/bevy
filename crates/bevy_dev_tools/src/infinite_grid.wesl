@@ -9,10 +9,12 @@ struct InfiniteGridUniform {
 
 struct InfiniteGridSettings {
     scale: f32,
-    // 1 / fadeout_distance
+    /// 1 / fadeout_distance
     one_over_fadeout_distance: f32,
-    // 1 / dot_fadeout_strength
+    /// 1 / dot_fadeout_strength
     one_over_dot_fadeout: f32,
+    /// 1 / major_line_interval
+    one_over_major_line_interval: f32,
     x_axis_col: vec3<f32>,
     z_axis_col: vec3<f32>,
     minor_line_col: vec4<f32>,
@@ -24,8 +26,8 @@ struct InfiniteGridSettings {
 @group(1) @binding(0) var<uniform> infinite_grid: InfiniteGridUniform;
 @group(1) @binding(1) var<uniform> grid_settings: InfiniteGridSettings;
 
-// Same as view_transformations::position_ndc_to_world but we can't use it since
-// it relies on bevy's view bind group
+/// Same as view_transformations::position_ndc_to_world but we can't use it since
+/// it relies on bevy's view bind group
 fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
     let world_pos = view.world_from_clip * vec4(ndc_pos, 1.0);
     return world_pos.xyz / world_pos.w;
@@ -80,8 +82,9 @@ fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
     let minor_line = min(grid.x, grid.y);
 
     // Compute major lines
-    let derivative2 = fwidth(coord * 0.1);
-    let grid2 = abs(fract((coord * 0.1) - 0.5) - 0.5) / derivative2;
+    let major_scale = grid_settings.one_over_major_line_interval;
+    let derivative2 = fwidth(coord * major_scale);
+    let grid2 = abs(fract((coord * major_scale) - 0.5) - 0.5) / derivative2;
     let major_line = min(grid2.x, grid2.y);
 
     // Compute axis lines
@@ -96,7 +99,7 @@ fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
     // Fade the grid linearly with distance from the camera.
     let dist_fadeout = min(1., 1. - grid_settings.one_over_fadeout_distance * real_depth);
     let dot_fadeout = abs(dot(infinite_grid.normal, normalize(view.world_position - frag_pos_3d)));
-    let alpha_fadeout = mix(dist_fadeout, 1., dot_fadeout) 
+    let alpha_fadeout = mix(dist_fadeout, 1., dot_fadeout)
         * min(grid_settings.one_over_dot_fadeout * dot_fadeout, 1.);
 
     // Normalize the alpha
@@ -107,14 +110,14 @@ fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
 
     // Choose the axis color based on which axis this fragment is closest to
     let axis_color = mix(
-        grid_settings.x_axis_col, 
-        grid_settings.z_axis_col, 
+        grid_settings.x_axis_col,
+        grid_settings.z_axis_col,
         step(grid3.x, grid3.y)
     );
 
     var grid_color = vec4(
-        axis_color * alpha.x 
-            + grid_settings.major_line_col.rgb * alpha.y 
+        axis_color * alpha.x
+            + grid_settings.major_line_col.rgb * alpha.y
             + grid_settings.minor_line_col.rgb * alpha.z,
         max(a_0 * alpha_fadeout, 0.0),
     );
@@ -122,4 +125,3 @@ fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
 
     return out;
 }
-

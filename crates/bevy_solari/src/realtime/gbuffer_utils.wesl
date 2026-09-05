@@ -2,7 +2,7 @@ import bevy_pbr::deferred::types::unpack_24bit_normal;
 import bevy_pbr::render::rgb9e5::rgb9e5_to_vec3_;
 import bevy_render::utils::octahedral_decode;
 import bevy_render::view::{View, depth_ndc_to_view_z};
-import bevy_solari::scene::bindings::ResolvedMaterial;
+import package::scene::bindings::ResolvedMaterial;
 
 struct ResolvedGPixel {
     world_position: vec3<f32>,
@@ -34,7 +34,7 @@ fn reconstruct_world_position(pixel_id: vec2<u32>, depth: f32, view_size: vec2<f
     return world_pos.xyz / world_pos.w;
 }
 
-// Reject if tangent plane differs more than 0.3% or angle between normals more than 90 degrees
+/// Reject if tangent plane differs more than 0.3% or angle between normals more than 90 degrees
 fn pixel_dissimilar(depth: f32, world_position: vec3<f32>, other_world_position: vec3<f32>, normal: vec3<f32>, other_normal: vec3<f32>, view: View) -> bool {
     // https://developer.download.nvidia.com/video/gputechconf/gtc/2020/presentations/s22699-fast-denoising-with-self-stabilizing-recurrent-blurs.pdf#page=45
     let tangent_plane_distance = abs(dot(normal, other_world_position - world_position));

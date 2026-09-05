@@ -3,8 +3,8 @@ import bevy_pbr::render::pbr_lighting::{D_GGX, V_SmithGGXCorrelated, specular_mu
 import bevy_pbr::render::pbr_functions::calculate_F0_dielectric;
 import bevy_pbr::render::utils::{rand_f, sample_cosine_hemisphere};
 import bevy_render::maths::{PI, orthonormalize};
-import bevy_solari::scene::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid};
-import bevy_solari::scene::bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD, brdf_dfg_lut, brdf_dfg_lut_sampler};
+import package::scene::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid};
+import package::scene::bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD, brdf_dfg_lut, brdf_dfg_lut_sampler};
 
 enable wgpu_ray_query;
 
@@ -20,7 +20,7 @@ struct LobeReflectances {
     diffuse: vec3<f32>,
 }
 
-// Hemispherical reflectance of each lobe
+/// Hemispherical reflectance of each lobe
 fn lobe_reflectances(F0_metal: vec3<f32>, F0_dielectric: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> LobeReflectances {
     let multiscattering_factor = 1.0 / (F_ab.x + F_ab.y) - 1.0;
     let rho_specular_metallic = (F0_metal * F_ab.x + F_ab.y) * (1.0 + F0_metal * multiscattering_factor);
@@ -169,7 +169,7 @@ fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
     return f0 + (1.0 - f0) * pow(1.0 - LdotH, 5.0);
 }
 
-// Scale/bias approximation
+/// Scale/bias approximation
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
     return textureSampleLevel(brdf_dfg_lut, brdf_dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
 }

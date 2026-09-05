@@ -1,12 +1,12 @@
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
-import bevy_pbr::render::{
+import package::render::{
     pbr_bindings::{depth_map_texture, depth_map_sampler},
     mesh_bindings::mesh
 };
 
 @if(BINDLESS)
-import bevy_pbr::render::pbr_bindings::material_indices;
+import package::render::pbr_bindings::material_indices;
 
 fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
     // We use `textureSampleLevel` over `textureSample` because the wgpu DX12
@@ -35,15 +35,15 @@ fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
     ).r;
 }
 
-// An implementation of parallax mapping, see https://en.wikipedia.org/wiki/Parallax_mapping
-// Code derived from: https://web.archive.org/web/20150419215321/http://sunandblackcat.com/tipFullView.php?l=eng&topicid=28
+/// An implementation of parallax mapping, see https://en.wikipedia.org/wiki/Parallax_mapping
+/// Code derived from: https://web.archive.org/web/20150419215321/http://sunandblackcat.com/tipFullView.php?l=eng&topicid=28
 fn parallaxed_uv(
     depth_scale: f32,
     max_layer_count: f32,
     max_steps: u32,
-    // The original interpolated uv
+    /// The original interpolated uv
     original_uv: vec2<f32>,
-    // The vector from the camera to the fragment at the surface in tangent space
+    /// The vector from the camera to the fragment at the surface in tangent space
     Vt: vec3<f32>,
     material_bind_group_slot: u32,
 ) -> vec2<f32> {

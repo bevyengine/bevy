@@ -1,7 +1,7 @@
-// The shader that goes with `extended_material_bindless.rs`.
-//
-// This code demonstrates how to write shaders that are compatible with both
-// bindless and non-bindless mode. See the `@if(BINDLESS)` blocks.
+//! The shader that goes with `extended_material_bindless.rs`.
+//!
+//! This code demonstrates how to write shaders that are compatible with both
+//! bindless and non-bindless mode. See the `@if(BINDLESS)` blocks.
 
 import bevy_pbr::render::{
     forward_io::{FragmentOutput, VertexOutput},
@@ -16,33 +16,33 @@ import bevy_pbr::render::pbr_bindings::{material_array, material_indices};
 @else
 import bevy_pbr::render::pbr_bindings::material;
 
-// Stores the indices of the bindless resources in the bindless resource arrays,
-// for the `ExampleBindlessExtension` fields.
+/// Stores the indices of the bindless resources in the bindless resource arrays,
+/// for the `ExampleBindlessExtension` fields.
 struct ExampleBindlessExtendedMaterialIndices {
-    // The index of the `ExampleBindlessExtendedMaterial` data in
-    // `example_extended_material`.
+    /// The index of the `ExampleBindlessExtendedMaterial` data in
+    /// `example_extended_material`.
     material: u32,
-    // The index of the texture we're going to modulate the base color with in
-    // the `bindless_textures_2d` array.
+    /// The index of the texture we're going to modulate the base color with in
+    /// the `bindless_textures_2d` array.
     modulate_texture: u32,
-    // The index of the sampler we're going to sample the modulated texture with
-    // in the `bindless_samplers_filtering` array.
+    /// The index of the sampler we're going to sample the modulated texture with
+    /// in the `bindless_samplers_filtering` array.
     modulate_texture_sampler: u32,
 }
 
-// Plain data associated with this example material.
+/// Plain data associated with this example material.
 struct ExampleBindlessExtendedMaterial {
-    // The color that we multiply the base color, base color texture, and
-    // modulated texture with.
+    /// The color that we multiply the base color, base color texture, and
+    /// modulated texture with.
     modulate_color: vec4<f32>,
 }
 
-// The indices of the bindless resources in the bindless resource arrays, for
-// the `ExampleBindlessExtension` fields.
+/// The indices of the bindless resources in the bindless resource arrays, for
+/// the `ExampleBindlessExtension` fields.
 @if(BINDLESS) {
 @group(constants::MATERIAL_BIND_GROUP) @binding(100) var<storage> example_extended_material_indices: array<ExampleBindlessExtendedMaterialIndices>;
-// An array that holds the `ExampleBindlessExtendedMaterial` plain old data,
-// indexed by `ExampleBindlessExtendedMaterialIndices.material`.
+/// An array that holds the `ExampleBindlessExtendedMaterial` plain old data,
+/// indexed by `ExampleBindlessExtendedMaterialIndices.material`.
 @group(constants::MATERIAL_BIND_GROUP) @binding(101) var<storage> example_extended_material: array<ExampleBindlessExtendedMaterial>;
 }
 // In non-bindless mode, we simply use a uniform for the plain old data.

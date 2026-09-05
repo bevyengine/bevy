@@ -1,5 +1,7 @@
 //! This example shows off the various Bevy Feathers widgets.
 
+use std::f32::consts::PI;
+
 use bevy::{
     feathers::{
         controls::*,
@@ -24,7 +26,7 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, demo_root()]
+    bsn_list![Camera2d, @demo_root()]
 }
 
 fn demo_root() -> impl Scene {
@@ -43,50 +45,59 @@ fn demo_root() -> impl Scene {
         TabGroup
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children[
-            demo_field_f32("none (bare)", 1.0, bsn!()),
-            demo_field_f32("soft limit", 2.0, bsn!(
-                template_value(SoftLimit(NumberInputRange::F32(0.0..=10.0)))
+            @demo_field_f32("none (bare)", 1.0, bsn!()),
+            @demo_field_f32("soft limit", 2.0, bsn!(
+                SoftLimit(NumberInputRange::F32(0.0..=10.0))
             )),
-            demo_field_f32("hard limit", 3.0, bsn!(
-                template_value(HardLimit(NumberInputRange::F32(-100.0..=100.0)))
+            @demo_field_f32("hard limit", 3.0, bsn!(
+                HardLimit(NumberInputRange::F32(-100.0..=100.0))
             )),
-            demo_field_f32("soft + hard", 4.0, bsn!(
-                template_value(SoftLimit(NumberInputRange::F32(0.0..=10.0)))
-                template_value(HardLimit(NumberInputRange::F32(-100.0..=100.0)))
+            @demo_field_f32("soft + hard", 4.0, bsn!(
+                SoftLimit(NumberInputRange::F32(0.0..=10.0))
+                HardLimit(NumberInputRange::F32(-100.0..=100.0))
             )),
-            demo_field_f32("precision(0)", 5.0, bsn!(
+            @demo_field_f32("precision(0)", 5.0, bsn!(
                 NumberInputPrecision(0)
             )),
-            demo_field_f32("precision(2)", 6.0, bsn!(
+            @demo_field_f32("precision(2)", 6.0, bsn!(
                 NumberInputPrecision(2)
             )),
-            demo_field_f32("precision(4)", 7.0, bsn!(
+            @demo_field_f32("precision(4)", 7.0, bsn!(
                 NumberInputPrecision(4)
             )),
-            demo_field_f32("step(1.0)", 8.0, bsn!(
+            @demo_field_f32("step(1.0)", 8.0, bsn!(
                 NumberInputStep(1.0f64)
             )),
-            demo_field_f64("f64: soft limit", 1.0f64, bsn!(
-                template_value(SoftLimit(NumberInputRange::F64(0.0f64..=10.0f64)))
+            @demo_field_f64("f64: soft limit", 1.0f64, bsn!(
+                SoftLimit(NumberInputRange::F64(0.0f64..=10.0f64))
             )),
-            demo_field_f64("f64: soft limit + precision(2)", 1.0f64, bsn!(
-                template_value(SoftLimit(NumberInputRange::F64(0.0f64..=10.0f64)))
+            @demo_field_f64("f64: soft limit + precision(2)", 1.0f64, bsn!(
+                SoftLimit(NumberInputRange::F64(0.0f64..=10.0f64))
                 NumberInputPrecision(2)
             )),
-            demo_field_i32("i32: bare", 1, bsn!()),
-            demo_field_i32("i32: soft limit", 1, bsn!(
-                template_value(SoftLimit(NumberInputRange::I32(0..=10)))
+            @demo_field_i32("i32: bare", 1, bsn!()),
+            @demo_field_i32("i32: soft limit", 1, bsn!(
+                SoftLimit(NumberInputRange::I32(0..=10))
             )),
-            demo_field_f32_with_sigil("precision(2) + sigil", 6.0, bsn!(
+            @demo_field_f32_with_sigil("precision(2) + sigil", 6.0, bsn!(
                 NumberInputPrecision(2)
             )),
-            demo_field_f32("soft limit + disabled", 2.0, bsn!(
+            @demo_field_f32("soft limit + disabled", 2.0, bsn!(
                 InteractionDisabled
-                template_value(SoftLimit(NumberInputRange::F32(0.0..=10.0)))
+                SoftLimit(NumberInputRange::F32(0.0..=10.0))
             )),
-            demo_field_f32("hard limit + wrap", 0.0, bsn!(
-                template_value(HardLimit(NumberInputRange::F32(-180.0..=180.0)))
-                template_value(NumberInputWrap::Wrap)
+            @demo_field_f32("hard limit + wrap", 0.0, bsn!(
+                HardLimit(NumberInputRange::F32(-180.0..=180.0))
+                NumberInputWrap::Wrap
+            )),
+            @demo_field_f32("in meters", 2.0, bsn!(
+                NumberInputUnits::new(&LengthMeters)
+            )),
+            @demo_field_f32("in seconds", 2.0, bsn!(
+                NumberInputUnits::new(&TimeSeconds)
+            )),
+            @demo_field_f32("in degrees", PI, bsn!(
+                NumberInputUnits::new(&AngleDegrees)
             )),
         ]
     }
@@ -102,7 +113,7 @@ fn demo_field_f32(label_text: &str, value: f32, options: impl Scene) -> impl Sce
             row_gap: px(4),
         }
         Children [
-            label(label_text),
+            @label(label_text),
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
@@ -113,8 +124,8 @@ fn demo_field_f32(label_text: &str, value: f32, options: impl Scene) -> impl Sce
             Children [
                 (
                     @FeathersNumberInput
-                    template_value(NumberInputValue::F32(value))
-                    {options}
+                    NumberInputValue::F32(value)
+                    @{options}
                     Node {
                         flex_grow: 1.0,
                         max_width: px(120),
@@ -127,7 +138,7 @@ fn demo_field_f32(label_text: &str, value: f32, options: impl Scene) -> impl Sce
                 ),
                 (
                     #Output
-                    label("-")
+                    @label("-")
                 )
             ]
         ]
@@ -143,7 +154,7 @@ fn demo_field_f32_with_sigil(label_text: &str, value: f32, options: impl Scene) 
             width: px(200),
         }
         Children [
-            label(label_text),
+            @label(label_text),
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
@@ -157,8 +168,8 @@ fn demo_field_f32_with_sigil(label_text: &str, value: f32, options: impl Scene) 
                         @sigil_color: tokens::TEXT_INPUT_X_AXIS,
                         @label_text: "X",
                     }
-                    template_value(NumberInputValue::F32(value))
-                    {options}
+                    NumberInputValue::F32(value)
+                    @{options}
                     Node {
                         flex_grow: 1.0,
                         max_width: px(120),
@@ -171,7 +182,7 @@ fn demo_field_f32_with_sigil(label_text: &str, value: f32, options: impl Scene) 
                 ),
                 (
                     #Output
-                    label("-")
+                    @label("-")
                 )
             ]
         ]
@@ -187,7 +198,7 @@ fn demo_field_f64(label_text: &str, value: f64, options: impl Scene) -> impl Sce
             width: px(200),
         }
         Children [
-            label(label_text),
+            @label(label_text),
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
@@ -198,8 +209,8 @@ fn demo_field_f64(label_text: &str, value: f64, options: impl Scene) -> impl Sce
             Children [
                 (
                     @FeathersNumberInput
-                    template_value(NumberInputValue::F64(value))
-                    {options}
+                    NumberInputValue::F64(value)
+                    @{options}
                     Node {
                         flex_grow: 1.0,
                         max_width: px(120),
@@ -212,7 +223,7 @@ fn demo_field_f64(label_text: &str, value: f64, options: impl Scene) -> impl Sce
                 ),
                 (
                     #Output
-                    label("-")
+                    @label("-")
                 )
             ]
         ]
@@ -228,7 +239,7 @@ fn demo_field_i32(label_text: &str, value: i32, options: impl Scene) -> impl Sce
             width: px(200),
         }
         Children [
-            label(label_text),
+            @label(label_text),
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
@@ -239,8 +250,8 @@ fn demo_field_i32(label_text: &str, value: i32, options: impl Scene) -> impl Sce
             Children [
                 (
                     @FeathersNumberInput
-                    template_value(NumberInputValue::I32(value))
-                    {options}
+                    NumberInputValue::I32(value)
+                    @{options}
                     Node {
                         flex_grow: 1.0,
                         max_width: px(120),
@@ -253,7 +264,7 @@ fn demo_field_i32(label_text: &str, value: i32, options: impl Scene) -> impl Sce
                 ),
                 (
                     #Output
-                    label("-")
+                    @label("-")
                 )
             ]
         ]
