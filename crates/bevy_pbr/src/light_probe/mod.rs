@@ -677,11 +677,11 @@ where
     fn add_to_uniform(
         &self,
         render_light_probes: &mut [RenderLightProbe; MAX_VIEW_LIGHT_PROBES],
-        render_light_probe_count: &mut i32,
+        render_light_probe_count: &mut u32,
     ) {
         render_light_probes[0..self.render_light_probes.len()]
             .copy_from_slice(&self.render_light_probes[..]);
-        *render_light_probe_count = self.render_light_probes.len() as i32;
+        *render_light_probe_count = self.render_light_probes.len() as u32;
     }
 
     /// Gathers up all light probes of the given type in the scene and records
