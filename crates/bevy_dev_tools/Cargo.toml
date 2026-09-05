@@ -77,3 +77,13 @@ rustdoc-args = [
   "--generate-macro-expansion",
 ]
 all-features = true
+
+[package.metadata.wgsl-analyzer]
+edition = "2026_pre"
+root = "src"
+
+[package.metadata.wgsl-analyzer.dependencies]
+bevy_render = { path = "../bevy_render" }
+bevy_pbr = { path = "../bevy_pbr" }
+bevy_ui_render = { path = "../bevy_ui_render" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline" }

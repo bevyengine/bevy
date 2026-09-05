@@ -5740,3 +5740,14 @@ name = "GPU Component Array Buffer"
 description = "Shows how to expose per-mesh-instance data to the GPU"
 category = "Shaders"
 wasm = true
+
+[package.metadata.wgsl-analyzer]
+edition = "2026_pre"
+root = "assets/shaders"
+
+[package.metadata.wgsl-analyzer.dependencies]
+bevy_render = { path = "crates/bevy_render" }
+bevy_pbr = { path = "crates/bevy_pbr" }
+bevy_core_pipeline = { path = "crates/bevy_core_pipeline" }
+bevy_sprite_render = { path = "crates/bevy_sprite_render" }
+bevy_ui_render = { path = "crates/bevy_ui_render" }
