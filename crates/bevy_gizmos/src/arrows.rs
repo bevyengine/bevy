@@ -68,8 +68,17 @@ where
         if !self.gizmos.enabled {
             return;
         }
+
         // first, draw the body of the arrow
-        self.gizmos.line(self.start, self.end, self.color);
+        //
+        // drawing two lines for double ended arrows looks better for animated gizmos
+        if self.double_ended {
+            let center = (self.start + self.end) / 2.0;
+            self.gizmos.line(center, self.start, self.color);
+            self.gizmos.line(center, self.end, self.color);
+        } else {
+            self.gizmos.line(self.start, self.end, self.color);
+        }
         // now the hard part is to draw the head in a sensible way
         // put us in a coordinate system where the arrow is pointing towards +x and ends at the origin
         let pointing_end = (self.end - self.start).normalize();
