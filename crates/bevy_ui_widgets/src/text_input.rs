@@ -9,6 +9,9 @@
 use accesskit::Role;
 use bevy_a11y::{AccessibilityNode, AccessibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
+use bevy_camera::visibility::{InheritedVisibility, Visibility};
+use bevy_color::{Alpha, Color};
+use bevy_ecs::lifecycle::{Add, Remove};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy_input::{ButtonInput, InputSystems};
@@ -18,16 +21,18 @@ use bevy_input_focus::{
 use bevy_math::Vec2;
 use bevy_picking::events::{PointerDrag, PointerPress, PointerRelease, PointerState};
 use bevy_picking::pointer::PointerButton;
+use bevy_picking::Pickable;
 use bevy_reflect::Reflect;
 use bevy_text::{
-    scrollable_text_layout_width, EditableText, EditableTextSystems, PreeditCursor, TextEdit,
-    TextLayout, TextLayoutInfo, TextReadWriteMode,
+    scrollable_text_layout_width, EditableText, EditableTextSystems, Justify, PreeditCursor,
+    TextColor, TextEdit, TextFont, TextLayout, TextLayoutInfo, TextReadWriteMode,
 };
 use bevy_time::{Real, Time};
 use bevy_ui::widget::{sync_editable_text_viewports, update_editable_text_layout};
 use bevy_ui::{
-    widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node,
-    UiGlobalTransform, UiScale,
+    widget::{Text, TextNodeFlags},
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, GlobalZIndex, JustifyContent, Node,
+    Overflow, PositionType, UiGlobalTransform, UiScale, UiTargetCamera, Val,
 };
 use bevy_ui::{InteractionDisabled, UiSystems};
 use bevy_window::{Ime, PrimaryWindow, Window};
@@ -712,6 +717,306 @@ fn on_focus_select_all(
     }
 }
 
+/// Hint text shown over an [`EditableText`] while its buffer is empty.
+///
+/// Rendered as an internal child label entity that rides the ordinary text
+/// pipeline; the hint never enters the editor's buffer, so `value()`, IME,
+/// selection and submit handling all observe the true (empty) contents.
+/// Styling follows the field's [`TextFont`] and [`TextColor`] (see
+/// [`PlaceholderColor`] to override the derived color).
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component)]
+pub struct Placeholder {
+    /// The hint text to display.
+    pub text: String,
+    /// When the hint is shown relative to focus. See [`PlaceholderMode`].
+    pub mode: PlaceholderMode,
+    /// [`GlobalZIndex`] for the hint overlay. Defaults to `Some(1)`, which
+    /// stacks it above default-Z UI roots; a field inside a modal or popup
+    /// with its own `GlobalZIndex` should set a higher value here. `None`
+    /// stacks the overlay like an ordinary root node.
+    pub z_index: Option<i32>,
+}
+
+impl Placeholder {
+    /// A placeholder with the default [`PlaceholderMode`] and z-index.
+    pub fn new(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            mode: PlaceholderMode::default(),
+            z_index: Some(1),
+        }
+    }
+}
+
+/// When a [`Placeholder`] is shown, relative to focus.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+pub enum PlaceholderMode {
+    /// Shown whenever the buffer is empty, focused or not (web default).
+    #[default]
+    WhileEmpty,
+    /// Hidden while the field has focus; shown whenever it is empty and
+    /// unfocused.
+    UnlessFocused,
+}
+
+/// Optional color override for [`Placeholder`] text. When absent, the
+/// placeholder renders in the field's [`TextColor`] at reduced alpha
+/// ([`PLACEHOLDER_ALPHA`]), so it tracks any theme without configuration.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct PlaceholderColor(pub Color);
+
+/// Alpha multiplier applied to the field's [`TextColor`] when no
+/// [`PlaceholderColor`] is provided.
+pub const PLACEHOLDER_ALPHA: f32 = 0.4;
+
+/// The internal label entity that renders a [`Placeholder`].
+///
+/// NOT a child of the field: `EditableText` sizes itself through a
+/// `ContentSize` measure, and taffy only calls measure functions on LEAF
+/// nodes -- giving the field any child silently disables its intrinsic
+/// sizing (the field collapses when it has no explicit size). The label is
+/// therefore a root-level overlay, position-synced from the field's
+/// `ComputedNode`/`UiGlobalTransform` exactly like `update_ime_position`.
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+struct PlaceholderLabel {
+    /// The [`EditableText`] field this label decorates.
+    field: Entity,
+    /// The inner text entity (child of this node, so the clip applies to it).
+    text: Entity,
+    /// Set once the overlay has been positioned from real layout data.
+    positioned: bool,
+}
+
+/// Marker for the inner text entity of a [`PlaceholderLabel`].
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+struct PlaceholderLabelText;
+
+fn placeholder_color(explicit: Option<&PlaceholderColor>, field: &TextColor) -> TextColor {
+    match explicit {
+        Some(c) => TextColor(c.0),
+        None => TextColor(field.0.with_alpha(field.0.alpha() * PLACEHOLDER_ALPHA)),
+    }
+}
+
+fn placeholder_visibility(
+    editable_text: &EditableText,
+    mode: PlaceholderMode,
+    focused: bool,
+) -> Visibility {
+    let empty = editable_text.value() == "";
+    if empty && !(mode == PlaceholderMode::UnlessFocused && focused) {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    }
+}
+
+/// Which edge of the field's content box the hint is placed against, mirroring
+/// what [`update_editable_text_styles`](bevy_ui::widget::update_editable_text_styles)
+/// hands parley for the editor's own text.
+fn placeholder_justify(justify: Justify) -> JustifyContent {
+    match justify {
+        Justify::Center => JustifyContent::Center,
+        Justify::Right => JustifyContent::FlexEnd,
+        Justify::Left => JustifyContent::FlexStart,
+        // direction-aware: the logical JustifyContent variants resolve against
+        // the node's own direction, exactly as parley resolves these for text
+        Justify::End => JustifyContent::End,
+        // Justified has no slack for a single-line hint -- treat it as Start
+        Justify::Start | Justify::Justified => JustifyContent::Start,
+    }
+}
+
+/// Spawns the overlay label when a [`Placeholder`] is added to an
+/// [`EditableText`]. Spawned hidden; [`update_placeholders`] positions it
+/// from real layout data and reveals it (see [`PlaceholderLabel`] for why
+/// it is not a child of the field).
+fn on_placeholder_added(
+    add: On<Add<Placeholder>>,
+    q_field: Query<(
+        &Placeholder,
+        Option<&PlaceholderColor>,
+        &TextFont,
+        &TextColor,
+        &TextLayout,
+        Option<&UiTargetCamera>,
+    )>,
+    mut commands: Commands,
+) {
+    let field = add.event_target();
+    let Ok((placeholder, color, font, text_color, layout, target_camera)) = q_field.get(field)
+    else {
+        return;
+    };
+    let text = commands
+        .spawn((
+            PlaceholderLabelText,
+            Text::new(placeholder.text.clone()),
+            font.clone(),
+            placeholder_color(color, text_color),
+            *layout,
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mut label = commands.spawn((
+        PlaceholderLabel {
+            field,
+            text,
+            positioned: false,
+        },
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::ZERO,
+            top: Val::ZERO,
+            width: Val::ZERO,
+            height: Val::ZERO,
+            // the hint sits against the same edge the editor will lay the real
+            // text against, so it does not jump when the first character
+            // arrives. The inner text child hugs its own text (auto width), so
+            // this has to be flex placement on the wrapper -- the child's own
+            // `TextLayout::justify` has no slack to work with.
+            justify_content: placeholder_justify(layout.justify),
+            // clips the inner text child so long hints truncate at the
+            // field's bounds like a real input (Overflow clips CHILDREN,
+            // not a node's own text -- hence the split).
+            overflow: Overflow::clip(),
+            ..Default::default()
+        },
+        Visibility::Hidden,
+        Pickable::IGNORE,
+    ));
+    label.add_child(text);
+    // stacking is the field author's call: the default Some(1) sits above
+    // default-Z ui roots, a modal-hosted field sets something higher
+    if let Some(z) = placeholder.z_index {
+        label.insert(GlobalZIndex(z));
+    }
+    // render to the same camera as the field
+    if let Some(camera) = target_camera {
+        label.insert(camera.clone());
+    }
+}
+
+/// Despawns the label when the [`Placeholder`] is removed.
+fn on_placeholder_removed(
+    remove: On<Remove<Placeholder>>,
+    q_labels: Query<(Entity, &PlaceholderLabel)>,
+    mut commands: Commands,
+) {
+    let field = remove.event_target();
+    for (entity, label) in &q_labels {
+        if label.field == field {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+/// Keeps placeholder overlays in sync with their fields: position and size
+/// (the field's content box, transformed exactly like `update_ime_position`),
+/// visibility (buffer emptiness x [`PlaceholderMode`] x focus), and
+/// pass-through styling. Writes only on change so layout and text
+/// re-computation aren't triggered needlessly. Despawns orphaned labels
+/// whose field is gone.
+fn update_placeholders(
+    q_fields: Query<
+        (
+            &Placeholder,
+            Option<&PlaceholderColor>,
+            Ref<TextFont>,
+            &TextColor,
+            Ref<TextLayout>,
+            &EditableText,
+            &ComputedNode,
+            &UiGlobalTransform,
+            &ComputedUiRenderTargetInfo,
+            &InheritedVisibility,
+        ),
+        (Without<PlaceholderLabel>, Without<PlaceholderLabelText>),
+    >,
+    mut q_labels: Query<(Entity, &mut PlaceholderLabel, &mut Node, &mut Visibility)>,
+    mut q_label_text: Query<(&mut Text, &mut TextFont, &mut TextColor), With<PlaceholderLabelText>>,
+    input_focus: Option<Res<InputFocus>>,
+    mut commands: Commands,
+) {
+    let focus = input_focus.as_ref().and_then(|focus| focus.get());
+    for (entity, mut label, mut node, mut visibility) in &mut q_labels {
+        let Ok((
+            placeholder,
+            pcolor,
+            field_font,
+            field_color,
+            field_layout,
+            editable_text,
+            field_node,
+            field_transform,
+            target,
+            field_visibility,
+        )) = q_fields.get(label.field)
+        else {
+            // field despawned (or no longer an editable text): the label is
+            // meaningless without it.
+            commands.entity(entity).despawn();
+            continue;
+        };
+
+        // overlay the field's content box: node-local -> target physical via
+        // the field's transform, physical -> root-node logical by undoing the
+        // layout scale. `ComputedUiRenderTargetInfo::scale_factor` already
+        // multiplies `UiScale` in (see ui/src/update.rs)
+        let content = field_node.content_box();
+        let min = field_transform.affine().transform_point2(content.min);
+        let scale = target.scale_factor();
+        let size = content.size();
+        let (left, top) = (Val::Px(min.x / scale), Val::Px(min.y / scale));
+        let (width, height) = (Val::Px(size.x / scale), Val::Px(size.y / scale));
+        if node.left != left || node.top != top || node.width != width || node.height != height {
+            node.left = left;
+            node.top = top;
+            node.width = width;
+            node.height = height;
+        }
+        // a field may be restyled after the hint exists (justify is the one that
+        // moves it -- an off-edge hint looks like a rendering bug). Only the
+        // wrapper is synced: the inner text child hugs its own text, so its
+        // `TextLayout` cannot place anything, and writing it here would make
+        // this system conflict with `text_system` over `TextLayout`.
+        let justify = placeholder_justify(field_layout.justify);
+        if node.justify_content != justify {
+            node.justify_content = justify;
+        }
+        if !label.positioned {
+            // written position takes effect at NEXT frame's layout; stay
+            // hidden this frame so the label never renders at a stale origin.
+            label.positioned = true;
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+
+        // The label is a root-level overlay -- it inherits nothing from the
+        // field, so the field's effective visibility must be mirrored by
+        // hand. `Display::None` needs no handling: the outer clip node
+        // collapses with the field's zero-sized content box.
+        visibility.set_if_neq(if field_visibility.get() {
+            placeholder_visibility(editable_text, placeholder.mode, focus == Some(label.field))
+        } else {
+            Visibility::Hidden
+        });
+        if let Ok((mut text, mut font, mut color)) = q_label_text.get_mut(label.text) {
+            if text.0 != placeholder.text {
+                text.0.clone_from(&placeholder.text);
+            }
+            if field_font.is_changed() {
+                *font = (*field_font).clone();
+            }
+            color.set_if_neq(placeholder_color(pcolor, field_color));
+        }
+    }
+}
+
 /// `on_focus_select_all` defers selection until pointer release if the focus was gained
 /// by a pointer press. This system applies the queued selection.
 ///
@@ -751,6 +1056,13 @@ pub enum ImeSystems {
     UpdatePosition,
 }
 
+/// System set for the placeholder sync system, used by [`TextInputPlugin`].
+///
+/// Runs in [`PostUpdate`]. Cross-crate ambiguities with this set are
+/// declared in `DefaultPlugins`' `IgnoreAmbiguitiesPlugin`.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PlaceholderSystems;
+
 /// Enables support for the [`EditableText`] widget.
 ///
 /// Contains the systems and observers necessary to update widget state and handle user input.
@@ -770,6 +1082,8 @@ impl Plugin for TextInputPlugin {
             .add_observer(on_pointer_press)
             .add_observer(on_focus_lost)
             .add_observer(on_focus_select_all)
+            .add_observer(on_placeholder_added)
+            .add_observer(on_placeholder_removed)
             .configure_sets(
                 PreUpdate,
                 (
@@ -812,6 +1126,38 @@ impl Plugin for TextInputPlugin {
                 apply_queued_select_all
                     .in_set(UiSystems::PostLayout)
                     .before(update_editable_text_layout),
+            )
+            .add_systems(
+                PostUpdate,
+                update_placeholders
+                    .in_set(UiSystems::PostLayout)
+                    .in_set(PlaceholderSystems)
+                    .after(update_editable_text_layout)
+                    // read THIS frame's propagated visibility, not last
+                    // frame's (same requirement as the menu focus systems)
+                    .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate)
+                    .before(AccessibilitySystems::Update)
+                    // FocusChangeEvents does not mutate the actual InputFocus;
+                    // this is a false positive that can be ignored
+                    .ambiguous_with(InputFocusSystems::FocusChangeEvents)
+                    // bevy_ui's accessibility systems read Text/TextFont/
+                    // TextColor through TextUiReader, whose access is
+                    // UNFILTERED (it walks UI children of the entities it
+                    // visits) -- so no Without filter can express the
+                    // disjointness. It holds in practice: placeholder labels
+                    // are root-level overlays, never UI children of a
+                    // Button/ImageNode/Label subtree.
+                    .ambiguous_with(bevy_ui::AccessibilityUiSystems)
+                    // update_placeholders writes Visibility/Node only on the
+                    // overlay labels it spawns and owns; the gizmo step
+                    // writes gizmo meshes, update_clipping_system reads Node
+                    // across UI (and overlay Node writes take layout effect
+                    // NEXT frame regardless of ordering). Entity-disjoint by
+                    // construction. Declared here rather than in
+                    // DefaultPlugins so no feature gating is needed; the
+                    // gizmo anchor set lives in bevy_app for exactly this.
+                    .ambiguous_with(bevy_app::TransformGizmoRenderStep)
+                    .ambiguous_with(bevy_ui::update::update_clipping_system),
             );
 
         // These components cannot be registered in `bevy_text` where `EditableText` is defined,
@@ -1120,6 +1466,258 @@ mod tests {
     fn named_keys_never_match() {
         let event = shortcut_keyboard_input(Key::Enter, KeyCode::Enter);
         assert!(!matches_edit_shortcut(&event, "c", KeyCode::KeyC));
+    }
+
+    // Placeholder
+    fn placeholder_app() -> App {
+        let mut app = App::new();
+        app.init_resource::<UiScale>()
+            .add_observer(on_placeholder_added)
+            .add_observer(on_placeholder_removed)
+            .add_systems(Update, update_placeholders);
+        app
+    }
+
+    /// The plugin normally registers `EditableText -> Node` as a required
+    /// component; without it, `Node` is spawned explicitly so its own
+    /// `#[require]` chain supplies `ComputedNode`, `UiGlobalTransform`,
+    /// and `ComputedUiRenderTargetInfo` for the sync system's field query.
+    fn spawn_placeholder_field(
+        app: &mut App,
+        editable_text: EditableText,
+        placeholder: Placeholder,
+    ) -> Entity {
+        app.world_mut()
+            .spawn((
+                editable_text,
+                placeholder,
+                Node::default(),
+                // `InheritedVisibility` defaults to HIDDEN and is only made
+                // true by `VisibilityPropagate`, which this minimal app does
+                // not run -- model propagation's output for a visible field
+                // directly (the visibility test below overrides it).
+                InheritedVisibility::VISIBLE,
+            ))
+            .id()
+    }
+
+    /// Finds the overlay label decorating `field`, returning `(label, inner_text)`.
+    fn find_label(app: &mut App, field: Entity) -> Option<(Entity, Entity)> {
+        let mut query = app.world_mut().query::<(Entity, &PlaceholderLabel)>();
+        query
+            .iter(app.world())
+            .find(|(_, label)| label.field == field)
+            .map(|(entity, label)| (entity, label.text))
+    }
+
+    fn label_visibility(app: &App, label: Entity) -> Visibility {
+        *app.world().get::<Visibility>(label).unwrap()
+    }
+
+    #[test]
+    fn placeholder_spawns_overlay_label() {
+        let mut app = placeholder_app();
+        let field =
+            spawn_placeholder_field(&mut app, EditableText::default(), Placeholder::new("hint"));
+
+        let (label, inner) = find_label(&mut app, field).expect("label spawned");
+        assert_eq!(app.world().get::<Text>(inner).unwrap().0, "hint");
+        assert!(app.world().get::<PlaceholderLabelText>(inner).is_some());
+        assert_eq!(
+            app.world().get::<ChildOf>(inner).map(ChildOf::parent),
+            Some(label),
+            "inner text is a child of the label so the label's Overflow clip applies to it"
+        );
+    }
+
+    #[test]
+    fn placeholder_overlay_is_not_a_child_of_the_field() {
+        // THE taffy invariant: any child of an `EditableText` disables its
+        // `ContentSize`-based intrinsic sizing (measure functions only run
+        // on leaf nodes), collapsing fields without an explicit size. The
+        // overlay must never be parented to the field.
+        let mut app = placeholder_app();
+        let field =
+            spawn_placeholder_field(&mut app, EditableText::default(), Placeholder::new("hint"));
+
+        let (label, _) = find_label(&mut app, field).unwrap();
+        assert!(
+            app.world().get::<ChildOf>(label).is_none(),
+            "label is a root-level overlay, not a child of the field"
+        );
+        assert!(
+            app.world().get::<Children>(field).is_none(),
+            "the field remains a leaf node"
+        );
+    }
+
+    #[test]
+    fn placeholder_reveals_only_after_positioning() {
+        let mut app = placeholder_app();
+        let field =
+            spawn_placeholder_field(&mut app, EditableText::default(), Placeholder::new("hint"));
+        let (label, _) = find_label(&mut app, field).unwrap();
+
+        // Spawned hidden.
+        assert_eq!(label_visibility(&app, label), Visibility::Hidden);
+
+        // The first update positions the overlay but keeps it hidden: `Node`
+        // writes take effect at the NEXT frame's layout, so revealing now
+        // would render the label at a stale origin. The second tick is the
+        // design under test, not test friction -- do not "fix" it away.
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Hidden);
+
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Inherited);
+    }
+
+    #[test]
+    fn placeholder_hides_with_the_field() {
+        let mut app = placeholder_app();
+        let field =
+            spawn_placeholder_field(&mut app, EditableText::default(), Placeholder::new("hint"));
+        let (label, _) = find_label(&mut app, field).unwrap();
+
+        // Past the positioned gate: label visible.
+        app.update();
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Inherited);
+
+        // The label is a root-level overlay and inherits nothing from the
+        // field, so the sync system must mirror the field's effective
+        // visibility by hand. `VisibilityPropagate` is not part of this
+        // minimal app, so the propagated value is written directly -- the
+        // gate consumes `InheritedVisibility`; its derivation is bevy's
+        // own concern.
+        app.world_mut()
+            .entity_mut(field)
+            .insert(InheritedVisibility::HIDDEN);
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Hidden);
+
+        // Re-shown field: the label re-reveals without re-tripping the
+        // positioned gate.
+        app.world_mut()
+            .entity_mut(field)
+            .insert(InheritedVisibility::VISIBLE);
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Inherited);
+    }
+
+    #[test]
+    fn placeholder_hides_when_buffer_has_text() {
+        let mut app = placeholder_app();
+        let field = spawn_placeholder_field(
+            &mut app,
+            EditableText::new("hello"),
+            Placeholder::new("hint"),
+        );
+        let (label, _) = find_label(&mut app, field).unwrap();
+
+        app.update();
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Hidden);
+    }
+
+    #[test]
+    fn placeholder_tracks_buffer_transitions() {
+        let mut app = placeholder_app();
+        let field =
+            spawn_placeholder_field(&mut app, EditableText::default(), Placeholder::new("hint"));
+        let (label, _) = find_label(&mut app, field).unwrap();
+        app.update();
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Inherited);
+
+        // Straight through the editor: `update_placeholders` consumes only
+        // `value()`, so the `TextEdit` pipeline (and its font contexts) can
+        // stay out of this test.
+        app.world_mut()
+            .get_mut::<EditableText>(field)
+            .unwrap()
+            .editor
+            .set_text("typed");
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Hidden);
+
+        app.world_mut()
+            .get_mut::<EditableText>(field)
+            .unwrap()
+            .editor
+            .set_text("");
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Inherited);
+    }
+
+    #[test]
+    fn placeholder_unless_focused_hides_on_focus() {
+        let mut app = placeholder_app();
+        let field = spawn_placeholder_field(
+            &mut app,
+            EditableText::default(),
+            Placeholder {
+                text: "hint".into(),
+                mode: PlaceholderMode::UnlessFocused,
+                z_index: Some(1),
+            },
+        );
+        let (label, _) = find_label(&mut app, field).unwrap();
+        app.update();
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Inherited);
+
+        app.insert_resource(InputFocus::from_entity(field));
+        app.update();
+        assert_eq!(
+            label_visibility(&app, label),
+            Visibility::Hidden,
+            "UnlessFocused hides on focus gain even while empty"
+        );
+
+        app.world_mut().resource_mut::<InputFocus>().clear();
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Inherited);
+    }
+
+    #[test]
+    fn removing_placeholder_despawns_label_and_text() {
+        let mut app = placeholder_app();
+        let field =
+            spawn_placeholder_field(&mut app, EditableText::default(), Placeholder::new("hint"));
+        let (label, inner) = find_label(&mut app, field).unwrap();
+
+        app.world_mut().entity_mut(field).remove::<Placeholder>();
+        assert!(app.world().get_entity(label).is_err());
+        assert!(app.world().get_entity(inner).is_err());
+    }
+
+    #[test]
+    fn despawning_field_cleans_up_orphan_placeholder() {
+        let mut app = placeholder_app();
+        let field =
+            spawn_placeholder_field(&mut app, EditableText::default(), Placeholder::new("hint"));
+        let (label, inner) = find_label(&mut app, field).unwrap();
+
+        // The label is NOT a child of the field, so despawning the field
+        // cannot clean it up through the hierarchy; the sync system must.
+        app.world_mut().entity_mut(field).despawn();
+        app.update();
+        assert!(app.world().get_entity(label).is_err());
+        assert!(app.world().get_entity(inner).is_err());
+    }
+
+    #[test]
+    fn placeholder_color_derivation_and_override() {
+        let field_color = TextColor(Color::srgba(0.2, 0.4, 0.6, 0.8));
+        let derived = placeholder_color(None, &field_color);
+        assert_eq!(derived.0.alpha(), 0.8 * PLACEHOLDER_ALPHA);
+
+        let explicit = PlaceholderColor(Color::srgb(1.0, 0.0, 0.0));
+        assert_eq!(
+            placeholder_color(Some(&explicit), &field_color).0,
+            explicit.0
+        );
     }
 
     #[test]
