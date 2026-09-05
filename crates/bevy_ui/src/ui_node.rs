@@ -3,7 +3,7 @@ use crate::{
     ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
-use bevy_color::{Alpha, Color};
+use bevy_color::{Alpha, Color, LinearRgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Affine2, BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
@@ -2656,6 +2656,17 @@ impl BorderColor {
 impl Default for BorderColor {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+impl From<BorderColor> for [LinearRgba; 4] {
+    fn from(value: BorderColor) -> Self {
+        [
+            value.top.to_linear(),
+            value.right.to_linear(),
+            value.bottom.to_linear(),
+            value.left.to_linear(),
+        ]
     }
 }
 
