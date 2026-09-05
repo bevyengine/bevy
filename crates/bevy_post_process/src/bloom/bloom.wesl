@@ -1,10 +1,10 @@
-// Bloom works by creating an intermediate texture with a bunch of mip levels, each half the size of the previous.
-// You then downsample each mip (starting with the original texture) to the lower resolution mip under it, going in order.
-// You then upsample each mip (starting from the smallest mip) and blend with the higher resolution mip above it (ending on the original texture).
-//
-// References:
-// * [COD] - Next Generation Post Processing in Call of Duty - http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
-// * [PBB] - Physically Based Bloom - https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
+//! Bloom works by creating an intermediate texture with a bunch of mip levels, each half the size of the previous.
+//! You then downsample each mip (starting with the original texture) to the lower resolution mip under it, going in order.
+//! You then upsample each mip (starting from the smallest mip) and blend with the higher resolution mip above it (ending on the original texture).
+//!
+//! References:
+//! * [COD] - Next Generation Post Processing in Call of Duty - http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
+//! * [PBB] - Physically Based Bloom - https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 
 struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
@@ -19,7 +19,7 @@ struct BloomUniforms {
 @group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
 
 @if(FIRST_DOWNSAMPLE)
-// https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
+/// https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
 fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     let brightness = max(color.r, max(color.g, color.b));
     var softness = brightness - uniforms.threshold_precomputations.y;
@@ -30,13 +30,13 @@ fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     return color * contribution;
 }
 
-// luminance coefficients from Rec. 709.
-// https://en.wikipedia.org/wiki/Rec._709
+/// luminance coefficients from Rec. 709.
+/// https://en.wikipedia.org/wiki/Rec._709
 fn tonemapping_luminance(v: vec3<f32>) -> f32 {
     return dot(v, vec3<f32>(0.2126, 0.7152, 0.0722));
 }
 
-// http://graphicrants.blogspot.com/2013/12/tone-mapping.html
+/// http://graphicrants.blogspot.com/2013/12/tone-mapping.html
 fn karis_average(color: vec3<f32>) -> f32 {
     // Luminance calculated based on Rec. 709 color primaries.
     // This must be done in *linear* color space.
@@ -44,7 +44,7 @@ fn karis_average(color: vec3<f32>) -> f32 {
     return 1.0 / (1.0 + luma);
 }
 
-// [COD] slide 153
+/// [COD] slide 153
 fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     var a: vec3<f32>;
     var b: vec3<f32>;
@@ -138,7 +138,7 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 }
 }
 
-// [COD] slide 162
+/// [COD] slide 162
 fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
     // While this is probably technically incorrect, it makes nonuniform bloom smoother, without
     // having any impact on uniform bloom, which simply evaluates to 1.0 here.

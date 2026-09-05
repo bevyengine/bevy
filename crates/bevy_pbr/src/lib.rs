@@ -30,10 +30,7 @@ pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
 pub mod gltf;
 use bevy_light::cluster::GlobalClusterSettings;
-use bevy_render::{
-    material_bind_groups::init_fallback_resources, sync_component::SyncComponent,
-    view::RenderShadowLodOrigin,
-};
+use bevy_render::{sync_component::SyncComponent, view::RenderShadowLodOrigin};
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -367,11 +364,7 @@ impl Plugin for PbrPlugin {
         render_app
             .add_systems(
                 RenderStartup,
-                (
-                    init_shadow_samplers,
-                    init_global_clusterable_object_meta,
-                    init_fallback_resources,
-                ),
+                (init_shadow_samplers, init_global_clusterable_object_meta),
             )
             .add_systems(
                 ExtractSchedule,

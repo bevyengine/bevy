@@ -1,17 +1,17 @@
-// A postprocessing shader that implements volumetric fog via raymarching and
-// sampling directional light shadow maps.
-//
-// The overall approach is a combination of the volumetric rendering in [1] and
-// the shadow map raymarching in [2]. First, we raytrace the AABB of the fog
-// volume in order to determine how long our ray is. Then we do a raymarch, with
-// physically-based calculations at each step to determine how much light was
-// absorbed, scattered out, and scattered in. To determine in-scattering, we
-// sample the shadow map for the light to determine whether the point was in
-// shadow or not.
-//
-// [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/intro-volume-rendering.html
-//
-// [2]: http://www.alexandre-pestana.com/volumetric-lights/
+//! A postprocessing shader that implements volumetric fog via raymarching and
+//! sampling directional light shadow maps.
+//!
+//! The overall approach is a combination of the volumetric rendering in [1] and
+//! the shadow map raymarching in [2]. First, we raytrace the AABB of the fog
+//! volume in order to determine how long our ray is. Then we do a raymarch, with
+//! physically-based calculations at each step to determine how much light was
+//! absorbed, scattered out, and scattered in. To determine in-scattering, we
+//! sample the shadow map for the light to determine whether the point was in
+//! shadow or not.
+//!
+//! [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/intro-volume-rendering.html
+//!
+//! [2]: http://www.alexandre-pestana.com/volumetric-lights/
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 import package::atmosphere::{
@@ -48,8 +48,8 @@ import bevy_render::maths::orthonormalize;
 import package::render::clustered_forward as clustering;
 import package::render::pbr_lighting::getDistanceAttenuation;
 
-// The GPU version of [`VolumetricFog`]. See the comments in
-// `volumetric_fog/mod.rs` for descriptions of the fields here.
+/// The GPU version of [`VolumetricFog`]. See the comments in
+/// `volumetric_fog/mod.rs` for descriptions of the fields here.
 struct VolumetricFog {
     clip_from_local: mat4x4<f32>,
     uvw_from_world: mat4x4<f32>,
@@ -81,7 +81,7 @@ struct VolumetricFog {
 @group(1) @binding(3) var density_sampler: sampler;
 }
 
-// 1 / (4π)
+/// 1 / (4π)
 const FRAC_4_PI: f32 = 0.07957747154594767;
 
 struct Vertex {
@@ -94,15 +94,15 @@ fn vertex(vertex: Vertex) -> @builtin(position) vec4<f32> {
     return volumetric_fog.clip_from_local * vec4<f32>(vertex.position, 1.0);
 }
 
-// The common Henyey-Greenstein asymmetric phase function [1] [2].
-//
-// This determines how much light goes toward the viewer as opposed to away from
-// the viewer. From a visual point of view, it controls how the light shafts
-// appear and disappear as the camera looks at the light source.
-//
-// [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/ray-marching-get-it-right.html
-//
-// [2]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
+/// The common Henyey-Greenstein asymmetric phase function [1] [2].
+///
+/// This determines how much light goes toward the viewer as opposed to away from
+/// the viewer. From a visual point of view, it controls how the light shafts
+/// appear and disappear as the camera looks at the light source.
+///
+/// [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/ray-marching-get-it-right.html
+///
+/// [2]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 fn henyey_greenstein(neg_LdotV: f32) -> f32 {
     let g = volumetric_fog.scattering_asymmetry;
     let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;

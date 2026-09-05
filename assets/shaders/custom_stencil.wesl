@@ -20,7 +20,7 @@ struct Vertex {
     @location(0) position: vec3<f32>,
 };
 
-// This is the output of the vertex shader and we also use it as the input for the fragment shader
+/// This is the output of the vertex shader and we also use it as the input for the fragment shader
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) world_position: vec4<f32>,

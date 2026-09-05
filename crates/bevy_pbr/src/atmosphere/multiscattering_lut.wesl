@@ -21,7 +21,7 @@ fn s2_sequence(n: u32) -> vec2<f32> {
     return fract(0.5 + f32(n) * PHI_2);
 }
 
-// Lambert equal-area projection. 
+/// Lambert equal-area projection.
 fn uv_to_sphere(uv: vec2<f32>) -> vec3<f32> {
     let phi = PI_2 * uv.y;
     let sin_lambda = 2 * uv.x - 1;
@@ -30,11 +30,12 @@ fn uv_to_sphere(uv: vec2<f32>) -> vec3<f32> {
     return vec3(cos_lambda * cos(phi), cos_lambda * sin(phi), sin_lambda);
 }
 
-// Shared memory arrays for workgroup communication
+/// Shared memory array for workgroup communication
 var<workgroup> multi_scat_shared_mem: array<vec3<f32>, 64>;
+/// Shared memory array for workgroup communication
 var<workgroup> l_shared_mem: array<vec3<f32>, 64>;
 
-@compute 
+@compute
 @workgroup_size(1, 1, 64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var uv = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(settings.multiscattering_lut_size);
@@ -44,7 +45,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let ray_dir = uv_to_sphere(s2_sequence(global_id.z));
     let ms_sample = sample_multiscattering_dir(r_mu.x, ray_dir, light_dir);
-    
+
     // Calculate the contribution for this sample
     let sphere_solid_angle = 4.0 * PI;
     let sample_weight = sphere_solid_angle / 64.0;
@@ -69,7 +70,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Apply isotropic phase function
     let f_ms = multi_scat_shared_mem[0] * FRAC_4_PI;
     let l_2 = l_shared_mem[0] * FRAC_4_PI;
-    
+
     // Equation 10 from the paper: Geometric series for infinite scattering
     let psi_ms = l_2 / (1.0 - f_ms);
     textureStore(multiscattering_lut_out, global_id.xy, vec4<f32>(psi_ms, 1.0));
@@ -122,7 +123,7 @@ fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) 
         }
     }
 
-    //include reflected luminance from planet ground 
+    //include reflected luminance from planet ground
     if ray_intersects_ground(r, mu_view) {
         let transmittance_to_ground = exp(-optical_depth);
         let local_up = get_local_up(r, t_max, ray_dir);

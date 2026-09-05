@@ -1,13 +1,11 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_asset::Handle;
 use bevy_color::{Alpha, Color, Hsla, Okhsla};
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    hierarchy::Children,
-    query::{Changed, Or, With, Without},
+    hierarchy::{ChildOf, Children},
+    query::{Changed, With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::Query,
@@ -19,9 +17,9 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    percent, px, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display, Gradient,
-    GridPlacement, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType, UiRect,
-    UiSystems, UiTransform, Val2,
+    percent, px, BackgroundGradient, BorderColor, BorderRadius, ColorStop, ComputedNode, Display,
+    Gradient, GridPlacement, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType,
+    UiRect, UiSystems, UiTransform, Val2,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -246,7 +244,7 @@ impl FeathersColorSlider {
                 channel: {props.channel},
             }
             SliderValue({props.value})
-            template_value(props.channel.range())
+            props.channel.range()
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
             TabIndex(0)
             FocusIndicator
@@ -329,143 +327,26 @@ impl FeathersColorSlider {
     }
 }
 
-/// Spawn a new slider widget.
-///
-/// # Arguments
-///
-/// * `props` - construction properties for the slider.
-/// * `overrides` - a bundle of components that are merged in with the normal slider components.
-///
-/// # Emitted events
-///
-/// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
-///
-///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-///
-/// **Note:** For information on how widget state is managed
-/// and how to respond to state changes, see the [`bevy_ui_widgets` documentation](bevy_ui_widgets).
-#[deprecated(since = "0.19.0", note = "Use the color_slider() BSN function")]
-pub fn color_slider_bundle<B: Bundle>(
-    props: FeathersColorSliderProps,
-    overrides: B,
-) -> impl Bundle {
-    (
-        Node {
-            display: Display::Grid,
-            height: px(SLIDER_HEIGHT),
-            flex_grow: 1.0,
-            ..Default::default()
-        },
-        Slider {
-            track_click: TrackClick::Snap,
-            orientation: SliderOrientation::Horizontal,
-        },
-        ColorSlider {
-            channel: props.channel,
-        },
-        SliderValue(props.value),
-        props.channel.range(),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
-        TabIndex(0),
-        FocusIndicator,
-        overrides,
-        children![
-            // track
-            (
-                Node {
-                    grid_row: GridPlacement::start(1),
-                    grid_column: GridPlacement::start(1),
-                    margin: UiRect::vertical(px(TRACK_PADDING)),
-                    border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
-                    ..Default::default()
-                },
-                ColorSliderTrack,
-                AlphaPattern,
-                MaterialNode::<AlphaPatternMaterial>(Handle::default()),
-            ),
-            // gradient
-            (
-                Node {
-                    grid_row: GridPlacement::start(1),
-                    grid_column: GridPlacement::start(1),
-                    margin: UiRect::vertical(px(TRACK_PADDING)),
-                    border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
-                    ..Default::default()
-                },
-                BackgroundGradient(vec![
-                    Gradient::Linear(LinearGradient {
-                        angle: LinearGradient::TO_RIGHT,
-                        stops: vec![
-                            ColorStop::px(Color::NONE, 0),
-                            ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
-                            ColorStop::percent(Color::NONE, 50),
-                            ColorStop::percent(Color::NONE, 50),
-                            ColorStop::percent(Color::NONE, 100),
-                        ],
-                        color_space: InterpolationColorSpace::Srgba,
-                    }),
-                    Gradient::Linear(LinearGradient {
-                        angle: LinearGradient::TO_LEFT,
-                        stops: vec![
-                            ColorStop::px(Color::NONE, 0),
-                            ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
-                            ColorStop::percent(Color::NONE, 50),
-                            ColorStop::percent(Color::NONE, 50),
-                            ColorStop::percent(Color::NONE, 100),
-                        ],
-                        color_space: InterpolationColorSpace::Srgba,
-                    }),
-                ]),
-            ),
-            // thumb
-            (
-                Node {
-                    grid_row: GridPlacement::start(1),
-                    grid_column: GridPlacement::start(1),
-                    margin: UiRect::horizontal(px(THUMB_SIZE * 0.5)),
-                    ..Default::default()
-                },
-                children![(
-                    Node {
-                        position_type: PositionType::Absolute,
-                        left: percent(0),
-                        top: percent(50),
-                        width: px(THUMB_SIZE),
-                        height: px(THUMB_SIZE),
-                        border: UiRect::all(px(2)),
-                        border_radius: BorderRadius::MAX,
-                        ..Default::default()
-                    },
-                    SliderThumb,
-                    ColorSliderThumb,
-                    BorderColor::all(palette::WHITE),
-                    Outline {
-                        width: px(1),
-                        offset: px(0),
-                        color: palette::BLACK
-                    },
-                    UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
-                )]
-            ),
-        ],
-    )
-}
-
 fn update_slider_pos(
-    mut q_sliders: Query<
-        (Entity, &SliderValue, &SliderRange),
-        (
-            With<ColorSlider>,
-            Or<(Changed<SliderValue>, Changed<SliderRange>)>,
-        ),
-    >,
+    mut q_sliders: Query<(Entity, &SliderValue, &SliderRange), With<ColorSlider>>,
     q_children: Query<&Children>,
-    mut q_slider_thumb: Query<&mut Node, (With<ColorSliderThumb>, Without<ToggleSwitchSlide>)>,
+    mut q_slider_thumb: Query<
+        (&ChildOf, &mut UiTransform),
+        (With<ColorSliderThumb>, Without<ToggleSwitchSlide>),
+    >,
+    q_computed_node: Query<&ComputedNode>,
 ) {
     for (slider_ent, value, range) in q_sliders.iter_mut() {
         for child in q_children.iter_descendants(slider_ent) {
-            if let Ok(mut thumb_node) = q_slider_thumb.get_mut(child) {
-                thumb_node.left = percent(range.thumb_position(value.0) * 100.0);
+            if let Ok((parent, mut thumb_transform)) = q_slider_thumb.get_mut(child)
+                && let Ok(track_node) = q_computed_node.get(parent.parent())
+                && track_node.size().x > 0.0
+            {
+                let track_width = track_node.size().x * track_node.inverse_scale_factor;
+                let thumb_offset = range.thumb_position(value.0) * track_width - THUMB_SIZE * 0.5;
+                let mut updated_transform = *thumb_transform;
+                updated_transform.translation.x = px(thumb_offset);
+                thumb_transform.set_if_neq(updated_transform);
             }
         }
     }

@@ -27,23 +27,6 @@ use wgpu_types::{
     TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
-/// Trait used to provide default values for Bevy-external types that
-/// do not implement [`Default`].
-#[deprecated(
-    note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default TextureFormat anymore. If you really need this, use TextureFormat::Rgba8UnormSrgb"
-)]
-pub trait BevyDefault {
-    /// Returns the default value for a type.
-    fn bevy_default() -> Self;
-}
-
-#[expect(deprecated, reason = "deprecated")]
-impl BevyDefault for TextureFormat {
-    fn bevy_default() -> Self {
-        TextureFormat::Rgba8UnormSrgb
-    }
-}
-
 /// Trait used to provide texture srgb view formats with static lifetime for `TextureDescriptor.view_formats`.
 pub trait TextureSrgbViewFormats {
     /// Returns the srgb view formats for a type.
@@ -630,7 +613,15 @@ impl ToExtents for UVec3 {
 ///
 /// ## Remote Inspection
 ///
-/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use [`SerializedImage`](crate::SerializedImage).
+/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use
+#[cfg_attr(
+    feature = "serialize",
+    doc = "[`SerializedImage`](crate::SerializedImage)."
+)]
+#[cfg_attr(
+    not(feature = "serialize"),
+    doc = "`SerializedImage`, which requires the `serialize` feature."
+)]
 /// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
 #[derive(Asset, Debug, Clone, PartialEq)]
 #[cfg_attr(

@@ -1,18 +1,18 @@
-// GPU mesh transforming and culling.
-//
-// This is a compute shader that expands each `MeshInputUniform` out to a full
-// `MeshUniform` for each view before rendering. (Thus `MeshInputUniform` and
-// `MeshUniform` are in a 1:N relationship.) It runs in parallel for all meshes
-// for all views. As part of this process, the shader gathers each mesh's
-// transform on the previous frame and writes it into the `MeshUniform` so that
-// TAA works. It also performs frustum culling and occlusion culling, if
-// requested.
-//
-// If occlusion culling is on, this shader runs twice: once to prepare the
-// meshes that were visible last frame, and once to prepare the meshes that
-// weren't visible last frame but became visible this frame. The two invocations
-// are known as *early mesh preprocessing* and *late mesh preprocessing*
-// respectively.
+//! GPU mesh transforming and culling.
+//!
+//! This is a compute shader that expands each `MeshInputUniform` out to a full
+//! `MeshUniform` for each view before rendering. (Thus `MeshInputUniform` and
+//! `MeshUniform` are in a 1:N relationship.) It runs in parallel for all meshes
+//! for all views. As part of this process, the shader gathers each mesh's
+//! transform on the previous frame and writes it into the `MeshUniform` so that
+//! TAA works. It also performs frustum culling and occlusion culling, if
+//! requested.
+//!
+//! If occlusion culling is on, this shader runs twice: once to prepare the
+//! meshes that were visible last frame, and once to prepare the meshes that
+//! weren't visible last frame but became visible this frame. The two invocations
+//! are known as *early mesh preprocessing* and *late mesh preprocessing*
+//! respectively.
 
 import bevy_render::occlusion_culling::mesh_preprocess_types::{
     IndirectParametersMetadata, MeshInput, PreviousMeshInput, PreprocessWorkItem
@@ -31,77 +31,77 @@ import package::render::view_transformations::{
 import bevy_render::maths;
 import bevy_render::view::View;
 
-// Information about each mesh instance needed to cull it on GPU.
-//
-// At the moment, this just consists of its axis-aligned bounding box (AABB).
+/// Information about each mesh instance needed to cull it on GPU.
+///
+/// At the moment, this just consists of its axis-aligned bounding box (AABB).
 struct MeshCullingData {
-    // The 3D center of the AABB in model space, padded with an extra unused
-    // float value.
+    /// The 3D center of the AABB in model space, padded with an extra unused
+    /// float value.
     aabb_center: vec4<f32>,
-    // The 3D extents of the AABB in model space, divided by two, padded with
-    // an extra unused float value.
+    /// The 3D extents of the AABB in model space, divided by two, padded with
+    /// an extra unused float value.
     aabb_half_extents: vec4<f32>,
 }
 
-// The parameters for the indirect compute dispatch for the late mesh
-// preprocessing phase.
+/// The parameters for the indirect compute dispatch for the late mesh
+/// preprocessing phase.
 struct LatePreprocessWorkItemIndirectParameters {
-    // The number of workgroups we're going to dispatch.
-    //
-    // This value should always be equal to `ceil(work_item_count / 64)`.
-    //
-    // In the late phase this buffer is bound read-only, and the atomic built-ins
-    // are only defined for `read_write` storage, so the fields are plain `u32`
-    // there and `atomic<u32>` in the early phase. `u32` and `atomic<u32>` are
-    // layout-identical, so the buffer's memory layout is unchanged either way.
+    /// The number of workgroups we're going to dispatch.
+    ///
+    /// This value should always be equal to `ceil(work_item_count / 64)`.
+    ///
+    /// In the late phase this buffer is bound read-only, and the atomic built-ins
+    /// are only defined for `read_write` storage, so the fields are plain `u32`
+    /// there and `atomic<u32>` in the early phase. `u32` and `atomic<u32>` are
+    /// layout-identical, so the buffer's memory layout is unchanged either way.
     @if(LATE_PHASE)
     dispatch_x: u32,
     @else   // LATE_PHASE
     dispatch_x: atomic<u32>,
-    // The number of workgroups in the Y direction; always 1.
+    /// The number of workgroups in the Y direction; always 1.
     dispatch_y: u32,
-    // The number of workgroups in the Z direction; always 1.
+    /// The number of workgroups in the Z direction; always 1.
     dispatch_z: u32,
-    // The precise number of work items.
+    /// The precise number of work items.
     @if(LATE_PHASE)
     work_item_count: u32,
     @else   // LATE_PHASE
     work_item_count: atomic<u32>,
-    // Padding.
-    //
-    // This isn't the usual structure padding; it's needed because some hardware
-    // requires indirect compute dispatch parameters to be aligned on 64-byte
-    // boundaries.
+    /// Padding.
+    ///
+    /// This isn't the usual structure padding; it's needed because some hardware
+    /// requires indirect compute dispatch parameters to be aligned on 64-byte
+    /// boundaries.
     pad: vec4<u32>,
 }
 
-// These have to be in a structure because of Naga limitations on DX12.
+/// These have to be in a structure because of Naga limitations on DX12.
 struct Immediates {
-    // The offset into the `late_preprocess_work_item_indirect_parameters`
-    // buffer.
+    /// The offset into the `late_preprocess_work_item_indirect_parameters`
+    /// buffer.
     late_preprocess_work_item_indirect_offset: u32,
 }
 
-// The current frame's `MeshInput`.
+/// The current frame's `MeshInput`.
 @group(0) @binding(3) var<storage> current_input: array<MeshInput>;
-// The `MeshInput` values from the previous frame.
+/// The `MeshInput` values from the previous frame.
 @group(0) @binding(4) var<storage> previous_input: array<PreviousMeshInput>;
-// Indices into the `MeshInput` buffer.
-//
-// There may be many indices that map to the same `MeshInput`.
+/// Indices into the `MeshInput` buffer.
+///
+/// There may be many indices that map to the same `MeshInput`.
 @group(0) @binding(5) var<storage> work_items: array<PreprocessWorkItem>;
-// The output array of `Mesh`es.
+/// The output array of `Mesh`es.
 @group(0) @binding(6) var<storage, read_write> output: array<Mesh>;
 
 @if(INDIRECT)
-// The array of indirect parameters for drawcalls.
+/// The array of indirect parameters for drawcalls.
 @group(0) @binding(7) var<storage, read_write> indirect_parameters_metadata:
     array<IndirectParametersMetadata>;
 
 @if(FRUSTUM_CULLING) {
-// Data needed to cull the meshes.
-//
-// At the moment, this consists only of AABBs.
+/// Data needed to cull the meshes.
+///
+/// At the moment, this consists only of AABBs.
 @group(0) @binding(9) var<storage> mesh_culling_data: array<MeshCullingData>;
 
 @group(0) @binding(10) var<storage> visibility_ranges: array<vec4<f32>>;
@@ -126,9 +126,9 @@ struct Immediates {
 var<immediate> immediates: Immediates;
 
 @if(FRUSTUM_CULLING)
-// Returns true if the view frustum intersects an oriented bounding box (OBB).
-//
-// `aabb_center.w` should be 1.0.
+/// Returns true if the view frustum intersects an oriented bounding box (OBB).
+///
+/// `aabb_center.w` should be 1.0.
 fn view_frustum_intersects_obb(
     world_from_local: mat4x4<f32>,
     aabb_center: vec4<f32>,
