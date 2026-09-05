@@ -65,7 +65,7 @@ fn add_mesh(
                 .mesh()
                 .build()
                 .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL);
-            mesh.compressed_mesh(MeshCompressionArgs::regular())
+            mesh.compressed_mesh(&MeshCompressionArgs::regular())
                 .unwrap()
         })
     });

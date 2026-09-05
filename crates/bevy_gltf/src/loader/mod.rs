@@ -872,10 +872,13 @@ impl GltfLoader {
                     mesh.compressed_mesh(
                         settings
                             .mesh_compression
-                            .clone()
-                            .unwrap_or(loader.default_mesh_compression.clone()),
+                            .as_ref()
+                            .unwrap_or(&loader.default_mesh_compression),
                     )
-                    .unwrap_or_else(|err| err.0),
+                    .unwrap_or_else(|(mesh, err)| {
+                        tracing::debug!("Failed to compress mesh: {:?}", err);
+                        mesh
+                    }),
                 );
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
