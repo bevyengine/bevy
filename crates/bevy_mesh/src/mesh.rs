@@ -1327,7 +1327,7 @@ impl Mesh {
         }
     }
 
-    /// Same as [`Self::compress`], except this is passed by value instead of by mutable reference.
+    /// Same as [`Self::compress_mesh`], except this is passed by value instead of by mutable reference.
     #[expect(
         clippy::result_large_err,
         reason = "Returning the passed `Mesh` in `Err`"
