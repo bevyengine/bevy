@@ -141,8 +141,8 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     let F_metal = fresnel(F0_metal, LdotH);
     let F_dielectric = fresnel(F0_dielectric, LdotH);
     return mix(specular_multiscatter(D, Vs, F_dielectric, F0_dielectric, F_ab, 1.0),
-        specular_multiscatter(D, Vs, F_metal, F0_metal, F_ab, 1.0),
-        material.metallic) * NdotL;
+               specular_multiscatter(D, Vs, F_metal, F0_metal, F_ab, 1.0),
+               material.metallic) * NdotL;
 }
 
 fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> f32 {
