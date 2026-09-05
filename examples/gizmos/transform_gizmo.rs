@@ -9,7 +9,7 @@ use bevy::{
     feathers::{controls::FeathersSlider, display::label, theme::UiTheme, FeathersPlugins},
     gizmos::transform_gizmo::{
         TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMode, TransformGizmoPlugin,
-        TransformGizmoSettings, TransformGizmoSpace,
+        TransformGizmoSettings, TransformGizmoSpace, TransformGizmoState,
     },
     picking::{pointer::PointerButton, Pickable},
     prelude::*,
@@ -168,8 +168,16 @@ fn on_click_select(
     click: On<PointerClick>,
     mut commands: Commands,
     existing: Query<Entity, With<TransformGizmoFocus>>,
+    gizmo_state: Res<TransformGizmoState>,
 ) {
     if click.button != PointerButton::Primary {
+        return;
+    }
+    // `Pointer<Click>` runs in PreUpdate; gizmo `active` is set in PostUpdate, so on the press frame
+    // `active` is still false while the user is grabbing an axis (`hovered_axis` is set). Mesh
+    // picking often resolves to geometry behind the axis and would steal `TransformGizmoFocus`
+    // before the drag starts.
+    if gizmo_state.active || gizmo_state.hovered_axis.is_some() {
         return;
     }
     // Remove focus from all entities
