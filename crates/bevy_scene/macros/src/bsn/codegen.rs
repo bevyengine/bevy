@@ -177,9 +177,9 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
             });
         }
 
-        if let Some(span) = &self.used_parens {
+        if let Some(span) = self.used_parens {
             ctx.deprecations.push(deprecation_warning(
-                span.clone(),
+                span,
                 "DEPRECATED_PARENTHESES",
                 "Parentheses around entities (and comma separators) have been deprecated in BSN. Remove the parentheses and use `--` to separate entities",
             ));
@@ -767,7 +767,7 @@ impl BsnTokenStream for BsnSceneListItems {
     fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         for comma in self.1.iter() {
             ctx.deprecations.push(deprecation_warning(
-                comma.clone(),
+                *comma,
                 "DEPRECATED_COMMAS",
                 "Comma separators (and parentheses around entities) have been deprecated in BSN. Use `--` to separate entities and remove any parentheses"
             ));
