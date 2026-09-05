@@ -1,6 +1,7 @@
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use bevy_ptr::{ConstNonNull, MovingPtr};
-use core::ptr::NonNull;
+use core::{any::Any, ptr::NonNull};
 
 use crate::{
     archetype::{
@@ -298,6 +299,7 @@ impl<'w> BundleInserter<'w> {
                         change_tick,
                     )
                 };
+                // No components have been dropped, so we don't need to check for a panic.
 
                 // SAFETY: Table data has been moved to this table/row, sparse set data was already valid
                 let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
@@ -351,6 +353,8 @@ impl<'w> BundleInserter<'w> {
         }
     }
 
+    /// Returns the entity's new location and potentially a caught panic.
+    ///
     /// # Safety
     /// - `entity` must currently exist in the source archetype for this inserter.
     /// - `location` must be `entity`'s location in the archetype.
@@ -370,7 +374,7 @@ impl<'w> BundleInserter<'w> {
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
-    ) -> EntityLocation {
+    ) -> (EntityLocation, Result<(), Box<dyn Any + Send>>) {
         // SAFETY: Points to valid data; the reference doesn't escape this function.
         // This points to data in the world, but
         // - We have exclusive ownership of the world
@@ -378,7 +382,7 @@ impl<'w> BundleInserter<'w> {
         // - we run hooks, which can immutably access `Archetypes`, but cannot get a reference to edges through that
         let archetype_after_insert = unsafe { self.archetype_after_insert.as_ref() };
 
-        let (new_archetype, new_location) = {
+        let (new_archetype, new_location, maybe_panic) = {
             // Non-generic prelude extracted to improve compile time by minimizing monomorphized code.
             // SAFETY: before_insert is functionally part of this function
             let (new_archetype, new_location, sparse_sets, table) = unsafe {
@@ -400,7 +404,7 @@ impl<'w> BundleInserter<'w> {
             // - bundle component status determined in `insert_bundle_into_archetype`
             // - `apply_effect` called if needed per precondition
             // - table_row & bundle match
-            unsafe {
+            let maybe_panic = unsafe {
                 self.bundle_info.as_ref().write_components(
                     table,
                     sparse_sets,
@@ -412,10 +416,9 @@ impl<'w> BundleInserter<'w> {
                     bundle,
                     insert_mode,
                     caller,
-                );
-            }
-
-            (new_archetype, new_location)
+                )
+            };
+            (new_archetype, new_location, maybe_panic)
         };
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
@@ -436,7 +439,7 @@ impl<'w> BundleInserter<'w> {
             deferred_world,
         );
 
-        new_location
+        (new_location, maybe_panic)
     }
 
     // A non-generic postlude to insert used to minimize duplicated monomorphized code.

@@ -25,9 +25,15 @@ use crate::{
     },
 };
 
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr};
-use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
+use core::{
+    any::{Any, TypeId},
+    marker::PhantomData,
+    mem::MaybeUninit,
+    panic::AssertUnwindSafe,
+};
 
 /// A mutable reference to a particular [`Entity`], and the entire world.
 ///
@@ -1083,7 +1089,7 @@ impl<'w> EntityWorldMut<'w> {
         // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
         //   and the caller ensures that the value is not accessed or dropped after this function
         //   returns.
-        let (bundle, location) = bundle.partial_move(|bundle| unsafe {
+        let (bundle, (new_location, panic)) = bundle.partial_move(|bundle| unsafe {
             bundle_inserter.insert(
                 self.entity,
                 location,
@@ -1093,13 +1099,16 @@ impl<'w> EntityWorldMut<'w> {
                 relationship_hook_mode,
             )
         });
-        self.location = Some(location);
+        self.location = Some(new_location);
         self.world.flush();
         self.update_location();
         // SAFETY:
         // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
         // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
         unsafe { T::apply_effect(bundle, self) };
+
+        bevy_utils::resume_caught_unwind(panic);
+
         self
     }
 
@@ -1167,7 +1176,7 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // - only one component, with its component & storage type retrieved above
         // - entity & location both belong to self
-        self.location = Some(unsafe {
+        let (new_location, panic) = unsafe {
             insert_dynamic_bundle(
                 bundle_inserter,
                 self.entity,
@@ -1178,9 +1187,11 @@ impl<'w> EntityWorldMut<'w> {
                 caller,
                 relationship_hook_insert_mode,
             )
-        });
+        };
+        self.location = Some(new_location);
         self.world.flush();
         self.update_location();
+        bevy_utils::resume_caught_unwind(panic);
         self
     }
 
@@ -1213,6 +1224,9 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
+    /// # Panics
+    /// Panics if any of the overwritten components panic while being dropped.
+    ///
     /// # Safety
     /// see [`EntityWorldMut::insert_by_ids`]
     #[track_caller]
@@ -1245,7 +1259,7 @@ impl<'w> EntityWorldMut<'w> {
         // - owning pointers are of the component's types per precondition
         // - storage types retrieved above
         // - entity & location both belong to self
-        self.location = Some(unsafe {
+        let (new_location, panic) = unsafe {
             insert_dynamic_bundle(
                 bundle_inserter,
                 self.entity,
@@ -1256,13 +1270,15 @@ impl<'w> EntityWorldMut<'w> {
                 MaybeLocation::caller(),
                 relationship_hook_insert_mode,
             )
-        });
+        };
+        self.location = Some(new_location);
         // SAFETY:
         // same as above
         *unsafe { self.world.bundles.get_storages_unchecked(bundle_id) } =
             core::mem::take(&mut storage_types);
         self.world.flush();
         self.update_location();
+        bevy_utils::resume_caught_unwind(panic);
         self
     }
 
@@ -1287,7 +1303,7 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // - The passed location has the same archetype as the remover, since they came from the same location.
         // - `location` was obtained from a valid `Self`.
-        let (new_location, result) = unsafe {
+        let result = unsafe {
             remover.remove(
                 entity,
                 location,
@@ -1320,11 +1336,11 @@ impl<'w> EntityWorldMut<'w> {
                 },
             )
         };
-        self.location = Some(new_location);
+        self.location = Some(result.new_location);
 
         self.world.flush();
         self.update_location();
-        Some(result)
+        Some(result.data)
     }
 
     /// Removes any components in the [`Bundle`] from the entity.
@@ -1353,19 +1369,21 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // - The remover archetype came from the passed location and the removal can not fail.
         // - `location` was obtained from a valid `Self`.
-        let new_location = unsafe {
+        let result = unsafe {
             remover.remove(
                 self.entity,
                 location,
                 caller,
                 BundleRemover::empty_pre_remove,
             )
-        }
-        .0;
+        };
 
-        self.location = Some(new_location);
+        self.location = Some(result.new_location);
         self.world.flush();
         self.update_location();
+
+        bevy_utils::resume_caught_unwind(result.panic_payload);
+
         self
     }
 
@@ -1402,19 +1420,21 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // - The remover archetype came from the passed location and the removal can not fail.
         // - `location` was obtained from a valid `Self`.
-        let new_location = unsafe {
+        let result = unsafe {
             remover.remove(
                 self.entity,
                 location,
                 caller,
                 BundleRemover::empty_pre_remove,
             )
-        }
-        .0;
+        };
 
-        self.location = Some(new_location);
+        self.location = Some(result.new_location);
         self.world.flush();
         self.update_location();
+
+        bevy_utils::resume_caught_unwind(result.panic_payload);
+
         self
     }
 
@@ -1467,19 +1487,21 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // - The remover archetype came from the passed location and the removal can not fail.
         // - `old_location` was obtained from a valid `Self`.
-        let new_location = unsafe {
+        let result = unsafe {
             remover.remove(
                 self.entity,
                 old_location,
                 caller,
                 BundleRemover::empty_pre_remove,
             )
-        }
-        .0;
+        };
 
-        self.location = Some(new_location);
+        self.location = Some(result.new_location);
         self.world.flush();
         self.update_location();
+
+        bevy_utils::resume_caught_unwind(result.panic_payload);
+
         self
     }
 
@@ -1527,19 +1549,21 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // - The remover archetype came from the passed location and the removal can not fail.
         // - `location` was obtained from a valid `Self`.
-        let new_location = unsafe {
+        let result = unsafe {
             remover.remove(
                 self.entity,
                 location,
                 caller,
                 BundleRemover::empty_pre_remove,
             )
-        }
-        .0;
+        };
 
-        self.location = Some(new_location);
+        self.location = Some(result.new_location);
         self.world.flush();
         self.update_location();
+
+        bevy_utils::resume_caught_unwind(result.panic_payload);
+
         self
     }
 
@@ -1600,11 +1624,14 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // - The remover archetype came from the passed location and the removal can not fail.
         // - `location` was obtained from a valid `Self`.
-        let new_location = unsafe { remover.remove(self.entity, location, caller, pre_remove) }.0;
+        let result = unsafe { remover.remove(self.entity, location, caller, pre_remove) };
 
-        self.location = Some(new_location);
+        self.location = Some(result.new_location);
         self.world.flush();
         self.update_location();
+
+        bevy_utils::resume_caught_unwind(result.panic_payload);
+
         self
     }
 
@@ -1648,19 +1675,21 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // - The remover archetype came from the passed location and the removal can not fail.
         // - `location` was obtained from a valid `Self`.
-        let new_location = unsafe {
+        let result = unsafe {
             remover.remove(
                 self.entity,
                 location,
                 caller,
                 BundleRemover::empty_pre_remove,
             )
-        }
-        .0;
+        };
 
-        self.location = Some(new_location);
+        self.location = Some(result.new_location);
         self.world.flush();
         self.update_location();
+
+        bevy_utils::resume_caught_unwind(result.panic_payload);
+
         self
     }
 
@@ -1697,6 +1726,9 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// This despawns this entity if it is currently spawned, storing the new [`EntityGeneration`](crate::entity::EntityGeneration) in [`Self::entity`] but not freeing it.
+    ///
+    /// # Panics
+    /// Panics if any of the dropped components panic while dropping
     pub(crate) fn despawn_no_free_with_caller(&mut self, caller: MaybeLocation) {
         // setup
         let Some(location) = self.location else {
@@ -1799,9 +1831,14 @@ impl<'w> EntityWorldMut<'w> {
                 .mark_spawned_or_despawned(self.entity.index(), caller, change_tick);
         }
 
+        // If one of the hooks/observers above panicked, the world is in a safe state because
+        // the despawn is effectively cancelled.
+        // Now that we're editing metadata and moving data around in tables, we need to make
+        // sure that we complete these changes even if dropping a component panicks.
+        let mut panic = Ok(());
+
         let table_row;
-        let moved_entity;
-        {
+        let moved_entity = {
             let archetype = &mut self.world.archetypes[location.archetype_id];
             let remove_result = archetype.swap_remove(location.archetype_row);
             if let Some(swapped_entity) = remove_result.swapped_entity {
@@ -1830,12 +1867,23 @@ impl<'w> EntityWorldMut<'w> {
                     .sparse_sets
                     .get_mut(component_id)
                     .unwrap();
-                sparse_set.remove(self.entity);
+                let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| {
+                    sparse_set.remove(self.entity);
+                }));
+                if panic.is_ok() & maybe_panic.is_err() {
+                    panic = maybe_panic;
+                }
             }
+
             // SAFETY: table rows stored in archetypes always exist
-            moved_entity = unsafe {
+            let (moved_entity, maybe_panic) = unsafe {
                 self.world.storages.tables[archetype.table_id()].swap_remove_unchecked(table_row)
             };
+            if panic.is_ok() & maybe_panic.is_err() {
+                panic = maybe_panic;
+            }
+
+            moved_entity
         };
 
         // Handle displaced entity
@@ -1862,6 +1910,8 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: We just despawned it.
         self.entity = unsafe { self.world.entities.mark_free(self.entity.index(), 1) };
         self.world.flush();
+
+        bevy_utils::resume_caught_unwind(panic);
     }
 
     /// Despawns the current entity.
@@ -2428,6 +2478,9 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a, 'static> {
 
 /// Inserts a dynamic [`Bundle`] into the entity.
 ///
+/// # Panics
+/// Panics if any of the overwritten components panic while being dropped.
+///
 /// # Safety
 ///
 /// - [`OwningPtr`] and [`StorageType`] iterators must correspond to the
@@ -2446,7 +2499,7 @@ unsafe fn insert_dynamic_bundle<
     mode: InsertMode,
     caller: MaybeLocation,
     relationship_hook_insert_mode: RelationshipHookMode,
-) -> EntityLocation {
+) -> (EntityLocation, Result<(), Box<dyn Any + Send>>) {
     struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
         components: I,
     }
