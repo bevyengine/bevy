@@ -4604,6 +4604,7 @@ wasm = true
 name = "light_gizmos"
 path = "examples/gizmos/light_gizmos.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.light_gizmos]
 name = "Light Gizmos"
