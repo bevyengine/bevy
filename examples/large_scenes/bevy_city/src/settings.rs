@@ -53,7 +53,7 @@ pub fn settings_ui() -> impl Scene {
         on(|_: On<PointerOut>, mut free_camera_state: Single<&mut FreeCameraState>| {
             free_camera_state.enabled = true;
         })
-        Children [(
+        Children [
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
@@ -160,6 +160,6 @@ pub fn settings_ui() -> impl Scene {
                     }
                 )
             ]
-        )]
+        ]
     }
 }
