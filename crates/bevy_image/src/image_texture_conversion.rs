@@ -22,16 +22,26 @@ impl Image {
             DynamicImage::ImageLuma8(image) => {
                 width = image.width();
                 height = image.height();
-                format = TextureFormat::R8Unorm;
 
-                data = image.into_raw();
+                if is_srgb {
+                    format = TextureFormat::Rgba8UnormSrgb;
+                    data = DynamicImage::ImageLuma8(image).into_rgba8().into_raw();
+                } else {
+                    format = TextureFormat::R8Unorm;
+                    data = image.into_raw();
+                }
             }
             DynamicImage::ImageLumaA8(image) => {
                 width = image.width();
                 height = image.height();
-                format = TextureFormat::Rg8Unorm;
 
-                data = image.into_raw();
+                if is_srgb {
+                    format = TextureFormat::Rgba8UnormSrgb;
+                    data = DynamicImage::ImageLumaA8(image).into_rgba8().into_raw();
+                } else {
+                    format = TextureFormat::Rg8Unorm;
+                    data = image.into_raw();
+                }
             }
             DynamicImage::ImageRgb8(image) => {
                 let i = DynamicImage::ImageRgb8(image).into_rgba8();
