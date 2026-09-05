@@ -3459,10 +3459,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             self.skins_use_uniform_buffers,
         ));
 
-        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
-            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
-        }
-
         if key.contains(MeshPipelineKey::CONTACT_SHADOWS) {
             shader_defs.push("CONTACT_SHADOWS".into());
         }
@@ -3531,6 +3527,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
             shader_defs.push("DEPTH_PREPASS".into());
+        }
+
+        // Transparent meshes don't contribute to the depth prepass, so SSAO should not be applied.
+        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) && depth_write_enabled {
+            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
         if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
