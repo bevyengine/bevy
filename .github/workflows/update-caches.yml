@@ -21,6 +21,8 @@ env:
   CARGO_PROFILE_DEV_DEBUG: 0
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
+  # Keep in sync between all workflows
+  RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
 jobs:
   env:
@@ -52,6 +54,7 @@ jobs:
     needs: ["env"]
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -72,21 +75,42 @@ jobs:
           - os: macos-latest
             toolchain: ${{ needs.env.outputs.NIGHTLY_TOOLCHAIN }}
             target: ""
+          # ci.yml / build-wasm-atomics
           - os: ubuntu-latest
             toolchain: ${{ needs.env.outputs.NIGHTLY_TOOLCHAIN }}
             target: wasm32-unknown-unknown
+            components: rust-src
+            rustflags: '-C debuginfo=0 -D warnings -C target-feature=+atomics,+bulk-memory --cfg getrandom_backend="wasm_js"'
+            command: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
+          # ci.yml / build-wasm, and validation-jobs.yml / run-examples-on-wasm
           - os: ubuntu-latest
             toolchain: stable
             target: wasm32-unknown-unknown
+            rustflags: '-C debuginfo=0 -D warnings --cfg getrandom_backend="wasm_js"'
+            command: |
+              cargo check --target wasm32-unknown-unknown
+              cargo build --release --example testbed_ui --target wasm32-unknown-unknown
+          # ci.yml / check-compiles-no-std and check-compiles-no-std-examples
           - os: ubuntu-latest
             toolchain: stable
             target: x86_64-unknown-none
+            command: |
+              cargo check -p bevy --no-default-features --features default_no_std --target x86_64-unknown-none
+              cargo check -p bevy --no-default-features --features default_no_std,web --target x86_64-unknown-none
+              cd examples/no_std/library && cargo check --no-default-features --features libm,critical-section --target x86_64-unknown-none
+          # ci.yml / check-compiles-no-std-portable-atomic
           - os: ubuntu-latest
             toolchain: stable
             target: thumbv6m-none-eabi
+            command: cargo check -p bevy --no-default-features --features default_no_std --target thumbv6m-none-eabi
+          # validation-jobs.yml / build-android
           - os: ubuntu-latest
             toolchain: stable
             target: aarch64-linux-android
+            command: |
+              cargo install cargo-ndk
+              cargo ndk -t arm64-v8a -P 26 -o android_example/app/src/main/jniLibs build --package bevy_mobile_example
+          # validation-jobs.yml / build-and-install-on-iOS builds through Xcode, no shared build cache
           - os: macos-14
             toolchain: stable
             target: aarch64-apple-ios-sim
@@ -110,7 +134,7 @@ jobs:
         shell: bash
         id: rust
         run: |
-          rustup toolchain install "$RUST_TOOLCHAIN" --no-self-update --profile=minimal
+          rustup toolchain install "$RUST_TOOLCHAIN" --no-self-update --profile=minimal ${RUST_COMPONENTS:+--component "$RUST_COMPONENTS"}
           if [ -n "$RUST_TARGET" ]; then
             rustup target add "$RUST_TARGET" --toolchain "$RUST_TOOLCHAIN"
           fi
@@ -119,6 +143,7 @@ jobs:
         env:
           RUST_TOOLCHAIN: ${{ matrix.toolchain }}
           RUST_TARGET: ${{ matrix.target }}
+          RUST_COMPONENTS: ${{ matrix.components }}
 
       # prepare the lockfile - to have a complete image of the dependencies on the current platform
       - name: Create lock file
@@ -137,7 +162,11 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('Cargo.lock') }}-${{ steps.get-date.outputs.date }}
           lookup-only: true
 
-      - name: Install Bevy dependencies
+      - name: Fetch Rust dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: cargo fetch
+
+      - name: Install Linux dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/install-linux-deps
         with:
@@ -148,13 +177,19 @@ jobs:
 
       # Build Bevy for the dev profile, used by check, doc, ...
       - name: Build dev cache
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true' && matrix.target == ''
         run: cargo build --profile dev --package bevy
 
       # Build Bevy for the test profile, used by test
       - name: Build test cache
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true' && matrix.target == ''
         run: cargo build --profile test --package bevy
+
+      - name: Build cross-target cache
+        if: steps.cache.outputs.cache-hit != 'true' && matrix.command != ''
+        run: ${{ matrix.command }}
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags || env.RUSTFLAGS }}
 
       - name: Save cache
         if: steps.cache.outputs.cache-hit != 'true'

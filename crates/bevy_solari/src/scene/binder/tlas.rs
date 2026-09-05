@@ -89,7 +89,7 @@ fn tlas_capacity_for(instance_count: u32) -> u32 {
     capacity
 }
 
-/// The double-buffered TLAS and its capacity state.
+/// The TLAS and its capacity state, double buffered only while something traces last frame's.
 ///
 /// An acceleration structure is only bindable once it has been built. Nothing here owns a BLAS:
 /// keeping the ones a built structure points at alive is [`BlasManager`]'s job, which defers every
@@ -97,7 +97,10 @@ fn tlas_capacity_for(instance_count: u32) -> u32 {
 pub struct TlasState {
     /// The backend to build through, or `None` to go through `wgpu-core`.
     raw: Option<&'static dyn tlas_build::RawTlasBackend>,
-    /// Alternating current/previous acceleration structures.
+    /// Whether last frame's structure is being retained alongside this frame's.
+    double_buffered: bool,
+    /// Alternating current/previous acceleration structures. The second is `None` while single
+    /// buffered.
     pub structures: [Option<Tlas>; 2],
     capacity: [u32; 2],
     /// Whether each structure has had a build recorded since its latest allocation.
@@ -117,6 +120,7 @@ impl TlasState {
     pub fn new(render_device: &RenderDevice) -> Self {
         Self {
             raw: tlas_build::resolve(render_device),
+            double_buffered: false,
             structures: [None, None],
             capacity: [0, 0],
             built: [false, false],
@@ -136,21 +140,27 @@ impl TlasState {
         self.raw.is_some()
     }
 
-    /// Swaps to the other acceleration structure and brings it up to date with this frame's changes.
+    /// Brings the acceleration structure up to date with this frame's changes.
     ///
-    /// The two alternate: this frame's is rebuilt, and last frame's stays intact so the shaders can
-    /// trace against it.
+    /// While `double_buffered`, the two structures alternate: this frame's is rebuilt, and last
+    /// frame's stays intact so the shaders can trace against it. Otherwise the single structure is
+    /// rebuilt in place, which is safe because the build is recorded before any pass that traces
+    /// it and nothing reads last frame's contents.
     ///
-    /// `build_ready` reports whether this frame will be able to record a build. When false, nothing
-    /// happens at all, not even the swap.
+    /// `build_ready` reports whether this frame will be able to record a build. When false nothing
+    /// is allocated or swapped, though an unused structure is still released.
     pub fn advance(
         &mut self,
         instances: &InstanceState,
         bind_groups: &mut BindGroupCacheState,
         render_device: &RenderDevice,
         build_ready: bool,
+        double_buffered: bool,
     ) {
         let _span = info_span!("advance_tlas").entered();
+
+        // Free the retained structure as soon as nothing wants it
+        self.set_double_buffered(double_buffered, bind_groups);
 
         // An empty scene must not allocate an unbuilt TLAS that could resurface as a later
         // previous-frame entry
@@ -175,9 +185,42 @@ impl TlasState {
             }
         }
 
-        self.current_index ^= 1;
+        if self.double_buffered {
+            self.current_index ^= 1;
+        }
         let current_index = self.current_index;
         self.reserve_tlas(current_index, instance_count, render_device, bind_groups);
+    }
+
+    /// Switches between retaining last frame's structure and rebuilding a single one in place,
+    /// dropping the structure that is no longer traced.
+    fn set_double_buffered(
+        &mut self,
+        double_buffered: bool,
+        bind_groups: &mut BindGroupCacheState,
+    ) {
+        if self.double_buffered != double_buffered {
+            self.double_buffered = double_buffered;
+            bind_groups.invalid = true;
+        }
+        if double_buffered {
+            return;
+        }
+
+        // Keep building into whichever structure is already current, so the frame this turns off
+        // does not have to allocate
+        let previous_index = self.current_index ^ 1;
+        if self.structures[previous_index].take().is_some() {
+            self.capacity[previous_index] = 0;
+            self.built[previous_index] = false;
+            bind_groups.invalid = true;
+        }
+    }
+
+    /// Whether the previous-frame slot's binding will still be correct next frame, and so whether
+    /// a bind group using it can be cached.
+    pub fn previous_binding_is_stable(&self) -> bool {
+        !self.double_buffered || self.built[self.current_index ^ 1]
     }
 
     /// Rebuilds the setup shader's bind group only when one of its three buffers moves.

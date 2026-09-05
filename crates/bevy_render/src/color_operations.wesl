@@ -2,7 +2,7 @@ import package::maths::{PI_2,PI,FRAC_PI_3};
 
 const HUE_GUARD: f32 = 0.0001;
 
-// https://en.wikipedia.org/wiki/SRGB
+/// https://en.wikipedia.org/wiki/SRGB
 fn gamma(value: f32) -> f32 {
     if value <= 0.0 {
         return value;
@@ -14,7 +14,7 @@ fn gamma(value: f32) -> f32 {
     }
 }
 
-// https://en.wikipedia.org/wiki/SRGB
+/// https://en.wikipedia.org/wiki/SRGB
 fn inverse_gamma(value: f32) -> f32 {
     if value <= 0.0 {
         return value;
@@ -51,7 +51,7 @@ fn srgb_to_linear(color: vec3<f32>) -> vec3<f32> {
     return srgb_to_linear_rgb(color);
 }
 
-// https://bottosson.github.io/posts/oklab/
+/// https://bottosson.github.io/posts/oklab/
 fn oklab_to_linear_rgb(c: vec3<f32>) -> vec3<f32> {
     let l_ = c.x + 0.39633778 * c.y + 0.21580376 * c.z;
     let m_ = c.x - 0.105561346 * c.y - 0.06385417 * c.z;
@@ -117,7 +117,7 @@ fn okhsl_to_linear_rgb(okhsl: vec3<f32>) -> vec3<f32> {
     return oklab_to_linear_rgb(oklab);
 }
 
-// https://bottosson.github.io/posts/oklab/ - inverse of oklab_to_linear_rgb
+/// https://bottosson.github.io/posts/oklab/ - inverse of oklab_to_linear_rgb
 fn linear_rgb_to_oklab(c: vec3<f32>) -> vec3<f32> {
     let l_ = pow(c.x * 0.4122214708 + c.y * 0.5363325363 + c.z * 0.0514459929, 1.0 / 3.0);
     let m_ = pow(c.x * 0.2119034982 + c.y * 0.6806995451 + c.z * 0.1073969566, 1.0 / 3.0);
@@ -188,8 +188,8 @@ fn oklch_to_linear_rgb(c: vec3<f32>) -> vec3<f32> {
 }
 
 fn mix_oklch(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    // If the chroma is close to zero for one of the endpoints, don't interpolate 
-    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly 
+    // If the chroma is close to zero for one of the endpoints, don't interpolate
+    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly
     // transition from black or white to a target color without passing through unrelated hues.
     var h = a.z;
     var g = b.z;
@@ -243,10 +243,10 @@ fn mix_oklch_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
 }
 
 fn mix_hsl(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    // If the saturation is close to zero for one of the endpoints, don't interpolate 
-    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly 
+    // If the saturation is close to zero for one of the endpoints, don't interpolate
+    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly
     // transition from black or white to a target color without passing through unrelated hues.
-    var h = a.x; 
+    var h = a.x;
     var g = b.x;
     if a.y < HUE_GUARD {
         h = g;
@@ -314,8 +314,8 @@ fn mix_okhsl_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
 }
 
 fn mix_hsv(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    // If the saturation is close to zero for one of the endpoints, don't interpolate 
-    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly 
+    // If the saturation is close to zero for one of the endpoints, don't interpolate
+    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly
     // transition from black or white to a target color without passing through unrelated hues.
     var h = a.x;
     var g = b.x;
@@ -368,24 +368,24 @@ fn mix_hsv_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     );
 }
 
-// Converts HSV to RGB.
-//
-// Input: H ∈ [0, 2π), S ∈ [0, 1], V ∈ [0, 1].
-// Output: R ∈ [0, 1], G ∈ [0, 1], B ∈ [0, 1].
-//
-// <https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB_alternative>
+/// Converts HSV to RGB.
+///
+/// Input: H ∈ [0, 2π), S ∈ [0, 1], V ∈ [0, 1].
+/// Output: R ∈ [0, 1], G ∈ [0, 1], B ∈ [0, 1].
+///
+/// <https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB_alternative>
 fn hsv_to_rgb(hsv: vec3<f32>) -> vec3<f32> {
     let n = vec3(5.0, 3.0, 1.0);
     let k = (n + hsv.x / FRAC_PI_3) % 6.0;
     return hsv.z - hsv.z * hsv.y * max(vec3(0.0), min(k, min(4.0 - k, vec3(1.0))));
 }
 
-// Converts RGB to HSV.
-//
-// Input: R ∈ [0, 1], G ∈ [0, 1], B ∈ [0, 1].
-// Output: H ∈ [0, 2π), S ∈ [0, 1], V ∈ [0, 1].
-//
-// <https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB>
+/// Converts RGB to HSV.
+///
+/// Input: R ∈ [0, 1], G ∈ [0, 1], B ∈ [0, 1].
+/// Output: H ∈ [0, 2π), S ∈ [0, 1], V ∈ [0, 1].
+///
+/// <https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB>
 fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
     let x_max = max(rgb.r, max(rgb.g, rgb.b));  // i.e. V
     let x_min = min(rgb.r, min(rgb.g, rgb.b));
@@ -426,8 +426,8 @@ fn okhsl_to_ST(cusp: vec2<f32>) -> vec2<f32> {
     return vec2<f32>(cusp.y / cusp.x, cusp.y / (1.0 - cusp.x));
 }
 
-// Polynomial approximation for mid-gamut ST values.
-// Derived by optimization to ensure S_mid < S_max and T_mid < T_max.
+/// Polynomial approximation for mid-gamut ST values.
+/// Derived by optimization to ensure S_mid < S_max and T_mid < T_max.
 fn okhsl_get_ST_mid(a_: f32, b_: f32) -> vec2<f32> {
     let S = 0.11516993
         + 1.0 / (7.4477897
@@ -448,8 +448,8 @@ fn okhsl_get_ST_mid(a_: f32, b_: f32) -> vec2<f32> {
     return vec2<f32>(S, T);
 }
 
-// Approximate max saturation using a polynomial, then refine with 1 step of Halley's method.
-// a and b must be normalized (a^2 + b^2 == 1).
+/// Approximate max saturation using a polynomial, then refine with 1 step of Halley's method.
+/// a and b must be normalized (a^2 + b^2 == 1).
 fn okhsl_compute_max_saturation(a: f32, b: f32) -> f32 {
     var k0: f32 = 0.0; var k1: f32 = 0.0; var k2: f32 = 0.0;
     var k3: f32 = 0.0; var k4: f32 = 0.0;
@@ -474,12 +474,12 @@ fn okhsl_compute_max_saturation(a: f32, b: f32) -> f32 {
 
     var S = k0 + k1 * a + k2 * b + k3 * a * a + k4 * a * b;
 
-    // This step is done once for faster rendering. 
+    // This step is done once for faster rendering.
     // Most render targets will support 8 to 16 bit precision.
     let k_l = 0.39633778 * a + 0.21580376 * b;
     let k_m = -0.105561346 * a - 0.06385417 * b;
     let k_s = -0.08948418 * a - 1.2914855 * b;
-    
+
     let l_ = 1.0 + S * k_l;
     let m_ = 1.0 + S * k_m;
     let s_ = 1.0 + S * k_s;
@@ -511,8 +511,8 @@ fn okhsl_find_cusp(a: f32, b: f32) -> vec2<f32> {
     return vec2<f32>(L_cusp, L_cusp * S_cusp);
 }
 
-// Find intersection of the gamut boundary with the line from (L0, 0) to (L1, C1).
-// Uses 1 step of Halley's method.
+/// Find intersection of the gamut boundary with the line from (L0, 0) to (L1, C1).
+/// Uses 1 step of Halley's method.
 fn okhsl_find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp: vec2<f32>) -> f32 {
     let cusp_L = cusp.x;
     let cusp_C = cusp.y;
@@ -586,7 +586,7 @@ fn okhsl_find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp
     return t;
 }
 
-// Returns C_0, C_mid, C_max for a given Oklab L and hue direction (a_, b_).
+/// Returns C_0, C_mid, C_max for a given Oklab L and hue direction (a_, b_).
 fn okhsl_get_Cs(L: f32, a_: f32, b_: f32) -> vec3<f32> {
     let cusp = okhsl_find_cusp(a_, b_);
     let C_max = okhsl_find_gamut_intersection(a_, b_, L, 1.0, L, cusp);
