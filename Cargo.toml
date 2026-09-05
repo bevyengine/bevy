@@ -5024,7 +5024,7 @@ wasm = false
 name = "anisotropy"
 path = "examples/3d/anisotropy.rs"
 doc-scrape-examples = true
-required-features = ["jpeg", "pbr_anisotropy_texture"]
+required-features = ["jpeg", "pbr_anisotropy_texture", "bevy_feathers"]
 
 [package.metadata.example.anisotropy]
 name = "Anisotropy"
