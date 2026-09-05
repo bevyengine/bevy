@@ -734,12 +734,12 @@ mod tests {
             gated::{GateOpener, GatedReader},
             memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
             AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetSourceId,
-            AssetWatcher, Reader,
+            AssetWatcher, PathStream, Reader, VecReader,
         },
-        loader::{AssetLoader, LoadContext},
+        loader::{AssetLoader, LabeledAssetReader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, LoadedAsset,
-        LoadedUntypedAsset, UnapprovedPathMode, UntypedHandle, VisitAssetDependencies,
+        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LabeledAssetLoadError, LoadState,
+        LoadedAsset, LoadedUntypedAsset, UnapprovedPathMode, UntypedHandle, VisitAssetDependencies,
         WriteDefaultMetaError,
     };
     use alloc::{
@@ -785,6 +785,146 @@ mod tests {
     #[derive(Asset, TypePath, Debug)]
     pub struct SubText {
         pub text: String,
+    }
+
+    #[derive(Asset, TypePath, Debug)]
+    struct TextArchiveIndex {
+        labels: Vec<String>,
+    }
+
+    #[derive(Asset, TypePath, Debug)]
+    struct TextArchiveEntry {
+        value: String,
+        #[dependency]
+        referenced_entries: Vec<Handle<TextArchiveEntry>>,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct TextArchiveEntrySettings {
+        suffix: String,
+    }
+
+    struct TextArchiveReader {
+        entries: HashMap<String, Vec<u8>>,
+    }
+
+    impl LabeledAssetReader for TextArchiveReader {
+        async fn read<'a>(&'a self, label: &'a str) -> Result<impl Reader + 'a, AssetReaderError> {
+            let bytes = self
+                .entries
+                .get(label)
+                .ok_or_else(|| AssetReaderError::NotFound(label.into()))?;
+            Ok(VecReader::new(bytes.clone()))
+        }
+
+        async fn read_meta<'a>(
+            &'a self,
+            label: &'a str,
+        ) -> Result<impl Reader + 'a, AssetReaderError> {
+            Err::<VecReader, _>(AssetReaderError::NotFound(label.into()))
+        }
+    }
+
+    #[derive(Default, TypePath)]
+    struct TextArchiveIndexLoader;
+
+    impl AssetLoader for TextArchiveIndexLoader {
+        type Asset = TextArchiveIndex;
+        type Settings = ();
+        type Error = std::io::Error;
+
+        async fn load(
+            &self,
+            reader: &mut dyn Reader,
+            _settings: &Self::Settings,
+            load_context: &mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let contents = String::from_utf8(bytes)
+                .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+            let mut entries = HashMap::new();
+            let mut labels = Vec::new();
+            for line in contents.lines() {
+                let (label, quoted_value) = line.split_once('=').ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("archive entry is missing '=': {line}"),
+                    )
+                })?;
+                let value = quoted_value
+                    .strip_prefix('"')
+                    .and_then(|value| value.strip_suffix('"'))
+                    .ok_or_else(|| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!("archive entry has an unquoted value: {line}"),
+                        )
+                    })?;
+                labels.push(label.to_string());
+                entries.insert(label.to_string(), value.as_bytes().to_vec());
+            }
+            load_context.set_labeled_asset_reader(TextArchiveReader { entries });
+            Ok(TextArchiveIndex { labels })
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["textarchive"]
+        }
+    }
+
+    #[derive(Default, TypePath)]
+    struct TextArchiveEntryLoader;
+
+    impl AssetLoader for TextArchiveEntryLoader {
+        type Asset = TextArchiveEntry;
+        type Settings = TextArchiveEntrySettings;
+        type Error = std::io::Error;
+
+        async fn load(
+            &self,
+            reader: &mut dyn Reader,
+            settings: &Self::Settings,
+            load_context: &mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let mut text = String::from_utf8(bytes)
+                .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+            let mut referenced_entries = Vec::new();
+            let mut remaining = text.as_str();
+            while let Some(start) = remaining.find("${") {
+                let reference = &remaining[start + 2..];
+                let end = reference.find('}').ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "unterminated labeled asset reference",
+                    )
+                })?;
+                let label = reference[..end].to_string();
+                if label.is_empty() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "empty labeled asset reference",
+                    ));
+                }
+                referenced_entries.push(
+                    load_context
+                        .load_labeled(label)
+                        .map_err(std::io::Error::other)?,
+                );
+                remaining = &reference[end + 1..];
+            }
+            text.push_str(&settings.suffix);
+            Ok(TextArchiveEntry {
+                value: text,
+                referenced_entries,
+            })
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &[]
+        }
     }
 
     /// An asset whose loader performs a nested *untyped* load, to exercise
@@ -920,7 +1060,7 @@ mod tests {
         async fn read_directory<'a>(
             &'a self,
             path: &'a Path,
-        ) -> Result<Box<bevy_asset::io::PathStream>, AssetReaderError> {
+        ) -> Result<Box<PathStream>, AssetReaderError> {
             self.memory_reader.read_directory(path).await
         }
         async fn read_meta<'a>(
@@ -1034,6 +1174,120 @@ mod tests {
             .get_measurement(&AssetServer::STARTED_LOAD_COUNT)
             .map(|measurement| measurement.value as _)
             .unwrap_or_default()
+    }
+
+    #[test]
+    fn load_labeled_uses_existing_loader_and_its_settings() {
+        let (mut app, dir) = create_app();
+        dir.insert_asset_text(Path::new("test.textarchive"), "a=\"foo\"\nb=\"bar\"");
+        app.init_asset::<TextArchiveIndex>()
+            .init_asset::<TextArchiveEntry>()
+            .register_asset_loader(TextArchiveIndexLoader)
+            .register_asset_loader(TextArchiveEntryLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let root = asset_server.load::<TextArchiveIndex>("test.textarchive");
+        run_app_until(&mut app, |world| {
+            world
+                .resource::<Assets<TextArchiveIndex>>()
+                .contains(&root)
+                .then_some(())
+        });
+        assert!(app
+            .world()
+            .resource::<Assets<TextArchiveEntry>>()
+            .is_empty());
+
+        let a = asset_server
+            .load_labeled_builder(&root)
+            .unwrap()
+            .with_settings(|settings: &mut TextArchiveEntrySettings| {
+                settings.suffix = ":configured".to_string();
+            })
+            .load::<TextArchiveEntry>("a");
+        let b = asset_server
+            .load_labeled::<TextArchiveEntry>(&root, "b")
+            .unwrap();
+        run_app_until(&mut app, |world| {
+            let texts = world.resource::<Assets<TextArchiveEntry>>();
+            (texts.contains(&a) && texts.contains(&b)).then_some(())
+        });
+        assert_eq!(
+            app.world()
+                .resource::<Assets<TextArchiveEntry>>()
+                .get(&a)
+                .unwrap()
+                .value,
+            "foo:configured"
+        );
+        assert_eq!(
+            app.world()
+                .resource::<Assets<TextArchiveEntry>>()
+                .get(&b)
+                .unwrap()
+                .value,
+            "bar"
+        );
+        let root_asset = app
+            .world()
+            .resource::<Assets<TextArchiveIndex>>()
+            .get(&root)
+            .unwrap();
+        assert_eq!(root_asset.labels, ["a", "b"]);
+    }
+
+    #[test]
+    fn load_labeled_can_load_a_dependency_from_the_same_archive() {
+        let (mut app, dir) = create_app();
+        dir.insert_asset_text(Path::new("test.textarchive"), "b=\"bar\"\nc=\"${b} baz\"");
+        app.init_asset::<TextArchiveIndex>()
+            .init_asset::<TextArchiveEntry>()
+            .register_asset_loader(TextArchiveIndexLoader)
+            .register_asset_loader(TextArchiveEntryLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let root = asset_server.load::<TextArchiveIndex>("test.textarchive");
+        run_app_until(&mut app, |world| {
+            world
+                .resource::<Assets<TextArchiveIndex>>()
+                .contains(&root)
+                .then_some(())
+        });
+
+        let c = asset_server
+            .load_labeled::<TextArchiveEntry>(&root, "c")
+            .unwrap();
+        run_app_until(&mut app, |world| {
+            (world.resource::<Assets<TextArchiveEntry>>().contains(&c)
+                && asset_server.recursive_dependency_load_state(&c).is_loaded())
+            .then_some(())
+        });
+
+        let texts = app.world().resource::<Assets<TextArchiveEntry>>();
+        let c = texts.get(&c).unwrap();
+        assert_eq!(c.value, "${b} baz");
+        assert_eq!(c.referenced_entries.len(), 1);
+        let b = &c.referenced_entries[0];
+        assert_eq!(b.path().unwrap(), &AssetPath::parse("test.textarchive#b"));
+        assert_eq!(texts.get(b).unwrap().value, "bar");
+    }
+
+    #[test]
+    fn load_labeled_requires_a_loaded_root() {
+        let (mut app, dir) = create_app();
+        dir.insert_asset_text(Path::new("test.textarchive"), "a=\"foo\"");
+        app.init_asset::<TextArchiveIndex>()
+            .init_asset::<TextArchiveEntry>()
+            .register_asset_loader(TextArchiveIndexLoader)
+            .register_asset_loader(TextArchiveEntryLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let root = asset_server.load::<TextArchiveIndex>("test.textarchive");
+
+        assert!(matches!(
+            asset_server.load_labeled::<TextArchiveEntry>(&root, "a"),
+            Err(LabeledAssetLoadError::RootNotLoaded { .. })
+        ));
     }
 
     #[derive(Resource, Default)]
