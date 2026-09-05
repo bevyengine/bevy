@@ -202,15 +202,18 @@ fn light_probe_iterator_new(
 // one light probe that affects the current fragment in the first place.
 @if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
+    let world_position = (*iterator).world_position;
+
     var result: LightProbeQueryResult;
     result.texture_index = -1;
     result.weight = 0.0;
 
-    while (true) {
+    while ((*iterator).current_index < (*iterator).end_index) {
         let light_probe_index = (*iterator).current_index;
+        (*iterator).current_index += 1u;
 
         var light_probe: LightProbe;
-        if is_irradiance_volume {
+        if (*iterator).is_irradiance_volume {
             light_probe = light_probes.irradiance_volumes[light_probe_index];
         } else {
             light_probe = light_probes.reflection_probes[light_probe_index];

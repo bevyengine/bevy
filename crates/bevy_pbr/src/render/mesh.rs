@@ -84,7 +84,6 @@ use std::sync::mpsc;
 use tracing::info_span;
 use tracing::{error, warn};
 
-use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
     render::{
         morph::{
@@ -3615,7 +3614,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) && IRRADIANCE_VOLUMES_ARE_USABLE {
+        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
             shader_defs.push("IRRADIANCE_VOLUME".into());
         }
 
@@ -3673,10 +3672,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
             shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
-        }
-
-        if IRRADIANCE_VOLUMES_ARE_USABLE {
-            shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
         }
 
         if self.clustered_decals_are_usable {
