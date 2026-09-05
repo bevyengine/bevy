@@ -1,9 +1,9 @@
 //! Generates the Tailwind CSS color palette.
 
 #![expect(clippy::print_stdout, reason = "Allowed in tools.")]
-
+extern crate alloc;
+use alloc::collections::BTreeMap;
 use std::{
-    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -74,9 +74,9 @@ use crate::Srgba;
     );
 
     for (palette, shades) in colors {
-        let mut shades: Vec<_> = shades.into_iter().collect();
+        let mut shades: Vec<_> = shades.iter().collect();
         shades.sort_by_key(|(shade, _)| shade.parse::<u32>().unwrap());
-        output.push_str("\n");
+        output.push('\n');
         for (shade, hex) in shades {
             let (r, g, b) = parse_hex(hex);
             output.push_str(&format!( "/// <div style=\"background-color:rgb({r}, {g}, {b}); width: 10px; padding: 10px; border: 1px solid;\"></div>\n" ));
