@@ -18,9 +18,17 @@ use wgpu_types::{
     TextureViewDimension,
 };
 
-use super::{CompressedImageFormats, Image, TextureChannelLayout, TextureError, TranscodeFormat};
+use super::{
+    CompressedImageFormats, Image, SourceColorPrimaries, TextureChannelLayout, TextureError,
+    TranscodeFormat,
+};
+use {bevy_utils::once, tracing::warn};
 
 /// Converts KTX2 bytes to a bevy [`Image`] using the given compressed format support.
+///
+/// `source_color_primaries` overrides the color primaries set on the image. With `None`,
+/// the data format descriptor's `colorPrimaries` wins, then
+/// [`SourceColorPrimaries::Bt709`].
 ///
 /// # Errors
 ///
@@ -31,6 +39,7 @@ pub fn ktx2_buffer_to_image(
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
+    source_color_primaries: Option<SourceColorPrimaries>,
 ) -> Result<Image, TextureError> {
     let ktx2 = ktx2::Reader::new(buffer)
         .map_err(|err| TextureError::InvalidData(format!("Failed to parse ktx2 file: {err:?}")))?;
@@ -103,10 +112,19 @@ pub fn ktx2_buffer_to_image(
         levels = ktx2.levels().map(|level| level.data.to_vec()).collect();
     }
 
+    // Set when sRGB data is decoded to linear on the CPU during transcoding. The
+    // warnings below use it, since the resolved format is then linear even though the
+    // file data was sRGB.
+    let mut srgb_data_linearized_on_cpu = false;
+
     // Identify the format
     let texture_format = ktx2_get_texture_format(&ktx2, is_srgb).or_else(|error| match error {
         // Transcode if needed and supported
         TextureError::FormatRequiresTranscodingError(transcode_format) => {
+            srgb_data_linearized_on_cpu = matches!(
+                transcode_format,
+                TranscodeFormat::R8UnormSrgb | TranscodeFormat::Rg8UnormSrgb
+            );
             let mut transcoded = vec![Vec::default(); levels.len()];
             let texture_format = match transcode_format {
                 TranscodeFormat::R8UnormSrgb => {
@@ -251,6 +269,41 @@ pub fn ktx2_buffer_to_image(
         )));
     }
 
+    if let Some(transfer_function) = ktx2.transfer_function() {
+        match transfer_function {
+            ktx2::TransferFunction::SRGB
+                if !texture_format.is_srgb() && !srgb_data_linearized_on_cpu =>
+            {
+                once!(warn!(
+                    "KTX2 file declares an sRGB transfer function, but the resolved texture \
+                    format is linear. The loader settings take priority and the data is loaded \
+                    unchanged. Set `is_srgb: true` in the loader settings if the data is \
+                    sRGB-encoded.",
+                ));
+            }
+            ktx2::TransferFunction::Linear
+                if texture_format.is_srgb() || srgb_data_linearized_on_cpu =>
+            {
+                once!(warn!(
+                    "KTX2 file declares a linear transfer function, but `is_srgb` is true. The \
+                    loader setting takes priority and the data is treated as sRGB-encoded. Set \
+                    `is_srgb: false` in the loader settings if the data is linear.",
+                ));
+            }
+            ktx2::TransferFunction::PQEOTF
+            | ktx2::TransferFunction::PQOETF
+            | ktx2::TransferFunction::HLGOETF
+            | ktx2::TransferFunction::HLGEOTF => {
+                once!(warn!(
+                    "KTX2 file declares the {transfer_function:?} transfer function, which Bevy \
+                    does not support. The data is loaded unchanged. Re-encode the file with an \
+                    sRGB or linear transfer function to display it correctly.",
+                ));
+            }
+            _ => {}
+        }
+    }
+
     // Collect all level data into a contiguous buffer
     let mut image_data = Vec::new();
     image_data.reserve_exact(levels.iter().map(Vec::len).sum());
@@ -262,6 +315,18 @@ pub fn ktx2_buffer_to_image(
     image.texture_descriptor.format = texture_format;
     image.data = Some(image_data);
     image.data_order = wgpu_types::TextureDataOrder::MipMajor;
+    image.source_color_primaries = SourceColorPrimaries::resolve(source_color_primaries, || {
+        ktx2.color_primaries().and_then(|color_primaries| {
+            let source_color_primaries = ktx2_to_source_color_primaries(color_primaries);
+            if source_color_primaries.is_none() {
+                once!(warn!(
+                    "KTX2 file declares color primaries {color_primaries:?}, which Bevy does not \
+                    support. Assuming BT.709 primaries.",
+                ));
+            }
+            source_color_primaries
+        })
+    });
     // Note: we must give wgpu the logical texture dimensions, so it can correctly compute mip sizes.
     // However this currently causes wgpu to panic if the dimensions arent a multiple of blocksize.
     // See https://github.com/gfx-rs/wgpu/issues/7677 for more context.
@@ -410,6 +475,19 @@ pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
     Err(TextureError::UnsupportedTextureFormat(
         "Unknown".to_string(),
     ))
+}
+
+/// Maps KTX2 color primaries to [`SourceColorPrimaries`]. Returns `None` for
+/// unsupported primaries.
+fn ktx2_to_source_color_primaries(
+    color_primaries: ktx2::ColorPrimaries,
+) -> Option<SourceColorPrimaries> {
+    match color_primaries {
+        ktx2::ColorPrimaries::BT709 => Some(SourceColorPrimaries::Bt709),
+        ktx2::ColorPrimaries::BT2020 => Some(SourceColorPrimaries::Bt2020),
+        ktx2::ColorPrimaries::DISPLAYP3 => Some(SourceColorPrimaries::DisplayP3),
+        _ => None,
+    }
 }
 
 enum DataType {
@@ -1556,7 +1634,7 @@ pub fn ktx2_format_to_texture_format(
 
 #[cfg(test)]
 mod tests {
-    use crate::CompressedImageFormats;
+    use crate::{CompressedImageFormats, SourceColorPrimaries};
 
     use super::ktx2_buffer_to_image;
 
@@ -1582,7 +1660,146 @@ mod tests {
             0x4a,
         ];
         let supported_compressed_formats = CompressedImageFormats::empty();
-        let result = ktx2_buffer_to_image(&buffer, supported_compressed_formats, true);
+        let result = ktx2_buffer_to_image(&buffer, supported_compressed_formats, true, None);
         assert!(result.is_ok());
+    }
+
+    /// Builds a minimal KTX2 file, a 1x1 texture in the given 8-bit-per-channel
+    /// `vkFormat` holding `pixel`. The raw `colorPrimaries` and `transferFunction` bytes
+    /// go into the data format descriptor, and a byte of `0` means unspecified.
+    fn minimal_ktx2(
+        vk_format: u32,
+        color_primaries: u8,
+        transfer_function: u8,
+        pixel: &[u8],
+    ) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        // Identifier
+        buffer.extend_from_slice(&[
+            0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 0x0a, 0x1a, 0x0a,
+        ]);
+        buffer.extend_from_slice(&vk_format.to_le_bytes());
+        buffer.extend_from_slice(&1u32.to_le_bytes()); // typeSize
+        buffer.extend_from_slice(&1u32.to_le_bytes()); // pixelWidth
+        buffer.extend_from_slice(&1u32.to_le_bytes()); // pixelHeight
+        buffer.extend_from_slice(&0u32.to_le_bytes()); // pixelDepth
+        buffer.extend_from_slice(&0u32.to_le_bytes()); // layerCount
+        buffer.extend_from_slice(&1u32.to_le_bytes()); // faceCount
+        buffer.extend_from_slice(&1u32.to_le_bytes()); // levelCount
+        buffer.extend_from_slice(&0u32.to_le_bytes()); // supercompressionScheme
+                                                       // Section index. The DFD is 28 bytes at
+                                                       // offset 104, a 4-byte size plus a
+                                                       // 24-byte basic block with no samples.
+        buffer.extend_from_slice(&104u32.to_le_bytes()); // dfdByteOffset
+        buffer.extend_from_slice(&28u32.to_le_bytes()); // dfdByteLength
+        buffer.extend_from_slice(&0u32.to_le_bytes()); // kvdByteOffset
+        buffer.extend_from_slice(&0u32.to_le_bytes()); // kvdByteLength
+        buffer.extend_from_slice(&0u64.to_le_bytes()); // sgdByteOffset
+        buffer.extend_from_slice(&0u64.to_le_bytes()); // sgdByteLength
+                                                       // Level index with one entry. The level
+                                                       // data sits directly after the DFD.
+        buffer.extend_from_slice(&132u64.to_le_bytes()); // byteOffset
+        buffer.extend_from_slice(&(pixel.len() as u64).to_le_bytes()); // byteLength
+        buffer.extend_from_slice(&(pixel.len() as u64).to_le_bytes()); // uncompressedByteLength
+        assert_eq!(buffer.len(), 104);
+        // Data format descriptor
+        buffer.extend_from_slice(&28u32.to_le_bytes()); // dfdTotalSize
+        buffer.extend_from_slice(&0u32.to_le_bytes()); // vendorId | descriptorType (basic)
+        buffer.extend_from_slice(&2u16.to_le_bytes()); // versionNumber
+        buffer.extend_from_slice(&24u16.to_le_bytes()); // descriptorBlockSize (no samples)
+        buffer.push(1); // colorModel = RGBSDA
+        buffer.push(color_primaries);
+        buffer.push(transfer_function);
+        buffer.push(0); // flags
+        buffer.extend_from_slice(&[0, 0, 0, 0]); // texelBlockDimension (stored as n - 1)
+        buffer.extend_from_slice(&[pixel.len() as u8, 0, 0, 0, 0, 0, 0, 0]); // bytesPlanes
+        assert_eq!(buffer.len(), 132);
+        // Level data
+        buffer.extend_from_slice(pixel);
+        buffer
+    }
+
+    /// Builds a 1x1 white RGBA8 KTX2 file. `VkFormat` 37 is `R8G8B8A8_UNORM`.
+    fn minimal_rgba8_ktx2(color_primaries: u8, transfer_function: u8) -> Vec<u8> {
+        minimal_ktx2(
+            37,
+            color_primaries,
+            transfer_function,
+            &[255, 255, 255, 255],
+        )
+    }
+
+    #[test]
+    fn dfd_color_primaries_are_set_on_the_image() {
+        for (color_primaries, expected) in [
+            // Unspecified primaries fall back to the BT.709 default.
+            (0, SourceColorPrimaries::Bt709),
+            (1, SourceColorPrimaries::Bt709),
+            (4, SourceColorPrimaries::Bt2020),
+            (10, SourceColorPrimaries::DisplayP3),
+            // BT.601 is unsupported, so it falls back to BT.709.
+            (2, SourceColorPrimaries::Bt709),
+        ] {
+            let buffer = minimal_rgba8_ktx2(color_primaries, /* Linear */ 1);
+            let image = ktx2_buffer_to_image(&buffer, CompressedImageFormats::empty(), false, None)
+                .unwrap();
+            assert_eq!(
+                image.source_color_primaries, expected,
+                "DFD colorPrimaries byte {color_primaries} should set {expected:?}",
+            );
+            assert_eq!(
+                image.texture_descriptor.format,
+                wgpu_types::TextureFormat::Rgba8Unorm,
+                "setting the primaries must not change the resolved texture format",
+            );
+        }
+    }
+
+    #[test]
+    fn source_color_primaries_override_wins_over_the_dfd() {
+        let buffer = minimal_rgba8_ktx2(/* BT2020 */ 4, /* Linear */ 1);
+        let image = ktx2_buffer_to_image(
+            &buffer,
+            CompressedImageFormats::empty(),
+            false,
+            Some(SourceColorPrimaries::DisplayP3),
+        )
+        .unwrap();
+        assert_eq!(
+            image.source_color_primaries,
+            SourceColorPrimaries::DisplayP3
+        );
+    }
+
+    #[test]
+    fn caller_is_srgb_still_wins_over_dfd_transfer_function() {
+        let buffer = minimal_rgba8_ktx2(/* BT709 */ 1, /* Linear */ 1);
+        let image =
+            ktx2_buffer_to_image(&buffer, CompressedImageFormats::empty(), true, None).unwrap();
+        assert_eq!(
+            image.texture_descriptor.format,
+            wgpu_types::TextureFormat::Rgba8UnormSrgb,
+        );
+        assert_eq!(image.source_color_primaries, SourceColorPrimaries::Bt709);
+    }
+
+    #[test]
+    fn linear_declared_r8_with_caller_is_srgb_is_decoded_on_the_cpu() {
+        // R8 has no sRGB texture format. With `is_srgb`, the loader sRGB-decodes the
+        // data on the CPU during transcoding and resolves to the non-sRGB format.
+        let buffer = minimal_ktx2(
+            /* R8_UNORM */ 9,
+            /* BT709 */ 1,
+            /* Linear */ 1,
+            &[128],
+        );
+        let image =
+            ktx2_buffer_to_image(&buffer, CompressedImageFormats::empty(), true, None).unwrap();
+        assert_eq!(
+            image.texture_descriptor.format,
+            wgpu_types::TextureFormat::R8Unorm,
+        );
+        // sRGB-encoded byte 128 decodes to linear 55.
+        assert_eq!(image.data.as_deref(), Some(&[55u8][..]));
     }
 }

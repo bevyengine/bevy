@@ -23,7 +23,7 @@ use bevy_ecs::{
 };
 use bevy_image::{
     CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
-    ImageType, TextureError,
+    ImageType, SourceColorPrimaries, TextureError,
 };
 use bevy_light::{DirectionalLight, PointLight, SpotLight};
 use bevy_math::{Mat4, Vec3};
@@ -1201,6 +1201,15 @@ impl AssetLoader for GltfLoader {
     }
 }
 
+/// The color primaries every texture from a glTF file is loaded with, overriding file
+/// metadata.
+///
+/// The glTF 2.0 spec requires sRGB color textures, which use the BT.709 primaries, and
+/// says color-space metadata embedded in PNG and JPEG files must be ignored. Bevy also
+/// accepts KTX2 textures in glTF files, beyond what the spec covers, and loads them as
+/// BT.709 for consistency.
+const GLTF_SOURCE_COLOR_PRIMARIES: Option<SourceColorPrimaries> = Some(SourceColorPrimaries::Bt709);
+
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
 async fn load_image<'a, 'b>(
     gltf_texture: gltf::Texture<'a>,
@@ -1230,6 +1239,7 @@ async fn load_image<'a, 'b>(
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
                 settings.load_materials,
+                GLTF_SOURCE_COLOR_PRIMARIES,
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -1252,6 +1262,7 @@ async fn load_image<'a, 'b>(
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
                         settings.load_materials,
+                        GLTF_SOURCE_COLOR_PRIMARIES,
                     )?,
                     label: GltfAssetLabel::Texture(gltf_texture.index()),
                 })
@@ -2035,6 +2046,7 @@ impl ImageOrPath {
                 .load_builder()
                 .with_settings(move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
+                    settings.source_color_primaries = GLTF_SOURCE_COLOR_PRIMARIES;
                     settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
                     settings.asset_usage = render_asset_usages;
                 })
