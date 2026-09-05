@@ -309,7 +309,7 @@ impl PanOrbitCameraInputMessage {
                     .read()
                     .map(|mw| {
                         let scroll_multiplier = match mw.unit {
-                            MouseScrollUnit::Line => 150.0,
+                            MouseScrollUnit::Line => 100.0,
                             MouseScrollUnit::Pixel => 1.0,
                         };
                         mw.y * scroll_multiplier
