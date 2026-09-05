@@ -66,8 +66,9 @@
 //!     #Player // This names the entity "Player"
 //!     Score(0)
 //!     Children [
-//!         Sword,
-//!         Shield,
+//!         Sword
+//!         --
+//!         Shield
 //!     ]
 //! });
 //! ```
@@ -110,19 +111,23 @@
 //!
 //! ## Entity Hierarchies and Relationships
 //!
-//! Use `Children [scene1, scene2]` inside [`bsn!`] to spawn child entities.
-//! [`Children`] (and entities within [`bsn_list!`]) are separated by commas;
-//! add multiple components to the same entity by listing them without a comma:
+//! Use `Children [scene1 -- scene2]` inside [`bsn!`] to spawn child entities.
+//! [`Children`] (and entities within [`bsn_list!`]) are separated by `--`;
+//! add multiple components to the same entity by listing them without a `--`:
 //!
 //! ```ignore
 //! // Spawns one child entity with components A, B and C
 //! bsn! { #Parent Children [A B C] }
 //!
-//! // Spawns two child entities, one with A and B, the other with C, due to the added comma
-//! bsn! { #Parent Children [A B, C] }
-//!
-//! // Spawns two child entities, but more clearly separated due to parentheses.
-//! bsn! { #Parent Children [(A B), C] }
+//! // Spawns two child entities, one with A and B, the other with C, due to the added `--`
+//! bsn! {
+//!     #Parent
+//!     Children [
+//!         A B
+//!         --
+//!         C
+//!     ]
+//! }
 //! ```
 //!
 //! These invocations can be nested to build deeper hierarchies.
@@ -131,44 +136,18 @@
 //! bsn! {
 //!   #Parent
 //!   Children [
-//!     #Child1 SomeComponent,
+//!     #Child1 SomeComponent
+//!     --
 //!     #Child2
 //!     SomeComponent
 //!     Children [
-//!        #GrandChild1 SomeComponent,
+//!        #GrandChild1 SomeComponent
+//!         --
 //!        #GrandChild2
 //!     ]
 //!   ]
 //! }
 //! ```
-//!
-//! We can improve clarity at the cost of compactness through the careful use of newlines, parentheses and indentation:
-//!
-//! ```ignore
-//! bsn! {
-//!   #Parent
-//!   Children [
-//!      (
-//!        #Child1
-//!        SomeComponent
-//!      ),
-//!      (
-//!        #Child2
-//!        Children [
-//!           (
-//!             #GrandChild1
-//!             SomeComponent
-//!           ),
-//!           (
-//!             #GrandChild2
-//!           )
-//!        ]
-//!      ),
-//!   ]
-//! }
-//! ```
-//!
-//! This is fundamentally a stylistic choice: white space, Rust comments (`//` and `/* */`), and parentheses used in this way are ignored.
 //!
 //! The tools discussed here are not limited to [`Children`]: any [`RelationshipTarget`] type can be used the same way.
 //!
@@ -229,8 +208,9 @@
 //! ```ignore
 //! fn linked_pair() -> impl SceneList {
 //!     bsn_list![
-//!         (#Left  Link(#Right)),
-//!         (#Right Link(#Left)),
+//!         #Left Link(#Right)
+//!         --
+//!         #Right Link(#Left)
 //!     ]
 //! }
 //! ```
@@ -550,14 +530,16 @@
 //! fn container(contents: impl SceneList) -> impl Scene {
 //!     bsn! {
 //!         Children [
-//!             #Header,
-//!             {contents},
-//!             #Footer,
+//!             #Header
+//!             --
+//!             {contents}
+//!             --
+//!             #Footer
 //!         ]
 //!     }
 //! }
 //!
-//! let items = bsn_list![#A, #B, #C]; // or bsn! if container takes a `impl Scene`
+//! let items = bsn_list![#A -- #B -- #C]; // or bsn! if container takes a `impl Scene`
 //! commands.spawn_scene(container(items));
 //! ```
 //!
@@ -616,8 +598,9 @@
 //!         bsn! {
 //!             #Player
 //!             Children [
-//!                 #RightHand Sword,
-//!                 #LeftHand Shield,
+//!                 #RightHand Sword
+//!                 --
+//!                 #LeftHand Shield
 //!             ]
 //!         }
 //!     }
@@ -1259,18 +1242,15 @@ mod tests {
             bsn! {
                 #A
                 Children [
-                    (
-                        #B
-                        Children [
-                            #X
-                        ]
-                    ),
-                    (
-                        #C
-                        Children [
-                            #Y
-                        ]
-                    )
+                    #B
+                    Children [
+                        #X
+                    ]
+                    --
+                    #C
+                    Children [
+                        #Y
+                    ]
                 ]
             }
         }
@@ -1353,8 +1333,9 @@ mod tests {
             bsn! {
                 #X
                 Children [
-                    Reference(#X),
-                    (@{inline} Reference(#X)),
+                    Reference(#X)
+                    --
+                    @{inline} Reference(#X)
                 ]
             }
         }
@@ -1435,22 +1416,19 @@ mod tests {
 
         fn a() -> impl SceneList {
             bsn_list![
-                (
-                    #X
+                #X
+                Reference(#Y)
+                Children [
+                    (#Z Reference(#X))
+                ]
+                --
+                #Y
+                Reference(#X)
+                Children [
                     Reference(#Y)
-                    Children [
-                        (#Z Reference(#X))
-                    ]
-
-                ),
-                (
-                    #Y
-                    Reference(#X)
-                    Children [
-                        Reference(#Y)
-                    ]
-                ),
-                (@b() #Z)
+                ]
+                --
+                #Z @b()
             ]
         }
 
@@ -1962,8 +1940,10 @@ mod tests {
             bsn! {
                 #Root
                 Children [
-                    #First,
-                    {items},
+                    #First
+                    --
+                    {items}
+                    --
                     #Last
                 ]
             }
@@ -1971,7 +1951,8 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
         let items = bsn_list![
-            #Second,
+            #Second
+            --
             #Third
         ];
         let id = world.spawn_scene(container(items)).unwrap().id();
@@ -1988,8 +1969,10 @@ mod tests {
             bsn! {
                 #Root
                 Children [
-                    #First,
-                    @{item},
+                    #First
+                    --
+                    @{item}
+                    --
                     #Last
                 ]
             }
@@ -2020,7 +2003,11 @@ mod tests {
             let scene: Box<dyn Scene> = if is_boss {
                 Box::new(bsn! {
                     Boss
-                    Children [ @unit(false, level - 1) #Grunt1, @unit(false, level - 1) #Grunt2]
+                    Children [
+                        #Grunt1 @unit(false, level - 1)
+                        --
+                        #Grunt2 @unit(false, level - 1)
+                    ]
                 })
             } else {
                 Box::new(bsn! { Grunt })
@@ -2363,8 +2350,9 @@ mod tests {
 
         fn scene(root: Entity) -> impl SceneList {
             bsn_list! {
-                ( #Child1 ChildOf(root) ),
-                ( #Child2 ChildOf(#Child1) ),
+                #Child1 ChildOf(root)
+                --
+                #Child2 ChildOf(#Child1)
             }
         }
 
@@ -2391,16 +2379,19 @@ mod tests {
         fn root(children: impl SceneList) -> impl Scene {
             bsn! {
                 Children [
-                    #A,
-                    {children},
+                    #A
+                    --
+                    {children}
+                    --
                     #D
                 ]
             }
         }
 
         let children = bsn_list! [
-            #B,
-            #C,
+            #B
+            --
+            #C
         ];
 
         let id = world.spawn_scene(root(children)).unwrap().id();
@@ -2763,7 +2754,7 @@ mod tests {
         let scene = bsn! {
             #Name
             Children [
-                @Widget{
+                @Widget {
                     entity: #Name
                 }
             ]
@@ -2823,8 +2814,7 @@ mod tests {
             #Root
             Name({format!("Foo{i}")})
             Children [
-                #Name
-                @widget(#Root)
+                #Name @widget(#Root)
             ]
         };
         let entity = world.spawn_scene(pass_name_expr).unwrap().id();
@@ -3097,27 +3087,24 @@ mod tests {
             })
             Children [                   // spawning multiple related entities using a RelationshipTarget component
                 #Child1 ComponentA       // whitespace doesn't have to be newlines
-                ,                        // entities are comma-separated
-                (@other_scene() #Child3), // parentheses around a single entity are optional
-                Link(#SomeName),         // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
+                --                       // entities are -- separated
+                Link(#SomeName)          // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
                 @MySceneComponent {      // components which derive SceneComponent have scenes and can be inherited from
                     @some_prop: 3,       // props, look like fields prefixed with @ but end up passed to the components scene as arguments
                     normal_field: 5      // while normal fields are the actual fields of the component
-                },
-                (
-                    Node {
-                        width: some_var      // you can directly use variables without {}
-                    }
-                    ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
-                    @Container {
-                        @items: {
-                            bsn_list![                // sometimes you may need to nest macro calls
-                                #item1 SomeComponent, // note: the name #item1 here is in its own scope
-                                @some_scene() #item2
-                            ]
-                        }
-                    }
-                )
+                }
+                --
+                Node {
+                    width: some_var      // you can directly use variables without {}
+                }
+                ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
+                @Container {
+                    @items: bsn_list![                // sometimes you may need to nest macro calls
+                        #Item1 SomeComponent          // note: the name #item1 here is in its own scope
+                        --
+                        #Item2 @some_scene()
+                    ]
+                }
             ]
         };
         // just checking it spawns correctly
@@ -3228,8 +3215,9 @@ mod tests {
         fn make_scene(config: &Config) -> impl Scene {
             bsn! {
                 Children [
-                    (FontSource::Handle { value: { config.value.clone() } }),
-                    (FontSource::Handle { value: { config.value.clone() } }),
+                    FontSource::Handle { value: { config.value.clone() } }
+                    --
+                    FontSource::Handle { value: { config.value.clone() } }
                 ]
             }
         }
@@ -3410,7 +3398,7 @@ mod tests {
         fn child() -> impl Scene {
             bsn! {
                 Foo(1)
-                Children [ Foo(2), Foo(3) ]
+                Children [Foo(2) -- Foo(3) ]
             }
         }
 
