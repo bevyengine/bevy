@@ -4,8 +4,8 @@ use crate::_bsn::types::{
     BsnSceneListItems, BsnStructUpdate, BsnType, BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
-use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens};
+use proc_macro2::{Span, TokenStream};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use syn::{parse::Parse, ExprTuple, Ident, Lit, Member, Path};
 
@@ -64,6 +64,7 @@ pub(crate) struct BsnCodegenCtx<'a> {
     pub hoisted_expressions: &'a mut HoistedExpressions,
     /// Accumulated parsing and validation errors.
     pub errors: Vec<syn::Error>,
+    pub deprecations: Vec<TokenStream>,
 }
 impl<'a> BsnCodegenCtx<'a> {
     fn fixed_entity_ref(&mut self, ident: &Ident) -> (String, usize) {
@@ -91,12 +92,14 @@ impl BsnTokenStream for BsnRoot {
             quote! {}
         };
 
+        let deprecations = ctx.deprecations.iter();
         // NOTE: Assigning the result to a variable first so that the LSP's
         // type inference can see assignments before it encounters
         // any compile errors. This keeps autocomplete working in broken states,
         // e.g. when typing the name of a field but no value yet.
         quote! {
             #bevy_scene::SceneScope({
+                #(#deprecations)*
                 #call_id
                 #(#hoisted_exprs)*
                 let _res = #tokens;
@@ -122,12 +125,15 @@ impl BsnTokenStream for BsnListRoot {
             quote! {}
         };
 
+        let deprecations = ctx.deprecations.iter();
+
         // NOTE: Assigning the result to a variable first so that the LSP's
         // type inference can see assignments before it encounters
         // any compile errors. This keeps autocomplete working in broken states,
         // e.g. when typing the name of a field but no value yet.
         quote! {
             {
+                #(#deprecations)*
                 #call_id
                 #(#hoisted_exprs)*
                 let _res = #bevy_scene::SceneListScope(#tokens);
@@ -169,6 +175,14 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                     #(#patches)*
                 })
             });
+        }
+
+        if let Some(span) = &self.used_parens {
+            ctx.deprecations.push(deprecation_warning(
+                span.clone(),
+                "DEPRECATED_PARENTHESES",
+                "Parentheses around entities (and comma separators) have been deprecated in BSN. Remove the parentheses and use `--` to separate entities",
+            ));
         }
         Ok(quote! { #bevy_scene::auto_nest_tuple!(#(#scene_impls),*) })
     }
@@ -751,6 +765,13 @@ impl ToTokens for BsnStructUpdate {
 
 impl BsnTokenStream for BsnSceneListItems {
     fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        for comma in self.1.iter() {
+            ctx.deprecations.push(deprecation_warning(
+                comma.clone(),
+                "DEPRECATED_COMMAS",
+                "Comma separators (and parentheses around entities) have been deprecated in BSN. Use `--` to separate entities and remove any parentheses"
+            ));
+        }
         let bevy_scene = ctx.bevy_scene;
         let scenes = self.0.iter().map(|s| match s {
             BsnSceneListItem::Scene(bsn) => {
@@ -836,6 +857,23 @@ impl ToTokens for BsnValue {
     }
 }
 
+fn deprecation_warning(span: Span, name: &str, message: &str) -> TokenStream {
+    let name = Ident::new(name, Span::call_site());
+    quote_spanned!(span =>
+        {
+        #[allow(dead_code)]
+        #[allow(non_camel_case_types)]
+        #[allow(non_snake_case)]
+        fn #name() {
+            #[deprecated(note = #message)]
+            #[allow(non_upper_case_globals)]
+            const warning: () = ();
+            let _ = warning;
+        }
+        }
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -883,6 +921,7 @@ mod tests {
                 invocation_index: parse_quote!(("", 0, 0)),
                 hoisted_expressions,
                 errors: Vec::new(),
+                deprecations: Vec::new(),
             }
         }
     }
@@ -1085,7 +1124,10 @@ mod tests {
             proc_macro2::Span::call_site(),
             "Test Error",
         ));
-        let root = BsnRoot(Bsn::<true> { entries: vec![] });
+        let root = BsnRoot(Bsn::<true> {
+            entries: vec![],
+            used_parens: None,
+        });
 
         // Act
         let res = root.to_tokens(&mut ctx).to_string();

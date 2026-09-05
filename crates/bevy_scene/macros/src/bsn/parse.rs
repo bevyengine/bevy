@@ -60,7 +60,9 @@ impl Parse for BsnListRoot {
 impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut entries = Vec::new();
+        let mut used_parens = None;
         if input.peek(Paren) {
+            used_parens = Some(input.span());
             let content;
             parenthesized![content in input];
             while !content.is_empty() {
@@ -93,7 +95,10 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
             entries.push(BsnEntry::parse(input)?);
         }
 
-        Ok(Self { entries })
+        Ok(Self {
+            entries,
+            used_parens,
+        })
     }
 }
 
@@ -222,6 +227,7 @@ impl Parse for BsnSceneList {
 impl Parse for BsnSceneListItems {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut scenes = Vec::new();
+        let mut commas = Vec::new();
         loop {
             if input.is_empty() {
                 break;
@@ -238,11 +244,14 @@ impl Parse for BsnSceneListItems {
                 let value = input.parse::<BsnSceneListItem>()?;
                 scenes.push(value);
             }
+
+            if input.peek(Comma) {
+                commas.push(input.span());
+            }
             input.parse::<CommaOrTwoMinus>()?;
         }
 
-        parse_punctuated_vec_autocomplete_friendly!(scenes, input, BsnSceneListItem, Comma);
-        Ok(BsnSceneListItems(scenes))
+        Ok(BsnSceneListItems(scenes, commas))
     }
 }
 
