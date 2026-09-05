@@ -178,9 +178,11 @@ fn setup_paged_ui(
             height: percent(100),
         }
         Children [
-            @instructions_scene(),
-            @focus_display_scene(),
-            @key_display_scene(),
+            @instructions_scene()
+            --
+            @focus_display_scene()
+            --
+            @key_display_scene()
         ]
     });
 
@@ -439,22 +441,27 @@ fn grid_page_text_entities_scene_list(page_num: usize) -> impl SceneList {
     };
     bsn_list! {
         // Text describing current page
-        @helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 10, Justify::Center),
-
+        @helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 10, Justify::Center)
+        --
         // Text describing direction to go to the previous page, placed left of the top-left button.
-        @helper_text_node_scene(format!("Page {} << ", previous_page), 310, 120, Justify::Right),
-
+        @helper_text_node_scene(format!("Page {} << ", previous_page), 310, 120, Justify::Right)
+        --
         // Text describing direction to go to the next page, placed right of the bottom-right button.
-        @helper_text_node_scene(format!(">> Page {}", (page_num + 1) % 3 + 1), 1000, 525, Justify::Left),
-
+        @helper_text_node_scene(format!(">> Page {}", (page_num + 1) % 3 + 1), 1000, 525, Justify::Left)
+        --
         // Texts describing that moving right wraps to the next row.
-        @helper_text_node_scene("> Btn 2-1".into(), 1000, 120, Justify::Left),
-        @helper_text_node_scene("> Btn 3-1".into(), 1000, 255, Justify::Left),
-        @helper_text_node_scene("> Btn 4-1".into(), 1000, 390, Justify::Left),
-        @helper_text_node_scene("Btn 1-3 < ".into(), 310, 255, Justify::Right),
-        @helper_text_node_scene("Btn 2-3 < ".into(), 310, 390, Justify::Right),
-        @helper_text_node_scene("Btn 3-3 < ".into(), 310, 525, Justify::Right),
-
+        @helper_text_node_scene("> Btn 2-1".into(), 1000, 120, Justify::Left)
+        --
+        @helper_text_node_scene("> Btn 3-1".into(), 1000, 255, Justify::Left)
+        --
+        @helper_text_node_scene("> Btn 4-1".into(), 1000, 390, Justify::Left)
+        --
+        @helper_text_node_scene("Btn 1-3 < ".into(), 310, 255, Justify::Right)
+        --
+        @helper_text_node_scene("Btn 2-3 < ".into(), 310, 390, Justify::Right)
+        --
+        @helper_text_node_scene("Btn 3-3 < ".into(), 310, 525, Justify::Right)
+        --
         // Footer Text
         Node {
             position_type: PositionType::Absolute,
@@ -497,25 +504,25 @@ fn triangle_page_text_entities_scene_list(page_num: usize) -> impl SceneList {
     let previous_page = if page_num == 0 { 3 } else { page_num };
     bsn_list! {
         // Text describing current page
-        @helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 20, Justify::Center),
-
+        @helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 20, Justify::Center)
+        --
         // Text describing direction to go to the previous page, placed left of the top-left button.
-        @helper_text_node_scene(format!("Page {} << ", previous_page), 310, 120, Justify::Right),
-
+        @helper_text_node_scene(format!("Page {} << ", previous_page), 310, 120, Justify::Right)
+        --
         // Direction to navigate from button 3 to button 4, placed below center button
-        @helper_text_node_scene("v\nBtn 4".into(), 575, 325, Justify::Center),
-
+        @helper_text_node_scene("v\nBtn 4".into(), 575, 325, Justify::Center)
+        --
         // Direction to navigate from button 3 to button 4, placed right of center button
-        @helper_text_node_scene("> Btn 4".into(), 735, 255, Justify::Left),
-
+        @helper_text_node_scene("> Btn 4".into(), 735, 255, Justify::Left)
+        --
         // Direction to navigate from button 4 to button 3, placed above bottom right button
-        @helper_text_node_scene("Btn 3\n^".into(), 1050, 300, Justify::Center),
-
+        @helper_text_node_scene("Btn 3\n^".into(), 1050, 300, Justify::Center)
+        --
         // Direction to navigate from button 4 to button 3, placed left of bottom right button
-        @helper_text_node_scene("Btn 3 < ".into(), 910, 390, Justify::Right),
-
+        @helper_text_node_scene("Btn 3 < ".into(), 910, 390, Justify::Right)
+        --
         // Direction to go to the next page, placed bottom of the bottom-right button.
-        @helper_text_node_scene(format!("V\nV\nPage {}", (page_num + 1) % 3 + 1), 1050, 460, Justify::Center),
+        @helper_text_node_scene(format!("V\nV\nPage {}", (page_num + 1) % 3 + 1), 1050, 460, Justify::Center)
     }
 }
 

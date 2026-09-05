@@ -331,8 +331,7 @@ fn spawn_ui(commands: &mut Commands) {
                 align_items: AlignItems::Center,
             }
             BackgroundColor(Color::BLACK)
-            ,
-
+            --
             // Spawn the "Mip Generation" switch that allows the user to toggle
             // mip generation on and off.
             @feathers_option_buttons(
@@ -347,7 +346,8 @@ fn spawn_ui(commands: &mut Commands) {
                         "Off"
                     ),
                 ], 0
-            ),
+            )
+            --
             // Spawn the "Image Width" control that allows the user to set the
             // width of the image.
             @feathers_option_buttons(
@@ -360,7 +360,8 @@ fn spawn_ui(commands: &mut Commands) {
                     (ImageSizeSetting::ImageWidth(ImageSize::Size1920), "1920"),
                 ],
                 2
-            ),
+            )
+            --
             // Spawn the "Image Height" control that allows the user to set the
             // height of the image.
             @feathers_option_buttons(

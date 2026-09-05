@@ -284,8 +284,8 @@ fn spawn_buttons(commands: &mut Commands) {
                     (Selection::DirectionalLight, "Directional Light"),
                 ],
                 0,
-            ),
-
+            )
+            --
             // Camera's visibility cannot be toggled.
             Visibility::Hidden
             @feathers_option_buttons(
@@ -295,17 +295,15 @@ fn spawn_buttons(commands: &mut Commands) {
                     (Visibility::Hidden, "Hide"),
                 ],
                 0,
-            ),
-
+            )
+            --
             // The number inputs start off hidden because Camera is selected first.
             Visibility::Hidden
             @number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.01..=5.)
-            ,
-
+            --
             Visibility::Hidden
             // + epsilon and next_down are used since roll recalculation likes to switch between -PI and PI upon recalculating roll.
             @number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI + f32::EPSILON ..=PI.next_down())
-            ,
         ]
     });
 }

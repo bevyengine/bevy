@@ -1,5 +1,4 @@
 use bevy_app::{Plugin, PreUpdate, PropagateOver};
-use bevy_asset::AssetServer;
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -8,7 +7,6 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
-    template::template,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{cursor::EntityCursor, PickingSystems};
@@ -16,7 +14,7 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{
-    EditableText, FontSource, FontWeight, LineBreak, TextCursorStyle, TextFont, TextLayout,
+    EditableText, FontSourceTemplate, FontWeight, LineBreak, TextCursorStyle, TextFont, TextLayout,
     TextReadWriteMode,
 };
 use bevy_ui::{
@@ -121,17 +119,14 @@ impl FeathersTextInput {
                 linebreak: LineBreak::NoWrap,
             }
             TabIndex(0)
-            template(|ctx| {
-                Ok(TextFont {
-                    font: FontSource::Handle(ctx.resource::<AssetServer>().load(fonts::REGULAR)),
-                    font_size: size::COMPACT_FONT,
-                    weight: FontWeight::NORMAL,
-                    ..Default::default()
-                })
-            })
+            TextFont {
+                font: FontSourceTemplate::Handle(fonts::REGULAR),
+                font_size: size::COMPACT_FONT,
+                weight: FontWeight::NORMAL,
+            }
             PropagateOver<TextFont>
             EntityCursor::System(bevy_window::SystemCursorIcon::Text)
-            TextCursorStyle::default()
+            TextCursorStyle
         }
     }
 }

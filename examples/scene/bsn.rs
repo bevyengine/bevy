@@ -9,7 +9,7 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, @ui()]
+    bsn_list![Camera2d -- @ui()]
 }
 
 fn ui() -> impl Scene {
@@ -22,15 +22,12 @@ fn ui() -> impl Scene {
             column_gap: px(5),
         }
         Children [
-            (
-                @button("Ok")
-                on(|_event: On<PointerPress>| println!("Ok pressed!"))
-            ),
-            (
-                @button("Cancel")
-                on(|_event: On<PointerPress>| println!("Cancel pressed!"))
-                BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
-            ),
+            @button("Ok")
+            on(|_event: On<PointerPress>| println!("Ok pressed!"))
+            --
+            @button("Cancel")
+            on(|_event: On<PointerPress>| println!("Cancel pressed!"))
+            BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
         ]
     }
 }
@@ -48,7 +45,7 @@ fn button(label: &str) -> impl Scene {
         }
         BorderColor::from(Color::BLACK)
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
-        Children [(
+        Children [
             Text(label)
             TextFont {
                 font: FontSourceTemplate::Handle("fonts/FiraSans-Bold.ttf"),
@@ -56,6 +53,6 @@ fn button(label: &str) -> impl Scene {
             }
             TextColor(Color::srgb(0.9, 0.9, 0.9))
             TextShadow
-        )]
+        ]
     }
 }

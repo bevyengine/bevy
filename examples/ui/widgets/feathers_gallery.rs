@@ -84,7 +84,11 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, @demo_root()]
+    bsn_list![
+        Camera2d
+        --
+        @demo_root()
+    ]
 }
 
 fn demo_root() -> Box<dyn Scene> {
@@ -100,10 +104,12 @@ fn demo_root() -> Box<dyn Scene> {
         }
         TabGroup
         ThemeBackgroundColor(tokens::WINDOW_BG)
-        Children[
-            @demo_column_1(),
-            @demo_column_2(),
-            @demo_column_3(),
+        Children [
+            @demo_column_1()
+            --
+            @demo_column_2()
+            --
+            @demo_column_3()
         ]
     })
 }
@@ -181,30 +187,26 @@ fn demo_column_1() -> impl Scene {
                 window_margin: 10.0,
             }
             Children [
-                (
-                    @FeathersMenuItem {
-                        @caption: bsn! { @caption("MenuItem 4") }
-                    }
-                    on(|_: On<Activate>| {
-                        info!("Menu item 4 clicked!");
-                    })
-                ),
-                (
-                    @FeathersMenuItem {
-                        @caption: bsn! { @caption("MenuItem 5") }
-                    }
-                    on(|_: On<Activate>| {
-                        info!("Menu item 5 clicked!");
-                    })
-                ),
-                (
-                    @FeathersMenuItem {
-                        @caption: bsn! { @caption("MenuItem 6") }
-                    }
-                    on(|_: On<Activate>| {
-                        info!("Menu item 6 clicked!");
-                    })
-                )
+                @FeathersMenuItem {
+                    @caption: bsn! { @caption("MenuItem 4") }
+                }
+                on(|_: On<Activate>| {
+                    info!("Menu item 4 clicked!");
+                })
+                --
+                @FeathersMenuItem {
+                    @caption: bsn! { @caption("MenuItem 5") }
+                }
+                on(|_: On<Activate>| {
+                    info!("Menu item 5 clicked!");
+                })
+                --
+                @FeathersMenuItem {
+                    @caption: bsn! { @caption("MenuItem 6") }
+                }
+                on(|_: On<Activate>| {
+                    info!("Menu item 6 clicked!");
+                })
             ]
         ))
     });
@@ -221,570 +223,518 @@ fn demo_column_1() -> impl Scene {
             min_width: px(200),
         }
         Children [
-            (
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
-                    column_gap: px(8),
-                }
-                Children [
-                    (
-                        @FeathersButton {
-                            @caption: bsn! { @caption("Normal") }
-                        }
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        AccessibleLabel("Normal")
-                        on(|_activate: On<Activate>| {
-                            info!("Normal button clicked!");
-                        })
-                        AutoFocus
-                    ),
-                    (
-                        @FeathersButton {
-                            @caption: bsn! { @caption("Disabled") },
-                        }
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        AccessibleLabel("Disabled")
-                        InteractionDisabled
-                        DemoDisabledButton
-                        on(|_activate: On<Activate>| {
-                            info!("Disabled button clicked!");
-                        })
-                    ),
-                    (
-                        @FeathersButton {
-                            @caption: bsn! { @caption("Primary") },
-                            @variant: ButtonVariant::Primary,
-                        }
-                        AccessibleLabel("Primary")
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        on(|_activate: On<Activate>| {
-                            info!("Primary button clicked!");
-                        })
-                    ),
-                    (
-                        @FeathersMenu
-                        Children [
-                            (
-                                @FeathersMenuButton {
-                                    @caption: bsn! { @caption("Menu") }
-                                }
-                                AccessibleLabel("Menu Example")
-                                Node {
-                                    flex_grow: 1.0,
-                                }
-                            ),
-                            (
-                                @FeathersMenuPopup
-                                Children [
-                                    (
-                                        @FeathersMenuItem {
-                                            @caption: bsn! { @caption("MenuItem 1") }
-                                        }
-                                        on(|_: On<Activate>| {
-                                            info!("Menu item 1 clicked!");
-                                        })
-                                    ),
-                                    (
-                                        @FeathersMenuItem {
-                                            @caption: bsn! { @caption("MenuItem 2") }
-                                        }
-                                        on(|_: On<Activate>| {
-                                            info!("Menu item 2 clicked!");
-                                        })
-                                    ),
-                                    @FeathersMenuDivider,
-                                    (
-                                        @FeathersMenuItem {
-                                            @caption: bsn! { @caption("MenuItem 3") }
-                                        }
-                                        on(|_: On<Activate>| {
-                                            info!("Menu item 3 clicked!");
-                                        })
-                                    )
-                                ]
-                            )
-                        ]
-                    ),
-                    (
-                        @FeathersLazyMenu { popup }
-                        Children [
-                            (
-                                @FeathersMenuToolButton {
-                                    @caption: bsn! { @caption("\u{0398}") }
-                                }
-                                AccessibleLabel("Menu Example")
-                                Node {
-                                    flex_grow: 1.0,
-                                }
-                            )
-                        ]
-                    )
-                ]
-            ),
-            (
-                @FeathersSelect {
-                    @options: {list_rows_from_strings([
-                        "One",
-                        "Two",
-                        "Three",
-                    ], Some(0))},
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Start,
+                column_gap: px(8),
+            }
+            Children [
+                @FeathersButton {
+                    @caption: bsn! { @caption("Normal") }
                 }
                 Node {
                     flex_grow: 1.0,
                 }
-                on(|change: On<ValueChange<Entity>>, q_options: Query<&OptionIndex>| {
-                    let Ok(option) = q_options.get(change.value) else {
-                        info!("Select changed, not sure");
-                        return;
-                    };
-                    info!("Select changed to index {}", option.0);
+                AccessibleLabel("Normal")
+                on(|_activate: On<Activate>| {
+                    info!("Normal button clicked!");
                 })
-            ),
-            (
-                @FeathersSelect {
-                    @options: {
-                        Box::new(
-                            Months::ALL
-                                .into_iter()
-                                .map(|m| -> Box<dyn SceneList> {
-                                    let label = m.to_str();
-                                    if m == Months::default() {
-                                        bsn! { @FeathersListRow Selected m Children [ @caption(label) ] }.into()
-                                    } else {
-                                        bsn! { @FeathersListRow m Children [ @caption(label) ] }.into()
-                                    }
-                                })
-                                .collect::<Vec<_>>(),
-                        ) as Box<dyn SceneList>
-                    },
-                    @max_visible: 6,
-                }
-                Node {
-                    flex_grow: 1.0,
-                }
-                on(|change: On<ValueChange<Entity>>, q_months: Query<&Months>| {
-                    let Ok(month) = q_months.get(change.value) else {
-                        return;
-                    };
-                    info!("Select changed to {:?}", month);
-                })
-            ),
-            (
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
-                    column_gap: px(1),
-                }
-                Children [
-                    (
-                        @FeathersButton {
-                            @caption: bsn! { @caption("Left") },
-                            @corners: RoundedCorners::Left,
-                        }
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        AccessibleLabel("Left")
-                        on(|_activate: On<Activate>| {
-                            info!("Left button clicked!");
-                        })
-                    ),
-                    (
-                        @FeathersButton {
-                            @caption: bsn! { @caption("Center") },
-                            @corners: RoundedCorners::None,
-                        }
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        AccessibleLabel("Center")
-                        on(|_activate: On<Activate>| {
-                            info!("Center button clicked!");
-                        })
-                    ),
-                    (
-                        @FeathersButton {
-                            @caption: bsn! { @caption("Right") },
-                            @variant: ButtonVariant::Primary,
-                            @corners: RoundedCorners::Right,
-                        }
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        AccessibleLabel("Right")
-                        on(|_activate: On<Activate>| {
-                            info!("Right button clicked!");
-                        })
-                    ),
-                ]
-            ),
-            (
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
-                    column_gap: px(8),
-                }
-                Children [
-                    (
-                        @FeathersButton {
-                            @caption: bsn! { @caption("Toggle override") },
-                        }
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        on(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
-                            ovr.0 = if ovr.0.is_some() {
-                                None
-                            } else {
-                                Some(EntityCursor::System(SystemCursorIcon::Wait))
-                            };
-                            info!("Override cursor button clicked!");
-                        })
-                    ),
-                    (
-                        @FeathersButton {
-                            @caption: bsn! { @caption("Quit\u{2026}") },
-                        }
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        on(spawn_quit_dialog)
-                    ),
-                ]
-            ),
-            (
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
-                    column_gap: px(8),
-                }
-                Children [
-                    @label("Dialog:"),
-                    (
-                        @FeathersToggleSwitch
-                        DemoDialogToggle
-                        on(toggle_demo_dialog)
-                    ),
-                ]
-            ),
-            (
-                @FeathersCheckbox {
-                    @caption: bsn! { @caption("Checkbox") }
-                }
-                Checked
-                AccessibleLabel("Checkbox Example")
-                on(|change: On<ValueChange<bool>>, query: Query<Entity, With<DemoDisabledButton>>, mut commands: Commands| {
-                    info!("Checkbox clicked!");
-                    let mut button = commands.entity(query.single().unwrap());
-                    if change.value {
-                        button.insert(InteractionDisabled);
-                    } else {
-                        button.remove::<InteractionDisabled>();
-                    }
-                    let mut checkbox = commands.entity(change.source);
-                    if change.value {
-                        checkbox.insert(Checked);
-                    } else {
-                        checkbox.remove::<Checked>();
-                    }
-                })
-            ),
-            (
-                @FeathersCheckbox {
-                    @caption: bsn! { @caption("Fast Click Checkbox") }
-                }
-                ActivateOnPress
-                AccessibleLabel("Fast Click Checkbox Example")
-                on(|change: On<ValueChange<bool>>, mut commands: Commands| {
-                    info!("Checkbox clicked!");
-                    let mut checkbox = commands.entity(change.source);
-                    if change.value {
-                        checkbox.insert(Checked);
-                    } else {
-                        checkbox.remove::<Checked>();
-                    }
-                })
-            ),
-            (
-                @FeathersCheckbox {
+                AutoFocus
+                --
+                @FeathersButton {
                     @caption: bsn! { @caption("Disabled") },
                 }
+                Node {
+                    flex_grow: 1.0,
+                }
+                AccessibleLabel("Disabled")
                 InteractionDisabled
-                AccessibleLabel("Disabled Checkbox Example")
-                on(|_change: On<ValueChange<bool>>| {
-                    warn!("Disabled checkbox clicked!");
+                DemoDisabledButton
+                on(|_activate: On<Activate>| {
+                    info!("Disabled button clicked!");
                 })
-            ),
-            (
-                @FeathersCheckbox {
-                    @caption: bsn! { @caption("Checked+Disabled") }
+                --
+                @FeathersButton {
+                    @caption: bsn! { @caption("Primary") },
+                    @variant: ButtonVariant::Primary,
                 }
-                InteractionDisabled
-                Checked
-                AccessibleLabel("Disabled and Checked Checkbox Example")
-                on(|_change: On<ValueChange<bool>>| {
-                    warn!("Disabled checkbox clicked!");
-                })
-            ),
-            (
+                AccessibleLabel("Primary")
                 Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
-                    column_gap: px(8),
+                    flex_grow: 1.0,
                 }
+                on(|_activate: On<Activate>| {
+                    info!("Primary button clicked!");
+                })
+                --
+                @FeathersMenu
                 Children [
-                    (
-                        Node {
-                            display: Display::Flex,
-                            flex_direction: FlexDirection::Column,
-                            row_gap: px(4),
+                    @FeathersMenuButton {
+                        @caption: bsn! { @caption("Menu") }
+                    }
+                    AccessibleLabel("Menu Example")
+                    Node {
+                        flex_grow: 1.0,
+                    }
+                    --
+                    @FeathersMenuPopup
+                    Children [
+                        @FeathersMenuItem {
+                            @caption: bsn! { @caption("MenuItem 1") }
                         }
-                        RadioGroup
-                        on(radio_self_update)
-                        Children [
-                            (
-                                @FeathersRadio {
-                                    @caption: bsn! { @caption("One") }
-                                }
-                                Checked
-                            ),
-                            @FeathersRadio {
-                                @caption: bsn! { @caption("Two") }
-                            },
-                            (
-                                @FeathersRadio {
-                                    @caption: bsn! { @caption("Fast Click") }
-                                }
-                                ActivateOnPress
-                            ),
-                            (
-                                @FeathersRadio {
-                                    @caption: bsn! { @caption("Disabled") }
-                                }
-                                InteractionDisabled
-                            ),
-                        ]
-                    )
-                ]
-            ),
-            (
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
-                    column_gap: px(8),
-                }
-                Children [
-                    (@FeathersToggleSwitch on(checkbox_self_update)),
-                    (@FeathersToggleSwitch ActivateOnPress on(checkbox_self_update)),
-                    (@FeathersToggleSwitch InteractionDisabled on(checkbox_self_update)),
-                    (@FeathersToggleSwitch InteractionDisabled Checked on(checkbox_self_update)),
-                    (@FeathersDisclosureToggle on(checkbox_self_update)),
-                ]
-            ),
-            (
-                @FeathersSlider {
-                    @max: 100.0,
-                }
-                SliderValue(20.0)
-                SliderStep(10.)
-                SliderPrecision(2)
-                on(slider_self_update)
-            ),
-            (
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::SpaceBetween,
-                    column_gap: px(4),
-                }
-                Children [
-                    @label("Srgba"),
-                    // Spacer
-                    @flex_spacer(),
-                    // Text input
-                    (
-                        @FeathersTextInputContainer
-                        Node {
-                            flex_grow: 0.
-                            padding: { px(4).left() },
+                        on(|_: On<Activate>| {
+                            info!("Menu item 1 clicked!");
+                        })
+                        --
+                        @FeathersMenuItem {
+                            @caption: bsn! { @caption("MenuItem 2") }
                         }
-                        Children [
-                            (
-                                @FeathersTextInput {
-                                    @visible_width: 10f32,
-                                    @max_characters: 9usize,
-                                }
-                                InheritableFont {
-                                    font: fonts::MONO
-                                }
-                                HexColorInput
-                                on(handle_hex_color_change)
-                            )
-                        ]
-                    )
-                    (@FeathersColorSwatch {
-                        @opaque_color_percentage: 30.0,
-                    } SwatchType::Rgb),
+                        on(|_: On<Activate>| {
+                            info!("Menu item 2 clicked!");
+                        })
+                        --
+                        @FeathersMenuDivider
+                        --
+                        @FeathersMenuItem {
+                            @caption: bsn! { @caption("MenuItem 3") }
+                        }
+                        on(|_: On<Activate>| {
+                            info!("Menu item 3 clicked!");
+                        })
+                    ]
                 ]
-            ),
-            (
-                @FeathersColorPlane::RedBlue
-                on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.rgb_color.red = change.value.x;
-                    color.rgb_color.blue = change.value.y;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::Red
+                --
+                @FeathersLazyMenu { popup }
+                Children [
+                    @FeathersMenuToolButton {
+                        @caption: bsn! { @caption("\u{0398}") }
+                    }
+                    AccessibleLabel("Menu Example")
+                    Node {
+                        flex_grow: 1.0,
+                    }
+                ]
+            ]
+            --
+            @FeathersSelect {
+                @options: list_rows_from_strings([
+                    "One",
+                    "Two",
+                    "Three",
+                ], Some(0)),
+            }
+            Node {
+                flex_grow: 1.0,
+            }
+            on(|change: On<ValueChange<Entity>>, q_options: Query<&OptionIndex>| {
+                let Ok(option) = q_options.get(change.value) else {
+                    info!("Select changed, not sure");
+                    return;
+                };
+                info!("Select changed to index {}", option.0);
+            })
+            --
+            @FeathersSelect {
+                @options: {
+                    Box::new(
+                        Months::ALL
+                            .into_iter()
+                            .map(|m| -> Box<dyn SceneList> {
+                                let label = m.to_str();
+                                if m == Months::default() {
+                                    bsn! { @FeathersListRow Selected m Children [ @caption(label) ] }.into()
+                                } else {
+                                    bsn! { @FeathersListRow m Children [ @caption(label) ] }.into()
+                                }
+                            })
+                            .collect::<Vec<_>>(),
+                    ) as Box<dyn SceneList>
+                },
+                @max_visible: 6,
+            }
+            Node {
+                flex_grow: 1.0,
+            }
+            on(|change: On<ValueChange<Entity>>, q_months: Query<&Months>| {
+                let Ok(month) = q_months.get(change.value) else {
+                    return;
+                };
+                info!("Select changed to {:?}", month);
+            })
+            --
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Start,
+                column_gap: px(1),
+            }
+            Children [
+                @FeathersButton {
+                    @caption: bsn! { @caption("Left") },
+                    @corners: RoundedCorners::Left,
                 }
-                AccessibleLabel("Red Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.rgb_color.red = change.value;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::Green
+                Node {
+                    flex_grow: 1.0,
                 }
-                AccessibleLabel("Green Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.rgb_color.green = change.value;
+                AccessibleLabel("Left")
+                on(|_activate: On<Activate>| {
+                    info!("Left button clicked!");
                 })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::Blue
+                --
+                @FeathersButton {
+                    @caption: bsn! { @caption("Center") },
+                    @corners: RoundedCorners::None,
                 }
-                AccessibleLabel("Blue Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.rgb_color.blue = change.value;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::Alpha
+                Node {
+                    flex_grow: 1.0,
                 }
-                AccessibleLabel("Alpha Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.rgb_color.alpha = change.value;
+                AccessibleLabel("Center")
+                on(|_activate: On<Activate>| {
+                    info!("Center button clicked!");
                 })
-            ),
-            (
+                --
+                @FeathersButton {
+                    @caption: bsn! { @caption("Right") },
+                    @variant: ButtonVariant::Primary,
+                    @corners: RoundedCorners::Right,
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                AccessibleLabel("Right")
+                on(|_activate: On<Activate>| {
+                    info!("Right button clicked!");
+                })
+            ]
+            --
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Start,
+                column_gap: px(8),
+            }
+            Children [
+                @FeathersButton {
+                    @caption: bsn! { @caption("Toggle override") },
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
+                    ovr.0 = if ovr.0.is_some() {
+                        None
+                    } else {
+                        Some(EntityCursor::System(SystemCursorIcon::Wait))
+                    };
+                    info!("Override cursor button clicked!");
+                })
+                --
+                @FeathersButton {
+                    @caption: bsn! { @caption("Quit\u{2026}") },
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(spawn_quit_dialog)
+            ]
+            --
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Start,
+                column_gap: px(8),
+            }
+            Children [
+                @label("Dialog:")
+                --
+                @FeathersToggleSwitch
+                DemoDialogToggle
+                on(toggle_demo_dialog)
+            ]
+            --
+            @FeathersCheckbox {
+                @caption: bsn! { @caption("Checkbox") }
+            }
+            Checked
+            AccessibleLabel("Checkbox Example")
+            on(|change: On<ValueChange<bool>>, query: Query<Entity, With<DemoDisabledButton>>, mut commands: Commands| {
+                info!("Checkbox clicked!");
+                let mut button = commands.entity(query.single().unwrap());
+                if change.value {
+                    button.insert(InteractionDisabled);
+                } else {
+                    button.remove::<InteractionDisabled>();
+                }
+                let mut checkbox = commands.entity(change.source);
+                if change.value {
+                    checkbox.insert(Checked);
+                } else {
+                    checkbox.remove::<Checked>();
+                }
+            })
+            --
+            @FeathersCheckbox {
+                @caption: bsn! { @caption("Fast Click Checkbox") }
+            }
+            ActivateOnPress
+            AccessibleLabel("Fast Click Checkbox Example")
+            on(|change: On<ValueChange<bool>>, mut commands: Commands| {
+                info!("Checkbox clicked!");
+                let mut checkbox = commands.entity(change.source);
+                if change.value {
+                    checkbox.insert(Checked);
+                } else {
+                    checkbox.remove::<Checked>();
+                }
+            })
+            --
+            @FeathersCheckbox {
+                @caption: bsn! { @caption("Disabled") },
+            }
+            InteractionDisabled
+            AccessibleLabel("Disabled Checkbox Example")
+            on(|_change: On<ValueChange<bool>>| {
+                warn!("Disabled checkbox clicked!");
+            })
+            --
+            @FeathersCheckbox {
+                @caption: bsn! { @caption("Checked+Disabled") }
+            }
+            InteractionDisabled
+            Checked
+            AccessibleLabel("Disabled and Checked Checkbox Example")
+            on(|_change: On<ValueChange<bool>>| {
+                warn!("Disabled checkbox clicked!");
+            })
+            --
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Start,
+                column_gap: px(8),
+            }
+            Children [
                 Node {
                     display: Display::Flex,
-                    align_items: AlignItems::Center,
-                    flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::SpaceBetween,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(4),
                 }
+                RadioGroup
+                on(radio_self_update)
                 Children [
-                    @label("Hsl"),
-                    (@FeathersColorSwatch SwatchType::Hsl)
+                    @FeathersRadio {
+                        @caption: bsn! { @caption("One") }
+                    }
+                    Checked
+                    --
+                    @FeathersRadio {
+                        @caption: bsn! { @caption("Two") }
+                    }
+                    --
+                    @FeathersRadio {
+                        @caption: bsn! { @caption("Fast Click") }
+                    }
+                    ActivateOnPress
+                    --
+                    @FeathersRadio {
+                        @caption: bsn! { @caption("Disabled") }
+                    }
+                    InteractionDisabled
                 ]
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::HslHue
-                }
-                AccessibleLabel("Hue Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.hsl_color.hue = change.value;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::HslSaturation
-                }
-                AccessibleLabel("Saturation Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.hsl_color.saturation = change.value;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::HslLightness
-                }
-                AccessibleLabel("Lightness Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.hsl_color.lightness = change.value;
-                })
-            ),
-            (
+            ]
+            --
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Start,
+                column_gap: px(8),
+            }
+            Children [
+                @FeathersToggleSwitch on(checkbox_self_update)
+                --
+                @FeathersToggleSwitch ActivateOnPress on(checkbox_self_update)
+                --
+                @FeathersToggleSwitch InteractionDisabled on(checkbox_self_update)
+                --
+                @FeathersToggleSwitch InteractionDisabled Checked on(checkbox_self_update)
+                --
+                @FeathersDisclosureToggle on(checkbox_self_update)
+            ]
+            --
+            @FeathersSlider {
+                @max: 100.0,
+            }
+            SliderValue(20.0)
+            SliderStep(10.)
+            SliderPrecision(2)
+            on(slider_self_update)
+            --
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: px(4),
+            }
+            Children [
+                @label("Srgba")
+                --
+                @flex_spacer()
+                --
+                @FeathersTextInputContainer
                 Node {
-                    display: Display::Flex,
-                    align_items: AlignItems::Center,
-                    flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::SpaceBetween,
+                    flex_grow: 0.
+                    padding: { px(4).left() },
                 }
                 Children [
-                    @label("Okhsl"),
-                    (@FeathersColorSwatch SwatchType::Okhsl)
+                    @FeathersTextInput {
+                        @visible_width: 10f32,
+                        @max_characters: 9usize,
+                    }
+                    InheritableFont {
+                        font: fonts::MONO
+                    }
+                    HexColorInput
+                    on(handle_hex_color_change)
                 ]
-            ),
-            (
-                @FeathersColorPlane::OkhslHueLightness
-                on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.okhsl_color.hue = change.value.x * 360.0;
-                    color.okhsl_color.lightness = change.value.y;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::OkhslHue
+                --
+                @FeathersColorSwatch {
+                    @opaque_color_percentage: 30.0,
                 }
-                AccessibleLabel("Okhsl Hue Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.okhsl_color.hue = change.value;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::OkhslSaturation
-                }
-                AccessibleLabel("Okhsl Saturation Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.okhsl_color.saturation = change.value;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::OkhslLightness
-                }
-                AccessibleLabel("Okhsl Lightness Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.okhsl_color.lightness = change.value;
-                })
-            )
+                SwatchType::Rgb
+            ]
+            --
+            @FeathersColorPlane::RedBlue
+            on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
+                color.rgb_color.red = change.value.x;
+                color.rgb_color.blue = change.value.y;
+            })
+            --
+            @FeathersColorSlider {
+                @value: 0.5,
+                @channel: ColorChannel::Red
+            }
+            AccessibleLabel("Red Channel")
+            on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                color.rgb_color.red = change.value;
+            })
+            --
+            @FeathersColorSlider {
+                @value: 0.5,
+                @channel: ColorChannel::Green
+            }
+            AccessibleLabel("Green Channel")
+            on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                color.rgb_color.green = change.value;
+            })
+            --
+            @FeathersColorSlider {
+                @value: 0.5,
+                @channel: ColorChannel::Blue
+            }
+            AccessibleLabel("Blue Channel")
+            on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                color.rgb_color.blue = change.value;
+            })
+            --
+            @FeathersColorSlider {
+                @value: 0.5,
+                @channel: ColorChannel::Alpha
+            }
+            AccessibleLabel("Alpha Channel")
+            on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                color.rgb_color.alpha = change.value;
+            })
+            --
+            Node {
+                display: Display::Flex,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceBetween,
+            }
+            Children [
+                @label("Hsl")
+                --
+                @FeathersColorSwatch SwatchType::Hsl
+            ]
+            --
+            @FeathersColorSlider {
+                @value: 0.5,
+                @channel: ColorChannel::HslHue
+            }
+            AccessibleLabel("Hue Channel")
+            on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                color.hsl_color.hue = change.value;
+            })
+            --
+            @FeathersColorSlider {
+                @value: 0.5,
+                @channel: ColorChannel::HslSaturation
+            }
+            AccessibleLabel("Saturation Channel")
+            on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                color.hsl_color.saturation = change.value;
+            })
+            --
+            @FeathersColorSlider {
+                @value: 0.5,
+                @channel: ColorChannel::HslLightness
+            }
+            AccessibleLabel("Lightness Channel")
+            on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                color.hsl_color.lightness = change.value;
+            })
+            --
+            Node {
+                display: Display::Flex,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceBetween,
+            }
+            Children [
+                @label("Okhsl")
+                --
+                @FeathersColorSwatch SwatchType::Okhsl
+            ]
+            --
+            @FeathersColorPlane::OkhslHueLightness
+            on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
+                color.okhsl_color.hue = change.value.x * 360.0;
+                color.okhsl_color.lightness = 1.0 - change.value.y;
+            })
+            --
+            @FeathersColorSlider {
+                @value: 0.5,
+                @channel: ColorChannel::OkhslHue
+            }
+            AccessibleLabel("Okhsl Hue Channel")
+            on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                color.okhsl_color.hue = change.value;
+            })
+            --
+            @FeathersColorSlider {
+                @value: 0.5,
+                @channel: ColorChannel::OkhslSaturation
+            }
+            AccessibleLabel("Okhsl Saturation Channel")
+            on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                color.okhsl_color.saturation = change.value;
+            })
+            --
+            @FeathersColorSlider {
+                @value: 0.5,
+                @channel: ColorChannel::OkhslLightness
+            }
+            AccessibleLabel("Okhsl Lightness Channel")
+            on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                color.okhsl_color.lightness = change.value;
+            })
         ]
     }
 }
@@ -802,229 +752,247 @@ fn demo_column_2() -> impl Scene {
             min_width: px(200),
         }
         Children [
-            (
-                @pane() Children [
-                    @pane_header() Children [
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Primary,
-                            @caption: bsn! { @caption("\u{0398}") }
-                        },
-                        @pane_header_divider(),
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Plain,
-                            @caption: bsn! { @caption("\u{00BC}") }
-                        },
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Plain,
-                            @caption: bsn! { @caption("\u{00BD}") }
-                        },
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Plain,
-                            @caption: bsn! { @caption("\u{00BE}") }
-                        },
-                        @pane_header_divider(),
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Plain,
-                            @caption: bsn! { @icon(icons::CHEVRON_DOWN) }
-                        },
-                        @flex_spacer(),
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Plain,
-                            @caption: bsn! { @icon(icons::X) }
-                        },
-                    ],
-                    (
-                        @pane_body() Children [
-                            @label_dim("A standard editor pane"),
-                            @subpane() Children [
-                                @subpane_header() Children [
-                                    @caption("Left"),
-                                    @caption("Center"),
-                                    @caption("Right")
-                                ],
-                                @subpane_body() Children [
-                                    @label_dim("A standard sub-pane"),
-                                    @group()
+            @pane() Children [
+                @pane_header() Children [
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Primary,
+                        @caption: bsn! { @caption("\u{0398}") }
+                    }
+                    --
+                    @pane_header_divider()
+                    --
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Plain,
+                        @caption: bsn! { @caption("\u{00BC}") }
+                    }
+                    --
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Plain,
+                        @caption: bsn! { @caption("\u{00BD}") }
+                    }
+                    --
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Plain,
+                        @caption: bsn! { @caption("\u{00BE}") }
+                    }
+                    --
+                    @pane_header_divider()
+                    --
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Plain,
+                        @caption: bsn! { @icon(icons::CHEVRON_DOWN) }
+                    }
+                    --
+                    @flex_spacer()
+                    --
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Plain,
+                        @caption: bsn! { @icon(icons::X) }
+                    }
+                ]
+                --
+                @pane_body() Children [
+                    @label_dim("A standard editor pane")
+                    --
+                    @subpane() Children [
+                        @subpane_header() Children [
+                            @caption("Left")
+                            --
+                            @caption("Center")
+                            --
+                            @caption("Right")
+                        ]
+                        --
+                        @subpane_body() Children [
+                            @label_dim("A standard sub-pane")
+                            --
+                            @group() Children [
+                                @group_header() Children [
+                                    @caption("Group")
+                                ]
+                                --
+                                @group_body()
+                                Children [
+                                    @label("A standard group")
+                                    --
+                                    @label_small("Scalar property")
+                                    --
+                                    @FeathersNumberInput
+                                    DemoScalarField
+                                    NumberInputPrecision(2)
+                                    HardLimit::f32(0.0..=100.0)
+                                    Node {
+                                        flex_grow: 1.0,
+                                        max_width: px(100),
+                                    }
+                                    on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                        states.scalar_prop = value_change.value;
+                                    })
+                                    --
+                                    @label_small("Scalar property (copy)")
+                                    --
+                                    @FeathersNumberInput
+                                    DemoScalarField
+                                    NumberInputPrecision(4)
+                                    Node {
+                                        flex_grow: 1.0,
+                                        max_width: px(100),
+                                    }
+                                    on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                        states.scalar_prop = value_change.value;
+                                    })
+                                    --
+                                    @label_small("Vec3 property")
+                                    --
+                                    Node {
+                                        display: Display::Flex,
+                                        flex_direction: FlexDirection::Row,
+                                        column_gap: px(6),
+                                        align_items: AlignItems::Center,
+                                        justify_content: JustifyContent::SpaceBetween,
+                                    }
                                     Children [
-                                        @group_header() Children [
-                                            @caption("Group"),
-                                        ],
-                                        @group_body()
-                                        Children [
-                                            @label("A standard group"),
-                                            @label_small("Scalar property"),
-                                            (
-                                                @FeathersNumberInput
-                                                DemoScalarField
-                                                NumberInputPrecision(2)
-                                                HardLimit::f32(0.0..=100.0)
-                                                Node {
-                                                    flex_grow: 1.0,
-                                                    max_width: px(100),
-                                                }
-                                                on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
-                                                    states.scalar_prop = value_change.value;
-                                                })
-                                            ),
-                                            @label_small("Scalar property (copy)"),
-                                            (
-                                                @FeathersNumberInput
-                                                DemoScalarField
-                                                NumberInputPrecision(4)
-                                                Node {
-                                                    flex_grow: 1.0,
-                                                    max_width: px(100),
-                                                }
-                                                on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
-                                                    states.scalar_prop = value_change.value;
-                                                })
-                                            ),
-                                            @label_small("Vec3 property"),
-                                            Node {
-                                                display: Display::Flex,
-                                                flex_direction: FlexDirection::Row,
-                                                column_gap: px(6),
-                                                align_items: AlignItems::Center,
-                                                justify_content: JustifyContent::SpaceBetween,
-                                            }
-                                            Children [
-                                                (
-                                                    @FeathersNumberInput {
-                                                        @sigil_color: tokens::TEXT_INPUT_X_AXIS,
-                                                        @label_text: "X",
-                                                    }
-                                                    NumberInputPrecision(2)
-                                                    DemoVec3Field::X
-                                                    Node {
-                                                        flex_grow: 1.0,
-                                                    }
-                                                    BorderColor::all(palette::X_AXIS)
-                                                    on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
-                                                        states.vec3_prop.x = value_change.value;
-                                                    })
-                                                ),
-                                                (
-                                                    @FeathersNumberInput {
-                                                        @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
-                                                        @label_text: "Y",
-                                                    }
-                                                    NumberInputPrecision(2)
-                                                    DemoVec3Field::Y
-                                                    Node {
-                                                        flex_grow: 1.0,
-                                                    }
-                                                    on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
-                                                        states.vec3_prop.y = value_change.value;
-                                                    })
-                                                ),
-                                                (
-                                                    @FeathersNumberInput {
-                                                        @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
-                                                        @label_text: "Z",
-                                                    }
-                                                    NumberInputPrecision(2)
-                                                    DemoVec3Field::Z
-                                                    Node {
-                                                        flex_grow: 1.0,
-                                                    }
-                                                    on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
-                                                        states.vec3_prop.z = value_change.value;
-                                                    })
-                                                ),
-                                            ],
-                                            @label_small("Color property"),
-                                            Node {
-                                                display: Display::Flex,
-                                                flex_direction: FlexDirection::Row,
-                                                column_gap: px(6),
-                                                align_items: AlignItems::Center,
-                                                justify_content: JustifyContent::SpaceBetween,
-                                            }
-                                            Children [
-                                                (
-                                                    @FeathersNumberInput {
-                                                        @sigil_color: tokens::TEXT_INPUT_X_AXIS,
-                                                        @label_text: "R",
-                                                    }
-                                                    InteractionDisabled
-                                                    NumberInputPrecision(2)
-                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
-                                                    Node {
-                                                        flex_grow: 1.0,
-                                                    }
-                                                    BorderColor::all(palette::X_AXIS)
-                                                ),
-                                                (
-                                                    @FeathersNumberInput {
-                                                        @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
-                                                        @label_text: "G",
-                                                    }
-                                                    InteractionDisabled
-                                                    NumberInputPrecision(2)
-                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
-                                                    Node {
-                                                        flex_grow: 1.0,
-                                                    }
-                                                ),
-                                                (
-                                                    @FeathersNumberInput {
-                                                        @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
-                                                        @label_text: "B",
-                                                    }
-                                                    InteractionDisabled
-                                                    NumberInputPrecision(2)
-                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
-                                                    Node {
-                                                        flex_grow: 1.0,
-                                                    }
-                                                ),
-                                                (
-                                                    @FeathersNumberInput {
-                                                        @sigil_color: tokens::TEXT_INPUT_W_AXIS,
-                                                        @label_text: "A",
-                                                    }
-                                                    InteractionDisabled
-                                                    NumberInputPrecision(2)
-                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
-                                                    Node {
-                                                        flex_grow: 1.0,
-                                                    }
-                                                ),
-                                            ],
-                                        ],
+                                        @FeathersNumberInput {
+                                            @sigil_color: tokens::TEXT_INPUT_X_AXIS,
+                                            @label_text: "X",
+                                        }
+                                        NumberInputPrecision(2)
+                                        DemoVec3Field::X
+                                        Node {
+                                            flex_grow: 1.0,
+                                        }
+                                        BorderColor::all(palette::X_AXIS)
+                                        on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                            states.vec3_prop.x = value_change.value;
+                                        })
+                                        --
+                                        @FeathersNumberInput {
+                                            @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
+                                            @label_text: "Y",
+                                        }
+                                        NumberInputPrecision(2)
+                                        DemoVec3Field::Y
+                                        Node {
+                                            flex_grow: 1.0,
+                                        }
+                                        on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                            states.vec3_prop.y = value_change.value;
+                                        })
+                                        --
+                                        @FeathersNumberInput {
+                                            @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
+                                            @label_text: "Z",
+                                        }
+                                        NumberInputPrecision(2)
+                                        DemoVec3Field::Z
+                                        Node {
+                                            flex_grow: 1.0,
+                                        }
+                                        on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                            states.vec3_prop.z = value_change.value;
+                                        })
                                     ]
-                                ],
+                                    --
+                                    @label_small("Color property")
+                                    --
+                                    Node {
+                                        display: Display::Flex,
+                                        flex_direction: FlexDirection::Row,
+                                        column_gap: px(6),
+                                        align_items: AlignItems::Center,
+                                        justify_content: JustifyContent::SpaceBetween,
+                                    }
+                                    Children [
+                                        @FeathersNumberInput {
+                                            @sigil_color: tokens::TEXT_INPUT_X_AXIS,
+                                            @label_text: "R",
+                                        }
+                                        InteractionDisabled
+                                        NumberInputPrecision(2)
+                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        Node {
+                                            flex_grow: 1.0,
+                                        }
+                                        BorderColor::all(palette::X_AXIS)
+                                        --
+                                        @FeathersNumberInput {
+                                            @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
+                                            @label_text: "G",
+                                        }
+                                        InteractionDisabled
+                                        NumberInputPrecision(2)
+                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        Node {
+                                            flex_grow: 1.0,
+                                        }
+                                        --
+                                        @FeathersNumberInput {
+                                            @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
+                                            @label_text: "B",
+                                        }
+                                        InteractionDisabled
+                                        NumberInputPrecision(2)
+                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        Node {
+                                            flex_grow: 1.0,
+                                        }
+                                        --
+                                        @FeathersNumberInput {
+                                            @sigil_color: tokens::TEXT_INPUT_W_AXIS,
+                                            @label_text: "A",
+                                        }
+                                        InteractionDisabled
+                                        NumberInputPrecision(2)
+                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        Node {
+                                            flex_grow: 1.0,
+                                        }
+                                    ]
+                                ]
                             ]
                         ]
-                    ),
+                    ]
                 ]
-            ),
+            ]
+            --
             @subpane() Children [
                 @subpane_header() Children [
-                    @caption("List"),
-                ],
+                    @caption("List")
+                ]
+                --
                 @subpane_body() Children [
                     @FeathersListView {
-                        @rows: {bsn_list![
-                            @FeathersListRow Children [@caption("First World")],
-                            @FeathersListRow Selected Children [@caption("Second Nature")],
-                            @FeathersListRow Children [@caption("Third Degree")],
-                            @FeathersListRow InteractionDisabled Children [@caption("Fourth Wall")],
-                            @FeathersListRow Children [@caption("Fifth Column")],
-                            @FeathersListRow Children [@caption("Sixth Sense")],
-                            @FeathersListRow Children [@caption("Seventh Heaven")],
-                            @FeathersListRow Children [@caption("Eighth Wonder")],
-                            @FeathersListRow Children [@caption("Ninth Inning")],
-                            @FeathersListRow Children [@caption("Tenth Amendment")],
-                            @FeathersListRow Children [@caption("Eleventh Hour")],
-                            @FeathersListRow Children [@caption("Twelfth Night")],
-                        ]}
+                        @rows: bsn_list![
+                            @FeathersListRow Children [ @caption("First World") ]
+                            --
+                            @FeathersListRow Selected Children [ @caption("Second Nature") ]
+                            --
+                            @FeathersListRow Children [ @caption("Third Degree") ]
+                            --
+                            @FeathersListRow InteractionDisabled Children [ @caption("Fourth Wall") ]
+                            --
+                            @FeathersListRow Children [ @caption("Fifth Column") ]
+                            --
+                            @FeathersListRow Children [ @caption("Sixth Sense") ]
+                            --
+                            @FeathersListRow Children [ @caption("Seventh Heaven") ]
+                            --
+                            @FeathersListRow Children [ @caption("Eighth Wonder") ]
+                            --
+                            @FeathersListRow Children [ @caption("Ninth Inning") ]
+                            --
+                            @FeathersListRow Children [ @caption("Tenth Amendment") ]
+                            --
+                            @FeathersListRow Children [ @caption("Eleventh Hour") ]
+                            --
+                            @FeathersListRow Children [ @caption("Twelfth Night") ]
+                        ]
                     }
                     Node {
                         max_height: px(130)
                     }
                     on(listbox_update_selection)
-                ],
+                ]
             ]
         ]
     }
@@ -1043,34 +1011,33 @@ fn demo_column_3() -> impl Scene {
             min_width: px(100),
         }
         Children [
-            (
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::SpaceBetween,
-                }
-                Children [
-                    @label("Armor Tint"),
-                    @FeathersColorInput
-                    ColorInputValue(palettes::tailwind::AMBER_600)
-                    on(color_input_self_update)
-                ]
-            ),
-            (
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::SpaceBetween,
-                }
-                Children [
-                    @label("Skin Color"),
-                    @FeathersColorInput
-                    ColorInputValue(palettes::tailwind::BLUE_800)
-                    on(color_input_self_update)
-                ]
-            )
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+            }
+            Children [
+                @label("Armor Tint")
+                --
+                @FeathersColorInput
+                ColorInputValue(palettes::tailwind::AMBER_600)
+                on(color_input_self_update)
+            ]
+            --
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+            }
+            Children [
+                @label("Skin Color")
+                --
+                @FeathersColorInput
+                ColorInputValue(palettes::tailwind::BLUE_800)
+                on(color_input_self_update)
+            ]
         ]
     }
 }
@@ -1251,34 +1218,33 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                 @width: px(320),
                 @contents: bsn_list! {
                     @FeathersDialogHeader Children [
-                        @caption("Quit Feathers Gallery"),
+                        @caption("Quit Feathers Gallery")
+                        --
                         @FeathersDialogClose
-                    ],
+                    ]
+                    --
                     @FeathersDialogBody Children [
                         @caption("Are you really sure you want to quit? I mean, really, really sure?")
-                    ],
+                    ]
+                    --
                     @FeathersDialogFooter Children [
-                        (
-                            @FeathersButton {
-                                @caption: bsn! { @caption("Cancel") },
-                            }
-                            AccessibleLabel("Cancel")
-                            on(|activate: On<Activate>, mut commands: Commands| {
-                                commands.trigger(RequestClose { source: activate.event_target() });
-                            })
-                        ),
-                        (
-                            @FeathersButton {
-                                @caption: bsn! { @caption("Exit Application") },
-                                @variant: ButtonVariant::Primary,
-                            }
-                            AccessibleLabel("Exit Application")
-                            on(|_activate: On<Activate>, mut exit: MessageWriter<AppExit>| {
-                                exit.write(AppExit::Success);
-                            })
-                        ),
-
-                    ],
+                        @FeathersButton {
+                            @caption: bsn! { @caption("Cancel") },
+                        }
+                        AccessibleLabel("Cancel")
+                        on(|activate: On<Activate>, mut commands: Commands| {
+                            commands.trigger(RequestClose { source: activate.event_target() });
+                        })
+                        --
+                        @FeathersButton {
+                            @caption: bsn! { @caption("Exit Application") },
+                            @variant: ButtonVariant::Primary,
+                        }
+                        AccessibleLabel("Exit Application")
+                        on(|_activate: On<Activate>, mut exit: MessageWriter<AppExit>| {
+                            exit.write(AppExit::Success);
+                        })
+                    ]
                 }
             }
             on(|close: On<RequestClose>, mut commands: Commands| {

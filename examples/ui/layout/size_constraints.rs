@@ -67,10 +67,10 @@ fn setup(mut commands: Commands) {
                 @font_style_scene()
                 Node {
                     margin: UiRect::bottom(px(25)),
-                },
-
-                @bar_scene(),
-
+                }
+                --
+                @bar_scene()
+                --
                 // Controls (radio buttons)
                 Node {
                     flex_direction: FlexDirection::Column,
@@ -165,8 +165,8 @@ fn radio_group_scene(constraint: Constraint) -> impl Scene {
                 Children [
                     Text(label)
                     @font_style_scene()
-                ],
-
+                ]
+                --
                 // Row Buttons
                 Node
                 RadioGroup
@@ -177,8 +177,8 @@ fn radio_group_scene(constraint: Constraint) -> impl Scene {
                         RadioButtonValue(auto()),
                         "Auto".to_string(),
                         true,
-                    ),
-
+                    )
+                    --
                     {
                         [0, 25, 50, 75, 100, 125].into_iter().map(|percent_value| {
                             radio_button_scene(
@@ -188,8 +188,8 @@ fn radio_group_scene(constraint: Constraint) -> impl Scene {
                                 false,
                             )
                         }).collect::<Vec<_>>()
-                    },
-                ],
+                    }
+                ]
             ]
         ]
     }
