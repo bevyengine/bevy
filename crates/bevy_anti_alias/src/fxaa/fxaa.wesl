@@ -11,7 +11,7 @@ import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 @group(0) @binding(0) var screenTexture: texture_2d<f32>;
 @group(0) @binding(1) var samp: sampler;
 
-// Trims the algorithm from processing darks.
+/// Trims the algorithm from processing darks.
     @if(EDGE_THRESH_MIN_LOW)
     const EDGE_THRESHOLD_MIN: f32 = 0.0833;
 
@@ -27,7 +27,7 @@ import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
     @if(EDGE_THRESH_MIN_EXTREME)
     const EDGE_THRESHOLD_MIN: f32 = 0.0078;
 
-// The minimum amount of local contrast required to apply algorithm.
+/// The minimum amount of local contrast required to apply algorithm.
     @if(EDGE_THRESH_LOW)
     const EDGE_THRESHOLD_MAX: f32 = 0.250;
 
@@ -61,7 +61,7 @@ fn rgb2luma(rgb: vec3<f32>) -> f32 {
     return sqrt(dot(rgb, vec3<f32>(0.299, 0.587, 0.114)));
 }
 
-// Performs FXAA post-process anti-aliasing as described in the Nvidia FXAA white paper and the associated shader code.
+/// Performs FXAA post-process anti-aliasing as described in the Nvidia FXAA white paper and the associated shader code.
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let resolution = vec2<f32>(textureDimensions(screenTexture));
@@ -109,12 +109,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let lumaUpCorners = lumaUpRight + lumaUpLeft;
 
     // Compute an estimation of the gradient along the horizontal and vertical axis.
-    let edgeHorizontal = abs(-2.0 * lumaLeft   + lumaLeftCorners)  + 
-                         abs(-2.0 * lumaCenter + lumaDownUp) * 2.0 + 
+    let edgeHorizontal = abs(-2.0 * lumaLeft   + lumaLeftCorners)  +
+                         abs(-2.0 * lumaCenter + lumaDownUp) * 2.0 +
                          abs(-2.0 * lumaRight  + lumaRightCorners);
 
-    let edgeVertical =   abs(-2.0 * lumaUp     + lumaUpCorners)       + 
-                         abs(-2.0 * lumaCenter + lumaLeftRight) * 2.0 + 
+    let edgeVertical =   abs(-2.0 * lumaUp     + lumaUpCorners)       +
+                         abs(-2.0 * lumaCenter + lumaLeftRight) * 2.0 +
                          abs(-2.0 * lumaDown   + lumaDownCorners);
 
     // Is the local edge horizontal or vertical ?
@@ -182,12 +182,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     if (!reachedBoth) {
         for (var i: i32 = 2; i < ITERATIONS; i = i + 1) {
             // If needed, read luma in 1st direction, compute delta.
-            if (!reached1) { 
+            if (!reached1) {
                 lumaEnd1 = rgb2luma(textureSampleLevel(screenTexture, samp, uv1, 0.0).rgb);
                 lumaEnd1 = lumaEnd1 - lumaLocalAverage;
             }
             // If needed, read luma in opposite direction, compute delta.
-            if (!reached2) { 
+            if (!reached2) {
                 lumaEnd2 = rgb2luma(textureSampleLevel(screenTexture, samp, uv2, 0.0).rgb);
                 lumaEnd2 = lumaEnd2 - lumaLocalAverage;
             }
@@ -205,8 +205,8 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
             }
 
             // If both sides have been reached, stop the exploration.
-            if (reachedBoth) { 
-                break; 
+            if (reachedBoth) {
+                break;
             }
         }
     }

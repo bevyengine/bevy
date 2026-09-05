@@ -1,7 +1,7 @@
-// The lens distortion postprocessing effect.
+//! The lens distortion postprocessing effect.
 
-// See `package::effect_stack::LensDistortion` for more
-// information on these fields.
+/// See `package::effect_stack::LensDistortion` for more
+/// information on these fields.
 struct LensDistortionSettings {
     intensity: f32,
     scale: f32,
@@ -14,7 +14,7 @@ struct LensDistortionSettings {
 const VISUAL_THRESHOLD: f32 = 1e-4;
 const MATH_EPSILON: f32 = 1e-6;
 
-// The settings supplied by the developer.
+/// The settings supplied by the developer.
 @group(0) @binding(5) var<uniform> lens_distortion_settings: LensDistortionSettings;
 
 fn lens_distortion(uv: vec2<f32>) -> vec2<f32> {

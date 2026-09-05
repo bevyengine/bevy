@@ -20,7 +20,7 @@ import bevy_pbr::render::pbr_types;
 @if(MATERIAL_OIT_ENABLED)
 import bevy_pbr::render::pbr_fragment::pbr_input_from_standard_material;
 
-// The material parameters
+/// The material parameters
 struct Colors {
     color1: vec4<f32>,
     color2: vec4<f32>,
