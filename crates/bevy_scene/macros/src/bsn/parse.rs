@@ -238,9 +238,9 @@ impl Parse for BsnSceneListItems {
                 break;
             }
 
-            // Try parsing without a comma or --- separator first. This makes autocomplete
+            // Try parsing without a comma or -- separator first. This makes autocomplete
             // work in more places
-            if !input.is_empty() && !(input.peek(Comma) || input.peek(TwoMinus)) {
+            if !(input.peek(Comma) || input.peek(TwoMinus)) {
                 let value = input.parse::<BsnSceneListItem>()?;
                 scenes.push(value);
             }
