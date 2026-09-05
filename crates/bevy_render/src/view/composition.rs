@@ -53,6 +53,18 @@ pub fn composites_fullscreen(camera: &ExtractedCamera) -> bool {
     matches!(camera.clear_color, ClearColorConfig::None) && camera.viewport.is_none()
 }
 
+/// Whether a main texture format can store the negative values that Oklab
+/// channels take. Float and snorm formats can. Unorm formats clamp them.
+fn stores_signed_values(format: TextureFormat) -> bool {
+    matches!(
+        format,
+        TextureFormat::Rgba16Float
+            | TextureFormat::Rgba32Float
+            | TextureFormat::Rgba8Snorm
+            | TextureFormat::Rgba16Snorm
+    )
+}
+
 /// Writes each camera view's [`ResolvedCompositingSpace`]. Runs in
 /// [`ResolveCompositingSpaces`].
 pub fn resolve_composition_spaces(
@@ -92,10 +104,7 @@ pub fn resolve_composition_spaces(
                         request: resolved.0,
                         composites_fullscreen: composites_fullscreen(camera),
                         is_camera_2d,
-                        signed_float_storage: matches!(
-                            view.target_format,
-                            TextureFormat::Rgba16Float | TextureFormat::Rgba32Float
-                        ),
+                        signed_storage: stores_signed_values(view.target_format),
                     },
                 )
             },
@@ -127,11 +136,11 @@ pub fn resolve_composition_spaces(
                 {non_camera_2d:?} are not Camera2d views and their render paths do not encode \
                 into compositing spaces. Remove the CompositingSpace component or use a Camera2d."
             ),
-            CompositingSpaceResolutionError::OklabWithoutSignedFloatStorage { entities } => {
+            CompositingSpaceResolutionError::OklabWithoutSignedStorage { entities } => {
                 warn_once!(
                     "CompositingSpace::Oklab on views {entities:?} resolves to linear because \
                     the main texture format cannot store the signed Oklab channels. Add the Hdr \
-                    component to the camera to get a signed-float main texture."
+                    component to the camera to get an Rgba16Float main texture."
                 );
             }
         }
@@ -146,10 +155,10 @@ struct SpaceInput {
     request: Option<CompositingSpace>,
     composites_fullscreen: bool,
     is_camera_2d: bool,
-    /// Whether the main texture format stores signed floats. The format is
-    /// part of the texture key, so this is the same for every view in a
-    /// group.
-    signed_float_storage: bool,
+    /// Whether the main texture format stores signed values, see
+    /// [`stores_signed_values`]. The format is part of the texture key, so
+    /// this is the same for every view in a group.
+    signed_storage: bool,
 }
 
 /// A misconfiguration found while resolving compositing spaces.
@@ -169,8 +178,8 @@ enum CompositingSpaceResolutionError {
     /// A view that isn't a `Camera2d`, or a stack that holds one, requests
     /// `Srgb` or `Oklab`.
     NonCamera2dRequest { non_camera_2d: Vec<Entity> },
-    /// A resolved `Oklab` lands on a main texture without signed-float storage.
-    OklabWithoutSignedFloatStorage { entities: Vec<Entity> },
+    /// A resolved `Oklab` lands on a main texture without signed storage.
+    OklabWithoutSignedStorage { entities: Vec<Entity> },
 }
 
 /// Resolves one compositing space per view. A stack must agree on its shared
@@ -240,7 +249,7 @@ fn warn_on_mixed_requests(
 /// * A view that is not a [`Camera2d`] is in the list and any view requests a
 ///   non-linear compositing space. 3d render paths write linear values.
 /// * The views request [`Oklab`](CompositingSpace::Oklab) on a texture format
-///   without signed-float storage, as Oklab requires negative numbers.
+///   without signed storage, as Oklab requires negative numbers.
 ///
 /// Otherwise the requested compositing space is chosen. With no request the
 /// views resolve to linear.
@@ -287,12 +296,10 @@ fn resolve_members(
         space = None;
     }
 
-    if space == Some(CompositingSpace::Oklab) && !members[0].signed_float_storage {
-        diagnostics.push(
-            CompositingSpaceResolutionError::OklabWithoutSignedFloatStorage {
-                entities: members.iter().map(|member| member.entity).collect(),
-            },
-        );
+    if space == Some(CompositingSpace::Oklab) && !members[0].signed_storage {
+        diagnostics.push(CompositingSpaceResolutionError::OklabWithoutSignedStorage {
+            entities: members.iter().map(|member| member.entity).collect(),
+        });
         space = None;
     }
 
@@ -314,7 +321,7 @@ mod tests {
         Entity::from_raw_u32(raw).unwrap()
     }
 
-    /// A fullscreen `Camera2d` view whose main texture stores signed floats.
+    /// A fullscreen `Camera2d` view whose main texture stores signed values.
     /// Tests override the fields they care about. `texture` picks which of
     /// two texture keys the view groups under.
     fn view(
@@ -337,7 +344,7 @@ mod tests {
                 request,
                 composites_fullscreen: true,
                 is_camera_2d: true,
-                signed_float_storage: true,
+                signed_storage: true,
             },
         )
     }
@@ -380,7 +387,7 @@ mod tests {
         diagnostics.iter().any(|d| {
             matches!(
                 d,
-                CompositingSpaceResolutionError::OklabWithoutSignedFloatStorage { .. }
+                CompositingSpaceResolutionError::OklabWithoutSignedStorage { .. }
             )
         })
     }
@@ -529,9 +536,29 @@ mod tests {
     }
 
     #[test]
-    fn oklab_without_signed_float_storage_degrades_to_linear() {
+    fn signed_storage_accepts_float_and_snorm_formats() {
+        for format in [
+            TextureFormat::Rgba16Float,
+            TextureFormat::Rgba32Float,
+            TextureFormat::Rgba8Snorm,
+            TextureFormat::Rgba16Snorm,
+        ] {
+            assert!(stores_signed_values(format), "{format:?}");
+        }
+        for format in [
+            TextureFormat::Rgba8Unorm,
+            TextureFormat::Rgba8UnormSrgb,
+            TextureFormat::Bgra8UnormSrgb,
+            TextureFormat::Rgb10a2Unorm,
+        ] {
+            assert!(!stores_signed_values(format), "{format:?}");
+        }
+    }
+
+    #[test]
+    fn oklab_without_signed_storage_degrades_to_linear() {
         let mut camera = view(1, 0, 0, OKLAB);
-        camera.1.signed_float_storage = false;
+        camera.1.signed_storage = false;
         let (resolved, diagnostics) = resolve_spaces([camera]);
         assert_eq!(resolved_for(&resolved, 1), None);
         assert!(has_oklab_storage(&diagnostics));
@@ -540,9 +567,9 @@ mod tests {
     #[test]
     fn stack_resolved_oklab_degrades_on_unorm_storage() {
         let mut base = view(1, 0, 0, None);
-        base.1.signed_float_storage = false;
+        base.1.signed_storage = false;
         let mut overlay = view(2, 0, 1, OKLAB);
-        overlay.1.signed_float_storage = false;
+        overlay.1.signed_storage = false;
         let (resolved, diagnostics) = resolve_spaces([base, overlay]);
         assert_eq!(resolved_for(&resolved, 1), None);
         assert_eq!(resolved_for(&resolved, 2), None);
@@ -555,7 +582,7 @@ mod tests {
     fn non_camera_2d_oklab_fires_non_2d_warning_not_storage_warning() {
         let mut camera_3d = view(1, 0, 0, OKLAB);
         camera_3d.1.is_camera_2d = false;
-        camera_3d.1.signed_float_storage = false;
+        camera_3d.1.signed_storage = false;
         let (resolved, diagnostics) = resolve_spaces([camera_3d]);
         assert_eq!(resolved_for(&resolved, 1), None);
         assert!(has_non_camera_2d(&diagnostics));
