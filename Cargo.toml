@@ -154,8 +154,9 @@ ui = [
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
 dev = [
-  "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
+  "debug",            # TODO: rename this to something more specific ... this is a "debug ECS names" feature
   "bevy_dev_tools",
+  "render_dev_tools",
   "file_watcher",
 ]
 
@@ -569,6 +570,9 @@ android-game-activity = ["bevy_internal/android-game-activity"]
 
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
+
+# Enable systems that allow for renderable dev tools
+render_dev_tools = ["bevy_internal/render_dev_tools"]
 
 # Enable glTF animation loading
 gltf_animation = ["bevy_internal/gltf_animation"]
