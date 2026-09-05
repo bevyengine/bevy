@@ -1,61 +1,73 @@
-use bevy::prelude::*;
+use bevy::{platform::collections::HashMap, prelude::*};
 use noise::{NoiseFn, OpenSimplex};
 use rand::{rngs::SmallRng, RngExt, SeedableRng};
 
-use crate::{assets::CityAssets, Car, Road};
+use crate::{
+    assets::CityAssets,
+    simulation::{Car, Intersection, Lane, Road, LANE_WIDTH},
+};
 
 #[derive(Component)]
 pub struct CityRoot;
+
+#[derive(Component)]
+pub struct StaticRoot;
+
+#[derive(Component)]
+pub struct CarsRoot;
 
 #[derive(Default)]
 pub struct CityStats {
     pub buildings: u32,
     pub trees: u32,
-    pub cars: u32,
     pub fences: u32,
     pub paths: u32,
     pub roads: u32,
     pub ground_tile: u32,
 }
 
-/// Spawns a grid of city blocks
-///
-/// For simplicity we spawn the roads and buildings in this pattern
-///
-/// X-------
-/// | B B B
-/// | B B B
-///
-/// X = crossroad, B = buildings
-///
-/// This way we can easily tile each city block
-/// Each city block is 5.5 units x 4.0 units.
-///
-/// Every asset gets spawned relative to the crossroad position
-pub fn spawn_city(
+/// Spawns a grid of city blocks and builds a road graph
+pub fn spawn_buildings_and_roads(
     commands: &mut Commands,
     assets: &CityAssets,
     seed: u64,
     size: u32,
-    car_density: f32,
     stats: &mut CityStats,
 ) {
     let mut rng = SmallRng::seed_from_u64(seed);
     let noise = OpenSimplex::new(rng.random());
-    let noise_scale = 0.025;
+    let half_size = size as i32 / 2;
 
     commands
         .spawn((CityRoot, Transform::default(), Visibility::default()))
         .with_children(|commands| {
-            let half_size = size as i32 / 2;
-            for x in -half_size..half_size {
-                for z in -half_size..half_size {
-                    // scale the position to match the city block size
-                    let x = x as f32 * 5.5;
-                    let z = z as f32 * 4.0;
-                    let offset = Vec3::new(x, 0.0, z);
+            commands
+                .spawn((StaticRoot, Transform::default(), Visibility::default()))
+                .with_children(|commands| {
+                    spawn_buildings(commands, assets, &mut rng, &noise, half_size, stats);
+                    spawn_roads_and_intersections(commands, assets, half_size, stats);
+                });
+            commands.spawn((CarsRoot, Transform::default(), Visibility::default()));
+        });
+}
 
-                    spawn_roads_and_cars(commands, assets, &mut rng, offset, car_density, stats);
+/// Spawns the ground tile and buildings or forest for every city block
+fn spawn_buildings(
+    commands: &mut ChildSpawnerCommands,
+    assets: &CityAssets,
+    rng: &mut SmallRng,
+    noise: &OpenSimplex,
+    half_size: i32,
+    stats: &mut CityStats,
+) {
+    let noise_scale = 0.025;
+
+    for x in -half_size..half_size {
+        for z in -half_size..half_size {
+            commands
+                .spawn((Transform::default(), Visibility::default()))
+                .with_children(|commands| {
+                    let offset = Vec3::new(x as f32 * 5.5, 0.0, z as f32 * 4.0);
 
                     let density = noise.get([
                         offset.x as f64 * noise_scale,
@@ -67,7 +79,6 @@ pub fn spawn_city(
                     let forest = 0.45;
                     let low_density = 0.6;
                     let medium_density = 0.7;
-
                     let ground_tile_scale = Vec3::new(4.5, 1.0, 3.0);
                     commands.spawn((
                         Mesh3d(assets.ground_tile.0.clone()),
@@ -84,51 +95,110 @@ pub fn spawn_city(
                     stats.ground_tile += 1;
 
                     if density < forest {
-                        spawn_forest(commands, assets, &mut rng, offset, stats);
+                        spawn_forest(commands, assets, rng, offset, stats);
                     } else if density < low_density {
-                        spawn_low_density(commands, assets, &mut rng, offset, stats);
+                        spawn_low_density(commands, assets, rng, offset, stats);
                     } else if density < medium_density {
-                        spawn_medium_density(commands, assets, &mut rng, offset, stats);
+                        spawn_medium_density(commands, assets, rng, offset, stats);
                     } else {
-                        spawn_high_density(commands, assets, &mut rng, offset, stats);
+                        spawn_high_density(commands, assets, rng, offset, stats);
                     }
-                }
-            }
-        });
+                });
+        }
+    }
 }
 
-fn spawn_roads_and_cars<R: RngExt>(
+// Represents an intersection in the road graph
+struct Node {
+    entity: Entity,
+    /// Lanes leaving this intersection
+    lanes: Vec<Entity>,
+}
+
+fn spawn_roads_and_intersections(
     commands: &mut ChildSpawnerCommands,
     assets: &CityAssets,
-    rng: &mut R,
-    offset: Vec3,
-    max_car_density: f32,
+    half_size: i32,
     stats: &mut CityStats,
 ) {
-    let x = offset.x;
-    let z = offset.z;
+    // Each node contains a vec of outgoing lanes
+    let mut nodes = HashMap::new();
+    for x in -half_size..=half_size {
+        for z in -half_size..=half_size {
+            let entity = commands.spawn_empty().id();
+            nodes.insert(
+                IVec2::new(x, z),
+                Node {
+                    entity,
+                    lanes: Vec::new(),
+                },
+            );
+        }
+    }
 
-    commands.spawn((
-        WorldAssetRoot(assets.crossroad.clone()),
-        Transform::from_xyz(x, 0.0, z),
-    ));
-    stats.roads += 1;
+    for x in -half_size..=half_size {
+        for z in -half_size..=half_size {
+            let grid_pos = IVec2::new(x, z);
+            let offset = Vec3::new(x as f32 * 5.5, 0.0, z as f32 * 4.0);
+            let start_node = nodes[&grid_pos].entity;
 
-    // When spawning roads we rotate and stretch a single road asset instead of spawning multiple
-    // road segments
+            if x < half_size {
+                let end_pos = grid_pos + IVec2::new(1, 0);
+                let (lane_to_end, lane_to_start) = spawn_horizontal_road(
+                    commands,
+                    assets,
+                    offset,
+                    start_node,
+                    nodes[&end_pos].entity,
+                    stats,
+                );
+                nodes.get_mut(&grid_pos).unwrap().lanes.push(lane_to_end);
+                nodes.get_mut(&end_pos).unwrap().lanes.push(lane_to_start);
+            }
+            if z < half_size {
+                let end_pos = grid_pos + IVec2::new(0, 1);
+                let (lane_to_end, lane_to_start) = spawn_vertical_road(
+                    commands,
+                    assets,
+                    offset,
+                    start_node,
+                    nodes[&end_pos].entity,
+                    stats,
+                );
+                nodes.get_mut(&grid_pos).unwrap().lanes.push(lane_to_end);
+                nodes.get_mut(&end_pos).unwrap().lanes.push(lane_to_start);
+            }
+        }
+    }
 
-    // NOTE most of the magic numbers were hand tweaked for something that looks visually nice
+    for (grid_pos, node) in nodes {
+        let offset = Vec3::new(grid_pos.x as f32 * 5.5, 0.0, grid_pos.y as f32 * 4.0);
+        commands.commands().entity(node.entity).insert((
+            WorldAssetRoot(assets.crossroad.clone()),
+            Transform::from_translation(offset),
+            Intersection { lanes: node.lanes },
+        ));
+    }
+}
 
-    // horizontal road
+fn spawn_horizontal_road(
+    commands: &mut ChildSpawnerCommands,
+    assets: &CityAssets,
+    offset: Vec3,
+    start_node: Entity,
+    end_node: Entity,
+    stats: &mut CityStats,
+) -> (Entity, Entity) {
     let car_count = 9;
+    let start = offset + Vec3::new(0.25, 0.0, 0.0);
+    let end = offset + Vec3::new(0.75 + (0.5 * car_count as f32), 0.0, 0.0);
+
+    let mut lanes = None;
     commands
         .spawn((
             Transform::from_translation(offset),
             Visibility::default(),
-            Road {
-                start: Vec3::new(0.75, 0.0, 0.0),
-                end: Vec3::new(0.75 + (0.5 * car_count as f32), 0.0, 0.0),
-            },
+            Road,
         ))
         .with_children(|commands| {
             commands.spawn((
@@ -138,59 +208,43 @@ fn spawn_roads_and_cars<R: RngExt>(
             ));
             stats.roads += 1;
 
-            for i in 0..car_count {
-                let car_pos = Vec3::new(0.0, 0.0, 0.75 + i as f32 * 0.5);
-
-                if rng.random::<f32>() < max_car_density {
-                    assets.spawn_car(
-                        commands,
-                        rng,
-                        Transform::from_translation(car_pos + Vec3::new(0.0, 0.0, -0.15))
-                            .with_scale(Vec3::splat(0.15))
-                            .with_rotation(Quat::from_axis_angle(
-                                Vec3::Y,
-                                3.0 * std::f32::consts::FRAC_PI_2,
-                            )),
-                        Car {
-                            distance_traveled: i as f32 * 0.5,
-                            dir: -1.0,
-                            offset: Vec3::new(4.25, 0.0, -0.15),
-                        },
-                    );
-                    stats.cars += 1;
-                }
-
-                if rng.random::<f32>() < max_car_density {
-                    assets.spawn_car(
-                        commands,
-                        rng,
-                        Transform::from_translation(car_pos + Vec3::new(0.0, 0.0, 0.15))
-                            .with_scale(Vec3::splat(0.15))
-                            .with_rotation(Quat::from_axis_angle(
-                                Vec3::Y,
-                                std::f32::consts::FRAC_PI_2,
-                            )),
-                        Car {
-                            distance_traveled: i as f32 * 0.5,
-                            dir: 1.0,
-                            offset: Vec3::new(-0.25, 0.0, 0.15),
-                        },
-                    );
-                    stats.cars += 1;
-                }
-            }
+            let lane_to_end = commands
+                .spawn(Lane {
+                    start,
+                    end,
+                    target_node: end_node,
+                })
+                .id();
+            let lane_to_start = commands
+                .spawn(Lane {
+                    start: end,
+                    end: start,
+                    target_node: start_node,
+                })
+                .id();
+            lanes = Some((lane_to_end, lane_to_start));
         });
+    lanes.unwrap()
+}
 
-    // vertical road
+fn spawn_vertical_road(
+    commands: &mut ChildSpawnerCommands,
+    assets: &CityAssets,
+    offset: Vec3,
+    start_node: Entity,
+    end_node: Entity,
+    stats: &mut CityStats,
+) -> (Entity, Entity) {
     let car_count = 6;
+    let start = offset + Vec3::new(0.0, 0.0, 0.25);
+    let end = offset + Vec3::new(0.0, 0.0, 0.75 + (0.5 * car_count as f32));
+
+    let mut lanes = None;
     commands
         .spawn((
             Transform::from_translation(offset),
             Visibility::default(),
-            Road {
-                start: Vec3::new(0.0, 0.0, 0.75),
-                end: Vec3::new(0.0, 0.0, 0.75 + (0.5 * car_count as f32)),
-            },
+            Road,
         ))
         .with_children(|commands| {
             commands.spawn((
@@ -201,41 +255,62 @@ fn spawn_roads_and_cars<R: RngExt>(
             ));
             stats.roads += 1;
 
-            for i in 0..car_count {
-                let car_pos = Vec3::new(0.0, 0.0, 0.75 + i as f32 * 0.5);
-
-                if rng.random::<f32>() < max_car_density {
-                    assets.spawn_car(
-                        commands,
-                        rng,
-                        Transform::from_translation(car_pos + Vec3::new(0.15, 0.0, 0.0))
-                            .with_scale(Vec3::splat(0.15)),
-                        Car {
-                            distance_traveled: i as f32 * 0.5,
-                            dir: 1.0,
-                            offset: Vec3::new(-0.15, 0.0, -0.25),
-                        },
-                    );
-                    stats.cars += 1;
-                }
-
-                if rng.random::<f32>() < max_car_density {
-                    assets.spawn_car(
-                        commands,
-                        rng,
-                        Transform::from_translation(car_pos + Vec3::new(-0.15, 0.0, 0.0))
-                            .with_scale(Vec3::splat(0.15))
-                            .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
-                        Car {
-                            distance_traveled: i as f32 * 0.5,
-                            dir: -1.0,
-                            offset: Vec3::new(0.15, 0.0, 2.75),
-                        },
-                    );
-                    stats.cars += 1;
-                }
-            }
+            let lane_to_end = commands
+                .spawn(Lane {
+                    start,
+                    end,
+                    target_node: end_node,
+                })
+                .id();
+            let lane_to_start = commands
+                .spawn(Lane {
+                    start: end,
+                    end: start,
+                    target_node: start_node,
+                })
+                .id();
+            lanes = Some((lane_to_end, lane_to_start));
         });
+    lanes.unwrap()
+}
+
+pub fn spawn_cars(
+    commands: &mut Commands,
+    assets: &CityAssets,
+    cars_root: Entity,
+    seed: u64,
+    car_count: u32,
+    lanes: &Query<(Entity, &Lane)>,
+) {
+    let lanes = lanes.iter().collect::<Vec<_>>();
+    let Some(max_index) = lanes.len().checked_sub(1) else {
+        return;
+    };
+
+    let mut rng = SmallRng::seed_from_u64(seed);
+    for _ in 0..car_count {
+        let (lane_entity, lane) = lanes[rng.random_range(0..=max_index)];
+        let lane_len = (lane.end - lane.start).length();
+        let progress = rng.random_range(0.0..lane_len);
+
+        let direction = (lane.end - lane.start).normalize();
+        let lane_offset = direction.cross(Vec3::Y) * LANE_WIDTH;
+
+        assets.spawn_car(
+            commands,
+            &mut rng,
+            Transform::from_translation(
+                lane.start.lerp(lane.end, progress / lane_len) + lane_offset,
+            )
+            .with_scale(Vec3::splat(0.15))
+            .looking_at(-direction, Vec3::Y),
+            Car {
+                lane: lane_entity,
+                progress,
+            },
+            cars_root,
+        );
+    }
 }
 
 fn spawn_low_density<R: RngExt>(

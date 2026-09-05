@@ -32,16 +32,20 @@ use bevy::{
     world_serialization::WorldInstanceReady,
 };
 
-use crate::generate_city::spawn_city;
 use crate::{
     assets::{merge_car_meshes, strip_base_url},
     generate_city::CityStats,
     settings::{settings_ui, Settings},
 };
+use crate::{
+    generate_city::{spawn_buildings_and_roads, spawn_cars, CarsRoot},
+    simulation::Lane,
+};
 
 mod assets;
 mod generate_city;
 mod settings;
+mod simulation;
 
 #[derive(FromArgs, Resource, Clone)]
 /// Config
@@ -53,10 +57,6 @@ pub struct Args {
     /// size
     #[argh(option, default = "30")]
     size: u32,
-
-    /// car density. Controls the probability of spawning a car on a road. Range 0..1
-    #[argh(option, default = "0.05")]
-    car_density: f32,
 
     /// adds NoCpuCulling to all meshes
     #[argh(switch)]
@@ -77,6 +77,10 @@ pub struct Args {
     /// maximum range for car LODs
     #[argh(option, default = "80.0")]
     car_lod_max_range: f32,
+
+    /// number of cars to spawn
+    #[argh(option, default = "3000")]
+    car_count: u32,
 }
 
 fn main() {
@@ -114,14 +118,16 @@ fn main() {
         .add_message::<CityAssetsLoaded>()
         .add_message::<CityAssetsReady>()
         .add_message::<CitySpawned>()
+        .add_message::<RoadsSpawned>()
         .add_systems(Startup, (scene.spawn(), spawn_atmosphere, load_assets))
         .add_systems(
             Update,
             (
-                simulate_cars,
+                simulation::simulate_cars,
                 update_loading_screen,
                 process_assets.run_if(on_message::<CityAssetsLoaded>),
                 on_city_assets_ready.run_if(on_message::<CityAssetsReady>),
+                on_roads_spawned.run_if(on_message::<RoadsSpawned>),
                 (add_no_cpu_culling, on_city_spawned, settings_ui.spawn())
                     .run_if(on_message::<CitySpawned>),
                 resolve_pending_lods,
@@ -273,6 +279,9 @@ struct CityAssetsReady;
 /// Triggers once all the city blocks have been spawned
 #[derive(Message)]
 struct CitySpawned;
+/// Triggers once every road and intersection has been spawned
+#[derive(Message)]
+struct RoadsSpawned;
 
 #[allow(clippy::type_complexity)]
 fn update_loading_screen(
@@ -342,26 +351,44 @@ fn on_city_assets_ready(
     text.0 = "Spawning city...".into();
 
     let mut stats = CityStats::default();
-    spawn_city(
+    spawn_buildings_and_roads(
         &mut commands,
         &city_assets,
         args.seed,
         args.size,
-        args.car_density,
         &mut stats,
     );
 
-    println!("cars: {}", stats.cars);
+    println!("cars: {}", args.car_count);
     println!("roads: {}", stats.roads);
     println!("trees: {}", stats.trees);
     println!("buildings: {}", stats.buildings);
     println!("fences: {}", stats.fences);
     println!("paths: {}", stats.paths);
     println!(
-        "total: {}",
-        stats.cars + stats.roads + stats.trees + stats.buildings + stats.fences + stats.paths
+        "total static: {}",
+        stats.roads + stats.trees + stats.buildings + stats.fences + stats.paths
     );
+    println!("total dynamic: {}", args.car_count);
 
+    commands.write_message(RoadsSpawned);
+}
+
+fn on_roads_spawned(
+    mut commands: Commands,
+    args: Res<Args>,
+    assets: Res<CityAssets>,
+    cars_root: Single<Entity, With<CarsRoot>>,
+    lanes: Query<(Entity, &Lane)>,
+) {
+    spawn_cars(
+        &mut commands,
+        &assets,
+        *cars_root,
+        args.seed,
+        args.car_count,
+        &lanes,
+    );
     commands.write_message(CitySpawned);
 }
 
@@ -373,53 +400,6 @@ fn on_city_spawned(
         return;
     };
     commands.entity(*loading_screen).despawn();
-}
-
-#[derive(Component)]
-struct Road {
-    start: Vec3,
-    end: Vec3,
-}
-
-#[derive(Component)]
-struct Car {
-    offset: Vec3,
-    distance_traveled: f32,
-    dir: f32,
-}
-
-/// Do a very naive traffic simulation. This will only move the car to the end of the road then
-/// spawn it back at the start.
-///
-/// Eventually this will be a more complex traffic simulation that should stress the ECS
-fn simulate_cars(
-    settings: Res<Settings>,
-    roads: Query<(&Road, &Transform, &Children), Without<Car>>,
-    mut cars: Query<(&mut Car, &mut Transform), Without<Road>>,
-    time: Res<Time>,
-) {
-    if !settings.simulate_cars {
-        return;
-    }
-    let speed = 1.5;
-
-    for (road, _, children) in &roads {
-        for child in children {
-            let Ok((mut car, mut car_transform)) = cars.get_mut(*child) else {
-                continue;
-            };
-
-            car.distance_traveled += speed * time.delta_secs();
-            let road_len = (road.end - road.start).length();
-            if car.distance_traveled > road_len {
-                car.distance_traveled = 0.0;
-            }
-            let direction = (road.end - road.start).normalize() * car.dir;
-
-            let progress = car.distance_traveled / road_len;
-            car_transform.translation = (road.start + car.offset) + direction * road_len * progress;
-        }
-    }
 }
 
 /// Adds [`NoCpuCulling`] to all meshes in the scene after the city is done spawning
