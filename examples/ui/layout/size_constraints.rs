@@ -188,7 +188,7 @@ fn radio_group_scene(constraint: Constraint) -> impl Scene {
                                 false,
                             )
                         }).collect::<Vec<_>>()
-                    },
+                    }
                 ]
             ]
         ]

@@ -295,8 +295,9 @@ impl FeathersMenuButton {
                     props.arrow.then(|| bsn_list!(
                         Node {
                             flex_grow: 1.0,
-                        },
-                        @icon(icons::CHEVRON_DOWN),
+                        }
+                        --
+                        @icon(icons::CHEVRON_DOWN)
                     ))
                 }
             ]
@@ -329,8 +330,9 @@ impl FeathersMenuToolButton {
             Children [
                 {
                     props.arrow.then(|| bsn_list!(
-                        Node { min_width: px(2) },
-                        @icon(icons::CHEVRON_DOWN),
+                        Node { min_width: px(2) }
+                        --
+                        @icon(icons::CHEVRON_DOWN)
                     ))
                 }
             ]

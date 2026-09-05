@@ -1323,7 +1323,7 @@ mod tests {
             bsn! {
                 #X
                 Children [
-                    (@b() Reference(#X))
+                    @b() Reference(#X)
                 ]
             }
         }
@@ -1384,8 +1384,10 @@ mod tests {
             bsn! {
                 Reference(#Last)
                 Children [
-                    #First,
-                    #Second,
+                    #First
+                    --
+                    #Second
+                    --
                     #Last
                 ]
             }
@@ -1419,7 +1421,7 @@ mod tests {
                 #X
                 Reference(#Y)
                 Children [
-                    (#Z Reference(#X))
+                    #Z Reference(#X)
                 ]
                 --
                 #Y
@@ -1648,7 +1650,8 @@ mod tests {
         let world = app.world_mut();
         let entities = world
             .spawn_scene_list(bsn_list! {
-                #A,
+                #A
+                --
                 target(#A)
             })
             .unwrap();
@@ -2196,8 +2199,10 @@ mod tests {
         let world = app.world_mut();
         let entities = world
             .spawn_scene_list(bsn_list! {
-                #A,
-                Foo::Entity(#A),
+                #A
+                --
+                Foo::Entity(#A)
+                --
                 Bar { foo: FooTemplate::Entity(#A) }
             })
             .unwrap();

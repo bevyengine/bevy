@@ -163,34 +163,32 @@ impl FeathersFloatingDialog {
             })
             Children [
                 // Title bar; dragging it moves the window.
-                (
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::SpaceBetween,
-                        padding: UiRect::all(px(6.0)),
-                    }
-                    DialogDragHandle
-                    InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
-                    ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
-                    Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
-                    InheritableFont {
-                        font: fonts::REGULAR,
-                        font_size: size::HEADER_FONT,
-                        weight: FontWeight::BOLD,
-                    }
-                    Children [
-                        (Text({props.title}) ThemedText),
-                        @FeathersDialogClose
-                    ]
-                ),
-                (
-                    @FeathersDialogBody
-                    Children [
-                        {props.contents}
-                    ]
-                )
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                    padding: UiRect::all(px(6.0)),
+                }
+                DialogDragHandle
+                InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
+                ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
+                Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
+                InheritableFont {
+                    font: fonts::REGULAR,
+                    font_size: size::HEADER_FONT,
+                    weight: FontWeight::BOLD,
+                }
+                Children [
+                    Text({props.title}) ThemedText
+                    --
+                    @FeathersDialogClose
+                ]
+                --
+                @FeathersDialogBody
+                Children [
+                    {props.contents}
+                ]
             ]
         }
     }

@@ -96,7 +96,7 @@ impl FeathersRadio {
                 FocusIndicator
                 ThemeBorderColor(tokens::RADIO_BORDER)
                 ThemeBackgroundColor(tokens::RADIO_BG)
-                Children [(
+                Children [
                     Node {
                         width: px(12),
                         height: px(12),
@@ -108,7 +108,7 @@ impl FeathersRadio {
                     }
                     RadioMark
                     ThemeBackgroundColor(tokens::RADIO_MARK)
-                )]
+                ]
                 --
                 {props.caption}
             ]
