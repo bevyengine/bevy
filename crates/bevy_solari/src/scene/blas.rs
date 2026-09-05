@@ -155,7 +155,7 @@ pub fn prepare_raytracing_blas(
     if let Some(time_span) = time_span {
         time_span.end(&mut command_encoder);
     }
-    render_queue.submit([command_encoder.finish()]);
+    render_queue.submit([command_encoder.into_inner().finish()]);
 }
 
 pub fn compact_raytracing_blas(
