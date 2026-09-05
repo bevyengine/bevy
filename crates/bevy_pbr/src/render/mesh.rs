@@ -2320,7 +2320,7 @@ fn collect_gpu_culled_meshes_for_subview(
         .entry(TypeId::of::<Mesh3d>())
         .or_default();
 
-    // `RenderGpuCulledEntities` is a global resource that only cares about this frame changed renderables, so when the camera is spawned later, this per frame infomation is gone.
+    // `RenderGpuCulledEntities` is a global resource that only cares about this frame changed renderables, so when the camera is spawned later, this per frame information is gone.
     // So we do a full flush on the `RenderVisibleEntities` whenever it just got added
     if just_added_render_visible_entities {
         // We assume `RenderVisibleEntities` is completely fresh so there will only be new entities
