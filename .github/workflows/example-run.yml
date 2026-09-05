@@ -17,6 +17,8 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_TEST_DEBUG: 0
   CARGO_PROFILE_DEV_DEBUG: 0
+  # Keep in sync between all workflows
+  RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
 jobs:
   run-examples-macos-metal:
