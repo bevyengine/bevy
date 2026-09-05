@@ -134,15 +134,11 @@ fn scene_load_check(
                         });
                 let mut scene = scenes.get_mut(gltf_scene_handle).unwrap();
 
-                let mut query = scene
-                    .world
-                    .query::<(Option<&DirectionalLight>, Option<&PointLight>)>();
-                scene_handle.has_light =
-                    query
-                        .iter(&scene.world)
-                        .any(|(maybe_directional_light, maybe_point_light)| {
-                            maybe_directional_light.is_some() || maybe_point_light.is_some()
-                        });
+                scene_handle.has_light = scene.world.query_filtered::<(), Or<(
+                    With<DirectionalLight>,
+                    With<PointLight>,
+                    With<SpotLight>,
+                )>>().iter(&scene.world).next().is_some();
 
                 scene_handle.instance_id = Some(scene_spawner.spawn(gltf_scene_handle.clone()));
 
