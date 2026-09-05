@@ -33,6 +33,7 @@ use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     Indices, Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexAttribute, PrimitiveTopology,
+    VertexAttributeValues,
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
@@ -58,6 +59,7 @@ use crate::{
     convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
     GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
     GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
+    GltfSkinningInfluenceLimit,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -162,6 +164,8 @@ pub struct GltfLoader {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+    /// The default joint influence handling policy.
+    pub default_skinning_influence_limit: GltfSkinningInfluenceLimit,
     /// Default Mesh attribute compression flags for the loaded meshes.
     pub default_mesh_attribute_compression: MeshAttributeCompressionFlags,
     /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
@@ -220,6 +224,8 @@ pub struct GltfLoaderSettings {
     pub convert_coordinates: Option<GltfConvertCoordinates>,
     /// Optionally overrides [`GltfPlugin::skinned_mesh_bounds_policy`](crate::GltfPlugin).
     pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
+    /// Optionally overrides [`GltfPlugin::skinning_influence_limit`](crate::GltfPlugin).
+    pub skinning_influence_limit: Option<GltfSkinningInfluenceLimit>,
     /// Mesh attribute compression flags for the loaded meshes.
     /// If `None`, uses the global default set by [`GltfPlugin::mesh_attribute_compression`](crate::GltfPlugin::mesh_attribute_compression).
     pub mesh_attribute_compression: Option<MeshAttributeCompressionFlags>,
@@ -242,6 +248,7 @@ impl Default for GltfLoaderSettings {
             validate: true,
             convert_coordinates: None,
             skinned_mesh_bounds_policy: None,
+            skinning_influence_limit: None,
             mesh_attribute_compression: None,
             mesh_index_compression: None,
         }
@@ -307,6 +314,9 @@ impl GltfLoader {
         let skinned_mesh_bounds_policy = settings
             .skinned_mesh_bounds_policy
             .unwrap_or(loader.default_skinned_mesh_bounds_policy);
+        let skinning_influence_limit = settings
+            .skinning_influence_limit
+            .unwrap_or(loader.default_skinning_influence_limit);
 
         #[cfg(feature = "bevy_animation")]
         let (animations, named_animations, animation_roots) = if settings.load_animations {
@@ -767,7 +777,18 @@ impl GltfLoader {
 
                     // Read vertex attributes
                     for (semantic, accessor) in primitive.attributes() {
-                        if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
+                        if [
+                            Semantic::Joints(0),
+                            Semantic::Weights(0),
+                            Semantic::Joints(1),
+                            Semantic::Weights(1),
+                            Semantic::Joints(2),
+                            Semantic::Weights(2),
+                            Semantic::Joints(3),
+                            Semantic::Weights(3),
+                        ]
+                        .contains(&semantic)
+                        {
                             if !gltf_mesh_on_skinned_nodes {
                                 warn!(
                                     "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
@@ -826,6 +847,8 @@ impl GltfLoader {
                     }
                     mesh
                 };
+
+                process_skinning_influences(&mut mesh, skinning_influence_limit, &primitive_label);
 
                 if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
                     && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
@@ -1199,6 +1222,201 @@ impl AssetLoader for GltfLoader {
     fn extensions(&self) -> &[&str] {
         &["gltf", "glb"]
     }
+}
+
+const JOINT_INDEX_ATTRIBUTES: [MeshVertexAttribute; 4] = [
+    Mesh::ATTRIBUTE_JOINT_INDEX,
+    Mesh::ATTRIBUTE_JOINT_INDEX_1,
+    Mesh::ATTRIBUTE_JOINT_INDEX_2,
+    Mesh::ATTRIBUTE_JOINT_INDEX_3,
+];
+
+const JOINT_WEIGHT_ATTRIBUTES: [MeshVertexAttribute; 4] = [
+    Mesh::ATTRIBUTE_JOINT_WEIGHT,
+    Mesh::ATTRIBUTE_JOINT_WEIGHT_1,
+    Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+    Mesh::ATTRIBUTE_JOINT_WEIGHT_3,
+];
+
+fn remove_joint_influence_sets(mesh: &mut Mesh, first_set: usize) {
+    for set_index in first_set..JOINT_INDEX_ATTRIBUTES.len() {
+        mesh.remove_attribute(JOINT_INDEX_ATTRIBUTES[set_index]);
+        mesh.remove_attribute(JOINT_WEIGHT_ATTRIBUTES[set_index]);
+    }
+}
+
+fn process_skinning_influences(
+    mesh: &mut Mesh,
+    influence_limit: GltfSkinningInfluenceLimit,
+    primitive_label: &GltfAssetLabel,
+) {
+    let has_primary_indices = mesh.contains_attribute(Mesh::ATTRIBUTE_JOINT_INDEX);
+    let has_primary_weights = mesh.contains_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT);
+    if has_primary_indices != has_primary_weights {
+        warn!(
+            "Ignoring incomplete primary joint influence attributes for {primitive_label}: both JOINTS_0 and WEIGHTS_0 are required"
+        );
+        remove_joint_influence_sets(mesh, 0);
+        return;
+    }
+    if !has_primary_indices {
+        remove_joint_influence_sets(mesh, 1);
+        return;
+    }
+
+    let primary_vertex_count = mesh
+        .attribute(Mesh::ATTRIBUTE_JOINT_INDEX)
+        .map(VertexAttributeValues::len)
+        .unwrap();
+    if mesh
+        .attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT)
+        .map(VertexAttributeValues::len)
+        != Some(primary_vertex_count)
+    {
+        warn!(
+            "Ignoring joint influence attributes with mismatched vertex counts for {primitive_label}"
+        );
+        remove_joint_influence_sets(mesh, 0);
+        return;
+    }
+
+    let mut influence_set_count = 1;
+    for set_index in 1..JOINT_INDEX_ATTRIBUTES.len() {
+        let has_indices = mesh.contains_attribute(JOINT_INDEX_ATTRIBUTES[set_index]);
+        let has_weights = mesh.contains_attribute(JOINT_WEIGHT_ATTRIBUTES[set_index]);
+
+        if has_indices != has_weights {
+            warn!(
+                "Ignoring incomplete joint influence set {set_index} for {primitive_label}: both JOINTS_{set_index} and WEIGHTS_{set_index} are required"
+            );
+            remove_joint_influence_sets(mesh, set_index);
+            break;
+        }
+        if !has_indices {
+            let has_later_sets = ((set_index + 1)..JOINT_INDEX_ATTRIBUTES.len()).any(|later| {
+                mesh.contains_attribute(JOINT_INDEX_ATTRIBUTES[later])
+                    || mesh.contains_attribute(JOINT_WEIGHT_ATTRIBUTES[later])
+            });
+            if has_later_sets {
+                warn!(
+                    "Ignoring non-contiguous joint influence attributes after missing set {set_index} for {primitive_label}"
+                );
+            }
+            remove_joint_influence_sets(mesh, set_index);
+            break;
+        }
+
+        let lengths_match = mesh
+            .attribute(JOINT_INDEX_ATTRIBUTES[set_index])
+            .map(VertexAttributeValues::len)
+            == Some(primary_vertex_count)
+            && mesh
+                .attribute(JOINT_WEIGHT_ATTRIBUTES[set_index])
+                .map(VertexAttributeValues::len)
+                == Some(primary_vertex_count);
+        if !lengths_match {
+            warn!(
+                "Ignoring joint influence set {set_index} and later sets with mismatched vertex counts for {primitive_label}"
+            );
+            remove_joint_influence_sets(mesh, set_index);
+            break;
+        }
+
+        influence_set_count += 1;
+    }
+
+    let maximum_set_count = match influence_limit {
+        GltfSkinningInfluenceLimit::Auto => influence_set_count,
+        GltfSkinningInfluenceLimit::Four => 1,
+        GltfSkinningInfluenceLimit::Eight => 2,
+        GltfSkinningInfluenceLimit::Sixteen => 4,
+    };
+    let needs_pruning = influence_set_count > maximum_set_count;
+
+    if !needs_pruning {
+        mesh.normalize_joint_weights();
+        return;
+    }
+
+    let attributes_have_expected_formats = (0..influence_set_count).all(|set_index| {
+        matches!(
+            mesh.attribute(JOINT_INDEX_ATTRIBUTES[set_index]),
+            Some(VertexAttributeValues::Uint16x4(_))
+        ) && matches!(
+            mesh.attribute(JOINT_WEIGHT_ATTRIBUTES[set_index]),
+            Some(VertexAttributeValues::Float32x4(_))
+        )
+    });
+    if !attributes_have_expected_formats {
+        warn!(
+            "Unable to select joint influences with unexpected attribute formats for {primitive_label}"
+        );
+        remove_joint_influence_sets(mesh, maximum_set_count);
+        mesh.normalize_joint_weights();
+        return;
+    }
+
+    let mut joint_index_sets = Vec::with_capacity(4);
+    let mut joint_weight_sets = Vec::with_capacity(4);
+    for set_index in 0..influence_set_count {
+        let Some(VertexAttributeValues::Uint16x4(indices)) =
+            mesh.remove_attribute(JOINT_INDEX_ATTRIBUTES[set_index])
+        else {
+            unreachable!();
+        };
+        let Some(VertexAttributeValues::Float32x4(weights)) =
+            mesh.remove_attribute(JOINT_WEIGHT_ATTRIBUTES[set_index])
+        else {
+            unreachable!();
+        };
+        joint_index_sets.push(indices);
+        joint_weight_sets.push(weights);
+    }
+
+    let influence_count = influence_set_count * 4;
+    for vertex_index in 0..primary_vertex_count {
+        let mut influences = [(0_u16, 0.0_f32); 16];
+        for set_index in 0..influence_set_count {
+            for influence_index in 0..4 {
+                influences[set_index * 4 + influence_index] = (
+                    joint_index_sets[set_index][vertex_index][influence_index],
+                    joint_weight_sets[set_index][vertex_index][influence_index].max(0.0),
+                );
+            }
+        }
+        influences[..influence_count].sort_by(|left, right| right.1.total_cmp(&left.1));
+
+        for (output_index, (joint_index, joint_weight)) in influences
+            .iter()
+            .copied()
+            .take(maximum_set_count * 4)
+            .enumerate()
+        {
+            let set_index = output_index / 4;
+            let influence_index = output_index % 4;
+            joint_index_sets[set_index][vertex_index][influence_index] = joint_index;
+            joint_weight_sets[set_index][vertex_index][influence_index] = joint_weight;
+        }
+    }
+    joint_index_sets.truncate(maximum_set_count);
+    joint_weight_sets.truncate(maximum_set_count);
+
+    for (set_index, (indices, weights)) in joint_index_sets
+        .into_iter()
+        .zip(joint_weight_sets)
+        .enumerate()
+    {
+        mesh.insert_attribute(
+            JOINT_INDEX_ATTRIBUTES[set_index],
+            VertexAttributeValues::Uint16x4(indices),
+        );
+        mesh.insert_attribute(
+            JOINT_WEIGHT_ATTRIBUTES[set_index],
+            VertexAttributeValues::Float32x4(weights),
+        );
+    }
+
+    mesh.normalize_joint_weights();
 }
 
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
@@ -2119,7 +2337,10 @@ pub struct MorphTargetNames {
 mod test {
     use std::path::Path;
 
-    use crate::{Gltf, GltfAssetLabel, GltfLoaderSettings, GltfMaterial, GltfNode, GltfSkin};
+    use crate::{
+        Gltf, GltfAssetLabel, GltfLoaderSettings, GltfMaterial, GltfNode, GltfSkin,
+        GltfSkinningInfluenceLimit,
+    };
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
@@ -2127,12 +2348,13 @@ mod test {
             AssetSourceBuilder, AssetSourceId,
         },
         AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext, LoadState,
+        RenderAssetUsages,
     };
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_image::{Image, ImageLoaderSettings};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
-    use bevy_mesh::MeshPlugin;
+    use bevy_mesh::{Mesh, MeshPlugin, PrimitiveTopology, VertexAttributeValues};
     use bevy_reflect::TypePath;
     use bevy_world_serialization::WorldSerializationPlugin;
 
@@ -2794,5 +3016,192 @@ mod test {
         assert_eq!(settings.default_sampler, default.default_sampler);
         assert_eq!(settings.override_sampler, default.override_sampler);
         assert_eq!(settings.validate, default.validate);
+        assert_eq!(
+            settings.skinning_influence_limit,
+            default.skinning_influence_limit
+        );
+    }
+
+    #[test]
+    fn automatic_influence_limit_selects_smallest_supported_layout() {
+        assert_eq!(
+            GltfSkinningInfluenceLimit::default(),
+            GltfSkinningInfluenceLimit::Auto
+        );
+
+        for source_set_count in 1..=4 {
+            let mut mesh = sixteen_influence_mesh();
+            super::remove_joint_influence_sets(&mut mesh, source_set_count);
+
+            super::process_skinning_influences(
+                &mut mesh,
+                GltfSkinningInfluenceLimit::Auto,
+                &GltfAssetLabel::Primitive {
+                    mesh: 0,
+                    primitive: 0,
+                },
+            );
+
+            let actual_set_count = (0..4)
+                .take_while(|&set_index| {
+                    mesh.contains_attribute(super::JOINT_INDEX_ATTRIBUTES[set_index])
+                        && mesh.contains_attribute(super::JOINT_WEIGHT_ATTRIBUTES[set_index])
+                })
+                .count();
+            assert_eq!(actual_set_count, source_set_count);
+        }
+    }
+
+    #[test]
+    fn four_influence_limit_keeps_strongest_and_normalizes() {
+        let mut mesh = sixteen_influence_mesh();
+
+        super::process_skinning_influences(
+            &mut mesh,
+            GltfSkinningInfluenceLimit::Four,
+            &GltfAssetLabel::Primitive {
+                mesh: 0,
+                primitive: 0,
+            },
+        );
+
+        assert_eq!(
+            mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX),
+            Some(&VertexAttributeValues::Uint16x4(vec![[16, 15, 14, 13]]))
+        );
+        let Some(VertexAttributeValues::Float32x4(weights)) =
+            mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT)
+        else {
+            panic!("missing normalized joint weights");
+        };
+        for (actual, expected) in
+            weights[0]
+                .into_iter()
+                .zip([0.16 / 0.58, 0.15 / 0.58, 0.14 / 0.58, 0.13 / 0.58])
+        {
+            assert!((actual - expected).abs() < f32::EPSILON);
+        }
+        for attribute in [
+            Mesh::ATTRIBUTE_JOINT_INDEX_1,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_1,
+            Mesh::ATTRIBUTE_JOINT_INDEX_2,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+            Mesh::ATTRIBUTE_JOINT_INDEX_3,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_3,
+        ] {
+            assert!(!mesh.contains_attribute(attribute));
+        }
+    }
+
+    #[test]
+    fn eight_influence_limit_keeps_strongest_from_sixteen() {
+        let mut mesh = sixteen_influence_mesh();
+
+        super::process_skinning_influences(
+            &mut mesh,
+            GltfSkinningInfluenceLimit::Eight,
+            &GltfAssetLabel::Primitive {
+                mesh: 0,
+                primitive: 0,
+            },
+        );
+
+        assert_eq!(
+            mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX),
+            Some(&VertexAttributeValues::Uint16x4(vec![[16, 15, 14, 13]]))
+        );
+        assert_eq!(
+            mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT),
+            Some(&VertexAttributeValues::Float32x4(vec![[
+                0.16, 0.15, 0.14, 0.13
+            ]]))
+        );
+        assert_eq!(
+            mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX_1),
+            Some(&VertexAttributeValues::Uint16x4(vec![[12, 11, 10, 9]]))
+        );
+        assert_eq!(
+            mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT_1),
+            Some(&VertexAttributeValues::Float32x4(vec![[
+                0.12, 0.11, 0.10, 0.09
+            ]]))
+        );
+        for attribute in [
+            Mesh::ATTRIBUTE_JOINT_INDEX_2,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+            Mesh::ATTRIBUTE_JOINT_INDEX_3,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_3,
+        ] {
+            assert!(!mesh.contains_attribute(attribute));
+        }
+    }
+
+    #[test]
+    fn sixteen_influence_limit_preserves_twelve_influences() {
+        let mut mesh = sixteen_influence_mesh();
+        mesh.remove_attribute(Mesh::ATTRIBUTE_JOINT_INDEX_3);
+        mesh.remove_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT_3);
+
+        super::process_skinning_influences(
+            &mut mesh,
+            GltfSkinningInfluenceLimit::Sixteen,
+            &GltfAssetLabel::Primitive {
+                mesh: 0,
+                primitive: 0,
+            },
+        );
+
+        assert!(!mesh.contains_attribute(Mesh::ATTRIBUTE_JOINT_INDEX_3));
+        assert!(!mesh.contains_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT_3));
+        let weight_sum: f32 = [
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_1,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+        ]
+        .into_iter()
+        .map(|attribute| {
+            let Some(VertexAttributeValues::Float32x4(weights)) = mesh.attribute(attribute) else {
+                panic!("missing joint weight attribute {attribute:?}");
+            };
+            weights[0].iter().sum::<f32>()
+        })
+        .sum();
+        assert!((weight_sum - 1.0).abs() < f32::EPSILON * 4.0);
+    }
+
+    fn sixteen_influence_mesh() -> Mesh {
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+            VertexAttributeValues::Uint16x4(vec![[1, 2, 3, 4]]),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, vec![[0.01, 0.02, 0.03, 0.04]])
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX_1,
+            VertexAttributeValues::Uint16x4(vec![[5, 6, 7, 8]]),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_1,
+            vec![[0.05, 0.06, 0.07, 0.08]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX_2,
+            VertexAttributeValues::Uint16x4(vec![[9, 10, 11, 12]]),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+            vec![[0.09, 0.10, 0.11, 0.12]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX_3,
+            VertexAttributeValues::Uint16x4(vec![[13, 14, 15, 16]]),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_3,
+            vec![[0.13, 0.14, 0.15, 0.16]],
+        )
     }
 }

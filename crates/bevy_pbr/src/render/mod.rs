@@ -10,6 +10,7 @@ pub(crate) mod skin;
 pub use fog::*;
 pub use gpu_preprocess::*;
 pub use light::*;
+pub(crate) use mesh::skinning_influence_count;
 pub use mesh::*;
 pub use mesh_bindings::MeshLayouts;
 pub use mesh_view_bindings::*;
