@@ -502,7 +502,7 @@ impl Schedule {
         self
     }
 
-    /// Configures a collection of system sets in this schedule, adding them if they does not exist.
+    /// Configures a collection of system sets in this schedule, adding them if they don't exist.
     #[track_caller]
     pub fn configure_sets<M>(
         &mut self,
