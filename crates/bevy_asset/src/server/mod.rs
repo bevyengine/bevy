@@ -8,7 +8,7 @@ use crate::{
         AssetWriterError, ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
         MissingProcessedAssetReaderError, Reader,
     },
-    loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
+    loader::{AssetLoader, ErasedAssetLoader, ErasedLabeledAssetReader, LoadContext, LoadedAsset},
     meta::{
         loader_settings_meta_transform, AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal,
         MetaTransform, Settings,
@@ -86,6 +86,54 @@ pub enum AssetServerMode {
     Unprocessed,
     /// This server loads processed assets.
     Processed,
+}
+
+#[derive(Clone, Copy)]
+enum AnyAssetReader<'a> {
+    Root(&'a dyn ErasedAssetReader),
+    Labeled(&'a dyn ErasedLabeledAssetReader),
+}
+
+impl<'a> AnyAssetReader<'a> {
+    fn resolve_loader(
+        self,
+        loaders: &AssetLoaders,
+        asset_type_id: Option<TypeId>,
+        asset_path: &AssetPath<'_>,
+    ) -> Option<MaybeAssetLoader> {
+        match self {
+            Self::Root(_) => loaders.find(asset_type_id, asset_path),
+            Self::Labeled(_) => asset_type_id.and_then(|type_id| loaders.get_by_type(type_id)),
+        }
+    }
+
+    fn read(
+        self,
+        asset_path: &'a AssetPath<'_>,
+    ) -> bevy_tasks::BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+        match self {
+            Self::Root(reader) => reader.read(asset_path.path()),
+            Self::Labeled(reader) => reader.read(
+                asset_path
+                    .label()
+                    .expect("labeled asset reader loads always have a label"),
+            ),
+        }
+    }
+
+    fn read_meta(
+        self,
+        asset_path: &'a AssetPath<'_>,
+    ) -> bevy_tasks::BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+        match self {
+            Self::Root(reader) => reader.read_meta(asset_path.path()),
+            Self::Labeled(reader) => reader.read_meta(
+                asset_path
+                    .label()
+                    .expect("labeled asset reader loads always have a label"),
+            ),
+        }
+    }
 }
 
 impl AssetServer {
@@ -372,6 +420,52 @@ impl AssetServer {
         LoadBuilder::new(self)
     }
 
+    /// Loads a labeled asset exposed by a root asset.
+    ///
+    /// The root must have finished loading and registered a
+    /// [`LabeledAssetReader`](crate::LabeledAssetReader).
+    pub fn load_labeled<'a, A: Asset>(
+        &self,
+        root: &Handle<impl Asset>,
+        label: impl Into<CowArc<'a, str>>,
+    ) -> Result<Handle<A>, LabeledAssetLoadError> {
+        Ok(self.load_labeled_builder(root)?.load(label))
+    }
+
+    /// Returns a [`LabeledLoadBuilder`] that can be used to start more complex loads. See [`LabeledLoadBuilder`]
+    /// for details.
+    ///
+    /// The root must have finished loading and registered a
+    /// [`LabeledAssetReader`](crate::LabeledAssetReader).
+    pub fn load_labeled_builder(
+        &self,
+        root: &Handle<impl Asset>,
+    ) -> Result<LabeledLoadBuilder<'_>, LabeledAssetLoadError> {
+        let root_path = root
+            .path()
+            .ok_or(LabeledAssetLoadError::RootHandleHasNoPath)?
+            .clone();
+        if root_path.label().is_some() {
+            return Err(LabeledAssetLoadError::RootHandleIsLabeled { path: root_path });
+        }
+        let root_index: ErasedAssetIndex = root
+            .try_into()
+            .map_err(|_| LabeledAssetLoadError::RootHandleHasNoPath)?;
+        let infos = self.read_infos();
+        let Some(info) = infos.get(root_index) else {
+            return Err(LabeledAssetLoadError::RootNotLoaded { path: root_path });
+        };
+        if !info.load_state.is_loaded() {
+            return Err(LabeledAssetLoadError::RootNotLoaded { path: root_path });
+        }
+        let reader = infos.get_labeled_asset_reader(root_index).ok_or_else(|| {
+            LabeledAssetLoadError::MissingReader {
+                path: root_path.clone(),
+            }
+        })?;
+        Ok(LabeledLoadBuilder::new(self, root_path, reader))
+    }
+
     pub(crate) fn load_with_meta_transform<'a, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
@@ -456,6 +550,61 @@ impl AssetServer {
         infos
             .pending_tasks
             .insert((&handle).try_into().unwrap(), task);
+    }
+
+    pub(crate) fn load_labeled_with_meta_transform(
+        &self,
+        path: AssetPath<'static>,
+        type_id: TypeId,
+        type_name: Option<&str>,
+        meta_transform: Option<MetaTransform>,
+        reader: Arc<dyn ErasedLabeledAssetReader>,
+    ) -> UntypedHandle {
+        debug_assert!(path.label().is_some());
+        let mut infos = self.write_infos();
+        let (handle, should_load) = infos.get_or_create_path_handle_erased(
+            path.clone(),
+            type_id,
+            type_name,
+            HandleLoadingMode::Request,
+            meta_transform,
+        );
+
+        if !should_load {
+            return handle;
+        }
+
+        infos.stats.started_load_tasks += 1;
+
+        bevy_tasks::cfg::multi_threaded! {
+            if {} else {
+                drop(infos);
+            }
+        }
+
+        let owned_handle = handle.clone();
+        let server = self.clone();
+        let task = IoTaskPool::get().spawn(async move {
+            if let Err(error) = server
+                .load_labeled_asset_from_reader(owned_handle, path, reader)
+                .await
+            {
+                error!("{error}");
+            }
+        });
+
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
+            if {
+                infos
+            } else {
+                self.write_infos()
+            }
+        };
+        infos
+            .pending_tasks
+            .insert((&handle).try_into().unwrap(), task);
+
+        handle
     }
 
     pub(crate) fn load_unknown_type_with_meta_transform<'a, G: Send + Sync + 'static>(
@@ -770,6 +919,79 @@ impl AssetServer {
                 Err(err)
             }
         }
+    }
+
+    async fn load_labeled_asset_from_reader(
+        &self,
+        input_handle: UntypedHandle,
+        path: AssetPath<'static>,
+        labeled_asset_reader: Arc<dyn ErasedLabeledAssetReader>,
+    ) -> Result<(), AssetLoadError> {
+        let asset_id: ErasedAssetIndex = (&input_handle).try_into().unwrap();
+        let requested_type = asset_id.type_id;
+
+        let result: Result<(), AssetLoadError> = async {
+            let read_meta = match &self.data.meta_check {
+                AssetMetaCheck::Always => true,
+                AssetMetaCheck::Paths(paths) => paths.contains(&path),
+                AssetMetaCheck::Never => false,
+            };
+            let (mut meta, loader, mut reader) = self
+                .get_meta_loader_and_reader_from_reader(
+                    AnyAssetReader::Labeled(&*labeled_asset_reader),
+                    &path,
+                    Some(requested_type),
+                    read_meta,
+                )
+                .await?;
+
+            if let Some(meta_transform) = input_handle.meta_transform() {
+                (*meta_transform)(&mut *meta);
+            }
+
+            if requested_type != loader.asset_type_id() {
+                return Err(Box::new(RequestedHandleTypeMismatchError {
+                    path: path.clone(),
+                    requested: requested_type,
+                    actual_asset_name: loader.asset_type_name(),
+                    loader_name: loader.type_path(),
+                })
+                .into());
+            }
+
+            // The caller already marked this handle as loading. Drop our copy before awaiting the
+            // loader so an externally dropped handle can still cancel insertion.
+            drop(input_handle);
+
+            let loaded_asset = self
+                .load_with_settings_loader_reader_and_labeled_reader(
+                    &path,
+                    meta.loader_settings().expect("meta is set to Load"),
+                    &*loader,
+                    &mut *reader,
+                    true,
+                    false,
+                    Some(labeled_asset_reader.clone()),
+                )
+                .await?;
+
+            self.send_asset_event(InternalAssetEvent::Loaded {
+                index: asset_id,
+                loaded_asset,
+            });
+            Ok(())
+        }
+        .await;
+
+        if let Err(error) = &result {
+            self.send_asset_event(InternalAssetEvent::Failed {
+                index: asset_id,
+                path,
+                error: error.clone(),
+            });
+        }
+
+        result
     }
 
     /// Kicks off a reload of the asset stored at the given path. This will only reload the asset if it currently loaded.
@@ -1399,6 +1621,29 @@ impl AssetServer {
             AssetMetaCheck::Never => false,
         };
 
+        self.get_meta_loader_and_reader_from_reader(
+            AnyAssetReader::Root(asset_reader),
+            asset_path,
+            asset_type_id,
+            read_meta,
+        )
+        .await
+    }
+
+    async fn get_meta_loader_and_reader_from_reader<'a>(
+        &'a self,
+        asset_reader: AnyAssetReader<'a>,
+        asset_path: &'a AssetPath<'_>,
+        asset_type_id: Option<TypeId>,
+        read_meta: bool,
+    ) -> Result<
+        (
+            Box<dyn AssetMetaDyn>,
+            Arc<dyn ErasedAssetLoader>,
+            Box<dyn Reader + 'a>,
+        ),
+        AssetLoadError,
+    > {
         // Scope the meta reader up here. This allows the reader to be "transactional": for sources
         // that want to lock the asset before reading it (e.g., with a RwLock), this allows the meta
         // reader to take the RwLock, and since it overlaps with the asset reader, the asset reader
@@ -1406,7 +1651,7 @@ impl AssetServer {
         let mut meta_reader;
 
         let (meta, loader) = if read_meta {
-            match asset_reader.read_meta(asset_path.path()).await {
+            match asset_reader.read_meta(asset_path).await {
                 Ok(new_meta_reader) => {
                     meta_reader = new_meta_reader;
                     let mut meta_bytes = vec![];
@@ -1447,7 +1692,10 @@ impl AssetServer {
                 }
                 Err(AssetReaderError::NotFound(_)) => {
                     // TODO: Handle error transformation
-                    let loader = { self.read_loaders().find(asset_type_id, asset_path) };
+                    let loader = {
+                        let loaders = self.read_loaders();
+                        asset_reader.resolve_loader(&loaders, asset_type_id, asset_path)
+                    };
 
                     let error = || AssetLoadError::MissingAssetLoader {
                         asset_type_id,
@@ -1462,7 +1710,10 @@ impl AssetServer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            let loader = { self.read_loaders().find(asset_type_id, asset_path) };
+            let loader = {
+                let loaders = self.read_loaders();
+                asset_reader.resolve_loader(&loaders, asset_type_id, asset_path)
+            };
 
             let error = || AssetLoadError::MissingAssetLoader {
                 asset_type_id,
@@ -1474,7 +1725,7 @@ impl AssetServer {
             let meta = loader.default_meta();
             (meta, loader)
         };
-        let reader = asset_reader.read(asset_path.path()).await?;
+        let reader = asset_reader.read(asset_path).await?;
         Ok((meta, loader, reader))
     }
 
@@ -1487,10 +1738,33 @@ impl AssetServer {
         load_dependencies: bool,
         populate_hashes: bool,
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {
+        self.load_with_settings_loader_reader_and_labeled_reader(
+            asset_path,
+            settings,
+            loader,
+            reader,
+            load_dependencies,
+            populate_hashes,
+            None,
+        )
+        .await
+    }
+
+    async fn load_with_settings_loader_reader_and_labeled_reader(
+        &self,
+        asset_path: &AssetPath<'_>,
+        settings: &dyn Settings,
+        loader: &dyn ErasedAssetLoader,
+        reader: &mut dyn Reader,
+        load_dependencies: bool,
+        populate_hashes: bool,
+        labeled_asset_reader: Option<Arc<dyn ErasedLabeledAssetReader>>,
+    ) -> Result<ErasedLoadedAsset, AssetLoadError> {
         // TODO: experiment with this
         let asset_path = asset_path.clone_owned();
-        let load_context =
+        let mut load_context =
             LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
+        load_context.labeled_asset_reader = labeled_asset_reader;
         let load = AssertUnwindSafe(loader.load(reader, settings, load_context)).catch_unwind();
         #[cfg(feature = "trace")]
         let load = {
@@ -1688,6 +1962,88 @@ impl AssetServer {
             .await?;
 
         Ok(())
+    }
+}
+
+/// An error returned when a labeled asset cannot be loaded from a root asset.
+#[derive(Error, Debug)]
+pub enum LabeledAssetLoadError {
+    /// The root handle does not identify a path-based asset.
+    #[error("the root asset handle does not have a path")]
+    RootHandleHasNoPath,
+    /// A labeled asset was passed where an unlabeled root asset was required.
+    #[error("'{path}' is labeled; load_labeled requires an unlabeled root asset")]
+    RootHandleIsLabeled {
+        /// The supplied root path.
+        path: AssetPath<'static>,
+    },
+    /// The root asset has not finished loading.
+    #[error("root asset '{path}' has not finished loading")]
+    RootNotLoaded {
+        /// The supplied root path.
+        path: AssetPath<'static>,
+    },
+    /// The root asset did not register a labeled asset reader.
+    #[error("root asset '{path}' does not provide a labeled asset reader")]
+    MissingReader {
+        /// The root asset path.
+        path: AssetPath<'static>,
+    },
+}
+
+/// A builder for loading an asset exposed by a root asset.
+pub struct LabeledLoadBuilder<'a> {
+    asset_server: &'a AssetServer,
+    root_path: AssetPath<'static>,
+    reader: Arc<dyn ErasedLabeledAssetReader>,
+    meta_transform: Option<MetaTransform>,
+}
+
+impl<'a> LabeledLoadBuilder<'a> {
+    fn new(
+        asset_server: &'a AssetServer,
+        root_path: AssetPath<'static>,
+        reader: Arc<dyn ErasedLabeledAssetReader>,
+    ) -> Self {
+        Self {
+            asset_server,
+            root_path,
+            reader,
+            meta_transform: None,
+        }
+    }
+
+    /// Overrides the settings used by the labeled asset's loader.
+    #[must_use = "the load doesn't start until LabeledAssetLoadBuilder has been consumed"]
+    pub fn with_settings<S: Settings>(
+        mut self,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+    ) -> Self {
+        let new_transform = loader_settings_meta_transform(settings);
+        if let Some(previous_transform) = self.meta_transform.take() {
+            self.meta_transform = Some(Box::new(move |meta| {
+                previous_transform(meta);
+                new_transform(meta);
+            }));
+        } else {
+            self.meta_transform = Some(new_transform);
+        }
+        self
+    }
+
+    /// Starts loading `label` through the existing asset loader selected by its requested type.
+    #[must_use = "not using the returned strong handle may release the labeled asset"]
+    pub fn load<'b, A: Asset>(self, label: impl Into<CowArc<'b, str>>) -> Handle<A> {
+        let label = label.into();
+        self.asset_server
+            .load_labeled_with_meta_transform(
+                self.root_path.with_label(CowArc::Owned(Arc::from(&*label))),
+                TypeId::of::<A>(),
+                Some(type_name::<A>()),
+                self.meta_transform,
+                self.reader,
+            )
+            .typed_unchecked()
     }
 }
 

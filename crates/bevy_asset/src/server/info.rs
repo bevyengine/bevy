@@ -1,4 +1,5 @@
 use crate::{
+    loader::ErasedLabeledAssetReader,
     meta::{AssetHash, MetaTransform},
     Asset, AssetHandleProvider, AssetIndex, AssetLoadError, AssetPath, DependencyLoadState,
     ErasedAssetIndex, ErasedLoadedAsset, Handle, InternalAssetEvent, LoadState,
@@ -47,6 +48,8 @@ pub(crate) struct AssetInfo {
     handle_drops_to_skip: usize,
     /// List of tasks waiting for this asset to complete loading
     pub(crate) waiting_tasks: Vec<Waker>,
+    /// The root-scoped reader used to load this asset when it came from a label.
+    labeled_asset_reader: Option<Arc<dyn ErasedLabeledAssetReader>>,
 }
 
 impl AssetInfo {
@@ -66,6 +69,7 @@ impl AssetInfo {
             dependents_waiting_on_recursive_dep_load: HashSet::default(),
             handle_drops_to_skip: 0,
             waiting_tasks: Vec::new(),
+            labeled_asset_reader: None,
         }
     }
 }
@@ -109,6 +113,14 @@ impl core::fmt::Debug for AssetInfos {
 }
 
 impl AssetInfos {
+    /// Returns the labeled asset reader registered for an asset.
+    pub(crate) fn get_labeled_asset_reader(
+        &self,
+        index: ErasedAssetIndex,
+    ) -> Option<Arc<dyn ErasedLabeledAssetReader>> {
+        self.infos.get(&index)?.labeled_asset_reader.clone()
+    }
+
     pub(crate) fn create_loading_handle_untyped(
         &mut self,
         type_id: TypeId,
@@ -401,6 +413,8 @@ impl AssetInfos {
         world: &mut World,
         sender: &Sender<InternalAssetEvent>,
     ) {
+        let labeled_asset_reader = loaded_asset.labeled_asset_reader.clone();
+
         // Process all the labeled assets first so that they don't get skipped due to the "parent"
         // not having its handle alive.
         for asset in loaded_asset.labeled_assets {
@@ -527,6 +541,7 @@ impl AssetInfos {
             info.load_state = LoadState::Loaded;
             info.dep_load_state = dep_load_state;
             info.rec_dep_load_state = rec_dep_load_state.clone();
+            info.labeled_asset_reader = labeled_asset_reader;
             if watching_for_changes {
                 info.loader_dependencies = loaded_asset.loader_dependencies;
             }
