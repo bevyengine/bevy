@@ -14,7 +14,9 @@ fn balance_heuristic(f: f32, g: f32) -> f32 {
     if f == 0.0 {
         return 0.0;
     }
-    return max(0.0, 1.0 / (1.0 + (g / f)));
+    // When NaN, fall back to even weights of 0.5 : 0.5
+    let weight = 1.0 / (1.0 + (g / f));
+    return select(weight, 0.5, isnan(weight));
 }
 
 /// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
@@ -52,7 +54,7 @@ fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) ->
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
         let mirror_wo = vec3(-wi_tangent.xy, wi_tangent.z);
-        if all(abs(mirror_wo - wo_tangent) < vec3(0.0001)) {
+        if distance(mirror_wo, wo_tangent) < 0.0001 {
             return bitcast<f32>(0x7F800000u); // INF
         } else {
             return 0.0;

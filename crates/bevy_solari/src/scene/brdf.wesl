@@ -38,7 +38,7 @@ fn specular_lobe_sampling_probability(rho: LobeReflectances, perceptual_roughnes
 
     // Give smooth dielectric reflections more specular samples to prevent undersampling
     let roughness_biased_probability = mix(0.5, energy_probability, perceptual_roughness);
-    return saturate(max(energy_probability, roughness_biased_probability));
+    return max(energy_probability, roughness_biased_probability);
 }
 
 fn evaluate_and_sample_brdf(
@@ -101,7 +101,7 @@ fn evaluate_brdf(
     material: ResolvedMaterial,
     F_ab: vec2<f32>,
 ) -> vec3<f32> {
-    return max(evaluate_diffuse_brdf(wo, wi, world_normal, material, F_ab) + evaluate_specular_brdf(wo, wi, world_normal, material, F_ab), vec3(0.0));
+    return evaluate_diffuse_brdf(wo, wi, world_normal, material, F_ab) + evaluate_specular_brdf(wo, wi, world_normal, material, F_ab);
 }
 
 fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> vec3<f32> {
@@ -117,7 +117,7 @@ fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, 
 fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> vec3<f32> {
     let H = normalize(wi + wo);
     let NdotL = dot(world_normal, wi);
-    let NdotH = dot(world_normal, H);
+    let NdotH = min(dot(world_normal, H), 1.0);
     let LdotH = dot(wi, H);
     let NdotV = dot(world_normal, wo);
     if NdotL < 0.0001 || NdotH < 0.0001 || LdotH < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
@@ -126,7 +126,8 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
 
     if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD {
-        if abs(NdotH - 1.0) < 0.0001 {
+        let mirror_wi = 2.0 * NdotV * world_normal - wo;
+        if distance(mirror_wi, wi) < 0.0001 {
             let F_metal = fresnel(F0_metal, LdotH);
             let F_dielectric = fresnel(F0_dielectric, LdotH);
             return mix(F_dielectric, F_metal, material.metallic);
@@ -166,10 +167,10 @@ fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: Res
 }
 
 fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
-    return f0 + (1.0 - f0) * pow(1.0 - LdotH, 5.0);
+    return f0 + (1.0 - f0) * pow(saturate(1.0 - LdotH), 5.0);
 }
 
 /// Scale/bias approximation
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
-    return textureSampleLevel(brdf_dfg_lut, brdf_dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
+    return max(textureSampleLevel(brdf_dfg_lut, brdf_dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg, vec2(0.00005));
 }
