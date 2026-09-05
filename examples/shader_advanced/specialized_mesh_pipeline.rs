@@ -90,6 +90,27 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
             Transform::from_xyz(x, y, 0.0),
         ));
     }
+    commands.spawn((
+        // We use a marker component to identify the mesh that will be rendered
+        // with our specialized pipeline
+        CustomRenderedEntity,
+        // We need to add the mesh handle to the entity
+        Mesh3d(
+            meshes.add(
+                Rectangle::new(0.5, 0.5)
+                    .mesh()
+                    .build()
+                    .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL)
+                    .with_removed_attribute(Mesh::ATTRIBUTE_UV_0)
+                    .compressed_mesh(
+                        MeshAttributeCompressionFlags::all()
+                            .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8),
+                        true,
+                    ),
+            ),
+        ),
+        Transform::from_xyz(0.0, -1.0 / 3.0, -1.0),
+    ));
 
     // Spawn the camera.
     commands.spawn((
@@ -212,6 +233,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
         if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
+            shader_defs.push("VERTEX_COLORS".into());
             // Make sure this matches the shader location
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(1));
         }

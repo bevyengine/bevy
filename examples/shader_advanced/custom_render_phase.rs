@@ -94,6 +94,22 @@ fn setup(
         // The circle doesn't have it so it won't be rendered in our pass
         DrawStencil,
     ));
+    commands.spawn((
+        Mesh3d(
+            meshes.add(
+                Sphere::new(0.5).mesh().build().compressed_mesh(
+                    MeshAttributeCompressionFlags::all()
+                        .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8),
+                    true,
+                ),
+            ),
+        ),
+        MeshMaterial3d(materials.add(Color::srgb_u8(124, 255, 144))),
+        Transform::from_xyz(2.0, 0.5, 0.0),
+        // This marker component is used to identify which mesh will be used in our custom pass
+        // The circle doesn't have it so it won't be rendered in our pass
+        DrawStencil,
+    ));
     // light
     commands.spawn((
         PointLight {
