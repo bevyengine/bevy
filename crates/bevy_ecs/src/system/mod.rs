@@ -919,6 +919,33 @@ mod tests {
     }
 
     #[test]
+    #[should_panic = "error[B0001]"]
+    fn mut_nested_query_conflicts_with_main_query() {
+        fn sys(_: Query<(&A, NestedQuery<&mut A>)>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn mut_nested_query_conflicts_with_earlier_query() {
+        fn sys(_: Query<&A>, _: Query<NestedQuery<&mut A>>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn mut_nested_query_conflicts_with_later_query() {
+        fn sys(_: Query<NestedQuery<&mut A>>, _: Query<&A>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     fn query_set_system() {
         fn sys(mut _set: ParamSet<(Query<&mut A>, Query<&A>)>) {}
         let mut world = World::default();
