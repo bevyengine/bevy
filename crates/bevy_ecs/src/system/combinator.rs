@@ -288,27 +288,83 @@ where
 
 /// An [`IntoSystem`] creating an instance of [`PipeSystem`].
 #[derive(Clone)]
-pub struct IntoPipeSystem<A, B> {
+pub struct IntoPipeSystem<A, B, N: PipeSystemName = ()> {
     a: A,
     b: B,
+    name: N,
 }
 
 impl<A, B> IntoPipeSystem<A, B> {
     /// Creates a new [`IntoSystem`] that pipes two inner systems.
     pub const fn new(a: A, b: B) -> Self {
-        Self { a, b }
+        Self { a, b, name: () }
+    }
+
+    /// Set the name of the output [`PipeSystem`] to the output of a function.
+    ///
+    /// The parameters to the function are the names of the two systems.
+    pub fn with_name_fn(
+        self,
+        name: impl FnOnce(DebugName, DebugName) -> DebugName,
+    ) -> IntoPipeSystem<A, B, impl PipeSystemName> {
+        IntoPipeSystem {
+            a: self.a,
+            b: self.b,
+            name,
+        }
+    }
+
+    /// Set the name of the output [`PipeSystem`] to the given string.
+    pub fn with_name(
+        self,
+        name: impl Into<DebugName>,
+    ) -> IntoPipeSystem<A, B, impl PipeSystemName> {
+        self.with_name_fn(move |_, _| name.into())
+    }
+
+    /// Set the name of the output [`PipeSystem`] to the name of the first system.
+    pub fn with_first_name(self) -> IntoPipeSystem<A, B, impl PipeSystemName> {
+        self.with_name_fn(|name_1, _name_2| name_1)
+    }
+
+    /// Set the name of the output [`PipeSystem`] to the name of the second system.
+    pub fn with_second_name(self) -> IntoPipeSystem<A, B, impl PipeSystemName> {
+        self.with_name_fn(|_name_1, name_2| name_2)
+    }
+}
+
+/// A function for determining the name of a [`PipeSystem`]
+/// from the names of its inner systems.
+///
+/// This is a trait so that a [`IntoPipeSystem`] with a name function
+/// can still be a ZST for use in [`World::run_system_cached`].
+pub trait PipeSystemName {
+    /// Determines the name of the [`PipeSystem`].
+    fn name(self, name1: DebugName, name2: DebugName) -> DebugName;
+}
+
+impl<F: FnOnce(DebugName, DebugName) -> DebugName> PipeSystemName for F {
+    fn name(self, name1: DebugName, name2: DebugName) -> DebugName {
+        self(name1, name2)
+    }
+}
+
+impl PipeSystemName for () {
+    fn name(self, name1: DebugName, name2: DebugName) -> DebugName {
+        DebugName::owned(format!("Pipe({name1}, {name2})"))
     }
 }
 
 #[doc(hidden)]
 pub struct IsPipeSystemMarker;
 
-impl<A, B, IA, OA, IB, OB, MA, MB> IntoSystem<IA, OB, (IsPipeSystemMarker, OA, IB, MA, MB)>
-    for IntoPipeSystem<A, B>
+impl<A, B, N, IA, OA, IB, OB, MA, MB> IntoSystem<IA, OB, (IsPipeSystemMarker, OA, IB, MA, MB)>
+    for IntoPipeSystem<A, B, N>
 where
     IA: SystemInput,
     A: IntoSystem<IA, OA, MA>,
     B: IntoSystem<IB, OB, MB>,
+    N: PipeSystemName,
     for<'a> IB: SystemInput<Inner<'a> = OA>,
 {
     type System = PipeSystem<A::System, B::System>;
@@ -316,8 +372,8 @@ where
     fn into_system(this: Self) -> Self::System {
         let system_a = IntoSystem::into_system(this.a);
         let system_b = IntoSystem::into_system(this.b);
-        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
-        PipeSystem::new(system_a, system_b, DebugName::owned(name))
+        let name = this.name.name(system_a.name(), system_b.name());
+        PipeSystem::new(system_a, system_b, name)
     }
 }
 
@@ -522,5 +578,46 @@ mod tests {
         schedule.add_systems(my_exclusive_system.pipe(out_pipe));
 
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn pipe_system_names() {
+        let make_system = || {
+            let system1 = IntoSystem::into_system(|| {}).with_name(DebugName::borrowed("system1"));
+            let system2 = IntoSystem::into_system(|| {}).with_name(DebugName::borrowed("system2"));
+            system1.pipe(system2)
+        };
+
+        let system = IntoSystem::into_system(make_system());
+        assert_eq!(
+            DebugName::owned("Pipe(system1, system2)".into()),
+            system.name()
+        );
+
+        let system = IntoSystem::into_system(make_system().with_name("custom name"));
+        assert_eq!(DebugName::borrowed("custom name"), system.name());
+
+        let system = IntoSystem::into_system(make_system().with_first_name());
+        assert_eq!(DebugName::borrowed("system1"), system.name());
+
+        let system = IntoSystem::into_system(make_system().with_second_name());
+        assert_eq!(DebugName::borrowed("system2"), system.name());
+    }
+
+    #[test]
+    fn pipe_system_zst() {
+        let mut world = World::new();
+
+        fn system1() {}
+        fn system2() {}
+
+        // Ensure `IntoPipeSystem` is a ZST that can be used with `run_system_cached`
+        world.run_system_cached(system1.pipe(system2)).unwrap();
+        world
+            .run_system_cached(system1.pipe(system2).with_first_name())
+            .unwrap();
+        world
+            .run_system_cached(system1.pipe(system2).with_second_name())
+            .unwrap();
     }
 }
