@@ -28,7 +28,7 @@ use bevy_log::warn;
 use bevy_math::{UVec2, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, Ready};
-use bevy_text::{EditableText, Justify, LineHeight, TextEdit, TextLayout};
+use bevy_text::{EditableText, FontSize, Justify, LineHeight, TextEdit, TextLayout};
 use bevy_ui::{
     prelude::AccessibleLabel, px, AlignItems, AlignSelf, Display, FlexDirection, GridPlacement,
     GridTrack, JustifySelf, Node, RepeatedGridTrack,
@@ -432,8 +432,17 @@ fn color_input_popup() -> Box<dyn Scene> {
                     (
                         #mode_wheel
                         @FeathersButton {
-                            @caption: bsn! { @caption("Wheel") },
+                            @caption: bsn! {
+                                @caption("\u{1F7D5}")
+                                Node {
+                                    top: px(3), // adjust to be visually centered vertically
+                                }
+                            },
                             @corners: RoundedCorners::Left,
+                        }
+                        InheritableFont {
+                            font: "embedded://bevy_feathers/assets/fonts/NotoSansSymbols2-U+1F7D5.ttf",
+                            font_size: FontSize::Px(17.0),
                         }
                         Node {
                             flex_grow: 1.0,
