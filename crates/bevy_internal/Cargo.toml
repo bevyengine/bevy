@@ -16,6 +16,7 @@ trace = [
   "bevy_asset?/trace",
   "bevy_core_pipeline?/trace",
   "bevy_ecs/trace",
+  "bevy_extract/trace",
   "bevy_log/trace",
   "bevy_pbr?/trace",
   "bevy_post_process?/trace",
@@ -125,6 +126,8 @@ serialize = [
   "bevy_image?/serialize",
   "bevy_input/serialize",
   "bevy_math/serialize",
+  "bevy_shape/serialize",
+  "bevy_curve?/serialize",
   "bevy_world_serialization?/serialize",
   "bevy_time/serialize",
   "bevy_transform/serialize",
@@ -226,6 +229,8 @@ morph = ["bevy_mesh?/morph", "bevy_render?/morph"]
 # Enables bevy_mesh and bevy_animation morph weight support
 morph_animation = ["morph", "bevy_animation?/bevy_mesh"]
 
+bevy_extract = ["dep:bevy_extract"]
+bevy_curve = ["dep:bevy_curve"]
 bevy_shader = ["dep:bevy_shader"]
 bevy_image = ["dep:bevy_image", "bevy_color", "bevy_asset"]
 bevy_sprite = ["dep:bevy_sprite", "bevy_camera"]
@@ -248,6 +253,7 @@ bevy_light = ["dep:bevy_light", "bevy_camera"]
 bevy_render = [
   "dep:bevy_render",
   "bevy_camera",
+  "bevy_extract",
   "bevy_shader",
   "bevy_color/wgpu-types",
   "bevy_color/encase",
@@ -333,6 +339,11 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 bevy_camera_controller = ["dep:bevy_camera_controller"]
 free_camera = ["bevy_camera_controller/free_camera"]
 pan_camera = ["bevy_camera_controller/pan_camera"]
+pan_orbit_camera = [
+  "bevy_camera_controller/pan_orbit_camera",
+  "bevy_camera_controller/extension_anchor_indicator",
+  "bevy_camera_controller/extension_independent_skybox",
+]
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
@@ -411,6 +422,8 @@ std = [
   "bevy_input/std",
   "bevy_input_focus?/std",
   "bevy_math/std",
+  "bevy_shape/std",
+  "bevy_curve?/std",
   "bevy_platform/std",
   "bevy_reflect/std",
   "bevy_state?/std",
@@ -500,6 +513,9 @@ bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = 
   "bevy_reflect",
   "nostd-libm",
 ] }
+bevy_shape = { path = "../bevy_shape", version = "0.20.0-dev", default-features = false, features = [
+  "bevy_reflect",
+] }
 bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false, features = [
   "alloc",
 ] }
@@ -525,6 +541,10 @@ bevy_a11y = { path = "../bevy_a11y", optional = true, version = "0.20.0-dev", fe
   "bevy_reflect",
 ] }
 bevy_camera_controller = { path = "../bevy_camera_controller", optional = true, version = "0.20.0-dev", default-features = false }
+bevy_curve = { path = "../bevy_curve", optional = true, version = "0.20.0-dev", default-features = false, features = [
+  "alloc",
+  "bevy_reflect",
+] }
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.20.0-dev" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.20.0-dev" }
@@ -537,6 +557,7 @@ bevy_post_process = { path = "../bevy_post_process", optional = true, version = 
 bevy_ui_widgets = { path = "../bevy_ui_widgets", optional = true, version = "0.20.0-dev" }
 bevy_anti_alias = { path = "../bevy_anti_alias", optional = true, version = "0.20.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.20.0-dev" }
+bevy_extract = { path = "../bevy_extract", optional = true, version = "0.20.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.20.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.20.0-dev", default-features = false }
 bevy_gizmos_render = { path = "../bevy_gizmos_render", optional = true, version = "0.20.0-dev", default-features = false }

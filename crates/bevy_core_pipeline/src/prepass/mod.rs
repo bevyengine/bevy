@@ -80,8 +80,8 @@ pub struct MotionVectorPrepass;
 
 /// If added to a [`bevy_camera::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
 /// Note the default deferred lighting plugin also requires `DepthPrepass` to work correctly.
-#[derive(Component, Default, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default, Clone)]
 pub struct DeferredPrepass;
 
 /// Allows querying the previous frame's [`DepthPrepass`].

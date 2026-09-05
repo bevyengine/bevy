@@ -1,7 +1,7 @@
-import bevy_pbr::render::clustered_forward;
-import bevy_pbr::render::clustered_forward::ClusterableObjectIndexRanges;
-import bevy_pbr::render::mesh_view_bindings::light_probes;
-import bevy_pbr::render::mesh_view_types::{
+import package::render::clustered_forward;
+import package::render::clustered_forward::ClusterableObjectIndexRanges;
+import package::render::mesh_view_bindings::light_probes;
+import package::render::mesh_view_types::{
     LightProbe, LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE,
     LIGHT_PROBE_FLAG_PARALLAX_CORRECT
 };

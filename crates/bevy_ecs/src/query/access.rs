@@ -324,7 +324,7 @@ impl Access {
     /// `extend` with a call to `extend` followed by a call to
     /// `remove_write`.
     pub fn remove_write(&mut self, index: ComponentId) {
-        self.reads.remove(index);
+        self.writes.remove(index);
     }
 
     /// Adds an archetypal (indirect) access to the component given by `index`.
@@ -1070,7 +1070,7 @@ impl FilteredAccessSet {
     }
 
     /// Adds a read access to a component to the set.
-    pub(crate) fn add_unfiltered_component_read(&mut self, index: ComponentId) {
+    pub fn add_unfiltered_component_read(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
         filter.add_read(index);
         self.add(filter);
@@ -1092,7 +1092,7 @@ impl FilteredAccessSet {
     }
 
     /// Adds a write access to a resource to the set.
-    pub(crate) fn add_unfiltered_component_write(&mut self, index: ComponentId) {
+    pub fn add_unfiltered_component_write(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
         filter.add_write(index);
         self.add(filter);

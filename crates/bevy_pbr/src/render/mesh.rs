@@ -25,7 +25,7 @@ use bevy_ecs::{
     relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{ImageSampler, TextureFormatPixelInfo};
+use bevy_image::TextureFormatPixelInfo;
 use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
@@ -475,11 +475,12 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if !camera.is_some_and(|camera| camera.hdr) {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
+        if camera.is_none_or(|camera| !camera.hdr)
+            && let Some(tonemapping) = tonemapping
+            && tonemapping.is_enabled()
+        {
+            view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+            view_key |= tonemapping_pipeline_key(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
@@ -491,6 +492,7 @@ pub fn check_views_need_specialization(
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
         if let Some(transmission) = transmission {
+            view_key |= MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE;
             view_key |= transmission.quality.pipeline_key();
         }
         if !view_key_cache
@@ -2782,12 +2784,8 @@ pub fn build_dummy_white_gpu_image(
 ) -> GpuImage {
     let image = Image::default();
     let texture = render_device.create_texture(&image.texture_descriptor);
-    let sampler = match image.sampler {
-        ImageSampler::Default => (**default_sampler).clone(),
-        ImageSampler::Descriptor(ref descriptor) => {
-            render_device.create_sampler(&descriptor.as_wgpu())
-        }
-    };
+    // The default image always uses the default sampler.
+    let sampler = (**default_sampler).clone();
 
     if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
         render_queue.write_texture(
@@ -3061,7 +3059,7 @@ bitflags::bitflags! {
                                                             // Emulated via fragment shader depth on hardware that doesn't support it natively
                                                             // See: https://www.w3.org/TR/webgpu/#depth-clipping and https://therealmjp.github.io/posts/shadow-maps/#disabling-z-clipping
         const TEMPORAL_JITTER                   = 1 << 10;
-        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 11;
+        const VIEW_TRANSMISSION_TEXTURE         = 1 << 11;
         const LIGHTMAPPED                       = 1 << 12;
         const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 13;
         const IRRADIANCE_VOLUME                 = 1 << 14;
@@ -3093,7 +3091,7 @@ bitflags::bitflags! {
         const BLEND_ALPHA                       = 3 << Self::BLEND_SHIFT_BITS;                     //
         const BLEND_ALPHA_TO_COVERAGE           = 4 << Self::BLEND_SHIFT_BITS;                     // ← We still have room for three more values without adding more bits
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_LINEAR             = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -3476,7 +3474,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
-        let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
+        let mut alpha_to_coverage_enabled = false;
         if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
@@ -3514,7 +3512,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
             alpha_to_coverage_enabled = true;
             shader_defs.push("ALPHA_TO_COVERAGE".into());
         } else {
@@ -3525,7 +3522,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
         }
 
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
@@ -3552,7 +3548,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("DEFERRED_PREPASS".into());
         }
 
-        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
@@ -3584,8 +3580,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            if method == MeshPipelineKey::TONEMAP_METHOD_LINEAR {
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
@@ -3641,6 +3637,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("SHADOW_FILTER_METHOD_GAUSSIAN".into());
         } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL {
             shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
+        }
+
+        if key.contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE) {
+            shader_defs.push("VIEW_TRANSMISSION_TEXTURE".into());
         }
 
         let blur_quality =

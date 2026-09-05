@@ -1,4 +1,4 @@
-import bevy_pbr::render::rgb9e5;
+import package::render::rgb9e5;
 import bevy_render::maths::{PI, PI_2, orthonormalize};
 
 // Generates a random u32 in range [0, u32::MAX].
