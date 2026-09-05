@@ -714,8 +714,8 @@ impl Tables {
     /// Moves the `row` column values from `old_table_id` to a new row in `new_table_id`,
     /// for the columns shared between both tables.
     ///
-    /// Returns the new row in `new_table_id`
-    /// and the entity swapped in to the old row in `old_table_id` (if a swap occurred).
+    /// Returns a mutable reference to the new table, the new row in the new table,
+    /// and the entity swapped in to the old row in the old table (if a swap occurred).
     ///
     /// # Note
     /// The `DROP` constant determines what happens to removed components
@@ -746,7 +746,6 @@ impl Tables {
         row: TableRow,
         change_tick: Tick,
     ) -> TableMoveResult<'_> {
-        #[cfg(debug_assertions)]
         debug_assert!(old_table_id != new_table_id);
         // SAFETY:
         // - The caller ensures `old_table_id` and `new_table_id` do not overlap.
@@ -755,69 +754,71 @@ impl Tables {
             self.tables
                 .get_disjoint_unchecked_mut([old_table_id.as_usize(), new_table_id.as_usize()])
         };
-        let last_index = (src_table.entity_count() - 1) as usize;
-        #[cfg(debug_assertions)]
-        debug_assert!(row.index() <= last_index);
         // SAFETY:
         // - All pre-existing columns will be written to immediately.
         // - The caller ensures that all new columns will be written to immediately.
         let dst_row = unsafe { dst_table.allocate(src_table.entities.swap_remove(row.index())) };
+        let last_index = src_table.entities.len();
+        let swapped_entity = src_table.entities.get(row.index()).copied();
 
-        let mut dst_iter = dst_table.columns.iter_mut().peekable();
+        let mut dst_ids = dst_table.columns.indices.iter().copied().peekable();
+        let mut dst_columns = dst_table.columns.dense.iter_mut();
 
-        for (src_component_id, src_column) in src_table.columns.iter_mut() {
-            // Skip past any destination columns that don't exist in the source table.
-            // The caller is responsible for initializing those columns.
-            while dst_iter
-                .next_if(|(dst_component_id, _)| *dst_component_id < src_component_id)
-                .is_some()
-            {}
+        let src_ids = src_table.columns.indices.iter().copied();
+        let src_columns = src_table.columns.dense.iter_mut();
 
-            // Then move the value in the source column if it exists in the destination table,
-            // or remove it if it does not.
-            if let Some((_, dst_column)) =
-                dst_iter.next_if(|(dst_component_id, _)| *dst_component_id == src_component_id)
-            {
-                // SAFETY:
-                // - `src_column` and `dst_column` correspond to the same `ComponentId`.
-                // - The caller ensures `row` is in-bounds for `src_column`.
-                // - `dst_row` was just allocated for the table containing `dst_column`.
-                // - `src_column` was initialized by a previous call to this function
-                //   or by a previous caller.
-                // - `dst_row` was just allocated and has not been written to.
-                unsafe {
-                    dst_column.initialize_from_unchecked(
-                        src_column,
-                        last_index,
-                        row,
-                        dst_row,
-                        change_tick,
-                    );
-                }
-            } else {
-                // SAFETY:
-                // - `last_index` is the index of the last element.
-                // - The caller ensures `row` <= `last_index`.
-                // - The length of `src_column` is given by the length of `src_table.entities`,
-                //   which has been updated.
-                unsafe {
-                    src_column.swap_remove_unchecked::<DROP>(last_index, row);
+        for (src_component_id, src_column) in core::iter::zip(src_ids, src_columns) {
+            // `dst_component_id` < `src_component_id` means `dst_component_id` was inserted.
+            // The caller is responsible for initializing those components, so we just skip them.
+            //
+            // `dst_component_id` == `src_component_id` means the component needs to be moved.
+            //
+            // `dst_component_id` > `src_component_id` means `src_component_id` was removed.
+            loop {
+                if let Some(dst_component_id) =
+                    dst_ids.next_if(|&dst_component_id| dst_component_id <= src_component_id)
+                    && let Some(dst_column) = dst_columns.next()
+                {
+                    if dst_component_id < src_component_id {
+                        continue;
+                    } else if dst_component_id == src_component_id {
+                        // SAFETY:
+                        // - `src_column` and `dst_column` correspond to the same `ComponentId`.
+                        // - The caller ensures `row` is in-bounds for `src_column`.
+                        // - `dst_row` was just allocated for the table containing `dst_column`.
+                        // - `src_column` was initialized by a previous call to this function
+                        //   or by a previous caller.
+                        // - `dst_row` was just allocated and has not been written to.
+                        // - `last_index` is the index of the last element in `src_column`.
+                        unsafe {
+                            dst_column.initialize_from_unchecked(
+                                src_column,
+                                last_index,
+                                row,
+                                dst_row,
+                                change_tick,
+                            );
+                        }
+                        break;
+                    }
+                } else {
+                    // SAFETY:
+                    // - `last_index` is the index of the last element.
+                    // - The caller ensures `row` <= `last_index`.
+                    // - The length of `src_column` is given by the length of `src_table.entities`,
+                    //   which has been updated.
+                    unsafe {
+                        src_column.swap_remove_unchecked::<DROP>(last_index, row);
+                    }
+                    break;
                 }
             }
         }
 
-        // Need to end the mutable borrow so we can return `dst_table`.
-        drop(dst_iter);
-
         TableMoveResult {
             new_table: dst_table,
             new_row: dst_row,
-            swapped_entity: if row.index() == last_index {
-                None
-            } else {
-                // SAFETY: This was swap-removed and was not last, so it must be in-bounds.
-                unsafe { Some(*src_table.entities.get_unchecked(row.index())) }
-            },
+            swapped_entity,
         }
     }
 }
