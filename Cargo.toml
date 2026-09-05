@@ -1174,6 +1174,7 @@ wasm = true
 name = "bounding_2d"
 path = "examples/math/bounding_2d.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.bounding_2d]
 name = "Bounding Volume Intersections (2D)"

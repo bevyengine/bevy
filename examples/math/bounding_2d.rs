@@ -2,19 +2,29 @@
 
 use bevy::{
     color::palettes::css::*,
+    feathers::{
+        containers::*, controls::*, dark_theme::create_dark_theme, display::caption,
+        theme::UiTheme, FeathersPlugins,
+    },
     math::{ops, Isometry2d},
     prelude::*,
+    ui::Checked,
+    ui_widgets::{radio_self_update, RadioGroup, ValueChange},
 };
+use pane::{feathers_pane_header, PaneBody};
+
+#[path = "../helpers/pane.rs"]
+mod pane;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .insert_resource(UiTheme(create_dark_theme()))
         .init_state::<Test>()
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (update_text, spin, update_volumes, update_test_state),
-        )
+        .add_observer(radio_self_update)
+        .add_observer(update_radio_button)
+        .add_systems(Update, (spin, update_volumes))
         .add_systems(
             PostUpdate,
             (
@@ -52,40 +62,17 @@ enum Test {
     CircleCast,
 }
 
-fn update_test_state(
-    keycode: Res<ButtonInput<KeyCode>>,
-    cur_state: Res<State<Test>>,
+#[derive(Clone, Copy, Component, Default)]
+struct Options(Test);
+
+fn update_radio_button(
+    event: On<ValueChange<Entity>>,
+    test_query: Query<&Options>,
     mut state: ResMut<NextState<Test>>,
 ) {
-    if !keycode.just_pressed(KeyCode::Space) {
-        return;
+    if let Ok(option) = test_query.get(event.value) {
+        state.set(option.0);
     }
-
-    use Test::*;
-    let next = match **cur_state {
-        AabbSweep => CircleSweep,
-        CircleSweep => RayCast,
-        RayCast => AabbCast,
-        AabbCast => CircleCast,
-        CircleCast => AabbSweep,
-    };
-    state.set(next);
-}
-
-fn update_text(mut text: Single<&mut Text>, cur_state: Res<State<Test>>) {
-    if !cur_state.is_changed() {
-        return;
-    }
-
-    text.clear();
-
-    text.push_str("Intersection test:\n");
-    use Test::*;
-    for &test in &[AabbSweep, CircleSweep, RayCast, AabbCast, CircleCast] {
-        let s = if **cur_state == test { "*" } else { " " };
-        text.push_str(&format!(" {s} {test:?} {s}\n"));
-    }
-    text.push_str("\nPress space to cycle");
 }
 
 #[derive(Component)]
@@ -256,15 +243,63 @@ fn setup(mut commands: Commands) {
         Intersects::default(),
     ));
 
-    commands.spawn((
-        Text::default(),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(12),
-            left: px(12),
+    let root = commands
+        .spawn(Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Stretch,
+            justify_content: JustifyContent::Start,
+            padding: UiRect::all(px(8)),
+            row_gap: px(8),
+            width: px(300),
             ..default()
-        },
-    ));
+        })
+        .id();
+
+    commands.spawn_scene(settings_pane(root));
+}
+
+fn settings_pane(parent: Entity) -> impl Scene {
+    bsn! {
+        @pane() ChildOf(parent) Children [
+            @feathers_pane_header("Intersection test"),
+            @pane_body() PaneBody Children [
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_items: JustifyItems::Start,
+                }
+                Children [
+                    Node {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(4),
+                    }
+                    RadioGroup
+                    Children [
+                        @feathers_radio("AabbSweep", Test::AabbSweep),
+                        @feathers_radio("CircleSweep", Test::CircleSweep),
+                        (
+                            @feathers_radio("RayCast", Test::RayCast)
+                            Checked
+                        ),
+                        @feathers_radio("AabbCast", Test::AabbCast),
+                        @feathers_radio("CircleCast", Test::CircleCast),
+                    ]
+                ]
+            ]
+        ]
+    }
+}
+
+fn feathers_radio(title: &str, test: Test) -> impl Scene {
+    bsn! {
+        @FeathersRadio {
+            @caption: bsn! { @caption(title) },
+        }
+        Options(test)
+    }
 }
 
 fn draw_filled_circle(gizmos: &mut Gizmos, position: Vec2, color: Srgba) {
