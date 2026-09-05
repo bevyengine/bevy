@@ -1,4 +1,4 @@
-use crate::{CreateTypeData, PartialReflect, Reflect};
+use crate::{CreateTypeData, PartialReflect, Reflect, TypeData};
 use alloc::boxed::Box;
 
 /// A trait that enables types to be dynamically constructed from reflected data.
@@ -102,7 +102,7 @@ pub trait FromReflect: Reflect + Sized {
 ///
 /// [`DynamicStruct`]: crate::structs::DynamicStruct
 /// [`DynamicEnum`]: crate::enums::DynamicEnum
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectFromReflect {
     from_reflect: fn(&dyn PartialReflect) -> Option<Box<dyn Reflect>>,
 }

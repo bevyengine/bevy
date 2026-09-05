@@ -1,4 +1,4 @@
-use crate::{CreateTypeData, Reflect, TypeRegistry};
+use crate::{CreateTypeData, Reflect, TypeData, TypeRegistry};
 use alloc::boxed::Box;
 use serde::{Serialize, Serializer};
 
@@ -49,7 +49,7 @@ pub trait SerializeWithRegistry {
 }
 
 /// Type data used to serialize a [`Reflect`] type with a custom [`SerializeWithRegistry`] implementation.
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectSerializeWithRegistry {
     serialize: for<'a> fn(
         value: &'a dyn Reflect,

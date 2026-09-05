@@ -7,7 +7,7 @@
 //! Same as [`component`](`super::component`), but for [`FromWorld`].
 
 use alloc::boxed::Box;
-use bevy_reflect::{CreateTypeData, Reflect};
+use bevy_reflect::{CreateTypeData, Reflect, TypeData};
 
 use crate::world::{FromWorld, World};
 
@@ -15,7 +15,7 @@ use crate::world::{FromWorld, World};
 ///
 /// A [`ReflectFromWorld`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectFromWorld(ReflectFromWorldFns);
 
 /// The raw function pointers needed to make up a [`ReflectFromWorld`].

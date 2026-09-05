@@ -378,8 +378,9 @@
 //! ```
 //!
 //! The generated type data can be used to convert a valid `dyn Reflect` into a `dyn MyTrait`.
-//! See the [dynamic types example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/dynamic_types.rs)
-//! for more information and usage details.
+//!
+//! See the [`type_data`] module for details on type data or the [dynamic types example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/type_data.rs)
+//! for additional examples.
 //!
 //! # Serialization
 //!
@@ -614,7 +615,7 @@ pub mod set;
 pub mod structs;
 pub mod tuple;
 pub mod tuple_struct;
-mod type_data;
+pub mod type_data;
 mod type_path;
 mod type_registry;
 
@@ -4100,10 +4101,10 @@ bevy_reflect::tests::Test {
     fn should_register_fully_qualified_type_data() {
         mod foo {
             pub mod bar {
-                use crate::CreateTypeData;
+                use crate::{CreateTypeData, TypeData};
 
-                #[derive(Clone)]
                 pub struct ReflectBaz;
+                impl TypeData for ReflectBaz {}
 
                 impl<T> CreateTypeData<T> for ReflectBaz {
                     fn create_type_data(_: ()) -> Self {
@@ -4211,17 +4212,21 @@ bevy_reflect::tests::Test {
             #[derive(Clone)]
             struct ReflectA;
 
+            impl TypeData for ReflectA {
+                fn on_insert(&self) -> Option<OnInsertTypeData> {
+                    Some(OnInsertTypeData::new(|mut registration| {
+                        registration.insert_data(ReflectB);
+                    }))
+                }
+            }
+
             impl<T> CreateTypeData<T> for ReflectA {
                 fn create_type_data(_input: ()) -> Self {
                     ReflectA
                 }
-
-                fn insert_dependencies(type_registration: &mut TypeRegistration) {
-                    type_registration.insert(ReflectB);
-                }
             }
 
-            #[derive(Clone)]
+            #[derive(Clone, TypeData)]
             struct ReflectB;
 
             let mut registry = TypeRegistry::new();

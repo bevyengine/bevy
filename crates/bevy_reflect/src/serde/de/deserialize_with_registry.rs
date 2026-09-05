@@ -1,5 +1,5 @@
 use crate::serde::de::error_utils::make_custom_error;
-use crate::{CreateTypeData, PartialReflect, TypeRegistry};
+use crate::{CreateTypeData, PartialReflect, TypeData, TypeRegistry};
 use alloc::boxed::Box;
 use serde::Deserializer;
 
@@ -51,7 +51,7 @@ pub trait DeserializeWithRegistry<'de>: Sized {
 }
 
 /// Type data used to deserialize a [`PartialReflect`] type with a custom [`DeserializeWithRegistry`] implementation.
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectDeserializeWithRegistry {
     deserialize: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
