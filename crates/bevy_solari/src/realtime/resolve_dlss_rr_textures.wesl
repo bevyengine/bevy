@@ -9,19 +9,19 @@ import package::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, ResolvedMaterial, 
 
 enable wgpu_ray_query;
 
-// A surface is replaced outright only when nearly all of its reflectance leaves through the delta
-// lobe.
+/// A surface is replaced outright only when nearly all of its reflectance leaves through the delta
+/// lobe.
 const FULL_REPLACEMENT_FRACTION = 0.9;
 
-// How far a reflector's virtual image may shift between neighboring pixels, as a fraction of the
-// virtual distance itself, before the surface is treated as too curved to replace.
+/// How far a reflector's virtual image may shift between neighboring pixels, as a fraction of the
+/// virtual distance itself, before the surface is treated as too curved to replace.
 const MAX_VIRTUAL_DEPTH_JITTER = 0.002;
 
-// Even a perfectly flat surface measures a small nonzero normal change, because G-buffer normals are
-// 24-bit octahedral and neighboring texels round differently.
+/// Even a perfectly flat surface measures a small nonzero normal change, because G-buffer normals are
+/// 24-bit octahedral and neighboring texels round differently.
 const NORMAL_QUANTIZATION_FLOOR = 0.002;
 
-// Distance, in meters, standing in for "infinitely far" when a mirror ray finds nothing.
+/// Distance, in meters, standing in for "infinitely far" when a mirror ray finds nothing.
 const ENVIRONMENT_VIRTUAL_DISTANCE = 10000.0;
 
 @compute @workgroup_size(8, 8, 1)
@@ -62,24 +62,24 @@ fn needs_specular_motion_vector(roughness: f32) -> bool {
     return roughness <= 0.0625;
 }
 
-// Carried across every bounce of the path walk, so anything derivable from a value the walk already
-// holds is derived at the end instead of stored. What is left is only what the walk itself produces.
+/// Carried across every bounce of the path walk, so anything derivable from a value the walk already
+/// holds is derived at the end instead of stored. What is left is only what the walk itself produces.
 struct PsrState {
     finished: bool,
-    // Whether this pixel's surface is being swapped out for the reflected one, or is only having its
-    // reflection's motion described. Keyed on the primary surface only, and false for anything glossy.
+    /// Whether this pixel's surface is being swapped out for the reflected one, or is only having its
+    /// reflection's motion described. Keyed on the primary surface only, and false for anything glossy.
     replace_fully: bool,
-    // The chain's cumulative transform - the product of one Householder reflection per mirror, in
-    // chain order - stored as a rotor plus the parity of the reflection count rather than as the 3x3
-    // matrix it denotes.
+    /// The chain's cumulative transform - the product of one Householder reflection per mirror, in
+    /// chain order - stored as a rotor plus the parity of the reflection count rather than as the 3x3
+    /// matrix it denotes.
     mirror_rotor: vec4<f32>,
     mirror_parity_odd: bool,
-    // Distance traveled since the primary surface, camera through every mirror. Not the total path
-    // length: keeping the reflection's own share means the primary distance is only ever added, never
-    // subtracted back out, so it can be recovered at the end without the two disagreeing.
+    /// Distance traveled since the primary surface, camera through every mirror. Not the total path
+    /// length: keeping the reflection's own share means the primary distance is only ever added, never
+    /// subtracted back out, so it can be recovered at the end without the two disagreeing.
     reflection_length: f32,
-    // Product of the Fresnel term at each mirror in the chain: what the reflected surface's color is
-    // multiplied by on its way back to the eye.
+    /// Product of the Fresnel term at each mirror in the chain: what the reflected surface's color is
+    /// multiplied by on its way back to the eye.
     throughput: vec3<f32>,
 }
 
@@ -95,12 +95,12 @@ fn psr_init(world_normal: vec3<f32>, material: ResolvedMaterial) -> PsrState {
     return psr;
 }
 
-// Fold one more mirror into the chain, equivalent to right-multiplying the chain's matrix by this
-// mirror's Householder reflection.
-// https://en.wikipedia.org/wiki/Householder_transformation
-//
-// A product of k Householder reflections is orthogonal with determinant (-1)^k, so it is a rotation
-// when k is even, and a rotation composed with any one fixed reflection when k is odd.
+/// Fold one more mirror into the chain, equivalent to right-multiplying the chain's matrix by this
+/// mirror's Householder reflection.
+/// https://en.wikipedia.org/wiki/Householder_transformation
+///
+/// A product of k Householder reflections is orthogonal with determinant (-1)^k, so it is a rotation
+/// when k is even, and a rotation composed with any one fixed reflection when k is odd.
 fn psr_chain_mirror(psr: PsrState, plane_normal: vec3<f32>) -> PsrState {
     var chained = psr;
     chained.mirror_rotor = quaternion_multiply(psr.mirror_rotor, mirror_chain_rotor(plane_normal, psr.mirror_parity_odd));
@@ -113,10 +113,10 @@ fn psr_environment_miss(pixel_id: vec2<u32>, primary_wo: vec3<f32>) {
     textureStore(specular_motion_vectors, pixel_id, vec4(calculate_motion_vector(far_position, far_position), vec2(0.0)));
 }
 
-// Primary surface replacement for perfect mirrors. The reflection chain has been followed to its
-// first non-mirror hit; write that surface's attributes, reflected into the mirror's virtual space,
-// to the DLSS RR guide buffers so the denoiser treats this pixel as directly seeing it.
-// https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#primary_surface_replacement
+/// Primary surface replacement for perfect mirrors. The reflection chain has been followed to its
+/// first non-mirror hit; write that surface's attributes, reflected into the mirror's virtual space,
+/// to the DLSS RR guide buffers so the denoiser treats this pixel as directly seeing it.
+/// https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#primary_surface_replacement
 fn replace_primary_surface(
     pixel_id: vec2<u32>,
     psr: PsrState,
@@ -176,7 +176,7 @@ fn is_delta_mirror(material: ResolvedMaterial) -> bool {
         && specular_fraction(material, F_AB(material.perceptual_roughness, 1.0)) >= FULL_REPLACEMENT_FRACTION;
 }
 
-// Share of a surface's total reflectance that leaves through the specular lobe, in 0..1.
+/// Share of a surface's total reflectance that leaves through the specular lobe, in 0..1.
 fn specular_fraction(material: ResolvedMaterial, F_ab: vec2<f32>) -> f32 {
     let rho = lobe_reflectances(material.base_color, calculate_F0_dielectric(vec3(material.reflectance)), material, F_ab);
     let specular_luminance = luminance(rho.specular);
@@ -190,7 +190,7 @@ fn psr_bounce_reflectance(wo: vec3<f32>, wi: vec3<f32>, normal: vec3<f32>, mater
     return lobe_reflectances(material.base_color, calculate_F0_dielectric(vec3(material.reflectance)), material, F_ab).specular;
 }
 
-// Angle, in radians, that the shading normal changes over one pixel in screen space.
+/// Angle, in radians, that the shading normal changes over one pixel in screen space.
 fn reflector_curvature(pixel_id: vec2<u32>, normal: vec3<f32>) -> f32 {
     let max_pixel_id = vec2<u32>(view.main_pass_viewport.zw) - vec2(1u);
     let right = load_gbuffer_normal(min(pixel_id + vec2(1u, 0u), max_pixel_id));
@@ -213,8 +213,8 @@ fn apply_mirror_chain(psr: PsrState, v: vec3<f32>) -> vec3<f32> {
     return reflected + psr.mirror_rotor.w * t + cross(psr.mirror_rotor.xyz, t);
 }
 
-// The rotation half of `H(n) * F` at even parity, or of `F * H(n)` at odd, where `H(n)` is the
-// Householder reflection about `plane_normal` and `F` the fixed z-axis one.
+/// The rotation half of `H(n) * F` at even parity, or of `F * H(n)` at odd, where `H(n)` is the
+/// Householder reflection about `plane_normal` and `F` the fixed z-axis one.
 fn mirror_chain_rotor(plane_normal: vec3<f32>, parity_odd: bool) -> vec4<f32> {
     if parity_odd {
         return vec4(plane_normal.y, -plane_normal.x, 0.0, plane_normal.z);

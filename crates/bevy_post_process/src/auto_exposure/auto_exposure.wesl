@@ -1,26 +1,26 @@
-// Auto exposure
-//
-// This shader computes an auto exposure value for the current frame,
-// which is then used as an exposure correction in the tone mapping shader.
-//
-// The auto exposure value is computed in two passes:
-// * The compute_histogram pass calculates a histogram of the luminance values in the scene,
-// taking into account the metering mask texture. The metering mask is a grayscale texture
-// that defines the areas of the screen that should be given more weight when calculating
-// the average luminance value. For example, the middle area of the screen might be more important
-// than the edges.
-// * The compute_average pass calculates the average luminance value of the scene, taking
-// into account the low_percent and high_percent settings. These settings define the
-// percentage of the histogram that should be excluded when calculating the average. This
-// is useful to avoid overexposure when you have a lot of shadows, or underexposure when you
-// have a lot of bright specular reflections.
-//
-// The final target_exposure is finally used to smoothly adjust the exposure value over time.
+//! Auto exposure
+//!
+//! This shader computes an auto exposure value for the current frame,
+//! which is then used as an exposure correction in the tone mapping shader.
+//!
+//! The auto exposure value is computed in two passes:
+//! * The compute_histogram pass calculates a histogram of the luminance values in the scene,
+//! taking into account the metering mask texture. The metering mask is a grayscale texture
+//! that defines the areas of the screen that should be given more weight when calculating
+//! the average luminance value. For example, the middle area of the screen might be more important
+//! than the edges.
+//! * The compute_average pass calculates the average luminance value of the scene, taking
+//! into account the low_percent and high_percent settings. These settings define the
+//! percentage of the histogram that should be excluded when calculating the average. This
+//! is useful to avoid overexposure when you have a lot of shadows, or underexposure when you
+//! have a lot of bright specular reflections.
+//!
+//! The final target_exposure is finally used to smoothly adjust the exposure value over time.
 
 import bevy_render::view::View;
 import bevy_render::globals::Globals;
 
-// Constant to convert RGB to luminance, taken from Real Time Rendering, Vol 4 pg. 278, 4th edition
+/// Constant to convert RGB to luminance, taken from Real Time Rendering, Vol 4 pg. 278, 4th edition
 const RGB_TO_LUM = vec3<f32>(0.2125, 0.7154, 0.0721);
 
 struct AutoExposure {
@@ -61,7 +61,7 @@ struct CompensationCurve {
 
 var<workgroup> histogram_shared: array<atomic<u32>, 64>;
 
-// For a given color, return the histogram bin index
+/// For a given color, return the histogram bin index
 fn color_to_bin(hdr: vec3<f32>) -> u32 {
     // Convert color to luminance
     let lum = dot(hdr, RGB_TO_LUM);
@@ -78,11 +78,11 @@ fn color_to_bin(hdr: vec3<f32>) -> u32 {
     return u32(log_lum * 62.0 + 1.0);
 }
 
-// Read the metering mask at the given UV coordinates, returning a weight for the histogram.
-//
-// Since the histogram is summed in the compute_average step, there is a limit to the amount of
-// distinct values that can be represented. When using the chosen value of 16, the maximum
-// amount of pixels that can be weighted and summed is 2^32 / 16 = 16384^2.
+/// Read the metering mask at the given UV coordinates, returning a weight for the histogram.
+///
+/// Since the histogram is summed in the compute_average step, there is a limit to the amount of
+/// distinct values that can be represented. When using the chosen value of 16, the maximum
+/// amount of pixels that can be weighted and summed is 2^32 / 16 = 16384^2.
 fn metering_weight(coords: vec2<f32>) -> u32 {
     let pos = vec2<i32>(coords * vec2<f32>(textureDimensions(tex_mask)));
     let mask = textureLoad(tex_mask, pos, 0).r;

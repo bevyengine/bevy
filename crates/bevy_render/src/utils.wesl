@@ -15,7 +15,7 @@ fn decompress_vertex_uv(compressed_uv: vec2<f32>, uv_min_and_extents: vec4<f32>)
     return uv_min_and_extents.xy + uv_min_and_extents.zw * compressed_uv;
 }
 
-// For decoding normals or unit direction vectors from octahedral coordinates. Input is [-1, 1].
+/// For decoding normals or unit direction vectors from octahedral coordinates. Input is [-1, 1].
 fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
     var n = vec3(v.xy, 1.0 - abs(v.x) - abs(v.y));
     let t = saturate(-n.z);
@@ -24,7 +24,7 @@ fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
     return normalize(n);
 }
 
-// Decode tangent vectors from octahedral coordinates and return the sign. Input is [-1, 1]. The y component should have been mapped to always be positive and then encoded the sign.
+/// Decode tangent vectors from octahedral coordinates and return the sign. Input is [-1, 1]. The y component should have been mapped to always be positive and then encoded the sign.
 fn octahedral_decode_tangent(v: vec2<f32>) -> vec4<f32> {
     let sign = sign(v.y);
     var f = v;
@@ -33,8 +33,8 @@ fn octahedral_decode_tangent(v: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(octahedral_decode_signed(f), sign);
 }
 
-// https://jcgt.org/published/0003/02/01/paper.pdf
-// For encoding normals or unit direction vectors as octahedral coordinates.
+/// https://jcgt.org/published/0003/02/01/paper.pdf
+/// For encoding normals or unit direction vectors as octahedral coordinates.
 fn octahedral_encode(v: vec3<f32>) -> vec2<f32> {
     var n = v / (abs(v.x) + abs(v.y) + abs(v.z));
     let octahedral_wrap = (1.0 - abs(n.yx)) * select(vec2(-1.0), vec2(1.0), n.xy >= vec2f(0.0));
@@ -42,7 +42,7 @@ fn octahedral_encode(v: vec3<f32>) -> vec2<f32> {
     return n_xy * 0.5 + 0.5;
 }
 
-// For decoding normals or unit direction vectors from octahedral coordinates.
+/// For decoding normals or unit direction vectors from octahedral coordinates.
 fn octahedral_decode(v: vec2<f32>) -> vec3<f32> {
     let f = v * 2.0 - 1.0;
     return octahedral_decode_signed(f);
