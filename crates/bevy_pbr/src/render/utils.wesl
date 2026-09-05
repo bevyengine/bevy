@@ -1,63 +1,63 @@
 import package::render::rgb9e5;
 import bevy_render::maths::{PI, PI_2, orthonormalize};
 
-// Generates a random u32 in range [0, u32::MAX].
-//
-// `state` is a mutable reference to a u32 used as the seed.
-//
-// Values are generated via "white noise", with no correlation between values.
-// In shaders, you often want spatial and/or temporal correlation. Use a different RNG method for these use cases.
-//
-// https://www.pcg-random.org
-// https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering
+/// Generates a random u32 in range [0, u32::MAX].
+///
+/// `state` is a mutable reference to a u32 used as the seed.
+///
+/// Values are generated via "white noise", with no correlation between values.
+/// In shaders, you often want spatial and/or temporal correlation. Use a different RNG method for these use cases.
+///
+/// https://www.pcg-random.org
+/// https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering
 fn rand_u(state: ptr<function, u32>) -> u32 {
     *state = *state * 747796405u + 2891336453u;
     let word = ((*state >> ((*state >> 28u) + 4u)) ^ *state) * 277803737u;
     return (word >> 22u) ^ word;
 }
 
-// Generates a random f32 in range [0, 1.0].
+/// Generates a random f32 in range [0, 1.0].
 fn rand_f(state: ptr<function, u32>) -> f32 {
     *state = *state * 747796405u + 2891336453u;
     let word = ((*state >> ((*state >> 28u) + 4u)) ^ *state) * 277803737u;
     return f32((word >> 22u) ^ word) * bitcast<f32>(0x2f800004u);
 }
 
-// Generates a random vec2<f32> where each value is in range [0, 1.0].
+/// Generates a random vec2<f32> where each value is in range [0, 1.0].
 fn rand_vec2f(state: ptr<function, u32>) -> vec2<f32> {
     return vec2(rand_f(state), rand_f(state));
 }
 
-// Generates a random u32 in range [0, n).
+/// Generates a random u32 in range [0, n).
 fn rand_range_u(n: u32, state: ptr<function, u32>) -> u32 {
     return rand_u(state) % n;
 }
 
-// returns the (0-1, 0-1) position within the given viewport for the current buffer coords .
-// buffer coords can be obtained from `@builtin(position).xy`.
-// the view uniform struct contains the current camera viewport in `view.viewport`.
-// topleft = 0,0
+/// returns the (0-1, 0-1) position within the given viewport for the current buffer coords .
+/// buffer coords can be obtained from `@builtin(position).xy`.
+/// the view uniform struct contains the current camera viewport in `view.viewport`.
+/// topleft = 0,0
 fn coords_to_viewport_uv(position: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> {
     return (position - viewport.xy) / viewport.zw;
 }
 
-// https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
+/// https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
 fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>, frame: u32) -> f32 {
     let xy = pixel_coordinates + 5.588238 * f32(frame % 64u);
     return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
 }
 
-// Hammersley sequence for quasi-random points
+/// Hammersley sequence for quasi-random points
 fn hammersley_2d(i: u32, n: u32) -> vec2f {
     let inv_n = 1.0 / f32(n);
     let vdc = f32(reverseBits(i)) * 2.3283064365386963e-10; // 1/2^32
     return vec2f(f32(i) * inv_n, vdc);
 }
 
-// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
-// TODO: Use an array here instead of a bunch of constants, once arrays work properly under DX12.
-// NOTE: The names have a final underscore to avoid the following error:
-// `Composable module identifiers must not require substitution according to naga writeback rules`
+/// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
+/// TODO: Use an array here instead of a bunch of constants, once arrays work properly under DX12.
+/// NOTE: The names have a final underscore to avoid the following error:
+/// `Composable module identifiers must not require substitution according to naga writeback rules`
 const SPIRAL_OFFSET_0_ = vec2<f32>(-0.7071,  0.7071);
 const SPIRAL_OFFSET_1_ = vec2<f32>(-0.0000, -0.8750);
 const SPIRAL_OFFSET_2_ = vec2<f32>( 0.5303,  0.5303);
@@ -67,7 +67,7 @@ const SPIRAL_OFFSET_5_ = vec2<f32>(-0.0000,  0.3750);
 const SPIRAL_OFFSET_6_ = vec2<f32>(-0.1768, -0.1768);
 const SPIRAL_OFFSET_7_ = vec2<f32>( 0.1250,  0.0000);
 
-// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec28%3A303
+/// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec28%3A303
 fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
     let cos_theta = 1.0 - 2.0 * rand_f(rng);
     let phi = PI_2 * rand_f(rng);
@@ -78,7 +78,7 @@ fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<
     return direction * inverseSqrt(len_sq);
 }
 
-// https://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations#UniformlySamplingaHemisphere
+/// https://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations#UniformlySamplingaHemisphere
 fn sample_uniform_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
     let cos_theta = rand_f(rng);
     let phi = PI_2 * rand_f(rng);
@@ -93,7 +93,7 @@ fn uniform_hemisphere_inverse_pdf() -> f32 {
     return PI_2;
 }
 
-// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec19%3A294
+/// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec19%3A294
 fn sample_disk(disk_radius: f32, rng: ptr<function, u32>) -> vec2<f32> {
     let ab = 2.0 * rand_vec2f(rng) - 1.0;
     let a = ab.x;
@@ -115,7 +115,7 @@ fn sample_disk(disk_radius: f32, rng: ptr<function, u32>) -> vec2<f32> {
     return vec2(x, y);
 }
 
-// Convert UV and face index to direction vector
+/// Convert UV and face index to direction vector
 fn sample_cube_dir(uv: vec2f, face: u32) -> vec3f {
     // Convert from [0,1] to [-1,1]
     let uvc = 2.0 * uv - 1.0;
@@ -178,8 +178,8 @@ fn dir_to_cube_uv(dir: vec3f) -> CubeUV {
     return CubeUV(uv * 0.5 + 0.5, face);
 }
 
-// The Porter-Duff OVER operator on RGBA, correctly computing alpha of the
-// result.
+/// The Porter-Duff OVER operator on RGBA, correctly computing alpha of the
+/// result.
 fn porter_duff_over(bg: vec4<f32>, fg: vec4<f32>) -> vec4<f32> {
     return vec4<f32>(mix(bg.rgb * bg.a, fg.rgb, fg.a), bg.a + fg.a * (1.0 - bg.a));
 }

@@ -1,4 +1,4 @@
-// https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
+//! https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
 
 import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_u, sample_disk};

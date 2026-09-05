@@ -1,5 +1,5 @@
-// This shader, a part of the `clustered_decals` example, shows how to use the
-// decal `tag` field to apply arbitrary decal effects.
+//! This shader, a part of the `clustered_decals` example, shows how to use the
+//! decal `tag` field to apply arbitrary decal effects.
 
 import bevy_pbr::{
     decal::clustered,
@@ -85,4 +85,3 @@ fn fragment(
 
     return out;
 }
-
