@@ -1,0 +1,22 @@
+name: Auto Label PR with S-Needs-Triage
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  label-pr-triage:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: "write"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Add label to PR
+        run: gh pr edit "$PR_NUMBER" --repo bevyengine/bevy --add-label "S-Needs-Triage"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
