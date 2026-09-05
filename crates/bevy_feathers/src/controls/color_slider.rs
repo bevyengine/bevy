@@ -1,15 +1,11 @@
-use core::f32::consts::PI;
-
 use bevy_app::{Plugin, PreUpdate};
-use bevy_asset::Handle;
-use bevy_color::{Alpha, Color, Hsla};
+use bevy_color::{Alpha, Color, Hsla, Okhsla};
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    hierarchy::Children,
-    query::{Changed, Or, With, Without},
+    hierarchy::{ChildOf, Children},
+    query::{Changed, With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::Query,
@@ -21,9 +17,9 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    percent, px, AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius,
-    ColorStop, Display, FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node,
-    Outline, PositionType, UiRect, UiSystems, UiTransform, Val2, ZIndex,
+    percent, px, BackgroundGradient, BorderColor, BorderRadius, ColorStop, ComputedNode, Display,
+    Gradient, GridPlacement, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType,
+    UiRect, UiSystems, UiTransform, Val2,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -62,6 +58,12 @@ pub enum ColorChannel {
     HslLightness,
     /// Editing the alpha channel (0..=1)
     Alpha,
+    /// Editing the Okhsl Hue channel (0..=360)
+    OkhslHue,
+    /// Editing the Okhsl Saturation channel (0..=1)
+    OkhslSaturation,
+    /// Editing the Okhsl Lightness channel (0..=1)
+    OkhslLightness,
 }
 
 impl ColorChannel {
@@ -73,8 +75,10 @@ impl ColorChannel {
             | ColorChannel::Blue
             | ColorChannel::Alpha
             | ColorChannel::HslSaturation
-            | ColorChannel::HslLightness => SliderRange::new(0., 1.),
-            ColorChannel::HslHue => SliderRange::new(0., 360.),
+            | ColorChannel::HslLightness
+            | ColorChannel::OkhslSaturation
+            | ColorChannel::OkhslLightness => SliderRange::new(0., 1.),
+            ColorChannel::HslHue | ColorChannel::OkhslHue => SliderRange::new(0., 360.),
         }
     }
 
@@ -133,6 +137,29 @@ impl ColorChannel {
                 )
             }
 
+            ColorChannel::OkhslHue => (
+                Color::okhsl(0.0 + 0.0001, 1.0, 0.5),
+                Color::okhsl(180.0, 1.0, 0.5),
+                Color::okhsl(360.0 - 0.0001, 1.0, 0.5),
+            ),
+
+            ColorChannel::OkhslSaturation => {
+                let base_okhsla: Okhsla = base_color.into();
+                (
+                    Color::okhsl(base_okhsla.hue, 0.0, base_okhsla.lightness),
+                    Color::okhsl(base_okhsla.hue, 0.5, base_okhsla.lightness),
+                    Color::okhsl(base_okhsla.hue, 1.0, base_okhsla.lightness),
+                )
+            }
+
+            ColorChannel::OkhslLightness => {
+                let base_okhsla: Okhsla = base_color.into();
+                (
+                    Color::okhsl(base_okhsla.hue, base_okhsla.saturation, 0.0),
+                    Color::okhsl(base_okhsla.hue, base_okhsla.saturation, 0.5),
+                    Color::okhsl(base_okhsla.hue, base_okhsla.saturation, 1.0),
+                )
+            }
             ColorChannel::Alpha => (
                 base_color.with_alpha(0.),
                 base_color.with_alpha(0.5),
@@ -205,10 +232,8 @@ impl FeathersColorSlider {
     fn scene(props: FeathersColorSliderProps) -> impl Scene {
         bsn! {
             Node {
-                display: Display::Flex,
-                flex_direction: FlexDirection::Row,
+                display: Display::Grid,
                 height: px(SLIDER_HEIGHT),
-                align_items: AlignItems::Stretch,
                 flex_grow: 1.0,
             }
             Slider {
@@ -219,7 +244,7 @@ impl FeathersColorSlider {
                 channel: {props.channel},
             }
             SliderValue({props.value})
-            template_value(props.channel.range())
+            props.channel.range()
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
             TabIndex(0)
             FocusIndicator
@@ -227,211 +252,101 @@ impl FeathersColorSlider {
                 // track
                 (
                     Node {
-                        position_type: PositionType::Absolute,
-                        left: px(0),
-                        right: px(0),
-                        top: px(TRACK_PADDING),
-                        bottom: px(TRACK_PADDING),
+                        grid_row: GridPlacement::start(1),
+                        grid_column: GridPlacement::start(1),
+                        margin: {UiRect::vertical(px(TRACK_PADDING))},
                         border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
                     }
                     ColorSliderTrack
                     AlphaPattern
                     MaterialNode::<AlphaPatternMaterial>
-                    Children [
-                        // Left endcap
-                        (
-                            Node {
-                                width: px(THUMB_SIZE * 0.5),
-                                border_radius: {RoundedCorners::Left.to_border_radius(TRACK_RADIUS)},
-                            }
-                            BackgroundColor(palette::X_AXIS)
-                        ),
-                        // Track with gradient
-                        (
-                            Node {
-                                flex_grow: 1.0,
-                            }
-                            BackgroundGradient(vec![Gradient::Linear(LinearGradient {
-                                angle: PI * 0.5,
-                                stops: vec![
-                                    ColorStop::new(Color::NONE, percent(0)),
-                                    ColorStop::new(Color::NONE, percent(50)),
-                                    ColorStop::new(Color::NONE, percent(100)),
-                                ],
-                                color_space: InterpolationColorSpace::Srgba,
-                            })])
-                            ZIndex(1)
-                            Children [(
-                                Node {
-                                    position_type: PositionType::Absolute,
-                                    left: percent(0),
-                                    top: percent(50),
-                                    width: px(THUMB_SIZE),
-                                    height: px(THUMB_SIZE),
-                                    border: px(2),
-                                    border_radius: BorderRadius::MAX,
-                                }
-                                SliderThumb
-                                ColorSliderThumb
-                                BorderColor::all(palette::WHITE)
-                                Outline {
-                                    width: px(1),
-                                    offset: px(0),
-                                    color: palette::BLACK
-                                }
-                                UiTransform::from_translation(Val2::percent(-50., -50.))
-                            )]
-                        ),
-                        // Right endcap
-                        (
-                            Node {
-                                width: px(THUMB_SIZE * 0.5),
-                                border_radius: {RoundedCorners::Right.to_border_radius(TRACK_RADIUS)},
-                            }
-                            BackgroundColor(palette::Z_AXIS)
-                        )
-                    ]
+                ),
+                // gradient
+                (
+                    Node {
+                        grid_row: GridPlacement::start(1),
+                        grid_column: GridPlacement::start(1),
+                        margin: {UiRect::vertical(px(TRACK_PADDING))},
+                        border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
+                    }
+                    BackgroundGradient(vec![
+                        Gradient::Linear(LinearGradient {
+                            angle: LinearGradient::TO_RIGHT,
+                            stops: vec![
+                                ColorStop::px(Color::NONE, 0),
+                                ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                                ColorStop::percent(Color::NONE, 50),
+                                ColorStop::percent(Color::NONE, 50),
+                                ColorStop::percent(Color::NONE, 100),
+                            ],
+                            color_space: InterpolationColorSpace::Srgba,
+                        }),
+                        Gradient::Linear(LinearGradient {
+                            angle: LinearGradient::TO_LEFT,
+                            stops: vec![
+                                ColorStop::px(Color::NONE, 0),
+                                ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                                ColorStop::percent(Color::NONE, 50),
+                                ColorStop::percent(Color::NONE, 50),
+                                ColorStop::percent(Color::NONE, 100),
+                            ],
+                            color_space: InterpolationColorSpace::Srgba,
+                        }),
+                    ])
+                ),
+                // thumb
+                (
+                    Node {
+                        grid_row: GridPlacement::start(1),
+                        grid_column: GridPlacement::start(1),
+                        margin: {UiRect::horizontal(px(THUMB_SIZE * 0.5))},
+                    }
+                    Children [(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: percent(0),
+                            top: percent(50),
+                            width: px(THUMB_SIZE),
+                            height: px(THUMB_SIZE),
+                            border: px(2),
+                            border_radius: BorderRadius::MAX,
+                        }
+                        SliderThumb
+                        ColorSliderThumb
+                        BorderColor::all(palette::WHITE)
+                        Outline {
+                            width: px(1),
+                            offset: px(0),
+                            color: palette::BLACK
+                        }
+                        UiTransform::from_translation(Val2::percent(-50., -50.))
+                    )]
                 )
             ]
         }
     }
 }
 
-/// Spawn a new slider widget.
-///
-/// # Arguments
-///
-/// * `props` - construction properties for the slider.
-/// * `overrides` - a bundle of components that are merged in with the normal slider components.
-///
-/// # Emitted events
-///
-/// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
-///
-///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-///
-/// **Note:** For information on how widget state is managed
-/// and how to respond to state changes, see the [`bevy_ui_widgets` documentation](bevy_ui_widgets).
-#[deprecated(since = "0.19.0", note = "Use the color_slider() BSN function")]
-pub fn color_slider_bundle<B: Bundle>(
-    props: FeathersColorSliderProps,
-    overrides: B,
-) -> impl Bundle {
-    (
-        Node {
-            display: Display::Flex,
-            flex_direction: FlexDirection::Row,
-            height: px(SLIDER_HEIGHT),
-            align_items: AlignItems::Stretch,
-            flex_grow: 1.0,
-            ..Default::default()
-        },
-        Slider {
-            track_click: TrackClick::Snap,
-            orientation: SliderOrientation::Horizontal,
-        },
-        ColorSlider {
-            channel: props.channel,
-        },
-        SliderValue(props.value),
-        props.channel.range(),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
-        TabIndex(0),
-        FocusIndicator,
-        overrides,
-        children![
-            // track
-            (
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(0),
-                    right: px(0),
-                    top: px(TRACK_PADDING),
-                    bottom: px(TRACK_PADDING),
-                    border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
-                    ..Default::default()
-                },
-                ColorSliderTrack,
-                AlphaPattern,
-                MaterialNode::<AlphaPatternMaterial>(Handle::default()),
-                children![
-                    // Left endcap
-                    (
-                        Node {
-                            width: px(THUMB_SIZE * 0.5),
-                            border_radius: RoundedCorners::Left.to_border_radius(TRACK_RADIUS),
-                            ..Default::default()
-                        },
-                        BackgroundColor(palette::X_AXIS),
-                    ),
-                    // Track with gradient
-                    (
-                        Node {
-                            flex_grow: 1.0,
-                            ..Default::default()
-                        },
-                        BackgroundGradient(vec![Gradient::Linear(LinearGradient {
-                            angle: PI * 0.5,
-                            stops: vec![
-                                ColorStop::new(Color::NONE, percent(0)),
-                                ColorStop::new(Color::NONE, percent(50)),
-                                ColorStop::new(Color::NONE, percent(100)),
-                            ],
-                            color_space: InterpolationColorSpace::Srgba,
-                        })]),
-                        ZIndex(1),
-                        children![(
-                            Node {
-                                position_type: PositionType::Absolute,
-                                left: percent(0),
-                                top: percent(50),
-                                width: px(THUMB_SIZE),
-                                height: px(THUMB_SIZE),
-                                border: UiRect::all(px(2)),
-                                border_radius: BorderRadius::MAX,
-                                ..Default::default()
-                            },
-                            SliderThumb,
-                            ColorSliderThumb,
-                            BorderColor::all(palette::WHITE),
-                            Outline {
-                                width: px(1),
-                                offset: px(0),
-                                color: palette::BLACK
-                            },
-                            UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
-                        )]
-                    ),
-                    // Right endcap
-                    (
-                        Node {
-                            width: px(THUMB_SIZE * 0.5),
-                            border_radius: RoundedCorners::Right.to_border_radius(TRACK_RADIUS),
-                            ..Default::default()
-                        },
-                        BackgroundColor(palette::Z_AXIS),
-                    ),
-                ]
-            ),
-        ],
-    )
-}
-
 fn update_slider_pos(
-    mut q_sliders: Query<
-        (Entity, &SliderValue, &SliderRange),
-        (
-            With<ColorSlider>,
-            Or<(Changed<SliderValue>, Changed<SliderRange>)>,
-        ),
-    >,
+    mut q_sliders: Query<(Entity, &SliderValue, &SliderRange), With<ColorSlider>>,
     q_children: Query<&Children>,
-    mut q_slider_thumb: Query<&mut Node, (With<ColorSliderThumb>, Without<ToggleSwitchSlide>)>,
+    mut q_slider_thumb: Query<
+        (&ChildOf, &mut UiTransform),
+        (With<ColorSliderThumb>, Without<ToggleSwitchSlide>),
+    >,
+    q_computed_node: Query<&ComputedNode>,
 ) {
     for (slider_ent, value, range) in q_sliders.iter_mut() {
         for child in q_children.iter_descendants(slider_ent) {
-            if let Ok(mut thumb_node) = q_slider_thumb.get_mut(child) {
-                thumb_node.left = percent(range.thumb_position(value.0) * 100.0);
+            if let Ok((parent, mut thumb_transform)) = q_slider_thumb.get_mut(child)
+                && let Ok(track_node) = q_computed_node.get(parent.parent())
+                && track_node.size().x > 0.0
+            {
+                let track_width = track_node.size().x * track_node.inverse_scale_factor;
+                let thumb_offset = range.thumb_position(value.0) * track_width - THUMB_SIZE * 0.5;
+                let mut updated_transform = *thumb_transform;
+                updated_transform.translation.x = px(thumb_offset);
+                thumb_transform.set_if_neq(updated_transform);
             }
         }
     }
@@ -440,8 +355,6 @@ fn update_slider_pos(
 fn update_track_color(
     mut q_sliders: Query<(Entity, &ColorSlider, &SliderBaseColor), Changed<SliderBaseColor>>,
     q_children: Query<&Children>,
-    q_track: Query<(), With<ColorSliderTrack>>,
-    mut q_background: Query<&mut BackgroundColor>,
     // Without<FeathersTextInput> and Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems
     mut q_gradient: Query<
         &mut BackgroundGradient,
@@ -450,48 +363,44 @@ fn update_track_color(
 ) {
     for (slider_ent, slider, SliderBaseColor(base_color)) in q_sliders.iter_mut() {
         let (start, middle, end) = slider.channel.gradient_ends(*base_color);
-        if let Some(track_ent) = q_children
-            .iter_descendants(slider_ent)
-            .find(|ent| q_track.contains(*ent))
+        if let Some(gradient_ent) = q_children
+            .get(slider_ent)
+            .ok()
+            .and_then(|children| children.get(1))
+            && let Ok(mut gradient) = q_gradient.get_mut(*gradient_ent)
+            && let [Gradient::Linear(left), Gradient::Linear(right)] = &mut gradient.0[..]
         {
-            let Ok(track_children) = q_children.get(track_ent) else {
-                continue;
-            };
-
-            if let Ok(mut cap_bg) = q_background.get_mut(track_children[0]) {
-                cap_bg.0 = start;
-            }
-
-            if let Ok(mut gradient) = q_gradient.get_mut(track_children[1])
-                && let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..]
-            {
-                linear_gradient.stops[0].color = start;
-                linear_gradient.stops[1].color = middle;
-                linear_gradient.stops[2].color = end;
-                linear_gradient.color_space = match slider.channel {
-                    ColorChannel::Red | ColorChannel::Green | ColorChannel::Blue => {
+            left.stops[0].color = start;
+            left.stops[1].color = start;
+            left.stops[2].color = middle;
+            right.stops[0].color = end;
+            right.stops[1].color = end;
+            right.stops[2].color = middle;
+            let color_space = match slider.channel {
+                ColorChannel::Red | ColorChannel::Green | ColorChannel::Blue => {
+                    InterpolationColorSpace::Srgba
+                }
+                ColorChannel::HslHue | ColorChannel::HslLightness | ColorChannel::HslSaturation => {
+                    InterpolationColorSpace::Hsla
+                }
+                ColorChannel::OkhslHue
+                | ColorChannel::OkhslLightness
+                | ColorChannel::OkhslSaturation => InterpolationColorSpace::Okhsla,
+                ColorChannel::Alpha => match base_color {
+                    Color::Srgba(_) => InterpolationColorSpace::Srgba,
+                    Color::LinearRgba(_) => InterpolationColorSpace::LinearRgba,
+                    Color::Oklaba(_) => InterpolationColorSpace::Oklaba,
+                    Color::Oklcha(_) => InterpolationColorSpace::OklchaLong,
+                    Color::Hsla(_) | Color::Hsva(_) => InterpolationColorSpace::Hsla,
+                    _ => {
+                        warn_once!("Unsupported color space for ColorSlider: {:?}", base_color);
                         InterpolationColorSpace::Srgba
                     }
-                    ColorChannel::HslHue
-                    | ColorChannel::HslLightness
-                    | ColorChannel::HslSaturation => InterpolationColorSpace::Hsla,
-                    ColorChannel::Alpha => match base_color {
-                        Color::Srgba(_) => InterpolationColorSpace::Srgba,
-                        Color::LinearRgba(_) => InterpolationColorSpace::LinearRgba,
-                        Color::Oklaba(_) => InterpolationColorSpace::Oklaba,
-                        Color::Oklcha(_) => InterpolationColorSpace::OklchaLong,
-                        Color::Hsla(_) | Color::Hsva(_) => InterpolationColorSpace::Hsla,
-                        _ => {
-                            warn_once!("Unsupported color space for ColorSlider: {:?}", base_color);
-                            InterpolationColorSpace::Srgba
-                        }
-                    },
-                };
-            }
+                },
+            };
 
-            if let Ok(mut cap_bg) = q_background.get_mut(track_children[2]) {
-                cap_bg.0 = end;
-            }
+            left.color_space = color_space;
+            right.color_space = color_space;
         }
     }
 }

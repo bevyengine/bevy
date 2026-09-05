@@ -229,9 +229,7 @@ impl DeriveComponent {
         // If this component has a summary tick, define the appropriate method.
         let has_summary_tick = if self.summary_tick {
             quote! {
-                fn has_summary_tick() -> bool {
-                    true
-                }
+                const HAS_SUMMARY_TICK: bool = true;
             }
         } else {
             quote! {}

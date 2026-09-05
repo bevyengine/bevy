@@ -23,12 +23,13 @@ use thiserror::Error;
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
 #[require(SystemIdMarker = SystemIdMarker::typed_system_id_marker::<I, O>())]
-pub(crate) struct RegisteredSystem<I, O> {
+pub struct RegisteredSystem<I, O> {
     initialized: bool,
     system: Option<BoxedSystem<I, O>>,
 }
 
 impl<I, O> RegisteredSystem<I, O> {
+    /// Create an uninitialized [`RegisteredSystem`] component with the provided boxed system
     pub fn new(system: BoxedSystem<I, O>) -> Self {
         RegisteredSystem {
             initialized: false,

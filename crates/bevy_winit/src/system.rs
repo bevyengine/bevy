@@ -11,9 +11,9 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
-    ClosingWindow, CursorOptions, Monitor, OnMonitor, PrimaryMonitor, RawHandleWrapper, VideoMode,
-    Window, WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
-    WindowResized, WindowScaleFactorChanged, WindowWrapper,
+    ClosingWindow, CursorOptions, HasWindows, Monitor, OnMonitor, PrimaryMonitor, RawHandleWrapper,
+    VideoMode, Window, WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused,
+    WindowMode, WindowResized, WindowScaleFactorChanged, WindowWrapper,
 };
 use tracing::{error, info, warn};
 
@@ -237,7 +237,14 @@ pub fn create_monitors(
             true
         } else {
             info!("Monitor removed {}", entity);
-            commands.entity(*entity).despawn();
+
+            commands
+                .entity(*entity)
+                // Remove the monitor's linked windows before despawning
+                //  it to prevent those windows from being despawned too.
+                .remove::<HasWindows>()
+                .despawn();
+
             idx += 1;
             false
         }
