@@ -29,9 +29,6 @@ use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
 pub use accessibility::AccessibilityUiSystems;
-// This module is not re-exported, but is instead made public.
-// This is intended to discourage accidental use of the experimental API.
-pub mod experimental;
 mod focus;
 mod geometry;
 mod layout;
@@ -87,10 +84,10 @@ use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, Propagate
 use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
-use layout::ui_surface::UiSurface;
+use layout::clipping::update_clipping_system;
 use stack::ui_stack_system;
 pub use stack::{ComputedStackIndex, UiStack};
-use update::{propagate_ui_target_cameras, update_clipping_system};
+use update::propagate_ui_target_cameras;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -147,8 +144,7 @@ struct AmbiguousWithUpdateText2dLayout;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<UiSurface>()
-            .init_resource::<UiScale>()
+        app.init_resource::<UiScale>()
             .init_resource::<UiStack>()
             .register_required_components::<
                 bevy_text::EditableText,
@@ -198,9 +194,15 @@ impl Plugin for UiPlugin {
                 propagate_ui_target_cameras
                     .in_set(UiSystems::Prepare)
                     .before(bevy_app::TransformGizmoRenderStep),
-                ui_layout_system
-                    .in_set(UiSystems::Layout)
-                    .ambiguous_with(bevy_sprite::update_text2d_layout),
+                (
+                    sync_taffy_styles_with_nodes,
+                    mark_dirty_ui_trees,
+                    ui_layout_system.ambiguous_with(bevy_sprite::update_text2d_layout),
+                    update_computed_nodes,
+                    update_border_radius,
+                )
+                    .chain()
+                    .in_set(UiSystems::Layout),
                 ui_stack_system.in_set(UiSystems::Stack),
                 update_clipping_system.in_set(UiSystems::PostLayout),
                 // Potential conflicts: `Assets<Image>`

@@ -536,7 +536,7 @@ pub struct TextMeasureInfo {
 impl TextMeasureInfo {
     /// Computes the size of the text area within the provided bounds.
     pub fn compute_size(
-        &mut self,
+        &self,
         bounds: TextBounds,
         computed: &mut ComputedTextBlock,
         _font_system: &mut FontCx,
