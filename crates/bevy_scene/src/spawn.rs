@@ -1,6 +1,6 @@
 use crate::{
-    ResolvedSceneRoot, Scene, SceneList, SceneListPatch, ScenePatch, ScenePatchInstance,
-    SpawnSceneError,
+    RelationshipBehavior, ResolvedSceneRoot, Scene, SceneList, SceneListPatch, ScenePatch,
+    ScenePatchInstance, SpawnSceneError,
 };
 use alloc::sync::Arc;
 use bevy_asset::{AssetEvent, AssetServer, Assets, Handle};
@@ -451,12 +451,23 @@ pub trait EntityWorldMutSceneExt {
     /// ```
     fn queue_spawn_related_scenes<T: RelationshipTarget>(self, scenes: impl SceneList) -> Self;
 
+    /// Applies the given [`Scene`] to the current entity using the given [`RelationshipBehavior`].
+    ///
+    /// See [`EntityWorldMutSceneExt::apply_scene`] and [`EntityWorldMutSceneExt::merge_scene`].
+    fn patch_scene<S: Scene>(
+        &mut self,
+        scene: S,
+        relationship_behavior: RelationshipBehavior,
+    ) -> Result<(), SpawnSceneError>;
+
     /// Applies the given [`Scene`] to the current entity immediately. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
-    /// loaded yet), it will return a [`SpawnSceneError`]. If resolving the [`Scene`] is successful, the scene will be spawned.
+    /// loaded yet), it will return a [`SpawnSceneError`]. If resolving the [`Scene`] is successful, the scene will be applied.
     ///
     /// When a scene is resolved, it will replace and orphan the current entity's children.
     ///
-    /// If resolving and spawning is successful, the entity will contain the full contents of the spawned scene.
+    /// To retain and extend existing children instead, use [`EntityWorldMutSceneExt::merge_scene`].
+    ///
+    /// If resolving and applying is successful, the entity will contain the full contents of the applied scene.
     ///
     /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`World::spawn_scene`].
     ///
@@ -464,7 +475,9 @@ pub trait EntityWorldMutSceneExt {
     ///
     /// If your scene has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`World::queue_spawn_scene`].
     /// Note that the .bsn file format is not yet released.
-    fn apply_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError>;
+    fn apply_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError> {
+        self.patch_scene(scene, RelationshipBehavior::Overwrite)
+    }
 
     /// Queues the `scene` to be applied. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved and spawned
     /// after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
@@ -476,6 +489,13 @@ pub trait EntityWorldMutSceneExt {
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     fn queue_apply_scene<S: Scene>(&mut self, scene: S);
+
+    /// Merges the given [`Scene`] into the current entity, retaining and extending existing related entities.
+    ///
+    /// This is equivalent to [`EntityWorldMutSceneExt::patch_scene`] with [`RelationshipBehavior::Merge`].
+    fn merge_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError> {
+        self.patch_scene(scene, RelationshipBehavior::Merge)
+    }
 }
 
 impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
@@ -500,11 +520,15 @@ impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
         self
     }
 
-    fn apply_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError> {
+    fn patch_scene<S: Scene>(
+        &mut self,
+        scene: S,
+        relationship_behavior: RelationshipBehavior,
+    ) -> Result<(), SpawnSceneError> {
         let assets = self.resource::<AssetServer>();
         let mut patch = ScenePatch::load(assets, scene);
         patch.resolve(assets, self.resource::<Assets<ScenePatch>>())?;
-        patch.apply(self)
+        patch.patch(self, relationship_behavior)
     }
 
     fn queue_apply_scene<S: Scene>(&mut self, scene: S) {
@@ -579,6 +603,11 @@ pub trait EntityCommandsSceneExt {
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     fn queue_apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self;
+
+    /// Merges the given [`Scene`] into the current entity as soon as [`Commands`] are applied.
+    ///
+    /// See [`EntityWorldMutSceneExt::merge_scene`].
+    fn merge_scene<S: Scene>(&mut self, scene: S) -> &mut Self;
 }
 
 impl EntityCommandsSceneExt for EntityCommands<'_> {
@@ -599,6 +628,15 @@ impl EntityCommandsSceneExt for EntityCommands<'_> {
 
     fn queue_apply_scene<S: Scene>(&mut self, scene: S) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| entity.queue_apply_scene(scene));
+        self
+    }
+
+    fn merge_scene<S: Scene>(&mut self, scene: S) -> &mut Self {
+        self.queue(move |mut entity: EntityWorldMut| {
+            if let Err(err) = entity.merge_scene(scene) {
+                error!("{err}");
+            }
+        });
         self
     }
 }
@@ -891,6 +929,24 @@ mod tests {
     #[derive(Component)]
     struct PreExistingChild;
 
+    fn assert_merge_extends_children(world: &World, root: Entity, pre_existing: Entity) {
+        let children: Vec<Entity> = world
+            .entity(root)
+            .get::<Children>()
+            .map(|c| c.iter().collect())
+            .unwrap_or_default();
+
+        assert_eq!(children.len(), 2);
+        assert!(children.contains(&pre_existing));
+        assert!(
+            children
+                .iter()
+                .filter(|entity| world.entity(**entity).contains::<SceneChild>())
+                .count()
+                == 1
+        );
+    }
+
     /// Tests that documented behavior of [`EntityWorldMutSceneExt::apply_scene`] is correct.
     #[test]
     fn apply_scene_replaces_and_orphans_children() {
@@ -923,5 +979,22 @@ mod tests {
         // Pre-existing child entity still exists, but is no longer listed under root.
         assert!(world.get_entity(pre_existing).is_ok());
         assert!(!children.contains(&pre_existing));
+    }
+
+    /// Tests that the [`EntityWorldMutSceneExt::merge_scene`] function extends children.
+    #[test]
+    fn merge_scene_function_extends_children() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let pre_existing = world.spawn(PreExistingChild).id();
+        let root = world.spawn(Name::new("root")).add_child(pre_existing).id();
+
+        let scene = bsn! {
+            Children [ #SceneChild SceneChild ]
+        };
+        world.entity_mut(root).merge_scene(scene).unwrap();
+
+        assert_merge_extends_children(world, root, pre_existing);
     }
 }

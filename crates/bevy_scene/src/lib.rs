@@ -907,8 +907,8 @@ pub mod prelude {
     #[expect(deprecated, reason = "easier migrations")]
     pub use crate::{
         bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
-        EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneComponent, SceneList,
-        ScenePatchInstance, SpawnListSystem, SpawnSystem, WorldSceneExt,
+        EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, RelationshipBehavior, Scene,
+        SceneComponent, SceneList, ScenePatchInstance, SpawnListSystem, SpawnSystem, WorldSceneExt,
     };
 }
 
