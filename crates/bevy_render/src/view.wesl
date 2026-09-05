@@ -17,84 +17,84 @@ struct View {
     world_from_clip: mat4x4<f32>,
     world_from_view: mat4x4<f32>,
     view_from_world: mat4x4<f32>,
-    // Typically a column-major right-handed projection matrix, one of either:
-    //
-    // Perspective (infinite reverse z)
-    // ```
-    // f = 1 / tan(fov_y_radians / 2)
-    //
-    // ⎡ f / aspect  0   0     0 ⎤
-    // ⎢          0  f   0     0 ⎥
-    // ⎢          0  0   0  near ⎥
-    // ⎣          0  0  -1     0 ⎦
-    // ```
-    //
-    // Orthographic
-    // ```
-    // w = right - left
-    // h = top - bottom
-    // d = far - near
-    // cw = -right - left
-    // ch = -top - bottom
-    //
-    // ⎡ 2 / w      0      0   cw / w ⎤
-    // ⎢     0  2 / h      0   ch / h ⎥
-    // ⎢     0      0  1 / d  far / d ⎥
-    // ⎣     0      0      0        1 ⎦
-    // ```
-    //
-    // `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
-    //
-    // Wgsl matrices are column major, so for example getting the near plane of a perspective projection is `clip_from_view[3][2]`
-    //
-    // Custom projections are also possible however.
+    /// Typically a column-major right-handed projection matrix, one of either:
+    ///
+    /// Perspective (infinite reverse z)
+    /// ```
+    /// f = 1 / tan(fov_y_radians / 2)
+    ///
+    /// ⎡ f / aspect  0   0     0 ⎤
+    /// ⎢          0  f   0     0 ⎥
+    /// ⎢          0  0   0  near ⎥
+    /// ⎣          0  0  -1     0 ⎦
+    /// ```
+    ///
+    /// Orthographic
+    /// ```
+    /// w = right - left
+    /// h = top - bottom
+    /// d = far - near
+    /// cw = -right - left
+    /// ch = -top - bottom
+    ///
+    /// ⎡ 2 / w      0      0   cw / w ⎤
+    /// ⎢     0  2 / h      0   ch / h ⎥
+    /// ⎢     0      0  1 / d  far / d ⎥
+    /// ⎣     0      0      0        1 ⎦
+    /// ```
+    ///
+    /// `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    ///
+    /// Wgsl matrices are column major, so for example getting the near plane of a perspective projection is `clip_from_view[3][2]`
+    ///
+    /// Custom projections are also possible however.
     clip_from_view: mat4x4<f32>,
     view_from_clip: mat4x4<f32>,
     world_position: vec3<f32>,
     exposure: f32,
-    // viewport(x_origin, y_origin, width, height)
+    /// viewport(x_origin, y_origin, width, height)
     viewport: vec4<f32>,
     main_pass_viewport: vec4<f32>,
-    // 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
-    // The normal vectors point towards the interior of the frustum.
-    // A half space contains `p` if `normal.dot(p) + distance > 0.`
+    /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
+    /// The normal vectors point towards the interior of the frustum.
+    /// A half space contains `p` if `normal.dot(p) + distance > 0.`
     frustum: array<vec4<f32>, 6>,
-    // The world-space position of the camera used to resolve visibility ranges.
-    //
-    // This is the position of the camera itself, unless this view isn't
-    // associated with a camera, in which case it's the position of the primary
-    // camera.
+    /// The world-space position of the camera used to resolve visibility ranges.
+    ///
+    /// This is the position of the camera itself, unless this view isn't
+    /// associated with a camera, in which case it's the position of the primary
+    /// camera.
     lod_view_world_position: vec3<f32>,
     color_grading: ColorGrading,
     mip_bias: f32,
     frame_count: u32,
 };
 
-/// World space:
-/// +y is up
-
-/// View space:
-/// -z is forward, +x is right, +y is up
-/// Forward is from the camera position into the scene.
-/// (0.0, 0.0, -1.0) is linear distance of 1.0 in front of the camera's view relative to the camera's rotation
-/// (0.0, 1.0, 0.0) is linear distance of 1.0 above the camera's view relative to the camera's rotation
-
-/// NDC (normalized device coordinate):
-/// https://www.w3.org/TR/webgpu/#coordinate-systems
-/// (-1.0, -1.0) in NDC is located at the bottom-left corner of NDC
-/// (1.0, 1.0) in NDC is located at the top-right corner of NDC
-/// Z is depth where:
-///    1.0 is near clipping plane
-///    Perspective projection: 0.0 is inf far away
-///    Orthographic projection: 0.0 is far clipping plane
-
-/// Clip space:
-/// This is NDC before the perspective divide, still in homogenous coordinate space.
-/// Dividing a clip space point by its w component yields a point in NDC space.
-
-/// UV space:
-/// 0.0, 0.0 is the top left
-/// 1.0, 1.0 is the bottom right
+//! World space:
+//! +y is up
+//!
+//! View space:
+//! -z is forward, +x is right, +y is up
+//! Forward is from the camera position into the scene.
+//! (0.0, 0.0, -1.0) is linear distance of 1.0 in front of the camera's view relative to the camera's rotation
+//! (0.0, 1.0, 0.0) is linear distance of 1.0 above the camera's view relative to the camera's rotation
+//!
+//! NDC (normalized device coordinate):
+//! https://www.w3.org/TR/webgpu/#coordinate-systems
+//! (-1.0, -1.0) in NDC is located at the bottom-left corner of NDC
+//! (1.0, 1.0) in NDC is located at the top-right corner of NDC
+//! Z is depth where:
+//!    1.0 is near clipping plane
+//!    Perspective projection: 0.0 is inf far away
+//!    Orthographic projection: 0.0 is far clipping plane
+//!
+//! Clip space:
+//! This is NDC before the perspective divide, still in homogenous coordinate space.
+//! Dividing a clip space point by its w component yields a point in NDC space.
+//!
+//! UV space:
+//! 0.0, 0.0 is the top left
+//! 1.0, 1.0 is the bottom right
 
 
 // -----------------

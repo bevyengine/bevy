@@ -17,7 +17,7 @@ import bevy_render::utils::{octahedral_encode, octahedral_decode};
 @if(MOTION_VECTOR_PREPASS)
     import package::render::pbr_prepass_functions::calculate_motion_vector;
 
-// Creates the deferred gbuffer from a PbrInput.
+/// Creates the deferred gbuffer from a PbrInput.
 fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     // Only monochrome occlusion supported. May not be worth including at all.
     // Some models have baked occlusion, GLTF only supports monochrome.
@@ -60,7 +60,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     }
 
     // Utilize the emissive channel to transmit the lightmap data. To ensure
-    // it matches the output in forward shading, pre-multiply it with the 
+    // it matches the output in forward shading, pre-multiply it with the
     // calculated diffuse color.
     let base_color = in.material.base_color.rgb;
     let metallic = in.material.metallic;
@@ -83,7 +83,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     return deferred;
 }
 
-// Creates a PbrInput from the deferred gbuffer.
+/// Creates a PbrInput from the deferred gbuffer.
 fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
     var pbr = pbr_input_new();
 

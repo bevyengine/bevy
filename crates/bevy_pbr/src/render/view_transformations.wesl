@@ -1,31 +1,31 @@
 import package::render::mesh_view_bindings as view_bindings;
 import package::prepass::bindings as prepass_bindings;
 
-/// World space:
-/// +y is up
-
-/// View space:
-/// -z is forward, +x is right, +y is up
-/// Forward is from the camera position into the scene.
-/// (0.0, 0.0, -1.0) is linear distance of 1.0 in front of the camera's view relative to the camera's rotation
-/// (0.0, 1.0, 0.0) is linear distance of 1.0 above the camera's view relative to the camera's rotation
-
-/// NDC (normalized device coordinate):
-/// https://www.w3.org/TR/webgpu/#coordinate-systems
-/// (-1.0, -1.0) in NDC is located at the bottom-left corner of NDC
-/// (1.0, 1.0) in NDC is located at the top-right corner of NDC
-/// Z is depth where: 
-///    1.0 is near clipping plane
-///    Perspective projection: 0.0 is inf far away
-///    Orthographic projection: 0.0 is far clipping plane
-
-/// Clip space:
-/// This is NDC before the perspective divide, still in homogenous coordinate space.
-/// Dividing a clip space point by its w component yields a point in NDC space.
-
-/// UV space:
-/// 0.0, 0.0 is the top left
-/// 1.0, 1.0 is the bottom right
+//! World space:
+//! +y is up
+//!
+//! View space:
+//! -z is forward, +x is right, +y is up
+//! Forward is from the camera position into the scene.
+//! (0.0, 0.0, -1.0) is linear distance of 1.0 in front of the camera's view relative to the camera's rotation
+//! (0.0, 1.0, 0.0) is linear distance of 1.0 above the camera's view relative to the camera's rotation
+//!
+//! NDC (normalized device coordinate):
+//! https://www.w3.org/TR/webgpu/#coordinate-systems
+//! (-1.0, -1.0) in NDC is located at the bottom-left corner of NDC
+//! (1.0, 1.0) in NDC is located at the top-right corner of NDC
+//! Z is depth where:
+//!    1.0 is near clipping plane
+//!    Perspective projection: 0.0 is inf far away
+//!    Orthographic projection: 0.0 is far clipping plane
+//!
+//! Clip space:
+//! This is NDC before the perspective divide, still in homogenous coordinate space.
+//! Dividing a clip space point by its w component yields a point in NDC space.
+//!
+//! UV space:
+//! 0.0, 0.0 is the top left
+//! 1.0, 1.0 is the bottom right
 
 
 // -----------------
@@ -165,7 +165,7 @@ fn perspective_camera_near() -> f32 {
     return view_bindings::view.clip_from_view[3][2];
 }
 
-/// Convert ndc depth to linear view z. 
+/// Convert ndc depth to linear view z.
 /// Note: Depth values in front of the camera will be negative as -z is forward
 fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
 @if(VIEW_PROJECTION_PERSPECTIVE)
@@ -178,7 +178,7 @@ fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
 }
 }
 
-/// Convert linear view z to ndc depth. 
+/// Convert linear view z to ndc depth.
 /// Note: View z input should be negative for values in front of the camera as -z is forward
 fn view_z_to_depth_ndc(view_z: f32) -> f32 {
 @if(VIEW_PROJECTION_PERSPECTIVE)

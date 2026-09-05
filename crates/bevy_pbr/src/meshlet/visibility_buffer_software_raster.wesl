@@ -21,7 +21,7 @@ import package::{
 };
 import bevy_render::maths::affine3_to_square;
 
-/// Compute shader for rasterizing small clusters into a visibility buffer.
+//! Compute shader for rasterizing small clusters into a visibility buffer.
 
 // TODO: Fixed-point math and top-left rule
 

@@ -17,7 +17,7 @@ import package::{
 import bevy_render::maths::affine3_to_square;
 var<immediate> meshlet_raster_cluster_rightmost_slot: u32;
 
-/// Vertex/fragment shader for rasterizing large clusters into a visibility buffer.
+//! Vertex/fragment shader for rasterizing large clusters into a visibility buffer.
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -77,7 +77,7 @@ fn dummy_vertex() -> VertexOutput {
     );
 }
 
-// Naga doesn't allow divide by zero literals, but this lets us work around it
+/// Naga doesn't allow divide by zero literals, but this lets us work around it
 fn divide(a: f32, b: f32) -> f32 {
     return a / b;
 }

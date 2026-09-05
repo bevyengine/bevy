@@ -305,14 +305,14 @@ fn reduce_load_mip_6(tex: vec2u) -> f32 {
     ));
 }
 
-// Loads the top mip level at virtual position (x, y).
-//
-// This is the value that *would be* returned from sampling a scaled depth
-// buffer with side lengths rounded up to the next power of two, without
-// actually constructing such a depth buffer.
-//
-// See the comments in `ViewDepthPyramid::downsample_depth` for more
-// information.
+/// Loads the top mip level at virtual position (x, y).
+///
+/// This is the value that *would be* returned from sampling a scaled depth
+/// buffer with side lengths rounded up to the next power of two, without
+/// actually constructing such a depth buffer.
+///
+/// See the comments in `ViewDepthPyramid::downsample_depth` for more
+/// information.
 fn load_mip_0(x: u32, y: u32) -> f32 {
     let actual_size = textureDimensions(mip_0).xy;
     let virtual_size = vec2<u32>(
@@ -344,11 +344,11 @@ fn load_mip_0(x: u32, y: u32) -> f32 {
     }
 }
 
-// Loads a single 2×2 square of texels at the given position from the source
-// image and returns all four (like `textureGather` does).
-//
-// `st` should be in texels, not in the [0, 1] range like UVs. That is, `st` is
-// `uv * textureDimensions(mip_0).xy`.
+/// Loads a single 2×2 square of texels at the given position from the source
+/// image and returns all four (like `textureGather` does).
+///
+/// `st` should be in texels, not in the [0, 1] range like UVs. That is, `st` is
+/// `uv * textureDimensions(mip_0).xy`.
 @if(MESHLET)
 fn load_mip_0_meshlet(st: vec2<f32>, shift: u32) -> vec4<f32> {
     let st0 = vec2<u32>(floor(st - 0.5));
@@ -361,11 +361,11 @@ fn load_mip_0_meshlet(st: vec2<f32>, shift: u32) -> vec4<f32> {
     );
 }
 
-// Loads a single 2×2 square of texels at the given position from the source
-// image, reduces them, and returns the result.
-//
-// `st` should be in texels, not in the [0, 1] range like UVs. That is, `st` is
-// `uv * textureDimensions(mip_0).xy`.
+/// Loads a single 2×2 square of texels at the given position from the source
+/// image, reduces them, and returns the result.
+///
+/// `st` should be in texels, not in the [0, 1] range like UVs. That is, `st` is
+/// `uv * textureDimensions(mip_0).xy`.
 @if(MULTISAMPLE)
 fn load_mip_0_single_sample(st: vec2<f32>, sample: i32) -> f32 {
     let st0 = vec2<u32>(floor(st - 0.5));
@@ -383,10 +383,10 @@ fn reduce_4(v: vec4f) -> f32 {
     return min(min(v.x, v.y), min(v.z, v.w));
 }
 
-// Returns the next power of two of x.
-//
-// If x is itself a power of two, this still returns the *next* power of two.
-// This is different from Rust's `next_power_of_two` function.
+/// Returns the next power of two of x.
+///
+/// If x is itself a power of two, this still returns the *next* power of two.
+/// This is different from Rust's `next_power_of_two` function.
 fn next_power_of_two(x: u32) -> u32 {
     return 1u << (32u - countLeadingZeros(x));
 }
