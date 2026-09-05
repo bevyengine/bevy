@@ -8,7 +8,13 @@ use crate::io::{
     AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream, Reader,
     ReaderNotSeekableError, SeekableReader,
 };
-use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec, vec::Vec};
+use alloc::{
+    borrow::{Cow, ToOwned},
+    boxed::Box,
+    sync::Arc,
+    vec,
+    vec::Vec,
+};
 use bevy_platform::{
     collections::HashMap,
     sync::{PoisonError, RwLock},
@@ -399,6 +405,10 @@ impl Reader for DataReader {
 }
 
 impl AssetReader for MemoryAssetReader {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        Cow::Owned(self.root.path())
+    }
+
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_asset(path)
@@ -484,6 +494,10 @@ impl AsyncWrite for DataWriter {
 }
 
 impl AssetWriter for MemoryAssetWriter {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        Cow::Owned(self.root.path())
+    }
+
     async fn write<'a>(&'a self, path: &'a Path) -> Result<Box<super::Writer>, AssetWriterError> {
         Ok(Box::new(DataWriter {
             dir: self.root.clone(),
