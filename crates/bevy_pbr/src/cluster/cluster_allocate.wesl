@@ -1,6 +1,3 @@
-import package::cluster::ClusterMetadata;
-import package::render::mesh_view_types::{ClusterOffsetsAndCounts, Lights};
-
 //! The shader that allocates the clustered object ID buffer.
 //!
 //! The clustered object ID buffer consists of many tightly-packed
@@ -27,6 +24,9 @@ import package::render::mesh_view_types::{ClusterOffsetsAndCounts, Lights};
 //! [prefix sum]: https://en.wikipedia.org/wiki/Prefix_sum
 //!
 //! [Hillis-Steele scan]: https://en.wikipedia.org/wiki/Prefix_sum#Algorithm_1:_Shorter_span,_more_parallel
+
+import package::cluster::ClusterMetadata;
+import package::render::mesh_view_types::{ClusterOffsetsAndCounts, Lights};
 
 @group(0) @binding(0) var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCounts;
 @group(0) @binding(1) var<uniform> lights: Lights;

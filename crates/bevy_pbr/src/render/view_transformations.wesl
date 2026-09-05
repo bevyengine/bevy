@@ -1,6 +1,3 @@
-import package::render::mesh_view_bindings as view_bindings;
-import package::prepass::bindings as prepass_bindings;
-
 //! World space:
 //! +y is up
 //!
@@ -27,6 +24,8 @@ import package::prepass::bindings as prepass_bindings;
 //! 0.0, 0.0 is the top left
 //! 1.0, 1.0 is the bottom right
 
+import package::render::mesh_view_bindings as view_bindings;
+import package::prepass::bindings as prepass_bindings;
 
 // -----------------
 // TO WORLD --------

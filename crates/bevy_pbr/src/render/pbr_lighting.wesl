@@ -1,14 +1,17 @@
-import package::{
-    render::mesh_view_types::{POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE, RectLight},
-    render::mesh_view_bindings as view_bindings,
-    atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
-    atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
-};
-import bevy_render::maths::{PI, orthonormalize, quat_rotate};
-
-const LAYER_BASE: u32 = 0;
-const LAYER_CLEARCOAT: u32 = 1;
-
+//! The Bidirectional Reflectance Distribution Function (BRDF) describes the surface response of a standard material
+//! and consists of two components, the diffuse component (f_d) and the specular component (f_r):
+//! f(v,l) = f_d(v,l) + f_r(v,l)
+//!
+//! The form of the microfacet model is the same for diffuse and specular
+//! f_r(v,l) = f_d(v,l) = 1 / { |n⋅v||n⋅l| } ∫_Ω D(m,α) G(v,l,m) f_m(v,l,m) (v⋅m) (l⋅m) dm
+//!
+//! In which:
+//! D, also called the Normal Distribution Function (NDF) models the distribution of the microfacets
+//! G models the visibility (or occlusion or shadow-masking) of the microfacets
+//! f_m is the microfacet BRDF and differs between specular and diffuse components
+//!
+//! The above integration needs to be approximated.
+//!
 //! From the Filament design doc
 //! https://google.github.io/filament/Filament.md.html#table_symbols
 //! Symbol Definition
@@ -28,20 +31,17 @@ const LAYER_CLEARCOAT: u32 = 1;
 //! nior    Index of refraction (IOR) of an interface
 //! ⟨n⋅l⟩    Dot product clamped to [0..1]
 //! ⟨a⟩    Saturated value (clamped to [0..1])
-//!
-//! The Bidirectional Reflectance Distribution Function (BRDF) describes the surface response of a standard material
-//! and consists of two components, the diffuse component (f_d) and the specular component (f_r):
-//! f(v,l) = f_d(v,l) + f_r(v,l)
-//!
-//! The form of the microfacet model is the same for diffuse and specular
-//! f_r(v,l) = f_d(v,l) = 1 / { |n⋅v||n⋅l| } ∫_Ω D(m,α) G(v,l,m) f_m(v,l,m) (v⋅m) (l⋅m) dm
-//!
-//! In which:
-//! D, also called the Normal Distribution Function (NDF) models the distribution of the microfacets
-//! G models the visibility (or occlusion or shadow-masking) of the microfacets
-//! f_m is the microfacet BRDF and differs between specular and diffuse components
-//!
-//! The above integration needs to be approximated.
+
+import package::{
+    render::mesh_view_types::{POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE, RectLight},
+    render::mesh_view_bindings as view_bindings,
+    atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
+    atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
+};
+import bevy_render::maths::{PI, orthonormalize, quat_rotate};
+
+const LAYER_BASE: u32 = 0;
+const LAYER_CLEARCOAT: u32 = 1;
 
 /// Input to a lighting function for a single layer (either the base layer or the
 /// clearcoat layer).

@@ -1,3 +1,9 @@
+//! Generates a hierarchical depth buffer.
+//! Based on FidelityFX SPD v2.1 https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/sdk/include/FidelityFX/gpu/spd/ffx_spd.h#L528
+//!
+//! `mip_0` may be of any size, but `mip_1` and down must have side lengths that
+//! are powers of two.
+
 @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
 @group(0) @binding(0) var mip_0: texture_storage_2d<r64uint, read>;
 @elif(MESHLET)
@@ -21,12 +27,6 @@
 @group(0) @binding(13) var samplr: sampler;
 struct Constants { max_mip_level: u32 }
 var<immediate> constants: Constants;
-
-/// Generates a hierarchical depth buffer.
-/// Based on FidelityFX SPD v2.1 https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/sdk/include/FidelityFX/gpu/spd/ffx_spd.h#L528
-///
-/// `mip_0` may be of any size, but `mip_1` and down must have side lengths that
-/// are powers of two.
 
 // TODO:
 // * Subgroup support

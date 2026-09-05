@@ -1,3 +1,5 @@
+//! Functions to be used by materials for reading from a meshlet visibility buffer texture.
+
 import package::{
     meshlet::bindings::{
         Meshlet,
@@ -24,8 +26,6 @@ import package::{
     prepass::bindings::previous_view_uniforms,
     render::pbr_prepass_functions::calculate_motion_vector,
 };
-
-//! Functions to be used by materials for reading from a meshlet visibility buffer texture.
 
 @if(MESHLET_MESH_MATERIAL_PASS)
 struct PartialDerivatives {

@@ -1,14 +1,3 @@
-import package::cluster::{
-    CLUSTERABLE_OBJECT_TYPE_DECAL, CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
-    CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
-    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT, ClusterMetadata,
-    ClusterableObjectZSlice, calculate_sphere_cluster_bounds, compute_view_from_world_scale
-};
-import package::render::mesh_view_types::{
-    ClusteredDecals, ClusteredLights, LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT, POINT_LIGHT_FLAGS_RECT_LIGHT_BIT
-};
-import bevy_render::view::View;
-
 //! The shader that divides clusterable objects into Z slices.
 //!
 //! Treating the cluster froxel space as a grid of size WxHxD, for each
@@ -19,6 +8,17 @@ import bevy_render::view::View;
 //! will consume. It also updates the indirect draw parameters for the
 //! rasterization pass and calculates statistics about the farthest Z value
 //! encountered that the CPU can later read back for dynamic froxel range tuning.
+
+import package::cluster::{
+    CLUSTERABLE_OBJECT_TYPE_DECAL, CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
+    CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
+    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT, ClusterMetadata,
+    ClusterableObjectZSlice, calculate_sphere_cluster_bounds, compute_view_from_world_scale
+};
+import package::render::mesh_view_types::{
+    ClusteredDecals, ClusteredLights, LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT, POINT_LIGHT_FLAGS_RECT_LIGHT_BIT
+};
+import bevy_render::view::View;
 
 /// Metadata, including the indirect draw parameters that we write to.
 @group(0) @binding(0) var<storage, read_write> cluster_metadata: ClusterMetadata;

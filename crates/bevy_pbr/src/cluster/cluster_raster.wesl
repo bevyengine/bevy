@@ -1,18 +1,3 @@
-import package::cluster::{
-    Aabb, CLUSTERABLE_OBJECT_TYPE_DECAL, CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
-    CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
-    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT, ClusterableObjectZSlice,
-    calculate_sphere_cluster_bounds, compute_view_from_world_scale
-};
-import package::render::clustered_forward;
-import package::light_probe::transpose_affine_matrix;
-import package::render::mesh_view_types::{
-    ClusterOffsetsAndCounts, ClusterableObjectIndexLists, ClusteredDecals, ClusteredLights,
-    LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
-};
-import bevy_render::view::View;
-import bevy_render::maths::quat_rotate;
-
 //! The shader that performs the cluster-object intersection tests and assigns
 //! objects to clusters as appropriate.
 //!
@@ -27,6 +12,21 @@ import bevy_render::maths::quat_rotate;
 //! This shader runs twice: once to accumulate the *count* of each object type in
 //! each cluster, and once to *populate* the actual IDs. Both invocations of the
 //! shader must compute the exact same visibility results.
+
+import package::cluster::{
+    Aabb, CLUSTERABLE_OBJECT_TYPE_DECAL, CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
+    CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
+    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT, ClusterableObjectZSlice,
+    calculate_sphere_cluster_bounds, compute_view_from_world_scale
+};
+import package::render::clustered_forward;
+import package::light_probe::transpose_affine_matrix;
+import package::render::mesh_view_types::{
+    ClusterOffsetsAndCounts, ClusterableObjectIndexLists, ClusteredDecals, ClusteredLights,
+    LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
+};
+import bevy_render::view::View;
+import bevy_render::maths::quat_rotate;
 
 struct Vertex {
     @builtin(instance_index) instance_id: u32,

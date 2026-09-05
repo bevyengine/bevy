@@ -1,3 +1,5 @@
+//! Vertex/fragment shader for rasterizing large clusters into a visibility buffer.
+
 import package::{
     meshlet::bindings::{
         meshlet_cluster_meshlet_ids,
@@ -16,8 +18,6 @@ import package::{
 };
 import bevy_render::maths::affine3_to_square;
 var<immediate> meshlet_raster_cluster_rightmost_slot: u32;
-
-//! Vertex/fragment shader for rasterizing large clusters into a visibility buffer.
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,

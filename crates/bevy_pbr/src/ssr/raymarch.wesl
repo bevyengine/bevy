@@ -1,3 +1,10 @@
+//! This is a port of the original [`raymarch.hlsl`] to WGSL. It's deliberately
+//! kept as close as possible so that patches to the original `raymarch.hlsl`
+//! have the greatest chances of applying to this version.
+//!
+//! [`raymarch.hlsl`]:
+//! https://gist.github.com/h3r2tic/9c8356bdaefbe80b1a22ae0aaee192db
+
 // Copyright (c) 2023 Tomasz Stachowiak
 //
 // This contribution is dual licensed under EITHER OF
@@ -6,13 +13,6 @@
 //     MIT license (http://opensource.org/licenses/MIT)
 //
 // at your option.
-
-//! This is a port of the original [`raymarch.hlsl`] to WGSL. It's deliberately
-//! kept as close as possible so that patches to the original `raymarch.hlsl`
-//! have the greatest chances of applying to this version.
-//!
-//! [`raymarch.hlsl`]:
-//! https://gist.github.com/h3r2tic/9c8356bdaefbe80b1a22ae0aaee192db
 
 import package::render::mesh_view_bindings::depth_prepass_texture;
 import package::render::view_transformations::{

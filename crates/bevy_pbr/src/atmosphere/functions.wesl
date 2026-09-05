@@ -1,18 +1,3 @@
-import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_acos_4, fast_atan2, ray_sphere_intersect};
-
-import package::atmosphere::{
-    types::Atmosphere,
-    bindings::{
-        atmosphere, settings, view, lights, transmittance_lut, atmosphere_lut_sampler,
-        multiscattering_lut, sky_view_lut, aerial_view_lut, atmosphere_transforms,
-        medium_density_lut, medium_scattering_lut, medium_sampler,
-    },
-    bruneton_functions::{
-        transmittance_lut_r_mu_to_uv, ray_intersects_ground,
-        distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary
-    },
-};
-
 //! NOTE FOR CONVENTIONS:
 //! r:
 //!   radius, or distance from planet center
@@ -31,6 +16,20 @@ import package::atmosphere::{
 //!   frame. This enables the non-linear latitude parametrization the paper uses
 //!   to concentrate detail near the horizon
 
+import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_acos_4, fast_atan2, ray_sphere_intersect};
+
+import package::atmosphere::{
+    types::Atmosphere,
+    bindings::{
+        atmosphere, settings, view, lights, transmittance_lut, atmosphere_lut_sampler,
+        multiscattering_lut, sky_view_lut, aerial_view_lut, atmosphere_transforms,
+        medium_density_lut, medium_scattering_lut, medium_sampler,
+    },
+    bruneton_functions::{
+        transmittance_lut_r_mu_to_uv, ray_intersects_ground,
+        distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary
+    },
+};
 
 // CONSTANTS
 /// 1 / π
@@ -180,10 +179,12 @@ fn sample_density_lut(r: f32, component: f32) -> vec3<f32> {
     return textureSampleLevel(medium_density_lut, medium_sampler, uv, 0.0).xyz;
 }
 
+
+const PHASE_MAPPING_N: f32 = 0.5;
+
 /// samples from the atmosphere scattering LUT. `neg_LdotV` is the dot product
 /// of the light direction and the incoming view vector.
 /// Nonlinear phase mapping to mitigate banding in low-resolution LUTs.
-const PHASE_MAPPING_N: f32 = 0.5;
 fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
     let normalized_altitude = (r - atmosphere.inner_radius) / (atmosphere.outer_radius - atmosphere.inner_radius);
     let phase_uv = 0.5 + 0.5 * sign(neg_LdotV) * (1.0 - pow(1.0 - abs(neg_LdotV), PHASE_MAPPING_N));

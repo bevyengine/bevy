@@ -70,7 +70,7 @@ fn vertex(
 ///   - il: target min dividing point
 ///   - ih: target max dividing point
 ///   - tl: slice min dividing point
-///   - th: lice max dividing point
+///   - th: slice max dividing point
 ///   - r: number of times to repeat the slice for sides and the center
 fn map_axis_with_repeat(
     p: f32,

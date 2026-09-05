@@ -1,6 +1,3 @@
-@if(BINDLESS)
-enable wgpu_binding_array;
-
 //! Defines the common arrays used to access bindless resources.
 //!
 //! This need to be kept up to date with the `BINDING_NUMBERS` table in
@@ -12,6 +9,9 @@ enable wgpu_binding_array;
 //! `bindless_textures_2d[materials[slot].base_color_texture]`, where
 //! `materials` is the bindless index table and `slot` is the index into that
 //! table (which can be found in the `Mesh`).
+
+@if(BINDLESS)
+enable wgpu_binding_array;
 
 // Binding 0 is the bindless index table.
 /// Filtering samplers.

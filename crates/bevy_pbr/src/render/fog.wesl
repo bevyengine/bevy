@@ -1,12 +1,13 @@
+//! Fog formulas adapted from:
+//! https://learn.microsoft.com/en-us/windows/win32/direct3d9/fog-formulas
+//! https://catlikecoding.com/unity/tutorials/rendering/part-14/
+//! https://iquilezles.org/articles/fog/ (Atmospheric Fog and Scattering)
+
 import package::render::{
     mesh_view_bindings::fog,
     mesh_view_types::Fog,
 };
 
-//! Fog formulas adapted from:
-//! https://learn.microsoft.com/en-us/windows/win32/direct3d9/fog-formulas
-//! https://catlikecoding.com/unity/tutorials/rendering/part-14/
-//! https://iquilezles.org/articles/fog/ (Atmospheric Fog and Scattering)
 
 fn scattering_adjusted_fog_color(
     fog_params: Fog,
