@@ -362,6 +362,7 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
                     Camera2d,
                     Camera {
                         order: (column * args.buttons + row) as isize + 1,
+                        clear_color: ClearColorConfig::None,
                         ..Default::default()
                     },
                 ))

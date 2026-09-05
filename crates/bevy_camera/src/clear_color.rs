@@ -26,17 +26,19 @@ pub enum ClearColorConfig {
 ///
 /// MSAA writeback copies the previous camera's output into the MSAA sampled texture before
 /// rendering, allowing multiple cameras to layer their results when MSAA is enabled.
+///
+/// MSAA writeback is always skipped if the camera doesn't have [`ClearColorConfig::None`],
+/// because the texture will be cleared anyway.
 #[derive(Reflect, Serialize, Deserialize, Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[reflect(Serialize, Deserialize, Default, Clone)]
 pub enum MsaaWriteback {
     /// Never perform MSAA writeback for this camera.
     Off,
-    /// Perform MSAA writeback only when the main pass must load existing content: a
-    /// fullscreen camera whose main texture a lower camera wrote this frame, or a
-    /// camera that preserves content across frames with `ClearColorConfig::None`.
+    /// Perform MSAA writeback when this camera is not the first one rendering to the target
+    /// because the first camera has nothing to write back.
     #[default]
     Auto,
-    /// Always perform MSAA writeback, even if this is the first camera rendering to the target.
+    /// Always perform MSAA writeback even if this is the first camera rendering to the target.
     /// This is useful when content has been written directly to the main texture (e.g., via
     /// `write_texture`) and needs to be preserved through the MSAA render pass.
     Always,
