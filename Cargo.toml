@@ -3451,6 +3451,17 @@ description = "Demonstrates how to write a fullscreen material"
 category = "Shaders Advanced"
 wasm = true
 
+[[example]]
+name = "mesh_shader_intro"
+path = "examples/shader_advanced/mesh_shader_intro.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh_shader_intro]
+name = "Mesh Shader Introduction"
+description = "Demonstrates how to use Task/Amplification/Mesh Shaders"
+category = "Shaders Advanced"
+wasm = false
+
 # Stress tests
 [[package.metadata.example_category]]
 name = "Stress Tests"
