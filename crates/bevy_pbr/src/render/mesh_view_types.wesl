@@ -226,6 +226,7 @@ struct OitFragmentNode {
     color: u32,
     depth_alpha: u32,
     next: u32,
+    sample_mask: u32,
 };
 
 struct ClusteredDecal {
