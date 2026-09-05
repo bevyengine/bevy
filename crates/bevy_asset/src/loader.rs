@@ -1,12 +1,15 @@
 use crate::{
-    io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
+    io::{
+        AssetReaderError, AssetReaderFuture, MissingAssetSourceError,
+        MissingProcessedAssetReaderError, Reader,
+    },
     loader_builders::NestedLoadBuilder,
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfo, ProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
-    Handle, UntypedAssetId, UntypedHandle,
+    Handle, LabeledAssetLoadError, UntypedAssetId, UntypedHandle,
 };
-use alloc::{boxed::Box, string::ToString, vec::Vec};
+use alloc::{boxed::Box, string::ToString, sync::Arc, vec::Vec};
 use atomicow::CowArc;
 use bevy_ecs::{error::BevyError, world::World};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
@@ -15,6 +18,7 @@ use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::{
     any::{Any, TypeId},
     convert::Infallible,
+    fmt,
 };
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
@@ -132,6 +136,92 @@ where
     }
 }
 
+/// Provides byte inputs for labeled assets contained by a root asset.
+///
+/// Labeled assets are still loaded by their ordinary [`AssetLoader`]. The reader provides the
+/// bytes addressed by each label.
+///
+/// Labels are scoped to the root asset that registered this reader and are interpreted only by the
+/// reader. The loaded asset's [`AssetPath`] contains both the root path and the label.
+///
+/// ```no_run
+/// # use bevy_asset::{io::{AssetReaderError, Reader, VecReader}, LabeledAssetReader};
+/// # use std::collections::HashMap;
+/// struct BsaLabeledAssetReader {
+///     entries: HashMap<String, Vec<u8>>,
+/// }
+///
+/// impl LabeledAssetReader for BsaLabeledAssetReader {
+///     async fn read<'a>(
+///         &'a self,
+///         label: &'a str,
+///     ) -> Result<impl Reader + 'a, AssetReaderError> {
+///         let bytes = self
+///             .entries
+///             .get(label)
+///             .ok_or_else(|| AssetReaderError::NotFound(label.into()))?;
+///         Ok(VecReader::new(bytes.clone()))
+///     }
+///
+///     async fn read_meta<'a>(
+///         &'a self,
+///         label: &'a str,
+///     ) -> Result<impl Reader + 'a, AssetReaderError> {
+///         Err::<VecReader, _>(AssetReaderError::NotFound(label.into()))
+///     }
+/// }
+/// ```
+pub trait LabeledAssetReader: Send + Sync + 'static {
+    /// Returns the bytes for `label`.
+    fn read<'a>(&'a self, label: &'a str) -> impl AssetReaderFuture<Value: Reader + 'a>;
+
+    /// Returns the metadata bytes for `label`.
+    fn read_meta<'a>(&'a self, label: &'a str) -> impl AssetReaderFuture<Value: Reader + 'a>;
+}
+
+/// Object-safe counterpart to [`LabeledAssetReader`].
+pub(crate) trait ErasedLabeledAssetReader: Downcast + Send + Sync + 'static {
+    fn read<'a>(
+        &'a self,
+        label: &'a str,
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>>;
+
+    fn read_meta<'a>(
+        &'a self,
+        label: &'a str,
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>>;
+}
+
+impl_downcast!(ErasedLabeledAssetReader);
+
+impl<R: LabeledAssetReader> ErasedLabeledAssetReader for R {
+    fn read<'a>(
+        &'a self,
+        label: &'a str,
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+        Box::pin(async move {
+            let reader = LabeledAssetReader::read(self, label).await?;
+            Ok(Box::new(reader) as Box<dyn Reader>)
+        })
+    }
+
+    fn read_meta<'a>(
+        &'a self,
+        label: &'a str,
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+        Box::pin(async move {
+            let reader = LabeledAssetReader::read_meta(self, label).await?;
+            Ok(Box::new(reader) as Box<dyn Reader>)
+        })
+    }
+}
+
+impl fmt::Debug for dyn ErasedLabeledAssetReader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("ErasedLabeledAssetReader")
+    }
+}
+
 pub(crate) struct LabeledAsset {
     pub(crate) asset: ErasedLoadedAsset,
     pub(crate) handle: UntypedHandle,
@@ -154,6 +244,8 @@ pub struct LoadedAsset<A: Asset> {
     /// This is entirely redundant with [`Self::labeled_assets`], but it allows looking up the
     /// labeled asset by its asset ID.
     pub(crate) asset_id_to_asset_index: HashMap<UntypedAssetId, usize>,
+    /// A reader for labeled assets associated with this asset's root path.
+    pub(crate) labeled_asset_reader: Option<Arc<dyn ErasedLabeledAssetReader>>,
 }
 
 impl<A: Asset> LoadedAsset<A> {
@@ -173,6 +265,7 @@ impl<A: Asset> LoadedAsset<A> {
             labeled_assets: Default::default(),
             label_to_asset_index: Default::default(),
             asset_id_to_asset_index: Default::default(),
+            labeled_asset_reader: None,
         }
     }
 
@@ -230,6 +323,8 @@ pub struct ErasedLoadedAsset {
     /// This is entirely redundant with [`Self::labeled_assets`], but it allows looking up the
     /// labeled asset by its asset ID.
     pub(crate) asset_id_to_asset_index: HashMap<UntypedAssetId, usize>,
+    /// A reader for labeled assets associated with this asset's root path.
+    pub(crate) labeled_asset_reader: Option<Arc<dyn ErasedLabeledAssetReader>>,
 }
 
 impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
@@ -241,6 +336,7 @@ impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
             labeled_assets: asset.labeled_assets,
             label_to_asset_index: asset.label_to_asset_index,
             asset_id_to_asset_index: asset.asset_id_to_asset_index,
+            labeled_asset_reader: asset.labeled_asset_reader,
         }
     }
 }
@@ -308,6 +404,7 @@ impl ErasedLoadedAsset {
                 labeled_assets: self.labeled_assets,
                 label_to_asset_index: self.label_to_asset_index,
                 asset_id_to_asset_index: self.asset_id_to_asset_index,
+                labeled_asset_reader: self.labeled_asset_reader,
             }),
             Err(value) => {
                 self.value = value;
@@ -395,6 +492,8 @@ pub struct LoadContext<'a> {
     /// This is entirely redundant with [`Self::labeled_assets`], but it allows looking up the
     /// labeled asset by its asset ID.
     pub(crate) asset_id_to_asset_index: HashMap<UntypedAssetId, usize>,
+    /// The labeled asset reader registered by the root loader.
+    pub(crate) labeled_asset_reader: Option<Arc<dyn ErasedLabeledAssetReader>>,
 }
 
 impl<'a> LoadContext<'a> {
@@ -415,6 +514,7 @@ impl<'a> LoadContext<'a> {
             labeled_assets: Default::default(),
             label_to_asset_index: Default::default(),
             asset_id_to_asset_index: Default::default(),
+            labeled_asset_reader: None,
         }
     }
 
@@ -566,7 +666,47 @@ impl<'a> LoadContext<'a> {
             labeled_assets: self.labeled_assets,
             label_to_asset_index: self.label_to_asset_index,
             asset_id_to_asset_index: self.asset_id_to_asset_index,
+            labeled_asset_reader: self.labeled_asset_reader,
         }
+    }
+
+    /// Registers a labeled reader for the root asset's path.
+    pub fn set_labeled_asset_reader<R: LabeledAssetReader>(&mut self, reader: R) {
+        self.labeled_asset_reader = Some(Arc::new(reader));
+    }
+
+    /// Gets the registered labeled asset reader for this root asset's path.
+    pub fn labeled_asset_reader<R: LabeledAssetReader>(&self) -> Option<&R> {
+        self.labeled_asset_reader.as_ref()?.downcast_ref::<R>()
+    }
+
+    /// Loads a labeled asset using the labeled reader registered to this context.
+    ///
+    /// This method is intended for dependencies of a reader-backed labeled asset.
+    pub fn load_labeled<'b, A: Asset>(
+        &mut self,
+        label: impl Into<CowArc<'b, str>>,
+    ) -> Result<Handle<A>, LabeledAssetLoadError> {
+        let root_path = self.asset_path.without_label().into_owned();
+        let reader = self.labeled_asset_reader.clone().ok_or_else(|| {
+            LabeledAssetLoadError::MissingReader {
+                path: root_path.clone(),
+            }
+        })?;
+        let label = label.into();
+        let handle = self
+            .asset_server
+            .load_labeled_with_meta_transform(
+                root_path.with_label(CowArc::Owned(Arc::from(&*label))),
+                TypeId::of::<A>(),
+                Some(core::any::type_name::<A>()),
+                None,
+                reader,
+            )
+            .typed_unchecked();
+        let index = (&handle).try_into().unwrap();
+        self.dependencies.insert(index);
+        Ok(handle)
     }
 
     /// Gets the source asset path for this load context.
