@@ -130,6 +130,7 @@ struct PanOrbitControllers<'w, 's>(
             &'static Projection,
         ),
     >,
+    Query<'w, 's, (), With<GlobalTransform>>,
 );
 impl<'w, 's> PanOrbitControllers<'w, 's> {
     fn get_with_anchor<T>(
@@ -149,7 +150,10 @@ impl<'w, 's> PanOrbitControllers<'w, 's> {
             let anchor = evt
                 .hit()
                 .position
-                .filter(|_| original != evt.event_target()) // skip hit.position for window drag
+                .filter(|_| {
+                    original != evt.event_target() // skip hit.position for window drag 
+                    && self.1.contains(original) // filter to only entities which have GlobalTransform, to skip UI picking etc.
+                })
                 .map(|world_space_hit| {
                     // Convert the world space hit to view (camera) space
                     cam_transform
@@ -236,7 +240,6 @@ fn observe_window_drag_end(
         && let Ok(mut controller) = controllers.get_mut(camera)
     {
         controller.end_move();
-        dbg!(evt.distance);
         pointer_cameras.remove(&evt.pointer.id);
     }
 }
