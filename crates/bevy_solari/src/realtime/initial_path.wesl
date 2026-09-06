@@ -5,7 +5,7 @@ import bevy_render::utils::octahedral_encode;
 import package::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf, F_AB};
 import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
 import package::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
-import package::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility};
+import package::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
 import package::scene::bindings::{light_sources, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
 import package::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
@@ -106,6 +106,17 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
             if !psr.finished && !next_bounce.diffuse_selected {
                 psr_environment_miss(pixel_id, wo);
             }
+
+            var environment_throughput = path.throughput_past_first_hit * next_bounce.throughput;
+            @if(RESTIR) {
+                // Past bounce 0, throughput_past_first_hit has the primary brdf*cos divided out so
+                // that it can be re-applied at shade time. Multiply it back in, exactly like
+                // russian roulette does below.
+                if bounce > 0u {
+                    environment_throughput *= max(path.x1_brdf, vec3(0.0001));
+                }
+            }
+            path.radiance += environment_throughput * sample_environment_map_light(next_bounce.wi);
 
             break;
         }
