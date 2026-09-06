@@ -74,7 +74,6 @@ struct DirectionalLight {
 struct EnvironmentMapLight {
     light_from_world: mat3x3<f32>,
     intensity: f32,
-    is_present: u32,
 }
 
 const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;

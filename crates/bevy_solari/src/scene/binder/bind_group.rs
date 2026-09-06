@@ -355,7 +355,6 @@ pub fn prepare_raytracing_scene_bind_group(
 pub struct GpuEnvironmentMapLight {
     pub light_from_world: Mat3,
     pub intensity: f32,
-    pub is_present: u32,
 }
 
 fn prepare_environment_map_light<'a>(
@@ -379,7 +378,6 @@ fn prepare_environment_map_light<'a>(
                     extracted_environment_map_light.rotation.inverse(),
                 ),
                 intensity: extracted_environment_map_light.intensity,
-                is_present: true as u32,
             },
         ),
         None => (

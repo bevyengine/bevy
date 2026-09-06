@@ -133,7 +133,7 @@ fn random_emissive_light_pdf(hit: ResolvedRayHitFull, ray_distance: f32, NdotV: 
 }
 
 fn sample_environment_map_light(world_direction: vec3<f32>) -> vec3<f32> {
-    if environment_map_light.is_present == 0u { return vec3(0.0); }
+    if environment_map_light.intensity == 0.0 { return vec3(0.0); }
 
     var sample_direction = environment_map_light.light_from_world * world_direction;
     sample_direction.z = -sample_direction.z;
