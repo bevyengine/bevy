@@ -153,9 +153,9 @@ fn main() {
                         present_mode: PresentMode::AutoNoVsync,
                         resolution: WindowResolution::new(1920, 1080)
                             .with_scale_factor_override(1.0),
-                        ..Default::default()
+                        ..default()
                     }),
-                    ..Default::default()
+                    ..default()
                 })
                 .set(GltfPlugin {
                     mesh_attribute_compression: if args.vertex_compression {
@@ -172,7 +172,7 @@ fn main() {
         .insert_resource(WinitSettings::continuous())
         .insert_resource(GlobalAmbientLight {
             brightness: 1000.0,
-            ..Default::default()
+            ..default()
         })
         .insert_resource(MorphAssets::default())
         .insert_resource(Rng(ChaCha8Rng::seed_from_u64(856673)))
@@ -236,7 +236,7 @@ fn setup(
             MotionBlur {
                 // Use an unrealistically large shutter angle so that motion blur is clearly visible.
                 shutter_angle: 3.0,
-                ..Default::default()
+                ..default()
             },
             // MSAA and MotionBlur are not compatible on WebGL.
             #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
