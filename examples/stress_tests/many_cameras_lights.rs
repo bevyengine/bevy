@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     camera::Viewport,
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::ops::{cos, sin},
     prelude::*,
     window::{PresentMode, WindowResolution},
@@ -12,14 +13,18 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::AutoNoVsync,
-                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            FrameTimeDiagnosticsPlugin::default(),
+            LogDiagnosticsPlugin::default(),
+        ))
         .insert_resource(WinitSettings::continuous())
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_cameras)
