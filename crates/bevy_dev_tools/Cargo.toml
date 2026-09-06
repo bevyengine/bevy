@@ -13,7 +13,7 @@ bevy_ci_testing = ["dep:serde", "dep:ron"]
 screenrecording = ["dep:x264"]
 webgl = ["bevy_render/webgl"]
 webgpu = ["bevy_render/webgpu"]
-schedule_data = ["dep:serde", "dep:ron", "dep:bevy_utils", "dep:thiserror"]
+schedule_data = ["dep:serde", "dep:ron", "dep:thiserror"]
 serialize = ["dep:serde"]
 
 [dependencies]
@@ -57,6 +57,7 @@ thiserror = { version = "2.0", default-features = false, optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 ron = { version = "0.12", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+strsim = { version = "0.11", default-features = false }
 
 [dev-dependencies]
 # Allow tests to depend on the names of systems.
