@@ -211,6 +211,8 @@ fn setup(
     mut graphs: ResMut<Assets<AnimationGraph>>,
     state: Res<State>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     let (x_dim, _) = dims(state.slot_count);
 
     commands.spawn((

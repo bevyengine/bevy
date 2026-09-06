@@ -77,6 +77,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, args: Res<Args>) {
+    warn!(include_str!("warning_string.txt"));
+
     commands.spawn(Camera2d);
 
     let rows_to_spawn = args.gradient_count.div_ceil(COLS);

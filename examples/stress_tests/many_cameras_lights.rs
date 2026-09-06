@@ -42,6 +42,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     window: Query<&Window>,
 ) -> Result {
+    warn!(include_str!("warning_string.txt"));
+
     // circular base
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
