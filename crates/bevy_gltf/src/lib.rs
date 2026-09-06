@@ -100,6 +100,8 @@
 //! | --------------------------------- | --------- | ----------------------------------- |
 //! | `KHR_animation_pointer`           | ❌        |                                     |
 //! | `KHR_draco_mesh_compression`      | ❌        |                                     |
+//! | `KHR_gaussian_splatting`          | ❌        |                                     |
+//! | `KHR_interactivity`               | ❌        |                                     |
 //! | `KHR_lights_punctual`             | ✅        |                                     |
 //! | `KHR_materials_anisotropy`        | ✅        | `pbr_anisotropy_texture`            |
 //! | `KHR_materials_clearcoat`         | ✅        | `pbr_multi_layer_material_textures` |
@@ -114,6 +116,9 @@
 //! | `KHR_materials_variants`          | ❌        |                                     |
 //! | `KHR_materials_volume`            | ✅        |                                     |
 //! | `KHR_mesh_quantization`           | ❌        |                                     |
+//! | `KHR_node_hoverability`           | ❌        |                                     |
+//! | `KHR_node_selectability`          | ❌        |                                     |
+//! | `KHR_node_visibility`             | ❌        |                                     |
 //! | `KHR_texture_basisu`              | ❌\*      |                                     |
 //! | `KHR_texture_transform`           | ✅\**     |                                     |
 //! | `KHR_xmp_json_ld`                 | ❌        |                                     |
