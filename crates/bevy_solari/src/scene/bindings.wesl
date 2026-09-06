@@ -71,6 +71,12 @@ struct DirectionalLight {
     inverse_pdf: f32,
 }
 
+struct EnvironmentMapLight {
+    light_from_world: mat3x3<f32>,
+    intensity: f32,
+    is_present: u32,
+}
+
 const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 
 @group(0) @binding(0) var<storage> vertex_buffers: binding_array<VertexBuffer>;
@@ -89,6 +95,9 @@ const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 @group(0) @binding(13) var<storage> previous_frame_light_id_translations: array<u32>;
 @group(0) @binding(14) var brdf_dfg_lut: texture_2d<f32>;
 @group(0) @binding(15) var brdf_dfg_lut_sampler: sampler;
+@group(0) @binding(16) var environment_map: texture_cube<f32>;
+@group(0) @binding(17) var environment_map_sampler: sampler;
+@group(0) @binding(18) var<storage> environment_map_light: EnvironmentMapLight;
 
 const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;

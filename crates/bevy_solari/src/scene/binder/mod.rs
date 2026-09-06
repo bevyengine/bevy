@@ -8,7 +8,7 @@ mod tlas_build;
 
 use self::assets::{AssetState, MAX_TEXTURE_COUNT};
 pub use self::bind_group::prepare_raytracing_scene_bind_group;
-use self::bind_group::BindGroupCacheState;
+use self::bind_group::{BindGroupCacheState, GpuEnvironmentMapLight};
 use self::instances::{
     ChangedInstanceFilter, InstanceInputs, InstanceQueryData, InstanceState, MAX_MESH_SLAB_COUNT,
 };
@@ -50,6 +50,8 @@ pub struct RaytracingSceneBindings {
     lights: LightState,
     tlas: TlasState,
     bind_groups: BindGroupCacheState,
+    environment_map_light_sampler: Sampler,
+    environment_map_light_buffer: StorageBuffer<GpuEnvironmentMapLight>,
 }
 
 impl RaytracingSceneBindings {
@@ -86,9 +88,26 @@ impl FromWorld for RaytracingSceneBindings {
                     storage_buffer_read_only_sized(false, None),
                     texture_2d(TextureSampleType::Float { filterable: true }),
                     sampler(SamplerBindingType::Filtering),
+                    texture_cube(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
+                    storage_buffer_read_only_sized(false, None),
                 ),
             ),
         );
+
+        let environment_map_light_sampler = render_device.create_sampler(&SamplerDescriptor {
+            label: Some("solari_environment_map_light_sampler"),
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            address_mode_w: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: MipmapFilterMode::Linear,
+            ..Default::default()
+        });
+
+        let mut environment_map_light_buffer = StorageBuffer::<GpuEnvironmentMapLight>::default();
+        environment_map_light_buffer.set_label(Some("solari_environment_map_light"));
 
         Self {
             bind_group: None,
@@ -98,6 +117,8 @@ impl FromWorld for RaytracingSceneBindings {
             lights: LightState::new(),
             tlas: TlasState::new(render_device),
             bind_groups: BindGroupCacheState::new(render_device),
+            environment_map_light_sampler,
+            environment_map_light_buffer,
         }
     }
 }
