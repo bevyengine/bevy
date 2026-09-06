@@ -223,7 +223,7 @@ pub fn on_insert_atmosphere_environment_map_light(
     // Handle case where someone inserts a new AtmosphereEnvironmentMapLight component
     // on an entity that already has a AtmosphereEnvironmentMapLight component
     if already_added_env_map {
-        entity.remove::<(
+        entity.try_remove::<(
             AtmosphereEnvironmentMap,
             GeneratedEnvironmentMapLight,
             EnvironmentMapLight,
