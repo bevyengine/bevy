@@ -14,34 +14,23 @@ use bevy::camera_controller::pan_orbit_camera::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     prelude::*,
 };
-use bevy::dev_tools::picking_debug::{DebugPickingMode, DebugPickingPlugin};
 use bevy::math::DVec3;
 use bevy::{
     anti_alias::smaa::Smaa, camera::primitives::Aabb, core_pipeline::tonemapping::Tonemapping,
     pbr::ScreenSpaceAmbientOcclusion, platform::time::Instant, post_process::bloom::Bloom,
     prelude::*, window::RequestRedraw,
 };
-use bevy_gizmos::aabb::AabbGizmoPlugin;
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
             MeshPickingPlugin,
-            DebugPickingPlugin,
             DefaultPanOrbitCameraPlugins,
         ))
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
         .insert_resource(GlobalAmbientLight::NONE)
-        .insert_resource(DebugPickingMode::Normal)
-        .insert_gizmo_config(
-            AabbGizmoConfigGroup {
-                draw_all: true,
-                default_color: Some(Color::linear_rgb(1.0, 0.0, 0.0)),
-            },
-            GizmoConfig::default(),
-        )
         .add_systems(Startup, (setup, test_cube.spawn()))
         .add_systems(
             Update,
@@ -71,7 +60,7 @@ fn test_cube() -> impl SceneList {
     bsn! {
         Mesh3d(asset_value(Cuboid::new(0.1, 0.5, 0.2)))
         MeshMaterial3d::<StandardMaterial>(asset_value(Color::WHITE))
-        Transform::from_xyz(0.2, 0.5, 0.0)
+        Transform::from_xyz(0.3, 0.5, 0.0)
         on(on_drag_rotate)
         on(on_drag_start)
     }

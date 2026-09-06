@@ -193,6 +193,7 @@ use bevy_ecs::prelude::SystemSet;
 /// To be more precise, this plugin group adds the following plugins:
 ///
 /// - [`controller::MinimalPanOrbitCameraPlugin`]
+/// - [`input::DefaultInputPlugin`] for handling inputs
 /// - [`extensions::dolly_zoom::DollyZoomPlugin`]
 /// - [`extensions::look_to::LookToPlugin`]
 /// - [`extensions::anchor_indicator::AnchorIndicatorPlugin`] (if the `extension_anchor_indicator` feature is enabled)
