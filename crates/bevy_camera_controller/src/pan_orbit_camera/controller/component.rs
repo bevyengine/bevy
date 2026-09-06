@@ -254,7 +254,7 @@ impl PanOrbitCamera {
             } => {
                 let old = motion_inputs.zoom_inputs_mut();
                 InputQueue {
-                    queue: old.queue.drain(..).collect(),
+                    queue: std::mem::take(&mut old.queue),
                     pending: old.pending,
                 }
             }
@@ -277,8 +277,8 @@ impl PanOrbitCamera {
                 MotionInputs::OrbitZoom {
                     screenspace_inputs: movement,
                     ..
-                } => movement.process_input(screenspace_input),
-                MotionInputs::PanZoom {
+                }
+                | MotionInputs::PanZoom {
                     screenspace_inputs: movement,
                     ..
                 } => movement.process_input(screenspace_input),

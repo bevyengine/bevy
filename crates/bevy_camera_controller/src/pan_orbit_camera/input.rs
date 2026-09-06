@@ -1,4 +1,8 @@
 //! Provides a default input plugin for the camera. See [`DefaultInputPlugin`].
+//!
+//! For [`PanOrbitCamera`], input handled separately from the controller itself, allowing custom implementations.
+//! This plugin uses picking events like [`PointerDrag`] and [`PointerScroll`] attached to each [`Window`](bevy_window::Window) entity,
+//! which means picking observers on entities can [stop propagation](On::propagate) to prevent inputs from moving the camera.
 
 use bevy_app::prelude::*;
 use bevy_camera::prelude::*;
@@ -65,16 +69,22 @@ impl PanOrbitCameraInputs {
         }
     }
 }
+
 /// Maps pointers to the camera they are currently controlling.
-///
-/// This is needed so we can automatically track pointer movements and update camera movement after
-/// a [`PanOrbitCameraInputMessage::Start`] has been received.
 #[derive(Debug, Clone, Default, Deref, DerefMut, Resource)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct CameraPointerMap(HashMap<PointerId, Entity>);
 
-/// A plugin that provides a default input mapping. Intended to be replaced by users with their own
-/// version of this code, if needed.
+/// A plugin that provides input handling for [`PanOrbitCamera`]
+///
+/// It acts on [`picking`](bevy_picking) events by listening to the [`Window`](bevy_window::Window) entities.
+///
+/// This allows other picking observers to [stop propagation](On::propagate) on events to stop them from being used
+/// for camera movement as well.
+/// The following events should be blocked:
+/// - [`PointerScroll`] for zoom
+/// - [`PointerDrag`] for pan/orbit
+/// - [`PointerDragStart`] for pan/orbit, only to hide the marker.
 ///
 /// The input plugin is responsible for starting motions, sending inputs, and ending motions. See
 /// [`PanOrbitCamera`] for more details on how to implement this yourself.

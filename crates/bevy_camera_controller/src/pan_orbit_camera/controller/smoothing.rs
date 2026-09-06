@@ -45,8 +45,10 @@ impl Default for Smoothing {
 #[derive(Debug, Clone, Deref, DerefMut)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct InputQueue<T> {
+    /// Stores past inputs for smoothing
     #[deref]
     pub queue: VecDeque<InputStreamEntry<T>>,
+    /// Pending input from this frame, added to the queue in [`Self::tick`] called every frame by default
     pub pending: T,
 }
 
