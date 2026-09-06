@@ -7,8 +7,6 @@
 //! - Explode the model, separating its parts for inspection (E)
 //! - Toggling passing thought surface on minimal zool (Z)
 
-mod pan_orbit_camera_custom_input_plugin;
-
 use std::time::Duration;
 
 use bevy::camera::Hdr;
@@ -25,7 +23,6 @@ use bevy::{
 };
 use bevy_gizmos::aabb::AabbGizmoPlugin;
 
-use crate::pan_orbit_camera_custom_input_plugin::CustomInputPlugin;
 fn main() {
     App::new()
         .add_plugins((
