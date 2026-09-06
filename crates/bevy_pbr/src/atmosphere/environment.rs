@@ -272,7 +272,7 @@ pub fn on_remove_atmosphere_environment_map_light(
     mut commands: Commands,
 ) {
     if let Ok(mut entity) = commands.get_entity(remove.entity) {
-        entity.remove::<(
+        entity.try_remove::<(
             AtmosphereEnvironmentMap,
             GeneratedEnvironmentMapLight,
             EnvironmentMapLight,
