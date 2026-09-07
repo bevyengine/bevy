@@ -870,8 +870,7 @@ pub fn extract_inline_images(
                         z_order: stack_index.0 as f32 + stack_z_offsets::INLINE_IMAGE,
                         clip: clip.cloned(),
                         image: image.image.id(),
-                        transform: Affine2::from(*transform)
-                            * Affine2::from_translation(rect.min()),
+                        transform: Affine2::from(*transform) * Affine2::from_translation(rect.min),
                         item: ExtractedUiItem::Node {
                             color: image.color.into(),
                             rect: Rect {
