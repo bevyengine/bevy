@@ -42,7 +42,7 @@ use bevy_ui::{
 };
 
 use bevy_app::prelude::*;
-use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
+use bevy_asset::{asset_changed::AssetChanged, AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
 use bevy_core_pipeline::upscaling::upscaling;
@@ -72,7 +72,7 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
+    ComputedTextBlock, EditableText, InlineBox, PositionedGlyph, Strikethrough, StrikethroughColor,
     TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan, Underline,
     UnderlineColor,
 };
@@ -488,8 +488,10 @@ pub fn extract_uinode_changes(
         Query<
             Entity,
             (
-                With<TextSpan>,
+                Or<(With<TextSpan>, With<InlineImage>)>,
                 Or<(
+                    Changed<InlineImage>,
+                    AssetChanged<InlineImage>,
                     Changed<TextColor>,
                     Changed<TextBackgroundColor>,
                     Changed<Underline>,
@@ -500,8 +502,8 @@ pub fn extract_uinode_changes(
             ),
         >,
     >,
-    text_span_parent_query: Extract<Query<&ChildOf, With<TextSpan>>>,
-    text_query: Extract<Query<Entity, With<Text>>>,
+    text_span_parent_query: Extract<Query<&ChildOf, Or<(With<TextSpan>, With<InlineBox>)>>>,
+    text_query: Extract<Query<(Entity, &TextLayoutInfo), With<Text>>>,
     (
         mut removed_computed_node_query,
         mut removed_computed_stack_index_query,
@@ -559,9 +561,16 @@ pub fn extract_uinode_changes(
         Extract<RemovedComponents<Underline>>,
         Extract<RemovedComponents<Strikethrough>>,
     ),
-    (mut removed_strikethrough_color_query, mut removed_underline_color_query): (
+    (
+        mut removed_strikethrough_color_query,
+        mut removed_underline_color_query,
+        mut removed_inline_image_query,
+        mut removed_inline_box_query,
+    ): (
         Extract<RemovedComponents<StrikethroughColor>>,
         Extract<RemovedComponents<UnderlineColor>>,
+        Extract<RemovedComponents<InlineImage>>,
+        Extract<RemovedComponents<InlineBox>>,
     ),
     #[cfg(feature = "bevy_ui_debug")] mut removed_debug_options_query: Extract<
         RemovedComponents<UiDebugOptions>,
@@ -590,7 +599,25 @@ pub fn extract_uinode_changes(
                 Some(&mut extra_nodes_to_invalidate),
             );
         }
+        removed_inline_image_query.clear();
+        removed_inline_box_query.clear();
     } else {
+        let removed_inline_entities: HashSet<_> = removed_inline_image_query
+            .read()
+            .chain(removed_inline_box_query.read())
+            .collect();
+        if !removed_inline_entities.is_empty() {
+            for (entity, layout) in &text_query {
+                if layout
+                    .inline_boxes
+                    .iter()
+                    .any(|(entity, _, _)| removed_inline_entities.contains(entity))
+                {
+                    extra_nodes_to_invalidate.insert(entity.into());
+                }
+            }
+        }
+
         // Go through all nodes that have changed and invalidate any render world
         // data associated with them.
         for main_entity in changed_uinodes_query
@@ -665,8 +692,8 @@ pub fn extract_uinode_changes(
     fn process_changed_entity(
         mut main_entity: MainEntity,
         commands: &mut Commands,
-        text_span_parent_query: &Query<&ChildOf, With<TextSpan>>,
-        text_query: &Query<Entity, With<Text>>,
+        text_span_parent_query: &Query<&ChildOf, Or<(With<TextSpan>, With<InlineBox>)>>,
+        text_query: &Query<(Entity, &TextLayoutInfo), With<Text>>,
         extracted_uinodes: &mut ExtractedUiNodes,
         maybe_extra_nodes_to_invalidate: Option<&mut MainEntityHashSet>,
     ) {
@@ -829,7 +856,7 @@ pub fn extract_inline_images(
             &ComputedNode,
         )>,
     >,
-    inline_image_query: Extract<Query<&InlineImage>>,
+    inline_image_query: Extract<Query<&InlineImage, With<InlineBox>>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
