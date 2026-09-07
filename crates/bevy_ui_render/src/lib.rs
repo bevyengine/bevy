@@ -37,8 +37,8 @@ use bevy_ui::widget::{
 };
 use bevy_ui::{
     BackgroundColor, BackgroundGradient, BorderColor, BorderGradient, BoxShadow, CalculatedClip,
-    ComputedNode, ComputedStackIndex, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, Display,
-    Node, OuterColor, Outline, ResolvedBorderRadius, UiGlobalTransform, UiSystems, VisualBox,
+    ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, Display, Node, OuterColor, Outline,
+    ResolvedBorderRadius, UiGlobalTransform, UiSystems, VisualBox,
 };
 
 use bevy_app::prelude::*;
@@ -72,7 +72,7 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, EditableText, InlineBox, PositionedGlyph, Strikethrough, StrikethroughColor,
+    ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
     TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan, Underline,
     UnderlineColor,
 };
@@ -820,7 +820,9 @@ pub fn extract_inline_images(
             &TextLayoutInfo,
             &ComputedUiTargetCamera,
             &InheritedVisibility,
-            &ComputedUiRenderTargetInfo,
+            &ComputedStackIndex,
+            &UiGlobalTransform,
+            Option<&CalculatedClip>,
         )>,
     >,
     inline_image_query: Extract<Query<&InlineImage>>,
@@ -828,10 +830,11 @@ pub fn extract_inline_images(
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, text_layout, target_camera, visibility, &computed_target) in extracted_uinodes
-        .changed
-        .iter()
-        .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
+    for (entity, text_layout, camera, inherited_visibility, stack_index, transform, clip) in
+        extracted_uinodes
+            .changed
+            .iter()
+            .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip invisible images
         if !inherited_visibility.get() {
@@ -842,8 +845,8 @@ pub fn extract_inline_images(
             continue;
         };
 
-        for (entity, inline_box_kind, rect) in text_layout.inline_boxes.iter() {
-            let Ok(image) = inline_image_query.get(*entity) else {
+        for (inline_entity, _, rect) in text_layout.inline_boxes.iter() {
+            let Ok(image) = inline_image_query.get(*inline_entity) else {
                 continue;
             };
 
@@ -863,14 +866,14 @@ pub fn extract_inline_images(
                     ExtractedUiNode {
                         z_order: stack_index.0 as f32 + stack_z_offsets::INLINE_IMAGE,
                         clip: clip.cloned(),
-                        image: inline_image.image.id(),
+                        image: image.image.id(),
                         transform: Affine2::from(*transform)
-                            * Affine2::from_translation(visual_box.center()),
+                            * Affine2::from_translation(rect.center()),
                         item: ExtractedUiItem::Node {
-                            color: inline_image.color.into(),
+                            color: image.color.into(),
                             rect: Rect {
                                 min: Vec2::ZERO,
-                                max: inline_box.size / computed_target.scale_factor(),
+                                max: rect.size(),
                             },
                             atlas_scaling: None,
                             flip_x: false,

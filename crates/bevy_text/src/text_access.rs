@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{Query, SystemParam},
 };
 
-use crate::{LetterSpacing, LineHeight, TextColor, TextFont, TextSpan};
+use crate::{InlineBox, LetterSpacing, LineHeight, TextColor, TextFont, TextItem, TextSpan};
 
 /// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
 pub trait TextSection: Component<Mutability = Mutable> + From<String> {
@@ -45,6 +45,7 @@ impl TextIterScratch {
 pub struct TextReader<'w, 's, R: TextSection> {
     // This is a local to avoid system ambiguities when TextReaders run in parallel.
     scratch: Local<'s, TextIterScratch>,
+    inline_boxes: Query<'w, 's, &'static InlineBox>,
     roots: Query<
         'w,
         's,
@@ -82,6 +83,7 @@ impl<'w, 's, R: TextSection> TextReader<'w, 's, R> {
             stack,
             roots: &self.roots,
             spans: &self.spans,
+            inline_boxes: &self.inline_boxes,
         }
     }
 
@@ -99,7 +101,25 @@ impl<'w, 's, R: TextSection> TextReader<'w, 's, R> {
         LineHeight,
         LetterSpacing,
     )> {
-        self.iter(root_entity).nth(index)
+        let (entity, depth, item) = self.iter(root_entity).nth(index)?;
+        match item {
+            TextItem::Text {
+                text,
+                font,
+                color,
+                line_height,
+                letter_spacing,
+            } => Some((
+                entity,
+                depth,
+                text,
+                font,
+                color,
+                line_height,
+                letter_spacing,
+            )),
+            TextItem::Box(_) => None,
+        }
     }
 
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
@@ -175,6 +195,7 @@ impl<'w, 's, R: TextSection> TextReader<'w, 's, R> {
 // TODO: Use this iterator design in UiChildrenIter to reduce allocations.
 pub struct TextSpanIter<'a, R: TextSection> {
     scratch: &'a mut TextIterScratch,
+    inline_boxes: &'a Query<'a, 'a, &'static InlineBox>,
     root_entity: Option<Entity>,
     /// Stack of (children, next index into children).
     stack: Vec<(&'a Children, usize)>,
@@ -205,16 +226,7 @@ pub struct TextSpanIter<'a, R: TextSection> {
 }
 
 impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
-    /// Item = (entity in text block, hierarchy depth in the block, span text, span style).
-    type Item = (
-        Entity,
-        usize,
-        &'a str,
-        &'a TextFont,
-        Color,
-        LineHeight,
-        LetterSpacing,
-    );
+    type Item = (Entity, usize, TextItem<'a>);
     fn next(&mut self) -> Option<Self::Item> {
         // Root
         if let Some(root_entity) = self.root_entity.take() {
@@ -227,11 +239,13 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
                 return Some((
                     root_entity,
                     0,
-                    text.get_text(),
-                    text_font,
-                    color.0,
-                    *line_height,
-                    *letter_spacing,
+                    TextItem::Text {
+                        text: text.get_text(),
+                        font: text_font,
+                        color: color.0,
+                        line_height: *line_height,
+                        letter_spacing: *letter_spacing,
+                    },
                 ));
             }
             return None;
@@ -246,6 +260,9 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
                 *idx += 1;
 
                 let entity = *child;
+                if let Ok(inline_box) = self.inline_boxes.get(entity) {
+                    return Some((entity, self.stack.len(), TextItem::Box(inline_box)));
+                }
                 let Ok((span, text_font, color, line_height, letter_spacing, maybe_children)) =
                     self.spans.get(entity)
                 else {
@@ -259,11 +276,13 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
                 return Some((
                     entity,
                     depth,
-                    span.get_text(),
-                    text_font,
-                    color.0,
-                    *line_height,
-                    *letter_spacing,
+                    TextItem::Text {
+                        text: span.get_text(),
+                        font: text_font,
+                        color: color.0,
+                        line_height: *line_height,
+                        letter_spacing: *letter_spacing,
+                    },
                 ));
             }
 
@@ -288,6 +307,7 @@ impl<'a, R: TextSection> Drop for TextSpanIter<'a, R> {
 pub struct TextWriter<'w, 's, R: TextSection> {
     // This is a resource because two TextWriters can't run in parallel.
     scratch: ResMut<'w, TextIterScratch>,
+    inline_boxes: Query<'w, 's, (), With<InlineBox>>,
     roots: Query<
         'w,
         's,
@@ -369,7 +389,8 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
                 // Increment to prep the next entity in this stack level.
                 *idx += 1;
 
-                if !self.spans.contains(*child) {
+                let is_inline_box = self.inline_boxes.contains(*child);
+                if !is_inline_box && !self.spans.contains(*child) {
                     continue;
                 };
                 count += 1;
@@ -377,7 +398,14 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
                 if count - 1 == index {
                     let depth = stack.len();
                     self.scratch.recover(stack);
+                    if is_inline_box {
+                        return None;
+                    }
                     break 'l (depth, *child);
+                }
+
+                if is_inline_box {
+                    continue;
                 }
 
                 if let Ok(children) = self.children.get(*child) {
@@ -595,6 +623,9 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
                 *idx += 1;
 
                 let entity = *child;
+                if self.inline_boxes.contains(entity) {
+                    continue;
+                }
                 let Ok((text, font, color, line_height, letter_spacing)) =
                     self.spans.get_mut(entity)
                 else {

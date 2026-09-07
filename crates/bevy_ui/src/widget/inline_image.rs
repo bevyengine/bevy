@@ -1,8 +1,20 @@
+use bevy_asset::Assets;
+use bevy_asset::Handle;
+use bevy_color::Color;
+use bevy_ecs::change_detection::DetectChangesMut;
+use bevy_ecs::component::Component;
+use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::system::Query;
+use bevy_ecs::system::Res;
+use bevy_image::Image;
 use bevy_image::TRANSPARENT_IMAGE_HANDLE;
+use bevy_math::Vec2;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_text::InlineBox;
 
 /// An inline image
-#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(InlineBox)]
 pub struct InlineImage {
@@ -20,11 +32,8 @@ pub struct InlineImage {
 impl Default for InlineImage {
     /// A transparent 1x1 image with a solid white tint.
     fn default() -> Self {
-        ImageNode {
-            // This should be white because the tint is multiplied with the image,
-            // so if you set an actual image with default tint you'd want its original colors
+        InlineImage {
             color: Color::WHITE,
-            // This texture needs to be transparent by default, to avoid covering the background color
             image: TRANSPARENT_IMAGE_HANDLE,
         }
     }
@@ -33,17 +42,13 @@ impl Default for InlineImage {
 /// For each `InlineImage` update the size of its `InlineBox` with its image size, if it changed.
 pub fn update_inline_image_boxes(
     image_assets: Res<Assets<Image>>,
-    mut query: Query<(
-        &InlineImage,
-        &mut InlineBox,
-        Ref<ComputedUiRenderTargetInfo>,
-    )>,
+    mut query: Query<(&InlineImage, &mut InlineBox)>,
 ) {
     for (inline_image, mut inline_box) in &mut query {
         if let Some(image_asset) = image_assets.get(&inline_image.image) {
             inline_box.set_if_neq(InlineBox {
                 kind: bevy_text::InlineBoxKind::InFlow,
-                size: image_asset.size,
+                size: image_asset.size().as_vec2(),
             });
         } else {
             inline_box.set_if_neq(InlineBox {

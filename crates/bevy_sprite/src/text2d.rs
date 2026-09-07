@@ -385,10 +385,45 @@ mod tests {
     use bevy_asset::{load_internal_binary_asset, Handle};
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
+    use bevy_ecs::{hierarchy::ChildOf, system::RunSystemOnce, world::World};
     use bevy_math::UVec2;
-    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
+    use bevy_text::{
+        detect_text_needs_rerender, InlineBox, InlineBoxKind, TextItem, TextIterScratch, TextSpan,
+    };
 
     use super::*;
+
+    #[test]
+    fn inline_boxes_are_accessible_through_text_access() {
+        let mut world = World::new();
+        world.init_resource::<TextIterScratch>();
+        let root = world.spawn(Text2d::new("root")).id();
+        let span = world.spawn((TextSpan::new("span"), ChildOf(root))).id();
+        let inline_box = world
+            .spawn((
+                InlineBox {
+                    kind: InlineBoxKind::InFlow,
+                    size: Vec2::new(20.0, 10.0),
+                },
+                ChildOf(span),
+            ))
+            .id();
+        world.spawn((TextSpan::new("not accessible"), ChildOf(inline_box)));
+        let tail = world.spawn((TextSpan::new("tail"), ChildOf(root))).id();
+
+        world
+            .run_system_once(move |mut reader: Text2dReader| {
+                assert!(reader.get(root, 2).is_none());
+                assert_eq!(reader.get_text(root, 3), Some("tail"));
+                let items = reader.iter(root).collect::<Vec<_>>();
+                assert_eq!(
+                    items.iter().map(|(e, d, _)| (*e, *d)).collect::<Vec<_>>(),
+                    [(root, 0), (span, 1), (inline_box, 2), (tail, 1)]
+                );
+                assert!(matches!(&items[2].2, TextItem::Box(b) if b.size == Vec2::new(20.0, 10.0)));
+            })
+            .unwrap();
+    }
 
     const FIRST_TEXT: &str = "Sample text.";
     const SECOND_TEXT: &str = "Another, longer sample text.";

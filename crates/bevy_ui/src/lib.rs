@@ -74,7 +74,7 @@ pub mod prelude {
             gradients::*,
             ui_node::*,
             ui_transform::*,
-            widget::{ImageNode, Label, NodeImageMode, ViewportNode},
+            widget::{ImageNode, InlineImage, Label, NodeImageMode, ViewportNode},
             UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
