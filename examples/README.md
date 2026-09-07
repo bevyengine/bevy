@@ -520,6 +520,7 @@ Example | Description
 [Deferred Gbuffer Raymarching](../examples/shader_advanced/deferred_raymarch.rs) | Writes a raymarched SDF into the deferred gbuffer so it is lit by the standard PBR deferred lighting pass
 [Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
 [Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
+[Mesh Shader Introduction](../examples/shader_advanced/mesh_shader_intro.rs) | Demonstrates how to use Task/Amplification/Mesh Shaders
 
 ### State
 
