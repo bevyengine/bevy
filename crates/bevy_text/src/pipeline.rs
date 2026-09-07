@@ -58,7 +58,7 @@ pub enum TextItem<'a> {
         /// letter spacing
         letter_spacing: LetterSpacing,
     },
-    /// An line box
+    /// An inline box
     Box(&'a crate::InlineBox),
 }
 
@@ -101,7 +101,6 @@ impl TextPipeline {
                     TextItem::Text {
                         text,
                         font: text_font,
-                        color: _,
                         ..
                     } => {
                         match text_font.font_size {
