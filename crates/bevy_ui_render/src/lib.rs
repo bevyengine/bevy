@@ -502,7 +502,7 @@ pub fn extract_uinode_changes(
         >,
     >,
     text_span_parent_query: Extract<Query<&ChildOf, Or<(With<TextSpan>, With<InlineBox>)>>>,
-    text_query: Extract<Query<(Entity, &TextLayoutInfo), With<Text>>>,
+    text_query: Extract<Query<Entity, With<Text>>>,
     (
         mut removed_computed_node_query,
         mut removed_computed_stack_index_query,
@@ -673,7 +673,7 @@ pub fn extract_uinode_changes(
         mut main_entity: MainEntity,
         commands: &mut Commands,
         text_span_parent_query: &Query<&ChildOf, Or<(With<TextSpan>, With<InlineBox>)>>,
-        text_query: &Query<(Entity, &TextLayoutInfo), With<Text>>,
+        text_query: &Query<Entity, With<Text>>,
         extracted_uinodes: &mut ExtractedUiNodes,
         maybe_extra_nodes_to_invalidate: Option<&mut MainEntityHashSet>,
     ) {
