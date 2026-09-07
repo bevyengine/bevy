@@ -172,5 +172,5 @@ fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
 
 /// Scale/bias approximation
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
-    return max(textureSampleLevel(brdf_dfg_lut, brdf_dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg, vec2(0.00005));
+    return textureSampleLevel(brdf_dfg_lut, brdf_dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
 }
