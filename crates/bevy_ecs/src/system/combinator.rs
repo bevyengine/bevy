@@ -287,15 +287,25 @@ where
 }
 
 /// An [`IntoSystem`] creating an instance of [`PipeSystem`].
+///
+/// This `struct` is created by [`IntoSystem::pipe()`].
+/// See its documentation for more.
 #[derive(Clone)]
 pub struct IntoPipeSystem<A, B, N: PipeSystemName = ()> {
     a: A,
     b: B,
+    /// A function for determining the name of the [`PipeSystem`].
+    ///
+    /// The default value of `()` implements [`PipeSystemName`]
+    /// by combining the names of both systems.
     name: N,
 }
 
 impl<A, B> IntoPipeSystem<A, B> {
     /// Creates a new [`IntoSystem`] that pipes two inner systems.
+    ///
+    /// Unless changed, the name of the system will be
+    /// set to a combination of the names of the inner systems.
     pub const fn new(a: A, b: B) -> Self {
         Self { a, b, name: () }
     }
@@ -319,7 +329,7 @@ impl<A, B> IntoPipeSystem<A, B> {
         self,
         name: impl Into<DebugName>,
     ) -> IntoPipeSystem<A, B, impl PipeSystemName> {
-        self.with_name_fn(move |_, _| name.into())
+        self.with_name_fn(|_, _| name.into())
     }
 
     /// Set the name of the output [`PipeSystem`] to the name of the first system.
@@ -378,6 +388,9 @@ where
 }
 
 /// A [`System`] created by piping the output of the first system into the input of the second.
+///
+/// This `struct` is created by [`IntoSystem::pipe()`].
+/// See its documentation for more.
 ///
 /// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the receiving system.
 ///
