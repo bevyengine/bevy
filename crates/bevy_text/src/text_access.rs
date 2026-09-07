@@ -1,4 +1,3 @@
-use bevy_color::Color;
 use bevy_ecs::{
     component::Mutable,
     prelude::*,
@@ -87,104 +86,13 @@ impl<'w, 's, R: TextSection> TextReader<'w, 's, R> {
         }
     }
 
-    /// Gets a text span within a text block at a specific index in the flattened span list.
+    /// Gets a text span or inline box within a text block at a specific index in the flattened span list.
     pub fn get(
         &mut self,
         root_entity: Entity,
         index: usize,
-    ) -> Option<(
-        Entity,
-        usize,
-        &str,
-        &TextFont,
-        Color,
-        LineHeight,
-        LetterSpacing,
-    )> {
-        let (entity, depth, item) = self.iter(root_entity).nth(index)?;
-        match item {
-            TextLayoutItem::Text {
-                text,
-                font,
-                color,
-                line_height,
-                letter_spacing,
-            } => Some((
-                entity,
-                depth,
-                text,
-                font,
-                color,
-                line_height,
-                letter_spacing,
-            )),
-            TextLayoutItem::Box(_) => None,
-        }
-    }
-
-    /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_text(&mut self, root_entity: Entity, index: usize) -> Option<&str> {
-        self.get(root_entity, index)
-            .map(|(_, _, text, _, _, _, _)| text)
-    }
-
-    /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_font(&mut self, root_entity: Entity, index: usize) -> Option<&TextFont> {
-        self.get(root_entity, index)
-            .map(|(_, _, _, font, _, _, _)| font)
-    }
-
-    /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_color(&mut self, root_entity: Entity, index: usize) -> Option<Color> {
-        self.get(root_entity, index)
-            .map(|(_, _, _, _, color, _, _)| color)
-    }
-
-    /// Gets the [`LineHeight`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_line_height(&mut self, root_entity: Entity, index: usize) -> Option<LineHeight> {
-        self.get(root_entity, index)
-            .map(|(_, _, _, _, _, line_height, _)| line_height)
-    }
-
-    /// Get the [`LetterSpacing`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_letter_spacing(
-        &mut self,
-        root_entity: Entity,
-        index: usize,
-    ) -> Option<LetterSpacing> {
-        self.get(root_entity, index)
-            .map(|(_, _, _, _, _, _, letter_spacing)| letter_spacing)
-    }
-
-    /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
-    ///
-    /// Panics if there is no span at the requested index.
-    pub fn text(&mut self, root_entity: Entity, index: usize) -> &str {
-        self.get_text(root_entity, index).unwrap()
-    }
-
-    /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
-    ///
-    /// Panics if there is no span at the requested index.
-    pub fn font(&mut self, root_entity: Entity, index: usize) -> &TextFont {
-        self.get_font(root_entity, index).unwrap()
-    }
-
-    /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
-    ///
-    /// Panics if there is no span at the requested index.
-    pub fn color(&mut self, root_entity: Entity, index: usize) -> Color {
-        self.get_color(root_entity, index).unwrap()
-    }
-
-    /// Gets the [`LineHeight`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn line_height(&mut self, root_entity: Entity, index: usize) -> LineHeight {
-        self.get_line_height(root_entity, index).unwrap()
-    }
-
-    /// Gets the [`LetterSpacing`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn letter_spacing(&mut self, root_entity: Entity, index: usize) -> LetterSpacing {
-        self.get_letter_spacing(root_entity, index).unwrap()
+    ) -> Option<(Entity, usize, TextLayoutItem<'_>)> {
+        self.iter(root_entity).nth(index)
     }
 }
 
