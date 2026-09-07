@@ -30,10 +30,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+        uses: ./.github/actions/install-rust
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for security advisories and unmaintained crates
@@ -46,10 +43,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+        uses: ./.github/actions/install-rust
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for banned and duplicated dependencies
@@ -62,10 +56,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+        uses: ./.github/actions/install-rust
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for unauthorized licenses
@@ -78,10 +69,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+        uses: ./.github/actions/install-rust
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Checked for unauthorized crate sources

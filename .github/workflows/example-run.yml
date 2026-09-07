@@ -29,10 +29,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+        uses: ./.github/actions/install-rust
       - name: Disable audio
         # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
         run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
@@ -127,10 +124,7 @@ jobs:
             sudo apt-get install --no-install-recommends libgl1-mesa-dri mesa-vulkan-drivers
           fi
       - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+        uses: ./.github/actions/install-rust
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
@@ -198,10 +192,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+        uses: ./.github/actions/install-rust
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
