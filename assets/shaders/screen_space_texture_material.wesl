@@ -1,7 +1,7 @@
-// A shader that samples its emissive texture at screen space positions rather
-// than UVs.
-//
-// This is used for the mirror example: `examples/3d/mirror.rs`.
+//! A shader that samples its emissive texture at screen space positions rather
+//! than UVs.
+//!
+//! This is used for the mirror example: `examples/3d/mirror.rs`.
 
 import bevy_pbr::render::{
     forward_io::{VertexOutput, FragmentOutput},
@@ -10,11 +10,11 @@ import bevy_pbr::render::{
     pbr_functions::{alpha_discard, apply_pbr_lighting, main_pass_post_lighting_processing}
 };
 
-// This is unused, but it's here to satisfy `ExtendedMaterial` requirements.
-// See the comment in `ScreenSpaceTextureExtension` in `examples/3d/mirror.rs`
-// for more information.
+/// This is unused, but it's here to satisfy `ExtendedMaterial` requirements.
+/// See the comment in `ScreenSpaceTextureExtension` in `examples/3d/mirror.rs`
+/// for more information.
 struct ScreenSpaceTextureMaterial {
-    // An unused value.
+    /// An unused value.
     dummy: f32,
 }
 

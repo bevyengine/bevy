@@ -17,7 +17,7 @@ struct StandardMaterial {
     clearcoat_perceptual_roughness: f32,
     anisotropy_strength: f32,
     anisotropy_rotation: vec2<f32>,
-    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
+    /// 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
     parallax_depth_scale: f32,
@@ -62,7 +62,7 @@ const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MULTIPLY: u32               = 5u << 29u
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE: u32      = 6u << 29u;
 
 
-// Creates a StandardMaterial with default values
+/// Creates a StandardMaterial with default values
 fn standard_material_new() -> StandardMaterial {
     var material: StandardMaterial;
 
@@ -94,35 +94,35 @@ fn standard_material_new() -> StandardMaterial {
 
 struct PbrInput {
     material: StandardMaterial,
-    // Note: this gets monochromized upon deferred PbrInput reconstruction.
+    /// Note: this gets monochromized upon deferred PbrInput reconstruction.
     diffuse_occlusion: vec3<f32>,
-    // Note: this is 1.0 (entirely unoccluded) when SSAO and SSR are off.
+    /// Note: this is 1.0 (entirely unoccluded) when SSAO and SSR are off.
     specular_occlusion: f32,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
-    // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
-    // mapping
+    /// Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
+    /// mapping
     world_normal: vec3<f32>,
-    // Normalized normal-mapped world normal used for lighting
+    /// Normalized normal-mapped world normal used for lighting
     N: vec3<f32>,
-    // Normalized view vector in world space, pointing from the fragment world position toward the
-    // view world position
+    /// Normalized view vector in world space, pointing from the fragment world position toward the
+    /// view world position
     V: vec3<f32>,
     lightmap_light: vec3<f32>,
     clearcoat_N: vec3<f32>,
     anisotropy_strength: f32,
-    // These two aren't specific to anisotropy, but we only fill them in if
-    // we're doing anisotropy, so they're prefixed with `anisotropy_`.
+    /// These two aren't specific to anisotropy, but we only fill them in if
+    /// we're doing anisotropy, so they're prefixed with `anisotropy_`.
     anisotropy_T: vec3<f32>,
     anisotropy_B: vec3<f32>,
     is_orthographic: bool,
     flags: u32,
-    // Multiplier applied to all directional lights before cascade and contact shadows,
-    // use this for custom shadow maps. Defaults to 1.0. 
+    /// Multiplier applied to all directional lights before cascade and contact shadows,
+    /// use this for custom shadow maps. Defaults to 1.0.
     directional_shadow_factor: f32,
 };
 
-// Creates a PbrInput with default values
+/// Creates a PbrInput with default values
 fn pbr_input_new() -> PbrInput {
     var pbr_input: PbrInput;
 
