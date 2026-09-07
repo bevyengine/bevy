@@ -11,7 +11,7 @@ use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::hash::BuildHasher;
 use parley::style::{OverflowWrap, TextWrapMode, WordBreak};
-use parley::{Alignment, AlignmentOptions, Layout, PositionedLayoutItem, Run, StyleProperty};
+use parley::{Alignment, AlignmentOptions, Layout, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
 
 use crate::{
@@ -261,8 +261,8 @@ impl TextPipeline {
                             id: section.entity.to_bits(),
                             kind: inline_box.kind.into(),
                             index: start,
-                            width: inline_box.width,
-                            height: inline_box.height,
+                            width: inline_box.size.x,
+                            height: inline_box.size.y,
                         });
                     }
                 };

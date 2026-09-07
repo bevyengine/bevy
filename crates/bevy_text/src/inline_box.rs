@@ -1,4 +1,5 @@
 use bevy_ecs::component::Component;
+use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 
 /// A box to be laid out inline with text.
@@ -7,10 +8,8 @@ use bevy_reflect::Reflect;
 pub struct InlineBox {
     /// Whether the box is in-flow (takes up space in the layout) or out-of-flow (e.g. absolutely positioned or floated)
     pub kind: InlineBoxKind,
-    /// The width of the box in pixels
-    pub width: f32,
-    /// The height of the box in pixels
-    pub height: f32,
+    /// The size of the box in logical pixels
+    pub size: Vec2,
 }
 
 /// Whether a box is in-flow (takes up space in the layout) or out-of-flow (e.g. absolutely positioned)

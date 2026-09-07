@@ -32,11 +32,13 @@ use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
 use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, ImageNodeSize, NodeImageMode, Text, TextShadow, ViewportNode};
+use bevy_ui::widget::{
+    ImageNode, ImageNodeSize, InlineImage, NodeImageMode, Text, TextShadow, ViewportNode,
+};
 use bevy_ui::{
     BackgroundColor, BackgroundGradient, BorderColor, BorderGradient, BoxShadow, CalculatedClip,
-    ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, Display, Node, OuterColor, Outline,
-    ResolvedBorderRadius, UiGlobalTransform, UiSystems, VisualBox,
+    ComputedNode, ComputedStackIndex, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, Display,
+    Node, OuterColor, Outline, ResolvedBorderRadius, UiGlobalTransform, UiSystems, VisualBox,
 };
 
 use bevy_app::prelude::*;
@@ -70,7 +72,7 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
+    ComputedTextBlock, EditableText, InlineBox, PositionedGlyph, Strikethrough, StrikethroughColor,
     TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan, Underline,
     UnderlineColor,
 };
@@ -124,6 +126,7 @@ pub mod stack_z_offsets {
     pub const TEXT: f32 = 0.06;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
     pub const TEXT_CURSOR: f32 = 0.08;
+    pub const INLINE_IMAGE: f32 = 0.09;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -804,6 +807,80 @@ pub fn extract_uinode_background_colors(
                     },
                 },
             );
+        }
+    }
+}
+
+pub fn extract_inline_images(
+    mut commands: Commands,
+    extracted_uinodes: ResMut<ExtractedUiNodes>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &TextLayoutInfo,
+            &ComputedUiTargetCamera,
+            &InheritedVisibility,
+            &ComputedUiRenderTargetInfo,
+        )>,
+    >,
+    inline_image_query: Extract<Query<&InlineImage>>,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let extracted_uinodes = extracted_uinodes.into_inner();
+    let mut camera_mapper = camera_map.get_mapper();
+    for (entity, text_layout, target_camera, visibility, &computed_target) in extracted_uinodes
+        .changed
+        .iter()
+        .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
+    {
+        // Skip invisible images
+        if !inherited_visibility.get() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        for (entity, inline_box_kind, rect) in text_layout.inline_boxes.iter() {
+            let Ok(image) = inline_image_query.get(*entity) else {
+                continue;
+            };
+
+            if image.color.is_fully_transparent()
+                || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            {
+                continue;
+            }
+
+            extracted_uinodes
+                .uinodes
+                .entry(entity.into())
+                .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                .1
+                .insert(
+                    commands.spawn_empty().id(),
+                    ExtractedUiNode {
+                        z_order: stack_index.0 as f32 + stack_z_offsets::INLINE_IMAGE,
+                        clip: clip.cloned(),
+                        image: inline_image.image.id(),
+                        transform: Affine2::from(*transform)
+                            * Affine2::from_translation(visual_box.center()),
+                        item: ExtractedUiItem::Node {
+                            color: inline_image.color.into(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: inline_box.size / computed_target.scale_factor(),
+                            },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border: BorderRect::ZERO,
+                            border_radius: ResolvedBorderRadius::ZERO,
+                            node_type: NodeType::Rect,
+                        },
+                    },
+                );
         }
     }
 }
