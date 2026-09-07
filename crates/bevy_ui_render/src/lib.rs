@@ -871,7 +871,7 @@ pub fn extract_inline_images(
                         clip: clip.cloned(),
                         image: image.image.id(),
                         transform: Affine2::from(*transform)
-                            * Affine2::from_translation(rect.center()),
+                            * Affine2::from_translation(rect.min()),
                         item: ExtractedUiItem::Node {
                             color: image.color.into(),
                             rect: Rect {
