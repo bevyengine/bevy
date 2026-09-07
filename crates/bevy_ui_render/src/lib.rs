@@ -145,6 +145,7 @@ pub enum RenderUiSystems {
     ExtractCursor,
     ExtractDebug,
     ExtractGradient,
+    ExtractInlineImages,
 }
 
 /// Marker for controlling whether UI is rendered with or without anti-aliasing
@@ -257,6 +258,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractText,
                     RenderUiSystems::ExtractCursor,
                     RenderUiSystems::ExtractDebug,
+                    RenderUiSystems::ExtractInlineImages,
                 )
                     .chain_weak(),
             )
@@ -277,6 +279,7 @@ impl Plugin for UiRenderPlugin {
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
                     extract_text_cursor.in_set(RenderUiSystems::ExtractCursor),
                     extract_preedit_underlines.in_set(RenderUiSystems::ExtractCursor),
+                    extract_inline_images.in_set(RenderUiSystems::ExtractInlineImages),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
