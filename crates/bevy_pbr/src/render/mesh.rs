@@ -269,13 +269,10 @@ impl Plugin for MeshRenderPlugin {
                     .init_gpu_resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
                     .init_gpu_resource::<RenderMeshInstanceGpuQueues>()
                     .init_resource::<MeshesToReextractNextFrame>()
-                    .add_systems(
-                        RenderStartup,
-                        mark_all_meshes_for_reextraction,
-                    )
+                    .add_systems(RenderStartup, mark_all_meshes_for_reextraction)
                     .add_systems(
                         ExtractSchedule,
-                            extract_meshes_for_gpu_building.in_set(MeshExtractionSystems),
+                        extract_meshes_for_gpu_building.in_set(MeshExtractionSystems),
                     )
                     .add_systems(
                         Render,
@@ -296,7 +293,8 @@ impl Plugin for MeshRenderPlugin {
                                 // the indices of the morph descriptors in the
                                 // buffer.
                                 .after(prepare_morph_descriptors),
-                            collect_gpu_culled_meshes.in_set(RenderSystems::PrepareMeshes)
+                            collect_gpu_culled_meshes
+                                .in_set(RenderSystems::PrepareMeshes)
                                 .after(collect_meshes_for_gpu_building)
                                 .before(set_mesh_motion_vector_flags),
                         ),
