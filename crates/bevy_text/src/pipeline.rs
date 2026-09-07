@@ -262,12 +262,13 @@ impl TextPipeline {
                         );
                     }
                     TextItem::Box(inline_box) => {
+                        let size = inline_box.size * scale_factor;
                         builder.push_inline_box(parley::InlineBox {
                             id: section.entity.to_bits(),
                             kind: inline_box.kind.into(),
                             index: start,
-                            width: inline_box.size.x,
-                            height: inline_box.size.y,
+                            width: size.x,
+                            height: size.y,
                         });
                     }
                 };
