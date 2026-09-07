@@ -1,8 +1,12 @@
+use bevy_asset::asset_changed::AssetChanged;
+use bevy_asset::AsAssetId;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
+use bevy_ecs::query::Changed;
+use bevy_ecs::query::Or;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
@@ -39,10 +43,21 @@ impl Default for InlineImage {
     }
 }
 
+impl AsAssetId for InlineImage {
+    type Asset = Image;
+
+    fn as_asset_id(&self) -> bevy_asset::AssetId<Self::Asset> {
+        self.image.id()
+    }
+}
+
 /// For each `InlineImage` update the size of its `InlineBox` with its image size, if it changed.
 pub fn update_inline_image_boxes(
     image_assets: Res<Assets<Image>>,
-    mut query: Query<(&InlineImage, &mut InlineBox)>,
+    mut query: Query<
+        (&InlineImage, &mut InlineBox),
+        Or<(Changed<InlineImage>, AssetChanged<InlineImage>)>,
+    >,
 ) {
     for (inline_image, mut inline_box) in &mut query {
         if let Some(image_asset) = image_assets.get(&inline_image.image) {
