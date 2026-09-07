@@ -158,6 +158,12 @@ impl TextPipeline {
                         });
                     }
                     TextItem::Box(_inline_box) => {
+                        computed.entities.push(TextEntity {
+                            entity,
+                            depth,
+                            font_smoothing: FontSmoothing::default(),
+                        });
+
                         sections.push(TextSectionView {
                             entity,
                             index,
