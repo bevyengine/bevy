@@ -42,7 +42,7 @@ use bevy_ui::{
 };
 
 use bevy_app::prelude::*;
-use bevy_asset::{asset_changed::AssetChanged, AssetEvent, AssetEventSystems, AssetId, Assets};
+use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
 use bevy_core_pipeline::upscaling::upscaling;
@@ -491,7 +491,6 @@ pub fn extract_uinode_changes(
                 Or<(With<TextSpan>, With<InlineImage>)>,
                 Or<(
                     Changed<InlineImage>,
-                    AssetChanged<InlineImage>,
                     Changed<TextColor>,
                     Changed<TextBackgroundColor>,
                     Changed<Underline>,
@@ -565,12 +564,10 @@ pub fn extract_uinode_changes(
         mut removed_strikethrough_color_query,
         mut removed_underline_color_query,
         mut removed_inline_image_query,
-        mut removed_inline_box_query,
     ): (
         Extract<RemovedComponents<StrikethroughColor>>,
         Extract<RemovedComponents<UnderlineColor>>,
         Extract<RemovedComponents<InlineImage>>,
-        Extract<RemovedComponents<InlineBox>>,
     ),
     #[cfg(feature = "bevy_ui_debug")] mut removed_debug_options_query: Extract<
         RemovedComponents<UiDebugOptions>,
@@ -599,25 +596,7 @@ pub fn extract_uinode_changes(
                 Some(&mut extra_nodes_to_invalidate),
             );
         }
-        removed_inline_image_query.clear();
-        removed_inline_box_query.clear();
     } else {
-        let removed_inline_entities: HashSet<_> = removed_inline_image_query
-            .read()
-            .chain(removed_inline_box_query.read())
-            .collect();
-        if !removed_inline_entities.is_empty() {
-            for (entity, layout) in &text_query {
-                if layout
-                    .inline_boxes
-                    .iter()
-                    .any(|(entity, _, _)| removed_inline_entities.contains(entity))
-                {
-                    extra_nodes_to_invalidate.insert(entity.into());
-                }
-            }
-        }
-
         // Go through all nodes that have changed and invalidate any render world
         // data associated with them.
         for main_entity in changed_uinodes_query
@@ -649,6 +628,7 @@ pub fn extract_uinode_changes(
             .chain(removed_strikethrough_query.read())
             .chain(removed_strikethrough_color_query.read())
             .chain(removed_underline_color_query.read())
+            .chain(removed_inline_image_query.read())
         {
             process_changed_entity(
                 main_entity.into(),
