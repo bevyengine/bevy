@@ -3,18 +3,17 @@ use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 
 /// A box to be laid out inline with text.
-/// Component should only be part of a text tree.
-/// Inline boxes are leaf nodes in the text tree, `TextSection` children of an inline box won't be added to the layout.
+///
+/// Inline boxes are leaf nodes in the text tree, `TextSection` children of an inline box won't be added to the text layout.
 #[derive(Copy, Component, Debug, Clone, Default, PartialEq)]
 pub struct InlineBox {
-    /// Whether the box is in-flow (takes up space in the layout) or out-of-flow (e.g. absolutely positioned or floated)
+    /// Whether the box is in-flow (takes up space in the layout) or out-of-flow (e.g. absolutely positioned)
     pub kind: InlineBoxKind,
     /// The size of the box in logical pixels
     pub size: Vec2,
 }
 
 /// Whether a box is in-flow (takes up space in the layout) or out-of-flow (e.g. absolutely positioned)
-/// or custom-out-of-flow (line-breaking should yield control flow)
 #[derive(PartialEq, Debug, Clone, Copy, Reflect, Default)]
 pub enum InlineBoxKind {
     /// `InFlow` boxes take up space in the layout and flow in line with text
