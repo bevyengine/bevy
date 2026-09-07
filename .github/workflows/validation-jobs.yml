@@ -41,7 +41,7 @@ jobs:
           rustup override set stable
           cargo -V
 
-      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
@@ -83,7 +83,7 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
-      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-aarch64-linux-android-${{ hashFiles('**/Cargo.toml') }}-
@@ -126,7 +126,7 @@ jobs:
           rustup override set stable
           cargo -V
 
-      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
@@ -220,7 +220,7 @@ jobs:
           rustup toolchain install ${{ env.NIGHTLY_TOOLCHAIN }} --no-self-update --profile=minimal
           rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
           cargo -V
-      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
@@ -254,7 +254,7 @@ jobs:
           rustup toolchain install stable --no-self-update --profile=minimal
           rustup override set stable
           cargo -V
-      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
