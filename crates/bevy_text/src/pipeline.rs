@@ -27,11 +27,9 @@ use crate::{RemSize, TextBrush};
 
 struct TextSectionView<'a> {
     index: usize,
-    text: &'a str,
-    text_font: &'a TextFont,
+    entity: Entity,
+    text_item: TextItem<'a>,
     font_size: f32,
-    line_height: LineHeight,
-    letter_spacing: LetterSpacing,
 }
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
@@ -45,6 +43,25 @@ pub struct TextPipeline {
     text_buffer: String,
 }
 
+/// Text item for processing by the `TextPipeline`.
+pub enum TextItem<'a> {
+    /// Text
+    Text {
+        /// Text
+        text: &'a str,
+        /// font
+        font: &'a TextFont,
+        /// color for text
+        color: Color,
+        /// line height
+        line_height: LineHeight,
+        /// letter spacing
+        letter_spacing: LetterSpacing,
+    },
+    /// An line box
+    Box(&'a crate::InlineBox),
+}
+
 impl TextPipeline {
     /// Shapes and lays out text spans into the computed buffer.
     ///
@@ -52,17 +69,7 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<
-            Item = (
-                Entity,
-                usize,
-                &'a str,
-                &'a TextFont,
-                Color,
-                LineHeight,
-                LetterSpacing,
-            ),
-        >,
+        text_spans: impl Iterator<Item = (Entity, usize, TextItem<'a>)>,
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
@@ -89,73 +96,92 @@ impl TextPipeline {
             .collect();
 
         let result = {
-            for (index, (entity, depth, text, text_font, _color, line_height, letter_spacing)) in
-                text_spans.enumerate()
-            {
-                match text_font.font_size {
-                    crate::FontSize::Vw(_)
-                    | crate::FontSize::Vh(_)
-                    | crate::FontSize::VMin(_)
-                    | crate::FontSize::VMax(_) => computed.uses_viewport_sizes = true,
-                    crate::FontSize::Rem(_) => computed.uses_rem_sizes = true,
-                    _ => (),
-                }
+            for (index, (entity, depth, item)) in text_spans.enumerate() {
+                match item {
+                    TextItem::Text {
+                        text,
+                        font: text_font,
+                        color: _,
+                        ..
+                    } => {
+                        match text_font.font_size {
+                            crate::FontSize::Vw(_)
+                            | crate::FontSize::Vh(_)
+                            | crate::FontSize::VMin(_)
+                            | crate::FontSize::VMax(_) => computed.uses_viewport_sizes = true,
+                            crate::FontSize::Rem(_) => computed.uses_rem_sizes = true,
+                            _ => (),
+                        }
 
-                computed.entities.push(TextEntity {
-                    entity,
-                    depth,
-                    font_smoothing: text_font.font_smoothing,
-                });
+                        computed.entities.push(TextEntity {
+                            entity,
+                            depth,
+                            font_smoothing: text_font.font_smoothing,
+                        });
 
-                if text.is_empty() {
-                    continue;
-                }
+                        if text.is_empty() {
+                            continue;
+                        }
 
-                if matches!(text_font.font, FontSource::Handle(_))
-                    && text_font.font.resolve_font_family(fonts).is_err()
-                {
-                    return Err(TextError::NoSuchFont);
-                }
+                        if matches!(text_font.font, FontSource::Handle(_))
+                            && text_font.font.resolve_font_family(fonts).is_err()
+                        {
+                            return Err(TextError::NoSuchFont);
+                        }
 
-                let font_size = text_font
-                    .font_size
-                    .eval(logical_viewport_size, base_rem_size);
+                        let font_size = text_font
+                            .font_size
+                            .eval(logical_viewport_size, base_rem_size);
 
-                if font_size <= 0.0 {
-                    warn_once!(
+                        if font_size <= 0.0 {
+                            warn_once!(
                         "Text span {entity} has a font size <= 0.0. Nothing will be displayed."
                     );
-                    continue;
-                }
+                            continue;
+                        }
 
-                const WARN_FONT_SIZE: f32 = 1000.0;
-                if font_size > WARN_FONT_SIZE {
-                    warn_once!(
+                        const WARN_FONT_SIZE: f32 = 1000.0;
+                        if font_size > WARN_FONT_SIZE {
+                            warn_once!(
                         "Text span {entity} has an excessively large font size ({} with scale factor {}). \
                         Extremely large font sizes will cause performance issues with font atlas \
                         generation and high memory usage.",
                         font_size,
                         scale_factor,
                     );
-                }
+                        }
 
-                sections.push(TextSectionView {
-                    index,
-                    text,
-                    text_font,
-                    font_size,
-                    line_height,
-                    letter_spacing,
-                });
+                        sections.push(TextSectionView {
+                            entity,
+                            index,
+                            text_item: item,
+                            font_size,
+                        });
+                    }
+                    TextItem::Box(_inline_box) => {
+                        sections.push(TextSectionView {
+                            entity,
+                            index,
+                            text_item: item,
+                            font_size: 0.,
+                        });
+                    }
+                }
             }
 
             self.text_buffer.clear();
             for section in &sections {
-                self.text_buffer.push_str(section.text);
+                match section.text_item {
+                    TextItem::Text { text, .. } => {
+                        self.text_buffer.push_str(text);
+                    }
+                    TextItem::Box(_inline_box) => {}
+                }
             }
 
             let text = self.text_buffer.as_str();
             let layout = &mut computed.layout;
+
             let mut builder = layout_cx
                 .0
                 .ranged_builder(&mut (*font_cx), text, scale_factor, true);
@@ -177,53 +203,69 @@ impl TextPipeline {
 
             let mut start = 0;
             for section in sections.drain(..) {
-                let end = start + section.text.len();
-                let range = start..end;
-                start = end;
+                match section.text_item {
+                    TextItem::Text {
+                        text,
+                        font: text_font,
+                        color: _,
+                        line_height,
+                        letter_spacing,
+                    } => {
+                        let end = start + text.len();
+                        let range = start..end;
+                        start = end;
 
-                if range.is_empty() {
-                    continue;
-                }
+                        if range.is_empty() {
+                            continue;
+                        }
 
-                let resolved_family = section.text_font.font.resolve_font_family(fonts)?;
+                        let resolved_family = text_font.font.resolve_font_family(fonts)?;
 
-                builder.push(StyleProperty::FontFamily(resolved_family), range.clone());
-                builder.push(
-                    StyleProperty::Brush(TextBrush::new(
-                        section.index as u32,
-                        section.text_font.font_smoothing,
-                    )),
-                    range.clone(),
-                );
-                builder.push(StyleProperty::FontSize(section.font_size), range.clone());
-                builder.push(
-                    StyleProperty::LineHeight(section.line_height.eval()),
-                    range.clone(),
-                );
-                builder.push(
-                    StyleProperty::LetterSpacing(section.letter_spacing.eval(base_rem_size)),
-                    range.clone(),
-                );
-                builder.push(
-                    StyleProperty::FontWeight(section.text_font.weight.into()),
-                    range.clone(),
-                );
-                builder.push(
-                    StyleProperty::FontWidth(section.text_font.width.into()),
-                    range.clone(),
-                );
-                builder.push(
-                    StyleProperty::FontStyle(section.text_font.style.into()),
-                    range.clone(),
-                );
-                builder.push(
-                    StyleProperty::FontFeatures((&section.text_font.font_features).into()),
-                    range.clone(),
-                );
-                builder.push(
-                    StyleProperty::FontVariations((&section.text_font.font_variations).into()),
-                    range,
-                );
+                        builder.push(StyleProperty::FontFamily(resolved_family), range.clone());
+                        builder.push(
+                            StyleProperty::Brush(TextBrush::new(
+                                section.index as u32,
+                                text_font.font_smoothing,
+                            )),
+                            range.clone(),
+                        );
+                        builder.push(StyleProperty::FontSize(section.font_size), range.clone());
+                        builder.push(StyleProperty::LineHeight(line_height.eval()), range.clone());
+                        builder.push(
+                            StyleProperty::LetterSpacing(letter_spacing.eval(base_rem_size)),
+                            range.clone(),
+                        );
+                        builder.push(
+                            StyleProperty::FontWeight(text_font.weight.into()),
+                            range.clone(),
+                        );
+                        builder.push(
+                            StyleProperty::FontWidth(text_font.width.into()),
+                            range.clone(),
+                        );
+                        builder.push(
+                            StyleProperty::FontStyle(text_font.style.into()),
+                            range.clone(),
+                        );
+                        builder.push(
+                            StyleProperty::FontFeatures((&text_font.font_features).into()),
+                            range.clone(),
+                        );
+                        builder.push(
+                            StyleProperty::FontVariations((&text_font.font_variations).into()),
+                            range,
+                        );
+                    }
+                    TextItem::Box(inline_box) => {
+                        builder.push_inline_box(parley::InlineBox {
+                            id: section.entity.to_bits(),
+                            kind: inline_box.kind,
+                            index: start,
+                            width: inline_box.width,
+                            height: inline_box.height,
+                        });
+                    }
+                };
             }
 
             builder.build_into(layout, text);
@@ -245,17 +287,7 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<
-            Item = (
-                Entity,
-                usize,
-                &'a str,
-                &'a TextFont,
-                Color,
-                LineHeight,
-                LetterSpacing,
-            ),
-        >,
+        text_spans: impl Iterator<Item = (Entity, usize, TextItem<'a>)>,
         scale_factor: f32,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
