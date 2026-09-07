@@ -847,8 +847,8 @@ pub fn extract_inline_images(
             .iter()
             .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
-        // Skip invisible images
-        if !inherited_visibility.get() {
+        // Skip invisible images and empty nodes
+        if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
 
@@ -861,7 +861,8 @@ pub fn extract_inline_images(
                 continue;
             };
 
-            if image.color.is_fully_transparent()
+            if rect.is_empty()
+                || image.color.is_fully_transparent()
                 || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
             {
                 continue;
