@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{Query, SystemParam},
 };
 
-use crate::{InlineBox, LetterSpacing, LineHeight, TextColor, TextFont, TextItem, TextSpan};
+use crate::{InlineBox, LetterSpacing, LineHeight, TextColor, TextFont, TextLayoutItem, TextSpan};
 
 /// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
 pub trait TextSection: Component<Mutability = Mutable> + From<String> {
@@ -103,7 +103,7 @@ impl<'w, 's, R: TextSection> TextReader<'w, 's, R> {
     )> {
         let (entity, depth, item) = self.iter(root_entity).nth(index)?;
         match item {
-            TextItem::Text {
+            TextLayoutItem::Text {
                 text,
                 font,
                 color,
@@ -118,7 +118,7 @@ impl<'w, 's, R: TextSection> TextReader<'w, 's, R> {
                 line_height,
                 letter_spacing,
             )),
-            TextItem::Box(_) => None,
+            TextLayoutItem::Box(_) => None,
         }
     }
 
@@ -226,7 +226,7 @@ pub struct TextSpanIter<'a, R: TextSection> {
 }
 
 impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
-    type Item = (Entity, usize, TextItem<'a>);
+    type Item = (Entity, usize, TextLayoutItem<'a>);
     fn next(&mut self) -> Option<Self::Item> {
         // Root
         if let Some(root_entity) = self.root_entity.take() {
@@ -239,7 +239,7 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
                 return Some((
                     root_entity,
                     0,
-                    TextItem::Text {
+                    TextLayoutItem::Text {
                         text: text.get_text(),
                         font: text_font,
                         color: color.0,
@@ -261,7 +261,7 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
 
                 let entity = *child;
                 if let Ok(inline_box) = self.inline_boxes.get(entity) {
-                    return Some((entity, self.stack.len(), TextItem::Box(inline_box)));
+                    return Some((entity, self.stack.len(), TextLayoutItem::Box(inline_box)));
                 }
                 let Ok((span, text_font, color, line_height, letter_spacing, maybe_children)) =
                     self.spans.get(entity)
@@ -276,7 +276,7 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
                 return Some((
                     entity,
                     depth,
-                    TextItem::Text {
+                    TextLayoutItem::Text {
                         text: span.get_text(),
                         font: text_font,
                         color: color.0,

@@ -388,7 +388,8 @@ mod tests {
     use bevy_ecs::{hierarchy::ChildOf, system::RunSystemOnce, world::World};
     use bevy_math::UVec2;
     use bevy_text::{
-        detect_text_needs_rerender, InlineBox, InlineBoxKind, TextItem, TextIterScratch, TextSpan,
+        detect_text_needs_rerender, InlineBox, InlineBoxKind, TextIterScratch, TextLayoutItem,
+        TextSpan,
     };
 
     use super::*;
@@ -420,7 +421,9 @@ mod tests {
                     items.iter().map(|(e, d, _)| (*e, *d)).collect::<Vec<_>>(),
                     [(root, 0), (span, 1), (inline_box, 2), (tail, 1)]
                 );
-                assert!(matches!(&items[2].2, TextItem::Box(b) if b.size == Vec2::new(20.0, 10.0)));
+                assert!(
+                    matches!(&items[2].2, TextLayoutItem::Box(b) if b.size == Vec2::new(20.0, 10.0))
+                );
             })
             .unwrap();
     }
