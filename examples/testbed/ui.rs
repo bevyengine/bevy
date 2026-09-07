@@ -4164,12 +4164,12 @@ mod inline_image {
             Text::new("head "),
             DespawnOnExit(super::Scene::InlineImage),
             children![
-                (TextSpan::new("before image"),),
+                (TextSpan::new("before image "),),
                 (InlineImage {
                     color: Color::WHITE,
                     image: asset_server.load("branding/bevy_logo_dark.png"),
                 },),
-                (TextSpan::new("after image"),),
+                (TextSpan::new(" after image"),),
             ],
         ));
     }
