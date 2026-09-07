@@ -499,6 +499,7 @@ impl TextLayoutInfo {
     pub fn clear(&mut self) {
         self.scale_factor = 1.;
         self.glyphs.clear();
+        self.inline_boxes.clear();
         self.run_geometry.clear();
         self.size = Vec2::ZERO;
         self.cursor = None;
