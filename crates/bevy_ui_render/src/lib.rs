@@ -826,6 +826,7 @@ pub fn extract_inline_images(
             &ComputedStackIndex,
             &UiGlobalTransform,
             Option<&CalculatedClip>,
+            &ComputedNode,
         )>,
     >,
     inline_image_query: Extract<Query<&InlineImage>>,
@@ -833,7 +834,7 @@ pub fn extract_inline_images(
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, text_layout, camera, inherited_visibility, stack_index, transform, clip) in
+    for (entity, text_layout, camera, inherited_visibility, stack_index, transform, clip, uinode) in
         extracted_uinodes
             .changed
             .iter()
@@ -870,7 +871,8 @@ pub fn extract_inline_images(
                         z_order: stack_index.0 as f32 + stack_z_offsets::INLINE_IMAGE,
                         clip: clip.cloned(),
                         image: image.image.id(),
-                        transform: Affine2::from(*transform) * Affine2::from_translation(rect.min),
+                        transform: Affine2::from(*transform)
+                            * Affine2::from_translation(uinode.content_box().min + rect.center()),
                         item: ExtractedUiItem::Node {
                             color: image.color.into(),
                             rect: Rect {
