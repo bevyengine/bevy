@@ -126,6 +126,7 @@ impl SpriteMeshMaterialBucketKey {
 struct SpriteMaterialCache<M: Asset> {
     map: HashMap<SpriteMeshMaterialBucketKey, Vec<(Sprite, AssetId<M>)>>,
     reversed: HashMap<AssetId<M>, SpriteMeshMaterialBucketKey>,
+    used_by: HashMap<AssetId<M>, u32>,
 }
 
 impl<M: Asset> Default for SpriteMaterialCache<M> {
@@ -133,12 +134,18 @@ impl<M: Asset> Default for SpriteMaterialCache<M> {
         Self {
             map: Default::default(),
             reversed: Default::default(),
+            used_by: Default::default(),
         }
     }
 }
 
 impl<M: Asset> SpriteMaterialCache<M> {
     fn clean(&mut self, id: AssetId<M>) {
+        self.unregister(id);
+        self.used_by.remove(&id);
+    }
+
+    fn unregister(&mut self, id: AssetId<M>) {
         if let Some(key) = self.reversed.remove(&id)
             && let Entry::Occupied(mut bucket) = self.map.entry(key)
         {
@@ -150,6 +157,31 @@ impl<M: Asset> SpriteMaterialCache<M> {
                 bucket.remove();
             }
         }
+    }
+
+    fn has_only_one_user(&self, id: AssetId<M>) -> bool {
+        self.used_by.get(&id) == Some(&1)
+    }
+
+    fn release(&mut self, id: AssetId<M>) {
+        if let Some(used_by) = self.used_by.get_mut(&id) {
+            *used_by = used_by.saturating_sub(1);
+        }
+    }
+
+    fn insert_unshared(&mut self, id: AssetId<M>) {
+        self.used_by.insert(id, 1);
+    }
+
+    fn rekey(&mut self, id: AssetId<M>, sprite: &Sprite, anchor: Anchor) {
+        if !self.reversed.contains_key(&id) {
+            return;
+        }
+        self.unregister(id);
+
+        let key = SpriteMeshMaterialBucketKey::new(sprite, &anchor);
+        self.map.entry(key).or_default().push((sprite.clone(), id));
+        self.reversed.insert(id, key);
     }
 
     fn get_or_insert_with(
@@ -166,7 +198,7 @@ impl<M: Asset> SpriteMaterialCache<M> {
             .find(|(cached_sprite, _)| cached_sprite == sprite)
             .and_then(|(_, id)| materials.get_strong_handle(*id));
 
-        match maybe_handle {
+        let handle = match maybe_handle {
             Some(handle) => handle,
             None => {
                 let handle = materials.add(get());
@@ -174,7 +206,11 @@ impl<M: Asset> SpriteMaterialCache<M> {
                 self.reversed.insert(handle.id(), key);
                 handle
             }
-        }
+        };
+
+        *self.used_by.entry(handle.id()).or_default() += 1;
+
+        handle
     }
 }
 
@@ -185,13 +221,22 @@ impl<M: Asset> SpriteMaterialCache<M> {
 /// Since not all fields of the [`Sprite`] are easy to hash, we keep multiple "buckets" keyed on
 /// parts of the struct that are easy to hash.
 ///
+/// A material that is used by a single spite is updated in place when that
+/// sprite changes, so that its [`AssetId`] stays the same.
+///
 /// NOTE: This also adds the [`TextureAtlasLayout`] into the [`SpriteMeshMaterial`],
 /// but this should instead be read later, similar to the images, allowing
 /// for hot reload.
 fn add_material(
     mut commands: Commands,
     sprites: Query<
-        (Entity, &Sprite, &Anchor, Option<&SpriteMaterialCount>),
+        (
+            Entity,
+            &Sprite,
+            &Anchor,
+            Option<&SpriteMaterialCount>,
+            Option<&MeshMaterial2d<SpriteMeshMaterial>>,
+        ),
         Or<(
             Changed<Sprite>,
             Changed<Anchor>,
@@ -210,8 +255,31 @@ fn add_material(
         }
     }
 
-    for (entity, sprite, anchor, count) in sprites {
+    for (entity, sprite, anchor, count, material) in sprites {
         if count.is_some_and(|c| c.0 != 0) {
+            continue;
+        }
+
+        if let Some(material) = material {
+            let id = material.id();
+
+            if cached_materials.has_only_one_user(id)
+                && let Some(mut material) = materials.get_mut(id)
+            {
+                *material = make_sprite_mesh_material(&texture_atlas_layouts, sprite, *anchor);
+                cached_materials.rekey(id, sprite, *anchor);
+                continue;
+            }
+
+            cached_materials.release(id);
+            let handle = materials.add(make_sprite_mesh_material(
+                &texture_atlas_layouts,
+                sprite,
+                *anchor,
+            ));
+            cached_materials.insert_unshared(handle.id());
+
+            commands.entity(entity).insert(MeshMaterial2d(handle));
             continue;
         }
 
@@ -219,9 +287,7 @@ fn add_material(
             make_sprite_mesh_material(&texture_atlas_layouts, sprite, *anchor)
         });
 
-        commands
-            .entity(entity)
-            .insert(MeshMaterial2d(handle.clone()));
+        commands.entity(entity).insert(MeshMaterial2d(handle));
     }
 }
 
@@ -303,5 +369,6 @@ mod tests {
         cache.clean(handle3.id());
         assert_eq!(cache.map.len(), 0);
         assert_eq!(cache.reversed.len(), 0);
+        assert_eq!(cache.used_by.len(), 0);
     }
 }
