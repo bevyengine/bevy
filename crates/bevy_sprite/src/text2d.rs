@@ -415,7 +415,10 @@ mod tests {
         world
             .run_system_once(move |mut reader: Text2dReader| {
                 assert!(reader.get(root, 2).is_none());
-                assert_eq!(reader.get_text(root, 3), Some("tail"));
+                assert!(matches!(
+                    reader.get(root, 3),
+                    Some((_, _, TextLayoutItem::Text { text: "tail", .. }))
+                ));
                 let items = reader.iter(root).collect::<Vec<_>>();
                 assert_eq!(
                     items.iter().map(|(e, d, _)| (*e, *d)).collect::<Vec<_>>(),
