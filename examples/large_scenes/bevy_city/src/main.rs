@@ -133,14 +133,14 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![camera(), sun(), loading_screen()]
+    bsn_list![@camera(), @sun(), @loading_screen()]
 }
 
 fn camera() -> impl Scene {
     bsn! {
         Camera3d
         Hdr
-        template_value(Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y))
+        Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y)
         FreeCamera
         AtmosphereSettings {
             // Reduce the default max distance in the aerial view LUT
@@ -209,7 +209,7 @@ fn sun() -> impl Scene {
             contact_shadows_enabled: {Settings::default().contact_shadows_enabled},
             illuminance: light_consts::lux::RAW_SUNLIGHT,
         }
-        template_value(Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y))
+        Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y)
     }
 }
 

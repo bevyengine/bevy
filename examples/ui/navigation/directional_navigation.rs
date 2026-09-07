@@ -128,9 +128,9 @@ fn setup_scattered_ui(mut commands: Commands) {
             height: percent(100),
         }
         Children [
-            instructions_scene(),
-            focus_display_scene(),
-            key_display_scene(),
+            @instructions_scene(),
+            @focus_display_scene(),
+            @key_display_scene(),
             { buttons_scene() },
         ]
     });
@@ -158,7 +158,7 @@ fn instructions_scene() -> impl Scene {
         }
         BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8))
         Children [
-            Text::new(
+            Text(
                 "Directional Navigation Demo\n\n\
                  Use arrow keys or D-pad to navigate.\n\
                  Press Enter or A button to interact.\n\n\
@@ -182,7 +182,7 @@ fn focus_display_scene() -> impl Scene {
         BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8))
         Children [
             FocusDisplay
-            Text::new("Focused: None")
+            Text("Focused: None")
             TextFont {
                 font_size: FontSize::Px(20.0),
             }
@@ -203,7 +203,7 @@ fn key_display_scene() -> impl Scene {
         BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8))
         Children [
             KeyDisplay
-            Text::new("Last Key: None")
+            Text("Last Key: None")
             TextFont {
                 font_size: FontSize::Px(20.0),
             }
@@ -261,13 +261,13 @@ fn buttons_scene() -> impl SceneList {
                     align_items: AlignItems::Center,
                     border_radius: BorderRadius::all(px(12)),
                 }
-                template_value(transform)
+                transform
                 // This is the key: just add this component for automatic navigation!
                 AutoDirectionalNavigation::default()
                 ResetTimer::default()
                 BackgroundColor::from(NORMAL_BUTTON)
                 Children [
-                    Text::new(format!("Button {}", i + 1))
+                    Text(format!("Button {}", i + 1))
                     TextLayout {
                         justify: Justify::Center,
                     }

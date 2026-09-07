@@ -53,7 +53,7 @@ impl FeathersDisclosureToggle {
             InheritableThemeTextColor(tokens::BUTTON_TEXT)
             TabIndex(0)
             Children [
-                icon(icons::CHEVRON_RIGHT)
+                @icon(icons::CHEVRON_RIGHT)
             ]
         )
     }

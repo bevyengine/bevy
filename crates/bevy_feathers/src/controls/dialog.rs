@@ -2,7 +2,7 @@ use bevy_app::Propagate;
 use bevy_color::{Alpha, Srgba};
 use bevy_ecs::{
     event::EntityEvent, hierarchy::Children, observer::On, reflect::ReflectComponent,
-    system::Commands, template::template,
+    system::Commands,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList};
@@ -174,7 +174,7 @@ impl FeathersFloatingDialog {
                     DialogDragHandle
                     InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
                     ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
-                    template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Higher))))
+                    Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
                     InheritableFont {
                         font: fonts::REGULAR,
                         font_size: size::HEADER_FONT,
@@ -212,7 +212,7 @@ impl FeathersDialogHeader {
                 justify_content: JustifyContent::SpaceBetween,
                 padding: UiRect::all(px(6.0)),
             }
-            template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Higher))))
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
             ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
             InheritableFont {
                 font: fonts::REGULAR,
@@ -232,13 +232,13 @@ impl FeathersDialogClose {
     /// Scene function for dialog close button.
     pub fn scene() -> impl Scene {
         bsn! {
-        @FeathersToolButton {
-            @variant: ButtonVariant::Plain,
-            @caption: bsn! { icon(icons::X) }
-        }
-        on(|activate: On<Activate>, mut commands: Commands| {
-            commands.trigger(RequestClose { source: activate.event_target() });
-        })
+            @FeathersToolButton {
+                @variant: ButtonVariant::Plain,
+                @caption: bsn! { @icon(icons::X) }
+            }
+            on(|activate: On<Activate>, mut commands: Commands| {
+                commands.trigger(RequestClose { source: activate.event_target() });
+            })
         }
     }
 }
@@ -258,7 +258,7 @@ impl FeathersDialogBody {
                 align_items: AlignItems::Stretch,
                 padding: UiRect::all(px(6.0)),
             }
-            template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Floating))
             InheritableFont {
                 font: fonts::REGULAR,
                 font_size: size::MEDIUM_FONT,
@@ -285,7 +285,7 @@ impl FeathersDialogFooter {
                 column_gap: px(6.0),
                 padding: UiRect::all(px(6.0)),
             }
-            template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Floating))
             InheritableFont {
                 font: fonts::REGULAR,
                 font_size: size::MEDIUM_FONT,

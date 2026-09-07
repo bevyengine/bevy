@@ -2,12 +2,12 @@ diff --git a/crates/bevy_asset/src/lib.rs b/crates/bevy_asset/src/lib.rs
 index 81deeff145..7792d9f1ed 100644
 --- a/crates/bevy_asset/src/lib.rs
 +++ b/crates/bevy_asset/src/lib.rs
-@@ -335,7 +335,7 @@
-     fn default() -> Self {
-         Self {
-             mode: AssetMode::Unprocessed,
--            file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
-+            file_path: "/assets/examples".to_string(),
-             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
-             watch_for_changes_override: None,
-             use_asset_processor_override: None,
+@@ -343,7 +343,7 @@
+ }
+ 
+ impl AssetPlugin {
+-    const DEFAULT_UNPROCESSED_FILE_PATH: &'static str = "assets";
++    const DEFAULT_UNPROCESSED_FILE_PATH: &'static str = "/assets/examples";
+     /// NOTE: this is in the Default sub-folder to make this forward compatible with "import profiles"
+     /// and to allow us to put the "processor transaction log" at `imported_assets/log`
+     const DEFAULT_PROCESSED_FILE_PATH: &'static str = "imported_assets/Default";

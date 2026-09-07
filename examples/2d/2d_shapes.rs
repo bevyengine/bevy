@@ -170,17 +170,17 @@ fn setup(
 fn spawn_buttons(commands: &mut Commands) {
     if !cfg!(target_arch = "wasm32") {
         commands.spawn_scene(bsn! {
-            bottom_left_scene()
+            @bottom_left_scene()
             Children [
-                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
-                feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe)),
+                @feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
+                @feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe)),
             ]
         });
     } else {
         commands.spawn_scene(bsn! {
-            top_left_scene() // so the user can immediately see the control in browser w/o scrolling
+            @top_left_scene() // so the user can immediately see the control in browser w/o scrolling
             Children [
-                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
+                @feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
             ]
         });
     }

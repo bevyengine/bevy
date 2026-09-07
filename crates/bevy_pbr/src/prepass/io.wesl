@@ -105,8 +105,8 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
 }
 
 struct VertexOutput {
-    // This is `clip position` when the struct is used as a vertex stage output
-    // and `frag coord` when used as a fragment stage input
+    /// This is `clip position` when the struct is used as a vertex stage output
+    /// and `frag coord` when used as a fragment stage input
     @builtin(position) position: vec4<f32>,
 
     @if(VERTEX_UVS_A)

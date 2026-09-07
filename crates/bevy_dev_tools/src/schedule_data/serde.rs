@@ -338,7 +338,7 @@ impl ScheduleData {
 
                 let system = system_with_access.system();
                 let access = system_with_access.access();
-                let filtered_accesses = access.filtered_accesses();
+                let filtered_accesses = access.to_filtered_access_set();
 
                 let flags = system.flags();
 
@@ -346,9 +346,10 @@ impl ScheduleData {
                     name: format!("{}", system.name()),
                     apply_deferred: system.system_type()
                         == core::any::TypeId::of::<ApplyDeferred>(),
-                    exclusive: flags.contains(SystemStateFlags::EXCLUSIVE),
+                    exclusive: access.is_exclusive(),
                     deferred: flags.contains(SystemStateFlags::DEFERRED),
                     filtered_accesses: filtered_accesses
+                        .filtered_accesses()
                         .iter()
                         .map(|fa| FilteredAccessData::new(fa, &mut component_trace))
                         .collect(),
@@ -779,7 +780,19 @@ pub mod tests {
                 apply_deferred: false,
                 exclusive: true,
                 deferred: false,
-                filtered_accesses: vec![],
+                filtered_accesses: vec![FilteredAccessData {
+                    access: AccessData {
+                        reads: vec![],
+                        writes: vec![],
+                        reads_inverted: true,
+                        writes_inverted: true,
+                        archetypal: vec![]
+                    },
+                    filter_sets: vec![AccessFiltersData {
+                        with: vec![],
+                        without: vec![],
+                    }]
+                }],
             }]
         );
         assert_eq!(
@@ -972,7 +985,19 @@ pub mod tests {
                     apply_deferred: true,
                     exclusive: true,
                     deferred: false,
-                    filtered_accesses: vec![],
+                    filtered_accesses: vec![FilteredAccessData {
+                        access: AccessData {
+                            reads: vec![],
+                            writes: vec![],
+                            reads_inverted: true,
+                            writes_inverted: true,
+                            archetypal: vec![]
+                        },
+                        filter_sets: vec![AccessFiltersData {
+                            with: vec![],
+                            without: vec![]
+                        }]
+                    }]
                 },
                 simple_system("b0"),
                 simple_system("b1"),

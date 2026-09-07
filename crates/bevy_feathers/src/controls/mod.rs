@@ -1,11 +1,12 @@
 //! Meta-module containing all feathers controls (widgets that are interactive).
-#![expect(deprecated, reason = "deprecated control bundles are exported here")]
 
 mod button;
 mod checkbox;
+mod color_input;
 mod color_plane;
 mod color_slider;
 mod color_swatch;
+mod color_swatch_grid;
 mod dialog;
 mod disclosure_toggle;
 mod listview;
@@ -21,9 +22,11 @@ mod virtual_keyboard;
 
 pub use button::*;
 pub use checkbox::*;
+pub use color_input::*;
 pub use color_plane::*;
 pub use color_slider::*;
 pub use color_swatch::*;
+pub use color_swatch_grid::*;
 pub use dialog::*;
 pub use disclosure_toggle::*;
 pub use listview::*;
@@ -38,35 +41,31 @@ pub use toggle_switch::*;
 pub use virtual_keyboard::*;
 
 use crate::alpha_pattern::AlphaPatternPlugin;
-use bevy_app::Plugin;
+use bevy_app::{PluginGroup, PluginGroupBuilder};
 
-/// Plugin which registers all `bevy_feathers` controls.
+/// Plugin group which registers all `bevy_feathers` controls.
 pub struct ControlsPlugin;
 
-impl Plugin for ControlsPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
-        // arbitrary split as too many for one set
-        app.add_plugins((
-            (
-                ButtonPlugin,
-                CheckboxPlugin,
-                DisclosureTogglePlugin,
-                ListViewPlugin,
-                MenuPlugin,
-                NumberInputPlugin,
-                RadioPlugin,
-                ScrollbarPlugin,
-                SelectPlugin,
-                SliderPlugin,
-                TextInputPlugin,
-                ToggleSwitchPlugin,
-            ),
-            (
-                AlphaPatternPlugin,
-                ColorPlanePlugin,
-                ColorSliderPlugin,
-                ColorSwatchPlugin,
-            ),
-        ));
+impl PluginGroup for ControlsPlugin {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(AlphaPatternPlugin)
+            .add(ButtonPlugin)
+            .add(CheckboxPlugin)
+            .add(ColorInputPlugin)
+            .add(ColorPlanePlugin)
+            .add(ColorSliderPlugin)
+            .add(ColorSwatchPlugin)
+            .add(ColorSwatchGridPlugin)
+            .add(DisclosureTogglePlugin)
+            .add(ListViewPlugin)
+            .add(MenuPlugin)
+            .add(NumberInputPlugin)
+            .add(RadioPlugin)
+            .add(ScrollbarPlugin)
+            .add(SelectPlugin)
+            .add(SliderPlugin)
+            .add(TextInputPlugin)
+            .add(ToggleSwitchPlugin)
     }
 }

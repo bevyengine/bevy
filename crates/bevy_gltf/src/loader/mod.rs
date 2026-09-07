@@ -313,10 +313,8 @@ impl GltfLoader {
             use bevy_animation::{
                 animated_field, animation_curves::*, gltf_curves::*, VariableCurve,
             };
-            use bevy_math::{
-                curve::{ConstantCurve, Interval, UnevenSampleAutoCurve},
-                Quat, Vec4,
-            };
+            use bevy_curve::{ConstantCurve, Interval, UnevenSampleAutoCurve};
+            use bevy_math::{Quat, Vec4};
             use gltf::animation::util::ReadOutputs;
             let mut animations = vec![];
             let mut named_animations = <HashMap<_, _>>::default();

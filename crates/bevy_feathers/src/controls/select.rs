@@ -55,10 +55,10 @@ pub fn list_rows_from_strings(
             .map(|(i, label)| -> Box<dyn SceneList> {
                 let label: String = label.as_ref().into();
                 if Some(i) == selected {
-                    bsn! { @FeathersListRow Selected OptionIndex(i) Children [ caption(label) ] }
+                    bsn! { @FeathersListRow Selected OptionIndex(i) Children [ @caption(label) ] }
                         .into()
                 } else {
-                    bsn! { @FeathersListRow OptionIndex(i) Children [ caption(label) ] }.into()
+                    bsn! { @FeathersListRow OptionIndex(i) Children [ @caption(label) ] }.into()
                 }
             })
             .collect::<Vec<_>>(),
@@ -102,7 +102,7 @@ impl FeathersSelect {
             Children [
                 (
                     @FeathersMenuButton {
-                        @caption: bsn! { caption("") SelectCaption },
+                        @caption: bsn! { @caption("") SelectCaption },
                         @corners: {props.corners},
                     }
                     Node {

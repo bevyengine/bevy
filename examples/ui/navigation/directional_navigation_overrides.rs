@@ -178,9 +178,9 @@ fn setup_paged_ui(
             height: percent(100),
         }
         Children [
-            instructions_scene(),
-            focus_display_scene(),
-            key_display_scene(),
+            @instructions_scene(),
+            @focus_display_scene(),
+            @key_display_scene(),
         ]
     });
 
@@ -211,7 +211,7 @@ fn setup_paged_ui(
                             width: percent(100),
                             height: percent(100),
                         }
-                        template_value(visibility)
+                        visibility
                         Children [
                             { triangle_page_text_entities_scene_list(page_num) }
                         ]
@@ -224,7 +224,7 @@ fn setup_paged_ui(
                             width: percent(100),
                             height: percent(100),
                         }
-                        template_value(visibility)
+                        visibility
                         Children [
                             { grid_page_text_entities_scene_list(page_num) }
                         ]
@@ -344,14 +344,14 @@ fn instructions_scene() -> impl Scene {
             border_radius: BorderRadius::all(px(8)),
         }
         BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8))
-        Children[
-            Text::new(
+        Children [
+            Text(
                 "Directional Navigation Overrides Demo\n\n\
                 Use arrow keys or D-pad to navigate.\n\
                 Press Enter or A button to interact.\n\n\
                 Navigation on each page is a combination of \
                 both automatic and manual navigation.",
-        )
+            )
         ]
     }
 }
@@ -368,9 +368,9 @@ fn focus_display_scene() -> impl Scene {
             border_radius: BorderRadius::all(px(8)),
         }
         BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8))
-        Children[
+        Children [
             FocusDisplay
-            Text::new("Focused: None")
+            Text("Focused: None")
             TextFont {
                 font_size: FontSize::Px(20.0),
             }
@@ -392,7 +392,7 @@ fn key_display_scene() -> impl Scene {
         BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8))
         Children [
             KeyDisplay
-            Text::new("Last Key: None")
+            Text("Last Key: None")
             TextFont {
                 font_size: FontSize::Px(20.0)
             }
@@ -439,21 +439,21 @@ fn grid_page_text_entities_scene_list(page_num: usize) -> impl SceneList {
     };
     bsn_list! {
         // Text describing current page
-        helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 10, Justify::Center),
+        @helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 10, Justify::Center),
 
         // Text describing direction to go to the previous page, placed left of the top-left button.
-        helper_text_node_scene(format!("Page {} << ", previous_page), 310, 120, Justify::Right),
+        @helper_text_node_scene(format!("Page {} << ", previous_page), 310, 120, Justify::Right),
 
         // Text describing direction to go to the next page, placed right of the bottom-right button.
-        helper_text_node_scene(format!(">> Page {}", (page_num + 1) % 3 + 1), 1000, 525, Justify::Left),
+        @helper_text_node_scene(format!(">> Page {}", (page_num + 1) % 3 + 1), 1000, 525, Justify::Left),
 
         // Texts describing that moving right wraps to the next row.
-        helper_text_node_scene("> Btn 2-1".into(), 1000, 120, Justify::Left),
-        helper_text_node_scene("> Btn 3-1".into(), 1000, 255, Justify::Left),
-        helper_text_node_scene("> Btn 4-1".into(), 1000, 390, Justify::Left),
-        helper_text_node_scene("Btn 1-3 < ".into(), 310, 255, Justify::Right),
-        helper_text_node_scene("Btn 2-3 < ".into(), 310, 390, Justify::Right),
-        helper_text_node_scene("Btn 3-3 < ".into(), 310, 525, Justify::Right),
+        @helper_text_node_scene("> Btn 2-1".into(), 1000, 120, Justify::Left),
+        @helper_text_node_scene("> Btn 3-1".into(), 1000, 255, Justify::Left),
+        @helper_text_node_scene("> Btn 4-1".into(), 1000, 390, Justify::Left),
+        @helper_text_node_scene("Btn 1-3 < ".into(), 310, 255, Justify::Right),
+        @helper_text_node_scene("Btn 2-3 < ".into(), 310, 390, Justify::Right),
+        @helper_text_node_scene("Btn 3-3 < ".into(), 310, 525, Justify::Right),
 
         // Footer Text
         Node {
@@ -464,7 +464,7 @@ fn grid_page_text_entities_scene_list(page_num: usize) -> impl SceneList {
             padding: UiRect::all(px(12)),
         }
         Children [
-            template_value(footer_text)
+            footer_text
             TextFont {
                 font_size: FontSize::Px(20.0),
             }
@@ -497,25 +497,25 @@ fn triangle_page_text_entities_scene_list(page_num: usize) -> impl SceneList {
     let previous_page = if page_num == 0 { 3 } else { page_num };
     bsn_list! {
         // Text describing current page
-        helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 20, Justify::Center),
+        @helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 20, Justify::Center),
 
         // Text describing direction to go to the previous page, placed left of the top-left button.
-        helper_text_node_scene(format!("Page {} << ", previous_page), 310, 120, Justify::Right),
+        @helper_text_node_scene(format!("Page {} << ", previous_page), 310, 120, Justify::Right),
 
         // Direction to navigate from button 3 to button 4, placed below center button
-        helper_text_node_scene("v\nBtn 4".into(), 575, 325, Justify::Center),
+        @helper_text_node_scene("v\nBtn 4".into(), 575, 325, Justify::Center),
 
         // Direction to navigate from button 3 to button 4, placed right of center button
-        helper_text_node_scene("> Btn 4".into(), 735, 255, Justify::Left),
+        @helper_text_node_scene("> Btn 4".into(), 735, 255, Justify::Left),
 
         // Direction to navigate from button 4 to button 3, placed above bottom right button
-        helper_text_node_scene("Btn 3\n^".into(), 1050, 300, Justify::Center),
+        @helper_text_node_scene("Btn 3\n^".into(), 1050, 300, Justify::Center),
 
         // Direction to navigate from button 4 to button 3, placed left of bottom right button
-        helper_text_node_scene("Btn 3 < ".into(), 910, 390, Justify::Right),
+        @helper_text_node_scene("Btn 3 < ".into(), 910, 390, Justify::Right),
 
         // Direction to go to the next page, placed bottom of the bottom-right button.
-        helper_text_node_scene(format!("V\nV\nPage {}", (page_num + 1) % 3 + 1), 1050, 460, Justify::Center),
+        @helper_text_node_scene(format!("V\nV\nPage {}", (page_num + 1) % 3 + 1), 1050, 460, Justify::Center),
     }
 }
 
@@ -559,13 +559,13 @@ fn auto_nav_button_scene(text: String, left: &f64, top: &f64, page_num: usize) -
             border_radius: BorderRadius::all(px(12)),
         }
         Page(page_num)
-        template_value(BackgroundColor(NORMAL_BUTTON_COLORS[page_num].into()))
+        BackgroundColor({NORMAL_BUTTON_COLORS[page_num]})
         // Just add this component for automatic navigation
         AutoDirectionalNavigation::default()
         ResetTimer::default()
         Name::new(text)
         Children [
-            Text::new(text_clone)
+            Text(text_clone)
             TextLayout {
                 justify: Justify::Center,
             }
@@ -584,7 +584,7 @@ fn helper_text_node_scene(text: String, left: i32, top: i32, justify: Justify) -
             padding: UiRect::all(px(12)),
         }
         Children [
-            Text::new(text)
+            Text(text)
             TextFont {
                 font_size: FontSize::Px(20.0),
             }

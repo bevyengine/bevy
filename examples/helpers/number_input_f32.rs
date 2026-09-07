@@ -39,13 +39,13 @@ where
                     width: px(150),
                 }
                 Children [
-                    label(name)
+                    @label(name)
                 ],
 
-                template_value(identifier)
+                identifier
                 @FeathersNumberInput
-                template_value(NumberInputValue::F32(value))
-                template_value(precision)
+                NumberInputValue::F32(value)
+                precision
                 HardLimit::f32(limits)
                 Node {
                     align_items: AlignItems::Center,
@@ -66,12 +66,12 @@ where
                     width: px(150),
                 }
                 Children [
-                    label(name)
+                    @label(name)
                 ],
 
                 @FeathersNumberInput
-                template_value(NumberInputValue::F32(value))
-                template_value(precision)
+                NumberInputValue::F32(value)
+                precision
                 HardLimit::f32(limits)
                 Node {
                     align_items: AlignItems::Center,

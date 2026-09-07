@@ -248,9 +248,9 @@ fn spawn_camera(commands: &mut Commands) {
 /// Spawns all the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
         Children [
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Emissive Decals",
                 &[
                     (AppSetting::EmissiveDecals(false), "Off"),

@@ -86,7 +86,7 @@ fn setup(mut commands: Commands, mut rng: ResMut<SeededRng>) {
         }
         Children [
             @FeathersButton {
-                @caption: bsn! { caption("Button") }
+                @caption: bsn! { @caption("Button") }
             }
             Node {
                 width: px(150),

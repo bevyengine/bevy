@@ -1338,6 +1338,46 @@ impl CornerRadius {
         }
     }
 
+    /// Creates a corner radius with the same `radius` on both axes.
+    ///
+    /// Note that since each axis is resolved independently, the resolved radii may not be equal (see example below).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Vec2;
+    /// # use bevy_ui::{CornerRadius, Val};
+    /// # use bevy_text::{EmSize, RemSize};
+    /// let radius = Val::Px(30.0);
+    /// let size = Vec2::new(100.0, 50.0);
+    /// let viewport_size = Vec2::new(1920.0, 1080.0);
+    /// let em_size = EmSize(20.0);
+    /// let rem_size = RemSize(20.0);
+    ///
+    /// let c1 = CornerRadius::all(radius);
+    /// let c2 = CornerRadius {
+    ///     x: radius,
+    ///     y: radius,
+    /// };
+    ///
+    /// let r = c1.resolve(1.0, size, viewport_size, em_size, rem_size);
+    /// assert_eq!(
+    ///     r,
+    ///     c2.resolve(1.0, size, viewport_size, em_size, rem_size),
+    /// );
+    /// assert_eq!(
+    ///     r,
+    ///     Vec2::new(30., 25.)
+    /// );
+    /// ```
+    #[inline]
+    pub const fn all(radius: Val) -> Self {
+        Self {
+            x: radius,
+            y: radius,
+        }
+    }
+
     /// Creates a corner radius with the given horizontal (`x`) and vertical (`y`) radii.
     #[inline]
     pub const fn new(x: Val, y: Val) -> Self {

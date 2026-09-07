@@ -233,7 +233,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
                 top: px(10),
             }
             Children [
-                Text::new("Move with arrow keys.")
+                Text("Move with arrow keys.")
             ],
 
             Node {
@@ -261,7 +261,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
                     }
             })
             Children [
-                Text::new("Restart Game")
+                Text("Restart Game")
                 TextFont {
                         font_size: FontSize::Px(33.0),
                 }

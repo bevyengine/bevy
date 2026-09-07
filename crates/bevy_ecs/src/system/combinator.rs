@@ -6,9 +6,9 @@ use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::ErrorContext,
     prelude::World,
-    query::FilteredAccessSet,
+    query::FilteredAccess,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn},
+    system::{input::SystemInput, SystemAccess, SystemIn},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -230,7 +230,7 @@ where
         self.b.queue_deferred(world);
     }
 
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
@@ -238,7 +238,10 @@ where
         // We might need to read the fallback error handler after the component
         // systems have run to report failures.
         let error_resource = world.register_component::<crate::error::FallbackErrorHandler>();
-        a_access.add_resource_read(error_resource);
+        let mut error_resource_access = FilteredAccess::default();
+        error_resource_access.add_read(error_resource);
+        a_access.ensure_filtered_access(error_resource_access);
+
         a_access
     }
 
@@ -422,7 +425,7 @@ where
         self.b.queue_deferred(world);
     }
 
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);

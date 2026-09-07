@@ -125,8 +125,8 @@ fn setup(
                 padding: UiRect::all(px(20)),
             }
             Children [
-                rotate_button("<", Direction::Left),
-                rotate_button(">", Direction::Right),
+                @rotate_button("<", Direction::Left),
+                @rotate_button(">", Direction::Right),
             ]
         }
     }
@@ -135,7 +135,7 @@ fn setup(
         bsn! {
             RotateCamera(direction)
             @FeathersButton {
-                @caption: bsn! { caption(text_caption) },
+                @caption: bsn! { @caption(text_caption) },
             }
             Node {
                 width: px(40),
