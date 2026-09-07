@@ -261,15 +261,12 @@ impl Plugin for MeshRenderPlugin {
             let render_mesh_instances = RenderMeshInstances::new(use_gpu_instance_buffer_builder);
             render_app
                 .allow_ambiguous_resource::<no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>>()
-                .allow_ambiguous_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
+                .allow_ambiguous_resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
                 .insert_resource(render_mesh_instances);
 
             if use_gpu_instance_buffer_builder {
                 render_app
-                    .init_gpu_resource::<gpu_preprocessing::BatchedInstanceBuffers<
-                        MeshUniform,
-                        MeshInputUniform
-                    >>()
+                    .init_gpu_resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
                     .init_gpu_resource::<RenderMeshInstanceGpuQueues>()
                     .init_resource::<MeshesToReextractNextFrame>()
                     .add_systems(
@@ -2450,9 +2447,7 @@ pub fn set_mesh_motion_vector_flags(
 /// preprocessing is in use.
 pub fn collect_meshes_for_gpu_building(
     render_mesh_instances: ResMut<RenderMeshInstances>,
-    batched_instance_buffers: ResMut<
-        gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
-    >,
+    batched_instance_buffers: ResMut<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     mut render_gpu_culled_entities: ResMut<RenderGpuCulledEntities>,
@@ -2475,7 +2470,7 @@ pub fn collect_meshes_for_gpu_building(
     meshes_to_reextract_next_frame.clear();
 
     // Collect render mesh instances. Build up the uniform buffer.
-    let gpu_preprocessing::BatchedInstanceBuffers {
+    let BatchedInstanceBuffers {
         current_input_buffer,
         previous_input_buffer,
         ..
@@ -3960,7 +3955,7 @@ pub fn prepare_mesh_bind_groups(
         Res<no_gpu_preprocessing::BatchedInstanceBuffer<MeshUniform>>,
     >,
     gpu_batched_instance_buffers: Option<
-        Res<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+        Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     >,
     skins_uniform: Res<SkinUniforms>,
     weights_uniform: Res<MorphUniforms>,
