@@ -17,6 +17,7 @@ use bevy_asset::{
 };
 use bevy_core_pipeline::mip_generation::{self, DownsampleShaders, DownsamplingConstants};
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     message::MessageReader,
@@ -491,7 +492,7 @@ pub fn extract_generated_environment_map_entities(
 
         if filtered_env_map.regenerate {
             entity_commands.insert(RegenerateEnvironmentMap);
-            filtered_env_map.regenerate = false;
+            filtered_env_map.bypass_change_detection().regenerate = false;
         }
     }
 }
