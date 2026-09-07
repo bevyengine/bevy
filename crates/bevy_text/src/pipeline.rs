@@ -11,7 +11,7 @@ use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::hash::BuildHasher;
 use parley::style::{OverflowWrap, TextWrapMode, WordBreak};
-use parley::{Alignment, AlignmentOptions, Layout, PositionedLayoutItem, StyleProperty};
+use parley::{Alignment, AlignmentOptions, Layout, PositionedLayoutItem, Run, StyleProperty};
 use swash::FontRef;
 
 use crate::{
@@ -259,7 +259,7 @@ impl TextPipeline {
                     TextItem::Box(inline_box) => {
                         builder.push_inline_box(parley::InlineBox {
                             id: section.entity.to_bits(),
-                            kind: inline_box.kind,
+                            kind: inline_box.kind.into(),
                             index: start,
                             width: inline_box.width,
                             height: inline_box.height,
@@ -348,98 +348,112 @@ impl TextPipeline {
 
         for (line_index, line) in layout.lines().enumerate() {
             for item in line.items() {
-                if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
-                    let section_index = glyph_run.style().brush.section_index;
-                    let font_smoothing = glyph_run.style().brush.font_smoothing;
-                    let run = glyph_run.run();
-                    let font = run.font();
-                    let font_size = run.font_size();
-                    let coords = run.normalized_coords();
-                    let variations_hash = FixedHasher.hash_one(coords);
-                    let font_atlas_key = FontAtlasKey {
-                        id: font.data.id() as u32,
-                        index: font.index,
-                        font_size_bits: font_size.to_bits(),
-                        variations_hash,
-                        hinting,
-                        font_smoothing,
-                    };
-
-                    let Some(font_ref) =
-                        FontRef::from_index(font.data.as_ref(), font.index as usize)
-                    else {
-                        return Err(TextError::NoSuchFont);
-                    };
-
-                    let mut maybe_scaler = None;
-
-                    for glyph in glyph_run.positioned_glyphs() {
-                        let Ok(glyph_id) = u16::try_from(glyph.id) else {
-                            continue;
+                match item {
+                    PositionedLayoutItem::GlyphRun(glyph_run) => {
+                        let section_index = glyph_run.style().brush.section_index;
+                        let font_smoothing = glyph_run.style().brush.font_smoothing;
+                        let run = glyph_run.run();
+                        let font = run.font();
+                        let font_size = run.font_size();
+                        let coords = run.normalized_coords();
+                        let variations_hash = FixedHasher.hash_one(coords);
+                        let font_atlas_key = FontAtlasKey {
+                            id: font.data.id() as u32,
+                            index: font.index,
+                            font_size_bits: font_size.to_bits(),
+                            variations_hash,
+                            hinting,
+                            font_smoothing,
                         };
 
-                        let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
-
-                        let atlas_info = match get_glyph_atlas_info(
-                            font_atlases,
-                            crate::GlyphCacheKey { glyph_id },
-                        ) {
-                            Some(info) => info,
-                            None => {
-                                if maybe_scaler.is_none() {
-                                    let font_id = [font.data.id(), font.index.into()];
-                                    let hint = hinting.is_enabled()
-                                        && font_smoothing == FontSmoothing::AntiAliased;
-                                    maybe_scaler = Some(
-                                        scale_cx
-                                            .0
-                                            .builder_with_id(font_ref, font_id)
-                                            .size(font_size)
-                                            .hint(hint)
-                                            .normalized_coords(coords)
-                                            .build(),
-                                    );
-                                }
-                                add_glyph_to_atlas(
-                                    font_atlases,
-                                    textures,
-                                    maybe_scaler.as_mut().unwrap(),
-                                    font_smoothing,
-                                    glyph_id,
-                                )?
-                            }
+                        let Some(font_ref) =
+                            FontRef::from_index(font.data.as_ref(), font.index as usize)
+                        else {
+                            return Err(TextError::NoSuchFont);
                         };
 
-                        let glyph_pos = Vec2::new(glyph.x, glyph.y);
-                        let size = atlas_info.rect.size();
+                        let mut maybe_scaler = None;
 
-                        layout_info.glyphs.push(PositionedGlyph {
-                            position: size / 2.
-                                + if font_smoothing == FontSmoothing::None {
-                                    glyph_pos.floor()
-                                } else {
-                                    glyph_pos
+                        for glyph in glyph_run.positioned_glyphs() {
+                            let Ok(glyph_id) = u16::try_from(glyph.id) else {
+                                continue;
+                            };
+
+                            let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
+
+                            let atlas_info = match get_glyph_atlas_info(
+                                font_atlases,
+                                crate::GlyphCacheKey { glyph_id },
+                            ) {
+                                Some(info) => info,
+                                None => {
+                                    if maybe_scaler.is_none() {
+                                        let font_id = [font.data.id(), font.index.into()];
+                                        let hint = hinting.is_enabled()
+                                            && font_smoothing == FontSmoothing::AntiAliased;
+                                        maybe_scaler = Some(
+                                            scale_cx
+                                                .0
+                                                .builder_with_id(font_ref, font_id)
+                                                .size(font_size)
+                                                .hint(hint)
+                                                .normalized_coords(coords)
+                                                .build(),
+                                        );
+                                    }
+                                    add_glyph_to_atlas(
+                                        font_atlases,
+                                        textures,
+                                        maybe_scaler.as_mut().unwrap(),
+                                        font_smoothing,
+                                        glyph_id,
+                                    )?
                                 }
-                                + atlas_info.offset,
-                            atlas_info,
+                            };
+
+                            let glyph_pos = Vec2::new(glyph.x, glyph.y);
+                            let size = atlas_info.rect.size();
+
+                            layout_info.glyphs.push(PositionedGlyph {
+                                position: size / 2.
+                                    + if font_smoothing == FontSmoothing::None {
+                                        glyph_pos.floor()
+                                    } else {
+                                        glyph_pos
+                                    }
+                                    + atlas_info.offset,
+                                atlas_info,
+                                section_index,
+                                line_index: line_index as u32,
+                            });
+                        }
+
+                        layout_info.run_geometry.push(RunGeometry {
                             section_index,
-                            line_index: line_index as u32,
+                            bounds: Rect::new(
+                                glyph_run.offset(),
+                                line.metrics().block_min_coord,
+                                glyph_run.offset() + glyph_run.advance(),
+                                line.metrics().block_max_coord,
+                            ),
+                            strikethrough_y: glyph_run.baseline()
+                                - run.metrics().strikethrough_offset,
+                            strikethrough_thickness: run.metrics().strikethrough_size,
+                            underline_y: glyph_run.baseline() - run.metrics().underline_offset,
+                            underline_thickness: run.metrics().underline_size,
                         });
                     }
-
-                    layout_info.run_geometry.push(RunGeometry {
-                        section_index,
-                        bounds: Rect::new(
-                            glyph_run.offset(),
-                            line.metrics().block_min_coord,
-                            glyph_run.offset() + glyph_run.advance(),
-                            line.metrics().block_max_coord,
-                        ),
-                        strikethrough_y: glyph_run.baseline() - run.metrics().strikethrough_offset,
-                        strikethrough_thickness: run.metrics().strikethrough_size,
-                        underline_y: glyph_run.baseline() - run.metrics().underline_offset,
-                        underline_thickness: run.metrics().underline_size,
-                    });
+                    PositionedLayoutItem::InlineBox(inline_box) => {
+                        let min = Vec2::new(inline_box.x, inline_box.y);
+                        layout_info.inline_boxes.push((
+                            Entity::from_bits(inline_box.id),
+                            inline_box.kind.into(),
+                            Rect {
+                                min,
+                                max: min + Vec2::new(inline_box.width, inline_box.height),
+                            },
+                        ));
+                    }
                 }
             }
         }
@@ -476,6 +490,8 @@ pub struct TextLayoutInfo {
     /// Underline rects for the active IME preedit/compose region.
     /// Should only have values when composition is in progress.
     pub preedit_underline_rects: Vec<Rect>,
+    /// inline boxes
+    pub inline_boxes: Vec<(Entity, crate::InlineBoxKind, Rect)>,
 }
 
 impl TextLayoutInfo {
@@ -501,6 +517,7 @@ impl Default for TextLayoutInfo {
             cursor: None,
             selection_rects: Default::default(),
             preedit_underline_rects: Default::default(),
+            inline_boxes: Default::default(),
         }
     }
 }
