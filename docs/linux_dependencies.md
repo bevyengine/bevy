@@ -285,3 +285,25 @@ It is necessary to have the hgame module loaded in order to satisfy gli-rs. It w
 ```sh
 hgame_load="YES"
 ```
+
+## [Bazzite](https://bazzite.gg/)
+
+Bazzite is built atop an immutable version of Fedora. But it ships with distrobox, which we can use to get the development packages we need without installing them onto the immutable OS.
+
+Create a new distrobox built on fedora:
+
+```sh
+distrobox create -n fedora --image fedora:latest --additional-packages "gcc-c++ libX11-devel alsa-lib-devel systemd-devel wayland-devel libxkbcommon-devel"
+```
+
+Now you have a distrobox named fedora that can run your builds:
+
+```sh
+distrobox-enter --name fedora -- cargo build
+```
+
+Once an executable is built, run it as normal:
+
+```sh
+cargo run
+```
