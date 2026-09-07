@@ -369,10 +369,10 @@ impl Scene for InsertTemplate {
     }
 }
 
-/// A [`Scene`] that adds an `L` [`SceneList`] as "related scenes", using the `R` [`Relationship`]
+/// A [`Scene`] that adds a [`SceneList`] as "related scenes", using the `R` [`RelationshipTarget`]
 pub struct RelatedScenes<R: RelationshipTarget> {
-    /// The related [`SceneList`]. Each entity described in the list will be spawned with the given [`Relationship`] to the
-    /// entity described in the current [`Scene`].
+    /// The related [`SceneList`]. Each entity described in the list will be spawned and added to the [`RelationshipTarget`],
+    /// which will be added to the current scene.
     pub related_template_list: Box<dyn SceneList>,
 
     /// Marker holding the `R` type.
