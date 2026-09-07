@@ -9,7 +9,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
@@ -104,7 +103,6 @@ impl FeathersButton {
             props.variant
             Hovered
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-            TabIndex(0)
             FocusIndicator
             ThemeBackgroundColor(tokens::BUTTON_BG)
             InheritableThemeTextColor(tokens::BUTTON_TEXT)

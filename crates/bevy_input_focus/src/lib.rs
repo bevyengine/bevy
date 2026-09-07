@@ -9,6 +9,7 @@
 //! A UI-centric focus system for Bevy.
 //!
 //! This crate provides a system for managing input focus in Bevy applications, including:
+//! * [`Focusable`], a component marking entities that may receive input focus.
 //! * [`InputFocus`], a resource for tracking which entity has input focus.
 //! * Methods for getting and setting input focus via [`InputFocus`] and [`IsFocusedHelper`].
 //! * Events for when entities gain or lose focus: [`FocusGained`] and [`FocusLost`].
@@ -60,6 +61,15 @@ use core::fmt::Debug;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
+
+/// Marks an entity as able to receive input focus.
+#[derive(Component, Default, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, Debug, Clone, PartialEq)
+)]
+pub struct Focusable;
 
 /// Resource representing which entity has input focus, if any. Input events (other than pointer-like inputs) will be
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
@@ -279,14 +289,9 @@ impl Traversal<AcquireFocus> for WindowTraversal {
 /// Observer which clears input focus when an [`AcquireFocus`] request bubbles all the way up
 /// to a [`Window`] without finding a focusable target.
 ///
-/// This is the generalized half of focus acquisition: it has no knowledge of any specific
-/// focus-navigation scheme. It is what makes "click outside to unfocus" work even when no
-/// navigation framework (e.g. [`tab_navigation`]) is installed — an [`AcquireFocus`] triggered
-/// on a non-focusable entity bubbles via [`WindowTraversal`] until it reaches the window, where
-/// this observer clears focus. Actually *focusing* a target is the responsibility of a
-/// navigation module: for tab navigation, that is
-/// [`acquire_focus_tab_index`](tab_navigation::acquire_focus_tab_index), which stops the request
-/// (and focuses the target) before it can reach the window.
+/// This makes "click outside to unfocus" work even when no navigation framework is installed: an
+/// [`AcquireFocus`] triggered on a non-focusable entity bubbles via [`WindowTraversal`] until it
+/// reaches the window, where this observer clears focus.
 ///
 /// Clearing focus relies on the request actually *reaching* the window via [`WindowTraversal`].
 /// That traversal walks up [`ChildOf`] relationships, and — as a fallback — routes to
@@ -311,6 +316,20 @@ pub fn on_window_acquire_focus_clear(
     }
 }
 
+/// Observer which focuses the first [`Focusable`] target of an [`AcquireFocus`] request.
+pub fn acquire_focus(
+    mut acquire_focus: On<AcquireFocus>,
+    focusable: Query<(), (With<Focusable>, Without<Window>)>,
+    mut focus: ResMut<InputFocus>,
+) {
+    if focusable.contains(acquire_focus.focused_entity) {
+        acquire_focus.propagate(false);
+        if focus.get() != Some(acquire_focus.focused_entity) {
+            focus.set(acquire_focus.focused_entity, FocusCause::Navigated);
+        }
+    }
+}
+
 /// Plugin which sets up the core input focus system.
 ///
 /// This includes the[`InputFocus`] and [`InputFocusVisible`] resources,
@@ -324,6 +343,7 @@ impl Plugin for InputFocusPlugin {
         app.add_systems(PostStartup, set_initial_focus)
             .init_resource::<InputFocus>()
             .init_resource::<InputFocusVisible>()
+            .add_observer(acquire_focus)
             .add_observer(on_window_acquire_focus_clear)
             .add_systems(
                 PostUpdate,
@@ -842,5 +862,32 @@ mod tests {
         app.update();
 
         assert_eq!(app.world().resource::<InputFocus>().get(), None);
+    }
+
+    #[test]
+    fn acquire_focus_focuses_focusable_without_navigation_plugin() {
+        let (mut app, window) = acquire_focus_app();
+        let focusable = app.world_mut().spawn(Focusable).id();
+
+        app.world_mut().trigger(AcquireFocus {
+            focused_entity: focusable,
+            window,
+        });
+
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(focusable));
+    }
+
+    #[test]
+    fn acquire_focus_on_child_focuses_focusable_parent() {
+        let (mut app, window) = acquire_focus_app();
+        let parent = app.world_mut().spawn(Focusable).id();
+        let child = app.world_mut().spawn(ChildOf(parent)).id();
+
+        app.world_mut().trigger(AcquireFocus {
+            focused_entity: child,
+            window,
+        });
+
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(parent));
     }
 }

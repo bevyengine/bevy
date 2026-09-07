@@ -10,7 +10,6 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
     template::template,
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{cursor::EntityCursor, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
@@ -120,7 +119,6 @@ impl FeathersTextInput {
             TextLayout {
                 linebreak: LineBreak::NoWrap,
             }
-            TabIndex(0)
             template(|ctx| {
                 Ok(TextFont {
                     font: FontSource::Handle(ctx.resource::<AssetServer>().load(fonts::REGULAR)),
