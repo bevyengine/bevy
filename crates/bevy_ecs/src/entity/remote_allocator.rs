@@ -38,7 +38,7 @@ use bevy_platform::{
         Arc,
     },
 };
-use core::mem::ManuallyDrop;
+use core::{mem::ManuallyDrop, ops::Range};
 use log::warn;
 use nonmax::NonMaxU32;
 
@@ -328,7 +328,7 @@ impl FreeBuffer {
     /// making safety for other operations afterward need careful justification.
     /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
-    unsafe fn iter(&self, indices: core::ops::Range<u32>) -> FreeBufferIterator<'_> {
+    unsafe fn iter(&self, indices: Range<u32>) -> FreeBufferIterator<'_> {
         FreeBufferIterator {
             buffer: self,
             future_buffer_indices: indices,
@@ -357,7 +357,7 @@ struct FreeBufferIterator<'a> {
     /// The part of the buffer we are iterating at the moment.
     current_chunk_slice: core::slice::Iter<'a, Slot>,
     /// The indices in the buffer that are not yet in `current_chunk_slice`.
-    future_buffer_indices: core::ops::Range<u32>,
+    future_buffer_indices: Range<u32>,
 }
 
 impl<'a> Iterator for FreeBufferIterator<'a> {
@@ -749,12 +749,16 @@ impl FreeList {
 struct FreshAllocator {
     /// The next value of [`Entity::index`] to give out if needed.
     next_entity_index: AtomicU32,
+    max_index: u32,
 }
 
 impl FreshAllocator {
-    /// This exists because it may possibly change depending on platform.
-    /// Ex: We may want this to be smaller on 32 bit platforms at some point.
-    const MAX_ENTITIES: u32 = u32::MAX;
+    pub(crate) fn new(range: Range<u32>) -> Self {
+        Self {
+            next_entity_index: AtomicU32::new(range.start),
+            max_index: range.end,
+        }
+    }
 
     /// The total number of indices given out.
     #[inline]
@@ -771,15 +775,24 @@ impl FreshAllocator {
     }
 
     /// Allocates a fresh [`EntityIndex`].
-    /// This row has never been given out before.
+    /// This index has never been given out before.
+    /// If no index is available (out of range), than it returns None
     #[inline]
-    fn alloc(&self) -> Entity {
+    fn alloc(&self) -> Option<Entity> {
         let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
-        if index == Self::MAX_ENTITIES {
-            Self::on_overflow();
+        if index >= self.max_index {
+            self.next_entity_index
+                .store(self.max_index, Ordering::Relaxed);
+            if index == u32::MAX {
+                Self::on_overflow();
+            }
+            return None;
         }
+
         // SAFETY: We just checked that this was not max and we only added 1, so we can't have missed it.
-        Entity::from_index(unsafe { EntityIndex::new(NonMaxU32::new_unchecked(index)) })
+        Some(Entity::from_index(unsafe {
+            EntityIndex::new(NonMaxU32::new_unchecked(index))
+        }))
     }
 
     /// Allocates `count` [`EntityIndex`]s.
@@ -789,7 +802,7 @@ impl FreshAllocator {
         let start_new = self.next_entity_index.fetch_add(count, Ordering::Relaxed);
         let new = match start_new
             .checked_add(count)
-            .filter(|new| *new < Self::MAX_ENTITIES)
+            .filter(|new| *new < self.max_index)
         {
             Some(new_next_entity_index) => start_new..new_next_entity_index,
             None => Self::on_overflow(),
@@ -802,7 +815,7 @@ impl FreshAllocator {
 /// These rows have never been given out before.
 ///
 /// **NOTE:** Dropping will leak the remaining entity rows!
-pub(super) struct AllocUniqueEntityIndexIterator(core::ops::Range<u32>);
+pub(super) struct AllocUniqueEntityIndexIterator(Range<u32>);
 
 impl Iterator for AllocUniqueEntityIndexIterator {
     type Item = Entity;
@@ -836,25 +849,24 @@ struct SharedAllocator {
 
 impl SharedAllocator {
     /// Constructs a [`SharedAllocator`]
-    fn new() -> Self {
+    fn new(range: Range<u32>) -> Self {
         Self {
             free: FreeList::new(),
-            fresh: FreshAllocator {
-                next_entity_index: AtomicU32::new(0),
-            },
+            fresh: FreshAllocator::new(range),
             is_closed: AtomicBool::new(false),
         }
     }
 
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
+    /// If no more entities can be allocated, this returns None
     ///
     /// # Safety
     ///
     /// This must not conflict with [`FreeList::free`] calls.
     #[inline]
-    unsafe fn alloc(&self) -> Entity {
+    unsafe fn try_alloc(&self) -> Option<Entity> {
         // SAFETY: assured by caller
-        unsafe { self.free.alloc() }.unwrap_or_else(|| self.fresh.alloc())
+        unsafe { self.free.alloc() }.or_else(|| self.fresh.alloc())
     }
 
     /// Allocates a `count` [`Entity`]s, reusing freed indices if they exist.
@@ -874,10 +886,8 @@ impl SharedAllocator {
     /// Allocates a new [`Entity`].
     /// This will only try to reuse a freed index if it is safe to do so.
     #[inline]
-    fn remote_alloc(&self) -> Entity {
-        self.free
-            .remote_alloc()
-            .unwrap_or_else(|| self.fresh.alloc())
+    fn try_remote_alloc(&self) -> Option<Entity> {
+        self.free.remote_alloc().or_else(|| self.fresh.alloc())
     }
 
     /// Marks the allocator as closed, but it will still function normally.
@@ -903,28 +913,43 @@ pub(crate) struct Allocator {
     /// The local free list.
     /// We use this to amortize the cost of freeing to the shared allocator since that is expensive.
     local_free: Box<ArrayVec<Entity, 128>>,
+    /// The index range this allocator operates on
+    range: Range<u32>,
 }
 
 impl Default for Allocator {
     fn default() -> Self {
-        Self::new()
+        Self::new(0..u32::MAX)
     }
 }
 
 impl Allocator {
     /// Constructs a new [`Allocator`]
-    pub(super) fn new() -> Self {
+    pub(super) fn new(range: Range<u32>) -> Self {
         Self {
-            shared: Arc::new(SharedAllocator::new()),
+            shared: Arc::new(SharedAllocator::new(range.clone())),
             local_free: Box::new(ArrayVec::new()),
+            range,
         }
     }
 
+    /// Returns the range this allocator operates on
+    pub(super) fn range(&self) -> &Range<u32> {
+        &self.range
+    }
+
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
+    #[cfg(test)]
+    fn alloc(&self) -> Entity {
+        self.try_alloc().expect("out of entities")
+    }
+
+    /// Allocates a new [`Entity`], reusing a freed index if one exists.
+    /// Returns None if no entities are available within the range
     #[inline]
-    pub(super) fn alloc(&self) -> Entity {
+    pub(super) fn try_alloc(&self) -> Option<Entity> {
         // SAFETY: violating safety requires a `&mut self` to exist, but rust does not allow that.
-        unsafe { self.shared.alloc() }
+        unsafe { self.shared.try_alloc() }
     }
 
     /// The total number of indices given out.
@@ -1061,7 +1086,7 @@ impl RemoteAllocator {
         Arc::ptr_eq(&self.shared, &source.shared)
     }
 
-    /// Allocates an entity remotely.
+    /// Allocates an entity remotely, panicking if no more entities are available.
     ///
     /// This comes with a major downside:
     /// Because this does not hold reference to the world, the world may be cleared or destroyed before you get a chance to use the result.
@@ -1070,7 +1095,19 @@ impl RemoteAllocator {
     /// Before using the returned values in the world, first check that it is ok with [`EntityAllocator::has_remote_allocator`](super::EntityAllocator::has_remote_allocator).
     #[inline]
     pub fn alloc(&self) -> Entity {
-        self.shared.remote_alloc()
+        self.shared.try_remote_alloc().expect("out of entities")
+    }
+
+    /// Allocates an entity remotely, returning `None` if no more entities are available.
+    ///
+    /// This comes with a major downside:
+    /// Because this does not hold reference to the world, the world may be cleared or destroyed before you get a chance to use the result.
+    /// If that happens, these entities will be garbage!
+    /// They will not be unique in the world anymore and you should not spawn them!
+    /// Before using the returned values in the world, first check that it is ok with [`EntityAllocator::has_remote_allocator`](super::EntityAllocator::has_remote_allocator).
+    #[inline]
+    pub fn try_alloc(&self) -> Option<Entity> {
+        self.shared.try_remote_alloc()
     }
 
     /// Returns whether or not this [`RemoteAllocator`] is still connected to its source [`EntityAllocator`](super::EntityAllocator).
@@ -1145,7 +1182,7 @@ mod tests {
     #[test]
     fn uniqueness() {
         let mut entities = Vec::with_capacity(2000);
-        let mut allocator = Allocator::new();
+        let mut allocator = Allocator::default();
         entities.extend(allocator.alloc_many(1000));
 
         let pre_len = entities.len();
@@ -1171,7 +1208,7 @@ mod tests {
     /// This test just exists to make sure allocations don't step on each other's toes.
     #[test]
     fn allocation_order_correctness() {
-        let mut allocator = Allocator::new();
+        let mut allocator = Allocator::default();
         let e0 = allocator.alloc();
         let e1 = allocator.alloc();
         let e2 = allocator.alloc();
