@@ -948,17 +948,6 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "sprite_z_order"
-path = "examples/2d/sprite_z_order.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.sprite_z_order]
-name = "Sprite Z Order"
-description = "Visual check that a blended sprite moved by a key press keeps the correct draw order against a static one"
-category = "2D Rendering"
-wasm = true
-
-[[example]]
 name = "sprite_animation"
 path = "examples/2d/sprite_animation.rs"
 doc-scrape-examples = true
