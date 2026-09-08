@@ -30,6 +30,6 @@ pub fn observer_lifecycle(criterion: &mut Criterion) {
 #[derive(Component)]
 struct A;
 
-fn on_insert(event: On<Insert, A>) {
+fn on_insert(event: On<Insert<A>>) {
     black_box(event);
 }

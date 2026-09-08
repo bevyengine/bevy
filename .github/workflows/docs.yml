@@ -39,9 +39,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
-        with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+      - name: Install toolchain
+        run: |
+          rustup toolchain install ${{ env.NIGHTLY_TOOLCHAIN }} --no-self-update --profile=minimal
+          rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
+          cargo -V
 
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps

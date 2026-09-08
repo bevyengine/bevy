@@ -13,7 +13,9 @@ use bevy_ecs::{
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::FocusedInput;
-use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
+use bevy_picking::events::{
+    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
+};
 use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
@@ -196,7 +198,7 @@ fn radio_button_on_key_input(
 }
 
 fn radio_button_on_click(
-    mut click: On<Pointer<Click>>,
+    mut click: On<PointerClick>,
     q_group: Query<(), With<RadioGroup>>,
     q_radio: Query<
         (Has<InteractionDisabled>, Has<Checked>),
@@ -226,7 +228,7 @@ fn radio_button_on_click(
 }
 
 fn radio_button_on_pointer_down(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     q_group: Query<(), With<RadioGroup>>,
     mut q_radio: Query<
         (
@@ -260,7 +262,7 @@ fn radio_button_on_pointer_down(
 }
 
 fn radio_button_on_pointer_up(
-    mut release: On<Pointer<Release>>,
+    mut release: On<PointerRelease>,
     mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
     mut commands: Commands,
 ) {
@@ -273,7 +275,7 @@ fn radio_button_on_pointer_up(
 }
 
 fn radio_button_on_pointer_drag_end(
-    mut drag_end: On<Pointer<DragEnd>>,
+    mut drag_end: On<PointerDragEnd>,
     mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
     mut commands: Commands,
 ) {
@@ -286,7 +288,7 @@ fn radio_button_on_pointer_drag_end(
 }
 
 fn radio_button_on_pointer_cancel(
-    mut cancel: On<Pointer<Cancel>>,
+    mut cancel: On<PointerCancel>,
     mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
     mut commands: Commands,
 ) {
@@ -356,7 +358,7 @@ pub fn radio_self_update(
     };
 
     // Iterate the children of this radio group
-    let mut iter = q_radio.iter_many(children);
+    let mut iter = q_radio.iter_many(children).matched();
     while let Some(radio) = iter.fetch_next() {
         if radio == value_change.value {
             commands.entity(radio).insert(Checked);
@@ -374,6 +376,7 @@ mod tests {
     use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputFocusPlugin};
     use bevy_math::Vec2;
     use bevy_picking::backend::HitData;
+    use bevy_picking::events::Pointer;
     use bevy_picking::pointer::{Location, PointerButton, PointerId};
     use bevy_window::{PrimaryWindow, Window, WindowRef};
 
@@ -405,19 +408,16 @@ mod tests {
         }
     }
 
-    /// Triggers the `Pointer<Click>` event, the last event a real click ends with, on `target`.
+    /// Triggers the `PointerClick` event, the last event a real click ends with, on `target`.
     fn click_entity(app: &mut App, target: Entity, window: Entity) {
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            window_location(window),
-            Click {
-                button: PointerButton::Primary,
-                hit: HitData::new(window, 0.0, None, None),
-                duration: core::time::Duration::from_millis(10),
-                count: 1,
-            },
-            target,
-        ));
+        app.world_mut().trigger(PointerClick {
+            entity: target,
+            pointer: Pointer::new(PointerId::Mouse, window_location(window)),
+            button: PointerButton::Primary,
+            hit: HitData::new(window, 0.0, None, None),
+            duration: core::time::Duration::from_millis(10),
+            count: 1,
+        });
         app.update();
     }
 

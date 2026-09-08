@@ -70,6 +70,8 @@ fn main() {
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
         app.add_systems(Update, toggle_dlss_rr);
 
+        app.add_systems(Update, toggle_restir);
+
         if args.many_lights != Some(true) {
             app.add_systems(Update, (pause_scene, toggle_lights, patrol_path));
         }
@@ -164,11 +166,7 @@ fn setup_pica_pica(
     // Using DLSS Ray Reconstruction for denoising (and cheaper rendering via upscaling) is _highly_ recommended when using Solari
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
-        camera.insert(Dlss::<DlssRayReconstructionFeature> {
-            perf_quality_mode: Default::default(),
-            reset: Default::default(),
-            _phantom_data: Default::default(),
-        });
+        camera.insert(Dlss::<DlssRayReconstructionFeature>::default());
     }
 
     commands.spawn((
@@ -187,7 +185,7 @@ fn setup_pica_pica(
             position_type: PositionType::Absolute,
             right: px(0.0),
             padding: px(4.0).all(),
-            border_radius: BorderRadius::bottom_left(Val2::all(px(4.0))),
+            border_radius: BorderRadius::bottom_left(px(4.0)),
             ..default()
         },
         BackgroundColor(Color::srgba(0.10, 0.10, 0.10, 0.8)),
@@ -349,11 +347,7 @@ fn setup_many_lights(
     // Using DLSS Ray Reconstruction for denoising (and cheaper rendering via upscaling) is _highly_ recommended when using Solari
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
-        camera.insert(Dlss::<DlssRayReconstructionFeature> {
-            perf_quality_mode: Default::default(),
-            reset: Default::default(),
-            _phantom_data: Default::default(),
-        });
+        camera.insert(Dlss::<DlssRayReconstructionFeature>::default());
     }
 
     commands.spawn((
@@ -372,7 +366,7 @@ fn setup_many_lights(
             position_type: PositionType::Absolute,
             right: px(0.0),
             padding: px(4.0).all(),
-            border_radius: BorderRadius::bottom_left(Val2::all(px(4.0))),
+            border_radius: BorderRadius::bottom_left(px(4.0)),
             ..default()
         },
         BackgroundColor(Color::srgba(0.10, 0.10, 0.10, 0.8)),
@@ -475,12 +469,17 @@ fn toggle_dlss_rr(
         } else {
             commands
                 .entity(entity)
-                .insert(Dlss::<DlssRayReconstructionFeature> {
-                    perf_quality_mode: Default::default(),
-                    reset: Default::default(),
-                    _phantom_data: Default::default(),
-                });
+                .insert(Dlss::<DlssRayReconstructionFeature>::default());
         }
+    }
+}
+
+fn toggle_restir(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut solari_lighting: Single<&mut SolariLighting>,
+) {
+    if key_input.just_pressed(KeyCode::KeyR) {
+        solari_lighting.restir = !solari_lighting.restir;
     }
 }
 
@@ -568,6 +567,7 @@ struct ControlText;
 
 fn update_control_text(
     mut text: Single<&mut Text, With<ControlText>>,
+    solari_lighting: Single<&SolariLighting>,
     robot_light_material: Option<Res<RobotLightMaterial>>,
     materials: Res<Assets<StandardMaterial>>,
     directional_light: Query<Entity, With<DirectionalLight>>,
@@ -621,6 +621,12 @@ fn update_control_text(
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
     text.0
         .push_str("\nDenoising: App not compiled with DLSS support");
+
+    if solari_lighting.restir {
+        text.0.push_str("\n(R): Disable ReSTIR");
+    } else {
+        text.0.push_str("\n(R): Enable ReSTIR");
+    }
 }
 
 #[derive(Component)]

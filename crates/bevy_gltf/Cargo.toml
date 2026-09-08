@@ -22,6 +22,7 @@ bevy_animation = { path = "../bevy_animation", version = "0.20.0-dev", optional 
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.20.0-dev" }
+bevy_curve = { path = "../bevy_curve", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.20.0-dev" }
 bevy_light = { path = "../bevy_light", version = "0.20.0-dev" }
@@ -59,7 +60,7 @@ gltf = { version = "1.4.0", default-features = false, features = [
 ] }
 async-lock = { version = "3.0", default-features = false }
 thiserror = { version = "2", default-features = false }
-base64 = "0.22.0"
+base64 = { version = "0.23.0", default-features = false, features = ["std"] }
 fixedbitset = "0.5"
 itertools = "0.14"
 percent-encoding = "2.1"

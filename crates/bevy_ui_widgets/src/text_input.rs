@@ -1,34 +1,35 @@
-//! Input handling for [`EditableText`] widgets.
+//! Input handling for [`TextInput`] widgets.
 //!
 //! This module provides systems to process keyboard input events and apply text edits
-//! to focused [`EditableText`] widgets.
+//! to focused [`TextInput`] widgets.
 //!
 //! Note that this module is distinct from the core `bevy_text` crate to avoid pulling in
 //! [`bevy_input`] to that crate, which is intended to be usable in non-interactive contexts.
 
-use bevy_a11y::AccessibilitySystems;
+use accesskit::Role;
+use bevy_a11y::{AccessibilityNode, AccessibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
-use bevy_ecs::prelude::*;
-use bevy_input::keyboard::{Key, KeyboardInput};
+use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy_input::{ButtonInput, InputSystems};
 use bevy_input_focus::{
     FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_math::Vec2;
-use bevy_picking::events::{Drag, Pointer, PointerState, Press, Release};
+use bevy_picking::events::{PointerDrag, PointerPress, PointerRelease, PointerState};
 use bevy_picking::pointer::PointerButton;
 use bevy_reflect::Reflect;
 use bevy_text::{
     scrollable_text_layout_width, EditableText, EditableTextSystems, PreeditCursor, TextEdit,
-    TextLayout, TextLayoutInfo,
+    TextLayout, TextLayoutInfo, TextReadWriteMode,
 };
 use bevy_time::{Real, Time};
 use bevy_ui::widget::{sync_editable_text_viewports, update_editable_text_layout};
-use bevy_ui::UiSystems;
 use bevy_ui::{
-    widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize,
-    InteractionDisabled, Node, UiGlobalTransform, UiScale,
+    widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node,
+    UiGlobalTransform, UiScale,
 };
+use bevy_ui::{InteractionDisabled, UiSystems};
 use bevy_window::{Ime, PrimaryWindow, Window};
 
 const NONE: u8 = 0;
@@ -36,19 +37,40 @@ const SUPER: u8 = 1;
 const CTRL: u8 = 2;
 const ALT: u8 = 4;
 const SHIFT: u8 = 8;
-const COMMAND: u8 = if cfg!(target_os = "macos") {
-    SUPER
-} else {
-    CTRL
-};
-// Modifier key for word-level navigation and selection. Alt on macOS, Control otherwise.
-const WORD: u8 = if cfg!(target_os = "macos") { ALT } else { CTRL };
-const SHIFT_WORD: u8 = SHIFT | WORD;
-#[cfg(target_os = "macos")]
 const SHIFT_SUPER: u8 = SHIFT | SUPER;
-const SHIFT_COMMAND: u8 = SHIFT | COMMAND;
-#[cfg(not(target_os = "macos"))]
 const SHIFT_ALT: u8 = SHIFT | ALT;
+
+/// Whether shortcuts follow the macOS layout (Cmd as the command key, Option
+/// for word navigation). Compile-time everywhere except wasm32, where one
+/// binary serves every host OS and the browser has to be asked at runtime.
+fn mac_host() -> bool {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        cfg!(target_os = "macos")
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        use bevy_platform::sync::OnceLock;
+        static MAC: OnceLock<bool> = OnceLock::new();
+        *MAC.get_or_init(|| {
+            web_sys::window().is_some_and(|w| {
+                let nav = w.navigator();
+                // platform() is deprecated but universally shipped; fall back
+                // to the UA string. "iP" covers iPhone/iPad with keyboards.
+                let platform = nav.platform().unwrap_or_default();
+                platform.starts_with("Mac")
+                    || platform.starts_with("iP")
+                    || (platform.is_empty() && nav.user_agent().unwrap_or_default().contains("Mac"))
+            })
+        })
+    }
+}
+
+/// Editable text widget.
+#[derive(Component, Clone, Default, Reflect)]
+#[require(EditableText, AccessibilityNode(accesskit::Node::new(Role::TextInput)))]
+#[reflect(Component)]
+pub struct TextInput;
 
 /// Autoscroll speed is proportional to the input size
 const AUTOSCROLL_BASE_SPEED: f32 = 0.75;
@@ -56,6 +78,31 @@ const AUTOSCROLL_MAX_SPEED: f32 = 2.0;
 /// Distance from the input to the point along an axis where `AUTOSCROLL_MAX_SPEED` is reached.
 /// Proportional to the input size.
 const AUTOSCROLL_RAMP_DISTANCE: f32 = 0.5;
+
+/// Returns `true` if the given keyboard input matches an editing-shortcut
+/// character (like the `C` in `Ctrl+C`).
+///
+/// Shortcut matching uses a hybrid strategy, mirroring the behavior of native
+/// text fields and browsers:
+///
+/// - The layout-aware [`logical_key`](KeyboardInput::logical_key) is checked
+///   first, so Latin non-QWERTY layouts (AZERTY, Dvorak, ...) keep their
+///   conventional shortcut positions.
+/// - If the logical key is not an ASCII character (non-Latin layouts such as
+///   Cyrillic, Greek, Arabic or Hebrew), the physical
+///   [`key_code`](KeyboardInput::key_code) is used as a layout-independent
+///   fallback.
+///
+/// Matching purely on `logical_key` breaks these shortcuts on non-Latin
+/// layouts, while matching purely on `key_code` breaks Latin non-QWERTY
+/// conventions. See <https://github.com/bevyengine/bevy/issues/24997>.
+fn matches_edit_shortcut(input: &KeyboardInput, character: &str, key_code: KeyCode) -> bool {
+    match &input.logical_key {
+        Key::Character(c) if c.is_ascii() => c.eq_ignore_ascii_case(character),
+        Key::Character(_) => input.key_code == key_code,
+        _ => false,
+    }
+}
 
 /// System that processes keyboard input events into text edit actions for focused [`EditableText`] widgets.
 ///
@@ -66,10 +113,19 @@ const AUTOSCROLL_RAMP_DISTANCE: f32 = 0.5;
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_focused_keyboard_input(
     mut keyboard_input: On<FocusedInput<KeyboardInput>>,
-    mut query: Query<&mut EditableText, Without<InteractionDisabled>>,
+    mut query: Query<
+        (
+            &mut EditableText,
+            &TextReadWriteMode,
+            Has<InteractionDisabled>,
+        ),
+        With<TextInput>,
+    >,
+    mut input_focus: ResMut<InputFocus>,
     keys: Res<ButtonInput<Key>>,
 ) {
-    let Ok(mut editable_text) = query.get_mut(keyboard_input.focused_entity) else {
+    let Ok((mut editable_text, rwmode, disabled)) = query.get_mut(keyboard_input.focused_entity)
+    else {
         return; // Focused entity is not an EditableText, nothing to do
     };
 
@@ -93,10 +149,23 @@ fn on_focused_keyboard_input(
 
     let shift_pressed = (mod_flags & SHIFT) != 0;
 
+    // Runtime values rather than consts (and guards rather than patterns
+    // below): on wasm the layout depends on the HOST os, not the compile
+    // target. See `mac_host`.
+    let mac = mac_host();
+    let command = if mac { SUPER } else { CTRL };
+    // Modifier key for word-level navigation and selection. Alt on macOS, Control otherwise.
+    let word = if mac { ALT } else { CTRL };
+    let shift_command = SHIFT | command;
+    let shift_word = SHIFT | word;
+
     let mut should_propagate = true;
 
-    let mut queue_edit = |edit| {
-        if keyboard_input.input.state.is_pressed() {
+    let mut queue_edit = |edit: TextEdit| {
+        if (*rwmode == TextReadWriteMode::Editable
+            || (!edit.is_destructive() && (!disabled || *rwmode == TextReadWriteMode::ReadOnly)))
+            && keyboard_input.input.state.is_pressed()
+        {
             editable_text.queue_edit(edit);
         }
         should_propagate = false;
@@ -106,50 +175,77 @@ fn on_focused_keyboard_input(
         (NONE, Key::Copy) => queue_edit(TextEdit::Copy),
         (NONE, Key::Cut) => queue_edit(TextEdit::Cut),
         (NONE, Key::Paste) => queue_edit(TextEdit::Paste),
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("a") => {
+        (m, Key::Character(_))
+            if m == command && matches_edit_shortcut(&keyboard_input.input, "a", KeyCode::KeyA) =>
+        {
             queue_edit(TextEdit::SelectAll);
         }
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("c") => {
+        (m, Key::Character(_))
+            if m == command && matches_edit_shortcut(&keyboard_input.input, "c", KeyCode::KeyC) =>
+        {
             queue_edit(TextEdit::Copy);
         }
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("x") => queue_edit(TextEdit::Cut),
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("v") => {
+        (m, Key::Character(_))
+            if m == command && matches_edit_shortcut(&keyboard_input.input, "x", KeyCode::KeyX) =>
+        {
+            queue_edit(TextEdit::Cut);
+        }
+        (m, Key::Character(_))
+            if m == command && matches_edit_shortcut(&keyboard_input.input, "v", KeyCode::KeyV) =>
+        {
             queue_edit(TextEdit::Paste);
         }
-        #[cfg(not(target_os = "macos"))]
-        (SHIFT, Key::Delete) => queue_edit(TextEdit::Cut),
-        (WORD, Key::Backspace) => queue_edit(TextEdit::BackspaceWord),
-        (WORD, Key::Delete) => queue_edit(TextEdit::DeleteWord),
-        #[cfg(target_os = "macos")]
-        (SUPER | SHIFT_SUPER, Key::ArrowLeft) => queue_edit(TextEdit::HardLineStart(shift_pressed)),
-        #[cfg(target_os = "macos")]
-        (SUPER | SHIFT_SUPER, Key::ArrowRight) => queue_edit(TextEdit::HardLineEnd(shift_pressed)),
-        #[cfg(not(target_os = "macos"))]
-        (ALT | SHIFT_ALT, Key::Home) => queue_edit(TextEdit::HardLineStart(shift_pressed)),
-        #[cfg(not(target_os = "macos"))]
-        (ALT | SHIFT_ALT, Key::End) => queue_edit(TextEdit::HardLineEnd(shift_pressed)),
-        (WORD | SHIFT_WORD, Key::ArrowLeft) => queue_edit(TextEdit::WordLeft(shift_pressed)),
-        (WORD | SHIFT_WORD, Key::ArrowRight) => queue_edit(TextEdit::WordRight(shift_pressed)),
+        (SHIFT, Key::Delete) if !mac => queue_edit(TextEdit::Cut),
+        (m, Key::Backspace) if m == word => queue_edit(TextEdit::BackspaceWord),
+        (m, Key::Delete) if m == word => queue_edit(TextEdit::DeleteWord),
+        (SUPER | SHIFT_SUPER, Key::ArrowLeft) if mac => {
+            queue_edit(TextEdit::HardLineStart(shift_pressed));
+        }
+        (SUPER | SHIFT_SUPER, Key::ArrowRight) if mac => {
+            queue_edit(TextEdit::HardLineEnd(shift_pressed));
+        }
+        (ALT | SHIFT_ALT, Key::Home) if !mac => queue_edit(TextEdit::HardLineStart(shift_pressed)),
+        (ALT | SHIFT_ALT, Key::End) if !mac => queue_edit(TextEdit::HardLineEnd(shift_pressed)),
+        (m, Key::ArrowLeft) if m == word || m == shift_word => {
+            queue_edit(TextEdit::WordLeft(shift_pressed));
+        }
+        (m, Key::ArrowRight) if m == word || m == shift_word => {
+            queue_edit(TextEdit::WordRight(shift_pressed));
+        }
         (NONE | SHIFT, Key::ArrowLeft) => queue_edit(TextEdit::Left(shift_pressed)),
         (NONE | SHIFT, Key::ArrowRight) => queue_edit(TextEdit::Right(shift_pressed)),
-        #[cfg(target_os = "macos")]
-        (COMMAND | SHIFT_COMMAND, Key::ArrowUp) => queue_edit(TextEdit::TextStart(shift_pressed)),
-        #[cfg(target_os = "macos")]
-        (COMMAND | SHIFT_COMMAND, Key::ArrowDown) => queue_edit(TextEdit::TextEnd(shift_pressed)),
+        (m, Key::ArrowUp) if mac && (m == command || m == shift_command) => {
+            queue_edit(TextEdit::TextStart(shift_pressed));
+        }
+        (m, Key::ArrowDown) if mac && (m == command || m == shift_command) => {
+            queue_edit(TextEdit::TextEnd(shift_pressed));
+        }
         (NONE | SHIFT, Key::ArrowUp) => queue_edit(TextEdit::Up(shift_pressed)),
         (NONE | SHIFT, Key::ArrowDown) => queue_edit(TextEdit::Down(shift_pressed)),
-        #[cfg(not(target_os = "macos"))]
-        (CTRL, Key::ArrowUp) => queue_edit(TextEdit::ScrollByLines(-1.0)),
-        #[cfg(not(target_os = "macos"))]
-        (CTRL, Key::ArrowDown) => queue_edit(TextEdit::ScrollByLines(1.0)),
-        (COMMAND | SHIFT_COMMAND, Key::Home) => queue_edit(TextEdit::TextStart(shift_pressed)),
-        (COMMAND | SHIFT_COMMAND, Key::End) => queue_edit(TextEdit::TextEnd(shift_pressed)),
+        (CTRL, Key::ArrowUp) if !mac => queue_edit(TextEdit::ScrollByLines(-1.0)),
+        (CTRL, Key::ArrowDown) if !mac => queue_edit(TextEdit::ScrollByLines(1.0)),
+        (m, Key::Home) if m == command || m == shift_command => {
+            queue_edit(TextEdit::TextStart(shift_pressed));
+        }
+        (m, Key::End) if m == command || m == shift_command => {
+            queue_edit(TextEdit::TextEnd(shift_pressed));
+        }
         (NONE | SHIFT, Key::Home) => queue_edit(TextEdit::LineStart(shift_pressed)),
         (NONE | SHIFT, Key::End) => queue_edit(TextEdit::LineEnd(shift_pressed)),
-        (NONE, Key::Backspace) => queue_edit(TextEdit::Backspace),
+        (NONE | SHIFT, Key::Backspace) => queue_edit(TextEdit::Backspace),
         (NONE, Key::Delete) => queue_edit(TextEdit::Delete),
-        (NONE, Key::Escape) => queue_edit(TextEdit::CollapseSelection),
-        (NONE | SHIFT, Key::Character(_)) | (NONE, Key::Space) => {
+        (NONE, Key::Escape) => {
+            queue_edit(TextEdit::CollapseSelection);
+            if keyboard_input.input.state.is_pressed() {
+                input_focus.clear();
+            }
+            // Escape belongs to the surrounding context (close a dialog, cancel,
+            // back out) -- collapse and blur, but do NOT consume: the same press
+            // keeps bubbling. `InputFocus` is already cleared by the time ancestors
+            // see it; check `original_event_target()` to tell it came from a field.
+            should_propagate = true;
+        }
+        (NONE | SHIFT, Key::Character(_) | Key::Unidentified(_)) | (NONE, Key::Space) => {
             if let Some(text) = &keyboard_input.input.text
                 && !text.is_empty()
             {
@@ -172,25 +268,26 @@ fn on_focused_keyboard_input(
 /// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_pointer_press(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     mut text_input_query: Query<
         (
             &mut EditableText,
+            &TextReadWriteMode,
             &ComputedNode,
             &ComputedUiRenderTargetInfo,
             &UiGlobalTransform,
         ),
-        Without<InteractionDisabled>,
+        With<TextInput>,
     >,
     keys: Res<ButtonInput<Key>>,
-    mut input_focus: ResMut<InputFocus>,
     ui_scale: Res<UiScale>,
 ) {
     if press.button != PointerButton::Primary {
         return;
     }
 
-    let Ok((mut editable_text, node, target, transform)) = text_input_query.get_mut(press.entity)
+    let Ok((mut editable_text, rwmode, node, target, transform)) =
+        text_input_query.get_mut(press.entity)
     else {
         // The press landed on something that isn't an `EditableText`. Clicking away to blur a
         // focused text input is handled by `PointerFocusPlugin` (in `bevy_input_focus`), which
@@ -199,7 +296,9 @@ fn on_pointer_press(
         return;
     };
 
-    input_focus.set(press.entity, FocusCause::Pressed);
+    if *rwmode == TextReadWriteMode::Static {
+        return;
+    }
 
     press.propagate(false);
 
@@ -207,9 +306,10 @@ fn on_pointer_press(
         // The IME is active; all input needs to be routed there, including pointer presses.
         return;
     }
+
     let Some(local_pos) = transform.try_inverse().and_then(|inverse| {
-        let local_pos = inverse
-            .transform_point2(press.pointer_location.position * target.scale_factor() / ui_scale.0);
+        let local_pos =
+            inverse.transform_point2(press.pointer.position * target.scale_factor() / ui_scale.0);
         node.content_box()
             .contains(local_pos)
             .then(|| local_pos - node.content_box().min + editable_text.viewport.offset)
@@ -237,28 +337,32 @@ fn on_pointer_press(
 /// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_pointer_drag(
-    mut drag: On<Pointer<Drag>>,
-    mut text_input_query: Query<(
-        &mut EditableText,
-        &ComputedNode,
-        &ComputedUiRenderTargetInfo,
-        &UiGlobalTransform,
-    )>,
+    mut drag: On<PointerDrag>,
+    mut text_input_query: Query<
+        (
+            &mut EditableText,
+            &TextReadWriteMode,
+            &ComputedNode,
+            &ComputedUiRenderTargetInfo,
+            &UiGlobalTransform,
+        ),
+        With<TextInput>,
+    >,
     ui_scale: Res<UiScale>,
-    input_focus: Res<InputFocus>,
 ) {
     if drag.button != PointerButton::Primary {
         return;
     }
 
-    if input_focus.get() != Some(drag.entity) {
-        return;
-    }
-
-    let Ok((mut editable_text, node, target, transform)) = text_input_query.get_mut(drag.entity)
+    let Ok((mut editable_text, rwmode, node, target, transform)) =
+        text_input_query.get_mut(drag.entity)
     else {
         return;
     };
+
+    if *rwmode == TextReadWriteMode::Static {
+        return;
+    }
 
     drag.propagate(false);
 
@@ -268,8 +372,7 @@ fn on_pointer_drag(
     }
 
     let Some(local_point) = transform.try_inverse().map(|inverse| {
-        inverse
-            .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
+        inverse.transform_point2(drag.pointer.position * target.scale_factor() / ui_scale.0)
     }) else {
         return;
     };
@@ -403,7 +506,14 @@ fn autoscroll_axis(overflow: f32, view_size: f32, time_delta: f32) -> f32 {
 fn on_ime_input(
     mut ime_reader: MessageReader<Ime>,
     input_focus: Res<InputFocus>,
-    mut editable_text_query: Query<&mut EditableText>,
+    mut editable_text_query: Query<
+        (
+            &mut EditableText,
+            &TextReadWriteMode,
+            Has<InteractionDisabled>,
+        ),
+        With<TextInput>,
+    >,
 ) {
     let Some(focused_entity) = input_focus.get() else {
         // No focused entity, nothing to do.
@@ -412,12 +522,19 @@ fn on_ime_input(
         return;
     };
 
-    let Ok(mut editable_text) = editable_text_query.get_mut(focused_entity) else {
+    let Ok((mut editable_text, rwmode, disabled)) = editable_text_query.get_mut(focused_entity)
+    else {
         // Focused entity is not an EditableText, nothing to do.
         // Still need to drain the reader to prevent stale events on next focus.
         ime_reader.read().for_each(drop);
         return;
     };
+
+    if *rwmode != TextReadWriteMode::Editable || disabled {
+        // Still need to drain the reader to prevent stale events on next focus.
+        ime_reader.read().for_each(drop);
+        return;
+    }
 
     for ime in ime_reader.read() {
         match ime {
@@ -453,12 +570,17 @@ fn on_ime_input(
 /// composing text rather than overlapping it.
 fn update_ime_position(
     input_focus: Res<InputFocus>,
-    editable_text_query: Query<(
-        &EditableText,
-        &ComputedNode,
-        &UiGlobalTransform,
-        &ComputedUiRenderTargetInfo,
-    )>,
+    editable_text_query: Query<
+        (
+            &EditableText,
+            &TextReadWriteMode,
+            &ComputedNode,
+            &UiGlobalTransform,
+            &ComputedUiRenderTargetInfo,
+            Has<InteractionDisabled>,
+        ),
+        With<TextInput>,
+    >,
     // TODO: support multiple windows and track which one has focus
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
@@ -466,9 +588,16 @@ fn update_ime_position(
     let Some(focused) = input_focus.get() else {
         return;
     };
-    let Ok((editable_text, node, transform, target)) = editable_text_query.get(focused) else {
+
+    let Ok((editable_text, rwmode, node, transform, target, disabled)) =
+        editable_text_query.get(focused)
+    else {
         return;
     };
+
+    if *rwmode != TextReadWriteMode::Editable || disabled {
+        return;
+    }
 
     let Ok(mut window) = windows.single_mut() else {
         return;
@@ -485,25 +614,36 @@ fn update_ime_position(
 }
 
 /// System that enables or disables IME on the primary window based on whether the focused entity
-/// is an [`EditableText`].
+/// is an editable text field.
 ///
-/// IME is enabled when an `EditableText` gains focus and disabled when focus moves elsewhere.
+/// IME is enabled when an editable `EditableText` gains focus and disabled when focus moves
+/// elsewhere. The IME state is also re-evaluated whenever the focused entity's read/write mode
+/// changes. Because [`TextReadWriteMode`] is an optional component, such a change can happen when the
+/// component is overwritten, inserted, or removed; removal reverts the effective mode to the
+/// [`Editable`](TextReadWriteMode::Editable) default and is detected via [`RemovedComponents`].
 fn listen_for_ime_input_when_text_input_focused(
     input_focus: Res<InputFocus>,
-    editable_text_query: Query<(), With<EditableText>>,
+    mut editable_text_query: Query<(&mut EditableText, Ref<TextReadWriteMode>), With<TextInput>>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
-    if !input_focus.is_changed() {
-        return;
-    }
+    let focused_entity = input_focus.get();
+
     let Ok(mut window) = windows.single_mut() else {
         return;
     };
-    let editable_text_focused = input_focus
-        .get()
-        .is_some_and(|e| editable_text_query.contains(e));
 
-    // The IME should be enabled whenever an EditableText is focused,
+    // Fetch the focused editable text field (if any).
+    let focused = focused_entity.and_then(|e| editable_text_query.get_mut(e).ok());
+
+    let editable_text_focused = focused.is_some_and(|(mut editable_text, rwmode)| {
+        let rwmode_changed = rwmode.is_changed();
+        if rwmode_changed && *rwmode != TextReadWriteMode::Editable {
+            editable_text.queue_edit(TextEdit::clear_ime_compose());
+        }
+        *rwmode == TextReadWriteMode::Editable
+    });
+
+    // The IME should be enabled whenever an EditableText is focused and editable,
     // even if the IME isn't currently composing (i.e. there's no preedit text).
     // The field here is about "should" we accept IME input, not "are we currently" accepting IME input
     window.ime_enabled = editable_text_focused;
@@ -524,7 +664,10 @@ fn listen_for_ime_input_when_text_input_focused(
 /// A [`TextEdit::CollapseSelection`] is also fired to collapse any active highlighted text
 /// selection back to the caret cursor position, preventing text styles from getting stuck in a
 /// focused color state.
-fn on_focus_lost(trigger: On<FocusLost>, mut editable_text_query: Query<&mut EditableText>) {
+fn on_focus_lost(
+    trigger: On<FocusLost>,
+    mut editable_text_query: Query<&mut EditableText, With<TextInput>>,
+) {
     if let Ok(mut editable_text) = editable_text_query.get_mut(trigger.entity) {
         editable_text.queue_edit(TextEdit::clear_ime_compose());
         editable_text.queue_edit(TextEdit::CollapseSelection);
@@ -549,7 +692,7 @@ struct QueuedSelectAll(Option<Entity>);
 
 fn on_focus_select_all(
     focus_gained: On<FocusGained>,
-    mut q_text_input: Query<(&mut EditableText, Has<SelectAllOnFocus>)>,
+    mut q_text_input: Query<(&mut EditableText, Has<SelectAllOnFocus>), With<TextInput>>,
     mut queued_select_all: ResMut<QueuedSelectAll>,
 ) {
     let target = focus_gained.event_target();
@@ -560,7 +703,7 @@ fn on_focus_select_all(
                     queued_select_all.0 = Some(target);
                 }
             }
-            FocusCause::Navigated => {
+            FocusCause::Auto | FocusCause::Navigated => {
                 if select_all_on_focus {
                     editable_text.queue_edit(TextEdit::SelectAll);
                 }
@@ -572,9 +715,9 @@ fn on_focus_select_all(
 /// `on_focus_select_all` defers selection until pointer release if the focus was gained
 /// by a pointer press. This system applies the queued selection.
 ///
-/// Note, that the `Pointer<Release>` does not have to happen on the same entity.
+/// Note, that the `PointerRelease` does not have to happen on the same entity.
 fn apply_queued_select_all(
-    mut pointer_releases: MessageReader<Pointer<Release>>,
+    mut pointer_releases: MessageReader<PointerRelease>,
     mut queued_select_all: ResMut<QueuedSelectAll>,
     mut q_text_input: Query<&mut EditableText, With<SelectAllOnFocus>>,
 ) {
@@ -591,7 +734,7 @@ fn apply_queued_select_all(
     }
 }
 
-/// System sets for IME-related systems used by [`EditableTextInputPlugin`].
+/// System sets for IME-related systems used by [`TextInputPlugin`].
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ImeSystems {
     /// Processes [`Ime`] events into [`TextEdit`] actions for the focused [`EditableText`].
@@ -617,9 +760,9 @@ pub enum ImeSystems {
 ///
 /// Note that [`TextEdit`]s are applied during [`PostUpdate`]
 /// in the [`EditableTextSystems`] system set.
-pub struct EditableTextInputPlugin;
+pub struct TextInputPlugin;
 
-impl Plugin for EditableTextInputPlugin {
+impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<QueuedSelectAll>()
             .add_observer(on_focused_keyboard_input)
@@ -627,6 +770,15 @@ impl Plugin for EditableTextInputPlugin {
             .add_observer(on_pointer_press)
             .add_observer(on_focus_lost)
             .add_observer(on_focus_select_all)
+            .configure_sets(
+                PreUpdate,
+                (
+                    ImeSystems::ToggleWindowIMEInput,
+                    ImeSystems::HandleEvents,
+                    ImeSystems::UpdatePosition,
+                )
+                    .chain(),
+            )
             .add_systems(
                 PreUpdate,
                 (
@@ -674,9 +826,53 @@ impl Plugin for EditableTextInputPlugin {
 mod tests {
     use super::*;
     use bevy_app::Update;
+    use bevy_input::{
+        keyboard::{KeyCode, NativeKey, NativeKeyCode},
+        ButtonState, InputPlugin,
+    };
+    use bevy_input_focus::InputDispatchPlugin;
     use bevy_math::Rect;
     use bevy_picking::{events::DragEntry, pointer::PointerId};
     use core::time::Duration;
+
+    #[test]
+    fn steam_osk_unidentified_keys_insert_produced_text() {
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputDispatchPlugin))
+            .init_resource::<InputFocus>()
+            .add_observer(on_focused_keyboard_input);
+
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        let editable_text = app
+            .world_mut()
+            .spawn((EditableText::default(), TextInput))
+            .id();
+        app.insert_resource(InputFocus::from_entity(editable_text));
+
+        for (text, repeat) in [("J", false), ("#", true)] {
+            app.world_mut().write_message(KeyboardInput {
+                key_code: KeyCode::Unidentified(NativeKeyCode::Windows(0)),
+                logical_key: Key::Unidentified(NativeKey::Windows(231)),
+                state: ButtonState::Pressed,
+                text: Some(text.into()),
+                repeat,
+                window,
+            });
+        }
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .entity(editable_text)
+                .get::<EditableText>()
+                .unwrap()
+                .pending_edits,
+            [TextEdit::Insert("J".into()), TextEdit::Insert("#".into())]
+        );
+    }
 
     #[test]
     fn autoscroll_speed_is_zero_inside_then_ramps_and_caps() {
@@ -885,5 +1081,98 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    fn shortcut_keyboard_input(logical_key: Key, key_code: KeyCode) -> KeyboardInput {
+        KeyboardInput {
+            key_code,
+            logical_key,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: World::default().spawn_empty().id(),
+        }
+    }
+
+    #[test]
+    fn logical_key_wins_on_latin_layouts() {
+        // US QWERTY: logical "c" on the physical `KeyC`.
+        let event = shortcut_keyboard_input(Key::Character("c".into()), KeyCode::KeyC);
+        assert!(matches_edit_shortcut(&event, "c", KeyCode::KeyC));
+
+        // AZERTY: logical "a" lives on the physical `KeyQ`.
+        // The layout convention must win over the physical location.
+        let event = shortcut_keyboard_input(Key::Character("a".into()), KeyCode::KeyQ);
+        assert!(matches_edit_shortcut(&event, "a", KeyCode::KeyA));
+        assert!(!matches_edit_shortcut(&event, "q", KeyCode::KeyQ));
+    }
+
+    #[test]
+    fn physical_fallback_on_non_latin_layouts() {
+        // Cyrillic layout: the key at the `KeyC` position produces Cyrillic "с".
+        let event = shortcut_keyboard_input(Key::Character("с".into()), KeyCode::KeyC);
+        assert!(matches_edit_shortcut(&event, "c", KeyCode::KeyC));
+        // ...but it must not match a different physical key.
+        assert!(!matches_edit_shortcut(&event, "a", KeyCode::KeyA));
+    }
+
+    #[test]
+    fn named_keys_never_match() {
+        let event = shortcut_keyboard_input(Key::Enter, KeyCode::Enter);
+        assert!(!matches_edit_shortcut(&event, "c", KeyCode::KeyC));
+    }
+
+    #[test]
+    fn escape_blurs_field_and_propagates_to_window() {
+        #[derive(Resource, Default)]
+        struct WindowSawEscape(u32);
+
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputDispatchPlugin))
+            .init_resource::<InputFocus>()
+            .init_resource::<WindowSawEscape>()
+            .add_observer(on_focused_keyboard_input);
+
+        // Manual registration needed to prevent `WindowTraversal` failure during artificial test
+        app.world_mut().register_component::<ChildOf>();
+
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+
+        let editable_text = app
+            .world_mut()
+            .spawn((TextInput, EditableText::default()))
+            .id();
+        app.world_mut().entity_mut(window).observe(
+            move |input: On<FocusedInput<KeyboardInput>>, mut saw: ResMut<WindowSawEscape>| {
+                if matches!(input.input.logical_key, Key::Escape) && input.input.state.is_pressed()
+                {
+                    // The target field is rewritten at each hop; the origin
+                    // survives on the trigger. The migration guide's guard
+                    // depends on exactly this.
+                    assert_eq!(input.focused_entity, window);
+                    assert_eq!(input.original_event_target(), editable_text);
+                    saw.0 += 1;
+                }
+            },
+        );
+        app.insert_resource(InputFocus::from_entity(editable_text));
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::Escape,
+            logical_key: Key::Escape,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+
+        // The field released focus...
+        assert!(app.world().resource::<InputFocus>().get().is_none());
+        // ...and the same press reached the window observer.
+        assert_eq!(app.world().resource::<WindowSawEscape>().0, 1);
     }
 }

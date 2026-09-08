@@ -70,7 +70,7 @@ pub fn sync_simple_transforms(
         });
     // Update orphaned entities.
     let mut query = query.p1();
-    let mut iter = query.iter_many_mut(orphaned.read());
+    let mut iter = query.iter_many_mut(orphaned.read()).matched();
     while let Some((transform, mut global_transform)) = iter.fetch_next() {
         if !transform.is_changed() && !global_transform.is_added() {
             *global_transform = GlobalTransform::from(*transform);
@@ -355,7 +355,7 @@ mod serial {
                 *global_transform = GlobalTransform::from(*transform);
             }
 
-            for (child, child_of) in child_query.iter_many(children) {
+            for (child, child_of) in child_query.iter_many(children).matched() {
                 assert_eq!(
                     child_of.parent(), entity,
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
@@ -455,7 +455,7 @@ mod serial {
         };
 
         let Some(children) = children else { return };
-        for (child, child_of) in child_query.iter_many(children) {
+        for (child, child_of) in child_query.iter_many(children).matched() {
             assert_eq!(
             child_of.parent(), entity,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
@@ -699,7 +699,8 @@ mod parallel {
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             let children_iter = unsafe {
                 nodes.iter_many_unique_unsafe(UniqueEntitySlice::from_slice_unchecked(p_children))
-            };
+            }
+            .matched();
 
             let mut last_child = None;
             let new_children = children_iter.filter_map(

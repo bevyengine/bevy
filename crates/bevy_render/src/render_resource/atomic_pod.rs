@@ -216,3 +216,4 @@ macro_rules! impl_atomic_pod {
 }
 
 impl_atomic_pod!((), AtomicPodUnitBlob);
+impl_atomic_pod!(u32, AtomicPodU32Blob);

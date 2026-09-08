@@ -5,7 +5,8 @@ use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, DetectChangesMut},
+    component::Component,
     entity::Entity,
     system::{Local, Query, Res, ResMut},
     world::Ref,
@@ -16,20 +17,27 @@ use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 
 use bevy_text::{
-    add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, resolve_font_source,
-    scrollable_text_layout_width, EditableText, EditableTextGeneration, Font, FontAtlasKey,
-    FontAtlasSet, FontCx, FontHinting, FontSize, GlyphCacheKey, LayoutCx, LineBreak, LineHeight,
-    PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout,
-    TextLayoutInfo, TextLineYBounds,
+    add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, scrollable_text_layout_width,
+    EditableText, EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting,
+    FontSize, GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize,
+    RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout, TextLayoutInfo, TextLineYBounds,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
+use smallvec::SmallVec;
 use swash::FontRef;
 use taffy::MaybeMath;
 
 struct TextInputMeasure {
     width: Option<f32>,
     height: Option<f32>,
+}
+
+/// Cached inputs that determine an editable text node's intrinsic size.
+#[derive(Component, Default)]
+pub struct EditableTextContentSizeState {
+    visible_width: Option<f32>,
+    visible_lines: Option<f32>,
 }
 
 impl crate::Measure for TextInputMeasure {
@@ -56,23 +64,39 @@ impl crate::Measure for TextInputMeasure {
     }
 }
 
+fn query_family<'a, 'b>(
+    family: &'a parley::FontFamilyName<'b>,
+) -> parley::fontique::QueryFamily<'a> {
+    match family {
+        parley::FontFamilyName::Named(name) => parley::fontique::QueryFamily::Named(name.as_ref()),
+        parley::FontFamilyName::Generic(generic) => {
+            parley::fontique::QueryFamily::Generic(*generic)
+        }
+    }
+}
+
 /// If `visible_lines` or `visible_width` are `Some`, sets a `ContentSize` that determines:
 /// - node height as `line_height * visible_lines`, using the resolved font line height.
 /// - node width as `advance('0') * visible_width`, where `advance('0')` is looked up from font metrics.
 pub fn update_editable_text_content_size(
     mut text_input_query: Query<(
-        Ref<EditableText>,
+        &EditableText,
         Ref<TextFont>,
         Ref<LineHeight>,
         Ref<ComputedUiRenderTargetInfo>,
         &mut ContentSize,
+        &mut EditableTextContentSizeState,
     )>,
     fonts: Res<Assets<Font>>,
     mut font_cx: ResMut<FontCx>,
     rem_size: Res<RemSize>,
 ) {
-    for (editable_text, text_font, line_height, target, mut content_size) in &mut text_input_query {
-        if !(editable_text.is_changed()
+    for (editable_text, text_font, line_height, target, mut content_size, mut size_state) in
+        &mut text_input_query
+    {
+        let sizing_changed = size_state.visible_width != editable_text.visible_width
+            || size_state.visible_lines != editable_text.visible_lines;
+        if !(sizing_changed
             || text_font.is_changed()
             || line_height.is_changed()
             || target.is_changed()
@@ -81,22 +105,33 @@ pub fn update_editable_text_content_size(
             continue;
         }
 
-        let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
+        size_state.visible_width = editable_text.visible_width;
+        size_state.visible_lines = editable_text.visible_lines;
+
+        let font_size = text_font.font_size.eval(target.logical_size(), *rem_size);
 
         let width = editable_text.visible_width.and_then(|visible_width| {
-            let resolved_font = resolve_font_source(&text_font, fonts.as_ref()).ok()?;
             let font_context = &mut font_cx.context;
             let mut query = font_context
                 .collection
                 .query(&mut font_context.source_cache);
-            match resolved_font {
-                parley::FontFamily::Single(parley::FontFamilyName::Named(name)) => {
-                    query.set_families([parley::fontique::QueryFamily::Named(name.as_ref())]);
+
+            match text_font.font.resolve_font_family(fonts.as_ref()).ok()? {
+                parley::FontFamily::Source(source) => {
+                    query.set_families(
+                        parley::FontFamilyName::parse_css_list(&source)
+                            .map_while(Result::ok)
+                            .collect::<SmallVec<[_; 4]>>()
+                            .iter()
+                            .map(query_family),
+                    );
                 }
-                parley::FontFamily::Single(parley::FontFamilyName::Generic(generic)) => {
-                    query.set_families([parley::fontique::QueryFamily::Generic(generic)]);
+                parley::FontFamily::Single(family) => {
+                    query.set_families([query_family(&family)]);
                 }
-                _ => return None,
+                parley::FontFamily::List(families) => {
+                    query.set_families(families.iter().map(query_family));
+                }
             }
             query.set_attributes(parley::fontique::Attributes::new(
                 text_font.width.into(),
@@ -183,18 +218,20 @@ pub fn update_editable_text_styles(
                 .editor
                 .edit_styles()
                 .insert(StyleProperty::FontSize(
-                    text_font.font_size.eval(target.logical_size(), rem_size.0),
+                    text_font.font_size.eval(target.logical_size(), *rem_size),
                 ));
         }
 
-        if text_font.is_changed() {
-            let Ok(resolved_font) = resolve_font_source(&text_font, fonts.as_ref()) else {
-                continue;
-            };
-
-            let family = resolved_font.into_owned();
+        if text_font.is_changed()
+            && let Ok(resolved_family) = text_font.font.resolve_font_family(fonts.as_ref())
+        {
+            let family = resolved_family.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
+        }
+
+        if text_font.is_changed() {
+            let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
             style_set.insert(StyleProperty::FontWidth(text_font.width.into()));
             style_set.insert(StyleProperty::FontStyle(text_font.style.into()));
@@ -303,8 +340,13 @@ pub fn update_editable_text_layout(
         let cursor_width = editable_text.cursor_width;
         let cursor_blink_period = editable_text.cursor_blink_period;
         let cursor_margin = editable_text.cursor_margin;
-        let editable_text = &mut *editable_text;
-        let (editor, viewport) = (&mut editable_text.editor, &mut editable_text.viewport);
+        let viewport_before = editable_text.viewport;
+
+        // Bypass change detection, we will mark editable_text as changed
+        // at the bottom if genuinely changed, however editor.driver requires
+        // a mut ref.
+        let inner = editable_text.bypass_change_detection();
+        let (editor, viewport) = (&mut inner.editor, &mut inner.viewport);
 
         let mut driver = editor.driver(font_cx.as_mut(), layout_cx.as_mut());
 
@@ -486,7 +528,7 @@ pub fn update_editable_text_layout(
             info.cursor = driver
                 .editor
                 .cursor_geometry(
-                    cursor_width * text_font.font_size.eval(target.logical_size(), rem_size.0),
+                    cursor_width * text_font.font_size.eval(target.logical_size(), *rem_size),
                 )
                 .map(bounding_box_to_rect)
                 .map(|rect| (*cursor_timer < cursor_blink_period / 2, rect));
@@ -515,6 +557,12 @@ pub fn update_editable_text_layout(
             ),
             full_layout_size.y,
         ));
+
+        // Mark editable_text as changed if it has been, since we bypassed
+        // change detection when taking a mut ref at the top
+        if layout_changed || *viewport != viewport_before {
+            editable_text.set_changed();
+        }
     }
 
     *previous_focus = current_focus;

@@ -1,14 +1,18 @@
-use proc_macro2::TokenStream;
-use syn::{Ident, Lit, LitStr, Path, Stmt};
+use proc_macro2::{Span, TokenStream};
+use syn::{Ident, Lit, LitStr, Member, Path};
 
 #[derive(Debug)]
-pub struct BsnRoot(pub Bsn<true>);
+pub enum BsnRoot {
+    Bsn(Bsn),
+    BsnList(BsnSceneListItems),
+}
 
 #[derive(Debug)]
 pub struct BsnListRoot(pub BsnSceneListItems);
 
 #[derive(Debug)]
-pub struct Bsn<const ALLOW_FLAT: bool> {
+pub struct Bsn {
+    pub used_parens: Option<Span>,
     pub entries: Vec<BsnEntry>,
 }
 
@@ -16,10 +20,17 @@ pub struct Bsn<const ALLOW_FLAT: bool> {
 pub enum BsnEntry {
     Name(Ident),
     FromTemplatePatch(BsnType),
+    FromTemplateConstructor {
+        constructor: BsnConstructor,
+        dot_expression: Option<TokenStream>,
+    },
     TemplatePatch(BsnType),
-    FromTemplateConstructor(BsnConstructor),
-    TemplateConstructor(BsnConstructor),
-    TemplateConst { type_path: Path, const_ident: Ident },
+    TemplateConstructor {
+        constructor: BsnConstructor,
+        dot_expression: Option<TokenStream>,
+    },
+    TemplateValue(TokenStream),
+    Function(BsnFnCall),
     UncachedScene(BsnScene),
     CachedScene(BsnScene),
     RelatedSceneList(BsnRelatedSceneList),
@@ -28,8 +39,13 @@ pub enum BsnEntry {
 #[derive(Debug)]
 pub struct BsnType {
     pub path: Path,
-    pub enum_variant: Option<Ident>,
+    pub variant: Option<Ident>,
     pub fields: BsnFields,
+}
+
+#[derive(Debug)]
+pub struct BsnStructUpdate {
+    pub value: Box<BsnValue>,
 }
 
 #[derive(Debug)]
@@ -42,12 +58,12 @@ pub struct BsnRelatedSceneList {
 pub struct BsnSceneList(pub BsnSceneListItems);
 
 #[derive(Debug)]
-pub struct BsnSceneListItems(pub Vec<BsnSceneListItem>);
+pub struct BsnSceneListItems(pub Vec<BsnSceneListItem>, pub Vec<Span>);
 
 #[derive(Debug)]
 pub enum BsnSceneListItem {
-    Scene(Bsn<true>),
-    Expression(Vec<Stmt>),
+    Scene(Bsn),
+    Expression(TokenStream),
 }
 
 #[derive(Debug)]
@@ -72,17 +88,19 @@ pub struct BsnConstructor {
 }
 
 #[derive(Debug)]
-pub enum BsnFields {
-    Named(Vec<BsnNamedField>),
-    Tuple(Vec<BsnUnnamedField>),
+pub struct BsnFnCall {
+    pub path: Path,
+    pub args: BsnFnArgs,
 }
-impl BsnFields {
-    pub fn len(&self) -> usize {
-        match self {
-            BsnFields::Named(vec) => vec.len(),
-            BsnFields::Tuple(vec) => vec.len(),
-        }
-    }
+
+#[derive(Debug)]
+pub enum BsnFields {
+    Named {
+        fields: Vec<BsnNamedField>,
+        struct_update: Option<BsnStructUpdate>,
+    },
+    Tuple(Vec<BsnUnnamedField>),
+    Unit,
 }
 
 #[derive(Debug)]
@@ -99,8 +117,14 @@ pub struct BsnNamedField {
     pub value: Option<BsnValue>,
 }
 
+pub enum BsnNamedFieldOrStructUpdate {
+    Field(BsnNamedField),
+    StructUpdate(BsnStructUpdate),
+}
+
 #[derive(Debug)]
 pub struct BsnUnnamedField {
+    pub index: Member,
     pub value: BsnValue,
 }
 
@@ -113,6 +137,11 @@ pub enum BsnValue {
     Type(BsnType),
     Tuple(BsnTuple),
     Name(Ident),
+    Range {
+        start: Box<BsnValue>,
+        end: Box<BsnValue>,
+        inclusive: bool,
+    },
 }
 
 #[derive(Debug)]

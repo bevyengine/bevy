@@ -11,7 +11,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wesl";
 
 /// This vertex attribute supplies barycentric coordinates for each triangle.
 ///

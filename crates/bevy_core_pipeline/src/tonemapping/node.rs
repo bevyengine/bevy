@@ -43,7 +43,7 @@ pub fn tonemapping(
     let (camera, view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) =
         view.into_inner();
 
-    if *tonemapping == Tonemapping::None {
+    if !tonemapping.is_enabled() {
         return;
     }
 

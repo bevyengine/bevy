@@ -10,11 +10,13 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, ResMut},
 };
-use bevy_input_focus::{FocusCause, InputFocus, InputFocusVisible};
+use bevy_input_focus::{FocusCause, InputFocus};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_ui::{px, widget::Text, ComputedNode, Node, Selected};
-use bevy_ui_widgets::{listbox_update_selection, ListBox, SetSelected, ValueChange};
+use bevy_ui_widgets::{
+    listbox_update_selection, ListBox, ReselectListRow, SetSelected, ValueChange,
+};
 
 use super::{
     FeathersListRow, FeathersListView, FeathersMenu, FeathersMenuButton, FeathersMenuPopup,
@@ -53,10 +55,10 @@ pub fn list_rows_from_strings(
             .map(|(i, label)| -> Box<dyn SceneList> {
                 let label: String = label.as_ref().into();
                 if Some(i) == selected {
-                    bsn! { @FeathersListRow Selected OptionIndex(i) Children [ caption(label) ] }
+                    bsn! { @FeathersListRow Selected OptionIndex(i) Children [ @caption(label) ] }
                         .into()
                 } else {
-                    bsn! { @FeathersListRow OptionIndex(i) Children [ caption(label) ] }.into()
+                    bsn! { @FeathersListRow OptionIndex(i) Children [ @caption(label) ] }.into()
                 }
             })
             .collect::<Vec<_>>(),
@@ -81,7 +83,7 @@ pub struct FeathersSelectProps {
 impl Default for FeathersSelectProps {
     fn default() -> Self {
         Self {
-            options: Box::new(bsn_list!()),
+            options: Box::new(bsn! {}),
             corners: Default::default(),
             max_visible: 8,
         }
@@ -98,32 +100,48 @@ impl FeathersSelect {
             @FeathersMenu
             FeathersSelect
             Children [
-                (
-                    @FeathersMenuButton {
-                        @caption: bsn! { caption("") SelectCaption },
-                        @corners: {props.corners},
+                @FeathersMenuButton {
+                    @caption: bsn! { @caption("") SelectCaption },
+                    @corners: {props.corners},
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                --
+                @FeathersMenuPopup
+                Children [
+                    @FeathersListView {
+                        @rows: {props.options}
                     }
+                    on(listbox_update_selection)
+                    on(re_emit_listbox_value)
+                    on(close_popup_on_reselect)
                     Node {
-                        flex_grow: 1.0,
+                        max_height: {max_height},
                     }
-                ),
-                (
-                    @FeathersMenuPopup
-                    Children [
-                        (
-                            @FeathersListView {
-                                @rows: {props.options}
-                            }
-                            on(listbox_update_selection)
-                            on(re_emit_listbox_value)
-                            Node {
-                                max_height: {max_height},
-                            }
-                        )
-                    ]
-                )
+                ]
             ]
         }
+    }
+}
+
+// Event is sent on the FeathersListView
+fn close_popup_on_reselect(
+    ev: On<ReselectListRow>,
+    q_popup: Query<(), With<FeathersMenuPopup>>,
+    q_parents: Query<&ChildOf>,
+    mut commands: Commands,
+) {
+    let mut popup_ent = None;
+    for ancestor in q_parents.iter_ancestors(ev.event_target()) {
+        if q_popup.contains(ancestor) {
+            popup_ent = Some(ancestor);
+            break;
+        }
+    }
+
+    if let Some(popup_ent) = popup_ent {
+        commands.entity(popup_ent).insert(Visibility::Hidden);
     }
 }
 
@@ -218,12 +236,10 @@ fn sync_caption(
 fn focus_select_popup(
     q_popups: Query<(Entity, &Visibility), (With<FeathersMenuPopup>, Changed<Visibility>)>,
     q_select: Query<(), With<FeathersSelect>>,
-    q_listbox: Query<(), With<ListBox>>,
     q_button: Query<(), With<FeathersMenuButton>>,
     q_parents: Query<&ChildOf>,
     q_children: Query<&Children>,
     mut focus: ResMut<InputFocus>,
-    mut focus_visible: ResMut<InputFocusVisible>,
 ) {
     for (popup, visibility) in q_popups.iter() {
         let mut select_ent = None;
@@ -237,15 +253,7 @@ fn focus_select_popup(
             continue;
         };
 
-        if *visibility == Visibility::Visible {
-            for descendant in q_children.iter_descendants(popup) {
-                if q_listbox.contains(descendant) {
-                    focus.set(descendant, FocusCause::Navigated);
-                    focus_visible.0 = true;
-                    break;
-                }
-            }
-        } else {
+        if *visibility != Visibility::Visible {
             let focus_in_select = focus.get().is_some_and(|focused| {
                 focused == select_ent || q_parents.iter_ancestors(focused).any(|a| a == select_ent)
             });

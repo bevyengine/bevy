@@ -12,6 +12,7 @@ use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
 use parley::fontique::Blob;
 use parley::fontique::FontInfoOverride;
+use parley::FontFamilyName;
 
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
 ///
@@ -104,35 +105,36 @@ pub fn load_font_assets_into_font_collection(
 
     for mut text_font in text_font_query.iter_mut() {
         if font_removed
-            || match &text_font.font {
-                FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
-                FontSource::Family(name) => font_cx
-                    .collection
-                    .family_id(name)
-                    .is_some_and(|id| new_family_ids.contains(&id)),
-                generic_source => {
-                    let generic_family = match generic_source {
-                        FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
-                        FontSource::Serif => parley::GenericFamily::Serif,
-                        FontSource::SansSerif => parley::GenericFamily::SansSerif,
-                        FontSource::Cursive => parley::GenericFamily::Cursive,
-                        FontSource::Fantasy => parley::GenericFamily::Fantasy,
-                        FontSource::Monospace => parley::GenericFamily::Monospace,
-                        FontSource::SystemUi => parley::GenericFamily::SystemUi,
-                        FontSource::UiSerif => parley::GenericFamily::UiSerif,
-                        FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif,
-                        FontSource::UiMonospace => parley::GenericFamily::UiMonospace,
-                        FontSource::UiRounded => parley::GenericFamily::UiRounded,
-                        FontSource::Emoji => parley::GenericFamily::Emoji,
-                        FontSource::Math => parley::GenericFamily::Math,
-                        FontSource::FangSong => parley::GenericFamily::FangSong,
-                    };
-                    font_cx
+            || text_font
+                .font
+                .flatten()
+                .into_iter()
+                .any(|source| match source {
+                    FontSource::Handle(handle) => new_asset_ids.contains(&handle.id()),
+                    FontSource::Family(name) => font_cx
                         .collection
-                        .generic_families(generic_family)
-                        .any(|id| new_family_ids.contains(&id))
-                }
-            }
+                        .family_id(name.as_str())
+                        .is_some_and(|id| new_family_ids.contains(&id)),
+                    FontSource::Families(source) => FontFamilyName::parse_css_list(source.as_str())
+                        .map_while(Result::ok)
+                        .any(|family| match family {
+                            FontFamilyName::Named(name) => font_cx
+                                .collection
+                                .family_id(name.as_ref())
+                                .is_some_and(|id| new_family_ids.contains(&id)),
+                            FontFamilyName::Generic(generic_family) => font_cx
+                                .collection
+                                .generic_families(generic_family)
+                                .any(|id| new_family_ids.contains(&id)),
+                        }),
+                    &FontSource::Generic(generic_family) => font_cx
+                        .collection
+                        .generic_families(generic_family.into())
+                        .any(|id| new_family_ids.contains(&id)),
+                    FontSource::List(_) => {
+                        unreachable!("FontSource::flatten should not return lists")
+                    }
+                })
         {
             text_font.set_changed();
         }
@@ -143,6 +145,7 @@ pub fn load_font_assets_into_font_collection(
 mod tests {
     use bevy_app::{App, Update};
     use bevy_asset::Assets;
+    use bevy_ecs::change_detection::DetectChanges;
 
     use super::*;
 
@@ -193,5 +196,161 @@ mod tests {
             .collection
             .family_id(&font_alias)
             .is_none());
+    }
+
+    #[test]
+    fn text_font_is_set_changed_when_its_font_asset_is_inserted() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Font>>()
+            .init_resource::<FontCx>()
+            .add_systems(Update, load_font_assets_into_font_collection);
+
+        let font_handle = app.world().resource::<Assets<Font>>().reserve_handle();
+        let entity = app
+            .world_mut()
+            .spawn(TextFont::from(font_handle.clone()))
+            .id();
+
+        let setup_tick = app
+            .world()
+            .entity(entity)
+            .get_ref::<TextFont>()
+            .unwrap()
+            .last_changed();
+
+        app.update();
+
+        assert_eq!(
+            setup_tick,
+            app.world()
+                .entity(entity)
+                .get_ref::<TextFont>()
+                .unwrap()
+                .last_changed()
+        );
+
+        app.world_mut()
+            .resource_mut::<Assets<Font>>()
+            .insert(
+                font_handle.id(),
+                Font::from_bytes(include_bytes!("FiraMono-subset.ttf").to_vec()),
+            )
+            .unwrap();
+        app.update();
+
+        assert_ne!(
+            setup_tick,
+            app.world()
+                .entity(entity)
+                .get_ref::<TextFont>()
+                .unwrap()
+                .last_changed()
+        );
+    }
+
+    #[test]
+    fn textfonts_are_not_set_changed_when_a_font_asset_is_inserted_for_other_textfonts() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Font>>()
+            .init_resource::<FontCx>()
+            .add_systems(Update, load_font_assets_into_font_collection);
+
+        let font_handle1 = app.world().resource::<Assets<Font>>().reserve_handle();
+        let font_handle2 = app.world().resource::<Assets<Font>>().reserve_handle();
+        let entity1 = app
+            .world_mut()
+            .spawn(TextFont::from(font_handle1.clone()))
+            .id();
+        let entity2 = app
+            .world_mut()
+            .spawn(TextFont::from(font_handle2.clone()))
+            .id();
+
+        let setup_tick1 = app
+            .world()
+            .entity(entity1)
+            .get_ref::<TextFont>()
+            .unwrap()
+            .last_changed();
+
+        let setup_tick2 = app
+            .world()
+            .entity(entity2)
+            .get_ref::<TextFont>()
+            .unwrap()
+            .last_changed();
+
+        app.update();
+
+        let update1_tick1 = app
+            .world()
+            .entity(entity1)
+            .get_ref::<TextFont>()
+            .unwrap()
+            .last_changed();
+
+        let update1_tick2 = app
+            .world()
+            .entity(entity2)
+            .get_ref::<TextFont>()
+            .unwrap()
+            .last_changed();
+
+        assert_eq!(setup_tick1, update1_tick1);
+        assert_eq!(setup_tick2, update1_tick2);
+
+        app.world_mut()
+            .resource_mut::<Assets<Font>>()
+            .insert(
+                font_handle1.id(),
+                Font::from_bytes(include_bytes!("FiraMono-subset.ttf").to_vec()),
+            )
+            .unwrap();
+
+        app.update();
+
+        let update2_tick1 = app
+            .world()
+            .entity(entity1)
+            .get_ref::<TextFont>()
+            .unwrap()
+            .last_changed();
+
+        let update2_tick2 = app
+            .world()
+            .entity(entity2)
+            .get_ref::<TextFont>()
+            .unwrap()
+            .last_changed();
+
+        assert_ne!(update1_tick1, update2_tick1);
+        assert_eq!(update1_tick2, update2_tick2);
+
+        app.world_mut()
+            .resource_mut::<Assets<Font>>()
+            .insert(
+                font_handle2.id(),
+                Font::from_bytes(include_bytes!("FiraMono-subset.ttf").to_vec()),
+            )
+            .unwrap();
+        app.update();
+
+        assert_eq!(
+            update2_tick1,
+            app.world()
+                .entity(entity1)
+                .get_ref::<TextFont>()
+                .unwrap()
+                .last_changed()
+        );
+
+        assert_ne!(
+            update2_tick2,
+            app.world()
+                .entity(entity2)
+                .get_ref::<TextFont>()
+                .unwrap()
+                .last_changed()
+        );
     }
 }

@@ -5,6 +5,7 @@ use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_mesh::{MeshVertexBufferLayoutRef, UvChannel};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
+use bevy_shader::ShaderDefVal;
 use bitflags::bitflags;
 
 use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
@@ -154,6 +155,9 @@ pub struct StandardMaterial {
     /// and the green channel contains the roughness values.
     /// Other channels are unused.
     ///
+    /// A two-channel image has no blue channel, so it is read as red = roughness,
+    /// green = metallic instead.
+    ///
     /// Those values are multiplied by the scalar ones of the material,
     /// see [`metallic`] and [`perceptual_roughness`] for details.
     ///
@@ -239,6 +243,8 @@ pub struct StandardMaterial {
     /// - When set to `0.0` (the default) no light is transmitted.
     /// - When set to `1.0` all light is transmitted through the material.
     ///
+    /// [`ScreenSpaceTransmission`] must be added to the camera to make specular transmission work.
+    ///
     /// The material's [`StandardMaterial::base_color`] also modulates the transmitted light.
     ///
     /// **Note:** Typically used in conjunction with [`StandardMaterial::thickness`], [`StandardMaterial::ior`] and [`StandardMaterial::perceptual_roughness`].
@@ -254,8 +260,9 @@ pub struct StandardMaterial {
     ///     [`crate::ScreenSpaceTransmission::steps`] to `0`.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
     ///   for a much less expensive effect.
-    /// - Specular transmission is rendered before alpha blending, so any material with [`AlphaMode::Blend`], [`AlphaMode::Premultiplied`], [`AlphaMode::Add`] or [`AlphaMode::Multiply`]
-    ///   won't be visible through specular transmissive materials.
+    /// - Screen-space specular transmission is rendered in the [`Transmissive3d`]
+    ///   pass. Materials using this effect are rendered there, even if they use [`AlphaMode::Blend`],
+    ///   [`AlphaMode::Premultiplied`], [`AlphaMode::Add`], or [`AlphaMode::Multiply`].
     #[doc(alias = "refraction")]
     pub specular_transmission: f32,
 
@@ -963,7 +970,14 @@ impl From<Handle<Image>> for StandardMaterial {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/pbr_types.wgsl!
+impl StandardMaterial {
+    #[inline]
+    fn uses_screen_space_specular_transmission(&self) -> bool {
+        self.specular_transmission > 0.0
+    }
+}
+
+// NOTE: These must match the bit flags in bevy_pbr/src/render/pbr_types.wesl!
 bitflags::bitflags! {
     /// Bitflags info about the material a shader is currently rendering.
     /// This is accessible in the shader in the [`StandardMaterialUniform`]
@@ -989,6 +1003,7 @@ bitflags::bitflags! {
         const ANISOTROPY_TEXTURE         = 1 << 17;
         const SPECULAR_TEXTURE           = 1 << 18;
         const SPECULAR_TINT_TEXTURE      = 1 << 19;
+        const METALLIC_ROUGHNESS_RG      = 1 << 20; // Roughness in red, metallic in green
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
@@ -1068,6 +1083,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         &self,
         images: &RenderAssets<GpuImage>,
     ) -> StandardMaterialUniform {
+        let uses_screen_space_specular_transmission =
+            self.uses_screen_space_specular_transmission();
         let mut flags = StandardMaterialFlags::NONE;
         if self.base_color_texture.is_some() {
             flags |= StandardMaterialFlags::BASE_COLOR_TEXTURE;
@@ -1075,8 +1092,13 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if self.emissive_texture.is_some() {
             flags |= StandardMaterialFlags::EMISSIVE_TEXTURE;
         }
-        if self.metallic_roughness_texture.is_some() {
+        if let Some(handle) = &self.metallic_roughness_texture {
             flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_TEXTURE;
+            if images.get(handle.id()).is_some_and(|texture| {
+                texture.texture_descriptor.format.channels() == TextureChannel::RG
+            }) {
+                flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_RG;
+            }
         }
         if self.occlusion_texture.is_some() {
             flags |= StandardMaterialFlags::OCCLUSION_TEXTURE;
@@ -1095,7 +1117,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         #[cfg(feature = "pbr_transmission_textures")]
         {
-            if self.specular_transmission_texture.is_some() {
+            if uses_screen_space_specular_transmission
+                && self.specular_transmission_texture.is_some()
+            {
                 flags |= StandardMaterialFlags::SPECULAR_TRANSMISSION_TEXTURE;
             }
             if self.thickness_texture.is_some() {
@@ -1200,7 +1224,11 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             anisotropy_strength: self.anisotropy_strength,
             anisotropy_rotation,
             diffuse_transmission: self.diffuse_transmission,
-            specular_transmission: self.specular_transmission,
+            specular_transmission: if uses_screen_space_specular_transmission {
+                self.specular_transmission
+            } else {
+                0.0
+            },
             thickness: self.thickness,
             ior: self.ior,
             attenuation_distance: self.attenuation_distance,
@@ -1255,6 +1283,8 @@ const STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT: u64 = 32;
 
 impl From<&StandardMaterial> for StandardMaterialKey {
     fn from(material: &StandardMaterial) -> Self {
+        let uses_screen_space_specular_transmission =
+            material.uses_screen_space_specular_transmission();
         let mut key = StandardMaterialKey::empty();
         key.set(
             StandardMaterialKey::CULL_FRONT,
@@ -1281,7 +1311,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         );
         key.set(
             StandardMaterialKey::SPECULAR_TRANSMISSION,
-            material.specular_transmission > 0.0,
+            uses_screen_space_specular_transmission,
         );
 
         key.set(StandardMaterialKey::CLEARCOAT, material.clearcoat > 0.0);
@@ -1318,7 +1348,8 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         {
             key.set(
                 StandardMaterialKey::SPECULAR_TRANSMISSION_UV,
-                material.specular_transmission_channel != UvChannel::Uv0,
+                uses_screen_space_specular_transmission
+                    && material.specular_transmission_channel != UvChannel::Uv0,
             );
             key.set(
                 StandardMaterialKey::THICKNESS_UV,
@@ -1382,7 +1413,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
 
 impl Material for StandardMaterial {
     fn fragment_shader() -> ShaderRef {
-        shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
+        shader_ref(bevy_asset::embedded_path!("render/pbr.wesl"))
     }
 
     #[inline]
@@ -1414,15 +1445,15 @@ impl Material for StandardMaterial {
 
     #[inline]
     fn reads_view_transmission_texture(&self) -> bool {
-        self.specular_transmission > 0.0
+        self.uses_screen_space_specular_transmission()
     }
 
     fn prepass_fragment_shader() -> ShaderRef {
-        shader_ref(bevy_asset::embedded_path!("render/pbr_prepass.wgsl"))
+        shader_ref(bevy_asset::embedded_path!("render/pbr_prepass.wesl"))
     }
 
     fn deferred_fragment_shader() -> ShaderRef {
-        shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
+        shader_ref(bevy_asset::embedded_path!("render/pbr.wesl"))
     }
 
     #[cfg(feature = "meshlet")]
@@ -1537,9 +1568,32 @@ impl Material for StandardMaterial {
                     "STANDARD_MATERIAL_SPECULAR_TINT_UV_B",
                 ),
             ] {
+                if [
+                    StandardMaterialKey::SPECULAR_TRANSMISSION,
+                    StandardMaterialKey::SPECULAR_TRANSMISSION_UV,
+                ]
+                .contains(&flags)
+                    && !key
+                        .mesh_key
+                        .contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE)
+                {
+                    continue;
+                }
                 if key.bind_group_data.intersects(flags) {
                     shader_defs.push(shader_def.into());
                 }
+            }
+
+            if key
+                .bind_group_data
+                .intersects(StandardMaterialKey::SPECULAR_TRANSMISSION)
+                && key
+                    .mesh_key
+                    .contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE)
+            {
+                // Do not load prepass normals for transmissive materials
+                // https://github.com/bevyengine/bevy/pull/11140
+                shader_defs.retain(|def| def != &ShaderDefVal::from("LOAD_PREPASS_NORMALS"));
             }
         }
 

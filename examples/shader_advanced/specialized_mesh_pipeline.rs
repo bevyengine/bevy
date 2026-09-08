@@ -41,7 +41,7 @@ use bevy::{
     },
 };
 
-const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wesl";
 
 fn main() {
     App::new()

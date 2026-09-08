@@ -21,6 +21,7 @@ use bevy_log::debug;
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
+    diagnostic::RecordDiagnostics,
     occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
     },
@@ -87,6 +88,13 @@ pub fn early_downsample_depth(
         maybe_view_light_entities,
     ) = view.into_inner();
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(
+        ctx.command_encoder(),
+        "mip_generation::early_downsample_depth",
+    );
+
     // Downsample depth for the main Z-buffer.
     downsample_depth(
         "early_downsample_depth",
@@ -122,6 +130,7 @@ pub fn early_downsample_depth(
             );
         }
     }
+    time_span.end(ctx.command_encoder());
 }
 
 /// Produces a hierarchical Z-buffer (depth pyramid) for occlusion culling.
@@ -609,7 +618,7 @@ impl ViewDepthPyramid {
     }
 
     /// Creates a bind group that allows the depth buffer to be attached to the
-    /// `downsample_depth.wgsl` shader.
+    /// `downsample_depth.wesl` shader.
     pub fn create_bind_group<'a, R>(
         &'a self,
         render_device: &RenderDevice,
@@ -719,7 +728,7 @@ pub fn prepare_view_depth_pyramids(
 }
 
 /// The bind group that we use to attach the depth buffer and depth pyramid for
-/// a view to the `downsample_depth.wgsl` shader.
+/// a view to the `downsample_depth.wesl` shader.
 ///
 /// This will only be present for a view if occlusion culling is enabled.
 #[derive(Component, Deref, DerefMut)]

@@ -15,7 +15,7 @@ use bevy_ecs::{
     query::With,
     system::{Commands, Query, ResMut},
 };
-use bevy_picking::events::{Pointer, Press};
+use bevy_picking::events::PointerPress;
 use bevy_window::PrimaryWindow;
 
 use crate::{tab_navigation::acquire_focus_tab_index, AcquireFocus, InputFocusVisible};
@@ -27,7 +27,7 @@ use crate::{tab_navigation::acquire_focus_tab_index, AcquireFocus, InputFocusVis
 /// focused — that is the job of whatever [`AcquireFocus`] resolver observers are installed (see
 /// [`PointerFocusPlugin`]).
 fn click_to_focus(
-    press: On<Pointer<Press>>,
+    press: On<PointerPress>,
     mut focus_visible: ResMut<InputFocusVisible>,
     windows: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,

@@ -36,6 +36,10 @@ struct Args {
     /// at the start of each frame clear all font atlases
     #[argh(switch)]
     clear_font_atlases: bool,
+
+    /// update the text each frame
+    #[argh(switch)]
+    animate: bool,
 }
 
 fn main() {
@@ -74,9 +78,10 @@ fn main() {
         app.add_systems(Update, clear_all_font_atlases);
     }
 
-    app.add_systems(Update, update_lorem_text);
-
-    app.add_systems(Update, update_number_text);
+    if args.animate {
+        app.add_systems(Update, update_lorem_text);
+        app.add_systems(Update, update_number_text);
+    }
 
     app.run();
 }

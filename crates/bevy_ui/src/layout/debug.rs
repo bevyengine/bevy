@@ -52,6 +52,7 @@ fn print_node(
         (_, taffy::style::Display::Flex) => "FLEX",
         (_, taffy::style::Display::Grid) => "GRID",
         (_, taffy::style::Display::Block) => "BLOCK",
+        (_, taffy::style::Display::FlowRoot) => "FLOWROOT",
     };
 
     let fork_string = if has_sibling {

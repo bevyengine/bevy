@@ -48,8 +48,9 @@ use bevy::{
         Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
     sprite_render::{
-        extract_mesh2d, init_mesh_2d_pipeline, Mesh2dBindGroup, Mesh2dPipeline, Mesh2dPipelineKey,
-        Mesh2dTransforms, Mesh2dUniform, MeshFlags, RenderMesh2dInstance, SetMesh2dViewBindGroup,
+        extract_2d_meshes, init_mesh_2d_pipeline, Mesh2dBindGroup, Mesh2dPipeline,
+        Mesh2dPipelineKey, Mesh2dTransforms, Mesh2dUniform, MeshFlags, RenderMesh2dInstance,
+        SetMesh2dViewBindGroup,
     },
 };
 use indexmap::IndexMap;
@@ -260,7 +261,7 @@ type DrawTransparentColoredMesh2d = (
 // using `include_str!()`, or loaded like any other asset with `asset_server.load()`.
 const COLORED_MESH2D_SHADER: &str = r"
 // Import the standard 2d mesh uniforms and set their bind groups
-#import bevy_sprite::mesh2d_functions
+import bevy_sprite_render::mesh2d::functions as mesh2d_functions;
 
 // The structure of the vertex buffer is as specified in `specialize()`
 struct Vertex {
@@ -319,7 +320,7 @@ impl Plugin for ColoredMesh2dPlugin {
         let mut shaders = app.world_mut().resource_mut::<Assets<Shader>>();
         // Here, we construct and add the shader asset manually. There are many ways to load this
         // shader, including `embedded_asset`/`load_embedded_asset`.
-        let shader = shaders.add(Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()));
+        let shader = shaders.add(Shader::from_wesl(COLORED_MESH2D_SHADER, file!()));
 
         app.add_plugins(SyncComponentPlugin::<ColoredMesh2d>::default());
 
@@ -344,7 +345,7 @@ impl Plugin for ColoredMesh2dPlugin {
             .add_systems(
                 ExtractSchedule,
                 (
-                    extract_colored_mesh2d.after(extract_mesh2d),
+                    extract_colored_mesh2d.after(extract_2d_meshes),
                     extract_colored_mesh2d_camera_phases,
                 ),
             )

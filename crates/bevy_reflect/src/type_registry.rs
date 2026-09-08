@@ -9,7 +9,7 @@ use bevy_platform::{
 };
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_reflect::CreateTypeData;
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::{
     any::TypeId,
     fmt::Debug,
@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 /// [Registering]: TypeRegistry::register
 /// [crate-level documentation]: crate
 pub struct TypeRegistry {
-    registrations: TypeIdMap<TypeRegistration>,
+    registrations: TypeIdHashMap<TypeRegistration>,
     short_path_to_id: HashMap<&'static str, TypeId>,
     type_path_to_id: HashMap<&'static str, TypeId>,
     ambiguous_names: HashSet<&'static str>,
@@ -629,7 +629,7 @@ impl TypeRegistryArc {
 ///
 /// [crate-level documentation]: crate
 pub struct TypeRegistration {
-    data: TypeIdMap<Box<dyn TypeData>>,
+    data: TypeIdHashMap<Box<dyn TypeData>>,
     type_info: &'static TypeInfo,
 }
 
@@ -821,7 +821,7 @@ impl TypeRegistration {
 
 impl Clone for TypeRegistration {
     fn clone(&self) -> Self {
-        let mut data = TypeIdMap::default();
+        let mut data = TypeIdHashMap::default();
         for (id, type_data) in &self.data {
             data.insert(*id, (*type_data).clone_type_data());
         }

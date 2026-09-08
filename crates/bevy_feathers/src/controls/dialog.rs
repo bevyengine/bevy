@@ -1,10 +1,11 @@
+use bevy_app::Propagate;
 use bevy_color::{Alpha, Srgba};
 use bevy_ecs::{
     event::EntityEvent, hierarchy::Children, observer::On, reflect::ReflectComponent,
     system::Commands,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList};
+use bevy_scene::{bsn, on, Scene, SceneComponent, SceneList};
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, vh, vw, widget::Text, AlignItems, BorderRadius, BoxShadow, Display, FixedNode,
@@ -19,7 +20,10 @@ use crate::{
     controls::{ButtonVariant, FeathersToolButton},
     display::icon,
     font_styles::InheritableFont,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor, ThemedText},
+    theme::{
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
+        ThemeContext, ThemedText,
+    },
     tokens,
 };
 
@@ -34,7 +38,7 @@ pub struct FeathersDialogProps {
 impl Default for FeathersDialogProps {
     fn default() -> Self {
         Self {
-            contents: Box::new(bsn_list!()),
+            contents: Box::new(bsn! {}),
             width: Val::Auto,
         }
     }
@@ -113,7 +117,7 @@ impl Default for FeathersFloatingDialogProps {
     fn default() -> Self {
         Self {
             title: String::new(),
-            contents: Box::new(bsn_list!()),
+            contents: Box::new(bsn! {}),
             width: Val::Auto,
             left: px(120),
             top: px(120),
@@ -159,33 +163,32 @@ impl FeathersFloatingDialog {
             })
             Children [
                 // Title bar; dragging it moves the window.
-                (
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::SpaceBetween,
-                        padding: UiRect::all(px(6.0)),
-                    }
-                    DialogDragHandle
-                    InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
-                    ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
-                    InheritableFont {
-                        font: fonts::REGULAR,
-                        font_size: size::HEADER_FONT,
-                        weight: FontWeight::BOLD,
-                    }
-                    Children [
-                        (Text({props.title}) ThemedText),
-                        @FeathersDialogClose
-                    ]
-                ),
-                (
-                    @FeathersDialogBody
-                    Children [
-                        {props.contents}
-                    ]
-                )
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                    padding: UiRect::all(px(6.0)),
+                }
+                DialogDragHandle
+                InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
+                ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
+                Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
+                InheritableFont {
+                    font: fonts::REGULAR,
+                    font_size: size::HEADER_FONT,
+                    weight: FontWeight::BOLD,
+                }
+                Children [
+                    Text({props.title}) ThemedText
+                    --
+                    @FeathersDialogClose
+                ]
+                --
+                @FeathersDialogBody
+                Children [
+                    {props.contents}
+                ]
             ]
         }
     }
@@ -207,6 +210,7 @@ impl FeathersDialogHeader {
                 justify_content: JustifyContent::SpaceBetween,
                 padding: UiRect::all(px(6.0)),
             }
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
             ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
             InheritableFont {
                 font: fonts::REGULAR,
@@ -226,13 +230,13 @@ impl FeathersDialogClose {
     /// Scene function for dialog close button.
     pub fn scene() -> impl Scene {
         bsn! {
-        @FeathersToolButton {
-            @variant: ButtonVariant::Plain,
-            @caption: bsn! { icon(icons::X) }
-        }
-        on(|activate: On<Activate>, mut commands: Commands| {
-            commands.trigger(RequestClose { source: activate.event_target() });
-        })
+            @FeathersToolButton {
+                @variant: ButtonVariant::Plain,
+                @caption: bsn! { @icon(icons::X) }
+            }
+            on(|activate: On<Activate>, mut commands: Commands| {
+                commands.trigger(RequestClose { source: activate.event_target() });
+            })
         }
     }
 }
@@ -252,6 +256,7 @@ impl FeathersDialogBody {
                 align_items: AlignItems::Stretch,
                 padding: UiRect::all(px(6.0)),
             }
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Floating))
             InheritableFont {
                 font: fonts::REGULAR,
                 font_size: size::MEDIUM_FONT,
@@ -278,6 +283,7 @@ impl FeathersDialogFooter {
                 column_gap: px(6.0),
                 padding: UiRect::all(px(6.0)),
             }
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Floating))
             InheritableFont {
                 font: fonts::REGULAR,
                 font_size: size::MEDIUM_FONT,

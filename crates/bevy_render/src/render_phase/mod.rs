@@ -41,7 +41,6 @@ use encase::{internal::WriteInto, ShaderSize};
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
-use tracing::error;
 use wgpu::{BufferUsages, Features};
 
 use crate::batching::gpu_preprocessing::{
@@ -294,7 +293,7 @@ impl RenderMultidrawableBatchSetGpuBuffers {
         // If an entity is to change bins, it must first be removed from the bin
         // it was previously in.
         if maybe_previous_binned_mesh_instance_buffer_index.is_some() {
-            error!(
+            panic!(
                 "Binning main entity {:?} when it was already binned. This should never happen.",
                 main_entity
             );
@@ -2040,7 +2039,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// The corresponding entity that will be drawn.
     ///
     /// This is used to fetch the render data of the entity, required by the draw function,
-    /// from the render world .
+    /// from the render world.
     fn entity(&self) -> Entity;
 
     /// The main world entity represented by this `PhaseItem`.

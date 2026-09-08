@@ -174,6 +174,11 @@ impl Plugin for LightPlugin {
                 SimulationLightSystems::CheckLightVisibility
                     .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
             )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::AssignLightsToClusters
+                    .before(bevy_app::TransformGizmoRenderStep),
+            )
             .add_systems(Update, automatically_add_parallax_correction_components)
             .add_systems(
                 PostUpdate,
@@ -233,6 +238,7 @@ impl Plugin for LightPlugin {
                     build_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystems::Propagate)
+                        .before(bevy_app::TransformGizmoRenderStep)
                         .after(CameraUpdateSystems),
                     extract_chromatic_phase_textures.after(AssetEventSystems),
                 ),
@@ -495,7 +501,7 @@ pub fn check_dir_light_mesh_visibility(
     commands.queue(move |world: &mut World| {
         let mut query = world.query::<&mut ViewVisibility>();
         for entities in defer_queue.iter_mut() {
-            let mut iter = query.iter_many_mut(world, entities.iter());
+            let mut iter = query.iter_many_mut(world, entities.iter()).matched();
             while let Some(mut view_visibility) = iter.fetch_next() {
                 view_visibility.set_visible();
             }

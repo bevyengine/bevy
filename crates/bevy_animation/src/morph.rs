@@ -4,7 +4,7 @@ use crate::{
     graph::AnimationNodeIndex,
     AnimationEntityMut, AnimationEvaluationError,
 };
-use bevy_math::curve::{iterable::IterableCurve, Interval};
+use bevy_curve::{iterable::IterableCurve, Interval};
 use bevy_mesh::morph::MorphWeights;
 use bevy_reflect::{FromReflect, Reflect, Reflectable};
 use core::{

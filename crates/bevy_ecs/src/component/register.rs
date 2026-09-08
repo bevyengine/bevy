@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use bevy_platform::sync::PoisonError;
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::any::Any;
 use core::{any::TypeId, fmt::Debug, ops::Deref};
 
@@ -132,12 +132,7 @@ impl<'w> ComponentsRegistrator<'w> {
                 .unwrap_or_else(PoisonError::into_inner);
             queued.components.keys().next().copied().map(|type_id| {
                 // SAFETY: the id just came from a valid iterator.
-                unsafe {
-                    queued
-                        .components
-                        .shift_remove(&type_id)
-                        .debug_checked_unwrap()
-                }
+                unsafe { queued.components.remove(&type_id).debug_checked_unwrap() }
             })
         } {
             registrator.register(self);
@@ -193,7 +188,7 @@ impl<'w> ComponentsRegistrator<'w> {
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner)
             .components
-            .shift_remove(&type_id)
+            .remove(&type_id)
         {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
@@ -329,7 +324,7 @@ impl<'w> ComponentsRegistrator<'w> {
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner)
             .components
-            .shift_remove(&type_id)
+            .remove(&type_id)
         {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
@@ -391,7 +386,7 @@ impl QueuedRegistration {
 /// Allows queuing components to be registered.
 #[derive(Default)]
 pub struct QueuedComponents {
-    pub(super) components: TypeIdMap<QueuedRegistration>,
+    pub(super) components: TypeIdHashMap<QueuedRegistration>,
     pub(super) dynamic_registrations: Vec<QueuedRegistration>,
 }
 

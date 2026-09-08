@@ -251,7 +251,7 @@ impl List for DynamicList {
     }
 
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
-        self.values.drain(..).collect()
+        core::mem::take(&mut self.values)
     }
 }
 
@@ -411,8 +411,8 @@ impl<'a> Iterator for ListIter<'a> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.list.len();
-        (size, Some(size))
+        let remaining = self.list.len().saturating_sub(self.index);
+        (remaining, Some(remaining))
     }
 }
 

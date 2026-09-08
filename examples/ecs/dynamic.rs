@@ -117,6 +117,7 @@ fn main() {
                             Layout::array::<u64>(size).unwrap(),
                             None,
                             true,
+                            false,
                             ComponentCloneBehavior::Default,
                             None,
                         )
@@ -227,6 +228,7 @@ fn main() {
                             StorageType::Table,
                             Layout::new::<()>(),
                             None,
+                            false,
                             false,
                             ComponentCloneBehavior::Ignore,
                             None,

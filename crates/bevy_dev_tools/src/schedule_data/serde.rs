@@ -125,16 +125,16 @@ impl AccessData {
         // Similarly for `try_writes` and `writes_inverted=false`
         // We return empty vectors when inverted=true, however this should not be used by consumers.
 
-        let reads = value.try_reads();
-        let writes = value.try_writes();
+        let reads = value.reads().as_finite_set();
+        let writes = value.writes().as_finite_set();
 
         let (reads_inverted, reads) = match reads {
-            Ok(reads) => (false, trace.get_indexes(reads.iter())),
-            Err(_) => (true, vec![]),
+            Some(reads) => (false, trace.get_indexes(reads.iter())),
+            None => (true, vec![]),
         };
         let (writes_inverted, writes) = match writes {
-            Ok(writes) => (false, trace.get_indexes(writes.iter())),
-            Err(_) => (true, vec![]),
+            Some(writes) => (false, trace.get_indexes(writes.iter())),
+            None => (true, vec![]),
         };
 
         Self {
@@ -338,7 +338,7 @@ impl ScheduleData {
 
                 let system = system_with_access.system();
                 let access = system_with_access.access();
-                let filtered_accesses = access.filtered_accesses();
+                let filtered_accesses = access.to_filtered_access_set();
 
                 let flags = system.flags();
 
@@ -346,9 +346,10 @@ impl ScheduleData {
                     name: format!("{}", system.name()),
                     apply_deferred: system.system_type()
                         == core::any::TypeId::of::<ApplyDeferred>(),
-                    exclusive: flags.contains(SystemStateFlags::EXCLUSIVE),
+                    exclusive: access.is_exclusive(),
                     deferred: flags.contains(SystemStateFlags::DEFERRED),
                     filtered_accesses: filtered_accesses
+                        .filtered_accesses()
                         .iter()
                         .map(|fa| FilteredAccessData::new(fa, &mut component_trace))
                         .collect(),
@@ -779,7 +780,19 @@ pub mod tests {
                 apply_deferred: false,
                 exclusive: true,
                 deferred: false,
-                filtered_accesses: vec![],
+                filtered_accesses: vec![FilteredAccessData {
+                    access: AccessData {
+                        reads: vec![],
+                        writes: vec![],
+                        reads_inverted: true,
+                        writes_inverted: true,
+                        archetypal: vec![]
+                    },
+                    filter_sets: vec![AccessFiltersData {
+                        with: vec![],
+                        without: vec![],
+                    }]
+                }],
             }]
         );
         assert_eq!(
@@ -972,7 +985,19 @@ pub mod tests {
                     apply_deferred: true,
                     exclusive: true,
                     deferred: false,
-                    filtered_accesses: vec![],
+                    filtered_accesses: vec![FilteredAccessData {
+                        access: AccessData {
+                            reads: vec![],
+                            writes: vec![],
+                            reads_inverted: true,
+                            writes_inverted: true,
+                            archetypal: vec![]
+                        },
+                        filter_sets: vec![AccessFiltersData {
+                            with: vec![],
+                            without: vec![]
+                        }]
+                    }]
                 },
                 simple_system("b0"),
                 simple_system("b1"),

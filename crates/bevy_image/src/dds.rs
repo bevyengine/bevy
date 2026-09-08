@@ -348,18 +348,10 @@ mod test {
         let (block_width, block_height) = desc.format.block_dimensions();
         let layer_iterations = desc.array_layer_count();
 
-        let outer_iteration;
-        let inner_iteration;
-        match TextureDataOrder::default() {
-            TextureDataOrder::LayerMajor => {
-                outer_iteration = layer_iterations;
-                inner_iteration = desc.mip_level_count;
-            }
-            TextureDataOrder::MipMajor => {
-                outer_iteration = desc.mip_level_count;
-                inner_iteration = layer_iterations;
-            }
-        }
+        let (outer_iteration, inner_iteration) = match TextureDataOrder::default() {
+            TextureDataOrder::LayerMajor => (layer_iterations, desc.mip_level_count),
+            TextureDataOrder::MipMajor => (desc.mip_level_count, layer_iterations),
+        };
 
         let mut binary_offset = 0;
         for outer in 0..outer_iteration {

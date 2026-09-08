@@ -3,8 +3,11 @@
 
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
+    picking::hover::Hovered,
+    platform::collections::HashSet,
     prelude::*,
-    ui::widget::NodeImageMode,
+    ui::{widget::NodeImageMode, Pressed},
+    ui_widgets::Button,
 };
 
 fn main() {
@@ -15,31 +18,68 @@ fn main() {
         .run();
 }
 
+/// Updates each button label whenever its `Pressed` or `Hovered` state changes.
+/// The image node, defined from a spritesheet, will also update upon pressing the button.
+///
+/// `Hovered` always exists on the button, so `Ref::is_changed` catches hover transitions and
+/// the insertion of `Pressed`. Removal of `Pressed` is not reported by change detection, so we
+/// also restyle any button that just had `Pressed` removed this frame.
 fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &Children, &mut ImageNode),
-        (Changed<Interaction>, With<Button>),
+    mut buttons: Query<
+        (
+            Entity,
+            Option<Ref<Pressed>>,
+            Ref<Hovered>,
+            &mut ImageNode,
+            &Children,
+        ),
+        With<Button>,
     >,
+    mut removed_pressed: RemovedComponents<Pressed>,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, children, mut image) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
-        match *interaction {
-            Interaction::Pressed => {
-                **text = "Press".to_string();
-                if let Some(atlas) = &mut image.texture_atlas {
-                    atlas.index = (atlas.index + 1) % 30;
-                }
-                image.color = GOLD.into();
+    // Buttons that had `Pressed` removed this frame; change detection does not report removals.
+    let just_unpressed: HashSet<Entity> = removed_pressed.read().collect();
+    for (entity, pressed, hovered, mut image, children) in &mut buttons {
+        let changed = hovered.is_changed()
+            || pressed.as_ref().is_some_and(Ref::is_changed)
+            || just_unpressed.contains(&entity);
+        if changed {
+            set_button_style(
+                pressed.is_some(),
+                hovered.get(),
+                &mut image,
+                children,
+                &mut text_query,
+            );
+        }
+    }
+}
+
+/// Shared styling logic: pressed takes precedence over hover.
+fn set_button_style(
+    pressed: bool,
+    hovered: bool,
+    image: &mut ImageNode,
+    children: &Children,
+    text_query: &mut Query<&mut Text>,
+) {
+    let mut text = text_query.get_mut(children[0]).unwrap();
+    match (pressed, hovered) {
+        (true, _) => {
+            **text = "Press".to_string();
+            if let Some(atlas) = &mut image.texture_atlas {
+                atlas.index = (atlas.index + 1) % 30;
             }
-            Interaction::Hovered => {
-                **text = "Hover".to_string();
-                image.color = ORANGE.into();
-            }
-            Interaction::None => {
-                **text = "Button".to_string();
-                image.color = Color::WHITE;
-            }
+            image.color = GOLD.into();
+        }
+        (false, true) => {
+            **text = "Hover".to_string();
+            image.color = ORANGE.into();
+        }
+        (false, false) => {
+            **text = "Button".to_string();
+            image.color = Color::WHITE;
         }
     }
 }
@@ -79,6 +119,7 @@ fn setup(
                 parent
                     .spawn((
                         Button,
+                        Hovered::default(),
                         ImageNode::from_atlas_image(
                             texture_handle.clone(),
                             TextureAtlas {

@@ -6,11 +6,9 @@ use bevy_ecs::{
     component::Component, entity::Entity, prelude::ReflectComponent, system::Query,
     template::FromTemplate,
 };
-use bevy_math::{
-    bounding::{Aabb3d, BoundingVolume},
-    Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4,
-};
+use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
+use bevy_shape::{Aabb3d, BoundingVolume};
 use bevy_transform::components::GlobalTransform;
 use core::ops::Deref;
 use thiserror::Error;
@@ -292,8 +290,8 @@ fn transform_aabb(input: JointAabb, transform: Affine3A) -> Aabb3d {
 // let result = a.finish();
 // ```
 //
-// For alternatives, see [`Aabb3d::from_point_clound`](`bevy_math::bounding::bounded3d::Aabb3d::from_point_cloud`)
-// and [`BoundingVolume::merge`](`bevy_math::bounding::BoundingVolume::merge`).
+// For alternatives, see [`Aabb3d::from_point_clound`](`bevy_shape::bounded3d::Aabb3d::from_point_cloud`)
+// and [`BoundingVolume::merge`](`bevy_shape::BoundingVolume::merge`).
 #[derive(Copy, Clone)]
 struct AabbAccumulator {
     min: Vec3A,
@@ -757,7 +755,8 @@ mod tests {
     use crate::Indices;
     use approx::assert_abs_diff_eq;
     use bevy_asset::RenderAssetUsages;
-    use bevy_math::{bounding::BoundingVolume, vec3, vec3a};
+    use bevy_math::{vec3, vec3a};
+    use bevy_shape::BoundingVolume;
     use wgpu_types::PrimitiveTopology;
 
     #[test]

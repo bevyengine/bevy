@@ -31,7 +31,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/compute_mesh.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/compute_mesh.wesl";
 
 fn main() {
     App::new()
@@ -225,7 +225,7 @@ fn init_compute_pipeline(
                 // offsets
                 uniform_buffer::<DataRanges>(false),
                 // vertices
-                storage_buffer::<Vec<u32>>(false),
+                storage_buffer::<Vec<f32>>(false),
                 // indices
                 storage_buffer::<Vec<u32>>(false),
             ),

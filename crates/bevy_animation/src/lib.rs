@@ -45,7 +45,7 @@ use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystems;
-use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
+use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdHashMap};
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use tracing::{trace, warn};
@@ -463,6 +463,19 @@ impl AnimationClip {
             ),
         }
     }
+
+    /// Returns true if this animation clip is *relevant* to the animation
+    /// target with the given ID.
+    ///
+    /// An animation clip is relevant if it animates the given target and/or has
+    /// events that fire for the given target.
+    pub(crate) fn is_relevant_to_target(&self, animation_target_id: AnimationTargetId) -> bool {
+        self.curves_for_target(animation_target_id).is_some()
+            || self
+                .events
+                .get(&AnimationEventTarget::Node(animation_target_id))
+                .is_some_and(|events| !events.is_empty())
+    }
 }
 
 /// Repetition behavior of an animation.
@@ -778,7 +791,7 @@ pub struct AnimationEvaluationState {
 struct AnimationCurveEvaluators {
     component_property_curve_evaluators:
         PreHashMap<(TypeId, usize), Box<dyn AnimationCurveEvaluator>>,
-    type_id_curve_evaluators: TypeIdMap<Box<dyn AnimationCurveEvaluator>>,
+    type_id_curve_evaluators: TypeIdHashMap<Box<dyn AnimationCurveEvaluator>>,
 }
 
 impl AnimationCurveEvaluators {
@@ -804,10 +817,10 @@ impl AnimationCurveEvaluators {
                 .component_property_curve_evaluators
                 .get_or_insert_with(component_property, func),
             EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
-                bevy_utils::TypeIdMapEntry::Occupied(occupied_entry) => {
+                bevy_utils::TypeIdHashMapEntry::Occupied(occupied_entry) => {
                     &mut **occupied_entry.into_mut()
                 }
-                bevy_utils::TypeIdMapEntry::Vacant(vacant_entry) => {
+                bevy_utils::TypeIdHashMapEntry::Vacant(vacant_entry) => {
                     &mut **vacant_entry.insert(func())
                 }
             },
@@ -818,7 +831,7 @@ impl AnimationCurveEvaluators {
 #[derive(Default)]
 struct CurrentEvaluators {
     component_properties: PreHashMap<(TypeId, usize), ()>,
-    type_ids: TypeIdMap<()>,
+    type_ids: TypeIdHashMap<()>,
 }
 
 impl CurrentEvaluators {
@@ -837,7 +850,7 @@ impl CurrentEvaluators {
             (visit)(EvaluatorId::ComponentField(&key))?;
         }
 
-        for (key, _) in self.type_ids.drain(..) {
+        for (key, _) in self.type_ids.drain() {
             (visit)(EvaluatorId::Type(key))?;
         }
 
@@ -1117,9 +1130,21 @@ pub fn animate_targets(
                 return;
             };
 
-            let Some(threaded_animation_graph) =
-                threaded_animation_graphs.0.get(&animation_graph_id)
+            let Some(threaded_animation_graph) = threaded_animation_graphs
+                .threaded_graphs
+                .get(&animation_graph_id)
             else {
+                return;
+            };
+
+            let Some(threaded_animation_subgraph) = threaded_animation_graph
+                .animation_target_to_threaded_subgraph
+                .get(&target_id)
+            else {
+                trace!(
+                    "Failed to find threaded subgraph for {:?}; animation won't play",
+                    target_id
+                );
                 return;
             };
 
@@ -1134,21 +1159,30 @@ pub fn animate_targets(
             let evaluation_state = &mut *evaluation_state;
 
             // Evaluate the graph.
-            for &animation_graph_node_index in threaded_animation_graph.threaded_graph.iter() {
+            for (sorted_node_index, &animation_graph_node_index) in threaded_animation_subgraph
+                .threaded_graph
+                .iter()
+                .enumerate()
+            {
                 let Some(animation_graph_node) = animation_graph.get(animation_graph_node_index)
                 else {
                     continue;
                 };
 
+                let sorted_edge_range_start =
+                    threaded_animation_subgraph.sorted_edge_list_offsets[sorted_node_index];
+                let sorted_edge_range_end = threaded_animation_subgraph
+                    .sorted_edge_list_offsets
+                    .get(sorted_node_index + 1)
+                    .copied()
+                    .unwrap_or(threaded_animation_subgraph.sorted_edges.len() as u32);
+
                 match animation_graph_node.node_type {
                     AnimationNodeType::Blend => {
                         // This is a blend node.
-                        for edge_index in threaded_animation_graph.sorted_edge_ranges
-                            [animation_graph_node_index.index()]
-                        .clone()
-                        {
+                        for edge_index in sorted_edge_range_start..sorted_edge_range_end {
                             if let Err(err) = evaluation_state.blend_all(
-                                threaded_animation_graph.sorted_edges[edge_index as usize],
+                                threaded_animation_subgraph.sorted_edges[edge_index as usize],
                             ) {
                                 warn!("Failed to blend animation: {:?}", err);
                             }
@@ -1164,13 +1198,10 @@ pub fn animate_targets(
 
                     AnimationNodeType::Add => {
                         // This is an additive blend node.
-                        for edge_index in threaded_animation_graph.sorted_edge_ranges
-                            [animation_graph_node_index.index()]
-                        .clone()
-                        {
-                            if let Err(err) = evaluation_state
-                                .add_all(threaded_animation_graph.sorted_edges[edge_index as usize])
-                            {
+                        for edge_index in sorted_edge_range_start..sorted_edge_range_end {
+                            if let Err(err) = evaluation_state.add_all(
+                                threaded_animation_subgraph.sorted_edges[edge_index as usize],
+                            ) {
                                 warn!("Failed to blend animation: {:?}", err);
                             }
                         }

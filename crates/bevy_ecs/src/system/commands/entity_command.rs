@@ -24,6 +24,8 @@ use crate::{
 };
 use bevy_ptr::{move_as_ptr, OwningPtr};
 
+use bevy_platform::sync::Arc;
+
 /// A command which gets executed for a given [`Entity`].
 ///
 /// Should be used with [`EntityCommands::queue`](crate::system::EntityCommands::queue).
@@ -119,6 +121,18 @@ impl<Out, F> EntityCommand for F
 where
     F: FnOnce(EntityWorldMut) -> Out + Send + 'static,
     Out: EntityCommandOutput,
+{
+    type Out = Out;
+
+    fn apply(self, entity: EntityWorldMut) -> Self::Out {
+        self(entity)
+    }
+}
+
+impl<Out, F> EntityCommand for Arc<F>
+where
+    F: Fn(EntityWorldMut) -> Out + Send + Sync + ?Sized + 'static,
+    Out: EntityCommandOutput + 'static,
 {
     type Out = Out;
 
