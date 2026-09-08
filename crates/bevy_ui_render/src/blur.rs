@@ -41,7 +41,9 @@ use bevy_render::{
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{Shader, ShaderDefVal};
-use bevy_ui::{ComputedNode, ComputedUiTargetCamera, UiGlobalTransform, UiSystems};
+use bevy_ui::{
+    ComputedNode, ComputedUiTargetCamera, ResolvedBorderRadius, UiGlobalTransform, UiSystems,
+};
 use bevy_utils::default;
 use tracing::warn;
 
@@ -56,7 +58,7 @@ pub const DEFAULT_MAX_BLUR_REGIONS_COUNT: usize = 32;
 /// The constants are drawn from <http://yehar.com/blog/?p=1495> via
 /// <https://github.com/mikepound/convolve/blob/master/complex_kernels.py> (1-component row).
 ///
-/// These must stay in sync with the constants of the same names in `blur.wgsl`.
+/// These must stay in sync with the constants of the same names in `blur.wesl`.
 const BOKEH_KERNEL_A: f32 = 0.862325;
 const BOKEH_KERNEL_B: f32 = 1.624835;
 const BOKEH_WEIGHT_REAL: f32 = 0.767583;
@@ -143,7 +145,7 @@ impl BlurSetting {
     pub const BOKEH: BlurSetting = BlurSetting::Bokeh { radius: 24 };
 
     /// Packs the algorithm parameters into the generic `params` uniform vector.
-    /// The meaning of each component is algorithm specific; see `blur.wgsl`.
+    /// The meaning of each component is algorithm specific; see `blur.wesl`.
     fn shader_params(&self) -> Vec4 {
         match *self {
             BlurSetting::BoxBlur {
@@ -203,7 +205,7 @@ pub struct BlurShaderPlugin<const N: usize>;
 
 impl<const N: usize> Plugin for BlurShaderPlugin<N> {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "blur.wgsl");
+        embedded_asset!(app, "blur.wesl");
 
         app.add_plugins((
             ExtractComponentPlugin::<BlurRegionCamera<N>>::default(),
@@ -258,7 +260,11 @@ struct ComputedBlurRegion {
     max_x: f32,
     min_y: f32,
     max_y: f32,
-    border_radii: Vec4,
+    /// The horizontal radius of each corner, ordered top left, top right,
+    /// bottom right, bottom left.
+    border_radii_x: Vec4,
+    /// The vertical radius of each corner, in the same order as `border_radii_x`.
+    border_radii_y: Vec4,
 }
 
 impl ComputedBlurRegion {
@@ -267,7 +273,8 @@ impl ComputedBlurRegion {
         max_x: -1.0,
         min_y: -1.0,
         max_y: -1.0,
-        border_radii: Vec4::ZERO,
+        border_radii_x: Vec4::ZERO,
+        border_radii_y: Vec4::ZERO,
     };
 }
 
@@ -312,11 +319,11 @@ impl<const N: usize> BlurRegionCamera<N> {
 
     /// Adds a rectangular blur region, in physical pixels.
     pub fn blur(&mut self, rect: Rect) {
-        self.rounded_blur(rect, Vec4::ZERO);
+        self.rounded_blur(rect, ResolvedBorderRadius::ZERO);
     }
 
-    /// Adds a rounded rectangular blur region, in physical pixels.
-    pub fn rounded_blur(&mut self, rect: Rect, border_radii: Vec4) {
+    /// Adds a rounded (possibly elliptical-corner) blur region, in physical pixels.
+    pub fn rounded_blur(&mut self, rect: Rect, border_radii: ResolvedBorderRadius) {
         if self.current_regions_count == N as u32 {
             warn!("Blur region ignored as the max blur region count has already been reached");
             return;
@@ -327,7 +334,18 @@ impl<const N: usize> BlurRegionCamera<N> {
             max_x: rect.max.x,
             min_y: rect.min.y,
             max_y: rect.max.y,
-            border_radii,
+            border_radii_x: Vec4::new(
+                border_radii.top_left.x,
+                border_radii.top_right.x,
+                border_radii.bottom_right.x,
+                border_radii.bottom_left.x,
+            ),
+            border_radii_y: Vec4::new(
+                border_radii.top_left.y,
+                border_radii.top_right.y,
+                border_radii.bottom_right.y,
+                border_radii.bottom_left.y,
+            ),
         };
         self.current_regions_count += 1;
     }
@@ -338,7 +356,7 @@ impl<const N: usize> BlurRegionCamera<N> {
         }
     }
 
-    pub fn rounded_blur_all(&mut self, rect: &[(Rect, Vec4)]) {
+    pub fn rounded_blur_all(&mut self, rect: &[(Rect, ResolvedBorderRadius)]) {
         for rect in rect {
             self.rounded_blur(rect.0, rect.1);
         }
@@ -383,7 +401,7 @@ pub fn sync_blur_regions<const N: usize>(
         };
 
         let rect = Rect::from_center_size(transform.translation, node.size());
-        let border_radii = Vec4::from_array(node.border_radius.into());
+        let border_radii = node.border_radius();
         camera.rounded_blur(rect, border_radii);
     }
 }
@@ -396,7 +414,7 @@ pub fn sync_blur_regions<const N: usize>(
 pub struct ExtractedBlurSettings(pub BlurSetting);
 
 /// The GPU uniform shared by every blur pass. `params` is interpreted per
-/// algorithm; see the parameter documentation in `blur.wgsl`.
+/// algorithm; see the parameter documentation in `blur.wesl`.
 #[derive(Component, Clone, ShaderType)]
 pub struct BlurRegionUniform<const N: usize> {
     params: Vec4,
@@ -404,11 +422,11 @@ pub struct BlurRegionUniform<const N: usize> {
     regions: [ComputedBlurRegion; N],
 }
 
-impl<const N: usize> SyncComponent for BlurRegionCamera<N> {
+impl<const N: usize> SyncComponent<RenderApp> for BlurRegionCamera<N> {
     type Target = (BlurRegionUniform<N>, ExtractedBlurSettings);
 }
 
-impl<const N: usize> ExtractComponent for BlurRegionCamera<N> {
+impl<const N: usize> ExtractComponent<RenderApp> for BlurRegionCamera<N> {
     type QueryData = &'static Self;
     type QueryFilter = ();
     type Out = (BlurRegionUniform<N>, ExtractedBlurSettings);
@@ -454,7 +472,7 @@ fn init_blur_pipeline<const N: usize>(
     commands.insert_resource(BlurRegionPipeline::<N>::new(
         &render_device,
         fullscreen_shader.clone(),
-        load_embedded_asset!(asset_server.as_ref(), "blur.wgsl"),
+        load_embedded_asset!(asset_server.as_ref(), "blur.wesl"),
     ));
 }
 

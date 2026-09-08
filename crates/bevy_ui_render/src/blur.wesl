@@ -7,8 +7,8 @@
 //   Dual kawase: x = sample offset multiplier
 //   Bokeh:       x = kernel radius in pixels, y = 1 / kernel normalization factor
 
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
-#import bevy_ui::ui_node::sd_rounded_box
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
+import package::ui::sd_rounded_box;
 
 @group(0) @binding(0) var input_texture: texture_2d<f32>;
 @group(0) @binding(1) var texture_sampler: sampler;
@@ -23,7 +23,7 @@
 struct BlurRegionUniform {
     params: vec4<f32>,
     current_regions_count: u32,
-    regions: array<ComputedBlurRegion, #{MAX_BLUR_REGIONS_COUNT}>,
+    regions: array<ComputedBlurRegion, constants::MAX_BLUR_REGIONS_COUNT>,
 }
 
 struct ComputedBlurRegion {
@@ -31,7 +31,8 @@ struct ComputedBlurRegion {
     max_x: f32,
     min_y: f32,
     max_y: f32,
-    border_radii: vec4<f32>,
+    border_radii_x: vec4<f32>,
+    border_radii_y: vec4<f32>,
 }
 
 // Whether a pixel falls inside any blur region, so that passes can skip the
@@ -53,7 +54,8 @@ fn min_region_distance(position: vec2<f32>) -> f32 {
         let distance = sd_rounded_box(
             position - center,
             dims,
-            min(region.border_radii, vec4(half_smallest_dimension)),
+            min(region.border_radii_x, vec4(half_smallest_dimension)),
+            min(region.border_radii_y, vec4(half_smallest_dimension)),
         );
         min_distance = min(min_distance, distance);
     }

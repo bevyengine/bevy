@@ -350,7 +350,7 @@ fn ui_root(state: &BlurDemoState) -> impl Scene + use<> {
             align_items: AlignItems::Center,
         }
         Children [
-            control_panel(state),
+            @control_panel(state),
             (
                 BlurRegion
                 Node {
@@ -409,16 +409,16 @@ fn control_panel(state: &BlurDemoState) -> impl Scene + use<> {
                 on(algorithm_selected)
                 Children [
                     // The demo starts on the gaussian algorithm, so it spawns checked.
-                    (algorithm_radio(Algorithm::Gaussian) Checked),
-                    algorithm_radio(Algorithm::BoxBlur),
-                    algorithm_radio(Algorithm::DualKawase),
-                    algorithm_radio(Algorithm::Bokeh),
+                    (@algorithm_radio(Algorithm::Gaussian) Checked),
+                    @algorithm_radio(Algorithm::BoxBlur),
+                    @algorithm_radio(Algorithm::DualKawase),
+                    @algorithm_radio(Algorithm::Bokeh),
                 ]
             ),
-            param_label(0, &specs[0]),
-            param_slider(0, values[0], &specs[0]),
-            param_label(1, &specs[1]),
-            param_slider(1, values[1], &specs[1]),
+            @param_label(0, &specs[0]),
+            @param_slider(0, values[0], &specs[0]),
+            @param_label(1, &specs[1]),
+            @param_slider(1, values[1], &specs[1]),
         ]
     }
 }
@@ -452,10 +452,10 @@ fn param_slider(slot: usize, value: f32, spec: &Option<ParamSpec>) -> impl Scene
 
     bsn! {
         @FeathersSlider {
-            @value: value,
             @min: min,
             @max: max,
         }
+        SliderValue(value)
         SliderStep(step)
         SliderPrecision({ step_precision(step).0 })
         ParamSlider(slot)
