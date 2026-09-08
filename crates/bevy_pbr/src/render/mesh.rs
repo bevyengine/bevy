@@ -2289,11 +2289,13 @@ pub fn collect_gpu_culled_meshes(
     mut lights: Query<(Option<&RenderLayers>, &mut RenderShadowMapVisibleEntities)>,
     render_gpu_culled_entities: Res<RenderGpuCulledEntities>,
 ) {
+    let default_render_layers = RenderLayers::default();
+
     // Collect cameras.
     for (maybe_render_layers, mut render_visible_entities) in &mut cameras {
         let just_added_render_visible_entities = render_visible_entities.is_added();
         collect_gpu_culled_meshes_for_subview(
-            maybe_render_layers,
+            maybe_render_layers.unwrap_or(&default_render_layers),
             &mut render_visible_entities,
             just_added_render_visible_entities,
             &render_gpu_culled_entities,
@@ -2306,7 +2308,7 @@ pub fn collect_gpu_culled_meshes(
             render_shadow_map_visible_entities.is_added();
         for render_visible_entities in render_shadow_map_visible_entities.subviews.values_mut() {
             collect_gpu_culled_meshes_for_subview(
-                maybe_render_layers,
+                maybe_render_layers.unwrap_or(&default_render_layers),
                 render_visible_entities,
                 just_added_render_shadow_map_visible_entities,
                 &render_gpu_culled_entities,
@@ -2322,15 +2324,13 @@ pub fn collect_gpu_culled_meshes(
 /// corresponding function for entities that are culled on CPU is
 /// `collect_visible_cpu_culled_entities_for_subview`.
 fn collect_gpu_culled_meshes_for_subview(
-    maybe_view_render_layers: Option<&RenderLayers>,
+    view_render_layers: &RenderLayers,
     render_visible_entities: &mut RenderVisibleEntities,
     just_added_render_visible_entities: bool,
     render_mesh_instance_gpu_queues: &RenderGpuCulledEntities,
 ) {
-    let is_entity_relevant = |render_layers: &RenderLayers| -> bool {
-        maybe_view_render_layers
-            .is_none_or(|view_render_layers| view_render_layers.intersects(render_layers))
-    };
+    let is_entity_relevant =
+        |render_layers: &RenderLayers| -> bool { view_render_layers.intersects(render_layers) };
 
     // Only 3D meshes can be culled on GPU at the moment.
     let render_view_visible_mesh_entities = render_visible_entities
