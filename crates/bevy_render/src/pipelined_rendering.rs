@@ -214,6 +214,31 @@ impl Plugin for PipelinedRenderingPlugin {
     }
 }
 
+// This function waits for the rendering world to be received,
+// runs extract, and then sends the rendering world back to the render thread.
+fn renderer_extract(app_world: &mut World, _world: &mut World) {
+    app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
+        world.resource_scope(|world, mut render_channels: Mut<RenderAppChannels>| {
+            // we use a scope here to run any main thread tasks that the render world still needs to run
+            // while we wait for the render world to be received.
+            if let Some(mut render_app) = ComputeTaskPool::get()
+                .scope_with_executor(true, Some(&*main_thread_executor.0), |s| {
+                    s.spawn(async { render_channels.recv().await });
+                })
+                .pop()
+                .unwrap()
+            {
+                render_app.extract(world);
+
+                render_channels.send_blocking(render_app);
+            } else {
+                // Renderer thread panicked
+                world.write_message(AppExit::error());
+            }
+        });
+    });
+}
+
 #[cfg(all(test, feature = "multi_threaded"))]
 mod tests {
     use super::*;
@@ -341,29 +366,4 @@ mod tests {
             render_thread.join().unwrap();
         });
     }
-}
-
-// This function waits for the rendering world to be received,
-// runs extract, and then sends the rendering world back to the render thread.
-fn renderer_extract(app_world: &mut World, _world: &mut World) {
-    app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
-        world.resource_scope(|world, mut render_channels: Mut<RenderAppChannels>| {
-            // we use a scope here to run any main thread tasks that the render world still needs to run
-            // while we wait for the render world to be received.
-            if let Some(mut render_app) = ComputeTaskPool::get()
-                .scope_with_executor(true, Some(&*main_thread_executor.0), |s| {
-                    s.spawn(async { render_channels.recv().await });
-                })
-                .pop()
-                .unwrap()
-            {
-                render_app.extract(world);
-
-                render_channels.send_blocking(render_app);
-            } else {
-                // Renderer thread panicked
-                world.write_message(AppExit::error());
-            }
-        });
-    });
 }
