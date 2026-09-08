@@ -241,7 +241,9 @@ impl TlasState {
         };
 
         let ids = [transforms.id(), blas_refs.id(), instances.id()];
-        if self.instance_setup_bind_group.is_some() && self.instance_setup_buffer_ids == Some(ids) {
+        if self.instance_setup_bind_group.is_some()
+            && self.instance_setup_buffer_ids == Some(ids.clone())
+        {
             return;
         }
 

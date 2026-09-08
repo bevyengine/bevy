@@ -69,7 +69,7 @@ fn storage_buffer<T: AtomicPod>(label: &str) -> AtomicSparseBufferVec<T> {
 }
 
 /// Everything tracked per raytracing instance.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct Instance {
     slot: u32,
     mesh: AssetId<Mesh>,
@@ -242,22 +242,22 @@ impl InstanceState {
     ) {
         let mesh_id = mesh.id();
         let material_id = material.id();
-        let previous = self.records.get(&entity).copied();
+        let previous = self.records.get(&entity).cloned();
 
         relink(
             &mut self.mesh_instances,
             entity,
-            previous.map(|instance| instance.mesh),
+            previous.as_ref().map(|instance| instance.mesh),
             mesh_id,
         );
         relink(
             &mut self.material_instances,
             entity,
-            previous.map(|instance| instance.material),
+            previous.as_ref().map(|instance| instance.material),
             material_id,
         );
 
-        let slot = match previous {
+        let slot = match &previous {
             Some(previous) => previous.slot,
             None => self.slots.allocate(),
         };
@@ -318,11 +318,15 @@ impl InstanceState {
         let previous_buffers = instance.buffers.take();
         let vertex_buffer_id = self
             .vertex_buffers
-            .acquire(vertex_buffer_key, capacity, || vertex_slice.buffer.clone())
+            .acquire(vertex_buffer_key.clone(), capacity, || {
+                vertex_slice.buffer.clone()
+            })
             .expect("vertex slab binding array had room but handed out no slot");
         let index_buffer_id = self
             .index_buffers
-            .acquire(index_buffer_key, capacity, || index_slice.buffer.clone())
+            .acquire(index_buffer_key.clone(), capacity, || {
+                index_slice.buffer.clone()
+            })
             .expect("index slab binding array had room but handed out no slot");
         instance.buffers = Some((vertex_buffer_key, index_buffer_key));
         self.release_buffers(previous_buffers);

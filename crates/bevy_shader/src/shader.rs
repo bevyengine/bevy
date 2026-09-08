@@ -2,7 +2,6 @@ use super::ShaderDefVal;
 use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
-use bevy_utils::define_atomic_id;
 use thiserror::Error;
 
 fn scan_wesl_imports(
@@ -81,8 +80,6 @@ fn scan_wesl_imports(
     }
     imports
 }
-
-define_atomic_id!(ShaderId);
 
 /// Describes whether or not to perform runtime checks on shaders.
 /// Runtime checks can be enabled for safety at the cost of speed.

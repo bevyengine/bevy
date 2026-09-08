@@ -1,13 +1,16 @@
-use crate::renderer::wgpu_wrapper;
-use bevy_utils::define_atomic_id;
+use crate::renderer::{impl_eq_ord_hash_wrapper, wgpu_wrapper};
 use core::ops::Deref;
-
-define_atomic_id!(RenderPipelineId);
 
 wgpu_wrapper! {
     #[derive(Clone, Debug)]
     struct WgpuRenderPipeline(wgpu::RenderPipeline);
 }
+
+impl_eq_ord_hash_wrapper!(WgpuRenderPipeline);
+
+/// An opaque identifier for a [`RenderPipeline`], backed by the wrapped wgpu [`RenderPipeline`](wgpu::RenderPipeline).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RenderPipelineId(WgpuRenderPipeline);
 
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
@@ -15,21 +18,19 @@ wgpu_wrapper! {
 /// Can be created via [`RenderDevice::create_render_pipeline`](crate::renderer::RenderDevice::create_render_pipeline).
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
-    id: RenderPipelineId,
     value: WgpuRenderPipeline,
 }
 
 impl RenderPipeline {
     #[inline]
     pub fn id(&self) -> RenderPipelineId {
-        self.id
+        RenderPipelineId(self.value.clone())
     }
 }
 
 impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
-            id: RenderPipelineId::new(),
             value: WgpuRenderPipeline::new(value),
         }
     }
@@ -44,12 +45,16 @@ impl Deref for RenderPipeline {
     }
 }
 
-define_atomic_id!(ComputePipelineId);
-
 wgpu_wrapper! {
     #[derive(Clone, Debug)]
     struct WgpuComputePipeline(wgpu::ComputePipeline);
 }
+
+impl_eq_ord_hash_wrapper!(WgpuComputePipeline);
+
+/// An opaque identifier for a [`ComputePipeline`], backed by the wrapped wgpu [`ComputePipeline`](wgpu::ComputePipeline).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ComputePipelineId(WgpuComputePipeline);
 
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
@@ -57,7 +62,6 @@ wgpu_wrapper! {
 /// Can be created via [`RenderDevice::create_compute_pipeline`](crate::renderer::RenderDevice::create_compute_pipeline).
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
-    id: ComputePipelineId,
     value: WgpuComputePipeline,
 }
 
@@ -65,14 +69,13 @@ impl ComputePipeline {
     /// Returns the [`ComputePipelineId`].
     #[inline]
     pub fn id(&self) -> ComputePipelineId {
-        self.id
+        ComputePipelineId(self.value.clone())
     }
 }
 
 impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
-            id: ComputePipelineId::new(),
             value: WgpuComputePipeline::new(value),
         }
     }
