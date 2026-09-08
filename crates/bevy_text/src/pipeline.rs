@@ -45,10 +45,10 @@ pub struct TextPipeline {
 
 /// The collected data `TextPipeline` needs from a single entity to add it to a text layout.
 ///
-/// Each `TextElement` corresponds to either a root text entity, a [`TextSpan`] or an [`InlineBox`].
+/// Each `TextElement` corresponds to either a root text entity, a [`TextSpan`](crate::TextSpan) or an [`InlineBox`](crate::InlineBox).
 #[derive(Debug, Clone)]
 pub enum TextElement<'a> {
-    /// Text contributed by a root text entity or a [`TextSpan`].
+    /// Text contributed by a root text entity or a [`TextSpan`](crate::TextSpan).
     Text {
         /// The text.
         text: &'a str,
@@ -61,7 +61,7 @@ pub enum TextElement<'a> {
         /// Letter spacing.
         letter_spacing: LetterSpacing,
     },
-    /// Space reversed in the the layout by an `InlineBox`.    
+    /// Space reversed in the the layout by an [`InlineBox`](crate::InlineBox).    
     Box(&'a crate::InlineBox),
 }
 
