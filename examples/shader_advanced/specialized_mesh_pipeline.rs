@@ -12,7 +12,10 @@ use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::change_detection::Tick,
     math::{vec3, vec4},
-    mesh::{Indices, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef, PrimitiveTopology},
+    mesh::{
+        Indices, MeshAttributeCompressionFlags, MeshCompressionArgs, MeshVertexBufferLayoutRef,
+        PrimitiveTopology,
+    },
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSystems, MeshPipelineViewLayoutKey,
         RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
@@ -102,11 +105,8 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
                     .build()
                     .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL)
                     .with_removed_attribute(Mesh::ATTRIBUTE_UV_0)
-                    .compressed_mesh(
-                        MeshAttributeCompressionFlags::all()
-                            .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8),
-                        true,
-                    ),
+                    .compressed_mesh(&MeshCompressionArgs::regular())
+                    .unwrap(),
             ),
         ),
         Transform::from_xyz(0.0, -1.0 / 3.0, -1.0),

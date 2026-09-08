@@ -14,7 +14,7 @@ use std::ops::Range;
 
 use bevy::camera::Viewport;
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
-use bevy::mesh::MeshAttributeCompressionFlags;
+use bevy::mesh::{MeshAttributeCompressionFlags, MeshCompressionArgs};
 use bevy::pbr::{self, MeshPipelineSystems, SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
@@ -97,11 +97,11 @@ fn setup(
     commands.spawn((
         Mesh3d(
             meshes.add(
-                Sphere::new(0.5).mesh().build().compressed_mesh(
-                    MeshAttributeCompressionFlags::all()
-                        .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8),
-                    true,
-                ),
+                Sphere::new(0.5)
+                    .mesh()
+                    .build()
+                    .compressed_mesh(&MeshCompressionArgs::regular())
+                    .unwrap(),
             ),
         ),
         MeshMaterial3d(materials.add(Color::srgb_u8(124, 255, 144))),
