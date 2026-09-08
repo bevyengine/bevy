@@ -112,7 +112,7 @@
 //! ## Entity Hierarchies and Relationships
 //!
 //! Use `Children [scene1 -- scene2]` inside [`bsn!`] to spawn child entities.
-//! [`Children`] (and entities within [`bsn_list!`]) are separated by `--`;
+//! [`Children`] (and a list of entities at the root of [`bsn!`]) are separated by `--`;
 //! add multiple components to the same entity by listing them without a `--`:
 //!
 //! ```ignore
@@ -200,7 +200,7 @@
 //! If both a parent and a composed child define the same name (e.g. both use `#X`),
 //! each scope's `#X` resolves to its own entity, avoiding conflicts or potentially unintuitive shadowing.
 //!
-//! In a [`bsn_list!`], all root entities share a single name scope, so sibling scenes
+//! In a list defined in [`bsn!`], all root entities share a single name scope, so sibling scenes
 //! can reference each other by name. This is useful for wiring up relationships between
 //! entities that are spawned together. For example, a group of UI panels where each
 //! panel needs a relationship to its neighbor:
@@ -1649,7 +1649,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
         let entities = world
-            .spawn_scene_list(bsn_list! {
+            .spawn_scene_list(bsn! {
                 #A
                 --
                 target(#A)
@@ -2198,7 +2198,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
         let entities = world
-            .spawn_scene_list(bsn_list! {
+            .spawn_scene_list(bsn! {
                 #A
                 --
                 Foo::Entity(#A)
@@ -2354,7 +2354,7 @@ mod tests {
         let world = app.world_mut();
 
         fn scene(root: Entity) -> impl SceneList {
-            bsn_list! {
+            bsn! {
                 #Child1 ChildOf(root)
                 --
                 #Child2 ChildOf(#Child1)
@@ -2586,11 +2586,11 @@ mod tests {
         }
 
         fn scene1() -> impl Scene {
-            bsn!(SpawnOnInsert)
+            bsn! { SpawnOnInsert }
         }
 
         fn scene2() -> impl Scene {
-            bsn!(#Name)
+            bsn! { #Name }
         }
 
         let mut app = test_app();
@@ -3367,14 +3367,14 @@ mod tests {
         struct Ref(Entity);
 
         let patch = bsn! {
-            #patch
+            #Patch
             Children [
-                Ref(#patch)
+                Ref(#Patch)
             ]
         };
 
-        let root = bsn_list! {
-            #root @{patch}
+        let root = bsn! {
+            #Root @{patch}
         };
 
         let expected_id = Some(world.spawn_scene_list(root).unwrap()[0]);

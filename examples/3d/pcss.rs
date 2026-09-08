@@ -231,7 +231,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (SoftShadows(false), "Off"),
                 ],
                 0,
-            ),
+            )
         ]
     });
 }

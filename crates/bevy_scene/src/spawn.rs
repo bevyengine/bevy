@@ -128,15 +128,12 @@ pub trait WorldSceneExt {
     ///     Blue,
     /// }
     ///
-    /// world.spawn_scene_list(bsn_list! {
-    ///     (
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
+    /// world.spawn_scene_list(bsn! {
+    ///     #Player1
+    ///     Team::Red
+    ///     --
+    ///     #Player2
+    ///     Team::Blue
     /// }).unwrap();
     /// ```
     // PERF: ideally this is an iterator
@@ -316,17 +313,14 @@ pub trait CommandsSceneExt {
     /// }
     ///
     /// // Note that the .bsn file format is not yet released.
-    /// commands.spawn_scene_list(bsn_list! {
-    ///     (
-    ///         :"player.bsn"
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         :"player.bsn"
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
+    /// commands.spawn_scene_list(bsn! {
+    ///     :"player.bsn"
+    ///     #Player1
+    ///     Team::Red
+    ///     --
+    ///     :"player.bsn"
+    ///     #Player2
+    ///     Team::Blue
     /// });
     /// ```
     fn spawn_scene_list<L: SceneList>(&mut self, scenes: L);
@@ -432,15 +426,12 @@ pub trait EntityWorldMutSceneExt {
     ///     Blue,
     /// }
     ///
-    /// world.spawn_empty().queue_spawn_related_scenes::<Children>(bsn_list! {
-    ///     (
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
+    /// world.spawn_empty().queue_spawn_related_scenes::<Children>(bsn! {
+    ///     #Player1
+    ///     Team::Red
+    ///     --
+    ///     #Player2
+    ///     Team::Blue
     /// });
     /// ```
     fn queue_spawn_related_scenes<T: RelationshipTarget>(self, scenes: impl SceneList) -> Self;
@@ -536,15 +527,12 @@ pub trait EntityCommandsSceneExt {
     ///     Blue,
     /// }
     ///
-    /// commands.spawn_empty().queue_spawn_related_scenes::<Children>(bsn_list! {
-    ///     (
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
+    /// commands.spawn_empty().queue_spawn_related_scenes::<Children>(bsn! {
+    ///     #Player1
+    ///     Team::Red
+    ///     --
+    ///     #Player2
+    ///     Team::Blue
     /// });
     /// ```
     fn queue_spawn_related_scenes<T: RelationshipTarget>(

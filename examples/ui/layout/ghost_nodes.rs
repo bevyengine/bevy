@@ -57,7 +57,7 @@ fn normal_root() -> impl Scene {
                 // These buttons are being treated as children of the layout parent
                 // in the context of UI, but they share the ghost node's counter.
                 GhostNode Counter(0)
-                Children [ @button(), @button() ]
+                Children [ @button() -- @button() ]
                 --
                 // A normal child using the layout parent counter
                 @button()

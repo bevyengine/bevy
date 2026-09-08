@@ -66,7 +66,8 @@ where
         }
         RadioGroup
         Children [
-            @label(title),
+            @label(title)
+            --
             {buttons}
         ]
     }

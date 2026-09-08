@@ -61,7 +61,7 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// ### Scene Lists
 ///
-/// Scene list syntax appears in Relationships and the [`bsn_list!`] macro, surrounded by `[ ]`.
+/// Scene list syntax appears in Relationships (surrounded by []) and the [`bsn!`] macro.
 ///
 /// Unlike parts of a scene, which are whitespace-separated, the scenes in a scene list are `--` separated.
 /// Each `--` separated single-entity scene uses the same syntax as a single [`bsn!`] macro call.
@@ -190,7 +190,10 @@ pub fn bsn(input: TokenStream) -> TokenStream {
 ///
 /// [`SceneList`]: https://docs.rs/bevy/latest/bevy/prelude/trait.SceneList.html
 /// [`bevy_scene`]: https://docs.rs/bevy/latest/bevy/scene/index.html
-#[deprecated(since = "0.20", note = "use bsn! {} instead, which now supports lists")]
+#[deprecated(
+    since = "0.20.0",
+    note = "use bsn! {} instead, which now supports lists"
+)]
 #[proc_macro]
 pub fn bsn_list(input: TokenStream) -> TokenStream {
     crate::_bsn::bsn_list(input)

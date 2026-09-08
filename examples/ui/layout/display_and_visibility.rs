@@ -260,8 +260,8 @@ fn panels(palette: &[Color; 4]) -> impl Scene {
                         ]
                     ]
                 ]
-            ],
-
+            ]
+            --
             #RightPanel
             Node {
                 width: percent(50),
@@ -315,7 +315,7 @@ fn panels(palette: &[Color; 4]) -> impl Scene {
                         ]
                     ]
                 ]
-            ],
+            ]
         ]
     }
 }
@@ -327,7 +327,7 @@ fn feathers_select_display(target: EntityTemplate) -> impl Scene {
         @select_base::<NodeDisplaySetting>(target)
         @FeathersSelect {
             @options: {
-                bsn_list! {
+                bsn! {
                     @FeathersListRow Selected OptionIndex(0) NodeDisplaySetting::Flex Children[@caption(format!("Display::{:?}", Display::Flex))]
                     --
                     @FeathersListRow OptionIndex(1) NodeDisplaySetting::None Children[@caption(format!("Display::{:?}", Display::None))]
@@ -344,7 +344,7 @@ fn feathers_select_visibility(target: EntityTemplate) -> impl Scene {
         @select_base::<NodeVisibilitySetting>(target)
         @FeathersSelect {
             @options: {
-                bsn_list! {
+                bsn! {
                     @FeathersListRow Selected OptionIndex(0) NodeVisibilitySetting::Inherited Children[@caption(format!("Visibility::{:?}", Visibility::Inherited))]
                     --
                     @FeathersListRow OptionIndex(1) NodeVisibilitySetting::Visible Children[@caption(format!("Visibility::{:?}", Visibility::Visible))]

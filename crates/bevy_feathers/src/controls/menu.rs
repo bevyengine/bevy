@@ -154,7 +154,7 @@ impl Default for FeathersLazyMenu {
         Self {
             popup: Arc::new(|| {
                 warn!("Menu content not specified");
-                Box::new(bsn!())
+                Box::new(bsn! {})
             }),
         }
     }
@@ -191,11 +191,11 @@ fn on_lazy_menu_event(
             ev.propagate(false);
             commands
                 .entity(ev.source)
-                .queue_spawn_related_scenes::<Children>(bsn!(
+                .queue_spawn_related_scenes::<Children>(bsn! {
                     @popup()
                     MenuFocusState::Opening(nav)
                     Visibility::Visible
-                ));
+                });
         }
         MenuAction::Toggle => {
             let Ok(FeathersLazyMenu { popup }) = q_menu_lazy.get(ev.source) else {
@@ -216,11 +216,11 @@ fn on_lazy_menu_event(
             if !menu_open {
                 commands
                     .entity(ev.source)
-                    .queue_spawn_related_scenes::<Children>(bsn!(
+                    .queue_spawn_related_scenes::<Children>(bsn! {
                         @popup()
                         MenuFocusState::Opening(NavAction::First)
                         Visibility::Visible
-                    ));
+                    });
             }
         }
         MenuAction::CloseAll => {

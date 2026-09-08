@@ -518,7 +518,7 @@ fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
                 app_settings.edge_fadeout.end,
                 AppNumberInput::EdgeFadeoutStart,
                 AppNumberInput::EdgeFadeoutEnd,
-            ),
+            )
         ]
     });
 }

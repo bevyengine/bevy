@@ -42,5 +42,5 @@ fn bsn_token_stream<T: BsnTokenStream>(input: TokenStream) -> TokenStream {
         deprecations: Vec::new(),
     };
 
-    TokenStream::from(scene.to_tokens(&mut ctx))
+    TokenStream::from(scene.into_tokens(&mut ctx))
 }

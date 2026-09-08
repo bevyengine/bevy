@@ -374,7 +374,7 @@ fn spawn_ui(commands: &mut Commands) {
                     (ImageSizeSetting::ImageHeight(ImageSize::Size1920), "1920"),
                 ],
                 1
-            ),
+            )
         ]
     });
 }

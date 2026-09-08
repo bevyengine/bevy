@@ -168,7 +168,7 @@ impl Months {
 fn demo_column_1() -> impl Scene {
     // Lazily-constructed menu popup
     let popup: Arc<dyn Fn() -> Box<dyn Scene> + Sync + Send> = Arc::new(|| {
-        Box::new(bsn!(
+        Box::new(bsn! {
             @FeathersMenuPopup
             // Override popover placement to right-align the popup
             Popover {
@@ -208,7 +208,7 @@ fn demo_column_1() -> impl Scene {
                     info!("Menu item 6 clicked!");
                 })
             ]
-        ))
+        })
     });
 
     bsn! {

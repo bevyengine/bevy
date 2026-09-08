@@ -336,7 +336,7 @@ impl FeathersColorInput {
 
 // Lazily-constructed menu popup
 fn color_input_popup() -> Box<dyn Scene> {
-    Box::new(bsn!(
+    Box::new(bsn! {
         @FeathersMenuPopup
         PopupEntityRefs {
             mode_rgb: #mode_rgb,
@@ -692,7 +692,7 @@ fn color_input_popup() -> Box<dyn Scene> {
             }
             on(recent_color_selected)
         ]
-    ))
+    })
 }
 
 fn rg_color_plane_value_change(
