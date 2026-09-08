@@ -94,6 +94,9 @@ pub enum ParseAssetPathError {
     /// Error that occurs when a path string has an [`AssetPath::label`] delimiter `#` with no characters succeeding it. E.g. `file.test#`
     #[error("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
     MissingLabel,
+    // Error that occurs when a path string is empty
+    #[error("asset path cannot be empty")]
+    EmptyPath,
 }
 
 impl<'a> AssetPath<'a> {
@@ -123,6 +126,7 @@ impl<'a> AssetPath<'a> {
     ///
     /// This will return a [`ParseAssetPathError`] if `asset_path` is in an invalid format.
     pub fn try_parse(asset_path: &'a str) -> Result<AssetPath<'a>, ParseAssetPathError> {
+
         let (source, path, label) = Self::parse_internal(asset_path)?;
         Ok(Self {
             source: match source {
@@ -188,6 +192,10 @@ impl<'a> AssetPath<'a> {
                     source_delimiter_chars_matched = 0;
                 }
             }
+        }
+        // If string is empty
+        if asset_path.trim().is_empty() {
+            return Err(ParseAssetPathError::EmptyPath);
         }
         // If we found an `AssetPath::label`
         if let Some(range) = label_range.clone() {
