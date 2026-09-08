@@ -1,6 +1,6 @@
 # This action installs the rust version used by Bevy CI. By default it installs
-# the stable currently pinned. Version are specified either exactly or by channel,
-# and this action will resolve to the correct version depending on the channel.
+# the currently pinned stable. Versions are specified either explicitly or by channel,
+# and this action will resolve the correct version depending on the channel.
 
 name: Install Rust
 description: Install a Rust toolchain.
