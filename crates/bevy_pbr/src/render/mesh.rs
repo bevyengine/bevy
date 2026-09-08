@@ -35,6 +35,7 @@ use bevy_mesh::{
     skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshAttributeCompressionFlags,
     MeshTag, MeshVertexBufferLayoutRef, VertexAttributeDescriptor,
 };
+use bevy_platform::collections::HashSet;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::batching::gpu_preprocessing::{
     BufferDataInput, PreviousInstanceInputUniformBuffer,
@@ -391,7 +392,10 @@ pub fn check_views_need_specialization(
             Has<ContactShadows>,
         ),
     )>,
+    mut seen_views: Local<HashSet<RetainedViewEntity>>,
 ) {
+    seen_views.clear();
+
     for (
         view,
         msaa,
@@ -407,6 +411,8 @@ pub fn check_views_need_specialization(
         (has_oit, has_atmosphere, has_ssr, has_contact_shadows),
     ) in views.iter_mut()
     {
+        seen_views.insert(view.retained_view_entity);
+
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_target_format(view.target_format);
 
@@ -505,6 +511,8 @@ pub fn check_views_need_specialization(
                 .insert(view.retained_view_entity);
         }
     }
+
+    view_key_cache.retain(|view, _| seen_views.contains(view));
 }
 
 #[derive(Component)]

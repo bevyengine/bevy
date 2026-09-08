@@ -32,30 +32,30 @@ const FSR_RCAS_LIMIT = 0.1875;
 // -4.0 instead of -1.0 to avoid issues with MSAA.
 const peakC = vec2<f32>(10.0, -40.0);
 
-// Robust Contrast Adaptive Sharpening (RCAS)
-// Based on the following implementation:
-// https://github.com/GPUOpen-Effects/FidelityFX-FSR2/blob/ea97a113b0f9cadf519fbcff315cc539915a3acd/src/ffx-fsr2-api/shaders/ffx_fsr1.h#L672
-// RCAS is based on the following logic.
-// RCAS uses a 5 tap filter in a cross pattern (same as CAS),
-//    W                b
-//  W 1 W  for taps  d e f 
-//    W                h
-// Where 'W' is the negative lobe weight.
-//  output = (W*(b+d+f+h)+e)/(4*W+1)
-// RCAS solves for 'W' by seeing where the signal might clip out of the {0 to 1} input range,
-//  0 == (W*(b+d+f+h)+e)/(4*W+1) -> W = -e/(b+d+f+h)
-//  1 == (W*(b+d+f+h)+e)/(4*W+1) -> W = (1-e)/(b+d+f+h-4)
-// Then chooses the 'W' which results in no clipping, limits 'W', and multiplies by the 'sharp' amount.
-// This solution above has issues with MSAA input as the steps along the gradient cause edge detection issues.
-// So RCAS uses 4x the maximum and 4x the minimum (depending on equation)in place of the individual taps.
-// As well as switching from 'e' to either the minimum or maximum (depending on side), to help in energy conservation.
-// This stabilizes RCAS.
-// RCAS does a simple highpass which is normalized against the local contrast then shaped,
-//       0.25
-//  0.25  -1  0.25
-//       0.25
-// This is used as a noise detection filter, to reduce the effect of RCAS on grain, and focus on real edges.
-// The CAS node runs after tonemapping, so the input will be in the range of 0 to 1.
+/// Robust Contrast Adaptive Sharpening (RCAS)
+/// Based on the following implementation:
+/// https://github.com/GPUOpen-Effects/FidelityFX-FSR2/blob/ea97a113b0f9cadf519fbcff315cc539915a3acd/src/ffx-fsr2-api/shaders/ffx_fsr1.h#L672
+/// RCAS is based on the following logic.
+/// RCAS uses a 5 tap filter in a cross pattern (same as CAS),
+///    W                b
+///  W 1 W  for taps  d e f
+///    W                h
+/// Where 'W' is the negative lobe weight.
+///  output = (W*(b+d+f+h)+e)/(4*W+1)
+/// RCAS solves for 'W' by seeing where the signal might clip out of the {0 to 1} input range,
+///  0 == (W*(b+d+f+h)+e)/(4*W+1) -> W = -e/(b+d+f+h)
+///  1 == (W*(b+d+f+h)+e)/(4*W+1) -> W = (1-e)/(b+d+f+h-4)
+/// Then chooses the 'W' which results in no clipping, limits 'W', and multiplies by the 'sharp' amount.
+/// This solution above has issues with MSAA input as the steps along the gradient cause edge detection issues.
+/// So RCAS uses 4x the maximum and 4x the minimum (depending on equation)in place of the individual taps.
+/// As well as switching from 'e' to either the minimum or maximum (depending on side), to help in energy conservation.
+/// This stabilizes RCAS.
+/// RCAS does a simple highpass which is normalized against the local contrast then shaped,
+///       0.25
+///  0.25  -1  0.25
+///       0.25
+/// This is used as a noise detection filter, to reduce the effect of RCAS on grain, and focus on real edges.
+/// The CAS node runs after tonemapping, so the input will be in the range of 0 to 1.
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Algorithm uses minimal 3x3 pixel neighborhood.
