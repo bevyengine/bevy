@@ -362,7 +362,7 @@ pub fn sync_blur_regions<const N: usize>(
         camera.clear();
     }
 
-    for (node, transform, target) in &nodes {
+    for (node, visibility, transform, target) in &nodes {
         if node.is_empty() {
             continue;
         }
