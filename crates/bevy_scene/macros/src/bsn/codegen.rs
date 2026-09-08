@@ -183,6 +183,9 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     }
 }
 
+/// Creates a tuple that will be nested after it passes 11 items.
+/// When there is a single item, it is _not_ wrapped in a tuple.
+/// This is implemented in a way that creates the smallest number of trait impls possible.
 struct AutoNestTuple<'a>(&'a [TokenStream]);
 
 impl<'a> ToTokens for AutoNestTuple<'a> {
