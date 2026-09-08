@@ -348,7 +348,15 @@ impl<const N: usize> BlurRegionCamera<N> {
 /// [`BlurRegionCamera`] of the camera that renders them.
 pub fn sync_blur_regions<const N: usize>(
     mut cameras: Query<&mut BlurRegionCamera<N>>,
-    nodes: Query<(&ComputedNode, &UiGlobalTransform, &ComputedUiTargetCamera), With<BlurRegion>>,
+    nodes: Query<
+        (
+            &ComputedNode,
+            &InheritedVisibility,
+            &UiGlobalTransform,
+            &ComputedUiTargetCamera,
+        ),
+        With<BlurRegion>,
+    >,
 ) {
     for mut camera in &mut cameras {
         camera.clear();
