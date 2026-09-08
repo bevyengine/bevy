@@ -252,7 +252,7 @@ impl RaytracingSceneBindings {
             dfg_view,
             dfg_sampler,
         );
-        if self.tlas.built[current_index ^ 1] {
+        if self.tlas.previous_binding_is_stable() {
             self.bind_groups.cached[current_index] = Some(bind_group.clone());
         }
         bind_group

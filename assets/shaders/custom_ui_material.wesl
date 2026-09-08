@@ -1,4 +1,4 @@
-// Draws a progress bar with properties defined in CustomUiMaterial
+//! Draws a progress bar with properties defined in CustomUiMaterial
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 
 @group(1) @binding(0) var<uniform> color: vec4<f32>;
@@ -31,8 +31,8 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // distance along each axis from the corner
     let d = half_size - abs(p);
 
-    // if the distance to the edge from the current position on any axis 
-    // is less than the border width on that axis then the position is within 
+    // if the distance to the edge from the current position on any axis
+    // is less than the border width on that axis then the position is within
     // the border and we return the border color
     if d.x < b.x || d.y < b.y {
         // select radius for the nearest corner

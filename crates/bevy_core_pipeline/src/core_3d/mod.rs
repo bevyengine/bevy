@@ -150,10 +150,15 @@ impl Plugin for Core3dPlugin {
                         early_deferred_prepass,
                         late_prepass,
                         late_deferred_prepass,
-                        copy_deferred_lighting_id,
                     )
                         .chain()
                         .in_set(Core3dSystems::Prepass),
+                    // The lighting-ID texture is a snapshot of the completed deferred
+                    // prepass. Keep the copy outside the `Prepass` set so custom prepass
+                    // producers (such as the meshlet G-buffer pass) cannot race it.
+                    copy_deferred_lighting_id
+                        .after(Core3dSystems::Prepass)
+                        .before(Core3dSystems::MainPass),
                     (main_opaque_pass_3d, main_transparent_pass_3d)
                         .chain()
                         .in_set(Core3dSystems::MainPass),

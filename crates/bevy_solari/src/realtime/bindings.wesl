@@ -7,17 +7,20 @@ enable wgpu_ray_query;
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(1) var<storage, read_write> light_tile_samples: array<LightSample>;
 @group(1) @binding(2) var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
-@group(1) @binding(3) var<storage, read_write> reservoirs_a: array<Reservoir>;
-@group(1) @binding(4) var<storage, read_write> reservoirs_b: array<Reservoir>;
-@group(1) @binding(5) var gbuffer: texture_2d<u32>;
-@group(1) @binding(6) var depth_buffer: texture_depth_2d;
-@group(1) @binding(7) var motion_vectors: texture_storage_2d<rg16float, read_write>;
-@group(1) @binding(8) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(9) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(10) var<uniform> view: View;
-@group(1) @binding(11) var<uniform> previous_view: PreviousViewUniforms;
-@group(1) @binding(12) var<storage, read_write> world_cache: WorldCache;
-@group(1) @binding(13) var<uniform> constants: SolariLightingSettings;
+@group(1) @binding(3) var gbuffer: texture_2d<u32>;
+@group(1) @binding(4) var depth_buffer: texture_depth_2d;
+@group(1) @binding(5) var motion_vectors: texture_storage_2d<rg16float, read_write>;
+@group(1) @binding(6) var<uniform> view: View;
+@group(1) @binding(7) var<uniform> previous_view: PreviousViewUniforms;
+@group(1) @binding(8) var<storage, read_write> world_cache: WorldCache;
+@group(1) @binding(9) var<uniform> constants: SolariLightingSettings;
+
+@if(RESTIR) {
+@group(1) @binding(10) var previous_gbuffer: texture_2d<u32>;
+@group(1) @binding(11) var previous_depth_buffer: texture_depth_2d;
+@group(1) @binding(12) var<storage, read_write> reservoirs_a: array<Reservoir>;
+@group(1) @binding(13) var<storage, read_write> reservoirs_b: array<Reservoir>;
+}
 
 @if(DLSS_RR_GUIDE_BUFFERS) {
 @group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
@@ -27,8 +30,8 @@ enable wgpu_ray_query;
 @group(2) @binding(4) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
 }
 
-// User-configurable settings from the `SolariLighting` component, plus per-frame
-// state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.
+/// User-configurable settings from the `SolariLighting` component, plus per-frame
+/// state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.
 struct SolariLightingSettings {
     confidence_weight_cap: f32,
     primary_di_samples: u32,
@@ -44,7 +47,7 @@ struct SolariLightingSettings {
     reset: u32,
 }
 
-// Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
+/// Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
 struct ResolvedLightSamplePacked {
     world_position_x: f32,
     world_position_y: f32,
@@ -54,7 +57,7 @@ struct ResolvedLightSamplePacked {
     inverse_pdf: f32,
 }
 
-// Don't adjust the size of this struct without also adjusting `prepare::RESERVOIR_STRUCT_SIZE`.
+/// Don't adjust the size of this struct without also adjusting `prepare::RESERVOIR_STRUCT_SIZE`.
 struct Reservoir {
     sample_point_world_position: vec3<f32>,
     unbiased_contribution_weight: f32,
@@ -82,7 +85,7 @@ struct WorldCacheGeometryData {
     padding_b: u32,
 }
 
-// Keep in sync with the packed world-cache layout constants in `prepare.rs`.
+/// Keep in sync with the packed world-cache layout constants in `prepare.rs`.
 struct WorldCache {
     checksums: array<atomic<u32>, constants::WORLD_CACHE_SIZE>,
     @if(WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)

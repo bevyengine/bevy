@@ -154,8 +154,9 @@ ui = [
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
 dev = [
-  "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
+  "debug",            # TODO: rename this to something more specific ... this is a "debug ECS names" feature
   "bevy_dev_tools",
+  "render_dev_tools",
   "file_watcher",
 ]
 
@@ -569,6 +570,9 @@ android-game-activity = ["bevy_internal/android-game-activity"]
 
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
+
+# Enable systems that allow for renderable dev tools
+render_dev_tools = ["bevy_internal/render_dev_tools"]
 
 # Enable glTF animation loading
 gltf_animation = ["bevy_internal/gltf_animation"]
@@ -3233,6 +3237,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "sprite_material"
+path = "examples/shader/sprite_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_material]
+name = "Sprite Material"
+description = "A custom shader for sprites"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "shader_prepass"
 path = "examples/shader/shader_prepass.rs"
 doc-scrape-examples = true
@@ -3440,6 +3455,17 @@ description = "Demonstrates how to write a fullscreen material"
 category = "Shaders Advanced"
 wasm = true
 
+[[example]]
+name = "mesh_shader_intro"
+path = "examples/shader_advanced/mesh_shader_intro.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh_shader_intro]
+name = "Mesh Shader Introduction"
+description = "Demonstrates how to use Task/Amplification/Mesh Shaders"
+category = "Shaders Advanced"
+wasm = false
+
 # Stress tests
 [[package.metadata.example_category]]
 name = "Stress Tests"
@@ -3485,17 +3511,6 @@ name = "Many Animated Sprites"
 description = "Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
 category = "Stress Tests"
 wasm = true
-
-[[example]]
-name = "many_animated_sprite_meshes"
-path = "examples/stress_tests/many_animated_sprite_meshes.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.many_animated_sprite_meshes]
-name = "Many Animated Sprite Meshes"
-description = "Displays many animated sprite meshes in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
-category = "Stress Tests"
-wasm = false
 
 [[example]]
 name = "many_buttons"
@@ -3617,17 +3632,6 @@ name = "Many Sprites"
 description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
-
-[[example]]
-name = "many_sprite_meshes"
-path = "examples/stress_tests/many_sprite_meshes.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.many_sprite_meshes]
-name = "Many Sprite Meshes"
-description = "Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
-category = "Stress Tests"
-wasm = false
 
 [[example]]
 name = "many_text2d"
@@ -5179,6 +5183,17 @@ required-features = ["mesh_picking"]
 [package.metadata.example.dragdrop_picking]
 name = "Drag and Drop"
 description = "Demonstrates drag and drop using picking events"
+category = "Picking"
+wasm = true
+
+[[example]]
+name = "draggable_slider"
+path = "examples/picking/draggable_slider.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.draggable_slider]
+name = "Draggable Slider"
+description = "Demonstrates pointer capture using a draggable slider"
 category = "Picking"
 wasm = true
 
