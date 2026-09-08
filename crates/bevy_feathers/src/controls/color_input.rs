@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_camera::visibility::Visibility;
-use bevy_color::{Color, Hsla, Srgba};
+use bevy_color::{Alpha, Color, Hsla, Srgba};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
@@ -28,7 +28,7 @@ use bevy_log::warn;
 use bevy_math::{UVec2, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, Ready};
-use bevy_text::{EditableText, Justify, LineHeight, TextEdit, TextLayout};
+use bevy_text::{EditableText, FontSize, Justify, LineHeight, TextEdit, TextLayout};
 use bevy_ui::{
     prelude::AccessibleLabel, px, AlignItems, AlignSelf, Display, FlexDirection, GridPlacement,
     GridTrack, JustifySelf, Node, RepeatedGridTrack,
@@ -42,11 +42,11 @@ use crate::{
     constants::fonts,
     controls::{
         ButtonVariant, ColorChannel, ColorPlaneValue, ColorSlider, ColorSwatchGridUpdate,
-        ColorSwatchValue, FeathersButton, FeathersColorPlane, FeathersColorSlider,
-        FeathersColorSwatch, FeathersColorSwatchGrid, FeathersLazyMenu, FeathersMenuPopup,
-        FeathersMenuToolButton, FeathersNumberInput, FeathersTextInput, FeathersTextInputContainer,
-        HardLimit, NumberInputPrecision, NumberInputRange, NumberInputStep, NumberInputValue,
-        SliderBaseColor,
+        ColorSwatchValue, ColorWheelValue, FeathersButton, FeathersColorPlane, FeathersColorSlider,
+        FeathersColorSwatch, FeathersColorSwatchGrid, FeathersColorWheel, FeathersLazyMenu,
+        FeathersMenuPopup, FeathersMenuToolButton, FeathersNumberInput, FeathersTextInput,
+        FeathersTextInputContainer, HardLimit, NumberInputPrecision, NumberInputRange,
+        NumberInputStep, NumberInputValue, SliderBaseColor,
     },
     display::{caption, label},
     font_styles::InheritableFont,
@@ -66,8 +66,10 @@ pub struct ColorInputValue(pub Color);
 /// Supported color editing modes
 #[derive(Default, Clone, Copy, Reflect, PartialEq)]
 pub enum ColorInputMode {
-    /// Red/green/blue mode with R/G plane
+    /// Hue/saturation/lightness mode with color wheel
     #[default]
+    Wheel,
+    /// Red/green/blue mode with R/G plane
     RGPlane,
     /// Hue/saturation/lightness mode with H/S plane
     HSPlane,
@@ -139,8 +141,10 @@ struct ButtonEntityRefs(Entity);
 /// to trawl the hierarchy looking for them.
 #[derive(Component, Clone, Debug, FromTemplate)]
 struct PopupEntityRefs {
+    mode_wheel: Entity,
     mode_rgb: Entity,
     mode_hsl: Entity,
+    wheel: Entity,
     rg_plane: Entity,
     hs_plane: Entity,
 
@@ -327,7 +331,7 @@ impl FeathersColorInput {
                             align_self: AlignSelf::Center,
                             justify_self: JustifySelf::Start,
                         }
-                    }
+                        }
                 }
             ]
         }
@@ -336,12 +340,14 @@ impl FeathersColorInput {
 
 // Lazily-constructed menu popup
 fn color_input_popup() -> Box<dyn Scene> {
-    Box::new(bsn! {
+    Box::new(bsn!(
         @FeathersMenuPopup
         PopupEntityRefs {
+            mode_wheel: #mode_wheel,
             mode_rgb: #mode_rgb,
             mode_hsl: #mode_hsl,
 
+            wheel: #wheel,
             rg_plane: #rg_plane,
             hs_plane: #hs_plane,
 
@@ -420,10 +426,33 @@ fn color_input_popup() -> Box<dyn Scene> {
                 column_gap: px(1),
             }
             Children [
+                #mode_wheel
+                @FeathersButton {
+                    @caption: bsn! {
+                        @caption("\u{1F7D5}")
+                        Node {
+                            top: px(3), // adjust to be visually centered vertically
+                        }
+                    },
+                    @corners: RoundedCorners::Left,
+                }
+                InheritableFont {
+                    font: "embedded://bevy_feathers/assets/fonts/NotoSansSymbols2-U+1F7D5.ttf",
+                    font_size: FontSize::Px(17.0),
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                ActivateOnPress
+                AccessibleLabel("Wheel")
+                on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
+                    settings.mode = ColorInputMode::Wheel;
+                })
+                --
                 #mode_rgb
                 @FeathersButton {
                     @caption: bsn! { @caption("RGB") },
-                    @corners: RoundedCorners::Left,
+                    @corners: RoundedCorners::None,
                 }
                 Node {
                     flex_grow: 1.0,
@@ -449,6 +478,14 @@ fn color_input_popup() -> Box<dyn Scene> {
                     settings.mode = ColorInputMode::HSPlane;
                 })
             ]
+            --
+            #wheel
+            @FeathersColorWheel
+            Node {
+                width: px(256 + 8),
+                height: px(256 + 8),
+            }
+            on(color_wheel_value_change)
             --
             #rg_plane
             @FeathersColorPlane::RedGreen
@@ -692,7 +729,25 @@ fn color_input_popup() -> Box<dyn Scene> {
             }
             on(recent_color_selected)
         ]
-    })
+    ))
+}
+
+fn color_wheel_value_change(
+    change: On<ValueChange<ColorWheelValue>>,
+    q_parent: Query<&ChildOf>,
+    mut q_state: Query<&mut ColorInputState>,
+    mut commands: Commands,
+) {
+    if let Some((root_id, mut state)) = color_input_state(&q_parent, &mut q_state, change.source) {
+        let alpha = state.hsl.alpha;
+        state.hsl = change.value.to_hsla().with_alpha(alpha);
+        let value: Color = state.hsl.into();
+        commands.trigger(ValueChange {
+            source: root_id,
+            value,
+            is_final: change.is_final,
+        });
+    }
 }
 
 fn rg_color_plane_value_change(
@@ -844,6 +899,7 @@ fn color_input_value_change(
         Changed<ColorInputValue>,
     >,
     q_popup: Query<&PopupEntityRefs, With<FeathersMenuPopup>>,
+    mut q_color_wheel: Query<&mut ColorWheelValue>,
     mut q_color_plane: Query<&mut ColorPlaneValue>,
     mut q_editable_text: Query<&mut EditableText>,
     mut grid_update: ColorSwatchGridUpdate,
@@ -864,6 +920,7 @@ fn color_input_value_change(
             .find_map(|child_id| q_popup.get(*child_id).ok())
         {
             update_controls(
+                &mut q_color_wheel,
                 &mut q_color_plane,
                 &mut q_editable_text,
                 &mut commands,
@@ -902,6 +959,7 @@ fn update_mode_selector(
     mut q_state: Query<&mut ColorInputState>,
     mut q_button: Query<&mut ButtonVariant>,
     mut q_node: Query<&mut Node>,
+    mut q_color_wheel: Query<&mut ColorWheelValue>,
     mut q_color_plane: Query<&mut ColorPlaneValue>,
     mut q_editable_text: Query<&mut EditableText>,
     settings: Res<ColorInputSettings>,
@@ -919,6 +977,10 @@ fn update_mode_selector(
             // Also, ensure that focus moves to a widget that is not about to be hidden,
             // as this will auto-close the popup.
             match settings.mode {
+                ColorInputMode::Wheel => {
+                    state.change_source(SourceColorSpace::Hsl);
+                    focus.set(refs.mode_wheel, FocusCause::Auto);
+                }
                 ColorInputMode::RGPlane => {
                     state.change_source(SourceColorSpace::Rgb);
                     focus.set(refs.mode_rgb, FocusCause::Auto);
@@ -930,6 +992,7 @@ fn update_mode_selector(
             }
 
             update_controls(
+                &mut q_color_wheel,
                 &mut q_color_plane,
                 &mut q_editable_text,
                 &mut commands,
@@ -945,6 +1008,10 @@ fn set_mode_selector(
     q_button: &mut Query<&mut ButtonVariant>,
     mode: ColorInputMode,
 ) {
+    if let Ok(mut wheel_variant) = q_button.get_mut(refs.mode_wheel) {
+        wheel_variant.set_if_neq(ButtonVariant::selected(mode == ColorInputMode::Wheel));
+    }
+
     if let Ok(mut rgb_variant) = q_button.get_mut(refs.mode_rgb) {
         rgb_variant.set_if_neq(ButtonVariant::selected(mode == ColorInputMode::RGPlane));
     }
@@ -960,6 +1027,16 @@ fn set_pane_visible(
     mode: ColorInputMode,
     commands: &mut Commands,
 ) {
+    set_node_visible(
+        q_node,
+        refs.wheel,
+        if mode == ColorInputMode::Wheel {
+            Display::Flex
+        } else {
+            Display::None
+        },
+        commands,
+    );
     set_node_visible(
         q_node,
         refs.rg_plane,
@@ -1011,10 +1088,11 @@ fn set_pane_visible(
         },
         commands,
     );
+    // HSL sliders are shared by the H/S plane and the wheel.
     set_node_visible(
         q_node,
         refs.hsl_group,
-        if mode == ColorInputMode::HSPlane {
+        if mode == ColorInputMode::Wheel || mode == ColorInputMode::HSPlane {
             Display::Grid
         } else {
             Display::None
@@ -1072,6 +1150,7 @@ fn popup_ready(
     mut q_color_input: Query<(&ColorInputValue, &mut ColorInputState)>,
     mut q_editable_text: Query<&mut EditableText>,
     mut q_color_plane: Query<&mut ColorPlaneValue>,
+    mut q_color_wheel: Query<&mut ColorWheelValue>,
     mut grid_update: ColorSwatchGridUpdate,
     settings: Res<ColorInputSettings>,
     mut commands: Commands,
@@ -1086,17 +1165,18 @@ fn popup_ready(
     };
 
     match settings.mode {
+        ColorInputMode::Wheel | ColorInputMode::HSPlane => {
+            state.source = SourceColorSpace::Hsl;
+            state.hsl = (*value).into();
+        }
         ColorInputMode::RGPlane => {
             state.source = SourceColorSpace::Rgb;
             state.rgb = (*value).into();
         }
-        ColorInputMode::HSPlane => {
-            state.source = SourceColorSpace::Hsl;
-            state.hsl = (*value).into();
-        }
     }
 
     update_controls(
+        &mut q_color_wheel,
         &mut q_color_plane,
         &mut q_editable_text,
         &mut commands,
@@ -1108,6 +1188,7 @@ fn popup_ready(
 }
 
 fn update_controls(
+    q_color_wheel: &mut Query<'_, '_, &mut ColorWheelValue>,
     q_color_plane: &mut Query<'_, '_, &mut ColorPlaneValue>,
     q_editable_text: &mut Query<'_, '_, &mut EditableText>,
     commands: &mut Commands<'_, '_>,
@@ -1115,6 +1196,10 @@ fn update_controls(
     state: &ColorInputState,
 ) {
     let color = state.to_color();
+
+    if let Ok(mut color_wheel_value) = q_color_wheel.get_mut(refs.wheel) {
+        color_wheel_value.set_if_neq(ColorWheelValue::from_hsla(state.hsl));
+    }
 
     if let Ok(mut color_plane_value) = q_color_plane.get_mut(refs.rg_plane) {
         color_plane_value.set_if_neq(ColorPlaneValue(Vec3::new(

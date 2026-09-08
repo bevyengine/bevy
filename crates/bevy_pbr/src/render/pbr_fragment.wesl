@@ -30,7 +30,7 @@ import package::render::forward_io::VertexOutput;
 @if(BINDLESS)
 import package::render::pbr_bindings::material_indices;
 
-// prepare a basic PbrInput from the vertex stage output, mesh binding and view binding
+/// prepare a basic PbrInput from the vertex stage output, mesh binding and view binding
 fn pbr_input_from_vertex_output(
     in: VertexOutput,
     is_front: bool,
@@ -66,8 +66,8 @@ fn pbr_input_from_vertex_output(
     return pbr_input;
 }
 
-// Prepare a full PbrInput by sampling all textures to resolve
-// the material members
+/// Prepare a full PbrInput by sampling all textures to resolve
+/// the material members
 fn pbr_input_from_standard_material(
     in: VertexOutput,
     is_front: bool,
@@ -354,9 +354,14 @@ pbr_input.material.uv_transform = uv_transform;
             let metallic_roughness = textureSampleGrad(texture, sampler_, coords, bias.ddx_uv, bias.ddy_uv);
             @else
             let metallic_roughness = textureSampleBias(texture, sampler_, coords, bias.mip_bias);
-            // Sampling from GLTF standard channels for now
-            metallic *= metallic_roughness.b;
-            perceptual_roughness *= metallic_roughness.g;
+            if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_RG_BIT) != 0u) {
+                perceptual_roughness *= metallic_roughness.r;
+                metallic *= metallic_roughness.g;
+            } else {
+                // Sampling from GLTF standard channels
+                perceptual_roughness *= metallic_roughness.g;
+                metallic *= metallic_roughness.b;
+            }
         }
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;

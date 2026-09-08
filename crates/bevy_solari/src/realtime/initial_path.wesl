@@ -20,34 +20,34 @@ const RECONNECTION_RELAX_DISTANCE = 1.0;
 
 const CACHE_TERMINATION_MIN_SOLID_ANGLE = PI;
 
-// What tracing one path produced.
-//
-// `radiance` is shaded straight into the pixel. With ReSTIR the reservoir additionally carries the
-// candidate chosen for reuse, and `radiance` holds the radiance that can not be reused.
-// Without ReSTIR there is no reservoir and `radiance` is the entire estimate.
+/// What tracing one path produced.
+///
+/// `radiance` is shaded straight into the pixel. With ReSTIR the reservoir additionally carries the
+/// candidate chosen for reuse, and `radiance` holds the radiance that can not be reused.
+/// Without ReSTIR there is no reservoir and `radiance` is the entire estimate.
 struct InitialSamplingResult {
     @if(RESTIR) reservoir: Reservoir,
     radiance: vec3<f32>,
 }
 
-// Path vertices use the following convention: x0 = camera, x1 = primary ray hit (the G-buffer
-// surface), x2 = first BRDF-sampled hit (the reconnection vertex).
+/// Path vertices use the following convention: x0 = camera, x1 = primary ray hit (the G-buffer
+/// surface), x2 = first BRDF-sampled hit (the reconnection vertex).
 struct PathState {
     ray_origin: vec3<f32>,
     normal: vec3<f32>,
     wo: vec3<f32>,
     material: ResolvedMaterial,
-    // Throughput past x1. With ReSTIR the brdf*cos at x1 is factored out of it, see x1_brdf.
+    /// Throughput past x1. With ReSTIR the brdf*cos at x1 is factored out of it, see x1_brdf.
     throughput_past_first_hit: vec3<f32>,
-    // Reconnection vertex x2, the first BRDF-sampled hit shared by every length >= 2 candidate
+    /// Reconnection vertex x2, the first BRDF-sampled hit shared by every length >= 2 candidate
     @if(RESTIR) x2_position: vec3<f32>,
     @if(RESTIR) x2_normal: vec3<f32>,
-    // If false, candidates built on x2 are shaded directly into radiance instead of
-    // published to the reservoir
+    /// If false, candidates built on x2 are shaded directly into radiance instead of
+    /// published to the reservoir
     @if(RESTIR) x2_reusable: bool,
-    // brdf*cos at x1 for the direction toward x2, applied at shade time
+    /// brdf*cos at x1 for the direction toward x2, applied at shade time
     @if(RESTIR) x1_brdf: vec3<f32>,
-    // Radiance shaded directly at this pixel
+    /// Radiance shaded directly at this pixel
     radiance: vec3<f32>,
     @if(RESTIR) reservoir: Reservoir,
     @if(RESTIR) weight_sum: f32,
@@ -433,9 +433,9 @@ fn terminate_into_cache(
     return true;
 }
 
-// ReSTIR PT Enhanced: Algorithmic Advances for Faster and More Robust ReSTIR Path Tracing
-// Section 4 (sorta)
-// https://research.nvidia.com/labs/rtr/publication/lin2026restirptenhanced/lin2026restirptenhanced.pdf
+/// ReSTIR PT Enhanced: Algorithmic Advances for Faster and More Robust ReSTIR Path Tracing
+/// Section 4 (sorta)
+/// https://research.nvidia.com/labs/rtr/publication/lin2026restirptenhanced/lin2026restirptenhanced.pdf
 @if(RESTIR)
 fn reconnection_reusable(ray_t: f32, p_brdf: f32, wi: vec3<f32>, diffuse_selected: bool, ray_hit: ResolvedRayHitFull, world_position: vec3<f32>, x1_perceptual_roughness: f32, primary_NdotV: f32) -> bool {
     // ray_footprint = t^2 / (p_brdf * cos_x2) is the area a sample represents at x2. It goes to 0 for

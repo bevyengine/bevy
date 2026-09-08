@@ -6,29 +6,29 @@ import package::render::mesh_view_types::{
     LIGHT_PROBE_FLAG_PARALLAX_CORRECT
 };
 
-// The result of searching for a light probe.
-//
-// Light probe iterators yield values of this type. Note that multiple light
-// probes can affect a single fragment.
+/// The result of searching for a light probe.
+///
+/// Light probe iterators yield values of this type. Note that multiple light
+/// probes can affect a single fragment.
 struct LightProbeQueryResult {
-    // The index of the light probe texture or textures in the binding array or
-    // arrays.
+    /// The index of the light probe texture or textures in the binding array or
+    /// arrays.
     texture_index: i32,
-    // A scale factor that's applied to the diffuse and specular light from the
-    // light probe. This is in units of cd/m² (candela per square meter).
+    /// A scale factor that's applied to the diffuse and specular light from the
+    /// light probe. This is in units of cd/m² (candela per square meter).
     intensity: f32,
-    // Transform from world space to the light probe model space. In light probe
-    // model space, the light probe is a 1×1×1 cube centered on the origin.
+    /// Transform from world space to the light probe model space. In light probe
+    /// model space, the light probe is a 1×1×1 cube centered on the origin.
     light_from_world: mat4x4<f32>,
-    // The boundaries of the simulated space used for parallax correction,
-    // specified as *half* extents in light probe space.
+    /// The boundaries of the simulated space used for parallax correction,
+    /// specified as *half* extents in light probe space.
     parallax_correction_bounds: vec3<f32>,
-    // The weight of this light probe, determined by the position of the
-    // fragment within the falloff range. The sum of the weights of all light
-    // probes affecting a fragment need not be 1.
+    /// The weight of this light probe, determined by the position of the
+    /// fragment within the falloff range. The sum of the weights of all light
+    /// probes affecting a fragment need not be 1.
     weight: f32,
-    // The flags that the light probe has: a combination of
-    // `LIGHT_PROBE_FLAG_*`.
+    /// The flags that the light probe has: a combination of
+    /// `LIGHT_PROBE_FLAG_*`.
     flags: u32,
 };
 
@@ -41,25 +41,25 @@ fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
     return transpose(matrix4x4);
 }
 
-// A type that allows iterating through the list of light probes that overlap
-// the current fragment.
-//
-// This is the version used when light probes are clustered.
+/// A type that allows iterating through the list of light probes that overlap
+/// the current fragment.
+///
+/// This is the version used when light probes are clustered.
 @if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct LightProbeIterator {
-    // The current offset in the light probes list.
+    /// The current offset in the light probes list.
     current_offset: u32,
-    // The last offset in the light probes list.
+    /// The last offset in the light probes list.
     end_offset: u32,
-    // The world-space position of the current fragment.
+    /// The world-space position of the current fragment.
     world_position: vec3<f32>,
-    // True if we're searching for an irradiance volume; false if we're
-    // searching for a reflection probe.
+    /// True if we're searching for an irradiance volume; false if we're
+    /// searching for a reflection probe.
     is_irradiance_volume: bool,
 }
 
-// Creates a new light probe iterator ready to iterate through light probes in
-// the froxel containing the `world_position`.
+/// Creates a new light probe iterator ready to iterate through light probes in
+/// the froxel containing the `world_position`.
 @if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 fn light_probe_iterator_new(
     world_position: vec3<f32>,
@@ -87,11 +87,11 @@ fn light_probe_iterator_new(
     );
 }
 
-// Searches for a light probe that contains the fragment and returns the next
-// such probe.
-//
-// Note that multiple light probes can affect a fragment. The caller is
-// generally expected to blend their influences together in a weighted sum.
+/// Searches for a light probe that contains the fragment and returns the next
+/// such probe.
+///
+/// Note that multiple light probes can affect a fragment. The caller is
+/// generally expected to blend their influences together in a weighted sum.
 @if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
     let world_position = (*iterator).world_position;
@@ -152,28 +152,28 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
     return result;
 }
 
-// A type that allows iterating through the list of light probes that overlap
-// the current fragment.
-//
-// This is the version that's used when sufficient storage buffers aren't
-// available and consequently when light probes aren't clustered. It simply does
-// a brute force search of all light probes. Because platforms without
-// sufficient SSBO bindings typically lack bindless shaders, there will usually
-// only be one of each type of light probe present anyway.
+/// A type that allows iterating through the list of light probes that overlap
+/// the current fragment.
+///
+/// This is the version that's used when sufficient storage buffers aren't
+/// available and consequently when light probes aren't clustered. It simply does
+/// a brute force search of all light probes. Because platforms without
+/// sufficient SSBO bindings typically lack bindless shaders, there will usually
+/// only be one of each type of light probe present anyway.
 @if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct LightProbeIterator {
-    // The current index in the list of light probes for this cluster.
+    /// The current index in the list of light probes for this cluster.
     current_index: u32,
-    // The last index in the list.
+    /// The last index in the list.
     end_index: u32,
-    // The position of the current fragment.
+    /// The position of the current fragment.
     world_position: vec3<f32>,
-    // True if we're searching for irradiance volumes; false if we're searching
-    // for reflection probes.
+    /// True if we're searching for irradiance volumes; false if we're searching
+    /// for reflection probes.
     is_irradiance_volume: bool,
 }
 
-// Creates a new light probe iterator ready to search through light probes.
+/// Creates a new light probe iterator ready to search through light probes.
 @if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 fn light_probe_iterator_new(
     world_position: vec3<f32>,
@@ -192,14 +192,14 @@ fn light_probe_iterator_new(
     );
 }
 
-// Searches for a light probe that contains the fragment and returns the next
-// such probe.
-//
-// Note that, theoretically, multiple light probes can affect a fragment, and
-// the caller is generally expected to blend their influences together in a
-// weighted sum. In practice, this version of `light_probe_iterator_next` is
-// used on platforms that lack bindless shaders, so there will only be at most
-// one light probe that affects the current fragment in the first place.
+/// Searches for a light probe that contains the fragment and returns the next
+/// such probe.
+///
+/// Note that, theoretically, multiple light probes can affect a fragment, and
+/// the caller is generally expected to blend their influences together in a
+/// weighted sum. In practice, this version of `light_probe_iterator_next` is
+/// used on platforms that lack bindless shaders, so there will only be at most
+/// one light probe that affects the current fragment in the first place.
 @if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
     var result: LightProbeQueryResult;

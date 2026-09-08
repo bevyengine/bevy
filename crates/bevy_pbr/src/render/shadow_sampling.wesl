@@ -5,7 +5,7 @@ import package::render::{
 };
 import bevy_render::maths::{orthonormalize, PI};
 
-// Do the lookup, using HW 2x2 PCF and comparison
+/// Do the lookup, using HW 2x2 PCF and comparison
 fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     @if(NO_ARRAY_TEXTURES_SUPPORT)
     return textureSampleCompare(
@@ -24,8 +24,8 @@ fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i
     );
 }
 
-// Does a single sample of the blocker search, a part of the PCSS algorithm.
-// This is the variant used for directional lights.
+/// Does a single sample of the blocker search, a part of the PCSS algorithm.
+/// This is the variant used for directional lights.
 fn search_for_blockers_in_shadow_map_hardware(
     light_local: vec2<f32>,
     depth: f32,
@@ -68,10 +68,10 @@ const SPOT_SHADOW_TEXEL_SIZE: f32 = 0.0134277345;
 const POINT_SHADOW_SCALE: f32 = 0.003;
 const POINT_SHADOW_TEMPORAL_OFFSET_SCALE: f32 = 0.5;
 
-// These are the standard MSAA sample point positions from D3D. They were chosen
-// to get a reasonable distribution that's not too regular.
-//
-// https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_standard_multisample_quality_levels?redirectedfrom=MSDN
+/// These are the standard MSAA sample point positions from D3D. They were chosen
+/// to get a reasonable distribution that's not too regular.
+///
+/// https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_standard_multisample_quality_levels?redirectedfrom=MSDN
 const D3D_SAMPLE_POINT_POSITIONS: array<vec2<f32>, 8> = array(
     vec2( 0.125, -0.375),
     vec2(-0.125,  0.375),
@@ -83,9 +83,9 @@ const D3D_SAMPLE_POINT_POSITIONS: array<vec2<f32>, 8> = array(
     vec2( 0.875, -0.875),
 );
 
-// And these are the coefficients corresponding to the probability distribution
-// function of a 2D Gaussian lobe with zero mean and the identity covariance
-// matrix at those points.
+/// And these are the coefficients corresponding to the probability distribution
+/// function of a 2D Gaussian lobe with zero mean and the identity covariance
+/// matrix at those points.
 const D3D_SAMPLE_POINT_COEFFS: array<f32, 8> = array(
     0.157112,
     0.157112,
@@ -97,7 +97,7 @@ const D3D_SAMPLE_POINT_COEFFS: array<f32, 8> = array(
     0.079001,
 );
 
-// https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
+/// https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
 fn sample_shadow_map_castano_thirteen(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
     let inv_shadow_map_size = 1.0 / shadow_map_size;
@@ -146,9 +146,9 @@ fn map(min1: f32, max1: f32, min2: f32, max2: f32, value: f32) -> f32 {
     return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
 }
 
-// Creates a random rotation matrix using interleaved gradient noise.
-//
-// See: https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
+/// Creates a random rotation matrix using interleaved gradient noise.
+///
+/// See: https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
 fn random_rotation_matrix(scale: vec2<f32>, temporal: bool) -> mat2x2<f32> {
     let random_angle = 2.0 * PI * interleaved_gradient_noise(
         scale, select(1u, view_bindings::globals.frame_count, temporal));
@@ -159,9 +159,9 @@ fn random_rotation_matrix(scale: vec2<f32>, temporal: bool) -> mat2x2<f32> {
     );
 }
 
-// Calculates the distance between spiral samples for the given texel size and
-// penumbra size. This is used for the Jimenez '14 (i.e. temporal) variant of
-// shadow sampling.
+/// Calculates the distance between spiral samples for the given texel size and
+/// penumbra size. This is used for the Jimenez '14 (i.e. temporal) variant of
+/// shadow sampling.
 fn calculate_uv_offset_scale_jimenez_fourteen(texel_size: f32, blur_size: f32) -> vec2<f32> {
     let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
 
@@ -204,16 +204,16 @@ fn sample_shadow_map_jimenez_fourteen(
     return sum / 8.0;
 }
 
-// Performs the blocker search portion of percentage-closer soft shadows (PCSS).
-// This is the variation used for directional lights.
-//
-// We can't use Castano '13 here because that has a hard-wired fixed size, while
-// the PCSS algorithm requires a search size that varies based on the size of
-// the light. So we instead use the D3D sample point positions, spaced according
-// to the search size, to provide a sample pattern in a similar manner to the
-// cubemap sampling approach we use for PCF.
-//
-// `search_size` is the size of the search region in texels.
+/// Performs the blocker search portion of percentage-closer soft shadows (PCSS).
+/// This is the variation used for directional lights.
+///
+/// We can't use Castano '13 here because that has a hard-wired fixed size, while
+/// the PCSS algorithm requires a search size that varies based on the size of
+/// the light. So we instead use the D3D sample point positions, spaced according
+/// to the search size, to provide a sample pattern in a similar manner to the
+/// cubemap sampling approach we use for PCF.
+///
+/// `search_size` is the size of the search region in texels.
 fn search_for_blockers_in_shadow_map(
     light_local: vec2<f32>,
     depth: f32,
@@ -271,17 +271,17 @@ fn sample_shadow_map(
     return 0.0;
 }
 
-// Samples the shadow map for a directional light when percentage-closer soft
-// shadows are being used.
-//
-// We first search for a *blocker*, which is the average depth value of any
-// shadow map samples that are adjacent to the sample we're considering. That
-// allows us to determine the penumbra size; a larger gap between the blocker
-// and the depth of this sample results in a wider penumbra. Finally, we sample
-// the shadow map the same way we do in PCF, using that penumbra width.
-//
-// A good overview of the technique:
-// <https://medium.com/@varunm100/soft-shadows-for-mobile-ar-9e8da2e6f4ba>
+/// Samples the shadow map for a directional light when percentage-closer soft
+/// shadows are being used.
+///
+/// We first search for a *blocker*, which is the average depth value of any
+/// shadow map samples that are adjacent to the sample we're considering. That
+/// allows us to determine the penumbra size; a larger gap between the blocker
+/// and the depth of this sample results in a wider penumbra. Finally, we sample
+/// the shadow map the same way we do in PCF, using that penumbra width.
+///
+/// A good overview of the technique:
+/// <https://medium.com/@varunm100/soft-shadows-for-mobile-ar-9e8da2e6f4ba>
 fn sample_shadow_map_pcss(
     light_local: vec2<f32>,
     depth: f32,
@@ -333,8 +333,8 @@ fn sample_shadow_cubemap_hardware(light_local: vec3<f32>, depth: f32, light_id: 
     );
 }
 
-// Performs one sample of the blocker search. This variation of the blocker
-// search function is for point and spot lights.
+/// Performs one sample of the blocker search. This variation of the blocker
+/// search function is for point and spot lights.
 fn search_for_blockers_in_shadow_cubemap_hardware(
     light_local: vec3<f32>,
     depth: f32,
@@ -387,11 +387,11 @@ fn sample_shadow_cubemap_at_offset(
     ) * coeff;
 }
 
-// Computes the search position and performs one sample of the blocker search.
-// This variation of the blocker search function is for point and spot lights.
-//
-// `x_basis`, `y_basis`, and `light_local` form an orthonormal basis over which
-// the blocker search happens.
+/// Computes the search position and performs one sample of the blocker search.
+/// This variation of the blocker search function is for point and spot lights.
+///
+/// `x_basis`, `y_basis`, and `light_local` form an orthonormal basis over which
+/// the blocker search happens.
 fn search_for_blockers_in_shadow_cubemap_at_offset(
     position: vec2<f32>,
     x_basis: vec3<f32>,
@@ -407,11 +407,11 @@ fn search_for_blockers_in_shadow_cubemap_at_offset(
     );
 }
 
-// This more or less does what Castano13 does, but in 3D space. Castano13 is
-// essentially an optimized 2D Gaussian filter that takes advantage of the
-// bilinear filtering hardware to reduce the number of samples needed. This
-// trick doesn't apply to cubemaps, so we manually apply a Gaussian filter over
-// the standard 8xMSAA pattern instead.
+/// This more or less does what Castano13 does, but in 3D space. Castano13 is
+/// essentially an optimized 2D Gaussian filter that takes advantage of the
+/// bilinear filtering hardware to reduce the number of samples needed. This
+/// trick doesn't apply to cubemaps, so we manually apply a Gaussian filter over
+/// the standard 8xMSAA pattern instead.
 fn sample_shadow_cubemap_gaussian(
     light_local: vec3<f32>,
     depth: f32,
@@ -451,9 +451,9 @@ fn sample_shadow_cubemap_gaussian(
     return sum;
 }
 
-// This is a port of the Jimenez14 filter above to the 3D space. It jitters the
-// points in the spiral pattern after first creating a 2D orthonormal basis
-// along the principal light direction.
+/// This is a port of the Jimenez14 filter above to the 3D space. It jitters the
+/// points in the spiral pattern after first creating a 2D orthonormal basis
+/// along the principal light direction.
 fn sample_shadow_cubemap_jittered(
     light_local: vec3<f32>,
     depth: f32,
@@ -529,13 +529,13 @@ fn sample_shadow_cubemap(
     return 0.0;
 }
 
-// Searches for PCSS blockers in a cubemap. This is the variant of the blocker
-// search used for point and spot lights.
-//
-// This follows the logic in `sample_shadow_cubemap_gaussian`, but uses linear
-// sampling instead of percentage-closer filtering.
-//
-// The `scale` parameter represents the size of the light.
+/// Searches for PCSS blockers in a cubemap. This is the variant of the blocker
+/// search used for point and spot lights.
+///
+/// This follows the logic in `sample_shadow_cubemap_gaussian`, but uses linear
+/// sampling instead of percentage-closer filtering.
+///
+/// The `scale` parameter represents the size of the light.
 fn search_for_blockers_in_shadow_cubemap(
     light_local: vec3<f32>,
     depth: f32,
@@ -571,11 +571,11 @@ fn search_for_blockers_in_shadow_cubemap(
     return sum.x / sum.y;
 }
 
-// Samples the shadow map for a point or spot light when percentage-closer soft
-// shadows are being used.
-//
-// A good overview of the technique:
-// <https://medium.com/@varunm100/soft-shadows-for-mobile-ar-9e8da2e6f4ba>
+/// Samples the shadow map for a point or spot light when percentage-closer soft
+/// shadows are being used.
+///
+/// A good overview of the technique:
+/// <https://medium.com/@varunm100/soft-shadows-for-mobile-ar-9e8da2e6f4ba>
 fn sample_shadow_cubemap_pcss(
     light_local: vec3<f32>,
     distance_to_light: f32,
