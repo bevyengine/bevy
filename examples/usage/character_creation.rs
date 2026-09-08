@@ -52,7 +52,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, character: Res<Character>) {
-    commands.spawn_scene_list(bsn_list! {
+    commands.spawn_scene_list(bsn! {
         Camera2d
         --
         // This scene will serve as one half of our "View"

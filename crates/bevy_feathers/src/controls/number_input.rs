@@ -151,7 +151,7 @@ impl FeathersNumberInput {
                 {
                     // Label section
                     props.label_text.map(|text| {
-                        bsn_list!(
+                        bsn! {
                             Node {
                                 display: Display::Flex,
                                 align_items: AlignItems::Center,
@@ -169,7 +169,7 @@ impl FeathersNumberInput {
                                 PropagateOver<TextFont>
                                 ThemeTextColor(tokens::TEXT_INPUT_TEXT)
                             ]
-                        )
+                        }
                     })
                 }
                 --

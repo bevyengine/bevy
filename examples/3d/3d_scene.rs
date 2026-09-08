@@ -11,7 +11,7 @@ fn main() {
 
 /// set up a simple 3D scene
 fn scene() -> impl SceneList {
-    bsn_list! [
+    bsn! {
         #CircularBase
         Mesh3d(asset_value(Circle::new(4.0)))
         MeshMaterial3d::<StandardMaterial>(asset_value(Color::WHITE))
@@ -29,5 +29,5 @@ fn scene() -> impl SceneList {
         --
         Camera3d
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y)
-    ]
+    }
 }

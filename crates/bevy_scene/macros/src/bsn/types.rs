@@ -2,13 +2,16 @@ use proc_macro2::{Span, TokenStream};
 use syn::{Ident, Lit, LitStr, Member, Path};
 
 #[derive(Debug)]
-pub struct BsnRoot(pub Bsn<true>);
+pub enum BsnRoot {
+    Bsn(Bsn),
+    BsnList(BsnSceneListItems),
+}
 
 #[derive(Debug)]
 pub struct BsnListRoot(pub BsnSceneListItems);
 
 #[derive(Debug)]
-pub struct Bsn<const ALLOW_FLAT: bool> {
+pub struct Bsn {
     pub used_parens: Option<Span>,
     pub entries: Vec<BsnEntry>,
 }
@@ -59,7 +62,7 @@ pub struct BsnSceneListItems(pub Vec<BsnSceneListItem>, pub Vec<Span>);
 
 #[derive(Debug)]
 pub enum BsnSceneListItem {
-    Scene(Bsn<true>),
+    Scene(Bsn),
     Expression(TokenStream),
 }
 

@@ -133,13 +133,13 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![
+    bsn! {
         @camera()
         --
         @sun()
         --
         @loading_screen()
-    ]
+    }
 }
 
 fn camera() -> impl Scene {

@@ -47,7 +47,15 @@ macro_rules! parse_punctuated_vec_autocomplete_friendly {
 
 impl Parse for BsnRoot {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(BsnRoot(input.parse::<Bsn<true>>()?))
+        let bsn = input.parse::<Bsn>()?;
+        Ok(if input.peek(TwoMinus) || input.peek(Comma) {
+            let _ = input.parse::<CommaOrTwoMinus>()?;
+            let mut items = input.parse::<BsnSceneListItems>()?;
+            items.0.insert(0, BsnSceneListItem::Scene(bsn));
+            BsnRoot::BsnList(items)
+        } else {
+            BsnRoot::Bsn(bsn)
+        })
     }
 }
 
@@ -57,10 +65,11 @@ impl Parse for BsnListRoot {
     }
 }
 
-impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
+impl Parse for Bsn {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut entries = Vec::new();
         let mut used_parens = None;
+        // TODO: remove this case when parens are fully deprecated
         if input.peek(Paren) {
             used_parens = Some(input.span());
             let content;
@@ -75,7 +84,7 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
                 }
                 entries.push(entry);
             }
-        } else if ALLOW_FLAT {
+        } else {
             while !input.is_empty() {
                 let entry = BsnEntry::parse(input)?;
                 if matches!(entry, BsnEntry::CachedScene(_)) && !entries.is_empty() {
@@ -91,8 +100,6 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
                     break;
                 }
             }
-        } else {
-            entries.push(BsnEntry::parse(input)?);
         }
 
         Ok(Self {
@@ -279,7 +286,7 @@ impl Parse for BsnSceneListItem {
             let tokens = braced_tokens(input)?;
             BsnSceneListItem::Expression(tokens)
         } else {
-            BsnSceneListItem::Scene(input.parse::<Bsn<true>>()?)
+            BsnSceneListItem::Scene(input.parse::<Bsn>()?)
         })
     }
 }

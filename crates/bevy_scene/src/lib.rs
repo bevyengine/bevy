@@ -207,11 +207,11 @@
 //!
 //! ```ignore
 //! fn linked_pair() -> impl SceneList {
-//!     bsn_list![
+//!     bsn! {
 //!         #Left Link(#Right)
 //!         --
 //!         #Right Link(#Left)
-//!     ]
+//!     }
 //! }
 //! ```
 //!
@@ -520,7 +520,7 @@
 //!     }
 //! }
 //!
-//! let items = bsn_list![#A, #B, #C]; // or bsn! if container takes a `impl Scene`
+//! let items = bsn!{ #A -- #B -- #C};
 //! commands.spawn_scene(container(items));
 //! ```
 //!
@@ -539,7 +539,7 @@
 //!     }
 //! }
 //!
-//! let items = bsn_list![#A -- #B -- #C]; // or bsn! if container takes a `impl Scene`
+//! let items = bsn! { #A -- #B -- #C }; // or bsn! if container takes a `impl Scene`
 //! commands.spawn_scene(container(items));
 //! ```
 //!
@@ -1417,7 +1417,7 @@ mod tests {
         }
 
         fn a() -> impl SceneList {
-            bsn_list![
+            bsn! {
                 #X
                 Reference(#Y)
                 Children [
@@ -1431,7 +1431,7 @@ mod tests {
                 ]
                 --
                 #Z @b()
-            ]
+            }
         }
 
         let ids = world.spawn_scene_list(a()).unwrap();
@@ -1953,11 +1953,11 @@ mod tests {
         }
         let mut app = test_app();
         let world = app.world_mut();
-        let items = bsn_list![
+        let items = bsn! {
             #Second
             --
             #Third
-        ];
+        };
         let id = world.spawn_scene(container(items)).unwrap().id();
         let children = world.entity(id).get::<Children>().unwrap();
         let names: Vec<_> = children
@@ -2393,11 +2393,11 @@ mod tests {
             }
         }
 
-        let children = bsn_list! [
+        let children = bsn! {
             #B
             --
             #C
-        ];
+        };
 
         let id = world.spawn_scene(root(children)).unwrap().id();
         let root = world.entity(id);
@@ -3067,7 +3067,7 @@ mod tests {
         impl Default for Props2 {
             fn default() -> Self {
                 Self {
-                    items: Box::new(bsn_list!()),
+                    items: Box::new(bsn! {}),
                 }
             }
         }
@@ -3104,11 +3104,11 @@ mod tests {
                 }
                 ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
                 @Container {
-                    @items: bsn_list![                // sometimes you may need to nest macro calls
+                    @items: bsn! {                // sometimes you may need to nest macro calls
                         #Item1 SomeComponent          // note: the name #item1 here is in its own scope
                         --
                         #Item2 @some_scene()
-                    ]
+                    }
                 }
             ]
         };

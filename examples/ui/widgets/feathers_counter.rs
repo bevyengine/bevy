@@ -40,7 +40,7 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, @demo_root()]
+    bsn! { Camera2d -- @demo_root() }
 }
 
 fn demo_root() -> impl Scene {

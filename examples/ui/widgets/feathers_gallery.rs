@@ -84,11 +84,11 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![
+    bsn! {
         Camera2d
         --
         @demo_root()
-    ]
+    }
 }
 
 fn demo_root() -> Box<dyn Scene> {
@@ -962,7 +962,7 @@ fn demo_column_2() -> impl Scene {
                 --
                 @subpane_body() Children [
                     @FeathersListView {
-                        @rows: bsn_list![
+                        @rows: bsn! {
                             @FeathersListRow Children [ @caption("First World") ]
                             --
                             @FeathersListRow Selected Children [ @caption("Second Nature") ]
@@ -986,7 +986,7 @@ fn demo_column_2() -> impl Scene {
                             @FeathersListRow Children [ @caption("Eleventh Hour") ]
                             --
                             @FeathersListRow Children [ @caption("Twelfth Night") ]
-                        ]
+                        }
                     }
                     Node {
                         max_height: px(130)
@@ -1213,10 +1213,10 @@ fn handle_hex_color_change(
 fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
     commands
         .entity(activate.event_target())
-        .queue_spawn_related_scenes::<Children>(bsn_list! (
+        .queue_spawn_related_scenes::<Children>(bsn! {
             @FeathersDialog {
                 @width: px(320),
-                @contents: bsn_list! {
+                @contents: bsn! {
                     @FeathersDialogHeader Children [
                         @caption("Quit Feathers Gallery")
                         --
@@ -1250,7 +1250,7 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
             on(|close: On<RequestClose>, mut commands: Commands| {
                 commands.entity(close.event_target()).despawn();
             })
-        ));
+        });
 }
 
 fn toggle_demo_dialog(
@@ -1267,7 +1267,7 @@ fn toggle_demo_dialog(
             @FeathersFloatingDialog {
                 @title: {"Hello".to_string()},
                 @width: px(280),
-                @contents: bsn_list! {
+                @contents: bsn! {
                     @caption("Close this dialog to unset the toggle.")
                 }
             }

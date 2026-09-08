@@ -27,7 +27,7 @@ fn main() {
 struct Counter(i32);
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, @ghost_root(), @normal_root()]
+    bsn! { Camera2d -- @ghost_root() -- @normal_root() }
 }
 
 /// Ghost UI root
