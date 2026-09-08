@@ -31,8 +31,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
       - name: get MSRV
         id: msrv
         run: |
@@ -120,8 +119,7 @@ jobs:
           ref: "main"
           persist-credentials: false
 
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           channel: ${{ matrix.toolchain }}
           target: ${{ matrix.target }}

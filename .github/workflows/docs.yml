@@ -37,8 +37,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           channel: nightly
 

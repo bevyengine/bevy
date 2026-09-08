@@ -48,8 +48,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
@@ -77,8 +76,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           components: clippy,rustfmt
       - name: Install Linux dependencies
@@ -113,8 +111,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           channel: nightly
           components: miri
@@ -151,8 +148,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -181,8 +177,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           target: x86_64-unknown-none
       - name: Install Linux dependencies
@@ -217,8 +212,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           target: thumbv6m-none-eabi
       - name: Install Linux dependencies
@@ -248,8 +242,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           target: x86_64-unknown-none
       - name: Install Linux dependencies
@@ -279,8 +272,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           target: wasm32-unknown-unknown
       - name: Check wasm
@@ -310,8 +302,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           channel: nightly
           components: rust-src
@@ -401,8 +392,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
@@ -428,8 +418,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
       - name: check for missing metadata
         id: missing-metadata
         run: cargo run -p build-templated-pages -- check-missing examples
@@ -466,8 +455,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
       - name: check for missing features
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
@@ -504,15 +492,13 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
       - name: get MSRV
         id: msrv
         run: |
           msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
           echo "msrv=$msrv" >> $GITHUB_OUTPUT
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           channel: ${{ steps.msrv.outputs.msrv }}
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -576,8 +562,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
       - name: Check Release Content
         shell: bash
         run: |

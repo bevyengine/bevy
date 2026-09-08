@@ -33,8 +33,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
 
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -66,8 +65,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
 
       - name: Set up JDK 17
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
@@ -111,8 +109,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           target: wasm32-unknown-unknown
 
@@ -173,8 +170,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build
@@ -202,8 +198,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
         with:
           channel: nightly
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -235,8 +230,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        uses: ./.github/actions/install-rust
+      - uses: ./.github/actions/install-rust
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
