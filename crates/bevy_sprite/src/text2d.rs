@@ -388,7 +388,7 @@ mod tests {
     use bevy_ecs::{hierarchy::ChildOf, system::RunSystemOnce, world::World};
     use bevy_math::UVec2;
     use bevy_text::{
-        detect_text_needs_rerender, InlineBox, InlineBoxKind, TextIterScratch, TextLayoutSection,
+        detect_text_needs_rerender, InlineBox, InlineBoxKind, TextElement, TextIterScratch,
         TextSpan,
     };
 
@@ -414,10 +414,13 @@ mod tests {
 
         world
             .run_system_once(move |mut reader: Text2dReader| {
-                assert!(reader.get(root, 2).is_none());
+                assert!(matches!(
+                    reader.get(root, 2),
+                    Some((_, 2, TextElement::Box(_)))
+                ));
                 assert!(matches!(
                     reader.get(root, 3),
-                    Some((_, _, TextLayoutSection::Text { text: "tail", .. }))
+                    Some((_, 1, TextElement::Text { text: "tail", .. }))
                 ));
                 let items = reader.iter(root).collect::<Vec<_>>();
                 assert_eq!(
@@ -425,7 +428,7 @@ mod tests {
                     [(root, 0), (span, 1), (inline_box, 2), (tail, 1)]
                 );
                 assert!(
-                    matches!(&items[2].2, TextLayoutSection::Box(b) if b.size == Vec2::new(20.0, 10.0))
+                    matches!(&items[2].2, TextElement::Box(b) if b.size == Vec2::new(20.0, 10.0))
                 );
             })
             .unwrap();

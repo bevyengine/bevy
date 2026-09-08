@@ -4,9 +4,7 @@ use bevy_ecs::{
     system::{Query, SystemParam},
 };
 
-use crate::{
-    InlineBox, LetterSpacing, LineHeight, TextColor, TextFont, TextLayoutSection, TextSpan,
-};
+use crate::{InlineBox, LetterSpacing, LineHeight, TextColor, TextElement, TextFont, TextSpan};
 
 /// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
 pub trait TextSection: Component<Mutability = Mutable> + From<String> {
@@ -93,7 +91,7 @@ impl<'w, 's, R: TextSection> TextReader<'w, 's, R> {
         &mut self,
         root_entity: Entity,
         index: usize,
-    ) -> Option<(Entity, usize, TextLayoutSection<'_>)> {
+    ) -> Option<(Entity, usize, TextElement<'_>)> {
         self.iter(root_entity).nth(index)
     }
 }
@@ -136,7 +134,7 @@ pub struct TextSpanIter<'a, R: TextSection> {
 }
 
 impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
-    type Item = (Entity, usize, TextLayoutSection<'a>);
+    type Item = (Entity, usize, TextElement<'a>);
     fn next(&mut self) -> Option<Self::Item> {
         // Root
         if let Some(root_entity) = self.root_entity.take() {
@@ -149,7 +147,7 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
                 return Some((
                     root_entity,
                     0,
-                    TextLayoutSection::Text {
+                    TextElement::Text {
                         text: text.get_text(),
                         font: text_font,
                         color: color.0,
@@ -171,7 +169,7 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
 
                 let entity = *child;
                 if let Ok(inline_box) = self.inline_boxes.get(entity) {
-                    return Some((entity, self.stack.len(), TextLayoutSection::Box(inline_box)));
+                    return Some((entity, self.stack.len(), TextElement::Box(inline_box)));
                 }
                 let Ok((span, text_font, color, line_height, letter_spacing, maybe_children)) =
                     self.spans.get(entity)
@@ -186,7 +184,7 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
                 return Some((
                     entity,
                     depth,
-                    TextLayoutSection::Text {
+                    TextElement::Text {
                         text: span.get_text(),
                         font: text_font,
                         color: color.0,

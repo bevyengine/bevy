@@ -28,7 +28,7 @@ use crate::{RemSize, TextBrush};
 struct TextSectionView<'a> {
     index: usize,
     entity: Entity,
-    text_item: TextLayoutSection<'a>,
+    text_item: TextElement<'a>,
     font_size: f32,
 }
 
@@ -43,23 +43,25 @@ pub struct TextPipeline {
     text_buffer: String,
 }
 
-/// Text item for processing by the `TextPipeline`.
+/// The collected data `TextPipeline` needs from a single entity to add it to a text layout.
+///
+/// Each `TextElement` corresponds to either a root text entity, a [`TextSpan`] or an [`InlineBox`].
 #[derive(Debug, Clone)]
-pub enum TextLayoutSection<'a> {
-    /// Text
+pub enum TextElement<'a> {
+    /// Text contributed by a root text entity or a [`TextSpan`].
     Text {
-        /// Text
+        /// The text.
         text: &'a str,
-        /// font
+        /// The font face and variations.
         font: &'a TextFont,
-        /// color for text
+        /// Text color.
         color: Color,
-        /// line height
+        /// Line height.
         line_height: LineHeight,
-        /// letter spacing
+        /// Letter spacing.
         letter_spacing: LetterSpacing,
     },
-    /// An inline box
+    /// Space reversed in the the layout by an `InlineBox`.    
     Box(&'a crate::InlineBox),
 }
 
@@ -70,7 +72,7 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, TextLayoutSection<'a>)>,
+        text_spans: impl Iterator<Item = (Entity, usize, TextElement<'a>)>,
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
@@ -99,7 +101,7 @@ impl TextPipeline {
         let result = {
             for (index, (entity, depth, item)) in text_spans.enumerate() {
                 match item {
-                    TextLayoutSection::Text {
+                    TextElement::Text {
                         text,
                         font: text_font,
                         ..
@@ -158,7 +160,7 @@ impl TextPipeline {
                             font_size,
                         });
                     }
-                    TextLayoutSection::Box(_inline_box) => {
+                    TextElement::Box(_inline_box) => {
                         computed.entities.push(TextEntity {
                             entity,
                             depth,
@@ -178,10 +180,10 @@ impl TextPipeline {
             self.text_buffer.clear();
             for section in &sections {
                 match section.text_item {
-                    TextLayoutSection::Text { text, .. } => {
+                    TextElement::Text { text, .. } => {
                         self.text_buffer.push_str(text);
                     }
-                    TextLayoutSection::Box(_inline_box) => {}
+                    TextElement::Box(_inline_box) => {}
                 }
             }
 
@@ -210,7 +212,7 @@ impl TextPipeline {
             let mut start = 0;
             for section in sections.drain(..) {
                 match section.text_item {
-                    TextLayoutSection::Text {
+                    TextElement::Text {
                         text,
                         font: text_font,
                         color: _,
@@ -262,7 +264,7 @@ impl TextPipeline {
                             range,
                         );
                     }
-                    TextLayoutSection::Box(inline_box) => {
+                    TextElement::Box(inline_box) => {
                         let size = inline_box.size * scale_factor;
                         builder.push_inline_box(parley::InlineBox {
                             id: section.entity.to_bits(),
@@ -294,7 +296,7 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, TextLayoutSection<'a>)>,
+        text_spans: impl Iterator<Item = (Entity, usize, TextElement<'a>)>,
         scale_factor: f32,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,

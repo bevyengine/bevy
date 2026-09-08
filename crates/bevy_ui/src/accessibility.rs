@@ -39,8 +39,8 @@ fn calc_label(
         let values = text_reader
             .iter(child)
             .filter_map(|(_, _, item)| match item {
-                bevy_text::TextLayoutSection::Text { text, .. } => Some(text.into()),
-                bevy_text::TextLayoutSection::Box(_) => None,
+                bevy_text::TextElement::Text { text, .. } => Some(text.into()),
+                bevy_text::TextElement::Box(_) => None,
             })
             .collect::<Vec<String>>();
         if !values.is_empty() {
@@ -165,8 +165,8 @@ fn label_changed(
         let values = text_reader
             .iter(entity)
             .filter_map(|(_, _, item)| match item {
-                bevy_text::TextLayoutSection::Text { text, .. } => Some(text.into()),
-                bevy_text::TextLayoutSection::Box(_) => None,
+                bevy_text::TextElement::Text { text, .. } => Some(text.into()),
+                bevy_text::TextElement::Box(_) => None,
             })
             .collect::<Vec<String>>();
         let label = Some(values.join(" ").into_boxed_str());
