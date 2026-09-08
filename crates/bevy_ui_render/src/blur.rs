@@ -366,6 +366,9 @@ pub fn sync_blur_regions<const N: usize>(
         if node.is_empty() {
             continue;
         }
+        if !**visibility {
+            continue;
+        }
         let Some(camera_entity) = target.get() else {
             continue;
         };
