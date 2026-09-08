@@ -1754,6 +1754,12 @@ impl RenderGpuCulledEntities {
     ///
     /// The `render_layers` argument specifies the set of render layers that the
     /// entity belongs to.
+    ///
+    /// Note that this method is only called for entities that the extraction
+    /// systems picked up this frame, so the extraction change detection must be
+    /// configured to catch render layer changes (see
+    /// `extract_meshes_for_gpu_building`) in order for layer changes on
+    /// GPU-culled meshes to propagate.
     pub fn update(
         &mut self,
         new_entity: MainEntity,
@@ -1763,7 +1769,7 @@ impl RenderGpuCulledEntities {
         match self.entities.entry(new_entity) {
             Entry::Occupied(mut occupied_entry) => {
                 if no_cpu_culling {
-                    if occupied_entry.get().ne(&render_layers) {
+                    if *occupied_entry.get() != render_layers {
                         self.changed_layers.push(new_entity);
                     }
 
@@ -1961,6 +1967,7 @@ pub fn extract_meshes_for_gpu_building(
                 )>,
                 Changed<VisibilityRange>,
                 Changed<SkinnedMesh>,
+                Changed<RenderLayers>,
             )>,
         >,
     >,
@@ -1977,6 +1984,7 @@ pub fn extract_meshes_for_gpu_building(
         mut removed_no_cpu_culling_query,
         mut removed_visibility_range_query,
         mut removed_skinned_mesh_query,
+        mut removed_render_layers_query,
     ): (
         Extract<RemovedComponents<PreviousGlobalTransform>>,
         Extract<RemovedComponents<Lightmap>>,
@@ -1990,6 +1998,7 @@ pub fn extract_meshes_for_gpu_building(
         Extract<RemovedComponents<NoCpuCulling>>,
         Extract<RemovedComponents<VisibilityRange>>,
         Extract<RemovedComponents<SkinnedMesh>>,
+        Extract<RemovedComponents<RenderLayers>>,
     ),
     all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
@@ -2029,7 +2038,8 @@ pub fn extract_meshes_for_gpu_building(
             .chain(removed_no_automatic_batching_query.read())
             .chain(removed_no_cpu_culling_query.read())
             .chain(removed_visibility_range_query.read())
-            .chain(removed_skinned_mesh_query.read()),
+            .chain(removed_skinned_mesh_query.read())
+            .chain(removed_render_layers_query.read()),
     );
 
     // We have to skip the meshes in the potential reextraction set if we

@@ -250,15 +250,6 @@ impl RenderVisibleEntitiesClass {
         }
     }
 
-    /// Adds a new entity to the [`Self::added_entities`] list.
-    ///
-    /// After calling this method one or more times, you must call
-    /// [`Self::sort_added_entities`] to ensure the [`Self::added_entities`]
-    /// list is sorted.
-    pub fn add_entity(&mut self, pair: (Entity, MainEntity)) {
-        self.added_entities.push(pair);
-    }
-
     /// Returns the list of newly-added entities.
     pub fn added_entities(&self) -> &[(Entity, MainEntity)] {
         &self.added_entities
@@ -297,8 +288,8 @@ impl RenderVisibleEntitiesClass {
 
     /// Sorts the [`Self::added_entities`] list.
     ///
-    /// You must call this after adding entities to the list via
-    /// [`Self::add_entity`].
+    /// You must call this after pushing entities onto the list, as the
+    /// `DirtySpecializations` iterator will binary search it.
     pub fn sort_added_entities(&mut self) {
         self.added_entities
             .sort_unstable_by_key(|(_, main_entity)| *main_entity);
