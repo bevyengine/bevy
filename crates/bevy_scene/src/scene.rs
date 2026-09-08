@@ -30,7 +30,7 @@ use variadics_please::all_tuples;
 /// A [`Scene`] generally does one or more of the following to a [`ResolvedScene`]:
 /// - Adding a new [`Template`]
 /// - Editing an existing [`Template`] (ex: "patching" [`Template`] fields)
-/// - Adding one or more "related" [`ResolvedScene`]s, which will be spawned alongside the root [`ResolvedScene`] and "related" back to it with a [`Relationship`].
+/// - Adding one or more "related" [`ResolvedScene`]s, which will be spawned alongside the root [`ResolvedScene`] and "related" to it via a [`RelationshipTarget`].
 /// - Editing an existing "related" [`ResolvedScene`].
 /// - Setting a [`ScenePatch`] containing a cached [`ResolvedScene`] to apply first.
 ///
