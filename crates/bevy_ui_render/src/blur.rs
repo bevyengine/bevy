@@ -209,7 +209,12 @@ impl<const N: usize> Plugin for BlurShaderPlugin<N> {
             ExtractComponentPlugin::<BlurRegionCamera<N>>::default(),
             UniformComponentPlugin::<BlurRegionUniform<N>>::default(),
         ))
-        .add_systems(PostUpdate, sync_blur_regions::<N>.after(UiSystems::Layout));
+        .add_systems(
+            PostUpdate,
+            sync_blur_regions::<N>
+                .after(UiSystems::Layout)
+                .after(VisibilitySystems::VisibilityPropagate),
+        );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
