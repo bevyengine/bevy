@@ -7,6 +7,7 @@
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::visibility::{InheritedVisibility, VisibilitySystems};
 use bevy_core_pipeline::{
     tonemapping::tonemapping, Core2d, Core2dSystems, Core3d, Core3dSystems, FullscreenShader,
 };
