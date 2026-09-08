@@ -1196,10 +1196,17 @@ impl<'w> EntityWorldMut<'w> {
     /// # Safety
     /// - Each [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - Each [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    /// - `iter_components` must yield exactly `component_ids.len()` items. If it
+    ///   yields fewer, some component columns will be left uninitialized, resulting
+    ///   in undefined behavior. If it yields more, the extra items will be silently
+    ///   ignored.
     ///
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    ///
+    /// In debug builds, panics if `iter_components` does not yield exactly
+    /// `component_ids.len()` items.
     #[track_caller]
     pub unsafe fn insert_by_ids<'a, I: Iterator<Item = OwningPtr<'a>>>(
         &mut self,
@@ -1222,6 +1229,22 @@ impl<'w> EntityWorldMut<'w> {
         iter_components: I,
         relationship_hook_insert_mode: RelationshipHookMode,
     ) -> &mut Self {
+        // In debug builds, eagerly collect the iterator and verify that it yields
+        // exactly `component_ids.len()` items. A shorter iterator would leave
+        // component memory uninitialized via `zip` truncation.
+        #[cfg(debug_assertions)]
+        let iter_components = {
+            let collected: Vec<_> = iter_components.collect();
+            debug_assert_eq!(
+                collected.len(),
+                component_ids.len(),
+                "iter_components must yield exactly {} items (one per ComponentId), but {} were yielded",
+                component_ids.len(),
+                collected.len()
+            );
+            collected.into_iter()
+        };
+
         let location = self.location();
         let change_tick = self.world.change_tick();
         let bundle_id = self.world.bundles.init_dynamic_info(
@@ -2432,6 +2455,9 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a, 'static> {
 ///
 /// - [`OwningPtr`] and [`StorageType`] iterators must correspond to the
 ///   [`BundleInfo`](crate::bundle::BundleInfo) used to construct [`BundleInserter`]
+/// - Both iterators must yield the same number of items. If the [`OwningPtr`]
+///   iterator is shorter, some component columns will be left uninitialized,
+///   resulting in undefined behavior.
 /// - [`Entity`] must correspond to [`EntityLocation`]
 unsafe fn insert_dynamic_bundle<
     'a,
