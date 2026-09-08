@@ -2,11 +2,36 @@ import bevy_pbr::render::mesh_view_bindings::{view, oit_nodes_capacity, oit_node
 import bevy_pbr::render::mesh_view_types::OitFragmentNode;
 import bevy_pbr::prepass::utils as prepass_utils;
 
+@if(OIT_ENABLED && DEPTH_PREPASS)
+// Returns the subset of `sample_mask` whose samples are in front of the opaque geometry
+// recorded by the depth prepass.
+//
+// When MSAA is off, `sample_mask` is `0x1` and `prepass_depth` ignores the index, so this
+// collapses to a single depth test.
+fn prepass_visible_samples(position: vec4f, sample_mask: u32) -> u32 {
+    var remaining = sample_mask;
+    var visible = 0u;
+    while remaining != 0u {
+        let sample_index = firstTrailingBit(remaining);
+        // Clear the lowest set bit.
+        remaining &= remaining - 1u;
+        if position.z >= prepass_utils::prepass_depth(position, sample_index) {
+            visible |= 1u << sample_index;
+        }
+    }
+    return visible;
+}
+
 @if(OIT_ENABLED)
 // Add the fragment to the oit buffer
-fn oit_draw(position: vec4f, color: vec4f) {
+fn oit_draw(position: vec4f, color: vec4f, sample_mask: u32) {
     @if(DEPTH_PREPASS)
-    if position.z < prepass_utils::prepass_depth(position, 0u) {
+    let visible_samples = prepass_visible_samples(position, sample_mask);
+    @else
+    let visible_samples = sample_mask;
+
+    @if(DEPTH_PREPASS)
+    if visible_samples == 0u {
         return;
     }
     // Don't add fully transparent fragments to the list
@@ -33,6 +58,7 @@ fn oit_draw(position: vec4f, color: vec4f) {
     node.next = atomicExchange(&oit_heads[screen_index], new_node_index + 1u) - 1u;
     node.color = bevy_pbr::render::rgb9e5::vec3_to_rgb9e5_(color.rgb);
     node.depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
+    node.sample_mask = visible_samples;
     oit_nodes[new_node_index] = node;
 }
 

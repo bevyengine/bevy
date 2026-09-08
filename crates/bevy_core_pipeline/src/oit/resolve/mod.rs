@@ -14,15 +14,16 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{
         binding_types::{
-            storage_buffer_read_only_sized, storage_buffer_sized, texture_depth_2d, uniform_buffer,
+            storage_buffer_read_only_sized, storage_buffer_sized, texture_depth_2d,
+            texture_depth_2d_multisampled, uniform_buffer,
         },
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         BlendComponent, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
-        DownlevelFlags, FragmentState, PipelineCache, RenderPipelineDescriptor, ShaderStages,
-        TextureFormat,
+        DownlevelFlags, FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor,
+        ShaderStages, TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
-    view::{ExtractedView, ViewUniform, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::ShaderDefVal;
@@ -105,6 +106,8 @@ pub struct OitResolvePipeline {
     pub view_bind_group_layout: BindGroupLayoutDescriptor,
     /// Depth bind group layout.
     pub oit_depth_bind_group_layout: BindGroupLayoutDescriptor,
+    /// Depth bind group layout for multisampled depth textures.
+    pub oit_depth_multisampled_bind_group_layout: BindGroupLayoutDescriptor,
 }
 
 impl OitResolvePipeline {
@@ -129,9 +132,17 @@ impl OitResolvePipeline {
             "oit_depth_bind_group_layout",
             &BindGroupLayoutEntries::single(ShaderStages::FRAGMENT, texture_depth_2d()),
         );
+        let oit_depth_multisampled_bind_group_layout = BindGroupLayoutDescriptor::new(
+            "oit_depth_multisampled_bind_group_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::FRAGMENT,
+                texture_depth_2d_multisampled(),
+            ),
+        );
         OitResolvePipeline {
             view_bind_group_layout,
             oit_depth_bind_group_layout,
+            oit_depth_multisampled_bind_group_layout,
         }
     }
 }
@@ -145,6 +156,7 @@ pub struct OitResolvePipelineKey {
     target_format: TextureFormat,
     sorted_fragment_max_count: u32,
     depth_prepass: bool,
+    msaa: Msaa,
 }
 
 pub fn queue_oit_resolve_pipeline(
@@ -157,6 +169,7 @@ pub fn queue_oit_resolve_pipeline(
             &ExtractedView,
             &OrderIndependentTransparencySettings,
             Has<DepthPrepass>,
+            &Msaa,
         ),
         (
             With<OrderIndependentTransparencySettings>,
@@ -170,12 +183,13 @@ pub fn queue_oit_resolve_pipeline(
     mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
 ) {
     let mut current_view_entities = EntityHashSet::default();
-    for (e, view, oit_settings, depth_prepass) in &cameras {
+    for (e, view, oit_settings, depth_prepass, msaa) in &cameras {
         current_view_entities.insert(e);
         let key = OitResolvePipelineKey {
             target_format: view.target_format,
             sorted_fragment_max_count: oit_settings.sorted_fragment_max_count,
             depth_prepass,
+            msaa: *msaa,
         };
 
         if let Some((cached_key, id)) = cached_pipeline_id.get(&e)
@@ -216,8 +230,17 @@ fn specialize_oit_resolve_pipeline(
         "SORTED_FRAGMENT_MAX_COUNT".into(),
         key.sorted_fragment_max_count,
     )];
+    if key.msaa.samples() > 1 {
+        shader_defs.push(ShaderDefVal::Bool("MULTISAMPLED".into(), true));
+    }
     if key.depth_prepass {
         shader_defs.push(ShaderDefVal::Bool("DEPTH_PREPASS".into(), true));
+    } else if key.msaa.samples() > 1 {
+        layout.push(
+            resolve_pipeline
+                .oit_depth_multisampled_bind_group_layout
+                .clone(),
+        );
     } else {
         layout.push(resolve_pipeline.oit_depth_bind_group_layout.clone());
     }
@@ -225,6 +248,10 @@ fn specialize_oit_resolve_pipeline(
     RenderPipelineDescriptor {
         label: Some("oit_resolve_pipeline".into()),
         layout,
+        multisample: MultisampleState {
+            count: key.msaa.samples(),
+            ..default()
+        },
         fragment: Some(FragmentState {
             shader: load_embedded_asset!(asset_server, "oit_resolve.wesl"),
             shader_defs,

@@ -5,7 +5,7 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_resource::{BindGroupEntries, PipelineCache, RenderPassDescriptor},
     renderer::{RenderContext, ViewQuery},
-    view::{ViewDepthStencilTexture, ViewTarget, ViewUniformOffset},
+    view::{Msaa, ViewDepthStencilTexture, ViewTarget, ViewUniformOffset},
 };
 
 use crate::prepass::DepthPrepass;
@@ -21,6 +21,7 @@ pub fn oit_resolve(
         &ViewDepthStencilTexture,
         Option<&MainPassResolutionOverride>,
         Has<DepthPrepass>,
+        &Msaa,
     )>,
     resolve_pipeline: Option<Res<OitResolvePipeline>>,
     bind_group: Option<Res<OitResolveBindGroup>>,
@@ -35,6 +36,7 @@ pub fn oit_resolve(
         depth,
         resolution_override,
         depth_prepass,
+        msaa,
     ) = view.into_inner();
 
     // This *must* run after main_transparent_pass_3d to reset the `oit_atomic_counter` and `oit_heads` buffer
@@ -53,9 +55,14 @@ pub fn oit_resolve(
     };
 
     let depth_bind_group = if !depth_prepass {
+        let depth_layout = if msaa.samples() > 1 {
+            &resolve_pipeline.oit_depth_multisampled_bind_group_layout
+        } else {
+            &resolve_pipeline.oit_depth_bind_group_layout
+        };
         Some(ctx.render_device().create_bind_group(
             "oit_resolve_depth_bind_group",
-            &pipeline_cache.get_bind_group_layout(&resolve_pipeline.oit_depth_bind_group_layout),
+            &pipeline_cache.get_bind_group_layout(depth_layout),
             &BindGroupEntries::single(depth_view),
         ))
     } else {
