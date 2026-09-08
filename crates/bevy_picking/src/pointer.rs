@@ -8,28 +8,24 @@
 //! The purpose of this module is primarily to provide a common interface that can be
 //! driven by lower-level input devices and consumed by higher-level interaction systems.
 
-use bevy_camera::NormalizedRenderTarget;
-use bevy_camera::{Camera, RenderTarget};
-use bevy_ecs::prelude::*;
-use bevy_input::mouse::MouseScrollUnit;
-use bevy_input::touch::TouchPhase;
+use crate::backend::HitData;
+use bevy_camera::{Camera, NormalizedRenderTarget, RenderTarget};
+use bevy_ecs::{lifecycle::HookContext, prelude::*, world::DeferredWorld};
+use bevy_input::{mouse::MouseScrollUnit, touch::TouchPhase};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_window::PrimaryWindow;
-
-use uuid::Uuid;
-
 use core::{fmt::Debug, ops::Deref};
-
-use crate::backend::HitData;
+use uuid::Uuid;
 
 /// Identifies a unique pointer entity. `Mouse` and `Touch` pointers are automatically spawned.
 ///
 /// This component is needed because pointers can be spawned and despawned, but they need to have a
 /// stable ID that persists regardless of the Entity they are associated with.
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, Component, Reflect)]
-#[require(PointerLocation, PointerPress, PointerInteraction)]
+#[component(immutable, on_insert, on_remove)]
+#[require(PointerLocation, PointerPressState, PointerInteraction)]
 #[reflect(Component, Default, Debug, Hash, PartialEq, Clone)]
 pub enum PointerId {
     /// The mouse pointer.
@@ -44,6 +40,21 @@ pub enum PointerId {
 }
 
 impl PointerId {
+    fn on_insert(mut world: DeferredWorld, context: HookContext) {
+        if let Some(id) = world.entity(context.entity).get::<PointerId>().copied() {
+            world
+                .resource_mut::<PointerMap>()
+                .inner
+                .insert(id, context.entity);
+        }
+    }
+
+    fn on_remove(mut world: DeferredWorld, context: HookContext) {
+        if let Some(id) = world.entity(context.entity).get::<PointerId>().copied() {
+            world.resource_mut::<PointerMap>().inner.remove(&id);
+        }
+    }
+
     /// Returns true if the pointer is a touch input.
     pub fn is_touch(&self) -> bool {
         matches!(self, PointerId::Touch(_))
@@ -103,24 +114,16 @@ impl PointerMap {
     }
 }
 
-/// Update the [`PointerMap`] resource with the current frame's data.
-pub fn update_pointer_map(pointers: Query<(Entity, &PointerId)>, mut map: ResMut<PointerMap>) {
-    map.inner.clear();
-    for (entity, id) in &pointers {
-        map.inner.insert(*id, entity);
-    }
-}
-
 /// Tracks the state of the pointer's buttons in response to [`PointerInput`] events.
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-pub struct PointerPress {
+pub struct PointerPressState {
     primary: bool,
     secondary: bool,
     middle: bool,
 }
 
-impl PointerPress {
+impl PointerPressState {
     /// Returns true if the primary pointer button is pressed.
     #[inline]
     pub fn is_primary_pressed(&self) -> bool {
@@ -322,7 +325,7 @@ impl PointerInput {
     /// Updates pointer entities according to the input events.
     pub fn receive(
         mut events: MessageReader<PointerInput>,
-        mut pointers: Query<(&PointerId, &mut PointerLocation, &mut PointerPress)>,
+        mut pointers: Query<(&PointerId, &mut PointerLocation, &mut PointerPressState)>,
     ) {
         for event in events.read() {
             match event.action {

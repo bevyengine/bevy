@@ -9,7 +9,7 @@ use bevy_render::{
     render_phase::ViewBinnedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthStencilTexture, ViewTarget},
 };
 
 use super::AlphaMask2d;
@@ -20,7 +20,7 @@ pub fn main_opaque_pass_2d(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
     )>,
     opaque_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     alpha_mask_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
@@ -35,10 +35,6 @@ pub fn main_opaque_pass_2d(
     ) else {
         return;
     };
-
-    if opaque_phase.is_empty() && alpha_mask_phase.is_empty() {
-        return;
-    }
 
     #[cfg(feature = "trace")]
     let _span = info_span!("main_opaque_pass_2d").entered();

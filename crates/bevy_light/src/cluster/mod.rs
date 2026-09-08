@@ -202,6 +202,8 @@ pub struct ClusterableObjectCounts {
     pub point_lights: u32,
     /// The number of spot lights in the cluster.
     pub spot_lights: u32,
+    /// The number of rectangle lights in the cluster.
+    pub rect_lights: u32,
     /// The number of reflection probes in the cluster.
     pub reflection_probes: u32,
     /// The number of irradiance volumes in the cluster.
@@ -224,8 +226,8 @@ pub struct ClusterableObjectCounts {
 ///
 /// Clustered decals are the highest-quality types of decals that Bevy supports,
 /// but they require bindless textures. This means that they presently can't be
-/// used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
-/// with forward or deferred rendering and don't require a prepass.
+/// used on WebGL 2 or WebGPU. Bevy's clustered decals can be used with forward
+/// or deferred rendering and don't require a prepass.
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Debug, Clone, Default)]
 #[require(Transform, ViewVisibility, Visibility, VisibilityClass)]
@@ -483,6 +485,12 @@ impl ObjectsInClusterCpu {
     pub fn add_point_light(&mut self, entity: Entity) {
         self.clusterables.push(entity);
         self.counts.point_lights += 1;
+    }
+
+    /// Adds a rectangle light to the list.
+    pub fn add_rect_light(&mut self, entity: Entity) {
+        self.clusterables.push(entity);
+        self.counts.rect_lights += 1;
     }
 
     /// Adds a reflection probe to the list.

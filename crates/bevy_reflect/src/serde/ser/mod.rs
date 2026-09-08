@@ -408,7 +408,7 @@ mod tests {
             some: Some(SomeStruct { foo: 999999999 }),
             none: None,
         };
-        let dynamic = value.to_dynamic_struct();
+        let dynamic = value.to_dynamic_struct().unwrap();
         let reflect = dynamic.as_partial_reflect();
 
         let registry = get_registry();

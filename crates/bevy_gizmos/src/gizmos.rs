@@ -10,16 +10,16 @@ use core::{
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     change_detection::Tick,
-    query::FilteredAccessSet,
     resource::Resource,
     system::{
-        Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
+        Deferred, ReadOnlySystemParam, Res, SystemAccess, SystemBuffer, SystemMeta, SystemParam,
         SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
-use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_shape::Aabb3d;
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -209,15 +209,10 @@ where
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        GizmosState::<Config, Clear>::init_access(
-            &state.state,
-            system_meta,
-            component_access_set,
-            world,
-        );
+        GizmosState::<Config, Clear>::init_access(&state.state, system_meta, system_access, world);
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -665,7 +660,8 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_transform::prelude::*;
-    /// # use bevy_math::{bounding::Aabb3d, Vec3};
+    /// # use bevy_math::Vec3;
+    /// # use bevy_shape::Aabb3d;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.aabb_3d(Aabb3d::new(Vec3::ZERO, Vec3::ONE), Transform::IDENTITY, GREEN);

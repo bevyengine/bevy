@@ -28,15 +28,9 @@ mod atmosphere;
 mod cluster;
 pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
-mod gltf;
+pub mod gltf;
 use bevy_light::cluster::GlobalClusterSettings;
-use bevy_render::{
-    sync_component::SyncComponent,
-    view::{
-        RenderExtractedShadowMapVisibleEntities, RenderShadowLodOrigin,
-        RenderShadowMapVisibleEntities,
-    },
-};
+use bevy_render::{sync_component::SyncComponent, view::RenderShadowLodOrigin};
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -49,7 +43,6 @@ mod fog;
 mod light_probe;
 mod lightmap;
 mod material;
-mod material_bind_groups;
 mod medium;
 mod mesh_material;
 mod parallax;
@@ -75,7 +68,6 @@ pub use fog::*;
 pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
-pub use material_bind_groups::*;
 pub use medium::*;
 pub use mesh_material::*;
 pub use parallax::*;
@@ -188,27 +180,29 @@ pub struct DfgLut {
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "render/pbr_types.wgsl");
-        load_shader_library!(app, "render/pbr_bindings.wgsl");
-        load_shader_library!(app, "render/utils.wgsl");
-        load_shader_library!(app, "render/clustered_forward.wgsl");
-        load_shader_library!(app, "render/pbr_lighting.wgsl");
-        load_shader_library!(app, "render/shadows.wgsl");
-        load_shader_library!(app, "deferred/pbr_deferred_types.wgsl");
-        load_shader_library!(app, "deferred/pbr_deferred_functions.wgsl");
-        load_shader_library!(app, "render/shadow_sampling.wgsl");
-        load_shader_library!(app, "render/pbr_functions.wgsl");
-        load_shader_library!(app, "render/rgb9e5.wgsl");
-        load_shader_library!(app, "render/pbr_ambient.wgsl");
-        load_shader_library!(app, "render/pbr_fragment.wgsl");
-        load_shader_library!(app, "render/pbr.wgsl");
-        load_shader_library!(app, "render/pbr_prepass_functions.wgsl");
-        load_shader_library!(app, "render/pbr_prepass.wgsl");
-        load_shader_library!(app, "render/parallax_mapping.wgsl");
-        load_shader_library!(app, "render/view_transformations.wgsl");
-
-        // Setup dummy shaders for when MeshletPlugin is not used to prevent shader import errors.
-        load_shader_library!(app, "meshlet/dummy_visibility_buffer_resolve.wgsl");
+        load_shader_library!(app, "render/pbr_types.wesl");
+        load_shader_library!(app, "render/pbr_bindings.wesl");
+        load_shader_library!(app, "cluster.wesl");
+        load_shader_library!(app, "lightmap.wesl");
+        load_shader_library!(app, "ssr.wesl");
+        load_shader_library!(app, "transmission.wesl");
+        load_shader_library!(app, "light_probe.wesl");
+        load_shader_library!(app, "render/utils.wesl");
+        load_shader_library!(app, "render/clustered_forward.wesl");
+        load_shader_library!(app, "render/pbr_lighting.wesl");
+        load_shader_library!(app, "render/shadows.wesl");
+        load_shader_library!(app, "deferred/types.wesl");
+        load_shader_library!(app, "deferred/functions.wesl");
+        load_shader_library!(app, "render/shadow_sampling.wesl");
+        load_shader_library!(app, "render/pbr_functions.wesl");
+        load_shader_library!(app, "render/rgb9e5.wesl");
+        load_shader_library!(app, "render/pbr_ambient.wesl");
+        load_shader_library!(app, "render/pbr_fragment.wesl");
+        load_shader_library!(app, "render/pbr.wesl");
+        load_shader_library!(app, "render/pbr_prepass_functions.wesl");
+        load_shader_library!(app, "render/pbr_prepass.wesl");
+        load_shader_library!(app, "render/parallax_mapping.wesl");
+        load_shader_library!(app, "render/view_transformations.wesl");
 
         app.register_asset_reflect::<StandardMaterial>()
             .init_resource::<DefaultOpaqueRendererMethod>()
@@ -367,11 +361,7 @@ impl Plugin for PbrPlugin {
         render_app
             .add_systems(
                 RenderStartup,
-                (
-                    init_shadow_samplers,
-                    init_global_clusterable_object_meta,
-                    init_fallback_bindless_resources,
-                ),
+                (init_shadow_samplers, init_global_clusterable_object_meta),
             )
             .add_systems(
                 ExtractSchedule,
@@ -409,9 +399,7 @@ impl Plugin for PbrPlugin {
                 ),
             )
             .init_gpu_resource::<LightMeta>()
-            .init_gpu_resource::<RenderMaterialBindings>()
-            .init_resource::<RenderShadowLodOrigin>()
-            .allow_ambiguous_resource::<RenderMaterialBindings>();
+            .init_resource::<RenderShadowLodOrigin>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
         render_app
@@ -507,39 +495,25 @@ pub fn area_light_luts_placeholder() -> Image {
     }
 }
 
-impl SyncComponent<PbrPlugin> for DirectionalLight {
+impl SyncComponent<RenderApp, PbrPlugin> for DirectionalLight {
     type Target = (
         Self,
         ExtractedDirectionalLight,
-        RenderExtractedShadowMapVisibleEntities,
-        RenderShadowMapVisibleEntities,
         DirectionalLightViewEntities,
     );
 }
-impl SyncComponent<PbrPlugin> for PointLight {
-    type Target = (
-        Self,
-        ExtractedPointLight,
-        RenderExtractedShadowMapVisibleEntities,
-        RenderShadowMapVisibleEntities,
-        PointAndSpotLightViewEntities,
-    );
+impl SyncComponent<RenderApp, PbrPlugin> for PointLight {
+    type Target = (Self, ExtractedPointLight, PointAndSpotLightViewEntities);
 }
-impl SyncComponent<PbrPlugin> for SpotLight {
-    type Target = (
-        Self,
-        ExtractedPointLight,
-        RenderExtractedShadowMapVisibleEntities,
-        RenderShadowMapVisibleEntities,
-        PointAndSpotLightViewEntities,
-    );
+impl SyncComponent<RenderApp, PbrPlugin> for SpotLight {
+    type Target = (Self, ExtractedPointLight, PointAndSpotLightViewEntities);
 }
-impl SyncComponent<PbrPlugin> for RectLight {
+impl SyncComponent<RenderApp, PbrPlugin> for RectLight {
     type Target = (Self, ExtractedRectLight);
 }
-impl SyncComponent<PbrPlugin> for AmbientLight {
+impl SyncComponent<RenderApp, PbrPlugin> for AmbientLight {
     type Target = Self;
 }
-impl SyncComponent<PbrPlugin> for ShadowFilteringMethod {
+impl SyncComponent<RenderApp, PbrPlugin> for ShadowFilteringMethod {
     type Target = Self;
 }

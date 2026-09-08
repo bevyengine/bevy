@@ -1,19 +1,20 @@
-use crate::bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnNamedField,
-    BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneList, BsnSceneListItem,
-    BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
+use crate::_bsn::types::{
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnFnCall, BsnListRoot,
+    BsnNamedField, BsnNamedFieldOrStructUpdate, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn,
+    BsnSceneList, BsnSceneListItem, BsnSceneListItems, BsnStructUpdate, BsnTuple, BsnType,
+    BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{
     braced, bracketed,
     buffer::Cursor,
     parenthesized,
     parse::{discouraged::Speculative, Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
-    token::{At, Brace, Bracket, Colon, Comma, Paren, Tilde},
-    Block, Ident, Lit, LitStr, Path, Result, Token,
+    token::{At, Brace, Bracket, Colon, Comma, Dot, Paren, Tilde},
+    Ident, Lit, LitStr, Member, Path, Result, Token,
 };
 
 /// Functionally identical to [`Punctuated`](syn::punctuated::Punctuated), but fills the given `$list` Vec instead
@@ -98,23 +99,37 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
 
 impl BsnEntry {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(if input.peek(Token![:]) {
-            BsnEntry::CachedScene(BsnScene::parse(input)?)
+        Ok(if input.peek(Token![:]) && !input.peek(Token![::]) {
+            let cached = input.parse::<Token![:]>()?;
+            let scene = BsnScene::parse(input)?;
+            if !matches!(scene, BsnScene::Asset(_)) {
+                return Err(syn::Error::new(
+                    cached.span(),
+                    "Caching is currently only supported for asset scenes. Consider replacing `:` with `@`",
+                ));
+            }
+            BsnEntry::CachedScene(scene)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
             BsnEntry::Name(input.parse::<Ident>()?)
-        } else if input.peek(Brace) || input.peek(At) {
+        } else if input.peek(At) {
+            let _ = input.parse::<At>()?;
             BsnEntry::UncachedScene(BsnScene::parse(input)?)
         } else {
             let is_template = input.peek(Tilde);
             if is_template {
                 input.parse::<Tilde>()?;
+                if input.peek(Brace) {
+                    let braced = braced_tokens(input)?;
+                    return Ok(BsnEntry::TemplateValue(braced));
+                }
             }
+            let start_type = input.cursor();
             let mut path = input.parse::<Path>()?;
             let path_type = PathType::new(&path);
             match path_type {
-                PathType::Type | PathType::Enum => {
-                    let enum_variant = if matches!(path_type, PathType::Enum) {
+                PathType::Type | PathType::Enum | PathType::TypeConst => {
+                    let variant = if matches!(path_type, PathType::Enum | PathType::TypeConst) {
                         take_last_path_ident(&mut path)
                     } else {
                         None
@@ -129,49 +144,67 @@ impl BsnEntry {
                         let fields = input.parse::<BsnFields>()?;
                         let bsn_type = BsnType {
                             path,
-                            enum_variant,
+                            variant,
                             fields,
                         };
                         if is_template {
                             BsnEntry::TemplatePatch(bsn_type)
                         } else {
-                            BsnEntry::FromTemplatePatch(bsn_type)
+                            if input.peek(Dot) {
+                                let end_cursor = input.cursor();
+                                let dot_expr = parse_extended_dot_expression(input)?;
+                                let tokens = tokens_between(start_type, end_cursor);
+                                BsnEntry::TemplateValue(quote! {#tokens #dot_expr})
+                            } else {
+                                BsnEntry::FromTemplatePatch(bsn_type)
+                            }
                         }
                     }
                 }
-                PathType::TypeConst => {
-                    let const_ident = take_last_path_ident(&mut path).unwrap();
-                    BsnEntry::TemplateConst {
-                        type_path: path,
-                        const_ident,
-                    }
-                }
-                PathType::Const => {
-                    return Err(syn::Error::new(
-                        path.span(),
-                        "Consts are not currently supported in this position",
-                    ))
-                }
+                PathType::Const => BsnEntry::TemplateValue(path.to_token_stream()),
                 PathType::TypeFunction => {
                     let function = take_last_path_ident(&mut path).unwrap();
                     let args = input.parse::<BsnFnArgs>()?;
-                    let bsn_constructor = BsnConstructor {
+                    let constructor = BsnConstructor {
                         type_path: path,
                         function,
                         args,
                     };
-                    if is_template {
-                        BsnEntry::TemplateConstructor(bsn_constructor)
+                    let dot_expression = if input.peek(Dot) {
+                        Some(parse_extended_dot_expression(input)?)
                     } else {
-                        BsnEntry::FromTemplateConstructor(bsn_constructor)
+                        None
+                    };
+                    if is_template {
+                        BsnEntry::TemplateConstructor {
+                            constructor,
+                            dot_expression,
+                        }
+                    } else {
+                        BsnEntry::FromTemplateConstructor {
+                            constructor,
+                            dot_expression,
+                        }
                     }
                 }
                 PathType::Function => {
                     if input.peek(Paren) {
+                        let forked = input.fork();
                         let args = input.parse::<BsnFnArgs>()?;
-                        BsnEntry::UncachedScene(BsnScene::Fn(BsnSceneFn { path, args }))
+                        if input.peek(Dot) {
+                            let contents = group_tokens(&forked, Delimiter::Parenthesis)?;
+                            let dot_expr = parse_extended_dot_expression(input)?;
+                            BsnEntry::TemplateValue(quote! {#path #contents #dot_expr})
+                        } else {
+                            BsnEntry::Function(BsnFnCall { path, args })
+                        }
                     } else {
-                        BsnEntry::UncachedScene(BsnScene::Expression(quote! {#path}))
+                        if input.peek(Dot) {
+                            let dot_expr = parse_extended_dot_expression(input)?;
+                            BsnEntry::TemplateValue(quote! {#path #dot_expr})
+                        } else {
+                            BsnEntry::TemplateValue(path.into_token_stream())
+                        }
                     }
                 }
             }
@@ -197,8 +230,8 @@ impl Parse for BsnSceneListItems {
 impl Parse for BsnSceneListItem {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(if input.peek(Brace) {
-            let block = input.parse::<Block>()?;
-            BsnSceneListItem::Expression(block.stmts)
+            let tokens = braced_tokens(input)?;
+            BsnSceneListItem::Expression(tokens)
         } else {
             BsnSceneListItem::Scene(input.parse::<Bsn<true>>()?)
         })
@@ -207,76 +240,36 @@ impl Parse for BsnSceneListItem {
 
 impl BsnScene {
     fn parse(input: ParseStream) -> Result<Self> {
-        let cached = if input.peek(Token![:]) {
-            Some(input.parse::<Token![:]>()?)
-        } else {
-            None
-        };
-
-        let err_if_cached = |msg: &str| {
-            if let Some(colon) = cached {
-                Err(syn::Error::new(colon.span(), msg))
-            } else {
-                Ok(())
-            }
-        };
-
-        // It may seem odd how this is checking LitStr again
-        // and how there doesn't seem to be a need for all the specific `err_if_cached`
-        // in later code. But since caching is planned, and will very likely
-        // have the limitations which are ensured by the other errors below,
-        // this is its own block so its very simple to remove once caching is implemented.
-        if !input.peek(LitStr) {
-            err_if_cached("Currently, caching is only supported for scene assets. Please remove the ':' prefix for now.")?;
-        }
-
         Ok(if input.peek(LitStr) {
             let path = input.parse::<LitStr>()?;
-            if cached.is_none() {
-                return Err(syn::Error::new(
-                    path.span(),
-                    "Cannot use scene assets without caching, please add the ':' prefix.",
-                ));
-            }
             BsnScene::Asset(path)
         } else if input.peek(Brace) {
-            err_if_cached("Cannot cache scene expressions")?;
             BsnScene::Expression(braced_tokens(input)?)
-        } else if input.peek(At) {
-            input.parse::<At>()?;
-            let sc = input.parse::<BsnType>()?;
-            if sc.fields.len() > 0 {
-                err_if_cached("Cannot cache Scene Components with props/fields")?;
-            }
-            BsnScene::SceneComponent(sc)
         } else {
             // PERF: do we really need this fork here?
             let path = input.fork().parse::<Path>()?;
-            match PathType::new(&path) {
+            let path_type = PathType::new(&path);
+            match path_type {
                 PathType::Type | PathType::Enum => {
-                    // Scene components are parsed before this if an @ is found.
-                    // If this path is hit, that means it wasn't prefixed by @
-                    return Err(syn::Error::new(
-                        path.span(),
-                        format!(
-                            "Scene component {} needs to be prefixed by '@'",
-                            path_to_string(&path),
-                        ),
-                    ));
+                    BsnScene::SceneComponent(input.parse::<BsnType>()?)
                 }
                 PathType::Function | PathType::TypeFunction => {
                     let path = input.parse::<Path>()?;
-                    let args = input.parse::<BsnFnArgs>()?;
-                    if !args.0.is_empty() {
-                        err_if_cached("Cannot cache Scene function with arguments")?;
+                    if path_type == PathType::Function
+                        && path.segments.len() == 1
+                        && !input.peek(Paren)
+                    {
+                        BsnScene::Expression(path.to_token_stream())
+                    } else {
+                        let args = input.parse::<BsnFnArgs>()?;
+                        BsnScene::Fn(BsnSceneFn { path, args })
                     }
-                    BsnScene::Fn(BsnSceneFn { path, args })
                 }
                 path_type => {
                     return Err(syn::Error::new(
                         path.span(),
                         format!(
-                            "Cannot cache path {} of type {:?}",
+                            "Scenes with path {} of type {:?} are not supported",
                             path_to_string(&path),
                             path_type,
                         ),
@@ -292,14 +285,14 @@ impl Parse for BsnType {
         let mut path = input.parse::<Path>()?;
         let enum_variant = match PathType::new(&path) {
             PathType::Type => None,
-            PathType::Enum => take_last_path_ident(&mut path),
+            PathType::Enum | PathType::TypeConst => take_last_path_ident(&mut path),
             PathType::Function | PathType::TypeFunction => {
                 return Err(syn::Error::new(
                     path.span(),
                     "Expected a path to a BSN type but encountered a path to a function.",
                 ))
             }
-            PathType::Const | PathType::TypeConst => {
+            PathType::Const => {
                 return Err(syn::Error::new(
                     path.span(),
                     "Expected a path to a BSN type but encountered a path to a const.",
@@ -309,8 +302,18 @@ impl Parse for BsnType {
         let fields = input.parse::<BsnFields>()?;
         Ok(BsnType {
             path,
-            enum_variant,
+            variant: enum_variant,
             fields,
+        })
+    }
+}
+
+impl Parse for BsnStructUpdate {
+    fn parse(input: ParseStream) -> Result<Self> {
+        input.parse::<Dot>()?;
+        input.parse::<Dot>()?;
+        Ok(BsnStructUpdate {
+            value: Box::new(input.parse::<BsnValue>()?),
         })
     }
 }
@@ -334,17 +337,64 @@ impl Parse for BsnFields {
         Ok(if input.peek(Brace) {
             let content;
             braced![content in input];
-            let mut fields = Vec::new();
-            parse_punctuated_vec_autocomplete_friendly!(fields, content, BsnNamedField, Comma);
-            BsnFields::Named(fields)
+            let mut entries = Vec::new();
+            parse_punctuated_vec_autocomplete_friendly!(
+                entries,
+                content,
+                BsnNamedFieldOrStructUpdate,
+                Comma
+            );
+            let len = entries.len();
+            let mut fields = Vec::with_capacity(len);
+            let mut struct_update = None;
+            for (index, field) in entries.into_iter().enumerate() {
+                match field {
+                    BsnNamedFieldOrStructUpdate::Field(bsn_named_field) => {
+                        fields.push(bsn_named_field);
+                    }
+                    BsnNamedFieldOrStructUpdate::StructUpdate(bsn_struct_update) => {
+                        if index != len - 1 {
+                            return Err(
+                                content.error("Struct update syntax must come after fields")
+                            );
+                        }
+
+                        struct_update = Some(bsn_struct_update);
+                    }
+                }
+            }
+
+            BsnFields::Named {
+                fields,
+                struct_update,
+            }
         } else if input.peek(Paren) {
             let content;
             parenthesized![content in input];
             let mut fields = Vec::new();
-            parse_punctuated_vec_autocomplete_friendly!(fields, content, BsnUnnamedField, Comma);
-            BsnFields::Tuple(fields)
+            parse_punctuated_vec_autocomplete_friendly!(fields, content, BsnValue, Comma);
+            BsnFields::Tuple(
+                fields
+                    .drain(..)
+                    .enumerate()
+                    .map(|(index, value)| BsnUnnamedField {
+                        value,
+                        index: Member::Unnamed(index.into()),
+                    })
+                    .collect(),
+            )
         } else {
-            BsnFields::Named(Vec::new())
+            BsnFields::Unit
+        })
+    }
+}
+
+impl Parse for BsnNamedFieldOrStructUpdate {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(if input.peek(Dot) && input.peek2(Dot) {
+            BsnNamedFieldOrStructUpdate::StructUpdate(input.parse::<BsnStructUpdate>()?)
+        } else {
+            BsnNamedFieldOrStructUpdate::Field(input.parse::<BsnNamedField>()?)
         })
     }
 }
@@ -377,13 +427,6 @@ impl Parse for BsnNamedField {
             is_prop,
             is_name_shorthand,
         })
-    }
-}
-
-impl Parse for BsnUnnamedField {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let value = input.parse::<BsnValue>()?;
-        Ok(BsnUnnamedField { value })
     }
 }
 
@@ -434,25 +477,43 @@ fn parse_tuple_loose(input: &ParseBuffer) -> Result<Vec<TokenStream>> {
 fn parse_closure_loose(input: &ParseBuffer) -> Result<TokenStream> {
     let start = input.cursor();
     input.parse::<Token![|]>()?;
-    let tokens = input.step(|cursor| {
-        let mut rest = *cursor;
-        while let Some((tt, next)) = rest.token_tree() {
-            match &tt {
-                TokenTree::Punct(punct) if punct.as_char() == '|' => {
-                    if let Some((TokenTree::Group(group), next)) = next.token_tree()
-                        && group.delimiter() == Delimiter::Brace
-                    {
-                        return Ok((tokens_between(start, next), next));
-                    } else {
-                        return Err(cursor.error("closures expect '{' to follow '|'"));
-                    }
-                }
-                _ => rest = next,
-            }
+    while let Ok(tt) = input.parse::<TokenTree>() {
+        if let TokenTree::Punct(punct) = tt
+            && punct.as_char() == '|'
+        {
+            break;
         }
-        Err(cursor.error("no matching `|` was found after this point"))
-    })?;
-    Ok(tokens)
+    }
+
+    if input.peek(Brace) {
+        let _ = input.parse::<proc_macro2::Group>()?;
+        return Ok(tokens_between(start, input.cursor()));
+    }
+
+    let _ = input.parse::<Token![->]>()?;
+
+    let _ = input.parse::<Path>()?;
+    if !input.peek(Brace) {
+        return Err(input.error("expected `{`"));
+    }
+    let _ = input.parse::<proc_macro2::Group>()?;
+    Ok(tokens_between(start, input.cursor()))
+}
+
+/// Parses "dot expressions" in the style of `.foo().bar.baz::<A>()`
+fn parse_extended_dot_expression(input: &ParseBuffer) -> Result<TokenStream> {
+    let start = input.cursor();
+    while input.peek(Dot) {
+        let _ = input.parse::<Dot>()?;
+        let _ = input.parse::<Member>()?;
+        if input.peek(Paren) {
+            let _ = parse_tuple_loose(input)?;
+        }
+    }
+
+    let end = input.cursor();
+
+    Ok(tokens_between(start, end))
 }
 
 // Used to parse a block "loosely" without caring about the content in `{...}`. This ensures autocomplete works.
@@ -467,6 +528,17 @@ fn parenthesized_tokens(input: &ParseBuffer) -> Result<TokenStream> {
     let content;
     parenthesized!(content in input);
     content.parse::<TokenStream>()
+}
+
+fn group_tokens(input: &ParseBuffer, delimiter: Delimiter) -> Result<TokenStream> {
+    let tree = input.parse::<TokenTree>()?;
+    if let TokenTree::Group(group) = &tree
+        && group.delimiter() == delimiter
+    {
+        Ok(tree.into_token_stream())
+    } else {
+        Err(input.error(format!("Expected {:?}", delimiter)))
+    }
 }
 
 // Used to parse bracketed tokens "loosely" without caring about the content in `[...]`. This ensures autocomplete works.
@@ -490,7 +562,7 @@ fn tokens_between(begin: Cursor, end: Cursor) -> TokenStream {
 
 impl Parse for BsnValue {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(if input.peek(Brace) {
+        let value = if input.peek(Brace) {
             BsnValue::Expr(braced_tokens(input)?)
         } else if input.peek(Token![const]) && input.peek2(Brace) {
             let const_token = input.parse::<Token![const]>()?;
@@ -528,11 +600,13 @@ impl Parse for BsnValue {
                         return Err(input.error("Unexpected input after function name"));
                     }
                 }
-                PathType::Const | PathType::TypeConst => {
+                PathType::Const => {
                     input.parse::<Path>()?;
                     BsnValue::Expr(quote! { #path })
                 }
-                PathType::Type | PathType::Enum => BsnValue::Type(input.parse::<BsnType>()?),
+                PathType::Type | PathType::Enum | PathType::TypeConst => {
+                    BsnValue::Type(input.parse::<BsnType>()?)
+                }
             }
         } else if input.peek(Lit) {
             BsnValue::Lit(input.parse::<Lit>()?)
@@ -543,7 +617,25 @@ impl Parse for BsnValue {
             BsnValue::Name(input.parse::<Ident>()?)
         } else {
             return Err(input.error("Unexpected input: Invalid BsnValue. This does not match any expected BSN value type."));
-        })
+        };
+        if input.peek(Dot) && input.peek2(Dot) {
+            input.parse::<Dot>()?;
+            input.parse::<Dot>()?;
+            let inclusive = if input.peek(Token![=]) {
+                input.parse::<Token![=]>()?;
+                true
+            } else {
+                false
+            };
+            let end = input.parse::<BsnValue>()?;
+            Ok(BsnValue::Range {
+                start: Box::new(value),
+                end: Box::new(end),
+                inclusive,
+            })
+        } else {
+            Ok(value)
+        }
     }
 }
 

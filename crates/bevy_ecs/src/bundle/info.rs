@@ -4,7 +4,7 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_ptr::{MovingPtr, OwningPtr};
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::{any::TypeId, ptr::NonNull};
 use indexmap::{IndexMap, IndexSet};
 
@@ -393,9 +393,9 @@ pub(crate) enum ArchetypeMoveType {
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
     /// Cache static [`BundleId`]
-    bundle_ids: TypeIdMap<BundleId>,
+    bundle_ids: TypeIdHashMap<BundleId>,
     /// Cache bundles, which contains both explicit and required components of [`Bundle`]
-    contributed_bundle_ids: TypeIdMap<BundleId>,
+    contributed_bundle_ids: TypeIdHashMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
     dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
     dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,
@@ -432,7 +432,16 @@ impl Bundles {
     /// or if `type_id` does not correspond to a type of bundle.
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<BundleId> {
-        self.bundle_ids.get(&type_id).cloned()
+        self.bundle_ids.get(&type_id).copied()
+    }
+
+    /// Gets the value identifying a specific type of bundle
+    /// that contains both explicit and required components for a statically known type.
+    ///
+    /// Returns `None` if the bundle does not exist in the world,
+    /// or if `type_id` does not correspond to a type of bundle.
+    pub fn get_contributed_bundle_id(&self, type_id: TypeId) -> Option<BundleId> {
+        self.contributed_bundle_ids.get(&type_id).copied()
     }
 
     /// Registers a new [`BundleInfo`] for a statically known type.

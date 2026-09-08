@@ -1,4 +1,4 @@
-use crate::{ResolveContext, ResolveSceneError, Scene, SceneList, ScenePatch};
+use crate::{Ready, ResolveContext, ResolveSceneError, Scene, SceneList, ScenePatch};
 use bevy_asset::{AssetId, AssetPath, AssetServer, Assets, Handle, UntypedAssetId};
 use bevy_ecs::{
     bundle::{Bundle, BundleScratch, BundleWriter},
@@ -10,7 +10,7 @@ use bevy_ecs::{
     world::{EntityWorldMut, World},
 };
 use bevy_platform::collections::HashSet;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{TypeIdHashMap, TypeIdIndexMap};
 use core::any::{Any, TypeId};
 use thiserror::Error;
 
@@ -149,7 +149,7 @@ impl ResolvedSceneListRoot {
 }
 
 /// A final resolved scene (usually produced by calling [`Scene::resolve`]). This consists of:
-/// 1. A collection of [`Template`]s to apply to a spawned [`Entity`], which are stored as [`ErasedComponentTemplate`]s and [`ErasedBundleTemplate`]s.
+/// 1. A collection of [`Template`]s to apply to a spawned [`Entity`], which are stored as [`ErasedTemplate`]s and [`ErasedBundleTemplate`]s.
 /// 2. A collection of [`RelatedResolvedScenes`], which will be spawned as "related" entities (ex: [`Children`] entities).
 /// 3. An optional cached [`ScenePatch`].
 ///
@@ -164,19 +164,19 @@ impl ResolvedSceneListRoot {
 #[derive(Default)]
 pub struct ResolvedScene {
     /// The collection of component [`Template`]s to apply to a spawned [`Entity`]. This can have multiple copies of the same [`Template`].
-    component_templates: Vec<Box<dyn ErasedComponentTemplate>>,
+    component_templates: Vec<Box<dyn ErasedTemplate>>,
     /// The collection of Bundle templates to apply to a spawned [`Entity`].
     bundle_templates: Vec<Box<dyn ErasedBundleTemplate>>,
     /// The collection of [`RelatedResolvedScenes`], which will be spawned as "related" entities (ex: [`Children`] entities).
     ///
     /// [`Children`]: bevy_ecs::hierarchy::Children
     // PERF: special casing Children might make sense here to avoid hashing
-    related: TypeIdMap<RelatedResolvedScenes>,
+    related: TypeIdIndexMap<RelatedResolvedScenes>,
     /// The cached [`ScenePatch`] to apply _first_ before applying this [`ResolvedScene`].
     cached: Option<CachedSceneInfo>,
     /// A [`TypeId`] to `templates` index mapping. If a [`Template`] is intended to be shared / patched across scenes, it should be registered
     /// here.
-    template_indices: TypeIdMap<usize>,
+    template_indices: TypeIdHashMap<usize>,
     /// A list of all [`SceneEntityReference`] values associated with this entity. There can be more than one if this scene uses
     /// "flattened" caching.
     pub entity_references: Vec<SceneEntityReference>,
@@ -226,7 +226,7 @@ impl ResolvedScene {
         writer_ops: impl FnOnce(&mut TemplateContext, &mut BundleWriter),
     ) -> Result<(), ApplySceneError> {
         let mut bundle_writer = bundle_scratch.writer();
-        if let Some(entity_reference) = self.entity_references.first().copied() {
+        for entity_reference in self.entity_references.iter().copied() {
             context
                 .entity_references
                 .set(entity_reference, context.entity.id());
@@ -307,6 +307,11 @@ impl ResolvedScene {
                 self.apply_related(context, bundle_scratch)?;
             }
         };
+
+        let entity = context.entity.id();
+        context.entity.world_scope(|world| {
+            world.trigger(Ready { entity });
+        });
 
         Ok(())
     }
@@ -408,7 +413,7 @@ impl ResolvedScene {
     /// [`Template`] for a given [`TypeId`].
     pub fn get_or_insert_template<
         'a,
-        T: Template<Output: Component> + Default + Send + Sync + 'static,
+        T: Template<Output: SceneEffect> + Default + Send + Sync + 'static,
     >(
         &'a mut self,
         context: &mut ResolveContext,
@@ -421,8 +426,32 @@ impl ResolvedScene {
             .unwrap()
     }
 
-    /// This will get the [`ErasedComponentTemplate`] for the given [`TypeId`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,
-    /// it will use the `default` function to create a new [`ErasedComponentTemplate`]. _For correctness, the [`TypeId`] of the [`Template`] returned
+    /// Inserts the given [`Template`]. This will overwrite the existing [`Template`] of that type if it already exists.
+    pub fn insert_template<T: Template<Output: SceneEffect> + Send + Sync + 'static>(
+        &mut self,
+        template: T,
+    ) {
+        self.insert_erased_template(TypeId::of::<T>(), Box::new(template));
+    }
+
+    /// Inserts the given [`Template`] with the given `type_id`. This will overwrite the existing [`Template`] of that type if it already exists.
+    pub fn insert_erased_template(&mut self, type_id: TypeId, template: Box<dyn ErasedTemplate>) {
+        match self.template_indices.entry(type_id) {
+            bevy_utils::TypeIdHashMapEntry::Occupied(occupied_entry) => {
+                let index = *occupied_entry.get();
+                // SAFETY: just looked up a valid index
+                let stored_template = unsafe { self.component_templates.get_unchecked_mut(index) };
+                *stored_template = template;
+            }
+            bevy_utils::TypeIdHashMapEntry::Vacant(vacant_entry) => {
+                vacant_entry.insert(self.component_templates.len());
+                self.component_templates.push(template);
+            }
+        }
+    }
+
+    /// This will get the [`ErasedTemplate`] for the given [`TypeId`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,
+    /// it will use the `default` function to create a new [`ErasedTemplate`]. _For correctness, the [`TypeId`] of the [`Template`] returned
     /// by `default` should match the passed in `type_id`_.
     ///
     /// This uses "copy-on-write" behavior for cached scenes. If a [`Template`] is requested which the cached scene has as well,
@@ -434,8 +463,8 @@ impl ResolvedScene {
         &'a mut self,
         context: &mut ResolveContext,
         type_id: TypeId,
-        default: fn() -> Box<dyn ErasedComponentTemplate>,
-    ) -> &'a mut dyn ErasedComponentTemplate {
+        default: fn() -> Box<dyn ErasedTemplate>,
+    ) -> &'a mut dyn ErasedTemplate {
         let mut is_cached = false;
         let index = self.template_indices.entry(type_id).or_insert_with(|| {
             let index = self.component_templates.len();
@@ -469,17 +498,14 @@ impl ResolvedScene {
         template
     }
 
-    /// Returns the [`ErasedComponentTemplate`] for the given `type_id`, if it exists in this [`ResolvedScene`]. This ignores cached scenes.
-    pub fn get_direct_erased_template(
-        &self,
-        type_id: TypeId,
-    ) -> Option<&dyn ErasedComponentTemplate> {
+    /// Returns the [`ErasedTemplate`] for the given `type_id`, if it exists in this [`ResolvedScene`]. This ignores cached scenes.
+    pub fn get_direct_erased_template(&self, type_id: TypeId) -> Option<&dyn ErasedTemplate> {
         let index = self.template_indices.get(&type_id)?;
         Some(&*self.component_templates[*index])
     }
 
     /// Adds the `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
-    pub fn push_template<T: Template<Output: Component> + Send + Sync + 'static>(
+    pub fn push_template<T: Template<Output: SceneEffect> + Send + Sync + 'static>(
         &mut self,
         template: T,
     ) {
@@ -487,7 +513,7 @@ impl ResolvedScene {
     }
 
     /// Adds the `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
-    pub fn push_template_erased(&mut self, template: Box<dyn ErasedComponentTemplate>) {
+    pub fn push_template_erased(&mut self, template: Box<dyn ErasedTemplate>) {
         self.component_templates.push(template);
     }
 
@@ -665,7 +691,7 @@ impl RelatedResolvedScenes {
 
 /// A type-erased, object-safe, downcastable version of [`Template`] that produces a [`Component`], which will be added to the
 /// given [`BundleWriter`].
-pub trait ErasedComponentTemplate: Any + Send + Sync {
+pub trait ErasedTemplate: Any + Send + Sync {
     /// Applies this template to the given `entity`.
     ///
     /// # Safety
@@ -680,26 +706,45 @@ pub trait ErasedComponentTemplate: Any + Send + Sync {
     ) -> Result<(), BevyError>;
 
     /// Clones this template. See [`Clone`].
-    fn clone_template(&self) -> Box<dyn ErasedComponentTemplate>;
+    fn clone_template(&self) -> Box<dyn ErasedTemplate>;
 }
 
-impl<T: Template<Output: Component> + Send + Sync + 'static> ErasedComponentTemplate for T {
+impl<T: Template<Output: SceneEffect> + Send + Sync + 'static> ErasedTemplate for T {
     unsafe fn apply(
         &self,
         context: &mut TemplateContext,
         bundle_writer: &mut BundleWriter,
     ) -> Result<(), BevyError> {
-        let component = self.build_template(context)?;
-        // SAFETY: world_mut is only used to register components, which does not affect entity location
-        let mut components = unsafe { context.entity.world_mut().components_registrator() };
-        // SAFETY: The caller verifies that `bundle_writer` is always used with the same World.
-        unsafe { bundle_writer.push_component(&mut components, component) };
-
+        let output = self.build_template(context)?;
+        output.apply(context, bundle_writer);
         Ok(())
     }
 
-    fn clone_template(&self) -> Box<dyn ErasedComponentTemplate> {
+    fn clone_template(&self) -> Box<dyn ErasedTemplate> {
         Box::new(Template::clone_template(self))
+    }
+}
+
+/// Something that has an effect on the final applied scene. This is usually a [`Component`].
+pub trait SceneEffect {
+    /// Applies the scene effect to the current context.
+    fn apply(self, context: &mut TemplateContext, bundle_writer: &mut BundleWriter);
+}
+
+/// A scene effect that does nothing.
+pub struct EmptySceneEffect;
+
+impl SceneEffect for EmptySceneEffect {
+    #[inline]
+    fn apply(self, _context: &mut TemplateContext, _bundle_writer: &mut BundleWriter) {}
+}
+
+impl<C: Component> SceneEffect for C {
+    fn apply(self, context: &mut TemplateContext, bundle_writer: &mut BundleWriter) {
+        // SAFETY: world_mut is only used to register components, which does not affect entity location
+        let mut components = unsafe { context.entity.world_mut().components_registrator() };
+        // SAFETY: The caller verifies that `bundle_writer` is always used with the same World.
+        unsafe { bundle_writer.push_component(&mut components, self) };
     }
 }
 

@@ -36,6 +36,7 @@ impl<'a> StrokeFont<'a> {
         let line_height = LINE_HEIGHT * glyph_height;
         let margin_top = line_height - glyph_height;
         let space_advance = SIMPLEX_GLYPHS[0].0 as f32 * scale;
+        let tab_advance = space_advance * TAB_WIDTH_IN_SPACES as f32;
         StrokeTextLayout {
             font: self,
             sections,
@@ -43,6 +44,7 @@ impl<'a> StrokeFont<'a> {
             line_height,
             margin_top,
             space_advance,
+            tab_advance,
         }
     }
 
@@ -80,6 +82,8 @@ pub struct StrokeTextLayout<'a> {
     margin_top: f32,
     /// Width of a space.
     space_advance: f32,
+    /// Width of a tab stop.
+    tab_advance: f32,
 }
 
 impl<'a> StrokeTextLayout<'a> {
@@ -95,6 +99,11 @@ impl<'a> StrokeTextLayout<'a> {
                 layout_size.x = layout_size.x.max(line_width);
                 line_width = 0.;
                 layout_size.y += self.line_height;
+                continue;
+            }
+
+            if c == '\t' {
+                line_width = next_tab_stop(line_width, self.tab_advance);
                 continue;
             }
 
@@ -149,6 +158,11 @@ impl<'a> StrokeTextLayout<'a> {
             if c == '\n' {
                 x = 0.0;
                 y -= self.line_height;
+                continue;
+            }
+
+            if c == '\t' {
+                x = next_tab_stop(x, self.tab_advance);
                 continue;
             }
 
@@ -344,4 +358,9 @@ fn colored_chars<'a>(sections: &'a [(&'a str, Color)]) -> impl Iterator<Item = (
     sections
         .iter()
         .flat_map(|&(text, color)| text.chars().map(move |c| (c, color)))
+}
+
+fn next_tab_stop(x: f32, tab_advance: f32) -> f32 {
+    let tab_index = (x / tab_advance).floor() as i64 + 1;
+    tab_index as f32 * tab_advance
 }

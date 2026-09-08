@@ -3,11 +3,10 @@ use crate::{
     error::{BevyError, Result},
     never::Never,
     prelude::FromWorld,
-    query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemIn, SystemInput,
-        SystemParam, SystemParamItem,
+        check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemAccess, SystemIn,
+        SystemInput, SystemParam, SystemParamItem,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
@@ -121,11 +120,6 @@ impl SystemMeta {
     #[inline]
     pub fn set_has_deferred(&mut self) {
         self.flags |= SystemStateFlags::DEFERRED;
-    }
-
-    /// Mark the system to run exclusively. i.e. no other systems will run at the same time.
-    pub fn set_exclusive(&mut self) {
-        self.flags |= SystemStateFlags::EXCLUSIVE;
     }
 }
 
@@ -308,10 +302,10 @@ impl<Param: SystemParam> SystemState<Param> {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = Param::init_state(world);
-        let mut component_access_set = FilteredAccessSet::new();
+        let mut access = SystemAccess::default();
         // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
         // even though we don't use the calculated access.
-        Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
+        Param::init_access(&param_state, &mut meta, &mut access, world);
         Self {
             meta,
             param_state,
@@ -324,10 +318,10 @@ impl<Param: SystemParam> SystemState<Param> {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = builder.build(world);
-        let mut component_access_set = FilteredAccessSet::new();
+        let mut access = SystemAccess::default();
         // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
         // even though we don't use the calculated access.
-        Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
+        Param::init_access(&param_state, &mut meta, &mut access, world);
         Self {
             meta,
             param_state,
@@ -722,7 +716,7 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         if let Some(state) = &self.state {
             assert_eq!(
                 state.world_id,
@@ -735,14 +729,14 @@ where
             world_id: world.id(),
         });
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let mut component_access_set = FilteredAccessSet::new();
+        let mut system_access = SystemAccess::default();
         F::Param::init_access(
             &state.param,
             &mut self.system_meta,
-            &mut component_access_set,
+            &mut system_access,
             world,
         );
-        component_access_set
+        system_access
     }
 
     #[inline]

@@ -10,8 +10,9 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_math::bounding::{Aabb2d, BoundingVolume};
+use bevy_log::warn;
 use bevy_mesh::Indices;
+use bevy_shape::{Aabb2d, BoundingVolume};
 use glam::Vec4;
 use wgpu::{BufferUsages, DownlevelFlags, COPY_BUFFER_ALIGNMENT};
 
@@ -253,6 +254,9 @@ pub fn allocate_and_free_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
+    // Clear the list of meshes displaced by last frame's slab growth.
+    mesh_allocator.clear_displaced_keys();
+
     // Process removed or modified meshes.
     mesh_allocator.free_meshes(&extracted_meshes);
 
@@ -276,6 +280,26 @@ impl MeshAllocator {
             &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
             *self.mesh_id_to_metadata_slab(mesh_id)?,
         )
+    }
+
+    /// Meshes that had the buffer under their vertex or index data replaced this frame by a slab
+    /// they were already resident in growing, so that anything caching those buffers can rebuild
+    /// just the affected entries.
+    ///
+    /// **It is not the full set of meshes whose buffers changed this frame, and is not meant to be.**
+    /// Callers must handle [`ExtractedAssets`] themselves if they want the full set of changed buffers.
+    ///
+    /// A mesh is yielded twice if both its vertex and its index slab grew, since those are separate
+    /// allocations, so deduplicate if repeating the work per mesh would be expensive.
+    ///
+    /// Morph target and metadata allocations are filtered out.
+    ///
+    /// See [`SlabAllocator::keys_displaced_by_slab_growth`], which this wraps.
+    pub fn meshes_displaced_by_slab_growth(&self) -> impl Iterator<Item = AssetId<Mesh>> {
+        self.keys_displaced_by_slab_growth()
+            .iter()
+            .filter(|key| matches!(key.class, ElementClass::Vertex | ElementClass::Index))
+            .map(|key| key.mesh_id)
     }
 
     /// Returns the buffer and range within that buffer of the vertex data for
@@ -407,6 +431,7 @@ impl MeshAllocator {
         for (mesh_id, mesh) in &extracted_meshes.extracted {
             let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
             if vertex_buffer_size == 0 {
+                warn!("Mesh {:?} contains no vertices.", mesh_id);
                 continue;
             }
 
@@ -474,6 +499,10 @@ impl MeshAllocator {
 
         // Copy new mesh data in.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
+            let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
+            if vertex_buffer_size == 0 {
+                continue;
+            }
             self.copy_mesh_metadata(mesh_id, mesh, render_device, render_queue);
             self.copy_mesh_vertex_data(mesh_id, mesh, render_device, render_queue);
             self.copy_mesh_index_data(mesh_id, mesh, render_device, render_queue);
@@ -595,16 +624,24 @@ impl MeshAllocator {
         );
     }
 
-    /// Frees allocations for meshes that were removed or modified this frame.
+    /// Frees allocations for meshes that were removed, modified, or re-extracted
+    /// this frame.
     fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
         let mut deallocation_stage = self.slab_allocator.stage_deallocation();
 
         // TODO: Consider explicitly reusing allocations for changed meshes of
         // the same size
+
+        // Free every mesh that `allocate_meshes` is about to reallocate. Despite
+        // its name, `added` holds every mesh extracted this frame rather than only
+        // the new ones, so it's exactly that set. This catches a mesh
+        // removed from `Assets` and reinserted under the same ID, which arrives as
+        // `Removed` then `Added` and so never appears in `modified`.
         let meshes_to_free = extracted_meshes
             .removed
             .iter()
-            .chain(extracted_meshes.modified.iter());
+            .chain(extracted_meshes.modified.iter())
+            .chain(extracted_meshes.added.iter());
 
         for mesh_id in meshes_to_free {
             deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Metadata));
@@ -707,5 +744,449 @@ impl ElementClass {
             #[cfg(feature = "morph")]
             ElementClass::MorphTarget => BufferUsages::STORAGE,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::create_dummy_device;
+    use bevy_asset::{uuid::Uuid, RenderAssetUsages};
+    use bevy_mesh::PrimitiveTopology;
+    use bevy_shape::Aabb3d;
+    use glam::{Vec2, Vec3};
+
+    fn test_mesh() -> Mesh {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.0f32, 0.0, 0.0]; 64]);
+        mesh
+    }
+
+    /// A mesh that exercises every [`ElementClass`] at once.
+    fn full_mesh() -> Mesh {
+        let mut mesh = test_mesh();
+        mesh.insert_indices(Indices::U32((0..64).collect()));
+        mesh.final_aabb = Some(Aabb3d::new(Vec3::ZERO, Vec3::ONE));
+        mesh.final_uv_ranges[0] = Some(Aabb2d::new(Vec2::ZERO, Vec2::ONE));
+        #[cfg(feature = "morph")]
+        mesh.set_morph_targets(vec![MorphAttributes::default(); 64]);
+        mesh
+    }
+
+    /// A mesh whose vertex layout differs from [`test_mesh`], so that it sorts
+    /// into a different general slab.
+    fn wider_vertex_mesh() -> Mesh {
+        let mut mesh = test_mesh();
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0f32, 0.0, 1.0]; 64]);
+        mesh
+    }
+
+    /// Builds a [`MeshAllocator`] backed by an empty slab allocator.
+    ///
+    /// Clearing `general_vertex_slabs_supported` sends every vertex array into a
+    /// slab of its own.
+    fn mesh_allocator(general_vertex_slabs_supported: bool) -> MeshAllocator {
+        MeshAllocator {
+            slab_allocator: SlabAllocator::new(),
+            general_vertex_slabs_supported,
+        }
+    }
+
+    /// Allocator tuning with a small large-object threshold, so that an
+    /// otherwise modest test mesh is big enough to demand a slab of its own.
+    fn small_slab_settings() -> MeshAllocatorSettings {
+        MeshAllocatorSettings {
+            slab_allocator_settings: SlabAllocatorSettings {
+                min_slab_size: 1024,
+                max_slab_size: 4096,
+                large_threshold: 512,
+                growth_factor: 1.5,
+            },
+            extra_buffer_usages: BufferUsages::empty(),
+        }
+    }
+
+    fn mesh_id(id: u128) -> AssetId<Mesh> {
+        AssetId::<Mesh>::Uuid {
+            uuid: Uuid::from_u128(id),
+        }
+    }
+
+    /// Whether the allocator currently holds an allocation of the given class
+    /// for the given mesh.
+    fn has_allocation(
+        mesh_allocator: &MeshAllocator,
+        mesh_id: AssetId<Mesh>,
+        class: ElementClass,
+    ) -> bool {
+        mesh_allocator
+            .key_to_slab
+            .contains_key(&MeshAllocationKey::new(mesh_id, class))
+    }
+
+    /// Builds the extraction output for a mesh that was extracted this frame.
+    ///
+    /// This mirrors what `extract_render_asset` produces for an
+    /// `AssetEvent::Added`: the mesh lands in `extracted` and `added`, and in
+    /// neither `removed` nor `modified`.
+    fn extracted_mesh(id: AssetId<Mesh>, mesh: Mesh) -> ExtractedAssets<RenderMesh> {
+        let mut extracted_meshes = ExtractedAssets::<RenderMesh>::default();
+        extracted_meshes.extracted.push((id, mesh));
+        extracted_meshes.added.insert(id);
+        extracted_meshes
+    }
+
+    /// Builds the extraction output for a mesh modified in place this frame.
+    ///
+    /// This mirrors what `extract_render_asset` produces for an
+    /// `AssetEvent::Modified`, as caused by `Assets::get_mut`: the mesh is
+    /// re-extracted, so it lands in `modified` on top of `extracted` and `added`.
+    fn modified_mesh(id: AssetId<Mesh>, mesh: Mesh) -> ExtractedAssets<RenderMesh> {
+        let mut extracted_meshes = extracted_mesh(id, mesh);
+        extracted_meshes.modified.insert(id);
+        extracted_meshes
+    }
+
+    /// `free_meshes` must release meshes that are merely being re-extracted, not
+    /// only those flagged `removed` or `modified`.
+    #[test]
+    fn free_meshes_releases_reextracted_meshes() {
+        let (render_device, render_queue) = create_dummy_device();
+        let settings = MeshAllocatorSettings::default();
+        let mut mesh_vertex_buffer_layouts = MeshVertexBufferLayouts::default();
+        let mut mesh_allocator = mesh_allocator(true);
+
+        let mesh_id = mesh_id(1);
+        let extracted_meshes = extracted_mesh(mesh_id, test_mesh());
+
+        mesh_allocator.allocate_meshes(
+            &settings,
+            &extracted_meshes,
+            &mut mesh_vertex_buffer_layouts,
+            &render_device,
+            &render_queue,
+        );
+        assert!(mesh_allocator.mesh_vertex_slice(&mesh_id).is_some());
+
+        // Being present in `added` alone must be enough to release the previous
+        // allocation.
+        mesh_allocator.free_meshes(&extracted_meshes);
+
+        assert!(
+            mesh_allocator.key_to_slab.is_empty(),
+            "a re-extracted mesh was not freed, so its old allocation would leak"
+        );
+        assert_eq!(mesh_allocator.slab_count(), 0);
+    }
+
+    /// A mesh flagged `modified` must be freed even when it isn't re-extracted.
+    ///
+    /// `added` covers meshes that come back around for reallocation, but a mesh
+    /// can be modified and then leave `Assets` without emitting `Unused`, in
+    /// which case `modified` is the only record we get of it.
+    #[test]
+    fn free_meshes_releases_modified_meshes_that_were_not_reextracted() {
+        let (render_device, render_queue) = create_dummy_device();
+        let settings = MeshAllocatorSettings::default();
+        let mut mesh_vertex_buffer_layouts = MeshVertexBufferLayouts::default();
+        let mut mesh_allocator = mesh_allocator(true);
+
+        let mesh_id = mesh_id(1);
+        mesh_allocator.allocate_meshes(
+            &settings,
+            &extracted_mesh(mesh_id, test_mesh()),
+            &mut mesh_vertex_buffer_layouts,
+            &render_device,
+            &render_queue,
+        );
+        assert!(mesh_allocator.mesh_vertex_slice(&mesh_id).is_some());
+
+        let mut extracted_meshes = ExtractedAssets::<RenderMesh>::default();
+        extracted_meshes.modified.insert(mesh_id);
+        mesh_allocator.free_meshes(&extracted_meshes);
+
+        assert!(
+            mesh_allocator.key_to_slab.is_empty(),
+            "a modified mesh that wasn't re-extracted was not freed"
+        );
+        assert_eq!(mesh_allocator.slab_count(), 0);
+    }
+
+    /// `free_meshes` must release every class of allocation a mesh holds, not
+    /// just its vertex data.
+    #[test]
+    fn free_meshes_releases_every_element_class() {
+        let (render_device, render_queue) = create_dummy_device();
+        let settings = MeshAllocatorSettings::default();
+        let mut mesh_vertex_buffer_layouts = MeshVertexBufferLayouts::default();
+        let mut mesh_allocator = mesh_allocator(true);
+
+        let mesh_id = mesh_id(1);
+        let extracted_meshes = extracted_mesh(mesh_id, full_mesh());
+        mesh_allocator.allocate_meshes(
+            &settings,
+            &extracted_meshes,
+            &mut mesh_vertex_buffer_layouts,
+            &render_device,
+            &render_queue,
+        );
+
+        assert!(has_allocation(
+            &mesh_allocator,
+            mesh_id,
+            ElementClass::Vertex
+        ));
+        assert!(has_allocation(
+            &mesh_allocator,
+            mesh_id,
+            ElementClass::Index
+        ));
+        assert!(has_allocation(
+            &mesh_allocator,
+            mesh_id,
+            ElementClass::Metadata
+        ));
+        #[cfg(feature = "morph")]
+        assert!(has_allocation(
+            &mesh_allocator,
+            mesh_id,
+            ElementClass::MorphTarget
+        ));
+
+        mesh_allocator.free_meshes(&extracted_meshes);
+
+        assert!(
+            mesh_allocator.key_to_slab.is_empty(),
+            "at least one element class was left allocated, so it would leak"
+        );
+        assert_eq!(mesh_allocator.slab_count(), 0);
+    }
+
+    /// A mesh that loses part of its data on re-extraction must give up the
+    /// matching allocations, which nothing will reallocate.
+    #[test]
+    fn reextracting_a_mesh_that_drops_its_extra_data_frees_those_allocations() {
+        let (render_device, render_queue) = create_dummy_device();
+        let settings = MeshAllocatorSettings::default();
+        let mut mesh_vertex_buffer_layouts = MeshVertexBufferLayouts::default();
+        let mut mesh_allocator = mesh_allocator(true);
+
+        let mesh_id = mesh_id(1);
+        mesh_allocator.allocate_meshes(
+            &settings,
+            &extracted_mesh(mesh_id, full_mesh()),
+            &mut mesh_vertex_buffer_layouts,
+            &render_device,
+            &render_queue,
+        );
+        assert!(has_allocation(
+            &mesh_allocator,
+            mesh_id,
+            ElementClass::Index
+        ));
+
+        // The same ID comes back as a bare vertex-only mesh.
+        let extracted_meshes = extracted_mesh(mesh_id, test_mesh());
+        mesh_allocator.free_meshes(&extracted_meshes);
+        mesh_allocator.allocate_meshes(
+            &settings,
+            &extracted_meshes,
+            &mut mesh_vertex_buffer_layouts,
+            &render_device,
+            &render_queue,
+        );
+
+        assert!(has_allocation(
+            &mesh_allocator,
+            mesh_id,
+            ElementClass::Vertex
+        ));
+        assert!(
+            !has_allocation(&mesh_allocator, mesh_id, ElementClass::Index),
+            "index data was dropped by the mesh but its allocation survived"
+        );
+        assert!(
+            !has_allocation(&mesh_allocator, mesh_id, ElementClass::Metadata),
+            "metadata was dropped by the mesh but its allocation survived"
+        );
+        #[cfg(feature = "morph")]
+        assert!(
+            !has_allocation(&mesh_allocator, mesh_id, ElementClass::MorphTarget),
+            "morph targets were dropped by the mesh but their allocation survived"
+        );
+    }
+
+    /// Changing a mesh's vertex layout moves it to a different slab, and the
+    /// slab it leaves behind must be reclaimed.
+    #[test]
+    fn reextracting_a_mesh_with_a_new_vertex_layout_reclaims_the_old_slab() {
+        let (render_device, render_queue) = create_dummy_device();
+        let settings = MeshAllocatorSettings::default();
+        let mut mesh_vertex_buffer_layouts = MeshVertexBufferLayouts::default();
+        let mut mesh_allocator = mesh_allocator(true);
+
+        let mesh_id = mesh_id(1);
+        mesh_allocator.allocate_meshes(
+            &settings,
+            &extracted_mesh(mesh_id, test_mesh()),
+            &mut mesh_vertex_buffer_layouts,
+            &render_device,
+            &render_queue,
+        );
+        assert_eq!(mesh_allocator.slab_count(), 1);
+        let original_slab =
+            mesh_allocator.key_to_slab[&MeshAllocationKey::new(mesh_id, ElementClass::Vertex)];
+
+        // Adding a normal attribute widens the vertex, which needs a slab with a
+        // different element layout.
+        let extracted_meshes = extracted_mesh(mesh_id, wider_vertex_mesh());
+        mesh_allocator.free_meshes(&extracted_meshes);
+        mesh_allocator.allocate_meshes(
+            &settings,
+            &extracted_meshes,
+            &mut mesh_vertex_buffer_layouts,
+            &render_device,
+            &render_queue,
+        );
+
+        let new_slab =
+            mesh_allocator.key_to_slab[&MeshAllocationKey::new(mesh_id, ElementClass::Vertex)];
+        assert_ne!(
+            new_slab, original_slab,
+            "the wider vertex should have landed in a slab with a different layout"
+        );
+        assert_eq!(
+            mesh_allocator.slab_count(),
+            1,
+            "the slab the mesh moved out of was not reclaimed"
+        );
+        assert!(mesh_allocator.mesh_vertex_slice(&mesh_id).is_some());
+    }
+
+    /// One frame-loop scenario for [`assert_steady_state`].
+    struct SteadyStateCase {
+        /// Whether the mesh arrives as merely re-extracted or as modified.
+        build: fn(AssetId<Mesh>, Mesh) -> ExtractedAssets<RenderMesh>,
+        build_mesh: fn() -> Mesh,
+        settings: MeshAllocatorSettings,
+        general_vertex_slabs_supported: bool,
+    }
+
+    impl Default for SteadyStateCase {
+        fn default() -> Self {
+            Self {
+                build: extracted_mesh,
+                build_mesh: test_mesh,
+                settings: MeshAllocatorSettings::default(),
+                general_vertex_slabs_supported: true,
+            }
+        }
+    }
+
+    /// Runs `rounds` frames of free-then-allocate over a single mesh ID and
+    /// asserts that slab memory reaches a steady state.
+    fn assert_steady_state(case: SteadyStateCase, rounds: usize) {
+        let SteadyStateCase {
+            build,
+            build_mesh,
+            settings,
+            general_vertex_slabs_supported,
+        } = case;
+
+        let (render_device, render_queue) = create_dummy_device();
+        let mut mesh_vertex_buffer_layouts = MeshVertexBufferLayouts::default();
+        let mut mesh_allocator = mesh_allocator(general_vertex_slabs_supported);
+
+        let mesh_id = mesh_id(1);
+
+        let mut baseline = None;
+        for _ in 0..rounds {
+            let extracted_meshes = build(mesh_id, build_mesh());
+            mesh_allocator.free_meshes(&extracted_meshes);
+            mesh_allocator.allocate_meshes(
+                &settings,
+                &extracted_meshes,
+                &mut mesh_vertex_buffer_layouts,
+                &render_device,
+                &render_queue,
+            );
+
+            let size = mesh_allocator.slabs_size();
+            let slab_count = mesh_allocator.slab_count();
+            match baseline {
+                None => baseline = Some((size, slab_count)),
+                Some(baseline) => {
+                    assert_eq!(
+                        (size, slab_count),
+                        baseline,
+                        "slab memory grew across frames"
+                    );
+                }
+            }
+        }
+
+        assert!(mesh_allocator.mesh_vertex_slice(&mesh_id).is_some());
+    }
+
+    /// Re-extracting the same mesh ID every frame must reach a steady state.
+    #[test]
+    fn reextracting_the_same_mesh_does_not_grow_the_slabs() {
+        assert_steady_state(SteadyStateCase::default(), 32);
+    }
+
+    /// Modifying the same mesh in place every frame must reach a steady state.
+    #[test]
+    fn modifying_a_mesh_in_place_does_not_grow_the_slabs() {
+        assert_steady_state(
+            SteadyStateCase {
+                build: modified_mesh,
+                ..SteadyStateCase::default()
+            },
+            32,
+        );
+    }
+
+    /// A mesh carrying every element class must reach a steady state too, so
+    /// that a leak confined to one class cannot hide behind the vertex data.
+    #[test]
+    fn reextracting_a_mesh_with_every_element_class_does_not_grow_the_slabs() {
+        assert_steady_state(
+            SteadyStateCase {
+                build_mesh: full_mesh,
+                ..SteadyStateCase::default()
+            },
+            32,
+        );
+    }
+
+    /// Data too big to share a general slab gets one of its own, so a missed
+    /// free leaks a whole slab rather than a slot inside one.
+    #[test]
+    fn reextracting_a_mesh_too_large_for_a_general_slab_does_not_grow_the_slabs() {
+        assert_steady_state(
+            SteadyStateCase {
+                build_mesh: full_mesh,
+                settings: small_slab_settings(),
+                ..SteadyStateCase::default()
+            },
+            32,
+        );
+    }
+
+    /// The other route to a dedicated slab, taken when the platform cannot
+    /// share vertex slabs at all.
+    #[test]
+    fn reextracting_a_mesh_without_general_vertex_slabs_does_not_grow_the_slabs() {
+        assert_steady_state(
+            SteadyStateCase {
+                build_mesh: full_mesh,
+                general_vertex_slabs_supported: false,
+                ..SteadyStateCase::default()
+            },
+            32,
+        );
     }
 }

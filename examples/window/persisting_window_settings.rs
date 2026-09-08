@@ -1,6 +1,6 @@
-//! Demonstrates persistence of user preferences for saving window position.
+//! Demonstrates persistence of window position settings.
 //!
-//! This app saves the app window’s settings to preferences. You may resize the window, move it
+//! This app saves the app window’s settings. You may resize the window, move it
 //! around, and make it full screen; this example will remember those settings.
 //!
 //! If you close the app and restart it, the app should initialize back to the previous window position,
@@ -10,8 +10,7 @@ use std::time::Duration;
 use bevy::{
     prelude::*,
     settings::{
-        PreferencesPlugin, ReflectSettingsGroup, SavePreferencesDeferred, SavePreferencesSync,
-        SettingsGroup,
+        ReflectSettingsGroup, SaveSettingsDeferred, SaveSettingsSync, SettingsGroup, SettingsPlugin,
     },
     window::{ExitCondition, WindowCloseRequested, WindowMode, WindowResized, WindowResolution},
 };
@@ -19,15 +18,15 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            // We want to intercept the exit so that we can save prefs.
+            // We want to intercept the exit so that we can save settings.
             exit_condition: ExitCondition::DontExit,
             primary_window: Some(Window {
-                title: "Prefs Window".into(),
+                title: "Settings Window".into(),
                 ..default()
             }),
             ..default()
         }))
-        .add_plugins(PreferencesPlugin::new(
+        .add_plugins(SettingsPlugin::new(
             "org.bevy.examples.persisting_window_settings",
         ))
         .add_systems(Startup, setup)
@@ -109,7 +108,7 @@ fn update_window_settings(
     }
 
     if window_changed && store_window_settings(window_settings, window) {
-        commands.queue(SavePreferencesDeferred(Duration::from_secs_f32(0.5)));
+        commands.queue(SaveSettingsDeferred(Duration::from_secs_f32(0.5)));
     }
 }
 
@@ -128,19 +127,9 @@ fn store_window_settings(mut window_settings: ResMut<WindowSettings>, window: &W
 }
 
 fn on_window_close(mut close: MessageReader<WindowCloseRequested>, mut commands: Commands) {
-    // Save preferences immediately, then quit.
+    // Save settings immediately, then quit.
     if let Some(_close_event) = close.read().next() {
-        commands.queue(SavePreferencesSync::IfChanged);
-        commands.queue(ExitAfterSave);
-    }
-}
-
-struct ExitAfterSave;
-
-impl Command for ExitAfterSave {
-    type Out = ();
-
-    fn apply(self, world: &mut World) {
-        world.write_message(AppExit::Success);
+        commands.queue(SaveSettingsSync::IfChanged);
+        commands.write_message(AppExit::Success);
     }
 }

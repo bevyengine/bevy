@@ -2413,8 +2413,7 @@ mod tests {
         assert_eq!(res3.schedule_data.system_sets.len(), 6);
         assert_eq!(res3.schedule_data.hierarchy.len(), 6);
         assert_eq!(res3.schedule_data.dependency.len(), 4);
-        // Components are only currently recorded for conflicts - this may change in the future.
-        assert_eq!(res3.schedule_data.components.len(), 0);
+        assert_eq!(res3.schedule_data.components.len(), 2);
         assert_eq!(res3.schedule_data.conflicts.len(), 0);
     }
 

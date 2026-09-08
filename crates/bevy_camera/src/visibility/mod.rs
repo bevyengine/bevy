@@ -45,10 +45,10 @@ pub use render_layers::*;
 use bevy_app::{Plugin, PostUpdate, ValidateParentHasComponentPlugin};
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{AssetEventSystems, Assets};
-use bevy_ecs::{prelude::*, VariantDefaults};
+use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
-use bevy_utils::{Parallel, TypeIdMap};
+use bevy_utils::{Parallel, TypeIdHashMap};
 use smallvec::SmallVec;
 
 use crate::{
@@ -77,7 +77,7 @@ pub struct NoCpuCulling;
 ///
 /// To read the visibility of an entity, query for its [`InheritedVisibility`] instead.
 /// For more information, see [module level documentation](self#what-is-the-difference-between-visibility-components).
-#[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default, VariantDefaults)]
+#[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(InheritedVisibility, ViewVisibility)]
 pub enum Visibility {
@@ -343,7 +343,7 @@ pub struct DynamicSkinnedMeshBounds;
 #[reflect(Component, Default, Debug, Clone)]
 pub struct VisibleEntities {
     #[reflect(ignore, clone)]
-    pub entities: TypeIdMap<Vec<Entity>>,
+    pub entities: TypeIdHashMap<Vec<Entity>>,
 }
 
 impl Default for VisibleEntities {
@@ -355,7 +355,7 @@ impl Default for VisibleEntities {
         // We could handle this case in the `DirtySpecializations` methods
         // instead, but that would complicate what are already some very
         // complicated method signatures. So it's simpler to just do this.
-        let mut entities = TypeIdMap::default();
+        let mut entities = TypeIdHashMap::default();
         entities.insert(TypeId::of::<Mesh3d>(), vec![]);
         VisibleEntities { entities }
     }
@@ -746,7 +746,7 @@ fn reset_view_visibility(mut reset_query: Query<&mut ViewVisibility, Without<NoC
 /// To ensure that an entity is checked for visibility, make sure that it has a
 /// [`VisibilityClass`] component and that that component is nonempty.
 pub fn check_visibility_cpu_culling(
-    mut thread_queues: Local<Parallel<TypeIdMap<Vec<Entity>>>>,
+    mut thread_queues: Local<Parallel<TypeIdHashMap<Vec<Entity>>>>,
     mut view_query: Query<(
         Entity,
         &mut VisibleEntities,

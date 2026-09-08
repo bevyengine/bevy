@@ -1,31 +1,60 @@
 //! Simple example demonstrating linear gradients.
 
-use bevy::color::palettes::css::BLUE;
-use bevy::color::palettes::css::GREEN;
-use bevy::color::palettes::css::INDIGO;
-use bevy::color::palettes::css::LIME;
-use bevy::color::palettes::css::ORANGE;
-use bevy::color::palettes::css::RED;
-use bevy::color::palettes::css::VIOLET;
-use bevy::color::palettes::css::YELLOW;
-use bevy::prelude::*;
-
-use bevy::ui::ColorStop;
+use bevy::{
+    color::palettes::css::{BLUE, GREEN, INDIGO, LIME, ORANGE, RED, VIOLET, YELLOW},
+    prelude::*,
+    ui::ColorStop,
+    ui_widgets::{Activate, Button},
+};
 use std::f32::consts::TAU;
 
-#[derive(Component)]
+const COLOR_SPACES: [InterpolationColorSpace; 11] = [
+    InterpolationColorSpace::Oklaba,
+    InterpolationColorSpace::Oklcha,
+    InterpolationColorSpace::OklchaLong,
+    InterpolationColorSpace::Srgba,
+    InterpolationColorSpace::LinearRgba,
+    InterpolationColorSpace::Hsla,
+    InterpolationColorSpace::HslaLong,
+    InterpolationColorSpace::Hsva,
+    InterpolationColorSpace::HsvaLong,
+    InterpolationColorSpace::Okhsla,
+    InterpolationColorSpace::OkhslaLong,
+];
+
+/// Marker component for the previous button
+#[derive(Component, Clone, Default)]
+struct PreviousButton;
+
+/// Marker component for the next button
+#[derive(Component, Clone, Default)]
+struct NextButton;
+
+/// Marker component for the current color space label
+#[derive(Component, Clone, Default)]
 struct CurrentColorSpaceLabel;
+
+/// Resource that holds the current settings for the app
+#[derive(Resource, Default)]
+struct AppSettings {
+    /// The currently shown color space as an index into `COLOR_SPACES`
+    color_space_current_index: usize,
+}
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .init_resource::<AppSettings>()
         .add_systems(Startup, setup)
         .add_systems(Update, update)
+        .add_observer(on_activate_change_space)
         .run();
 }
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
+
+    let buttons_id = commands.spawn_scene(buttons_scene()).id();
 
     commands
         .spawn(Node {
@@ -181,108 +210,108 @@ fn setup(mut commands: Commands) {
                     });
                 });
             }
+        })
+        .add_child(buttons_id);
+}
 
-            let button = commands.spawn((
-                        Button,
-                        Node {
-                            border: UiRect::all(px(2)),
-                            padding: UiRect::axes(px(8), px(4)),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            border_radius: BorderRadius::MAX,
-                            ..default()
-                        },
-                        BorderColor::all(Color::WHITE),
-                        BackgroundColor(Color::BLACK),
-                        children![(
-                            Text::new("next color space"),
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                            TextShadow::default(),
-                        )]
-                )).observe(
-                    |_event: On<Pointer<Over>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
-                    *border_query.single_mut().unwrap() = BorderColor::all(RED);
-
-
+/// Scene of the current color space, the previous button, and the next button.
+/// The user can cycle through the color spaces by clicking the buttons.
+fn buttons_scene() -> impl Scene {
+    bsn! {
+        Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            column_gap: px(20),
+        }
+        Children [
+            Node {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+            }
+            Children [
+                CurrentColorSpaceLabel
+                template(|ctx| {
+                    let current_index = ctx.resource::<AppSettings>().color_space_current_index;
+                    Ok(Text(format!("Current Space\n{:?}", COLOR_SPACES[current_index])))
                 })
-                .observe(
-                    |_event: On<Pointer<Out>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
-                    *border_query.single_mut().unwrap() = BorderColor::all(Color::WHITE);
-                })
-                .observe(
-                        |_event: On<Pointer<Click>>,
-                            mut gradients_query: Query<&mut BackgroundGradient>,
-                            mut label_query: Query<
-                            &mut Text,
-                            With<CurrentColorSpaceLabel>,
-                        >| {
-                            let mut current_space = InterpolationColorSpace::default();
-                            for mut gradients in gradients_query.iter_mut() {
-                                for gradient in gradients.0.iter_mut() {
-                                    let space = match gradient {
-                                        Gradient::Linear(linear_gradient) => {
-                                            &mut linear_gradient.color_space
-                                        }
-                                        Gradient::Radial(radial_gradient) => {
-                                            &mut radial_gradient.color_space
-                                        }
-                                        Gradient::Conic(conic_gradient) => {
-                                            &mut conic_gradient.color_space
-                                        }
-                                    };
-                                    *space = match *space {
-                                        InterpolationColorSpace::Oklaba => {
-                                            InterpolationColorSpace::Oklcha
-                                        }
-                                        InterpolationColorSpace::Oklcha => {
-                                            InterpolationColorSpace::OklchaLong
-                                        }
-                                        InterpolationColorSpace::OklchaLong => {
-                                            InterpolationColorSpace::Srgba
-                                        }
-                                        InterpolationColorSpace::Srgba => {
-                                            InterpolationColorSpace::LinearRgba
-                                        }
-                                        InterpolationColorSpace::LinearRgba => {
-                                            InterpolationColorSpace::Hsla
-                                        }
-                                        InterpolationColorSpace::Hsla => {
-                                            InterpolationColorSpace::HslaLong
-                                        }
-                                        InterpolationColorSpace::HslaLong => {
-                                            InterpolationColorSpace::Hsva
-                                        }
-                                        InterpolationColorSpace::Hsva => {
-                                            InterpolationColorSpace::HsvaLong
-                                        }
-                                        InterpolationColorSpace::HsvaLong => {
-                                            InterpolationColorSpace::Oklaba
-                                        }
-                                    };
-                                    current_space = *space;
-                                }
-                            }
-                            for mut label in label_query.iter_mut() {
-                                label.0 = format!("{current_space:?}");
-                            }
-                        }
-                    ).id();
+            ],
 
-            commands.spawn(
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    row_gap: px(10),
-                    align_items: AlignItems::Center,
-                    ..Default::default()
-                }
-            ).with_children(|commands| {
-                commands.spawn((Text::new(format!("{:?}", InterpolationColorSpace::default())), TextFont { font_size: FontSize::Px(25.), ..default() }, CurrentColorSpaceLabel));
+            PreviousButton
+            @button_node_scene("Previous"),
 
-            })
-            .add_child(button);
-        });
+            NextButton
+            @button_node_scene("Next"),
+        ]
+    }
+}
+
+/// Base Button node scene
+fn button_node_scene(caption: &'static str) -> impl Scene {
+    bsn! {
+        Button
+        Node {
+            border: UiRect::all(px(2)),
+            padding: UiRect::axes(px(8), px(4)),
+            // horizontally center child text
+            justify_content: JustifyContent::Center,
+            // vertically center child text
+            align_items: AlignItems::Center,
+            border_radius: BorderRadius::MAX,
+        }
+        BorderColor::all(Color::WHITE)
+        BackgroundColor(Color::BLACK)
+        on(|event: On<PointerOver>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+            *border_query.get_mut(event.entity).unwrap() = BorderColor::all(RED);
+        })
+        on(|event: On<PointerOut>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+            *border_query.get_mut(event.entity).unwrap() = BorderColor::all(Color::WHITE);
+        })
+        Children [
+            Text(caption)
+        ]
+    }
+}
+
+/// Observer that handles a button press from the previous/next buttons.
+fn on_activate_change_space(
+    event: On<Activate>,
+    mut app_settings: ResMut<AppSettings>,
+    button_type_q: Query<(Has<PreviousButton>, Has<NextButton>), With<Button>>,
+    mut gradients_query: Query<&mut BackgroundGradient>,
+    mut label_q: Query<&mut Text, With<CurrentColorSpaceLabel>>,
+) {
+    let Ok((has_previous, has_next)) = button_type_q.get(event.entity) else {
+        return;
+    };
+    let next_index = match (has_previous, has_next) {
+        (true, true) | (false, false) => return,
+        (true, false) => {
+            if app_settings.color_space_current_index == 0 {
+                COLOR_SPACES.len() - 1
+            } else {
+                app_settings.color_space_current_index - 1
+            }
+        }
+        (false, true) => (app_settings.color_space_current_index + 1) % COLOR_SPACES.len(),
+    };
+    app_settings.color_space_current_index = next_index;
+
+    // Set the current space label and update the visuals.
+    let next_space = COLOR_SPACES[app_settings.color_space_current_index];
+    for mut label in label_q.iter_mut() {
+        label.0 = format!("Current Space\n{next_space:?}");
+    }
+    for mut gradients in gradients_query.iter_mut() {
+        for gradient in gradients.0.iter_mut() {
+            let space = match gradient {
+                Gradient::Linear(linear_gradient) => &mut linear_gradient.color_space,
+                Gradient::Radial(radial_gradient) => &mut radial_gradient.color_space,
+                Gradient::Conic(conic_gradient) => &mut conic_gradient.color_space,
+            };
+            *space = next_space;
+        }
+    }
 }
 
 #[derive(Component)]

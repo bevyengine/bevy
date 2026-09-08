@@ -3,7 +3,7 @@
 use crate::Reflect;
 use alloc::boxed::Box;
 use bevy_platform::sync::Arc;
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdIndexMap;
 use core::{
     any::TypeId,
     fmt::{Debug, Formatter},
@@ -39,11 +39,11 @@ use core::{
 /// [`Reflect` derive macro]: derive@crate::Reflect
 #[derive(Default, Clone)]
 pub struct CustomAttributes {
-    attributes: Option<Arc<TypeIdMap<CustomAttribute>>>,
+    attributes: Option<Arc<TypeIdIndexMap<CustomAttribute>>>,
 }
 
 impl CustomAttributes {
-    fn new(attributes: TypeIdMap<CustomAttribute>) -> Self {
+    fn new(attributes: TypeIdIndexMap<CustomAttribute>) -> Self {
         Self {
             attributes: if attributes.is_empty() {
                 None
@@ -206,7 +206,7 @@ macro_rules! impl_custom_attribute_methods {
 /// ```
 #[derive(Default)]
 pub struct CustomAttributesBuilder {
-    attributes: TypeIdMap<CustomAttribute>,
+    attributes: TypeIdIndexMap<CustomAttribute>,
 }
 
 impl CustomAttributesBuilder {

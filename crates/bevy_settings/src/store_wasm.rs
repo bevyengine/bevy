@@ -3,15 +3,15 @@ use bevy_tasks::IoTaskPool;
 use web_sys::window;
 
 /// Persistent storage which uses browser local storage.
-pub(crate) struct PreferencesStore {
+pub(crate) struct SettingsStore {
     app_name: String,
 }
 
-impl PreferencesStore {
-    /// Construct a new preferences store for browser local storage.
+impl SettingsStore {
+    /// Construct a new settings store for browser local storage.
     ///
     /// # Arguments
-    /// * `app_name` - The name of the application. See [`crate::PreferencesPlugin`] for usage.
+    /// * `app_name` - The name of the application. See [`crate::SettingsPlugin`] for usage.
     pub fn new(app_name: &str) -> Self {
         Self {
             app_name: app_name.to_owned(),
@@ -60,7 +60,7 @@ impl PreferencesStore {
     /// be returned.
     ///
     /// # Arguments
-    /// * `filename` - The name of the preferences file, without the file extension.
+    /// * `filename` - The name of the settings file, without the file extension.
     pub(crate) fn load(&self, filename: &str) -> Option<toml::Table> {
         if let Ok(Some(storage)) = window().unwrap().local_storage() {
             let storage_key = self.storage_key(filename);
@@ -71,7 +71,7 @@ impl PreferencesStore {
             let table_value = match toml::from_str::<toml::Value>(&toml_str) {
                 Ok(table_value) => table_value,
                 Err(e) => {
-                    error!("Error parsing preferences file: {}", e);
+                    error!("Error parsing settings file: {}", e);
                     return None;
                 }
             };
@@ -79,7 +79,7 @@ impl PreferencesStore {
             match table_value {
                 toml::Value::Table(table) => Some(table),
                 _ => {
-                    error!("Preferences file must be a table");
+                    error!("Settings file must be a table");
                     None
                 }
             }

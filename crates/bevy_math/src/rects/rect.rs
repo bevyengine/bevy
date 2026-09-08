@@ -253,6 +253,21 @@ impl Rect {
             && point.y <= self.max.y
     }
 
+    /// Clamps a point to lie within this rectangle.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::{Rect, Vec2};
+    /// let r = Rect::new(0., 0., 4., 5.);
+    /// assert_eq!(r.clamp_point(Vec2::new(-1., 6.)), Vec2::new(0., 5.));
+    /// assert_eq!(r.clamp_point(Vec2::ONE), Vec2::ONE);
+    /// ```
+    #[inline]
+    pub fn clamp_point(&self, point: Vec2) -> Vec2 {
+        point.clamp(self.min, self.max)
+    }
+
     /// Build a new rectangle formed of the union of this rectangle and another rectangle.
     ///
     /// The union is the smallest rectangle enclosing both rectangles.
@@ -563,5 +578,13 @@ mod tests {
         assert!(r2.min.abs_diff_eq(Vec2::new(2., -4.), 1e-5));
         assert!(r2.max.abs_diff_eq(Vec2::new(6., -2.), 1e-5));
         assert!(r2.size().abs_diff_eq(r.size(), 1e-5));
+    }
+
+    #[test]
+    fn rect_clamp_point() {
+        let r = Rect::new(0., 1., 4., 3.);
+
+        assert_eq!(r.clamp_point(Vec2::new(2., 2.)), Vec2::new(2., 2.));
+        assert_eq!(r.clamp_point(Vec2::new(-1., 5.)), Vec2::new(0., 3.));
     }
 }

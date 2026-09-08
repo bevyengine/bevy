@@ -21,6 +21,7 @@ use bevy_log::debug;
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
+    diagnostic::RecordDiagnostics,
     occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
     },
@@ -36,7 +37,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::TextureCache,
-    view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
+    view::{ExtractedView, NoIndirectDrawing, ViewDepthStencilTexture},
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -64,7 +65,7 @@ pub fn early_downsample_depth(
     view: ViewQuery<(
         &ViewDepthPyramid,
         &ViewDownsampleDepthBindGroup,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         Option<&OcclusionCullingSubviewEntities>,
     )>,
     shadow_view_query: Query<(
@@ -87,6 +88,13 @@ pub fn early_downsample_depth(
         maybe_view_light_entities,
     ) = view.into_inner();
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(
+        ctx.command_encoder(),
+        "mip_generation::early_downsample_depth",
+    );
+
     // Downsample depth for the main Z-buffer.
     downsample_depth(
         "early_downsample_depth",
@@ -96,10 +104,10 @@ pub fn early_downsample_depth(
         view_depth_pyramid,
         view_downsample_depth_bind_group,
         uvec2(
-            view_depth_texture.texture.width(),
-            view_depth_texture.texture.height(),
+            view_depth_texture.texture().width(),
+            view_depth_texture.texture().height(),
         ),
-        view_depth_texture.texture.sample_count(),
+        view_depth_texture.texture().sample_count(),
     );
 
     // Downsample depth for shadow maps that have occlusion culling enabled.
@@ -122,6 +130,7 @@ pub fn early_downsample_depth(
             );
         }
     }
+    time_span.end(ctx.command_encoder());
 }
 
 /// Produces a hierarchical Z-buffer (depth pyramid) for occlusion culling.
@@ -139,7 +148,7 @@ pub fn late_downsample_depth(
     view: ViewQuery<(
         &ViewDepthPyramid,
         &ViewDownsampleDepthBindGroup,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         Option<&OcclusionCullingSubviewEntities>,
     )>,
     shadow_view_query: Query<(
@@ -171,10 +180,10 @@ pub fn late_downsample_depth(
         view_depth_pyramid,
         view_downsample_depth_bind_group,
         uvec2(
-            view_depth_texture.texture.width(),
-            view_depth_texture.texture.height(),
+            view_depth_texture.texture().width(),
+            view_depth_texture.texture().height(),
         ),
-        view_depth_texture.texture.sample_count(),
+        view_depth_texture.texture().sample_count(),
     );
 
     // Downsample depth for shadow maps that have occlusion culling enabled.
@@ -609,7 +618,7 @@ impl ViewDepthPyramid {
     }
 
     /// Creates a bind group that allows the depth buffer to be attached to the
-    /// `downsample_depth.wgsl` shader.
+    /// `downsample_depth.wesl` shader.
     pub fn create_bind_group<'a, R>(
         &'a self,
         render_device: &RenderDevice,
@@ -719,7 +728,7 @@ pub fn prepare_view_depth_pyramids(
 }
 
 /// The bind group that we use to attach the depth buffer and depth pyramid for
-/// a view to the `downsample_depth.wgsl` shader.
+/// a view to the `downsample_depth.wesl` shader.
 ///
 /// This will only be present for a view if occlusion culling is enabled.
 #[derive(Component, Deref, DerefMut)]
@@ -736,17 +745,31 @@ pub fn prepare_downsample_depth_view_bind_groups(
         (
             Entity,
             &ViewDepthPyramid,
-            Option<&ViewDepthTexture>,
+            Option<&ViewDepthStencilTexture>,
             Option<&OcclusionCullingSubview>,
         ),
-        Or<(With<ViewDepthTexture>, With<OcclusionCullingSubview>)>,
+        Or<(With<ViewDepthStencilTexture>, With<OcclusionCullingSubview>)>,
     >,
 ) {
     for (view_entity, view_depth_pyramid, view_depth_texture, shadow_occlusion_culling) in
         &view_depth_textures
     {
+        let depth_view =
+            view_depth_texture.map(|t| t.attachment.depth_stencil_views().depth_only_view());
+        let source_image = match (depth_view, shadow_occlusion_culling) {
+            (Some(Some(depth_view)), _) => depth_view,
+            (Some(None), _) => {
+                // Depth texture doesn't has depth aspect
+                continue;
+            }
+            (None, Some(shadow_occlusion_culling)) => &shadow_occlusion_culling.depth_texture_view,
+            (None, None) => {
+                // No depth texture
+                continue;
+            }
+        };
         let is_multisampled = view_depth_texture
-            .is_some_and(|view_depth_texture| view_depth_texture.texture.sample_count() > 1);
+            .is_some_and(|view_depth_texture| view_depth_texture.texture().sample_count() > 1);
         commands
             .entity(view_entity)
             .insert(ViewDownsampleDepthBindGroup(
@@ -764,13 +787,7 @@ pub fn prepare_downsample_depth_view_bind_groups(
                     } else {
                         &downsample_depth_pipelines.first.bind_group_layout
                     }),
-                    match (view_depth_texture, shadow_occlusion_culling) {
-                        (Some(view_depth_texture), _) => view_depth_texture.view(),
-                        (None, Some(shadow_occlusion_culling)) => {
-                            &shadow_occlusion_culling.depth_texture_view
-                        }
-                        (None, None) => panic!("Should never happen"),
-                    },
+                    source_image,
                     &downsample_depth_pipelines.sampler,
                 ),
             ));

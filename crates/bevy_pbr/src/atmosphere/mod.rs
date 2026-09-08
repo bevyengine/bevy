@@ -40,7 +40,7 @@ mod environment;
 mod node;
 pub mod resources;
 
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, AssetId};
 use bevy_camera::{Camera3d, Hdr};
 use bevy_core_pipeline::{
@@ -55,7 +55,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
-use bevy_math::{Mat4, UVec2, UVec3, Vec3};
+use bevy_math::{Mat4, Quat, UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
@@ -75,8 +75,8 @@ use bevy_transform::components::GlobalTransform;
 use bevy_shader::load_shader_library;
 use environment::{
     atmosphere_environment, init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
-    prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_components,
-    prepare_probe_textures, AtmosphereEnvironmentMap,
+    on_insert_atmosphere_environment_map_light, on_remove_atmosphere_environment_map_light,
+    prepare_atmosphere_probe_bind_groups, prepare_probe_textures, AtmosphereEnvironmentMap,
 };
 use node::{atmosphere_luts, render_sky};
 use resources::{
@@ -89,7 +89,8 @@ use crate::resources::prepare_atmosphere_buffers;
 
 use self::resources::{
     prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-    AtmosphereLutPipelines, AtmosphereSampler,
+    AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereSampler, AtmosphereTextures,
+    AtmosphereTransformsOffset, RenderSkyPipelineId,
 };
 
 #[doc(hidden)]
@@ -97,17 +98,17 @@ pub struct AtmospherePlugin;
 
 impl Plugin for AtmospherePlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "types.wgsl");
-        load_shader_library!(app, "functions.wgsl");
-        load_shader_library!(app, "bruneton_functions.wgsl");
-        load_shader_library!(app, "bindings.wgsl");
+        load_shader_library!(app, "types.wesl");
+        load_shader_library!(app, "functions.wesl");
+        load_shader_library!(app, "bruneton_functions.wesl");
+        load_shader_library!(app, "bindings.wesl");
 
-        embedded_asset!(app, "transmittance_lut.wgsl");
-        embedded_asset!(app, "multiscattering_lut.wgsl");
-        embedded_asset!(app, "sky_view_lut.wgsl");
-        embedded_asset!(app, "aerial_view_lut.wgsl");
-        embedded_asset!(app, "render_sky.wgsl");
-        embedded_asset!(app, "environment.wgsl");
+        embedded_asset!(app, "transmittance_lut.wesl");
+        embedded_asset!(app, "multiscattering_lut.wesl");
+        embedded_asset!(app, "sky_view_lut.wesl");
+        embedded_asset!(app, "aerial_view_lut.wesl");
+        embedded_asset!(app, "render_sky.wesl");
+        embedded_asset!(app, "environment.wesl");
 
         app.add_plugins((
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
@@ -115,7 +116,8 @@ impl Plugin for AtmospherePlugin {
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))
-        .add_systems(Update, prepare_atmosphere_probe_components);
+        .add_observer(on_insert_atmosphere_environment_map_light)
+        .add_observer(on_remove_atmosphere_environment_map_light);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_atmosphere);
@@ -205,24 +207,28 @@ impl Plugin for AtmospherePlugin {
 pub fn extract_atmosphere(
     mut commands: Commands,
     atmosphere_entities: Extract<Query<(Entity, &Atmosphere, &GlobalTransform)>>,
-    cameras: Extract<Query<(RenderEntity, &AtmosphereSettings, &GlobalTransform), With<Camera3d>>>,
+    cameras: Extract<
+        Query<(RenderEntity, Option<&AtmosphereSettings>, &GlobalTransform), With<Camera3d>>,
+    >,
 ) {
     let candidates: Vec<(Entity, &Atmosphere, &GlobalTransform)> =
         atmosphere_entities.iter().collect();
 
-    if candidates.is_empty() {
-        for (render_entity, ..) in &cameras {
-            commands
-                .entity(render_entity)
-                .remove::<ExtractedAtmosphere>();
-            commands
-                .entity(render_entity)
-                .remove::<GpuAtmosphereSettings>();
-        }
-        return;
-    }
-
     for (render_entity, settings, cam_global) in &cameras {
+        // Remove any stale render-world state when AtmosphereSettings is removed or candidates is empty
+        let (Some(settings), false) = (settings, candidates.is_empty()) else {
+            commands.entity(render_entity).try_remove::<(
+                ExtractedAtmosphere,
+                GpuAtmosphereSettings,
+                GpuAtmosphere,
+                AtmosphereTextures,
+                AtmosphereTransformsOffset,
+                RenderSkyPipelineId,
+                AtmosphereBindGroups,
+            )>();
+            continue;
+        };
+
         let cam_world = cam_global.translation();
         let selected = candidates
             .iter()
@@ -234,13 +240,20 @@ pub fn extract_atmosphere(
             .expect("checked non-empty above");
         let atmo = selected.1;
         let gt = selected.2;
+        // Atmospheres are spherically symmetric, so ignore their orientation.
+        let (scale, _, translation) = gt.to_scale_rotation_translation();
 
         let extracted = ExtractedAtmosphere {
             inner_radius: atmo.inner_radius,
             outer_radius: atmo.outer_radius,
             ground_albedo: atmo.ground_albedo,
             medium: atmo.medium.id(),
-            world_to_atmosphere: gt.to_matrix().inverse(),
+            world_to_atmosphere: Mat4::from_scale_rotation_translation(
+                scale,
+                Quat::IDENTITY,
+                translation,
+            )
+            .inverse(),
         };
         commands.entity(render_entity).insert(extracted);
         commands
@@ -391,7 +404,7 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
     }
 }
 
-impl SyncComponent for AtmosphereSettings {
+impl SyncComponent<RenderApp> for AtmosphereSettings {
     type Target = GpuAtmosphereSettings;
 }
 

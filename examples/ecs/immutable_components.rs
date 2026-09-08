@@ -153,6 +153,7 @@ fn demo_3(world: &mut World) {
                     Layout::array::<u8>(size).unwrap(),
                     None,
                     false,
+                    false,
                     ComponentCloneBehavior::Default,
                     None,
                 )

@@ -570,7 +570,8 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// Generates a wrapper type that can be used to "derive `Reflect`" for remote types.
 ///
 /// This works by wrapping the remote type in a generated wrapper that has the `#[repr(transparent)]` attribute.
-/// This allows the two types to be safely [transmuted] back-and-forth.
+/// The generated `ReflectRemote` implementation uses this representation to convert between the
+/// wrapper and remote type.
 ///
 /// # Defining the Wrapper
 ///
@@ -640,13 +641,12 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// ## Safety
+/// ## Conversion
 ///
-/// When using the `#[reflect(remote = path::to::MyType)]` field attribute, be sure you are defining the correct wrapper type.
-/// Internally, this field will be unsafely [transmuted], and is only sound if using a wrapper generated for the remote type.
-/// This also means keeping your wrapper definitions up-to-date with the remote types.
+/// The wrapper type must implement `ReflectRemote` with `Remote` equal to the field's actual
+/// type. Generated reflection code uses the wrapper's conversion methods; in particular,
+/// `FromReflect` calls `ReflectRemote::into_remote` to construct the field value.
 ///
-/// [transmuted]: std::mem::transmute
 #[proc_macro_attribute]
 pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
     remote::reflect_remote(args, input)

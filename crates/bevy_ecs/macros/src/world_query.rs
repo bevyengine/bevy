@@ -20,11 +20,11 @@ pub(crate) fn item_struct(
     user_where_clauses_with_world_and_state: Option<&WhereClause>,
 ) -> proc_macro2::TokenStream {
     let item_attrs = quote! {
-        #[doc = concat!(
+        #[doc = ::core::concat!(
             "Automatically generated [`WorldQuery`](",
-            stringify!(#path),
+            ::core::stringify!(#path),
             "::query::WorldQuery) item type for [`",
-            stringify!(#struct_name),
+            ::core::stringify!(#struct_name),
             "`], returned when iterating over query results."
         )]
         #[automatically_derived]
@@ -70,11 +70,11 @@ pub(crate) fn world_query_impl(
 ) -> proc_macro2::TokenStream {
     quote! {
         #[doc(hidden)]
-        #[doc = concat!(
+        #[doc = ::core::concat!(
             "Automatically generated internal [`WorldQuery`](",
-            stringify!(#path),
+            ::core::stringify!(#path),
             "::query::WorldQuery) fetch type for [`",
-            stringify!(#struct_name),
+            ::core::stringify!(#struct_name),
             "`], used to define the world data accessed by this query."
         )]
         #[automatically_derived]

@@ -37,7 +37,7 @@ pub const AUTO_BINDLESS_SLAB_RESOURCE_LIMIT: u32 = 2048;
 /// In the case of materials, the material allocator manages these binding
 /// arrays.
 ///
-/// `bindless.wgsl` contains declarations of these arrays for use in your
+/// `bindless.wesl` contains declarations of these arrays for use in your
 /// shaders. If you change these, make sure to update that file as well.
 pub static BINDING_NUMBERS: [(BindlessResourceType, BindingNumber); 9] = [
     (BindlessResourceType::SamplerFiltering, BindingNumber(1)),
@@ -121,6 +121,8 @@ pub enum BindlessResourceType {
     None,
     /// A storage buffer.
     Buffer,
+    /// A handle to a [`ShaderBuffer`](bevy_render::storage::ShaderBuffer).
+    ShaderBuffer,
     /// A filtering sampler.
     SamplerFiltering,
     /// A non-filtering sampler (nearest neighbor).
@@ -285,6 +287,7 @@ pub fn create_bindless_bind_group_layout_entries(
             }
             BindlessResourceType::None
             | BindlessResourceType::Buffer
+            | BindlessResourceType::ShaderBuffer
             | BindlessResourceType::DataBuffer => None,
         }) else {
             continue;
@@ -315,7 +318,7 @@ impl BindlessResourceType {
     /// For example, if you pass `BindlessResourceType::Texture2d`, this will
     /// return 5, in order to match the `@group(2) @binding(5) var
     /// bindless_textures_2d: binding_array<texture_2d<f32>>` declaration in
-    /// `bindless.wgsl`.
+    /// `bindless.wesl`.
     ///
     /// Not all resource types have fixed binding numbers. If you call
     /// [`Self::binding_number`] on such a resource type, it returns `None`.

@@ -277,7 +277,7 @@ pub fn update_text2d_layout(
                 &mut font_system,
                 &mut layout_cx,
                 logical_viewport_size,
-                rem_size.0,
+                *rem_size,
             ) {
                 Err(
                     TextError::NoSuchFont

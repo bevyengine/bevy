@@ -129,12 +129,11 @@ pub unsafe trait WorldQuery {
     /// This is used for queries to request access to entities other than the current one,
     /// such as to read resources or to follow relations.
     fn init_nested_access(
-        _state: &Self::State,
-        _system_name: Option<&str>,
-        _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
-    }
+        state: &Self::State,
+        system_name: Option<&str>,
+        component_access_set: &mut FilteredAccessSet,
+        world: UnsafeWorldCell,
+    );
 
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
@@ -155,7 +154,7 @@ pub unsafe trait WorldQuery {
 
     /// Called when the query state is updating its archetype cache.
     /// This can be used by nested queries to update their internal archetype caches.
-    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
+    fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell);
 }
 
 macro_rules! impl_tuple_world_query {

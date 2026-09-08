@@ -176,7 +176,7 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
         &self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
@@ -184,7 +184,11 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Returns components for the current entity that match the query `Q`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
     ///
     /// # Example
     ///
@@ -207,10 +211,6 @@ impl<'w> EntityMut<'w> {
     /// // This would trigger undefined behavior, as the `&mut X`s would alias:
     /// // entity.get_components_mut_unchecked::<(&mut X, &mut X)>();
     /// ```
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// the `QueryData` does not provide aliasing mutable references to the same component.
     ///
     /// # See also
     ///
@@ -252,7 +252,11 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
     ///
     /// # Example
     ///
@@ -276,10 +280,6 @@ impl<'w> EntityMut<'w> {
     /// // entity.into_components_mut_unchecked::<(&mut X, &mut X)>();
     /// ```
     ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// the `QueryData` does not provide aliasing mutable references to the same component.
-    ///
     /// # See also
     ///
     /// - [`Self::into_components_mut`] for the safe version that performs aliasing checks
@@ -295,7 +295,7 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
     ///
     /// The checks for aliasing mutable references may be expensive.
     /// If performance is a concern, consider making multiple calls to [`Self::get_mut`].

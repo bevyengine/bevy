@@ -53,11 +53,11 @@ fn contiguous_item_struct(
     user_where_clauses_with_world_and_state: Option<&WhereClause>,
 ) -> proc_macro2::TokenStream {
     let item_attrs = quote! {
-        #[doc = concat!(
+        #[doc = ::core::concat!(
             "Automatically generated [`ContiguousQueryData`](",
-            stringify!(#path),
+            ::core::stringify!(#path),
             "::fetch::ContiguousQueryData) item type for [`",
-            stringify!(#struct_name),
+            ::core::stringify!(#struct_name),
             "`], returned when iterating over contiguous query results",
         )]
         #[automatically_derived]
@@ -105,6 +105,7 @@ fn contiguous_query_data_impl(
                 _state: &'__s <Self as #path::query::WorldQuery>::State,
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _entities: &'__w [#path::entity::Entity],
+                _range: ::core::ops::Range<u32>,
             ) -> Self::Contiguous<'__w, '__s> {
                 #contiguous_item_struct_name {
                     #(
@@ -113,6 +114,7 @@ fn contiguous_query_data_impl(
                             &_state.#field_aliases,
                             &mut _fetch.#field_aliases,
                             _entities,
+                            _range.clone(),
                         ),
                     )*
                 }
@@ -363,18 +365,18 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             user_where_clauses_with_world,
         );
         let read_only_structs = quote! {
-            #[doc = concat!(
+            #[doc = ::core::concat!(
                 "Automatically generated [`WorldQuery`](",
-                stringify!(#path),
+                ::core::stringify!(#path),
                 "::query::WorldQuery) type for a read-only variant of [`",
-                stringify!(#struct_name),
+                ::core::stringify!(#struct_name),
                 "`]."
             )]
             #[automatically_derived]
             #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
                 #(
                     #[doc = "Automatically generated read-only field for accessing `"]
-                    #[doc = stringify!(#field_types)]
+                    #[doc = ::core::stringify!(#field_types)]
                     #[doc = "`."]
                     #field_visibilities #field_members: #read_only_field_types,
                 )*
@@ -632,11 +634,11 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
         const _: () = {
             #[doc(hidden)]
-            #[doc = concat!(
+            #[doc = ::core::concat!(
                 "Automatically generated internal [`WorldQuery`](",
-                stringify!(#path),
+                ::core::stringify!(#path),
                 "::query::WorldQuery) state type for [`",
-                stringify!(#struct_name),
+                ::core::stringify!(#struct_name),
                 "`], used for caching."
             )]
             #[automatically_derived]

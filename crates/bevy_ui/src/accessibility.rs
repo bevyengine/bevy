@@ -1,6 +1,11 @@
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Button is removed."
+)]
+use crate::prelude::Button;
 use crate::{
     experimental::UiChildren,
-    prelude::{Button, Label},
+    prelude::Label,
     ui_transform::UiGlobalTransform,
     widget::{ImageNode, TextUiReader},
     ComputedNode, UiSystems,
@@ -15,7 +20,7 @@ use bevy_ecs::{
     prelude::Entity,
     query::{Changed, With, Without},
     reflect::ReflectComponent,
-    schedule::IntoScheduleConfigs,
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Query},
     world::{DeferredWorld, Ref},
 };
@@ -83,6 +88,10 @@ fn sync_bounds_and_transforms(
     }
 }
 
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Button is removed."
+)]
 fn button_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
@@ -110,6 +119,10 @@ fn button_changed(
     }
 }
 
+#[expect(
+    deprecated,
+    reason = "Should remove the `Without<Button>` after 0.20 is released when Button is removed."
+)]
 fn image_changed(
     mut commands: Commands,
     mut query: Query<
@@ -170,6 +183,11 @@ fn label_changed(
     }
 }
 
+/// System set for UI Systems that update the [`AccessibilityNode`] information
+/// of UI-related entities
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AccessibilityUiSystems;
+
 /// A component which permits the a11y label to be specified independently from other a11y
 /// attributes.
 ///
@@ -227,6 +245,7 @@ impl Plugin for AccessibilityPlugin {
                     .after(label_changed),
             )
                 .in_set(UiSystems::PostLayout)
+                .in_set(AccessibilityUiSystems)
                 .before(AccessibilitySystems::Update),
         );
     }
