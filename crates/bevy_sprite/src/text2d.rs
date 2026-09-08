@@ -388,7 +388,7 @@ mod tests {
     use bevy_ecs::{hierarchy::ChildOf, system::RunSystemOnce, world::World};
     use bevy_math::UVec2;
     use bevy_text::{
-        detect_text_needs_rerender, InlineBox, InlineBoxKind, TextIterScratch, TextLayoutItem,
+        detect_text_needs_rerender, InlineBox, InlineBoxKind, TextIterScratch, TextLayoutSection,
         TextSpan,
     };
 
@@ -417,7 +417,7 @@ mod tests {
                 assert!(reader.get(root, 2).is_none());
                 assert!(matches!(
                     reader.get(root, 3),
-                    Some((_, _, TextLayoutItem::Text { text: "tail", .. }))
+                    Some((_, _, TextLayoutSection::Text { text: "tail", .. }))
                 ));
                 let items = reader.iter(root).collect::<Vec<_>>();
                 assert_eq!(
@@ -425,7 +425,7 @@ mod tests {
                     [(root, 0), (span, 1), (inline_box, 2), (tail, 1)]
                 );
                 assert!(
-                    matches!(&items[2].2, TextLayoutItem::Box(b) if b.size == Vec2::new(20.0, 10.0))
+                    matches!(&items[2].2, TextLayoutSection::Box(b) if b.size == Vec2::new(20.0, 10.0))
                 );
             })
             .unwrap();
