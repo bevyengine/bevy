@@ -290,6 +290,34 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
 /// 2. For cases where "multiple inheritance" results in constructor clashes, Components should be listed in "importance order". List a component earlier in the requirement list to initialize its inheritance tree earlier.
 ///
+/// ## Required components and `insert_if_new`
+///
+/// [`insert_if_new`](crate::world::EntityWorldMut::insert_if_new) only adds components that are not
+/// already present, and the same applies to required components: a required component is added only
+/// for a component the call actually inserts. Inserting an already-present component with
+/// `insert_if_new` is a no-op and does not re-add its required components, so it will not bring back
+/// a required component you previously removed:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(B)]
+/// struct A;
+/// #[derive(Component, Default)]
+/// struct B;
+///
+/// # let mut world = World::default();
+/// let id = world.spawn(A).id();
+/// world.entity_mut(id).remove::<B>();
+/// // `A` is already present, so this is a no-op and does not re-add `B`.
+/// world.entity_mut(id).insert_if_new(A);
+/// assert!(!world.entity(id).contains::<B>());
+/// ```
+///
+/// This is decided per explicitly-inserted component, not recursively: `insert_if_new` of a
+/// newly-added component still adds that component's required components transitively, even where an
+/// intermediate requirer already exists.
+///
 /// ## Registering required components at runtime
 ///
 /// In most cases, required components should be registered using the `require` attribute as shown above.

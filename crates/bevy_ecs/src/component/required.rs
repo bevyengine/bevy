@@ -667,6 +667,132 @@ mod tests {
         world::World,
     };
 
+    // Regression tests for #24554: `insert_if_new` (`InsertMode::Keep`) must not resurrect a
+    // required component that the caller previously removed, while still adding required components
+    // for components it actually inserts.
+
+    #[test]
+    fn insert_if_new_does_not_resurrect_removed_required_component() {
+        #[derive(Component)]
+        #[require(ReqMarker)]
+        struct Main;
+
+        #[derive(Component, Default)]
+        struct ReqMarker;
+
+        let mut world = World::new();
+        let id = world.spawn(Main).id();
+        assert!(world.entity(id).contains::<ReqMarker>());
+
+        world.entity_mut(id).remove::<ReqMarker>();
+        assert!(!world.entity(id).contains::<ReqMarker>());
+
+        // `Main` already exists, so `insert_if_new` is a no-op and must not re-add `ReqMarker`.
+        world.entity_mut(id).insert_if_new(Main);
+        assert!(
+            !world.entity(id).contains::<ReqMarker>(),
+            "insert_if_new on an existing component must not resurrect its removed required component"
+        );
+    }
+
+    #[test]
+    fn insert_replace_re_adds_removed_required_component() {
+        #[derive(Component)]
+        #[require(ReqMarker)]
+        struct Main;
+
+        #[derive(Component, Default)]
+        struct ReqMarker;
+
+        let mut world = World::new();
+        let id = world.spawn(Main).id();
+        world.entity_mut(id).remove::<ReqMarker>();
+        assert!(!world.entity(id).contains::<ReqMarker>());
+
+        // Plain `insert` (`Replace`) should still (re-)add required components.
+        world.entity_mut(id).insert(Main);
+        assert!(
+            world.entity(id).contains::<ReqMarker>(),
+            "insert (Replace) should re-add required components"
+        );
+    }
+
+    #[test]
+    fn insert_if_new_adds_required_for_newly_added_component() {
+        #[derive(Component)]
+        #[require(ReqMarker)]
+        struct Main;
+
+        #[derive(Component, Default)]
+        struct ReqMarker;
+
+        let mut world = World::new();
+        let id = world.spawn_empty().id();
+
+        // `Main` is genuinely new here, so its required components must be pulled in even under Keep.
+        world.entity_mut(id).insert_if_new(Main);
+        assert!(world.entity(id).contains::<Main>());
+        assert!(
+            world.entity(id).contains::<ReqMarker>(),
+            "a newly inserted component should add its required components, even under Keep"
+        );
+    }
+
+    #[test]
+    fn insert_if_new_mixed_bundle_only_adds_required_for_new_component() {
+        #[derive(Component)]
+        #[require(ReqA)]
+        struct A;
+        #[derive(Component, Default)]
+        struct ReqA;
+
+        #[derive(Component)]
+        #[require(ReqB)]
+        struct B;
+        #[derive(Component, Default)]
+        struct ReqB;
+
+        let mut world = World::new();
+        let id = world.spawn(A).id();
+        world.entity_mut(id).remove::<ReqA>();
+        assert!(!world.entity(id).contains::<ReqA>());
+
+        // `A` is already present (kept); `B` is new. Only `B`'s required component should be added.
+        world.entity_mut(id).insert_if_new((A, B));
+        assert!(world.entity(id).contains::<B>());
+        assert!(
+            world.entity(id).contains::<ReqB>(),
+            "the newly inserted component B should add its required component"
+        );
+        assert!(
+            !world.entity(id).contains::<ReqA>(),
+            "the already-present component A must not resurrect its required component"
+        );
+    }
+
+    #[test]
+    fn insert_if_new_shared_required_uses_added_requiree_constructor() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Req(usize);
+
+        #[derive(Component)]
+        #[require(Req = Req(1))]
+        struct A;
+
+        #[derive(Component)]
+        #[require(Req = Req(2))]
+        struct B;
+
+        let mut world = World::new();
+        let id = world.spawn(A).id();
+        world.entity_mut(id).remove::<Req>();
+
+        // `A` is already present, so this is effectively `insert(B)`: the shared `Req` should take
+        // `B`'s constructor, not the bundle's first-requiree `A`'s.
+        world.entity_mut(id).insert_if_new((A, B));
+        assert_eq!(world.entity(id).get::<Req>(), Some(&Req(2)));
+    }
+
     #[test]
     fn required_components() {
         #[derive(Component)]

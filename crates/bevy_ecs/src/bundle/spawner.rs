@@ -53,6 +53,7 @@ impl<'w> BundleSpawner<'w> {
                 &world.components,
                 &world.observers,
                 ArchetypeId::EMPTY,
+                InsertMode::Replace,
             )
         };
 
