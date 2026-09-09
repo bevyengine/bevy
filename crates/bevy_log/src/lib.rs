@@ -247,14 +247,11 @@ pub struct LogPlugin {
     ///
     /// Please see the `examples/app/log_layers.rs` for a complete example.
     ///
-    /// Note: the behavior of this hook differs by platform:
-    /// - On desktop platforms, returning `None` installs the default
-    ///   [`tracing_subscriber::fmt::Layer`], which writes to `stderr`.
-    /// - On Android, returning `None` installs no formatter layer: logs are written to logcat
-    ///   by `LogPlugin` itself. A layer returned from this hook is still added.
-    /// - On iOS and Wasm, the hook is not called at all: those platforms write logs through
-    ///   their own layers (`tracing-oslog` / `tracing-wasm`), so a layer returned from this
-    ///   hook would be ignored.
+    /// Note: this hook is only used on desktop platforms. On Android, iOS and Wasm,
+    /// `LogPlugin` writes logs directly to the platform's native logging system (logcat,
+    /// the unified logging system, the browser console) and does not call this hook; use
+    /// [`custom_layer`](Self::custom_layer) if you need an additional layer on those
+    /// platforms.
     pub fmt_layer: fn(app: &mut App) -> Option<BoxedFmtLayer>,
 
     /// Whether to stream events to the Tracy profiler or collector. Only enable
@@ -369,17 +366,13 @@ impl Plugin for LogPlugin {
                 None
             };
 
-            let fmt_layer = (self.fmt_layer)(app);
-
-            // On Android the default formatter layer is not installed when no custom
-            // layer is provided (`None` simply passes through: `Option` implements
-            // `Layer`, so it contributes nothing). Every log event is already written
-            // to the Android logging system (logcat) by `AndroidLayer` below, and
-            // `stderr` is separately forwarded to logcat by the Android activity glue,
-            // so writing to stderr too would duplicate every log line in logcat (with
-            // ANSI escape codes and under the `RustStdoutStderr` tag).
+            // The formatter layer hook is not used on Android, mirroring the iOS and Wasm
+            // behavior: logs are written to the Android logging system (logcat) by
+            // `AndroidLayer` below, and `stderr` is separately forwarded to logcat by the
+            // Android activity glue, so a formatter layer writing to stderr would
+            // duplicate every log line.
             #[cfg(not(target_os = "android"))]
-            let fmt_layer = fmt_layer.unwrap_or_else(|| {
+            let fmt_layer = (self.fmt_layer)(app).unwrap_or_else(|| {
                 // note: the implementation of `Default` reads from the env var NO_COLOR
                 // to decide whether to use ANSI color codes, which is common convention
                 // https://no-color.org/
@@ -388,12 +381,13 @@ impl Plugin for LogPlugin {
 
             // bevy_render::renderer logs a `tracy.frame_mark` event every frame
             // at Level::INFO. Formatted logs should omit it.
-            #[cfg(feature = "tracing-tracy")]
+            #[cfg(all(feature = "tracing-tracy", not(target_os = "android")))]
             let fmt_layer =
                 fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
                     meta.fields().field("tracy.frame_mark").is_none()
                 }));
 
+            #[cfg(not(target_os = "android"))]
             let subscriber = subscriber.with(fmt_layer);
 
             #[cfg(all(feature = "tracing-chrome", not(target_os = "android")))]
