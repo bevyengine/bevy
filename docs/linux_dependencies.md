@@ -293,7 +293,7 @@ Bazzite is built atop an immutable version of Fedora. But it ships with distrobo
 Create a new distrobox built on fedora:
 
 ```sh
-distrobox create -n fedora --image fedora:latest --additional-packages "gcc-c++ libX11-devel alsa-lib-devel systemd-devel wayland-devel libxkbcommon-devel"
+distrobox create -n bevybuild --image fedora:latest --additional-packages "gcc-c++ libX11-devel alsa-lib-devel systemd-devel wayland-devel libxkbcommon-devel"
 ```
 
 Now you have a distrobox named fedora that can run your builds:
