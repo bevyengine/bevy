@@ -144,24 +144,23 @@ fn get_or_insert_material<M: Asset>(
     let bucket = cache
         .entry(SpriteMeshMaterialBucketKey::new(sprite, &anchor))
         .or_default();
-    let slot = match bucket
+    let found = bucket
         .iter()
-        .position(|(cached_sprite, _)| cached_sprite == sprite)
-    {
-        Some(i) => &mut bucket[i].1,
-        None => {
-            bucket.push((sprite.clone(), Weak::new()));
-            &mut bucket.last_mut().unwrap().1
-        }
+        .position(|(cached_sprite, _)| cached_sprite == sprite);
+    if let Some(handle) = found.and_then(|i| bucket[i].1.upgrade()) {
+        return Handle::Strong(handle);
+    }
+
+    let handle = materials.add(get());
+    let Handle::Strong(strong) = &handle else {
+        unreachable!("`Assets::add` returns a strong handle");
     };
-    let handle = slot.upgrade().unwrap_or_else(|| {
-        let Handle::Strong(handle) = materials.add(get()) else {
-            unreachable!("`Assets::add` returns a strong handle");
-        };
-        *slot = Arc::downgrade(&handle);
-        handle
-    });
-    Handle::Strong(handle)
+    let weak = Arc::downgrade(strong);
+    match found {
+        Some(i) => bucket[i].1 = weak,
+        None => bucket.push((sprite.clone(), weak)),
+    }
+    handle
 }
 
 /// Change the material when [`Sprite`] is added / changed.
@@ -250,10 +249,6 @@ mod tests {
                 || material.clone(),
             )
         }
-
-        fn entries(&self) -> usize {
-            self.cache.values().map(Vec::len).sum()
-        }
     }
 
     #[test]
@@ -300,8 +295,8 @@ mod tests {
         let default = SpriteMeshMaterial::default();
 
         let id = fx.get(Anchor::default(), &default).id();
-        let handle = fx.get(Anchor::default(), &default);
-        assert_ne!(handle.id(), id);
-        assert_eq!(fx.entries(), 1);
+        let id2 = fx.get(Anchor::default(), &default).id();
+        assert_ne!(id, id2);
+        assert_eq!(fx.cache.values().map(Vec::len).sum::<usize>(), 1);
     }
 }
