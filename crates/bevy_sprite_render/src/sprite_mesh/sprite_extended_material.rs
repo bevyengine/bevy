@@ -435,7 +435,7 @@ where
 
 /// Keeps an index of cached `SpriteExt` handles based on the [`Sprite`], [`Anchor`], and the asset id of the material
 #[derive(Resource, Deref, DerefMut)]
-struct SpriteMaterialCache<M>(HashMap<AssetId<M>, super::SpriteMaterialCache<SpriteExt<M>>>)
+struct SpriteMaterialCache<M>(HashMap<AssetId<M>, super::SpriteMaterialCache>)
 where
     M::Data: Clone,
     M: Asset + MaterialExtension2d;

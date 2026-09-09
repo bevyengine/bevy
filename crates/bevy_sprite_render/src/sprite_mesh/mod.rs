@@ -1,7 +1,7 @@
-use alloc::sync::Arc;
+use alloc::sync::{Arc, Weak};
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetEventSystems, AssetId, Assets, Handle};
+use bevy_asset::{Asset, AssetEventSystems, AssetId, Assets, Handle, StrongHandle};
 use bevy_color::ColorToComponents;
 use bevy_ecs::{
     entity::Entity,
@@ -125,19 +125,17 @@ impl SpriteMeshMaterialBucketKey {
     }
 }
 
-type SpriteMaterialCache<M> = HashMap<SpriteMeshMaterialBucketKey, Vec<(Sprite, Handle<M>)>>;
+type SpriteMaterialCache = HashMap<SpriteMeshMaterialBucketKey, Vec<(Sprite, Weak<StrongHandle>)>>;
 
-fn evict_unused_materials<M: Asset>(cache: &mut SpriteMaterialCache<M>) {
+fn evict_unused_materials(cache: &mut SpriteMaterialCache) {
     cache.retain(|_, bucket| {
-        bucket.retain(|(_, handle)| {
-            !matches!(handle, Handle::Strong(handle) if Arc::strong_count(handle) == 1)
-        });
+        bucket.retain(|(_, handle)| handle.upgrade().is_some());
         !bucket.is_empty()
     });
 }
 
 fn get_or_insert_material<M: Asset>(
-    cache: &mut SpriteMaterialCache<M>,
+    cache: &mut SpriteMaterialCache,
     sprite: &Sprite,
     anchor: Anchor,
     materials: &mut Assets<M>,
@@ -146,16 +144,24 @@ fn get_or_insert_material<M: Asset>(
     let bucket = cache
         .entry(SpriteMeshMaterialBucketKey::new(sprite, &anchor))
         .or_default();
-    if let Some((_, handle)) = bucket
+    let slot = match bucket
         .iter()
-        .find(|(cached_sprite, _)| cached_sprite == sprite)
+        .position(|(cached_sprite, _)| cached_sprite == sprite)
     {
-        return handle.clone();
-    }
-
-    let handle = materials.add(get());
-    bucket.push((sprite.clone(), handle.clone()));
-    handle
+        Some(i) => &mut bucket[i].1,
+        None => {
+            bucket.push((sprite.clone(), Weak::new()));
+            &mut bucket.last_mut().unwrap().1
+        }
+    };
+    let handle = slot.upgrade().unwrap_or_else(|| {
+        let Handle::Strong(handle) = materials.add(get()) else {
+            unreachable!("`Assets::add` returns a strong handle");
+        };
+        *slot = Arc::downgrade(&handle);
+        handle
+    });
+    Handle::Strong(handle)
 }
 
 /// Change the material when [`Sprite`] is added / changed.
@@ -180,7 +186,7 @@ fn add_material(
         )>,
     >,
     texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
-    mut cached_materials: Local<SpriteMaterialCache<SpriteMeshMaterial>>,
+    mut cached_materials: Local<SpriteMaterialCache>,
     mut materials: ResMut<Assets<SpriteMeshMaterial>>,
 ) {
     evict_unused_materials(&mut cached_materials);
@@ -226,7 +232,7 @@ mod tests {
 
     #[derive(Default)]
     struct Fixture {
-        cache: SpriteMaterialCache<SpriteMeshMaterial>,
+        cache: SpriteMaterialCache,
         assets: Assets<SpriteMeshMaterial>,
     }
 
@@ -243,6 +249,10 @@ mod tests {
                 &mut self.assets,
                 || material.clone(),
             )
+        }
+
+        fn entries(&self) -> usize {
+            self.cache.values().map(Vec::len).sum()
         }
     }
 
@@ -282,5 +292,16 @@ mod tests {
         drop((handle3, handle4));
         evict_unused_materials(&mut fx.cache);
         assert_eq!(fx.cache.len(), 0);
+    }
+
+    #[test]
+    fn sprite_material_cache_replaces_dropped_material() {
+        let mut fx = Fixture::default();
+        let default = SpriteMeshMaterial::default();
+
+        let id = fx.get(Anchor::default(), &default).id();
+        let handle = fx.get(Anchor::default(), &default);
+        assert_ne!(handle.id(), id);
+        assert_eq!(fx.entries(), 1);
     }
 }
