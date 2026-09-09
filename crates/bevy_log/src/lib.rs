@@ -247,12 +247,11 @@ pub struct LogPlugin {
     ///
     /// Please see the `examples/app/log_layers.rs` for a complete example.
     ///
-    /// Note: on iOS this hook is not called at all, because no formatter layer is used
-    /// there (logs are written to the unified logging system by `tracing-oslog`). On
-    /// Android the hook is called, but no default formatter layer is installed when it
-    /// returns `None`: `LogPlugin` already writes every log event to the Android logging
-    /// system (logcat), and the Android activity glue separately forwards `stderr` to
-    /// logcat, so the default `stderr` writer would duplicate every log line.
+    /// Note: on some platforms logs are written to the platform's native logging system
+    /// (e.g. logcat on Android, the unified logging system on iOS) rather than through a
+    /// formatter layer; on those platforms no default formatter layer is installed when
+    /// this hook returns `None` (on iOS the hook isn't called at all), while a layer
+    /// returned from this hook is still used.
     pub fmt_layer: fn(app: &mut App) -> Option<BoxedFmtLayer>,
 
     /// Whether to stream events to the Tracy profiler or collector. Only enable
