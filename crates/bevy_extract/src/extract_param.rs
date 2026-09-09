@@ -85,7 +85,7 @@ where
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), Box<ParameterAccessConflict>> {
         Res::<MainWorld>::init_access(&state.main_world_state, system_meta, system_access)
     }
 

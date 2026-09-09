@@ -19,7 +19,7 @@ use bevy_ecs_macro_logic::{
 };
 use bevy_macro_utils::{
     derive_label, ensure_no_collision,
-    fq_std::{FQDefault, FQIterator, FQOption, FQResult},
+    fq_std::{FQBox, FQDefault, FQIterator, FQOption, FQResult},
     get_struct_fields, pascal_to_snake_case, BevyManifest,
 };
 use proc_macro::TokenStream;
@@ -455,7 +455,7 @@ fn derive_system_param_impl(
                     state: &Self::State,
                     system_meta: &mut #path::system::SystemMeta,
                     system_access: &mut #path::system::SystemAccess,
-                ) -> Result<(), #path::system::ParameterAccessConflict> {
+                ) -> Result<(), #FQBox<#path::system::ParameterAccessConflict>> {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access)?;
                     Ok(())
                 }

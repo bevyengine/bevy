@@ -7,6 +7,7 @@ use crate::{
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
+use alloc::boxed::Box;
 use bevy_utils::prelude::DebugName;
 use derive_more::derive::{Display, Into};
 
@@ -62,7 +63,7 @@ unsafe impl SystemParam for SystemName {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         _system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), Box<ParameterAccessConflict>> {
         Ok(())
     }
 

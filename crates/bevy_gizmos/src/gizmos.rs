@@ -210,7 +210,7 @@ where
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), Box<ParameterAccessConflict>> {
         GizmosState::<Config, Clear>::init_access(&state.state, system_meta, system_access)
     }
 

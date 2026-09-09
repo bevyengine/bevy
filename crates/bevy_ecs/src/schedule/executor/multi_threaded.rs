@@ -898,7 +898,7 @@ impl MainThreadExecutor {
 
 #[cfg(test)]
 mod tests {
-    use alloc::string::String;
+    use alloc::{boxed::Box, string::String};
     use core::{
         panic::AssertUnwindSafe,
         sync::atomic::{AtomicBool, Ordering::Relaxed},
@@ -933,7 +933,7 @@ mod tests {
             _state: &Self::State,
             _system_meta: &mut SystemMeta,
             system_access: &mut SystemAccess,
-        ) -> Result<(), ParameterAccessConflict> {
+        ) -> Result<(), Box<ParameterAccessConflict>> {
             system_access
                 .try_extend_exclusive()
                 .map_err(ParameterAccessConflict::new::<Self>)

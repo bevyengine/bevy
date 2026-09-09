@@ -68,6 +68,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
+use alloc::boxed::Box;
 use derive_more::derive::Into;
 
 #[cfg(feature = "bevy_reflect")]
@@ -703,7 +704,7 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), Box<ParameterAccessConflict>> {
         system_access.try_extend_metadata().map_err(|access| {
             ParameterAccessConflict::new::<Self>(access).with_suggestion_if_exclusive(
                 system_access,

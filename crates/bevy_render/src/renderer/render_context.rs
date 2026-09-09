@@ -356,7 +356,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), Box<ParameterAccessConflict>> {
         Res::<CurrentView>::init_access(&state.resource_id, system_meta, system_access)?;
         Query::init_access(&state.query_state, system_meta, system_access)?;
         Ok(())
