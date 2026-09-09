@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_ecs::resource::Resource;
-use tracing::{debug, info};
+use tracing::{debug, info, error};
 use zbus::blocking::Connection;
 use zbus::proxy;
 
