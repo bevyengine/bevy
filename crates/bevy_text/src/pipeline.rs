@@ -29,7 +29,7 @@ struct TextSectionView<'a> {
     index: usize,
     entity: Entity,
     text_item: TextElement<'a>,
-    font_size: f32,
+    logical_font_size: f32,
 }
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
@@ -131,11 +131,11 @@ impl TextPipeline {
                             return Err(TextError::NoSuchFont);
                         }
 
-                        let font_size = text_font
+                        let logical_font_size = text_font
                             .font_size
                             .eval(logical_viewport_size, base_rem_size);
 
-                        if font_size <= 0.0 {
+                        if logical_font_size <= 0.0 {
                             warn_once!(
                         "Text span {entity} has a font size <= 0.0. Nothing will be displayed."
                     );
@@ -143,12 +143,12 @@ impl TextPipeline {
                         }
 
                         const WARN_FONT_SIZE: f32 = 1000.0;
-                        if font_size > WARN_FONT_SIZE {
+                        if logical_font_size > WARN_FONT_SIZE {
                             warn_once!(
                         "Text span {entity} has an excessively large font size ({} with scale factor {}). \
                         Extremely large font sizes will cause performance issues with font atlas \
                         generation and high memory usage.",
-                        font_size,
+                        logical_font_size,
                         scale_factor,
                     );
                         }
@@ -157,7 +157,7 @@ impl TextPipeline {
                             entity,
                             index,
                             text_item: item,
-                            font_size,
+                            logical_font_size,
                         });
                     }
                     TextElement::Box(_inline_box) => {
@@ -171,7 +171,7 @@ impl TextPipeline {
                             entity,
                             index,
                             text_item: item,
-                            font_size: 0.,
+                            logical_font_size: 0.,
                         });
                     }
                 }
@@ -237,7 +237,10 @@ impl TextPipeline {
                             )),
                             range.clone(),
                         );
-                        builder.push(StyleProperty::FontSize(section.font_size), range.clone());
+                        builder.push(
+                            StyleProperty::FontSize(section.logical_font_size),
+                            range.clone(),
+                        );
                         builder.push(StyleProperty::LineHeight(line_height.eval()), range.clone());
                         builder.push(
                             StyleProperty::LetterSpacing(letter_spacing.eval(base_rem_size)),

@@ -16,8 +16,6 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_TEST_DEBUG: 0
   CARGO_PROFILE_DEV_DEBUG: 0
-  # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: nightly
   # Keep in sync between all workflows
   RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
@@ -50,11 +48,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
@@ -82,11 +76,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal --component clippy,rustfmt
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
+        with:
+          components: clippy,rustfmt
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
@@ -108,22 +100,21 @@ jobs:
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
-          key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
+          key: ${{ runner.os }}-nightly--${{ hashFiles('**/Cargo.toml') }}-
           # See .github/workflows/update-caches.yml for how keys are generated
           restore-keys: |
-            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
-            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--
+            ${{ runner.os }}-nightly--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-nightly--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        run: |
-          rustup toolchain install ${{ env.NIGHTLY_TOOLCHAIN }} --no-self-update --profile=minimal --component miri
-          rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
-          cargo -V
+      - uses: ./.github/actions/install-rust
+        with:
+          channel: nightly
+          components: miri
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
         # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
@@ -157,11 +148,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -190,12 +177,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup target add x86_64-unknown-none --toolchain stable
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
+        with:
+          target: x86_64-unknown-none
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -228,12 +212,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup target add thumbv6m-none-eabi --toolchain stable
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
+        with:
+          target: thumbv6m-none-eabi
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -261,12 +242,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup target add x86_64-unknown-none --toolchain stable
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
+        with:
+          target: x86_64-unknown-none
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -294,12 +272,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup target add wasm32-unknown-unknown --toolchain stable
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
+        with:
+          target: wasm32-unknown-unknown
       - name: Check wasm
         env:
           RUSTFLAGS: '-C debuginfo=0 -D warnings --cfg getrandom_backend="wasm_js"'
@@ -316,23 +291,22 @@ jobs:
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
-          key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
+          key: ${{ runner.os }}-nightly-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
           # See .github/workflows/update-caches.yml for how keys are generated
           restore-keys: |
-            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
-            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}-wasm32-unknown-unknown-
+            ${{ runner.os }}-nightly-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-nightly-wasm32-unknown-unknown-
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        run: |
-          rustup toolchain install ${{ env.NIGHTLY_TOOLCHAIN }} --no-self-update --profile=minimal --component rust-src
-          rustup target add wasm32-unknown-unknown --toolchain ${{ env.NIGHTLY_TOOLCHAIN }}
-          rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
-          cargo -V
+      - uses: ./.github/actions/install-rust
+        with:
+          channel: nightly
+          components: rust-src
+          target: wasm32-unknown-unknown
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
@@ -418,11 +392,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
@@ -448,11 +418,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
       - name: check for missing metadata
         id: missing-metadata
         run: cargo run -p build-templated-pages -- check-missing examples
@@ -489,11 +455,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
       - name: check for missing features
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
@@ -530,23 +492,15 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
       - name: get MSRV
         id: msrv
         run: |
           msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
           echo "msrv=$msrv" >> $GITHUB_OUTPUT
-      - name: Install toolchain
-        run: |
-          rustup toolchain install "$MSRV" --no-self-update --profile=minimal
-          rustup override set "$MSRV"
-          cargo -V
-        env:
-          MSRV: ${{ steps.msrv.outputs.msrv }}
+      - uses: ./.github/actions/install-rust
+        with:
+          channel: ${{ steps.msrv.outputs.msrv }}
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
@@ -608,11 +562,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
       - name: Check Release Content
         shell: bash
         run: |
