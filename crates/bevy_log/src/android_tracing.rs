@@ -15,7 +15,7 @@ pub(crate) struct AndroidLayer;
 ///
 /// The first element holds the recorded message and fields. The second element
 /// holds the value of the synthesized `log.target` field, if present (see
-/// `record_debug`).
+/// `record_str`).
 struct StringRecorder(String, Option<String>);
 impl StringRecorder {
     fn new() -> Self {
@@ -24,14 +24,19 @@ impl StringRecorder {
 }
 
 impl Visit for StringRecorder {
-    fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
+    fn record_str(&mut self, field: &Field, value: &str) {
         // `tracing-log` emits events forwarded from the `log` crate with a fixed
         // metadata target of "log"; the record's real target is only available in
         // the synthesized `log.target` field. Capture it so it can be used as the
-        // logcat tag.
+        // logcat tag. `str` values are dispatched to `record_str`, so this captures
+        // the target exactly as-is.
         if field.name() == "log.target" {
-            self.1 = Some(format!("{:?}", value).trim_matches('"').to_owned());
+            self.1 = Some(value.to_owned());
         }
+        self.record_debug(field, &value);
+    }
+
+    fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
         if field.name() == "message" {
             if !self.0.is_empty() {
                 self.0 = format!("{:?}\n{}", value, self.0)
