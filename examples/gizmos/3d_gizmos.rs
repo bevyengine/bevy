@@ -3,7 +3,6 @@
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::*,
-    input::mouse::MouseWheel,
     prelude::*,
 };
 use std::f32::consts::PI;
@@ -13,7 +12,14 @@ fn main() {
         .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (draw_example_collection, update_config))
+        .add_systems(
+            Update,
+            (
+                draw_example_collection,
+                update_config,
+                drive_gizmos_animation,
+            ),
+        )
         .run();
 }
 
@@ -86,8 +92,8 @@ fn setup(
             Press 'B' to show all AABB boxes\n\
             Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
             Press 'J' or 'K' to cycle through line joins for straight or round gizmos\n\
-            Press 'Spacebar' to toggle pause\n\
-            Roll 'MouseWheel' to increase/decrease animation speed for dotted/dashed round gizmos",
+            Press 'L' to cycle through gizmos animations (only for dotted/dashed round gizmos)\n\
+            Press 'Spacebar' to toggle pause",
         ),
         Node {
             position_type: PositionType::Absolute,
@@ -225,7 +231,6 @@ fn draw_example_collection(
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut mouse: MessageReader<MouseWheel>,
     real_time: Res<Time<Real>>,
     mut virtual_time: ResMut<Time<Virtual>>,
 ) {
@@ -304,9 +309,6 @@ fn update_config(
             GizmoLineJoint::None => GizmoLineJoint::Bevel,
         };
     }
-    for ev in mouse.read() {
-        my_config.line.animation_speed = (my_config.line.animation_speed + ev.y).clamp(-10.0, 10.0);
-    }
 
     if keyboard.just_pressed(KeyCode::KeyB) {
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
@@ -315,5 +317,42 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::Space) {
         virtual_time.toggle();
+    }
+}
+
+enum GizmosAnimationType {
+    Linear,
+    BackAndForth,
+    Stutter,
+}
+
+fn drive_gizmos_animation(
+    mut config_store: ResMut<GizmoConfigStore>,
+    virtual_time: ResMut<Time<Virtual>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut animation_type: Local<Option<GizmosAnimationType>>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyL) {
+        *animation_type = match *animation_type {
+            None => Some(GizmosAnimationType::Linear),
+            Some(GizmosAnimationType::Linear) => Some(GizmosAnimationType::BackAndForth),
+            Some(GizmosAnimationType::BackAndForth) => Some(GizmosAnimationType::Stutter),
+            Some(GizmosAnimationType::Stutter) => None,
+        };
+    }
+
+    if let Some(animation_type) = animation_type.as_ref() {
+        let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
+        match animation_type {
+            GizmosAnimationType::Linear => {
+                my_config.line.animation_offset = virtual_time.elapsed_secs() * 10.0;
+            }
+            GizmosAnimationType::BackAndForth => {
+                my_config.line.animation_offset = ops::sin(virtual_time.elapsed_secs()) * 10.0;
+            }
+            GizmosAnimationType::Stutter => {
+                my_config.line.animation_offset = (virtual_time.elapsed_secs() * 4.0).round();
+            }
+        }
     }
 }

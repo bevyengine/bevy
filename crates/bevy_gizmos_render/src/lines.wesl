@@ -1,6 +1,5 @@
 // TODO use common view binding
 import bevy_render::view::View;
-import bevy_render::globals::Globals;
 import bevy_render::maths::affine3_to_square;
 
 @group(0) @binding(0) var<uniform> view: View;
@@ -12,14 +11,13 @@ struct LineGizmoUniform {
     _joints_resolution: u32,
     gap_scale: f32,
     line_scale: f32,
-    animation_speed: f32,
+    animation_offset: f32,
     @if(SIXTEEN_BYTE_ALIGNMENT)
     // WebGL2 structs must be 16 byte aligned.
     _padding: vec2<f32>,
 }
 
 @group(1) @binding(0) var<uniform> line_gizmo: LineGizmoUniform;
-@group(1) @binding(1) var<uniform> globals: Globals;
 
 struct VertexInput {
     @location(0) position_a: vec3<f32>,
@@ -173,7 +171,7 @@ fn non_solid_uv(in: FragmentInput) -> f32 {
     // running "backwards", e.g.
     // - from the line end to the line start
     // - from the arrow tip to the arrow start
-    let animated = uv - globals.time * line_gizmo.animation_speed;
+    let animated = uv - line_gizmo.animation_offset;
 
     const PERIOD: f32 = 2.0;
     return animated - floor(animated / PERIOD) * PERIOD;

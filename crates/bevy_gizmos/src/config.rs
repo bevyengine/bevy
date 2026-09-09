@@ -263,11 +263,11 @@ pub struct GizmoLineConfig {
     /// Describe how lines should join.
     pub joints: GizmoLineJoint,
     /// This only applies to [`GizmoLineStyle::Dotted`] and [`GizmoLineStyle::Dashed`] and
-    /// determines how fast these dots or dashes move along the lines from start to end in a cyclic
-    /// way to indicate a direction.
+    /// determines how far the dots/dashes are offset from their original position. This can be used
+    /// to create animations.
     ///
-    /// Defaults to `0.0` which means no movement.
-    pub animation_speed: f32,
+    /// Defaults to `0.0`.
+    pub animation_offset: f32,
 }
 
 impl Default for GizmoLineConfig {
@@ -277,7 +277,7 @@ impl Default for GizmoLineConfig {
             perspective: false,
             style: GizmoLineStyle::Solid,
             joints: GizmoLineJoint::None,
-            animation_speed: 0.0,
+            animation_offset: 0.0,
         }
     }
 }
