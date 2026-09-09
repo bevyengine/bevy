@@ -2983,7 +2983,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///         <ParentInner<D, F> as WorldQuery>::update_component_access(state, access)
 ///     }
 ///
-///     fn init_nested_access(state: &Self::State, component_access_set: &mut FilteredAccessSet) {
+///     fn init_nested_access(state: &Self::State, component_access_set: &mut FilteredAccessSet) -> Result<(), FilteredAccessSet> {
 ///         <ParentInner<D, F> as WorldQuery>::init_nested_access(state, component_access_set)
 ///     }
 ///

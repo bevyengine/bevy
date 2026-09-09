@@ -3389,7 +3389,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "error[B0002]")]
+    #[should_panic(expected = "error[B0008]")]
     fn mutable_world_conflicts_with_optional_query() {
         #[derive(Component)]
         struct A;
@@ -3398,7 +3398,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "error[B0002]")]
+    #[should_panic(expected = "error[B0008]")]
     fn mutable_world_conflicts_with_query() {
         #[derive(Component)]
         struct A;
@@ -3407,7 +3407,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "error[B0002]")]
+    #[should_panic(expected = "error[B0008]")]
     fn mutable_world_conflicts_with_empty_query() {
         fn system(_: &mut World, _: Query<()>) {}
         assert_is_system(system);

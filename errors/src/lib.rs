@@ -17,6 +17,10 @@ pub struct B0004;
 #[doc = include_str!("../B0005.md")]
 pub struct B0005;
 
+#[expect(
+    clippy::needless_doctest_main,
+    reason = "The example is emphasizing that the code should go in the user's `fn main()`."
+)]
 #[doc = include_str!("../B0006.md")]
 pub struct B0006;
 
