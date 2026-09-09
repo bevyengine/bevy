@@ -310,6 +310,11 @@ pub struct ParameterAccessConflict {
     pub code: Option<&'static str>,
 }
 
+/// An error returned from [`SystemParam::init_access`].
+// This type alias exists because it is hard to reference `Box` in a macro,
+// since `std::` is not available in no_std and `alloc::` is not available by default.
+pub type BoxedParameterAccessConflict = Box<ParameterAccessConflict>;
+
 impl ParameterAccessConflict {
     /// Constructs a new [`ParameterAccessConflict`] with the provided [`SystemAccess`]
     /// and the parameter name initialized from the type name of `T`.
