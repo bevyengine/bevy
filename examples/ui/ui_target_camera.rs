@@ -39,7 +39,7 @@ fn setup(mut commands: Commands) {
                 // Ordering behavior is the same using `Camera3d`.
                 Camera2d,
                 Camera {
-                    // The viewport will be cleared according to the `ClearColorConfig` of the camera with the lowest order, skipping cameras set to `ClearColorConfig::None`.
+                    // Show the clear color of camera with the lowest order
                     // If all are set to `ClearColorConfig::None`, no clear color is used.
                     clear_color: if i == 0 {
                         ClearColorConfig::Custom(color.into())
