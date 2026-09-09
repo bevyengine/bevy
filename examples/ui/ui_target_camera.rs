@@ -40,7 +40,6 @@ fn setup(mut commands: Commands) {
                 Camera2d,
                 Camera {
                     // Show the clear color of camera with the lowest order
-                    // If all are set to `ClearColorConfig::None`, no clear color is used.
                     clear_color: if i == 0 {
                         ClearColorConfig::Custom(color.into())
                     } else {
