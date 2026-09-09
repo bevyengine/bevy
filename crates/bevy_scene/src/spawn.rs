@@ -128,7 +128,7 @@ pub trait WorldSceneExt {
     ///     Blue,
     /// }
     ///
-    /// world.spawn_scene_list(bsn! {
+    /// world.spawn_scene_list(bsn_list! {
     ///     #Player1
     ///     Team::Red
     ///     --
@@ -313,7 +313,7 @@ pub trait CommandsSceneExt {
     /// }
     ///
     /// // Note that the .bsn file format is not yet released.
-    /// commands.spawn_scene_list(bsn! {
+    /// commands.spawn_scene_list(bsn_list! {
     ///     :"player.bsn"
     ///     #Player1
     ///     Team::Red
@@ -344,7 +344,7 @@ pub trait CommandsSceneExt {
     ///
     /// // This scene list includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is loaded.
-    /// commands.queue_spawn_scene_list(bsn! {
+    /// commands.queue_spawn_scene_list(bsn_list! {
     ///     :"player.bsn"
     ///     #Player1
     ///     Team::Red
@@ -426,7 +426,7 @@ pub trait EntityWorldMutSceneExt {
     ///     Blue,
     /// }
     ///
-    /// world.spawn_empty().queue_spawn_related_scenes::<Children>(bsn! {
+    /// world.spawn_empty().queue_spawn_related_scenes::<Children>(bsn_list! {
     ///     #Player1
     ///     Team::Red
     ///     --
@@ -527,7 +527,7 @@ pub trait EntityCommandsSceneExt {
     ///     Blue,
     /// }
     ///
-    /// commands.spawn_empty().queue_spawn_related_scenes::<Children>(bsn! {
+    /// commands.spawn_empty().queue_spawn_related_scenes::<Children>(bsn_list! {
     ///     #Player1
     ///     Team::Red
     ///     --

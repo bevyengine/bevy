@@ -31,7 +31,7 @@ fn main() {
 }
 
 fn showcase() -> impl SceneList {
-    bsn! {
+    bsn_list! {
         Camera2d
         --
         Node {
@@ -74,7 +74,8 @@ fn showcase() -> impl SceneList {
             @selected_tab(#manual_scene)
             on(tablist_self_update)
             Children [
-                #manual_scene @tab_header("Scene")
+                #manual_scene
+                @tab_header("Scene")
                 --
                 @tab_header("Assets")
                 --
@@ -91,7 +92,8 @@ fn showcase() -> impl SceneList {
             @selected_tab(#vertical_transform)
             on(tablist_self_update)
             Children [
-                #vertical_transform @tab_header("Transform")
+                #vertical_transform
+                @tab_header("Transform")
                 --
                 @tab_header("Visibility")
                 --
@@ -105,7 +107,8 @@ fn showcase() -> impl SceneList {
             @selected_tab(#controlled_a)
             on(controlled_selection)
             Children [
-                #controlled_a @tab_header("External A")
+                #controlled_a
+                @tab_header("External A")
                 --
                 @tab_header("External B")
             ]

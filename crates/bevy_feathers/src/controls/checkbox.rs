@@ -58,7 +58,7 @@ pub struct FeathersCheckboxProps {
 impl Default for FeathersCheckboxProps {
     fn default() -> Self {
         Self {
-            caption: Box::new(bsn! {}),
+            caption: Box::new(bsn_list! {}),
         }
     }
 }

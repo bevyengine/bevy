@@ -190,7 +190,7 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
     };
     app_settings.shape.change_node(&mut node);
 
-    commands.spawn_scene_list(bsn! {
+    commands.spawn_scene_list(bsn_list! {
         // Camera
         Camera2d
         BoxShadowSamples({app_settings.samples})

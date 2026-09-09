@@ -171,10 +171,11 @@ bsn! {
 
 This gives us the best of all worlds: entities are visually distinct, and there is no over-indentation, line noise, or syntax noise. Both `()` and `,` have been deprecated in this context.
 
-`bsn_list! []` has also been deprecated. Instead, just use `bsn! {}`, which now supports list expressions:
+Using `[]` and `()` for `bsn_list!` (and `bsn!`) is now discouraged (ex: `bsn_list []`), as it can result in poor rustfmt autoformatting. Instead, use `bsn_list! {}`, which is the only syntax that `rustfmt` won't touch. Don't worry, we
+plan to build a BSN auto-formatter!
 
 ```rust
-bsn! {
+bsn_list! {
     #Ok @button("Ok")
     --
     #Cancel @button("Cancel")

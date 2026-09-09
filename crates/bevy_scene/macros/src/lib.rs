@@ -61,12 +61,12 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// ### Scene Lists
 ///
-/// Scene list syntax appears in Relationships (surrounded by []) and the [`bsn!`] macro.
+/// Scene list syntax appears inside "relationship" syntax (ex: `Relationship []`) and the [`bsn_list!`] macro.
 ///
 /// Unlike parts of a scene, which are whitespace-separated, the scenes in a scene list are `--` separated.
 /// Each `--` separated single-entity scene uses the same syntax as a single [`bsn!`] macro call.
 ///
-/// Note: The examples below omit the relationship or macro call, `Children [<scene list>]` or `bsn!{<scene list>}`
+/// Note: The examples below omit the relationship or macro call, `Children [<scene list>]` or `bsn_list! { <scene list> }`
 ///
 /// | Example                      | Meaning                                                                                                               |
 /// | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -139,11 +139,11 @@ use syn::{parse_macro_input, DeriveInput};
 ///         }
 ///         ComponentB({some_var + 3.})   // values can be expressions, when wrapped in {}
 ///         @Container {
-///             @items: bsn! {        // sometimes you may need to nest macro calls
+///             @items: bsn_list! {       // sometimes you may need to nest macro calls
 ///                 #Item1 SomeComponent  // note: the name #Item1 here is in its own scope
 ///                 --
 ///                 #Item2 @some_scene()
-///             }
+///             ]
 ///         }
 ///     ]
 /// };
@@ -190,10 +190,6 @@ pub fn bsn(input: TokenStream) -> TokenStream {
 ///
 /// [`SceneList`]: https://docs.rs/bevy/latest/bevy/prelude/trait.SceneList.html
 /// [`bevy_scene`]: https://docs.rs/bevy/latest/bevy/scene/index.html
-#[deprecated(
-    since = "0.20.0",
-    note = "use bsn! {} instead, which now supports lists"
-)]
 #[proc_macro]
 pub fn bsn_list(input: TokenStream) -> TokenStream {
     crate::_bsn::bsn_list(input)
