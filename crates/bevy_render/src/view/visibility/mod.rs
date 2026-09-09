@@ -1,6 +1,7 @@
 use core::{any::TypeId, mem};
 
 use bevy_ecs::{
+    change_detection::Tick,
     component::Component,
     entity::Entity,
     prelude::ReflectComponent,
@@ -66,7 +67,7 @@ pub struct RenderShadowMapVisibleEntities {
     /// A mapping from each subview (cascade or cubemap face) to the entities
     /// visible from it.
     #[reflect(ignore, clone)]
-    pub subviews: HashMap<RetainedViewEntity, RenderVisibleEntities>,
+    pub subviews: HashMap<RetainedViewEntity, (Tick, RenderVisibleEntities)>,
 }
 
 /// Stores a list of all entities that are visible from a single view for a
@@ -351,7 +352,7 @@ pub fn collect_visible_cpu_culled_entities(
         mut maybe_render_shadow_map_visible_entities_cpu_culling,
     ) in lights.iter_mut()
     {
-        for (subview, render_visible_entities) in
+        for (subview, (_, render_visible_entities)) in
             render_shadow_map_visible_entities.subviews.iter_mut()
         {
             let mut maybe_render_subview_visible_entities_cpu_culling =

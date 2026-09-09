@@ -2304,13 +2304,16 @@ pub fn collect_gpu_culled_meshes(
 
     // Collect shadow maps.
     for (maybe_render_layers, mut render_shadow_map_visible_entities) in &mut lights {
-        let just_added_render_shadow_map_visible_entities =
-            render_shadow_map_visible_entities.is_added();
-        for render_visible_entities in render_shadow_map_visible_entities.subviews.values_mut() {
+        let last_run = render_shadow_map_visible_entities.last_run();
+        let this_run = render_shadow_map_visible_entities.this_run();
+
+        for (render_visible_entities_added_tick, render_visible_entities) in
+            render_shadow_map_visible_entities.subviews.values_mut()
+        {
             collect_gpu_culled_meshes_for_subview(
                 maybe_render_layers.unwrap_or(&default_render_layers),
                 render_visible_entities,
-                just_added_render_shadow_map_visible_entities,
+                render_visible_entities_added_tick.is_newer_than(last_run, this_run),
                 &render_gpu_culled_entities,
             );
         }
