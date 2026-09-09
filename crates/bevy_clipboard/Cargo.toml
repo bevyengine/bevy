@@ -35,7 +35,15 @@ arboard = { version = "3.6.1", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features = ["Window", "Navigator", "Clipboard"] }
+web-sys = { version = "0.3", features = [
+  "Window",
+  "Navigator",
+  "Clipboard",
+  "ClipboardEvent",
+  "DataTransfer",
+  "EventTarget",
+  "Performance",
+] }
 wasm-bindgen-futures = "0.4"
 
 [lints]
