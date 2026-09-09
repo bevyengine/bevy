@@ -5,7 +5,7 @@
 mod helpers;
 
 use argh::FromArgs;
-use bevy::prelude::*;
+use bevy::{prelude::*, sprite_render::Material2dPlugin};
 
 use helpers::Next;
 
@@ -24,6 +24,7 @@ fn main() {
 
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,))
+        .add_plugins(Material2dPlugin::<tangents::TangentMaterial>::default())
         .add_systems(OnEnter(Scene::Shapes), shapes::setup)
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Text), text::setup)
@@ -36,6 +37,7 @@ fn main() {
         )
         .add_systems(OnEnter(Scene::ColorConsistency), color_consistency::setup)
         .add_systems(OnExit(Scene::ColorConsistency), color_consistency::teardown)
+        .add_systems(OnEnter(Scene::Tangents), tangents::setup)
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
 
@@ -61,6 +63,7 @@ enum Scene {
     Gizmos,
     TextureAtlasBuilder,
     ColorConsistency,
+    Tangents,
 }
 
 impl Scene {
@@ -73,6 +76,7 @@ impl Scene {
         Scene::Gizmos,
         Scene::TextureAtlasBuilder,
         Scene::ColorConsistency,
+        Scene::Tangents,
     ];
 }
 
@@ -629,5 +633,58 @@ mod color_consistency {
     // Tonemapping is per-camera, and is reset when the camera despawns
     pub fn teardown(mut commands: Commands) {
         commands.insert_resource(ClearColor::default());
+    }
+}
+
+mod tangents {
+    use bevy::{
+        prelude::*, reflect::TypePath, render::render_resource::AsBindGroup, shader::ShaderRef,
+        sprite_render::Material2d,
+    };
+
+    const SHADER_ASSET_PATH: &str = "shaders/mesh2d_tangents.wesl";
+
+    /// Draws the mesh's tangent space, turning red where a vector is not unit length.
+    #[derive(Asset, TypePath, AsBindGroup, Debug, Clone, Default)]
+    pub struct TangentMaterial {}
+
+    impl Material2d for TangentMaterial {
+        fn fragment_shader() -> ShaderRef {
+            SHADER_ASSET_PATH.into()
+        }
+    }
+
+    pub fn setup(
+        mut commands: Commands,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<TangentMaterial>>,
+    ) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Tangents)));
+
+        let mesh = meshes.add(
+            Rectangle::default()
+                .mesh()
+                .build()
+                .with_generated_tangents()
+                .unwrap(),
+        );
+        let material = materials.add(TangentMaterial {});
+
+        // Scale z uniformly with x and y: at a z scale of 1 the inverse transpose leaves the
+        // normal unit length anyway, and a missing normal normalization would go unnoticed.
+        commands.spawn((
+            Mesh2d(mesh.clone()),
+            MeshMaterial2d(material.clone()),
+            Transform::from_xyz(-160.0, 0.0, 0.0).with_scale(Vec3::splat(256.0)),
+            DespawnOnExit(super::Scene::Tangents),
+        ));
+
+        // Mirrored on X, which flips the handedness of the tangent.
+        commands.spawn((
+            Mesh2d(mesh),
+            MeshMaterial2d(material),
+            Transform::from_xyz(160.0, 0.0, 0.0).with_scale(Vec3::new(-256.0, 256.0, 1.0)),
+            DespawnOnExit(super::Scene::Tangents),
+        ));
     }
 }
