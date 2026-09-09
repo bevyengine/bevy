@@ -1,0 +1,489 @@
+use alloc::{borrow::Cow, string::String, vec, vec::Vec};
+use bevy_ecs::{
+    reflect::AppTypeRegistry,
+    world::{FromWorld, World},
+};
+use core::marker::PhantomData;
+use futures_lite::AsyncWriteExt;
+use ron::ser::PrettyConfig;
+
+use bevy_reflect::{
+    serde::{ReflectDeserializer, ReflectSerializer},
+    Reflect, ReflectFromPtr, ReflectFromReflect, TypePath, TypeRegistryArc,
+};
+use serde::{
+    de::{DeserializeOwned, DeserializeSeed},
+    Deserialize, Serialize,
+};
+use thiserror::Error;
+
+use crate::{
+    io::Reader,
+    saver::{save_using_saver, AssetSaver, SaveAssetError, SavedAsset, SavedAssetBuilder},
+    Asset, AssetLoader, AssetPath, AssetServer, EphemeralHandleBehavior,
+    HandleDeserializeProcessor, HandleSerializeProcessor, LoadContext, LoadedUntypedAsset,
+    ReflectAsset,
+};
+
+/// A loader for reflected asset types written in the [`ron`] format.
+///
+/// This loader supports **any** reflected asset type in its registry. This loader expects assets to
+/// be stored as a map with a single entry, where the key is the full type path of the reflected
+/// type, and the value is the serialized data. For example, for the following type:
+///
+/// ```rust
+/// # use bevy_reflect::Reflect;
+/// # use bevy_asset::{Asset, ReflectAsset};
+/// #[derive(Reflect, Asset)]
+/// #[reflect(Asset)]
+/// struct MyStruct {
+///     value: i32,
+/// }
+/// ```
+///
+/// The serialized format would be:
+///
+/// ```ron
+/// {
+///     "my_crate::MyStruct": (
+///         value: 123
+///     )
+/// }
+/// ```
+///
+/// Since this loader can load any reflectable type, the concrete asset type returned by this loader
+/// is [`LoadedUntypedAsset`], which holds the actual asset handle. The actual asset data is loaded
+/// as a subasset with label `#Typed`. In other words, if you want to load `"my_thing.ron"` as
+/// `MyStruct` type, you need to call `asset_server.load::<MyStruct>("my_thing.ron#Typed")`. The
+/// root asset being a [`LoadedUntypedAsset`] allows users to load as any type, and then change
+/// their behavior based on the loaded type (e.g., if it's `MyStruct` do behavior 1, and if it's
+/// `MyEnum` do behavior 2).
+///
+/// This loader requires that the held type implements **and** reflects [`Asset`].
+///
+/// This loader also supports loading asset types with handles using the
+/// [`HandleDeserializeProcessor`].
+///
+/// Warning: When performing an untyped load using [`LoadBuilder::load_untyped`], load the `#Typed`
+/// subasset. If you instead load the root asset, you will get a [`Handle<LoadedUntypedAsset>`]
+/// which stores an [`UntypedHandle`] whose type ID is for [`LoadedUntypedAsset`], which then
+/// internally stores your desired asset type.
+///
+/// [`LoadBuilder::load_untyped`]: crate::LoadBuilder::load_untyped
+/// [`Handle<LoadedUntypedAsset>`]: crate::Handle
+/// [`UntypedHandle`]: crate::UntypedHandle
+#[derive(TypePath, Clone)]
+pub struct RonLoader {
+    /// The extensions that this loader will load for.
+    ///
+    /// By default, this is set to `ron`.
+    pub extensions: Cow<'static, [&'static str]>,
+    /// The type registry that will be used when deserializing values.
+    pub registry: TypeRegistryArc,
+}
+
+impl FromWorld for RonLoader {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            extensions: (&["ron"]).into(),
+            registry: world.resource::<AppTypeRegistry>().0.clone(),
+        }
+    }
+}
+
+impl AssetLoader for RonLoader {
+    type Asset = LoadedUntypedAsset;
+    type Settings = ();
+    type Error = ReflectedRonDeserializeError;
+
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &Self::Settings,
+        load_context: &mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut buffer = vec![];
+        reader
+            .read_to_end(&mut buffer)
+            .await
+            .map_err(Into::<RonDeserializeError>::into)?;
+        let registry = self.registry.read();
+
+        // Create a subasset LoadContext, so that dependencies are tracked on the subasset, and not
+        // just the root asset.
+        let mut subasset_context = load_context.begin_labeled_asset();
+        let mut handle_processor = HandleDeserializeProcessor {
+            load_from_path: &mut subasset_context,
+        };
+        let reflect_deserializer =
+            ReflectDeserializer::with_processor(&registry, &mut handle_processor);
+
+        let mut ron_deserializer =
+            ron::Deserializer::from_bytes(&buffer).map_err(Into::<RonDeserializeError>::into)?;
+        let reflected_asset = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .map_err(Into::<RonDeserializeError>::into)?;
+
+        // Unwrap is ok because the `ReflectDeserializer` will produce values representing a
+        // particular type.
+        let asset_type_info = reflected_asset.get_represented_type_info().unwrap();
+        let asset_type_id = asset_type_info.type_id();
+        // Unwrap is ok because the `ReflectDeserializer` could not have deserialized this value if
+        // the type weren't in the registry.
+        let type_registration = registry.get(asset_type_id).unwrap();
+        let Some(reflect_asset) = type_registration.data::<ReflectAsset>() else {
+            return Err(ReflectedRonDeserializeError::MissingReflectAsset(
+                asset_type_info.type_path(),
+            ));
+        };
+        let Some(reflect_from_reflect) = type_registration.data::<ReflectFromReflect>() else {
+            return Err(ReflectedRonDeserializeError::MissingReflectFromReflect(
+                asset_type_info.type_path(),
+            ));
+        };
+
+        // Unwrap is ok because `ReflectDeserializer` deserialized this type from its type data,
+        // and we are using the ReflectFromReflect registered for this type. Strictly speaking,
+        // someone could write a bad FromReflect implementation, but we won't handle that case here.
+        // In theory, someone could also insert ReflectFromReflect for type A into the registration
+        // of type B. That would be malicious though.
+        let reflected_asset = reflect_from_reflect
+            .from_reflect(&*reflected_asset)
+            .unwrap();
+
+        // Unwrap is ok because `finish_load_context` only fails if the Box<dyn Reflect> holds the
+        // wrong type. This is only possible if someone creates ReflectAsset for type A and inserts
+        // it into the registration of type B. We won't handle this "malicious" case.
+        let loaded_asset = reflect_asset
+            .finish_load_context(subasset_context, reflected_asset)
+            .unwrap();
+
+        let handle = load_context.add_erased_loaded_labeled_asset("Typed", loaded_asset);
+        Ok(LoadedUntypedAsset { handle })
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &self.extensions
+    }
+}
+
+/// A loader for loading serializable assets written in the [`ron`] format.
+///
+/// This is a typed counterpart to [`RonLoader`]. Therefore, this loader only supports a single
+/// asset type `A` (rather than any reflectable type). This however allows the serialized format to
+/// omit the type. For example, for the following type:
+///
+/// ```rust
+/// # use bevy_reflect::Reflect;
+/// # use bevy_asset::{Asset, ReflectAsset};
+/// #[derive(Reflect, Asset)]
+/// #[reflect(Asset)]
+/// struct MyStruct {
+///     value: i32,
+/// }
+/// ```
+///
+/// The serialized format would be:
+///
+/// ```ron
+/// (
+///     value: 123
+/// )
+/// ```
+///
+/// Unlike [`RonLoader`], this loader does not support loading types with [`Handle`]s, since
+/// [`Handle`]s cannot be serialized or deserialized. Consider using [`RonLoader`] for these types.
+///
+/// [`Handle`]: crate::Handle
+#[derive(TypePath)]
+pub struct TypedRonLoader<A: Asset + DeserializeOwned> {
+    extensions: Vec<&'static str>,
+    marker: PhantomData<fn() -> A>,
+}
+
+// Manual impl since the derive would add an `A: Clone` bound.
+impl<A: Asset + DeserializeOwned> Clone for TypedRonLoader<A> {
+    fn clone(&self) -> Self {
+        Self {
+            extensions: self.extensions.clone(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<A: Asset + DeserializeOwned> TypedRonLoader<A> {
+    /// Creates a loader for this type that will use the given extensions.
+    ///
+    /// It is highly recommended to use a custom extension (e.g., `MyStruct.ron`, or
+    /// `particle_effect`) and not just `ron`. Having multiple loaders that just use the `ron`
+    /// extension would prevent untyped loads from working correctly (only the last such loader will
+    /// be used for all loads).
+    pub fn new(extensions: Vec<&'static str>) -> Self {
+        Self {
+            extensions,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<A: Asset + DeserializeOwned> AssetLoader for TypedRonLoader<A> {
+    type Asset = A;
+    type Settings = ();
+    type Error = RonDeserializeError;
+
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &Self::Settings,
+        _load_context: &mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut buffer = vec![];
+        reader.read_to_end(&mut buffer).await?;
+        Ok(ron::de::from_bytes(&buffer)?)
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &self.extensions
+    }
+}
+
+/// Settings for saving data in the `ron` format.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RonSaverSettings {
+    /// The configuration for pretty-printing the `ron` data.
+    ///
+    /// The default is [`Some`], since it is likely that users will want to view or manually edit
+    /// the `ron` after saving.
+    pub pretty_config: Option<PrettyConfig>,
+}
+
+impl Default for RonSaverSettings {
+    fn default() -> Self {
+        Self {
+            // PrettyConfig defaults new lines to \r\n on Windows. We hard-code this to \n for
+            // consistency during testing, and for consistency across platforms. Your final binary
+            // has no guarantee which platform it will run on, so having your asset data be
+            // "platform-independent" is desirable.
+            pretty_config: Some(PrettyConfig::default().new_line("\n")),
+        }
+    }
+}
+
+/// A saver for reflected asset types to write in the [`ron`] format.
+///
+/// Data written with this saver can later be loaded with [`RonLoader`]. Note: the data format
+/// written by [`RonSaver`] is **incompatible** with [`TypedRonLoader`] (since this saver writes
+/// the type name of the asset being saved, whereas [`TypedRonLoader`] expects this to be implicit).
+/// Use [`TypedRonSaver`] if you intend to load the data with [`TypedRonLoader`] later.
+///
+/// This saver requires that the held asset type implements **and** reflects [`Asset`].
+#[derive(TypePath, Clone)]
+pub struct RonSaver {
+    /// The type registry that will be used when serializing reflected values.
+    pub registry: TypeRegistryArc,
+}
+
+impl FromWorld for RonSaver {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            registry: world.resource::<AppTypeRegistry>().0.clone(),
+        }
+    }
+}
+
+impl RonSaver {
+    /// Saves `asset` to `path` with this saver and `settings`.
+    ///
+    /// This is a wrapper around [`save_using_saver`] making it convenient to save any reflected
+    /// assets.
+    pub async fn save<A: Asset + Reflect>(
+        &self,
+        asset_path: AssetPath<'static>,
+        asset: &A,
+        settings: &RonSaverSettings,
+        asset_server: AssetServer,
+    ) -> Result<(), SaveAssetError> {
+        // TODO: It would be nice to just have a method that returned the SavedAsset, so that if you
+        // wanted to call `save_using_saver` directly, you could without reinventing this wheel.
+        // Unfortunately, `SavedAsset` currently requires storing a reference for the final asset,
+        // and since we need to create the LoadedUntypedAsset in this method, we can't return the
+        // final `SavedAsset`. We might just be able to use the `Moo` type inside of `SavedAsset`,
+        // but there were some lifetimes I couldn't figure out - we should come back to this though!
+        let mut builder = SavedAssetBuilder::new(asset_server.clone(), asset_path.clone());
+        let subasset =
+            builder.add_labeled_asset_with_new_handle("Typed", SavedAsset::from_asset(asset));
+
+        let wrapper = LoadedUntypedAsset {
+            handle: subasset.untyped(),
+        };
+        let saved_asset = builder.build(&wrapper);
+
+        save_using_saver(asset_server, self, &asset_path, saved_asset, settings).await
+    }
+}
+
+impl AssetSaver for RonSaver {
+    type Asset = LoadedUntypedAsset;
+    type Settings = RonSaverSettings;
+    type Error = ReflectedRonSerializeError;
+    type OutputLoader = RonLoader;
+
+    async fn save(
+        &self,
+        writer: &mut crate::io::Writer,
+        asset: SavedAsset<'_, '_, Self::Asset>,
+        settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
+    ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error> {
+        let Some(subasset) = asset.get_erased_labeled_by_id(&asset.get().handle) else {
+            return Err(ReflectedRonSerializeError::MissingSubasset);
+        };
+        let subasset = subasset.get();
+
+        // We need this scope because otherwise `registry` will live across the await point, causing
+        // this future to no longer be Send. Note: it's **not sufficient** to just drop the
+        // `registry` later. Rust considers the local active **even after** an explicit drop. This
+        // is because it is technically still allowed to access the local even after the stored
+        // value has been moved. See https://github.com/rust-lang/rfcs/pull/3943 for more and how
+        // this may get fixed.
+        let serialized = {
+            let registry = self.registry.read();
+            let Some(type_registration) = registry.get(subasset.type_id()) else {
+                return Err(ReflectedRonSerializeError::ValueNotReflect);
+            };
+
+            let Some(reflect_from_ptr) = type_registration.data::<ReflectFromPtr>() else {
+                // This should basically never happen. It should only really happen for artificial cases
+                // (e.g., you are manually constructing type registrations).
+                return Err(ReflectedRonSerializeError::MissingReflectFromPtr);
+            };
+
+            // Unwrap is ok because we assume that the ReflectFromPtr we got for the subasset type was
+            // also constructed for the subasset type. If not, that's kind of malicious, so not worth
+            // worrying about.
+            let subasset_reflect = reflect_from_ptr.as_reflect(subasset).unwrap();
+
+            let handle_processor = HandleSerializeProcessor {
+                ephemeral_handle_behavior: EphemeralHandleBehavior::Error,
+            };
+            let reflect_serializer =
+                ReflectSerializer::with_processor(subasset_reflect, &registry, &handle_processor);
+
+            let mut serialized = String::new();
+            let mut ron_serializer =
+                ron::Serializer::new(&mut serialized, settings.pretty_config.clone())
+                    .map_err(Into::<RonSerializeError>::into)?;
+
+            reflect_serializer
+                .serialize(&mut ron_serializer)
+                .map_err(Into::<RonSerializeError>::into)?;
+
+            serialized
+        };
+
+        writer
+            .write_all(serialized.as_bytes())
+            .await
+            .map_err(Into::<RonSerializeError>::into)?;
+
+        Ok(())
+    }
+}
+
+/// A saver for writing serializable types in the `ron` format.
+///
+/// Data written with this saver can later be loaded with [`TypedRonLoader<T>`]. Note: the data
+/// format written by [`TypedRonSaver`] is **incompatible** with [`RonLoader`] (since [`RonLoader`]
+/// expects the data to include the type name of the asset being loaded). Use [`RonSaver`] if you
+/// intend to load the data with [`RonLoader`] later.
+///
+/// This is a typed counterpart to [`RonSaver`]. Therefore, this saver only supports writing a
+/// single asset `T` (rather than any reflectable type).
+///
+/// Unlike [`RonSaver`], this saver does not support saving types with [`Handle`]s, since [`Handle`]
+/// cannot be serialized or deserialized. Consider using [`RonSaver`] for these types.
+///
+/// [`Handle`]: crate::Handle
+#[derive(TypePath)]
+pub struct TypedRonSaver<A: Asset + Serialize + DeserializeOwned>(PhantomData<fn() -> A>);
+
+impl<A: Asset + Serialize + DeserializeOwned> Default for TypedRonSaver<A> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+// Manual impl since the derive would add an `A: Clone` bound.
+impl<A: Asset + Serialize + DeserializeOwned> Clone for TypedRonSaver<A> {
+    fn clone(&self) -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<A: Asset + Serialize + DeserializeOwned> AssetSaver for TypedRonSaver<A> {
+    type Asset = A;
+    type Settings = RonSaverSettings;
+    type Error = RonSerializeError;
+    type OutputLoader = TypedRonLoader<A>;
+
+    async fn save(
+        &self,
+        writer: &mut crate::io::Writer,
+        asset: SavedAsset<'_, '_, Self::Asset>,
+        settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
+    ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error> {
+        let string = match settings.pretty_config.clone() {
+            Some(config) => ron::ser::to_string_pretty(asset.get(), config)?,
+            None => ron::ser::to_string(asset.get())?,
+        };
+
+        Ok(writer.write_all(string.as_bytes()).await?)
+    }
+}
+
+/// An error type for `ron` loading.
+#[derive(Error, Debug)]
+pub enum RonDeserializeError {
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+    #[error(transparent)]
+    RonSpan(#[from] ron::de::SpannedError),
+    #[error(transparent)]
+    Ron(#[from] ron::Error),
+}
+
+/// An error type for `ron` loading using reflection.
+#[derive(Error, Debug)]
+pub enum ReflectedRonDeserializeError {
+    #[error(transparent)]
+    Ron(#[from] RonDeserializeError),
+    #[error("Attempted to load type \"{0}\", which does not have `ReflectFromReflect` in the type registry. This may occur for types that have opted-out of `FromReflect`")]
+    MissingReflectFromReflect(&'static str),
+    #[error("Attempted to load type \"{0}\", which does not have `ReflectAsset` in the type registry. Make sure to add `#[reflect(Asset)]` to your type")]
+    MissingReflectAsset(&'static str),
+}
+
+/// An error type for `ron` saving.
+#[derive(Error, Debug)]
+pub enum RonSerializeError {
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+    #[error(transparent)]
+    Ron(#[from] ron::Error),
+}
+
+/// An error type for `ron` saving using reflection.
+#[derive(Error, Debug)]
+pub enum ReflectedRonSerializeError {
+    #[error(
+        "Expected the root LoadedUntypedHandle to hold a handle to its subasset, but it did not have such a subasset"
+    )]
+    MissingSubasset,
+    #[error("Subasset type was not registered in the TypeRegistry. Ensure your subasset's type implements Reflect (and if it's generic it needs to be manually registered)")]
+    ValueNotReflect,
+    #[error("Subasset type does not have ReflectFromPtr registered in its type data")]
+    MissingReflectFromPtr,
+    #[error(transparent)]
+    Ron(#[from] RonSerializeError),
+}
