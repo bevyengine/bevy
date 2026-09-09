@@ -12,6 +12,7 @@ use crate::{
 };
 
 use alloc::{boxed::Box, string::String};
+use bevy_reflect::Type;
 use core::fmt::Formatter;
 use derive_more::derive::From;
 
@@ -76,7 +77,7 @@ impl From<()> for DynamicVariant {
 /// ```
 #[derive(Default, Debug)]
 pub struct DynamicEnum {
-    represented_type: Option<&'static TypeInfo>,
+    runtime_type: Option<&'static TypeInfo>,
     variant_name: String,
     variant_index: usize,
     variant: DynamicVariant,
@@ -91,7 +92,7 @@ impl DynamicEnum {
     /// * `variant`: The variant data
     pub fn new<I: Into<String>, V: Into<DynamicVariant>>(variant_name: I, variant: V) -> Self {
         Self {
-            represented_type: None,
+            runtime_type: None,
             variant_index: 0,
             variant_name: variant_name.into(),
             variant: variant.into(),
@@ -111,11 +112,29 @@ impl DynamicEnum {
         variant: V,
     ) -> Self {
         Self {
-            represented_type: None,
+            runtime_type: None,
             variant_index,
             variant_name: variant_name.into(),
             variant: variant.into(),
         }
+    }
+
+    /// Sets the [runtime type] to be represented by this `DynamicEnum`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [`TypeInfo`] is not a [`TypeInfo::Enum`].
+    ///
+    /// [runtime type]: crate#comptime-vs-runtime-types
+    pub fn set_runtime_type(&mut self, runtime_type: Option<&'static TypeInfo>) {
+        if let Some(runtime_type) = runtime_type {
+            assert!(
+                matches!(runtime_type, TypeInfo::Enum(_)),
+                "expected TypeInfo::Enum but received: {runtime_type:?}",
+            );
+        }
+
+        self.runtime_type = runtime_type;
     }
 
     /// Sets the [type] to be represented by this `DynamicEnum`.
@@ -125,15 +144,12 @@ impl DynamicEnum {
     /// Panics if the given [type] is not a [`TypeInfo::Enum`].
     ///
     /// [type]: TypeInfo
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use [`DynamicEnum::set_runtime_type`] instead"
+    )]
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::Enum(_)),
-                "expected TypeInfo::Enum but received: {represented_type:?}",
-            );
-        }
-
-        self.represented_type = represented_type;
+        self.set_runtime_type(represented_type);
     }
 
     /// Set the current enum variant represented by this struct.
@@ -209,7 +225,7 @@ impl DynamicEnum {
     /// Returns an error if any field of the active variant cannot be converted via
     /// [`PartialReflect::to_dynamic`].
     pub fn try_from_ref<TEnum: Enum + ?Sized>(value: &TEnum) -> Result<Self, ReflectCloneError> {
-        let type_info = value.get_represented_type_info();
+        let type_info = value.runtime_type_info();
         let mut dyn_enum = match value.variant_type() {
             VariantType::Unit => DynamicEnum::new_with_index(
                 value.variant_index(),
@@ -241,7 +257,7 @@ impl DynamicEnum {
             }
         };
 
-        dyn_enum.set_represented_type(type_info);
+        dyn_enum.set_runtime_type(type_info);
         Ok(dyn_enum)
     }
 }
@@ -326,8 +342,13 @@ impl Enum for DynamicEnum {
 
 impl PartialReflect for DynamicEnum {
     #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        self.runtime_type
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        self.runtime_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]

@@ -150,7 +150,7 @@ pub(crate) fn impl_typed(
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
     // The `[inline(never)]` is a binary size optimization, although it may
-    // slightly increase the cost of calling `get_represented_type_info`.
+    // slightly increase the cost of calling `runtime_type_info`.
     quote! {
         impl #impl_generics #bevy_reflect_path::Typed for #type_path #ty_generics #where_reflect_clause {
             #[inline(never)]

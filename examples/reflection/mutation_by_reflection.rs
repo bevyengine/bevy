@@ -207,7 +207,7 @@ fn modify_selected_component(world: &mut World) {
             // For more information, see the `type_data` example.
             let y_field: &mut dyn PartialReflect = translation_struct.field_mut("y").unwrap();
             let field_type_id = y_field
-                .get_represented_type_info()
+                .runtime_type_info()
                 .expect("Found a dynamic type unexpectedly")
                 .type_id();
 

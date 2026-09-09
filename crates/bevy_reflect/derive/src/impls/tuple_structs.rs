@@ -92,7 +92,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
 
             fn to_dynamic_tuple_struct(&self) -> #FQResult<#bevy_reflect_path::tuple_struct::DynamicTupleStruct, #bevy_reflect_path::ReflectCloneError> {
                 let mut dynamic: #bevy_reflect_path::tuple_struct::DynamicTupleStruct = #FQDefault::default();
-                dynamic.set_represented_type(#bevy_reflect_path::PartialReflect::get_represented_type_info(self));
+                dynamic.set_runtime_type(#bevy_reflect_path::PartialReflect::runtime_type_info(self));
                 #(dynamic.insert_boxed(#bevy_reflect_path::PartialReflect::to_dynamic(#fields_ref)?);)*
                 #FQResult::Ok(dynamic)
             }
@@ -100,7 +100,12 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
 
         impl #impl_generics #bevy_reflect_path::PartialReflect for #struct_path #ty_generics #where_reflect_clause {
             #[inline]
-            fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
+            fn runtime_type(&self) -> #FQOption<#bevy_reflect_path::ty::Type> {
+                #FQOption::Some(#bevy_reflect_path::ty::Type::of::<Self>())
+            }
+
+            #[inline]
+            fn runtime_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
