@@ -1307,6 +1307,15 @@ where
             }),
         })
     }
+
+    fn unload_asset(
+        source_asset: AssetId<Self::SourceAsset>,
+        (_, _, _, _, bind_group_allocators, render_material_bindings, ..): &mut SystemParamItem<
+            Self::Param,
+        >,
+    ) {
+        render_material_bindings.unload_material(source_asset, bind_group_allocators);
+    }
 }
 
 /// Creates a [`Material2dPipelineSpecializer`] and uses it to specialize a

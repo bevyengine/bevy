@@ -157,21 +157,25 @@ impl<M: Asset> SpriteMaterialCache<M> {
         get: impl FnOnce() -> M,
     ) -> Handle<M> {
         let key = SpriteMeshMaterialBucketKey::new(sprite, &anchor);
-        let bucket = self.map.entry(key).or_default();
-        let maybe_handle = bucket
-            .iter()
-            .find(|(cached_sprite, _)| cached_sprite == sprite)
-            .and_then(|(_, id)| materials.get_strong_handle(*id));
-
-        match maybe_handle {
-            Some(handle) => handle,
-            None => {
-                let handle = materials.add(get());
-                bucket.push((sprite.clone(), handle.id()));
-                self.reversed.insert(handle.id(), key);
-                handle
+        if let Some(bucket) = self.map.get(&key)
+            && let Some(&(_, id)) = bucket
+                .iter()
+                .find(|(cached_sprite, _)| cached_sprite == sprite)
+        {
+            if let Some(handle) = materials.get_strong_handle(id) {
+                return handle;
             }
+            // Dropped, but the `Removed` event hasn't arrived yet.
+            self.clean(id);
         }
+
+        let handle = materials.add(get());
+        self.map
+            .entry(key)
+            .or_default()
+            .push((sprite.clone(), handle.id()));
+        self.reversed.insert(handle.id(), key);
+        handle
     }
 }
 
@@ -300,5 +304,40 @@ mod tests {
         cache.clean(handle3.id());
         assert_eq!(cache.map.len(), 0);
         assert_eq!(cache.reversed.len(), 0);
+    }
+
+    #[test]
+    fn sprite_material_cache_replaces_dropped_entry() {
+        let mut cache = SpriteMaterialCache::<SpriteMeshMaterial>::default();
+        let mut assets = Assets::default();
+        let handle = cache.get_or_insert_with(
+            &Sprite::default(),
+            Anchor::default(),
+            &mut assets,
+            SpriteMeshMaterial::default,
+        );
+
+        assets.remove(handle.id());
+
+        let handle2 = cache.get_or_insert_with(
+            &Sprite::default(),
+            Anchor::default(),
+            &mut assets,
+            SpriteMeshMaterial::default,
+        );
+        let handle3 = cache.get_or_insert_with(
+            &Sprite::default(),
+            Anchor::default(),
+            &mut assets,
+            SpriteMeshMaterial::default,
+        );
+        assert_ne!(handle, handle2);
+        assert_eq!(handle2, handle3);
+        assert_eq!(cache.map.values().map(Vec::len).sum::<usize>(), 1);
+
+        // late `Removed` event shouldn't evict the replacement
+        cache.clean(handle.id());
+        assert_eq!(cache.map.len(), 1);
+        assert_eq!(cache.reversed.len(), 1);
     }
 }

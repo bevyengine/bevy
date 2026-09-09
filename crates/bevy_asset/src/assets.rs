@@ -292,7 +292,7 @@ pub struct Assets<A: Asset> {
     queued_events: Vec<AssetEvent<A>>,
     /// Assets managed by the `Assets` struct with live strong `Handle`s
     /// originating from `get_strong_handle`.
-    duplicate_handles: HashMap<AssetIndex, u16>,
+    duplicate_handles: HashMap<AssetIndex, u32>,
 }
 
 impl<A: Asset> Default for Assets<A> {
