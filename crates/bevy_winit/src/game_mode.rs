@@ -25,7 +25,7 @@ impl Drop for GameModeResource {
     fn drop(&mut self) {
         info!("GameMode: unregistering pid {}", self.pid);
         if let Err(err) = self.proxy.unregister_game(self.pid) {
-            debug!("GameMode unregister failed: {err}");
+            error!("GameMode unregister failed: {err}");
         }
     }
 }
@@ -69,7 +69,7 @@ fn gamemode(app: &mut App) {
                 info!("GameMode registered, pid {pid}");
                 app.insert_resource(GameModeResource { proxy, pid });
             }
-            Err(err) => debug!("GameMode: register failed: {err}"),
+            Err(err) => error!("GameMode: register failed: {err}"),
         }
     } else {
         debug!("GameMode not available, skipping registration");
