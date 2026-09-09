@@ -16,7 +16,6 @@ use bevy_ecs::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_platform::collections::HashMap;
-use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use disqualified::ShortName;
 use tracing::error;
@@ -242,20 +241,18 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     // In order to access two different entities we implement init_nested_access.
     fn init_nested_access(
         state: &Self::State,
-        system_name: Option<&str>,
         component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
         let mut filter = FilteredAccess::default();
         filter.add_read(state.resource_id);
         filter.and_with(IS_RESOURCE);
 
-        let conflicts = component_access_set.get_conflicts_single(&filter);
-        if conflicts.is_empty() {
-            component_access_set.add(filter);
-            return;
+        if !component_access_set.is_compatible_single(&filter) {
+            return Err(filter.into());
         }
-        panic!("error[B0002]: AssetChanged<{}> in system {:?} conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<A>(), system_name);
+
+        component_access_set.add(filter);
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {

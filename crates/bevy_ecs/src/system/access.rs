@@ -1,10 +1,6 @@
 use alloc::borrow::Cow;
-use bevy_utils::prelude::ShortName;
 
-use crate::{
-    query::{AccessConflicts, FilteredAccess, FilteredAccessSet},
-    system::SystemMeta,
-};
+use crate::query::{AccessConflicts, FilteredAccess, FilteredAccessSet};
 
 /// Represents the access a [`System`] requires to the [`World`].
 ///
@@ -44,6 +40,84 @@ impl SystemAccess {
     /// Returns true if the system requires exclusive access to the world.
     pub fn is_exclusive(&self) -> bool {
         matches!(self, Self::Exclusive)
+    }
+
+    /// Tries to add the provided [`SystemAccess`] to the current access.
+    /// If the provided [`SystemAccess`] is not compatible,
+    /// this will instead return an [`Err`] with the provided [`SystemAccess`].
+    ///
+    /// # Errors
+    ///
+    /// If `self` is not compatible with `other`, this will return an [`Err`] wrapping `other`.
+    pub fn try_extend(&mut self, other: Self) -> Result<(), Self> {
+        if !self.is_compatible(&other) {
+            return Err(other);
+        }
+        self.extend(other);
+        Ok(())
+    }
+
+    /// Tries to add set the current access to [`Exclusive`].
+    /// If the provided [`SystemAccess`] is not [`None`],
+    /// this will instead return an [`Err`] with [`Exclusive`].
+    ///
+    /// This is equivalent to `self.try_extend(SystemAccess::Exclusive)`.
+    ///
+    /// # Errors
+    ///
+    /// If `self` is not compatible with `other`, this will return an [`Err`] wrapping `other`.
+    ///
+    /// [`None`]: SystemAccess::None
+    /// [`Shared`]: SystemAccess::Shared
+    /// [`Exclusive`]: SystemAccess::Exclusive
+    pub fn try_extend_exclusive(&mut self) -> Result<(), Self> {
+        self.try_extend(Self::Exclusive)
+    }
+
+    /// Tries to add access to [`World`] metadata (e.g. [`Archetypes`], [`Components`]) to the current access.
+    /// If the current access is [`Exclusive`],
+    /// this will instead return an [`Err`] with an empty [`Shared`].
+    ///
+    /// On success, `self` is guaranteed to be `Shared`.
+    ///
+    /// This is equivalent to `self.try_extend(SystemAccess::Shared(FilteredAccessSet::new()))`.
+    ///
+    /// # Errors
+    ///
+    /// If `self` is [`Exclusive`], this will return an [`Err`] with an empty [`Shared`].
+    ///
+    /// [`World`]: crate::world::World
+    /// [`Archetypes`]: crate::archetype::Archetypes
+    /// [`Components`]: crate::component::Components
+    /// [`Shared`]: SystemAccess::Shared
+    /// [`Exclusive`]: SystemAccess::Exclusive
+    pub fn try_extend_metadata(&mut self) -> Result<(), Self> {
+        self.try_extend(Self::Shared(FilteredAccessSet::new()))
+    }
+
+    /// Tries to add the provided [`FilteredAccess`] to the current access.
+    /// If the provided [`SystemAccess`] is not compatible,
+    /// this will instead return an [`Err`] with a [`Shared`] that includes the provided [`FilteredAccess`].
+    ///
+    /// This is equivalent to `self.try_extend(SystemAccess::Shared(other.into()))`.
+    ///
+    /// # Errors
+    ///
+    /// If `self` is not compatible with `other`, this will return an [`Err`] with a [`Shared`] wrapping `other`.
+    ///
+    /// [`Shared`]: SystemAccess::Shared
+    pub fn try_extend_single(&mut self, other: FilteredAccess) -> Result<(), Self> {
+        if let Self::None = self {
+            *self = Self::Shared(FilteredAccessSet::new());
+        }
+        if let Self::Shared(access) = self
+            && access.is_compatible_single(&other)
+        {
+            access.add(other);
+            Ok(())
+        } else {
+            Err(Self::Shared(other.into()))
+        }
     }
 
     /// Returns true if this system's access is compatible with the other
@@ -118,157 +192,6 @@ impl SystemAccess {
         }
     }
 
-    /// Marks the system as requiring shared access to the world, which means it
-    /// can run in parallel with other systems that also require shared access,
-    /// as long as they don't require exclusive access to the same components.
-    ///
-    /// The provided type `T` is used for error reporting in case of access conflicts;
-    /// it should be the type of the system parameter that is requesting shared access.
-    ///
-    /// # Panics
-    ///
-    /// If the system already has exclusive access, this method will panic with
-    /// an error message indicating the conflict.
-    ///
-    /// # Examples
-    ///
-    /// ## Only metadata access required
-    ///
-    /// If a system parameter requires access to world metadata but not any
-    /// particular components, you may call this function without modifying the
-    /// returned [`FilteredAccessSet`]:
-    ///
-    /// ```rust,no_run
-    /// # use bevy_ecs::system::{SystemAccess, SystemMeta, SystemParam, SystemParamValidationError};
-    /// # use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId};
-    /// # use bevy_ecs::change_detection::Tick;
-    /// pub struct MyWorldId(WorldId);
-    ///
-    /// // SAFETY: World metadata is registered and accessed.
-    /// unsafe impl SystemParam for MyWorldId {
-    ///     type State = ();
-    ///     type Item<'world, 'state> = MyWorldId;
-    ///
-    ///     fn init_state(_: &mut World) -> Self::State {}
-    ///
-    ///     fn init_access(
-    ///         _state: &Self::State,
-    ///         system_meta: &mut SystemMeta,
-    ///         system_access: &mut SystemAccess,
-    ///         _world: &mut World,
-    ///     ) {
-    ///         system_access.require_shared_access::<Self>(system_meta);
-    ///     }
-    ///
-    ///     unsafe fn get_param<'world, 'state>(
-    ///         _: &'state mut Self::State,
-    ///         _: &SystemMeta,
-    ///         world: UnsafeWorldCell<'world>,
-    ///         _: Tick,
-    ///     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-    ///         Ok(MyWorldId(world.id()))
-    ///     }
-    /// }
-    /// ```
-    pub fn require_shared_access<T>(&mut self, system_meta: &SystemMeta) -> &mut FilteredAccessSet {
-        match self {
-            this @ Self::None => {
-                *this = Self::Shared(FilteredAccessSet::new());
-                if let Self::Shared(access) = this {
-                    access
-                } else {
-                    unreachable!()
-                }
-            }
-            Self::Shared(access) => access,
-            Self::Exclusive => panic!(
-                "error[B0002]: {} in system {} conflicts with a previous system parameter.",
-                ShortName::of::<T>(),
-                system_meta.name()
-            ),
-        }
-    }
-
-    /// Marks the system as requiring exclusive access to the world, meaning no
-    /// other [`Shared`] or [`Exclusive`] system can run in parallel with it.
-    ///
-    /// The provided type `T` is used for error reporting in case of access conflicts;
-    /// it should be the type of the system parameter that is requesting exclusive access.
-    ///
-    /// # Panics
-    ///
-    /// If the system already has shared or exclusive access, this method will
-    /// panic with an error message indicating the conflict.
-    ///
-    /// [`Shared`]: SystemAccess::Shared
-    /// [`Exclusive`]: SystemAccess::Exclusive
-    pub fn require_exclusive_access<T>(&mut self, system_meta: &SystemMeta) {
-        if !matches!(self, Self::None) {
-            panic!(
-                "error[B0002]: {} in system {} conflicts with a previous system parameter.",
-                ShortName::of::<T>(),
-                system_meta.name()
-            );
-        }
-        *self = Self::Exclusive;
-    }
-
-    /// Attempts to add the provided [`FilteredAccess`] to the system's current access.
-    ///
-    /// - If the system currently has [`None`] access, it will change this access
-    ///   to [`Shared`] and add the provided [`FilteredAccess`].
-    /// - If the system currently has [`Shared`] access, it will check for conflicts
-    ///   with the provided [`FilteredAccess`]. If there are no conflicts, it will
-    ///   add the provided [`FilteredAccess`]. If there are conflicts, it will return
-    ///   an [`AccessConflicts`] error.
-    /// - If the system currently has [`Exclusive`] access, it will error
-    ///   with [`AccessConflicts::All`].
-    ///
-    /// # Errors
-    ///
-    /// If there are conflicts with the system's current access, an
-    /// [`AccessConflicts`] error will be returned.
-    ///
-    /// [`None`]: SystemAccess::None
-    /// [`Shared`]: SystemAccess::Shared
-    /// [`Exclusive`]: SystemAccess::Exclusive
-    pub fn try_add(&mut self, filtered_access: FilteredAccess) -> Result<(), AccessConflicts> {
-        let conflicts = self.get_conflicts_single(&filtered_access);
-        self.ensure_filtered_access(filtered_access);
-        if conflicts.is_empty() {
-            Ok(())
-        } else {
-            Err(conflicts)
-        }
-    }
-
-    /// Marks the system as requiring access to certain or all components or
-    /// resources in the [`World`].
-    ///
-    /// [`World`]: crate::world::World
-    pub fn ensure_filtered_access(&mut self, filtered_access: FilteredAccess) {
-        self.ensure_metadata_access();
-        // If the system is `Exclusive` then we already have access to everything,
-        // so we don't need to add anything.
-        if let Self::Shared(access) = self {
-            access.add(filtered_access);
-        }
-    }
-
-    /// Marks the system as requiring access to [`World`] metadata
-    /// (e.g. [`Archetypes`], [`Components`], etc.).
-    ///
-    /// [`World`]: crate::world::World
-    /// [`Archetypes`]: crate::archetype::Archetypes
-    /// [`Components`]: crate::component::Components
-    pub fn ensure_metadata_access(&mut self) {
-        // If the system is `Shared` or `Exclusive` then we already have access
-        // to metadata, so we don't need to add anything.
-        if let Self::None = self {
-            *self = Self::Shared(FilteredAccessSet::new());
-        }
-    }
-
     /// Merges the provided [`SystemAccess`] into the system's current access.
     pub fn extend(&mut self, other: Self) {
         match (&mut *self, other) {
@@ -296,63 +219,8 @@ mod tests {
     use crate::{
         component::ComponentId,
         query::{FilteredAccess, FilteredAccessSet},
-        system::{SystemAccess, SystemMeta},
+        system::SystemAccess,
     };
-
-    #[test]
-    fn check_default_access() {
-        let mut access = SystemAccess::default();
-
-        assert_eq!(access, SystemAccess::None);
-        assert!(access.is_none());
-        assert_ne!(access, SystemAccess::Shared(FilteredAccessSet::default()));
-        assert!(!access.is_shared());
-        assert_ne!(access, SystemAccess::Exclusive);
-        assert!(!access.is_exclusive());
-
-        access.ensure_metadata_access();
-
-        assert!(access.is_shared());
-        assert_eq!(access, SystemAccess::Shared(FilteredAccessSet::default()));
-    }
-
-    #[test]
-    fn check_shared_access() {
-        let mut access = SystemAccess::Shared(FilteredAccessSet::default());
-
-        assert_ne!(access, SystemAccess::None);
-        assert!(!access.is_none());
-        assert!(access.is_shared());
-        assert_ne!(access, SystemAccess::Exclusive);
-        assert!(!access.is_exclusive());
-
-        access.ensure_metadata_access();
-
-        assert!(access.is_shared());
-
-        access.ensure_filtered_access(FilteredAccess::default());
-
-        assert!(access.is_shared());
-    }
-
-    #[test]
-    fn check_exclusive_access() {
-        let mut access = SystemAccess::Exclusive;
-
-        assert_ne!(access, SystemAccess::None);
-        assert!(!access.is_none());
-        assert_ne!(access, SystemAccess::Shared(FilteredAccessSet::default()));
-        assert!(!access.is_shared());
-        assert!(access.is_exclusive());
-
-        access.ensure_metadata_access();
-
-        assert!(access.is_exclusive());
-
-        access.ensure_filtered_access(FilteredAccess::default());
-
-        assert!(access.is_exclusive());
-    }
 
     #[test]
     fn check_compatibility() {
@@ -407,42 +275,6 @@ mod tests {
             access_exclusive.get_conflicts(&access_exclusive),
             crate::query::AccessConflicts::All
         );
-    }
-
-    #[test]
-    #[should_panic]
-    fn require_shared_access_panics_on_exclusive() {
-        let mut access = SystemAccess::Exclusive;
-        access.require_shared_access::<()>(&SystemMeta::new::<()>());
-    }
-
-    #[test]
-    #[should_panic]
-    fn require_exclusive_access_panics_on_shared() {
-        let mut access = SystemAccess::Shared(FilteredAccessSet::default());
-        access.require_exclusive_access::<()>(&SystemMeta::new::<()>());
-    }
-
-    #[test]
-    #[should_panic]
-    fn require_exclusive_access_panics_on_exclusive() {
-        let mut access = SystemAccess::Exclusive;
-        access.require_exclusive_access::<()>(&SystemMeta::new::<()>());
-    }
-
-    #[test]
-    fn try_add_returns_correctly() {
-        let mut access = SystemAccess::None;
-        let filtered_access = FilteredAccess::default();
-
-        assert!(access.try_add(filtered_access.clone()).is_ok());
-        assert!(access.is_shared());
-
-        let mut access_shared = SystemAccess::Shared(FilteredAccessSet::default());
-        assert!(access_shared.try_add(filtered_access.clone()).is_ok());
-
-        let mut access_exclusive = SystemAccess::Exclusive;
-        assert!(access_exclusive.try_add(filtered_access).is_err());
     }
 
     #[test]

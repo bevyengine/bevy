@@ -124,16 +124,14 @@ pub unsafe trait WorldQuery {
 
     /// Adds any component accesses to other entities used by this [`WorldQuery`].
     ///
-    /// This method must panic if the access would conflict with any existing access in the [`FilteredAccessSet`].
+    /// This method must return `Err` if the access would conflict with any existing access in the [`FilteredAccessSet`].
     ///
     /// This is used for queries to request access to entities other than the current one,
     /// such as to read resources or to follow relations.
     fn init_nested_access(
         state: &Self::State,
-        system_name: Option<&str>,
         component_access_set: &mut FilteredAccessSet,
-        world: UnsafeWorldCell,
-    );
+    ) -> Result<(), FilteredAccessSet>;
 
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
@@ -232,12 +230,11 @@ macro_rules! impl_tuple_world_query {
 
             fn init_nested_access(
                 state: &Self::State,
-                _system_name: Option<&str>,
                 _component_access_set: &mut FilteredAccessSet,
-                _world: UnsafeWorldCell,
-            ) {
+            ) -> Result<(), FilteredAccessSet> {
                 let ($($state,)*) = state;
-                $($name::init_nested_access($state, _system_name, _component_access_set, _world);)*
+                $($name::init_nested_access($state, _component_access_set)?;)*
+                Ok(())
             }
 
             fn init_state(world: &mut World) -> Self::State {

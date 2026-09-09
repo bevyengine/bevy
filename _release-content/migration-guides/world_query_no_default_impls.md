@@ -20,10 +20,9 @@ impl WorldQuery {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
