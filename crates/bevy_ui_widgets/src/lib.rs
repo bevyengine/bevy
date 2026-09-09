@@ -50,6 +50,7 @@
 mod button;
 mod checkbox;
 mod dialog;
+mod drag_proxy;
 mod list;
 mod menu;
 mod modal;
@@ -68,6 +69,7 @@ use bevy_input_focus::pointer_focus::PointerFocusPlugin;
 pub use button::*;
 pub use checkbox::*;
 pub use dialog::*;
+pub use drag_proxy::*;
 pub use list::*;
 pub use menu::*;
 pub use modal::*;
@@ -101,6 +103,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(ListBoxPlugin)
             .add(MenuPlugin)
             .add(DialogPlugin)
+            .add(DragProxyPlugin)
             .add(ModalDialogPlugin)
             .add(PopoverPlugin)
             .add(RadioGroupPlugin)
