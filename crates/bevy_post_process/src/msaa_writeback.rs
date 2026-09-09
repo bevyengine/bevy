@@ -112,9 +112,7 @@ fn prepare_msaa_writeback_pipelines(
         // the real content
         let should_writeback = match camera.msaa_writeback {
             MsaaWriteback::Off => false,
-            // The first camera has no previous rendering results to writeback.
-            MsaaWriteback::Auto => camera.sorted_camera_index_for_target > 0,
-            MsaaWriteback::Always => true,
+            MsaaWriteback::Auto | MsaaWriteback::Always => true,
         } && matches!(camera.clear_color, ClearColorConfig::None);
 
         if msaa.samples() > 1 && should_writeback {
