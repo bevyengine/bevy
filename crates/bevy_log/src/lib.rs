@@ -246,6 +246,13 @@ pub struct LogPlugin {
     /// timestamp from the log output.
     ///
     /// Please see the `examples/app/log_layers.rs` for a complete example.
+    ///
+    /// Note: on iOS this hook is not called at all, because no formatter layer is used
+    /// there (logs are written to the unified logging system by `tracing-oslog`). On
+    /// Android the hook is called, but no default formatter layer is installed when it
+    /// returns `None`: `LogPlugin` already writes every log event to the Android logging
+    /// system (logcat), and the Android activity glue separately forwards `stderr` to
+    /// logcat, so the default `stderr` writer would duplicate every log line.
     pub fmt_layer: fn(app: &mut App) -> Option<BoxedFmtLayer>,
 
     /// Whether to stream events to the Tracy profiler or collector. Only enable
@@ -360,7 +367,17 @@ impl Plugin for LogPlugin {
                 None
             };
 
-            let fmt_layer = (self.fmt_layer)(app).unwrap_or_else(|| {
+            let fmt_layer = (self.fmt_layer)(app);
+
+            // On Android the default formatter layer is not installed when no custom
+            // layer is provided (`None` simply passes through: `Option` implements
+            // `Layer`, so it contributes nothing). Every log event is already written
+            // to the Android logging system (logcat) by `AndroidLayer` below, and
+            // `stderr` is separately forwarded to logcat by the Android activity glue,
+            // so writing to stderr too would duplicate every log line in logcat (with
+            // ANSI escape codes and under the `RustStdoutStderr` tag).
+            #[cfg(not(target_os = "android"))]
+            let fmt_layer = fmt_layer.unwrap_or_else(|| {
                 // note: the implementation of `Default` reads from the env var NO_COLOR
                 // to decide whether to use ANSI color codes, which is common convention
                 // https://no-color.org/
