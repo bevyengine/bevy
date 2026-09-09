@@ -36,7 +36,7 @@ collections to build your own "profile" equivalent, without needing to manually 
 
 |Collection|Description|
 |-|-|
-|dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps! **Feature set:** `debug`, `bevy_dev_tools`, `file_watcher`.|
+|dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps! **Feature set:** `debug`, `bevy_dev_tools`, `render_dev_tools`, `file_watcher`.|
 |audio|Features used to build audio Bevy apps. **Feature set:** `bevy_audio`, `vorbis`.|
 |audio-all-formats|Enables audio features and all supported formats. **Feature set:** `bevy_audio`, `aac`, `flac`, `mp3`, `mp4`, `vorbis`, `wav`.|
 |scene|Features used to compose Bevy scenes. **Feature set:** `bevy_world_serialization`, `bevy_scene`.|
@@ -176,6 +176,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
 |reflect_documentation|Enables `bevy_reflect` to access documentation comments of Rust code at runtime|
 |reflect_functions|Enable function reflection|
+|render_dev_tools|Enable systems that allow for renderable dev tools|
 |schedule_data|Enable collecting schedule data from the app.|
 |serialize|Enable serialization support through serde|
 |shader_format_spirv|Enable support for shaders in SPIR-V|

@@ -59,7 +59,7 @@ pub use wgpu::{
     Sampler as WgpuSampler, SamplerBindingType, SamplerDescriptor, ShaderModule,
     ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState, StencilOperation,
     StencilState, StorageTextureAccess, StoreOp, TaskState as RawTaskState, TexelCopyBufferInfo,
-    TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect, TextureDescriptor,
+    TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect, TextureChannel, TextureDescriptor,
     TextureDimension, TextureFormat, TextureFormatFeatureFlags, TextureFormatFeatures,
     TextureSampleType, TextureUsages, TextureView as WgpuTextureView, TextureViewDescriptor,
     TextureViewDimension, Tlas, TlasInstance, VertexAttribute,
