@@ -152,6 +152,28 @@ impl MorphUniforms {
 }
 
 impl MorphIndices {
+    /// Returns whether the entity has extracted morph weights for the current frame.
+    pub(crate) fn contains(&self, entity: MainEntity) -> bool {
+        match self {
+            Self::Uniform { current, .. } => current.contains_key(&entity),
+            Self::Storage {
+                morph_weights_info, ..
+            } => morph_weights_info.contains_key(&entity),
+        }
+    }
+
+    /// A mesh's morph targets are only used by instances with extracted weights.
+    pub(crate) fn mesh_key(
+        &self,
+        entity: MainEntity,
+        mut key: crate::MeshPipelineKey,
+    ) -> crate::MeshPipelineKey {
+        if !self.contains(entity) {
+            key.remove(crate::MeshPipelineKey::MORPH_TARGETS);
+        }
+        key
+    }
+
     /// Returns the index of the morph descriptor in the morph descriptor table
     /// for the given entity.
     ///
@@ -443,5 +465,78 @@ pub fn no_automatic_morph_batching(
 
     for entity in &query {
         commands.entity(entity).try_insert(NoAutomaticBatching);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::MeshPipelineKey;
+    use bevy_utils::default;
+
+    #[test]
+    fn morph_pipeline_key_is_per_entity_and_tracks_removal() {
+        let mut world = World::new();
+        let morphed = MainEntity::from(world.spawn_empty().id());
+        let plain = MainEntity::from(world.spawn_empty().id());
+        let base = MeshPipelineKey::MORPH_TARGETS | MeshPipelineKey::DEPTH_PREPASS;
+        for storage in [false, true] {
+            let mut indices = if storage {
+                MorphIndices::Storage {
+                    morph_weights_info: default(),
+                    gpu_descriptor_indices: default(),
+                    gpu_descriptor_free_list: default(),
+                }
+            } else {
+                MorphIndices::Uniform {
+                    current: default(),
+                    prev: default(),
+                }
+            };
+            assert_eq!(
+                indices.mesh_key(morphed, base),
+                MeshPipelineKey::DEPTH_PREPASS
+            );
+            match &mut indices {
+                MorphIndices::Uniform { current, .. } => {
+                    current.insert(morphed, MorphIndex { index: 0 });
+                }
+                MorphIndices::Storage {
+                    morph_weights_info, ..
+                } => {
+                    morph_weights_info.insert(
+                        morphed,
+                        MorphWeightsInfo {
+                            current_weight_offset: 0,
+                            prev_weight_offset: None,
+                            weight_count: 1,
+                        },
+                    );
+                }
+            }
+            assert_eq!(indices.mesh_key(morphed, base), base);
+            assert_eq!(
+                indices.mesh_key(plain, base),
+                MeshPipelineKey::DEPTH_PREPASS
+            );
+            assert_eq!(
+                indices.mesh_key(morphed, MeshPipelineKey::DEPTH_PREPASS),
+                MeshPipelineKey::DEPTH_PREPASS
+            );
+            match &mut indices {
+                MorphIndices::Uniform { current, .. } => {
+                    current.remove(&morphed);
+                }
+                MorphIndices::Storage {
+                    morph_weights_info, ..
+                } => {
+                    morph_weights_info.remove(&morphed);
+                }
+            }
+            assert_eq!(
+                indices.mesh_key(morphed, base),
+                MeshPipelineKey::DEPTH_PREPASS
+            );
+        }
     }
 }

@@ -2422,6 +2422,7 @@ pub struct PendingShadowQueues(pub PendingQueues);
 
 #[derive(SystemParam)]
 pub(crate) struct SpecializeShadowsSystemParam<'w, 's> {
+    morph_indices: Res<'w, MorphIndices>,
     render_meshes: Res<'w, RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<'w, RenderMeshInstances>,
     render_materials: Res<'w, ErasedRenderAssets<PreparedMaterial>>,
@@ -2447,6 +2448,7 @@ pub(crate) fn specialize_shadows(
 
     {
         let SpecializeShadowsSystemParam {
+            morph_indices,
             render_meshes,
             render_mesh_instances,
             render_materials,
@@ -2565,8 +2567,11 @@ pub(crate) fn specialize_shadows(
                     continue;
                 };
 
-                let mut mesh_key =
-                    *light_key | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits());
+                let mut mesh_key = *light_key
+                    | morph_indices.mesh_key(
+                        *visible_entity,
+                        MeshPipelineKey::from_bits_retain(mesh.key_bits.bits()),
+                    );
 
                 // Even though we don't use the lightmap in the shadow map, the
                 // `SetMeshBindGroup` render command will bind the data for it. So

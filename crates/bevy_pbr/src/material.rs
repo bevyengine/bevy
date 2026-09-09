@@ -918,6 +918,7 @@ pub fn check_entities_needing_specialization<M>(
                 AssetChanged<Mesh3d>,
                 Changed<MeshMaterial3d<M>>,
                 AssetChanged<MeshMaterial3d<M>>,
+                Added<bevy_mesh::morph::MeshMorphWeights>,
             )>,
             With<MeshMaterial3d<M>>,
         ),
@@ -926,6 +927,8 @@ pub fn check_entities_needing_specialization<M>(
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
     mut removed_mesh_3d_components: RemovedComponents<Mesh3d>,
     mut removed_mesh_material_3d_components: RemovedComponents<MeshMaterial3d<M>>,
+    mut removed_morph_weights: RemovedComponents<bevy_mesh::morph::MeshMorphWeights>,
+    material_meshes: Query<(), (With<Mesh3d>, With<MeshMaterial3d<M>>)>,
 ) where
     M: Material,
 {
@@ -937,6 +940,13 @@ pub fn check_entities_needing_specialization<M>(
         .par_iter()
         .for_each(|entity| par_local.borrow_local_mut().push(entity));
     par_local.drain_into(&mut entities_needing_specialization.changed);
+
+    // Changing weights does not change the pipeline, but removing the component does.
+    entities_needing_specialization.changed.extend(
+        removed_morph_weights
+            .read()
+            .filter(|entity| material_meshes.contains(*entity)),
+    );
 
     // All entities that removed their `Mesh3d` or `MeshMaterial3d` components
     // need to have their specializations removed as well.
@@ -972,6 +982,7 @@ pub struct PendingMeshMaterialQueues(pub PendingQueues);
 
 #[derive(SystemParam)]
 pub(crate) struct SpecializeMaterialMeshesSystemParam<'w, 's> {
+    morph_indices: Res<'w, MorphIndices>,
     render_meshes: Res<'w, RenderAssets<RenderMesh>>,
     render_materials: Res<'w, ErasedRenderAssets<PreparedMaterial>>,
     render_mesh_instances: Res<'w, RenderMeshInstances>,
@@ -1000,6 +1011,7 @@ pub(crate) fn specialize_material_meshes(
 
     {
         let SpecializeMaterialMeshesSystemParam {
+            morph_indices,
             render_meshes,
             render_materials,
             render_mesh_instances,
@@ -1111,7 +1123,10 @@ pub(crate) fn specialize_material_meshes(
                     &Msaa::from_samples(view_key.msaa_samples()),
                 ));
                 let mut mesh_key = *view_key
-                    | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
+                    | morph_indices.mesh_key(
+                        *visible_entity,
+                        MeshPipelineKey::from_bits_retain(mesh.key_bits.bits()),
+                    )
                     | mesh_pipeline_key_bits;
 
                 if let Some(lightmap) = render_lightmaps.render_lightmaps.get(visible_entity) {
@@ -1834,5 +1849,68 @@ impl MaterialPropertiesExt for MaterialProperties {
         // So we have to disable the optimization for depth only prepass and always bind the material's bind group.
         self.get_shader(PrepassVertexShader).is_some()
             || self.get_shader(PrepassFragmentShader).is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_mesh::morph::MeshMorphWeights;
+
+    #[test]
+    fn morph_component_changes_require_specialization_but_weight_updates_do_not() {
+        let mut world = World::new();
+        world.init_resource::<EntitiesNeedingSpecialization<StandardMaterial>>();
+        let entity = world
+            .spawn((
+                Mesh3d::default(),
+                MeshMaterial3d::<StandardMaterial>::default(),
+            ))
+            .id();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(check_entities_needing_specialization::<StandardMaterial>);
+        schedule.run(&mut world);
+        schedule.run(&mut world);
+        assert!(world
+            .resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
+            .changed
+            .is_empty());
+
+        world
+            .entity_mut(entity)
+            .insert(MeshMorphWeights::Value { weights: vec![0.0] });
+        schedule.run(&mut world);
+        assert_eq!(
+            world
+                .resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
+                .changed,
+            vec![entity]
+        );
+
+        *world.get_mut::<MeshMorphWeights>(entity).unwrap() =
+            MeshMorphWeights::Value { weights: vec![0.5] };
+        schedule.run(&mut world);
+        assert!(world
+            .resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
+            .changed
+            .is_empty());
+
+        world.entity_mut(entity).remove::<MeshMorphWeights>();
+        schedule.run(&mut world);
+        assert_eq!(
+            world
+                .resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
+                .changed,
+            vec![entity]
+        );
+
+        world
+            .entity_mut(entity)
+            .insert(MeshMorphWeights::Value { weights: vec![1.0] });
+        schedule.run(&mut world);
+        assert!(world
+            .resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
+            .changed
+            .contains(&entity));
     }
 }

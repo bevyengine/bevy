@@ -1965,6 +1965,7 @@ pub fn extract_meshes_for_gpu_building(
                 )>,
                 Changed<VisibilityRange>,
                 Changed<SkinnedMesh>,
+                Added<bevy_mesh::morph::MeshMorphWeights>,
             )>,
         >,
     >,
@@ -1981,6 +1982,7 @@ pub fn extract_meshes_for_gpu_building(
         mut removed_no_cpu_culling_query,
         mut removed_visibility_range_query,
         mut removed_skinned_mesh_query,
+        mut removed_morph_weights_query,
     ): (
         Extract<RemovedComponents<PreviousGlobalTransform>>,
         Extract<RemovedComponents<Lightmap>>,
@@ -1994,6 +1996,7 @@ pub fn extract_meshes_for_gpu_building(
         Extract<RemovedComponents<NoCpuCulling>>,
         Extract<RemovedComponents<VisibilityRange>>,
         Extract<RemovedComponents<SkinnedMesh>>,
+        Extract<RemovedComponents<bevy_mesh::morph::MeshMorphWeights>>,
     ),
     all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
@@ -2033,7 +2036,8 @@ pub fn extract_meshes_for_gpu_building(
             .chain(removed_no_automatic_batching_query.read())
             .chain(removed_no_cpu_culling_query.read())
             .chain(removed_visibility_range_query.read())
-            .chain(removed_skinned_mesh_query.read()),
+            .chain(removed_skinned_mesh_query.read())
+            .chain(removed_morph_weights_query.read()),
     );
 
     // We have to skip the meshes in the potential reextraction set if we
@@ -4520,13 +4524,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             MorphIndices::Storage { .. } => {
                 current_morph_index = None;
                 prev_morph_index = None;
-                morph_bind_group_key =
-                    match mesh_slabs.and_then(|mesh_slabs| mesh_slabs.morph_target_slab_id) {
-                        Some(morph_target_slab_id) => {
-                            MeshMorphBindGroupKey::Storage((metadata_slab_id, morph_target_slab_id))
-                        }
-                        None => MeshMorphBindGroupKey::NoMorphTargets,
-                    };
+                morph_bind_group_key = match mesh_slabs
+                    .filter(|_| morph_indices.contains(*entity))
+                    .and_then(|mesh_slabs| mesh_slabs.morph_target_slab_id)
+                {
+                    Some(morph_target_slab_id) => {
+                        MeshMorphBindGroupKey::Storage((metadata_slab_id, morph_target_slab_id))
+                    }
+                    None => MeshMorphBindGroupKey::NoMorphTargets,
+                };
             }
         };
 
