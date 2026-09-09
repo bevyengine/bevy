@@ -509,10 +509,10 @@ pub fn extract_cameras(
 ) {
     main_pass_formats.clear();
     let primary_window = primary_window.iter().next();
+    // Note: RenderVisibleEntities is omitted here as it must persist on a camera entity once it has been created
     type ExtractedCameraComponents = (
         ExtractedCamera,
         ExtractedView,
-        RenderVisibleEntities,
         ResolvedCompositingSpace,
         TemporalJitter,
         MipBias,

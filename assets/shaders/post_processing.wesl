@@ -1,4 +1,4 @@
-// This shader computes the chromatic aberration effect
+//! This shader computes the chromatic aberration effect
 
 // Since post processing is a fullscreen effect, we use the fullscreen vertex shader provided by bevy.
 // This will import a vertex shader that renders a single fullscreen triangle.
@@ -43,4 +43,3 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         1.0
     );
 }
-

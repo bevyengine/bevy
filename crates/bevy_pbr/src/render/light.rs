@@ -107,6 +107,7 @@ pub struct ExtractedRectLight {
 }
 
 #[derive(Component, Debug)]
+#[require(DirectionalLightViewEntities)]
 pub struct ExtractedDirectionalLight {
     pub color: LinearRgba,
     pub illuminance: f32,
@@ -952,16 +953,6 @@ pub fn extract_lights(
 /// Component automatically attached to a light entity to track light-view entities
 /// for each view.
 pub struct DirectionalLightViewEntities(EntityHashMap<Vec<Entity>>);
-
-// TODO: using required component
-pub(crate) fn add_light_view_entities(
-    add: On<Add<ExtractedDirectionalLight>>,
-    mut commands: Commands,
-) {
-    if let Ok(mut v) = commands.get_entity(add.entity) {
-        v.insert(DirectionalLightViewEntities::default());
-    }
-}
 
 pub(crate) fn remove_light_view_entities(
     remove: On<Remove<DirectionalLightViewEntities>>,

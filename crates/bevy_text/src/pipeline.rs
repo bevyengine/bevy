@@ -29,7 +29,7 @@ struct TextSectionView<'a> {
     index: usize,
     text: &'a str,
     text_font: &'a TextFont,
-    font_size: f32,
+    logical_font_size: f32,
     line_height: LineHeight,
     letter_spacing: LetterSpacing,
 }
@@ -143,7 +143,7 @@ impl TextPipeline {
                     index,
                     text,
                     text_font,
-                    font_size,
+                    logical_font_size: font_size,
                     line_height,
                     letter_spacing,
                 });
@@ -195,7 +195,10 @@ impl TextPipeline {
                     )),
                     range.clone(),
                 );
-                builder.push(StyleProperty::FontSize(section.font_size), range.clone());
+                builder.push(
+                    StyleProperty::FontSize(section.logical_font_size),
+                    range.clone(),
+                );
                 builder.push(
                     StyleProperty::LineHeight(section.line_height.eval()),
                     range.clone(),
