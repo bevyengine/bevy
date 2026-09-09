@@ -299,7 +299,7 @@ distrobox create -n bevybuild --image fedora:latest --additional-packages "gcc-c
 Now you have a distrobox named fedora that can run your builds:
 
 ```sh
-distrobox-enter --name fedora -- cargo build
+distrobox enter -n bevybuild -- cargo build
 ```
 
 Once an executable is built, run it as normal:
