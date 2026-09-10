@@ -434,8 +434,8 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    #[inline]
     /// Retrieves many references to the [`Asset`] with the given `id`s, if they exists.
+    #[inline]
     pub fn get_many<const N: usize>(&self, ids: [AssetId<A>; N]) -> [Option<&A>; N] {
         ids.map(|id| self.get(id))
     }
@@ -459,10 +459,10 @@ impl<A: Asset> Assets<A> {
         })
     }
 
-    #[inline]
-    #[expect(unsafe_code, reason = "Required to get several mutable references")]
     /// Retrieves may mutable references to the [`Asset`]s with the given `id`s, if they exists.
     /// Will return `None` if any `id`s alias.
+    #[inline]
+    #[expect(unsafe_code, reason = "Required to get several mutable references")]
     pub fn get_many_mut<const N: usize>(
         &mut self,
         ids: [AssetId<A>; N],
@@ -480,7 +480,9 @@ impl<A: Asset> Assets<A> {
 
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
         for (value, asset) in core::iter::zip(&mut values, ids) {
-            let asset = self.get_mut(asset).map(|asset| core::ptr::from_mut(asset));
+            let asset = self
+                .get_mut(asset)
+                .map(|mut asset| core::ptr::from_mut(&mut *asset));
             *value = MaybeUninit::new(asset);
         }
 
@@ -783,8 +785,8 @@ pub enum InvalidGenerationError {
 #[cfg(test)]
 mod test {
     use crate::prelude::*;
-    use crate::tests::{SubText, TestAsset};
     use crate::tests::create_app;
+    use crate::tests::{SubText, TestAsset};
     use crate::AssetIndex;
     use bevy_ecs::prelude::Messages;
     use bevy_reflect::TypePath;
@@ -821,8 +823,9 @@ mod test {
         let id = assets.add(TestAsset).id();
         let result = assets.get_many_mut([id, id]);
         assert!(result.is_none());
+    }
 
-        #[test]
+    #[test]
     fn assets_mut_change_detection() {
         #[derive(Asset, TypePath, Default)]
         struct TestAsset {
