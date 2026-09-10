@@ -277,7 +277,7 @@ pub unsafe trait SystemParam: Sized {
     ///   access was registered in [`init_access`](SystemParam::init_access).
     /// - [`SystemParam::init_access`] must not request conflicting access.
     ///   If `Self` is `ReadOnlySystemParam`, the access is read-only and can never conflict.
-    ///   Otherwise, [`SystemParam::init_access`] must be called to ensure it does not panic.
+    ///   Otherwise, [`SystemParam::init_access`] must be called to ensure it does not return [`Err`].
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
@@ -386,7 +386,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 }
 
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
-// this Query conflicts with any prior access, a panic will occur.
+// this Query conflicts with any prior access, an `Err` will be returned.
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
     type State = QueryState<D, F>;
     type Item<'w, 's> = Query<'w, 's, D, F>;
@@ -451,7 +451,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
 }
 
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
-// this Query conflicts with any prior access, a panic will occur.
+// this Query conflicts with any prior access, an `Err` will be returned.
 unsafe impl<'a, 'b, D: IterQueryData + 'static, F: QueryFilter + 'static> SystemParam
     for Single<'a, 'b, D, F>
 {
@@ -504,7 +504,7 @@ unsafe impl<'a, 'b, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 }
 
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
-// this Query conflicts with any prior access, a panic will occur.
+// this Query conflicts with any prior access, an `Err` will be returned.
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for Populated<'_, '_, D, F>
 {
@@ -679,7 +679,7 @@ macro_rules! impl_param_set {
         { }
 
         // SAFETY: Relevant parameter ComponentId access is applied to SystemMeta. If any ParamState conflicts
-        // with any prior access, a panic will occur.
+        // with any prior access, an `Err` will be returned.
         unsafe impl<'_w, '_s, $($param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, ($($param,)*)>
         {
             type State = ($($param::State,)*);
@@ -783,7 +783,7 @@ all_tuples_enumerated!(impl_param_set, 1, 8, P, p);
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
 // SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
-// conflicts with any prior access, a panic will occur.
+// conflicts with any prior access, an `Err` will be returned.
 unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
@@ -832,7 +832,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 }
 
 // SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
-// conflicts with any prior access, a panic will occur.
+// conflicts with any prior access, an `Err` will be returned.
 unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
@@ -884,7 +884,7 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
 // SAFETY: only reads world
 unsafe impl<'w> ReadOnlySystemParam for &'w World {}
 
-// SAFETY: `read_all` access is set and conflicts result in a panic
+// SAFETY: `read_all` access is set and conflicts result in an `Err`
 unsafe impl SystemParam for &'_ World {
     type State = ();
     type Item<'w, 's> = &'w World;
@@ -916,7 +916,7 @@ unsafe impl SystemParam for &'_ World {
     }
 }
 
-// SAFETY: `write_all` access is set and conflicts result in a panic
+// SAFETY: `write_all` access is set and conflicts result in an `Err`
 unsafe impl SystemParam for &'_ mut World {
     type State = ();
     type Item<'world, 'state> = &'world mut World;
@@ -1416,7 +1416,7 @@ unsafe impl ReadOnlySystemParam for NonSendMarker {}
 unsafe impl<'w, T> ReadOnlySystemParam for NonSend<'w, T> {}
 
 // SAFETY: NonSendComponentId access is applied to SystemMeta. If this
-// NonSend conflicts with any prior access, a panic will occur.
+// NonSend conflicts with any prior access, an `Err` will be returned.
 unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSend<'w, T>;
@@ -1462,7 +1462,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 }
 
 // SAFETY: NonSendMut ComponentId access is applied to SystemMeta. If this
-// NonSendMut conflicts with any prior access, a panic will occur.
+// NonSendMut conflicts with any prior access, an `Err` will be returned.
 unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSendMut<'w, T>;
@@ -1942,7 +1942,7 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
 unsafe impl<T: ReadOnlySystemParam> ReadOnlySystemParam for If<T> {}
 
 // SAFETY: Registers access for each element of `state`.
-// If any one conflicts, it will panic.
+// If any one conflicts, it will return an `Err`.
 unsafe impl<T: SystemParam> SystemParam for Vec<T> {
     type State = Vec<T::State>;
 
@@ -1994,7 +1994,7 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
 
 // SAFETY: Registers access for each element of `state`.
 // If any one conflicts with a previous parameter,
-// the call passing a copy of the current access will panic.
+// the call passing a copy of the current access will return `Err`.
 unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
     type State = Vec<T::State>;
 
@@ -2097,7 +2097,7 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
 }
 
 // SAFETY: Registers access for each element of `state`.
-// If any one conflicts, it will panic.
+// If any one conflicts, it will return `Err`.
 unsafe impl<T: SystemParam, const N: usize> SystemParam for SmallVec<[T; N]> {
     type State = SmallVec<[T::State; N]>;
 
@@ -2767,7 +2767,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 }
 
 // SAFETY: Resource ComponentId access is applied to the access. If this FilteredResources
-// conflicts with any prior access, a panic will occur.
+// conflicts with any prior access, an `Err` will be returned.
 #[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 unsafe impl SystemParam for FilteredResources<'_, '_> {
     type State = Access;
@@ -2813,7 +2813,7 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
 unsafe impl ReadOnlySystemParam for FilteredResources<'_, '_> {}
 
 // SAFETY: Resource ComponentId access is applied to the access. If this FilteredResourcesMut
-// conflicts with any prior access, a panic will occur.
+// conflicts with any prior access, an `Err` will be returned.
 #[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
 unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
     type State = Access;

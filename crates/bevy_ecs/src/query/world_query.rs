@@ -69,7 +69,7 @@ pub unsafe trait WorldQuery {
     /// - [`WorldQuery::init_nested_access`] must not request conflicting access.
     ///   If `Self` is [`ReadOnlyQueryData`](crate::query::ReadOnlyQueryData) or [`QueryFilter`](crate::query::QueryFilter), the access is read-only and can never conflict.
     ///   If `Self` is [`SingleEntityQueryData`](crate::query::SingleEntityQueryData), there is no external access and it cannot conflict.
-    ///   Otherwise, [`WorldQuery::init_nested_access`] must be called to ensure it does not panic.
+    ///   Otherwise, [`WorldQuery::init_nested_access`] must be called to ensure it does not return [`Err`].
     unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
         state: &'s Self::State,
@@ -124,7 +124,7 @@ pub unsafe trait WorldQuery {
 
     /// Adds any component accesses to other entities used by this [`WorldQuery`].
     ///
-    /// This method must return `Err` if the access would conflict with any existing access in the [`FilteredAccessSet`].
+    /// This method must return [`Err`] if the access would conflict with any existing access in the [`FilteredAccessSet`].
     ///
     /// This is used for queries to request access to entities other than the current one,
     /// such as to read resources or to follow relations.
