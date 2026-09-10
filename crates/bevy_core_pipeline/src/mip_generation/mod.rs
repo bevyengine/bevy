@@ -20,7 +20,7 @@ use crate::prepass::node::late_prepass;
 use crate::schedule::{Core3d, Core3dSystems};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, Assets, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::resource_exists,
@@ -37,7 +37,10 @@ use bevy_render::{
     diagnostic::RecordDiagnostics as _,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::{sampler, texture_2d, texture_storage_2d, uniform_buffer},
+        binding_types::{
+            sampler, texture_2d, texture_2d_array, texture_storage_2d, texture_storage_2d_array,
+            uniform_buffer,
+        },
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, Extent3d,
         FilterMode, MipmapFilterMode, PipelineCache, Sampler, SamplerBindingType,
@@ -63,69 +66,47 @@ pub struct DownsampleShaders {
     /// The experimental shader that downsamples depth
     /// (`downsample_depth.wesl`).
     pub depth: Handle<Shader>,
-    /// The shaders that perform downsampling of color textures.
+    /// The shader that performs downsampling of color textures
+    /// (`downsample.wesl`).
     ///
-    /// This table maps a [`TextureFormat`] to the shader that performs
-    /// downsampling for textures in that format.
-    pub general: HashMap<TextureFormat, Handle<Shader>>,
+    /// Use [`create_downsampling_pipelines`] to specialize it for a texture
+    /// format.
+    pub general: Handle<Shader>,
 }
 
 // The number of storage textures required to combine the bind groups in the
 // downsampling shader.
 const REQUIRED_STORAGE_TEXTURES: u32 = 12;
 
-/// All texture formats that we can perform downsampling for.
-///
-/// This is a list of pairs, each of which consists of the [`TextureFormat`] and
-/// the WGSL name for that texture format.
-///
-/// The comprehensive list of WGSL names for texture formats can be found in
-/// [the relevant section of the WGSL specification].
-///
-/// [the relevant section of the WGSL specification]:
-/// https://www.w3.org/TR/WGSL/#texel-formats
-static TEXTURE_FORMATS: [(TextureFormat, &str); 40] = [
-    (TextureFormat::Rgba8Unorm, "rgba8unorm"),
-    (TextureFormat::Rgba8Snorm, "rgba8snorm"),
-    (TextureFormat::Rgba8Uint, "rgba8uint"),
-    (TextureFormat::Rgba8Sint, "rgba8sint"),
-    (TextureFormat::Rgba16Unorm, "rgba16unorm"),
-    (TextureFormat::Rgba16Snorm, "rgba16snorm"),
-    (TextureFormat::Rgba16Uint, "rgba16uint"),
-    (TextureFormat::Rgba16Sint, "rgba16sint"),
-    (TextureFormat::Rgba16Float, "rgba16float"),
-    (TextureFormat::Rg8Unorm, "rg8unorm"),
-    (TextureFormat::Rg8Snorm, "rg8snorm"),
-    (TextureFormat::Rg8Uint, "rg8uint"),
-    (TextureFormat::Rg8Sint, "rg8sint"),
-    (TextureFormat::Rg16Unorm, "rg16unorm"),
-    (TextureFormat::Rg16Snorm, "rg16snorm"),
-    (TextureFormat::Rg16Uint, "rg16uint"),
-    (TextureFormat::Rg16Sint, "rg16sint"),
-    (TextureFormat::Rg16Float, "rg16float"),
-    (TextureFormat::R32Uint, "r32uint"),
-    (TextureFormat::R32Sint, "r32sint"),
-    (TextureFormat::R32Float, "r32float"),
-    (TextureFormat::Rg32Uint, "rg32uint"),
-    (TextureFormat::Rg32Sint, "rg32sint"),
-    (TextureFormat::Rg32Float, "rg32float"),
-    (TextureFormat::Rgba32Uint, "rgba32uint"),
-    (TextureFormat::Rgba32Sint, "rgba32sint"),
-    (TextureFormat::Rgba32Float, "rgba32float"),
-    (TextureFormat::Bgra8Unorm, "bgra8unorm"),
-    (TextureFormat::R8Unorm, "r8unorm"),
-    (TextureFormat::R8Snorm, "r8snorm"),
-    (TextureFormat::R8Uint, "r8uint"),
-    (TextureFormat::R8Sint, "r8sint"),
-    (TextureFormat::R16Unorm, "r16unorm"),
-    (TextureFormat::R16Snorm, "r16snorm"),
-    (TextureFormat::R16Uint, "r16uint"),
-    (TextureFormat::R16Sint, "r16sint"),
-    (TextureFormat::R16Float, "r16float"),
-    (TextureFormat::Rgb10a2Unorm, "rgb10a2unorm"),
-    (TextureFormat::Rgb10a2Uint, "rgb10a2uint"),
-    (TextureFormat::Rg11b10Ufloat, "rg11b10ufloat"),
-];
+/// Returns the shader def that selects the output format of `downsample.wesl`,
+/// or `None` if the format isn't supported. Only float formats are supported
+/// because the shader stores `vec4f`.
+fn texture_format_shader_def(format: TextureFormat) -> Option<ShaderDefVal> {
+    let name = match format {
+        TextureFormat::Rgba8Unorm => "TEXTURE_FORMAT_RGBA8UNORM",
+        TextureFormat::Rgba8Snorm => "TEXTURE_FORMAT_RGBA8SNORM",
+        TextureFormat::Rgba16Unorm => "TEXTURE_FORMAT_RGBA16UNORM",
+        TextureFormat::Rgba16Snorm => "TEXTURE_FORMAT_RGBA16SNORM",
+        TextureFormat::Rgba16Float => "TEXTURE_FORMAT_RGBA16FLOAT",
+        TextureFormat::Rg8Unorm => "TEXTURE_FORMAT_RG8UNORM",
+        TextureFormat::Rg8Snorm => "TEXTURE_FORMAT_RG8SNORM",
+        TextureFormat::Rg16Unorm => "TEXTURE_FORMAT_RG16UNORM",
+        TextureFormat::Rg16Snorm => "TEXTURE_FORMAT_RG16SNORM",
+        TextureFormat::Rg16Float => "TEXTURE_FORMAT_RG16FLOAT",
+        TextureFormat::R32Float => "TEXTURE_FORMAT_R32FLOAT",
+        TextureFormat::Rg32Float => "TEXTURE_FORMAT_RG32FLOAT",
+        TextureFormat::Rgba32Float => "TEXTURE_FORMAT_RGBA32FLOAT",
+        TextureFormat::Bgra8Unorm => "TEXTURE_FORMAT_BGRA8UNORM",
+        TextureFormat::R8Unorm => "TEXTURE_FORMAT_R8UNORM",
+        TextureFormat::R8Snorm => "TEXTURE_FORMAT_R8SNORM",
+        TextureFormat::R16Unorm => "TEXTURE_FORMAT_R16UNORM",
+        TextureFormat::R16Snorm => "TEXTURE_FORMAT_R16SNORM",
+        TextureFormat::R16Float => "TEXTURE_FORMAT_R16FLOAT",
+        TextureFormat::Rgb10a2Unorm => "TEXTURE_FORMAT_RGB10A2UNORM",
+        _ => return None,
+    };
+    Some(name.into())
+}
 
 /// A render-world resource that stores a list of [`Image`]s that will have
 /// mipmaps generated for them.
@@ -210,15 +191,15 @@ pub struct MipGenerationPipelines {
 /// passes, not one. This is because WGSL doesn't presently support
 /// globally-coherent buffers; the only way to have a synchronization point is
 /// to issue a second dispatch.
-struct MipGenerationTextureFormatPipelines {
+pub struct MipGenerationTextureFormatPipelines {
     /// The bind group layout for the first pass of the downsampling shader.
-    downsampling_bind_group_layout_pass_1: BindGroupLayoutDescriptor,
+    pub downsampling_bind_group_layout_pass_1: BindGroupLayoutDescriptor,
     /// The bind group layout for the second pass of the downsampling shader.
-    downsampling_bind_group_layout_pass_2: BindGroupLayoutDescriptor,
+    pub downsampling_bind_group_layout_pass_2: BindGroupLayoutDescriptor,
     /// The compute pipeline for the first pass of the downsampling shader.
-    downsampling_pipeline_pass_1: CachedComputePipelineId,
+    pub downsampling_pipeline_pass_1: CachedComputePipelineId,
     /// The compute pipeline for the second pass of the downsampling shader.
-    downsampling_pipeline_pass_2: CachedComputePipelineId,
+    pub downsampling_pipeline_pass_2: CachedComputePipelineId,
 }
 
 /// Bind groups for the downsampling shader associated with a single texture.
@@ -258,30 +239,9 @@ impl Plugin for MipGenerationPlugin {
 
         let depth_shader = load_embedded_asset!(app, "experimental/downsample_depth.wesl");
 
-        // We don't have string-valued shader definitions, so we use a
-        // text-pasting hack. The `downsample.wesl` shader is eagerly
-        // specialized for each texture format by replacing `##TEXTURE_FORMAT##`
-        // with each possible format.
-        let mut shader_assets = app.world_mut().resource_mut::<Assets<Shader>>();
-        let shader_template_source = include_str!("downsample.wesl");
-        let general_shaders: HashMap<_, _> = TEXTURE_FORMATS
-            .iter()
-            .map(|(target_format, identifier)| {
-                let shader_source =
-                    shader_template_source.replace("##TEXTURE_FORMAT##", identifier);
-                (
-                    *target_format,
-                    shader_assets.add(Shader::from_wesl(
-                        shader_source,
-                        format!("downsample_{identifier}.wesl"),
-                    )),
-                )
-            })
-            .collect();
-
         let downsample_shaders = DownsampleShaders {
             depth: depth_shader,
-            general: general_shaders,
+            general: load_embedded_asset!(app, "downsample.wesl"),
         };
         app.insert_resource(downsample_shaders.clone());
 
@@ -579,7 +539,14 @@ fn get_or_create_mip_generation_pipelines<'a>(
 ) -> Option<&'a MipGenerationTextureFormatPipelines> {
     match mip_generation_pipelines.entry(target_format) {
         Entry::Vacant(vacant_entry) => {
-            let Some(downsample_shader) = downsample_shaders.general.get(&target_format) else {
+            let Some(pipelines) = create_downsampling_pipelines(
+                render_device,
+                pipeline_cache,
+                downsample_shaders,
+                target_format,
+                false,
+                combine_downsampling_bind_groups,
+            ) else {
                 error!(
                     "Attempted to generate mips for texture {:?} with format {:?}, but no \
                      downsample shader was available for that texture format",
@@ -588,29 +555,7 @@ fn get_or_create_mip_generation_pipelines<'a>(
                 return None;
             };
 
-            let (downsampling_bind_group_layout_pass_1, downsampling_bind_group_layout_pass_2) =
-                create_downsampling_bind_group_layouts(
-                    target_format,
-                    combine_downsampling_bind_groups,
-                );
-
-            let (downsampling_pipeline_pass_1, downsampling_pipeline_pass_2) =
-                create_downsampling_pipelines(
-                    render_device,
-                    pipeline_cache,
-                    &downsampling_bind_group_layout_pass_1,
-                    &downsampling_bind_group_layout_pass_2,
-                    downsample_shader,
-                    target_format,
-                    combine_downsampling_bind_groups,
-                );
-
-            Some(vacant_entry.insert(MipGenerationTextureFormatPipelines {
-                downsampling_bind_group_layout_pass_1,
-                downsampling_bind_group_layout_pass_2,
-                downsampling_pipeline_pass_1,
-                downsampling_pipeline_pass_2,
-            }))
+            Some(vacant_entry.insert(pipelines))
         }
 
         Entry::Occupied(occupied_entry) => Some(occupied_entry.into_mut()),
@@ -621,12 +566,25 @@ fn get_or_create_mip_generation_pipelines<'a>(
 /// shader for a single texture format.
 fn create_downsampling_bind_group_layouts(
     target_format: TextureFormat,
+    array_texture: bool,
     combine_downsampling_bind_groups: bool,
 ) -> (BindGroupLayoutDescriptor, BindGroupLayoutDescriptor) {
     let texture_sample_type = target_format.sample_type(None, None).expect(
         "Depth and multisample texture formats shouldn't have mip generation shaders to begin with",
     );
-    let mips_storage = texture_storage_2d(target_format, StorageTextureAccess::WriteOnly);
+    let (source_texture, mips_storage, mip6_storage) = if array_texture {
+        (
+            texture_2d_array(texture_sample_type),
+            texture_storage_2d_array(target_format, StorageTextureAccess::WriteOnly),
+            texture_storage_2d_array(target_format, StorageTextureAccess::ReadWrite),
+        )
+    } else {
+        (
+            texture_2d(texture_sample_type),
+            texture_storage_2d(target_format, StorageTextureAccess::WriteOnly),
+            texture_storage_2d(target_format, StorageTextureAccess::ReadWrite),
+        )
+    };
 
     if combine_downsampling_bind_groups {
         let bind_group_layout_descriptor = BindGroupLayoutDescriptor::new(
@@ -636,13 +594,13 @@ fn create_downsampling_bind_group_layouts(
                 (
                     sampler(SamplerBindingType::Filtering),
                     uniform_buffer::<DownsamplingConstants>(false),
-                    texture_2d(texture_sample_type),
+                    source_texture,
                     mips_storage, // 1
                     mips_storage, // 2
                     mips_storage, // 3
                     mips_storage, // 4
                     mips_storage, // 5
-                    texture_storage_2d(target_format, StorageTextureAccess::ReadWrite), // 6
+                    mip6_storage, // 6
                     mips_storage, // 7
                     mips_storage, // 8
                     mips_storage, // 9
@@ -669,7 +627,7 @@ fn create_downsampling_bind_group_layouts(
                 sampler(SamplerBindingType::Filtering),
                 uniform_buffer::<DownsamplingConstants>(false),
                 // Input mip 0
-                texture_2d(texture_sample_type),
+                source_texture,
                 mips_storage, // 1
                 mips_storage, // 2
                 mips_storage, // 3
@@ -688,7 +646,7 @@ fn create_downsampling_bind_group_layouts(
                 sampler(SamplerBindingType::Filtering),
                 uniform_buffer::<DownsamplingConstants>(false),
                 // Input mip 6
-                texture_2d(texture_sample_type),
+                source_texture,
                 mips_storage, // 7
                 mips_storage, // 8
                 mips_storage, // 9
@@ -804,19 +762,24 @@ fn create_downsampling_bind_groups(
 /// Creates the single-pass downsampling compute pipelines that perform
 /// downsampling on textures with a specific texture format.
 ///
+/// Returns `None` if the shader doesn't support `target_format`. Set
+/// `array_texture` to downsample a 2D array texture such as a cubemap.
+///
 /// Depending on whether the current platform can combine downsampling bind
 /// groups, this will either return two copies of the same pipeline or two
 /// different pipelines.
-fn create_downsampling_pipelines(
+pub fn create_downsampling_pipelines(
     render_device: &RenderDevice,
     pipeline_cache: &PipelineCache,
-    downsampling_bind_group_layout_pass_1: &BindGroupLayoutDescriptor,
-    downsampling_bind_group_layout_pass_2: &BindGroupLayoutDescriptor,
-    downsample_shader: &Handle<Shader>,
+    downsample_shaders: &DownsampleShaders,
     target_format: TextureFormat,
+    array_texture: bool,
     combine_downsampling_bind_groups: bool,
-) -> (CachedComputePipelineId, CachedComputePipelineId) {
-    let mut downsampling_shader_defs = vec![];
+) -> Option<MipGenerationTextureFormatPipelines> {
+    let mut downsampling_shader_defs = vec![
+        texture_format_shader_def(target_format)?,
+        ShaderDefVal::Bool("ARRAY_TEXTURE".into(), array_texture),
+    ];
     if render_device.features().contains(WgpuFeatures::SUBGROUP) {
         downsampling_shader_defs.push(ShaderDefVal::Int("SUBGROUP_SUPPORT".into(), 1));
     }
@@ -825,11 +788,18 @@ fn create_downsampling_pipelines(
     }
 
     let mut downsampling_first_shader_defs = downsampling_shader_defs.clone();
-    let mut downsampling_second_shader_defs = downsampling_shader_defs.clone();
+    let mut downsampling_second_shader_defs = downsampling_shader_defs;
     if !combine_downsampling_bind_groups {
         downsampling_first_shader_defs.push(ShaderDefVal::Int("FIRST_PASS".into(), 1));
         downsampling_second_shader_defs.push(ShaderDefVal::Int("SECOND_PASS".into(), 1));
     }
+
+    let (downsampling_bind_group_layout_pass_1, downsampling_bind_group_layout_pass_2) =
+        create_downsampling_bind_group_layouts(
+            target_format,
+            array_texture,
+            combine_downsampling_bind_groups,
+        );
 
     // Create the pipeline for the first pass, corresponding to mip levels [0,
     // 6].
@@ -838,7 +808,7 @@ fn create_downsampling_pipelines(
             label: Some(format!("mip generation pipeline, pass 1 ({:?})", target_format).into()),
             layout: vec![downsampling_bind_group_layout_pass_1.clone()],
             immediate_size: 0,
-            shader: downsample_shader.clone(),
+            shader: downsample_shaders.general.clone(),
             shader_defs: downsampling_first_shader_defs,
             entry_point: Some("downsample_first".into()),
             zero_initialize_workgroup_memory: false,
@@ -852,14 +822,19 @@ fn create_downsampling_pipelines(
             label: Some(format!("mip generation pipeline, pass 2 ({:?})", target_format).into()),
             layout: vec![downsampling_bind_group_layout_pass_2.clone()],
             immediate_size: 0,
-            shader: downsample_shader.clone(),
+            shader: downsample_shaders.general.clone(),
             shader_defs: downsampling_second_shader_defs,
             entry_point: Some("downsample_second".into()),
             zero_initialize_workgroup_memory: false,
             constants: vec![],
         });
 
-    (downsampling_first_pipeline, downsampling_second_pipeline)
+    Some(MipGenerationTextureFormatPipelines {
+        downsampling_bind_group_layout_pass_1,
+        downsampling_bind_group_layout_pass_2,
+        downsampling_pipeline_pass_1: downsampling_first_pipeline,
+        downsampling_pipeline_pass_2: downsampling_second_pipeline,
+    })
 }
 
 /// Creates the uniform buffer containing the [`DownsamplingConstants`] for a
