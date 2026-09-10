@@ -71,7 +71,8 @@ pub use once::OnceFlag;
 pub use debug_info::DebugName;
 pub use default::default;
 
-use core::mem::ManuallyDrop;
+use alloc::boxed::Box;
+use core::{any::Any, mem::ManuallyDrop, panic::UnwindSafe};
 
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.
@@ -129,5 +130,39 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
         // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();
+    }
+}
+
+/// Tries to catch a panic, if `std` is enabled and unwinding on panics is enabled.
+/// Otherwise aborts on panic.
+pub fn catch_unwind_if_available<T>(
+    f: impl UnwindSafe + FnOnce() -> T,
+) -> Result<T, Box<dyn Any + Send>> {
+    cfg::switch! {
+        cfg::std => {
+            std::panic::catch_unwind(f)
+        }
+        _ => {
+            // Force abort through double panic,
+            // to be replaced by core::panic::abort_on_unwind
+            let drop_guard = OnDrop::new(||panic!("Aborting due to previous panic"));
+            let result = f();
+            core::mem::forget(drop_guard);
+            Ok(result)
+        }
+    }
+}
+
+/// Tries to rethrow a panic, if `std` is enabled and the payload is present.
+pub fn resume_caught_unwind(panic: Result<(), Box<dyn Any + Send>>) {
+    cfg::switch! {
+        cfg::std => {
+            if let Err(payload) = panic {
+                std::panic::resume_unwind(payload)
+            }
+        }
+        _ => {
+            let _ = panic;
+        }
     }
 }

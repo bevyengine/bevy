@@ -132,8 +132,9 @@ impl<'w> BundleSpawner<'w> {
             // - bundle component status is always added, as entity previously didn't exist per precondition
             // - `apply_effect` called if needed per precondition
             // - table_row was just allocated, bundle matches
+            // No component existed beforehand, therefore no drop can have panicked
             unsafe {
-                bundle_info.write_components(
+                let _ = bundle_info.write_components(
                     table,
                     sparse_sets,
                     &SpawnBundleStatus,

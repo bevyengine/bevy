@@ -5,7 +5,11 @@ use bevy_platform::{
 };
 use bevy_ptr::{MovingPtr, OwningPtr};
 use bevy_utils::TypeIdHashMap;
-use core::{any::TypeId, ptr::NonNull};
+use core::{
+    any::{Any, TypeId},
+    panic::AssertUnwindSafe,
+    ptr::NonNull,
+};
 use indexmap::{IndexMap, IndexSet};
 
 use crate::{
@@ -212,6 +216,8 @@ impl BundleInfo {
 
     /// This writes components from a given [`Bundle`] to the given entity.
     ///
+    /// If overwritten components panic during drop, the panic payload is returned.
+    ///
     /// # Safety
     ///
     /// `bundle_component_status` must return the "correct" [`ComponentStatus`] for each component
@@ -248,7 +254,9 @@ impl BundleInfo {
         bundle: MovingPtr<'_, T>,
         insert_mode: InsertMode,
         caller: MaybeLocation,
-    ) {
+    ) -> Result<(), Box<dyn Any + Send>> {
+        let mut panic = Ok(());
+
         // NOTE: get_components calls `write_component` on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
@@ -260,7 +268,7 @@ impl BundleInfo {
             };
             // SAFETY: bundle_component is a valid index per unsafe bundle impl
             let status = unsafe { bundle_component_status.get_status(bundle_component) };
-            match storage_type {
+            let f = || match storage_type {
                 StorageType::Table => {
                     let column =
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
@@ -306,7 +314,13 @@ impl BundleInfo {
                         }
                     }
                 }
+            };
+
+            let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(f));
+            if panic.is_ok() {
+                panic = maybe_panic;
             }
+
             bundle_component += 1;
         });
         // Remove this once closure_lifetime_binder is stable
@@ -331,6 +345,8 @@ impl BundleInfo {
                 );
             }
         }
+
+        panic
     }
 
     /// Internal method to initialize a required component from an [`OwningPtr`]. This should ultimately be called
