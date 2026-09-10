@@ -223,6 +223,63 @@ mod tests {
     };
 
     #[test]
+    fn check_default_access() {
+        let mut access = SystemAccess::default();
+
+        assert_eq!(access, SystemAccess::None);
+        assert!(access.is_none());
+        assert_ne!(access, SystemAccess::Shared(FilteredAccessSet::default()));
+        assert!(!access.is_shared());
+        assert_ne!(access, SystemAccess::Exclusive);
+        assert!(!access.is_exclusive());
+
+        access.try_extend_metadata().unwrap();
+
+        assert!(access.is_shared());
+        assert_eq!(access, SystemAccess::Shared(FilteredAccessSet::default()));
+    }
+
+    #[test]
+    fn check_shared_access() {
+        let mut access = SystemAccess::Shared(FilteredAccessSet::default());
+
+        assert_ne!(access, SystemAccess::None);
+        assert!(!access.is_none());
+        assert!(access.is_shared());
+        assert_ne!(access, SystemAccess::Exclusive);
+        assert!(!access.is_exclusive());
+
+        access.try_extend_metadata().unwrap();
+
+        assert!(access.is_shared());
+
+        access.try_extend_single(FilteredAccess::default()).unwrap();
+
+        assert!(access.is_shared());
+    }
+
+    #[test]
+    fn check_exclusive_access() {
+        let mut access = SystemAccess::Exclusive;
+
+        assert_ne!(access, SystemAccess::None);
+        assert!(!access.is_none());
+        assert_ne!(access, SystemAccess::Shared(FilteredAccessSet::default()));
+        assert!(!access.is_shared());
+        assert!(access.is_exclusive());
+
+        access.try_extend_metadata().unwrap_err();
+
+        assert!(access.is_exclusive());
+
+        access
+            .try_extend_single(FilteredAccess::default())
+            .unwrap_err();
+
+        assert!(access.is_exclusive());
+    }
+
+    #[test]
     fn check_compatibility() {
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
@@ -275,6 +332,41 @@ mod tests {
             access_exclusive.get_conflicts(&access_exclusive),
             crate::query::AccessConflicts::All
         );
+    }
+
+    #[test]
+    fn try_extend_metadata_err_on_exclusive() {
+        let mut access = SystemAccess::Exclusive;
+        access.try_extend_metadata().unwrap_err();
+    }
+
+    #[test]
+    fn try_extend_exclusive_err_on_shared() {
+        let mut access = SystemAccess::Shared(FilteredAccessSet::default());
+        access.try_extend_exclusive().unwrap_err();
+    }
+
+    #[test]
+    fn try_extend_exclusive_err_on_exclusive() {
+        let mut access = SystemAccess::Exclusive;
+        access.try_extend_exclusive().unwrap_err();
+    }
+
+    #[test]
+    fn try_extend_single_returns_correctly() {
+        let mut access = SystemAccess::None;
+        let filtered_access = FilteredAccess::default();
+
+        assert!(access.try_extend_single(filtered_access.clone()).is_ok());
+        assert!(access.is_shared());
+
+        let mut access_shared = SystemAccess::Shared(FilteredAccessSet::default());
+        assert!(access_shared
+            .try_extend_single(filtered_access.clone())
+            .is_ok());
+
+        let mut access_exclusive = SystemAccess::Exclusive;
+        assert!(access_exclusive.try_extend_single(filtered_access).is_err());
     }
 
     #[test]
