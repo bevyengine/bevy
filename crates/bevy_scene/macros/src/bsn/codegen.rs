@@ -71,6 +71,44 @@ impl<'a> BsnCodegenCtx<'a> {
         let string = ident.to_string();
         (ident.to_string(), self.entity_refs.get(string))
     }
+
+    fn validate_macro_uses_braces(&mut self) {
+        let span = Span::call_site();
+        let Some(source_text) = span.source_text() else {
+            return;
+        };
+
+        const BSN_LIST: &str = "bsn_list!";
+        const BSN: &str = "bsn!";
+
+        let (name, remaining) = if let Some(remaining) = source_text.strip_prefix(BSN_LIST) {
+            (BSN_LIST, remaining)
+        } else if let Some(remaining) = source_text.strip_prefix(BSN) {
+            (BSN, remaining)
+        } else {
+            eprintln!("Unknown macro root! {}", source_text);
+            return;
+        };
+
+        for character in remaining.chars() {
+            if character.is_whitespace() {
+                continue;
+            }
+
+            match character {
+                '(' | '[' => {
+                    self.deprecations.push(deprecation_warning(
+                        span,
+                        "USE_BRACE_FOR_BSN_MACRO",
+                        &format!("'{name} {character}' should not be used, as rustfmt can mangle the outputs. Use '{name} {{ }}' instead"),
+                    ));
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 pub trait BsnTokenStream: Parse {
@@ -79,6 +117,7 @@ pub trait BsnTokenStream: Parse {
 
 impl BsnTokenStream for BsnRoot {
     fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        ctx.validate_macro_uses_braces();
         let tokens = self.0.into_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
@@ -112,6 +151,7 @@ impl BsnTokenStream for BsnRoot {
 
 impl BsnTokenStream for BsnListRoot {
     fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        ctx.validate_macro_uses_braces();
         let tokens = self.0.into_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
