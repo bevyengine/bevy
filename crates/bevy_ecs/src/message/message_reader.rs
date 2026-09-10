@@ -171,6 +171,7 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
         system_access: &mut crate::system::SystemAccess,
     ) -> Result<(), Box<ParameterAccessConflict>> {
         MessageReader::<M>::init_access(state, system_meta, system_access)
+            .map_err(ParameterAccessConflict::with_param::<Self>)
     }
 
     unsafe fn get_param<'world, 'state>(
