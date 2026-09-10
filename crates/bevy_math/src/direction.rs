@@ -1,9 +1,7 @@
-use crate::{
-    primitives::{Primitive2d, Primitive3d},
-    Quat, Rot2, Vec2, Vec3, Vec3A, Vec4,
-};
+use crate::{Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 
 use core::f32::consts::FRAC_1_SQRT_2;
+use core::fmt;
 use derive_more::derive::Into;
 
 #[cfg(feature = "bevy_reflect")]
@@ -33,7 +31,7 @@ pub enum InvalidDirectionError {
 
 impl InvalidDirectionError {
     /// Creates an [`InvalidDirectionError`] from the length of an invalid direction vector.
-    pub fn from_length(length: f32) -> Self {
+    pub const fn from_length(length: f32) -> Self {
         if length.is_nan() {
             InvalidDirectionError::NaN
         } else if !length.is_finite() {
@@ -93,7 +91,6 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 )]
 #[doc(alias = "Direction2d")]
 pub struct Dir2(Vec2);
-impl Primitive2d for Dir2 {}
 
 impl Dir2 {
     /// A unit vector pointing along the positive X axis.
@@ -106,6 +103,8 @@ impl Dir2 {
     pub const NEG_Y: Self = Self(Vec2::NEG_Y);
     /// The directional axes.
     pub const AXES: [Self; 2] = [Self::X, Self::Y];
+    /// The cardinal directions.
+    pub const CARDINALS: [Self; 4] = [Self::X, Self::NEG_X, Self::Y, Self::NEG_Y];
 
     /// The "north" direction, equivalent to [`Dir2::Y`].
     pub const NORTH: Self = Self(Vec2::Y);
@@ -123,6 +122,25 @@ impl Dir2 {
     pub const SOUTH_EAST: Self = Self(Vec2::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
     /// The "south-west" direction, between [`Dir2::SOUTH`] and [`Dir2::WEST`].
     pub const SOUTH_WEST: Self = Self(Vec2::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
+
+    /// The diagonals between the cardinal directions.
+    pub const DIAGONALS: [Self; 4] = [
+        Self::NORTH_EAST,
+        Self::NORTH_WEST,
+        Self::SOUTH_EAST,
+        Self::SOUTH_WEST,
+    ];
+    /// All neighbors of a tile on a square grid in a 3x3 neighborhood. A combination of [`Self::CARDINALS`] and [`Self::DIAGONALS`]
+    pub const ALL_NEIGHBORS: [Self; 8] = [
+        Self::X,
+        Self::NEG_X,
+        Self::Y,
+        Self::NEG_Y,
+        Self::NORTH_EAST,
+        Self::NORTH_WEST,
+        Self::SOUTH_EAST,
+        Self::SOUTH_WEST,
+    ];
 
     /// Create a direction from a finite, nonzero [`Vec2`], normalizing it.
     ///
@@ -176,6 +194,12 @@ impl Dir2 {
     /// The vector produced from `x` and `y` must be normalized, i.e its length must be `1.0`.
     pub fn from_xy_unchecked(x: f32, y: f32) -> Self {
         Self::new_unchecked(Vec2::new(x, y))
+    }
+
+    /// Creates a 2D direction containing `[angle.cos(), angle.sin()]`.
+    #[inline]
+    pub fn from_angle(angle: f32) -> Self {
+        Self(Vec2::from_angle(angle))
     }
 
     /// Returns the inner [`Vec2`]
@@ -264,6 +288,12 @@ impl Dir2 {
         // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
         Self(self * (0.5 * (3.0 - length_squared)))
     }
+
+    /// Returns the perpendicular vector rotated to 90 degrees counterclockwise.
+    #[inline]
+    pub fn perpendicular(self) -> Self {
+        Self::new_unchecked(self.as_vec2().perp())
+    }
 }
 
 impl TryFrom<Vec2> for Dir2 {
@@ -325,6 +355,12 @@ impl core::ops::Mul<Dir2> for Rot2 {
     }
 }
 
+impl fmt::Display for Dir2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[cfg(any(feature = "approx", test))]
 impl approx::AbsDiffEq for Dir2 {
     type Epsilon = f32;
@@ -371,7 +407,6 @@ impl approx::UlpsEq for Dir2 {
 )]
 #[doc(alias = "Direction3d")]
 pub struct Dir3(Vec3);
-impl Primitive3d for Dir3 {}
 
 impl Dir3 {
     /// A unit vector pointing along the positive X axis.
@@ -388,6 +423,139 @@ impl Dir3 {
     pub const NEG_Z: Self = Self(Vec3::NEG_Z);
     /// The directional axes.
     pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
+    /// The cardinal directions.
+    pub const CARDINALS: [Self; 6] = [
+        Self::X,
+        Self::NEG_X,
+        Self::Y,
+        Self::NEG_Y,
+        Self::Z,
+        Self::NEG_Z,
+    ];
+
+    // Adding this allow here to make sure that the precision in FRAC_1_SQRT_2
+    // and here is the same
+    /// Approximation of 1/sqrt(3) needed for the diagonals in 3D space
+    const FRAC_1_SQRT_3: f32 = 0.577350269189625764509148780501957456_f32;
+    /// The directions pointing towards the vertices of a cube centered at the origin.
+    pub const ALL_VERTICES: [Self; 8] = [
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+    ];
+    /// The directions towards centers of each edge of a cube
+    pub const ALL_EDGES: [Self; 12] = [
+        Self(Vec3::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
+    ];
+    /// All neighbors of a tile on a cube grid a 3x3x3 neighborhood. A combination of [`Self::CARDINALS`], [`Self::ALL_EDGES`] and [`Self::ALL_VERTICES`]
+    pub const ALL_NEIGHBORS: [Self; 26] = [
+        Self::X,
+        Self::NEG_X,
+        Self::Y,
+        Self::NEG_Y,
+        Self::Z,
+        Self::NEG_Z,
+        Self(Vec3::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+        Self(Vec3::new(
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+            -Self::FRAC_1_SQRT_3,
+        )),
+    ];
 
     /// Create a direction from a finite, nonzero [`Vec3`], normalizing it.
     ///
@@ -587,6 +755,12 @@ impl core::ops::Mul<Dir3> for Quat {
     }
 }
 
+impl fmt::Display for Dir3 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[cfg(feature = "approx")]
 impl approx::AbsDiffEq for Dir3 {
     type Epsilon = f32;
@@ -636,7 +810,6 @@ impl approx::UlpsEq for Dir3 {
 )]
 #[doc(alias = "Direction3dA")]
 pub struct Dir3A(Vec3A);
-impl Primitive3d for Dir3A {}
 
 impl Dir3A {
     /// A unit vector pointing along the positive X axis.
@@ -834,6 +1007,12 @@ impl core::ops::Mul<Dir3A> for Quat {
     }
 }
 
+impl fmt::Display for Dir3A {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[cfg(feature = "approx")]
 impl approx::AbsDiffEq for Dir3A {
     type Epsilon = f32;
@@ -1022,6 +1201,12 @@ impl core::ops::Mul<Dir4> for f32 {
     }
 }
 
+impl fmt::Display for Dir4 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[cfg(feature = "approx")]
 impl approx::AbsDiffEq for Dir4 {
     type Epsilon = f32;
@@ -1136,6 +1321,21 @@ mod tests {
             "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+    }
+
+    #[test]
+    fn dir2_perp() {
+        // (1, 0) rotated 90 deg counterclockwise becomes (0, 1)
+        assert_eq!(Dir2::X.perpendicular(), Dir2::Y);
+
+        // (0, 1) rotated 90 deg counterclockwise becomes (-1, 0)
+        assert_eq!(Dir2::Y.perpendicular(), Dir2::NEG_X);
+
+        // (-1, 0) rotated 90 deg counterclockwise becomes (0, -1)
+        assert_eq!(Dir2::NEG_X.perpendicular(), Dir2::NEG_Y);
+
+        // (0, -1) rotated 90 deg counterclockwise becomes (1, 0)
+        assert_eq!(Dir2::NEG_Y.perpendicular(), Dir2::X);
     }
 
     #[test]

@@ -1,13 +1,12 @@
 use crate::{
     error::ReflectCloneError,
+    info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
     reflect::ApplyError,
-    type_info::{OpaqueInfo, TypeInfo, Typed},
     type_path::DynamicTypePath,
     type_registry::{
-        FromType, GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize,
-        TypeRegistration,
+        GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize, TypeRegistration,
     },
     utility::{reflect_hasher, NonGenericTypeInfoCell},
 };
@@ -24,6 +23,7 @@ impl_reflect_opaque!(::std::path::PathBuf(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize,
     Default
@@ -63,11 +63,11 @@ impl PartialReflect for &'static Path {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -91,6 +91,14 @@ impl PartialReflect for &'static Path {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
+        }
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            PartialOrd::partial_cmp(self, value)
+        } else {
+            None
         }
     }
 
@@ -148,8 +156,8 @@ impl Typed for &'static Path {
 impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
+        registration.register_type_data::<ReflectFromReflect, Self>();
         registration
     }
 }
@@ -159,9 +167,6 @@ impl FromReflect for &'static Path {
         reflect.try_downcast_ref::<Self>().copied()
     }
 }
-
-#[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(&'static Path);
 
 impl PartialReflect for Cow<'static, Path> {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -197,11 +202,11 @@ impl PartialReflect for Cow<'static, Path> {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -225,6 +230,14 @@ impl PartialReflect for Cow<'static, Path> {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
+        }
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            PartialOrd::partial_cmp(self, value)
+        } else {
+            None
         }
     }
 
@@ -294,10 +307,10 @@ impl FromReflect for Cow<'static, Path> {
 impl GetTypeRegistration for Cow<'static, Path> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectDeserialize, Self>();
+        registration.register_type_data::<ReflectFromPtr, Self>();
+        registration.register_type_data::<ReflectSerialize, Self>();
+        registration.register_type_data::<ReflectFromReflect, Self>();
         registration
     }
 }

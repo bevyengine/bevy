@@ -3,11 +3,15 @@
 //! Adding the [`RemoteHttpPlugin`] to your [`App`] causes Bevy to accept
 //! connections over HTTP (by default, on port 15702) while your app is running.
 //!
+//! When `bevy_render` is enabled, a second port is available to query the render subapp.
+//!
 //! Clients are expected to `POST` JSON requests to the root URL; see the `client`
 //! example for a trivial example of use.
 
 #![cfg(not(target_family = "wasm"))]
 
+#[cfg(feature = "bevy_render")]
+use crate::setup_mailbox_channel;
 use crate::{
     error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpResult, BrpSender,
 };
@@ -16,7 +20,11 @@ use async_channel::{Receiver, Sender};
 use async_io::Async;
 use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::resource::Resource;
+#[cfg(feature = "bevy_render")]
+use bevy_ecs::schedule::IntoScheduleConfigs as _;
 use bevy_ecs::system::Res;
+#[cfg(feature = "bevy_render")]
+use bevy_render::{RenderApp, RenderStartup};
 use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
 use core::{
     convert::Infallible,
@@ -42,6 +50,11 @@ use std::{
 ///
 /// This value was chosen randomly.
 pub const DEFAULT_PORT: u16 = 15702;
+
+/// The default port that Bevy will listen on for the render subapp.
+///
+/// The render subapp is available for requests if the `bevy_render` feature is enabled.
+pub const DEFAULT_RENDER_PORT: u16 = 15703;
 
 /// The default host address that Bevy will use for its server.
 pub const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
@@ -95,12 +108,15 @@ impl Default for Headers {
 /// The defaults are:
 /// - [`DEFAULT_ADDR`] : 127.0.0.1.
 /// - [`DEFAULT_PORT`] : 15702.
+/// - [`DEFAULT_RENDER_PORT`] : 15703. (when `bevy_render` is enabled)
 ///
 pub struct RemoteHttpPlugin {
     /// The address that Bevy will bind to.
     address: IpAddr,
     /// The port that Bevy will listen on.
     port: u16,
+    /// The port that Bevy will listen on for render subapp.
+    render_port: u16,
     /// The headers that Bevy will include in its HTTP responses
     headers: Headers,
 }
@@ -110,6 +126,7 @@ impl Default for RemoteHttpPlugin {
         Self {
             address: DEFAULT_ADDR,
             port: DEFAULT_PORT,
+            render_port: DEFAULT_RENDER_PORT,
             headers: Headers::new(),
         }
     }
@@ -121,6 +138,26 @@ impl Plugin for RemoteHttpPlugin {
             .insert_resource(HostPort(self.port))
             .insert_resource(HostHeaders(self.headers.clone()))
             .add_systems(Startup, start_http_server);
+
+        #[cfg(feature = "bevy_render")]
+        {
+            use bevy_ecs::schedule::common_conditions::run_once;
+
+            let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+                return;
+            };
+
+            render_app
+                .insert_resource(HostAddress(self.address))
+                .insert_resource(HostPort(self.render_port))
+                .insert_resource(HostHeaders(self.headers.clone()))
+                .add_systems(
+                    RenderStartup,
+                    start_http_server
+                        .run_if(run_once)
+                        .after(setup_mailbox_channel),
+                );
+        }
     }
 }
 
@@ -366,17 +403,6 @@ async fn process_single_request(
             )));
         }
     };
-
-    if request.jsonrpc != "2.0" {
-        return Ok(BrpHttpResponse::Complete(BrpResponse::new(
-            id,
-            Err(BrpError {
-                code: error_codes::INVALID_REQUEST,
-                message: String::from("JSON-RPC request requires `\"jsonrpc\": \"2.0\"`"),
-                data: None,
-            }),
-        )));
-    }
 
     let watch = request.method.contains("+watch");
     let size = if watch { 8 } else { 1 };

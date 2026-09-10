@@ -1,12 +1,12 @@
 use crate::{
     error::ReflectCloneError,
+    info::{MaybeTyped, OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     list::{List, ListInfo, ListIter},
     prelude::*,
     reflect::{impl_full_reflect, ApplyError},
-    type_info::{MaybeTyped, OpaqueInfo, TypeInfo, Typed},
     type_registry::{
-        FromType, GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize,
+        GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize,
         TypeRegistration, TypeRegistry,
     },
     utility::{reflect_hasher, GenericTypeInfoCell, NonGenericTypeInfoCell},
@@ -55,11 +55,11 @@ impl PartialReflect for Cow<'static, str> {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -83,6 +83,14 @@ impl PartialReflect for Cow<'static, str> {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
+        }
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            PartialOrd::partial_cmp(self, value)
+        } else {
+            None
         }
     }
 
@@ -116,10 +124,10 @@ impl Typed for Cow<'static, str> {
 impl GetTypeRegistration for Cow<'static, str> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Cow<'static, str>>();
-        registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
-        registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, str>>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Cow<'static, str>>::from_type());
-        registration.insert::<ReflectSerialize>(FromType::<Cow<'static, str>>::from_type());
+        registration.register_type_data::<ReflectDeserialize, Self>();
+        registration.register_type_data::<ReflectFromPtr, Self>();
+        registration.register_type_data::<ReflectFromReflect, Self>();
+        registration.register_type_data::<ReflectSerialize, Self>();
         registration
     }
 }
@@ -180,7 +188,7 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
         self.as_ref().len()
     }
 
-    fn iter(&self) -> ListIter {
+    fn iter(&self) -> ListIter<'_> {
         ListIter::new(self)
     }
 
@@ -228,11 +236,11 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
         ReflectKind::List
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::List(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::List(self)
     }
 
@@ -245,19 +253,23 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
     }
 
     fn reflect_hash(&self) -> Option<u64> {
-        crate::list_hash(self)
+        crate::list::list_hash(self)
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        crate::list_partial_eq(self, value)
+        crate::list::list_partial_eq(self, value)
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        crate::list::list_partial_cmp(self, value)
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::list_apply(self, value);
+        crate::list::list_apply(self, value);
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        crate::list_try_apply(self, value)
+        crate::list::list_try_apply(self, value)
     }
 }
 

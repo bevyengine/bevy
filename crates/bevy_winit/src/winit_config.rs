@@ -48,6 +48,16 @@ impl WinitSettings {
         }
     }
 
+    /// The application will update as fast possible.
+    ///
+    /// Uses [`Continuous`](UpdateMode::Continuous) regardless of whether windows have focus.
+    pub fn continuous() -> Self {
+        WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        }
+    }
+
     /// Returns the current [`UpdateMode`].
     ///
     /// **Note:** The output depends on whether the window has focus or not.

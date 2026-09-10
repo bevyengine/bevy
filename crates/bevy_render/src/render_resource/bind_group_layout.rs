@@ -1,8 +1,13 @@
-use crate::define_atomic_id;
-use bevy_utils::WgpuWrapper;
+use crate::renderer::wgpu_wrapper;
+use bevy_utils::define_atomic_id;
 use core::ops::Deref;
 
 define_atomic_id!(BindGroupLayoutId);
+
+wgpu_wrapper! {
+    #[derive(Clone, Debug)]
+    struct WgpuBindGroupLayout(wgpu::BindGroupLayout);
+}
 
 /// Bind group layouts define the interface of resources (e.g. buffers, textures, samplers)
 /// for a shader. The actual resource binding is done via a [`BindGroup`](super::BindGroup).
@@ -11,11 +16,11 @@ define_atomic_id!(BindGroupLayoutId);
 /// which can be cloned as needed to workaround lifetime management issues. It may be converted
 /// from and dereferences to wgpu's [`BindGroupLayout`](wgpu::BindGroupLayout).
 ///
-/// Can be created via [`RenderDevice::create_bind_group_layout`](crate::RenderDevice::create_bind_group_layout).
+/// Can be created via [`RenderDevice::create_bind_group_layout`](crate::renderer::RenderDevice::create_bind_group_layout).
 #[derive(Clone, Debug)]
 pub struct BindGroupLayout {
     id: BindGroupLayoutId,
-    value: WgpuWrapper<wgpu::BindGroupLayout>,
+    value: WgpuBindGroupLayout,
 }
 
 impl PartialEq for BindGroupLayout {
@@ -49,7 +54,7 @@ impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
         BindGroupLayout {
             id: BindGroupLayoutId::new(),
-            value: WgpuWrapper::new(value),
+            value: WgpuBindGroupLayout::new(value),
         }
     }
 }

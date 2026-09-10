@@ -4,7 +4,6 @@ use crate::{
 };
 use alloc::boxed::Box;
 use bevy_platform::collections::HashMap;
-use bevy_platform::sync::Arc;
 use core::slice::Iter;
 use thiserror::Error;
 
@@ -96,7 +95,7 @@ impl VariantInfo {
     }
 
     /// The docstring of the underlying variant, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&str> {
         match self {
             Self::Struct(info) => info.docs(),
@@ -157,8 +156,8 @@ pub struct StructVariantInfo {
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
-    custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    custom_attributes: CustomAttributes,
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -172,14 +171,14 @@ impl StructVariantInfo {
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
-            custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            custom_attributes: CustomAttributes::default(),
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this variant.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -187,7 +186,7 @@ impl StructVariantInfo {
     /// Sets the custom attributes for this variant.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes,
             ..self
         }
     }
@@ -238,7 +237,7 @@ impl StructVariantInfo {
     }
 
     /// The docstring of this variant, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -251,8 +250,8 @@ impl StructVariantInfo {
 pub struct TupleVariantInfo {
     name: &'static str,
     fields: Box<[UnnamedField]>,
-    custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    custom_attributes: CustomAttributes,
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -262,14 +261,14 @@ impl TupleVariantInfo {
         Self {
             name,
             fields: fields.to_vec().into_boxed_slice(),
-            custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            custom_attributes: CustomAttributes::default(),
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this variant.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -277,7 +276,7 @@ impl TupleVariantInfo {
     /// Sets the custom attributes for this variant.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes,
             ..self
         }
     }
@@ -303,7 +302,7 @@ impl TupleVariantInfo {
     }
 
     /// The docstring of this variant, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -315,8 +314,8 @@ impl TupleVariantInfo {
 #[derive(Clone, Debug)]
 pub struct UnitVariantInfo {
     name: &'static str,
-    custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    custom_attributes: CustomAttributes,
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -325,14 +324,14 @@ impl UnitVariantInfo {
     pub fn new(name: &'static str) -> Self {
         Self {
             name,
-            custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            custom_attributes: CustomAttributes::default(),
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this variant.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -340,7 +339,7 @@ impl UnitVariantInfo {
     /// Sets the custom attributes for this variant.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes,
             ..self
         }
     }
@@ -351,7 +350,7 @@ impl UnitVariantInfo {
     }
 
     /// The docstring of this variant, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }

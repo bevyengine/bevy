@@ -1,0 +1,154 @@
+use proc_macro2::{Span, TokenStream};
+use syn::{Ident, Lit, LitStr, Member, Path};
+
+#[derive(Debug)]
+pub enum BsnRoot {
+    Bsn(Bsn),
+    BsnList(BsnSceneListItems),
+}
+
+#[derive(Debug)]
+pub struct BsnListRoot(pub BsnSceneListItems);
+
+#[derive(Debug)]
+pub struct Bsn {
+    pub used_parens: Option<Span>,
+    pub entries: Vec<BsnEntry>,
+}
+
+#[derive(Debug)]
+pub enum BsnEntry {
+    Name(Ident),
+    FromTemplatePatch(BsnType),
+    FromTemplateConstructor {
+        constructor: BsnConstructor,
+        dot_expression: Option<TokenStream>,
+    },
+    TemplatePatch(BsnType),
+    TemplateConstructor {
+        constructor: BsnConstructor,
+        dot_expression: Option<TokenStream>,
+    },
+    TemplateValue(TokenStream),
+    Function(BsnFnCall),
+    UncachedScene(BsnScene),
+    CachedScene(BsnScene),
+    RelatedSceneList(BsnRelatedSceneList),
+}
+
+#[derive(Debug)]
+pub struct BsnType {
+    pub path: Path,
+    pub variant: Option<Ident>,
+    pub fields: BsnFields,
+}
+
+#[derive(Debug)]
+pub struct BsnStructUpdate {
+    pub value: Box<BsnValue>,
+}
+
+#[derive(Debug)]
+pub struct BsnRelatedSceneList {
+    pub relationship_path: Path,
+    pub scene_list: BsnSceneList,
+}
+
+#[derive(Debug)]
+pub struct BsnSceneList(pub BsnSceneListItems);
+
+#[derive(Debug)]
+pub struct BsnSceneListItems(pub Vec<BsnSceneListItem>, pub Vec<Span>);
+
+#[derive(Debug)]
+pub enum BsnSceneListItem {
+    Scene(Bsn),
+    Expression(TokenStream),
+}
+
+#[derive(Debug)]
+pub struct BsnSceneFn {
+    pub path: Path,
+    pub args: BsnFnArgs,
+}
+
+#[derive(Debug)]
+pub enum BsnScene {
+    Asset(LitStr),
+    Fn(BsnSceneFn),
+    SceneComponent(BsnType),
+    Expression(TokenStream),
+}
+
+#[derive(Debug)]
+pub struct BsnConstructor {
+    pub type_path: Path,
+    pub function: Ident,
+    pub args: BsnFnArgs,
+}
+
+#[derive(Debug)]
+pub struct BsnFnCall {
+    pub path: Path,
+    pub args: BsnFnArgs,
+}
+
+#[derive(Debug)]
+pub enum BsnFields {
+    Named {
+        fields: Vec<BsnNamedField>,
+        struct_update: Option<BsnStructUpdate>,
+    },
+    Tuple(Vec<BsnUnnamedField>),
+    Unit,
+}
+
+#[derive(Debug)]
+pub struct BsnTuple(pub Vec<BsnValue>);
+
+#[derive(Debug)]
+pub struct BsnNamedField {
+    pub is_prop: bool,
+    /// This is a `Struct { field }` shorthand for `Struct { field: field }`
+    pub is_name_shorthand: bool,
+    pub name: Ident,
+    /// This is an Option to enable autocomplete when the field name is being typed
+    /// To improve autocomplete further we'll need to forgo a lot of the syn parsing
+    pub value: Option<BsnValue>,
+}
+
+pub enum BsnNamedFieldOrStructUpdate {
+    Field(BsnNamedField),
+    StructUpdate(BsnStructUpdate),
+}
+
+#[derive(Debug)]
+pub struct BsnUnnamedField {
+    pub index: Member,
+    pub value: BsnValue,
+}
+
+#[derive(Debug)]
+pub enum BsnValue {
+    Expr(TokenStream),
+    Closure(TokenStream),
+    Ident(Ident),
+    Lit(Lit),
+    Type(BsnType),
+    Tuple(BsnTuple),
+    Name(Ident),
+    Range {
+        start: Box<BsnValue>,
+        end: Box<BsnValue>,
+        inclusive: bool,
+    },
+}
+
+#[derive(Debug)]
+pub enum BsnFnArg {
+    EntityName(Ident),
+    Tokens(TokenStream),
+}
+
+#[derive(Debug)]
+pub struct BsnFnArgs(pub Vec<BsnFnArg>);

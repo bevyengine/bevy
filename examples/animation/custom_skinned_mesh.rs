@@ -4,23 +4,22 @@
 use std::f32::consts::*;
 
 use bevy::{
+    asset::RenderAssetUsages,
+    camera::visibility::DynamicSkinnedMeshBounds,
     math::ops,
-    prelude::*,
-    render::{
-        mesh::{
-            skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-            Indices, PrimitiveTopology, VertexAttributeValues,
-        },
-        render_asset::RenderAssetUsages,
+    mesh::{
+        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+        Indices, PrimitiveTopology, VertexAttributeValues,
     },
+    prelude::*,
 };
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 3000.0,
             ..default()
         })
@@ -137,7 +136,11 @@ fn setup(
     // where each 3 vertex indices form a triangle.
     .with_inserted_indices(Indices::U16(vec![
         0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 7, 4, 7, 6, 6, 7, 9, 6, 9, 8,
-    ]));
+    ]))
+    // Create skinned mesh bounds. Together with the `DynamicSkinnedMeshBounds`
+    // component, this will ensure the mesh is correctly frustum culled.
+    .with_generated_skinned_mesh_bounds()
+    .unwrap();
 
     let mesh = meshes.add(mesh);
 
@@ -169,9 +172,9 @@ fn setup(
             Mesh3d(mesh.clone()),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: Color::srgb(
-                    rng.gen_range(0.0..1.0),
-                    rng.gen_range(0.0..1.0),
-                    rng.gen_range(0.0..1.0),
+                    rng.random_range(0.0..1.0),
+                    rng.random_range(0.0..1.0),
+                    rng.random_range(0.0..1.0),
                 ),
                 base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
                 ..default()
@@ -180,6 +183,7 @@ fn setup(
                 inverse_bindposes: inverse_bindposes.clone(),
                 joints: joint_entities,
             },
+            DynamicSkinnedMeshBounds,
         ));
     }
 }

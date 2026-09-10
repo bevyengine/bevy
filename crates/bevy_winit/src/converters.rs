@@ -1,3 +1,4 @@
+//! Helpers for mapping between winit and bevy types
 use bevy_ecs::entity::Entity;
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput, NativeKeyCode},
@@ -13,6 +14,7 @@ use winit::keyboard::{Key, NamedKey, NativeKey};
 #[cfg(target_os = "ios")]
 use bevy_window::ScreenEdge;
 
+/// Converts a [`winit::event::KeyEvent`] and a window [`Entity`] to a Bevy [`KeyboardInput`]
 pub fn convert_keyboard_input(
     keyboard_input: &winit::event::KeyEvent,
     window: Entity,
@@ -27,6 +29,7 @@ pub fn convert_keyboard_input(
     }
 }
 
+/// Converts a [`winit::event::ElementState`] to a Bevy [`ButtonState`]
 pub fn convert_element_state(element_state: winit::event::ElementState) -> ButtonState {
     match element_state {
         winit::event::ElementState::Pressed => ButtonState::Pressed,
@@ -34,6 +37,7 @@ pub fn convert_element_state(element_state: winit::event::ElementState) -> Butto
     }
 }
 
+/// Converts a [`winit::event::MouseButton`] to a Bevy [`MouseButton`]
 pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseButton {
     match mouse_button {
         winit::event::MouseButton::Left => MouseButton::Left,
@@ -45,18 +49,24 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
     }
 }
 
+/// Converts a [`winit::event::TouchPhase`] to a Bevy [`TouchPhase`].
+pub fn convert_touch_phase(phase: winit::event::TouchPhase) -> TouchPhase {
+    match phase {
+        winit::event::TouchPhase::Started => TouchPhase::Started,
+        winit::event::TouchPhase::Moved => TouchPhase::Moved,
+        winit::event::TouchPhase::Ended => TouchPhase::Ended,
+        winit::event::TouchPhase::Cancelled => TouchPhase::Canceled,
+    }
+}
+
+/// Converts a [`winit::event::Touch`], [`winit::dpi::LogicalPosition<f64>`] and window [`Entity`] to a Bevy [`TouchInput`]
 pub fn convert_touch_input(
     touch_input: winit::event::Touch,
     location: winit::dpi::LogicalPosition<f64>,
     window_entity: Entity,
 ) -> TouchInput {
     TouchInput {
-        phase: match touch_input.phase {
-            winit::event::TouchPhase::Started => TouchPhase::Started,
-            winit::event::TouchPhase::Moved => TouchPhase::Moved,
-            winit::event::TouchPhase::Ended => TouchPhase::Ended,
-            winit::event::TouchPhase::Cancelled => TouchPhase::Canceled,
-        },
+        phase: convert_touch_phase(touch_input.phase),
         position: Vec2::new(location.x as f32, location.y as f32),
         window: window_entity,
         force: touch_input.force.map(|f| match f {
@@ -75,6 +85,7 @@ pub fn convert_touch_input(
     }
 }
 
+/// Converts a [`winit::keyboard::NativeKeyCode`] to a Bevy [`NativeKeyCode`]
 pub fn convert_physical_native_key_code(
     native_key_code: winit::keyboard::NativeKeyCode,
 ) -> NativeKeyCode {
@@ -86,6 +97,7 @@ pub fn convert_physical_native_key_code(
         winit::keyboard::NativeKeyCode::Xkb(key_code) => NativeKeyCode::Xkb(key_code),
     }
 }
+/// Converts a [`winit::keyboard::PhysicalKey`] to a Bevy [`KeyCode`]
 pub fn convert_physical_key_code(virtual_key_code: winit::keyboard::PhysicalKey) -> KeyCode {
     match virtual_key_code {
         winit::keyboard::PhysicalKey::Unidentified(native_key_code) => {
@@ -291,6 +303,7 @@ pub fn convert_physical_key_code(virtual_key_code: winit::keyboard::PhysicalKey)
     }
 }
 
+///Converts a [`winit::keyboard::Key`] to a Bevy [`bevy_input::keyboard::Key`]
 pub fn convert_logical_key(logical_key_code: &Key) -> bevy_input::keyboard::Key {
     match logical_key_code {
         Key::Character(s) => bevy_input::keyboard::Key::Character(s.clone()),
@@ -622,6 +635,7 @@ pub fn convert_logical_key(logical_key_code: &Key) -> bevy_input::keyboard::Key 
     }
 }
 
+///Converts a [`winit::keyboard::NativeKey`] to a Bevy [`NativeKey`](bevy_input::keyboard::NativeKey)
 pub fn convert_native_key(native_key: &NativeKey) -> bevy_input::keyboard::NativeKey {
     match native_key {
         NativeKey::Unidentified => bevy_input::keyboard::NativeKey::Unidentified,
@@ -633,7 +647,7 @@ pub fn convert_native_key(native_key: &NativeKey) -> bevy_input::keyboard::Nativ
     }
 }
 
-/// Converts a [`SystemCursorIcon`] to a [`winit::window::CursorIcon`].
+/// Converts a Bevy [`SystemCursorIcon`] to a [`winit::window::CursorIcon`].
 pub fn convert_system_cursor_icon(cursor_icon: SystemCursorIcon) -> winit::window::CursorIcon {
     match cursor_icon {
         SystemCursorIcon::Crosshair => winit::window::CursorIcon::Crosshair,
@@ -673,6 +687,7 @@ pub fn convert_system_cursor_icon(cursor_icon: SystemCursorIcon) -> winit::windo
     }
 }
 
+/// Converts a Bevy [`WindowLevel`] to a [`winit::window::WindowLevel`]
 pub fn convert_window_level(window_level: WindowLevel) -> winit::window::WindowLevel {
     match window_level {
         WindowLevel::AlwaysOnBottom => winit::window::WindowLevel::AlwaysOnBottom,
@@ -681,6 +696,7 @@ pub fn convert_window_level(window_level: WindowLevel) -> winit::window::WindowL
     }
 }
 
+/// Converts a [`winit::window::Theme`] to a Bevy [`WindowTheme`]
 pub fn convert_winit_theme(theme: winit::window::Theme) -> WindowTheme {
     match theme {
         winit::window::Theme::Light => WindowTheme::Light,
@@ -688,6 +704,7 @@ pub fn convert_winit_theme(theme: winit::window::Theme) -> WindowTheme {
     }
 }
 
+/// Converts a Bevy [`WindowTheme`] to a [`winit::window::Theme`]
 pub fn convert_window_theme(theme: WindowTheme) -> winit::window::Theme {
     match theme {
         WindowTheme::Light => winit::window::Theme::Light,
@@ -695,6 +712,7 @@ pub fn convert_window_theme(theme: WindowTheme) -> winit::window::Theme {
     }
 }
 
+/// Converts a Bevy [`EnabledButtons`] to a [`winit::window::WindowButtons`]
 pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window::WindowButtons {
     let mut window_buttons = winit::window::WindowButtons::empty();
     if enabled_buttons.minimize {
@@ -709,6 +727,7 @@ pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window
     window_buttons
 }
 
+/// Converts a Bevy [`CompassOctant`] to a [`winit::window::ResizeDirection`]
 pub fn convert_resize_direction(resize_direction: CompassOctant) -> winit::window::ResizeDirection {
     match resize_direction {
         CompassOctant::West => winit::window::ResizeDirection::West,

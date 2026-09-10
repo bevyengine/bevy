@@ -15,7 +15,10 @@ impl_reflect! {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Enum, FromReflect, PartialReflect, TypeInfo, Typed, VariantInfo, VariantType};
+    use crate::{
+        enums::{Enum, VariantInfo, VariantType},
+        FromReflect, PartialReflect, TypeInfo, Typed,
+    };
     use bevy_reflect_derive::Reflect;
     use static_assertions::assert_impl_all;
 

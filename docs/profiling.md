@@ -6,10 +6,14 @@
   - [Overview](#overview)
   - [Adding your own spans](#adding-your-own-spans)
   - [Tracy profiler](#tracy-profiler)
+    - [Tracy Quickstart](#tracy-quickstart)
+    - [Commandline capture](#commandline-capture-less-overhead)
+    - [Using the Tracy UI](#using-the-tracy-ui)
   - [Chrome tracing format](#chrome-tracing-format)
   - [Perf flame graph](#perf-flame-graph)
 - [GPU runtime](#gpu-runtime)
   - [Vendor tools](#vendor-tools)
+    - [Xcode's Metal debugger](#xcodes-metal-debugger)
   - [Tracy RenderQueue](#tracy-renderqueue)
 - [Compile time](#compile-time)
 
@@ -19,7 +23,7 @@
 
 Bevy has built-in [tracing](https://github.com/tokio-rs/tracing) spans to make it cheap and easy to profile Bevy ECS systems, render logic, engine internals, and user app code. Enable the `trace` cargo feature to enable Bevy's built-in spans.
 
-If you also want to include `wgpu` tracing spans when profiling, they are emitted at the `tracing` `info` level so you will need to make sure they are not filtered out by the `LogSettings` resource's `filter` member which defaults to `wgpu=error`. You can do this by setting the `RUST_LOG=info` environment variable when running your application.
+Your tracing level needs to be at least `info` for this to work, so make sure that you don't set the `max_level(_release)_[warn/error]` features of the `tracing` crate nor filter it out using `LogPlugin`'s `filter` member. Note that `wgpu` and `naga` spans are filtered out by default. If you want to include them, you can either change your `LogPlugin`'s `filter` member or override it by setting the `RUST_LOG=info` environment variable when running your application.
 
 You also need to select a `tracing` backend using one of the cargo features described in the below sections.
 
@@ -64,25 +68,45 @@ The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 
 > A real time, nanosecond resolution, remote telemetry, hybrid frame and sampling profiler for games and other applications.
 
-There are binaries available for Windows, and installation / build instructions for other operating systems can be found in the [Tracy documentation PDF](https://github.com/wolfpld/tracy/releases/latest/download/tracy.pdf).
+#### Tracy Quickstart
 
-It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app. The version of tracy must be matched to the version of tracing-tracy used in bevy. A compatibility table can be found on [crates.io](https://crates.io/crates/tracing-tracy) and the version used can be found [here](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_log/Cargo.toml).
+1. Install the [correct Tracy version](#finding-the-correct-tracy-version)
+    - [Windows binaries (official)](https://github.com/wolfpld/tracy/releases)
+    - [Macos and Linux binaries (third-party builds)](https://github.com/tracy-builds/tracy-builds/releases)
+    - [Packages](https://repology.org/project/tracy/versions)
+2. Start the Tracy UI (called `tracy-profiler` in prebuilt binaries)
+3. In the Tracy UI, click `connect` to wait for a connection.
+   - Starting the Tracy UI first and letting it wait for connection ensures it doesn't have to catch up
+4. Run your bevy app with `--features bevy/trace_tracy --release`
+   - `--release` as theres little point to profiling unoptimized code
+   - You can capture memory usage as well with `--features bevy/trace_tracy_memory`, at the cost of increased overhead.
+   - To see debug names for Bevy's own systems, add the `bevy/debug` feature with `--features bevy/trace_tracy,bevy/debug`.
 
-On macOS, Tracy can be installed through Homebrew by running `brew install tracy`, and the GUI client can be launched by running `tracy`.
+#### Finding the correct Tracy version
 
-In one terminal, run:
-`./capture-release -o my_capture.tracy`
+To determine which Tracy version to install
+
+1. Run `cargo tree --features bevy/trace_tracy | grep tracy` in your Bevy workspace root to see which tracy dep versions are used
+2. Cross reference the tracy dep versions with the [Version Support Table](https://github.com/nagisa/rust_tracy_client?tab=readme-ov-file#version-support-table)
+
+#### Commandline capture (less overhead)
+
+Tracy has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. This reduces potential inaccuracies, as running the live capture on the same machine will be a competing graphical application. Pre-recording the profile data through the CLI tool, while other applications are closed, is recommended for more accurate traces.
+
+> [!NOTE]
+> The name and location of the Tracy command line tool will vary depending on how you installed it - the default executable name for the prebuilt binaries is `tracy-capture`.
+
+In a terminal, run:
+`./tracy-capture -o my_capture.tracy`
 This will sit and wait for a tracy-instrumented application to start, and when it does, it will automatically connect and start capturing.
-
-The name and location of the Tracy command line tool will vary depending on how you installed it - the default executable names are `capture-release` on Linux, `tracy` on macOS and `capture.exe` on Windows. In one terminal, run this tool: `./capture-release -o my_capture.tracy`. This will sit and wait for a tracy-instrumented application to start, and when it does, it will automatically connect and start capturing.
 
 Then run your application, enabling the `trace_tracy` feature: `cargo run --release --features bevy/trace_tracy`. If you also want to track memory allocations, at the cost of increased runtime overhead, then enable the `trace_tracy_memory` feature instead: `cargo run --release --features bevy/trace_tracy_memory`.
 
-After running your app, you can open the captured profile file (`my_capture.tracy` in the example above) in the Tracy GUI application to see a timeline of the executed spans.
+After running your app, you can open the captured profile file (`my_capture.tracy` in the example above) in the Tracy GUI application to see a timeline of the executed spans, or open multiple files to compare them.
 
-Alternatively, directly run the tracy GUI and then run your application, for live capture. However, beware that running the live capture on the same machine will be a competing graphical application, which may impact results. Pre-recording the profile data through the CLI tool is recommended for more accurate traces.
+#### Using the Tracy UI
 
-In any case, you'll see your trace in the GUI window:
+You'll see your trace in the GUI window:
 
 ![Tracy timeline demonstrating the performance breakdown of a Bevy app](https://user-images.githubusercontent.com/302146/163988636-25c017ab-64bc-4da7-a897-a80098b667ef.png)
 
@@ -147,6 +171,33 @@ For profiling GPU work, you should use the tool corresponding to your GPU's vend
 
 Note that while RenderDoc is a great debugging tool, it is _not_ a profiler, and should not be used for this purpose.
 
+#### Xcode's Metal debugger
+
+Follow the steps below to start GPU debugging on macOS. There is no need to create an Xcode project.
+
+1. In the menu bar click on Debug > Debug Executable…
+
+   ![Xcode's menu bar open to Debug > Debug Executable...](https://github.com/user-attachments/assets/efdc5037-0957-4227-b29d-9a789ba17a0a)
+
+2. Select your executable from your project’s target folder.
+3. The Scheme Editor will open. If your assets are not located next to your executable, you can go to the Arguments tab and set `BEVY_ASSET_ROOT` to the absolute path for your project (the parent of your assets folder). The rest of the defaults should be fine.
+
+   ![Xcode's Schema Editor opened to an environment variable configuration](https://github.com/user-attachments/assets/29cafb05-0c49-4777-8d41-8643812e8f6a)
+
+4. Click the play button in the top left and this should start your bevy app.
+
+   ![A cursor hovering over the play button in XCode](https://github.com/user-attachments/assets/859580e2-779b-4db8-8ea6-73cf4ef696c9)
+
+5. Go back to Xcode and click on the Metal icon in the bottom drawer and then Capture in the following the popup menu.
+
+   ![A cursor hovering over the Capture button in the Metal debugging popup menu](https://github.com/user-attachments/assets/c0ce1591-0a53-499b-bd1b-4d89538ea248)
+
+6. Start debugging and profiling!
+
+![Xcode open to the Performance tab in the Debug Navigator.](https://github.com/user-attachments/assets/52732391-9306-44a9-ae01-dcf4573f77ab)
+
+These instructions were created for Xcode 16.4.
+
 ### Tracy RenderQueue
 
 While it doesn't provide as much detail as vendor-specific tooling, Tracy can also be used to coarsely measure GPU performance.
@@ -155,6 +206,7 @@ When you compile with Bevy's `trace_tracy` feature, GPU spans will show up in a 
 
 > [!NOTE]
 > Due to dynamic clock speeds, GPU timings will have large frame-to-frame variance, unless you use an external tool to lock your GPU clocks to base speeds. When measuring GPU performance via Tracy, only look at the MTPC column of Tracy's statistics panel, or the span distribution/median, and not at any individual frame data.
+
 <!-- markdownlint-disable MD028 -->
 
 > [!NOTE]

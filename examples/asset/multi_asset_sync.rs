@@ -17,7 +17,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<LoadingState>()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
             ..default()
@@ -64,8 +64,8 @@ pub struct OneHundredThings([Handle<Gltf>; 100]);
 #[derive(Debug, Resource, Deref)]
 pub struct AssetBarrier(Arc<AssetBarrierInner>);
 
-/// This guard is to be acquired by [`AssetServer::load_acquire`]
-/// and dropped once finished.
+/// This guard is to be acquired by
+/// [`LoadBuilder::with_guard`](bevy::asset::LoadBuilder::with_guard) and dropped once finished.
 #[derive(Debug, Deref)]
 pub struct AssetBarrierGuard(Arc<AssetBarrierInner>);
 
@@ -105,7 +105,7 @@ impl AssetBarrier {
     }
 
     /// Wait for all [`AssetBarrierGuard`]s to be dropped asynchronously.
-    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static + use<> {
+    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static {
         let shared = self.0.clone();
         async move {
             loop {
@@ -143,13 +143,16 @@ impl Drop for AssetBarrierGuard {
 
 fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     let (barrier, guard) = AssetBarrier::new();
-    commands.insert_resource(OneHundredThings(std::array::from_fn(|i| match i % 5 {
-        0 => asset_server.load_acquire("models/GolfBall/GolfBall.glb", guard.clone()),
-        1 => asset_server.load_acquire("models/AlienCake/alien.glb", guard.clone()),
-        2 => asset_server.load_acquire("models/AlienCake/cakeBirthday.glb", guard.clone()),
-        3 => asset_server.load_acquire("models/FlightHelmet/FlightHelmet.gltf", guard.clone()),
-        4 => asset_server.load_acquire("models/torus/torus.gltf", guard.clone()),
-        _ => unreachable!(),
+    commands.insert_resource(OneHundredThings(std::array::from_fn(|i| {
+        let builder = asset_server.load_builder().with_guard(guard.clone());
+        match i % 5 {
+            0 => builder.load("models/GolfBall/GolfBall.glb"),
+            1 => builder.load("models/AlienCake/alien.glb"),
+            2 => builder.load("models/AlienCake/cakeBirthday.glb"),
+            3 => builder.load("models/FlightHelmet/FlightHelmet.gltf"),
+            4 => builder.load("models/torus/torus.gltf"),
+            _ => unreachable!(),
+        }
     })));
     let future = barrier.wait_async();
     commands.insert_resource(barrier);
@@ -175,8 +178,8 @@ fn setup_ui(mut commands: Commands) {
         Text::new("Loading...".to_owned()),
         Node {
             position_type: PositionType::Absolute,
-            left: Val::Px(12.0),
-            top: Val::Px(12.0),
+            left: px(12),
+            top: px(12),
             ..default()
         },
     ));
@@ -196,7 +199,7 @@ fn setup_scene(
     // Light
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
@@ -241,7 +244,7 @@ fn wait_on_load(
             // All gltfs must exist because this is guarded by the `AssetBarrier`.
             let gltf = gltfs.get(&foxes.0[index]).unwrap();
             let scene = gltf.scenes.first().unwrap().clone();
-            commands.spawn((SceneRoot(scene), Transform::from_translation(position)));
+            commands.spawn((WorldAssetRoot(scene), Transform::from_translation(position)));
         }
     }
 }

@@ -123,7 +123,8 @@ pub fn test_with_multiple_configs(
     let emitter: Box<dyn StatusEmitter + Send> = if env::var_os("CI").is_some() {
         Box::new((
             Text::verbose(),
-            Gha::<true> {
+            Gha {
+                group: true,
                 name: test_name.into(),
             },
         ))

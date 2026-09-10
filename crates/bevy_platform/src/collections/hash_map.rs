@@ -40,6 +40,11 @@ pub type Entry<'a, K, V, S = FixedHasher> = hb::Entry<'a, K, V, S>;
 ///
 /// A new-type is used instead of a type alias due to critical methods like [`new`](hb::HashMap::new)
 /// being incompatible with Bevy's choice of default hasher.
+///
+/// Unlike [`hashbrown::HashMap`], [`HashMap`] defaults to [`FixedHasher`]
+/// instead of [`RandomState`].
+/// This provides determinism by default with an acceptable compromise to denial
+/// of service resistance in the context of a game engine.
 #[repr(transparent)]
 pub struct HashMap<K, V, S = FixedHasher>(hb::HashMap<K, V, S>);
 
@@ -1027,7 +1032,7 @@ where
 
     /// Attempts to get mutable references to `N` values in the map at once.
     ///
-    /// Refer to [`get_many_mut`](hb::HashMap::get_many_mut) for further details.
+    /// Refer to [`get_disjoint_mut`](hb::HashMap::get_disjoint_mut) for further details.
     ///
     /// # Examples
     ///
@@ -1039,22 +1044,22 @@ where
     /// map.insert("bar", 1);
     /// map.insert("baz", 2);
     ///
-    /// let result = map.get_many_mut(["foo", "bar"]);
+    /// let result = map.get_disjoint_mut(["foo", "bar"]);
     ///
     /// assert_eq!(result, [Some(&mut 0), Some(&mut 1)]);
     /// ```
     #[inline]
-    pub fn get_many_mut<Q, const N: usize>(&mut self, ks: [&Q; N]) -> [Option<&'_ mut V>; N]
+    pub fn get_disjoint_mut<Q, const N: usize>(&mut self, ks: [&Q; N]) -> [Option<&'_ mut V>; N]
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
-        self.0.get_many_mut(ks)
+        self.0.get_disjoint_mut(ks)
     }
 
     /// Attempts to get mutable references to `N` values in the map at once, with immutable
     /// references to the corresponding keys.
     ///
-    /// Refer to [`get_many_key_value_mut`](hb::HashMap::get_many_key_value_mut) for further details.
+    /// Refer to [`get_disjoint_key_value_mut`](hb::HashMap::get_disjoint_key_value_mut) for further details.
     ///
     /// # Examples
     ///
@@ -1066,19 +1071,19 @@ where
     /// map.insert("bar", 1);
     /// map.insert("baz", 2);
     ///
-    /// let result = map.get_many_key_value_mut(["foo", "bar"]);
+    /// let result = map.get_disjoint_key_value_mut(["foo", "bar"]);
     ///
     /// assert_eq!(result, [Some((&"foo", &mut 0)), Some((&"bar", &mut 1))]);
     /// ```
     #[inline]
-    pub fn get_many_key_value_mut<Q, const N: usize>(
+    pub fn get_disjoint_key_value_mut<Q, const N: usize>(
         &mut self,
         ks: [&Q; N],
     ) -> [Option<(&'_ K, &'_ mut V)>; N]
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
-        self.0.get_many_key_value_mut(ks)
+        self.0.get_disjoint_key_value_mut(ks)
     }
 
     /// Inserts a key-value pair into the map.
@@ -1224,12 +1229,12 @@ where
     /// Attempts to get mutable references to `N` values in the map at once, without validating that
     /// the values are unique.
     ///
-    /// Refer to [`get_many_unchecked_mut`](hb::HashMap::get_many_unchecked_mut) for further details.
+    /// Refer to [`get_disjoint_unchecked_mut`](hb::HashMap::get_disjoint_unchecked_mut) for further details.
     ///
     /// Returns an array of length `N` with the results of each query. `None` will be used if
     /// the key is missing.
     ///
-    /// For a safe alternative see [`get_many_mut`](`HashMap::get_many_mut`).
+    /// For a safe alternative see [`get_disjoint_mut`](`HashMap::get_disjoint_mut`).
     ///
     /// # Safety
     ///
@@ -1242,7 +1247,7 @@ where
         reason = "re-exporting unsafe method from Hashbrown requires unsafe code"
     )]
     #[inline]
-    pub unsafe fn get_many_unchecked_mut<Q, const N: usize>(
+    pub unsafe fn get_disjoint_unchecked_mut<Q, const N: usize>(
         &mut self,
         keys: [&Q; N],
     ) -> [Option<&'_ mut V>; N]
@@ -1250,18 +1255,18 @@ where
         Q: Hash + Equivalent<K> + ?Sized,
     {
         // SAFETY: safety contract is ensured by the caller.
-        unsafe { self.0.get_many_unchecked_mut(keys) }
+        unsafe { self.0.get_disjoint_unchecked_mut(keys) }
     }
 
     /// Attempts to get mutable references to `N` values in the map at once, with immutable
     /// references to the corresponding keys, without validating that the values are unique.
     ///
-    /// Refer to [`get_many_key_value_unchecked_mut`](hb::HashMap::get_many_key_value_unchecked_mut) for further details.
+    /// Refer to [`get_disjoint_key_value_unchecked_mut`](hb::HashMap::get_disjoint_key_value_unchecked_mut) for further details.
     ///
     /// Returns an array of length `N` with the results of each query. `None` will be returned if
     /// any of the keys are missing.
     ///
-    /// For a safe alternative see [`get_many_key_value_mut`](`HashMap::get_many_key_value_mut`).
+    /// For a safe alternative see [`get_disjoint_key_value_mut`](`HashMap::get_disjoint_key_value_mut`).
     ///
     /// # Safety
     ///
@@ -1274,7 +1279,7 @@ where
         reason = "re-exporting unsafe method from Hashbrown requires unsafe code"
     )]
     #[inline]
-    pub unsafe fn get_many_key_value_unchecked_mut<Q, const N: usize>(
+    pub unsafe fn get_disjoint_key_value_unchecked_mut<Q, const N: usize>(
         &mut self,
         keys: [&Q; N],
     ) -> [Option<(&'_ K, &'_ mut V)>; N]
@@ -1282,6 +1287,6 @@ where
         Q: Hash + Equivalent<K> + ?Sized,
     {
         // SAFETY: safety contract is ensured by the caller.
-        unsafe { self.0.get_many_key_value_unchecked_mut(keys) }
+        unsafe { self.0.get_disjoint_key_value_unchecked_mut(keys) }
     }
 }

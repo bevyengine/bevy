@@ -1,16 +1,26 @@
-//! Renders two cameras to the same window to accomplish "split screen".
+//! Renders four cameras to the same window to accomplish "split screen".
 
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::CascadeShadowConfigBuilder, prelude::*, render::camera::Viewport, window::WindowResized,
+    camera::Viewport,
+    feathers::{
+        controls::FeathersButton, dark_theme::create_dark_theme, display::caption, theme::UiTheme,
+        FeathersPlugins,
+    },
+    light::CascadeShadowConfigBuilder,
+    prelude::*,
+    ui_widgets::Activate,
+    window::WindowResized,
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (set_camera_viewports, button_system))
+        .add_systems(Update, set_camera_viewports)
+        .add_observer(on_activate_rotate_camera)
         .run();
 }
 
@@ -27,7 +37,7 @@ fn setup(
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
 
-    commands.spawn(SceneRoot(
+    commands.spawn(WorldAssetRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
     ));
 
@@ -35,7 +45,7 @@ fn setup(
     commands.spawn((
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
@@ -82,67 +92,56 @@ fn setup(
             .id();
 
         // Set up UI
+        let buttons_entity = commands.spawn_scene(buttons_panel()).id();
         commands
             .spawn((
                 UiTargetCamera(camera),
                 Node {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     ..default()
                 },
-            ))
-            .with_children(|parent| {
-                parent.spawn((
+                children![(
                     Text::new(*camera_name),
                     Node {
-                        position_type: PositionType::Absolute,
-                        top: Val::Px(12.),
-                        left: Val::Px(12.),
+                        margin: px(12).all(),
                         ..default()
                     },
-                ));
-                buttons_panel(parent);
-            });
+                ),],
+            ))
+            .add_child(buttons_entity);
     }
 
-    fn buttons_panel(parent: &mut ChildSpawnerCommands) {
-        parent
-            .spawn(Node {
+    fn buttons_panel() -> impl Scene {
+        bsn! {
+            Node {
                 position_type: PositionType::Absolute,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
-                padding: UiRect::all(Val::Px(20.)),
-                ..default()
-            })
-            .with_children(|parent| {
-                rotate_button(parent, "<", Direction::Left);
-                rotate_button(parent, ">", Direction::Right);
-            });
+                padding: UiRect::all(px(20)),
+            }
+            Children [
+                @rotate_button("<", Direction::Left)
+                --
+                @rotate_button(">", Direction::Right)
+            ]
+        }
     }
 
-    fn rotate_button(parent: &mut ChildSpawnerCommands, caption: &str, direction: Direction) {
-        parent
-            .spawn((
-                RotateCamera(direction),
-                Button,
-                Node {
-                    width: Val::Px(40.),
-                    height: Val::Px(40.),
-                    border: UiRect::all(Val::Px(2.)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                BorderColor::all(Color::WHITE),
-                BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-            ))
-            .with_children(|parent| {
-                parent.spawn(Text::new(caption));
-            });
+    fn rotate_button(text_caption: &'static str, direction: Direction) -> impl Scene {
+        bsn! {
+            RotateCamera(direction)
+            @FeathersButton {
+                @caption: bsn! { @caption(text_caption) },
+            }
+            Node {
+                width: px(40),
+            }
+        }
     }
 }
 
@@ -151,24 +150,26 @@ struct CameraPosition {
     pos: UVec2,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Default, PartialEq)]
 struct RotateCamera(Direction);
 
+#[derive(Clone, Default, PartialEq)]
 enum Direction {
+    #[default]
     Left,
     Right,
 }
 
 fn set_camera_viewports(
     windows: Query<&Window>,
-    mut resize_events: EventReader<WindowResized>,
+    mut window_resized_reader: MessageReader<WindowResized>,
     mut query: Query<(&CameraPosition, &mut Camera)>,
 ) {
     // We need to dynamically resize the camera's viewports whenever the window size changes
     // so then each camera always takes up half the screen.
     // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
-    for resize_event in resize_events.read() {
-        let window = windows.get(resize_event.window).unwrap();
+    for window_resized in window_resized_reader.read() {
+        let window = windows.get(window_resized.window).unwrap();
         let size = window.physical_size() / 2;
 
         for (camera_position, mut camera) in &mut query {
@@ -181,27 +182,25 @@ fn set_camera_viewports(
     }
 }
 
-fn button_system(
-    interaction_query: Query<
-        (&Interaction, &ComputedNodeTarget, &RotateCamera),
-        (Changed<Interaction>, With<Button>),
-    >,
+fn on_activate_rotate_camera(
+    event: On<Activate>,
+    button_query: Query<(&ComputedUiTargetCamera, &RotateCamera), With<FeathersButton>>,
     mut camera_query: Query<&mut Transform, With<Camera>>,
 ) {
-    for (interaction, computed_target, RotateCamera(direction)) in &interaction_query {
-        if let Interaction::Pressed = *interaction {
-            // Since TargetCamera propagates to the children, we can use it to find
-            // which side of the screen the button is on.
-            if let Some(mut camera_transform) = computed_target
-                .camera()
-                .and_then(|camera| camera_query.get_mut(camera).ok())
-            {
-                let angle = match direction {
-                    Direction::Left => -0.1,
-                    Direction::Right => 0.1,
-                };
-                camera_transform.rotate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, angle));
-            }
-        }
+    let Ok((computed_target, RotateCamera(direction))) = button_query.get(event.entity) else {
+        return;
+    };
+
+    // Since TargetCamera propagates to the children, we can use it to find
+    // which side of the screen the button is on.
+    if let Some(mut camera_transform) = computed_target
+        .get()
+        .and_then(|camera| camera_query.get_mut(camera).ok())
+    {
+        let angle = match direction {
+            Direction::Left => -0.1,
+            Direction::Right => 0.1,
+        };
+        camera_transform.rotate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, angle));
     }
 }

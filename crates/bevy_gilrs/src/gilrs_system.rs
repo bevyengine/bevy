@@ -2,7 +2,7 @@ use crate::{
     converter::{convert_axis, convert_button},
     Gilrs, GilrsGamepads,
 };
-use bevy_ecs::event::EventWriter;
+use bevy_ecs::message::MessageWriter;
 use bevy_ecs::prelude::Commands;
 use bevy_ecs::system::ResMut;
 use bevy_input::gamepad::{
@@ -15,7 +15,7 @@ pub fn gilrs_event_startup_system(
     mut commands: Commands,
     mut gilrs: ResMut<Gilrs>,
     mut gamepads: ResMut<GilrsGamepads>,
-    mut events: EventWriter<GamepadConnectionEvent>,
+    mut events: MessageWriter<GamepadConnectionEvent>,
 ) {
     gilrs.with(|gilrs| {
         for (id, gamepad) in gilrs.gamepads() {
@@ -39,10 +39,10 @@ pub fn gilrs_event_system(
     mut commands: Commands,
     mut gilrs: ResMut<Gilrs>,
     mut gamepads: ResMut<GilrsGamepads>,
-    mut events: EventWriter<RawGamepadEvent>,
-    mut connection_events: EventWriter<GamepadConnectionEvent>,
-    mut button_events: EventWriter<RawGamepadButtonChangedEvent>,
-    mut axis_event: EventWriter<RawGamepadAxisChangedEvent>,
+    mut events: MessageWriter<RawGamepadEvent>,
+    mut connection_events: MessageWriter<GamepadConnectionEvent>,
+    mut button_events: MessageWriter<RawGamepadButtonChangedEvent>,
+    mut axis_event: MessageWriter<RawGamepadAxisChangedEvent>,
 ) {
     gilrs.with(|gilrs| {
         while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
@@ -79,10 +79,8 @@ pub fn gilrs_event_system(
                     events.write(event.clone().into());
                     connection_events.write(event);
                 }
-                EventType::ButtonChanged(gilrs_button, raw_value, _) => {
-                    let Some(button) = convert_button(gilrs_button) else {
-                        continue;
-                    };
+                EventType::ButtonChanged(gilrs_button, raw_value, code) => {
+                    let button = convert_button(gilrs_button, code);
                     let gamepad = gamepads
                         .id_to_entity
                         .get(&gilrs_event.id)
@@ -95,8 +93,8 @@ pub fn gilrs_event_system(
                         gamepad, button, raw_value,
                     ));
                 }
-                EventType::AxisChanged(gilrs_axis, raw_value, _) => {
-                    let Some(axis) = convert_axis(gilrs_axis) else {
+                EventType::AxisChanged(gilrs_axis, raw_value, code) => {
+                    let Some(axis) = convert_axis(gilrs_axis, code) else {
                         continue;
                     };
                     let gamepad = gamepads

@@ -15,7 +15,9 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: true
 
       - name: Install cargo-release
         run: cargo install cargo-release
@@ -50,10 +52,16 @@ jobs:
             --exclude errors \
             --exclude bevy_mobile_example \
             --exclude build-wasm-example \
-            --exclude no_std_library
+            --exclude no_std_library \
+            --exclude export-content \
+            --exclude auto_register_static \
+            --exclude mipmap_generator \
+            --exclude caldera_hotel \
+            --exclude bistro \
+            --exclude bevy_city
 
       - name: Create PR
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           delete-branch: true
           base: "main"

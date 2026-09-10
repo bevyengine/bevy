@@ -55,6 +55,10 @@ pub struct FQResult;
 pub struct FQSend;
 /// Fully Qualified (FQ) short name for [`Sync`]
 pub struct FQSync;
+/// Fully Qualified (FQ) short name for [`Into`]
+pub struct FQInto;
+/// Fully Qualified (FQ) short name for [`Iterator`]
+pub struct FQIterator;
 
 impl ToTokens for FQAny {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -101,5 +105,17 @@ impl ToTokens for FQSend {
 impl ToTokens for FQSync {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         quote!(::core::marker::Sync).to_tokens(tokens);
+    }
+}
+
+impl ToTokens for FQInto {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        quote!(::core::convert::Into).to_tokens(tokens);
+    }
+}
+
+impl ToTokens for FQIterator {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        quote!(::core::iter::Iterator).to_tokens(tokens);
     }
 }

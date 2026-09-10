@@ -2,10 +2,10 @@
 
 use bevy::{
     color::palettes::basic,
-    ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
+    ecs::event::PropagateEntityTrigger,
     prelude::*,
+    ui_widgets::{ListBox, ListItem, ValueChange},
 };
-use std::fmt::Debug;
 
 /// event opening a new context menu at position `pos`
 #[derive(Event)]
@@ -18,12 +18,16 @@ struct OpenContextMenu {
 struct CloseContextMenus;
 
 /// marker component identifying root of a context menu
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 struct ContextMenu;
 
 /// context menu item data storing what background color `Srgba` it activates
-#[derive(Component)]
+#[derive(Component, Clone, Default, PartialEq)]
 struct ContextMenuItem(Srgba);
+
+/// marker component for context item text
+#[derive(Component, Clone, Default)]
+struct ContextMenuItemText;
 
 fn main() {
     App::new()
@@ -31,22 +35,24 @@ fn main() {
         .add_systems(Startup, setup)
         .add_observer(on_trigger_menu)
         .add_observer(on_trigger_close_menus)
-        .add_observer(text_color_on_hover::<Out>(basic::WHITE.into()))
-        .add_observer(text_color_on_hover::<Over>(basic::RED.into()))
+        .add_observer(text_color_on_hover::<PointerOut>(basic::WHITE.into()))
+        .add_observer(text_color_on_hover::<PointerOver>(basic::RED.into()))
         .run();
 }
 
 /// helper function to reduce code duplication when generating almost identical observers for the hover text color change effect
-fn text_color_on_hover<T: Debug + Clone + Reflect>(
+fn text_color_on_hover<
+    E: PointerEvent + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<true, E, PointerTraversal>>,
+>(
     color: Color,
-) -> impl FnMut(On<Pointer<T>>, Query<&mut TextColor>, Query<&Children>) {
-    move |mut trigger: On<Pointer<T>>,
-          mut text_color: Query<&mut TextColor>,
+) -> impl FnMut(On<E>, Query<&mut TextColor, With<ContextMenuItemText>>, Query<&Children>) {
+    move |mut event: On<E>,
+          mut text_color: Query<&mut TextColor, With<ContextMenuItemText>>,
           children: Query<&Children>| {
-        let Ok(children) = children.get(trigger.original_target()) else {
+        let Ok(children) = children.get(event.original_event_target()) else {
             return;
         };
-        trigger.propagate(false);
+        event.propagate(false);
 
         // find the text among children and change its color
         for child in children.iter() {
@@ -60,16 +66,26 @@ fn text_color_on_hover<T: Debug + Clone + Reflect>(
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    commands.spawn(background_and_button()).observe(
-        // any click bubbling up here should lead to closing any open menu
-        |_: On<Pointer<Press>>, mut commands: Commands| {
-            commands.trigger(CloseContextMenus);
-        },
-    );
+    commands.spawn_scene(bsn! {
+        @background()
+        on(|press: On<PointerPress>, query: Query<(), With<ContextMenu>>, mut commands: Commands| {
+            debug!("click: {}", press.pointer.position);
+
+            if query.is_empty() {
+                // Open the context menu at the pointer location if one does not exist
+                commands.trigger(OpenContextMenu {
+                    pos: press.pointer.position,
+                });
+            } else {
+                // Close the context menu if it exists
+                commands.trigger(CloseContextMenus);
+            }
+        })
+    });
 }
 
 fn on_trigger_close_menus(
-    _trigger: On<CloseContextMenus>,
+    _event: On<CloseContextMenus>,
     mut commands: Commands,
     menus: Query<Entity, With<ContextMenu>>,
 ) {
@@ -78,120 +94,89 @@ fn on_trigger_close_menus(
     }
 }
 
-fn on_trigger_menu(trigger: On<OpenContextMenu>, mut commands: Commands) {
+fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
     commands.trigger(CloseContextMenus);
 
-    let pos = trigger.pos;
+    let pos = event.pos;
 
     debug!("open context menu at: {pos}");
 
-    commands
-        .spawn((
-            Name::new("context menu"),
-            ContextMenu,
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(pos.x),
-                top: Val::Px(pos.y),
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
-            BorderColor::all(Color::BLACK),
-            BorderRadius::all(Val::Px(4.)),
-            BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1)),
-            children![
-                context_item("fuchsia", basic::FUCHSIA),
-                context_item("gray", basic::GRAY),
-                context_item("maroon", basic::MAROON),
-                context_item("purple", basic::PURPLE),
-                context_item("teal", basic::TEAL),
-            ],
-        ))
-        .observe(
-            |trigger: On<Pointer<Press>>,
-             menu_items: Query<&ContextMenuItem>,
-             mut clear_col: ResMut<ClearColor>,
-             mut commands: Commands| {
-                let target = trigger.original_target();
+    commands.spawn_scene(bsn! {
+        #ContextMenu
+        ContextMenu
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(pos.x),
+            top: px(pos.y),
+            flex_direction: FlexDirection::Column,
+            border_radius: BorderRadius::all(px(4)),
+        }
+        BorderColor::all(Color::BLACK)
+        BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1))
+        ListBox
+        Children [
+            @context_item("fuchsia", basic::FUCHSIA)
+            --
+            @context_item("gray", basic::GRAY)
+            --
+            @context_item("maroon", basic::MAROON)
+            --
+            @context_item("purple", basic::PURPLE)
+            --
+            @context_item("teal", basic::TEAL)
+        ]
+        on(|event: On<ValueChange<Entity>>,
+            menu_items: Query<&ContextMenuItem, With<ListItem>>,
+            mut clear_col: ResMut<ClearColor>,
+            mut commands: Commands| {
+                let Ok(selected) = menu_items.get(event.value) else {
+                    return;
+                };
+                clear_col.0 = selected.0.into();
+                commands.trigger(CloseContextMenus);
 
-                if let Ok(item) = menu_items.get(target) {
-                    clear_col.0 = item.0.into();
-                    commands.trigger(CloseContextMenus);
-                }
-            },
-        );
+                // We do not set the `Selected` state of any of the items because the menu
+                // will be despawned.
+        })
+    });
 }
 
-fn context_item(text: &str, col: Srgba) -> impl Bundle + use<> {
-    (
-        Name::new(format!("item-{text}")),
-        ContextMenuItem(col),
-        Button,
+fn context_item(text: &'static str, col: Srgba) -> impl Scene {
+    bsn! {
+        Name(format!("item-{text}"))
+        ListItem
+        ContextMenuItem(col)
         Node {
-            padding: UiRect::all(Val::Px(5.0)),
-            ..default()
-        },
-        children![(
-            Pickable::IGNORE,
-            Text::new(text),
+            padding: UiRect::all(px(5)),
+        }
+        Children [
+            ContextMenuItemText
+            Pickable::IGNORE
+            Text(text)
             TextFont {
-                font_size: 24.0,
-                ..default()
-            },
-            TextColor(Color::WHITE),
-        )],
-    )
+                font_size: FontSize::Px(24.0),
+            }
+            TextColor(Color::WHITE)
+        ]
+    }
 }
 
-fn background_and_button() -> impl Bundle + use<> {
-    (
-        Name::new("background"),
+fn background() -> impl Scene {
+    bsn! {
+        #Background
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            ..default()
-        },
-        ZIndex(-10),
-        Children::spawn(SpawnWith(|parent: &mut RelatedSpawner<ChildOf>| {
-            parent
-                .spawn((
-                    Name::new("button"),
-                    Button,
-                    Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    BorderColor::all(Color::BLACK),
-                    BorderRadius::MAX,
-                    BackgroundColor(Color::BLACK),
-                    children![(
-                        Pickable::IGNORE,
-                        Text::new("Context Menu"),
-                        TextFont {
-                            font_size: 28.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                        TextShadow::default(),
-                    )],
-                ))
-                .observe(|mut trigger: On<Pointer<Press>>, mut commands: Commands| {
-                    // by default this event would bubble up further leading to the `CloseContextMenus`
-                    // event being triggered and undoing the opening of one here right away.
-                    trigger.propagate(false);
-
-                    debug!("click: {}", trigger.pointer_location.position);
-
-                    commands.trigger(OpenContextMenu {
-                        pos: trigger.pointer_location.position,
-                    });
-                });
-        })),
-    )
+        }
+        ZIndex({-10})
+        Children [
+            Text::new("Click anywhere to spawn a Context Menu.\nYour selection will change the background color.")
+            TextFont {
+                font_size: FontSize::Px(28.0),
+            }
+            TextColor(Color::WHITE)
+        ]
+    }
 }

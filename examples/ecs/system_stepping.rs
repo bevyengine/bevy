@@ -151,7 +151,7 @@ fn main() {
              they form a chained dependency on update_system_one() and run
              in order of one, two, three.  Stepping stops system execution in
              the Update schedule when it encounters the breakpoint for
-             update_system_three().
+             update_system_two().
              During the step we run update_system_two() along with the
              pre_update_system().
              During the final continue pre_update_system() and

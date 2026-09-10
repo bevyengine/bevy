@@ -3,7 +3,8 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowResolution},
+    winit::WinitSettings,
 };
 use std::f32::consts::PI;
 
@@ -26,8 +27,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                     title: "many_materials".into(),
                     present_mode: PresentMode::AutoNoVsync,
                     ..default()
@@ -37,6 +37,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(WinitSettings::continuous())
         .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(Update, animate_materials)
@@ -67,7 +68,7 @@ fn setup(
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
             illuminance: 3000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
     ));
@@ -91,7 +92,7 @@ fn animate_materials(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (i, material_handle) in material_handles.iter().enumerate() {
-        if let Some(material) = materials.get_mut(material_handle) {
+        if let Some(mut material) = materials.get_mut(material_handle) {
             let color = Color::hsl(
                 ((i as f32 * 2.345 + time.elapsed_secs()) * 100.0) % 360.0,
                 1.0,

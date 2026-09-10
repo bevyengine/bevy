@@ -17,7 +17,7 @@
 
 use bevy::{
     input::common_conditions::input_just_pressed, math::ops::powf, prelude::*,
-    sprite::MeshMaterial2d,
+    sprite_render::MeshMaterial2d,
 };
 
 // Before we implement the code, let's quickly introduce the underlying constants.
@@ -213,8 +213,8 @@ fn setup_instructions(mut commands: Commands) {
         Text::new("Press space repeatedly to trigger a progressively stronger screen shake"),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

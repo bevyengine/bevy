@@ -7,28 +7,27 @@ use bevy_animation::AnimationClip;
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_mesh::{skinning::SkinnedMeshInverseBindposes, Mesh};
-use bevy_pbr::StandardMaterial;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
-use bevy_scene::Scene;
+use bevy_world_serialization::WorldAsset;
 
-use crate::GltfAssetLabel;
+use crate::{GltfAssetLabel, GltfMaterial};
 
 /// Representation of a loaded glTF file.
 #[derive(Asset, Debug, TypePath)]
 pub struct Gltf {
     /// All scenes loaded from the glTF file.
-    pub scenes: Vec<Handle<Scene>>,
+    pub scenes: Vec<Handle<WorldAsset>>,
     /// Named scenes loaded from the glTF file.
-    pub named_scenes: HashMap<Box<str>, Handle<Scene>>,
+    pub named_scenes: HashMap<Box<str>, Handle<WorldAsset>>,
     /// All meshes loaded from the glTF file.
     pub meshes: Vec<Handle<GltfMesh>>,
     /// Named meshes loaded from the glTF file.
     pub named_meshes: HashMap<Box<str>, Handle<GltfMesh>>,
     /// All materials loaded from the glTF file.
-    pub materials: Vec<Handle<StandardMaterial>>,
+    pub materials: Vec<Handle<GltfMaterial>>,
     /// Named materials loaded from the glTF file.
-    pub named_materials: HashMap<Box<str>, Handle<StandardMaterial>>,
+    pub named_materials: HashMap<Box<str>, Handle<GltfMaterial>>,
     /// All nodes loaded from the glTF file.
     pub nodes: Vec<Handle<GltfNode>>,
     /// Named nodes loaded from the glTF file.
@@ -38,7 +37,7 @@ pub struct Gltf {
     /// Named skins loaded from the glTF file.
     pub named_skins: HashMap<Box<str>, Handle<GltfSkin>>,
     /// Default scene to be displayed.
-    pub default_scene: Option<Handle<Scene>>,
+    pub default_scene: Option<Handle<WorldAsset>>,
     /// All animations loaded from the glTF file.
     #[cfg(feature = "bevy_animation")]
     pub animations: Vec<Handle<AnimationClip>>,
@@ -158,7 +157,7 @@ impl GltfNode {
     }
 }
 
-/// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
+/// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`GltfMaterial`] and [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh-primitive).
 #[derive(Asset, Debug, Clone, TypePath)]
@@ -172,7 +171,7 @@ pub struct GltfPrimitive {
     /// Topology to be rendered.
     pub mesh: Handle<Mesh>,
     /// Material to apply to the `mesh`.
-    pub material: Option<Handle<StandardMaterial>>,
+    pub material: Option<Handle<GltfMaterial>>,
     /// Additional data.
     pub extras: Option<GltfExtras>,
     /// Additional data of the `material`.
@@ -185,7 +184,7 @@ impl GltfPrimitive {
         gltf_mesh: &gltf::Mesh,
         gltf_primitive: &gltf::Primitive,
         mesh: Handle<Mesh>,
-        material: Option<Handle<StandardMaterial>>,
+        material: Option<Handle<GltfMaterial>>,
         extras: Option<GltfExtras>,
         material_extras: Option<GltfExtras>,
     ) -> Self {
@@ -287,6 +286,21 @@ impl From<&serde_json::value::RawValue> for GltfExtras {
 pub struct GltfSceneExtras {
     /// Content of the extra data.
     pub value: String,
+}
+
+/// The name of a glTF scene.
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-scene).
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component, Clone)]
+pub struct GltfSceneName(pub String);
+
+impl Deref for GltfSceneName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
 }
 
 /// Additional untyped data that can be present on most glTF types at the mesh level.

@@ -4,6 +4,11 @@ mod related_methods;
 mod relationship_query;
 mod relationship_source_collection;
 
+use alloc::boxed::Box;
+use bevy_platform::sync::Arc;
+use bevy_ptr::Ptr;
+use core::{any::TypeId, marker::PhantomData};
+
 use alloc::format;
 
 use bevy_utils::prelude::DebugName;
@@ -12,17 +17,19 @@ pub use relationship_query::*;
 pub use relationship_source_collection::*;
 
 use crate::{
-    component::{Component, Mutable},
-    entity::{ComponentCloneCtx, Entity, SourceComponent},
-    error::{ignore, CommandWithEntity, HandleError},
+    component::{Component, ComponentCloneBehavior, ComponentId, Components, Mutable},
+    entity::{ComponentCloneCtx, Entity},
     lifecycle::HookContext,
+    system::EntityCommand,
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
 
 /// A [`Component`] on a "source" [`Entity`] that references another target [`Entity`], creating a "relationship" between them. Every [`Relationship`]
 /// has a corresponding [`RelationshipTarget`] type (and vice-versa), which exists on the "target" entity of a relationship and contains the list of all
-/// "source" entities that relate to the given "target"
+/// "source" entities that relate to the given "target".
+///
+/// A [`Relationship`] may only be one-to-many (or one-to-one): an [`Entity`] may point to at most one [`Entity`] through the [`Relationship`] component.
 ///
 /// The [`Relationship`] component is the "source of truth" and the [`RelationshipTarget`] component reflects that source of truth. When a [`Relationship`]
 /// component is inserted on an [`Entity`], the corresponding [`RelationshipTarget`] component is immediately inserted on the target component if it does
@@ -57,6 +64,21 @@ use log::warn;
 /// pub struct Children(Vec<Entity>);
 /// ```
 ///
+/// A one-to-one relationship can be created by putting a single [`Entity`] in the [`RelationshipTarget`]'s field.
+/// In that case, if another entity is added to the relationship, the original entity is removed.
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target = View)]
+/// pub struct ViewOf(pub Entity);
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship = ViewOf)]
+/// pub struct View(Entity);
+/// ```
+///
 /// When deriving [`RelationshipTarget`] you can specify the `#[relationship_target(linked_spawn)]` attribute to
 /// automatically despawn entities stored in an entity's [`RelationshipTarget`] when that entity is despawned:
 ///
@@ -71,10 +93,38 @@ use log::warn;
 /// #[relationship_target(relationship = ChildOf, linked_spawn)]
 /// pub struct Children(Vec<Entity>);
 /// ```
+///
+/// By default, relationships cannot point to their own entity. If you want to allow self-referential
+/// relationships, you can use the `allow_self_referential` attribute:
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target = PeopleILike, allow_self_referential)]
+/// pub struct LikedBy(pub Entity);
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship = LikedBy)]
+/// pub struct PeopleILike(Vec<Entity>);
+/// ```
 pub trait Relationship: Component + Sized {
     /// The [`Component`] added to the "target" entities of this [`Relationship`], which contains the list of all "source"
     /// entities that relate to the "target".
     type RelationshipTarget: RelationshipTarget<Relationship = Self>;
+
+    /// If `true`, a relationship is allowed to point to its own entity.
+    ///
+    /// Set this to `true` when self-relationships are semantically valid for your use case,
+    /// such as `Likes(self)`, `EmployedBy(self)`, or a `ColliderOf` relationship where
+    /// a collider can be attached to its own entity.
+    ///
+    /// # Warning
+    ///
+    /// When `ALLOW_SELF` is `true`, be careful when using recursive traversal methods
+    /// like `iter_ancestors` or `root_ancestor`, as they will loop infinitely if an entity
+    /// points to itself.
+    const ALLOW_SELF_REFERENTIAL: bool = false;
 
     /// Gets the [`Entity`] ID of the related entity.
     fn get(&self) -> Entity;
@@ -89,7 +139,7 @@ pub trait Relationship: Component + Sized {
     /// # Warning
     ///
     /// This should generally not be called by user code, as modifying the related entity could invalidate the
-    /// relationship. If this method is used, then the hooks [`on_replace`](Relationship::on_replace) have to
+    /// relationship. If this method is used, then the hooks [`on_discard`](Relationship::on_discard) have to
     /// run before and [`on_insert`](Relationship::on_insert) after it.
     /// This happens automatically when this method is called with [`EntityWorldMut::modify_component`].
     ///
@@ -116,9 +166,9 @@ pub trait Relationship: Component + Sized {
             }
         }
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
-        if target_entity == entity {
+        if !Self::ALLOW_SELF_REFERENTIAL && target_entity == entity {
             warn!(
-                "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
+                "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.\nIf this is intended behavior self-referential relations can be enabled with the allow_self_referential attribute: #[relationship(allow_self_referential)]",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                 DebugName::type_name::<Self>(),
                 DebugName::type_name::<Self>()
@@ -126,16 +176,33 @@ pub trait Relationship: Component + Sized {
             world.commands().entity(entity).remove::<Self>();
             return;
         }
-        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
-            if let Some(mut relationship_target) =
-                target_entity_mut.get_mut::<Self::RelationshipTarget>()
-            {
-                relationship_target.collection_mut_risky().add(entity);
-            } else {
-                let mut target = <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
-                target.collection_mut_risky().add(entity);
-                world.commands().entity(target_entity).insert(target);
-            }
+        // For one-to-one relationships, remove existing relationship before adding new one
+        let current_source_to_remove = world
+            .get_entity(target_entity)
+            .ok()
+            .and_then(|target_entity_ref| target_entity_ref.get::<Self::RelationshipTarget>())
+            .and_then(|relationship_target| {
+                relationship_target
+                    .collection()
+                    .source_to_remove_before_add()
+            });
+
+        if let Some(current_source) = current_source_to_remove {
+            world.commands().entity(current_source).try_remove::<Self>();
+        }
+
+        if let Ok(mut entity_commands) = world.commands().get_entity(target_entity) {
+            // Deferring is necessary for batch mode
+            entity_commands
+                .entry::<Self::RelationshipTarget>()
+                .and_modify(move |mut relationship_target| {
+                    relationship_target.collection_mut_risky().add(entity);
+                })
+                .or_insert_with(move || {
+                    let mut target = Self::RelationshipTarget::with_capacity(1);
+                    target.collection_mut_risky().add(entity);
+                    target
+                });
         } else {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
@@ -147,9 +214,9 @@ pub trait Relationship: Component + Sized {
         }
     }
 
-    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
+    /// The `on_discard` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(
+    fn on_discard(
         mut world: DeferredWorld,
         HookContext {
             entity,
@@ -167,28 +234,27 @@ pub trait Relationship: Component + Sized {
             }
         }
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
-        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
-            if let Some(mut relationship_target) =
+        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity)
+            && let Some(mut relationship_target) =
                 target_entity_mut.get_mut::<Self::RelationshipTarget>()
-            {
-                relationship_target.collection_mut_risky().remove(entity);
-                if relationship_target.len() == 0 {
-                    let command = |mut entity: EntityWorldMut| {
-                        // this "remove" operation must check emptiness because in the event that an identical
-                        // relationship is inserted on top, this despawn would result in the removal of that identical
-                        // relationship ... not what we want!
-                        if entity
-                            .get::<Self::RelationshipTarget>()
-                            .is_some_and(RelationshipTarget::is_empty)
-                        {
-                            entity.remove::<Self::RelationshipTarget>();
-                        }
-                    };
+        {
+            relationship_target.collection_mut_risky().remove(entity);
+            if relationship_target.len() == 0 {
+                let command = |mut entity: EntityWorldMut| {
+                    // this "remove" operation must check emptiness because in the event that an identical
+                    // relationship is inserted on top, this despawn would result in the removal of that identical
+                    // relationship ... not what we want!
+                    if entity
+                        .get::<Self::RelationshipTarget>()
+                        .is_some_and(RelationshipTarget::is_empty)
+                    {
+                        entity.remove::<Self::RelationshipTarget>();
+                    }
+                };
 
-                    world
-                        .commands()
-                        .queue(command.with_entity(target_entity).handle_error_with(ignore));
-                }
+                world
+                    .commands()
+                    .queue_silenced(command.with_entity(target_entity));
             }
         }
     }
@@ -236,15 +302,27 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// The collection should not contain duplicates.
     fn from_collection_risky(collection: Self::Collection) -> Self;
 
-    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
+    /// The `on_discard` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    fn on_discard(
+        mut world: DeferredWorld,
+        HookContext {
+            entity,
+            relationship_hook_mode,
+            ..
+        }: HookContext,
+    ) {
+        match relationship_hook_mode {
+            RelationshipHookMode::Run => {}
+            // For RelationshipTarget we don't want to run this hook even if it isn't linked, but for Relationship we do.
+            RelationshipHookMode::Skip | RelationshipHookMode::RunIfNotLinked => return,
+        }
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
             commands
                 .entity(source_entity)
-                .remove::<Self::Relationship>();
+                .try_remove::<Self::Relationship>();
         }
     }
 
@@ -255,7 +333,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            commands.entity(source_entity).despawn();
+            commands.entity(source_entity).try_despawn();
         }
     }
 
@@ -285,45 +363,444 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     }
 }
 
-/// The "clone behavior" for [`RelationshipTarget`]. This actually creates an empty
-/// [`RelationshipTarget`] instance with space reserved for the number of targets in the
-/// original instance. The [`RelationshipTarget`] will then be populated with the proper components
+/// The "clone behavior" for [`RelationshipTarget`]. The [`RelationshipTarget`] will be populated with the proper components
 /// when the corresponding [`Relationship`] sources of truth are inserted. Cloning the actual entities
 /// in the original [`RelationshipTarget`] would result in duplicates, so we don't do that!
 ///
 /// This will also queue up clones of the relationship sources if the [`EntityCloner`](crate::entity::EntityCloner) is configured
 /// to spawn recursively.
 pub fn clone_relationship_target<T: RelationshipTarget>(
-    source: &SourceComponent,
+    component: &T,
+    cloned: &mut T,
     context: &mut ComponentCloneCtx,
 ) {
-    if let Some(component) = source.read::<T>() {
-        let mut cloned = T::with_capacity(component.len());
-        if context.linked_cloning() && T::LINKED_SPAWN {
-            let collection = cloned.collection_mut_risky();
-            for entity in component.iter() {
-                collection.add(entity);
-                context.queue_entity_clone(entity);
-            }
+    if context.linked_cloning() && T::LINKED_SPAWN {
+        let collection = cloned.collection_mut_risky();
+        for entity in component.iter() {
+            collection.add(entity);
+            context.queue_entity_clone(entity);
         }
-        context.write_target_component(cloned);
+    } else if context.moving() {
+        let target = context.target();
+        let collection = cloned.collection_mut_risky();
+        for entity in component.iter() {
+            collection.add(entity);
+            context.queue_deferred(move |world, _mapper| {
+                // We don't want relationships hooks to run because we are manually constructing the collection here
+                _ = DeferredWorld::from(world)
+                    .modify_component_with_relationship_hook_mode::<T::Relationship, ()>(
+                        entity,
+                        RelationshipHookMode::Skip,
+                        |r| r.set_risky(target),
+                    );
+            });
+        }
     }
 }
 
-/// Configures the conditions under which the Relationship insert/replace hooks will be run.
+/// Configures the conditions under which the Relationship insert/discard hooks will be run.
 #[derive(Copy, Clone, Debug)]
 pub enum RelationshipHookMode {
-    /// Relationship insert/replace hooks will always run
+    /// Relationship insert/discard hooks will always run
     Run,
-    /// Relationship insert/replace hooks will run if [`RelationshipTarget::LINKED_SPAWN`] is false
+    /// Relationship insert/discard hooks will run if [`RelationshipTarget::LINKED_SPAWN`] is false
     RunIfNotLinked,
-    /// Relationship insert/replace hooks will always be skipped
+    /// Relationship insert/discard hooks will always be skipped
     Skip,
+}
+
+/// Wrapper for components clone specialization using autoderef.
+#[doc(hidden)]
+pub struct RelationshipCloneBehaviorSpecialization<T>(PhantomData<T>);
+
+impl<T> Default for RelationshipCloneBehaviorSpecialization<T> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+/// Base trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorBase {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C> RelationshipCloneBehaviorBase for RelationshipCloneBehaviorSpecialization<C> {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        // Relationships currently must have `Clone`/`Reflect`-based handler for cloning/moving logic to properly work.
+        ComponentCloneBehavior::Ignore
+    }
+}
+
+/// Specialized trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorViaReflect {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+#[cfg(feature = "bevy_reflect")]
+impl<C: Relationship + bevy_reflect::Reflect> RelationshipCloneBehaviorViaReflect
+    for &RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::reflect()
+    }
+}
+
+/// Specialized trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorViaClone {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C: Relationship + Clone> RelationshipCloneBehaviorViaClone
+    for &&RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::clone::<C>()
+    }
+}
+
+/// Specialized trait for relationship target clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipTargetCloneBehaviorViaReflect {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+#[cfg(feature = "bevy_reflect")]
+impl<C: RelationshipTarget + bevy_reflect::Reflect + bevy_reflect::TypePath>
+    RelationshipTargetCloneBehaviorViaReflect for &&&RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Custom(|source, context| {
+            if let Some(component) = source.read::<C>()
+                && let Ok(mut cloned) = component.reflect_clone_and_take::<C>()
+            {
+                cloned.collection_mut_risky().clear();
+                clone_relationship_target(component, &mut cloned, context);
+                context.write_target_component(cloned);
+            }
+        })
+    }
+}
+
+/// Specialized trait for relationship target clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipTargetCloneBehaviorViaClone {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C: RelationshipTarget + Clone> RelationshipTargetCloneBehaviorViaClone
+    for &&&&RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Custom(|source, context| {
+            if let Some(component) = source.read::<C>() {
+                let mut cloned = component.clone();
+                cloned.collection_mut_risky().clear();
+                clone_relationship_target(component, &mut cloned, context);
+                context.write_target_component(cloned);
+            }
+        })
+    }
+}
+
+/// We know there's no additional data on Children, so this handler is an optimization to avoid cloning the entire Collection.
+#[doc(hidden)]
+pub trait RelationshipTargetCloneBehaviorHierarchy {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl RelationshipTargetCloneBehaviorHierarchy
+    for &&&&&RelationshipCloneBehaviorSpecialization<crate::hierarchy::Children>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Custom(|source, context| {
+            if let Some(component) = source.read::<crate::hierarchy::Children>() {
+                let mut cloned = crate::hierarchy::Children::with_capacity(component.len());
+                clone_relationship_target(component, &mut cloned, context);
+                context.write_target_component(cloned);
+            }
+        })
+    }
+}
+
+/// Initializer enum for [`RelationshipAccessor`] that allows to configure relationship for dynamic components.
+#[derive(Clone)]
+pub enum RelationshipAccessorInitializer {
+    /// Describes a [`Relationship`] component.
+    Relationship {
+        /// Offset of the field containing [`Entity`] from the base of the component.
+        ///
+        /// Dynamic equivalent of [`Relationship::get`].
+        entity_field_offset: usize,
+        /// Value of [`RelationshipTarget::LINKED_SPAWN`] for the [`Relationship::RelationshipTarget`] of this [`Relationship`].
+        linked_spawn: bool,
+        /// Value of [`Relationship::ALLOW_SELF_REFERENTIAL`] of this [`Relationship`].
+        allow_self_referential: bool,
+        /// Getter for [`ComponentId`] of the [`RelationshipTarget`] counterpart.
+        /// Should return `None` if [`RelationshipTarget`] isn't registered yet.
+        relationship_target_getter: Arc<dyn Fn(&Components) -> Option<ComponentId>>,
+    },
+    /// Describes a [`RelationshipTarget`] component.
+    RelationshipTarget {
+        /// Function that returns an iterator over all [`Entity`]s of this [`RelationshipTarget`]'s collection.
+        ///
+        /// Dynamic equivalent of [`RelationshipTarget::iter`].
+        /// # Safety
+        /// Passed pointer must point to the value of the same component as the one that this accessor was registered to.
+        iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
+        /// Value of [`RelationshipTarget::LINKED_SPAWN`] of this [`RelationshipTarget`].
+        linked_spawn: bool,
+        /// Value of [`Relationship::ALLOW_SELF_REFERENTIAL`] for the [`Relationship`] of this [`RelationshipTarget`].
+        allow_self_referential: bool,
+        /// Getter for [`ComponentId`] of the [`Relationship`] counterpart.
+        /// Should return `None` if [`Relationship`] isn't registered yet.
+        relationship_getter: Arc<dyn Fn(&Components) -> Option<ComponentId>>,
+    },
+}
+
+impl core::fmt::Debug for RelationshipAccessorInitializer {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Relationship {
+                entity_field_offset,
+                linked_spawn,
+                allow_self_referential,
+                relationship_target_getter: _,
+            } => f
+                .debug_struct("Relationship")
+                .field("entity_field_offset", entity_field_offset)
+                .field("linked_spawn", linked_spawn)
+                .field("allow_self_referential", allow_self_referential)
+                .finish(),
+            Self::RelationshipTarget {
+                iter,
+                linked_spawn,
+                allow_self_referential,
+                relationship_getter: _,
+            } => f
+                .debug_struct("RelationshipTarget")
+                .field("iter", iter)
+                .field("linked_spawn", linked_spawn)
+                .field("allow_self_referential", allow_self_referential)
+                .finish(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) enum MaybeRelationshipAccessor {
+    /// Not a relationship
+    #[default]
+    NoAccessor,
+    /// Uninitialized relationship, which will be initialized when the second component of the relationship is registered.
+    /// Boxed to reduce size overhead.
+    Initializer(Box<RelationshipAccessorInitializer>),
+    /// Relationship
+    Accessor(RelationshipAccessor),
+}
+
+impl MaybeRelationshipAccessor {
+    /// Returns [`RelationshipAccessor`] if this component is a part of relationship and the accessor is initialized.
+    pub fn accessor(&self) -> Option<&RelationshipAccessor> {
+        match self {
+            MaybeRelationshipAccessor::Accessor(relationship_accessor) => {
+                Some(relationship_accessor)
+            }
+            _ => None,
+        }
+    }
+
+    /// Initializes the relationship accessor if it isn't initialized already and the counterpart is registered.
+    pub fn initialize(&mut self, id: ComponentId, components: &mut Components) {
+        _ = (|| {
+            let accessor = self.initializer_to_accessor(|getter| getter(components))?;
+            let counterpart_id = accessor.counterpart_id();
+            let counterpart_slot = components.get_relationship_accessor_mut(counterpart_id)?;
+            let counterpart_accessor = counterpart_slot.initializer_to_accessor(|_| Some(id))?;
+            *counterpart_slot = MaybeRelationshipAccessor::Accessor(counterpart_accessor);
+            *self = MaybeRelationshipAccessor::Accessor(accessor);
+            Some(())
+        })();
+    }
+
+    fn initializer_to_accessor(
+        &self,
+        mapper: impl FnOnce(&dyn Fn(&Components) -> Option<ComponentId>) -> Option<ComponentId>,
+    ) -> Option<RelationshipAccessor> {
+        let MaybeRelationshipAccessor::Initializer(initializer) = self else {
+            return None;
+        };
+        Some(match *initializer.as_ref() {
+            RelationshipAccessorInitializer::Relationship {
+                entity_field_offset,
+                linked_spawn,
+                allow_self_referential,
+                ref relationship_target_getter,
+            } => {
+                let relationship_target = mapper(relationship_target_getter.as_ref())?;
+                RelationshipAccessor::Relationship {
+                    entity_field_offset,
+                    linked_spawn,
+                    allow_self_referential,
+                    relationship_target,
+                }
+            }
+            RelationshipAccessorInitializer::RelationshipTarget {
+                iter,
+                linked_spawn,
+                allow_self_referential,
+                ref relationship_getter,
+            } => {
+                let relationship = mapper(relationship_getter.as_ref())?;
+                RelationshipAccessor::RelationshipTarget {
+                    iter,
+                    linked_spawn,
+                    allow_self_referential,
+                    relationship,
+                }
+            }
+        })
+    }
+}
+
+impl From<Option<RelationshipAccessorInitializer>> for MaybeRelationshipAccessor {
+    fn from(value: Option<RelationshipAccessorInitializer>) -> Self {
+        value
+            .map(|v| MaybeRelationshipAccessor::Initializer(Box::new(v)))
+            .unwrap_or(MaybeRelationshipAccessor::NoAccessor)
+    }
+}
+
+/// This enum describes a way to access the entities of [`Relationship`] and [`RelationshipTarget`] components
+/// in a type-erased context.
+#[derive(Debug, Clone, Copy)]
+pub enum RelationshipAccessor {
+    /// This component is a [`Relationship`].
+    Relationship {
+        /// Offset of the field containing [`Entity`] from the base of the component.
+        ///
+        /// Dynamic equivalent of [`Relationship::get`].
+        entity_field_offset: usize,
+        /// Value of [`RelationshipTarget::LINKED_SPAWN`] for the [`Relationship::RelationshipTarget`] of this [`Relationship`].
+        linked_spawn: bool,
+        /// Value of [`Relationship::ALLOW_SELF_REFERENTIAL`] of this [`Relationship`].
+        allow_self_referential: bool,
+        /// [`ComponentId`] of the [`RelationshipTarget`] counterpart.
+        relationship_target: ComponentId,
+    },
+    /// This component is a [`RelationshipTarget`].
+    RelationshipTarget {
+        /// Function that returns an iterator over all [`Entity`]s of this [`RelationshipTarget`]'s collection.
+        ///
+        /// Dynamic equivalent of [`RelationshipTarget::iter`].
+        /// # Safety
+        /// Passed pointer must point to the value of the same component as the one that this accessor was registered to.
+        iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
+        /// Value of [`RelationshipTarget::LINKED_SPAWN`] of this [`RelationshipTarget`].
+        linked_spawn: bool,
+        /// Value of [`Relationship::ALLOW_SELF_REFERENTIAL`] for the [`Relationship`] of this [`RelationshipTarget`].
+        allow_self_referential: bool,
+        /// [`ComponentId`] of the [`Relationship`] counterpart.
+        relationship: ComponentId,
+    },
+}
+
+impl RelationshipAccessor {
+    /// Returns [`ComponentId`] of [`RelationshipTarget`] for this [`Relationship`] and vice-versa.
+    pub fn counterpart_id(&self) -> ComponentId {
+        match self {
+            RelationshipAccessor::Relationship {
+                relationship_target,
+                ..
+            } => *relationship_target,
+            RelationshipAccessor::RelationshipTarget { relationship, .. } => *relationship,
+        }
+    }
+
+    /// Returns the value of [`RelationshipTarget::LINKED_SPAWN`].
+    pub fn linked_spawn(&self) -> bool {
+        match self {
+            RelationshipAccessor::Relationship { linked_spawn, .. }
+            | RelationshipAccessor::RelationshipTarget { linked_spawn, .. } => *linked_spawn,
+        }
+    }
+
+    /// Returns the value of [`Relationship::ALLOW_SELF_REFERENTIAL`].
+    pub fn allow_self_referential(&self) -> bool {
+        match self {
+            RelationshipAccessor::Relationship {
+                allow_self_referential,
+                ..
+            }
+            | RelationshipAccessor::RelationshipTarget {
+                allow_self_referential,
+                ..
+            } => *allow_self_referential,
+        }
+    }
+}
+
+/// A type-safe convenience wrapper over [`RelationshipAccessor`].
+pub struct ComponentRelationshipAccessor<C: ?Sized> {
+    pub(crate) initializer: RelationshipAccessorInitializer,
+    phantom: PhantomData<C>,
+}
+
+impl<C> ComponentRelationshipAccessor<C> {
+    /// Create a new [`ComponentRelationshipAccessor`] for a [`Relationship`] component.
+    /// # Safety
+    /// `entity_field_offset` should be the offset from the base of this component and point to a field that stores value of type [`Entity`].
+    /// This value can be obtained using the [`core::mem::offset_of`] macro.
+    pub unsafe fn relationship(entity_field_offset: usize) -> Self
+    where
+        C: Relationship,
+    {
+        // Due to https://github.com/taiki-e/portable-atomic/issues/143 we have to box this first, and then get the Arc from the box
+        let getter: Box<dyn Fn(&Components) -> Option<ComponentId>> =
+            Box::new(|components| components.get_id(TypeId::of::<C::RelationshipTarget>()));
+        Self {
+            initializer: RelationshipAccessorInitializer::Relationship {
+                entity_field_offset,
+                linked_spawn: C::RelationshipTarget::LINKED_SPAWN,
+                allow_self_referential: C::ALLOW_SELF_REFERENTIAL,
+                relationship_target_getter: Arc::from(getter),
+            },
+            phantom: Default::default(),
+        }
+    }
+
+    /// Create a new [`ComponentRelationshipAccessor`] for a [`RelationshipTarget`] component.
+    pub fn relationship_target() -> Self
+    where
+        C: RelationshipTarget,
+    {
+        // Due to https://github.com/taiki-e/portable-atomic/issues/143 we have to box this first, and then get the Arc from the box
+        let getter: Box<dyn Fn(&Components) -> Option<ComponentId>> =
+            Box::new(|components| components.get_id(TypeId::of::<C::Relationship>()));
+        Self {
+            initializer: RelationshipAccessorInitializer::RelationshipTarget {
+                // Safety: caller ensures that `ptr` is of type `C`.
+                iter: |ptr| unsafe { Box::new(RelationshipTarget::iter(ptr.deref::<C>())) },
+                linked_spawn: C::LINKED_SPAWN,
+                allow_self_referential: C::Relationship::ALLOW_SELF_REFERENTIAL,
+                relationship_getter: Arc::from(getter),
+            },
+            phantom: Default::default(),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::world::World;
+    use core::marker::PhantomData;
+    use core::sync::atomic::AtomicBool;
+
+    use crate::lifecycle::HookContext;
+    use crate::prelude::{ChildOf, Children};
+    use crate::relationship::{Relationship, RelationshipAccessor};
+    use crate::world::{DeferredWorld, World};
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
 
@@ -345,7 +822,7 @@ mod tests {
     }
 
     #[test]
-    fn self_relationship_fails() {
+    fn self_relationship_fails_by_default() {
         #[derive(Component)]
         #[relationship(relationship_target = RelTarget)]
         struct Rel(Entity);
@@ -357,6 +834,47 @@ mod tests {
         let mut world = World::new();
         let a = world.spawn_empty().id();
         world.entity_mut(a).insert(Rel(a));
+        assert!(!world.entity(a).contains::<Rel>());
+        assert!(!world.entity(a).contains::<RelTarget>());
+    }
+
+    #[test]
+    fn self_relationship_succeeds_with_allow_self_referential() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget, allow_self_referential)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        world.entity_mut(a).insert(Rel(a));
+        assert!(world.entity(a).contains::<Rel>());
+        assert!(world.entity(a).contains::<RelTarget>());
+        assert_eq!(world.entity(a).get::<Rel>().unwrap().get(), a);
+        assert_eq!(&*world.entity(a).get::<RelTarget>().unwrap().0, &[a]);
+    }
+
+    #[test]
+    fn self_relationship_removal_with_allow_self_referential() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget, allow_self_referential)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        world.entity_mut(a).insert(Rel(a));
+        assert!(world.entity(a).contains::<Rel>());
+        assert!(world.entity(a).contains::<RelTarget>());
+
+        // Remove the relationship and verify cleanup
+        world.entity_mut(a).remove::<Rel>();
         assert!(!world.entity(a).contains::<Rel>());
         assert!(!world.entity(a).contains::<RelTarget>());
     }
@@ -381,9 +899,12 @@ mod tests {
 
     #[test]
     fn relationship_with_multiple_non_target_fields_compiles() {
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Component)]
         #[relationship(relationship_target=Target)]
-        #[expect(dead_code, reason = "test struct")]
         struct Source {
             #[relationship]
             target: Entity,
@@ -391,6 +912,10 @@ mod tests {
             bar: u8,
         }
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Component)]
         #[relationship_target(relationship=Source)]
         struct Target(Vec<Entity>);
@@ -399,13 +924,20 @@ mod tests {
     }
     #[test]
     fn relationship_target_with_multiple_non_target_fields_compiles() {
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Component)]
         #[relationship(relationship_target=Target)]
         struct Source(Entity);
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Component)]
         #[relationship_target(relationship=Source)]
-        #[expect(dead_code, reason = "test struct")]
         struct Target {
             #[relationship]
             target: Vec<Entity>,
@@ -417,9 +949,28 @@ mod tests {
     }
 
     #[test]
-    fn parent_child_relationship_with_custom_relationship() {
-        use crate::prelude::ChildOf;
+    fn relationship_with_multiple_unnamed_non_target_fields_compiles() {
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
+        #[derive(Component)]
+        #[relationship(relationship_target=Target<T>)]
+        struct Source<T: Send + Sync + 'static>(#[relationship] Entity, PhantomData<T>);
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
+        #[derive(Component)]
+        #[relationship_target(relationship=Source<T>)]
+        struct Target<T: Send + Sync + 'static>(#[relationship] Vec<Entity>, PhantomData<T>);
+
+        // No assert necessary, looking to make sure compilation works with the macros
+    }
+
+    #[test]
+    fn parent_child_relationship_with_custom_relationship() {
         #[derive(Component)]
         #[relationship(relationship_target = RelTarget)]
         struct Rel(Entity);
@@ -473,5 +1024,244 @@ mod tests {
 
         assert!(world.get_entity(child).is_err());
         assert!(!world.entity(parent).contains::<RelTarget>());
+    }
+
+    #[test]
+    fn spawn_batch_with_relationship() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let children = world
+            .spawn_batch((0..10).map(|_| ChildOf(parent)))
+            .collect::<Vec<_>>();
+
+        for &child in &children {
+            assert!(world
+                .get::<ChildOf>(child)
+                .is_some_and(|child_of| child_of.parent() == parent));
+        }
+        assert!(world
+            .get::<Children>(parent)
+            .is_some_and(|children| children.len() == 10));
+    }
+
+    #[test]
+    fn insert_batch_with_relationship() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn_empty().id();
+        world.insert_batch([(child, ChildOf(parent))]);
+        world.flush();
+
+        assert!(world.get::<ChildOf>(child).is_some());
+        assert!(world.get::<Children>(parent).is_some());
+    }
+
+    #[test]
+    fn dynamically_traverse_hierarchy() {
+        let mut world = World::new();
+        let child_of_id = world.register_component::<ChildOf>();
+        let children_id = world.register_component::<Children>();
+
+        let parent = world.spawn_empty().id();
+        let child = world.spawn_empty().id();
+        world.entity_mut(child).insert(ChildOf(parent));
+        world.flush();
+
+        let children_ptr = world.get_by_id(parent, children_id).unwrap();
+        let RelationshipAccessor::RelationshipTarget { iter, .. } = world
+            .components()
+            .get_info(children_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap()
+        else {
+            unreachable!()
+        };
+        // Safety: `children_ptr` contains value of the same type as the one this accessor was registered for.
+        let children: Vec<_> = unsafe { iter(children_ptr).collect() };
+        assert_eq!(children, alloc::vec![child]);
+
+        let child_of_ptr = world.get_by_id(child, child_of_id).unwrap();
+        let RelationshipAccessor::Relationship {
+            entity_field_offset,
+            ..
+        } = world
+            .components()
+            .get_info(child_of_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap()
+        else {
+            unreachable!()
+        };
+        // Safety:
+        // - offset is in bounds, aligned and has the same lifetime as the original pointer.
+        // - value at offset is guaranteed to be a valid Entity
+        let child_of_entity: Entity =
+            unsafe { *child_of_ptr.byte_add(*entity_field_offset).deref() };
+        assert_eq!(child_of_entity, parent);
+    }
+
+    #[test]
+    fn relationship_accessor() {
+        #[derive(Component)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Likes {
+            _a: u16,
+            #[relationship]
+            e: Entity,
+            _b: (i8, u8),
+        }
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Likes)]
+        struct LikedBy(Vec<Entity>);
+
+        let mut world = World::new();
+        let likes_id = world.register_component::<Likes>();
+        let liked_by_id = world.register_component::<LikedBy>();
+
+        let likes_accessor = world
+            .components()
+            .get_info(likes_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap();
+        match *likes_accessor {
+            RelationshipAccessor::Relationship {
+                entity_field_offset,
+                linked_spawn,
+                allow_self_referential,
+                relationship_target,
+            } => {
+                assert_eq!(entity_field_offset, core::mem::offset_of!(Likes, e));
+                assert!(!linked_spawn);
+                assert!(!allow_self_referential);
+                assert_eq!(relationship_target, liked_by_id);
+            }
+            _ => {
+                panic!("Not a Relationship")
+            }
+        }
+
+        let liked_by_accessor = world
+            .components()
+            .get_info(liked_by_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap();
+        match *liked_by_accessor {
+            RelationshipAccessor::RelationshipTarget {
+                iter,
+                linked_spawn,
+                allow_self_referential,
+                relationship,
+            } => {
+                let liked_by = LikedBy(alloc::vec![
+                    world.spawn_empty().id(),
+                    world.spawn_empty().id(),
+                    world.spawn_empty().id()
+                ]);
+                // SAFETY: liked_by is of type LikedBy
+                unsafe {
+                    assert_eq!(iter((&liked_by).into()).collect::<Vec<_>>(), liked_by.0);
+                }
+                assert!(!linked_spawn);
+                assert!(!allow_self_referential);
+                assert_eq!(relationship, likes_id);
+            }
+            _ => {
+                panic!("Not a RelationshipTarget")
+            }
+        }
+
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget, allow_self_referential)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
+        struct RelTarget(Vec<Entity>);
+
+        let rel_id = world.register_component::<Rel>();
+        let rel_target_id = world.register_component::<RelTarget>();
+
+        let rel_accessor = world
+            .components()
+            .get_info(rel_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap();
+        assert!(rel_accessor.linked_spawn());
+        assert!(rel_accessor.allow_self_referential());
+        let rel_target_accessor = world
+            .components()
+            .get_info(rel_target_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap();
+        assert!(rel_target_accessor.linked_spawn());
+        assert!(rel_target_accessor.allow_self_referential());
+    }
+
+    #[test]
+    pub fn component_hooks_compatibility() {
+        static ADD_CALLED: AtomicBool = AtomicBool::new(false);
+        static INSERT_CALLED: AtomicBool = AtomicBool::new(false);
+        static DISCARD_CALLED: AtomicBool = AtomicBool::new(false);
+        static REMOVE_CALLED: AtomicBool = AtomicBool::new(false);
+        static DESPAWN_CALLED: AtomicBool = AtomicBool::new(false);
+
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        #[component(on_add, on_insert, on_discard, on_remove, on_despawn)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Entity);
+
+        impl Rel {
+            fn on_add(world: DeferredWorld, context: HookContext) {
+                let &Rel(target) = world.get(context.entity).unwrap();
+                assert!(!world.entity(target).contains::<RelTarget>());
+                ADD_CALLED.store(true, core::sync::atomic::Ordering::Relaxed);
+            }
+
+            fn on_insert(world: DeferredWorld, context: HookContext) {
+                let &Rel(target) = world.get(context.entity).unwrap();
+                assert!(!world.entity(target).contains::<RelTarget>());
+                INSERT_CALLED.store(true, core::sync::atomic::Ordering::Relaxed);
+            }
+
+            fn on_discard(world: DeferredWorld, context: HookContext) {
+                let &Rel(target) = world.get(context.entity).unwrap();
+                assert!(world.entity(target).contains::<RelTarget>());
+                DISCARD_CALLED.store(true, core::sync::atomic::Ordering::Relaxed);
+            }
+
+            fn on_remove(world: DeferredWorld, context: HookContext) {
+                let &Rel(target) = world.get(context.entity).unwrap();
+                assert!(world.entity(target).contains::<RelTarget>());
+                REMOVE_CALLED.store(true, core::sync::atomic::Ordering::Relaxed);
+            }
+
+            fn on_despawn(world: DeferredWorld, context: HookContext) {
+                let &Rel(target) = world.get(context.entity).unwrap();
+                assert!(world.entity(target).contains::<RelTarget>());
+                DESPAWN_CALLED.store(true, core::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
+        let mut world = World::new();
+        let target = world.spawn_empty().id();
+        let source = world.spawn(Rel(target)).id();
+        assert!(world.entity(target).contains::<RelTarget>());
+        assert!(ADD_CALLED.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(INSERT_CALLED.load(core::sync::atomic::Ordering::Relaxed));
+        world.despawn(source);
+        assert!(DISCARD_CALLED.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(REMOVE_CALLED.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(DESPAWN_CALLED.load(core::sync::atomic::Ordering::Relaxed));
     }
 }

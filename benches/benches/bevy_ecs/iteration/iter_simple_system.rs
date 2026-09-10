@@ -42,6 +42,6 @@ impl Benchmark {
 
     #[inline(never)]
     pub fn run(&mut self) {
-        self.1.run((), &mut self.0);
+        self.1.run((), &mut self.0).unwrap();
     }
 }

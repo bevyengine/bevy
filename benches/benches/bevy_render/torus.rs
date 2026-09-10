@@ -2,7 +2,7 @@ use core::hint::black_box;
 
 use criterion::{criterion_group, Criterion};
 
-use bevy_render::mesh::TorusMeshBuilder;
+use bevy_mesh::TorusMeshBuilder;
 
 fn torus(c: &mut Criterion) {
     c.bench_function("build_torus", |b| {

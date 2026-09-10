@@ -4,6 +4,7 @@
 //!
 //! | Key Binding        | Action                                               |
 //! |:-------------------|:-----------------------------------------------------|
+//! | `Space`            | Toggle Screen Space Transmission                     |
 //! | `J`/`K`/`L`/`;`    | Change Screen Space Transmission Quality             |
 //! | `O` / `P`          | Decrease / Increase Screen Space Transmission Steps  |
 //! | `1` / `2`          | Decrease / Increase Diffuse Transmission             |
@@ -21,17 +22,17 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::{Exposure, Hdr},
     color::palettes::css::*,
-    core_pipeline::{
-        bloom::Bloom, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::{prepass::DepthPrepass, tonemapping::Tonemapping},
+    light::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     math::ops,
-    pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
+    pbr::{ScreenSpaceTransmission, ScreenSpaceTransmissionQuality},
+    post_process::bloom::Bloom,
     prelude::*,
     render::{
-        camera::{Exposure, TemporalJitter},
-        view::{ColorGrading, ColorGradingGlobal, Hdr},
+        camera::TemporalJitter,
+        view::{ColorGrading, ColorGradingGlobal},
     },
 };
 
@@ -39,7 +40,7 @@ use bevy::{
 // it _greatly enhances_ the look of the resulting blur effects.
 // Sadly, it's not available under WebGL.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-use bevy::anti_aliasing::taa::TemporalAntiAliasing;
+use bevy::anti_alias::taa::TemporalAntiAliasing;
 
 use rand::random;
 
@@ -48,7 +49,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 0.0,
             ..default()
         })
@@ -290,7 +291,7 @@ fn setup(
             intensity: 4_000.0,
             radius: 0.2,
             range: 5.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Flicker,
@@ -299,6 +300,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
+        ScreenSpaceTransmission::default(),
         Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
         ColorGrading {
             global: ColorGradingGlobal {
@@ -327,8 +329,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         ExampleDisplay,
@@ -346,6 +348,7 @@ struct ExampleControls {
 }
 
 struct ExampleState {
+    transmission: ScreenSpaceTransmission,
     diffuse_transmission: f32,
     specular_transmission: f32,
     thickness: f32,
@@ -361,6 +364,7 @@ struct ExampleDisplay;
 impl Default for ExampleState {
     fn default() -> Self {
         ExampleState {
+            transmission: ScreenSpaceTransmission::default(),
             diffuse_transmission: 0.5,
             specular_transmission: 0.9,
             thickness: 1.8,
@@ -379,7 +383,7 @@ fn example_control_system(
     camera: Single<
         (
             Entity,
-            &mut Camera3d,
+            Option<&mut ScreenSpaceTransmission>,
             &mut Transform,
             Option<&DepthPrepass>,
             Option<&TemporalJitter>,
@@ -431,7 +435,7 @@ fn example_control_system(
     let randomize_colors = input.just_pressed(KeyCode::KeyC);
 
     for (material_handle, controls) in &controllable {
-        let material = materials.get_mut(material_handle).unwrap();
+        let mut material = materials.get_mut(material_handle).unwrap();
         if controls.specular_transmission {
             material.specular_transmission = state.specular_transmission;
             material.thickness = state.thickness;
@@ -450,8 +454,14 @@ fn example_control_system(
         }
     }
 
-    let (camera_entity, mut camera_3d, mut camera_transform, depth_prepass, temporal_jitter, hdr) =
-        camera.into_inner();
+    let (
+        camera_entity,
+        mut transmission,
+        mut camera_transform,
+        depth_prepass,
+        temporal_jitter,
+        hdr,
+    ) = camera.into_inner();
 
     if input.just_pressed(KeyCode::KeyH) {
         if hdr {
@@ -483,30 +493,44 @@ fn example_control_system(
         }
     }
 
-    if input.just_pressed(KeyCode::KeyO) && camera_3d.screen_space_specular_transmission_steps > 0 {
-        camera_3d.screen_space_specular_transmission_steps -= 1;
+    if input.just_pressed(KeyCode::KeyO) && state.transmission.steps > 0 {
+        state.transmission.steps -= 1;
     }
 
-    if input.just_pressed(KeyCode::KeyP) && camera_3d.screen_space_specular_transmission_steps < 4 {
-        camera_3d.screen_space_specular_transmission_steps += 1;
+    if input.just_pressed(KeyCode::KeyP) && state.transmission.steps < 4 {
+        state.transmission.steps += 1;
     }
 
     if input.just_pressed(KeyCode::KeyJ) {
-        camera_3d.screen_space_specular_transmission_quality = ScreenSpaceTransmissionQuality::Low;
+        state.transmission.quality = ScreenSpaceTransmissionQuality::Low;
     }
 
     if input.just_pressed(KeyCode::KeyK) {
-        camera_3d.screen_space_specular_transmission_quality =
-            ScreenSpaceTransmissionQuality::Medium;
+        state.transmission.quality = ScreenSpaceTransmissionQuality::Medium;
     }
 
     if input.just_pressed(KeyCode::KeyL) {
-        camera_3d.screen_space_specular_transmission_quality = ScreenSpaceTransmissionQuality::High;
+        state.transmission.quality = ScreenSpaceTransmissionQuality::High;
     }
 
     if input.just_pressed(KeyCode::Semicolon) {
-        camera_3d.screen_space_specular_transmission_quality =
-            ScreenSpaceTransmissionQuality::Ultra;
+        state.transmission.quality = ScreenSpaceTransmissionQuality::Ultra;
+    }
+
+    if let Some(transmission) = &mut transmission {
+        **transmission = state.transmission.clone();
+    }
+
+    if input.just_pressed(KeyCode::Space) {
+        if transmission.is_some() {
+            commands
+                .entity(camera_entity)
+                .remove::<ScreenSpaceTransmission>();
+        } else {
+            commands
+                .entity(camera_entity)
+                .insert(state.transmission.clone());
+        }
     }
 
     let rotation = if input.pressed(KeyCode::ArrowRight) {
@@ -539,6 +563,7 @@ fn example_control_system(
 
     display.0 = format!(
         concat!(
+            "         Space  Screen Space Specular Transmission: {}\n",
             " J / K / L / ;  Screen Space Specular Transmissive Quality: {:?}\n",
             "         O / P  Screen Space Specular Transmissive Steps: {}\n",
             "         1 / 2  Diffuse Transmission: {:.2}\n",
@@ -553,8 +578,9 @@ fn example_control_system(
             "             D  Depth Prepass: {}\n",
             "             T  TAA: {}\n",
         ),
-        camera_3d.screen_space_specular_transmission_quality,
-        camera_3d.screen_space_specular_transmission_steps,
+        if transmission.is_some() { "ON" } else { "OFF" },
+        state.transmission.quality,
+        state.transmission.steps,
         state.diffuse_transmission,
         state.specular_transmission,
         state.thickness,

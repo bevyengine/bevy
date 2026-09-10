@@ -1,10 +1,19 @@
-use crate::define_atomic_id;
+use crate::renderer::{wgpu_wrapper, RenderDevice, RenderQueue};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::resource::Resource;
-use bevy_utils::WgpuWrapper;
+use bevy_ecs::{
+    resource::Resource,
+    world::{FromWorld, World},
+};
+use bevy_image::ImageSamplerDescriptor;
+use bevy_utils::define_atomic_id;
 use core::ops::Deref;
 
 define_atomic_id!(TextureId);
+
+wgpu_wrapper! {
+    #[derive(Clone, Debug)]
+    struct WgpuTexture(wgpu::Texture);
+}
 
 /// A GPU-accessible texture.
 ///
@@ -22,7 +31,7 @@ define_atomic_id!(TextureId);
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
-    value: WgpuWrapper<wgpu::Texture>,
+    value: WgpuTexture,
 }
 
 impl Texture {
@@ -42,7 +51,7 @@ impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
             id: TextureId::new(),
-            value: WgpuWrapper::new(value),
+            value: WgpuTexture::new(value),
         }
     }
 }
@@ -58,20 +67,27 @@ impl Deref for Texture {
 
 define_atomic_id!(TextureViewId);
 
+wgpu_wrapper! {
+    #[derive(Clone, Debug)]
+    struct WgpuTextureView(wgpu::TextureView);
+
+    struct WgpuSurfaceTexture(wgpu::SurfaceTexture);
+}
+
 /// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
 #[derive(Clone, Debug)]
 pub struct TextureView {
     id: TextureViewId,
-    value: WgpuWrapper<wgpu::TextureView>,
+    value: WgpuTextureView,
 }
 
 pub struct SurfaceTexture {
-    value: WgpuWrapper<wgpu::SurfaceTexture>,
+    value: WgpuSurfaceTexture,
 }
 
 impl SurfaceTexture {
-    pub fn present(self) {
-        self.value.into_inner().present();
+    pub fn present(self, render_queue: &RenderQueue) {
+        render_queue.present(self.value.into_inner());
     }
 }
 
@@ -87,7 +103,7 @@ impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
             id: TextureViewId::new(),
-            value: WgpuWrapper::new(value),
+            value: WgpuTextureView::new(value),
         }
     }
 }
@@ -95,7 +111,7 @@ impl From<wgpu::TextureView> for TextureView {
 impl From<wgpu::SurfaceTexture> for SurfaceTexture {
     fn from(value: wgpu::SurfaceTexture) -> Self {
         SurfaceTexture {
-            value: WgpuWrapper::new(value),
+            value: WgpuSurfaceTexture::new(value),
         }
     }
 }
@@ -120,6 +136,11 @@ impl Deref for SurfaceTexture {
 
 define_atomic_id!(SamplerId);
 
+wgpu_wrapper! {
+    #[derive(Clone, Debug)]
+    struct WgpuSampler(wgpu::Sampler);
+}
+
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
 /// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
 ///
@@ -128,7 +149,7 @@ define_atomic_id!(SamplerId);
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,
-    value: WgpuWrapper<wgpu::Sampler>,
+    value: WgpuSampler,
 }
 
 impl Sampler {
@@ -143,7 +164,7 @@ impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
             id: SamplerId::new(),
-            value: WgpuWrapper::new(value),
+            value: WgpuSampler::new(value),
         }
     }
 }
@@ -157,10 +178,26 @@ impl Deref for Sampler {
     }
 }
 
+/// Stores the [`ImageSamplerDescriptor`] used to create the [`DefaultImageSampler`].
+///
+/// This is kept as a resource so that [`DefaultImageSampler`] can be recreated on GPU device recovery.
+#[derive(Resource, Debug, Clone, Deref)]
+pub struct DefaultImageSamplerDescriptor(pub ImageSamplerDescriptor);
+
 /// A rendering resource for the default image sampler which is set during renderer
 /// initialization.
 ///
-/// The [`ImagePlugin`](crate::texture::ImagePlugin) can be set during app initialization to change the default
+/// The [`ImagePlugin`](bevy_image::ImagePlugin) can be set during app initialization to change the default
 /// image sampler.
 #[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);
+
+impl FromWorld for DefaultImageSampler {
+    fn from_world(world: &mut World) -> Self {
+        let descriptor = world.resource::<DefaultImageSamplerDescriptor>();
+        let wgpu_descriptor = descriptor.as_wgpu();
+        let device = world.resource::<RenderDevice>();
+        let sampler = device.create_sampler(&wgpu_descriptor);
+        Self(sampler)
+    }
+}

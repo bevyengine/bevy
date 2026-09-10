@@ -85,21 +85,11 @@ impl WinitWindows {
             WindowMode::BorderlessFullscreen(_) => winit_window_attributes
                 .with_fullscreen(Some(Fullscreen::Borderless(maybe_selected_monitor.clone()))),
             WindowMode::Fullscreen(monitor_selection, video_mode_selection) => {
-                let select_monitor = &maybe_selected_monitor
-                    .clone()
-                    .expect("Unable to get monitor.");
-
-                if let Some(video_mode) =
-                    get_selected_videomode(select_monitor, &video_mode_selection)
-                {
-                    winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(video_mode)))
-                } else {
-                    warn!(
-                        "Could not find valid fullscreen video mode for {:?} {:?}",
-                        monitor_selection, video_mode_selection
-                    );
-                    winit_window_attributes
-                }
+                winit_window_attributes.with_fullscreen(Some(resolve_exclusive_fullscreen(
+                    maybe_selected_monitor.clone(),
+                    monitor_selection,
+                    video_mode_selection,
+                )))
             }
             WindowMode::Windowed => {
                 if let Some(position) = winit_window_position(
@@ -152,7 +142,8 @@ impl WinitWindows {
                 .with_titlebar_hidden(!window.titlebar_shown)
                 .with_titlebar_transparent(window.titlebar_transparent)
                 .with_title_hidden(!window.titlebar_show_title)
-                .with_titlebar_buttons_hidden(!window.titlebar_show_buttons);
+                .with_titlebar_buttons_hidden(!window.titlebar_show_buttons)
+                .with_borderless_game(window.borderless_game);
         }
 
         #[cfg(target_os = "ios")]
@@ -190,11 +181,16 @@ impl WinitWindows {
         bevy_log::debug!("{display_info}");
 
         #[cfg(any(
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd",
+            all(
+                any(feature = "wayland", feature = "x11"),
+                any(
+                    target_os = "linux",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd",
+                )
+            ),
             target_os = "windows"
         ))]
         if let Some(name) = &window.name {
@@ -285,7 +281,7 @@ impl WinitWindows {
                     let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
                     winit_window_attributes = winit_window_attributes.with_canvas(canvas);
                 } else {
-                    panic!("Cannot find element: {}.", selector);
+                    panic!("Cannot find element: {selector}.");
                 }
             }
 
@@ -319,13 +315,13 @@ impl WinitWindows {
 
         // Do not set the cursor hittest on window creation if it's false, as it will always fail on
         // some platforms and log an unfixable warning.
-        if !cursor_options.hit_test {
-            if let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test) {
-                warn!(
-                    "Could not set cursor hit test for window {}: {}",
-                    window.title, err
-                );
-            }
+        if !cursor_options.hit_test
+            && let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test)
+        {
+            warn!(
+                "Could not set cursor hit test for window {}: {}",
+                window.title, err
+            );
         }
 
         self.entity_to_winit.insert(entity, winit_window.id());
@@ -378,10 +374,39 @@ pub fn get_selected_videomode(
     }
 }
 
+/// Resolves a `WindowMode::Fullscreen` request to a [`Fullscreen`] value.
+///
+/// Tries exclusive fullscreen first; falls back to borderless fullscreen and logs a
+/// warning if the monitor cannot be resolved or no matching video mode is available.
+pub(crate) fn resolve_exclusive_fullscreen(
+    monitor: Option<MonitorHandle>,
+    monitor_selection: MonitorSelection,
+    video_mode_selection: VideoModeSelection,
+) -> Fullscreen {
+    let video_mode = monitor
+        .as_ref()
+        .and_then(|m| get_selected_videomode(m, &video_mode_selection));
+    if let Some(video_mode) = video_mode {
+        return Fullscreen::Exclusive(video_mode);
+    }
+    if monitor.is_none() {
+        warn!(
+            "Could not find monitor for {:?}; falling back to borderless fullscreen",
+            monitor_selection
+        );
+    } else {
+        warn!(
+            "Could not find valid fullscreen video mode for {:?} {:?}; falling back to borderless fullscreen",
+            monitor_selection, video_mode_selection
+        );
+    }
+    Fullscreen::Borderless(monitor)
+}
+
 /// Gets a monitor's current video-mode.
 ///
-/// TODO: When Winit 0.31 releases this function can be removed and replaced with
-/// `MonitorHandle::current_video_mode()`
+// TODO: When Winit 0.31 releases this function can be removed and replaced with
+// `MonitorHandle::current_video_mode()`
 fn get_current_videomode(monitor: &MonitorHandle) -> Option<VideoModeHandle> {
     monitor
         .video_modes()
@@ -392,15 +417,34 @@ fn get_current_videomode(monitor: &MonitorHandle) -> Option<VideoModeHandle> {
         .max_by_key(VideoModeHandle::bit_depth)
 }
 
+#[cfg(target_arch = "wasm32")]
+fn pointer_supported() -> Result<bool, ExternalError> {
+    Ok(js_sys::Reflect::has(
+        web_sys::window()
+            .ok_or(ExternalError::Ignored)?
+            .document()
+            .ok_or(ExternalError::Ignored)?
+            .as_ref(),
+        &"exitPointerLock".into(),
+    )
+    .unwrap_or(false))
+}
+
 pub(crate) fn attempt_grab(
     winit_window: &WinitWindow,
     grab_mode: CursorGrabMode,
 ) -> Result<(), ExternalError> {
+    // Do not attempt to grab on web if unsupported (e.g. mobile)
+    #[cfg(target_arch = "wasm32")]
+    if !pointer_supported()? {
+        return Err(ExternalError::Ignored);
+    }
+
     let grab_result = match grab_mode {
         CursorGrabMode::None => winit_window.set_cursor_grab(WinitCursorGrabMode::None),
         CursorGrabMode::Confined => winit_window
             .set_cursor_grab(WinitCursorGrabMode::Confined)
-            .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::Locked)),
+            .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::None)),
         CursorGrabMode::Locked => winit_window
             .set_cursor_grab(WinitCursorGrabMode::Locked)
             .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::Confined)),

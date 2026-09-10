@@ -1,5 +1,8 @@
 name: validation jobs
 
+permissions:
+  contents: read
+
 on:
   merge_group:
   pull_request:
@@ -11,33 +14,44 @@ concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
+# Environment variables must be kept in sync with all workflows that defines them.
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_TEST_DEBUG: 0
   CARGO_PROFILE_DEV_DEBUG: 0
-  # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: nightly
+  # Keep in sync between all workflows
+  RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
 jobs:
   build-and-install-on-iOS:
     if: ${{ github.event_name == 'merge_group' }}
-    runs-on: macos-latest
+    runs-on: macos-14
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: actions/cache@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          path: |
-            target
-          key: ${{ runner.os }}-ios-install-${{ hashFiles('**/Cargo.lock') }}
+          persist-credentials: false
 
-      # TODO: remove x86 target once it always run on arm GitHub runners
+      - uses: ./.github/actions/install-rust
+
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable-aarch64-apple-ios-sim-
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+
       - name: Add iOS targets
-        run: rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
+        run: rustup target add aarch64-apple-ios-sim
 
       - name: Build and install iOS app in iOS Simulator.
         run: cd examples/mobile && make install
@@ -47,25 +61,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/install-rust
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: "17"
+          distribution: "temurin"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable-aarch64-linux-android-${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable-aarch64-linux-android-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable-aarch64-linux-android-
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-build-android-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Install Android targets
         run: rustup target add aarch64-linux-android
@@ -74,7 +95,7 @@ jobs:
         run: cargo install --force cargo-ndk
 
       - name: Build .so file
-        run: cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build --package bevy_mobile_example
+        run: cargo ndk -t arm64-v8a -P 26 -o android_example/app/src/main/jniLibs build --package bevy_mobile_example
 
       - name: Build app for Android
         run: cd examples/mobile/android_example && chmod +x gradlew && ./gradlew build
@@ -84,22 +105,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/install-rust
         with:
           target: wasm32-unknown-unknown
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable-wasm32-unknown-unknown-
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            ~/.github/start-wasm-example/node_modules
             target/
-          key: ${{ runner.os }}-wasm-run-examples-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Install wasm-bindgen
         run: cargo install --force wasm-bindgen-cli
@@ -112,6 +139,8 @@ jobs:
           cd ../..
 
       - name: First Wasm build
+        env:
+          RUSTFLAGS: '-C debuginfo=0 -D warnings --cfg getrandom_backend="wasm_js"'
         run: |
           cargo build --release --example testbed_ui --target wasm32-unknown-unknown
 
@@ -124,7 +153,7 @@ jobs:
           xvfb-run cargo run -p build-wasm-example -- --browsers chromium --browsers firefox --frames 25 --test 2d_shapes lighting text_debug breakout
 
       - name: Save screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: screenshots-wasm
           path: .github/start-wasm-example/screenshot-*.png
@@ -138,14 +167,14 @@ jobs:
         crate: [bevy_ecs, bevy_reflect, bevy]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/install-rust
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build
         run: cargo build -p ${{ matrix.crate }} --no-default-features
-        env:
-          RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   build-without-default-features-status:
     if: |
@@ -166,19 +195,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
+      - uses: ./.github/actions/install-rust
+        with:
+          channel: nightly
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-nightly--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-nightly--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-nightly--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
       - name: Installs cargo-udeps
         run: cargo install --force cargo-udeps
       - name: Install Linux dependencies
@@ -191,17 +227,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
+      - uses: ./.github/actions/install-rust
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-check-showcase-patches-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Apply patches

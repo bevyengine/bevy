@@ -1,18 +1,16 @@
 //! Example of how to draw to a texture from the CPU.
 //!
 //! You can set the values of individual pixels to whatever you want.
-//! Bevy provides user-friendly APIs that work with [`Color`](bevy::color::Color)
+//! Bevy provides user-friendly APIs that work with [`Color`]
 //! values and automatically perform any necessary conversions and encoding
 //! into the texture's native pixel format.
 
+use bevy::asset::RenderAssetUsages;
 use bevy::color::{color_difference::EuclideanDistance, palettes::css};
 use bevy::prelude::*;
-use bevy::render::{
-    render_asset::RenderAssetUsages,
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
-};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 const IMAGE_WIDTH: u32 = 256;
 const IMAGE_HEIGHT: u32 = 256;
@@ -102,14 +100,14 @@ fn draw(
     if *i == 0 {
         // Generate a random color on first run.
         *draw_color = Color::linear_rgb(
-            seeded_rng.0.r#gen(),
-            seeded_rng.0.r#gen(),
-            seeded_rng.0.r#gen(),
+            seeded_rng.0.random(),
+            seeded_rng.0.random(),
+            seeded_rng.0.random(),
         );
     }
 
     // Get the image from Bevy's asset storage.
-    let image = images.get_mut(&my_handle.0).expect("Image not found");
+    let mut image = images.get_mut(&my_handle.0).expect("Image not found");
 
     // Compute the position of the pixel to draw.
 
@@ -129,9 +127,9 @@ fn draw(
     let tolerance = 1.0 / 255.0;
     if old_color.distance(&draw_color) <= tolerance {
         *draw_color = Color::linear_rgb(
-            seeded_rng.0.r#gen(),
-            seeded_rng.0.r#gen(),
-            seeded_rng.0.r#gen(),
+            seeded_rng.0.random(),
+            seeded_rng.0.random(),
+            seeded_rng.0.random(),
         );
     }
 

@@ -3,3 +3,6 @@ contact_links:
     url: https://github.com/bevyengine/bevy/discussions/categories/q-a
     about: Questions about how to use or contribute to Bevy belong in Github Discussions.
       You can use the search to check if someone already answered your question!
+  - name: Security Issue
+    url: https://github.com/bevyengine/bevy/security/advisories/new
+    about: If you believe you have found a security vulnerability, please DO NOT disclose it publicly until we’ve had a chance to fix it.

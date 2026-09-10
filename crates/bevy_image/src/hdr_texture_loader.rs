@@ -1,25 +1,31 @@
 use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
+use bevy_reflect::TypePath;
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
-#[derive(Clone, Default)]
+#[derive(Clone, Default, TypePath)]
 pub struct HdrTextureLoader;
 
+/// Settings for [`HdrTextureLoader`].
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct HdrTextureLoaderSettings {
+    /// Where the asset will be used - see the docs on [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
 }
 
+/// Possible errors that can be produced by [`HdrTextureLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum HdrTextureLoaderError {
+    /// I/O Error.
     #[error("Could load texture: {0}")]
     Io(#[from] std::io::Error),
+    /// Failed to decode the texture.
     #[error("Could not extract image: {0}")]
     Image(#[from] image::ImageError),
 }
@@ -35,11 +41,9 @@ impl AssetLoader for HdrTextureLoader {
         _load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
-        debug_assert_eq!(
-            format.pixel_size(),
-            4 * 4,
-            "Format should have 32bit x 4 size"
-        );
+        // `Rgba32Float` will always return a valid pixel size
+        let pixel_size = format.pixel_size().unwrap();
+        debug_assert_eq!(pixel_size, 4 * 4, "Format should have 32bit x 4 size");
 
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -49,7 +53,7 @@ impl AssetLoader for HdrTextureLoader {
         let image_buffer = dynamic_image
             .as_rgb32f()
             .expect("HDR Image format should be Rgb32F");
-        let mut rgba_data = Vec::with_capacity(image_buffer.pixels().len() * format.pixel_size());
+        let mut rgba_data = Vec::with_capacity(image_buffer.pixels().len() * pixel_size);
 
         for rgb in image_buffer.pixels() {
             let alpha = 1.0f32;

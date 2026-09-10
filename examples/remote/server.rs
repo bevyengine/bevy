@@ -1,4 +1,8 @@
 //! A Bevy app that you can connect to with the BRP and edit.
+//! Run this example with the `remote` feature enabled:
+//! ```bash
+//! cargo run --example server --features="bevy_remote"
+//! ```
 
 use bevy::math::ops::cos;
 use bevy::{
@@ -16,9 +20,6 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, remove.run_if(input_just_pressed(KeyCode::Space)))
         .add_systems(Update, move_cube)
-        // New types must be registered in order to be usable with reflection.
-        .register_type::<Cube>()
-        .register_type::<TestResource>()
         .run();
 }
 
@@ -51,7 +52,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

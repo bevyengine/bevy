@@ -1,48 +1,51 @@
+pub mod composition;
 pub mod visibility;
 pub mod window;
 
+use bevy_camera::{
+    primitives::Frustum, Camera, CameraMainTextureUsages, ClearColor, ClearColorConfig,
+    CompositingSpace, Exposure, MainPassResolutionOverride, NormalizedRenderTarget,
+};
 use bevy_diagnostic::FrameCount;
+pub use composition::*;
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{
-        CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
-        ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
-    },
-    experimental::occlusion_culling::OcclusionCulling,
+    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
     extract_component::ExtractComponentPlugin,
-    load_shader_library,
-    primitives::Frustum,
+    occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
-    render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
+    render_resource::{
+        BindGroup, DynamicUniformBuffer, ShaderType, Texture, TextureView, TextureViewId,
+    },
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
-        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, OutputColorAttachment,
-        TextureCache,
+        CachedTexture, ColorAttachment, DepthStencilAttachment, GpuImage, ManualTextureViews,
+        OutputColorAttachment, TextureCache,
     },
-    Render, RenderApp, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
-use alloc::sync::Arc;
+use alloc::sync::{Arc, Weak};
 use bevy_app::{App, Plugin};
-use bevy_color::LinearRgba;
+use bevy_color::{LinearRgba, Oklaba, Srgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
-use bevy_image::BevyDefault as _;
+use bevy_extract_macros::ExtractComponent;
+use bevy_image::ToExtents;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
 use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
 use wgpu::{
-    BufferUsages, Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    BufferUsages, Color as WgpuColor, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+    StoreOp, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
 /// The matrix that converts from the RGB to the LMS color space.
@@ -94,48 +97,117 @@ static D65_XY: Vec2 = vec2(0.31272, 0.32903);
 /// [D65 white point]: https://en.wikipedia.org/wiki/Standard_illuminant#D65_values
 static D65_LMS: Vec3 = vec3(0.975538, 1.01648, 1.08475);
 
+/// Mask bits (5-bit) for use in pipeline key bitfields.
+pub const COLOR_TARGET_FORMAT_MASK_BITS: u32 = 0b11111;
+
+/// Encode a [`TextureFormat`] as a 5-bit code for use in pipeline key bitfields.
+///
+/// Covers all WebGPU renderable and blendable texture formats. Some of them need optional features.
+/// See <https://gpuweb.github.io/gpuweb/#plain-color-formats>.
+#[inline]
+pub fn texture_format_to_code(format: TextureFormat) -> Option<u8> {
+    Some(match format {
+        TextureFormat::R8Unorm => 0,
+        TextureFormat::R8Snorm => 1,
+        TextureFormat::Rg8Unorm => 2,
+        TextureFormat::Rg8Snorm => 3,
+        TextureFormat::Rgba8Unorm => 4,
+        TextureFormat::Rgba8UnormSrgb => 5,
+        TextureFormat::Rgba8Snorm => 6,
+        TextureFormat::Bgra8Unorm => 7,
+        TextureFormat::Bgra8UnormSrgb => 8,
+        TextureFormat::R16Float => 11,
+        TextureFormat::R16Unorm => 9,
+        TextureFormat::R16Snorm => 10,
+        TextureFormat::Rg16Float => 12,
+        TextureFormat::Rg16Unorm => 13,
+        TextureFormat::Rg16Snorm => 14,
+        TextureFormat::Rgba16Float => 15,
+        TextureFormat::Rgba16Unorm => 16,
+        TextureFormat::Rgba16Snorm => 17,
+        TextureFormat::R32Float => 18,
+        TextureFormat::Rg32Float => 19,
+        TextureFormat::Rgba32Float => 20,
+        TextureFormat::Rgb10a2Unorm => 21,
+        TextureFormat::Rg11b10Ufloat => 22,
+        _ => return None,
+    })
+}
+
+/// Decode a 5-bit code back into a [`TextureFormat`].
+///
+/// Inverse of [`texture_format_to_code`].
+#[inline]
+pub fn texture_format_from_code(code: u8) -> Option<TextureFormat> {
+    Some(match code {
+        0 => TextureFormat::R8Unorm,
+        1 => TextureFormat::R8Snorm,
+        2 => TextureFormat::Rg8Unorm,
+        3 => TextureFormat::Rg8Snorm,
+        4 => TextureFormat::Rgba8Unorm,
+        5 => TextureFormat::Rgba8UnormSrgb,
+        6 => TextureFormat::Rgba8Snorm,
+        7 => TextureFormat::Bgra8Unorm,
+        8 => TextureFormat::Bgra8UnormSrgb,
+        11 => TextureFormat::R16Float,
+        9 => TextureFormat::R16Unorm,
+        10 => TextureFormat::R16Snorm,
+        12 => TextureFormat::Rg16Float,
+        13 => TextureFormat::Rg16Unorm,
+        14 => TextureFormat::Rg16Snorm,
+        15 => TextureFormat::Rgba16Float,
+        16 => TextureFormat::Rgba16Unorm,
+        17 => TextureFormat::Rgba16Snorm,
+        18 => TextureFormat::R32Float,
+        19 => TextureFormat::Rg32Float,
+        20 => TextureFormat::Rgba32Float,
+        21 => TextureFormat::Rgb10a2Unorm,
+        22 => TextureFormat::Rg11b10Ufloat,
+        _ => return None,
+    })
+}
+
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "view.wgsl");
-
-        app.register_type::<InheritedVisibility>()
-            .register_type::<ViewVisibility>()
-            .register_type::<Msaa>()
-            .register_type::<NoFrustumCulling>()
-            .register_type::<RenderLayers>()
-            .register_type::<Visibility>()
-            .register_type::<VisibleEntities>()
-            .register_type::<ColorGrading>()
-            .register_type::<OcclusionCulling>()
+        app
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
-                ExtractComponentPlugin::<Hdr>::default(),
                 ExtractComponentPlugin::<Msaa>::default(),
                 ExtractComponentPlugin::<OcclusionCulling>::default(),
-                VisibilityPlugin,
-                VisibilityRangePlugin,
+                RenderVisibilityRangePlugin,
             ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.configure_sets(
+                Render,
+                ResolveCompositingSpaces
+                    .in_set(RenderSystems::CreateViews)
+                    .after(crate::camera::sort_cameras),
+            );
             render_app.add_systems(
                 Render,
                 (
+                    resolve_composition_spaces.in_set(ResolveCompositingSpaces),
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
+                        .before(create_surfaces),
+                    cleanup_view_targets_for_resize
+                        .in_set(RenderSystems::PrepareViews)
                         .before(create_surfaces),
                     prepare_view_attachments
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .before(prepare_view_targets)
                         .after(prepare_windows),
                     prepare_view_targets
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .after(prepare_windows)
                         .after(crate::render_asset::prepare_assets::<GpuImage>)
                         .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
                     prepare_view_uniforms.in_set(RenderSystems::PrepareResources),
+                    collect_visible_cpu_culled_entities.in_set(RenderSystems::PrepareAssets),
                 ),
             );
         }
@@ -144,14 +216,14 @@ impl Plugin for ViewPlugin {
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ViewUniforms>()
-                .init_resource::<ViewTargetAttachments>();
+                .init_gpu_resource::<ViewUniforms>()
+                .init_gpu_resource::<ViewTargetAttachments>();
         }
     }
 }
 
 /// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
-/// for a [`Camera`](crate::camera::Camera).
+/// for a [`Camera`].
 ///
 /// Defaults to 4 samples. A higher number of samples results in smoother edges.
 ///
@@ -172,6 +244,7 @@ impl Plugin for ViewPlugin {
     Debug,
 )]
 #[reflect(Component, Default, PartialEq, Hash, Debug)]
+#[extract_app(RenderApp)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
@@ -197,15 +270,89 @@ impl Msaa {
     }
 }
 
-/// If this component is added to a camera, the camera will use an intermediate "high dynamic range" render texture.
-/// This allows rendering with a wider range of lighting values. However, this does *not* affect
-/// whether the camera will render with hdr display output (which bevy does not support currently)
-/// and only affects the intermediate render texture.
+/// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
+///
+/// The tonemapping pass lives in `bevy_core_pipeline`. The type is defined in
+/// `bevy_render` so render-world code can read it.
 #[derive(
-    Component, Default, Copy, Clone, ExtractComponent, Reflect, PartialEq, Eq, Hash, Debug,
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
-#[reflect(Component, Default, PartialEq, Hash, Debug)]
-pub struct Hdr;
+#[extract_component_filter(With<Camera>)]
+#[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[extract_app(RenderApp)]
+pub enum Tonemapping {
+    /// Bypass tonemapping. No color grading, exposure, or dither applies.
+    None,
+    /// Identity tone curve. [`ColorGrading`], exposure, and [`DebandDither`]
+    /// still apply. The output is unbounded display-linear.
+    Linear,
+    /// Suffers from lots hue shifting, brights don't desaturate naturally.
+    /// Bright primaries and secondaries don't desaturate at all.
+    Reinhard,
+    /// Suffers from hue shifting. Brights don't desaturate much at all across the spectrum.
+    ReinhardLuminance,
+    /// Same base implementation that Godot 4.0 uses for Tonemap ACES.
+    /// <https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl>
+    /// Not neutral, has a very specific aesthetic, intentional and dramatic hue shifting.
+    /// Bright greens and reds turn orange. Bright blues turn magenta.
+    /// Significantly increased contrast. Brights desaturate across the spectrum.
+    AcesFitted,
+    /// By Troy Sobotka
+    /// <https://github.com/sobotka/AgX>
+    /// Very neutral. Image is somewhat desaturated when compared to other tonemappers.
+    /// Little to no hue shifting. Subtle [Abney shifting](https://en.wikipedia.org/wiki/Abney_effect).
+    /// NOTE: Requires the `tonemapping_luts` cargo feature.
+    AgX,
+    /// By Tomasz Stachowiak
+    /// Has little hue shifting in the darks and mids, but lots in the brights. Brights desaturate across the spectrum.
+    /// Is sort of between Reinhard and `ReinhardLuminance`. Conceptually similar to reinhard-jodie.
+    /// Designed as a compromise if you want e.g. decent skin tones in low light, but can't afford to re-do your
+    /// VFX to look good without hue shifting.
+    SomewhatBoringDisplayTransform,
+    /// Current Bevy default.
+    /// By Tomasz Stachowiak
+    /// <https://github.com/h3r2tic/tony-mc-mapface>
+    /// Very neutral. Subtle but intentional hue shifting. Brights desaturate across the spectrum.
+    /// Comment from author:
+    /// Tony is a display transform intended for real-time applications such as games.
+    /// It is intentionally boring, does not increase contrast or saturation, and stays close to the
+    /// input stimulus where compression isn't necessary.
+    /// Brightness-equivalent luminance of the input stimulus is compressed. The non-linearity resembles Reinhard.
+    /// Color hues are preserved during compression, except for a deliberate [Bezold–Brücke shift](https://en.wikipedia.org/wiki/Bezold%E2%80%93Br%C3%BCcke_shift).
+    /// To avoid posterization, selective desaturation is employed, with care to avoid the [Abney effect](https://en.wikipedia.org/wiki/Abney_effect).
+    /// NOTE: Requires the `tonemapping_luts` cargo feature.
+    #[default]
+    TonyMcMapface,
+    /// Default Filmic Display Transform from blender.
+    /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
+    /// NOTE: Requires the `tonemapping_luts` cargo feature.
+    BlenderFilmic,
+    /// Despite its name, it is not considered to be neutral.
+    /// Highly saturated colors and tends to produce a very high contrast image.
+    /// Suffers from significant [Abney shifting](https://en.wikipedia.org/wiki/Abney_effect), and tends to crush grays and desaturated colors.
+    /// Designed for e-commerce to faithfully reproduce the colors of brand's logos when used with low brightness grayscale lighting.
+    /// See [the KhronosGroup spec](https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral) for more information.
+    KhronosPbrNeutral,
+}
+
+impl Tonemapping {
+    pub fn is_enabled(&self) -> bool {
+        *self != Tonemapping::None
+    }
+}
+
+/// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
+#[derive(
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
+)]
+#[extract_component_filter(With<Camera>)]
+#[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[extract_app(RenderApp)]
+pub enum DebandDither {
+    #[default]
+    Disabled,
+    Enabled,
+}
 
 /// An identifier for a view that is stable across frames.
 ///
@@ -228,9 +375,7 @@ pub struct RetainedViewEntity {
     /// the light and subview index aren't themselves enough to uniquely
     /// identify a shadow cascade: we need the camera that the cascade is
     /// associated with as well. This entity stores that camera.
-    ///
-    /// If not present, this will be `MainEntity(Entity::PLACEHOLDER)`.
-    pub auxiliary_entity: MainEntity,
+    pub auxiliary_entity: Option<MainEntity>,
 
     /// The index of the view corresponding to the entity.
     ///
@@ -253,19 +398,20 @@ impl RetainedViewEntity {
     ) -> Self {
         Self {
             main_entity,
-            auxiliary_entity: auxiliary_entity.unwrap_or(Entity::PLACEHOLDER.into()),
+            auxiliary_entity,
             subview_index,
         }
     }
 }
 
-/// Describes a camera in the render world.
+/// Describes a view in the render world.
 ///
-/// Each entity in the main world can potentially extract to multiple subviews,
-/// each of which has a [`RetainedViewEntity::subview_index`]. For instance, 3D
-/// cameras extract to both a 3D camera subview with index 0 and a special UI
-/// subview with index 1. Likewise, point lights with shadows extract to 6
-/// subviews, one for each side of the shadow cubemap.
+/// Each entity in the main world can potentially extract to multiple views,
+/// each of which have a [`RetainedViewEntity::subview_index`].
+/// For instance, point lights with shadows extract to 6 subviews,
+/// one for each side of the shadow cubemap.
+/// [`Camera3d`](bevy_camera::Camera3d) extracts into a [`ExtractedView`]
+/// and [`ExtractedCamera`] component.
 #[derive(Component)]
 pub struct ExtractedView {
     /// The entity in the main world corresponding to this render world view.
@@ -307,27 +453,40 @@ pub struct ExtractedView {
     // `projection` and `transform` fields, which can be helpful in cases where numerical
     // stability matters and there is a more direct way to derive the view-projection matrix.
     pub clip_from_world: Option<Mat4>,
-    pub hdr: bool,
+    /// The [`TextureFormat`] this view will render to. Note that this may diverge from
+    /// the [`RenderTarget`](bevy_camera::RenderTarget)'s texture format. Among other
+    /// reasons, [`Hdr`](bevy_camera::Hdr) sets an the internal render target format
+    /// override to ensure sufficient precision is present for lighting calculations.
+    pub target_format: TextureFormat,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
+
+    /// Whether to switch culling mode so that materials that request backface
+    /// culling cull front faces, and vice versa.
+    ///
+    /// This is typically used for cameras that mirror the world that they
+    /// render across a plane, because doing that flips the winding of each
+    /// polygon.
+    ///
+    /// This setting doesn't affect materials that disable backface culling.
+    pub invert_culling: bool,
 }
 
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
-        ViewRangefinder3d::from_world_from_view(&self.world_from_view.to_matrix())
+        ViewRangefinder3d::from_world_from_view(&self.world_from_view.affine())
     }
 }
 
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
-/// Color grading is applied just before tonemapping for a given
-/// [`Camera`](crate::camera::Camera) entity, with the sole exception of the
-/// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
-/// tonemapping.
-#[derive(Component, Reflect, Debug, Default, Clone)]
-#[reflect(Component, Default, Debug, Clone)]
+/// Color grading is applied just before tonemapping for a given [`Camera`]
+/// entity, with the sole exception of the `post_saturation` value in
+/// [`ColorGradingGlobal`], which is applied after tonemapping.
+#[derive(Component, Reflect, Debug, Default, Clone, PartialEq)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct ColorGrading {
     /// Filmic color grading values applied to the image as a whole (as opposed
     /// to individual sections, like shadows and highlights).
@@ -355,8 +514,8 @@ pub struct ColorGrading {
 
 /// Filmic color grading values applied to the image as a whole (as opposed to
 /// individual sections, like shadows and highlights).
-#[derive(Clone, Debug, Reflect)]
-#[reflect(Default, Clone)]
+#[derive(Clone, Debug, Reflect, PartialEq)]
+#[reflect(Default, Clone, PartialEq)]
 pub struct ColorGradingGlobal {
     /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,
@@ -532,6 +691,11 @@ impl ColorGrading {
     }
 }
 
+/// A resource, part of the render world, that stores the resolved origin for
+/// LOD selection for shadow maps of point and spot lights.
+#[derive(Default, Resource, Debug)]
+pub struct RenderShadowLodOrigin(pub Vec3);
+
 #[derive(Clone, ShaderType)]
 pub struct ViewUniform {
     pub clip_from_world: Mat4,
@@ -576,10 +740,18 @@ pub struct ViewUniform {
     pub exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     pub viewport: Vec4,
+    pub main_pass_viewport: Vec4,
     /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
     /// The normal vectors point towards the interior of the frustum.
     /// A half space contains `p` if `normal.dot(p) + distance > 0.`
     pub frustum: [Vec4; 6],
+    /// The world-space position of the camera used to resolve visibility
+    /// ranges.
+    ///
+    /// This is the position of the camera itself, unless this view isn't
+    /// associated with a camera, in which case it's the position of the primary
+    /// camera.
+    pub lod_view_world_position: Vec3,
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
     pub frame_count: u32,
@@ -609,14 +781,15 @@ pub struct ViewUniformOffset {
     pub offset: u32,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
-    out_texture: OutputColorAttachment,
+    /// The final output attachment this view will present to, if available.
+    out_texture: Option<OutputColorAttachment>,
 }
 
 /// Contains [`OutputColorAttachment`] used for each target present on any view in the current
@@ -729,14 +902,9 @@ impl From<ColorGrading> for ColorGradingUniform {
 #[derive(Component, Default)]
 pub struct NoIndirectDrawing;
 
-#[derive(Component, Default)]
-pub struct NoCpuCulling;
-
 impl ViewTarget {
-    pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
-
     /// Retrieve this target's main texture's color attachment.
-    pub fn get_color_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_attachment()
         } else {
@@ -745,7 +913,7 @@ impl ViewTarget {
     }
 
     /// Retrieve this target's "unsampled" main texture's color attachment.
-    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_unsampled_attachment()
         } else {
@@ -817,34 +985,43 @@ impl ViewTarget {
             .map(|sampled| &sampled.default_view)
     }
 
+    /// Currently bevy's main texture format can be:
+    /// - If rendering to screen:
+    ///   For HDR, it's `Rgba16Float`.
+    ///   For LDR, it's `Rgba8Unorm` when [`CompositingSpace::Srgb`], otherwise `Rgba8UnormSrgb`.
+    /// - If rendering to texture: the format is the same as texture view's format.
     #[inline]
     pub fn main_texture_format(&self) -> TextureFormat {
         self.main_texture_format
     }
 
-    /// Returns `true` if and only if the main texture is [`Self::TEXTURE_FORMAT_HDR`]
-    #[inline]
-    pub fn is_hdr(&self) -> bool {
-        self.main_texture_format == ViewTarget::TEXTURE_FORMAT_HDR
-    }
-
     /// The final texture this view will render to.
     #[inline]
-    pub fn out_texture(&self) -> &TextureView {
-        &self.out_texture.view
+    pub fn out_texture(&self) -> Option<&TextureView> {
+        self.out_texture.as_ref().map(|t| &t.view)
     }
 
+    /// The final texture this view will render to, as a color attachment.
     pub fn out_texture_color_attachment(
         &self,
         clear_color: Option<LinearRgba>,
-    ) -> RenderPassColorAttachment {
-        self.out_texture.get_attachment(clear_color)
+    ) -> Option<RenderPassColorAttachment<'_>> {
+        self.out_texture
+            .as_ref()
+            .map(|t| t.get_attachment(clear_color))
     }
 
-    /// The format of the final texture this view will render to
+    /// Whether the final texture this view will render to needs to be presented.
+    pub fn needs_present(&self) -> bool {
+        self.out_texture
+            .as_ref()
+            .is_some_and(OutputColorAttachment::needs_present)
+    }
+
+    /// The format of the final texture this view will render to, if any.
     #[inline]
-    pub fn out_texture_format(&self) -> TextureFormat {
-        self.out_texture.format
+    pub fn out_texture_view_format(&self) -> Option<TextureFormat> {
+        self.out_texture.as_ref().map(|t| t.view_format)
     }
 
     /// This will start a new "post process write", which assumes that the caller
@@ -854,7 +1031,7 @@ impl ViewTarget {
     /// [`ViewTarget`]'s main texture to the `destination` texture, so the caller
     /// _must_ ensure `source` is copied to `destination`, with or without modifications.
     /// Failing to do so will cause the current main texture information to be lost.
-    pub fn post_process_write(&self) -> PostProcessWrite {
+    pub fn post_process_write(&self) -> PostProcessWrite<'_> {
         let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {
@@ -877,26 +1054,121 @@ impl ViewTarget {
     }
 }
 
-#[derive(Component)]
-pub struct ViewDepthTexture {
-    pub texture: Texture,
-    attachment: DepthAttachment,
+pub trait CreatePostProcessBindGroup:
+    Fn(&TextureView) -> (TextureViewId, BindGroup) + Copy
+{
 }
 
-impl ViewDepthTexture {
-    pub fn new(texture: CachedTexture, clear_value: Option<f32>) -> Self {
+impl<T: Fn(&TextureView) -> (TextureViewId, BindGroup) + Copy> CreatePostProcessBindGroup for T {}
+
+/// Used to create a [`PostProcessBindGroupCache`]
+pub struct PostProcessBindGroupCacheBuilder<F>
+where
+    F: CreatePostProcessBindGroup,
+{
+    create_bind_group: F,
+}
+
+impl<F> PostProcessBindGroupCacheBuilder<F>
+where
+    F: CreatePostProcessBindGroup,
+{
+    /// Initializes the [`PostProcessBindGroupCacheBuilder`]
+    ///
+    /// The closure should create the bind group that contains the source texture of a post
+    /// processing effect
+    pub fn new(create_bind_group: F) -> Self {
+        Self { create_bind_group }
+    }
+
+    /// Generates the bind group cache based on the `Self::create_bind_group` closure
+    pub fn generate_bind_groups(&self, view_target: &ViewTarget) -> PostProcessBindGroupCache {
+        PostProcessBindGroupCache::new(view_target, self.create_bind_group)
+    }
+}
+
+/// Caches the bind groups for each main textures used when making a post processing effect
+pub struct PostProcessBindGroupCache {
+    a: (TextureViewId, BindGroup),
+    b: (TextureViewId, BindGroup),
+}
+
+impl PostProcessBindGroupCache {
+    /// Creates the bind group for both main textures used in post processing effects
+    pub fn new<F: CreatePostProcessBindGroup>(
+        view_target: &ViewTarget,
+        create_bind_group: F,
+    ) -> Self {
         Self {
-            texture: texture.texture,
-            attachment: DepthAttachment::new(texture.default_view, clear_value),
+            a: create_bind_group(view_target.main_texture_view()),
+            b: create_bind_group(view_target.main_texture_other_view()),
         }
     }
 
-    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
-        self.attachment.get_attachment(store)
+    /// Determines if the bind groups need to be updated based on the main textures id
+    ///
+    /// If you have anything else that determines if the bind groups need to be
+    /// updated you need to do it manually
+    pub fn should_update(&self, view_target: &ViewTarget) -> bool {
+        let (texture_a, _) = &self.a;
+        if *texture_a != view_target.main_texture_view().id() {
+            return true;
+        }
+        let (texture_b, _) = &self.b;
+        if *texture_b != view_target.main_texture_other_view().id() {
+            return true;
+        }
+
+        false
     }
 
-    pub fn view(&self) -> &TextureView {
-        &self.attachment.view
+    /// Updates the bind group associated with each main textures
+    ///
+    /// Use the builder to get the callback used when creating the bind group
+    pub fn update<F: CreatePostProcessBindGroup>(
+        &mut self,
+        view_target: &ViewTarget,
+        builder: PostProcessBindGroupCacheBuilder<F>,
+    ) {
+        self.a = (builder.create_bind_group)(view_target.main_texture_view());
+        self.b = (builder.create_bind_group)(view_target.main_texture_other_view());
+    }
+
+    /// Gets the bind group associated with the current main texture
+    ///
+    /// Generally, this will be the bind group associated with the source texture
+    pub fn get_current_bind_group(&self, texture: &TextureView) -> &BindGroup {
+        let (_, bind_group) = if self.a.0 == texture.id() {
+            &self.a
+        } else {
+            &self.b
+        };
+        bind_group
+    }
+}
+
+#[derive(Component)]
+pub struct ViewDepthStencilTexture {
+    pub attachment: DepthStencilAttachment,
+}
+
+impl ViewDepthStencilTexture {
+    pub fn new(
+        texture: CachedTexture,
+        depth_clear_value: Option<f32>,
+        stencil_clear_value: Option<u32>,
+    ) -> Self {
+        let attachment =
+            DepthStencilAttachment::new(texture, None, depth_clear_value, stencil_clear_value);
+        Self { attachment }
+    }
+
+    pub fn texture(&self) -> &Texture {
+        &self.attachment.texture.texture
+    }
+
+    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
+        self.attachment.get_attachment(store)
     }
 }
 
@@ -912,8 +1184,10 @@ pub fn prepare_view_uniforms(
         Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
+        Option<&MainPassResolutionOverride>,
     )>,
     frame_count: Res<FrameCount>,
+    shadow_lod_origin: Option<Res<RenderShadowLodOrigin>>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
@@ -924,13 +1198,28 @@ pub fn prepare_view_uniforms(
     else {
         return;
     };
-    for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
+    for (
+        entity,
+        extracted_camera,
+        extracted_view,
+        frustum,
+        temporal_jitter,
+        mip_bias,
+        resolution_override,
+    ) in &views
+    {
         let viewport = extracted_view.viewport.as_vec4();
+        let mut main_pass_viewport = viewport;
+        if let Some(resolution_override) = resolution_override {
+            main_pass_viewport.z = resolution_override.0.x as f32;
+            main_pass_viewport.w = resolution_override.0.y as f32;
+        }
+
         let unjittered_projection = extracted_view.clip_from_view;
         let mut clip_from_view = unjittered_projection;
 
         if let Some(temporal_jitter) = temporal_jitter {
-            temporal_jitter.jitter_projection(&mut clip_from_view, viewport.zw());
+            temporal_jitter.jitter_projection(&mut clip_from_view, main_pass_viewport.zw());
         }
 
         let view_from_clip = clip_from_view.inverse();
@@ -950,6 +1239,44 @@ pub fn prepare_view_uniforms(
             .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
             .unwrap_or([Vec4::ZERO; 6]);
 
+        // Determine the position of the camera used for resolving visibility
+        // ranges (LODs).
+        let lod_view_world_position = match (&extracted_camera, &shadow_lod_origin) {
+            (Some(_), _) | (None, None) => {
+                // If we're rendering a camera directly (i.e. we're not
+                // rendering a shadow map), we use this camera's position as the
+                // LOD view position.
+                extracted_view.world_from_view.translation()
+            }
+            (None, Some(shadow_lod_origin))
+                if extracted_view
+                    .retained_view_entity
+                    .auxiliary_entity
+                    .is_none() =>
+            {
+                // If this is a shadow map not associated with a camera (a point
+                // light or spot light shadow map), use the shadow LOD origin.
+                shadow_lod_origin.0
+            }
+            (None, Some(shadow_lod_origin)) => {
+                // Otherwise, if we're rendering a shadow map that is associated
+                // with a camera (i.e. a directional light shadow map, at
+                // present), we use the position of that camera as the LOD view
+                // position. This ensures that each rendered object has a shadow
+                // and that no invisible objects have shadows.
+                match extracted_view
+                    .retained_view_entity
+                    .auxiliary_entity
+                    .and_then(|entity| views.get(*entity).ok())
+                {
+                    Some((_, _, camera_view, _, _, _, _)) => {
+                        camera_view.world_from_view.translation()
+                    }
+                    None => shadow_lod_origin.0,
+                }
+            }
+        };
+
         let view_uniforms = ViewUniformOffset {
             offset: writer.write(&ViewUniform {
                 clip_from_world,
@@ -964,7 +1291,9 @@ pub fn prepare_view_uniforms(
                     .map(|c| c.exposure)
                     .unwrap_or_else(|| Exposure::default().exposure()),
                 viewport,
+                main_pass_viewport,
                 frustum,
+                lod_view_world_position,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
                 frame_count: frame_count.0,
@@ -986,16 +1315,20 @@ struct MainTargetTextures {
 
 /// Prepares the view target [`OutputColorAttachment`] for each view in the current frame.
 pub fn prepare_view_attachments(
-    windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<GpuImage>>,
     manual_texture_views: Res<ManualTextureViews>,
     cameras: Query<&ExtractedCamera>,
     mut view_target_attachments: ResMut<ViewTargetAttachments>,
+    windows: Query<(MainEntity, &ExtractedWindow)>,
 ) {
     for camera in cameras.iter() {
         let Some(target) = &camera.target else {
             continue;
         };
+
+        if matches!(camera.output_mode, bevy_camera::CameraOutputMode::Skip) {
+            continue;
+        }
 
         match view_target_attachments.entry(target.clone()) {
             Entry::Occupied(_) => {}
@@ -1003,10 +1336,8 @@ pub fn prepare_view_attachments(
                 let Some(attachment) = target
                     .get_texture_view(&windows, &images, &manual_texture_views)
                     .cloned()
-                    .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
-                    .map(|(view, format)| {
-                        OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
-                    })
+                    .zip(target.get_texture_view_format(&windows, &images, &manual_texture_views))
+                    .map(|(view, format)| OutputColorAttachment::new(view.clone(), format))
                 else {
                     continue;
                 };
@@ -1021,6 +1352,45 @@ pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAtta
     view_target_attachments.clear();
 }
 
+pub fn cleanup_view_targets_for_resize(
+    mut commands: Commands,
+    windows: Query<(MainEntity, &ExtractedWindow)>,
+    cameras: Query<(Entity, &ExtractedCamera), With<ViewTarget>>,
+) {
+    for (entity, camera) in &cameras {
+        if let Some(NormalizedRenderTarget::Window(window_ref)) = &camera.target
+            && let Some((_, window)) = windows.iter().find(|(e, _)| *e == window_ref.entity())
+            && (window.size_changed || window.present_mode_changed)
+        {
+            commands.entity(entity).remove::<ViewTarget>();
+        }
+    }
+}
+
+/// The settings that decide which cameras share main textures. Cameras with
+/// equal keys share one allocation in [`prepare_view_targets`], and
+/// [`resolve_composition_spaces`] groups them the same way.
+type MainTextureKey = (
+    Option<NormalizedRenderTarget>,
+    TextureUsages,
+    TextureFormat,
+    Msaa,
+);
+
+fn main_texture_key(
+    camera: &ExtractedCamera,
+    view: &ExtractedView,
+    texture_usage: &CameraMainTextureUsages,
+    msaa: Msaa,
+) -> MainTextureKey {
+    (
+        camera.target.clone(),
+        texture_usage.0,
+        view.target_format,
+        msaa,
+    )
+}
+
 pub fn prepare_view_targets(
     mut commands: Commands,
     clear_color_global: Res<ClearColor>,
@@ -1032,31 +1402,34 @@ pub fn prepare_view_targets(
         &ExtractedView,
         &CameraMainTextureUsages,
         &Msaa,
+        Option<&ResolvedCompositingSpace>,
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
+    mut main_texture_atomics: Local<HashMap<MainTextureKey, Weak<AtomicUsize>>>,
 ) {
+    main_texture_atomics.retain(|_, weak| weak.strong_count() > 0);
+
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
-        let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
-        else {
+    for (entity, camera, view, texture_usage, msaa, resolved_space) in cameras.iter() {
+        let Some(target_size) = camera.physical_target_size else {
+            // If we don't have a target size, we can't create the main texture and have to bail
+            commands.entity(entity).try_remove::<ViewTarget>();
             continue;
         };
 
-        let Some(out_attachment) = view_target_attachments.get(target) else {
+        let out_attachment = camera
+            .target
+            .as_ref()
+            .and_then(|target| view_target_attachments.get(target));
+
+        // If we have no output and the camera is set to clear, we can skip rendering
+        // entirely.
+        if out_attachment.is_none() && !matches!(camera.clear_color, ClearColorConfig::None) {
+            commands.entity(entity).try_remove::<ViewTarget>();
             continue;
-        };
+        }
 
-        let size = Extent3d {
-            width: target_size.x,
-            height: target_size.y,
-            depth_or_array_layers: 1,
-        };
-
-        let main_texture_format = if view.hdr {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let main_texture_format = view.target_format;
 
         let clear_color = match camera.clear_color {
             ClearColorConfig::Custom(color) => Some(color),
@@ -1064,64 +1437,83 @@ pub fn prepare_view_targets(
             _ => Some(clear_color_global.0),
         };
 
-        let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), texture_usage.0, view.hdr, msaa))
-            .or_insert_with(|| {
-                let descriptor = TextureDescriptor {
-                    label: None,
-                    size,
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: TextureDimension::D2,
-                    format: main_texture_format,
-                    usage: texture_usage.0,
-                    view_formats: match main_texture_format {
-                        TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
-                        TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
-                        _ => &[],
-                    },
-                };
-                let a = texture_cache.get(
-                    &render_device,
-                    TextureDescriptor {
-                        label: Some("main_texture_a"),
-                        ..descriptor
-                    },
-                );
-                let b = texture_cache.get(
-                    &render_device,
-                    TextureDescriptor {
-                        label: Some("main_texture_b"),
-                        ..descriptor
-                    },
-                );
-                let sampled = if msaa.samples() > 1 {
-                    let sampled = texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("main_texture_sampled"),
-                            size,
-                            mip_level_count: 1,
-                            sample_count: msaa.samples(),
-                            dimension: TextureDimension::D2,
-                            format: main_texture_format,
-                            usage: TextureUsages::RENDER_ATTACHMENT,
-                            view_formats: descriptor.view_formats,
-                        },
-                    );
-                    Some(sampled)
-                } else {
-                    None
-                };
-                let main_texture = Arc::new(AtomicUsize::new(0));
-                (a, b, sampled, main_texture)
+        // Convert clear color to the format expected by the main texture
+        let resolved_space = ResolvedCompositingSpace::space(resolved_space);
+        let converted_clear_color: Option<WgpuColor> =
+            clear_color.map(|color| match resolved_space {
+                // If main texture stores Oklab or Srgb, convert Color to it for correct clear.
+                Some(CompositingSpace::Oklab) => Oklaba::from(color).into(),
+                Some(CompositingSpace::Srgb) => Srgba::from(color).into(),
+                Some(CompositingSpace::Linear) | None => LinearRgba::from(color).into(),
             });
 
-        let converted_clear_color = clear_color.map(Into::into);
+        let key = main_texture_key(camera, view, texture_usage, *msaa);
+        let (a, b, sampled, main_texture) = textures.entry(key.clone()).or_insert_with(|| {
+            let descriptor = TextureDescriptor {
+                label: None,
+                size: target_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: main_texture_format,
+                usage: texture_usage.0,
+                view_formats: match main_texture_format {
+                    TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
+                    TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
+                    _ => &[],
+                },
+            };
+            let a = texture_cache.get(
+                &render_device,
+                TextureDescriptor {
+                    label: Some("main_texture_a"),
+                    ..descriptor
+                },
+            );
+            let b = texture_cache.get(
+                &render_device,
+                TextureDescriptor {
+                    label: Some("main_texture_b"),
+                    ..descriptor
+                },
+            );
+            let sampled = if msaa.samples() > 1 {
+                let sampled = texture_cache.get(
+                    &render_device,
+                    TextureDescriptor {
+                        label: Some("main_texture_sampled"),
+                        size: target_size.to_extents(),
+                        mip_level_count: 1,
+                        sample_count: msaa.samples(),
+                        dimension: TextureDimension::D2,
+                        format: main_texture_format,
+                        usage: TextureUsages::RENDER_ATTACHMENT,
+                        view_formats: descriptor.view_formats,
+                    },
+                );
+                Some(sampled)
+            } else {
+                None
+            };
+            // re-use the same atomics frame to frame for views with the same main texture
+            // to ensure post process writes persist through msaa writeback
+            let main_texture = match main_texture_atomics.entry(key) {
+                Entry::Occupied(e) => e
+                    .get()
+                    .upgrade()
+                    .expect("dead weaks were pruned at top of system"),
+                Entry::Vacant(e) => {
+                    let arc = Arc::new(AtomicUsize::new(0));
+                    e.insert(Arc::downgrade(&arc));
+                    arc
+                }
+            };
+            (a, b, sampled, main_texture)
+        });
 
         let main_textures = MainTargetTextures {
-            a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),
-            b: ColorAttachment::new(b.clone(), sampled.clone(), converted_clear_color),
+            a: ColorAttachment::new(a.clone(), sampled.clone(), None, converted_clear_color),
+            b: ColorAttachment::new(b.clone(), sampled.clone(), None, converted_clear_color),
             main_texture: main_texture.clone(),
         };
 
@@ -1129,7 +1521,7 @@ pub fn prepare_view_targets(
             main_texture: main_textures.main_texture.clone(),
             main_textures,
             main_texture_format,
-            out_texture: out_attachment.clone(),
+            out_texture: out_attachment.cloned(),
         });
     }
 }

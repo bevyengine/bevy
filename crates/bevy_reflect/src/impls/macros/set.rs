@@ -70,8 +70,8 @@ macro_rules! impl_reflect_for_hashset {
                 V: $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
-                fn get_represented_type_info(&self) -> Option<&'static $crate::type_info::TypeInfo> {
-                    Some(<Self as $crate::type_info::Typed>::type_info())
+                fn get_represented_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
+                    Some(<Self as $crate::info::Typed>::type_info())
                 }
 
                 #[inline]
@@ -114,11 +114,11 @@ macro_rules! impl_reflect_for_hashset {
                     $crate::kind::ReflectKind::Set
                 }
 
-                fn reflect_ref(&self) -> $crate::kind::ReflectRef {
+                fn reflect_ref(&self) -> $crate::kind::ReflectRef<'_>  {
                     $crate::kind::ReflectRef::Set(self)
                 }
 
-                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut {
+                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut<'_>  {
                     $crate::kind::ReflectMut::Set(self)
                 }
 
@@ -129,12 +129,7 @@ macro_rules! impl_reflect_for_hashset {
                 fn reflect_clone(&self) -> Result<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>, $crate::error::ReflectCloneError> {
                     let mut set = Self::with_capacity_and_hasher(self.len(), S::default());
                     for value in self.iter() {
-                        let value = value.reflect_clone()?.take().map_err(|_| {
-                            $crate::error::ReflectCloneError::FailedDowncast {
-                                expected: alloc::borrow::Cow::Borrowed(<V as $crate::type_path::TypePath>::type_path()),
-                                received: alloc::borrow::Cow::Owned(alloc::string::ToString::to_string(value.reflect_type_path())),
-                            }
-                        })?;
+                        let value = value.reflect_clone_and_take()?;
                         set.insert(value);
                     }
 
@@ -146,15 +141,15 @@ macro_rules! impl_reflect_for_hashset {
                 }
             }
 
-            impl<V, S> $crate::type_info::Typed for $ty
+            impl<V, S> $crate::info::Typed for $ty
             where
                 V: $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
-                fn type_info() -> &'static $crate::type_info::TypeInfo {
+                fn type_info() -> &'static $crate::info::TypeInfo {
                     static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
                     CELL.get_or_insert::<Self, _>(|| {
-                        $crate::type_info::TypeInfo::Set(
+                        $crate::info::TypeInfo::Set(
                             $crate::set::SetInfo::new::<Self, V>().with_generics($crate::generics::Generics::from_iter([
                                 $crate::generics::TypeParamInfo::new::<V>("V")
                             ]))
@@ -170,8 +165,8 @@ macro_rules! impl_reflect_for_hashset {
             {
                 fn get_type_registration() -> $crate::type_registry::TypeRegistration {
                     let mut registration = $crate::type_registry::TypeRegistration::of::<Self>();
-                    registration.insert::<$crate::type_registry::ReflectFromPtr>($crate::type_registry::FromType::<Self>::from_type());
-                    registration.insert::<$crate::from_reflect::ReflectFromReflect>($crate::type_registry::FromType::<Self>::from_type());
+                    registration.register_type_data::<$crate::type_registry::ReflectFromPtr, Self>();
+                    registration.register_type_data::<$crate::from_reflect::ReflectFromReflect, Self>();
                     registration
                 }
 

@@ -42,6 +42,9 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
 ///   [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
+/// Transforms compose from right to left: if `t1` and `t2` are transforms, then `t1 * t2`
+/// corresponds to applying `t2` *first*, *then* applying `t1`.
+///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] is the position of an entity relative to its parent position, or the reference
@@ -65,6 +68,7 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default))]
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component),
@@ -592,6 +596,38 @@ impl Transform {
         point = self.rotation * point;
         point += self.translation;
         point
+    }
+
+    /// Transforms the given `vector`, applying scale and rotation only, not translation.
+    ///
+    /// If this [`Transform`] has an ancestor entity with a [`Transform`] component,
+    /// [`Transform::transform_vector`] will transform a vector in local space into its
+    /// parent transform's space.
+    ///
+    /// If this [`Transform`] does not have a parent, [`Transform::transform_vector`] will
+    /// transform a vector in local space into worldspace coordinates.
+    ///
+    /// If you always want to transform a vector in local space to worldspace,
+    /// see [`GlobalTransform::transform_vector()`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_transform::prelude::Transform;
+    /// # use bevy_math::prelude::{Vec3, Quat};
+    /// # use std::f64::consts::PI;
+    /// let transform = Transform::from_xyz(1., 2., 3.)
+    ///    .with_scale(Vec3::splat(2.))
+    ///    .with_rotation(Quat::from_axis_angle(Vec3::Y, PI as f32));
+    /// let local_vector = Vec3::new(1., 2., 3.);
+    /// let global_vector = transform.transform_vector(local_vector);
+    /// assert!(global_vector.abs_diff_eq(Vec3::new(-2., 4., -6.), 1e-5));
+    /// ```
+    #[inline]
+    pub fn transform_vector(&self, mut vector: Vec3) -> Vec3 {
+        vector = self.scale * vector;
+        vector = self.rotation * vector;
+        vector
     }
 
     /// Returns `true` if, and only if, translation, rotation and scale all are

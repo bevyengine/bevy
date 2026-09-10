@@ -1,7 +1,10 @@
 use core::marker::PhantomData;
 
 use super::Buffer;
-use crate::renderer::{RenderDevice, RenderQueue};
+use crate::{
+    render_resource::make_buffer_label,
+    renderer::{RenderDevice, RenderQueue},
+};
 use encase::{
     internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
     StorageBuffer as StorageBufferWrapper,
@@ -76,7 +79,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(BufferBinding {
             buffer: self.buffer()?,
             offset: 0,
@@ -133,7 +136,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 
         if capacity < size || self.changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
@@ -209,7 +212,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(BufferBinding {
             buffer: self.buffer()?,
             offset: 0,
@@ -258,7 +261,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
 
         if capacity < size || (self.changed && size > 0) {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));

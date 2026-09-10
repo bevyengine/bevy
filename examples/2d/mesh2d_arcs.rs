@@ -6,12 +6,9 @@ use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
     color::palettes::css::{BLUE, GRAY, RED},
-    math::{
-        bounding::{Bounded2d, BoundingVolume},
-        Isometry2d,
-    },
+    math::Isometry2d,
+    mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
     prelude::*,
-    render::mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
 };
 
 fn main() {

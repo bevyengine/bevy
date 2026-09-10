@@ -1,10 +1,10 @@
-use core::ops::Neg;
-
 use crate::Dir2;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use core::ops::Neg;
+use glam::Vec2;
 
 /// A compass enum with 4 directions.
 /// ```text
@@ -34,9 +34,9 @@ pub enum CompassQuadrant {
     North,
     /// Corresponds to [`Dir2::X`] and [`Dir2::EAST`]
     East,
-    /// Corresponds to [`Dir2::NEG_X`] and [`Dir2::SOUTH`]
+    /// Corresponds to [`Dir2::NEG_Y`] and [`Dir2::SOUTH`]
     South,
-    /// Corresponds to [`Dir2::NEG_Y`] and [`Dir2::WEST`]
+    /// Corresponds to [`Dir2::NEG_X`] and [`Dir2::WEST`]
     West,
 }
 
@@ -77,6 +77,40 @@ impl CompassQuadrant {
             Self::West => Self::East,
         }
     }
+
+    /// Checks if a point is in the direction represented by this [`CompassQuadrant`] from an origin.
+    ///
+    /// This uses a cone-based check: the vector from origin to the candidate point
+    /// must have a positive dot product with the direction vector.
+    ///
+    /// Uses standard mathematical coordinates where Y increases upward.
+    ///
+    /// # Arguments
+    ///
+    /// * `origin` - The starting position
+    /// * `candidate` - The target position to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if the candidate is generally in the direction of this quadrant from the origin.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_math::{CompassQuadrant, Vec2};
+    ///
+    /// let origin = Vec2::new(0.0, 0.0);
+    /// let north_point = Vec2::new(0.0, 10.0);  // Above origin (Y+ = up)
+    /// let east_point = Vec2::new(10.0, 0.0);   // Right of origin
+    ///
+    /// assert!(CompassQuadrant::North.is_in_direction(origin, north_point));
+    /// assert!(!CompassQuadrant::North.is_in_direction(origin, east_point));
+    /// ```
+    pub fn is_in_direction(self, origin: Vec2, candidate: Vec2) -> bool {
+        let dir = Dir2::from(self);
+        let to_candidate = candidate - origin;
+        to_candidate.dot(*dir) > 0.0
+    }
 }
 
 /// A compass enum with 8 directions.
@@ -111,11 +145,11 @@ pub enum CompassOctant {
     East,
     /// Corresponds to [`Dir2::SOUTH_EAST`]
     SouthEast,
-    /// Corresponds to [`Dir2::NEG_X`] and [`Dir2::SOUTH`]
+    /// Corresponds to [`Dir2::NEG_Y`] and [`Dir2::SOUTH`]
     South,
     /// Corresponds to [`Dir2::SOUTH_WEST`]
     SouthWest,
-    /// Corresponds to [`Dir2::NEG_Y`] and [`Dir2::WEST`]
+    /// Corresponds to [`Dir2::NEG_X`] and [`Dir2::WEST`]
     West,
     /// Corresponds to [`Dir2::NORTH_WEST`]
     NorthWest,
@@ -169,6 +203,40 @@ impl CompassOctant {
             Self::West => Self::East,
             Self::NorthWest => Self::SouthEast,
         }
+    }
+
+    /// Checks if a point is in the direction represented by this [`CompassOctant`] from an origin.
+    ///
+    /// This uses a cone-based check: the vector from origin to the candidate point
+    /// must have a positive dot product with the direction vector.
+    ///
+    /// Uses standard mathematical coordinates where Y increases upward.
+    ///
+    /// # Arguments
+    ///
+    /// * `origin` - The starting position
+    /// * `candidate` - The target position to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if the candidate is generally in the direction of this octant from the origin.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_math::{CompassOctant, Vec2};
+    ///
+    /// let origin = Vec2::new(0.0, 0.0);
+    /// let north_point = Vec2::new(0.0, 10.0);  // Above origin (Y+ = up)
+    /// let east_point = Vec2::new(10.0, 0.0);   // Right of origin
+    ///
+    /// assert!(CompassOctant::North.is_in_direction(origin, north_point));
+    /// assert!(!CompassOctant::North.is_in_direction(origin, east_point));
+    /// ```
+    pub fn is_in_direction(self, origin: Vec2, candidate: Vec2) -> bool {
+        let dir = Dir2::from(self);
+        let to_candidate = candidate - origin;
+        to_candidate.dot(*dir) > 0.0
     }
 }
 

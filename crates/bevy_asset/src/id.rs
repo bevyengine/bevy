@@ -1,4 +1,4 @@
-use crate::{Asset, AssetIndex};
+use crate::{Asset, AssetIndex, Handle, UntypedHandle};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -44,18 +44,27 @@ pub enum AssetId<A: Asset> {
 }
 
 impl<A: Asset> AssetId<A> {
-    /// The uuid for the default [`AssetId`]. It is valid to assign a value to this in [`Assets`](crate::Assets)
+    /// The UUID for the default [`AssetId`]. It is valid to assign a value to this in [`Assets`](crate::Assets)
     /// and by convention (where appropriate) assets should support this pattern.
     pub const DEFAULT_UUID: Uuid = Uuid::from_u128(200809721996911295814598172825939264631);
 
     /// This asset id _should_ never be valid. Assigning a value to this in [`Assets`](crate::Assets) will
     /// produce undefined behavior, so don't do it!
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use `Option<AssetId>` if possible. `AssetId::default` may also work, but note that the default can map to a valid asset."
+    )]
     pub const INVALID_UUID: Uuid = Uuid::from_u128(108428345662029828789348721013522787528);
 
     /// Returns an [`AssetId`] with [`Self::INVALID_UUID`], which _should_ never be assigned to.
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use `Option<AssetId>` if possible. `AssetId::default` may also work, but note that the default can map to a valid asset."
+    )]
     #[inline]
     pub const fn invalid() -> Self {
         Self::Uuid {
+            #[expect(deprecated, reason = "deprecated function uses deprecated constant")]
             uuid: Self::INVALID_UUID,
         }
     }
@@ -68,7 +77,7 @@ impl<A: Asset> AssetId<A> {
     }
 
     #[inline]
-    pub(crate) fn internal(self) -> InternalAssetId {
+    fn internal(self) -> InternalAssetId {
         match self {
             AssetId::Index { index, .. } => InternalAssetId::Index(index),
             AssetId::Uuid { uuid } => InternalAssetId::Uuid(uuid),
@@ -255,7 +264,7 @@ impl UntypedAssetId {
     }
 
     #[inline]
-    pub(crate) fn internal(self) -> InternalAssetId {
+    fn internal(self) -> InternalAssetId {
         match self {
             UntypedAssetId::Index { index, .. } => InternalAssetId::Index(index),
             UntypedAssetId::Uuid { uuid, .. } => InternalAssetId::Uuid(uuid),
@@ -314,36 +323,33 @@ impl PartialOrd for UntypedAssetId {
 
 /// An asset id without static or dynamic types associated with it.
 ///
-/// This exist to support efficient type erased id drop tracking. We
-/// could use [`UntypedAssetId`] for this, but the [`TypeId`] is unnecessary.
-///
-/// Do not _ever_ use this across asset types for comparison.
-/// [`InternalAssetId`] contains no type information and will happily collide
-/// with indices across types.
+/// This is provided to make implementing traits easier for the many different asset ID types.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, From)]
-pub(crate) enum InternalAssetId {
+enum InternalAssetId {
     Index(AssetIndex),
     Uuid(Uuid),
 }
 
-impl InternalAssetId {
-    #[inline]
-    pub(crate) fn typed<A: Asset>(self) -> AssetId<A> {
-        match self {
-            InternalAssetId::Index(index) => AssetId::Index {
-                index,
-                marker: PhantomData,
-            },
-            InternalAssetId::Uuid(uuid) => AssetId::Uuid { uuid },
-        }
-    }
+/// An asset index bundled with its (dynamic) type.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub(crate) struct ErasedAssetIndex {
+    pub(crate) index: AssetIndex,
+    pub(crate) type_id: TypeId,
+}
 
-    #[inline]
-    pub(crate) fn untyped(self, type_id: TypeId) -> UntypedAssetId {
-        match self {
-            InternalAssetId::Index(index) => UntypedAssetId::Index { index, type_id },
-            InternalAssetId::Uuid(uuid) => UntypedAssetId::Uuid { uuid, type_id },
-        }
+impl ErasedAssetIndex {
+    pub(crate) fn new(index: AssetIndex, type_id: TypeId) -> Self {
+        Self { index, type_id }
+    }
+}
+
+impl Display for ErasedAssetIndex {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ErasedAssetIndex")
+            .field("type_id", &self.type_id)
+            .field("index", &self.index.index)
+            .field("generation", &self.index.generation)
+            .finish()
     }
 }
 
@@ -413,6 +419,52 @@ impl<A: Asset> TryFrom<UntypedAssetId> for AssetId<A> {
         }
     }
 }
+
+impl TryFrom<UntypedAssetId> for ErasedAssetIndex {
+    type Error = UuidNotSupportedError;
+
+    fn try_from(asset_id: UntypedAssetId) -> Result<Self, Self::Error> {
+        match asset_id {
+            UntypedAssetId::Index { type_id, index } => Ok(ErasedAssetIndex { index, type_id }),
+            UntypedAssetId::Uuid { .. } => Err(UuidNotSupportedError),
+        }
+    }
+}
+
+impl<A: Asset> TryFrom<&Handle<A>> for ErasedAssetIndex {
+    type Error = UuidNotSupportedError;
+
+    fn try_from(handle: &Handle<A>) -> Result<Self, Self::Error> {
+        match handle {
+            Handle::Strong(handle) => Ok(Self::new(handle.index, handle.type_id)),
+            Handle::Uuid(..) => Err(UuidNotSupportedError),
+        }
+    }
+}
+
+impl TryFrom<&UntypedHandle> for ErasedAssetIndex {
+    type Error = UuidNotSupportedError;
+
+    fn try_from(handle: &UntypedHandle) -> Result<Self, Self::Error> {
+        match handle {
+            UntypedHandle::Strong(handle) => Ok(Self::new(handle.index, handle.type_id)),
+            UntypedHandle::Uuid { .. } => Err(UuidNotSupportedError),
+        }
+    }
+}
+
+impl From<ErasedAssetIndex> for UntypedAssetId {
+    fn from(value: ErasedAssetIndex) -> Self {
+        Self::Index {
+            type_id: value.type_id,
+            index: value.index,
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+#[error("Attempted to create a TypedAssetIndex from a Uuid")]
+pub(crate) struct UuidNotSupportedError;
 
 /// Errors preventing the conversion of to/from an [`UntypedAssetId`] and an [`AssetId`].
 #[derive(Error, Debug, PartialEq, Clone)]

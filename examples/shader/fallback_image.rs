@@ -6,13 +6,11 @@
 //! only tests that the images are initialized and bound so that the app does
 //! not panic.
 use bevy::{
-    prelude::*,
-    reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    prelude::*, reflect::TypePath, render::render_resource::AsBindGroup, shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/fallback_image_test.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/fallback_image_test.wesl";
 
 fn main() {
     App::new()

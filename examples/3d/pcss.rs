@@ -2,25 +2,28 @@
 
 use std::f32::consts::PI;
 
+#[cfg(feature = "free_camera")]
+use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use bevy::{
-    anti_aliasing::taa::TemporalAntiAliasing,
-    core_pipeline::{
-        prepass::{DepthPrepass, MotionVectorPrepass},
-        Skybox,
-    },
-    math::vec3,
-    pbr::{CubemapVisibleEntities, ShadowFilteringMethod, VisibleMeshEntities},
-    prelude::*,
-    render::{
-        camera::TemporalJitter,
+    anti_alias::taa::TemporalAntiAliasing,
+    camera::{
         primitives::{CubemapFrusta, Frustum},
+        visibility::{CubemapVisibleEntities, VisibleMeshEntities},
     },
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
+    feathers::{theme::UiTheme, FeathersPlugins},
+    light::{ShadowFilteringMethod, Skybox},
+    math::vec3,
+    prelude::*,
+    render::camera::TemporalJitter,
+    ui_widgets::{radio_self_update, ValueChange},
 };
 
-use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
+#[path = "../helpers/radio.rs"]
+mod radio;
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/theme.rs"]
+mod theme;
 
 /// The size of the light, which affects the size of the penumbras.
 const LIGHT_RADIUS: f32 = 10.0;
@@ -50,24 +53,14 @@ const SHADOW_MAP_NEAR_Z: f32 = 50.0;
 
 /// The current application settings (light type, shadow filter, and the status
 /// of PCSS).
-#[derive(Resource)]
+#[derive(Default, Resource)]
 struct AppStatus {
     /// The type of light presently in the scene: either directional or point.
     light_type: LightType,
     /// The type of shadow filter: Gaussian or temporal.
     shadow_filter: ShadowFilter,
     /// Whether soft shadows are enabled.
-    soft_shadows: bool,
-}
-
-impl Default for AppStatus {
-    fn default() -> Self {
-        Self {
-            light_type: default(),
-            shadow_filter: default(),
-            soft_shadows: true,
-        }
-    }
+    soft_shadows: SoftShadows,
 }
 
 /// The type of light presently in the scene: directional, point, or spot.
@@ -98,44 +91,41 @@ enum ShadowFilter {
     Temporal,
 }
 
-/// Each example setting that can be toggled in the UI.
-#[derive(Clone, Copy, PartialEq)]
-enum AppSetting {
-    /// The type of light presently in the scene: directional, point, or spot.
-    LightType(LightType),
-    /// The type of shadow filter.
-    ShadowFilter(ShadowFilter),
-    /// Whether PCSS is enabled or disabled.
-    SoftShadows(bool),
+/// Whether soft shadows is enabled. Defaults to `true`.
+#[derive(Clone, Copy, Deref, PartialEq)]
+struct SoftShadows(bool);
+
+impl Default for SoftShadows {
+    fn default() -> Self {
+        Self(true)
+    }
 }
 
 /// The example application entry point.
 fn main() {
+    #[cfg(not(feature = "free_camera"))]
+    println!("Enable feature free_camera to add a free camera to this example");
+
     App::new()
         .init_resource::<AppStatus>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Percentage Closer Soft Shadows Example".into(),
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::BLACK)))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Percentage Closer Soft Shadows Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_event::<WidgetClickEvent<AppSetting>>()
+            #[cfg(feature = "free_camera")]
+            FreeCameraPlugin,
+            FeathersPlugins,
+        ))
         .add_systems(Startup, setup)
-        .add_systems(Update, widgets::handle_ui_interactions::<AppSetting>)
-        .add_systems(
-            Update,
-            update_radio_buttons.after(widgets::handle_ui_interactions::<AppSetting>),
-        )
-        .add_systems(
-            Update,
-            (
-                handle_light_type_change,
-                handle_shadow_filter_change,
-                handle_pcss_toggle,
-            )
-                .after(widgets::handle_ui_interactions::<AppSetting>),
-        )
+        .add_observer(handle_light_type_change)
+        .add_observer(handle_shadow_filter_change)
+        .add_observer(handle_pcss_toggle)
+        .add_observer(radio_self_update)
         .run();
 }
 
@@ -155,6 +145,8 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7).with_rotation(
                 Quat::from_euler(EulerRot::YXZ, -134.76 / 180.0 * PI, -0.175, 0.0),
             ),
+            #[cfg(feature = "free_camera")]
+            FreeCamera::default(),
         ))
         .insert(ShadowFilteringMethod::Gaussian)
         // `TemporalJitter` is needed for TAA. Note that it does nothing without
@@ -168,7 +160,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .insert(MotionVectorPrepass)
         // Add a nice skybox.
         .insert(Skybox {
-            image: asset_server.load("environment_maps/sky_skybox.ktx2"),
+            image: Some(asset_server.load("environment_maps/sky_skybox.ktx2")),
             brightness: 500.0,
             rotation: Quat::IDENTITY,
         });
@@ -200,107 +192,78 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
 
 /// Loads and spawns the glTF palm tree scene.
 fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneRoot(
+    commands.spawn(WorldAssetRoot(
         asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
     ));
 }
 
 /// Spawns all the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
-    commands
-        .spawn(widgets::main_ui_node())
-        .with_children(|parent| {
-            widgets::spawn_option_buttons(
-                parent,
+    commands.spawn_scene(bsn! {
+        @radio::main_ui_node_scene()
+        Children [
+            @radio::feathers_option_buttons(
                 "Light Type",
                 &[
-                    (AppSetting::LightType(LightType::Directional), "Directional"),
-                    (AppSetting::LightType(LightType::Point), "Point"),
-                    (AppSetting::LightType(LightType::Spot), "Spot"),
+                    (LightType::Directional, "Directional"),
+                    (LightType::Point, "Point"),
+                    (LightType::Spot, "Spot"),
                 ],
-            );
-            widgets::spawn_option_buttons(
-                parent,
+                0,
+            )
+            --
+            @radio::feathers_option_buttons(
                 "Shadow Filter",
                 &[
-                    (AppSetting::ShadowFilter(ShadowFilter::Temporal), "Temporal"),
                     (
-                        AppSetting::ShadowFilter(ShadowFilter::NonTemporal),
+                        ShadowFilter::NonTemporal,
                         "Non-Temporal",
                     ),
+                    (ShadowFilter::Temporal, "Temporal"),
                 ],
-            );
-            widgets::spawn_option_buttons(
-                parent,
+                0,
+            )
+            --
+            @radio::feathers_option_buttons(
                 "Soft Shadows",
                 &[
-                    (AppSetting::SoftShadows(true), "On"),
-                    (AppSetting::SoftShadows(false), "Off"),
+                    (SoftShadows(true), "On"),
+                    (SoftShadows(false), "Off"),
                 ],
-            );
-        });
-}
-
-/// Updates the style of the radio buttons that enable and disable soft shadows
-/// to reflect whether PCSS is enabled.
-fn update_radio_buttons(
-    mut widgets: Query<
-        (
-            Entity,
-            Option<&mut BackgroundColor>,
-            Has<Text>,
-            &WidgetClickSender<AppSetting>,
-        ),
-        Or<(With<RadioButton>, With<RadioButtonText>)>,
-    >,
-    app_status: Res<AppStatus>,
-    mut writer: TextUiWriter,
-) {
-    for (entity, image, has_text, sender) in widgets.iter_mut() {
-        let selected = match **sender {
-            AppSetting::LightType(light_type) => light_type == app_status.light_type,
-            AppSetting::ShadowFilter(shadow_filter) => shadow_filter == app_status.shadow_filter,
-            AppSetting::SoftShadows(soft_shadows) => soft_shadows == app_status.soft_shadows,
-        };
-
-        if let Some(mut bg_color) = image {
-            widgets::update_ui_radio_button(&mut bg_color, selected);
-        }
-        if has_text {
-            widgets::update_ui_radio_button_text(entity, &mut writer, selected);
-        }
-    }
+                0,
+            )
+        ]
+    });
 }
 
 /// Handles requests from the user to change the type of light.
 fn handle_light_type_change(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&radio::RadioButtonOptionValue<LightType>>,
     mut commands: Commands,
     mut lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
-    for event in events.read() {
-        let AppSetting::LightType(light_type) = **event else {
-            continue;
-        };
-        app_status.light_type = light_type;
+    let Ok(radio::RadioButtonOptionValue(light_type)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_status.light_type = *light_type;
 
-        for light in lights.iter_mut() {
-            let mut light_commands = commands.entity(light);
-            light_commands
-                .remove::<DirectionalLight>()
-                .remove::<PointLight>()
-                .remove::<SpotLight>();
-            match light_type {
-                LightType::Point => {
-                    light_commands.insert(create_point_light(&app_status));
-                }
-                LightType::Spot => {
-                    light_commands.insert(create_spot_light(&app_status));
-                }
-                LightType::Directional => {
-                    light_commands.insert(create_directional_light(&app_status));
-                }
+    for light in lights.iter_mut() {
+        let mut light_commands = commands.entity(light);
+        light_commands
+            .remove::<DirectionalLight>()
+            .remove::<PointLight>()
+            .remove::<SpotLight>();
+        match light_type {
+            LightType::Point => {
+                light_commands.insert(create_point_light(&app_status));
+            }
+            LightType::Spot => {
+                light_commands.insert(create_spot_light(&app_status));
+            }
+            LightType::Directional => {
+                light_commands.insert(create_directional_light(&app_status));
             }
         }
     }
@@ -311,29 +274,29 @@ fn handle_light_type_change(
 /// This system is also responsible for enabling and disabling TAA as
 /// appropriate.
 fn handle_shadow_filter_change(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&radio::RadioButtonOptionValue<ShadowFilter>>,
     mut commands: Commands,
     mut cameras: Query<(Entity, &mut ShadowFilteringMethod)>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
-    for event in events.read() {
-        let AppSetting::ShadowFilter(shadow_filter) = **event else {
-            continue;
-        };
-        app_status.shadow_filter = shadow_filter;
+    let Ok(radio::RadioButtonOptionValue(shadow_filter)) = new_value_query.get(event.value) else {
+        return;
+    };
 
-        for (camera, mut shadow_filtering_method) in cameras.iter_mut() {
-            match shadow_filter {
-                ShadowFilter::NonTemporal => {
-                    *shadow_filtering_method = ShadowFilteringMethod::Gaussian;
-                    commands.entity(camera).remove::<TemporalAntiAliasing>();
-                }
-                ShadowFilter::Temporal => {
-                    *shadow_filtering_method = ShadowFilteringMethod::Temporal;
-                    commands
-                        .entity(camera)
-                        .insert(TemporalAntiAliasing::default());
-                }
+    app_status.shadow_filter = *shadow_filter;
+
+    for (camera, mut shadow_filtering_method) in cameras.iter_mut() {
+        match shadow_filter {
+            ShadowFilter::NonTemporal => {
+                *shadow_filtering_method = ShadowFilteringMethod::Gaussian;
+                commands.entity(camera).remove::<TemporalAntiAliasing>();
+            }
+            ShadowFilter::Temporal => {
+                *shadow_filtering_method = ShadowFilteringMethod::Temporal;
+                commands
+                    .entity(camera)
+                    .insert(TemporalAntiAliasing::default());
             }
         }
     }
@@ -341,27 +304,26 @@ fn handle_shadow_filter_change(
 
 /// Handles requests from the user to toggle soft shadows on and off.
 fn handle_pcss_toggle(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&radio::RadioButtonOptionValue<SoftShadows>>,
     mut lights: Query<AnyOf<(&mut DirectionalLight, &mut PointLight, &mut SpotLight)>>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
-    for event in events.read() {
-        let AppSetting::SoftShadows(value) = **event else {
-            continue;
-        };
-        app_status.soft_shadows = value;
+    let Ok(radio::RadioButtonOptionValue(soft_shadows)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_status.soft_shadows = *soft_shadows;
 
-        // Recreating the lights is the simplest way to toggle soft shadows.
-        for (directional_light, point_light, spot_light) in lights.iter_mut() {
-            if let Some(mut directional_light) = directional_light {
-                *directional_light = create_directional_light(&app_status);
-            }
-            if let Some(mut point_light) = point_light {
-                *point_light = create_point_light(&app_status);
-            }
-            if let Some(mut spot_light) = spot_light {
-                *spot_light = create_spot_light(&app_status);
-            }
+    // Recreating the lights is the simplest way to toggle soft shadows.
+    for (directional_light, point_light, spot_light) in lights.iter_mut() {
+        if let Some(mut directional_light) = directional_light {
+            *directional_light = create_directional_light(&app_status);
+        }
+        if let Some(mut point_light) = point_light {
+            *point_light = create_point_light(&app_status);
+        }
+        if let Some(mut spot_light) = spot_light {
+            *spot_light = create_spot_light(&app_status);
         }
     }
 }
@@ -369,8 +331,8 @@ fn handle_pcss_toggle(
 /// Creates the [`DirectionalLight`] component with the appropriate settings.
 fn create_directional_light(app_status: &AppStatus) -> DirectionalLight {
     DirectionalLight {
-        shadows_enabled: true,
-        soft_shadow_size: if app_status.soft_shadows {
+        shadow_maps_enabled: true,
+        soft_shadow_size: if *app_status.soft_shadows {
             Some(LIGHT_RADIUS)
         } else {
             None
@@ -385,9 +347,9 @@ fn create_point_light(app_status: &AppStatus) -> PointLight {
     PointLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         radius: LIGHT_RADIUS,
-        soft_shadows_enabled: app_status.soft_shadows,
+        soft_shadows_enabled: *app_status.soft_shadows,
         shadow_depth_bias: POINT_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
         ..default()
@@ -400,8 +362,8 @@ fn create_spot_light(app_status: &AppStatus) -> SpotLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
         radius: LIGHT_RADIUS,
-        shadows_enabled: true,
-        soft_shadows_enabled: app_status.soft_shadows,
+        shadow_maps_enabled: true,
+        soft_shadows_enabled: *app_status.soft_shadows,
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
         ..default()

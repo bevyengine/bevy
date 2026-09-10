@@ -3,6 +3,11 @@ use crate::{ClosingWindow, PrimaryWindow, Window, WindowCloseRequested};
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
 
+/// A [`SystemSet`] for the system that exits the application.
+/// Which can be either [`exit_on_all_closed`] or [`exit_on_primary_closed`].
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ExitSystems;
+
 /// Exit the application when there are no open windows.
 ///
 /// This system is added by the [`WindowPlugin`] in the default configuration.
@@ -10,10 +15,13 @@ use bevy_ecs::prelude::*;
 /// Ensure that you read the caveats documented on that field if doing so.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
-pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Query<&Window>) {
+pub fn exit_on_all_closed(
+    mut app_exit_writer: MessageWriter<AppExit>,
+    windows: Query<(), With<Window>>,
+) {
     if windows.is_empty() {
         log::info!("No windows are open, exiting");
-        app_exit_events.write(AppExit::Success);
+        app_exit_writer.write(AppExit::Success);
     }
 }
 
@@ -23,12 +31,12 @@ pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Qu
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
 pub fn exit_on_primary_closed(
-    mut app_exit_events: EventWriter<AppExit>,
+    mut app_exit_writer: MessageWriter<AppExit>,
     windows: Query<(), (With<Window>, With<PrimaryWindow>)>,
 ) {
     if windows.is_empty() {
         log::info!("Primary window was closed, exiting");
-        app_exit_events.write(AppExit::Success);
+        app_exit_writer.write(AppExit::Success);
     }
 }
 
@@ -41,7 +49,7 @@ pub fn exit_on_primary_closed(
 /// [`WindowPlugin`]: crate::WindowPlugin
 pub fn close_when_requested(
     mut commands: Commands,
-    mut closed: EventReader<WindowCloseRequested>,
+    mut closed: MessageReader<WindowCloseRequested>,
     closing: Query<Entity, With<ClosingWindow>>,
 ) {
     // This was inserted by us on the last frame so now we can despawn the window

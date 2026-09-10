@@ -1,3 +1,4 @@
+use crate::fq_std::{FQClone, FQSend, FQSync};
 use proc_macro::{TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use std::collections::HashSet;
@@ -62,7 +63,7 @@ pub fn derive_label(
     if let syn::Data::Union(_) = &input.data {
         let message = format!("Cannot derive {trait_name} for unions.");
         return quote_spanned! {
-            input.span() => compile_error!(#message);
+            input.span() => ::core::compile_error!(#message);
         }
         .into();
     }
@@ -75,7 +76,7 @@ pub fn derive_label(
     });
     where_clause.predicates.push(
         syn::parse2(quote! {
-            Self: 'static + Send + Sync + Clone + Eq + ::core::fmt::Debug + ::core::hash::Hash
+            Self: 'static + #FQSend + #FQSync + #FQClone + ::core::cmp::Eq + ::core::fmt::Debug + ::core::hash::Hash
         })
         .unwrap(),
     );
@@ -86,10 +87,43 @@ pub fn derive_label(
 
             impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
                 fn dyn_clone(&self) -> alloc::boxed::Box<dyn #trait_path> {
-                    alloc::boxed::Box::new(::core::clone::Clone::clone(self))
+                    alloc::boxed::Box::new(#FQClone::clone(self))
                 }
             }
         };
     }
     .into()
+}
+
+/// Convert a string from ``PascalCase`` to ``snake_case``.
+pub fn pascal_to_snake_case(s: &str) -> String {
+    let mut out = String::new();
+    let chars: Vec<char> = s.chars().collect();
+
+    for (i, &ch) in chars.iter().enumerate() {
+        if ch.is_uppercase() {
+            let prev_is_lower = i > 0 && chars[i - 1].is_lowercase();
+            let next_is_lower = chars.get(i + 1).is_some_and(|c| c.is_lowercase());
+
+            if i > 0 && (prev_is_lower || next_is_lower) {
+                out.push('_');
+            }
+            out.push(ch.to_lowercase().next().unwrap());
+        } else {
+            out.push(ch);
+        }
+    }
+
+    out
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pascal_to_snake_case() {
+        assert_eq!(pascal_to_snake_case("PascalCase"), "pascal_case");
+        assert_eq!(pascal_to_snake_case("lowercase"), "lowercase");
+        assert_eq!(pascal_to_snake_case("HTTPServer"), "http_server");
+    }
 }

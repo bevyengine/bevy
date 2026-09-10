@@ -20,8 +20,9 @@ use crate::{real::Real, time::Time};
 /// in order to prevent unexpected behavior in cases where updates do not happen
 /// at regular intervals (e.g. coming back after the program was suspended a long time).
 ///
-/// The virtual clock can be paused by calling [`pause()`](Time::pause) and
-/// unpaused by calling [`unpause()`](Time::unpause). When the game clock is
+/// The virtual clock can be paused by calling [`pause()`](Time::pause),
+/// unpaused by calling [`unpause()`](Time::unpause), or toggled by calling
+/// [`toggle()`](Time::toggle). When the game clock is
 /// paused [`delta()`](Time::delta) will be zero on each update, and
 /// [`elapsed()`](Time::elapsed) will not grow.
 /// [`effective_speed()`](Time::effective_speed) will return `0.0`. Calling
@@ -158,8 +159,10 @@ impl Time<Virtual> {
     /// Returns the speed the clock advanced relative to your system clock in
     /// this update, as [`f32`].
     ///
-    /// Returns `0.0` if the game was paused or what the `relative_speed` value
-    /// was at the start of this update.
+    /// Returns `0.0` if the game was paused. Otherwise returns the multiplier
+    /// actually applied to the `raw_delta` this update. This will usually equal
+    /// [`relative_speed()`](Self::relative_speed), but if the delta was clamped by
+    /// [`max_delta()`](Self::max_delta), it will be less than [`relative_speed()`](Self::relative_speed).
     #[inline]
     pub fn effective_speed(&self) -> f32 {
         self.context().effective_speed as f32
@@ -168,8 +171,10 @@ impl Time<Virtual> {
     /// Returns the speed the clock advanced relative to your system clock in
     /// this update, as [`f64`].
     ///
-    /// Returns `0.0` if the game was paused or what the `relative_speed` value
-    /// was at the start of this update.
+    /// Returns `0.0` if the game was paused. Otherwise returns the multiplier
+    /// actually applied to the `raw_delta` this update. This will usually equal
+    /// [`relative_speed()`](Self::relative_speed), but if the delta was clamped by
+    /// [`max_delta()`](Self::max_delta), it will be less than [`relative_speed()`](Self::relative_speed).
     #[inline]
     pub fn effective_speed_f64(&self) -> f64 {
         self.context().effective_speed
@@ -203,13 +208,19 @@ impl Time<Virtual> {
         self.context_mut().relative_speed = ratio;
     }
 
+    /// Stops the clock if it is running, otherwise resumes the clock.
+    #[inline]
+    pub fn toggle(&mut self) {
+        self.context_mut().paused ^= true;
+    }
+
     /// Stops the clock, preventing it from advancing until resumed.
     #[inline]
     pub fn pause(&mut self) {
         self.context_mut().paused = true;
     }
 
-    /// Resumes the clock if paused.
+    /// Resumes the clock.
     #[inline]
     pub fn unpause(&mut self) {
         self.context_mut().paused = false;
@@ -227,29 +238,29 @@ impl Time<Virtual> {
         self.context().effective_speed == 0.0
     }
 
-    /// Updates the elapsed duration of `self` by `raw_delta`, up to the `max_delta`.
+    /// Updates the elapsed duration of `self` by `raw_delta` * `relative_speed`, up to the `max_delta`.
     fn advance_with_raw_delta(&mut self, raw_delta: Duration) {
         let max_delta = self.context().max_delta;
-        let clamped_delta = if raw_delta > max_delta {
-            debug!(
-                "delta time larger than maximum delta, clamping delta to {:?} and skipping {:?}",
-                max_delta,
-                raw_delta - max_delta
-            );
-            max_delta
-        } else {
-            raw_delta
-        };
-        let effective_speed = if self.context().paused {
+        let speed = if self.context().paused {
             0.0
         } else {
             self.context().relative_speed
         };
-        let delta = if effective_speed != 1.0 {
-            clamped_delta.mul_f64(effective_speed)
+        let scaled = if speed != 1.0 {
+            raw_delta.mul_f64(speed)
         } else {
             // avoid rounding when at normal speed
-            clamped_delta
+            raw_delta
+        };
+        let (effective_speed, delta) = if scaled > max_delta {
+            debug!(
+                "delta time larger than maximum delta, clamping delta to {:?} and skipping {:?}",
+                max_delta,
+                scaled - max_delta
+            );
+            (max_delta.as_secs_f64() / raw_delta.as_secs_f64(), max_delta)
+        } else {
+            (speed, scaled)
         };
         self.context_mut().effective_speed = effective_speed;
         self.advance_by(delta);
@@ -319,6 +330,7 @@ mod test {
     #[test]
     fn test_relative_speed() {
         let mut time = Time::<Virtual>::default();
+        time.set_max_delta(Duration::from_secs(1));
 
         time.advance_with_raw_delta(Duration::from_millis(250));
 
@@ -405,16 +417,22 @@ mod test {
 
         time.advance_with_raw_delta(Duration::from_millis(250));
 
+        assert_eq!(time.relative_speed(), 1.0);
+        assert_eq!(time.effective_speed(), 1.0);
         assert_eq!(time.delta(), Duration::from_millis(250));
         assert_eq!(time.elapsed(), Duration::from_millis(250));
 
         time.advance_with_raw_delta(Duration::from_millis(500));
 
+        assert_eq!(time.relative_speed(), 1.0);
+        assert_eq!(time.effective_speed(), 1.0);
         assert_eq!(time.delta(), Duration::from_millis(500));
         assert_eq!(time.elapsed(), Duration::from_millis(750));
 
         time.advance_with_raw_delta(Duration::from_millis(750));
 
+        assert_eq!(time.relative_speed(), 1.0);
+        assert!((time.effective_speed() - 500.0 / 750.0).abs() < f32::EPSILON);
         assert_eq!(time.delta(), Duration::from_millis(500));
         assert_eq!(time.elapsed(), Duration::from_millis(1250));
 
@@ -424,12 +442,41 @@ mod test {
 
         time.advance_with_raw_delta(Duration::from_millis(750));
 
+        assert_eq!(time.relative_speed(), 1.0);
+        assert_eq!(time.effective_speed(), 1.0);
         assert_eq!(time.delta(), Duration::from_millis(750));
         assert_eq!(time.elapsed(), Duration::from_millis(2000));
 
         time.advance_with_raw_delta(Duration::from_millis(1250));
 
+        assert_eq!(time.relative_speed(), 1.0);
+        assert!((time.effective_speed() - 1000.0 / 1250.0).abs() < f32::EPSILON);
         assert_eq!(time.delta(), Duration::from_millis(1000));
         assert_eq!(time.elapsed(), Duration::from_millis(3000));
+    }
+
+    #[test]
+    fn test_max_delta_clamps_after_relative_speed() {
+        let mut time = Time::<Virtual>::default();
+        time.set_relative_speed_f64(2000.0);
+        time.set_max_delta(Duration::from_secs(1));
+
+        time.advance_with_raw_delta(Duration::from_millis(16));
+
+        assert_eq!(time.delta(), time.max_delta());
+        // 62.5 = max_delta / raw_delta = 1000 / 16
+        assert_eq!(time.effective_speed(), 62.5);
+    }
+
+    #[test]
+    fn test_dont_overclamp_at_low_speed() {
+        let mut time = Time::<Virtual>::default();
+        time.set_relative_speed_f64(0.01);
+        time.set_max_delta(Duration::from_millis(10));
+        let delta = Duration::from_millis(16);
+
+        time.advance_with_raw_delta(delta);
+
+        assert_eq!(time.delta(), delta / 100);
     }
 }

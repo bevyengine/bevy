@@ -133,9 +133,9 @@ where
         ]
         .map(|vec3| config.isometry * vec3);
 
-        for chunk in vertices.chunks_exact(3) {
+        for &[a, b, c] in vertices.as_chunks().0 {
             self.gizmos
-                .short_arc_3d_between(chunk[1], chunk[0], chunk[2], config.color)
+                .short_arc_3d_between(b, a, c, config.color)
                 .resolution(config.arc_resolution);
         }
 
@@ -185,7 +185,7 @@ where
             let transform = Transform::from_translation(config.isometry.translation.into())
                 .with_rotation(config.isometry.rotation)
                 .with_scale(self.size);
-            self.gizmos.cuboid(transform, config.color);
+            self.gizmos.cube(transform, config.color);
             return;
         }
 
@@ -232,8 +232,6 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Draw a wireframe rectangle with rounded corners in 3D.
-    ///
-    /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Arguments
     ///
@@ -286,8 +284,6 @@ where
     }
 
     /// Draw a wireframe rectangle with rounded corners in 2D.
-    ///
-    /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Arguments
     ///
@@ -343,8 +339,6 @@ where
     }
 
     /// Draw a wireframe cuboid with rounded corners in 3D.
-    ///
-    /// This should be called for each frame the cuboid needs to be rendered.
     ///
     /// # Arguments
     ///

@@ -1,13 +1,13 @@
 //! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
 
 #[cfg(feature = "ghost_nodes")]
-use crate::ui_node::ComputedNodeTarget;
+use crate::ui_node::ComputedUiTargetCamera;
 use crate::Node;
+#[cfg(feature = "ghost_nodes")]
+use bevy_camera::visibility::Visibility;
 use bevy_ecs::{prelude::*, system::SystemParam};
 #[cfg(feature = "ghost_nodes")]
 use bevy_reflect::prelude::*;
-#[cfg(feature = "ghost_nodes")]
-use bevy_render::view::Visibility;
 #[cfg(feature = "ghost_nodes")]
 use bevy_transform::prelude::Transform;
 #[cfg(feature = "ghost_nodes")]
@@ -21,7 +21,7 @@ use smallvec::SmallVec;
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[cfg_attr(feature = "ghost_nodes", derive(Default))]
 #[reflect(Component, Debug, Clone)]
-#[require(Visibility, Transform, ComputedNodeTarget)]
+#[require(Visibility, Transform, ComputedUiTargetCamera)]
 pub struct GhostNode;
 
 #[cfg(feature = "ghost_nodes")]
@@ -47,6 +47,7 @@ impl<'w, 's> UiRootNodes<'w, 's> {
             .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
                 self.all_nodes_query
                     .iter_many(self.ui_children.iter_ui_children(root_ghost))
+                    .matched()
             }))
     }
 }
@@ -113,6 +114,7 @@ impl<'w, 's> UiChildren<'w, 's> {
                 .flat_map(|children| {
                     self.ghost_nodes_query
                         .iter_many(children)
+                        .matched()
                         .flat_map(|entity| {
                             core::iter::once(entity).chain(self.iter_ghost_nodes(entity))
                         })
@@ -230,9 +232,9 @@ mod tests {
         });
 
         let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
-        let (ui_root_nodes, a_query) = system_state.get(world);
+        let (ui_root_nodes, a_query) = system_state.get(world).unwrap();
 
-        let result: Vec<_> = a_query.iter_many(ui_root_nodes.iter()).collect();
+        let result: Vec<_> = a_query.iter_many(ui_root_nodes.iter()).matched().collect();
 
         assert_eq!([&A(1), &A(6), &A(8)], result.as_slice());
     }
@@ -263,10 +265,11 @@ mod tests {
         world.entity_mut(n9).add_children(&[n10]);
 
         let mut system_state = SystemState::<(UiChildren, Query<&A>)>::new(world);
-        let (ui_children, a_query) = system_state.get(world);
+        let (ui_children, a_query) = system_state.get(world).unwrap();
 
         let result: Vec<_> = a_query
             .iter_many(ui_children.iter_ui_children(n1))
+            .matched()
             .collect();
 
         assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());

@@ -1,14 +1,20 @@
 //! The mouse input functionality.
 
-use crate::{ButtonInput, ButtonState};
+use core::ops::{Div, Mul};
+
+use crate::{touch::TouchPhase, ButtonInput, ButtonState};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::prelude::ReflectMessage;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    event::{BufferedEvent, Event, EventReader},
+    message::{Message, MessageReader},
     resource::Resource,
     system::ResMut,
 };
 use bevy_math::Vec2;
+use derive_more::{Deref, DerefMut};
+
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectResource,
@@ -26,11 +32,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is read inside of the [`mouse_button_input_system`]
 /// to update the [`ButtonInput<MouseButton>`] resource.
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -91,11 +97,11 @@ pub enum MouseButton {
 /// However, the event data does not make it possible to distinguish which device it is referring to.
 ///
 /// [`DeviceEvent::MouseMotion`]: https://docs.rs/winit/latest/winit/event/enum.DeviceEvent.html#variant.MouseMotion
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq)]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -113,6 +119,8 @@ pub struct MouseMotion {
 ///
 /// The value of the event can either be interpreted as the amount of lines or the amount of pixels
 /// to scroll.
+///
+/// To convert this value to the other unit use the [`Resource`] [`MouseScrollPixelsPerLine`]
 #[derive(Debug, Hash, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -137,14 +145,66 @@ pub enum MouseScrollUnit {
     Pixel,
 }
 
-/// A mouse wheel event.
+/// Describes the quantity of [`MouseScrollUnit::Pixel`]s per [`MouseScrollUnit::Line`]
 ///
-/// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq)]
+/// Different platforms sometimes have different ratios between mouse scroll in pixels and mouse
+/// scroll in lines. Currently you have to set the values for different platforms yourself, although
+/// in future this will be handled automatically. The default of 100.0 pixels per line is a best
+/// guess of what it may be on your platform.
+#[derive(Debug, Clone, Copy, PartialEq, Resource, Deref, DerefMut)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct MouseScrollPixelsPerLine(f32);
+
+impl Default for MouseScrollPixelsPerLine {
+    fn default() -> Self {
+        MouseScrollPixelsPerLine(100.0)
+    }
+}
+
+impl Mul<MouseScrollPixelsPerLine> for f32 {
+    type Output = f32;
+    fn mul(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self * rhs.0
+    }
+}
+
+impl Div<MouseScrollPixelsPerLine> for f32 {
+    type Output = f32;
+    fn div(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self / rhs.0
+    }
+}
+
+impl Mul<MouseScrollPixelsPerLine> for Vec2 {
+    type Output = Vec2;
+    fn mul(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self * rhs.0
+    }
+}
+
+impl Div<MouseScrollPixelsPerLine> for Vec2 {
+    type Output = Vec2;
+    fn div(self, rhs: MouseScrollPixelsPerLine) -> Self::Output {
+        self / rhs.0
+    }
+}
+/// A mouse wheel event.
+///
+/// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -160,6 +220,10 @@ pub struct MouseWheel {
     pub y: f32,
     /// Window that received the input.
     pub window: Entity,
+    /// Touch phase of the input.
+    ///
+    /// When using a mouse, this will always be [`TouchPhase::Moved`].
+    pub phase: TouchPhase,
 }
 
 /// Updates the [`ButtonInput<MouseButton>`] resource with the latest [`MouseButtonInput`] events.
@@ -170,7 +234,7 @@ pub struct MouseWheel {
 /// the latter has convenient functions like [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
 pub fn mouse_button_input_system(
     mut mouse_button_input: ResMut<ButtonInput<MouseButton>>,
-    mut mouse_button_input_events: EventReader<MouseButtonInput>,
+    mut mouse_button_input_events: MessageReader<MouseButtonInput>,
 ) {
     mouse_button_input.bypass_change_detection().clear();
     for event in mouse_button_input_events.read() {
@@ -236,10 +300,35 @@ impl Default for AccumulatedMouseScroll {
     }
 }
 
+impl AccumulatedMouseScroll {
+    /// Converts the units to [`MouseScrollUnit::Line`]
+    pub fn to_lines(&self, conversion_ratio: &MouseScrollPixelsPerLine) -> Self {
+        if self.unit == MouseScrollUnit::Pixel {
+            AccumulatedMouseScroll {
+                unit: MouseScrollUnit::Line,
+                delta: self.delta / *conversion_ratio,
+            }
+        } else {
+            *self
+        }
+    }
+    /// Converts the units to [`MouseScrollUnit::Pixel`]
+    pub fn to_pixels(&self, conversion_ratio: &MouseScrollPixelsPerLine) -> Self {
+        if self.unit == MouseScrollUnit::Line {
+            AccumulatedMouseScroll {
+                unit: MouseScrollUnit::Pixel,
+                delta: self.delta * *conversion_ratio,
+            }
+        } else {
+            *self
+        }
+    }
+}
+
 /// Updates the [`AccumulatedMouseMotion`] resource using the [`MouseMotion`] event.
 /// The value of [`AccumulatedMouseMotion`] is reset to zero every frame
 pub fn accumulate_mouse_motion_system(
-    mut mouse_motion_event: EventReader<MouseMotion>,
+    mut mouse_motion_event: MessageReader<MouseMotion>,
     mut accumulated_mouse_motion: ResMut<AccumulatedMouseMotion>,
 ) {
     let mut delta = Vec2::ZERO;
@@ -252,7 +341,7 @@ pub fn accumulate_mouse_motion_system(
 /// Updates the [`AccumulatedMouseScroll`] resource using the [`MouseWheel`] event.
 /// The value of [`AccumulatedMouseScroll`] is reset to zero every frame
 pub fn accumulate_mouse_scroll_system(
-    mut mouse_scroll_event: EventReader<MouseWheel>,
+    mut mouse_scroll_event: MessageReader<MouseWheel>,
     mut accumulated_mouse_scroll: ResMut<AccumulatedMouseScroll>,
 ) {
     let mut delta = Vec2::ZERO;

@@ -1,36 +1,40 @@
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, load_embedded_asset, Assets, Handle};
+use bevy_asset::{
+    embedded_asset, load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages,
+};
+use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(not(feature = "tonemapping_luts"))]
+use bevy_log::error;
+use bevy_log::warn;
 use bevy_render::{
-    camera::Camera,
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    extract_component::ExtractComponentPlugin,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    load_shader_library,
-    render_asset::{RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_2d, texture_3d, uniform_buffer},
         *,
     },
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, ViewTarget, ViewUniform},
-    Render, RenderApp, RenderSystems,
+    view::{ColorGrading, ExtractedView, ViewTarget, ViewUniform},
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bitflags::bitflags;
-#[cfg(not(feature = "tonemapping_luts"))]
-use tracing::error;
 
 mod node;
 
+pub use bevy_render::view::{DebandDither, Tonemapping};
 use bevy_utils::default;
-pub use node::TonemappingNode;
+pub use node::tonemapping;
 
 use crate::FullscreenShader;
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
+#[extract_app(RenderApp)]
 pub struct TonemappingLuts {
     pub blender_filmic: Handle<Image>,
     pub agx: Handle<Image>,
@@ -41,10 +45,9 @@ pub struct TonemappingPlugin;
 
 impl Plugin for TonemappingPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "tonemapping_shared.wgsl");
-        load_shader_library!(app, "lut_bindings.wgsl");
+        load_shader_library!(app, "lut_bindings.wesl");
 
-        embedded_asset!(app, "tonemapping.wgsl");
+        embedded_asset!(app, "tonemapping_frag.wesl");
 
         if !app.world().is_resource_added::<TonemappingLuts>() {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
@@ -82,97 +85,72 @@ impl Plugin for TonemappingPlugin {
 
         app.add_plugins(ExtractResourcePlugin::<TonemappingLuts>::default());
 
-        app.register_type::<Tonemapping>();
-        app.register_type::<DebandDither>();
-
         app.add_plugins((
             ExtractComponentPlugin::<Tonemapping>::default(),
             ExtractComponentPlugin::<DebandDither>::default(),
         ));
 
+        app.add_systems(PostUpdate, check_tonemapping_none);
+
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
+            .add_systems(RenderStartup, init_tonemapping_pipeline)
             .add_systems(
                 Render,
                 prepare_view_tonemapping_pipelines.in_set(RenderSystems::Prepare),
             );
     }
+}
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<TonemappingPipeline>();
+/// Warns when a camera has [`Tonemapping::None`] together with
+/// [`DebandDither::Enabled`] or a non-default [`ColorGrading`], since neither
+/// has any effect without tonemapping.
+pub fn check_tonemapping_none(
+    cameras: Query<
+        (
+            NameOrEntity,
+            &Tonemapping,
+            Option<&DebandDither>,
+            Option<&ColorGrading>,
+        ),
+        (
+            With<Camera>,
+            Or<(
+                Changed<Tonemapping>,
+                Changed<DebandDither>,
+                Changed<ColorGrading>,
+            )>,
+        ),
+    >,
+) {
+    for (camera, tonemapping, dither, color_grading) in &cameras {
+        if tonemapping.is_enabled() {
+            continue;
+        }
+        if dither == Some(&DebandDither::Enabled) {
+            warn!(
+                "Camera {camera} has `Tonemapping::None` with `DebandDither::Enabled`, so dithering has no effect. \
+                Use `Tonemapping::Linear` to keep dithering, or set `DebandDither::Disabled`."
+            );
+        }
+        if color_grading.is_some_and(|grading| *grading != ColorGrading::default()) {
+            warn!(
+                "Camera {camera} has `Tonemapping::None` with a non-default `ColorGrading`, so color grading has no effect. \
+                Use `Tonemapping::Linear` to keep color grading, or set `ColorGrading::default()`."
+            );
+        }
     }
 }
 
 #[derive(Resource)]
 pub struct TonemappingPipeline {
-    texture_bind_group: BindGroupLayout,
+    texture_bind_group: BindGroupLayoutDescriptor,
     sampler: Sampler,
     fullscreen_shader: FullscreenShader,
     fragment_shader: Handle<Shader>,
-}
-
-/// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
-#[derive(
-    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
-)]
-#[extract_component_filter(With<Camera>)]
-#[reflect(Component, Debug, Hash, Default, PartialEq)]
-pub enum Tonemapping {
-    /// Bypass tonemapping.
-    None,
-    /// Suffers from lots hue shifting, brights don't desaturate naturally.
-    /// Bright primaries and secondaries don't desaturate at all.
-    Reinhard,
-    /// Suffers from hue shifting. Brights don't desaturate much at all across the spectrum.
-    ReinhardLuminance,
-    /// Same base implementation that Godot 4.0 uses for Tonemap ACES.
-    /// <https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl>
-    /// Not neutral, has a very specific aesthetic, intentional and dramatic hue shifting.
-    /// Bright greens and reds turn orange. Bright blues turn magenta.
-    /// Significantly increased contrast. Brights desaturate across the spectrum.
-    AcesFitted,
-    /// By Troy Sobotka
-    /// <https://github.com/sobotka/AgX>
-    /// Very neutral. Image is somewhat desaturated when compared to other tonemappers.
-    /// Little to no hue shifting. Subtle [Abney shifting](https://en.wikipedia.org/wiki/Abney_effect).
-    /// NOTE: Requires the `tonemapping_luts` cargo feature.
-    AgX,
-    /// By Tomasz Stachowiak
-    /// Has little hue shifting in the darks and mids, but lots in the brights. Brights desaturate across the spectrum.
-    /// Is sort of between Reinhard and `ReinhardLuminance`. Conceptually similar to reinhard-jodie.
-    /// Designed as a compromise if you want e.g. decent skin tones in low light, but can't afford to re-do your
-    /// VFX to look good without hue shifting.
-    SomewhatBoringDisplayTransform,
-    /// Current Bevy default.
-    /// By Tomasz Stachowiak
-    /// <https://github.com/h3r2tic/tony-mc-mapface>
-    /// Very neutral. Subtle but intentional hue shifting. Brights desaturate across the spectrum.
-    /// Comment from author:
-    /// Tony is a display transform intended for real-time applications such as games.
-    /// It is intentionally boring, does not increase contrast or saturation, and stays close to the
-    /// input stimulus where compression isn't necessary.
-    /// Brightness-equivalent luminance of the input stimulus is compressed. The non-linearity resembles Reinhard.
-    /// Color hues are preserved during compression, except for a deliberate [Bezold–Brücke shift](https://en.wikipedia.org/wiki/Bezold%E2%80%93Br%C3%BCcke_shift).
-    /// To avoid posterization, selective desaturation is employed, with care to avoid the [Abney effect](https://en.wikipedia.org/wiki/Abney_effect).
-    /// NOTE: Requires the `tonemapping_luts` cargo feature.
-    #[default]
-    TonyMcMapface,
-    /// Default Filmic Display Transform from blender.
-    /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
-    /// NOTE: Requires the `tonemapping_luts` cargo feature.
-    BlenderFilmic,
-}
-
-impl Tonemapping {
-    pub fn is_enabled(&self) -> bool {
-        *self != Tonemapping::None
-    }
 }
 
 bitflags! {
@@ -193,6 +171,7 @@ bitflags! {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
+    target_format: TextureFormat,
     deband_dither: DebandDither,
     tonemapping: Tonemapping,
     flags: TonemappingPipelineKeyFlags,
@@ -235,7 +214,9 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         }
 
         match key.tonemapping {
-            Tonemapping::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
+            Tonemapping::None | Tonemapping::Linear => {
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
+            }
             Tonemapping::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
             Tonemapping::ReinhardLuminance => {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
@@ -271,6 +252,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
+            Tonemapping::KhronosPbrNeutral => shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into()),
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
@@ -279,52 +261,49 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: ViewTarget::TEXTURE_FORMAT_HDR,
+                    format: key.target_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
 
-impl FromWorld for TonemappingPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
-            ShaderStages::FRAGMENT,
+pub fn init_tonemapping_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
+        ShaderStages::FRAGMENT,
+        (
+            (0, uniform_buffer::<ViewUniform>(true)),
             (
-                (0, uniform_buffer::<ViewUniform>(true)),
-                (
-                    1,
-                    texture_2d(TextureSampleType::Float { filterable: false }),
-                ),
-                (2, sampler(SamplerBindingType::NonFiltering)),
+                1,
+                texture_2d(TextureSampleType::Float { filterable: false }),
             ),
-        );
-        let lut_layout_entries = get_lut_bind_group_layout_entries();
-        entries =
-            entries.extend_with_indices(((3, lut_layout_entries[0]), (4, lut_layout_entries[1])));
+            (2, sampler(SamplerBindingType::NonFiltering)),
+        ),
+    );
+    let lut_layout_entries = get_lut_bind_group_layout_entries();
+    entries = entries.extend_with_indices(((3, lut_layout_entries[0]), (4, lut_layout_entries[1])));
 
-        let render_device = render_world.resource::<RenderDevice>();
-        let tonemap_texture_bind_group = render_device
-            .create_bind_group_layout("tonemapping_hdr_texture_bind_group_layout", &entries);
+    let tonemap_texture_bind_group =
+        BindGroupLayoutDescriptor::new("tonemapping_hdr_texture_bind_group_layout", &entries);
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        TonemappingPipeline {
-            texture_bind_group: tonemap_texture_bind_group,
-            sampler,
-            fullscreen_shader: render_world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(render_world, "tonemapping.wgsl"),
-        }
-    }
+    commands.insert_resource(TonemappingPipeline {
+        texture_bind_group: tonemap_texture_bind_group,
+        sampler,
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "tonemapping_frag.wesl"),
+    });
 }
 
 #[derive(Component)]
@@ -364,6 +343,7 @@ pub fn prepare_view_tonemapping_pipelines(
         );
 
         let key = TonemappingPipelineKey {
+            target_format: view.target_format,
             deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
             tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
             flags,
@@ -375,17 +355,6 @@ pub fn prepare_view_tonemapping_pipelines(
             .insert(ViewTonemappingPipeline(pipeline));
     }
 }
-/// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
-#[derive(
-    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
-)]
-#[extract_component_filter(With<Camera>)]
-#[reflect(Component, Debug, Hash, Default, PartialEq)]
-pub enum DebandDither {
-    #[default]
-    Disabled,
-    Enabled,
-}
 
 pub fn get_lut_bindings<'a>(
     images: &'a RenderAssets<GpuImage>,
@@ -396,10 +365,12 @@ pub fn get_lut_bindings<'a>(
     let image = match tonemapping {
         // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
         Tonemapping::None
+        | Tonemapping::Linear
         | Tonemapping::Reinhard
         | Tonemapping::ReinhardLuminance
         | Tonemapping::AcesFitted
         | Tonemapping::AgX
+        | Tonemapping::KhronosPbrNeutral
         | Tonemapping::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
         Tonemapping::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
         Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
@@ -437,7 +408,8 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         CompressedImageFormats::NONE,
         false,
         image_sampler,
-        RenderAssetUsages::RENDER_WORLD,
+        // LUT must be kept in main world for render recovery reasons
+        RenderAssetUsages::default(),
     )
     .unwrap()
 }
@@ -447,12 +419,9 @@ pub fn lut_placeholder() -> Image {
     let data = vec![255, 0, 255, 255];
     Image {
         data: Some(data),
+        data_order: TextureDataOrder::default(),
         texture_descriptor: TextureDescriptor {
-            size: Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            size: Extent3d::default(),
             format,
             dimension: TextureDimension::D3,
             label: None,

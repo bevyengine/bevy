@@ -9,8 +9,8 @@ fn main() {
         .run();
 }
 
-fn file_drag_and_drop_system(mut events: EventReader<FileDragAndDrop>) {
-    for event in events.read() {
-        info!("{:?}", event);
+fn file_drag_and_drop_system(mut drag_and_drop_reader: MessageReader<FileDragAndDrop>) {
+    for drag_and_drop in drag_and_drop_reader.read() {
+        info!("{:?}", drag_and_drop);
     }
 }

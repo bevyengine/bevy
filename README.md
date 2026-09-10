@@ -1,10 +1,9 @@
-# [![Bevy](assets/branding/bevy_logo_light_dark_and_dimmed.svg)](https://bevy.org)
+# [![Bevy](https://bevy.org/assets/bevy_logo_light_dark_and_dimmed.svg)](https://bevy.org)
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
 [![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy)
 [![Downloads](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy)
 [![Docs](https://docs.rs/bevy/badge.svg)](https://docs.rs/bevy/latest/bevy/)
-[![CI](https://github.com/bevyengine/bevy/workflows/CI/badge.svg)](https://github.com/bevyengine/bevy/actions)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
 ## What is Bevy?
@@ -54,7 +53,7 @@ If you'd like to help build Bevy, check out the **[Contributor's Guide](https://
 For simple problems, feel free to [open an issue](https://github.com/bevyengine/bevy/issues) or
 [PR](https://github.com/bevyengine/bevy/pulls) and tackle it yourself!
 
-For more complex architecture decisions and experimental mad science, please open an [RFC](https://github.com/bevyengine/rfcs) (Request For Comments) so we can brainstorm together effectively!
+For more complex architecture decisions and experimental mad science, please open a [GitHub Discussion](https://github.com/bevyengine/bevy/discussions) so we can brainstorm together effectively!
 
 ## Getting Started
 
@@ -76,9 +75,9 @@ To draw a window with standard functionality enabled, use:
 use bevy::prelude::*;
 
 fn main() {
-  App::new()
-    .add_plugins(DefaultPlugins)
-    .run();
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .run();
 }
 ```
 
@@ -118,7 +117,6 @@ These are generally BSD-like, but exact details vary by crate:
 If the README of a crate contains a 'License' header (or similar), the additional copyright notices and license terms applicable to that crate will be listed.
 The above licensing requirement still applies to contributions to those crates, and sections of those crates will carry those license terms.
 The [license](https://doc.rust-lang.org/cargo/reference/manifest.html#the-license-and-license-file-fields) field of each crate will also reflect this.
-For example, [`bevy_mikktspace`](./crates/bevy_mikktspace/README.md#license-agreement) has code under the Zlib license (as well as a copyright notice when choosing the MIT license).
 
 The [assets](assets) included in this repository (for our [examples](./examples/README.md)) typically fall under different open licenses.
 These will not be included in your game (unless copied in by you), and they are not distributed in the published bevy crates.

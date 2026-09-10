@@ -23,7 +23,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // You should see the changes immediately show up in your app.
 
     // mesh
-    commands.spawn(SceneRoot(scene_handle));
+    commands.spawn(WorldAssetRoot(scene_handle));
     // light
     commands.spawn((
         DirectionalLight::default(),

@@ -1,4 +1,18 @@
 {
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "box",
+      "mesh": 0
+    }
+  ],
   "accessors": [
     {
       "bufferView": 0,

@@ -1,9 +1,10 @@
 //! A material that uses bindless textures.
 
 use bevy::prelude::*;
-use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
+use bevy::render::render_resource::{AsBindGroup, ShaderType};
+use bevy::shader::ShaderRef;
 
-const SHADER_ASSET_PATH: &str = "shaders/bindless_material.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/bindless_material.wesl";
 
 // `#[bindless(limit(4))]` indicates that we want Bevy to group materials into
 // bind groups of at most 4 materials each.

@@ -9,13 +9,16 @@ use thiserror::Error;
 use tracing::{debug, error, warn};
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
-use crate::{Image, TextureFormatPixelInfo};
+use crate::{Image, TextureAccessError, TextureFormatPixelInfo};
 use crate::{TextureAtlasLayout, TextureAtlasSources};
 
+/// Errors returned by [`TextureAtlasBuilder`].
 #[derive(Debug, Error)]
 pub enum TextureAtlasBuilderError {
+    /// The atlas texture wasn't large enough to fit the texture
     #[error("could not pack textures into an atlas within the given bounds")]
     NotEnoughSpace,
+    /// Attempted to add a texture with a different format
     #[error("added a texture with the wrong format in an atlas")]
     WrongFormat,
     /// Attempted to add a texture to an uninitialized atlas
@@ -24,6 +27,9 @@ pub enum TextureAtlasBuilderError {
     /// Attempted to add an uninitialized texture to an atlas
     #[error("cannot add uninitialized texture to atlas")]
     UninitializedSourceTexture,
+    /// A texture access error occurred
+    #[error("texture access error: {0}")]
+    TextureAccess(#[from] TextureAccessError),
 }
 
 #[derive(Debug)]
@@ -58,6 +64,7 @@ impl Default for TextureAtlasBuilder<'_> {
     }
 }
 
+/// The [`Result`] type used by [`TextureAtlasBuilder`].
 pub type TextureAtlasBuilderResult<T> = Result<T, TextureAtlasBuilderError>;
 
 impl<'a> TextureAtlasBuilder<'a> {
@@ -117,7 +124,7 @@ impl<'a> TextureAtlasBuilder<'a> {
         let rect_x = packed_location.x() as usize;
         let rect_y = packed_location.y() as usize;
         let atlas_width = atlas_texture.width() as usize;
-        let format_size = atlas_texture.texture_descriptor.format.pixel_size();
+        let format_size = atlas_texture.texture_descriptor.format.pixel_size()?;
 
         let Some(ref mut atlas_data) = atlas_texture.data else {
             return Err(TextureAtlasBuilderError::UninitializedAtlas);
@@ -195,7 +202,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// be returned. It is then recommended to make a larger sprite sheet.
     pub fn build(
         &mut self,
-    ) -> Result<(TextureAtlasLayout, TextureAtlasSources, Image), TextureAtlasBuilderError> {
+    ) -> TextureAtlasBuilderResult<(TextureAtlasLayout, TextureAtlasSources, Image)> {
         let max_width = self.max_size.x;
         let max_height = self.max_size.y;
 
@@ -243,7 +250,7 @@ impl<'a> TextureAtlasBuilder<'a> {
                         TextureDimension::D2,
                         vec![
                             0;
-                            self.format.pixel_size() * (current_width * current_height) as usize
+                            self.format.pixel_size()? * (current_width * current_height) as usize
                         ],
                         self.format,
                         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,

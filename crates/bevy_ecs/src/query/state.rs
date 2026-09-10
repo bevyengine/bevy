@@ -1,11 +1,16 @@
 use crate::{
     archetype::{Archetype, ArchetypeGeneration, ArchetypeId},
-    component::{ComponentId, Tick},
+    change_detection::Tick,
+    component::ComponentId,
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
-    query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
-    storage::{SparseSetIndex, TableId},
+    query::{
+        ArchetypeFilter, ContiguousQueryData, FilteredAccess, FilteredAccessSet, IterQueryData,
+        QueryCombinationIter, QueryContiguousIter, QueryContiguousParIter, QueryIter,
+        QueryNotDenseError, QueryParIter, SingleEntityQueryData, WorldQuery,
+    },
+    storage::TableId,
     system::Query,
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
@@ -13,7 +18,7 @@ use crate::{
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 use crate::entity::UniqueEntityEquivalentSlice;
 
-use alloc::vec::Vec;
+use alloc::{format, vec::Vec};
 use bevy_utils::prelude::DebugName;
 use core::{fmt, ptr};
 use fixedbitset::FixedBitSet;
@@ -60,6 +65,13 @@ pub(super) union StorageId {
 /// [`State`]: crate::query::world_query::WorldQuery::State
 /// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
 /// [`Table`]: crate::storage::Table
+///
+/// # Safety
+///
+/// If the query is not read-only,
+/// then before calling any other methods on a new `QueryState`
+/// other than [`QueryState::update_archetypes`], [`QueryState::update_archetypes_unsafe_world_cell`],
+/// [`Self::init_access`] must be called.
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
@@ -76,7 +88,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     /// Note that because we do a zero-cost reference conversion in `Query::as_readonly`,
     /// the access for a read-only query may include accesses for the original mutable version,
     /// but the `Query` does not have exclusive access to those components.
-    pub(crate) component_access: FilteredAccess<ComponentId>,
+    pub(crate) component_access: FilteredAccess,
     // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
     pub(super) matched_storage_ids: Vec<StorageId>,
     // Represents whether this query iteration is dense or not. When this is true
@@ -145,7 +157,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Returns the components accessed by this query.
-    pub fn component_access(&self) -> &FilteredAccess<ComponentId> {
+    pub fn component_access(&self) -> &FilteredAccess {
         &self.component_access
     }
 
@@ -160,9 +172,60 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
-    pub fn new(world: &mut World) -> Self {
-        let mut state = Self::new_uninitialized(world);
+    ///
+    /// Unlike [`QueryState::new`], this does not check access of nested queries,
+    /// so [`Self::init_access`] must be called before querying using this state or returning it to safe code.
+    ///
+    /// # Safety
+    ///
+    /// If the query is not read-only,
+    /// then before calling any other methods on the returned `QueryState`
+    /// other than [`QueryState::update_archetypes`], [`QueryState::update_archetypes_unsafe_world_cell`],
+    /// [`Self::init_access`] must be called.
+    pub unsafe fn new_unchecked(world: &mut World) -> Self {
+        let fetch_state = D::init_state(world);
+        let filter_state = F::init_state(world);
+        // SAFETY: Caller ensures `init_access` is called
+        let mut state =
+            unsafe { Self::from_states_uninitialized(world, fetch_state, filter_state) };
         state.update_archetypes(world);
+        state
+    }
+
+    /// Adds all access from this query and any nested queries to the `component_access_set`.
+    /// Panics if the access from this query and any nested queries conflict with each other
+    /// or with any previous access.
+    pub fn init_access(
+        &self,
+        system_name: Option<&str>,
+        component_access_set: &mut FilteredAccessSet,
+        world: UnsafeWorldCell,
+    ) {
+        let conflicts = component_access_set.get_conflicts_single(&self.component_access);
+        if !conflicts.is_empty() {
+            let mut accesses = conflicts.format_conflict_list(world);
+            // Access list may be empty (if access to all components requested)
+            if !accesses.is_empty() {
+                accesses.push(' ');
+            }
+            let type_name = DebugName::type_name::<Query<D, F>>();
+            let type_name = type_name.shortname();
+            let system = system_name
+                .map(|name| format!(" in system {name}"))
+                .unwrap_or_default();
+            panic!("error[B0001]: {type_name}{system} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001",);
+        }
+
+        component_access_set.add(self.component_access.clone());
+        D::init_nested_access(&self.fetch_state, system_name, component_access_set, world);
+        F::init_nested_access(&self.filter_state, system_name, component_access_set, world);
+    }
+
+    /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
+    pub fn new(world: &mut World) -> Self {
+        // SAFETY: We immediately call `init_access`
+        let state = unsafe { Self::new_unchecked(world) };
+        state.init_access(None, &mut FilteredAccessSet::new(), world.into());
         state
     }
 
@@ -171,7 +234,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This function may fail if, for example,
     /// the components that make up this query have not been registered into the world.
     pub fn try_new(world: &World) -> Option<Self> {
-        let mut state = Self::try_new_uninitialized(world)?;
+        let fetch_state = D::get_state(world.components())?;
+        let filter_state = F::get_state(world.components())?;
+        // SAFETY: We immediately call `init_access`
+        let mut state =
+            unsafe { Self::from_states_uninitialized(world, fetch_state, filter_state) };
+        state.init_access(None, &mut FilteredAccessSet::new(), world.into());
         state.update_archetypes(world);
         Some(state)
     }
@@ -180,31 +248,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
-    fn new_uninitialized(world: &mut World) -> Self {
-        let fetch_state = D::init_state(world);
-        let filter_state = F::init_state(world);
-        Self::from_states_uninitialized(world, fetch_state, filter_state)
-    }
-
-    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
     ///
-    /// `new_archetype` and its variants must be called on all of the World's archetypes before the
-    /// state can return valid query results.
-    fn try_new_uninitialized(world: &World) -> Option<Self> {
-        let fetch_state = D::get_state(world.components())?;
-        let filter_state = F::get_state(world.components())?;
-        Some(Self::from_states_uninitialized(
-            world,
-            fetch_state,
-            filter_state,
-        ))
-    }
-
-    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    /// # Safety
     ///
-    /// `new_archetype` and its variants must be called on all of the World's archetypes before the
-    /// state can return valid query results.
-    fn from_states_uninitialized(
+    /// If the query is not read-only,
+    /// then before calling any other methods on the returned `QueryState`
+    /// other than [`QueryState::update_archetypes`], [`QueryState::update_archetypes_unsafe_world_cell`],
+    /// [`Self::init_access`] must be called.
+    unsafe fn from_states_uninitialized(
         world: &World,
         fetch_state: <D as WorldQuery>::State,
         filter_state: <F as WorldQuery>::State,
@@ -231,6 +282,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             is_dense &= default_filters.is_dense(world.components());
         }
 
+        // SAFETY: Caller ensures `init_access` is called
         Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
@@ -273,6 +325,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             is_dense &= default_filters.is_dense(builder.world().components());
         }
 
+        // SAFETY: We immediately call `init_access`
         let mut state = Self {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
@@ -290,6 +343,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 filter = core::any::type_name::<F>(),
             ),
         };
+        state.init_access(None, &mut FilteredAccessSet::new(), builder.world().into());
         state.update_archetypes(builder.world());
         state
     }
@@ -504,7 +558,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         self.validate_world(world.id());
-        if self.component_access.required.is_empty() {
+        D::update_archetypes(&mut self.fetch_state, world);
+        F::update_archetypes(&mut self.filter_state, world);
+        if self.component_access.required.is_clear() {
             let archetypes = world.archetypes();
             let old_generation =
                 core::mem::replace(&mut self.archetype_generation, archetypes.generation());
@@ -526,9 +582,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let potential_archetypes = self
                 .component_access
                 .required
-                .ones()
-                .filter_map(|idx| {
-                    let component_id = ComponentId::get_sparse_set_index(idx);
+                .iter()
+                .filter_map(|component_id| {
                     world
                         .archetypes()
                         .component_index()
@@ -611,13 +666,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         self.component_access.filter_sets.iter().any(|set| {
-            set.with
-                .ones()
-                .all(|index| set_contains_id(ComponentId::get_sparse_set_index(index)))
-                && set
-                    .without
-                    .ones()
-                    .all(|index| !set_contains_id(ComponentId::get_sparse_set_index(index)))
+            set.with.iter().all(set_contains_id)
+                && set.without.iter().all(|index| !set_contains_id(index))
         })
     }
 
@@ -629,7 +679,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match
     /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`QueryState::update_archetypes`] internally, so this
     /// best used through a [`Query`]
-    pub fn transmute<'a, NewD: QueryData>(
+    pub fn transmute<'a, NewD: SingleEntityQueryData>(
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
     ) -> QueryState<NewD> {
@@ -640,7 +690,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// as self but with a new type signature.
     ///
     /// Panics if `NewD` or `NewF` require accesses that this query does not have.
-    pub fn transmute_filtered<'a, NewD: QueryData, NewF: QueryFilter>(
+    pub fn transmute_filtered<'a, NewD: SingleEntityQueryData, NewF: QueryFilter>(
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
     ) -> QueryState<NewD, NewF> {
@@ -676,11 +726,31 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             DebugName::type_name::<(NewD, NewF)>(), DebugName::type_name::<(D, F)>()
         );
 
+        // For transmuted queries, the dense-ness of the query is equal to the dense-ness of the original query.
+        //
+        // We ensure soundness using `FilteredAccess::required`.
+        //
+        // Any `WorldQuery` implementations that rely on a query being sparse for soundness,
+        // including `&`, `&mut`, `Ref`, and `Mut`, will add a sparse set component to the `required` set.
+        // (`Option<&Sparse>` and `Has<Sparse>` will incorrectly report a component as never being present
+        // when doing dense iteration, but are not unsound.  See https://github.com/bevyengine/bevy/issues/16397)
+        //
+        // And any query with a sparse set component in the `required` set must have `is_dense = false`.
+        // For static queries, the `WorldQuery` implementations ensure this.
+        // For dynamic queries, anything that adds a `required` component also adds a `with` filter.
+        //
+        // The `component_access.is_subset()` check ensures that if the new query has a sparse set component in the `required` set,
+        // then the original query must also have had that component in the `required` set.
+        // Therefore, if the `WorldQuery` implementations rely on a query being sparse for soundness,
+        // then there was a sparse set component in the `required` set, and the query has `is_dense = false`.
+        let is_dense = self.is_dense;
+
+        // SAFETY: `D: SingleEntityQueryData`, so we do not need to call `init_access`
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
             matched_storage_ids: self.matched_storage_ids.clone(),
-            is_dense: self.is_dense,
+            is_dense,
             fetch_state,
             filter_state,
             component_access: self_access,
@@ -714,7 +784,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// ## Panics
     ///
     /// Will panic if `NewD` contains accesses not in `Q` or `OtherQ`.
-    pub fn join<'a, OtherD: QueryData, NewD: QueryData>(
+    pub fn join<'a, OtherD: QueryData, NewD: SingleEntityQueryData>(
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
         other: &QueryState<OtherD>,
@@ -732,7 +802,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         'a,
         OtherD: QueryData,
         OtherF: QueryFilter,
-        NewD: QueryData,
+        NewD: SingleEntityQueryData,
         NewF: QueryFilter,
     >(
         &self,
@@ -823,6 +893,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 .collect()
         };
 
+        // SAFETY: `D: SingleEntityQueryData`, so we do not need to call `init_access`
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
@@ -890,7 +961,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
-    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// ```
     #[inline]
     pub fn get_many<'w, const N: usize>(
@@ -928,7 +999,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
-    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// ```
     #[inline]
     pub fn get_many_unique<'w, const N: usize>(
@@ -985,7 +1056,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
@@ -994,7 +1065,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w, '_>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w, '_>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         self.query_mut(world).get_many_mut_inner(entities)
     }
 
@@ -1031,7 +1105,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_unique_mut(&mut world, UniqueEntityArray::from([invalid_entity])).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// ```
     #[inline]
@@ -1039,7 +1113,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entities: UniqueEntityArray<N>,
-    ) -> Result<[D::Item<'w, '_>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w, '_>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         self.query_mut(world).get_many_unique_inner(entities)
     }
 
@@ -1079,7 +1156,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: UnsafeWorldCell<'w>,
         entity: Entity,
     ) -> Result<D::Item<'w, '_>, QueryEntityError> {
-        self.query_unchecked(world).get_inner(entity)
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.get_inner(entity)
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
@@ -1090,7 +1168,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// consider using [`Self::update_archetypes`] followed by multiple [`Self::iter_manual`] calls.
     #[inline]
     pub fn iter<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, D::ReadOnly, F> {
-        self.query(world).into_iter()
+        self.query(world).iter_inner()
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
@@ -1099,7 +1177,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Iteration order is not guaranteed.
     #[inline]
     pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, D, F> {
-        self.query_mut(world).into_iter()
+        self.query_mut(world).iter_inner()
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`] without updating the query's archetypes.
@@ -1167,14 +1245,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn iter_combinations_mut<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w mut World,
-    ) -> QueryCombinationIter<'w, 's, D, F, K> {
+    ) -> QueryCombinationIter<'w, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         self.query_mut(world).iter_combinations_inner()
     }
 
     /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// If you need to iterate multiple times at once but get borrowing errors,
     /// consider using [`Self::update_archetypes`] followed by multiple [`Self::iter_many_manual`] calls.
@@ -1194,7 +1275,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// If `world` archetypes changed since [`Self::update_archetypes`] was last called,
     /// this will skip entities contained in new archetypes.
@@ -1217,7 +1298,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an iterator over the query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     #[inline]
     pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: EntityEquivalent>>(
         &'s mut self,
@@ -1230,7 +1311,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over the unique read-only query items generated from an [`EntitySet`].
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// # See also
     ///
@@ -1247,7 +1328,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over the unique read-only query items generated from an [`EntitySet`].
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// If `world` archetypes changed since [`Self::update_archetypes`] was last called,
     /// this will skip entities contained in new archetypes.
@@ -1271,13 +1352,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an iterator over the unique query items generated from an [`EntitySet`].
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     #[inline]
     pub fn iter_many_unique_mut<'w, 's, EntityList: EntitySet>(
         &'s mut self,
         world: &'w mut World,
         entities: EntityList,
-    ) -> QueryManyUniqueIter<'w, 's, D, F, EntityList::IntoIter> {
+    ) -> QueryManyUniqueIter<'w, 's, D, F, EntityList::IntoIter>
+    where
+        D: IterQueryData,
+    {
         self.query_mut(world).iter_many_unique_inner(entities)
     }
     /// Returns an [`Iterator`] over the query results for the given [`World`].
@@ -1294,7 +1378,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &'s mut self,
         world: UnsafeWorldCell<'w>,
     ) -> QueryIter<'w, 's, D, F> {
-        self.query_unchecked(world).into_iter()
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.iter_inner()
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
@@ -1312,8 +1397,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub unsafe fn iter_combinations_unchecked<'w, 's, const K: usize>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> QueryCombinationIter<'w, 's, D, F, K> {
-        self.query_unchecked(world).iter_combinations_inner()
+    ) -> QueryCombinationIter<'w, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.iter_combinations_inner()
     }
 
     /// Returns a parallel iterator over the query results for the given [`World`].
@@ -1365,7 +1454,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// # let invalid_entity = world.spawn_empty().id();
     ///
-    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
@@ -1377,8 +1466,132 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// [`par_iter`]: Self::par_iter
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, D, F> {
+    pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, D, F>
+    where
+        D: IterQueryData,
+    {
         self.query_mut(world).par_iter_inner()
+    }
+
+    /// Returns a contiguous iterator over the query results for the given [`World`] or [`Err`] with [`QueryNotDenseError`] if
+    /// the query is not dense hence not contiguously iterable.
+    #[inline]
+    pub fn contiguous_iter<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> Result<QueryContiguousIter<'w, 's, D::ReadOnly, F>, QueryNotDenseError>
+    where
+        D::ReadOnly: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.query(world).contiguous_iter_inner()
+    }
+
+    /// Returns a contiguous iterator over the query results for the given [`World`] or [`Err`] with [`QueryNotDenseError`] if
+    /// the query is not dense hence not contiguously iterable.
+    ///
+    /// This can only be called for mutable queries, see [`Self::contiguous_iter`] for read-only-queries.
+    #[inline]
+    pub fn contiguous_iter_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> Result<QueryContiguousIter<'w, 's, D, F>, QueryNotDenseError>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.query_mut(world).contiguous_iter_inner()
+    }
+
+    /// Returns a parallel contiguous iterator over the query results for the
+    /// given [`World`] or [`Err`] with [`QueryNotDenseError`] if the query is
+    /// not dense hence not contiguously iterable.
+    ///
+    /// This can only be called for read-only queries. See
+    /// [`Self::contiguous_par_iter_mut`] for queries that may write to the
+    /// components.
+    ///
+    /// Note that you must use the [`QueryContiguousParIter::for_each`] method
+    /// to iterate over the results. See [`Self::contiguous_par_iter_mut`] for
+    /// an example.
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should
+    /// never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[inline]
+    pub fn contiguous_par_iter<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> Result<QueryContiguousParIter<'w, 's, D::ReadOnly, F>, QueryNotDenseError>
+    where
+        D::ReadOnly: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.query(world).contiguous_par_iter_inner()
+    }
+
+    /// Returns a parallel contiguous iterator over the query results for the
+    /// given [`World`] or [`Err`] with [`QueryNotDenseError`] if the query is
+    /// not dense hence not contiguously iterable.
+    ///
+    /// This version of the method is for mutable queries. For read-only
+    /// queries, see [`Self::contiguous_par_iter`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::query::QueryEntityError;
+    ///
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct A(usize);
+    ///
+    /// # bevy_tasks::ComputeTaskPool::get_or_init(|| bevy_tasks::TaskPool::new());
+    ///
+    /// let mut world = World::new();
+    ///
+    /// # let entities: Vec<Entity> = (0..3).map(|i| world.spawn(A(i)).id()).collect();
+    /// # let entities: [Entity; 3] = entities.try_into().unwrap();
+    ///
+    /// let mut query_state = world.query::<&mut A>();
+    ///
+    /// query_state.contiguous_par_iter_mut(&mut world).unwrap().for_each(|mut batch| {
+    ///     for a in batch {
+    ///         a.0 += 5;
+    ///     }
+    /// });
+    ///
+    /// # let component_values = query_state.get_many(&world, entities).unwrap();
+    ///
+    /// # assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
+    ///
+    /// # let wrong_entity = Entity::from_raw_u32(57).unwrap();
+    /// # let invalid_entity = world.spawn_empty().id();
+    ///
+    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
+    /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
+    /// ```
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should
+    /// never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[inline]
+    pub fn contiguous_par_iter_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> Result<QueryContiguousParIter<'w, 's, D, F>, QueryNotDenseError>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.query_mut(world).contiguous_par_iter_inner()
     }
 
     /// Runs `func` on each query result in parallel for the given [`World`], where the last change and
@@ -1409,10 +1622,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) where
         FN: Fn(T, D::Item<'w, 's>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
+        D: IterQueryData,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual,
-        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual, QueryContiguousIter::next
         use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
@@ -1522,13 +1736,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         last_run: Tick,
         this_run: Tick,
     ) where
-        FN: Fn(T, D::Item<'w, 's>) -> T + Send + Sync + Clone,
+        FN: Fn(T, Result<D::Item<'w, 's>, QueryEntityError>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
         E: EntityEquivalent + Sync,
+        D: IterQueryData,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
-        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual, QueryContiguousIter::next
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             let chunks = entity_list.chunks_exact(batch_size as usize);
@@ -1553,6 +1768,109 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             self.query_unchecked_manual_with_ticks(world, last_run, this_run)
                 .iter_many_unique_inner(remainder)
                 .fold(accum, &mut func);
+        });
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+    pub(crate) unsafe fn contiguous_par_fold_init_unchecked_manual<'w, 's, T>(
+        &'s self,
+        init_accum: impl Fn() -> T + Send + Sync + Clone,
+        world: UnsafeWorldCell<'w>,
+        batch_size: u32,
+        func: impl Fn(T, D::Contiguous<'w, 's>) -> T + Send + Sync + Clone,
+        last_run: Tick,
+        this_run: Tick,
+    ) where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        debug_assert!(self.is_dense);
+
+        // The maximum number of tables we can accumulate before we must flush
+        // them into a batch.
+        const MAX_TABLES_PER_BATCH: usize = 32;
+
+        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
+            use core::ops::Range;
+
+            use smallvec::SmallVec;
+
+            // SAFETY: We only access table data that has been registered in
+            // `self.component_access`.
+            let tables = unsafe { &world.storages().tables };
+
+            // Unlike ordinary parallel iteration, contiguous iteration uses a
+            // unified queuing system that accumulates row *ranges* from
+            // multiple tables, not tables as a whole. This allows individual
+            // jobs to include any combination of entire tables and portions of
+            // tables.
+            let mut batch_queue: SmallVec<[(TableId, Range<u32>); 4]> = SmallVec::new();
+            let mut queue_entity_count = 0;
+
+            // Submits a full batch.
+            let submit_batch_queue = |queue: SmallVec<[(TableId, Range<u32>); 4]>| {
+                let (func, init_accum) = (func.clone(), init_accum.clone());
+                scope.spawn(async move {
+                    #[cfg(feature = "trace")]
+                    let _span = self.par_iter_span.enter();
+                    // SAFETY: Contiguous iteration can only process tables, so
+                    // we must have a table here.
+                    let tables = unsafe { &world.storages().tables };
+                    let mut fetch = D::init_fetch(world, &self.fetch_state, last_run, this_run);
+                    let mut accum = init_accum();
+                    for (table_id, range) in queue {
+                        let table = &tables[table_id];
+                        D::set_table(&mut fetch, &self.fetch_state, table);
+                        let item = D::fetch_contiguous(
+                            &self.fetch_state,
+                            &mut fetch,
+                            table.entities(),
+                            range,
+                        );
+                        accum = func(accum, item);
+                    }
+                });
+            };
+
+            // Go over all the tables.
+            for storage_id in &self.matched_storage_ids {
+                let table_id = storage_id.table_id;
+                let row_count = tables[table_id].entity_count();
+
+                // Accumulate rows until we either hit the `batch_size` or hit
+                // the maximum number of tables.
+                let mut row_start_offset = 0;
+                while row_start_offset < row_count {
+                    // If we hit the maximum number of tables, force a submit.
+                    if batch_queue.len() == MAX_TABLES_PER_BATCH {
+                        submit_batch_queue(core::mem::take(&mut batch_queue));
+                        queue_entity_count = 0;
+                    }
+
+                    // Can we include the entire remainder of the table, or do
+                    // we need to split it?
+                    if queue_entity_count + row_count - row_start_offset > batch_size {
+                        // We need to split the table. Push the portion that fits.
+                        let row_end_offset = row_start_offset + (batch_size - queue_entity_count);
+                        batch_queue.push((table_id, row_start_offset..row_end_offset));
+                        row_start_offset = row_end_offset;
+
+                        // And submit it.
+                        submit_batch_queue(core::mem::take(&mut batch_queue));
+                        queue_entity_count = 0;
+                    } else {
+                        // We can fit the entire remainder of the table.
+                        batch_queue.push((table_id, row_start_offset..row_count));
+                        queue_entity_count += row_count - row_start_offset;
+                        break;
+                    }
+                }
+            }
+
+            // If we have any rows left over, submit them now.
+            if !batch_queue.is_empty() {
+                submit_batch_queue(batch_queue);
+            }
         });
     }
 }
@@ -1585,13 +1903,13 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
         last_run: Tick,
         this_run: Tick,
     ) where
-        FN: Fn(T, D::Item<'w, 's>) -> T + Send + Sync + Clone,
+        FN: Fn(T, Result<D::Item<'w, 's>, QueryEntityError>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
         E: EntityEquivalent + Sync,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::par_fold_init_unchecked_manual
-        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual, QueryContiguousIter::next
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             let chunks = entity_list.chunks_exact(batch_size as usize);
@@ -1717,7 +2035,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn single_mut<'w>(
         &mut self,
         world: &'w mut World,
-    ) -> Result<D::Item<'w, '_>, QuerySingleError> {
+    ) -> Result<D::Item<'w, '_>, QuerySingleError>
+    where
+        D: IterQueryData,
+    {
         self.query_mut(world).single_inner()
     }
 
@@ -1734,8 +2055,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub unsafe fn single_unchecked<'w>(
         &mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> Result<D::Item<'w, '_>, QuerySingleError> {
-        self.query_unchecked(world).single_inner()
+    ) -> Result<D::Item<'w, '_>, QuerySingleError>
+    where
+        D: IterQueryData,
+    {
+        // SAFETY: Upheld by caller
+        unsafe { self.query_unchecked(world) }.single_inner()
     }
 
     /// Returns a query result when there is exactly one entity matching the query,
@@ -1756,12 +2081,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<D::Item<'w, '_>, QuerySingleError> {
+    ) -> Result<D::Item<'w, '_>, QuerySingleError>
+    where
+        D: IterQueryData,
+    {
         // SAFETY:
         // - The caller ensured we have the correct access to the world.
         // - The caller ensured that the world matches.
-        self.query_unchecked_manual_with_ticks(world, last_run, this_run)
-            .single_inner()
+        unsafe { self.query_unchecked_manual_with_ticks(world, last_run, this_run) }.single_inner()
     }
 }
 
@@ -1778,7 +2105,7 @@ mod tests {
         entity_disabling::DefaultQueryFilters,
         prelude::*,
         system::{QueryLens, RunSystemOnce},
-        world::{FilteredEntityMut, FilteredEntityRef},
+        world::{EntityRef, FilteredEntityMut, FilteredEntityRef},
     };
 
     #[test]
@@ -1820,6 +2147,9 @@ mod tests {
     #[derive(Component, PartialEq, Debug)]
     struct C(usize);
 
+    #[derive(Component)]
+    struct D;
+
     #[test]
     fn can_transmute_to_more_general() {
         let mut world = World::new();
@@ -1853,7 +2183,7 @@ mod tests {
         world.register_component::<A>();
         let entity = world.spawn(A(10)).id();
 
-        let q = world.query::<()>();
+        let q = world.query_filtered::<(), With<A>>();
         let mut q = q.transmute::<Entity>(&world);
         assert_eq!(q.single(&world).unwrap(), entity);
     }
@@ -2086,6 +2416,59 @@ mod tests {
     }
 
     #[test]
+    fn transmute_to_or_filter() {
+        let mut world = World::new();
+        world.spawn(D);
+        world.spawn((A(0), D));
+
+        let mut query = world
+            .query::<(&D, Option<&A>)>()
+            .transmute_filtered::<Entity, Or<(With<A>,)>>(&world);
+        let iter = query.iter(&world);
+        let len = iter.len();
+        let count = iter.count();
+        // `transmute_filtered` keeps the same matched tables, so it should match both entities
+        // More importantly, `count()` and `len()` should return the same result!
+        assert_eq!(len, 2);
+        assert_eq!(count, len);
+
+        let mut query = world
+            .query::<(&D, Option<&A>)>()
+            .transmute_filtered::<Entity, Or<(Changed<A>,)>>(&world);
+        let iter = query.iter(&world);
+        let count = iter.count();
+        // The behavior of a non-archetypal filter like `Changed` should be the same as an archetypal one like `With`.
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn dense_query_over_option_is_buggy() {
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        world.spawn(Sparse);
+
+        let mut query =
+            QueryState::<EntityRef>::new(&mut world).transmute::<Option<&Sparse>>(&world);
+        // EntityRef always performs dense iteration
+        // But `Option<&Sparse>` will incorrectly report a component as never being present when doing dense iteration
+        // See https://github.com/bevyengine/bevy/issues/16397
+        assert!(query.is_dense);
+        let matched = query.iter(&world).filter(Option::is_some).count();
+        assert_eq!(matched, 0);
+
+        let mut query = QueryState::<EntityRef>::new(&mut world).transmute::<Has<Sparse>>(&world);
+        // EntityRef always performs dense iteration
+        // But `Has<Sparse>` will incorrectly report a component as never being present when doing dense iteration
+        // See https://github.com/bevyengine/bevy/issues/16397
+        assert!(query.is_dense);
+        let matched = query.iter(&world).filter(|&has| has).count();
+        assert_eq!(matched, 0);
+    }
+
+    #[test]
     fn join() {
         let mut world = World::new();
         world.spawn(A(0));
@@ -2168,32 +2551,30 @@ mod tests {
     #[test]
     fn query_respects_default_filters() {
         let mut world = World::new();
-        world.spawn((A(0), B(0)));
-        world.spawn((B(0), C(0)));
-        world.spawn(C(0));
+        world.spawn((A(0), B(0), D));
+        world.spawn((B(0), C(0), D));
+        world.spawn((C(0), D));
 
-        let mut df = DefaultQueryFilters::empty();
-        df.register_disabling_component(world.register_component::<C>());
-        world.insert_resource(df);
+        world.register_disabling_component::<C>();
 
         // Without<C> only matches the first entity
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&D>::new(&mut world);
         assert_eq!(1, query.iter(&world).count());
 
         // With<C> matches the last two entities
-        let mut query = QueryState::<(), With<C>>::new(&mut world);
+        let mut query = QueryState::<&D, With<C>>::new(&mut world);
         assert_eq!(2, query.iter(&world).count());
 
         // Has should bypass the filter entirely
-        let mut query = QueryState::<Has<C>>::new(&mut world);
+        let mut query = QueryState::<(&D, Has<C>)>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
-        // Allows should bypass the filter entirely
-        let mut query = QueryState::<(), Allows<C>>::new(&mut world);
+        // Allow should bypass the filter entirely
+        let mut query = QueryState::<&D, Allow<C>>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
         // Other filters should still be respected
-        let mut query = QueryState::<Has<C>, Without<B>>::new(&mut world);
+        let mut query = QueryState::<(&D, Has<C>), Without<B>>::new(&mut world);
         assert_eq!(1, query.iter(&world).count());
     }
 
@@ -2204,40 +2585,41 @@ mod tests {
     #[component(storage = "SparseSet")]
     struct Sparse;
 
+    #[derive(Component)]
+    struct Dummy;
+
     #[test]
     fn query_default_filters_updates_is_dense() {
         let mut world = World::new();
-        world.spawn((Table, Sparse));
-        world.spawn(Table);
-        world.spawn(Sparse);
+        world.spawn((Dummy, Table, Sparse));
+        world.spawn((Dummy, Table));
+        world.spawn((Dummy, Sparse));
 
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&Dummy>::new(&mut world);
         // There are no sparse components involved thus the query is dense
         assert!(query.is_dense);
-        assert_eq!(3, query.iter(&world).count());
+        assert_eq!(3, query.query(&world).count());
 
-        let mut df = DefaultQueryFilters::empty();
-        df.register_disabling_component(world.register_component::<Sparse>());
-        world.insert_resource(df);
+        world.register_disabling_component::<Sparse>();
 
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&Dummy>::new(&mut world);
         // The query doesn't ask for sparse components, but the default filters adds
-        // a sparse components thus it is NOT dense
+        // a sparse component thus it is NOT dense
         assert!(!query.is_dense);
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(1, query.query(&world).count());
 
-        let mut df = DefaultQueryFilters::empty();
+        let mut df = DefaultQueryFilters::from_world(&mut world);
         df.register_disabling_component(world.register_component::<Table>());
         world.insert_resource(df);
 
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&Dummy>::new(&mut world);
         // If the filter is instead a table components, the query can still be dense
         assert!(query.is_dense);
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(1, query.query(&world).count());
 
         let mut query = QueryState::<&Sparse>::new(&mut world);
         // But only if the original query was dense
         assert!(!query.is_dense);
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(1, query.query(&world).count());
     }
 }

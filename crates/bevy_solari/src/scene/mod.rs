@@ -3,27 +3,34 @@ mod blas;
 mod extract;
 mod types;
 
-pub use binder::RaytracingSceneBindings;
+use bevy_asset::embedded_asset;
+use bevy_shader::load_shader_library;
+pub use binder::prepare_raytracing_scene_resources;
+pub use binder::{RaytracingSceneBindings, RaytracingSceneNeedsPreviousFrameData};
 pub use types::RaytracingMesh3d;
 
-use crate::SolariPlugin;
+use crate::SolariPlugins;
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
-    extract_resource::ExtractResourcePlugin,
-    load_shader_library,
     mesh::{
-        allocator::{allocate_and_free_meshes, MeshAllocator},
+        allocator::{allocate_and_free_meshes, MeshAllocatorSettings},
         RenderMesh,
     },
     render_asset::prepare_assets,
-    render_resource::BufferUsages,
-    renderer::RenderDevice,
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    render_resource::{update_sparse_buffers, BufferUsages},
+    renderer::{RenderDevice, RenderGraph, RenderGraphSystems},
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
-use binder::prepare_raytracing_scene_bindings;
-use blas::{prepare_raytracing_blas, BlasManager};
-use extract::{extract_raytracing_scene, StandardMaterialAssets};
+use binder::{
+    build_raytracing_tlas, prepare_raytracing_scene_bind_group, TlasInstanceSetupPipeline,
+};
+use blas::{compact_raytracing_blas, delete_raytracing_blas, prepare_raytracing_blas, BlasManager};
+use extract::{
+    extract_raytracing_material_assets, extract_raytracing_scene_meshes_and_materials,
+    extract_raytracing_scene_structural, extract_raytracing_scene_transforms,
+    StandardMaterialAssets,
+};
 use tracing::warn;
 
 /// Creates acceleration structures and binding arrays of resources for raytracing.
@@ -31,38 +38,44 @@ pub struct RaytracingScenePlugin;
 
 impl Plugin for RaytracingScenePlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "raytracing_scene_bindings.wgsl");
-        load_shader_library!(app, "sampling.wgsl");
-
-        app.register_type::<RaytracingMesh3d>();
+        load_shader_library!(app, "brdf.wesl");
+        load_shader_library!(app, "bindings.wesl");
+        load_shader_library!(app, "sampling.wesl");
+        embedded_asset!(app, "binder/setup_tlas_instances.wesl");
     }
 
     fn finish(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
+
         let render_device = render_app.world().resource::<RenderDevice>();
         let features = render_device.features();
-        if !features.contains(SolariPlugin::required_wgpu_features()) {
+        if !features.contains(SolariPlugins::required_wgpu_features()) {
             warn!(
                 "RaytracingScenePlugin not loaded. GPU lacks support for required features: {:?}.",
-                SolariPlugin::required_wgpu_features().difference(features)
+                SolariPlugins::required_wgpu_features().difference(features)
             );
             return;
         }
 
-        app.add_plugins(ExtractResourcePlugin::<StandardMaterialAssets>::default());
-
-        let render_app = app.sub_app_mut(RenderApp);
-
         render_app
             .world_mut()
-            .resource_mut::<MeshAllocator>()
+            .resource_mut::<MeshAllocatorSettings>()
             .extra_buffer_usages |= BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
 
         render_app
-            .init_resource::<BlasManager>()
-            .init_resource::<StandardMaterialAssets>()
-            .init_resource::<RaytracingSceneBindings>()
-            .add_systems(ExtractSchedule, extract_raytracing_scene)
+            .init_gpu_resource::<BlasManager>()
+            .init_gpu_resource::<StandardMaterialAssets>()
+            .init_gpu_resource::<RaytracingSceneBindings>()
+            .init_gpu_resource::<TlasInstanceSetupPipeline>()
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_raytracing_scene_structural,
+                    extract_raytracing_scene_transforms,
+                    extract_raytracing_scene_meshes_and_materials,
+                    extract_raytracing_material_assets,
+                ),
+            )
             .add_systems(
                 Render,
                 (
@@ -70,7 +83,20 @@ impl Plugin for RaytracingScenePlugin {
                         .in_set(RenderSystems::PrepareAssets)
                         .before(prepare_assets::<RenderMesh>)
                         .after(allocate_and_free_meshes),
-                    prepare_raytracing_scene_bindings.in_set(RenderSystems::PrepareBindGroups),
+                    compact_raytracing_blas
+                        .in_set(RenderSystems::PrepareAssets)
+                        .after(prepare_raytracing_blas),
+                    prepare_raytracing_scene_resources.in_set(RenderSystems::PrepareResources),
+                    prepare_raytracing_scene_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                ),
+            )
+            .add_systems(
+                RenderGraph,
+                (
+                    build_raytracing_tlas
+                        .after(update_sparse_buffers)
+                        .in_set(RenderGraphSystems::Begin),
+                    delete_raytracing_blas.in_set(RenderGraphSystems::Finish),
                 ),
             );
     }

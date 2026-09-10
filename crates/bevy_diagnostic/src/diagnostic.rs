@@ -39,18 +39,18 @@ impl DiagnosticPath {
     pub fn new(path: impl Into<Cow<'static, str>>) -> DiagnosticPath {
         let path = path.into();
 
-        debug_assert!(!path.is_empty(), "diagnostic path can't be empty");
+        debug_assert!(!path.is_empty(), "diagnostic path should not be empty");
         debug_assert!(
             !path.starts_with('/'),
-            "diagnostic path can't be start with `/`"
+            "diagnostic path should not start with `/`"
         );
         debug_assert!(
             !path.ends_with('/'),
-            "diagnostic path can't be end with `/`"
+            "diagnostic path should not end with `/`"
         );
         debug_assert!(
             !path.contains("//"),
-            "diagnostic path can't contain empty components"
+            "diagnostic path should not contain empty components"
         );
 
         DiagnosticPath {
@@ -149,12 +149,11 @@ impl Diagnostic {
         }
 
         if self.max_history_length > 1 {
-            if self.history.len() >= self.max_history_length {
-                if let Some(removed_diagnostic) = self.history.pop_front() {
-                    if !removed_diagnostic.value.is_nan() {
-                        self.sum -= removed_diagnostic.value;
-                    }
-                }
+            if self.history.len() >= self.max_history_length
+                && let Some(removed_diagnostic) = self.history.pop_front()
+                && !removed_diagnostic.value.is_nan()
+            {
+                self.sum -= removed_diagnostic.value;
             }
 
             if measurement.value.is_finite() {
@@ -214,7 +213,7 @@ impl Diagnostic {
     /// apart, no smoothing will be applied. As measurements come in more
     /// frequently, the smoothing takes a greater effect such that it takes
     /// approximately `smoothing_factor` seconds for 83% of an instantaneous
-    /// change in measurement to e reflected in the smoothed value.
+    /// change in measurement to be reflected in the smoothed value.
     ///
     /// A smoothing factor of 0.0 will effectively disable smoothing.
     #[must_use]
@@ -240,7 +239,7 @@ impl Diagnostic {
     }
 
     /// Return the simple moving average of this diagnostic's recent values.
-    /// N.B. this a cheap operation as the sum is cached.
+    /// N.B. this is a cheap operation as the sum is cached.
     pub fn average(&self) -> Option<f64> {
         if !self.history.is_empty() {
             Some(self.sum / self.history.len() as f64)
@@ -273,13 +272,9 @@ impl Diagnostic {
             return None;
         }
 
-        if let Some(newest) = self.history.back() {
-            if let Some(oldest) = self.history.front() {
-                return Some(newest.time.duration_since(oldest.time));
-            }
-        }
-
-        None
+        let newest = self.history.back()?;
+        let oldest = self.history.front()?;
+        Some(newest.time.duration_since(oldest.time))
     }
 
     /// Return the maximum number of elements for this diagnostic.
@@ -319,12 +314,12 @@ impl DiagnosticsStore {
         self.diagnostics.insert(diagnostic.path.clone(), diagnostic);
     }
 
-    /// Get the [`DiagnosticMeasurement`] with the given [`DiagnosticPath`], if it exists.
+    /// Get the [`Diagnostic`] with the given [`DiagnosticPath`], if it exists.
     pub fn get(&self, path: &DiagnosticPath) -> Option<&Diagnostic> {
         self.diagnostics.get(path)
     }
 
-    /// Mutably get the [`DiagnosticMeasurement`] with the given [`DiagnosticPath`], if it exists.
+    /// Mutably get the [`Diagnostic`] with the given [`DiagnosticPath`], if it exists.
     pub fn get_mut(&mut self, path: &DiagnosticPath) -> Option<&mut Diagnostic> {
         self.diagnostics.get_mut(path)
     }
@@ -381,12 +376,22 @@ impl<'w, 's> Diagnostics<'w, 's> {
 struct DiagnosticsBuffer(HashMap<DiagnosticPath, DiagnosticMeasurement, PassHash>);
 
 impl SystemBuffer for DiagnosticsBuffer {
-    fn apply(
+    fn queue(
         &mut self,
         _system_meta: &bevy_ecs::system::SystemMeta,
-        world: &mut bevy_ecs::world::World,
+        mut world: bevy_ecs::world::DeferredWorld,
     ) {
-        let mut diagnostics = world.resource_mut::<DiagnosticsStore>();
+        let Some(mut diagnostics) = world.get_resource_mut::<DiagnosticsStore>() else {
+            // `SystemBuffer::apply` is called even if the system never runs. If a user uses
+            // `If<Diagnostics>`, this buffer will be applied even if we are missing
+            // `DiagnosticsStore`. So be permissive to allow these cases. See
+            // https://github.com/bevyengine/bevy/issues/21549 for more.
+
+            // Clear the buffer since we have nowhere to put those metrics and we don't want them to
+            // grow without bound.
+            self.0.clear();
+            return;
+        };
         for (path, measurement) in self.0.drain() {
             if let Some(diagnostic) = diagnostics.get_mut(&path) {
                 diagnostic.add_measurement(measurement);

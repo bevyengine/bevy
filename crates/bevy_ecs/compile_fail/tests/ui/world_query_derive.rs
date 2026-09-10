@@ -12,22 +12,8 @@ struct MutableUnmarked {
 
 #[derive(QueryData)]
 #[query_data(mut)]
-//~^ ERROR: invalid attribute, expected `mutable` or `derive`
+//~^ ERROR: invalid attribute, expected `mutable`, `derive` or `contiguous`
 struct MutableInvalidAttribute {
-    a: &'static mut Foo,
-}
-
-#[derive(QueryData)]
-#[query_data(mutable(foo))]
-//~^ ERROR: `mutable` does not take any arguments
-struct MutableInvalidAttributeParameters {
-    a: &'static mut Foo,
-}
-
-#[derive(QueryData)]
-#[query_data(derive)]
-//~^ ERROR: `derive` requires at least one argument
-struct MutableMissingAttributeParameters {
     a: &'static mut Foo,
 }
 

@@ -2,13 +2,11 @@
 //! The time data is in the globals binding which is part of the `mesh_view_bindings` shader import.
 
 use bevy::{
-    prelude::*,
-    reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    prelude::*, reflect::TypePath, render::render_resource::AsBindGroup, shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/animate_shader.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/animate_shader.wesl";
 
 fn main() {
     App::new()

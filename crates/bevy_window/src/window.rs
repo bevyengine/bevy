@@ -1,4 +1,6 @@
-use alloc::{borrow::ToOwned, format, string::String};
+#[cfg(feature = "std")]
+use alloc::format;
+use alloc::{borrow::ToOwned, string::String};
 use core::num::NonZero;
 
 use bevy_ecs::{
@@ -172,7 +174,7 @@ pub struct Window {
     pub title: String,
     /// Stores the application ID (on **`Wayland`**), `WM_CLASS` (on **`X11`**) or window class name (on **`Windows`**) of the window.
     ///
-    /// For details about application ID conventions, see the [Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#desktop-file-id).
+    /// For details about application ID conventions, see the [Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry/latest/file-naming.html#desktop-file-id).
     /// For details about `WM_CLASS`, see the [X11 Manual Pages](https://www.x.org/releases/current/doc/man/man3/XAllocClassHint.3.xhtml).
     /// For details about **`Windows`**'s window class names, see [About Window Classes](https://learn.microsoft.com/en-us/windows/win32/winmsg/about-window-classes).
     ///
@@ -430,6 +432,18 @@ pub struct Window {
     ///
     /// [`WindowAttributesExtMacOS::with_titlebar_buttons_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_buttons_hidden
     pub titlebar_show_buttons: bool,
+    /// Hides the dock and menu bar when a borderless fullscreen window is active.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_borderless_game`].
+    ///
+    /// Defaults to `true` as this is the expected behavior for games.
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_borderless_game`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_borderless_game
+    pub borderless_game: bool,
     /// Sets whether the Window prefers the home indicator hidden.
     ///
     /// Corresponds to [`WindowAttributesExtIOS::with_prefers_home_indicator_hidden`].
@@ -502,6 +516,7 @@ impl Default for Window {
             titlebar_transparent: false,
             titlebar_show_title: true,
             titlebar_show_buttons: true,
+            borderless_game: true,
             prefers_home_indicator_hidden: false,
             prefers_status_bar_hidden: false,
             preferred_screen_edges_deferring_system_gestures: Default::default(),
@@ -749,10 +764,9 @@ pub struct CursorOptions {
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
+    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`] and falls back to [`CursorGrabMode::None`].
+    /// - **`X11`** doesn't support [`CursorGrabMode::Locked`] and falls back to [`CursorGrabMode::Confined`].
     /// - **`iOS/Android`** don't have cursors.
-    ///
-    /// Since `macOS` doesn't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub grab_mode: CursorGrabMode,
 
     /// Set whether or not mouse events within *this* window are captured or fall through to the Window below.
@@ -906,10 +920,10 @@ impl Default for WindowResolution {
 
 impl WindowResolution {
     /// Creates a new [`WindowResolution`].
-    pub fn new(physical_width: f32, physical_height: f32) -> Self {
+    pub fn new(physical_width: u32, physical_height: u32) -> Self {
         Self {
-            physical_width: physical_width as u32,
-            physical_height: physical_height as u32,
+            physical_width,
+            physical_height,
             ..Default::default()
         }
     }
@@ -1027,33 +1041,21 @@ impl WindowResolution {
     }
 }
 
-impl<I> From<(I, I)> for WindowResolution
-where
-    I: Into<f32>,
-{
-    fn from((width, height): (I, I)) -> WindowResolution {
-        WindowResolution::new(width.into(), height.into())
+impl From<(u32, u32)> for WindowResolution {
+    fn from((width, height): (u32, u32)) -> Self {
+        WindowResolution::new(width, height)
     }
 }
 
-impl<I> From<[I; 2]> for WindowResolution
-where
-    I: Into<f32>,
-{
-    fn from([width, height]: [I; 2]) -> WindowResolution {
-        WindowResolution::new(width.into(), height.into())
+impl From<[u32; 2]> for WindowResolution {
+    fn from([width, height]: [u32; 2]) -> WindowResolution {
+        WindowResolution::new(width, height)
     }
 }
 
-impl From<Vec2> for WindowResolution {
-    fn from(res: Vec2) -> WindowResolution {
+impl From<UVec2> for WindowResolution {
+    fn from(res: UVec2) -> WindowResolution {
         WindowResolution::new(res.x, res.y)
-    }
-}
-
-impl From<DVec2> for WindowResolution {
-    fn from(res: DVec2) -> WindowResolution {
-        WindowResolution::new(res.x as f32, res.y as f32)
     }
 }
 
@@ -1061,10 +1063,9 @@ impl From<DVec2> for WindowResolution {
 ///
 /// ## Platform-specific
 ///
-/// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
+/// - **`macOS`** doesn't support [`CursorGrabMode::Confined`] and falls back to [`CursorGrabMode::None`].
+/// - **`X11`** doesn't support [`CursorGrabMode::Locked`] and falls back to [`CursorGrabMode::Confined`].
 /// - **`iOS/Android`** don't have cursors.
-///
-/// Since `macOS` doesn't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -1157,7 +1158,7 @@ pub enum MonitorSelection {
     Primary,
     /// Uses the monitor with the specified index.
     Index(usize),
-    /// Uses a given [`crate::monitor::Monitor`] entity.
+    /// Uses a given [`Monitor`](`crate::monitor::Monitor`) entity.
     Entity(Entity),
 }
 
@@ -1178,8 +1179,8 @@ pub enum MonitorSelection {
 pub enum VideoModeSelection {
     /// Uses the video mode that the monitor is already in.
     Current,
-    /// Uses a given [`crate::monitor::VideoMode`]. A list of video modes supported by the monitor
-    /// is supplied by [`crate::monitor::Monitor::video_modes`].
+    /// Uses a given [`VideoMode`](`crate::monitor::VideoMode`). A list of video modes supported by the monitor
+    /// is supplied by [`Monitor::video_modes`](`crate::monitor::Monitor::video_modes`).
     Specific(VideoMode),
 }
 
@@ -1358,6 +1359,12 @@ pub enum WindowMode {
     /// the window's logical size may be different from its physical size.
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
+    ///
+    /// Note: Exclusive fullscreen is not available on all platforms (for example
+    /// Wayland does not expose video mode switching to clients). When the selected
+    /// monitor or video mode cannot be resolved, the window falls back to
+    /// [`WindowMode::BorderlessFullscreen`] on the same monitor selection and a
+    /// warning is logged.
     Fullscreen(MonitorSelection, VideoModeSelection),
 }
 
@@ -1469,7 +1476,8 @@ pub struct ClosingWindow;
 /// - Only used on iOS.
 ///
 /// [`winit::platform::ios::ScreenEdge`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/ios/struct.ScreenEdge.html
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum ScreenEdge {
     #[default]
@@ -1496,7 +1504,7 @@ mod tests {
     #[test]
     fn cursor_position_within_window_bounds() {
         let mut window = Window {
-            resolution: WindowResolution::new(800., 600.),
+            resolution: WindowResolution::new(800, 600),
             ..Default::default()
         };
 
@@ -1524,7 +1532,7 @@ mod tests {
     #[test]
     fn cursor_position_not_within_window_bounds() {
         let mut window = Window {
-            resolution: WindowResolution::new(800., 600.),
+            resolution: WindowResolution::new(800, 600),
             ..Default::default()
         };
 
@@ -1541,3 +1549,12 @@ mod tests {
         assert!(window.physical_cursor_position().is_none());
     }
 }
+
+/// Represents the relationship between a Window and the Monitor it is currently on.
+///
+/// # Note
+/// This component is inserted after window creation, this means that there is a small period of
+/// time when the Window exists, but does not know the monitor it is on.
+#[derive(Component, Debug)]
+#[relationship(relationship_target=crate::monitor::HasWindows)]
+pub struct OnMonitor(pub Entity);

@@ -1,15 +1,13 @@
 //! This example demonstrates how to use a storage buffer with `AsBindGroup` in a custom material.
 use bevy::{
+    mesh::MeshTag,
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::MeshTag,
-        render_resource::{AsBindGroup, ShaderRef},
-        storage::ShaderStorageBuffer,
-    },
+    render::{render_resource::AsBindGroup, storage::ShaderBuffer},
+    shader::ShaderRef,
 };
 
-const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wesl";
 
 fn main() {
     App::new()
@@ -23,7 +21,7 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // Example data for the storage buffer
@@ -35,7 +33,7 @@ fn setup(
         [0.0, 1.0, 1.0, 1.0],
     ];
 
-    let colors = buffers.add(ShaderStorageBuffer::from(color_data));
+    let colors = buffers.add(ShaderBuffer::from(color_data));
 
     let mesh_handle = meshes.add(Cuboid::from_size(Vec3::splat(0.3)));
     // Create the custom material with the storage buffer
@@ -52,7 +50,7 @@ fn setup(
             commands.spawn((
                 Mesh3d(mesh_handle.clone()),
                 MeshMaterial3d(material_handle.clone()),
-                MeshTag(current_color_id % 5),
+                MeshTag::new(current_color_id % 5),
                 Transform::from_xyz(i as f32, j as f32, 0.0),
             ));
             current_color_id += 1;
@@ -71,25 +69,21 @@ fn update(
     time: Res<Time>,
     material_handles: Res<CustomMaterialHandle>,
     mut materials: ResMut<Assets<CustomMaterial>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
 ) {
     let material = materials.get_mut(&material_handles.0).unwrap();
 
-    let buffer = buffers.get_mut(&material.colors).unwrap();
-    buffer.set_data(
-        (0..5)
-            .map(|i| {
-                let t = time.elapsed_secs() * 5.0;
-                [
-                    ops::sin(t + i as f32) / 2.0 + 0.5,
-                    ops::sin(t + i as f32 + 2.0) / 2.0 + 0.5,
-                    ops::sin(t + i as f32 + 4.0) / 2.0 + 0.5,
-                    1.0,
-                ]
-            })
-            .collect::<Vec<[f32; 4]>>()
-            .as_slice(),
-    );
+    let mut buffer = buffers.get_mut(&material.colors).unwrap();
+    buffer.clear();
+    buffer.extend((0..5).map(|i| {
+        let t = time.elapsed_secs() * 5.0;
+        [
+            ops::sin(t + i as f32) / 2.0 + 0.5,
+            ops::sin(t + i as f32 + 2.0) / 2.0 + 0.5,
+            ops::sin(t + i as f32 + 4.0) / 2.0 + 0.5,
+            1.0,
+        ]
+    }));
 }
 
 // Holds handles to the custom materials
@@ -100,7 +94,7 @@ struct CustomMaterialHandle(Handle<CustomMaterial>);
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {
     #[storage(0, read_only)]
-    colors: Handle<ShaderStorageBuffer>,
+    colors: Handle<ShaderBuffer>,
 }
 
 impl Material for CustomMaterial {

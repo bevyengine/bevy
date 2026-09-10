@@ -12,8 +12,10 @@ pub use type_data::*;
 mod tests {
     use super::*;
     use crate::{
-        type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct, FromReflect,
-        PartialReflect, Reflect, Struct,
+        structs::{DynamicStruct, Struct},
+        tuple_struct::DynamicTupleStruct,
+        type_registry::TypeRegistry,
+        FromReflect, PartialReflect, Reflect,
     };
     use serde::de::DeserializeSeed;
 
@@ -166,7 +168,7 @@ mod tests {
         let mut registry = TypeRegistry::default();
         registry.register::<TestStruct>();
 
-        let value: DynamicStruct = TestStruct { a: 123, b: 456 }.to_dynamic_struct();
+        let value: DynamicStruct = TestStruct { a: 123, b: 456 }.to_dynamic_struct().unwrap();
 
         let serializer = ReflectSerializer::new(&value, &registry);
 
@@ -177,7 +179,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(&result).unwrap();
         let reflect_deserializer = ReflectDeserializer::new(&registry);
 
-        let expected = value.to_dynamic();
+        let expected = value.to_dynamic().unwrap();
         let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         assert!(expected

@@ -7,7 +7,12 @@
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state, at which point we create
 //! a substate called `IsPaused` to track whether the game is paused or not.
 
-use bevy::{dev_tools::states::*, prelude::*};
+use bevy::{
+    dev_tools::states::*,
+    picking::hover::Hovered,
+    prelude::*,
+    ui_widgets::{Activate, ActivateOnPress, Button},
+};
 
 use ui::*;
 
@@ -40,7 +45,8 @@ fn main() {
         // Most of these remain the same
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::Menu), setup_menu)
-        .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
+        .add_observer(on_activate_start_game.run_if(in_state(AppState::Menu)))
+        .add_systems(Update, hover_style)
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
@@ -60,25 +66,18 @@ fn main() {
         .run();
 }
 
-fn menu(
-    mut next_state: ResMut<NextState<AppState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
-    >,
+fn on_activate_start_game(_: On<Activate>, mut next_state: ResMut<NextState<AppState>>) {
+    next_state.set(AppState::InGame);
+}
+
+fn hover_style(
+    mut button_query: Query<(&Hovered, &mut BackgroundColor), (Changed<Hovered>, With<Button>)>,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-                next_state.set(AppState::InGame);
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-            }
+    for (hovered, mut color) in &mut button_query {
+        if hovered.get() {
+            *color = HOVERED_BUTTON.into();
+        } else {
+            *color = NORMAL_BUTTON.into();
         }
     }
 }
@@ -148,7 +147,6 @@ mod ui {
 
     pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
     pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-    pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
     pub fn setup(mut commands: Commands) {
         commands.spawn(Camera2d);
@@ -159,17 +157,19 @@ mod ui {
             .spawn((
                 Node {
                     // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
                 },
                 children![(
                     Button,
+                    ActivateOnPress,
+                    Hovered::default(),
                     Node {
-                        width: Val::Px(150.),
-                        height: Val::Px(65.),
+                        width: px(150),
+                        height: px(65),
                         // horizontally center child text
                         justify_content: JustifyContent::Center,
                         // vertically center child text
@@ -180,7 +180,7 @@ mod ui {
                     children![(
                         Text::new("Play"),
                         TextFont {
-                            font_size: 33.0,
+                            font_size: FontSize::Px(33.0),
                             ..default()
                         },
                         TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -193,25 +193,32 @@ mod ui {
 
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
+
+        commands.spawn_scene(bsn! {
+            Node {
+                margin: px(10),
+            }
+            Text("Move with arrow keys.\nPress SPACEBAR to pause.")
+        });
     }
 
     pub fn setup_paused_screen(mut commands: Commands) {
         commands.spawn((
-            DespawnOnExitState(IsPaused::Paused),
+            DespawnOnExit(IsPaused::Paused),
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
+                row_gap: px(10),
                 ..default()
             },
             children![(
                 Node {
-                    width: Val::Px(400.),
-                    height: Val::Px(400.),
+                    width: px(400),
+                    height: px(400),
                     // horizontally center child text
                     justify_content: JustifyContent::Center,
                     // vertically center child text
@@ -222,7 +229,7 @@ mod ui {
                 children![(
                     Text::new("Paused"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.9, 0.9, 0.9)),

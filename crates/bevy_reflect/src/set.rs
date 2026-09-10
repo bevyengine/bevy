@@ -1,13 +1,16 @@
-use alloc::{boxed::Box, format, vec::Vec};
+//! A trait used to power [set-like] operations via reflection.
+//!
+//! [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
+use alloc::{boxed::Box, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
 use bevy_platform::collections::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    generics::impl_generic_info_methods, hash_error, type_info::impl_type_methods, ApplyError,
-    Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
-    TypeInfo, TypePath,
+    generics::impl_generic_info_methods, hash_error, ty::impl_type_methods, ApplyError, Generics,
+    PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -29,7 +32,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Set};
+/// use bevy_reflect::{PartialReflect, set::Set};
 /// use std::collections::HashSet;
 ///
 ///
@@ -45,6 +48,8 @@ use crate::{
 /// [`BTreeSet`]: alloc::collections::BTreeSet
 /// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 /// [reflection]: crate
+// Prevents unexpectedly importing this trait when trying to call, for example, `HashSet::iter`
+#[rust_analyzer::completions(ignore_flyimport_methods)]
 pub trait Set: PartialReflect {
     /// Returns a reference to the value.
     ///
@@ -73,13 +78,15 @@ pub trait Set: PartialReflect {
     fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect) -> bool);
 
     /// Creates a new [`DynamicSet`] from this set.
-    fn to_dynamic_set(&self) -> DynamicSet {
+    ///
+    /// Returns an error if any value cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_set(&self) -> Result<DynamicSet, ReflectCloneError> {
         let mut set = DynamicSet::default();
         set.set_represented_type(self.get_represented_type_info());
         for value in self.iter() {
-            set.insert_boxed(value.to_dynamic());
+            set.insert_boxed(value.to_dynamic()?);
         }
-        set
+        Ok(set)
     }
 
     /// Inserts a value into the set.
@@ -90,8 +97,8 @@ pub trait Set: PartialReflect {
 
     /// Removes a value from the set.
     ///
-    /// If the set did not have this value present, `true` is returned.
-    /// If the set did have this value present, `false` is returned.
+    /// If the set did have this value present, `true` is returned.
+    /// If the set did not have this value present, `false` is returned.
     fn remove(&mut self, value: &dyn PartialReflect) -> bool;
 
     /// Checks if the given value is contained in the set
@@ -104,7 +111,7 @@ pub struct SetInfo {
     ty: Type,
     generics: Generics,
     value_ty: Type,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -115,13 +122,13 @@ impl SetInfo {
             ty: Type::of::<TSet>(),
             generics: Generics::new(),
             value_ty: Type::of::<TValue>(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this set.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -136,7 +143,7 @@ impl SetInfo {
     }
 
     /// The docstring of this set, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -301,11 +308,11 @@ impl PartialReflect for DynamicSet {
         ReflectKind::Set
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Set(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Set(self)
     }
 
@@ -478,7 +485,7 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), Ap
 
     for b_value in set_value.iter() {
         if a.get(b_value).is_none() {
-            a.insert_boxed(b_value.to_dynamic());
+            a.insert_boxed(b_value.to_dynamic()?);
         }
     }
     a.retain(&mut |value| set_value.get(value).is_some());
@@ -488,7 +495,7 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), Ap
 
 #[cfg(test)]
 mod tests {
-    use crate::{PartialReflect, Set};
+    use crate::{set::Set, PartialReflect};
 
     use super::DynamicSet;
     use alloc::string::{String, ToString};

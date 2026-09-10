@@ -2,9 +2,11 @@
 
 use crate::{ops, DVec2, DVec3, DVec4, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 use core::{
+    convert::Infallible,
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
 };
+use thiserror::Error;
 use variadics_please::all_tuples_enumerated;
 
 /// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
@@ -396,7 +398,7 @@ impl NormedVectorSpace for f64 {
 /// ```text
 /// top curve = u.interpolate_stable(v, t)
 ///
-///              t0 => p   t1 => q    
+///              t0 => p   t1 => q
 ///   |-------------|---------|-------------|
 /// 0 => u         /           \          1 => v
 ///              /               \
@@ -431,6 +433,8 @@ pub trait StableInterpolate: Clone {
     fn interpolate_stable(&self, other: &Self, t: f32) -> Self;
 
     /// A version of [`interpolate_stable`] that assigns the result to `self` for convenience.
+    ///
+    /// A manual implementation can be provided to optimize in-place mutation, such as avoiding memory allocations.
     ///
     /// [`interpolate_stable`]: StableInterpolate::interpolate_stable
     fn interpolate_stable_assign(&mut self, other: &Self, t: f32) {
@@ -538,6 +542,129 @@ all_tuples_enumerated!(
     T
 );
 
+impl<T: StableInterpolate, const LEN: usize> StableInterpolate for [T; LEN] {
+    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
+        core::array::from_fn(|i| self[i].interpolate_stable(&other[i], t))
+    }
+}
+
+/// Error produced when the values to be interpolated are not in the same units.
+#[derive(Clone, Debug, Error)]
+#[error("cannot interpolate between two values of different units")]
+pub struct MismatchedUnitsError;
+
+/// A trait that indicates that a value _may_ be interpolable via [`StableInterpolate`]. An
+/// interpolation may fail if the values have different units - for example, attempting to
+/// interpolate between [`Val::Px`] and [`Val::Percent`] will fail,
+/// even though they are the same Rust type.
+///
+/// Fallible interpolation can be used for animated transitions, which can be set up to fail
+/// gracefully if the values cannot be interpolated. For example, a transition could smoothly
+/// go from `Val::Px(10)` to `Val::Px(20)`, but if the user attempts to go from `Val::Px(10)` to
+/// `Val::Percent(10)`, the animation player can detect the failure and simply snap to the new
+/// value without interpolating.
+///
+/// An animation clip system can incorporate fallible interpolation to support a broad set of
+/// sequenced parameter values. This can include numeric types, which always interpolate,
+/// enum types, which may or may not interpolate depending on the units, and non-interpolable
+/// types, which always jump immediately to the new value without interpolation. This means, for
+/// example, that you can have an animation track whose value type is a boolean or a string.
+///
+/// Interpolation for simple number and coordinate types will always succeed, as will any type
+/// that implements [`StableInterpolate`]. Types which have different variants such as
+/// [`Val`] and [`Color`] will only fail if the units are different.
+/// Note that [`Color`] has its own, non-fallible mixing methods, but those entail
+/// automatically converting between different color spaces, and is both expensive and complex.
+/// [`TryStableInterpolate`] is more conservative, and doesn't automatically convert between
+/// color spaces. This produces a color interpolation that has more predictable performance.
+///
+/// [`Val::Px`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html#variant.Px
+/// [`Val::Percent`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html#variant.Percent
+/// [`Val`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html
+/// [`Color`]: https://docs.rs/bevy/latest/bevy/color/enum.Color.html
+pub trait TryStableInterpolate: Clone {
+    /// Error produced when the value cannot be interpolated.
+    type Error;
+
+    /// Attempt to interpolate the value. This may fail if the two interpolation values have
+    /// different units, or if the type is not interpolable.
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error>;
+
+    /// A version of [`try_interpolate_stable`] that assigns the result to `self` for convenience.
+    /// On failure, `self` remains unchanged.
+    ///
+    /// A manual implementation can be provided to optimize in-place mutation, such as avoiding memory allocations.
+    ///
+    /// [`try_interpolate_stable`]: TryStableInterpolate::try_interpolate_stable
+    fn try_interpolate_stable_assign(&mut self, other: &Self, t: f32) -> Result<(), Self::Error> {
+        *self = self.try_interpolate_stable(other, t)?;
+        Ok(())
+    }
+
+    /// Like [`StableInterpolate::smooth_nudge`] but fallible.
+    fn try_smooth_nudge(
+        &mut self,
+        target: &Self,
+        decay_rate: f32,
+        delta: f32,
+    ) -> Result<(), Self::Error> {
+        self.try_interpolate_stable_assign(target, 1.0 - ops::exp(-decay_rate * delta))?;
+        Ok(())
+    }
+}
+
+impl<T: StableInterpolate> TryStableInterpolate for T {
+    type Error = Infallible;
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
+        Ok(self.interpolate_stable(other, t))
+    }
+
+    fn try_interpolate_stable_assign(&mut self, other: &Self, t: f32) -> Result<(), Self::Error> {
+        self.interpolate_stable_assign(other, t);
+        Ok(())
+    }
+}
+
+/// Errors produced when interpolating dynamically-sized arrays
+#[cfg(feature = "alloc")]
+#[derive(Clone, Debug, Error)]
+pub enum VecInterpolateError<E> {
+    /// Produced when arrays to be interpolated are of different lengths
+    #[error("cannot interpolate between two arrays of different lengths")]
+    MismatchedLength,
+    /// Produced when an error occurs interpolating an array element
+    #[error(transparent)]
+    Inner(E),
+}
+
+#[cfg(feature = "alloc")]
+impl<E, T: TryStableInterpolate<Error = E>> TryStableInterpolate for alloc::vec::Vec<T> {
+    type Error = VecInterpolateError<E>;
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
+        if self.len() == other.len() {
+            (0..self.len())
+                .map(|i| self[i].try_interpolate_stable(&other[i], t))
+                .collect::<Result<alloc::vec::Vec<_>, _>>()
+                .map_err(VecInterpolateError::Inner)
+        } else {
+            Err(VecInterpolateError::MismatchedLength)
+        }
+    }
+
+    fn try_interpolate_stable_assign(&mut self, other: &Self, t: f32) -> Result<(), Self::Error> {
+        if self.len() == other.len() {
+            for i in 0..self.len() {
+                self[i]
+                    .try_interpolate_stable_assign(&other[i], t)
+                    .map_err(VecInterpolateError::Inner)?;
+            }
+            Ok(())
+        } else {
+            Err(VecInterpolateError::MismatchedLength)
+        }
+    }
+}
+
 /// A type that has tangents.
 pub trait HasTangent {
     /// The tangent type.
@@ -590,4 +717,72 @@ where
     N: HasTangent<Tangent = V>,
 {
     type Tangent = Sum<M::Tangent, N::Tangent>;
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::{vec, vec::Vec};
+    use core::assert_matches;
+
+    use super::{StableInterpolate, TryStableInterpolate, VecInterpolateError};
+
+    #[test]
+    fn interpolate_static_arrays() {
+        let a = [0.0, 1.0];
+        let b = [1.0, 0.0];
+
+        assert_matches!(a.interpolate_stable(&b, 0.25), [0.25, 0.75]);
+        assert_matches!(a.interpolate_stable(&b, 0.5), [0.5, 0.5]);
+        assert_matches!(a.interpolate_stable(&b, 0.75), [0.75, 0.25]);
+    }
+
+    #[test]
+    fn interpolate_dynamic_arrays() {
+        let mut a = vec![0.0, 1.0];
+        let b = vec![1.0, 0.0];
+
+        assert_matches!(a.try_interpolate_stable(&b, 0.25), Ok(v) if v == vec![0.25, 0.75]);
+        assert_matches!(a.try_interpolate_stable(&b, 0.5), Ok(v) if v == vec![0.5, 0.5]);
+        assert_matches!(a.try_interpolate_stable(&b, 0.75), Ok(v) if v == vec![0.75, 0.25]);
+
+        assert_matches!(a.try_interpolate_stable_assign(&b, 0.25), Ok(()));
+        assert_eq!(a, vec![0.25, 0.75]);
+        assert_matches!(a.try_interpolate_stable_assign(&b, 0.5), Ok(()));
+        assert_eq!(a, vec![0.625, 0.375]);
+        assert_matches!(a.try_interpolate_stable_assign(&b, 0.75), Ok(()));
+        assert_eq!(a, vec![0.90625, 0.09375]);
+    }
+
+    #[test]
+    fn interpolate_dynamic_arrays_different_lengths() {
+        let mut a = vec![0.0, 1.0];
+        let b = vec![1.0, 0.0, 1.0];
+
+        assert_matches!(
+            a.try_interpolate_stable(&b, 0.5),
+            Err(VecInterpolateError::MismatchedLength)
+        );
+
+        assert_matches!(
+            a.try_interpolate_stable_assign(&b, 0.5),
+            Err(VecInterpolateError::MismatchedLength)
+        );
+
+        let mut a: Vec<Vec<f32>> = vec![vec![0.0, 1.0], vec![1.0, 0.0]];
+        let b: Vec<Vec<f32>> = vec![vec![1.0, 0.0], vec![0.0, 1.0, 0.0]];
+
+        assert_matches!(
+            a.try_interpolate_stable(&b, 0.5),
+            Err(VecInterpolateError::Inner(
+                VecInterpolateError::MismatchedLength
+            ))
+        );
+
+        assert_matches!(
+            a.try_interpolate_stable_assign(&b, 0.5),
+            Err(VecInterpolateError::Inner(
+                VecInterpolateError::MismatchedLength
+            ))
+        );
+    }
 }

@@ -1,16 +1,17 @@
+use benches::bench;
 use core::hint::black_box;
-use nonmax::NonMaxU32;
 
 use bevy_ecs::{
     bundle::{Bundle, NoBundleEffect},
     component::Component,
-    entity::{Entity, EntityRow},
-    system::{Query, SystemState},
-    world::World,
+    entity::Entity,
+    system::Query,
+    world::{EntityMut, World},
 };
+use chacha20::ChaCha8Rng;
 use criterion::Criterion;
 use rand::{prelude::SliceRandom, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use seq_macro::seq;
 
 #[derive(Component, Default)]
 #[component(storage = "Table")]
@@ -31,16 +32,22 @@ fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
 }
 
-fn setup<T: Component + Default>(entity_count: u32) -> World {
+fn setup<T: Component + Default>(entity_count: u32) -> (World, Vec<Entity>) {
     let mut world = World::default();
-    world.spawn_batch((0..entity_count).map(|_| T::default()));
-    black_box(world)
+    let entities: Vec<Entity> = world
+        .spawn_batch((0..entity_count).map(|_| T::default()))
+        .collect();
+    black_box((world, entities))
 }
 
-fn setup_wide<T: Bundle<Effect: NoBundleEffect> + Default>(entity_count: u32) -> World {
+fn setup_wide<T: Bundle<Effect: NoBundleEffect> + Default>(
+    entity_count: u32,
+) -> (World, Vec<Entity>) {
     let mut world = World::default();
-    world.spawn_batch((0..entity_count).map(|_| T::default()));
-    black_box(world)
+    let entities: Vec<Entity> = world
+        .spawn_batch((0..entity_count).map(|_| T::default()))
+        .collect();
+    black_box((world, entities))
 }
 
 pub fn world_entity(criterion: &mut Criterion) {
@@ -50,14 +57,11 @@ pub fn world_entity(criterion: &mut Criterion) {
 
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{entity_count}_entities"), |bencher| {
-            let world = setup::<Table>(entity_count);
+            let (world, entities) = setup::<Table>(entity_count);
 
             bencher.iter(|| {
-                for i in 0..entity_count {
-                    let entity =
-                        // SAFETY: Range is exclusive.
-                        Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
-                    black_box(world.entity(entity));
+                for entity in &entities {
+                    black_box(world.entity(*entity));
                 }
             });
         });
@@ -73,26 +77,20 @@ pub fn world_get(criterion: &mut Criterion) {
 
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{entity_count}_entities_table"), |bencher| {
-            let world = setup::<Table>(entity_count);
+            let (world, entities) = setup::<Table>(entity_count);
 
             bencher.iter(|| {
-                for i in 0..entity_count {
-                    let entity =
-                        // SAFETY: Range is exclusive.
-                        Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
-                    assert!(world.get::<Table>(entity).is_some());
+                for entity in &entities {
+                    assert!(world.get::<Table>(*entity).is_some());
                 }
             });
         });
         group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
-            let world = setup::<Sparse>(entity_count);
+            let (world, entities) = setup::<Sparse>(entity_count);
 
             bencher.iter(|| {
-                for i in 0..entity_count {
-                    let entity =
-                        // SAFETY: Range is exclusive.
-                        Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
-                    assert!(world.get::<Sparse>(entity).is_some());
+                for entity in &entities {
+                    assert!(world.get::<Sparse>(*entity).is_some());
                 }
             });
         });
@@ -108,20 +106,17 @@ pub fn world_query_get(criterion: &mut Criterion) {
 
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{entity_count}_entities_table"), |bencher| {
-            let mut world = setup::<Table>(entity_count);
+            let (mut world, entities) = setup::<Table>(entity_count);
             let mut query = world.query::<&Table>();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
-                    let entity =
-                        // SAFETY: Range is exclusive.
-                        Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
-                    assert!(query.get(&world, entity).is_ok());
+                for entity in &entities {
+                    assert!(query.get(&world, *entity).is_ok());
                 }
             });
         });
         group.bench_function(format!("{entity_count}_entities_table_wide"), |bencher| {
-            let mut world = setup_wide::<(
+            let (mut world, entities) = setup_wide::<(
                 WideTable<0>,
                 WideTable<1>,
                 WideTable<2>,
@@ -139,29 +134,23 @@ pub fn world_query_get(criterion: &mut Criterion) {
             )>();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
-                    let entity =
-                        // SAFETY: Range is exclusive.
-                        Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
-                    assert!(query.get(&world, entity).is_ok());
+                for entity in &entities {
+                    assert!(query.get(&world, *entity).is_ok());
                 }
             });
         });
         group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
-            let mut world = setup::<Sparse>(entity_count);
+            let (mut world, entities) = setup::<Sparse>(entity_count);
             let mut query = world.query::<&Sparse>();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
-                    let entity =
-                        // SAFETY: Range is exclusive.
-                        Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
-                    assert!(query.get(&world, entity).is_ok());
+                for entity in &entities {
+                    assert!(query.get(&world, *entity).is_ok());
                 }
             });
         });
         group.bench_function(format!("{entity_count}_entities_sparse_wide"), |bencher| {
-            let mut world = setup_wide::<(
+            let (mut world, entities) = setup_wide::<(
                 WideSparse<0>,
                 WideSparse<1>,
                 WideSparse<2>,
@@ -179,11 +168,8 @@ pub fn world_query_get(criterion: &mut Criterion) {
             )>();
 
             bencher.iter(|| {
-                for i in 0..entity_count {
-                    // SAFETY: Range is exclusive.
-                    let entity =
-                        Entity::from_raw(EntityRow::new(unsafe { NonMaxU32::new_unchecked(i) }));
-                    assert!(query.get(&world, entity).is_ok());
+                for entity in &entities {
+                    assert!(query.get(&world, *entity).is_ok());
                 }
             });
         });
@@ -199,7 +185,7 @@ pub fn world_query_iter(criterion: &mut Criterion) {
 
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{entity_count}_entities_table"), |bencher| {
-            let mut world = setup::<Table>(entity_count);
+            let (mut world, _) = setup::<Table>(entity_count);
             let mut query = world.query::<&Table>();
 
             bencher.iter(|| {
@@ -213,7 +199,7 @@ pub fn world_query_iter(criterion: &mut Criterion) {
             });
         });
         group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
-            let mut world = setup::<Sparse>(entity_count);
+            let (mut world, _) = setup::<Sparse>(entity_count);
             let mut query = world.query::<&Sparse>();
 
             bencher.iter(|| {
@@ -238,7 +224,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
 
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{entity_count}_entities_table"), |bencher| {
-            let mut world = setup::<Table>(entity_count);
+            let (mut world, _) = setup::<Table>(entity_count);
             let mut query = world.query::<&Table>();
 
             bencher.iter(|| {
@@ -252,7 +238,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
             });
         });
         group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
-            let mut world = setup::<Sparse>(entity_count);
+            let (mut world, _) = setup::<Sparse>(entity_count);
             let mut query = world.query::<&Sparse>();
 
             bencher.iter(|| {
@@ -282,10 +268,8 @@ pub fn query_get(criterion: &mut Criterion) {
                 .spawn_batch((0..entity_count).map(|_| Table::default()))
                 .collect();
             entities.shuffle(&mut deterministic_rand());
-            let mut query = SystemState::<Query<&Table>>::new(&mut world);
-            let query = query.get(&world);
 
-            bencher.iter(|| {
+            let query = move |query: Query<&Table>| {
                 let mut count = 0;
                 for comp in entities.iter().flat_map(|&e| query.get(e)) {
                     black_box(comp);
@@ -293,6 +277,10 @@ pub fn query_get(criterion: &mut Criterion) {
                     black_box(count);
                 }
                 assert_eq!(black_box(count), entity_count);
+            };
+            let query_id = world.register_system(query);
+            bencher.iter(|| {
+                world.run_system(query_id).unwrap();
             });
         });
         group.bench_function(format!("{entity_count}_entities_sparse"), |bencher| {
@@ -301,10 +289,8 @@ pub fn query_get(criterion: &mut Criterion) {
                 .spawn_batch((0..entity_count).map(|_| Sparse::default()))
                 .collect();
             entities.shuffle(&mut deterministic_rand());
-            let mut query = SystemState::<Query<&Sparse>>::new(&mut world);
-            let query = query.get(&world);
 
-            bencher.iter(|| {
+            let query = move |query: Query<&Sparse>| {
                 let mut count = 0;
                 for comp in entities.iter().flat_map(|&e| query.get(e)) {
                     black_box(comp);
@@ -312,6 +298,10 @@ pub fn query_get(criterion: &mut Criterion) {
                     black_box(count);
                 }
                 assert_eq!(black_box(count), entity_count);
+            };
+            let query_id = world.register_system(query);
+            bencher.iter(|| {
+                world.run_system(query_id).unwrap();
             });
         });
     }
@@ -332,10 +322,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                 .collect();
             entity_groups.shuffle(&mut deterministic_rand());
 
-            let mut query = SystemState::<Query<&Table>>::new(&mut world);
-            let query = query.get(&world);
-
-            bencher.iter(|| {
+            let query = move |query: Query<&Table>| {
                 let mut count = 0;
                 for comp in entity_groups
                     .iter()
@@ -346,6 +333,10 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                     black_box(count);
                 }
                 assert_eq!(black_box(count), entity_count);
+            };
+            let query_id = world.register_system(query);
+            bencher.iter(|| {
+                world.run_system(query_id).unwrap();
             });
         });
         group.bench_function(format!("{entity_count}_calls_sparse"), |bencher| {
@@ -355,10 +346,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                 .collect();
             entity_groups.shuffle(&mut deterministic_rand());
 
-            let mut query = SystemState::<Query<&Sparse>>::new(&mut world);
-            let query = query.get(&world);
-
-            bencher.iter(|| {
+            let query = move |query: Query<&Sparse>| {
                 let mut count = 0;
                 for comp in entity_groups
                     .iter()
@@ -369,7 +357,149 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                     black_box(count);
                 }
                 assert_eq!(black_box(count), entity_count);
+            };
+            let query_id = world.register_system(query);
+            bencher.iter(|| {
+                world.run_system(query_id).unwrap();
             });
         });
     }
+}
+
+macro_rules! query_get_components_mut {
+    ($function_name:ident, $val:literal) => {
+        pub fn $function_name(criterion: &mut Criterion) {
+            let mut group = criterion.benchmark_group(bench!("world_query_get_components_mut"));
+            group.warm_up_time(core::time::Duration::from_millis(500));
+            group.measurement_time(core::time::Duration::from_secs(4));
+
+            for entity_count in RANGE.map(|i| i * 10_000) {
+                seq!(N in 0..$val {
+                    let (mut world, entities) = setup_wide::<(
+                        #(WideTable<N>,)*
+                    )>(entity_count);
+                });
+                let mut query = world.query::<EntityMut>();
+                group.bench_function(format!("{}_components_{entity_count}_entities", $val), |bencher| {
+                    bencher.iter(|| {
+                        for entity in &entities {
+                            seq!(N in 0..$val {
+                                assert!(query
+                                    .get_mut(&mut world, *entity)
+                                    .unwrap()
+                                    .get_components_mut::<(
+                                            #(&mut WideTable<N>,)*
+                                        )>()
+                                        .is_ok());
+                            });
+                        }
+                    });
+                });
+                group.bench_function(
+                    format!("unchecked_{}_components_{entity_count}_entities", $val),
+                    |bencher| {
+                        bencher.iter(|| {
+                            for entity in &entities {
+                                // SAFETY: no duplicate components are listed
+                                unsafe {
+                                    seq!(N in 0..$val {
+                                        assert!(query
+                                            .get_mut(&mut world, *entity)
+                                            .unwrap()
+                                            .get_components_mut_unchecked::<(
+                                                    #(&mut WideTable<N>,)*
+                                                )>()
+                                                .is_ok());
+                                    });
+                                }
+                            }
+                        });
+                    },
+                );
+            }
+
+            group.finish();
+        }
+    };
+}
+
+query_get_components_mut!(query_get_components_mut_2, 2);
+query_get_components_mut!(query_get_components_mut_5, 5);
+query_get_components_mut!(query_get_components_mut_10, 10);
+
+// I'd like to do this as a macro, but we're bounded by the QueryData tuple size limit
+pub fn query_get_components_mut_32(criterion: &mut Criterion) {
+    #[expect(
+        clippy::identity_op,
+        clippy::erasing_op,
+        reason = "Clippy complains that, at some point in the 32 component
+              bench, C32/RefC32 expand to 0 * 16 or 0 * 4 or 0. The
+              alternative is to make the bounds 2..(n + 2) which is
+              much less readable."
+    )]
+    type C32 = seq!(I in 0..2 {
+        ( #(
+            seq!(J in 0..4 {
+                ( #(
+                    seq!(K in 0..4 {
+                        ( #( WideTable::<{I * 16 + J * 4 + K}>, )* )
+                    }),
+                )* )
+            }),
+        )* )
+    });
+    #[expect(
+        clippy::identity_op,
+        clippy::erasing_op,
+        reason = "Clippy complains that, at some point in the 32 component
+              bench, C32/RefC32 expand to 0 * 16 or 0 * 4 or 0. The
+              alternative is to make the bounds 2..(n + 2) which is
+              much less readable."
+    )]
+    type RefC32<'a> = seq!(I in 0..2 {
+        ( #(
+            seq!(J in 0..4 {
+                ( #(
+                    seq!(K in 0..4 {
+                        ( #( &'a WideTable::<{I * 16 + J * 4 + K}>, )* )
+                    }),
+                )* )
+            }),
+        )* )
+    });
+    let mut group = criterion.benchmark_group(bench!("world_query_get_components_mut"));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+
+    for entity_count in RANGE.map(|i| i * 10_000) {
+        let (mut world, entities) = setup_wide::<C32>(entity_count);
+        let mut query = world.query::<EntityMut>();
+        group.bench_function("32_components", |bencher| {
+            bencher.iter(|| {
+                for entity in &entities {
+                    assert!(query
+                        .get_mut(&mut world, *entity)
+                        .unwrap()
+                        .get_components_mut::<RefC32>()
+                        .is_ok());
+                }
+            });
+        });
+        group.bench_function("unchecked_32_components", |bencher| {
+            bencher.iter(|| {
+                for entity in &entities {
+                    // SAFETY: no duplicate components are listed
+                    unsafe {
+                        assert!(query
+                            .get_mut(&mut world, *entity)
+                            .unwrap()
+                            .get_components_mut_unchecked::<RefC32>()
+                            .is_ok());
+                    }
+                }
+            });
+        });
+    }
+
+    group.finish();
 }

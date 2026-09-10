@@ -197,6 +197,34 @@ impl Animatable for Quat {
     }
 }
 
+impl Animatable for Rot2 {
+    /// Performs a slerp to smoothly interpolate between 2D rotations.
+    #[inline]
+    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+        // We want to smoothly interpolate between the two rotations by default,
+        // mirroring the behavior of `Quat` to ensure shortest-path consistency.
+        a.slerp(*b, t)
+    }
+
+    #[inline]
+    fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
+        let mut value = Self::IDENTITY;
+        for BlendInput {
+            weight,
+            value: incoming_value,
+            additive,
+        } in inputs
+        {
+            if additive {
+                value = Self::slerp(Self::IDENTITY, incoming_value, weight) * value;
+            } else {
+                value = Self::interpolate(&value, &incoming_value, weight);
+            }
+        }
+        value
+    }
+}
+
 /// Evaluates a cubic Bézier curve at a value `t`, given two endpoints and the
 /// derivatives at those endpoints.
 ///
@@ -269,4 +297,117 @@ where
     let p0p1p2 = T::interpolate(&p0p1, &p1p2, t);
     let p1p2p3 = T::interpolate(&p1p2, &p2p3, t);
     T::interpolate(&p0p1p2, &p1p2p3, t)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::f32::consts::{FRAC_PI_2, PI};
+
+    const EPSILON: f32 = 1e-5;
+
+    #[test]
+    fn test_rot2_shortest_path() {
+        // Interpolate from 89.99° to -89.99°.
+        // The shortest path must pass through 0° rather than 180°.
+        let a = Rot2::radians(FRAC_PI_2 - EPSILON);
+        let b = Rot2::radians(EPSILON - FRAC_PI_2);
+
+        let mid = Animatable::interpolate(&a, &b, 0.5);
+
+        assert!(
+            mid.as_radians().abs() < EPSILON,
+            "Expected shortest path through 0°, but got {}°",
+            mid.as_radians().to_degrees()
+        );
+    }
+
+    #[test]
+    fn test_rot2_blend_two_equal() {
+        // Two equal weights (0.5 each) for 0° and 90°.
+        // Result should be exactly 45°.
+        let inputs = [
+            BlendInput {
+                weight: 0.5,
+                value: Rot2::IDENTITY,
+                additive: false,
+            },
+            BlendInput {
+                weight: 0.5,
+                value: Rot2::radians(FRAC_PI_2),
+                additive: false,
+            },
+        ];
+
+        let blended = Animatable::blend(inputs.into_iter());
+
+        assert!(
+            (blended.as_radians() - FRAC_PI_2 / 2.0).abs() < EPSILON,
+            "Expected 45°, got {}°",
+            blended.as_radians().to_degrees()
+        );
+    }
+
+    #[test]
+    fn test_rot2_blend_three_equal() {
+        // Three equal weights (1/3 each) for 0°, 90°, and 180°.
+        // Bevy's cumulative blending:
+        // 1. interpolate(IDENTITY, 0°, 0.33) = 0°
+        // 2. interpolate(0°, 90°, 0.33) = 30°
+        // 3. interpolate(30°, 180°, 0.33) = 80°
+        // This confirms the implementation matches Bevy's standard blending behavior.
+
+        let inputs = [
+            BlendInput {
+                weight: 1.0 / 3.0,
+                value: Rot2::IDENTITY,
+                additive: false,
+            },
+            BlendInput {
+                weight: 1.0 / 3.0,
+                value: Rot2::radians(FRAC_PI_2),
+                additive: false,
+            },
+            BlendInput {
+                weight: 1.0 / 3.0,
+                value: Rot2::radians(PI),
+                additive: false,
+            },
+        ];
+
+        let blended = Animatable::blend(inputs.into_iter());
+        let result_deg = blended.as_radians().to_degrees();
+
+        // We expect approximately 80° due to the cumulative nature of the blend logic.
+        assert!(
+            (result_deg - 80.0).abs() < 5.0,
+            "Three-way blend result should be approximately 80° (got {}°), matching Bevy's cumulative logic",
+            result_deg
+        );
+    }
+
+    #[test]
+    fn test_rot2_blend_additive() {
+        // Base 45° + Additive 90° (weight 1.0) = 135°.
+        let inputs = [
+            BlendInput {
+                weight: 1.0,
+                value: Rot2::radians(PI / 4.0),
+                additive: false,
+            },
+            BlendInput {
+                weight: 1.0,
+                value: Rot2::radians(FRAC_PI_2),
+                additive: true,
+            },
+        ];
+
+        let blended = Animatable::blend(inputs.into_iter());
+
+        assert!(
+            (blended.as_radians() - 3.0 * PI / 4.0).abs() < EPSILON,
+            "Expected 135° (3PI/4), but got {}°",
+            blended.as_radians().to_degrees()
+        );
+    }
 }

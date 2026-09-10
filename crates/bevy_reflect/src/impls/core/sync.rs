@@ -1,16 +1,15 @@
 use crate::{
     error::ReflectCloneError,
+    info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
     reflect::{impl_full_reflect, ApplyError},
-    type_info::{OpaqueInfo, TypeInfo, Typed},
     type_path::DynamicTypePath,
-    type_registry::{FromType, GetTypeRegistration, ReflectFromPtr, TypeRegistration},
+    type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::NonGenericTypeInfoCell,
 };
 use bevy_platform::prelude::*;
 use bevy_reflect_derive::impl_type_path;
-use core::any::Any;
 use core::fmt;
 
 macro_rules! impl_reflect_for_atomic {
@@ -21,31 +20,25 @@ macro_rules! impl_reflect_for_atomic {
             #[cfg(feature = "functions")]
             crate::func::macros::impl_function_traits!($ty);
 
-            impl GetTypeRegistration for $ty
-            where
-                $ty: Any + Send + Sync,
-            {
+            impl GetTypeRegistration for $ty {
                 fn get_type_registration() -> TypeRegistration {
                     let mut registration = TypeRegistration::of::<Self>();
-                    registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-                    registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
-                    registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
+                    registration.register_type_data::<ReflectFromPtr, Self>();
+                    registration.register_type_data::<ReflectFromReflect, Self>();
+                    registration.register_type_data::<ReflectDefault, Self>();
 
                     // Serde only supports atomic types when the "std" feature is enabled
                     #[cfg(feature = "std")]
                     {
-                        registration.insert::<crate::type_registry::ReflectSerialize>(FromType::<Self>::from_type());
-                        registration.insert::<crate::type_registry::ReflectDeserialize>(FromType::<Self>::from_type());
+                        registration.register_type_data::<crate::type_registry::ReflectSerialize, Self>();
+                        registration.register_type_data::<crate::type_registry::ReflectDeserialize, Self>();
                     }
 
                     registration
                 }
             }
 
-            impl Typed for $ty
-            where
-                $ty: Any + Send + Sync,
-            {
+            impl Typed for $ty {
                 fn type_info() -> &'static TypeInfo {
                     static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
                     CELL.get_or_set(|| {
@@ -55,10 +48,7 @@ macro_rules! impl_reflect_for_atomic {
                 }
             }
 
-            impl PartialReflect for $ty
-            where
-                $ty: Any + Send + Sync,
-            {
+            impl PartialReflect for $ty {
                 #[inline]
                 fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                     Some(<Self as Typed>::type_info())
@@ -112,11 +102,11 @@ macro_rules! impl_reflect_for_atomic {
                     ReflectKind::Opaque
                 }
                 #[inline]
-                fn reflect_ref(&self) -> ReflectRef {
+                fn reflect_ref(&self) -> ReflectRef<'_> {
                     ReflectRef::Opaque(self)
                 }
                 #[inline]
-                fn reflect_mut(&mut self) -> ReflectMut {
+                fn reflect_mut(&mut self) -> ReflectMut<'_> {
                     ReflectMut::Opaque(self)
                 }
                 #[inline]
@@ -128,10 +118,7 @@ macro_rules! impl_reflect_for_atomic {
                 }
             }
 
-            impl FromReflect for $ty
-            where
-                $ty: Any + Send + Sync,
-            {
+            impl FromReflect for $ty {
                 fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
                     Some(<$ty>::new(
                         reflect.try_downcast_ref::<$ty>()?.load($ordering),
@@ -140,7 +127,7 @@ macro_rules! impl_reflect_for_atomic {
             }
         };
 
-        impl_full_reflect!(for $ty where $ty: Any + Send + Sync);
+        impl_full_reflect!(for $ty);
     };
 }
 

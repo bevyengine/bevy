@@ -1,11 +1,12 @@
 use crate::{
     batching::BatchingStrategy,
-    component::Tick,
+    change_detection::Tick,
     entity::{EntityEquivalent, UniqueEntityEquivalentVec},
+    query::{ArchetypeFilter, ContiguousQueryData, QueryContiguousIter, QueryEntityError},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{QueryData, QueryFilter, QueryItem, QueryState, ReadOnlyQueryData};
+use super::{IterQueryData, QueryFilter, QueryItem, QueryState, ReadOnlyQueryData};
 
 use alloc::vec::Vec;
 
@@ -13,7 +14,7 @@ use alloc::vec::Vec;
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, 's, D: QueryData, F: QueryFilter> {
+pub struct QueryParIter<'w, 's, D: IterQueryData, F: QueryFilter> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<D, F>,
     pub(crate) last_run: Tick,
@@ -21,7 +22,7 @@ pub struct QueryParIter<'w, 's, D: QueryData, F: QueryFilter> {
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
+impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see
@@ -155,13 +156,196 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     }
 }
 
+/// A parallel iterator over contiguous query results on a
+/// [`Query`](crate::system::Query).
+///
+/// The
+/// [`Query::contiguous_par_iter`](crate::system::Query::contiguous_par_iter)
+/// and
+/// [`Query::contiguous_par_iter_mut`](crate::system::Query::contiguous_par_iter_mut)
+/// methods create instances of this structure.
+pub struct QueryContiguousParIter<'w, 's, D, F>
+where
+    D: ContiguousQueryData,
+    F: ArchetypeFilter,
+{
+    /// A reference to the world that contains the components that this query
+    /// iterates over.
+    pub(crate) world: UnsafeWorldCell<'w>,
+    /// Scoped access to the world state.
+    pub(crate) state: &'s QueryState<D, F>,
+    /// The tick that corresponds to the previous time this query ran.
+    pub(crate) last_run: Tick,
+    /// The tick that corresponds to the current run of the query.
+    pub(crate) this_run: Tick,
+    /// How matched rows are to be divided among worker threads.
+    pub(crate) batching_strategy: BatchingStrategy,
+}
+
+impl<'w, 's, D, F> QueryContiguousParIter<'w, 's, D, F>
+where
+    D: ContiguousQueryData,
+    F: ArchetypeFilter,
+{
+    /// Returns `None` if `query_state` is not dense, and hence not contiguously iterable.
+    pub(crate) fn new(
+        world: UnsafeWorldCell<'w>,
+        state: &'s QueryState<D, F>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Option<Self> {
+        state.is_dense.then(|| Self {
+            world,
+            state,
+            last_run,
+            this_run,
+            batching_strategy: BatchingStrategy::new(),
+        })
+    }
+
+    /// Changes the batching strategy used when iterating.
+    ///
+    /// For more information on how this affects the resultant iteration, see
+    /// [`BatchingStrategy`].
+    pub fn batching_strategy(mut self, strategy: BatchingStrategy) -> Self {
+        self.batching_strategy = strategy;
+        self
+    }
+
+    /// Runs `func` on each contiguous chunk of query results in parallel.
+    ///
+    /// # Panics
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a
+    /// query that is being initialized and run from the ECS scheduler, this
+    /// should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[inline]
+    pub fn for_each(self, func: impl Fn(D::Contiguous<'w, 's>) + Send + Sync + Clone) {
+        self.for_each_init(|| {}, |_, item| func(item));
+    }
+
+    /// Runs `func` on each query result in parallel on a value returned by `init`.
+    ///
+    /// `init` may be called multiple times per thread, and the values returned may be discarded between tasks on any given thread.
+    /// Callers should avoid using this function as if it were a parallel version
+    /// of [`Iterator::fold`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_utils::Parallel;
+    /// use crate::{bevy_ecs::prelude::Component, bevy_ecs::system::Query};
+    /// #[derive(Component)]
+    /// struct T;
+    /// fn system(query: Query<&T>){
+    ///     let mut queue: Parallel<usize> = Parallel::default();
+    ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread.
+    ///     // We unwrap the call to `contiguous_par_iter()` because we know the query in question is dense.
+    ///     query.contiguous_par_iter().unwrap().for_each_init(|| queue.borrow_local_mut(),|local_queue, items| {
+    ///         for _ in items {
+    ///             **local_queue += 1;
+    ///         }
+    ///      });
+    ///
+    ///     // collect value from every thread
+    ///     let entity_count: usize = queue.iter_mut().map(|v| *v).sum();
+    /// }
+    /// ```
+    ///
+    /// # Panics
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from a
+    /// query that is being initialized and run from the ECS scheduler, this
+    /// should never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    pub fn for_each_init<T>(
+        self,
+        init: impl Fn() -> T + Sync + Send + Clone,
+        func: impl Fn(&mut T, D::Contiguous<'w, 's>) + Send + Sync + Clone,
+    ) {
+        let func = |mut init, item| {
+            func(&mut init, item);
+            init
+        };
+
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        unsafe {
+            // SAFETY: This method can only be called once per instance of
+            // `QueryContiguousParIter`, which ensures that mutable queries
+            // cannot be executed multiple times at once.  Mutable instances of
+            // `QueryContiguousParIter` can only be created via an exclusive
+            // borrow of a `Query` or a `World`, which ensures that multiple
+            // aliasing `QueryContiguousParIter`s cannot exist at the same time.
+            QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run)
+                .unwrap()
+                .fold(init(), func);
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+        {
+            let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
+            // SAFETY: This method can only be called once per instance of
+            // `QueryContiguousParIter`, which ensures that mutable queries
+            // cannot be executed multiple times at once.  Mutable instances of
+            // `QueryContiguousParIter` can only be created via an exclusive
+            // borrow of a `Query` or a `World`, which ensures that multiple
+            // aliasing `QueryContiguousParIter`s cannot exist at the same time.
+            unsafe {
+                if thread_count <= 1 {
+                    // Just run sequentially.
+                    QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run)
+                        .unwrap()
+                        .fold(init(), func);
+                    return;
+                }
+
+                // Dispatch to `contiguous_par_fold_init_unchecked_manual` for
+                // parallel iteration.
+                let batch_size = self.get_batch_size(thread_count).max(1);
+                self.state.contiguous_par_fold_init_unchecked_manual(
+                    init,
+                    self.world,
+                    batch_size,
+                    func,
+                    self.last_run,
+                    self.this_run,
+                );
+            }
+        }
+    }
+
+    /// Returns the size of each batch in rows, given a thread count and the
+    /// current batching strategy.
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+    fn get_batch_size(&self, thread_count: usize) -> u32 {
+        let max_items = || {
+            let id_iter = self.state.matched_storage_ids.iter();
+            // SAFETY: We only access table metadata.
+            let tables = unsafe { &self.world.storages().tables };
+            id_iter
+                .map(|id| {
+                    // SAFETY: Contiguous iteration can only process tables, so
+                    // we must have a table here.
+                    let table_id = unsafe { id.table_id };
+                    tables[table_id].entity_count()
+                })
+                .max()
+                .map(|v| v as usize)
+                .unwrap_or(0)
+        };
+        self.batching_strategy
+            .calc_batch_size(max_items, thread_count) as u32
+    }
+}
+
 /// A parallel iterator over the unique query items generated from an [`Entity`] list.
 ///
 /// This struct is created by the [`Query::par_iter_many`] method.
 ///
 /// [`Entity`]: crate::entity::Entity
 /// [`Query::par_iter_many`]: crate::system::Query::par_iter_many
-pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent> {
+pub struct QueryParManyIter<'w, 's, D: IterQueryData, F: QueryFilter, E: EntityEquivalent> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<D, F>,
     pub(crate) entity_list: Vec<E>,
@@ -190,7 +374,12 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<
+        FN: Fn(Result<QueryItem<'w, 's, D>, QueryEntityError>) + Send + Sync + Clone,
+    >(
+        self,
+        func: FN,
+    ) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -231,12 +420,13 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
     ///     query.par_iter_many(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
-    ///         **local_queue += some_expensive_operation(item);
+    ///         **local_queue += some_expensive_operation(item.unwrap());
     ///     });
     ///
     ///     // collect value from every thread
     ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
+    /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     ///
     /// # Panics
@@ -247,7 +437,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, Result<QueryItem<'w, 's, D>, QueryEntityError>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {
@@ -315,8 +505,13 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
 /// [`EntitySet`]: crate::entity::EntitySet
 /// [`Query::par_iter_many_unique`]: crate::system::Query::par_iter_many_unique
 /// [`Query::par_iter_many_unique_mut`]: crate::system::Query::par_iter_many_unique_mut
-pub struct QueryParManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
-{
+pub struct QueryParManyUniqueIter<
+    'w,
+    's,
+    D: IterQueryData,
+    F: QueryFilter,
+    E: EntityEquivalent + Sync,
+> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<D, F>,
     pub(crate) entity_list: UniqueEntityEquivalentVec<E>,
@@ -325,7 +520,7 @@ pub struct QueryParManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, E: Entit
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
+impl<'w, 's, D: IterQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     QueryParManyUniqueIter<'w, 's, D, F, E>
 {
     /// Changes the batching strategy used when iterating.
@@ -345,7 +540,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<
+        FN: Fn(Result<QueryItem<'w, 's, D>, QueryEntityError>) + Send + Sync + Clone,
+    >(
+        self,
+        func: FN,
+    ) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -386,12 +586,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
     ///     query.par_iter_many_unique(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
-    ///         **local_queue += some_expensive_operation(item);
+    ///         **local_queue += some_expensive_operation(item.unwrap());
     ///     });
     ///
     ///     // collect value from every thread
     ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
+    /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     ///
     /// # Panics
@@ -402,7 +603,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, Result<QueryItem<'w, 's, D>, QueryEntityError>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {

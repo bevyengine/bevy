@@ -7,19 +7,18 @@ use std::str::FromStr;
 
 use argh::FromArgs;
 use bevy::{
+    asset::RenderAssetUsages,
     color::palettes::basic::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
-    sprite::AlphaMode2d,
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    sprite::SpriteAlphaMode,
+    sprite_render::AlphaMode2d,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
-use rand::{seq::SliceRandom, Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{seq::IndexedRandom, RngExt, SeedableRng};
 
 const BIRDS_PER_SECOND: u32 = 10000;
 const GRAVITY: f32 = -9.8 * 100.0;
@@ -135,8 +134,7 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "BevyMark".into(),
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                     present_mode: PresentMode::AutoNoVsync,
                     ..default()
                 }),
@@ -145,10 +143,8 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(StaticTransformOptimizations::Disabled)
+        .insert_resource(WinitSettings::continuous())
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,
@@ -246,14 +242,14 @@ fn setup(
         quad: meshes.add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32))),
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
-        color_rng: ChaCha8Rng::seed_from_u64(42),
-        material_rng: ChaCha8Rng::seed_from_u64(42),
-        velocity_rng: ChaCha8Rng::seed_from_u64(42),
-        transform_rng: ChaCha8Rng::seed_from_u64(42),
+        color_rng: ChaCha8Rng::seed_from_u64(100),
+        material_rng: ChaCha8Rng::seed_from_u64(200),
+        velocity_rng: ChaCha8Rng::seed_from_u64(300),
+        transform_rng: ChaCha8Rng::seed_from_u64(400),
     };
 
     let font = TextFont {
-        font_size: 40.0,
+        font_size: FontSize::Px(40.0),
         ..Default::default()
     };
 
@@ -262,7 +258,7 @@ fn setup(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                padding: UiRect::all(Val::Px(5.0)),
+                padding: UiRect::all(px(5)),
                 ..default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.75)),
@@ -340,12 +336,12 @@ fn mouse_handler(
     if rng.is_none() {
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
-        *rng = Some(ChaCha8Rng::seed_from_u64(42));
+        *rng = Some(ChaCha8Rng::seed_from_u64(500));
     }
     let rng = rng.as_mut().unwrap();
 
     if mouse_button_input.just_released(MouseButton::Left) {
-        counter.color = Color::linear_rgb(rng.r#gen(), rng.r#gen(), rng.r#gen());
+        counter.color = Color::linear_rgb(rng.random(), rng.random(), rng.random());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
@@ -371,7 +367,7 @@ fn bird_velocity_transform(
     waves: Option<usize>,
     dt: f32,
 ) -> (Transform, Vec3) {
-    let mut velocity = Vec3::new(MAX_VELOCITY * (velocity_rng.r#gen::<f32>() - 0.5), 0., 0.);
+    let mut velocity = Vec3::new(MAX_VELOCITY * (velocity_rng.random::<f32>() - 0.5), 0., 0.);
 
     if let Some(waves) = waves {
         // Step the movement and handle collisions as if the wave had been spawned at fixed time intervals
@@ -409,12 +405,18 @@ fn spawn_birds(
 
     match args.mode {
         Mode::Sprite => {
+            let alpha_mode = match args.alpha_mode {
+                AlphaMode::Opaque => SpriteAlphaMode::Opaque,
+                AlphaMode::Blend => SpriteAlphaMode::Blend,
+                AlphaMode::AlphaMask => SpriteAlphaMode::Mask(0.5),
+            };
+
             let batch = (0..spawn_count)
                 .map(|count| {
                     let bird_z = if args.ordered_z {
                         (current_count + count) as f32 * 0.00001
                     } else {
-                        bird_resources.transform_rng.r#gen::<f32>()
+                        bird_resources.transform_rng.random::<f32>()
                     };
 
                     let (transform, velocity) = bird_velocity_transform(
@@ -427,9 +429,9 @@ fn spawn_birds(
 
                     let color = if args.vary_per_instance {
                         Color::linear_rgb(
-                            bird_resources.color_rng.r#gen(),
-                            bird_resources.color_rng.r#gen(),
-                            bird_resources.color_rng.r#gen(),
+                            bird_resources.color_rng.random(),
+                            bird_resources.color_rng.random(),
+                            bird_resources.color_rng.random(),
                         )
                     } else {
                         color
@@ -442,6 +444,7 @@ fn spawn_birds(
                                 .unwrap()
                                 .clone(),
                             color,
+                            alpha_mode,
                             ..default()
                         },
                         transform,
@@ -457,7 +460,7 @@ fn spawn_birds(
                     let bird_z = if args.ordered_z {
                         (current_count + count) as f32 * 0.00001
                     } else {
-                        bird_resources.transform_rng.r#gen::<f32>()
+                        bird_resources.transform_rng.random::<f32>()
                     };
 
                     let (transform, velocity) = bird_velocity_transform(
@@ -492,9 +495,9 @@ fn spawn_birds(
 
     counter.count += spawn_count;
     counter.color = Color::linear_rgb(
-        bird_resources.color_rng.r#gen(),
-        bird_resources.color_rng.r#gen(),
-        bird_resources.color_rng.r#gen(),
+        bird_resources.color_rng.random(),
+        bird_resources.color_rng.random(),
+        bird_resources.color_rng.random(),
     );
 }
 
@@ -573,9 +576,14 @@ fn counter_system(
 fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut Assets<Image>) {
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
-    let mut color_rng = ChaCha8Rng::seed_from_u64(42);
+    let mut color_rng = ChaCha8Rng::seed_from_u64(600);
     while textures.len() < args.material_texture_count {
-        let pixel = [color_rng.r#gen(), color_rng.r#gen(), color_rng.r#gen(), 255];
+        let pixel = [
+            color_rng.random(),
+            color_rng.random(),
+            color_rng.random(),
+            255,
+        ];
         textures.push(images.add(Image::new_fill(
             Extent3d {
                 width: BIRD_TEXTURE_SIZE as u32,
@@ -618,12 +626,12 @@ fn init_materials(
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
-    let mut color_rng = ChaCha8Rng::seed_from_u64(42);
-    let mut texture_rng = ChaCha8Rng::seed_from_u64(42);
+    let mut color_rng = ChaCha8Rng::seed_from_u64(700);
+    let mut texture_rng = ChaCha8Rng::seed_from_u64(800);
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(ColorMaterial {
-                color: Color::srgb_u8(color_rng.r#gen(), color_rng.r#gen(), color_rng.r#gen()),
+                color: Color::srgb_u8(color_rng.random(), color_rng.random(), color_rng.random()),
                 texture: textures.choose(&mut texture_rng).cloned(),
                 alpha_mode,
                 ..default()

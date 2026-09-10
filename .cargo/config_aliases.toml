@@ -1,0 +1,41 @@
+# Copy this file to `config.toml` to enable several aliases to commonly-used tools.
+
+[alias]
+### Alias for the `build-easefunction-graphs` tool
+build-easefunction-graphs = "run --package build-easefunction-graphs --"
+
+### Aliases for the `build-templated-pages` tool
+build-templated-pages = "run --package build-templated-pages --"
+
+# Checks for missing data
+check-missing-templated-pages = "build-templated-pages check-missing"
+check-missing-example-metadata = "check-missing-templated-pages examples"
+check-missing-feature-docs = "check-missing-templated-pages features"
+
+# Updates certain templated data
+update-templated-pages = "build-templated-pages update"
+update-examples-readme = "update-templated-pages examples"
+update-feature-docs = "update-templated-pages features"
+
+### Alias for the `build-wasm-example` tool
+build-wasm-example = "run --package build-wasm-example --"
+
+### Aliases for the `ci` tool
+ci = "run --package ci --"
+
+# Check each file under `tools/ci/src/commands/` to see what each individual command does
+ci-bench-check = "ci bench-check"
+ci-clippy = "ci clippy"
+ci-compile = "ci compile"
+ci-compile-check = "ci compile-check"
+ci-compile-fail = "ci compile-fail"
+ci-doc = "ci doc"
+ci-doc-check = "ci doc-check"
+ci-doc-test = "ci doc-test"
+ci-example-check = "ci example-check"
+ci-format = "ci format"
+ci-integration-test-check = "ci integration-test-check"
+ci-integration-test-clean = "ci integration-test-clean"
+ci-integration-test-run = "ci integration-test"
+ci-lints = "ci lints"
+ci-test = "ci test"

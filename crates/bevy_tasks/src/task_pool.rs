@@ -162,9 +162,16 @@ impl TaskPool {
 
         let executor = Arc::new(crate::executor::Executor::new());
 
-        let num_threads = builder
+        let num_requested_threads = builder
             .num_threads
             .unwrap_or_else(crate::available_parallelism);
+
+        // In tests, we want there to be at least two threads so that we're
+        // actually testing multithreaded behavior.
+        #[cfg(all(test, feature = "multi_threaded"))]
+        let num_threads = num_requested_threads.max(2);
+        #[cfg(not(all(test, feature = "multi_threaded")))]
+        let num_threads = num_requested_threads;
 
         let threads = (0..num_threads)
             .map(|i| {
@@ -384,12 +391,12 @@ impl TaskPool {
             unsafe { mem::transmute(external_executor) };
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
-        let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>> =
+        let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>> =
             ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let spawned: &'env ConcurrentQueue<
-            FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>,
+            FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>,
         > = unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
@@ -560,7 +567,7 @@ impl TaskPool {
     where
         T: Send + 'static,
     {
-        Task::new(self.executor.spawn(future))
+        self.executor.spawn(future)
     }
 
     /// Spawns a static future on the thread-local async executor for the
@@ -578,7 +585,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+        TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future))
     }
 
     /// Runs a function with the local executor. Typically used to tick
@@ -628,7 +635,7 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope crate::executor::Executor<'scope>,
     external_executor: &'scope ThreadExecutor<'scope>,
     scope_executor: &'scope ThreadExecutor<'scope>,
-    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>>,
+    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,

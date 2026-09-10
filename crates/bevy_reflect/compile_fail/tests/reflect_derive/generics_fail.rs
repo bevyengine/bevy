@@ -1,4 +1,7 @@
-use bevy_reflect::{GetField, Reflect, Struct, TypePath};
+use bevy_reflect::{
+    structs::{GetField, Struct},
+    Reflect, TypePath,
+};
 
 #[derive(Reflect)]
 #[reflect(from_reflect = false)]

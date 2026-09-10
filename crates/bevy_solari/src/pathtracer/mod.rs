@@ -2,20 +2,22 @@ mod extract;
 mod node;
 mod prepare;
 
-use crate::SolariPlugin;
+use crate::{scene::RaytracingSceneBindings, SolariPlugins};
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_camera::Hdr;
+use bevy_core_pipeline::{
+    schedule::{Core3d, Core3dSystems},
+    tonemapping::tonemapping,
+};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    render_graph::{RenderGraphApp, ViewNodeRunner},
-    renderer::RenderDevice,
-    view::Hdr,
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    init_gpu_resource, renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup,
+    RenderSystems,
 };
 use extract::extract_pathtracer;
-use node::PathtracerNode;
+use node::{init_pathtracer_pipelines, pathtracer};
 use prepare::prepare_pathtracer_accumulation_texture;
 use tracing::warn;
 
@@ -27,9 +29,7 @@ pub struct PathtracingPlugin;
 
 impl Plugin for PathtracingPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "pathtracer.wgsl");
-
-        app.register_type::<Pathtracer>();
+        embedded_asset!(app, "pathtracer.wesl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -37,25 +37,30 @@ impl Plugin for PathtracingPlugin {
 
         let render_device = render_app.world().resource::<RenderDevice>();
         let features = render_device.features();
-        if !features.contains(SolariPlugin::required_wgpu_features()) {
+        if !features.contains(SolariPlugins::required_wgpu_features()) {
             warn!(
                 "PathtracingPlugin not loaded. GPU lacks support for required features: {:?}.",
-                SolariPlugin::required_wgpu_features().difference(features)
+                SolariPlugins::required_wgpu_features().difference(features)
             );
             return;
         }
 
         render_app
+            .add_systems(
+                RenderStartup,
+                init_pathtracer_pipelines.after(init_gpu_resource::<RaytracingSceneBindings>),
+            )
             .add_systems(ExtractSchedule, extract_pathtracer)
             .add_systems(
                 Render,
                 prepare_pathtracer_accumulation_texture.in_set(RenderSystems::PrepareResources),
             )
-            .add_render_graph_node::<ViewNodeRunner<PathtracerNode>>(
+            .add_systems(
                 Core3d,
-                node::graph::PathtracerNode,
-            )
-            .add_render_graph_edges(Core3d, (Node3d::EndMainPass, node::graph::PathtracerNode));
+                pathtracer
+                    .after(Core3dSystems::MainPass)
+                    .before(tonemapping),
+            );
     }
 }
 

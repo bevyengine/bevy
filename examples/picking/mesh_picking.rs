@@ -89,10 +89,10 @@ fn setup_scene(
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 Shape,
             ))
-            .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
-            .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Press>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Release>>(hover_matl.clone()))
+            .observe(update_material_on::<PointerOver>(hover_matl.clone()))
+            .observe(update_material_on::<PointerOut>(white_matl.clone()))
+            .observe(update_material_on::<PointerPress>(pressed_matl.clone()))
+            .observe(update_material_on::<PointerRelease>(hover_matl.clone()))
             .observe(rotate_on_drag);
     }
 
@@ -112,10 +112,10 @@ fn setup_scene(
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 Shape,
             ))
-            .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
-            .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Press>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Release>>(hover_matl.clone()))
+            .observe(update_material_on::<PointerOver>(hover_matl.clone()))
+            .observe(update_material_on::<PointerOut>(white_matl.clone()))
+            .observe(update_material_on::<PointerPress>(pressed_matl.clone()))
+            .observe(update_material_on::<PointerRelease>(hover_matl.clone()))
             .observe(rotate_on_drag);
     }
 
@@ -129,7 +129,7 @@ fn setup_scene(
     // Light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
@@ -149,8 +149,8 @@ fn setup_scene(
         Text::new("Hover over the shapes to pick them\nDrag to rotate"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -163,8 +163,8 @@ fn update_material_on<E: EntityEvent>(
     // An observer closure that captures `new_material`. We do this to avoid needing to write four
     // versions of this observer, each triggered by a different event and with a different hardcoded
     // material. Instead, the event type is a generic, and the material is passed in.
-    move |trigger, mut query| {
-        if let Ok(mut material) = query.get_mut(trigger.target()) {
+    move |event, mut query| {
+        if let Ok(mut material) = query.get_mut(event.event_target()) {
             material.0 = new_material.clone();
         }
     }
@@ -190,8 +190,8 @@ fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
 }
 
 /// An observer to rotate an entity when it is dragged
-fn rotate_on_drag(drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
-    let mut transform = transforms.get_mut(drag.target()).unwrap();
+fn rotate_on_drag(drag: On<PointerDrag>, mut transforms: Query<&mut Transform>) {
+    let mut transform = transforms.get_mut(drag.entity).unwrap();
     transform.rotate_y(drag.delta.x * 0.02);
     transform.rotate_x(drag.delta.y * 0.02);
 }

@@ -1,6 +1,7 @@
 use crate::{
+    map::{DynamicMap, Map, MapInfo},
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
-    DynamicMap, Map, MapInfo, TypeRegistry,
+    TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{MapAccess, Visitor};
@@ -9,7 +10,7 @@ use super::ReflectDeserializerProcessor;
 
 /// A [`Visitor`] for deserializing [`Map`] values.
 ///
-/// [`Map`]: crate::Map
+/// [`Map`]: crate::map::Map
 pub(super) struct MapVisitor<'a, P> {
     pub map_info: &'static MapInfo,
     pub registry: &'a TypeRegistry,

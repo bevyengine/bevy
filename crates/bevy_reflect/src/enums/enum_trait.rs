@@ -1,12 +1,12 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
-    type_info::impl_type_methods,
-    DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
+    enums::{DynamicEnum, VariantInfo, VariantType},
+    ty::impl_type_methods,
+    Generics, PartialReflect, ReflectCloneError, Type, TypePath,
 };
 use alloc::{boxed::Box, format, string::String};
 use bevy_platform::collections::HashMap;
-use bevy_platform::sync::Arc;
 use core::slice::Iter;
 
 /// A trait used to power [enum-like] operations via [reflection].
@@ -115,7 +115,7 @@ pub trait Enum: PartialReflect {
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
     fn name_at(&self, index: usize) -> Option<&str>;
     /// Returns an iterator over the values of the current variant's fields.
-    fn iter_fields(&self) -> VariantFieldIter;
+    fn iter_fields(&self) -> VariantFieldIter<'_>;
     /// Returns the number of fields in the current variant.
     fn field_len(&self) -> usize;
     /// The name of the current variant.
@@ -125,8 +125,11 @@ pub trait Enum: PartialReflect {
     /// The type of the current variant.
     fn variant_type(&self) -> VariantType;
     /// Creates a new [`DynamicEnum`] from this enum.
-    fn to_dynamic_enum(&self) -> DynamicEnum {
-        DynamicEnum::from_ref(self)
+    ///
+    /// Returns an error if any field of the active variant cannot be converted via
+    /// [`PartialReflect::to_dynamic`].
+    fn to_dynamic_enum(&self) -> Result<DynamicEnum, ReflectCloneError> {
+        DynamicEnum::try_from_ref(self)
     }
     /// Returns true if the current variant's type matches the given one.
     fn is_variant(&self, variant_type: VariantType) -> bool {
@@ -153,8 +156,8 @@ pub struct EnumInfo {
     variants: Box<[VariantInfo]>,
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
-    custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    custom_attributes: CustomAttributes,
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -165,6 +168,13 @@ impl EnumInfo {
     ///
     /// * `variants`: The variants of this enum in the order they are defined
     pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
+        Self::from_erased(variants, Type::of::<TEnum>())
+    }
+
+    // Inlining is disabled because this function is called many times by cold
+    // functions inside generated code.
+    #[inline(never)]
+    fn from_erased(variants: &[VariantInfo], ty: Type) -> Self {
         let variant_indices = variants
             .iter()
             .enumerate()
@@ -174,19 +184,19 @@ impl EnumInfo {
         let variant_names = variants.iter().map(VariantInfo::name).collect();
 
         Self {
-            ty: Type::of::<TEnum>(),
+            ty,
             generics: Generics::new(),
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
             variant_indices,
-            custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            custom_attributes: CustomAttributes::default(),
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this enum.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -194,7 +204,7 @@ impl EnumInfo {
     /// Sets the custom attributes for this enum.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes,
             ..self
         }
     }
@@ -246,7 +256,7 @@ impl EnumInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this enum, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -289,8 +299,8 @@ impl<'a> Iterator for VariantFieldIter<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.container.field_len();
-        (size, Some(size))
+        let remaining = self.container.field_len().saturating_sub(self.index);
+        (remaining, Some(remaining))
     }
 }
 
@@ -325,7 +335,7 @@ impl<'a> VariantField<'a> {
 // Tests that need access to internal fields have to go here rather than in mod.rs
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use crate::{enums::*, Reflect};
 
     #[derive(Reflect, Debug, PartialEq)]
     enum MyEnum {

@@ -1,8 +1,11 @@
+//! Traits and types used to power [array-like] operations via reflection.
+//!
+//! [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    type_info::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
-    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
-    TypePath,
+    ty::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
+    PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    Type, TypeInfo, TypePath,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect_derive::impl_type_path;
@@ -31,7 +34,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Array};
+/// use bevy_reflect::{PartialReflect, array::Array};
 ///
 /// let foo: &dyn Array = &[123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
@@ -42,11 +45,13 @@ use core::{
 ///
 /// [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
 /// [reflection]: crate
-/// [`List`]: crate::List
+/// [`List`]: crate::list::List
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
 /// [`Deserialize`]: ::serde::Deserialize
+// Prevents unexpectedly importing this trait when trying to call, for example, `array::map`
+#[rust_analyzer::completions(ignore_flyimport_methods)]
 pub trait Array: PartialReflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn PartialReflect>;
@@ -63,17 +68,22 @@ pub trait Array: PartialReflect {
     }
 
     /// Returns an iterator over the array.
-    fn iter(&self) -> ArrayIter;
+    fn iter(&self) -> ArrayIter<'_>;
 
     /// Drain the elements of this array to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
     /// Creates a new [`DynamicArray`] from this array.
-    fn to_dynamic_array(&self) -> DynamicArray {
-        DynamicArray {
+    ///
+    /// Returns an error if any element cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_array(&self) -> Result<DynamicArray, ReflectCloneError> {
+        Ok(DynamicArray {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(PartialReflect::to_dynamic).collect(),
-        }
+            values: self
+                .iter()
+                .map(PartialReflect::to_dynamic)
+                .collect::<Result<_, _>>()?,
+        })
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.
@@ -90,7 +100,7 @@ pub struct ArrayInfo {
     item_info: fn() -> Option<&'static TypeInfo>,
     item_ty: Type,
     capacity: usize,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -109,13 +119,13 @@ impl ArrayInfo {
             item_info: TItem::maybe_type_info,
             item_ty: Type::of::<TItem>(),
             capacity,
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this array.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -143,7 +153,7 @@ impl ArrayInfo {
     }
 
     /// The docstring of this array, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -159,7 +169,7 @@ impl ArrayInfo {
 /// This isn't to say that a [`DynamicArray`] is immutable— its items
 /// can be mutated— just that the _number_ of items cannot change.
 ///
-/// [`DynamicList`]: crate::DynamicList
+/// [`DynamicList`]: crate::list::DynamicList
 #[derive(Debug)]
 pub struct DynamicArray {
     pub(crate) represented_type: Option<&'static TypeInfo>,
@@ -242,12 +252,12 @@ impl PartialReflect for DynamicArray {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Array(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Array(self)
     }
 
@@ -263,6 +273,10 @@ impl PartialReflect for DynamicArray {
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         array_partial_eq(self, value)
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        array_partial_cmp(self, value)
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -294,7 +308,7 @@ impl Array for DynamicArray {
     }
 
     #[inline]
-    fn iter(&self) -> ArrayIter {
+    fn iter(&self) -> ArrayIter<'_> {
         ArrayIter::new(self)
     }
 
@@ -351,7 +365,7 @@ pub struct ArrayIter<'a> {
 impl ArrayIter<'_> {
     /// Creates a new [`ArrayIter`].
     #[inline]
-    pub const fn new(array: &dyn Array) -> ArrayIter {
+    pub const fn new(array: &dyn Array) -> ArrayIter<'_> {
         ArrayIter { array, index: 0 }
     }
 }
@@ -368,8 +382,8 @@ impl<'a> Iterator for ArrayIter<'a> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.array.len();
-        (size, Some(size))
+        let remaining = self.array.len().saturating_sub(self.index);
+        (remaining, Some(remaining))
     }
 }
 
@@ -461,6 +475,33 @@ pub fn array_partial_eq<A: Array + ?Sized>(
     }
 
     Some(true)
+}
+
+/// Lexicographically compares two [arrays](Array) and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+#[inline]
+pub fn array_partial_cmp<A: Array + ?Sized>(
+    array: &A,
+    reflect: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::Array(reflect_array) = reflect.reflect_ref() else {
+        return None;
+    };
+
+    let min_len = core::cmp::min(array.len(), reflect_array.len());
+
+    for (a, b) in array.iter().zip(reflect_array.iter()).take(min_len) {
+        match a.reflect_partial_cmp(b) {
+            None => return None,
+            Some(core::cmp::Ordering::Equal) => continue,
+            Some(ord) => return Some(ord),
+        }
+    }
+
+    // If all compared elements were equal, order by length
+    Some(array.len().cmp(&reflect_array.len()))
 }
 
 /// The default debug formatter for [`Array`] types.

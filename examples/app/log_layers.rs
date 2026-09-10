@@ -3,7 +3,7 @@
 use bevy::{
     log::{
         tracing::{self, Subscriber},
-        tracing_subscriber::Layer,
+        tracing_subscriber::{field::MakeExt, Layer},
         BoxedFmtLayer, BoxedLayer,
     },
     prelude::*,
@@ -40,11 +40,13 @@ fn custom_layer(_app: &mut App) -> Option<BoxedLayer> {
 // default `tracing_subscriber::fmt::Layer` added by `LogPlugin`. To do that, you can use the
 // `fmt_layer` option.
 //
-// In this example, we're disabling the timestamp in the log output.
+// In this example, we're disabling the timestamp in the log output and enabling the alternative debugging format.
+// This formatting inserts newlines into logs that use the debug sigil (`?`) like `info!(foo=?bar)`
 fn fmt_layer(_app: &mut App) -> Option<BoxedFmtLayer> {
     Some(Box::new(
         bevy::log::tracing_subscriber::fmt::Layer::default()
             .without_time()
+            .map_fmt_fields(MakeExt::debug_alt)
             .with_writer(std::io::stderr),
     ))
 }
@@ -67,6 +69,8 @@ fn log_system() {
     error!("something failed");
     warn!("something bad happened that isn't a failure, but thats worth calling out");
     info!("helpful information that is worth printing by default");
+    let secret_message = "Bevy";
+    info!(?secret_message, "Here's a log that uses the debug sigil");
     debug!("helpful for debugging");
     trace!("very noisy");
 }

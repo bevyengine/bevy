@@ -1,23 +1,24 @@
+mod column;
+
+pub use column::Column;
+
 use crate::{
-    change_detection::MaybeLocation,
-    component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
+    change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
+    storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-pub use column::*;
+use bevy_ptr::{OwningPtr, Ptr};
 use core::{
-    alloc::Layout,
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
     panic::Location,
 };
 use nonmax::NonMaxU32;
-mod column;
 
 /// An opaque unique ID for a [`Table`] within a [`World`].
 ///
@@ -132,36 +133,53 @@ impl TableRow {
 /// [`with_capacity`]: Self::with_capacity
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
+//
+// # Safety
+// The capacity of all columns is determined by that of the `entities` Vec. This means that
+// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
+// means the safety invariant must be enforced even in `TableBuilder`.
 pub(crate) struct TableBuilder {
-    columns: SparseSet<ComponentId, ThinColumn>,
-    capacity: usize,
+    columns: SparseSet<ComponentId, Column>,
+    entities: Vec<Entity>,
 }
 
 impl TableBuilder {
-    /// Start building a new [`Table`] with a specified `column_capacity` (How many components per column?) and a `capacity` (How many columns?)
+    /// Start building a new [`Table`] with a specified
+    /// `column_capacity` (How many columns?) and `capacity` (How many entities per column?).
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
-            capacity,
+            entities: Vec::with_capacity(capacity),
         }
     }
 
-    /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](ThinColumn) using its [`ComponentId`]
+    /// Add a new column to the [`Table`].
+    ///
+    /// Specify the component which will be stored in the [`column`](Column) using its [`ComponentId`]
+    ///
+    /// Columns must be added in order of increasing [`ComponentId`],
+    /// or else [`TableBuilder::build`] will panic.
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
         self.columns.insert(
             component_info.id(),
-            ThinColumn::with_capacity(component_info, self.capacity),
+            Column::with_capacity(component_info, self.entities.capacity()),
         );
         self
     }
 
-    /// Build the [`Table`], after this operation the caller wouldn't be able to add more columns. The [`Table`] will be ready to use.
+    /// Build the [`Table`].
+    ///
+    /// After this operation, the caller won't be able to add more columns.
+    ///
+    /// # Panics
+    /// - If the table's columns were not added in order, sorted by [`ComponentId`].
     #[must_use]
     pub fn build(self) -> Table {
+        assert!(self.columns.indices().is_sorted());
         Table {
             columns: self.columns.into_immutable(),
-            entities: Vec::with_capacity(self.capacity),
+            entities: self.entities,
         }
     }
 }
@@ -170,7 +188,7 @@ impl TableBuilder {
 /// in a [`World`].
 ///
 /// Conceptually, a `Table` can be thought of as a `HashMap<ComponentId, Column>`, where
-/// each [`ThinColumn`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
+/// each [`Column`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
 /// entity). Fetching components from a table involves fetching the associated column for a
 /// component type (via its [`ComponentId`]), then fetching the entity's row within that column.
@@ -178,18 +196,14 @@ impl TableBuilder {
 /// [structure-of-arrays]: https://en.wikipedia.org/wiki/AoS_and_SoA#Structure_of_arrays
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
+//
+// # Safety
+// The capacity of all columns is determined by that of the `entities` Vec. This means that
+// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
+// means the safety invariant must be enforced even in `TableBuilder`.
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, ThinColumn>,
+    columns: ImmutableSparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
-}
-
-struct AbortOnPanic;
-
-impl Drop for AbortOnPanic {
-    fn drop(&mut self) {
-        // Panicking while unwinding will force an abort.
-        panic!("Aborting due to allocator error");
-    }
 }
 
 impl Table {
@@ -242,120 +256,8 @@ impl Table {
         if is_last {
             None
         } else {
-            // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+            // SAFETY: This was swap removed and was not last, so it must be in bounds.
             unsafe { Some(*self.entities.get_unchecked(row.index())) }
-        }
-    }
-
-    /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
-    /// Returns the index of the new row in `new_table` and the entity in this table swapped in
-    /// to replace it (if an entity was swapped in). missing columns will be "forgotten". It is
-    /// the caller's responsibility to drop them.  Failure to do so may result in resources not
-    /// being released (i.e. files handles not being released, memory leaks, etc.)
-    ///
-    /// # Safety
-    /// - `row` must be in-bounds
-    pub(crate) unsafe fn move_to_and_forget_missing_unchecked(
-        &mut self,
-        row: TableRow,
-        new_table: &mut Table,
-    ) -> TableMoveResult {
-        debug_assert!(row.index_u32() < self.entity_count());
-        let last_element_index = self.entity_count() - 1;
-        let is_last = row.index_u32() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
-        for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(
-                    column,
-                    last_element_index as usize,
-                    row,
-                    new_row,
-                );
-            } else {
-                // It's the caller's responsibility to drop these cases.
-                column.swap_remove_and_forget_unchecked(last_element_index as usize, row);
-            }
-        }
-        TableMoveResult {
-            new_row,
-            swapped_entity: if is_last {
-                None
-            } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
-                unsafe { Some(*self.entities.get_unchecked(row.index())) }
-            },
-        }
-    }
-
-    /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
-    /// Returns the index of the new row in `new_table` and the entity in this table swapped in
-    /// to replace it (if an entity was swapped in).
-    ///
-    /// # Safety
-    /// row must be in-bounds
-    pub(crate) unsafe fn move_to_and_drop_missing_unchecked(
-        &mut self,
-        row: TableRow,
-        new_table: &mut Table,
-    ) -> TableMoveResult {
-        debug_assert!(row.index_u32() < self.entity_count());
-        let last_element_index = self.entity_count() - 1;
-        let is_last = row.index_u32() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
-        for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(
-                    column,
-                    last_element_index as usize,
-                    row,
-                    new_row,
-                );
-            } else {
-                column.swap_remove_and_drop_unchecked(last_element_index as usize, row);
-            }
-        }
-        TableMoveResult {
-            new_row,
-            swapped_entity: if is_last {
-                None
-            } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
-                unsafe { Some(*self.entities.get_unchecked(row.index())) }
-            },
-        }
-    }
-
-    /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
-    /// Returns the index of the new row in `new_table` and the entity in this table swapped in
-    /// to replace it (if an entity was swapped in).
-    ///
-    /// # Safety
-    /// - `row` must be in-bounds
-    /// - `new_table` must contain every component this table has
-    pub(crate) unsafe fn move_to_superset_unchecked(
-        &mut self,
-        row: TableRow,
-        new_table: &mut Table,
-    ) -> TableMoveResult {
-        debug_assert!(row.index_u32() < self.entity_count());
-        let last_element_index = self.entity_count() - 1;
-        let is_last = row.index_u32() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
-        for (component_id, column) in self.columns.iter_mut() {
-            new_table
-                .get_column_mut(*component_id)
-                .debug_checked_unwrap()
-                .initialize_from_unchecked(column, last_element_index as usize, row, new_row);
-        }
-        TableMoveResult {
-            new_row,
-            swapped_entity: if is_last {
-                None
-            } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
-                unsafe { Some(*self.entities.get_unchecked(row.index())) }
-            },
         }
     }
 
@@ -410,14 +312,13 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.index_u32() < self.entity_count()).then_some(
-            // SAFETY: `row.as_usize()` < `len`
-            unsafe {
-                self.get_column(component_id)?
-                    .changed_ticks
-                    .get_unchecked(row.index())
-            },
-        )
+        if row.index_u32() >= self.entity_count() {
+            return None;
+        }
+
+        // SAFETY: `row.index()` < `len`
+        self.get_column(component_id)
+            .map(|col| unsafe { col.get_changed_tick_unchecked(row) })
     }
 
     /// Get the specific [`added tick`](Tick) of the component matching `component_id` in `row`.
@@ -426,14 +327,13 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.index_u32() < self.entity_count()).then_some(
-            // SAFETY: `row.as_usize()` < `len`
-            unsafe {
-                self.get_column(component_id)?
-                    .added_ticks
-                    .get_unchecked(row.index())
-            },
-        )
+        if row.index_u32() >= self.entity_count() {
+            return None;
+        }
+
+        // SAFETY: `row.index()` < `len`
+        self.get_column(component_id)
+            .map(|col| unsafe { col.get_added_tick_unchecked(row) })
     }
 
     /// Get the specific calling location that changed the component matching `component_id` in `row`
@@ -443,15 +343,13 @@ impl Table {
         row: TableRow,
     ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
         MaybeLocation::new_with_flattened(|| {
-            (row.index_u32() < self.entity_count()).then_some(
-                // SAFETY: `row.as_usize()` < `len`
-                unsafe {
-                    self.get_column(component_id)?
-                        .changed_by
-                        .as_ref()
-                        .map(|changed_by| changed_by.get_unchecked(row.index()))
-                },
-            )
+            if row.index_u32() >= self.entity_count() {
+                return None;
+            }
+
+            // SAFETY: `row.index()` < `len`
+            self.get_column(component_id)
+                .map(|col| unsafe { col.get_changed_by_unchecked(row) })
         })
     }
 
@@ -464,34 +362,32 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<ComponentTicks> {
-        self.get_column(component_id).map(|col| ComponentTicks {
-            added: col.added_ticks.get_unchecked(row.index()).read(),
-            changed: col.changed_ticks.get_unchecked(row.index()).read(),
-        })
+        self.get_column(component_id)
+            .map(|col| col.get_ticks_unchecked(row))
     }
 
-    /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`] within the table.
+    /// Fetches a read-only reference to the [`Column`] for a given [`Component`] within the table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn get_column(&self, component_id: ComponentId) -> Option<&ThinColumn> {
+    pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
         self.columns.get(component_id)
     }
 
-    /// Fetches a mutable reference to the [`ThinColumn`] for a given [`Component`] within the
+    /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
     /// table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut ThinColumn> {
+    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
         self.columns.get_mut(component_id)
     }
 
-    /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].
+    /// Checks if the table contains a [`Column`] for a given [`Component`].
     ///
     /// Returns `true` if the column is present, `false` otherwise.
     ///
@@ -528,7 +424,16 @@ impl Table {
 
     /// Allocate memory for the columns in the [`Table`]
     ///
+    /// # Aborts
+    /// - Aborts if any of the new capacity overflows `isize::MAX` bytes.
+    /// - Aborts if any of the new allocations causes an out-of-memory error.
+    ///
     /// The current capacity of the columns should be 0, if it's not 0, then the previous data will be overwritten and leaked.
+    ///
+    /// # Safety
+    /// The capacity of all columns is determined by that of the `entities` Vec. This means that
+    /// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
+    /// means the safety invariant must be enforced even in `TableBuilder`.
     fn alloc_columns(&mut self, new_capacity: NonZeroUsize) {
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
         // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
@@ -542,8 +447,16 @@ impl Table {
 
     /// Reallocate memory for the columns in the [`Table`]
     ///
+    /// # Aborts
+    /// - Aborts if any of the new capacities overflows `isize::MAX` bytes.
+    /// - Aborts if any of the new reallocations causes an out-of-memory error.
+    ///
     /// # Safety
     /// - `current_column_capacity` is indeed the capacity of the columns
+    ///
+    /// The capacity of all columns is determined by that of the `entities` Vec. This means that
+    /// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
+    /// means the safety invariant must be enforced even in `TableBuilder`.
     unsafe fn realloc_columns(
         &mut self,
         current_column_capacity: NonZeroUsize,
@@ -566,30 +479,19 @@ impl Table {
 
     /// Allocates space for a new entity
     ///
+    /// # Aborts
+    /// - Aborts if the allocation forces a reallocation and the new capacities overflows `isize::MAX` bytes.
+    /// - Aborts if the allocation forces a reallocation and causes an out-of-memory error.
+    ///
     /// # Safety
     ///
     /// The allocated row must be written to immediately with valid values in each column
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
-        let len = self.entity_count();
-        // SAFETY: No entity row may be in more than one table row at once, so there are no duplicates,
-        // and there can not be an entity row of u32::MAX. Therefore, this can not be max either.
-        let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(len)) };
-        let len = len as usize;
+        // SAFETY: No entity index may be in more than one table row at once, so there are no duplicates,
+        // and there can not be an entity index of u32::MAX. Therefore, this can not be max either.
+        let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(self.entity_count())) };
         self.entities.push(entity);
-        for col in self.columns.values_mut() {
-            col.added_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            col.changed_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            col.changed_by
-                .as_mut()
-                .zip(MaybeLocation::caller())
-                .map(|(changed_by, caller)| {
-                    changed_by.initialize_unchecked(len, UnsafeCell::new(caller));
-                });
-        }
-
         row
     }
 
@@ -597,14 +499,14 @@ impl Table {
     #[inline]
     pub fn entity_count(&self) -> u32 {
         // No entity may have more than one table row, so there are no duplicates,
-        // and there may only ever be u32::MAX entities, so the length never exceeds u32's cappacity.
+        // and there may only ever be u32::MAX entities, so the length never exceeds u32's capacity.
         self.entities.len() as u32
     }
 
     /// Get the drop function for some component that is stored in this table.
     #[inline]
     pub fn get_drop_for(&self, component_id: ComponentId) -> Option<unsafe fn(OwningPtr<'_>)> {
-        self.get_column(component_id)?.data.drop
+        self.get_column(component_id)?.get_drop()
     }
 
     /// Gets the number of components being stored in the table.
@@ -637,12 +539,15 @@ impl Table {
         }
     }
 
-    /// Iterates over the [`ThinColumn`]s of the [`Table`].
-    pub fn iter_columns(&self) -> impl Iterator<Item = &ThinColumn> {
+    /// Iterates over the [`Column`]s of the [`Table`].
+    pub fn iter_columns(&self) -> impl Iterator<Item = &Column> {
         self.columns.values()
     }
 
     /// Clears all of the stored components in the [`Table`].
+    ///
+    /// # Panics
+    /// - Panics if any of the components in any of the columns panics while being dropped.
     pub(crate) fn clear(&mut self) {
         let len = self.entity_count() as usize;
         // We must clear the entities first, because in the drop function causes a panic, it will result in a double free of the columns.
@@ -671,8 +576,8 @@ impl Table {
     ) -> OwningPtr<'_> {
         self.get_column_mut(component_id)
             .debug_checked_unwrap()
-            .data
-            .get_unchecked_mut(row.index())
+            .get_data_unchecked(row)
+            .assert_unique()
             .promote()
     }
 
@@ -686,7 +591,15 @@ impl Table {
         row: TableRow,
     ) -> Option<Ptr<'_>> {
         self.get_column(component_id)
-            .map(|col| col.data.get_unchecked(row.index()))
+            .map(|col| col.get_data_unchecked(row))
+    }
+
+    /// Returns a reference to this table's summary tick for the given
+    /// component, if the component is dense and the component tracks summary
+    /// ticks.
+    pub fn get_summary_tick(&self, component_id: ComponentId) -> Option<&AtomicTick> {
+        self.get_column(component_id)
+            .and_then(Column::get_summary_tick)
     }
 }
 
@@ -708,8 +621,9 @@ impl Default for Tables {
     }
 }
 
-pub(crate) struct TableMoveResult {
+pub(crate) struct TableMoveResult<'a> {
     pub swapped_entity: Option<Entity>,
+    pub new_table: &'a mut Table,
     pub new_row: TableRow,
 }
 
@@ -734,27 +648,25 @@ impl Tables {
         self.tables.get(id.as_usize())
     }
 
-    /// Fetches mutable references to two different [`Table`]s.
+    /// Fetches a [`Table`] by its [`TableId`] without doing bounds checking.
     ///
-    /// # Panics
-    ///
-    /// Panics if `a` and `b` are equal.
+    /// # Safety
+    /// - `id` must represent a valid [`Table`] for this [`Tables`].
     #[inline]
-    pub(crate) fn get_2_mut(&mut self, a: TableId, b: TableId) -> (&mut Table, &mut Table) {
-        if a.as_usize() > b.as_usize() {
-            let (b_slice, a_slice) = self.tables.split_at_mut(a.as_usize());
-            (&mut a_slice[0], &mut b_slice[b.as_usize()])
-        } else {
-            let (a_slice, b_slice) = self.tables.split_at_mut(b.as_usize());
-            (&mut a_slice[a.as_usize()], &mut b_slice[0])
-        }
+    pub(crate) unsafe fn get_unchecked_mut(&mut self, id: TableId) -> &mut Table {
+        // SAFETY:
+        // - The caller ensures that `id` is in-bounds.
+        unsafe { self.tables.get_unchecked_mut(id.as_usize()) }
     }
 
     /// Attempts to fetch a table based on the provided components,
     /// creating and returning a new [`Table`] if one did not already exist.
     ///
+    /// # Panics
+    /// Panics if `component_ids` is not sorted.
+    ///
     /// # Safety
-    /// `component_ids` must contain components that exist in `components`
+    /// `component_ids` must only contain components that exist in `components`.
     pub(crate) unsafe fn get_id_or_insert(
         &mut self,
         component_ids: &[ComponentId],
@@ -798,6 +710,116 @@ impl Tables {
             table.check_change_ticks(check);
         }
     }
+
+    /// Moves the `row` column values from `old_table_id` to a new row in `new_table_id`,
+    /// for the columns shared between both tables.
+    ///
+    /// Returns the new row in `new_table_id`
+    /// and the entity swapped in to the old row in `old_table_id` (if a swap occurred).
+    ///
+    /// # Note
+    /// The `DROP` constant determines what happens to removed components
+    /// (i.e. components that the old table has that the new table doesn't).
+    ///
+    /// If `DROP` is `true`, removed components will be dropped as needed.
+    ///
+    /// If `DROP` is `false`, removed components will be forgotten,
+    /// allowing ownership to be relinquished to the caller.
+    ///
+    /// `change_tick` must be the change tick of the current system.
+    ///
+    /// # Safety
+    /// - `old_table_id` and `new_table_id` must not be equal.
+    /// - `old_table_id` and `new_table_id` must be valid indices for this [`Tables`].
+    /// - `row` must be a valid index for the table corresponding to `old_table_id`.
+    /// - If `DROP` is `true`, the caller must not drop any removed components
+    ///   at any point.
+    /// - If `DROP` is `false`, the caller must have previously obtained ownership
+    ///   of all removed components and is responsible for dropping them.
+    /// - If any components were added,
+    ///   the returned row will be uninitialized in the corresponding columns
+    ///   and must have valid values written to those columns immediately.
+    pub(crate) unsafe fn move_row<const DROP: bool>(
+        &mut self,
+        old_table_id: TableId,
+        new_table_id: TableId,
+        row: TableRow,
+        change_tick: Tick,
+    ) -> TableMoveResult<'_> {
+        #[cfg(debug_assertions)]
+        debug_assert!(old_table_id != new_table_id);
+        // SAFETY:
+        // - The caller ensures `old_table_id` and `new_table_id` do not overlap.
+        // - The caller ensures `old_table_id` and `new_table_id` are in-bounds.
+        let [src_table, dst_table] = unsafe {
+            self.tables
+                .get_disjoint_unchecked_mut([old_table_id.as_usize(), new_table_id.as_usize()])
+        };
+        let last_index = (src_table.entity_count() - 1) as usize;
+        #[cfg(debug_assertions)]
+        debug_assert!(row.index() <= last_index);
+        // SAFETY:
+        // - All pre-existing columns will be written to immediately.
+        // - The caller ensures that all new columns will be written to immediately.
+        let dst_row = unsafe { dst_table.allocate(src_table.entities.swap_remove(row.index())) };
+
+        let mut dst_iter = dst_table.columns.iter_mut().peekable();
+
+        for (src_component_id, src_column) in src_table.columns.iter_mut() {
+            // Skip past any destination columns that don't exist in the source table.
+            // The caller is responsible for initializing those columns.
+            while dst_iter
+                .next_if(|(dst_component_id, _)| *dst_component_id < src_component_id)
+                .is_some()
+            {}
+
+            // Then move the value in the source column if it exists in the destination table,
+            // or remove it if it does not.
+            if let Some((_, dst_column)) =
+                dst_iter.next_if(|(dst_component_id, _)| *dst_component_id == src_component_id)
+            {
+                // SAFETY:
+                // - `src_column` and `dst_column` correspond to the same `ComponentId`.
+                // - The caller ensures `row` is in-bounds for `src_column`.
+                // - `dst_row` was just allocated for the table containing `dst_column`.
+                // - `src_column` was initialized by a previous call to this function
+                //   or by a previous caller.
+                // - `dst_row` was just allocated and has not been written to.
+                unsafe {
+                    dst_column.initialize_from_unchecked(
+                        src_column,
+                        last_index,
+                        row,
+                        dst_row,
+                        change_tick,
+                    );
+                }
+            } else {
+                // SAFETY:
+                // - `last_index` is the index of the last element.
+                // - The caller ensures `row` <= `last_index`.
+                // - The length of `src_column` is given by the length of `src_table.entities`,
+                //   which has been updated.
+                unsafe {
+                    src_column.swap_remove_unchecked::<DROP>(last_index, row);
+                }
+            }
+        }
+
+        // Need to end the mutable borrow so we can return `dst_table`.
+        drop(dst_iter);
+
+        TableMoveResult {
+            new_table: dst_table,
+            new_row: dst_row,
+            swapped_entity: if row.index() == last_index {
+                None
+            } else {
+                // SAFETY: This was swap-removed and was not last, so it must be in-bounds.
+                unsafe { Some(*src_table.entities.get_unchecked(row.index())) }
+            },
+        }
+    }
 }
 
 impl Index<TableId> for Tables {
@@ -822,7 +844,7 @@ impl Drop for Table {
         let cap = self.capacity();
         self.entities.clear();
         for col in self.columns.values_mut() {
-            // SAFETY: `cap` and `len` are correct
+            // SAFETY: `cap` and `len` are correct. `col` is never accessed again after this call.
             unsafe {
                 col.drop(cap, len);
             }
@@ -833,14 +855,13 @@ impl Drop for Table {
 #[cfg(test)]
 mod tests {
     use crate::{
-        change_detection::MaybeLocation,
-        component::{Component, ComponentIds, Components, ComponentsRegistrator, Tick},
-        entity::{Entity, EntityRow},
+        change_detection::{MaybeLocation, Tick},
+        component::{Component, ComponentIds, Components, ComponentsRegistrator},
+        entity::{Entity, EntityIndex},
         ptr::OwningPtr,
         storage::{TableBuilder, TableId, TableRow, Tables},
     };
     use alloc::vec::Vec;
-    use nonmax::NonMaxU32;
 
     #[derive(Component)]
     struct W<T>(T);
@@ -870,7 +891,7 @@ mod tests {
             .add_column(components.get_info(component_id).unwrap())
             .build();
         let entities = (0..200)
-            .map(|index| Entity::from_raw(EntityRow::new(NonMaxU32::new(index).unwrap())))
+            .map(|index| Entity::from_index(EntityIndex::from_raw_u32(index).unwrap()))
             .collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards

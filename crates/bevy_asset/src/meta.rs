@@ -1,18 +1,33 @@
+//! Handle asset metadata.
+//! Asset metadata informs how an [`Asset`] should be handled by the asset system.
+//!
+//! It is primarily used by [asset processing](crate::processor).
+//!
+//! Asset metadata is generally stored as a `.meta` file next to the asset,
+//! but this may differ per asset storage backend.
+
 use alloc::{
     boxed::Box,
     string::{String, ToString},
     vec::Vec,
 };
+use futures_lite::AsyncReadExt;
 
 use crate::{
-    loader::AssetLoader, processor::Process, Asset, AssetPath, DeserializeMetaError,
-    VisitAssetDependencies,
+    io::{AssetReaderError, Reader},
+    loader::AssetLoader,
+    processor::Process,
+    Asset, AssetPath, DeserializeMetaError, VisitAssetDependencies,
 };
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
+/// The version of the metadata format being used.
+/// It is included in every metadata entry.
+///
+/// This constant will be updated whenever a breaking change is made to the format.
 pub const META_FORMAT_VERSION: &str = "1.0";
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
 
@@ -77,7 +92,7 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
 /// [`AssetProcessor`]: crate::processor::AssetProcessor
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct ProcessedInfo {
-    /// A hash of the asset bytes and the asset .meta data
+    /// A hash of the asset bytes and the asset `.meta` data
     pub hash: AssetHash,
     /// A hash of the asset bytes, the asset .meta data, and the `full_hash` of every `process_dependency`
     pub full_hash: AssetHash,
@@ -89,6 +104,7 @@ pub struct ProcessedInfo {
 /// has changed.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProcessDependencyInfo {
+    /// A hash of the dependency's `.meta` data and [`ProcessedInfo`] information.
     pub full_hash: AssetHash,
     pub path: AssetPath<'static>,
 }
@@ -108,8 +124,15 @@ pub struct AssetMetaMinimal {
 /// isn't necessary.
 #[derive(Serialize, Deserialize)]
 pub enum AssetActionMinimal {
+    /// Load the asset with the given loader.
+    /// See [`AssetLoader`].
     Load { loader: String },
+    /// Process the asset with the given processor.
+    /// See [`Process`] and [`AssetProcessor`].
+    ///
+    /// [`AssetProcessor`]: crate::processor::AssetProcessor
     Process { processor: String },
+    /// Do nothing with the asset
     Ignore,
 }
 
@@ -117,6 +140,9 @@ pub enum AssetActionMinimal {
 /// necessary.
 #[derive(Serialize, Deserialize)]
 pub struct ProcessedInfoMinimal {
+    /// Info produced by the [`AssetProcessor`] for a given processed asset.
+    ///
+    /// [`AssetProcessor`]: crate::processor::AssetProcessor
     pub processed_info: Option<ProcessedInfo>,
 }
 
@@ -127,6 +153,8 @@ pub trait AssetMetaDyn: Downcast + Send + Sync {
     fn loader_settings(&self) -> Option<&dyn Settings>;
     /// Returns a mutable reference to the [`AssetLoader`] settings, if they exist.
     fn loader_settings_mut(&mut self) -> Option<&mut dyn Settings>;
+    /// Returns a reference to the [`Process`] settings, if they exist.
+    fn process_settings(&self) -> Option<&dyn Settings>;
     /// Serializes the internal [`AssetMeta`].
     fn serialize(&self) -> Vec<u8>;
     /// Returns a reference to the [`ProcessedInfo`] if it exists.
@@ -150,10 +178,22 @@ impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
             None
         }
     }
+    fn process_settings(&self) -> Option<&dyn Settings> {
+        if let AssetAction::Process { settings, .. } = &self.asset {
+            Some(settings)
+        } else {
+            None
+        }
+    }
     fn serialize(&self) -> Vec<u8> {
-        ron::ser::to_string_pretty(&self, PrettyConfig::default())
-            .expect("type is convertible to ron")
-            .into_bytes()
+        ron::ser::to_string_pretty(
+            &self,
+            // This defaults to \r\n on Windows, so hard-code it to \n so it's consistent for
+            // testing.
+            PrettyConfig::default().new_line("\n"),
+        )
+        .expect("type is convertible to ron")
+        .into_bytes()
     }
     fn processed_info(&self) -> &Option<ProcessedInfo> {
         &self.processed_info
@@ -182,7 +222,7 @@ impl Process for () {
     async fn process(
         &self,
         _context: &mut bevy_asset::processor::ProcessContext<'_>,
-        _meta: AssetMeta<(), Self>,
+        _settings: &Self::Settings,
         _writer: &mut bevy_asset::io::Writer,
     ) -> Result<(), bevy_asset::processor::ProcessError> {
         unreachable!()
@@ -204,7 +244,7 @@ impl AssetLoader for () {
     type Error = std::io::Error;
     async fn load(
         &self,
-        _reader: &mut dyn crate::io::Reader,
+        _reader: &mut dyn Reader,
         _settings: &Self::Settings,
         _load_context: &mut crate::LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
@@ -238,14 +278,26 @@ pub(crate) fn loader_settings_meta_transform<S: Settings>(
     Box::new(move |meta| meta_transform_settings(meta, &settings))
 }
 
+/// This type alias records the size of an asset hash.
 pub type AssetHash = [u8; 32];
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
-pub(crate) fn get_asset_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> AssetHash {
+pub(crate) async fn get_asset_hash(
+    meta_bytes: &[u8],
+    asset_reader: &mut impl Reader,
+) -> Result<AssetHash, AssetReaderError> {
     let mut hasher = blake3::Hasher::new();
     hasher.update(meta_bytes);
-    hasher.update(asset_bytes);
-    *hasher.finalize().as_bytes()
+    let mut buffer = [0; blake3::CHUNK_LEN];
+    loop {
+        let bytes_read = asset_reader.read(&mut buffer).await?;
+        hasher.update(&buffer[..bytes_read]);
+        if bytes_read == 0 {
+            // This means we've reached EOF, so we're done consuming asset bytes.
+            break;
+        }
+    }
+    Ok(*hasher.finalize().as_bytes())
 }
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.

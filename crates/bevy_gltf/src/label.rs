@@ -9,11 +9,11 @@ use bevy_asset::AssetPath;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_asset::prelude::*;
-/// # use bevy_scene::prelude::*;
+/// # use bevy_world_serialization::prelude::*;
 /// # use bevy_gltf::prelude::*;
 ///
 /// fn load_gltf_scene(asset_server: Res<AssetServer>) {
-///     let gltf_scene: Handle<Scene> = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+///     let gltf_scene: Handle<WorldAsset> = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 /// }
 /// ```
 ///
@@ -22,16 +22,16 @@ use bevy_asset::AssetPath;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_asset::prelude::*;
-/// # use bevy_scene::prelude::*;
+/// # use bevy_world_serialization::prelude::*;
 /// # use bevy_gltf::prelude::*;
 ///
 /// fn load_gltf_scene(asset_server: Res<AssetServer>) {
-///     let gltf_scene: Handle<Scene> = asset_server.load(format!("models/FlightHelmet/FlightHelmet.gltf#{}", GltfAssetLabel::Scene(0)));
+///     let gltf_scene: Handle<WorldAsset> = asset_server.load(format!("models/FlightHelmet/FlightHelmet.gltf#{}", GltfAssetLabel::Scene(0)));
 /// }
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GltfAssetLabel {
-    /// `Scene{}`: glTF Scene as a Bevy [`Scene`](bevy_scene::Scene)
+    /// `Scene{}`: glTF Scene as a Bevy [`WorldAsset`](bevy_world_serialization::WorldAsset)
     Scene(usize),
     /// `Node{}`: glTF Node as a [`GltfNode`](crate::GltfNode)
     Node(usize),
@@ -44,26 +44,17 @@ pub enum GltfAssetLabel {
         /// Index of this primitive in its parent mesh
         primitive: usize,
     },
-    /// `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a glTF Primitive
-    /// as a Bevy [`Image`](bevy_image::prelude::Image)
-    MorphTarget {
-        /// Index of the mesh for this primitive
-        mesh: usize,
-        /// Index of this primitive in its parent mesh
-        primitive: usize,
-    },
     /// `Texture{}`: glTF Texture as a Bevy [`Image`](bevy_image::prelude::Image)
     Texture(usize),
-    /// `Material{}`: glTF Material as a Bevy [`StandardMaterial`](bevy_pbr::StandardMaterial)
+    /// `Material{}`: glTF Material as Bevy [`GltfMaterial`](crate::GltfMaterial)
     Material {
         /// Index of this material
         index: usize,
-        /// Used to set the [`Face`](bevy_render::render_resource::Face) of the material,
+        /// Used to set the [`Face`](wgpu_types::Face) of the material,
         /// useful if it is used with negative scale
         is_scale_inverted: bool,
     },
-    /// `DefaultMaterial`: glTF's default Material as a
-    /// Bevy [`StandardMaterial`](bevy_pbr::StandardMaterial)
+    /// `DefaultMaterial`: glTF's default Material
     DefaultMaterial,
     /// `Animation{}`: glTF Animation as Bevy [`AnimationClip`](bevy_animation::AnimationClip)
     Animation(usize),
@@ -82,9 +73,6 @@ impl core::fmt::Display for GltfAssetLabel {
             GltfAssetLabel::Mesh(index) => f.write_str(&format!("Mesh{index}")),
             GltfAssetLabel::Primitive { mesh, primitive } => {
                 f.write_str(&format!("Mesh{mesh}/Primitive{primitive}"))
-            }
-            GltfAssetLabel::MorphTarget { mesh, primitive } => {
-                f.write_str(&format!("Mesh{mesh}/Primitive{primitive}/MorphTargets"))
             }
             GltfAssetLabel::Texture(index) => f.write_str(&format!("Texture{index}")),
             GltfAssetLabel::Material {
@@ -114,11 +102,11 @@ impl GltfAssetLabel {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::prelude::*;
-    /// # use bevy_scene::prelude::*;
+    /// # use bevy_world_serialization::prelude::*;
     /// # use bevy_gltf::prelude::*;
     ///
     /// fn load_gltf_scene(asset_server: Res<AssetServer>) {
-    ///     let gltf_scene: Handle<Scene> = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+    ///     let gltf_scene: Handle<WorldAsset> = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
     /// }
     /// ```
     pub fn from_asset(&self, path: impl Into<AssetPath<'static>>) -> AssetPath<'static> {

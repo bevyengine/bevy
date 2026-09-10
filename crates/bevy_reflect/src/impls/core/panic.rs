@@ -1,11 +1,11 @@
 use crate::{
     error::ReflectCloneError,
+    info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
     reflect::ApplyError,
-    type_info::{OpaqueInfo, TypeInfo, Typed},
     type_path::DynamicTypePath,
-    type_registry::{FromType, GetTypeRegistration, ReflectFromPtr, TypeRegistration},
+    type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::{reflect_hasher, NonGenericTypeInfoCell},
 };
 use bevy_platform::prelude::*;
@@ -57,11 +57,11 @@ impl PartialReflect for &'static Location<'static> {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -85,6 +85,14 @@ impl PartialReflect for &'static Location<'static> {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
+        }
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            PartialOrd::partial_cmp(self, value)
+        } else {
+            None
         }
     }
 
@@ -142,8 +150,8 @@ impl Typed for &'static Location<'static> {
 impl GetTypeRegistration for &'static Location<'static> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
+        registration.register_type_data::<ReflectFromReflect, Self>();
         registration
     }
 }
@@ -153,6 +161,3 @@ impl FromReflect for &'static Location<'static> {
         reflect.try_downcast_ref::<Self>().copied()
     }
 }
-
-#[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(&'static Location<'static>);
