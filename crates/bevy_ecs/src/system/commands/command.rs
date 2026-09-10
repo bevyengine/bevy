@@ -14,7 +14,7 @@ use crate::{
     error::{BevyError, CommandOutput, ErrorContext, Result},
     event::Event,
     message::{Message, Messages},
-    query::QueryFilter,
+    query::{QueryData, QueryFilter},
     resource::Resource,
     schedule::ScheduleLabel,
     system::{IntoSystem, SystemId, SystemInput},
@@ -322,6 +322,14 @@ pub fn write_message<M: Message>(message: M) -> impl Command {
 /// A [`Command`] that despawns all entities matching a specific [`QueryFilter`].
 #[track_caller]
 pub fn despawn_all<F: QueryFilter>() -> impl Command {
+    despawn_all_where::<(), F>(|_, _| true)
+}
+
+/// A [`Command`] that despawns all entities matching a specific [`QueryFilter`] and condition.
+#[track_caller]
+pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
+    mut cond: impl FnMut(Entity, D::Item<'_, '_>) -> bool + Send + 'static,
+) -> impl Command {
     // We can't both be iterating over entities in a world and despawning them.
     // So we collect the entities into batches which we then despawn. Batches
     // are sized we're not constructing new queries to often while limiting the
@@ -330,14 +338,26 @@ pub fn despawn_all<F: QueryFilter>() -> impl Command {
 
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        let mut query = world.query_filtered::<Entity, F>();
+        let mut query = world.query_filtered::<(Entity, D), F>();
 
         let mut batch: ArrayVec<Entity, BATCH_SIZE> = ArrayVec::new();
 
         loop {
-            for entity in query.iter(world).take(BATCH_SIZE) {
+            let mut entities = query.iter_mut(world);
+
+            while !batch.is_full() {
+                let Some((entity, data)) = entities.fetch_next() else {
+                    break;
+                };
+
+                if !cond(entity, data) {
+                    continue;
+                }
+
                 batch.push(entity);
             }
+            // We need to explicitly drop to release the world borrow.
+            drop(entities);
 
             if batch.is_empty() {
                 break;

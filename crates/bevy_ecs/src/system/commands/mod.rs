@@ -27,7 +27,7 @@ use crate::{
     event::{EntityEvent, Event},
     message::Message,
     observer::{IntoEntityObserver, IntoObserver},
-    query::QueryFilter,
+    query::{QueryData, QueryFilter},
     relationship::RelationshipHookMode,
     resource::Resource,
     schedule::ScheduleLabel,
@@ -482,6 +482,31 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     pub fn despawn_all<F: QueryFilter>(&mut self) {
         self.queue(command::despawn_all::<F>());
+    }
+
+    /// Despawns all entities matching the given [`QueryFilter`] and condition.
+    ///
+    /// This method is equivalent to iterating over all the filtered entities
+    /// and [despawning](EntityCommands::despawn) them one by one, but is faster by allocating far fewer commands.
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    ///
+    /// #[derive(Component)]
+    /// struct Health(f32);
+    ///
+    /// fn despawn_dead(mut commands: Commands) {
+    ///     commands.despawn_all_where::<&Health, ()>(|_, health| health.0 <= 0.0);
+    /// }
+    ///
+    /// # bevy_ecs::system::assert_is_system(despawn_dead);
+    /// ```
+    pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
+        &mut self,
+        cond: impl FnMut(Entity, D::Item<'_, '_>) -> bool + Send + 'static,
+    ) {
+        self.queue(command::despawn_all_where::<D, F>(cond));
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -3113,5 +3138,28 @@ mod tests {
         assert!(world.get_entity(c).is_err());
 
         assert!(world.get_entity(a_b).is_ok());
+    }
+
+    #[test]
+    fn despawn_all_where_command_checks() {
+        let mut world = World::default();
+
+        #[derive(Component)]
+        struct ComponentA(usize);
+
+        let a_1 = world.spawn(ComponentA(1)).id();
+        let a_2 = world.spawn(ComponentA(2)).id();
+        let a_3 = world.spawn(ComponentA(3)).id();
+
+        let mut commands = world.commands();
+
+        commands.despawn_all_where::<&ComponentA, ()>(|_, data| data.0 < 3);
+
+        world.flush_commands();
+
+        assert!(world.get_entity(a_1).is_err());
+        assert!(world.get_entity(a_2).is_err());
+
+        assert!(world.get_entity(a_3).is_ok());
     }
 }
