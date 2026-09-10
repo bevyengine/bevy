@@ -178,10 +178,11 @@ pub fn despawn_entities_on_exit_state<S: States>(
     let Some(exited) = &transition.exited else {
         return;
     };
-    for (entity, exit) in &query {
-        if exit.0 == *exited {
-            commands.entity(entity).try_despawn();
-        }
+    if !query.is_empty() {
+        let exited = exited.clone();
+        commands.despawn_all_where::<&DespawnOnExit<S>, Allow<Disabled>>(move |_, exit| {
+            exit.0 == exited
+        });
     }
 }
 
@@ -257,10 +258,11 @@ pub fn despawn_entities_on_enter_state<S: States>(
         return;
     };
 
-    for (entity, enter) in &query {
-        if enter.0 == *entered {
-            commands.entity(entity).try_despawn();
-        }
+    if !query.is_empty() {
+        let entered = entered.clone();
+        commands.despawn_all_where::<&DespawnOnEnter<S>, Allow<Disabled>>(move |_, enter| {
+            enter.0 == entered
+        });
     }
 }
 
