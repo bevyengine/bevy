@@ -27,6 +27,7 @@ use crate::{
     event::{EntityEvent, Event},
     message::Message,
     observer::{IntoEntityObserver, IntoObserver},
+    query::QueryFilter,
     relationship::RelationshipHookMode,
     resource::Resource,
     schedule::ScheduleLabel,
@@ -459,6 +460,28 @@ impl<'w, 's> Commands<'w, 's> {
         I::Item: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(command::spawn_batch(batch));
+    }
+
+    /// Despawns all entities matching the given [`QueryFilter`].
+    ///
+    /// This method is equivalent to iterating over all the filtered entities
+    /// and [despawning](EntityCommands::despawn) them one by one, but is faster by allocating far fewer commands.
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    ///
+    /// #[derive(Component)]
+    /// struct PleaseDespawn;
+    ///
+    /// fn despawn_entities(mut commands: Commands) {
+    ///     commands.despawn_all::<With<PleaseDespawn>>();
+    /// }
+    ///
+    /// # bevy_ecs::system::assert_is_system(despawn_entities);
+    /// ```
+    pub fn despawn_all<F: QueryFilter>(&mut self) {
+        self.queue(command::despawn_all::<F>());
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -2440,6 +2463,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 mod tests {
     use crate::{
         component::Component,
+        query::{Or, With, Without},
         resource::Resource,
         system::Commands,
         world::{CommandQueue, FromWorld, World},
@@ -3058,5 +3082,36 @@ mod tests {
             Some(expected),
             world.entities().entity_get_spawn_or_despawn_tick(id)
         );
+    }
+
+    #[test]
+    fn despawn_all_command_despawns() {
+        let mut world = World::default();
+
+        #[derive(Component)]
+        struct ComponentA;
+
+        #[derive(Component)]
+        struct ComponentB;
+
+        #[derive(Component)]
+        struct ComponentC;
+
+        let a_1 = world.spawn(ComponentA).id();
+        let a_2 = world.spawn(ComponentA).id();
+        let a_b = world.spawn((ComponentA, ComponentB)).id();
+        let c = world.spawn(ComponentC).id();
+
+        let mut commands = world.commands();
+
+        commands.despawn_all::<Or<(With<ComponentC>, (With<ComponentA>, Without<ComponentB>))>>();
+
+        world.flush_commands();
+
+        assert!(world.get_entity(a_1).is_err());
+        assert!(world.get_entity(a_2).is_err());
+        assert!(world.get_entity(c).is_err());
+
+        assert!(world.get_entity(a_b).is_ok());
     }
 }

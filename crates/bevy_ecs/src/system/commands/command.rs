@@ -4,6 +4,7 @@
 //! It also contains functions that return closures for use with
 //! [`Commands`](crate::system::Commands).
 
+use arrayvec::ArrayVec;
 use bevy_utils::prelude::DebugName;
 
 use crate::{
@@ -13,6 +14,7 @@ use crate::{
     error::{BevyError, CommandOutput, ErrorContext, Result},
     event::Event,
     message::{Message, Messages},
+    query::QueryFilter,
     resource::Resource,
     schedule::ScheduleLabel,
     system::{IntoSystem, SystemId, SystemInput},
@@ -314,5 +316,50 @@ pub fn write_message<M: Message>(message: M) -> impl Command {
     move |world: &mut World| {
         let mut messages = world.resource_mut::<Messages<M>>();
         messages.write_with_caller(message, caller);
+    }
+}
+
+/// A [`Command`] that despawns all entities matching a specific [`QueryFilter`].
+#[track_caller]
+pub fn despawn_all<F: QueryFilter>() -> impl Command {
+    // We can't both be iterating over entities in a world and despawning them.
+    // So we collect the entities into batches which we then despawn. Batches
+    // are sized we're not constructing new queries to often while limiting the
+    // chance of a stack overflow (currently about half a page on x86_64).
+    const BATCH_SIZE: usize = 256;
+
+    let caller = MaybeLocation::caller();
+    move |world: &mut World| {
+        let mut query = world.query_filtered::<Entity, F>();
+
+        let mut batch: ArrayVec<Entity, BATCH_SIZE> = ArrayVec::new();
+
+        loop {
+            for entity in query.iter(world).take(BATCH_SIZE) {
+                batch.push(entity);
+            }
+
+            if batch.is_empty() {
+                break;
+            }
+
+            let mut i = 0;
+            while i < batch.len() {
+                let entity = batch[i];
+
+                let _ = world.despawn_no_free_with_caller(entity, caller);
+
+                if let Ok(None) = world.entities.get(entity) {
+                    i += 1;
+                } else {
+                    // It may have already been despawned or a command may have reconstructed it.
+                    // See the comment in `despawn_with_caller` on `World`;
+                    batch.swap_remove(i);
+                }
+            }
+
+            world.entity_allocator.free_many(&batch);
+            batch.clear();
+        }
     }
 }
