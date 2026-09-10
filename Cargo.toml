@@ -1055,6 +1055,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "inline_image"
+path = "examples/ui/text/inline_image.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.inline_image]
+name = "Inline Images"
+description = "Demonstrates how to display images inline with text"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_input"
 path = "examples/ui/text/text_input.rs"
 doc-scrape-examples = true
