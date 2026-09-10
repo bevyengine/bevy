@@ -247,11 +247,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         filter.add_read(state.resource_id);
         filter.and_with(IS_RESOURCE);
 
-        if !component_access_set.is_compatible_single(&filter) {
-            return Err(filter.into());
-        }
-
-        component_access_set.add(filter);
+        component_access_set.try_add(filter)?;
         Ok(())
     }
 

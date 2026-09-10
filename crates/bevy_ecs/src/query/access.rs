@@ -1068,6 +1068,20 @@ impl FilteredAccessSet {
         conflicts
     }
 
+    /// Adds the filtered access to the set if it does not conflict with any other access.
+    #[expect(
+        clippy::result_large_err,
+        reason = "This returns the input parameter, and we expect it to be inlined."
+    )]
+    pub fn try_add(&mut self, filtered_access: FilteredAccess) -> Result<(), FilteredAccess> {
+        if self.is_compatible_single(&filtered_access) {
+            self.add(filtered_access);
+            Ok(())
+        } else {
+            Err(filtered_access)
+        }
+    }
+
     /// Adds the filtered access to the set.
     pub fn add(&mut self, filtered_access: FilteredAccess) {
         self.combined_access.extend(&filtered_access.access);

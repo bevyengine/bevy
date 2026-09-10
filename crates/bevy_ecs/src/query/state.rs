@@ -199,11 +199,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         component_access_set: &mut FilteredAccessSet,
     ) -> Result<(), FilteredAccessSet> {
-        let component_access = self.component_access.clone();
-        if !component_access_set.is_compatible_single(&component_access) {
-            return Err(component_access.into());
-        }
-        component_access_set.add(component_access);
+        component_access_set.try_add(self.component_access.clone())?;
         D::init_nested_access(&self.fetch_state, component_access_set)?;
         F::init_nested_access(&self.filter_state, component_access_set)?;
         Ok(())
