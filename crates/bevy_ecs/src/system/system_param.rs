@@ -816,7 +816,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         let (ptr, ticks) = world.get_resource_with_ticks(component_id).ok_or_else(|| {
-            SystemParamValidationError::invalid::<Self>("Resource does not exist,")
+            SystemParamValidationError::invalid::<Self>("Resource does not exist")
         })?;
         Ok(Res {
             value: ptr.deref(),

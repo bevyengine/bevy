@@ -57,7 +57,7 @@ impl SystemAccess {
         Ok(())
     }
 
-    /// Tries to add set the current access to [`Exclusive`].
+    /// Tries to set the current access to [`Exclusive`].
     /// If the provided [`SystemAccess`] is not [`None`],
     /// this will instead return an [`Err`] with [`Exclusive`].
     ///
@@ -65,7 +65,7 @@ impl SystemAccess {
     ///
     /// # Errors
     ///
-    /// If `self` is not compatible with `other`, this will return an [`Err`] wrapping `other`.
+    /// If `self` is not compatible with [`Exclusive`], this will return an [`Err`] wrapping [`Exclusive`].
     ///
     /// [`None`]: SystemAccess::None
     /// [`Shared`]: SystemAccess::Shared
