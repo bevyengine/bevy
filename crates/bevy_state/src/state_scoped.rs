@@ -256,6 +256,7 @@ pub fn despawn_entities_on_enter_state<S: States>(
     let Some(entered) = &transition.entered else {
         return;
     };
+
     for (entity, enter) in &query {
         if enter.0 == *entered {
             commands.entity(entity).try_despawn();
