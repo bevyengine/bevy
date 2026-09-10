@@ -1982,10 +1982,10 @@ mod tests {
         }
         let mut app = test_app();
         let world = app.world_mut();
-        let items = bsn![
+        let item = bsn! {
             #Second
-        ];
-        let id = world.spawn_scene(container(items)).unwrap().id();
+        };
+        let id = world.spawn_scene(container(item)).unwrap().id();
         let children = world.entity(id).get::<Children>().unwrap();
         let names: Vec<_> = children
             .iter()

@@ -165,7 +165,7 @@ pub trait WorldSceneExt {
     /// }
     /// // This scene list includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is loaded.
-    /// world.queue_spawn_scene_list(bsn! {
+    /// world.queue_spawn_scene_list(bsn_list! {
     ///     :"player.bsn"
     ///     #Player1
     ///     Team::Red
