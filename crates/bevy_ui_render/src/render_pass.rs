@@ -154,12 +154,7 @@ impl CachedRenderPipelinePhaseItem for TransparentUi {
     }
 }
 
-pub type DrawUi = (
-    SetItemPipeline,
-    SetUiViewBindGroup<0>,
-    SetUiTextureBindGroup<1>,
-    DrawUiNode,
-);
+pub type DrawUi = (SetItemPipeline, SetUiViewBindGroup<0>, DrawUiNode);
 
 pub struct SetUiViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
@@ -181,33 +176,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
         RenderCommandResult::Success
     }
 }
-pub struct SetUiTextureBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
-    type Param = SRes<ImageNodeBindGroups>;
-    type ViewQuery = ();
-    type ItemQuery = Read<UiBatch>;
-
-    #[inline]
-    fn render<'w>(
-        _item: &P,
-        _view: (),
-        batch: Option<&'w UiBatch>,
-        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        let image_bind_groups = image_bind_groups.into_inner();
-        let Some(batch) = batch else {
-            return RenderCommandResult::Skip;
-        };
-
-        pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
-        RenderCommandResult::Success
-    }
-}
 
 pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
-    type Param = SRes<UiMeta>;
+    type Param = (SRes<UiMeta>, SRes<ImageNodeBindGroups>);
     type ViewQuery = ();
     type ItemQuery = Read<UiBatch>;
 
@@ -216,7 +188,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
         _item: &P,
         _view: (),
         batch: Option<&'w UiBatch>,
-        ui_meta: SystemParamItem<'w, '_, Self::Param>,
+        (ui_meta, image_bind_groups): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(batch) = batch else {
@@ -237,8 +209,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
             indices.slice(..),
             bevy_render::render_resource::IndexFormat::Uint32,
         );
-        // Draw the vertices
-        pass.draw_indexed(batch.range.clone(), 0, 0..1);
+        let image_bind_groups = image_bind_groups.into_inner();
+        for range_index in batch.texture_changes.clone() {
+            let (texture_range, image) = &ui_meta.texture_changes[range_index as usize];
+            pass.set_bind_group(1, image_bind_groups.values.get(image).unwrap(), &[]);
+            pass.draw_indexed(texture_range.clone(), 0, 0..1);
+        }
         RenderCommandResult::Success
     }
 }

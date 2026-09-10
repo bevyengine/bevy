@@ -18,7 +18,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // Enable for image outline
-        .insert_resource(GlobalUiDebugOptions {
+        .insert_resource(UiDebugOverlay {
             enabled: true,
             ..default()
         })
@@ -95,7 +95,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 padding: px(6).all(),
                 ..default()
             },
-            UiDebugOptions {
+            UiDebugOutline {
                 enabled: false,
                 ..default()
             },
