@@ -25,7 +25,6 @@ fn main() {
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,))
         .add_systems(OnEnter(Scene::Shapes), shapes::setup)
-        .add_systems(OnEnter(Scene::MixedMsaa), mixed_msaa::setup)
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Text), text::setup)
         .add_systems(OnEnter(Scene::Sprite), sprite::setup)
@@ -55,7 +54,6 @@ fn main() {
 enum Scene {
     #[default]
     Shapes,
-    MixedMsaa,
     Bloom,
     Text,
     Sprite,
@@ -68,7 +66,6 @@ enum Scene {
 impl Scene {
     const ALL_ORDERED: &'static [Scene] = &[
         Scene::Shapes,
-        Scene::MixedMsaa,
         Scene::Bloom,
         Scene::Text,
         Scene::Sprite,
@@ -162,37 +159,6 @@ mod shapes {
                 DespawnOnExit(super::Scene::Shapes),
             ));
         }
-    }
-}
-
-mod mixed_msaa {
-    use bevy::prelude::*;
-
-    pub fn setup(
-        mut commands: Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
-    ) {
-        // Cameras sharing a render target must not share depth textures when their
-        // sample counts differ. Use 1 and 4 samples for WebGPU compatibility.
-        for (order, msaa) in [Msaa::Off, Msaa::Sample4].into_iter().enumerate() {
-            commands.spawn((
-                Camera2d,
-                Camera {
-                    order: order as isize,
-                    ..default()
-                },
-                msaa,
-                DespawnOnExit(super::Scene::MixedMsaa),
-            ));
-        }
-
-        commands.spawn((
-            Mesh2d(meshes.add(Triangle2d::default())),
-            MeshMaterial2d(materials.add(Color::WHITE)),
-            Transform::from_scale(Vec3::splat(150.0)),
-            DespawnOnExit(super::Scene::MixedMsaa),
-        ));
     }
 }
 
