@@ -970,6 +970,7 @@ pub struct PendingPrepassMeshMaterialQueues(pub PendingQueues);
 
 #[derive(SystemParam)]
 pub(crate) struct SpecializePrepassSystemParam<'w, 's> {
+    morph_indices: Res<'w, crate::MorphIndices>,
     render_meshes: Res<'w, RenderAssets<RenderMesh>>,
     render_materials: Res<'w, ErasedRenderAssets<PreparedMaterial>>,
     render_mesh_instances: Res<'w, RenderMeshInstances>,
@@ -1014,6 +1015,7 @@ pub(crate) fn specialize_prepass_material_meshes(
 
     {
         let SpecializePrepassSystemParam {
+            morph_indices,
             render_meshes,
             render_materials,
             render_mesh_instances,
@@ -1132,8 +1134,11 @@ pub(crate) fn specialize_prepass_material_meshes(
                     continue;
                 };
 
-                let mut mesh_key =
-                    *view_key | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits());
+                let mut mesh_key = *view_key
+                    | morph_indices.mesh_key(
+                        *visible_entity,
+                        MeshPipelineKey::from_bits_retain(mesh.key_bits.bits()),
+                    );
 
                 let alpha_mode = material.properties.alpha_mode;
                 match alpha_mode {
