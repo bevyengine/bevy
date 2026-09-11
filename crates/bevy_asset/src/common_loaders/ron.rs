@@ -487,3 +487,221 @@ pub enum ReflectedRonSerializeError {
     #[error(transparent)]
     Ron(#[from] RonSerializeError),
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use alloc::{string::String, vec};
+
+    use bevy_ecs::reflect::AppTypeRegistry;
+    use bevy_reflect::{Reflect, TypePath};
+    use bevy_tasks::{futures::check_ready, IoTaskPool};
+    use serde::{Deserialize, Serialize};
+
+    use crate::{
+        common_loaders::ron::{
+            RonLoader, RonSaver, RonSaverSettings, TypedRonLoader, TypedRonSaver,
+        },
+        saver::{save_using_saver, SavedAsset},
+        tests::{create_app, read_asset_as_string, run_app_until},
+        Asset, AssetApp, AssetServer, Assets, Handle, LoadState, ReflectAsset, UntypedHandle,
+    };
+
+    #[derive(Asset, TypePath, Serialize, Deserialize, Debug, PartialEq)]
+    struct SerializedAsset(u32);
+
+    #[derive(Asset, Reflect)]
+    #[reflect(Asset)]
+    struct ReflectedAsset(u32);
+
+    #[derive(Asset, Reflect)]
+    #[reflect(Asset)]
+    struct ReflectedAssetWithHandles {
+        data: String,
+        handle: Handle<ReflectedAsset>,
+        untyped: UntypedHandle,
+    }
+
+    #[test]
+    fn roundtrip_typed_save_and_load() {
+        let (mut app, dir) = create_app();
+
+        app.init_asset::<SerializedAsset>().register_asset_loader(
+            TypedRonLoader::<SerializedAsset>::new(vec!["particle_effect"]),
+        );
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        let mut task = {
+            let asset_server = asset_server.clone();
+            IoTaskPool::get().spawn(async move {
+                save_using_saver(
+                    asset_server,
+                    &TypedRonSaver::<SerializedAsset>::default(),
+                    &"fire.particle_effect".into(),
+                    SavedAsset::from_asset(&SerializedAsset(10)),
+                    &RonSaverSettings::default(),
+                )
+                .await
+                .unwrap();
+            })
+        };
+
+        // Wait for the save to be complete.
+        run_app_until(&mut app, |_| check_ready(&mut task).map(|_| ()));
+
+        assert_eq!(
+            read_asset_as_string(&dir, Path::new("fire.particle_effect")),
+            "(10)"
+        );
+
+        let handle = asset_server.load::<SerializedAsset>("fire.particle_effect");
+        run_app_until(&mut app, |_| asset_server.is_loaded(&handle).then_some(()));
+
+        let loaded_value = app
+            .world()
+            .resource::<Assets<SerializedAsset>>()
+            .get(&handle)
+            .unwrap();
+        assert_eq!(loaded_value, &SerializedAsset(10));
+    }
+
+    #[test]
+    fn roundtrip_untyped_save_and_load() {
+        let (mut app, dir) = create_app();
+
+        app.init_asset::<ReflectedAsset>()
+            .init_asset::<ReflectedAssetWithHandles>()
+            .init_asset_loader::<RonLoader>()
+            // Register the types explicitly so we don't rely on the feature flags for reflect auto
+            // registration being enabled.
+            .register_type::<ReflectedAsset>()
+            .register_type::<ReflectedAssetWithHandles>();
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let type_registry = app.world().resource::<AppTypeRegistry>().0.clone();
+
+        let saver = RonSaver {
+            registry: type_registry,
+        };
+
+        let mut task1 = {
+            let saver = saver.clone();
+            let asset_server = asset_server.clone();
+            IoTaskPool::get().spawn(async move {
+                saver
+                    .save(
+                        "ref1.ron".into(),
+                        &ReflectedAsset(10),
+                        &RonSaverSettings::default(),
+                        asset_server.clone(),
+                    )
+                    .await
+                    .unwrap();
+            })
+        };
+        let mut task2 = {
+            let saver = saver.clone();
+            let asset_server = asset_server.clone();
+            IoTaskPool::get().spawn(async move {
+                saver
+                    .save(
+                        "ref2.ron".into(),
+                        &ReflectedAsset(20),
+                        &RonSaverSettings::default(),
+                        asset_server.clone(),
+                    )
+                    .await
+                    .unwrap();
+            })
+        };
+        // Wait for the saves to complete.
+        run_app_until(&mut app, |_| check_ready(&mut task1).map(|_| ()));
+        run_app_until(&mut app, |_| check_ready(&mut task2).map(|_| ()));
+        assert_eq!(
+            read_asset_as_string(&dir, Path::new("ref1.ron")),
+            r#"{
+    "bevy_asset::common_loaders::ron::tests::ReflectedAsset": (10),
+}"#
+        );
+        assert_eq!(
+            read_asset_as_string(&dir, Path::new("ref2.ron")),
+            r#"{
+    "bevy_asset::common_loaders::ron::tests::ReflectedAsset": (20),
+}"#
+        );
+
+        let ref_handle_1 = asset_server.load::<ReflectedAsset>("ref1.ron#Typed");
+        let ref_handle_2 = asset_server
+            .load::<ReflectedAsset>("ref2.ron#Typed")
+            .untyped();
+        let ref_id_1 = ref_handle_1.id();
+        let ref_id_2 = ref_handle_2.id();
+
+        let mut task3 = {
+            let asset_with_handles = ReflectedAssetWithHandles {
+                data: "hiya".into(),
+                handle: ref_handle_1,
+                untyped: ref_handle_2,
+            };
+
+            let asset_server = asset_server.clone();
+            IoTaskPool::get().spawn(async move {
+                saver
+                    .save(
+                        "with_handles.ron".into(),
+                        &asset_with_handles,
+                        &RonSaverSettings::default(),
+                        asset_server.clone(),
+                    )
+                    .await
+                    .unwrap();
+            })
+        };
+        // Wait for the save to be complete.
+        run_app_until(&mut app, |_| check_ready(&mut task3).map(|_| ()));
+
+        assert_eq!(
+            read_asset_as_string(&dir, Path::new("with_handles.ron")),
+            r#"{
+    "bevy_asset::common_loaders::ron::tests::ReflectedAssetWithHandles": (
+        data: "hiya",
+        handle: Path("ref1.ron#Typed"),
+        untyped: (
+            asset_type: "bevy_asset::common_loaders::ron::tests::ReflectedAsset",
+            reference: Path("ref2.ron#Typed"),
+        ),
+    ),
+}"#
+        );
+
+        // We dropped the handles when the save task completed, so just wait for the two ref handles
+        // to be unloaded (so we can be sure that A. these handles get loaded, and B. these assets
+        // are considered dependencies).
+        run_app_until(&mut app, |_| {
+            (matches!(asset_server.load_state(ref_id_1), LoadState::NotLoaded)
+                && matches!(asset_server.load_state(ref_id_2), LoadState::NotLoaded))
+            .then_some(())
+        });
+
+        let root_handle = asset_server.load::<ReflectedAssetWithHandles>("with_handles.ron#Typed");
+        run_app_until(&mut app, |_| {
+            asset_server
+                .is_loaded_with_dependencies(&root_handle)
+                .then_some(())
+        });
+
+        let root_asset = app
+            .world()
+            .resource::<Assets<ReflectedAssetWithHandles>>()
+            .get(root_handle.id())
+            .unwrap();
+        let reflected_assets = app.world().resource::<Assets<ReflectedAsset>>();
+        assert_eq!(root_asset.data, "hiya");
+        assert_eq!(reflected_assets.get(&root_asset.handle).unwrap().0, 10);
+        // Try to cast the handle type, and panic on failure.
+        let typed_from_untyped = root_asset.untyped.clone().try_typed().unwrap();
+        assert_eq!(reflected_assets.get(&typed_from_untyped).unwrap().0, 20);
+    }
+}
