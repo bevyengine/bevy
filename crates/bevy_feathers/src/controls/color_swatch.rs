@@ -91,18 +91,17 @@ impl FeathersColorSwatch {
             AlphaPattern
             MaterialNode::<AlphaPatternMaterial>
             Children [
-                (
-                    Node {
-                        position_type: PositionType::Absolute,
-                        left: px(0),
-                        top: px(0),
-                        bottom: px(0),
-                        right: px(0),
-                        border_radius: {props.corners.to_border_radius(props.border_radius)},
-                    }
-                    ColorSwatchFg
-                    BackgroundColor({palette::ACCENT.with_alpha(0.5)})
-                ),
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0),
+                    top: px(0),
+                    bottom: px(0),
+                    right: px(0),
+                    border_radius: {props.corners.to_border_radius(props.border_radius)},
+                }
+                ColorSwatchFg
+                BackgroundColor({palette::ACCENT.with_alpha(0.5)})
+                --
                 @{non_alpha_fg}
             ]
         }

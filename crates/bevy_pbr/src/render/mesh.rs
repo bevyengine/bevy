@@ -35,6 +35,7 @@ use bevy_mesh::{
     skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshAttributeCompressionFlags,
     MeshTag, MeshVertexBufferLayoutRef, VertexAttributeDescriptor,
 };
+use bevy_platform::collections::HashSet;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::batching::gpu_preprocessing::{
     BufferDataInput, PreviousInstanceInputUniformBuffer,
@@ -388,7 +389,10 @@ pub fn check_views_need_specialization(
             Has<ContactShadows>,
         ),
     )>,
+    mut seen_views: Local<HashSet<RetainedViewEntity>>,
 ) {
+    seen_views.clear();
+
     for (
         view,
         camera,
@@ -405,6 +409,8 @@ pub fn check_views_need_specialization(
         (has_oit, has_atmosphere, has_ssr, has_contact_shadows),
     ) in views.iter_mut()
     {
+        seen_views.insert(view.retained_view_entity);
+
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_target_format(view.target_format);
 
@@ -506,6 +512,8 @@ pub fn check_views_need_specialization(
                 .insert(view.retained_view_entity);
         }
     }
+
+    view_key_cache.retain(|view, _| seen_views.contains(view));
 }
 
 #[derive(Component)]
@@ -3459,10 +3467,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             self.skins_use_uniform_buffers,
         ));
 
-        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
-            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
-        }
-
         if key.contains(MeshPipelineKey::CONTACT_SHADOWS) {
             shader_defs.push("CONTACT_SHADOWS".into());
         }
@@ -3531,6 +3535,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
             shader_defs.push("DEPTH_PREPASS".into());
+        }
+
+        // Transparent meshes don't contribute to the depth prepass, so SSAO should not be applied.
+        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) && depth_write_enabled {
+            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
         if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
