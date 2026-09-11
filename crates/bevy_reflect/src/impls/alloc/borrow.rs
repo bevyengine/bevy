@@ -123,12 +123,11 @@ impl Typed for Cow<'static, str> {
 
 impl GetTypeRegistration for Cow<'static, str> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Cow<'static, str>>();
-        registration.register_type_data::<ReflectDeserialize, Self>();
-        registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
-        registration.register_type_data::<ReflectSerialize, Self>();
-        registration
+        TypeRegistration::of::<Cow<'static, str>>()
+            .register_type_data::<ReflectDeserialize, Self>()
+            .register_type_data::<ReflectFromPtr, Self>()
+            .register_type_data::<ReflectFromReflect, Self>()
+            .register_type_data::<ReflectSerialize, Self>()
     }
 }
 

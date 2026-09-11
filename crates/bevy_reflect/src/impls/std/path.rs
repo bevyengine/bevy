@@ -155,10 +155,9 @@ impl Typed for &'static Path {
 
 impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
-        registration
+        TypeRegistration::of::<Self>()
+            .register_type_data::<ReflectFromPtr, Self>()
+            .register_type_data::<ReflectFromReflect, Self>()
     }
 }
 
@@ -306,12 +305,11 @@ impl FromReflect for Cow<'static, Path> {
 
 impl GetTypeRegistration for Cow<'static, Path> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.register_type_data::<ReflectDeserialize, Self>();
-        registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectSerialize, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
-        registration
+        TypeRegistration::of::<Self>()
+            .register_type_data::<ReflectDeserialize, Self>()
+            .register_type_data::<ReflectFromPtr, Self>()
+            .register_type_data::<ReflectSerialize, Self>()
+            .register_type_data::<ReflectFromReflect, Self>()
     }
 }
 

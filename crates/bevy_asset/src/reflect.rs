@@ -8,7 +8,7 @@ use uuid::Uuid;
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{
     serde::{ReflectDeserializerProcessor, ReflectSerializerProcessor},
-    CreateTypeData, FromReflect, PartialReflect, Reflect, TypeRegistry,
+    CreateTypeData, FromReflect, PartialReflect, Reflect, TypeData, TypeRegistry,
 };
 
 use crate::{
@@ -23,7 +23,7 @@ use crate::{
 /// until runtime.
 ///
 /// [`ReflectAsset`] can be obtained via [`TypeRegistration::data`](bevy_reflect::TypeRegistration::data) if the asset was registered using [`register_asset_reflect`](crate::AssetApp::register_asset_reflect).
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectAsset {
     handle_type_id: TypeId,
     assets_resource_type_id: TypeId,
@@ -228,7 +228,7 @@ impl<A: Asset + FromReflect> CreateTypeData<A> for ReflectAsset {
 ///     println!("{value:?}");
 /// }
 /// ```
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectHandle {
     asset_type_id: TypeId,
     downcast_handle_untyped: fn(&dyn Any) -> Option<UntypedHandle>,

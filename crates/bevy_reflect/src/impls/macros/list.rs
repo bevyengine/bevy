@@ -158,10 +158,9 @@ macro_rules! impl_reflect_for_veclike {
                 for $ty
             {
                 fn get_type_registration() -> $crate::type_registry::TypeRegistration {
-                    let mut registration = $crate::type_registry::TypeRegistration::of::<$ty>();
-                    registration.register_type_data::<$crate::type_registry::ReflectFromPtr, $ty>();
-                    registration.register_type_data::<$crate::from_reflect::ReflectFromReflect, $ty>();
-                    registration
+                    $crate::type_registry::TypeRegistration::of::<$ty>()
+                        .register_type_data::<$crate::type_registry::ReflectFromPtr, $ty>()
+                        .register_type_data::<$crate::from_reflect::ReflectFromReflect, $ty>()
                 }
 
                 fn register_type_dependencies(registry: &mut $crate::type_registry::TypeRegistry) {

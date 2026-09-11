@@ -70,14 +70,16 @@ use crate::{
     },
 };
 use alloc::boxed::Box;
-use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect, Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{
+    CreateTypeData, FromReflect, PartialReflect, Reflect, TypeData, TypePath, TypeRegistry,
+};
 use bevy_utils::prelude::DebugName;
 
 /// A struct used to operate on reflected [`Component`] trait of a type.
 ///
 /// A [`ReflectComponent`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
-#[derive(Clone)]
+#[derive(Clone, TypeData)]
 pub struct ReflectComponent(ReflectComponentFns);
 
 /// The raw function pointers needed to make up a [`ReflectComponent`].
