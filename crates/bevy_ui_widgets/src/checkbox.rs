@@ -3,7 +3,6 @@ use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
 use bevy_ecs::event::EntityEvent;
 use bevy_ecs::query::{Has, With, Without};
-use bevy_ecs::system::ResMut;
 use bevy_ecs::{
     component::Component,
     observer::On,
@@ -12,7 +11,7 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::{FocusCause, FocusedInput, InputFocus, InputFocusVisible};
+use bevy_input_focus::FocusedInput;
 use bevy_picking::events::{
     PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
 };
@@ -96,22 +95,11 @@ fn checkbox_on_pointer_down(
         ),
         With<Checkbox>,
     >,
-    focus: Option<ResMut<InputFocus>>,
-    focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
 ) {
     if let Ok((checkbox, disabled, checked, pressed, activate_on_press)) =
         q_checkbox.get_mut(press.entity)
     {
-        // Clicking on a button makes it the focused input,
-        // and hides the focus ring if it was visible.
-        if let Some(mut focus) = focus {
-            focus.set(press.entity, FocusCause::Pressed);
-        }
-        if let Some(mut focus_visible) = focus_visible {
-            focus_visible.0 = false;
-        }
-
         press.propagate(false);
         if !disabled && !pressed {
             commands.entity(checkbox).insert(Pressed);
@@ -292,8 +280,9 @@ mod tests {
     use bevy_input::keyboard::Key;
     use bevy_input::InputPlugin;
     use bevy_input_focus::{
+        pointer_focus::PointerFocusPlugin,
         tab_navigation::{TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin, InputFocusPlugin,
+        FocusCause, InputDispatchPlugin, InputFocus, InputFocusPlugin,
     };
     use bevy_math::Vec2;
     use bevy_picking::{backend::HitData, pointer::PointerButton};
@@ -317,6 +306,7 @@ mod tests {
             InputFocusPlugin,
             InputDispatchPlugin,
             TabNavigationPlugin,
+            PointerFocusPlugin,
             CheckboxPlugin,
         ));
         app.add_observer(checkbox_self_update);
