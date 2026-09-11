@@ -38,3 +38,6 @@ pbr_anisotropy_texture = ["bevy/pbr_anisotropy_texture"]
 pbr_specular_textures = ["bevy/pbr_specular_textures"]
 bevy_zstd_rust = ["bevy/zstd_rust"]
 bevy_zstd_c = ["bevy/zstd_c"]
+
+[lints]
+workspace = true

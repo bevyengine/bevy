@@ -13,3 +13,6 @@ bevy = { path = "../../../", features = [
 mipmap_generator = { path = "../mipmap_generator" }
 
 argh = "0.1.12"
+
+[lints]
+workspace = true

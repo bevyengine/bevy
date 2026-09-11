@@ -87,6 +87,11 @@ unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
+[workspace.lints.cargo]
+# Some `kebab_case` names such as `bevy_city` and `bevy_mobile_example` are OK
+# since they are not command-line tools.
+non_kebab_case_bins = "allow"
+
 # Unfortunately, cargo does not currently support overriding workspace lints
 # inside a particular crate. See https://github.com/rust-lang/cargo/issues/13157
 #
