@@ -217,10 +217,7 @@ impl BsnEntry {
                         _scene.insert_template(#template);
                     })
                 } else {
-                    let path = &[Member::Named(Ident::new(
-                        "__value",
-                        Span::call_site(),
-                    ))];
+                    let path = &[Member::Named(Ident::new("__value", Span::call_site()))];
                     let assigns = ty.patch_tokens(ctx, path, true, false, false)?;
                     let path = &ty.path;
                     EntryResult::CombinedSceneFunction(if assigns.is_empty() {
@@ -242,10 +239,7 @@ impl BsnEntry {
                         _scene.insert_template(#template);
                     })
                 } else {
-                    let path = &[Member::Named(Ident::new(
-                        "__value",
-                        Span::call_site(),
-                    ))];
+                    let path = &[Member::Named(Ident::new("__value", Span::call_site()))];
                     let assigns = ty.patch_tokens(ctx, path, true, false, false)?;
                     let path = &ty.path;
                     EntryResult::CombinedSceneFunction(if assigns.is_empty() {
@@ -356,10 +350,7 @@ impl BsnScene {
                         })
                     }
                 } else {
-                    let value_path = &[Member::Named(Ident::new(
-                        "__value",
-                        Span::call_site(),
-                    ))];
+                    let value_path = &[Member::Named(Ident::new("__value", Span::call_site()))];
                     let template_assignments =
                         bsn_type.patch_tokens(ctx, value_path, true, false, true)?;
                     let bevy_scene = ctx.bevy_scene;
@@ -1127,10 +1118,8 @@ mod tests {
         let paths = TestPaths::new();
         let mut exprs = HoistedExpressions::default();
         let mut ctx = paths.ctx(&mut refs, &mut exprs);
-        ctx.errors.push(syn::Error::new(
-            Span::call_site(),
-            "Test Error",
-        ));
+        ctx.errors
+            .push(syn::Error::new(Span::call_site(), "Test Error"));
         let root = BsnRoot::Bsn(Bsn {
             entries: vec![],
             used_parens: None,
@@ -1156,10 +1145,8 @@ mod tests {
         let paths = TestPaths::new();
         let mut exprs = HoistedExpressions::default();
         let mut ctx = paths.ctx(&mut refs, &mut exprs);
-        ctx.errors.push(syn::Error::new(
-            Span::call_site(),
-            "Test Error",
-        ));
+        ctx.errors
+            .push(syn::Error::new(Span::call_site(), "Test Error"));
         let root = BsnListRoot(BsnSceneListItems(vec![], vec![]));
 
         // Act

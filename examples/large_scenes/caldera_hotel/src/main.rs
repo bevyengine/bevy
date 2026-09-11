@@ -3,9 +3,9 @@
 //! The scene has a very high mesh instance count (tens of thousands), which makes it useful for
 //! exercising GPU-driven culling and batching, indirect drawing, occlusion culling, and material
 //! specialization.
-
-// Press B for benchmark.
-// Preferably after frame time is reading consistently, rust-analyzer has calmed down, and with locked gpu clocks.
+//!
+//! Press B for benchmark.
+//! Preferably after frame time is reading consistently, rust-analyzer has calmed down, and with locked gpu clocks.
 
 use std::{f32::consts::PI, time::Instant};
 

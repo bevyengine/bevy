@@ -5,9 +5,9 @@
 //! specialization, and mipmap generation.
 //!
 //! [Bistro]: https://github.com/bevyengine/bevy-assets/tree/main/scenes/bistro
-
-// Press B for benchmark.
-// Preferably after frame time is reading consistently, rust-analyzer has calmed down, and with locked gpu clocks.
+//!
+//! Press B for benchmark.
+//! Preferably after frame time is reading consistently, rust-analyzer has calmed down, and with locked gpu clocks.
 
 use std::{
     f32::consts::PI,
