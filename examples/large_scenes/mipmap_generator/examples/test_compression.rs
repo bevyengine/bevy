@@ -1,3 +1,5 @@
+//! Demonstrates compressing the generated mipmaps of an in-memory test image.
+
 use std::{f32::consts::PI, path::PathBuf};
 
 use argh::FromArgs;

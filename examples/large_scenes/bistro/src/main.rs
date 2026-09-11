@@ -1,3 +1,11 @@
+//! Renders the [Bistro] scene, a large glTF scene used as a rendering stress test.
+//!
+//! Bistro has a high draw call count, many textures, and (unusually for a real-time scene) a large
+//! number of light sources, which makes it useful for exercising batching, material and light
+//! specialization, and mipmap generation.
+//!
+//! [Bistro]: https://github.com/bevyengine/bevy-assets/tree/main/scenes/bistro
+
 // Press B for benchmark.
 // Preferably after frame time is reading consistently, rust-analyzer has calmed down, and with locked gpu clocks.
 
@@ -44,8 +52,8 @@ use mipmap_generator::{
 use crate::light_consts::lux;
 
 #[derive(FromArgs, Resource, Clone)]
-/// Config
-pub struct Args {
+/// Command-line options for this example.
+struct Args {
     /// disable glTF lights
     #[argh(switch)]
     no_gltf_lights: bool,
@@ -112,7 +120,7 @@ pub struct Args {
     no_mip_generation: bool,
 }
 
-pub fn main() {
+fn main() {
     let args: Args = argh::from_env();
 
     let mut app = App::new();
@@ -174,12 +182,11 @@ pub fn main() {
 }
 
 #[derive(Component)]
-pub struct Spin;
-
+struct Spin;
 #[derive(Component)]
 struct FrameTimeText;
 
-pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
     println!("Loading models, generating mipmaps");
 
     let bistro_exterior = asset_server.load("bistro_exterior/BistroExterior.gltf#Scene0");
@@ -268,7 +275,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
         Hdr,
         Transform::from_xyz(-10.5, 1.7, -1.0).looking_at(Vec3::new(0.0, 3.5, 0.0), Vec3::Y),
         Projection::Perspective(PerspectiveProjection {
-            fov: std::f32::consts::PI / 3.0,
+            fov: PI / 3.0,
             near: 0.1,
             far: 1000.0,
             aspect_ratio: 1.0,
@@ -322,21 +329,8 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
     }
 }
 
-pub fn all_children<F: FnMut(Entity)>(
-    children: &Children,
-    children_query: &Query<&Children>,
-    closure: &mut F,
-) {
-    for child in children {
-        if let Ok(children) = children_query.get(*child) {
-            all_children(children, children_query, closure);
-        }
-        closure(*child);
-    }
-}
-
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
-pub fn proc_scene(
+fn proc_scene(
     scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
@@ -570,7 +564,7 @@ fn benchmark(
     low_high.bench_step();
 }
 
-pub fn add_no_frustum_culling(
+fn add_no_frustum_culling(
     mut commands: Commands,
     convert_query: Query<
         Entity,

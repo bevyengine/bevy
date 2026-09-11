@@ -7,12 +7,13 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 publish = false
 
-[dependencies]
-bevy_ecs = { path = "../" }
-
 [dev-dependencies]
+bevy_ecs = { path = "../" }
 compile_fail_utils = { path = "../../../tools/compile_fail_utils" }
 
 [[test]]
 name = "ui"
 harness = false
+
+[lints]
+workspace = true

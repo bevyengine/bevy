@@ -10,7 +10,6 @@ bevy = { path = "../../../", features = [
   "bevy_camera_controller",
   "free_camera",
 ] }
-mipmap_generator = { path = "../mipmap_generator" }
 
 argh = "0.1.12"
 

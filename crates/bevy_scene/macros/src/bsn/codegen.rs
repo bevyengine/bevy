@@ -219,7 +219,7 @@ impl BsnEntry {
                 } else {
                     let path = &[Member::Named(Ident::new(
                         "__value",
-                        proc_macro2::Span::call_site(),
+                        Span::call_site(),
                     ))];
                     let assigns = ty.patch_tokens(ctx, path, true, false, false)?;
                     let path = &ty.path;
@@ -244,7 +244,7 @@ impl BsnEntry {
                 } else {
                     let path = &[Member::Named(Ident::new(
                         "__value",
-                        proc_macro2::Span::call_site(),
+                        Span::call_site(),
                     ))];
                     let assigns = ty.patch_tokens(ctx, path, true, false, false)?;
                     let path = &ty.path;
@@ -358,7 +358,7 @@ impl BsnScene {
                 } else {
                     let value_path = &[Member::Named(Ident::new(
                         "__value",
-                        proc_macro2::Span::call_site(),
+                        Span::call_site(),
                     ))];
                     let template_assignments =
                         bsn_type.patch_tokens(ctx, value_path, true, false, true)?;
@@ -1128,7 +1128,7 @@ mod tests {
         let mut exprs = HoistedExpressions::default();
         let mut ctx = paths.ctx(&mut refs, &mut exprs);
         ctx.errors.push(syn::Error::new(
-            proc_macro2::Span::call_site(),
+            Span::call_site(),
             "Test Error",
         ));
         let root = BsnRoot::Bsn(Bsn {
@@ -1157,7 +1157,7 @@ mod tests {
         let mut exprs = HoistedExpressions::default();
         let mut ctx = paths.ctx(&mut refs, &mut exprs);
         ctx.errors.push(syn::Error::new(
-            proc_macro2::Span::call_site(),
+            Span::call_site(),
             "Test Error",
         ));
         let root = BsnListRoot(BsnSceneListItems(vec![], vec![]));

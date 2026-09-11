@@ -1,3 +1,8 @@
+#![expect(
+    missing_docs,
+    reason = "Helper library for the `large_scenes` examples, not published API."
+)]
+
 #[cfg(feature = "compress")]
 use std::{
     fs::{self, File},

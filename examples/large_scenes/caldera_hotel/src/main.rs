@@ -1,3 +1,9 @@
+//! Renders the Caldera Hotel scene, a large glTF scene used as a rendering stress test.
+//!
+//! The scene has a very high mesh instance count (tens of thousands), which makes it useful for
+//! exercising GPU-driven culling and batching, indirect drawing, occlusion culling, and material
+//! specialization.
+
 // Press B for benchmark.
 // Preferably after frame time is reading consistently, rust-analyzer has calmed down, and with locked gpu clocks.
 
@@ -34,8 +40,8 @@ use bevy::{
 };
 
 #[derive(FromArgs, Resource, Clone)]
-/// Config
-pub struct Args {
+/// Command-line options for this example.
+struct Args {
     /// disable bloom, AO, AA, shadows
     #[argh(switch)]
     minimal: bool,
@@ -89,7 +95,7 @@ pub struct Args {
     hide_frame_time: bool,
 }
 
-pub fn main() {
+fn main() {
     let args: Args = argh::from_env();
 
     let mut app = App::new();
@@ -128,15 +134,15 @@ pub fn main() {
 }
 
 #[derive(Component)]
-pub struct Spin;
+struct Spin;
 
 #[derive(Component)]
 struct FrameTimeText;
 
 #[derive(Component)]
-pub struct PostProcScene;
+struct PostProcScene;
 
-pub fn setup(
+fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     args: Res<Args>,
@@ -205,7 +211,7 @@ pub fn setup(
         Hdr,
         positions[0],
         Projection::Perspective(PerspectiveProjection {
-            fov: std::f32::consts::PI / 3.0,
+            fov: PI / 3.0,
             near: 0.1,
             far: 1000.0,
             ..Default::default()
@@ -262,7 +268,7 @@ pub fn setup(
 // Go though each unique mesh and randomly generate a material.
 // Each unique so instances are maintained.
 #[allow(clippy::too_many_arguments)]
-pub fn assign_rng_materials(
+fn assign_rng_materials(
     scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -382,7 +388,7 @@ fn generate_random_compressed_texture_with_mipmaps(size: u32, bc4: bool, seed: u
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct CameraPositions([Transform; 3]);
+struct CameraPositions([Transform; 3]);
 
 impl Default for CameraPositions {
     fn default() -> Self {
@@ -504,7 +510,7 @@ fn benchmark(
     low_high.bench_step();
 }
 
-pub fn add_no_frustum_culling(
+fn add_no_frustum_culling(
     mut commands: Commands,
     convert_query: Query<
         Entity,
@@ -520,7 +526,7 @@ pub fn add_no_frustum_culling(
 }
 
 #[inline(always)]
-pub fn uhash(a: u32, b: u32) -> u32 {
+fn uhash(a: u32, b: u32) -> u32 {
     let mut x = (a.overflowing_mul(1597334673).0) ^ (b.overflowing_mul(3812015801).0);
     // from https://nullprogram.com/blog/2018/07/31/
     x = x ^ (x >> 16);
@@ -532,12 +538,12 @@ pub fn uhash(a: u32, b: u32) -> u32 {
 }
 
 #[inline(always)]
-pub fn unormf(n: u32) -> f32 {
+fn unormf(n: u32) -> f32 {
     n as f32 * (1.0 / 0xffffffffu32 as f32)
 }
 
 #[inline(always)]
-pub fn hash_noise(x: u32, y: u32, z: u32) -> f32 {
+fn hash_noise(x: u32, y: u32, z: u32) -> f32 {
     let urnd = uhash(x, (y << 11) + z);
     unormf(urnd)
 }
