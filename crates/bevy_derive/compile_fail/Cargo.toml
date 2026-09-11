@@ -7,8 +7,11 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 publish = false
 
-[dev-dependencies]
+[dependencies]
+# Needed by the ui tests under `tests/`; they compile their own crates, which resolve this from here.
 bevy_derive = { path = "../" }
+
+[dev-dependencies]
 compile_fail_utils = { path = "../../../tools/compile_fail_utils" }
 
 [[test]]
