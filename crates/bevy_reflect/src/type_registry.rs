@@ -918,7 +918,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> CreateTypeData<T> for ReflectDeserial
 /// that you know implements [`Reflect`], but have no way of turning it into a `&dyn Reflect`.
 ///
 /// This is where [`ReflectFromPtr`] comes in, when creating a [`ReflectFromPtr`] for a given type `T: Reflect`.
-/// Internally, this saves a concrete function `*const T -> const dyn Reflect` which lets you create a trait object of [`Reflect`]
+/// Internally, this saves a concrete function `*mut T -> *mut dyn Reflect` which lets you create a trait object of [`Reflect`]
 /// from a pointer.
 ///
 /// # Example
@@ -945,9 +945,18 @@ impl<T: for<'a> Deserialize<'a> + Reflect> CreateTypeData<T> for ReflectDeserial
 /// ```
 #[derive(Clone)]
 pub struct ReflectFromPtr {
+    /// The type ID that this cast is generated for.
+    ///
+    /// This **may be** different from the type ID used to fetch this type data from the type
+    /// registration, if a user creates this instance for type A, but then inserts it into type B's
+    /// type registration. Therefore, for safety, we store it in this type data so that users can
+    /// assert to ensure soundness.
     type_id: TypeId,
-    from_ptr: unsafe fn(Ptr) -> &dyn Reflect,
-    from_ptr_mut: unsafe fn(PtrMut) -> &mut dyn Reflect,
+    /// The thunk for casting from an arbitrary pointer to a [`dyn Reflect`] pointer.
+    ///
+    /// This thunk effectively just adds the vtable pointer for [`Reflect`] for the type to whatever
+    /// pointer you pass in. This function does no validation.
+    cast_ptr: fn(*mut ()) -> *mut dyn Reflect,
 }
 
 #[expect(
@@ -960,6 +969,31 @@ impl ReflectFromPtr {
         self.type_id
     }
 
+    /// Returns the underlying function to cast from an arbitrary pointer to a [`dyn Reflect`]
+    /// pointer.
+    ///
+    /// This function effectively just adds the vtable pointer for [`Reflect`] for the type this
+    /// [`ReflectFromPtr`] was constructed for, to whatever pointer you pass in. This function does
+    /// no validation or manipulation - it just does a pointer cast.
+    ///
+    /// The returned function is technically safe. We simply manipulate some pointers. However,
+    /// using the result of this function requires the normal safety requirements. In particular,
+    /// you must ensure that the original pointer actually pointed to a value of the type that this
+    /// [`ReflectFromPtr`] was constructed for. This can be verified by checking that the type ID
+    /// returned by [`ReflectFromPtr::type_id`] matches the original pointer's runtime type ID.
+    /// Note: It is **not** sufficient that you got this [`ReflectFromPtr`] from the type registry
+    /// for type ID A. It is possible for someone to overwrite the [`ReflectFromPtr`] type data with
+    /// that of a different type. Therefore, to ensure soundness, you must check [`ReflectFromPtr::type_id`].
+    ///
+    /// If you need to call this function for a `*const ()`, you may simple use
+    /// [`cast_mut`] for the input and [`cast_const`] for the output.
+    ///
+    /// [`cast_mut`]: https://doc.rust-lang.org/stable/std/primitive.pointer.html#method.cast_mut
+    /// [`cast_const`]: https://doc.rust-lang.org/stable/std/primitive.pointer.html#method.cast_const
+    pub fn raw_pointer_cast(&self) -> fn(*mut ()) -> *mut dyn Reflect {
+        self.cast_ptr
+    }
+
     /// Convert `Ptr` into `&dyn Reflect`.
     ///
     /// # Safety
@@ -967,8 +1001,11 @@ impl ReflectFromPtr {
     /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
-        // SAFETY: contract uphold by the caller.
-        unsafe { (self.from_ptr)(val) }
+        let reflect_raw_pointer = (self.cast_ptr)(val.as_ptr().cast::<()>().cast_mut());
+        // SAFETY: cast_ptr is guaranteed not to change the original pointer. We know the pointer is
+        // non-null and that it is aligned (since `Ptr` includes the IsAligned) type state. Caller
+        // guarantees that `val` points to a value of the type that we were constructed for.
+        unsafe { &*reflect_raw_pointer }
     }
 
     /// Convert `PtrMut` into `&mut dyn Reflect`.
@@ -978,51 +1015,22 @@ impl ReflectFromPtr {
     /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
-        // SAFETY: contract uphold by the caller.
-        unsafe { (self.from_ptr_mut)(val) }
-    }
-    /// Get a function pointer to turn a `Ptr` into `&dyn Reflect` for
-    /// the type this [`ReflectFromPtr`] was constructed for.
-    ///
-    /// # Safety
-    ///
-    /// When calling the unsafe function returned by this method you must ensure that:
-    /// - The input `Ptr` points to the `Reflect` type this `ReflectFromPtr`
-    ///   was constructed for.
-    pub fn from_ptr(&self) -> unsafe fn(Ptr) -> &dyn Reflect {
-        self.from_ptr
-    }
-    /// Get a function pointer to turn a `PtrMut` into `&mut dyn Reflect` for
-    /// the type this [`ReflectFromPtr`] was constructed for.
-    ///
-    /// # Safety
-    ///
-    /// When calling the unsafe function returned by this method you must ensure that:
-    /// - The input `PtrMut` points to the `Reflect` type this `ReflectFromPtr`
-    ///   was constructed for.
-    pub fn from_ptr_mut(&self) -> unsafe fn(PtrMut) -> &mut dyn Reflect {
-        self.from_ptr_mut
+        let reflect_raw_pointer = (self.cast_ptr)(val.as_ptr().cast());
+        // SAFETY: cast_ptr is guaranteed not to change the original pointer. We know the pointer is
+        // non-null and that it is aligned (since `Ptr` includes the IsAligned) type state. Caller
+        // guarantees that `val` points to a value of the type that we were constructed for.
+        unsafe { &mut *reflect_raw_pointer }
     }
 }
 
-#[expect(
-    unsafe_code,
-    reason = "We must interact with pointers here, which are inherently unsafe."
-)]
 impl<T: Reflect> CreateTypeData<T> for ReflectFromPtr {
     fn create_type_data(_input: ()) -> Self {
         ReflectFromPtr {
             type_id: TypeId::of::<T>(),
-            from_ptr: |ptr| {
-                // SAFETY: `from_ptr_mut` is either called in `ReflectFromPtr::as_reflect`
-                // or returned by `ReflectFromPtr::from_ptr`, both lay out the invariants
-                // required by `deref`
-                unsafe { ptr.deref::<T>() as &dyn Reflect }
-            },
-            from_ptr_mut: |ptr| {
-                // SAFETY: same as above, but for `as_reflect_mut`, `from_ptr_mut` and `deref_mut`.
-                unsafe { ptr.deref_mut::<T>() as &mut dyn Reflect }
-            },
+            // First, cast the `*mut ()` into a `*mut T` (which lets Rust know what type we're
+            // talking about). Then, cast it into a `*mut dyn Reflect` which Rust then inserts the
+            // vtable for `T` into.
+            cast_ptr: |ptr| ptr.cast::<T>() as *mut dyn Reflect,
         }
     }
 }
