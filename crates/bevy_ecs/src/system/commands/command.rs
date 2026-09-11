@@ -4,7 +4,7 @@
 //! It also contains functions that return closures for use with
 //! [`Commands`](crate::system::Commands).
 
-use arrayvec::ArrayVec;
+use alloc::collections::VecDeque;
 use bevy_utils::prelude::DebugName;
 
 use crate::{
@@ -330,56 +330,60 @@ pub fn despawn_all<F: QueryFilter>() -> impl Command {
 pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
     mut cond: impl FnMut(Entity, D::Item<'_, '_>) -> bool + Send + 'static,
 ) -> impl Command {
-    // We can't both be iterating over entities in a world and despawning them.
-    // So we collect the entities into batches which we then despawn. Batches
-    // are sized we're not constructing new queries to often while limiting the
-    // chance of a stack overflow (currently about half a page on x86_64).
-    const BATCH_SIZE: usize = 256;
-
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
         let mut query = world.query_filtered::<(Entity, D), F>();
+        let mut query = query.iter_mut(world);
 
-        let mut batch: ArrayVec<Entity, BATCH_SIZE> = ArrayVec::new();
+        let mut entities_to_despawn = VecDeque::new();
 
-        loop {
-            let mut entities = query.iter_mut(world);
-
-            while !batch.is_full() {
-                let Some((entity, data)) = entities.fetch_next() else {
-                    break;
-                };
-
-                if !cond(entity, data) {
-                    continue;
-                }
-
-                batch.push(entity);
+        while let Some((entity, data)) = query.fetch_next() {
+            if cond(entity, data) {
+                // We want to despawn the entities backwards since we're
+                // less likely to leave holes.
+                entities_to_despawn.push_front(entity);
             }
-            // We need to explicitly drop to release the world borrow.
-            drop(entities);
-
-            if batch.is_empty() {
-                break;
-            }
-
-            let mut i = 0;
-            while i < batch.len() {
-                let entity = batch[i];
-
-                let _ = world.despawn_no_free_with_caller(entity, caller);
-
-                if let Ok(None) = world.entities.get(entity) {
-                    i += 1;
-                } else {
-                    // It may have already been despawned or a command may have reconstructed it.
-                    // See the comment in `despawn_with_caller` on `World`;
-                    batch.swap_remove(i);
-                }
-            }
-
-            world.entity_allocator.free_many(&batch);
-            batch.clear();
         }
+        // We have to explicitly drop the query to release the world borrow.
+        drop(query);
+
+        // This part of the closure does not need to be generic.
+        // Compiling it once saves a bit of compile time.
+        fn despawn_entities(
+            world: &mut World,
+            mut entities_to_despawn: VecDeque<Entity>,
+            caller: MaybeLocation,
+        ) {
+            entities_to_despawn.retain(|entity| {
+                let _ = world.despawn_no_free_with_caller(*entity, caller);
+
+                // Check if the entity wasn't already freed or reconstructed.
+                matches!(world.entities.get(*entity), Ok(None))
+            });
+
+            // We free the entities in batches so other threads can sneak in allocations.
+            // The batches should be larger than the local buffer size (128) since we
+            // want to optimize away the attempt at pushing into the local buffer.
+            const BATCH_SIZE: usize = 256;
+            let (first, second) = entities_to_despawn.as_slices();
+
+            let (first_chunks, tail) = first.as_chunks::<BATCH_SIZE>();
+
+            for chunk in first_chunks {
+                world.entity_allocator.free_many(chunk);
+            }
+
+            world.entity_allocator.free_many(tail);
+
+            let (second_chunks, tail) = second.as_chunks::<BATCH_SIZE>();
+
+            for chunk in second_chunks {
+                world.entity_allocator.free_many(chunk);
+            }
+
+            world.entity_allocator.free_many(tail);
+        }
+
+        despawn_entities(world, entities_to_despawn, caller);
     }
 }
