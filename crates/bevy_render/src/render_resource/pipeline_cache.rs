@@ -85,6 +85,24 @@ impl CachedPipelineState {
 // Since the element size we used below is small, we inline 8 on the stack.
 const BIND_GROUP_LAYOUTS_INLINE_CAPACITY: usize = 8;
 
+/// How many times a `wesl` module may be reported unresolved before it is treated as a problem
+/// rather than a pending load.
+///
+/// Discovery reports the missing module once per pipeline retry, which is roughly once per frame,
+/// so this is a few seconds of real time at a typical frame rate and longer on a throttled tab --
+/// deliberately, since a slow network should not produce a warning.
+const WESL_MODULE_LOAD_WARN_ATTEMPTS: u32 = 600;
+
+/// A `wesl` module requested from the asset server because compilation asked for it.
+struct WeslModuleRequest {
+    /// Keeps the loaded module alive. The asset loader no longer populates
+    /// `Shader::file_dependencies` for `wesl`, so nothing else holds a strong handle.
+    #[expect(dead_code, reason = "held to keep the asset loaded")]
+    handle: Handle<Shader>,
+    /// How many times the module has been reported unresolved since it was requested.
+    attempts: u32,
+}
+
 type ImmediateSize = u32;
 type LayoutCacheKey = (
     SmallVec<[BindGroupLayoutId; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>,
@@ -232,8 +250,13 @@ pub struct PipelineCache {
     needs_shader_reload: bool,
     /// Modules `wesl` reported as unresolved while compiling, drained each frame and loaded.
     missing_wesl_modules: HashSet<ShaderImport>,
-    /// Keeps those modules alive; the asset loader no longer populates `file_dependencies`.
-    wesl_module_handles: Vec<Handle<Shader>>,
+    /// Modules already requested from the asset server, keyed so each is requested once.
+    ///
+    /// Discovery reports the same module on every retry until the asset actually arrives, so
+    /// without this the same file is requested repeatedly -- once per frame under latency, which
+    /// is exactly the situation on the web. The handle also keeps the module alive: the asset
+    /// loader no longer populates `Shader::file_dependencies` for `wesl`.
+    wesl_module_requests: HashMap<ShaderImport, WeslModuleRequest>,
 }
 
 impl PipelineCache {
@@ -289,7 +312,7 @@ impl PipelineCache {
             synchronous_pipeline_compilation,
             needs_shader_reload: true,
             missing_wesl_modules: default(),
-            wesl_module_handles: default(),
+            wesl_module_requests: default(),
         }
     }
 
@@ -968,15 +991,41 @@ impl PipelineCache {
         if cache.missing_wesl_modules.is_empty() {
             return;
         }
-        for import in core::mem::take(&mut cache.missing_wesl_modules) {
-            let ShaderImport::AssetPath(path) = import else {
+        for import in mem::take(&mut cache.missing_wesl_modules) {
+            let ShaderImport::AssetPath(asset_path) = &import else {
                 continue;
             };
-            let path = format!("{}.wesl", path.trim_start_matches('/'));
-            bevy_log::debug!("loading wesl module requested by the compiler: {path}");
-            cache
-                .wesl_module_handles
-                .push(asset_server.load(AssetPath::from(path)));
+            let path = format!("{}.wesl", asset_path.trim_start_matches('/'));
+
+            match cache.wesl_module_requests.get_mut(&import) {
+                // Already requested. Count the wait rather than requesting again.
+                Some(request) => {
+                    request.attempts = request.attempts.saturating_add(1);
+                    if request.attempts == WESL_MODULE_LOAD_WARN_ATTEMPTS {
+                        // Compilation reporting an unresolved module is the normal discovery
+                        // signal, so it is logged at debug. Still waiting this long is not
+                        // normal: the file is most likely missing or misnamed, and without
+                        // this the shader would simply never appear and never say why.
+                        bevy_log::warn!(
+                            "Shader module `{path}` has not loaded after \
+                             {WESL_MODULE_LOAD_WARN_ATTEMPTS} attempts. Check that the file \
+                             exists and that the import path matches it."
+                        );
+                    }
+                }
+                // Not yet requested. This is the only place a load is issued.
+                None => {
+                    bevy_log::debug!("loading wesl module requested by the compiler: {path}");
+                    let handle = asset_server.load(AssetPath::from(path));
+                    cache.wesl_module_requests.insert(
+                        import,
+                        WeslModuleRequest {
+                            handle,
+                            attempts: 1,
+                        },
+                    );
+                }
+            }
         }
     }
 
