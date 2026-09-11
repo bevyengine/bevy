@@ -753,8 +753,8 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
         if key.xray_mode {
             descriptor.primitive.cull_mode = None;
             let depth_stencil = descriptor.depth_stencil.as_mut().unwrap();
+            // An x-ray wireframe must not occlude or be occluded by anything
             depth_stencil.depth_compare = Some(CompareFunction::Always);
-            // An x-ray wireframe is an overlay and must not occlude subsequent edges.
             depth_stencil.depth_write_enabled = Some(false);
         }
 
