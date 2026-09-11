@@ -570,6 +570,72 @@ mod tests {
         })
     }
 
+    /// The compiler names the module it could not resolve, and that name survives to the caller
+    /// so the module can be loaded on demand.
+    ///
+    /// This is what replaces guessing dependencies from the import statement: the path here is
+    /// one `wesl` actually reached while resolving a use site, never a speculative candidate.
+    ///
+    /// Note which module is reported. `bevy_render::maths` is written inline in the body as
+    /// `bevy_render::maths::double(1.0)`, with no import statement naming it -- a scan of the
+    /// import statements cannot see it at all. The compiler finds it without one.
+    #[test]
+    fn missing_import_names_the_module_to_load() {
+        let mut cache = test_cache();
+        let (_, _, root) = test_shaders();
+        let (_, _, root_id) = test_ids();
+
+        cache.set_shader(root_id, root);
+
+        let Err(ShaderCacheError::ShaderImportNotYetAvailable { missing_module }) =
+            cache.get(0, root_id, &[])
+        else {
+            panic!("expected the shader to be waiting on an import");
+        };
+
+        // It is an engine shader embedded in the binary, so it is reported as `Custom`. The
+        // render world must not request it from the asset server.
+        assert_eq!(
+            missing_module,
+            Some(ShaderImport::Custom("bevy_render::maths".to_string())),
+            "the missing module should be named, and named as an embedded module"
+        );
+    }
+
+    /// The origin of a module path decides whether it can be fetched at all. Getting this wrong
+    /// would reintroduce the failing request #25363 is about, just for a different path.
+    #[test]
+    fn module_path_origin_decides_whether_it_is_fetchable() {
+        use wesl::syntax::{ModulePath, PathOrigin};
+
+        let asset = ModulePath::new(
+            PathOrigin::Absolute,
+            vec!["shaders".to_string(), "helper".to_string()],
+        );
+        assert_eq!(
+            shader_import_from_module_path(&asset),
+            Some(ShaderImport::AssetPath("/shaders/helper".to_string())),
+            "a path under assets/ must be loadable"
+        );
+
+        let embedded = ModulePath::new(
+            PathOrigin::Package("bevy_pbr".to_string()),
+            vec!["lighting".to_string()],
+        );
+        assert_eq!(
+            shader_import_from_module_path(&embedded),
+            Some(ShaderImport::Custom("bevy_pbr::lighting".to_string())),
+            "an embedded engine shader must not become an asset path"
+        );
+
+        let unanchored = ModulePath::new(PathOrigin::Relative(1), vec!["sibling".to_string()]);
+        assert_eq!(
+            shader_import_from_module_path(&unanchored),
+            None,
+            "an unanchored path names no fetchable module"
+        );
+    }
+
     #[test]
     fn import_resolution() {
         let mut cache = test_cache();

@@ -400,3 +400,49 @@ impl From<&'static str> for ShaderRef {
         Self::Path(AssetPath::from(path))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Guards the fix for bevyengine/bevy#25363 without needing a browser.
+    ///
+    /// The browser's console line was
+    /// `GET /assets/shaders/custom_material_import/COLOR_MULTIPLIER.wesl 404`. That request was
+    /// not made by `wesl`, which resolves an import at its use site and so only ever asks for a
+    /// module that exists. It was made here: `scan_wesl_imports` emitted `path + item` as a
+    /// second candidate module, and `AssetLoader::load` chose between candidates by attempting to
+    /// read each one -- so one read per import was designed to miss. Natively that is a silent
+    /// failed `stat`; on the web the browser logs it before the response reaches Rust.
+    ///
+    /// `COLOR_MULTIPLIER` is a `const` declared inside `custom_material_import`, not a module
+    /// beneath it, so it must never appear as a path.
+    #[test]
+    fn item_import_names_only_its_parent_module() {
+        let source = include_str!("../../../assets/shaders/custom_material.wesl");
+        let shader = Shader::from_wesl(source, "shaders/custom_material.wesl");
+
+        // What the asset loader would turn into HTTP GETs.
+        let requested: Vec<String> = shader
+            .imports
+            .iter()
+            .filter_map(|import| match import {
+                ShaderImport::AssetPath(path) => {
+                    Some(format!("{}.wesl", path.trim_start_matches('/')))
+                }
+                ShaderImport::Custom(_) => None,
+            })
+            .collect();
+
+        assert!(
+            !requested
+                .contains(&"shaders/custom_material_import/COLOR_MULTIPLIER.wesl".to_string()),
+            "the #25363 404 is back: {requested:?}"
+        );
+        assert_eq!(
+            requested,
+            vec!["shaders/custom_material_import.wesl".to_string()],
+            "only the real parent module should be named"
+        );
+    }
+}
