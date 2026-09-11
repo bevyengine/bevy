@@ -120,6 +120,37 @@ impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
 }
 
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
+    /// Converts this `QueryState` to a `QueryState` that does not access anything mutably.
+    pub fn to_readonly(self) -> QueryState<D::ReadOnly, F> {
+        let QueryState {
+            world_id,
+            archetype_generation,
+            matched_tables,
+            matched_archetypes,
+            component_access,
+            matched_storage_ids,
+            is_dense,
+            fetch_state,
+            filter_state,
+            #[cfg(feature = "trace")]
+            par_iter_span,
+        } = self;
+
+        QueryState {
+            world_id,
+            archetype_generation,
+            matched_tables,
+            matched_archetypes,
+            component_access,
+            matched_storage_ids,
+            is_dense,
+            fetch_state,
+            filter_state,
+            #[cfg(feature = "trace")]
+            par_iter_span,
+        }
+    }
+
     /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
     pub fn as_readonly(&self) -> &QueryState<D::ReadOnly, F> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`
@@ -148,12 +179,28 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
     /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
     pub(crate) unsafe fn as_transmuted_state<
-        NewD: ReadOnlyQueryData<State = D::State>,
+        NewD: QueryData<State = D::State>,
         NewF: QueryFilter<State = F::State>,
     >(
         &self,
     ) -> &QueryState<NewD, NewF> {
         &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
+    }
+
+    /// Converts this `QueryState` reference to any other `QueryState` with
+    /// the same `WorldQuery::State` associated types.
+    ///
+    /// # Safety
+    ///
+    /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
+    /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
+    pub(crate) unsafe fn as_transmuted_state_mut<
+        NewD: QueryData<State = D::State>,
+        NewF: QueryFilter<State = F::State>,
+    >(
+        &mut self,
+    ) -> &mut QueryState<NewD, NewF> {
+        &mut *ptr::from_mut(self).cast::<QueryState<NewD, NewF>>()
     }
 
     /// Returns the components accessed by this query.
