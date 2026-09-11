@@ -128,10 +128,13 @@ fn setup_scattered_ui(mut commands: Commands) {
             height: percent(100),
         }
         Children [
-            @instructions_scene(),
-            @focus_display_scene(),
-            @key_display_scene(),
-            { buttons_scene() },
+            @instructions_scene()
+            --
+            @focus_display_scene()
+            --
+            @key_display_scene()
+            --
+            { buttons_scene() }
         ]
     });
 }

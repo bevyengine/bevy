@@ -115,11 +115,15 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
         BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1))
         ListBox
         Children [
-            @context_item("fuchsia", basic::FUCHSIA),
-            @context_item("gray", basic::GRAY),
-            @context_item("maroon", basic::MAROON),
-            @context_item("purple", basic::PURPLE),
-            @context_item("teal", basic::TEAL),
+            @context_item("fuchsia", basic::FUCHSIA)
+            --
+            @context_item("gray", basic::GRAY)
+            --
+            @context_item("maroon", basic::MAROON)
+            --
+            @context_item("purple", basic::PURPLE)
+            --
+            @context_item("teal", basic::TEAL)
         ]
         on(|event: On<ValueChange<Entity>>,
             menu_items: Query<&ContextMenuItem, With<ListItem>>,

@@ -51,7 +51,7 @@ fn on_virtual_key_pressed(
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, @text_input(), @keyboard()]
+    bsn! { Camera2d -- @text_input() -- @keyboard() }
 }
 
 fn keyboard() -> impl Scene {
@@ -73,7 +73,7 @@ fn keyboard() -> impl Scene {
             align_items: AlignItems::Center,
             justify_content: JustifyContent::End,
         }
-        Children [(
+        Children [
             Node {
                 flex_direction: FlexDirection::Column,
                 border: px(5),
@@ -86,13 +86,12 @@ fn keyboard() -> impl Scene {
             BackgroundColor(NAVY)
             BorderColor::all(Color::WHITE)
             Children [
-                Text("virtual keyboard"),
-                (
-                    @VirtualKeyboard::<&str> { @keys: keys }
-                    on(on_virtual_key_pressed)
-                )
+                Text("virtual keyboard")
+                --
+                @VirtualKeyboard::<&str> { @keys: keys }
+                on(on_virtual_key_pressed)
             ]
-        )]
+        ]
     }
 }
 
@@ -106,7 +105,7 @@ fn text_input() -> impl Scene {
             justify_content: JustifyContent::Center,
         }
         TabGroup
-        Children [(
+        Children [
             Node {
                 width: percent(80),
                 border: px(5),
@@ -129,6 +128,6 @@ fn text_input() -> impl Scene {
             }
             TabIndex(0)
             AutoFocus
-        )]
+        ]
     }
 }
