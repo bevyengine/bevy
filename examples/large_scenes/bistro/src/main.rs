@@ -66,8 +66,8 @@ struct Args {
     #[argh(switch)]
     compress: bool,
 
-    /// if low_quality_compression is set, only 0.5 byte/px formats will be used (BC1, BC4) unless the alpha channel is in use, then BC3 will be used.
-    /// When low quality is set, compression is generally faster than CompressionSpeed::UltraFast and CompressionSpeed is ignored.
+    /// if `low_quality_compression` is set, only 0.5 byte/px formats will be used (BC1, BC4) unless the alpha channel is in use, then BC3 will be used.
+    /// When low quality is set, compression is generally faster than `CompressionSpeed::UltraFast` and `CompressionSpeed` is ignored.
     #[argh(switch)]
     low_quality_compression: bool,
 
@@ -187,7 +187,7 @@ struct Spin;
 struct FrameTimeText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
-    println!("Loading models, generating mipmaps");
+    info!("Loading models, generating mipmaps");
 
     let bistro_exterior = asset_server.load("bistro_exterior/BistroExterior.gltf#Scene0");
     commands
@@ -329,7 +329,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
     }
 }
 
-#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+#[expect(
+    clippy::type_complexity,
+    clippy::too_many_arguments,
+    reason = "One cohesive observer."
+)]
 fn proc_scene(
     scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
@@ -434,13 +438,13 @@ fn input(
         info!("{:?}", transform);
     }
     if input.just_pressed(KeyCode::Digit1) {
-        *transform = positions[0]
+        *transform = positions[0];
     }
     if input.just_pressed(KeyCode::Digit2) {
-        *transform = positions[1]
+        *transform = positions[1];
     }
     if input.just_pressed(KeyCode::Digit3) {
-        *transform = positions[2]
+        *transform = positions[2];
     }
 }
 
@@ -505,7 +509,7 @@ fn spin(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "One cohesive system.")]
 fn benchmark(
     input: Res<ButtonInput<KeyCode>>,
     mut camera_transform: Single<&mut Transform, With<Camera>>,
@@ -526,7 +530,7 @@ fn benchmark(
         *bench_frame = 0;
         // Try to render for around 3s or at least 60 frames per step
         *count_per_step = ((3.0 / time.delta_secs()) as u32).max(60);
-        println!(
+        info!(
             "Starting Benchmark with {} frames per step",
             *count_per_step
         );
@@ -535,21 +539,21 @@ fn benchmark(
         return;
     }
     if *bench_frame == 0 {
-        **camera_transform = positions[0]
+        **camera_transform = positions[0];
     } else if *bench_frame == *count_per_step {
-        **camera_transform = positions[1]
+        **camera_transform = positions[1];
     } else if *bench_frame == *count_per_step * 2 {
-        **camera_transform = positions[2]
+        **camera_transform = positions[2];
     } else if *bench_frame == *count_per_step * 3 {
         let elapsed = bench_started.unwrap().elapsed().as_secs_f32();
-        println!(
+        info!(
             "{:>7.2}ms Benchmark avg cpu frame time",
             (elapsed / *bench_frame as f32) * 1000.0
         );
         let r = 1.0 / *bench_frame as f64;
-        println!("{:>7.2}ms avg 1% low", low_high.sum_one_percent_low * r);
-        println!("{:>7.2}ms avg 1% high", low_high.sum_one_percent_high * r);
-        println!(
+        info!("{:>7.2}ms avg 1% low", low_high.sum_one_percent_low * r);
+        info!("{:>7.2}ms avg 1% high", low_high.sum_one_percent_high * r);
+        info!(
             "{:>7} Meshes\n{:>7} Mesh Instances\n{:>7} Materials\n{:>7} Material Instances",
             meshes.len(),
             has_mesh.iter().len(),

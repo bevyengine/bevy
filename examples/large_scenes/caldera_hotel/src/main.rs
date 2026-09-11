@@ -50,7 +50,7 @@ struct Args {
     #[argh(switch)]
     random_materials: bool,
 
-    /// quantity of unique textures sets to randomly select from. (A texture set being: base_color, roughness)
+    /// quantity of unique textures sets to randomly select from. (A texture set being: `base_color`, roughness)
     #[argh(option, default = "0")]
     texture_count: u32,
 
@@ -267,7 +267,7 @@ fn setup(
 
 // Go though each unique mesh and randomly generate a material.
 // Each unique so instances are maintained.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "One cohesive system.")]
 fn assign_rng_materials(
     scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
@@ -302,7 +302,7 @@ fn assign_rng_materials(
             "Mesh quantity appears incorrect. Expected: {}. Found: {}!",
             MESH_INSTANCE_QTY,
             mesh_instances.iter().len()
-        )
+        );
     }
 
     let base_color_textures = (0..args.texture_count)
@@ -424,13 +424,13 @@ fn input(
         info!("{:?}", transform);
     }
     if input.just_pressed(KeyCode::Digit1) {
-        *transform = positions[0]
+        *transform = positions[0];
     }
     if input.just_pressed(KeyCode::Digit2) {
-        *transform = positions[1]
+        *transform = positions[1];
     }
     if input.just_pressed(KeyCode::Digit3) {
-        *transform = positions[2]
+        *transform = positions[2];
     }
 }
 
@@ -451,7 +451,7 @@ fn spin(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "One cohesive system.")]
 fn benchmark(
     input: Res<ButtonInput<KeyCode>>,
     mut camera_transform: Single<&mut Transform, With<Camera>>,
@@ -472,7 +472,7 @@ fn benchmark(
         *bench_frame = 0;
         // Try to render for around 3s or at least 60 frames per step
         *count_per_step = ((3.0 / time.delta_secs()) as u32).max(60);
-        println!(
+        info!(
             "Starting Benchmark with {} frames per step",
             *count_per_step
         );
@@ -481,21 +481,21 @@ fn benchmark(
         return;
     }
     if *bench_frame == 0 {
-        **camera_transform = positions[0]
+        **camera_transform = positions[0];
     } else if *bench_frame == *count_per_step {
-        **camera_transform = positions[1]
+        **camera_transform = positions[1];
     } else if *bench_frame == *count_per_step * 2 {
-        **camera_transform = positions[2]
+        **camera_transform = positions[2];
     } else if *bench_frame == *count_per_step * 3 {
         let elapsed = bench_started.unwrap().elapsed().as_secs_f32();
-        println!(
+        info!(
             "{:>7.2}ms Benchmark avg cpu frame time",
             (elapsed / *bench_frame as f32) * 1000.0
         );
         let r = 1.0 / *bench_frame as f64;
-        println!("{:>7.2}ms avg 1% low", low_high.sum_one_percent_low * r);
-        println!("{:>7.2}ms avg 1% high", low_high.sum_one_percent_high * r);
-        println!(
+        info!("{:>7.2}ms avg 1% low", low_high.sum_one_percent_low * r);
+        info!("{:>7.2}ms avg 1% high", low_high.sum_one_percent_high * r);
+        info!(
             "{:>7} Meshes\n{:>7} Mesh Instances\n{:>7} Materials\n{:>7} Material Instances",
             meshes.len(),
             has_mesh.iter().len(),

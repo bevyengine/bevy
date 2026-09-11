@@ -1098,7 +1098,7 @@ mod tests {
             exprs.expressions[0].to_string(),
             "let _expr0 = { some_borrow . clone () } . into () ;"
         );
-        let assignment_output: String = res.unwrap().iter().map(|t| t.to_string()).collect();
+        let assignment_output: String = res.unwrap().iter().map(ToString::to_string).collect();
         assert!(
             assignment_output.contains("_expr0"),
             "expected hoisted ident in assignment output: {assignment_output}"

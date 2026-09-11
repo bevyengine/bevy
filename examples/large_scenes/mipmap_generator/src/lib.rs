@@ -37,19 +37,19 @@ pub struct MipmapGeneratorSettings {
     pub filter_type: FilterType,
     pub minimum_mip_resolution: u32,
     /// Set to Some(CompressionSpeed) to enable compression.
-    /// The compress feature also needs to be enabled. Only BCn currently supported.
-    /// Compression can take a long time, CompressionSpeed::UltraFast (default) is recommended.
+    /// The compress feature also needs to be enabled. Only `BCn` currently supported.
+    /// Compression can take a long time, `CompressionSpeed::UltraFast` (default) is recommended.
     /// Currently supported conversions:
-    ///- R8Unorm -> Bc4RUnorm
-    ///- Rg8Unorm -> Bc5RgUnorm
-    ///- Rgba8Unorm -> Bc7RgbaUnorm
-    ///- Rgba8UnormSrgb -> Bc7RgbaUnormSrgb
+    ///- `R8Unorm` -> `Bc4RUnorm`
+    ///- `Rg8Unorm` -> `Bc5RgUnorm`
+    ///- `Rgba8Unorm` -> `Bc7RgbaUnorm`
+    ///- `Rgba8UnormSrgb` -> `Bc7RgbaUnormSrgb`
     pub compression: Option<CompressionSpeed>,
     /// If set, raw compressed image data will be cached in this directory.
-    /// Images that are not BCn compressed are not cached.
+    /// Images that are not `BCn` compressed are not cached.
     pub compressed_image_data_cache_path: Option<std::path::PathBuf>,
-    /// If low_quality is set, only 0.5 byte/px formats will be used (BC1, BC4) unless the alpha channel is in use, then BC3 will be used.
-    /// When low quality is set, compression is generally faster than CompressionSpeed::UltraFast and CompressionSpeed is ignored.
+    /// If `low_quality` is set, only 0.5 byte/px formats will be used (BC1, BC4) unless the alpha channel is in use, then BC3 will be used.
+    /// When low quality is set, compression is generally faster than `CompressionSpeed::UltraFast` and `CompressionSpeed` is ignored.
     // TODO: low_quality normals should probably use BC5 or BC7 as they looks quite bad at BC1
     pub low_quality: bool,
 }
@@ -228,7 +228,10 @@ pub struct TaskData {
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
-#[allow(clippy::type_complexity)]
+#[expect(
+    clippy::type_complexity,
+    reason = "The task and its asset ids are one unit."
+)]
 pub struct MipmapTasks<M: Material + GetImages>(
     HashMap<Handle<Image>, (Task<TaskData>, Vec<AssetId<M>>)>,
 );
@@ -236,7 +239,10 @@ pub struct MipmapTasks<M: Material + GetImages>(
 #[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq)]
 pub struct MaterialHandle<M: Material + GetImages>(pub Handle<M>);
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "One cohesive mipmap generation pipeline."
+)]
 pub fn generate_mipmaps<M: Material + GetImages>(
     mut commands: Commands,
     mut material_events: MessageReader<AssetEvent<M>>,
@@ -258,10 +264,10 @@ pub fn generate_mipmaps<M: Material + GetImages>(
 
     let thread_pool = AsyncComputeTaskPool::get();
     'outer: for event in material_events.read() {
-        let material_h = match event {
-            AssetEvent::Added { id } => id,
-            AssetEvent::LoadedWithDependencies { id } => id,
-            _ => continue,
+        let (AssetEvent::Added { id: material_h }
+        | AssetEvent::LoadedWithDependencies { id: material_h }) = event
+        else {
+            continue;
         };
         for m in no_mipmap.iter() {
             if m.id() == *material_h {
@@ -347,16 +353,26 @@ pub fn generate_mipmaps<M: Material + GetImages>(
 }
 
 /// `added_cache_size` is for tracking the amount of data that was cached by this call.
-/// Compressed BCn data is cached on disk if cache_compressed_image_data is enabled.
+/// Compressed `BCn` data is cached on disk if `cache_compressed_image_data` is enabled.
 pub fn generate_mips_texture(
     image: &mut Image,
     settings: &MipmapGeneratorSettings,
-    #[allow(unused)] added_cache_size: &mut usize,
+    #[cfg_attr(
+        not(feature = "compress"),
+        expect(
+            unused,
+            reason = "Only used to track the cache with `compress` enabled."
+        )
+    )]
+    added_cache_size: &mut usize,
 ) -> anyhow::Result<()> {
     check_image_compatible(image)?;
     match try_into_dynamic(image.clone()) {
         Ok(mut dyn_image) => {
-            #[allow(unused_mut)]
+            #[cfg_attr(
+                not(feature = "compress"),
+                expect(unused_mut, reason = "Only mutated with `compress` enabled.")
+            )]
             let mut has_alpha = false;
             #[cfg(feature = "compress")]
             if let Some(img) = dyn_image.as_rgba8() {
@@ -370,7 +386,10 @@ pub fn generate_mips_texture(
 
             #[cfg(feature = "compress")]
             let mut compressed_format = None;
-            #[allow(unused_mut)]
+            #[cfg_attr(
+                not(feature = "compress"),
+                expect(unused_mut, reason = "Only mutated with `compress` enabled.")
+            )]
             let mut compression_speed = settings.compression;
             #[cfg(feature = "compress")]
             {
@@ -388,7 +407,10 @@ pub fn generate_mips_texture(
 
             #[cfg(feature = "compress")]
             let mut input_hash = u64::MAX;
-            #[allow(unused_mut)]
+            #[cfg_attr(
+                not(feature = "compress"),
+                expect(unused_mut, reason = "Only mutated with `compress` enabled.")
+            )]
             let mut loaded_from_cache = false;
             let mut new_image_data = Vec::new();
 
@@ -451,7 +473,10 @@ pub fn generate_mips(
     let mut width = dyn_image.width();
     let mut height = dyn_image.height();
 
-    #[allow(unused_mut)]
+    #[cfg_attr(
+        not(feature = "compress"),
+        expect(unused_mut, reason = "Only mutated with `compress` enabled.")
+    )]
     let mut compressed_image_data = None;
     #[cfg(feature = "compress")]
     if let Some(compression_settings) = settings.compression {
@@ -466,7 +491,7 @@ pub fn generate_mips(
 
     #[cfg(not(feature = "compress"))]
     if settings.compression.is_some() {
-        warn!("Compression is Some but compress feature is disabled. Falling back to generating mips without compression.")
+        warn!("Compression is Some but compress feature is disabled. Falling back to generating mips without compression.");
     }
 
     let mut image_data = compressed_image_data.unwrap_or(dyn_image.as_bytes().to_vec());
@@ -500,7 +525,10 @@ pub fn generate_mips(
         resizer.resize(dyn_image, &mut new, &resize_alg).unwrap();
         *dyn_image = new;
 
-        #[allow(unused_mut)]
+        #[cfg_attr(
+            not(feature = "compress"),
+            expect(unused_mut, reason = "Only mutated with `compress` enabled.")
+        )]
         let mut compressed_image_data = None;
         #[cfg(feature = "compress")]
         if let Some(compression_speed) = settings.compression {
@@ -532,7 +560,11 @@ pub fn calculate_mip_count(
     mut height: u32,
     minimum_mip_resolution: u32,
     max_mip_count: u32,
-    #[allow(unused)] compression: Option<CompressionSpeed>,
+    #[cfg_attr(
+        not(feature = "compress"),
+        expect(unused, reason = "Only used when `compress` feature is enabled.")
+    )]
+    compression: Option<CompressionSpeed>,
 ) -> u32 {
     let mut mip_level_count = 1;
 
@@ -714,13 +746,7 @@ pub fn try_into_dynamic(image: Image) -> anyhow::Result<DynamicImage> {
             image_data,
         )
         .map(DynamicImage::ImageLumaA8),
-        TextureFormat::Rgba8UnormSrgb => ImageBuffer::from_raw(
-            image.texture_descriptor.size.width,
-            image.texture_descriptor.size.height,
-            image_data,
-        )
-        .map(DynamicImage::ImageRgba8),
-        TextureFormat::Rgba8Unorm => ImageBuffer::from_raw(
+        TextureFormat::Rgba8UnormSrgb | TextureFormat::Rgba8Unorm => ImageBuffer::from_raw(
             image.texture_descriptor.size.width,
             image.texture_descriptor.size.height,
             image_data,
@@ -860,7 +886,7 @@ fn bcn_compress_dyn_image(
     Ok(image_data)
 }
 
-/// If low_quality is set, only 0.5 byte/px formats will be used (BC1, BC4) unless alpha is being used (BC3)
+/// If `low_quality` is set, only 0.5 byte/px formats will be used (BC1, BC4) unless alpha is being used (BC3)
 pub fn bcn_equivalent_format_of_dyn_image(
     dyn_image: &DynamicImage,
     is_srgb: bool,
