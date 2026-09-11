@@ -154,8 +154,8 @@ X - Change global color
 C - Change color of the green cube wireframe
 V - Line width (current: {current_width:.1}px)
 B - Toggle topology (current: {:?})
-N - Toggle x-ray mode (current: {:?})
-M - Toggle x-ray override for the green cube (current: {green_cube_xray})
+N - Toggle global x-ray mode (current: {:?})
+M - Toggle x-ray mode for the green cube (current: {green_cube_xray})
 
 WireframeConfig
 -------------
