@@ -351,10 +351,9 @@ fn layout_entries(
                     visibility_ranges_buffer_binding_type,
                     false,
                     Some(match visibility_ranges_buffer_binding_type {
-                        BufferBindingType::Uniform => Vec4::min_size().saturating_mul(
-                            NonZero::new(VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE as u64)
-                                .expect("the uniform array holds at least one element"),
-                        ),
+                        BufferBindingType::Uniform => {
+                            <[Vec4; VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE]>::min_size()
+                        }
                         BufferBindingType::Storage { .. } => Vec4::min_size(),
                     }),
                 )
