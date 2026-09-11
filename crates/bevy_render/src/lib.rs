@@ -466,7 +466,11 @@ impl Plugin for RenderPlugin {
             render_app.add_systems(
                 Render,
                 (
-                    (PipelineCache::process_pipeline_queue_system, render_system)
+                    (
+                        PipelineCache::load_missing_wesl_modules_system,
+                        PipelineCache::process_pipeline_queue_system,
+                        render_system,
+                    )
                         .chain()
                         .in_set(RenderSystems::Render),
                     reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),

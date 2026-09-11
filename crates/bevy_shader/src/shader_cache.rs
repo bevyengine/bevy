@@ -36,14 +36,21 @@ pub(crate) fn wesl_module_path(import_path: &ShaderImport) -> Option<wesl::synta
     }
 }
 
-fn is_module_not_found(error: &wesl::Error) -> bool {
+/// Recovers the module path `wesl` could not resolve.
+///
+/// `wesl` resolves an import at the point of use, so it only ever asks for a module that
+/// genuinely exists, and it reports a miss as structured data. Reading that path back is what
+/// lets the module be loaded on demand instead of guessed at load time.
+///
+/// Only the first missing module is reported, because compilation stops there.
+fn module_not_found_path(error: &wesl::Error) -> Option<&wesl::syntax::ModulePath> {
     match error {
-        wesl::Error::ResolveError(wesl::ResolveError::ModuleNotFound(..))
+        wesl::Error::ResolveError(wesl::ResolveError::ModuleNotFound(path, _))
         | wesl::Error::ImportError(wesl::ImportError::ResolveError(
-            wesl::ResolveError::ModuleNotFound(..),
-        )) => true,
-        wesl::Error::Error(diagnostic) => is_module_not_found(&diagnostic.error),
-        _ => false,
+            wesl::ResolveError::ModuleNotFound(path, _),
+        )) => Some(path),
+        wesl::Error::Error(diagnostic) => module_not_found_path(&diagnostic.error),
+        _ => None,
     }
 }
 
@@ -201,7 +208,9 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                 .filter(|import| matches!(import, ShaderImport::AssetPath(_)))
                 .count();
             if n_asset_imports != n_resolved_asset_imports {
-                return Err(ShaderCacheError::ShaderImportNotYetAvailable);
+                return Err(ShaderCacheError::ShaderImportNotYetAvailable {
+                    missing_module: None,
+                });
             }
         }
 
@@ -292,17 +301,16 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                                 &compiler_options,
                             )
                             .map_err(|error| {
-                                // We use render_plain to avoid rendering ANSI codes
-                                // Workaround for: https://github.com/tokio-rs/tracing/issues/3378
-                                if is_module_not_found(&error) {
+                                if let Some(missing) = module_not_found_path(&error) {
                                     if self.missing_import_logged.insert(id) {
-                                        warn!(
-                                            "Shader `{}` has an unresolved import:\n{}",
-                                            shader.path,
-                                            error.diagnostic().render_plain()
+                                        debug!(
+                                            "Shader `{}` is waiting on module `{missing}`",
+                                            shader.path
                                         );
                                     }
-                                    ShaderCacheError::ShaderImportNotYetAvailable
+                                    ShaderCacheError::ShaderImportNotYetAvailable {
+                                        missing_module: shader_import_from_module_path(missing),
+                                    }
                                 } else {
                                     ShaderCacheError::ProcessShaderError(
                                         error.diagnostic().render_plain(),
@@ -542,7 +550,11 @@ pub enum ShaderCacheError {
     #[error("Failed to process shader:\n{0}")]
     ProcessShaderError(String),
     #[error("Shader import not yet available.")]
-    ShaderImportNotYetAvailable,
+    ShaderImportNotYetAvailable {
+        /// The module `wesl` asked for and could not find. Every path reported here is one the
+        /// compiler actually reached, so it is never speculative.
+        missing_module: Option<ShaderImport>,
+    },
     #[error("Could not create shader module: {0}")]
     CreateShaderModule(String),
 }
@@ -640,7 +652,7 @@ fn fragment() -> @location(0) vec4<f32> {
         cache.set_shader(root_id, root);
         assert!(matches!(
             cache.get(0, root_id, &[]),
-            Err(ShaderCacheError::ShaderImportNotYetAvailable)
+            Err(ShaderCacheError::ShaderImportNotYetAvailable { .. })
         ));
 
         cache.set_shader(lighting_id, lighting);

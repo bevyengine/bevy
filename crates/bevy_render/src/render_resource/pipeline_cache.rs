@@ -10,7 +10,7 @@ use crate::{
     Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
-use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, AssetPath, AssetServer, Assets, Handle};
 use bevy_ecs::{
     message::MessageReader,
     resource::Resource,
@@ -20,7 +20,7 @@ use bevy_log::error;
 use bevy_platform::collections::{hash_map::RawEntryMut, HashMap, HashSet};
 use bevy_shader::{
     CachedPipelineId, Shader, ShaderCache, ShaderCacheError, ShaderCacheSource, ShaderDefVal,
-    ValidateShader,
+    ShaderImport, ValidateShader,
 };
 use bevy_tasks::Task;
 use bevy_utils::default;
@@ -230,6 +230,10 @@ pub struct PipelineCache {
     pub(crate) synchronous_pipeline_compilation: bool,
     /// If `true`, the shader cache needs to be repopulated from the main world's `Assets<Shader>`.
     needs_shader_reload: bool,
+    /// Modules `wesl` reported as unresolved while compiling, drained each frame and loaded.
+    missing_wesl_modules: HashSet<ShaderImport>,
+    /// Keeps those modules alive; the asset loader no longer populates `file_dependencies`.
+    wesl_module_handles: Vec<Handle<Shader>>,
 }
 
 impl PipelineCache {
@@ -284,6 +288,8 @@ impl PipelineCache {
             global_shader_defs,
             synchronous_pipeline_compilation,
             needs_shader_reload: true,
+            missing_wesl_modules: default(),
+            wesl_module_handles: default(),
         }
     }
 
@@ -910,8 +916,14 @@ impl PipelineCache {
 
             CachedPipelineState::Err(err) => match err {
                 // Retry
-                ShaderCacheError::ShaderNotLoaded(_)
-                | ShaderCacheError::ShaderImportNotYetAvailable => {
+                ShaderCacheError::ShaderNotLoaded(_) => {
+                    bevy_log::debug!("retry processing pipeline {id}: {err}");
+                    cached_pipeline.state = CachedPipelineState::Queued;
+                }
+                ShaderCacheError::ShaderImportNotYetAvailable { missing_module } => {
+                    if let Some(module) = missing_module {
+                        self.missing_wesl_modules.insert(module.clone());
+                    }
                     bevy_log::debug!("retry processing pipeline {id}: {err}");
                     cached_pipeline.state = CachedPipelineState::Queued;
                 }
@@ -942,6 +954,30 @@ impl PipelineCache {
 
     pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
         cache.process_queue();
+    }
+
+    /// Loads the `wesl` modules compilation asked for and could not find.
+    ///
+    /// Only [`ShaderImport::AssetPath`] is requested. A [`ShaderImport::Custom`] module is an
+    /// engine shader embedded in the binary, so asking the asset server for it would produce
+    /// exactly the kind of failing request this avoids.
+    pub(crate) fn load_missing_wesl_modules_system(
+        mut cache: ResMut<Self>,
+        asset_server: Res<AssetServer>,
+    ) {
+        if cache.missing_wesl_modules.is_empty() {
+            return;
+        }
+        for import in core::mem::take(&mut cache.missing_wesl_modules) {
+            let ShaderImport::AssetPath(path) = import else {
+                continue;
+            };
+            let path = format!("{}.wesl", path.trim_start_matches('/'));
+            bevy_log::debug!("loading wesl module requested by the compiler: {path}");
+            cache
+                .wesl_module_handles
+                .push(asset_server.load(AssetPath::from(path)));
+        }
     }
 
     pub(crate) fn extract_shaders(

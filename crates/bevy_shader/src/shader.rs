@@ -14,10 +14,12 @@ fn scan_wesl_imports(
     fn leaves(content: &ImportContent, path: ModulePath, out: &mut Vec<ModulePath>) {
         match content {
             ImportContent::Item(item) => {
-                let mut full = path.clone();
-                full.push(&item.ident.to_string());
+                // `import a::b::c` binds `c`, which may be an item declared in module `a::b` or
+                // the module `a::b::c` itself. The import statement cannot tell them apart; only
+                // the use site can, and `wesl` answers that when it resolves. Record the parent,
+                // which is always a module, and never invent `a::b::c` as a second candidate.
+                let _ = item;
                 out.push(path);
-                out.push(full);
             }
             ImportContent::Collection(collection) => {
                 for import in collection {
@@ -80,6 +82,36 @@ fn scan_wesl_imports(
         }
     }
     imports
+}
+
+/// Maps a `wesl` module path onto the import Bevy uses to identify a shader.
+///
+/// The origin decides whether the module can be fetched at all: an absolute path lives under
+/// `assets/`, while a package origin is an engine shader embedded in the binary by
+/// `load_shader_library!` and must never be requested over the network.
+pub fn shader_import_from_module_path(path: &wesl::syntax::ModulePath) -> Option<ShaderImport> {
+    use wesl::syntax::{ModulePath, PathOrigin};
+
+    let path = match &path.origin {
+        PathOrigin::Package(pkg) if pkg.contains('/') => Cow::Owned(ModulePath {
+            origin: PathOrigin::Package(pkg.rsplit('/').next().unwrap().to_string()),
+            components: path.components.clone(),
+        }),
+        _ => Cow::Borrowed(path),
+    };
+    match &path.origin {
+        PathOrigin::Absolute => Some(ShaderImport::AssetPath(format!(
+            "/{}",
+            path.components.join("/")
+        ))),
+        PathOrigin::Package(package) => Some(ShaderImport::Custom(
+            core::iter::once(package.as_str())
+                .chain(path.components.iter().map(String::as_str))
+                .collect::<Vec<_>>()
+                .join("::"),
+        )),
+        PathOrigin::Relative(_) => None,
+    }
 }
 
 define_atomic_id!(ShaderId);
@@ -305,27 +337,14 @@ impl AssetLoader for ShaderLoader {
         // collect and store file dependencies
         match ext.as_str() {
             "wesl" => {
-                let candidates: Vec<String> = shader
-                    .imports
-                    .iter()
-                    .filter_map(|import| match import {
-                        ShaderImport::AssetPath(asset_path) => {
-                            Some(format!("{}.{ext}", asset_path.trim_start_matches('/')))
-                        }
-                        ShaderImport::Custom(_) => None,
-                    })
-                    .collect();
-                for file_path in candidates {
-                    if load_context
-                        .read_asset_bytes(AssetPath::from(file_path.clone()))
-                        .await
-                        .is_ok()
-                    {
-                        shader
-                            .file_dependencies
-                            .push(load_context.load(AssetPath::from(file_path)));
-                    }
-                }
+                // Nothing is fetched here on purpose. A `wesl` import is ambiguous until it is
+                // used, so any dependency guessed from the import statement alone can be wrong.
+                // The previous code settled that by reading both candidates and keeping whichever
+                // succeeded, so one read per import was designed to miss -- a silent failed
+                // `stat` natively, an unsuppressable 404 on the web. See bevyengine/bevy#25363.
+                //
+                // Modules are discovered from compilation instead: `wesl` reports the module it
+                // could not resolve and it is loaded then, so no request is ever speculative.
             }
             _ => {
                 for import in &shader.imports {
