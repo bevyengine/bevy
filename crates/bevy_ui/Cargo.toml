@@ -50,7 +50,7 @@ uuid = { version = "1.21.0", features = ["v4"], optional = true }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 smallvec = { version = "1", default-features = false }
-accesskit = "0.24"
+accesskit = "0.25"
 parley = { version = "0.11.0", default-features = false, features = ["std"] }
 swash = { version = "0.2.6" }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
