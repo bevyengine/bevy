@@ -1114,13 +1114,13 @@ impl<T: Reflect> CreateTypeData<T> for ReflectFromPtr {
 mod test {
     use super::*;
 
+    #[derive(Reflect, PartialEq, Debug, Clone)]
+    struct Foo {
+        a: f32,
+    }
+
     #[test]
     fn test_reflect_from_ptr() {
-        #[derive(Reflect)]
-        struct Foo {
-            a: f32,
-        }
-
         let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
         let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
 
@@ -1157,6 +1157,104 @@ mod test {
                 _ => panic!("invalid reflection"),
             }
         }
+    }
+
+    #[test]
+    fn convert_any_ref_to_reflect() {
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        let object = Foo { a: 1.0 };
+
+        let any: &dyn Any = &object;
+        let reflect = reflect_from_ptr.any_ref_as_reflect(any).unwrap();
+
+        let object_from_reflect = Foo::from_reflect(reflect).unwrap();
+        assert_eq!(object_from_reflect, object);
+    }
+
+    #[test]
+    fn convert_any_mut_to_reflect() {
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        let mut object = Foo { a: 1.0 };
+
+        let any: &mut dyn Any = &mut object;
+        let reflect = reflect_from_ptr.any_mut_as_reflect(any).unwrap();
+
+        let replacement = Foo { a: 2.0 };
+        reflect.apply(&replacement);
+
+        // We mutated `object` through `reflect` which we casted through `&mut dyn Any`.
+        assert_eq!(object, replacement);
+    }
+
+    #[test]
+    fn convert_box_to_reflect() {
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        let any: Box<dyn Any> = Box::new(Foo { a: 1.0 });
+        let mut reflect = reflect_from_ptr.box_as_reflect(any).unwrap();
+
+        let replacement = Foo { a: 2.0 };
+        reflect.apply(&replacement);
+
+        // We consumed the value, which was mutated through reflection.
+        let final_object: Foo = reflect.take().unwrap();
+        assert_eq!(final_object, replacement);
+    }
+
+    #[test]
+    fn convert_arc_to_reflect() {
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        let any: Arc<dyn Any> = Arc::new(Foo { a: 1.0 });
+        let reflect = reflect_from_ptr.arc_as_reflect(any).unwrap();
+
+        // We can use reflection to access the "a" field.
+        match reflect.reflect_ref() {
+            crate::ReflectRef::Struct(strukt) => {
+                let a = strukt
+                    .field("a")
+                    .unwrap()
+                    .try_downcast_ref::<f32>()
+                    .unwrap();
+                assert_eq!(*a, 1.0);
+            }
+            _ => panic!("unexpected meta-type"),
+        }
+    }
+
+    #[test]
+    fn checks_type_ids_for_any_conversions() {
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        let mut right_type = Foo { a: 1.0 };
+        let mut wrong_type = 2.0;
+        assert!(reflect_from_ptr.any_ref_as_reflect(&right_type).is_some());
+        assert!(reflect_from_ptr.any_ref_as_reflect(&wrong_type).is_none());
+        assert!(reflect_from_ptr
+            .any_mut_as_reflect(&mut right_type)
+            .is_some());
+        assert!(reflect_from_ptr
+            .any_mut_as_reflect(&mut wrong_type)
+            .is_none());
+        assert!(reflect_from_ptr
+            .box_as_reflect(Box::new(right_type.clone()))
+            .is_ok());
+        assert!(reflect_from_ptr
+            .box_as_reflect(Box::new(wrong_type))
+            .is_err());
+        assert!(reflect_from_ptr
+            .arc_as_reflect(Arc::new(right_type))
+            .is_ok());
+        assert!(reflect_from_ptr
+            .arc_as_reflect(Arc::new(wrong_type))
+            .is_err());
     }
 
     #[test]
