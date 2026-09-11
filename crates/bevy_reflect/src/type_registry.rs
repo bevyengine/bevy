@@ -11,7 +11,7 @@ use bevy_ptr::{Ptr, PtrMut};
 use bevy_reflect::CreateTypeData;
 use bevy_utils::TypeIdHashMap;
 use core::{
-    any::TypeId,
+    any::{Any, TypeId},
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
@@ -992,6 +992,77 @@ impl ReflectFromPtr {
     /// [`cast_const`]: https://doc.rust-lang.org/stable/std/primitive.pointer.html#method.cast_const
     pub fn raw_pointer_cast(&self) -> fn(*mut ()) -> *mut dyn Reflect {
         self.cast_ptr
+    }
+
+    /// Converts a [`&dyn Any`] into a [`&dyn Reflect`] if the type matches the type used to
+    /// construct this [`ReflectFromPtr`].
+    pub fn any_ref_as_reflect<'a>(&self, any: &'a dyn Any) -> Option<&'a dyn Reflect> {
+        if (*any).type_id() != self.type_id {
+            return None;
+        }
+
+        let data_ptr = core::ptr::from_ref(any).cast::<()>().cast_mut();
+        let reflect_ptr: *const dyn Reflect = (self.cast_ptr)(data_ptr).cast_const();
+
+        // SAFETY: We only casted the data pointer of the `any`, so the new reference we create has
+        // the same validity as the `any` reference. Since the type_id of `any` and `self.type_id`
+        // matches, we know that the data in `any` actually holds this type, which impls `Reflect`.
+        // This function definition also ensures that the new borrow does not outlive `any`.
+        Some(unsafe { &*reflect_ptr })
+    }
+
+    /// Converts a [`&mut dyn Any`] into a [`&mut dyn Reflect`] if the type matches the type used to
+    /// construct this [`ReflectFromPtr`].
+    pub fn any_mut_as_reflect<'a>(&self, any: &'a mut dyn Any) -> Option<&'a mut dyn Reflect> {
+        if (*any).type_id() != self.type_id {
+            return None;
+        }
+
+        let data_ptr = core::ptr::from_mut(any).cast();
+        let reflect_ptr: *mut dyn Reflect = (self.cast_ptr)(data_ptr);
+
+        // SAFETY: We only casted the data pointer of the `any`, so the new reference we create has
+        // the same validity as the `any` reference. Since the type_id of `any` and `self.type_id`
+        // matches, we know that the data in `any` actually holds this type, which impls `Reflect`.
+        // This function definition also ensures that the new borrow does not outlive `any`.
+        Some(unsafe { &mut *reflect_ptr })
+    }
+
+    /// Converts a [`Box<dyn Any>`] into a [`Box<dyn Reflect>`] if the type matches the type used to
+    /// construct this [`ReflectFromPtr`].
+    ///
+    /// If the type does not match [`Self::type_id`], returns an [`Err`] holding `any`.
+    pub fn box_as_reflect(&self, any: Box<dyn Any>) -> Result<Box<dyn Reflect>, Box<dyn Any>> {
+        if (*any).type_id() != self.type_id {
+            return Err(any);
+        }
+
+        let data_ptr = Box::into_raw(any).cast();
+        let reflect_ptr: *mut dyn Reflect = (self.cast_ptr)(data_ptr);
+
+        // SAFETY: We just leaked the box, and haven't given the pointer anywhere else, so we still
+        // own this pointer. We only casted the pointer of the `any`, so the pointer has the same
+        // validity as the original box. Since the type_id of `any` and `self.type_id` matches, we
+        // know that the data in `any` actually holds this type, which impls `Reflect`.
+        Ok(unsafe { Box::from_raw(reflect_ptr) })
+    }
+
+    /// Converts a [`Arc<dyn Any>`] into a [`Arc<dyn Reflect>`] if the type matches the type used to
+    /// construct this [`ReflectFromPtr`].
+    ///
+    /// If the type does not match [`Self::type_id`], returns an [`Err`] holding `any`.
+    pub fn arc_as_reflect(&self, any: Arc<dyn Any>) -> Result<Arc<dyn Reflect>, Arc<dyn Any>> {
+        if (*any).type_id() != self.type_id {
+            return Err(any);
+        }
+
+        let data_ptr = Arc::into_raw(any).cast::<()>().cast_mut();
+        let reflect_ptr: *const dyn Reflect = (self.cast_ptr)(data_ptr).cast_const();
+
+        // SAFETY: We just got this data pointer from Arc::into_raw, so we can convert it back
+        // from_raw. Since the type_id of `any` and `self.type_id` matches, we know that the data in
+        // `any` actually holds this type, which impls `Reflect`.
+        Ok(unsafe { Arc::from_raw(reflect_ptr) })
     }
 
     /// Convert `Ptr` into `&dyn Reflect`.
