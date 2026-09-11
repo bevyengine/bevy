@@ -5,5 +5,9 @@ description = "Documentation and tests for Bevy's error codes"
 publish = false
 license = "MIT OR Apache-2.0"
 
+[dev-dependencies]
+# Only used by the doc tests in B0001-B0004.md.
+bevy = { path = ".." }
+
 [lints]
 workspace = true
