@@ -220,7 +220,7 @@ fn panels(palette: &[Color; 4]) -> impl Scene {
                     BackgroundColor(Color::BLACK)
                     Children [
                         #LeftGrandParent
-                        left_panel_node_base(500, 0)
+                        @left_panel_node_base(500, 0)
                         Outline {
                             width: px(4),
                             color: DARK_CYAN,
@@ -230,24 +230,24 @@ fn panels(palette: &[Color; 4]) -> impl Scene {
                             Node {
                                 width: px(100),
                                 height: px(500),
-                            },
-
+                            }
+                            --
                             #LeftParent
-                            left_panel_node_base(400, 1)
+                            @left_panel_node_base(400, 1)
                             Children [
                                 Node {
                                     width: px(100),
                                     height: px(400),
-                                },
-
+                                }
+                                --
                                 #LeftChild
-                                left_panel_node_base(300, 2)
+                                @left_panel_node_base(300, 2)
                                 Children [
                                     Node {
                                         width: px(100),
                                         height: px(300),
-                                    },
-
+                                    }
+                                    --
                                     #LeftGrandChild
                                     Node {
                                         width: px(200),
@@ -260,8 +260,8 @@ fn panels(palette: &[Color; 4]) -> impl Scene {
                         ]
                     ]
                 ]
-            ],
-
+            ]
+            --
             #RightPanel
             Node {
                 width: percent(50),
@@ -274,34 +274,38 @@ fn panels(palette: &[Color; 4]) -> impl Scene {
                 BackgroundColor(Color::WHITE)
                 Children [
                     #RightGrandParent
-                    right_panel_node_base(500, 0)
+                    @right_panel_node_base(500, 0)
                     Outline {
                         width: px(4),
                         color: DARK_CYAN,
                         offset: px(10),
                     }
                     Children [
-                        feathers_select_display(#LeftGrandParent),
-                        feathers_select_visibility(#LeftGrandParent),
-
+                        @feathers_select_display(#LeftGrandParent)
+                        --
+                        @feathers_select_visibility(#LeftGrandParent)
+                        --
                         #RightParent
-                        right_panel_node_base(400, 1)
+                        @right_panel_node_base(400, 1)
                         Children [
-                            feathers_select_display(#LeftParent),
-                            feathers_select_visibility(#LeftParent),
-
+                            @feathers_select_display(#LeftParent)
+                            --
+                            @feathers_select_visibility(#LeftParent)
+                            --
                             #RightChild
-                            right_panel_node_base(300, 2)
+                            @right_panel_node_base(300, 2)
                             Children [
-                                feathers_select_display(#LeftChild),
-                                feathers_select_visibility(#LeftChild),
-
+                                @feathers_select_display(#LeftChild)
+                                --
+                                @feathers_select_visibility(#LeftChild)
+                                --
                                 #RightGrandChild
-                                right_panel_node_base(200, 3)
+                                @right_panel_node_base(200, 3)
                                 Children [
-                                    feathers_select_display(#LeftGrandChild),
-                                    feathers_select_visibility(#LeftGrandChild),
-
+                                    @feathers_select_display(#LeftGrandChild)
+                                    --
+                                    @feathers_select_visibility(#LeftGrandChild)
+                                    --
                                     Node {
                                         width: px(100),
                                         height: px(100),
@@ -311,7 +315,7 @@ fn panels(palette: &[Color; 4]) -> impl Scene {
                         ]
                     ]
                 ]
-            ],
+            ]
         ]
     }
 }
@@ -320,12 +324,13 @@ fn panels(palette: &[Color; 4]) -> impl Scene {
 /// This select will update the display property on the Node of the target.
 fn feathers_select_display(target: EntityTemplate) -> impl Scene {
     bsn! {
-        select_base::<NodeDisplaySetting>(target)
+        @select_base::<NodeDisplaySetting>(target)
         @FeathersSelect {
             @options: {
-                bsn_list! {
-                    @FeathersListRow Selected OptionIndex(0) template_value(NodeDisplaySetting::Flex) Children[caption(format!("Display::{:?}", Display::Flex))],
-                    @FeathersListRow OptionIndex(1) template_value(NodeDisplaySetting::None) Children[caption(format!("Display::{:?}", Display::None))],
+                bsn! {
+                    @FeathersListRow Selected OptionIndex(0) NodeDisplaySetting::Flex Children[@caption(format!("Display::{:?}", Display::Flex))]
+                    --
+                    @FeathersListRow OptionIndex(1) NodeDisplaySetting::None Children[@caption(format!("Display::{:?}", Display::None))]
                 }
             }
         }
@@ -336,13 +341,15 @@ fn feathers_select_display(target: EntityTemplate) -> impl Scene {
 /// This select will update the Visibility component directly on the target.
 fn feathers_select_visibility(target: EntityTemplate) -> impl Scene {
     bsn! {
-        select_base::<NodeVisibilitySetting>(target)
+        @select_base::<NodeVisibilitySetting>(target)
         @FeathersSelect {
             @options: {
-                bsn_list! {
-                    @FeathersListRow Selected OptionIndex(0) template_value(NodeVisibilitySetting::Inherited) Children[caption(format!("Visibility::{:?}", Visibility::Inherited))],
-                    @FeathersListRow OptionIndex(1) template_value(NodeVisibilitySetting::Visible) Children[caption(format!("Visibility::{:?}", Visibility::Visible))],
-                    @FeathersListRow OptionIndex(2) template_value(NodeVisibilitySetting::Hidden) Children[caption(format!("Visibility::{:?}", Visibility::Hidden))],
+                bsn! {
+                    @FeathersListRow Selected OptionIndex(0) NodeVisibilitySetting::Inherited Children[@caption(format!("Visibility::{:?}", Visibility::Inherited))]
+                    --
+                    @FeathersListRow OptionIndex(1) NodeVisibilitySetting::Visible Children[@caption(format!("Visibility::{:?}", Visibility::Visible))]
+                    --
+                    @FeathersListRow OptionIndex(2) NodeVisibilitySetting::Hidden Children[@caption(format!("Visibility::{:?}", Visibility::Hidden))]
                 }
             }
         }

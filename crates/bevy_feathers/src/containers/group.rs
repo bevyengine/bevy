@@ -1,5 +1,4 @@
 use bevy_app::Propagate;
-use bevy_ecs::template::template;
 use bevy_scene::{bsn, Scene};
 use bevy_text::FontWeight;
 use bevy_ui::{px, AlignItems, Display, FlexDirection, JustifyContent, Node, UiRect};
@@ -26,7 +25,7 @@ pub fn group() -> impl Scene {
         }
         ThemeBackgroundColor(tokens::GROUP_BG)
         ThemeBorderColor(tokens::GROUP_BORDER)
-        template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Highest))))
+        Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Highest))
     }
 }
 

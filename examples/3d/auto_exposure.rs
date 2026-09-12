@@ -12,12 +12,14 @@
 //! | `V`                | Visualize Metering Mask                |
 
 use bevy::{
+    curve::cubic_splines::LinearSpline,
     light::Skybox,
-    math::{cubic_splines::LinearSpline, vec2},
+    math::vec2,
     post_process::auto_exposure::{
         AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin,
     },
     prelude::*,
+    shape::Plane3d,
 };
 
 fn main() {

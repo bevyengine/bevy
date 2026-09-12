@@ -8,16 +8,15 @@ pub use render_context::{
     CurrentView, FlushCommands, PendingCommandBuffers, RenderContext, RenderContextState, ViewQuery,
 };
 pub use render_device::*;
-pub use wgpu_wrapper::WgpuWrapper;
+
+pub(crate) use wgpu_wrapper::wgpu_wrapper;
 
 use crate::{
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
     sync_world::MainEntity,
     view::{screenshot::SubmitScreenshotCommandsState, ExtractedWindow, ViewTarget},
 };
-use alloc::sync::Arc;
 use bevy_camera::NormalizedRenderTarget;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::{prelude::*, system::SystemState};
 #[cfg(feature = "trace")]
@@ -138,22 +137,24 @@ pub fn render_system(
     crate::view::screenshot::collect_screenshots(world);
 }
 
-/// This queue is used to enqueue tasks for the GPU to execute asynchronously.
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderQueue(pub Arc<WgpuWrapper<Queue>>);
+wgpu_wrapper! {
+    /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
+    #[derive(Resource, Clone)]
+    pub struct RenderQueue(Queue);
 
-/// The handle to the physical device being used for rendering.
-/// See [`Adapter`] for more info.
-#[derive(Resource, Clone, Debug, Deref, DerefMut)]
-pub struct RenderAdapter(pub Arc<WgpuWrapper<Adapter>>);
+    /// The handle to the physical device being used for rendering.
+    /// See [`Adapter`] for more info.
+    #[derive(Resource, Clone, Debug)]
+    pub struct RenderAdapter(Adapter);
 
-/// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderInstance(pub Arc<WgpuWrapper<Instance>>);
+    /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`].
+    #[derive(Resource, Clone)]
+    pub struct RenderInstance(Instance);
 
-/// The [`AdapterInfo`] of the adapter in use by the renderer.
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderAdapterInfo(pub WgpuWrapper<AdapterInfo>);
+    /// The [`AdapterInfo`] of the adapter in use by the renderer.
+    #[derive(Resource, Clone)]
+    pub struct RenderAdapterInfo(AdapterInfo);
+}
 
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
@@ -377,10 +378,10 @@ pub async fn initialize_renderer(
 
     RenderResources(
         RenderDevice::from(device),
-        RenderQueue(Arc::new(WgpuWrapper::new(queue))),
-        RenderAdapterInfo(WgpuWrapper::new(adapter_info)),
-        RenderAdapter(Arc::new(WgpuWrapper::new(adapter))),
-        RenderInstance(Arc::new(WgpuWrapper::new(instance))),
+        RenderQueue::new(queue),
+        RenderAdapterInfo::new(adapter_info),
+        RenderAdapter::new(adapter),
+        RenderInstance::new(instance),
         #[cfg(feature = "raw_vulkan_init")]
         additional_vulkan_features,
     )

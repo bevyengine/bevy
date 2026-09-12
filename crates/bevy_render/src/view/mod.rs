@@ -32,7 +32,7 @@ use alloc::sync::{Arc, Weak};
 use bevy_app::{App, Plugin};
 use bevy_color::{LinearRgba, Oklaba, Srgba};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, VariantDefaults};
+use bevy_ecs::prelude::*;
 use bevy_extract_macros::ExtractComponent;
 use bevy_image::ToExtents;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
@@ -239,7 +239,6 @@ impl Plugin for ViewPlugin {
     Reflect,
     PartialEq,
     PartialOrd,
-    VariantDefaults,
     Eq,
     Hash,
     Debug,
@@ -486,8 +485,8 @@ impl ExtractedView {
 /// Color grading is applied just before tonemapping for a given [`Camera`]
 /// entity, with the sole exception of the `post_saturation` value in
 /// [`ColorGradingGlobal`], which is applied after tonemapping.
-#[derive(Component, Reflect, Debug, Default, Clone)]
-#[reflect(Component, Default, Debug, Clone)]
+#[derive(Component, Reflect, Debug, Default, Clone, PartialEq)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct ColorGrading {
     /// Filmic color grading values applied to the image as a whole (as opposed
     /// to individual sections, like shadows and highlights).
@@ -515,8 +514,8 @@ pub struct ColorGrading {
 
 /// Filmic color grading values applied to the image as a whole (as opposed to
 /// individual sections, like shadows and highlights).
-#[derive(Clone, Debug, Reflect)]
-#[reflect(Default, Clone)]
+#[derive(Clone, Debug, Reflect, PartialEq)]
+#[reflect(Default, Clone, PartialEq)]
 pub struct ColorGradingGlobal {
     /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,
@@ -904,11 +903,6 @@ impl From<ColorGrading> for ColorGradingUniform {
 pub struct NoIndirectDrawing;
 
 impl ViewTarget {
-    #[deprecated(
-        note = "Use ExtractedView::target_format where possible. Bevy does not encourage a default HDR TextureFormat anymore. If you really need this, use TextureFormat::Rgba16Float"
-    )]
-    pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
-
     /// Retrieve this target's main texture's color attachment.
     pub fn get_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {

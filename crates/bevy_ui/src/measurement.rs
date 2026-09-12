@@ -51,9 +51,9 @@ pub struct ResolvedAxis {
 fn resolve_axis(
     known_size: Option<f32>,
     available_space: AvailableSpace,
-    min_dim: taffy::style::Dimension,
+    min_dim: taffy::style::LengthPercentageAuto,
     size_dim: taffy::style::Dimension,
-    max_dim: taffy::style::Dimension,
+    max_dim: taffy::style::LengthPercentageAuto,
 ) -> ResolvedAxis {
     let calc = |_, _| 0.;
     let available = available_space.into_option();

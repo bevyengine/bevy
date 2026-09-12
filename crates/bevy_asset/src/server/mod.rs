@@ -568,8 +568,19 @@ impl AssetServer {
         // meta_transform directly. Assert that at most one is Some. If this is wrong, we likely
         // need to rethink the logic here.
         assert!(input_handle.is_none() || meta_transform.is_none());
-        if let Some(meta_transform) = input_handle.as_ref().and_then(|h| h.meta_transform()) {
-            (*meta_transform)(&mut *meta);
+        if let Some(input_handle) = input_handle.as_ref() {
+            let index = match input_handle.id() {
+                UntypedAssetId::Uuid { .. } => unreachable!("we never load a UUID handle"),
+                UntypedAssetId::Index { type_id, index } => ErasedAssetIndex::new(index, type_id),
+            };
+            // Lookup the meta_transform in the AssetInfos.
+            let infos = self.read_infos();
+            // Unwrap is safe because we are holding the `input_handle`, and we only pass Some for
+            // `input_handle` if we just allocated the handle or are reloading an existing asset.
+            let info = infos.get(index).unwrap();
+            if let Some(meta_transform) = info.meta_transform.as_ref() {
+                (*meta_transform)(&mut *meta);
+            }
         }
         if let Some(meta_transform) = meta_transform.as_ref() {
             (*meta_transform)(&mut *meta);

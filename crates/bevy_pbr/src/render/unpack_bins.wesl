@@ -1,67 +1,67 @@
-// A compute shader that unpacks bins.
-//
-// This shader runs before mesh preprocessing in order to generate
-// `PreprocessWorkItem`s from cached bins. A single dispatch of this shader
-// corresponds to a single batch set, and one invocation of this shader
-// corresponds to one binned entity. Each shader invocation builds the work item
-// for its entity by copying over the mesh input uniform index and calculating
-// the position of the command in the indirect parameters buffer that will draw
-// that entity.
+//! A compute shader that unpacks bins.
+//!
+//! This shader runs before mesh preprocessing in order to generate
+//! `PreprocessWorkItem`s from cached bins. A single dispatch of this shader
+//! corresponds to a single batch set, and one invocation of this shader
+//! corresponds to one binned entity. Each shader invocation builds the work item
+//! for its entity by copying over the mesh input uniform index and calculating
+//! the position of the command in the indirect parameters buffer that will draw
+//! that entity.
 
 import bevy_render::occlusion_culling::mesh_preprocess_types::{BinMetadata, PreprocessWorkItem};
 
-// Information needed to unpack bins belonging to a single batch set.
+/// Information needed to unpack bins belonging to a single batch set.
 struct BinUnpackingMetadata {
-    // The index of the first `PreprocessWorkItem` that this compute shader
-    // dispatch is to write to.
+    /// The index of the first `PreprocessWorkItem` that this compute shader
+    /// dispatch is to write to.
     base_output_work_item_index: u32,
-    // The index of the first GPU indirect parameters command for this batch
-    // set.
+    /// The index of the first GPU indirect parameters command for this batch
+    /// set.
     base_indirect_parameters_index: u32,
-    // The number of binned mesh instances in the `binned_mesh_instances`
-    // array.
+    /// The number of binned mesh instances in the `binned_mesh_instances`
+    /// array.
     binned_mesh_instance_count: u32,
-    // Padding.
+    /// Padding.
     pad_a: u32,
-    // Padding.
+    /// Padding.
     pad_b: array<vec4<u32>, 15>,
 };
 
-// One mesh instance in a bin.
-//
-// This corresponds to the CPU-side `GpuRenderBinnedMeshInstance` structure.
-//
-// Note that this structure isn't sorted within the
-// `binned_mesh_instances` buffer. Instances from the same bin aren't
-// guaranteed to be adjacent to one another.
+/// One mesh instance in a bin.
+///
+/// This corresponds to the CPU-side `GpuRenderBinnedMeshInstance` structure.
+///
+/// Note that this structure isn't sorted within the
+/// `binned_mesh_instances` buffer. Instances from the same bin aren't
+/// guaranteed to be adjacent to one another.
 struct BinnedMeshInstance {
-    // The index of the `MeshInputUniform` corresponding to this mesh instance
-    // in the `MeshInputUniform` buffer.
+    /// The index of the `MeshInputUniform` corresponding to this mesh instance
+    /// in the `MeshInputUniform` buffer.
     input_uniform_index: u32,
-    // The index of the bin that this mesh instance belongs to.
+    /// The index of the bin that this mesh instance belongs to.
     bin_index: u32,
 };
 
-// Metadata for the entire batch set.
+/// Metadata for the entire batch set.
 @group(0) @binding(0) var<uniform> bin_unpacking_metadata: BinUnpackingMetadata;
 
-// The input array of `BinnedMeshInstance`s.
-//
-// Note that this array isn't sorted.
+/// The input array of `BinnedMeshInstance`s.
+///
+/// Note that this array isn't sorted.
 @group(0) @binding(1) var<storage> binned_mesh_instances: array<BinnedMeshInstance>;
 
-// The output list of `PreprocessWorkItem`s.
+/// The output list of `PreprocessWorkItem`s.
 @group(0) @binding(2) var<storage, read_write> preprocess_work_items: array<PreprocessWorkItem>;
 
-// The bin metadata, which contains the index of the GPU indirect parameters for
-// this bin, relative to the start of the indirect parameters for this batch
-// set.
-//
-// This is indexed by the bin metadata index below.
+/// The bin metadata, which contains the index of the GPU indirect parameters for
+/// this bin, relative to the start of the indirect parameters for this batch
+/// set.
+///
+/// This is indexed by the bin metadata index below.
 @group(0) @binding(3) var<storage> bin_metadata: array<BinMetadata>;
 
-// A mapping from the bin index to the metadata index within the `bin_metadata`
-// buffer.
+/// A mapping from the bin index to the metadata index within the `bin_metadata`
+/// buffer.
 @group(0) @binding(4) var<storage> bin_index_to_bin_metadata_index: array<u32>;
 
 @compute

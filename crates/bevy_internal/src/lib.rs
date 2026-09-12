@@ -37,6 +37,8 @@ pub use bevy_clipboard as clipboard;
 pub use bevy_color as color;
 #[cfg(feature = "bevy_core_pipeline")]
 pub use bevy_core_pipeline as core_pipeline;
+#[cfg(feature = "bevy_curve")]
+pub use bevy_curve as curve;
 #[cfg(feature = "bevy_dev_tools")]
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;
