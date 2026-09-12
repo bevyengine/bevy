@@ -96,7 +96,7 @@ impl MeasureArgs<'_> {
 /// when the size of that node is based on its content.
 pub trait Measure: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.
-    fn measure(&mut self, measure_args: MeasureArgs<'_>) -> Vec2;
+    fn measure(&self, measure_args: MeasureArgs<'_>) -> Vec2;
 }
 
 /// A type to serve as Taffy's node context (which allows the content size of leaf nodes to be computed)
@@ -111,7 +111,7 @@ pub enum NodeMeasure {
 }
 
 impl Measure for NodeMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs) -> Vec2 {
+    fn measure(&self, measure_args: MeasureArgs) -> Vec2 {
         match self {
             NodeMeasure::Fixed(fixed) => fixed.measure(measure_args),
             NodeMeasure::Text(text) => text.measure(measure_args),
@@ -129,7 +129,7 @@ pub struct FixedMeasure {
 }
 
 impl Measure for FixedMeasure {
-    fn measure(&mut self, _: MeasureArgs) -> Vec2 {
+    fn measure(&self, _: MeasureArgs) -> Vec2 {
         self.size
     }
 }

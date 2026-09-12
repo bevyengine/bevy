@@ -173,7 +173,7 @@ impl Plugin for ScrollbarPlugin {
             PostUpdate,
             update_scrollbar_visibility
                 .after(UiSystems::Layout)
-                .before(bevy_ui::update::update_clipping_system)
+                .before(bevy_ui::clipping::update_clipping_system)
                 .ambiguous_with(TransformGizmoRenderStep),
         );
     }

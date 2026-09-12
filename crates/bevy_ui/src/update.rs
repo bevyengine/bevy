@@ -1,17 +1,16 @@
 //! This module contains systems that update the UI when something changes
 
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
-    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, UiScale, UiTargetCamera,
+    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Node, UiScale,
+    UiTargetCamera,
 };
-
-pub use crate::layout::clipping::update_clipping_system;
 
 use bevy_app::Propagate;
 use bevy_camera::Camera;
 use bevy_ecs::{
     entity::Entity,
-    query::{Or, With},
+    hierarchy::ChildOf,
+    query::{Or, With, Without},
     system::{Commands, Query, Res},
 };
 use bevy_math::UVec2;
@@ -22,8 +21,8 @@ pub fn propagate_ui_target_cameras(
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
-    ui_root_nodes: UiRootNodes,
-    ui_children: UiChildren,
+    ui_root_nodes: Query<Entity, (With<Node>, Without<ChildOf>)>,
+    parents_query: Query<(), With<ChildOf>>,
     propagate_query: Query<
         Entity,
         Or<(
@@ -35,7 +34,7 @@ pub fn propagate_ui_target_cameras(
     let default_camera_entity = default_ui_camera.get();
 
     for entity in propagate_query.iter() {
-        if ui_children.get_parent(entity).is_some() {
+        if parents_query.contains(entity) {
             commands.entity(entity).remove::<(
                 Propagate<ComputedUiTargetCamera>,
                 Propagate<ComputedUiRenderTargetInfo>,
@@ -75,15 +74,11 @@ pub fn propagate_ui_target_cameras(
 
 #[cfg(test)]
 mod tests {
-    use crate::update::{propagate_ui_target_cameras, update_clipping_system};
-    use crate::CalculatedClip;
+    use crate::update::propagate_ui_target_cameras;
     use crate::ComputedUiRenderTargetInfo;
     use crate::ComputedUiTargetCamera;
-    use crate::FixedNode;
     use crate::IsDefaultUiCamera;
     use crate::Node;
-    use crate::Overflow;
-    use crate::OverrideClip;
     use crate::UiScale;
     use crate::UiTargetCamera;
     use bevy_app::App;
@@ -574,73 +569,5 @@ mod tests {
                 .scale_factor(),
             2.
         );
-    }
-
-    #[test]
-    fn fixed_node_opens_new_clipping_context() {
-        let mut app = App::new();
-        app.add_systems(bevy_app::Update, update_clipping_system);
-
-        let grandchild = app.world_mut().spawn(Node::default()).id();
-        let child = app
-            .world_mut()
-            .spawn(Node::default())
-            .add_child(grandchild)
-            .id();
-        app.world_mut()
-            .spawn(Node {
-                overflow: Overflow::clip(),
-                ..default()
-            })
-            .add_child(child);
-
-        app.update();
-        assert_eq!(
-            app.world()
-                .get::<CalculatedClip>(grandchild)
-                .unwrap()
-                .rects()
-                .unwrap()
-                .len(),
-            1
-        );
-
-        app.world_mut().entity_mut(child).insert(FixedNode);
-        app.update();
-        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
-
-        app.world_mut().entity_mut(child).remove::<FixedNode>();
-        app.update();
-        assert_eq!(
-            app.world()
-                .get::<CalculatedClip>(grandchild)
-                .unwrap()
-                .rects()
-                .unwrap()
-                .len(),
-            1
-        );
-    }
-
-    #[test]
-    fn override_clip_opens_new_clipping_context() {
-        let mut app = App::new();
-        app.add_systems(bevy_app::Update, update_clipping_system);
-
-        let grandchild = app.world_mut().spawn(Node::default()).id();
-        let child = app
-            .world_mut()
-            .spawn((Node::default(), OverrideClip))
-            .add_child(grandchild)
-            .id();
-        app.world_mut()
-            .spawn(Node {
-                overflow: Overflow::clip(),
-                ..default()
-            })
-            .add_child(child);
-
-        app.update();
-        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
     }
 }

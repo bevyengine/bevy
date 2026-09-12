@@ -147,12 +147,12 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
             app.ignore_ambiguity(
                 bevy_app::PostUpdate,
                 bevy_animation::advance_animations,
-                bevy_ui::ui_layout_system,
+                bevy_ui::UiSystems::Layout,
             );
             app.ignore_ambiguity(
                 bevy_app::PostUpdate,
                 bevy_animation::animate_targets,
-                bevy_ui::ui_layout_system,
+                bevy_ui::UiSystems::Layout,
             );
         }
     }

@@ -1,4 +1,8 @@
 use crate::{
+    layout::{
+        layout_tree::{ComputedLayout, TaffyStyle},
+        UiTreeChanged,
+    },
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val,
 };
@@ -461,8 +465,10 @@ impl From<BVec2> for IgnoreScroll {
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
+    TaffyStyle,
     ComputedNode,
     ComputedStackIndex,
+    ComputedLayout,
     ContentSize,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,
@@ -473,7 +479,8 @@ impl From<BVec2> for IgnoreScroll {
     ScrollPosition,
     Visibility,
     ZIndex,
-    EmSize
+    EmSize,
+    UiTreeChanged
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -838,6 +845,52 @@ impl Node {
         flex_basis: Val::Auto,
         width: Val::Auto,
         height: Val::Auto,
+        min_width: Val::Auto,
+        min_height: Val::Auto,
+        max_width: Val::Auto,
+        max_height: Val::Auto,
+        aspect_ratio: None,
+        overflow: Overflow::DEFAULT,
+        overflow_clip_margin: OverflowClipMargin::DEFAULT,
+        scrollbar_width: 0.,
+        row_gap: Val::ZERO,
+        column_gap: Val::ZERO,
+        grid_auto_flow: GridAutoFlow::DEFAULT,
+        grid_template_rows: Vec::new(),
+        grid_template_columns: Vec::new(),
+        grid_auto_rows: Vec::new(),
+        grid_auto_columns: Vec::new(),
+        grid_column: GridPlacement::DEFAULT,
+        grid_row: GridPlacement::DEFAULT,
+    };
+
+    pub const VIEWPORT: Self = Self {
+        display: Display::Grid,
+        width: Val::Percent(100.0),
+        height: Val::Percent(100.0),
+        align_items: AlignItems::Start,
+        justify_items: JustifyItems::Start,
+        // remaining should match default
+        box_sizing: BoxSizing::DEFAULT,
+        position_type: PositionType::DEFAULT,
+        left: Val::Auto,
+        right: Val::Auto,
+        top: Val::Auto,
+        bottom: Val::Auto,
+        flex_direction: FlexDirection::DEFAULT,
+        flex_wrap: FlexWrap::DEFAULT,
+        align_self: AlignSelf::DEFAULT,
+        justify_self: JustifySelf::DEFAULT,
+        align_content: AlignContent::DEFAULT,
+        justify_content: JustifyContent::DEFAULT,
+        direction: InlineDirection::Ltr,
+        margin: UiRect::DEFAULT,
+        padding: UiRect::DEFAULT,
+        border: UiRect::DEFAULT,
+        border_radius: BorderRadius::DEFAULT,
+        flex_grow: 0.0,
+        flex_shrink: 1.0,
+        flex_basis: Val::Auto,
         min_width: Val::Auto,
         min_height: Val::Auto,
         max_width: Val::Auto,
@@ -3533,10 +3586,29 @@ impl ComputedUiRenderTargetInfo {
 /// A `FixedNode` UI entity is positioned relative to the target camera's viewport rather that its parent element.
 ///
 /// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
-#[derive(Component, Clone, Default, Reflect)]
+/// `FixedNode` is ignored on a `GhostNode`.
+#[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 #[require(Node)]
 pub struct FixedNode;
+
+/// Marker component for `Node` entities that should be replaced by its children during UI layout.
+///
+/// - A `GhostNode` is `Node`.
+/// - A `GhostNode` is given zero size during layout.
+/// - Its position is the same as its parent.
+/// - Its `UiTransform` will be resolved and applied normally, except that instead of its own size, percentage
+/// values are based on the size of the `GhostNode`'s parent.
+/// - Events pass through normally.
+/// - `FixedNode` is ignored on a `GhostNode`. This could be allowed eventually maybe, but it's a little tricky how to handle the implicit roots.
+/// - `OverrideClip` is not ignored on a `GhostNode`.
+/// - Clipping propagates through `GhostNode`'s but their `Node::override` setting is ignored.
+/// - `GhostNode`'s children's `Val::Percent` coords are resolved based on the the size of their grandparent, skipping the `GhostNode`.
+/// - A root `GhostNode`'s children are UI root nodes each with their own implicit viewport node.
+#[derive(Component, Debug, Copy, Clone, Reflect, Default)]
+#[reflect(Component, Debug, Clone)]
+#[require(Node)]
+pub struct GhostNode;
 
 #[cfg(test)]
 mod tests {
