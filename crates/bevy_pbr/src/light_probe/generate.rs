@@ -13,7 +13,9 @@
 //! These components are intended to be added to a camera.
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, RenderAssetUsages};
-use bevy_core_pipeline::mip_generation::{self, DownsampleShaders, DownsamplingConstants};
+use bevy_core_pipeline::mip_generation::{
+    self, DownsamplePass, DownsamplePipeline, DownsamplePipelineKey, DownsamplingConstants,
+};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -26,15 +28,16 @@ use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
+    init_gpu_resource,
     render_asset::RenderAssets,
     render_resource::{
         binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, DownlevelFlags, Extent3d, FilterMode, MipmapFilterMode,
         PipelineCache, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
-        StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-        TextureViewDimension, UniformBuffer,
+        SpecializedComputePipelines, StorageTextureAccess, Texture, TextureAspect,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        TextureView, TextureViewDescriptor, TextureViewDimension, UniformBuffer,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     sync_component::{SyncComponent, SyncComponentPlugin},
@@ -154,7 +157,9 @@ impl Plugin for EnvironmentMapGenerationPlugin {
             )
             .add_systems(
                 RenderStartup,
-                initialize_generated_environment_map_resources,
+                initialize_generated_environment_map_resources
+                    .after(init_gpu_resource::<DownsamplePipeline>)
+                    .after(init_gpu_resource::<SpecializedComputePipelines<DownsamplePipeline>>),
             );
     }
 }
@@ -167,21 +172,23 @@ pub fn initialize_generated_environment_map_resources(
     render_adapter: Res<RenderAdapter>,
     pipeline_cache: Res<PipelineCache>,
     asset_server: Res<AssetServer>,
-    downsample_shaders: Res<DownsampleShaders>,
+    downsample_pipeline: Res<DownsamplePipeline>,
+    mut specialized_downsample_pipelines: ResMut<SpecializedComputePipelines<DownsamplePipeline>>,
 ) {
     // Combine the bind group and use read-write storage if it is supported
     let combine_bind_group =
         mip_generation::can_combine_downsampling_bind_groups(&render_adapter, &render_device);
 
-    let downsampling = mip_generation::create_downsampling_pipelines(
-        &render_device,
-        &pipeline_cache,
-        &downsample_shaders,
-        TextureFormat::Rgba16Float,
-        true,
-        combine_bind_group,
-    )
-    .expect("The downsample shader should support Rgba16Float");
+    let downsample_key_first = DownsamplePipelineKey {
+        texture_format: TextureFormat::Rgba16Float,
+        array_texture: true, // cubemap
+        combine_bind_groups: combine_bind_group,
+        pass: DownsamplePass::First,
+    };
+    let downsample_key_second = DownsamplePipelineKey {
+        pass: DownsamplePass::Second,
+        ..downsample_key_first
+    };
 
     // Bind group layouts
     let radiance = BindGroupLayoutDescriptor::new(
@@ -239,8 +246,8 @@ pub fn initialize_generated_environment_map_resources(
     );
 
     let layouts = GeneratorBindGroupLayouts {
-        downsampling_first: downsampling.downsampling_bind_group_layout_pass_1,
-        downsampling_second: downsampling.downsampling_bind_group_layout_pass_2,
+        downsampling_first: downsample_key_first.bind_group_layout(),
+        downsampling_second: downsample_key_second.bind_group_layout(),
         radiance,
         irradiance,
         copy,
@@ -307,8 +314,16 @@ pub fn initialize_generated_environment_map_resources(
     });
 
     let pipelines = GeneratorPipelines {
-        downsample_first: downsampling.downsampling_pipeline_pass_1,
-        downsample_second: downsampling.downsampling_pipeline_pass_2,
+        downsample_first: specialized_downsample_pipelines.specialize(
+            &pipeline_cache,
+            &downsample_pipeline,
+            downsample_key_first,
+        ),
+        downsample_second: specialized_downsample_pipelines.specialize(
+            &pipeline_cache,
+            &downsample_pipeline,
+            downsample_key_second,
+        ),
         radiance,
         irradiance,
         copy: copy_pipeline,
