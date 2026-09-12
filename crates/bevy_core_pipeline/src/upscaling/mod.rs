@@ -1,4 +1,5 @@
 use crate::blit::{BlitPipeline, BlitPipelineKey};
+use crate::camera_stack::{BlitDisposition, ViewStackContract};
 use bevy_app::prelude::*;
 use bevy_camera::CameraOutputMode;
 use bevy_ecs::prelude::*;
@@ -47,6 +48,20 @@ fn clear_view_upscaling_pipelines(
     }
 }
 
+/// Auto-detected blend for an upscaling blit. `None` replaces the
+/// destination.
+///
+/// Later cameras blend so they don't overwrite earlier output.
+/// `force_replace` replaces because that blit is the first from its
+/// stack to write the out texture.
+fn auto_blit_blend_state(force_replace: bool, sorted_index: usize) -> Option<BlendState> {
+    if force_replace || sorted_index == 0 {
+        None
+    } else {
+        Some(BlendState::ALPHA_BLENDING)
+    }
+}
+
 fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
     mut pipeline_cache: ResMut<PipelineCache>,
@@ -57,29 +72,37 @@ fn prepare_view_upscaling_pipelines(
         &ViewTarget,
         Option<&ExtractedCamera>,
         Option<&ViewUpscalingPipeline>,
+        Option<&ViewStackContract>,
         Option<&ResolvedCompositingSpace>,
     )>,
 ) {
-    for (entity, view_target, camera, maybe_pipeline, resolved_space) in view_targets.iter() {
+    for (entity, view_target, camera, maybe_pipeline, contract, resolved_space) in
+        view_targets.iter()
+    {
+        let force_replace = match contract.map(|contract| contract.blit) {
+            Some(BlitDisposition::SkipForFinalizer) => {
+                // The upscaling pass's `ViewQuery` requires the pipeline, so removing
+                // it leaves the out texture untouched until the finalizer
+                // blits.
+                if maybe_pipeline.is_some() {
+                    commands.entity(entity).remove::<ViewUpscalingPipeline>();
+                }
+                continue;
+            }
+            Some(BlitDisposition::Run { force_replace }) => force_replace,
+            None => false,
+        };
+
         let blend_state = if let Some(extracted_camera) = camera {
             match extracted_camera.output_mode {
                 CameraOutputMode::Skip => None,
-                CameraOutputMode::Write { blend_state, .. } => {
-                    match blend_state {
-                        None => {
-                            // Auto-detect: the first camera to render to this output
-                            // (sorted_camera_index_for_target == 0) uses replace mode;
-                            // subsequent cameras default to alpha blending so they don't
-                            // accidentally overwrite earlier cameras' output.
-                            if extracted_camera.sorted_camera_index_for_target > 0 {
-                                Some(BlendState::ALPHA_BLENDING)
-                            } else {
-                                None
-                            }
-                        }
-                        _ => blend_state,
-                    }
-                }
+                CameraOutputMode::Write { blend_state, .. } => match blend_state {
+                    None => auto_blit_blend_state(
+                        force_replace,
+                        extracted_camera.sorted_camera_index_for_target,
+                    ),
+                    _ => blend_state,
+                },
             }
         } else {
             None
@@ -107,5 +130,30 @@ fn prepare_view_upscaling_pipelines(
                 .entity(entity)
                 .insert(ViewUpscalingPipeline(pipeline, key));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auto_blend_is_replace_for_first_camera_and_alpha_for_later() {
+        assert_eq!(auto_blit_blend_state(false, 0), None);
+        assert_eq!(
+            auto_blit_blend_state(false, 1),
+            Some(BlendState::ALPHA_BLENDING)
+        );
+        assert_eq!(
+            auto_blit_blend_state(false, 2),
+            Some(BlendState::ALPHA_BLENDING)
+        );
+    }
+
+    #[test]
+    fn force_replace_makes_later_finalizer_replace() {
+        assert_eq!(auto_blit_blend_state(true, 1), None);
+        assert_eq!(auto_blit_blend_state(true, 2), None);
+        assert_eq!(auto_blit_blend_state(true, 0), None);
     }
 }
