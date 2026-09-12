@@ -272,7 +272,7 @@ pub struct FeathersMenuButtonProps {
 impl Default for FeathersMenuButtonProps {
     fn default() -> Self {
         Self {
-            caption: Box::new(bsn! {}),
+            caption: Box::new(bsn_list! {}),
             corners: Default::default(),
             arrow: true,
         }
@@ -292,7 +292,7 @@ impl FeathersMenuButton {
             // Additional children for menu chevron
             Children [
                 {
-                    props.arrow.then(|| bsn! {
+                    props.arrow.then(|| bsn_list! {
                         Node {
                             flex_grow: 1.0,
                         }
@@ -329,7 +329,7 @@ impl FeathersMenuToolButton {
             // Additional children for menu chevron
             Children [
                 {
-                    props.arrow.then(|| bsn! {
+                    props.arrow.then(|| bsn_list! {
                         Node { min_width: px(2) }
                         --
                         @icon(icons::CHEVRON_DOWN)
@@ -410,7 +410,7 @@ pub struct FeathersMenuItemProps {
 impl Default for FeathersMenuItemProps {
     fn default() -> Self {
         Self {
-            caption: Box::new(bsn! {}),
+            caption: Box::new(bsn_list! {}),
         }
     }
 }

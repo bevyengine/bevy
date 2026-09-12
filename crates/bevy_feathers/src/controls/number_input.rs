@@ -151,7 +151,7 @@ impl FeathersNumberInput {
                 {
                     // Label section
                     props.label_text.map(|text| {
-                        bsn! {
+                        bsn_list! {
                             Node {
                                 display: Display::Flex,
                                 align_items: AlignItems::Center,

@@ -17,7 +17,7 @@ use bevy_input_focus::{
 };
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{bsn, Scene, SceneComponent, SceneList};
+use bevy_scene::{bsn, bsn_list, Scene, SceneComponent, SceneList};
 use bevy_text::{FontSize, FontWeight};
 use bevy_ui::{
     px, AlignItems, BorderRadius, Display, FlexDirection, InteractionDisabled, JustifyContent,
@@ -53,7 +53,7 @@ pub struct FeathersListViewProps {
 impl Default for FeathersListViewProps {
     fn default() -> Self {
         Self {
-            rows: Box::new(bsn! {}),
+            rows: Box::new(bsn_list! {}),
         }
     }
 }

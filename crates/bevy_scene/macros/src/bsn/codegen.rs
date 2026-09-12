@@ -71,6 +71,44 @@ impl<'a> BsnCodegenCtx<'a> {
         let string = ident.to_string();
         (ident.to_string(), self.entity_refs.get(string))
     }
+
+    fn validate_macro_uses_braces(&mut self) {
+        let span = Span::call_site();
+        let Some(source_text) = span.source_text() else {
+            return;
+        };
+
+        const BSN_LIST: &str = "bsn_list!";
+        const BSN: &str = "bsn!";
+
+        let (name, remaining) = if let Some(remaining) = source_text.strip_prefix(BSN_LIST) {
+            (BSN_LIST, remaining)
+        } else if let Some(remaining) = source_text.strip_prefix(BSN) {
+            (BSN, remaining)
+        } else {
+            eprintln!("Unknown macro root! {}", source_text);
+            return;
+        };
+
+        for character in remaining.chars() {
+            if character.is_whitespace() {
+                continue;
+            }
+
+            match character {
+                '(' | '[' => {
+                    self.deprecations.push(deprecation_warning(
+                        span,
+                        "USE_BRACE_FOR_BSN_MACRO",
+                        &format!("'{name} {character}' should not be used, as rustfmt can mangle the outputs. Use '{name} {{ }}' instead"),
+                    ));
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 pub trait BsnTokenStream: Parse {
@@ -79,46 +117,41 @@ pub trait BsnTokenStream: Parse {
 
 impl BsnTokenStream for BsnRoot {
     fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        match self {
-            BsnRoot::Bsn(bsn) => {
-                let tokens = bsn.into_tokens(ctx);
-                let errors = ctx.errors.iter().map(|e| e.to_compile_error());
-                let bevy_scene = ctx.bevy_scene;
-                let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
-                let call_id = if !ctx.entity_refs.refs.is_empty() {
-                    quote! {
-                        static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
-                        let _call_id = _CALL_ID.increment();
-                    }
-                } else {
-                    quote! {}
-                };
+        ctx.validate_macro_uses_braces();
+        let tokens = self.0.into_tokens(ctx);
+        let errors = ctx.errors.iter().map(|e| e.to_compile_error());
+        let bevy_scene = ctx.bevy_scene;
+        let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
+        let call_id = if !ctx.entity_refs.refs.is_empty() {
+            quote! {
+                static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
+                let _call_id = _CALL_ID.increment();
+            }
+        } else {
+            quote! {}
+        };
 
-                let deprecations = ctx.deprecations.iter();
-                // NOTE: Assigning the result to a variable first so that the LSP's
-                // type inference can see assignments before it encounters
-                // any compile errors. This keeps autocomplete working in broken states,
-                // e.g. when typing the name of a field but no value yet.
-                quote! {
-                    #bevy_scene::SceneScope({
-                        #(#deprecations)*
-                        #call_id
-                        #(#hoisted_exprs)*
-                        let _res = #tokens;
-                        #(#errors)*
-                        _res
-                    })
-                }
-            }
-            BsnRoot::BsnList(bsn_scene_list_items) => {
-                BsnListRoot(bsn_scene_list_items).into_tokens(ctx)
-            }
+        let deprecations = ctx.deprecations.iter();
+        // NOTE: Assigning the result to a variable first so that the LSP's
+        // type inference can see assignments before it encounters
+        // any compile errors. This keeps autocomplete working in broken states,
+        // e.g. when typing the name of a field but no value yet.
+        quote! {
+            #bevy_scene::SceneScope({
+                #(#deprecations)*
+                #call_id
+                #(#hoisted_exprs)*
+                let _res = #tokens;
+                #(#errors)*
+                _res
+            })
         }
     }
 }
 
 impl BsnTokenStream for BsnListRoot {
     fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        ctx.validate_macro_uses_braces();
         let tokens = self.0.into_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
@@ -1131,7 +1164,7 @@ mod tests {
             proc_macro2::Span::call_site(),
             "Test Error",
         ));
-        let root = BsnRoot::Bsn(Bsn {
+        let root = BsnRoot(Bsn {
             entries: vec![],
             used_parens: None,
         });

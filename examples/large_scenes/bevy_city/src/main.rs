@@ -133,7 +133,7 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn! {
+    bsn_list! {
         @camera()
         --
         @sun()

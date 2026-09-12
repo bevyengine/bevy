@@ -84,7 +84,7 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn! {
+    bsn_list! {
         Camera2d
         --
         @demo_root()
@@ -962,7 +962,7 @@ fn demo_column_2() -> impl Scene {
                 --
                 @subpane_body() Children [
                     @FeathersListView {
-                        @rows: bsn! {
+                        @rows: bsn_list! {
                             @FeathersListRow Children [ @caption("First World") ]
                             --
                             @FeathersListRow Selected Children [ @caption("Second Nature") ]
@@ -1213,10 +1213,10 @@ fn handle_hex_color_change(
 fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
     commands
         .entity(activate.event_target())
-        .queue_spawn_related_scenes::<Children>(bsn! {
+        .queue_spawn_related_scenes::<Children>(bsn_list! {
             @FeathersDialog {
                 @width: px(320),
-                @contents: bsn! {
+                @contents: bsn_list! {
                     @FeathersDialogHeader Children [
                         @caption("Quit Feathers Gallery")
                         --
@@ -1267,7 +1267,7 @@ fn toggle_demo_dialog(
             @FeathersFloatingDialog {
                 @title: {"Hello".to_string()},
                 @width: px(280),
-                @contents: bsn! {
+                @contents: bsn_list! {
                     @caption("Close this dialog to unset the toggle.")
                 }
             }
