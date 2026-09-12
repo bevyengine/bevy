@@ -3,6 +3,7 @@ import bevy_render::{
     globals::Globals,
 };
 import package::ui_vertex_output::UiVertexOutput;
+import package::ui::encode_output;
 
 @group(0) @binding(0)
 var<uniform> view: View;
@@ -30,5 +31,5 @@ fn vertex(
 
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0);
+    return encode_output(vec4<f32>(1.0));
 }

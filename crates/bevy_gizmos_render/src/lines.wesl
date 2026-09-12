@@ -1,6 +1,7 @@
 // TODO use common view binding
 import bevy_render::view::View;
 import bevy_render::maths::affine3_to_square;
+import bevy_render::writer_encode::writer_encode;
 
 @group(0) @binding(0) var<uniform> view: View;
 
@@ -177,9 +178,11 @@ fn non_solid_uv(in: FragmentInput) -> f32 {
     return animated - floor(animated / PERIOD) * PERIOD;
 }
 
+/// Gizmos draw into the view's main texture, so every fragment function
+/// encodes for the compositing space.
 @fragment
 fn fragment_solid(in: FragmentInput) -> FragmentOutput {
-    return FragmentOutput(in.color);
+    return FragmentOutput(writer_encode(in.color));
 }
 
 @fragment
@@ -187,7 +190,7 @@ fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
     let uv = non_solid_uv(in);
     let alpha = 1.0 - floor(uv);
 
-    return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
+    return FragmentOutput(writer_encode(vec4(in.color.xyz, in.color.w * alpha)));
 }
 
 @fragment
@@ -195,5 +198,5 @@ fn fragment_dashed(in: FragmentInput) -> FragmentOutput {
     let uv = non_solid_uv(in);
     let alpha = 1.0 - floor(min(uv / in.line_fraction, 1.0));
 
-    return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
+    return FragmentOutput(writer_encode(vec4(in.color.xyz, in.color.w * alpha)));
 }

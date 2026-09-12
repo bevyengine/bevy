@@ -388,6 +388,7 @@ impl Plugin for RenderPlugin {
         load_shader_library!(app, "view.wesl");
         load_shader_library!(app, "maths.wesl");
         load_shader_library!(app, "color_operations.wesl");
+        load_shader_library!(app, "writer_encode.wesl");
         load_shader_library!(app, "bindless.wesl");
 
         if insert_future_resources(&self.render_creation, app.world_mut()) {

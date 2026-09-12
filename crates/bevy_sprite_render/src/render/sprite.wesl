@@ -1,9 +1,6 @@
 @if(TONEMAP_IN_SHADER)
 import bevy_core_pipeline::tonemapping;
-@if(SRGB_OUTPUT)
-import bevy_render::color_operations::linear_to_srgb;
-@if(OKLAB_OUTPUT)
-import bevy_render::color_operations::linear_rgb_to_oklab;
+import bevy_render::writer_encode::writer_encode;
 
 import bevy_render::{
     maths::affine3_to_square,
@@ -62,11 +59,5 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 @if(TONEMAP_IN_SHADER)
     color = tonemapping::tone_mapping(color, view.color_grading);
 
-@if(SRGB_OUTPUT)
-    color = vec4(linear_to_srgb(color.rgb), color.a);
-
-@if(OKLAB_OUTPUT)
-    color = vec4(linear_rgb_to_oklab(color.rgb), color.a);
-
-    return color;
+    return writer_encode(color);
 }

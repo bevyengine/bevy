@@ -1,4 +1,5 @@
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_camera::CompositingSpace;
 use bevy_ecs::prelude::*;
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
@@ -6,10 +7,41 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
-    view::ViewUniform,
+    view::{ResolvedCompositingSpace, ViewUniform},
 };
-use bevy_shader::Shader;
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
+
+/// How a UI fragment encodes its output for the view it renders into,
+/// shared by every UI pipeline key.
+///
+/// UI draws into the view's main texture after tonemapping, so each
+/// fragment encodes to match that texture's compositing space.
+#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
+pub struct UiWriterEncodeKey {
+    /// The view's resolved [`CompositingSpace`]. Linear views leave this
+    /// `None`, since linear output needs no encode.
+    pub compositing_space: Option<CompositingSpace>,
+}
+
+impl UiWriterEncodeKey {
+    /// Builds the key from a view's [`ResolvedCompositingSpace`].
+    pub fn from_resolved_space(resolved: Option<&ResolvedCompositingSpace>) -> Self {
+        Self {
+            compositing_space: ResolvedCompositingSpace::space(resolved)
+                .filter(|space| !space.is_linear()),
+        }
+    }
+
+    /// Appends the shader defs for the compositing space.
+    pub fn push_shader_defs(&self, shader_defs: &mut Vec<ShaderDefVal>) {
+        match self.compositing_space {
+            Some(CompositingSpace::Srgb) => shader_defs.push("COMPOSITING_SPACE_SRGB".into()),
+            Some(CompositingSpace::Oklab) => shader_defs.push("COMPOSITING_SPACE_OKLAB".into()),
+            Some(CompositingSpace::Linear) | None => {}
+        }
+    }
+}
 
 #[derive(Resource)]
 pub struct UiPipeline {
@@ -49,6 +81,7 @@ pub fn init_ui_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
 pub struct UiPipelineKey {
     pub target_format: TextureFormat,
     pub anti_alias: bool,
+    pub writer_encode: UiWriterEncodeKey,
 }
 
 impl SpecializedRenderPipeline for UiPipeline {
@@ -78,11 +111,12 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x2,
             ],
         );
-        let shader_defs = if key.anti_alias {
+        let mut shader_defs = if key.anti_alias {
             vec!["ANTI_ALIAS".into()]
         } else {
             Vec::new()
         };
+        key.writer_encode.push_shader_defs(&mut shader_defs);
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -105,5 +139,40 @@ impl SpecializedRenderPipeline for UiPipeline {
             label: Some("ui_pipeline".into()),
             ..default()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn defs_for(key: UiWriterEncodeKey) -> Vec<ShaderDefVal> {
+        let mut defs = Vec::new();
+        key.push_shader_defs(&mut defs);
+        defs
+    }
+
+    #[test]
+    fn no_writer_encode_for_default_or_linear() {
+        assert!(defs_for(UiWriterEncodeKey::default()).is_empty());
+
+        let linear = ResolvedCompositingSpace(Some(CompositingSpace::Linear));
+        let key = UiWriterEncodeKey::from_resolved_space(Some(&linear));
+        assert_eq!(key, UiWriterEncodeKey::default());
+        assert!(defs_for(key).is_empty());
+    }
+
+    #[test]
+    fn compositing_space_appends_exactly_its_def() {
+        let srgb = ResolvedCompositingSpace(Some(CompositingSpace::Srgb));
+        assert_eq!(
+            defs_for(UiWriterEncodeKey::from_resolved_space(Some(&srgb))),
+            vec![ShaderDefVal::from("COMPOSITING_SPACE_SRGB")]
+        );
+        let oklab = ResolvedCompositingSpace(Some(CompositingSpace::Oklab));
+        assert_eq!(
+            defs_for(UiWriterEncodeKey::from_resolved_space(Some(&oklab))),
+            vec![ShaderDefVal::from("COMPOSITING_SPACE_OKLAB")]
+        );
     }
 }

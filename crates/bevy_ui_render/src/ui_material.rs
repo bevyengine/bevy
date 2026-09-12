@@ -1,4 +1,4 @@
-use crate::Node;
+use crate::{pipeline::UiWriterEncodeKey, Node};
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
@@ -128,6 +128,7 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
 pub struct UiMaterialKey<M: UiMaterial> {
     pub target_format: TextureFormat,
     pub bind_group_data: M::Data,
+    pub writer_encode: UiWriterEncodeKey,
 }
 
 impl<M: UiMaterial> Eq for UiMaterialKey<M> where M::Data: PartialEq {}
@@ -137,7 +138,9 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.target_format == other.target_format && self.bind_group_data == other.bind_group_data
+        self.target_format == other.target_format
+            && self.bind_group_data == other.bind_group_data
+            && self.writer_encode == other.writer_encode
     }
 }
 
@@ -149,6 +152,7 @@ where
         Self {
             target_format: self.target_format,
             bind_group_data: self.bind_group_data.clone(),
+            writer_encode: self.writer_encode,
         }
     }
 }
@@ -160,6 +164,7 @@ where
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.target_format.hash(state);
         self.bind_group_data.hash(state);
+        self.writer_encode.hash(state);
     }
 }
 

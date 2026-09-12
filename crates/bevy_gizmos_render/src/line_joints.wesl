@@ -1,4 +1,5 @@
 import bevy_render::{view::View, maths::affine3_to_square};
+import bevy_render::writer_encode::writer_encode;
 
 @group(0) @binding(0) var<uniform> view: View;
 
@@ -246,6 +247,5 @@ struct FragmentOutput {
 
 @fragment
 fn fragment(in: FragmentInput) -> FragmentOutput {
-    // return FragmentOutput(vec4(1, 1, 1, 1));
-    return FragmentOutput(in.color);
+    return FragmentOutput(writer_encode(in.color));
 }

@@ -35,7 +35,8 @@ use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
-    clipping::clip_polygon, BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap,
+    clipping::clip_polygon, pipeline::UiWriterEncodeKey, BoxShadowSamples, RenderUiSystems,
+    TransparentUi, UiCameraMap,
 };
 
 use super::{stack_z_offsets, UiCameraView, QUAD_VERTEX_POSITIONS};
@@ -131,6 +132,7 @@ pub struct BoxShadowPipelineKey {
     pub target_format: TextureFormat,
     /// Number of samples, a higher value results in better quality shadows.
     pub samples: u32,
+    pub writer_encode: UiWriterEncodeKey,
 }
 
 impl SpecializedRenderPipeline for BoxShadowPipeline {
@@ -158,7 +160,8 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 VertexFormat::Float32x2,
             ],
         );
-        let shader_defs = vec![ShaderDefVal::UInt("SHADOW_SAMPLES".into(), key.samples)];
+        let mut shader_defs = vec![ShaderDefVal::UInt("SHADOW_SAMPLES".into(), key.samples)];
+        key.writer_encode.push_shader_defs(&mut shader_defs);
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -405,7 +408,14 @@ pub fn queue_shadows(
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    render_views: Query<(&UiCameraView, Option<&BoxShadowSamples>), With<ExtractedView>>,
+    render_views: Query<
+        (
+            &UiCameraView,
+            Option<&BoxShadowSamples>,
+            Option<&ResolvedCompositingSpace>,
+        ),
+        With<ExtractedView>,
+    >,
     camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
@@ -419,7 +429,7 @@ pub fn queue_shadows(
     {
         if current_camera_entity != *extracted_camera_entity {
             current_phase = render_views.get(*extracted_camera_entity).ok().and_then(
-                |(default_camera_view, shadow_samples)| {
+                |(default_camera_view, shadow_samples, resolved_space)| {
                     camera_views
                         .get(default_camera_view.0)
                         .ok()
@@ -433,6 +443,9 @@ pub fn queue_shadows(
                                         BoxShadowPipelineKey {
                                             target_format: view.target_format,
                                             samples: shadow_samples.copied().unwrap_or_default().0,
+                                            writer_encode: UiWriterEncodeKey::from_resolved_space(
+                                                resolved_space,
+                                            ),
                                         },
                                     );
                                     (pipeline, transparent_phase)

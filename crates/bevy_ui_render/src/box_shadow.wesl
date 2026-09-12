@@ -1,7 +1,8 @@
 import bevy_render::view::View;
 import bevy_render::globals::Globals;
 import package::ui::{
-    select_corner_radius
+    encode_output,
+    select_corner_radius,
 };
 
 const PI: f32 = 3.14159265358979323846;
@@ -96,5 +97,5 @@ fn fragment(
     in: BoxShadowVertexOutput,
 ) -> @location(0) vec4<f32> {
     let g = in.color.a * roundedBoxShadow(-0.5 * in.size, 0.5 * in.size, in.point, max(in.blur, 0.01), in.radius_x, in.radius_y);
-    return vec4(in.color.rgb, g);
+    return encode_output(vec4(in.color.rgb, g));
 }
