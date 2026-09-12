@@ -207,7 +207,7 @@ use crate::prelude::ReflectComponent;
 pub struct Observer {
     hook_on_add: ComponentHook,
     pub(crate) error_handler: Option<ErrorHandler>,
-    pub(crate) system: Box<dyn AnyNamedSystem>,
+    pub(crate) system: Option<Box<dyn AnyNamedSystem>>,
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) last_trigger_id: u32,
     pub(crate) despawned_watched_entities: u32,
@@ -223,16 +223,8 @@ impl Observer {
     /// Panics if the given system is an exclusive system.
     pub fn new<E: EventPattern, M, I: IntoObserverSystem<E, M>>(system: I) -> Self {
         let system = Box::new(IntoObserverSystem::into_system(system));
-        assert!(
-            !system.is_exclusive(),
-            concat!(
-                "Exclusive system `{}` may not be used as observer.\n",
-                "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
-            ),
-            system.name()
-        );
         Self {
-            system,
+            system: Some(system),
             descriptor: Default::default(),
             hook_on_add: hook_on_add::<E, I::System>,
             error_handler: None,
@@ -246,7 +238,7 @@ impl Observer {
     /// Creates a new [`Observer`] with custom runner, this is mostly used for dynamic event observers
     pub fn with_dynamic_runner(runner: ObserverRunner) -> Self {
         Self {
-            system: Box::new(IntoSystem::into_system(|| {})),
+            system: Some(Box::new(IntoSystem::into_system(|| {}))),
             descriptor: Default::default(),
             hook_on_add: |mut world, hook_context| {
                 let default_error_handler = world.fallback_error_handler();
@@ -359,7 +351,10 @@ impl Observer {
 
     /// Returns the name of the [`Observer`]'s system .
     pub fn system_name(&self) -> DebugName {
-        self.system.system_name()
+        self.system.as_deref().map_or(
+            DebugName::borrowed("<system is initializing>"),
+            AnyNamedSystem::system_name,
+        )
     }
 }
 
@@ -461,36 +456,38 @@ fn hook_on_add<E: EventPattern, S: ObserverSystem<E>>(
         let event_key = world.register_event_key::<E::Event>();
         let components = E::Components::component_ids(&mut world.components_registrator());
 
-        let system_ptr: *mut dyn ObserverSystem<E> = {
-            let Some(mut observer) = world.get_mut::<Observer>(entity) else {
-                return;
-            };
-            observer.descriptor.event_keys.push(event_key);
-            observer.descriptor.components.extend(components);
-
-            let system: &mut dyn Any = observer.system.as_mut();
-            core::ptr::from_mut(system.downcast_mut::<S>().unwrap())
+        let Some(mut observer) = world.get_mut::<Observer>(entity) else {
+            return;
         };
+        observer.descriptor.event_keys.push(event_key);
+        observer.descriptor.components.extend(components);
 
-        // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias
-        unsafe {
-            (*system_ptr).initialize(world);
-        }
+        let mut boxed_system = core::mem::take(&mut observer.system).unwrap();
+        let mut conditions = core::mem::take(&mut observer.conditions);
 
-        let mut conditions = {
-            let Some(mut observer) = world.get_mut::<Observer>(entity) else {
-                return;
-            };
-            core::mem::take(&mut observer.conditions)
-        };
+        let system: &mut dyn Any = boxed_system.as_mut();
+        let system = system.downcast_mut::<S>().unwrap();
+        let access = system.initialize(world);
+        assert!(
+            !access.is_exclusive(),
+            concat!(
+                "Exclusive system `{}` may not be used as observer.\n",
+                "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
+            ),
+            system.name(),
+        );
 
         for condition in &mut conditions {
             condition.initialize(world);
         }
 
-        if let Some(mut observer) = world.get_mut::<Observer>(entity) {
-            observer.conditions = conditions;
-        }
+        // If the observer was despawned during `initialize`, don't register it.
+        let Some(mut observer) = world.get_mut::<Observer>(entity) else {
+            return;
+        };
+
+        observer.system = Some(boxed_system);
+        observer.conditions = conditions;
 
         world.register_observer(entity);
     });

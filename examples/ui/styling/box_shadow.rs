@@ -190,11 +190,11 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
     };
     app_settings.shape.change_node(&mut node);
 
-    commands.spawn_scene_list(bsn_list! {
+    commands.spawn_scene_list(bsn! {
         // Camera
         Camera2d
-        BoxShadowSamples({app_settings.samples}),
-
+        BoxShadowSamples({app_settings.samples})
+        --
         // Centered shape with shadow
         Node {
             width: percent(100),
@@ -204,7 +204,7 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
         }
         BackgroundColor(GRAY)
         Children [
-            template_value(node)
+            node
             BorderColor::all(WHITE)
             BackgroundColor(Color::srgb(0.21, 0.21, 0.21))
             BoxShadow(vec![ShadowStyle {
@@ -215,9 +215,9 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
                 blur_radius: px(app_settings.blur),
             }])
             ShadowNode
-        ],
-
-        settings_panel_scene(&app_settings),
+        ]
+        --
+        @settings_panel_scene(&app_settings)
     });
 }
 
@@ -232,61 +232,68 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
     bsn! {
         SettingsPanel
         ZIndex(10)
-        pane()
-        main_ui_node_scene()
+        @pane()
+        @main_ui_node_scene()
         Children [
-            pane_body()
+            @pane_body()
             Children [
-                feathers_option_buttons(
+                @feathers_option_buttons(
                     "Shape",
                     &SHAPE_OPTIONS,
                     selected_shape_index,
-                ),
-                number_input_f32(
+                )
+                --
+                @number_input_f32(
                     AppNumberInputF32::XOffset.label(),
                     Some(AppNumberInputF32::XOffset),
                     app_settings.x_offset,
                     NumberInputPrecision(0),
                     -200. ..=200.
-                ),
-                number_input_f32(
+                )
+                --
+                @number_input_f32(
                     AppNumberInputF32::YOffset.label(),
                     Some(AppNumberInputF32::YOffset),
                     app_settings.y_offset,
                     NumberInputPrecision(0),
                     -200. ..=200.
-                ),
-                number_input_f32(
+                )
+                --
+                @number_input_f32(
                     AppNumberInputF32::Blur.label(),
                     Some(AppNumberInputF32::Blur),
                     app_settings.blur,
                     NumberInputPrecision(0),
                     0. ..=100.
-                ),
-                number_input_f32(
+                )
+                --
+                @number_input_f32(
                     AppNumberInputF32::Spread.label(),
                     Some(AppNumberInputF32::Spread),
                     app_settings.spread,
                     NumberInputPrecision(0),
                     -200. ..=200.
-                ),
-                number_input_i32(
+                )
+                --
+                @number_input_i32(
                     AppNumberInputI32::Count.label(),
                     Some(AppNumberInputI32::Count),
                     app_settings.count as i32,
                     NumberInputPrecision(0),
                     1..=3
-                ),
-                number_input_i32(
+                )
+                --
+                @number_input_i32(
                     AppNumberInputI32::Samples.label(),
                     Some(AppNumberInputI32::Samples),
                     app_settings.samples as i32,
                     NumberInputPrecision(0),
                     0..=15
-                ),
+                )
+                --
                 // Reset button
                 @FeathersButton {
-                    @caption: bsn! { caption("Reset") }
+                    @caption: bsn! { @caption("Reset") }
                 }
                 on(on_activate_reset)
             ]

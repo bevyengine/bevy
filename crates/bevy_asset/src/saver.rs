@@ -400,7 +400,6 @@ impl<'a> SavedAssetBuilder<'a> {
                 .reserve_handle_internal(
                     false,
                     Some(self.asset_path.clone().with_label(label.to_string())),
-                    None,
                 ),
         );
         self.add_labeled_asset_with_existing_handle(label, asset, handle.clone());
@@ -447,7 +446,6 @@ impl<'a> SavedAssetBuilder<'a> {
                 .reserve_handle_internal(
                     false,
                     Some(self.asset_path.clone().with_label(label.to_string())),
-                    None,
                 ),
         );
         self.add_labeled_asset_with_existing_handle_erased(label, asset, handle.clone());

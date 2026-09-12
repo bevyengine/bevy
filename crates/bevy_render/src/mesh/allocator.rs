@@ -11,8 +11,8 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_log::warn;
-use bevy_math::bounding::{Aabb2d, BoundingVolume};
 use bevy_mesh::Indices;
+use bevy_shape::{Aabb2d, BoundingVolume};
 use glam::Vec4;
 use wgpu::{BufferUsages, DownlevelFlags, COPY_BUFFER_ALIGNMENT};
 
@@ -752,8 +752,8 @@ mod tests {
     use super::*;
     use crate::test_utils::create_dummy_device;
     use bevy_asset::{uuid::Uuid, RenderAssetUsages};
-    use bevy_math::bounding::Aabb3d;
     use bevy_mesh::PrimitiveTopology;
+    use bevy_shape::Aabb3d;
     use glam::{Vec2, Vec3};
 
     fn test_mesh() -> Mesh {

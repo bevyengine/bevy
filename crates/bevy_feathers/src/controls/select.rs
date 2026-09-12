@@ -55,10 +55,10 @@ pub fn list_rows_from_strings(
             .map(|(i, label)| -> Box<dyn SceneList> {
                 let label: String = label.as_ref().into();
                 if Some(i) == selected {
-                    bsn! { @FeathersListRow Selected OptionIndex(i) Children [ caption(label) ] }
+                    bsn! { @FeathersListRow Selected OptionIndex(i) Children [ @caption(label) ] }
                         .into()
                 } else {
-                    bsn! { @FeathersListRow OptionIndex(i) Children [ caption(label) ] }.into()
+                    bsn! { @FeathersListRow OptionIndex(i) Children [ @caption(label) ] }.into()
                 }
             })
             .collect::<Vec<_>>(),
@@ -83,7 +83,7 @@ pub struct FeathersSelectProps {
 impl Default for FeathersSelectProps {
     fn default() -> Self {
         Self {
-            options: Box::new(bsn_list!()),
+            options: Box::new(bsn! {}),
             corners: Default::default(),
             max_visible: 8,
         }
@@ -100,31 +100,26 @@ impl FeathersSelect {
             @FeathersMenu
             FeathersSelect
             Children [
-                (
-                    @FeathersMenuButton {
-                        @caption: bsn! { caption("") SelectCaption },
-                        @corners: {props.corners},
+                @FeathersMenuButton {
+                    @caption: bsn! { @caption("") SelectCaption },
+                    @corners: {props.corners},
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                --
+                @FeathersMenuPopup
+                Children [
+                    @FeathersListView {
+                        @rows: {props.options}
                     }
+                    on(listbox_update_selection)
+                    on(re_emit_listbox_value)
+                    on(close_popup_on_reselect)
                     Node {
-                        flex_grow: 1.0,
+                        max_height: {max_height},
                     }
-                ),
-                (
-                    @FeathersMenuPopup
-                    Children [
-                        (
-                            @FeathersListView {
-                                @rows: {props.options}
-                            }
-                            on(listbox_update_selection)
-                            on(re_emit_listbox_value)
-                            on(close_popup_on_reselect)
-                            Node {
-                                max_height: {max_height},
-                            }
-                        )
-                    ]
-                )
+                ]
             ]
         }
     }

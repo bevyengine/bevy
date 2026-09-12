@@ -198,7 +198,7 @@ mod ui {
             Node {
                 margin: px(10),
             }
-            Text::new("Move with arrow keys.\nPress SPACEBAR to pause.")
+            Text("Move with arrow keys.\nPress SPACEBAR to pause.")
         });
     }
 

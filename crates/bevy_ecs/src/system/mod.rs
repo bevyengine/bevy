@@ -119,12 +119,11 @@
 //!
 //! [`Vec<P>`]: alloc::vec::Vec
 
+mod access;
 mod adapter_system;
 mod builder;
 mod combinator;
 mod commands;
-mod exclusive_function_system;
-mod exclusive_system_param;
 mod function_system;
 mod input;
 mod observer_system;
@@ -137,12 +136,11 @@ mod system_registry;
 
 use core::any::TypeId;
 
+pub use access::*;
 pub use adapter_system::*;
 pub use builder::*;
 pub use combinator::*;
 pub use commands::*;
-pub use exclusive_function_system::*;
-pub use exclusive_system_param::*;
 pub use function_system::*;
 pub use input::*;
 pub use observer_system::*;
@@ -193,6 +191,15 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///
     /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
     /// where `T` is the return type of the first system.
+    ///
+    /// # System Names
+    ///
+    /// By default, the [`System::name()`] of the resulting [`PipeSystem`] will be
+    /// set to a combination of the names of the inner systems.
+    /// This can be changed by calling [`IntoPipeSystem::with_first_name`] or
+    /// [`IntoPipeSystem::with_second_name`] to take the name from one of the inner systems,
+    /// or [`IntoPipeSystem::with_name`] or [`IntoPipeSystem::with_name_fn`]
+    /// to set a different name.
     fn pipe<B, BIn, BOut, MarkerB>(self, system: B) -> IntoPipeSystem<Self, B>
     where
         Out: 'static,
@@ -418,8 +425,8 @@ mod tests {
             SystemCondition,
         },
         system::{
-            Commands, ExclusiveMarker, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet,
-            Query, Res, ResMut, Single, StaticSystemParam, System, SystemState,
+            Commands, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res,
+            ResMut, Single, StaticSystemParam, System, SystemState,
         },
         world::{DeferredWorld, EntityMut, FromWorld, World},
     };
@@ -1071,24 +1078,6 @@ mod tests {
         ) {
             *system_ran = SystemRan::Yes;
         }
-
-        run_system(&mut world, sys);
-        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
-    }
-
-    #[test]
-    fn function_system_as_exclusive() {
-        let mut world = World::default();
-
-        world.insert_resource(SystemRan::No);
-
-        fn sys(_marker: ExclusiveMarker, mut system_ran: ResMut<SystemRan>) {
-            *system_ran = SystemRan::Yes;
-        }
-
-        let mut sys = IntoSystem::into_system(sys);
-        sys.initialize(&mut world);
-        assert!(sys.is_exclusive());
 
         run_system(&mut world, sys);
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
@@ -1799,7 +1788,8 @@ mod tests {
         assert_is_system(exclusive_with_state);
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
-        returning::<()>.run_if(returning::<bool>.pipe(not));
+        // check that this compiles
+        let _ = returning::<()>.run_if(returning::<bool>.pipe(not));
     }
 
     #[test]

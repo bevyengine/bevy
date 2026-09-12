@@ -37,6 +37,8 @@ pub use bevy_clipboard as clipboard;
 pub use bevy_color as color;
 #[cfg(feature = "bevy_core_pipeline")]
 pub use bevy_core_pipeline as core_pipeline;
+#[cfg(feature = "bevy_curve")]
+pub use bevy_curve as curve;
 #[cfg(feature = "bevy_dev_tools")]
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;
@@ -86,6 +88,7 @@ pub use bevy_scene as scene;
 pub use bevy_settings as settings;
 #[cfg(feature = "bevy_shader")]
 pub use bevy_shader as shader;
+pub use bevy_shape as shape;
 #[cfg(feature = "bevy_solari")]
 pub use bevy_solari as solari;
 #[cfg(feature = "bevy_sprite")]

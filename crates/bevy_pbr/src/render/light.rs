@@ -13,6 +13,7 @@ use bevy_color::ColorToComponents;
 use bevy_core_pipeline::schedule::RootNonCameraView;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::schedule::ScheduleLabel;
+use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
@@ -31,11 +32,7 @@ use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     MaterialProperties,
 };
-use bevy_math::{
-    ops,
-    primitives::{HalfSpace, ViewFrustum},
-    proj, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
-};
+use bevy_math::{ops, proj, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
@@ -70,6 +67,7 @@ use bevy_render::{
     view::ExtractedView,
     Extract,
 };
+use bevy_shape::{HalfSpace, ViewFrustum};
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;
 use core::{any::TypeId, hash::Hash, mem, ops::Range};
@@ -110,6 +108,7 @@ pub struct ExtractedRectLight {
 }
 
 #[derive(Component, Debug)]
+#[require(DirectionalLightViewEntities)]
 pub struct ExtractedDirectionalLight {
     pub color: LinearRgba,
     pub illuminance: f32,
@@ -444,6 +443,7 @@ pub fn extract_lights(
     )>,
     mut all_lights_found: Local<EntityHashSet>,
     mut rect_light_missing_luts_warning_emitted: Local<bool>,
+    system_change_tick: SystemChangeTick,
 ) {
     let mapper = &visibility_extraction_system_param.mapper;
 
@@ -517,7 +517,7 @@ pub fn extract_lights(
                 render_shadow_map_visible_entities
                     .subviews
                     .entry(retained_view_entity)
-                    .or_default();
+                    .or_insert_with(|| (system_change_tick.this_run(), Default::default()));
 
                 // Extract the visible entities to the list for this face.
                 let extracted_entities = &mut render_extracted_shadow_map_visible_entities
@@ -648,7 +648,7 @@ pub fn extract_lights(
             render_shadow_map_visible_entities
                 .subviews
                 .entry(retained_view_entity)
-                .or_default();
+                .or_insert_with(|| (system_change_tick.this_run(), Default::default()));
 
             // Extract the visible CPU culled entities to the list.
             let entities_cpu_culling = &mut render_extracted_shadow_map_visible_entities
@@ -818,7 +818,7 @@ pub fn extract_lights(
                     existing_shadow_map_visible_entities
                         .subviews
                         .entry(retained_view_entity)
-                        .or_default();
+                        .or_insert_with(|| (system_change_tick.this_run(), Default::default()));
 
                     // Extract the visible CPU culled entities to the list.
                     let extracted_entities = &mut existing_extracted_shadow_map_visible_entities
@@ -955,16 +955,6 @@ pub fn extract_lights(
 /// Component automatically attached to a light entity to track light-view entities
 /// for each view.
 pub struct DirectionalLightViewEntities(EntityHashMap<Vec<Entity>>);
-
-// TODO: using required component
-pub(crate) fn add_light_view_entities(
-    add: On<Add<ExtractedDirectionalLight>>,
-    mut commands: Commands,
-) {
-    if let Ok(mut v) = commands.get_entity(add.entity) {
-        v.insert(DirectionalLightViewEntities::default());
-    }
-}
 
 pub(crate) fn remove_light_view_entities(
     remove: On<Remove<DirectionalLightViewEntities>>,
@@ -3099,12 +3089,13 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
     match light_entity {
         LightEntity::Directional { light_entity, .. } => {
             let retained_view_entity = extracted_view_light.retained_view_entity;
-            shadow_map_visible_entities_query
+            &shadow_map_visible_entities_query
                 .get(*light_entity)
                 .expect("Failed to get directional light visible entities")
                 .subviews
                 .get(&retained_view_entity)
                 .expect("Failed to get directional light visible entities for cascade")
+                .1
         }
         LightEntity::Point {
             light_entity,
@@ -3118,12 +3109,13 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
                 auxiliary_entity: None,
                 subview_index: *face_index as u32,
             };
-            shadow_map_visible_entities_query
+            &shadow_map_visible_entities_query
                 .get(*light_entity)
                 .expect("Failed to get point light visible entities")
                 .subviews
                 .get(&retained_view_entity)
                 .expect("Failed to get point light visible entity for face")
+                .1
         }
         LightEntity::Spot { light_entity } => {
             // We replace the auxiliary entity with `None`
@@ -3134,12 +3126,13 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
                 auxiliary_entity: None,
                 subview_index: 0,
             };
-            shadow_map_visible_entities_query
+            &shadow_map_visible_entities_query
                 .get(*light_entity)
                 .expect("Failed to get spot light visible entities")
                 .subviews
                 .get(&retained_view_entity)
                 .expect("Failed to get spot light visible entity for view")
+                .1
         }
     }
 }

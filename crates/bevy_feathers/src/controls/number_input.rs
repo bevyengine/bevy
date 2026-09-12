@@ -10,7 +10,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::{Add, Insert, Remove},
     observer::On,
-    query::{Changed, Has, With, Without},
+    query::{Changed, Has, Or, With, Without},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -22,7 +22,7 @@ use bevy_input::{
 };
 use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems};
 use bevy_log::{warn, warn_once};
-use bevy_math::ops;
+use bevy_math::{ops, Rot2};
 use bevy_picking::{
     cursor::EntityCursor,
     events::{
@@ -44,13 +44,15 @@ use bevy_ui::{
     percent, px, widget::Text, AlignItems, AlignSelf, BackgroundGradient, ColorStop, ComputedNode,
     ComputedUiRenderTargetInfo, Display, Gradient, InteractionDisabled, InterpolationColorSpace,
     JustifyContent, LinearGradient, Node, PositionType, UiGlobalTransform, UiRect, UiScale,
+    UiTransform,
 };
 use bevy_ui_widgets::ValueChange;
 use smol_str::SmolStr;
 
 use crate::{
-    constants::{fonts, size},
+    constants::{fonts, icons, size},
     controls::{FeathersSlider, FeathersTextInput, FeathersTextInputContainer},
+    display::icon,
     rounded_corners::RoundedCorners,
     theme::{
         SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor, ThemeContext, ThemeTextColor,
@@ -116,6 +118,16 @@ impl Default for FeathersNumberInputProps {
     }
 }
 
+/// Marks the decrement (left-end) chevron of a number input.
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component)]
+struct NumberInputDecrement;
+
+/// Marks the increment (right-end) chevron of a number input.
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component)]
+struct NumberInputIncrement;
+
 impl FeathersNumberInput {
     fn scene(props: FeathersNumberInputProps) -> impl Scene {
         bsn! {
@@ -139,7 +151,7 @@ impl FeathersNumberInput {
                 {
                     // Label section
                     props.label_text.map(|text| {
-                        bsn_list!(
+                        bsn! {
                             Node {
                                 display: Display::Flex,
                                 align_items: AlignItems::Center,
@@ -157,71 +169,93 @@ impl FeathersNumberInput {
                                 PropagateOver<TextFont>
                                 ThemeTextColor(tokens::TEXT_INPUT_TEXT)
                             ]
-                        )
+                        }
                     })
-                },
-
-                (
-                    // The editable text entity
-                    @FeathersTextInput {
-                        @max_characters: 30usize, // 20 digits + units
-                    }
-                    DragState
+                }
+                --
+                // The editable text entity
+                @FeathersTextInput {
+                    @max_characters: 30usize, // 20 digits + units
+                }
+                DragState
+                Node {
+                    flex_grow: 1.0,
+                    align_items: AlignItems::Center,
+                    align_self: AlignSelf::Stretch,
+                    border_radius: {
+                        if props.label_text.is_some() {
+                            RoundedCorners::Right.to_border_radius(4.0)
+                        } else {
+                            RoundedCorners::All.to_border_radius(4.0)
+                        }
+                    },
+                }
+                Hovered
+                LineHeight::Px(24.0) // TODO: Make const for this
+                TextLayout {
+                    justify: Justify::Center,
+                }
+                ThemeTextColor(tokens::TEXT_INPUT_TEXT)
+                // Use a gradient to draw the moving bar, this lets us round corners
+                BackgroundGradient(vec![Gradient::Linear(LinearGradient {
+                    angle: PI * 0.5,
+                    stops: vec![
+                        ColorStop::new(Color::NONE, percent(0)),
+                        ColorStop::new(Color::NONE, percent(50)),
+                        ColorStop::new(Color::NONE, percent(50)),
+                        ColorStop::new(Color::NONE, percent(100)),
+                    ],
+                    color_space: InterpolationColorSpace::Srgba,
+                })])
+                EntityCursor::System(bevy_window::SystemCursorIcon::ColResize)
+                on(number_input_init)
+                on(number_input_on_enter_key)
+                on(number_input_on_focus_gained)
+                on(number_input_on_focus_lost)
+                on(number_input_hovered)
+                on(update_chevron_visibility)
+                Children [
+                    // Invisible child on top of input field which intercepts drag
+                    // events (conditionally) and handles scrubbing gestures.
                     Node {
-                        flex_grow: 1.0,
-                        align_items: AlignItems::Center,
-                        align_self: AlignSelf::Stretch,
-                        border_radius: {
-                            if props.label_text.is_some() {
-                                RoundedCorners::Right.to_border_radius(4.0)
-                            } else {
-                                RoundedCorners::All.to_border_radius(4.0)
-                            }
-                        },
+                        position_type: PositionType::Absolute,
+                        left: px(0),
+                        top: px(0),
+                        bottom: px(0),
+                        right: px(0),
                     }
-                    Hovered
-                    template_value(LineHeight::Px(24.0)) // TODO: Make const for this
-                    TextLayout {
-                        justify: Justify::Center,
+                    on(scrubber_on_press)
+                    on(scrubber_on_release)
+                    on(scrubber_on_drag_start)
+                    on(scrubber_on_drag)
+                    on(scrubber_on_drag_end)
+                    on(scrubber_on_drag_cancel)
+                    --
+                    // The decrement chevron of a number input
+                    Node {
+                        position_type: PositionType::Absolute,
+                        display: Display::None,
+                        left: px(4),
                     }
-                    ThemeTextColor(tokens::TEXT_INPUT_TEXT)
-                    // Use a gradient to draw the moving bar, this lets us round corners
-                    BackgroundGradient(vec![Gradient::Linear(LinearGradient {
-                        angle: PI * 0.5,
-                        stops: vec![
-                            ColorStop::new(Color::NONE, percent(0)),
-                            ColorStop::new(Color::NONE, percent(50)),
-                            ColorStop::new(Color::NONE, percent(50)),
-                            ColorStop::new(Color::NONE, percent(100)),
-                        ],
-                        color_space: InterpolationColorSpace::Srgba,
-                    })])
-                    EntityCursor::System(bevy_window::SystemCursorIcon::ColResize)
-                    on(number_input_init)
-                    on(number_input_on_enter_key)
-                    on(number_input_on_focus_gained)
-                    on(number_input_on_focus_lost)
-                    on(number_input_hovered)
+                    NumberInputDecrement
                     Children [
-                        (
-                            // Invisible child on top of input field which intercepts drag
-                            // events (conditionally) and handles scrubbing gestures.
-                            Node {
-                                position_type: PositionType::Absolute,
-                                left: px(0),
-                                top: px(0),
-                                bottom: px(0),
-                                right: px(0),
-                            }
-                            on(scrubber_on_press)
-                            on(scrubber_on_release)
-                            on(scrubber_on_drag_start)
-                            on(scrubber_on_drag)
-                            on(scrubber_on_drag_end)
-                            on(scrubber_on_drag_cancel)
-                        ),
+                        @icon(icons::CHEVRON_DOWN)
+                        UiTransform {
+                            rotation: Rot2::radians(std::f32::consts::FRAC_PI_2)
+                        }
                     ]
-                ),
+                    --
+                    // The increment chevron of a number input
+                    Node {
+                        position_type: PositionType::Absolute,
+                        display: Display::None,
+                        right: px(4),
+                    }
+                    NumberInputIncrement
+                    Children [
+                        @icon(icons::CHEVRON_RIGHT)
+                    ]
+                ]
             ]
         }
     }
@@ -1509,6 +1543,77 @@ fn update_slidebar_styles_context(
                 &mut commands,
             );
         }
+    }
+}
+
+// Updates the visibility of the chevron buttons based on the hover state and value limits.
+fn update_chevron_visibility(
+    hover: On<Insert<Hovered>>,
+    q_hovered: Query<&Hovered>,
+    q_parent: Query<&ChildOf>,
+    q_number_input: Query<
+        (&NumberInputValue, Option<&HardLimit>, Has<SoftLimit>),
+        With<FeathersNumberInput>,
+    >,
+    q_children: Query<&Children>,
+    mut q_chevron: Query<
+        (
+            &mut Node,
+            Has<NumberInputDecrement>,
+            Has<NumberInputIncrement>,
+        ),
+        Or<(With<NumberInputDecrement>, With<NumberInputIncrement>)>,
+    >,
+) {
+    let text_input = hover.entity;
+    let Ok(hovered) = q_hovered.get(text_input) else {
+        return;
+    };
+    let Ok(&ChildOf(root)) = q_parent.get(text_input) else {
+        return;
+    };
+    let Ok((value, hard_limit, has_soft_limit)) = q_number_input.get(root) else {
+        return;
+    };
+    let base_visible = hovered.0 && !has_soft_limit;
+
+    let (is_at_min, is_at_max) = if let Some(HardLimit(range)) = hard_limit {
+        (is_at_limit_min(value, range), is_at_limit_max(value, range))
+    } else {
+        (false, false)
+    };
+
+    for child in q_children.iter_descendants(text_input) {
+        if let Ok((mut node, is_dec, is_inc)) = q_chevron.get_mut(child) {
+            let disabled_by_limit = (is_at_min && is_dec) || (is_at_max && is_inc);
+            node.display = if base_visible && !disabled_by_limit {
+                Display::Block
+            } else {
+                Display::None
+            };
+        }
+    }
+}
+
+// Checks if the value is at the minimum limit of the range.
+fn is_at_limit_min(value: &NumberInputValue, range: &NumberInputRange) -> bool {
+    match (range, value) {
+        (NumberInputRange::F32(r), NumberInputValue::F32(v)) => v <= r.start(),
+        (NumberInputRange::F64(r), NumberInputValue::F64(v)) => v <= r.start(),
+        (NumberInputRange::I32(r), NumberInputValue::I32(v)) => v <= r.start(),
+        (NumberInputRange::I64(r), NumberInputValue::I64(v)) => v <= r.start(),
+        _ => false,
+    }
+}
+
+// Checks if the value is at the maximum limit of the range.
+fn is_at_limit_max(value: &NumberInputValue, range: &NumberInputRange) -> bool {
+    match (range, value) {
+        (NumberInputRange::F32(r), NumberInputValue::F32(v)) => v >= r.end(),
+        (NumberInputRange::F64(r), NumberInputValue::F64(v)) => v >= r.end(),
+        (NumberInputRange::I32(r), NumberInputValue::I32(v)) => v >= r.end(),
+        (NumberInputRange::I64(r), NumberInputValue::I64(v)) => v >= r.end(),
+        _ => false,
     }
 }
 

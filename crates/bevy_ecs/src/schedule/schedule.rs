@@ -30,11 +30,13 @@ use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
-use crate::{change_detection::CheckChangeTicks, system::System};
+use crate::{
+    change_detection::CheckChangeTicks,
+    system::{System, SystemAccess},
+};
 use crate::{
     component::{ComponentId, Components},
     prelude::Component,
-    query::FilteredAccessSet,
     resource::Resource,
     schedule::*,
     system::ScheduleSystem,
@@ -1296,6 +1298,10 @@ impl ScheduleGraph {
         }
         self.passes = passes;
 
+        // Initialize any systems that were added by build passes. This ensures
+        // that ApplyDeferred systems are recognized as exclusive.
+        self.initialize(world);
+
         #[cfg(feature = "debug")]
         if let Some(shuffle_seed) = self.settings.shuffle_seed {
             // There's nothing special about this Rng implementation, other than the fact that it is
@@ -1427,8 +1433,8 @@ impl ScheduleGraph {
     ///
     /// A condition is evaluated just before its system (or the first ready system of its set)
     /// runs, so a weak ordering must respect what the conditions access as well.
-    fn condition_accesses(&self) -> HashMap<SystemKey, Vec<&FilteredAccessSet>> {
-        let mut accesses: HashMap<SystemKey, Vec<&FilteredAccessSet>> = HashMap::default();
+    fn condition_accesses(&self) -> HashMap<SystemKey, Vec<&SystemAccess>> {
+        let mut accesses: HashMap<SystemKey, Vec<&SystemAccess>> = HashMap::default();
         for (key, _, conditions) in self.systems.iter() {
             for condition in conditions {
                 accesses.entry(key).or_default().push(&condition.access);
@@ -1499,12 +1505,12 @@ impl ScheduleGraph {
         &self,
         from: SystemKey,
         to: SystemKey,
-        condition_accesses: &HashMap<SystemKey, Vec<&FilteredAccessSet>>,
+        condition_accesses: &HashMap<SystemKey, Vec<&SystemAccess>>,
     ) -> bool {
         let (from_system, to_system) = (&self.systems[from], &self.systems[to]);
         // Conditions are read-only, so they can conflict with the other system's access, but
         // never with the other system's conditions.
-        let conditions_conflict = |system_access: &FilteredAccessSet, other: SystemKey| {
+        let conditions_conflict = |system_access: &SystemAccess, other: SystemKey| {
             condition_accesses.get(&other).is_some_and(|accesses| {
                 accesses
                     .iter()
@@ -1513,8 +1519,8 @@ impl ScheduleGraph {
         };
 
         from_system.has_deferred()
-            || from_system.is_exclusive()
-            || to_system.is_exclusive()
+            || from_system.access.is_exclusive()
+            || to_system.access.is_exclusive()
             || !from_system.access.is_compatible(&to_system.access)
             || conditions_conflict(&from_system.access, to)
             || conditions_conflict(&to_system.access, from)

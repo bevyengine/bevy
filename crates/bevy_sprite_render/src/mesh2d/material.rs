@@ -93,7 +93,7 @@ pub const MATERIAL_2D_BIND_GROUP_INDEX: usize = 2;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
-/// # use bevy_math::primitives::Circle;
+/// # use bevy_shape::Circle;
 /// #
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 /// pub struct CustomMaterial {
@@ -195,7 +195,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// # use bevy_mesh::{Mesh, Mesh2d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
-/// # use bevy_math::primitives::Circle;
+/// # use bevy_shape::Circle;
 /// #
 /// // Spawn an entity with a mesh using `ColorMaterial`.
 /// fn setup(
@@ -904,6 +904,10 @@ pub fn specialize_material2d_meshes(
                         .insert((*render_entity, *visible_entity));
                     continue;
                 };
+                // The instance may have been extracted before the material was prepared,
+                // or the material may have been reallocated to a new binding.
+                mesh_instance.material_bindings_index = material_2d.binding;
+
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                     continue;
                 };

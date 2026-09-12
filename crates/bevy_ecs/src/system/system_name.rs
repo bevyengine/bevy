@@ -1,10 +1,8 @@
 use crate::{
     change_detection::Tick,
     prelude::World,
-    query::FilteredAccessSet,
     system::{
-        ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam,
-        SystemParamValidationError,
+        ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -62,7 +60,7 @@ unsafe impl SystemParam for SystemName {
     fn init_access(
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        _system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
     }
@@ -80,20 +78,6 @@ unsafe impl SystemParam for SystemName {
 
 // SAFETY: Only reads internal system state
 unsafe impl ReadOnlySystemParam for SystemName {}
-
-impl ExclusiveSystemParam for SystemName {
-    type State = ();
-    type Item<'s> = SystemName;
-
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
-
-    fn get_param<'s>(
-        _state: &'s mut Self::State,
-        system_meta: &SystemMeta,
-    ) -> Result<Self::Item<'s>, SystemParamValidationError> {
-        Ok(SystemName(system_meta.name.clone()))
-    }
-}
 
 #[cfg(test)]
 #[cfg(all(feature = "trace", feature = "debug"))]

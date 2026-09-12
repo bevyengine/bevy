@@ -464,7 +464,9 @@ where
     /// Each group of 64 elements, corresponding to a single word in this array,
     /// is known as a *block*.
     dirty_bits: Vec<AtomicU64>,
-    /// True if the entire buffer needs to be reuploaded because it resized.
+    /// True if the entire buffer needs to be reuploaded, either because it
+    /// resized or because a sparse update couldn't be recorded and its staged
+    /// elements would otherwise be lost.
     needs_full_reupload: bool,
     /// True if a sparse update is to be performed.
     sparse_update_scheduled: bool,
@@ -674,6 +676,9 @@ where
             atomic_dirty_word.store(0, Ordering::Relaxed);
         }
         self.sparse_update_scheduled = false;
+
+        // The GPU now matches `values` in full, which is the only thing this flag was asking for.
+        self.needs_full_reupload = false;
     }
 
     /// Schedules a sparse upload of only the elements that changed.
@@ -745,26 +750,32 @@ where
         sparse_buffer_update_bind_groups: &mut SparseBufferUpdateBindGroups,
         sparse_buffer_update_pipelines: &SparseBufferUpdatePipelines,
     ) {
+        // Staging the elements cleared their dirty bits, so a scatter that never gets recorded
+        // would drop those writes for good. Reupload the whole buffer next frame instead, which
+        // rebuilds it from `values` and needs no compute pipeline.
+        let mut retry_with_full_reupload = false;
+
         if self.sparse_update_scheduled {
-            match (&self.data_buffer, self.metadata_uniform.buffer()) {
-                (Some(data_buffer), Some(metadata_buffer)) => {
-                    prepare_to_populate_buffers(
-                        self.handle.clone(),
-                        &self.label,
-                        data_buffer,
-                        &mut self.staging_buffers,
-                        metadata_buffer,
-                        render_device,
-                        pipeline_cache,
-                        sparse_buffer_update_jobs,
-                        sparse_buffer_update_bind_groups,
-                        sparse_buffer_update_pipelines,
-                    );
-                }
+            let scheduled = match (&self.data_buffer, self.metadata_uniform.buffer()) {
+                (Some(data_buffer), Some(metadata_buffer)) => prepare_to_populate_buffers(
+                    self.handle.clone(),
+                    &self.label,
+                    data_buffer,
+                    &mut self.staging_buffers,
+                    metadata_buffer,
+                    render_device,
+                    pipeline_cache,
+                    sparse_buffer_update_jobs,
+                    sparse_buffer_update_bind_groups,
+                    sparse_buffer_update_pipelines,
+                ),
                 _ => {
                     error!("Buffers should have been created by now");
+                    false
                 }
-            }
+            };
+
+            retry_with_full_reupload = !scheduled;
         }
 
         // Clear out the staging buffers, now that we know the data is already
@@ -772,9 +783,52 @@ where
         self.staging_buffers.source_data.clear();
         self.staging_buffers.indices.clear();
 
-        // Reset the `needs_full_reupload` and `needs_sparse_update` flags.
-        self.needs_full_reupload = false;
+        // Accumulate rather than assign, so a reupload that `reserve` asked for survives a frame
+        // where `write_buffers` bailed out early on an empty vector.
+        self.needs_full_reupload |= retry_with_full_reupload;
         self.sparse_update_scheduled = false;
+    }
+}
+
+impl<T> AtomicSparseBufferVec<T>
+where
+    T: AtomicPod + PartialEq,
+{
+    /// Sets the value at the given index, growing the buffer if the index isn't in range.
+    ///
+    /// If the buffer already holds `value` there, this does nothing, leaving the element's dirty
+    /// bit clear so that a sparse update skips it.
+    ///
+    /// Requires `&mut self` because growing reallocates.
+    ///
+    /// Use [`Self::set_if_changed`] when the index is known to be in range and
+    /// only a shared reference is available.
+    pub fn grow_and_set(&mut self, index: u32, value: T) {
+        if self.len() > index {
+            if self.get(index) == value {
+                return;
+            }
+        } else {
+            self.grow(index + 1);
+        }
+        self.set(index, value);
+    }
+
+    /// Sets the value at an index that's already in range, without growing the buffer.
+    ///
+    /// If the buffer already holds `value` there, this does nothing, leaving the element's dirty
+    /// bit clear so that a sparse update skips it.
+    ///
+    /// Like [`Self::set`], this is thread-safe, doesn't require `&mut self`, and panics if the
+    /// index isn't in range.
+    pub fn set_if_changed(&self, index: u32, value: T) {
+        debug_assert!(
+            index < self.len(),
+            "buffer was not grown past index {index}"
+        );
+        if self.get(index) != value {
+            self.set(index, value);
+        }
     }
 }
 
@@ -916,6 +970,10 @@ fn count_dirty_elements(summary: &[AtomicU64], dirty_bits: &[AtomicU64]) -> u32 
 ///
 /// This function creates the [`SparseBufferUpdateJob`] and ensures the bind
 /// group and pipeline are up to date.
+///
+/// Returns whether the update was recorded. A caller that has already cleared the dirty bits for
+/// the staged elements has to reupload the whole buffer when this is false, as nothing will scatter
+/// them.
 fn prepare_to_populate_buffers(
     sparse_buffer_handle: SparseBufferHandle,
     label: &Arc<str>,
@@ -927,18 +985,27 @@ fn prepare_to_populate_buffers(
     sparse_buffer_update_jobs: &mut SparseBufferUpdateJobs,
     sparse_buffer_update_bind_groups: &mut SparseBufferUpdateBindGroups,
     sparse_buffer_update_pipelines: &SparseBufferUpdatePipelines,
-) {
+) -> bool {
     let (Some(source_data_staging_buffer), Some(indices_staging_buffer)) = (
         staging_buffers.source_data.buffer(),
         staging_buffers.indices.buffer(),
     ) else {
         error!("Staging buffers should have been created by now");
-        return;
+        return false;
     };
 
     let Some(bind_group_layout) = &sparse_buffer_update_pipelines.bind_group_layout else {
-        return;
+        return false;
     };
+
+    // `update_sparse_buffers` can't dispatch anything until the shared scatter pipeline has
+    // compiled, which takes a few frames from startup
+    let Some(pipeline_id) = sparse_buffer_update_bind_groups.pipeline_id else {
+        return false;
+    };
+    if pipeline_cache.get_compute_pipeline(pipeline_id).is_none() {
+        return false;
+    }
 
     // Record the update job.
     sparse_buffer_update_jobs.push(SparseBufferUpdateJob {
@@ -967,6 +1034,8 @@ fn prepare_to_populate_buffers(
         sparse_buffer_handle,
         SparseBufferUpdateBindGroup { bind_group },
     );
+
+    true
 }
 
 /// Ensures that the backing buffer for an [`AtomicSparseBufferVec`] is present

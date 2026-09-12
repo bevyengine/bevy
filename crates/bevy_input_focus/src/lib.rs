@@ -205,6 +205,17 @@ pub struct FocusedInput<M: Message + Clone> {
     window: Entity,
 }
 
+impl<M: Message + Clone> FocusedInput<M> {
+    /// Create a new focused input event.
+    pub fn new(focused_entity: Entity, input: M, window: Entity) -> Self {
+        Self {
+            focused_entity,
+            input,
+            window,
+        }
+    }
+}
+
 /// An event which is used to set input focus. Trigger this on an entity, and it will bubble
 /// until it finds a focusable entity, and then set focus to it.
 #[derive(EntityEvent, Debug, Clone)]

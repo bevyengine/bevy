@@ -295,7 +295,7 @@ fn toggle_tonemapping_method(
     per_method_settings: Res<PerMethodSettings>,
 ) {
     if keys.just_pressed(KeyCode::Digit1) {
-        **tonemapping = Tonemapping::None;
+        **tonemapping = Tonemapping::Linear;
     } else if keys.just_pressed(KeyCode::Digit2) {
         **tonemapping = Tonemapping::Reinhard;
     } else if keys.just_pressed(KeyCode::Digit3) {
@@ -436,8 +436,8 @@ fn update_ui(
 
     text.push_str("\n\nTonemapping Method:\n");
     text.push_str(&format!(
-        "(1) {} Disabled\n",
-        if tonemapping == Tonemapping::None {
+        "(1) {} Linear\n",
+        if tonemapping == Tonemapping::Linear {
             ">"
         } else {
             ""
@@ -590,7 +590,7 @@ impl Default for PerMethodSettings {
         let mut settings = <HashMap<_, _>>::default();
 
         for method in [
-            Tonemapping::None,
+            Tonemapping::Linear,
             Tonemapping::Reinhard,
             Tonemapping::ReinhardLuminance,
             Tonemapping::AcesFitted,

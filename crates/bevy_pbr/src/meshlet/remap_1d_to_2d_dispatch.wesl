@@ -1,4 +1,4 @@
-/// Remaps an indirect 1d to 2d dispatch for devices with low dispatch size limit.
+//! Remaps an indirect 1d to 2d dispatch for devices with low dispatch size limit.
 
 struct DispatchIndirectArgs {
     x: u32,

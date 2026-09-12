@@ -88,7 +88,7 @@ pub(super) unsafe fn observer_system_runner<E: EventPattern, S: ObserverSystem<E
     // - observer was triggered so must have an `Observer` component.
     // - observer cannot be dropped or mutated until after the system pointer is already dropped.
     let system: *mut dyn ObserverSystem<E> = unsafe {
-        let system: &mut dyn Any = state.system.as_mut();
+        let system: &mut dyn Any = state.system.as_deref_mut().debug_checked_unwrap();
         let system = system.downcast_mut::<S>().debug_checked_unwrap();
         &mut *system
     };
