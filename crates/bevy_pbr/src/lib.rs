@@ -404,7 +404,6 @@ impl Plugin for PbrPlugin {
             .init_gpu_resource::<LightMeta>()
             .init_resource::<RenderShadowLodOrigin>();
 
-        render_app.world_mut().add_observer(add_light_view_entities);
         render_app
             .world_mut()
             .add_observer(remove_light_view_entities);

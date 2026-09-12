@@ -60,8 +60,13 @@ where
             ))
             .add_systems(
                 PostUpdate,
+                add_material::<M>
+                    .before(check_entities_needing_specialization::<SpriteExt<M>>)
+                    .before(AssetEventSystems),
+            )
+            .add_systems(
+                PostUpdate,
                 (
-                    add_material::<M>.before(check_entities_needing_specialization::<SpriteExt<M>>),
                     update_changed_material_extensions::<M>,
                     clean_sprite_material_cache::<M>,
                 )
