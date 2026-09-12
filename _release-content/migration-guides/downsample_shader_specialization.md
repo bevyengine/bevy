@@ -16,5 +16,5 @@ let pipelines = create_downsampling_pipelines(
     true, // array_texture
     combine_bind_groups,
 )
-.unwrap();
+.expect("a downsample shader is available for the texture format, `rgba16float`");
 ```
