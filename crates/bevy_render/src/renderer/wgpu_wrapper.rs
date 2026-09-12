@@ -71,6 +71,8 @@ macro_rules! wgpu_wrapper {
                     Self(send_wrapper::SendWrapper::new(t))
                 }
 
+                #[allow(clippy::allow_attributes, unused, reason = "This is not used on all wrappers.")]
+                /// Unwraps the value.
                 pub fn into_inner(self) -> $wgputy {
                     self.0.take()
                 }

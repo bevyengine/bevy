@@ -392,7 +392,6 @@ impl<B: Bundle> EventPattern for Insert<B> {
 #[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-
 pub struct DiscardEvent {
     /// The entity that held this component before it was discarded.
     pub entity: Entity,

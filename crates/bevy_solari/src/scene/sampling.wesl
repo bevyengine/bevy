@@ -1,7 +1,7 @@
 import bevy_pbr::render::pbr_lighting::D_GGX;
 import bevy_pbr::render::utils::{rand_vec2f, rand_u, rand_range_u};
 import bevy_render::maths::{PI_2, orthonormalize};
-import package::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
+import package::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, environment_map, environment_map_sampler, environment_map_light, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
 
 enable wgpu_ray_query;
 
@@ -14,11 +14,13 @@ fn balance_heuristic(f: f32, g: f32) -> f32 {
     if f == 0.0 {
         return 0.0;
     }
-    return max(0.0, 1.0 / (1.0 + (g / f)));
+    // When NaN, fall back to even weights of 0.5 : 0.5
+    let weight = 1.0 / (1.0 + (g / f));
+    return select(weight, 0.5, isnan(weight));
 }
 
-// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
-// Result is invalid when output.z <= 0.0, and must be discarded
+/// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
+/// Result is invalid when output.z <= 0.0, and must be discarded
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
@@ -47,12 +49,12 @@ fn ggx_vndf_sample_invalid(ray_tangent: vec3<f32>) -> bool {
     return !(ray_tangent.z > 0.0);
 }
 
-// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
+/// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
 fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
         let mirror_wo = vec3(-wi_tangent.xy, wi_tangent.z);
-        if all(abs(mirror_wo - wo_tangent) < vec3(0.0001)) {
+        if distance(mirror_wo, wo_tangent) < 0.0001 {
             return bitcast<f32>(0x7F800000u); // INF
         } else {
             return 0.0;
@@ -106,9 +108,9 @@ struct ResolvedLightSample {
 struct LightContribution {
     radiance: vec3<f32>,
     inverse_pdf: f32,
-    // inverse_pdf may not be in solid angle measure (e.g. area measure)
-    // but inverse_solid_angle_pdf is always in solid angle measure
-    // for cases where it's required, e.g. MIS between light sampling techniques
+    /// inverse_pdf may not be in solid angle measure (e.g. area measure)
+    /// but inverse_solid_angle_pdf is always in solid angle measure
+    /// for cases where it's required, e.g. MIS between light sampling techniques
     inverse_solid_angle_pdf: f32,
     wi: vec3<f32>,
     brdf_rays_can_hit: bool,
@@ -130,6 +132,16 @@ fn random_emissive_light_pdf(hit: ResolvedRayHitFull, ray_distance: f32, NdotV: 
     let light_count = arrayLength(&light_sources);
     let area_pdf = 1.0 / (f32(light_count) * f32(hit.triangle_count) * hit.triangle_area);
     return area_pdf * (ray_distance * ray_distance) / NdotV;
+}
+
+fn sample_environment_map_light(world_direction: vec3<f32>) -> vec3<f32> {
+    if environment_map_light.intensity == 0.0 { return vec3(0.0); }
+
+    var sample_direction = environment_map_light.light_from_world * world_direction;
+    sample_direction.z = -sample_direction.z;
+
+    // Hardcoded to sample mip 0 (unfiltered radiance)
+    return textureSampleLevel(environment_map, environment_map_sampler, sample_direction, 0.0).rgb * environment_map_light.intensity;
 }
 
 fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
@@ -246,7 +258,7 @@ fn trace_visibility_previous_frame(ray_origin: vec3<f32>, point: vec4<f32>) -> f
     return f32(ray_hit.kind == RAY_QUERY_INTERSECTION_NONE);
 }
 
-// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec22%3A297
+/// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec22%3A297
 fn triangle_barycentrics(seed: u32) -> vec3<f32> {
     var rng = seed;
     var barycentrics = rand_vec2f(&rng);

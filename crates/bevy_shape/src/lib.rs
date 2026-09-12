@@ -98,5 +98,34 @@ pub trait Measured3d {
 pub mod prelude {
     // just re-export everything, it's just shape definitions anyways
     #[doc(hidden)]
-    pub use crate::*;
+    pub use crate::{Measured2d, Measured3d, Primitive2d, Primitive3d, WindingOrder};
+
+    #[doc(hidden)]
+    pub use crate::bounding::*;
+
+    #[doc(hidden)]
+    pub use crate::dim2::*;
+
+    #[doc(hidden)]
+    pub use crate::dim3::*;
+
+    #[doc(hidden)]
+    pub use crate::half_space::*;
+
+    #[doc(hidden)]
+    pub use crate::inset::*;
+
+    #[doc(hidden)]
+    pub use crate::ray::{Ray2d, Ray3d};
+
+    #[doc(hidden)]
+    pub use crate::view_frustum::*;
+
+    #[doc(hidden)]
+    #[cfg(feature = "rand")]
+    pub use crate::sampling::ShapeSample;
+
+    #[doc(hidden)]
+    #[cfg(feature = "alloc")]
+    pub use crate::polygon::*;
 }

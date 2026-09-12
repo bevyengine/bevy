@@ -191,6 +191,15 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///
     /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
     /// where `T` is the return type of the first system.
+    ///
+    /// # System Names
+    ///
+    /// By default, the [`System::name()`] of the resulting [`PipeSystem`] will be
+    /// set to a combination of the names of the inner systems.
+    /// This can be changed by calling [`IntoPipeSystem::with_first_name`] or
+    /// [`IntoPipeSystem::with_second_name`] to take the name from one of the inner systems,
+    /// or [`IntoPipeSystem::with_name`] or [`IntoPipeSystem::with_name_fn`]
+    /// to set a different name.
     fn pipe<B, BIn, BOut, MarkerB>(self, system: B) -> IntoPipeSystem<Self, B>
     where
         Out: 'static,
