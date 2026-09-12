@@ -1,14 +1,14 @@
-// Visibility Bitmask Ambient Occlusion (VBAO)
-// Paper: ttps://ar5iv.labs.arxiv.org/html/2301.11376
-
-// Source code heavily based on XeGTAO v1.30 from Intel
-// https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
-
-// Source code based on the existing XeGTAO implementation and
-// https://cdrinmatane.github.io/posts/ssaovb-code/
-
-// Source code base on SSRT3 implementation
-// https://github.com/cdrinmatane/SSRT3
+//! Visibility Bitmask Ambient Occlusion (VBAO)
+//! Paper: ttps://ar5iv.labs.arxiv.org/html/2301.11376
+//!
+//! Source code heavily based on XeGTAO v1.30 from Intel
+//! https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
+//!
+//! Source code based on the existing XeGTAO implementation and
+//! https://cdrinmatane.github.io/posts/ssaovb-code/
+//!
+//! Source code base on SSRT3 implementation
+//! https://github.com/cdrinmatane/SSRT3
 
 import bevy_render::maths::fast_acos;
 
@@ -46,7 +46,7 @@ fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     return fract(0.5 + f32(index) * vec2<f32>(0.75487766624669276005, 0.5698402909980532659114));
 }
 
-// Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
+/// Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
 fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 {
     // Sample the pixel's depth and 4 depths around it
     let uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;

@@ -4,9 +4,9 @@
 // http://leiy.cc/publications/TAA/TAA_EG2020_Talk.pdf
 // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING
 
-// Controls how much to blend between the current and past samples
-// Lower numbers = less of the current sample and more of the past sample = more smoothing
-// Values chosen empirically
+/// Controls how much to blend between the current and past samples
+/// Lower numbers = less of the current sample and more of the past sample = more smoothing
+/// Values chosen empirically
 const DEFAULT_HISTORY_BLEND_RATE: f32 = 0.1; // Default blend rate to use when no confidence in history
 const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ensure at least some of the current sample is used
 

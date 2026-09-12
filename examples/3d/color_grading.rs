@@ -114,11 +114,14 @@ fn add_buttons(commands: &mut Commands, color_grading: &ColorGrading) {
         }
         Children [
             // Create the first pane, which contains the global controls.
-            @pane_for_global_controls(color_grading),
+            @pane_for_global_controls(color_grading)
+            --
             // Create the following panes for individual controls.
-            @pane_for_section(SectionColorGradingName::Highlights, color_grading),
-            @pane_for_section(SectionColorGradingName::Midtones, color_grading),
-            @pane_for_section(SectionColorGradingName::Shadows, color_grading),
+            @pane_for_section(SectionColorGradingName::Highlights, color_grading)
+            --
+            @pane_for_section(SectionColorGradingName::Midtones, color_grading)
+            --
+            @pane_for_section(SectionColorGradingName::Shadows, color_grading)
         ]
     });
 }
@@ -142,15 +145,18 @@ fn pane_for_global_controls(color_grading: &ColorGrading) -> impl Scene {
                 Children [
                     @label("Global Settings")
                 ]
-            ],
-
+            ]
+            --
             // Spawn the buttons
             @pane_body()
             Children [
-                @make_button(GlobalColorGradingSetting::Exposure),
-                @make_button(GlobalColorGradingSetting::Temperature),
-                @make_button(GlobalColorGradingSetting::Tint),
-                @make_button(GlobalColorGradingSetting::Hue),
+                @make_button(GlobalColorGradingSetting::Exposure)
+                --
+                @make_button(GlobalColorGradingSetting::Temperature)
+                --
+                @make_button(GlobalColorGradingSetting::Tint)
+                --
+                @make_button(GlobalColorGradingSetting::Hue)
             ]
         ]
     }
@@ -170,25 +176,27 @@ fn pane_for_section(section: SectionColorGradingName, color_grading: &ColorGradi
         @pane()
         Children [
             // Spawn the label ("Highlights", etc.)
-            @pane_header()
-            Children [
+            @pane_header() Children [
                 Node {
                     width: px(120),
                     align_self: AlignSelf::Start,
                 }
                 Children [
                     @label(section.to_string())
-                ],
-            ],
-
+                ]
+            ]
+            --
             // Spawn the buttons.
-            @pane_body()
-            Children[
-                @make_button(SectionColorGradingSetting::Saturation),
-                @make_button(SectionColorGradingSetting::Contrast),
-                @make_button(SectionColorGradingSetting::Gamma),
-                @make_button(SectionColorGradingSetting::Gain),
-                @make_button(SectionColorGradingSetting::Lift),
+            @pane_body() Children[
+                @make_button(SectionColorGradingSetting::Saturation)
+                --
+                @make_button(SectionColorGradingSetting::Contrast)
+                --
+                @make_button(SectionColorGradingSetting::Gamma)
+                --
+                @make_button(SectionColorGradingSetting::Gain)
+                --
+                @make_button(SectionColorGradingSetting::Lift)
             ]
         ]
     }
@@ -215,8 +223,8 @@ fn number_input_for_value(
             }
             Children[
                 @label(setting_label)
-            ],
-
+            ]
+            --
             Node {
                 align_items: AlignItems::Center,
                 width: px(50),
