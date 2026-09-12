@@ -56,7 +56,8 @@ use store_wasm::SettingsStore;
 /// or browser local storage) into resources that implement the [`SettingsGroup`](trait@SettingsGroup),
 /// [`Default`], and [`Reflect`] traits, and, in
 /// addition, are also annotated with `#[reflect(Default, SettingsGroup)]`. The plugin can also be used
-/// to write these settings back to storage after they are changed.
+/// to write these settings back to storage after they are changed by sending the [`SaveSettingsDeferred`]
+/// or [`SaveSettingsSync`] commands.
 ///
 /// You are required to provide a unique application name, so that your settings don't overwrite
 /// those of other apps. To ensure global uniqueness, it is recommended to use a
