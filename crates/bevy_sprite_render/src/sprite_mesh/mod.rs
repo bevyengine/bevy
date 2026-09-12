@@ -46,7 +46,7 @@ impl Plugin for SpriteMeshPlugin {
                 .chain()
                 .before(check_entities_needing_specialization::<SpriteMeshMaterial>)
                 .before(mark_2d_meshes_as_changed_if_their_assets_changed)
-                .after(AssetEventSystems),
+                .before(AssetEventSystems),
         );
     }
 }
