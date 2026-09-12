@@ -33,7 +33,7 @@ use nonmax::NonMaxU32;
 /// [`World`]: crate::world::World
 /// [`Archetype`]: crate::archetype::Archetype
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TableId(u32);
 
 impl TableId {
@@ -218,6 +218,11 @@ impl Table {
     #[inline]
     pub fn capacity(&self) -> usize {
         self.entities.capacity()
+    }
+
+    #[inline]
+    pub(crate) fn components(&self) -> &[ComponentId] {
+        self.columns.indices()
     }
 
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
