@@ -53,7 +53,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
-            type Trigger<'a> = #trigger;
+            type Trigger = #trigger;
         }
     })
 }
@@ -150,7 +150,7 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
-            type Trigger<'a> = #trigger;
+            type Trigger = #trigger;
         }
 
         impl #impl_generics #bevy_ecs_path::event::EntityEvent for #struct_name #type_generics #where_clause {
