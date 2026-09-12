@@ -270,7 +270,7 @@ impl BsnEntry {
                     },
                 dot_expression,
             } => EntryResult::CombinedSceneFunction({
-                let args = args.to_tokens(ctx);
+                let args = args.into_tokens(ctx);
                 let generics_tokens = if let Some(function_generics) = function_generics {
                     quote! { #function_generics }
                 } else {
@@ -296,7 +296,7 @@ impl BsnEntry {
                     },
                 dot_expression,
             } => EntryResult::CombinedSceneFunction({
-                let args = args.to_tokens(ctx);
+                let args = args.into_tokens(ctx);
                 let generics_tokens = if let Some(function_generics) = function_generics {
                     quote! { #function_generics }
                 } else {
@@ -1196,7 +1196,7 @@ mod tests {
         let root: BsnRoot = syn::parse_str("~A::from::<B>()").unwrap();
 
         // Act
-        let res = root.to_tokens(&mut ctx).to_string();
+        let res = root.into_tokens(&mut ctx).to_string();
 
         // Assert
         assert_eq!(res, expected,);
@@ -1217,7 +1217,7 @@ mod tests {
         let root: BsnRoot = syn::parse_str("A::from::<B>()").unwrap();
 
         // Act
-        let res = root.to_tokens(&mut ctx).to_string();
+        let res = root.into_tokens(&mut ctx).to_string();
 
         // Assert
         assert_eq!(res, expected,);
