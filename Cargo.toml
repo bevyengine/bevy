@@ -154,8 +154,9 @@ ui = [
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
 dev = [
-  "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
+  "debug",            # TODO: rename this to something more specific ... this is a "debug ECS names" feature
   "bevy_dev_tools",
+  "render_dev_tools",
   "file_watcher",
 ]
 
@@ -570,6 +571,9 @@ android-game-activity = ["bevy_internal/android-game-activity"]
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
+# Enable systems that allow for renderable dev tools
+render_dev_tools = ["bevy_internal/render_dev_tools"]
+
 # Enable glTF animation loading
 gltf_animation = ["bevy_internal/gltf_animation"]
 
@@ -617,6 +621,9 @@ default_font = ["bevy_internal/default_font"]
 
 # Allows for discovery of preloaded system fonts
 system_font_discovery = ["bevy_internal/system_font_discovery"]
+
+# Enables dictionary-based segmentation for complex scripts (CJK, Thai, Khmer, Lao, Myanmar), at the cost of a larger binary
+complex_script_segmentation = ["bevy_internal/complex_script_segmentation"]
 
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
@@ -1044,6 +1051,17 @@ required-features = ["system_font_discovery"]
 [package.metadata.example.ime_support]
 name = "IME Support"
 description = "Demonstrates IME (Input Method Editor) support for text input"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "inline_image"
+path = "examples/ui/text/inline_image.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.inline_image]
+name = "Inline Images"
+description = "Demonstrates how to display images inline with text"
 category = "UI (User Interface)"
 wasm = true
 
@@ -3450,6 +3468,17 @@ name = "Fullscreen Material"
 description = "Demonstrates how to write a fullscreen material"
 category = "Shaders Advanced"
 wasm = true
+
+[[example]]
+name = "mesh_shader_intro"
+path = "examples/shader_advanced/mesh_shader_intro.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh_shader_intro]
+name = "Mesh Shader Introduction"
+description = "Demonstrates how to use Task/Amplification/Mesh Shaders"
+category = "Shaders Advanced"
+wasm = false
 
 # Stress tests
 [[package.metadata.example_category]]
