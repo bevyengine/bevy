@@ -1,7 +1,7 @@
+use alloc::collections::BTreeMap;
 use core::cmp::Ordering;
 use std::fs::File;
 
-use hashbrown::HashMap;
 use serde::Serialize;
 use tera::{Context, Tera};
 use toml_edit::{DocumentMut, Item};
@@ -81,7 +81,7 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
         .collect()
 }
 
-fn parse_categories() -> HashMap<Box<str>, String> {
+fn parse_categories() -> BTreeMap<String, String> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
     let manifest = manifest_file.parse::<DocumentMut>().unwrap();
     manifest
@@ -108,10 +108,10 @@ pub(crate) fn check(what_to_run: Command) {
 
     if what_to_run.contains(Command::UPDATE) {
         let categories = parse_categories();
-        let examples_by_category: HashMap<Box<str>, Category> = examples
+        let examples_by_category: BTreeMap<String, Category> = examples
             .into_iter()
-            .fold(HashMap::<Box<str>, Vec<Example>>::new(), |mut v, ex| {
-                v.entry_ref(ex.category.as_str()).or_default().push(ex);
+            .fold(BTreeMap::<String, Vec<Example>>::new(), |mut v, ex| {
+                v.entry(ex.category.clone()).or_default().push(ex);
                 v
             })
             .into_iter()
@@ -130,13 +130,16 @@ pub(crate) fn check(what_to_run: Command) {
 
         let mut context = Context::new();
         context.insert("all_examples", &examples_by_category);
-        Tera::new("docs-template/*.md.tpl")
-            .expect("error parsing template")
-            .render_to(
-                "EXAMPLE_README.md.tpl",
-                &context,
-                File::create("examples/README.md").expect("error creating file"),
-            )
-            .expect("error rendering template");
+        let mut tera = Tera::new();
+        tera.register_filter("slugify", tera_contrib::slug::slug);
+        tera.load_from_glob("docs-template/*.md.tpl")
+            .expect("error parsing template");
+
+        tera.render_to(
+            "EXAMPLE_README.md.tpl",
+            &context,
+            File::create("examples/README.md").expect("error creating file"),
+        )
+        .expect("error rendering template");
     }
 }
