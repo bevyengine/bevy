@@ -4,76 +4,187 @@
 @group(0) @binding(0) var sampler_linear_clamp: sampler;
 @group(0) @binding(1) var<uniform> constants: Constants;
 
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP) {
-@group(0) @binding(2) var mip_0: texture_2d_array<f32>;
-@group(0) @binding(3) var mip_1: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(4) var mip_2: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(5) var mip_3: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(6) var mip_4: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(7) var mip_5: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(8) var mip_6: texture_storage_2d_array<##TEXTURE_FORMAT##, read_write>;
-@group(0) @binding(9) var mip_7: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(10) var mip_8: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(11) var mip_9: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(12) var mip_10: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(13) var mip_11: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(14) var mip_12: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@if(TEXTURE_FORMAT_RGBA8UNORM) {
+alias MipWrite2d = texture_storage_2d<rgba8unorm, write>;
+alias MipReadWrite2d = texture_storage_2d<rgba8unorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rgba8unorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rgba8unorm, read_write>;
 }
 
-@if(ARRAY_TEXTURE && FIRST_PASS) {
-@group(0) @binding(2) var mip_0: texture_2d_array<f32>;
-@group(0) @binding(3) var mip_1: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(4) var mip_2: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(5) var mip_3: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(6) var mip_4: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(7) var mip_5: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(8) var mip_6: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@if(TEXTURE_FORMAT_RGBA8SNORM) {
+alias MipWrite2d = texture_storage_2d<rgba8snorm, write>;
+alias MipReadWrite2d = texture_storage_2d<rgba8snorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rgba8snorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rgba8snorm, read_write>;
 }
 
-@if(ARRAY_TEXTURE && SECOND_PASS) {
-@group(0) @binding(2) var mip_6: texture_2d_array<f32>;
-@group(0) @binding(3) var mip_7: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(4) var mip_8: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(5) var mip_9: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(6) var mip_10: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(7) var mip_11: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(8) var mip_12: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+@if(TEXTURE_FORMAT_RGBA16UNORM) {
+alias MipWrite2d = texture_storage_2d<rgba16unorm, write>;
+alias MipReadWrite2d = texture_storage_2d<rgba16unorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rgba16unorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rgba16unorm, read_write>;
 }
 
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP) {
-@group(0) @binding(2) var mip_0: texture_2d<f32>;
-@group(0) @binding(3) var mip_1: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(4) var mip_2: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(5) var mip_3: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(6) var mip_4: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(7) var mip_5: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(8) var mip_6: texture_storage_2d<##TEXTURE_FORMAT##, read_write>;
-@group(0) @binding(9) var mip_7: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(10) var mip_8: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(11) var mip_9: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(12) var mip_10: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(13) var mip_11: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(14) var mip_12: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@if(TEXTURE_FORMAT_RGBA16SNORM) {
+alias MipWrite2d = texture_storage_2d<rgba16snorm, write>;
+alias MipReadWrite2d = texture_storage_2d<rgba16snorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rgba16snorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rgba16snorm, read_write>;
 }
 
-@if(!ARRAY_TEXTURE && FIRST_PASS) {
-@group(0) @binding(2) var mip_0: texture_2d<f32>;
-@group(0) @binding(3) var mip_1: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(4) var mip_2: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(5) var mip_3: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(6) var mip_4: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(7) var mip_5: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(8) var mip_6: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@if(TEXTURE_FORMAT_RGBA16FLOAT) {
+alias MipWrite2d = texture_storage_2d<rgba16float, write>;
+alias MipReadWrite2d = texture_storage_2d<rgba16float, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rgba16float, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rgba16float, read_write>;
 }
 
-@if(!ARRAY_TEXTURE && SECOND_PASS) {
-@group(0) @binding(2) var mip_6: texture_2d<f32>;
-@group(0) @binding(3) var mip_7: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(4) var mip_8: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(5) var mip_9: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(6) var mip_10: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(7) var mip_11: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@group(0) @binding(8) var mip_12: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+@if(TEXTURE_FORMAT_RG8UNORM) {
+alias MipWrite2d = texture_storage_2d<rg8unorm, write>;
+alias MipReadWrite2d = texture_storage_2d<rg8unorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rg8unorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rg8unorm, read_write>;
+}
+
+@if(TEXTURE_FORMAT_RG8SNORM) {
+alias MipWrite2d = texture_storage_2d<rg8snorm, write>;
+alias MipReadWrite2d = texture_storage_2d<rg8snorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rg8snorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rg8snorm, read_write>;
+}
+
+@if(TEXTURE_FORMAT_RG16UNORM) {
+alias MipWrite2d = texture_storage_2d<rg16unorm, write>;
+alias MipReadWrite2d = texture_storage_2d<rg16unorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rg16unorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rg16unorm, read_write>;
+}
+
+@if(TEXTURE_FORMAT_RG16SNORM) {
+alias MipWrite2d = texture_storage_2d<rg16snorm, write>;
+alias MipReadWrite2d = texture_storage_2d<rg16snorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rg16snorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rg16snorm, read_write>;
+}
+
+@if(TEXTURE_FORMAT_RG16FLOAT) {
+alias MipWrite2d = texture_storage_2d<rg16float, write>;
+alias MipReadWrite2d = texture_storage_2d<rg16float, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rg16float, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rg16float, read_write>;
+}
+
+@if(TEXTURE_FORMAT_R32FLOAT) {
+alias MipWrite2d = texture_storage_2d<r32float, write>;
+alias MipReadWrite2d = texture_storage_2d<r32float, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<r32float, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<r32float, read_write>;
+}
+
+@if(TEXTURE_FORMAT_RG32FLOAT) {
+alias MipWrite2d = texture_storage_2d<rg32float, write>;
+alias MipReadWrite2d = texture_storage_2d<rg32float, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rg32float, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rg32float, read_write>;
+}
+
+@if(TEXTURE_FORMAT_RGBA32FLOAT) {
+alias MipWrite2d = texture_storage_2d<rgba32float, write>;
+alias MipReadWrite2d = texture_storage_2d<rgba32float, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rgba32float, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rgba32float, read_write>;
+}
+
+@if(TEXTURE_FORMAT_BGRA8UNORM) {
+alias MipWrite2d = texture_storage_2d<bgra8unorm, write>;
+alias MipReadWrite2d = texture_storage_2d<bgra8unorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<bgra8unorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<bgra8unorm, read_write>;
+}
+
+@if(TEXTURE_FORMAT_R8UNORM) {
+alias MipWrite2d = texture_storage_2d<r8unorm, write>;
+alias MipReadWrite2d = texture_storage_2d<r8unorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<r8unorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<r8unorm, read_write>;
+}
+
+@if(TEXTURE_FORMAT_R8SNORM) {
+alias MipWrite2d = texture_storage_2d<r8snorm, write>;
+alias MipReadWrite2d = texture_storage_2d<r8snorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<r8snorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<r8snorm, read_write>;
+}
+
+@if(TEXTURE_FORMAT_R16UNORM) {
+alias MipWrite2d = texture_storage_2d<r16unorm, write>;
+alias MipReadWrite2d = texture_storage_2d<r16unorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<r16unorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<r16unorm, read_write>;
+}
+
+@if(TEXTURE_FORMAT_R16SNORM) {
+alias MipWrite2d = texture_storage_2d<r16snorm, write>;
+alias MipReadWrite2d = texture_storage_2d<r16snorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<r16snorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<r16snorm, read_write>;
+}
+
+@if(TEXTURE_FORMAT_R16FLOAT) {
+alias MipWrite2d = texture_storage_2d<r16float, write>;
+alias MipReadWrite2d = texture_storage_2d<r16float, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<r16float, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<r16float, read_write>;
+}
+
+@if(TEXTURE_FORMAT_RGB10A2UNORM) {
+alias MipWrite2d = texture_storage_2d<rgb10a2unorm, write>;
+alias MipReadWrite2d = texture_storage_2d<rgb10a2unorm, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rgb10a2unorm, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rgb10a2unorm, read_write>;
+}
+
+@if(ARRAY_TEXTURE) {
+alias SourceTexture = texture_2d_array<f32>;
+alias MipWrite = MipWrite2dArray;
+alias MipReadWrite = MipReadWrite2dArray;
+} @else {
+alias SourceTexture = texture_2d<f32>;
+alias MipWrite = MipWrite2d;
+alias MipReadWrite = MipReadWrite2d;
+}
+
+@if(COMBINE_BIND_GROUP || SPLIT_BIND_GROUP_FIRST) {
+@group(0) @binding(2) var mip_0: SourceTexture;
+@group(0) @binding(3) var mip_1: MipWrite;
+@group(0) @binding(4) var mip_2: MipWrite;
+@group(0) @binding(5) var mip_3: MipWrite;
+@group(0) @binding(6) var mip_4: MipWrite;
+@group(0) @binding(7) var mip_5: MipWrite;
+}
+
+@if(COMBINE_BIND_GROUP) {
+@group(0) @binding(8) var mip_6: MipReadWrite;
+@group(0) @binding(9) var mip_7: MipWrite;
+@group(0) @binding(10) var mip_8: MipWrite;
+@group(0) @binding(11) var mip_9: MipWrite;
+@group(0) @binding(12) var mip_10: MipWrite;
+@group(0) @binding(13) var mip_11: MipWrite;
+@group(0) @binding(14) var mip_12: MipWrite;
+}
+
+@if(SPLIT_BIND_GROUP_FIRST) {
+@group(0) @binding(8) var mip_6: MipWrite;
+}
+
+@if(SPLIT_BIND_GROUP_SECOND) {
+@group(0) @binding(2) var mip_6: SourceTexture;
+@group(0) @binding(3) var mip_7: MipWrite;
+@group(0) @binding(4) var mip_8: MipWrite;
+@group(0) @binding(5) var mip_9: MipWrite;
+@group(0) @binding(6) var mip_10: MipWrite;
+@group(0) @binding(7) var mip_11: MipWrite;
+@group(0) @binding(8) var mip_12: MipWrite;
 }
 
 struct Constants { mips: u32, inverse_input_size: vec2f }
@@ -358,9 +469,9 @@ fn spd_reduce_load_source_image(uv: vec2u, slice: u32) -> vec4f {
 
     @if(COMBINE_BIND_GROUP)
     let result = textureSampleLevel(mip_0, sampler_linear_clamp, texture_coord, slice, 0.0);
-    @if(FIRST_PASS)
+    @if(SPLIT_BIND_GROUP_FIRST)
     let result = textureSampleLevel(mip_0, sampler_linear_clamp, texture_coord, slice, 0.0);
-    @if(SECOND_PASS)
+    @if(SPLIT_BIND_GROUP_SECOND)
     let result = textureSampleLevel(mip_6, sampler_linear_clamp, texture_coord, slice, 0.0);
 
 @if(SRGB_CONVERSION)
@@ -381,9 +492,9 @@ fn spd_reduce_load_source_image(uv: vec2u, slice: u32) -> vec4f {
 
     @if(COMBINE_BIND_GROUP)
     let result = textureSampleLevel(mip_0, sampler_linear_clamp, texture_coord, 0.0);
-    @if(FIRST_PASS)
+    @if(SPLIT_BIND_GROUP_FIRST)
     let result = textureSampleLevel(mip_0, sampler_linear_clamp, texture_coord, 0.0);
-    @if(SECOND_PASS)
+    @if(SPLIT_BIND_GROUP_SECOND)
     let result = textureSampleLevel(mip_6, sampler_linear_clamp, texture_coord, 0.0);
 
 @if(SRGB_CONVERSION)
@@ -426,29 +537,29 @@ fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
         case 10u: { textureStore(mip_11, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
         case 11u: { textureStore(mip_12, pix, slice, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 0u: { textureStore(mip_1, pix, slice, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 1u: { textureStore(mip_2, pix, slice, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 2u: { textureStore(mip_3, pix, slice, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 3u: { textureStore(mip_4, pix, slice, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 4u: { textureStore(mip_5, pix, slice, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 5u: { textureStore(mip_6, pix, slice, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 6u: { textureStore(mip_7, pix, slice, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 7u: { textureStore(mip_8, pix, slice, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 8u: { textureStore(mip_9, pix, slice, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 9u: { textureStore(mip_10, pix, slice, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 10u: { textureStore(mip_11, pix, slice, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 11u: { textureStore(mip_12, pix, slice, value); }
         default: {}
     }
@@ -481,29 +592,29 @@ fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
         case 10u: { textureStore(mip_11, pix, value); }
         @if(COMBINE_BIND_GROUP)
         case 11u: { textureStore(mip_12, pix, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 0u: { textureStore(mip_1, pix, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 1u: { textureStore(mip_2, pix, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 2u: { textureStore(mip_3, pix, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 3u: { textureStore(mip_4, pix, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 4u: { textureStore(mip_5, pix, value); }
-        @if(FIRST_PASS)
+        @if(SPLIT_BIND_GROUP_FIRST)
         case 5u: { textureStore(mip_6, pix, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 6u: { textureStore(mip_7, pix, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 7u: { textureStore(mip_8, pix, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 8u: { textureStore(mip_9, pix, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 9u: { textureStore(mip_10, pix, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 10u: { textureStore(mip_11, pix, value); }
-        @if(SECOND_PASS)
+        @if(SPLIT_BIND_GROUP_SECOND)
         case 11u: { textureStore(mip_12, pix, value); }
         default: {}
     }
@@ -537,9 +648,9 @@ fn spd_reduce_load_4(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u, slice: u32) -> 
     let v3 = textureLoad(mip_6, i3, slice);
     return spd_reduce_4(v0, v1, v2, v3);
     }
-    @if(FIRST_PASS)
+    @if(SPLIT_BIND_GROUP_FIRST)
     return vec4(0.0, 0.0, 0.0, 0.0);
-    @if(SECOND_PASS) {
+    @if(SPLIT_BIND_GROUP_SECOND) {
     let v0 = textureLoad(mip_6, i0, slice, 0);
     let v1 = textureLoad(mip_6, i1, slice, 0);
     let v2 = textureLoad(mip_6, i2, slice, 0);
@@ -556,9 +667,9 @@ fn spd_reduce_load_4(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u, slice: u32) -> 
     let v3 = textureLoad(mip_6, i3);
     return spd_reduce_4(v0, v1, v2, v3);
     }
-    @if(FIRST_PASS)
+    @if(SPLIT_BIND_GROUP_FIRST)
     return vec4(0.0, 0.0, 0.0, 0.0);
-    @if(SECOND_PASS) {
+    @if(SPLIT_BIND_GROUP_SECOND) {
     let v0 = textureLoad(mip_6, i0, 0);
     let v1 = textureLoad(mip_6, i1, 0);
     let v2 = textureLoad(mip_6, i2, 0);
