@@ -34,6 +34,8 @@ custom_cursor = [
   "bytemuck",
 ]
 
+game_mode = ["dep:zbus"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.20.0-dev" }
@@ -70,6 +72,8 @@ accesskit_winit = { version = "0.33", default-features = false, features = [
 approx = { version = "0.5", default-features = false }
 accesskit = "0.24"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+zbus = { version = "5.13", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_android = { path = "../bevy_android", version = "0.20.0-dev", default-features = false }
