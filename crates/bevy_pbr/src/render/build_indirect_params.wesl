@@ -1,12 +1,12 @@
-// Builds GPU indirect draw parameters from metadata.
-//
-// This only runs when indirect drawing is enabled. It takes the output of
-// `mesh_preprocess.wesl` and creates indirect parameters for the GPU.
-//
-// This shader runs separately for indexed and non-indexed meshes. Unlike
-// `mesh_preprocess.wesl`, which runs one instance per mesh *instance*, one
-// instance of this shader corresponds to a single *batch* which could contain
-// arbitrarily many instances of a single mesh.
+//! Builds GPU indirect draw parameters from metadata.
+//!
+//! This only runs when indirect drawing is enabled. It takes the output of
+//! `mesh_preprocess.wesl` and creates indirect parameters for the GPU.
+//!
+//! This shader runs separately for indexed and non-indexed meshes. Unlike
+//! `mesh_preprocess.wesl`, which runs one instance per mesh *instance*, one
+//! instance of this shader corresponds to a single *batch* which could contain
+//! arbitrarily many instances of a single mesh.
 
 import bevy_render::occlusion_culling::mesh_preprocess_types::{
     IndirectBatchSet,
@@ -16,45 +16,45 @@ import bevy_render::occlusion_culling::mesh_preprocess_types::{
     MeshInput
 };
 
-// Specifies the batches that this shader invocation is to process.
+/// Specifies the batches that this shader invocation is to process.
 struct IndirectParametersBuildJob {
-    // The first batch index that this shader invocation should process
-    // (inclusive).
+    /// The first batch index that this shader invocation should process
+    /// (inclusive).
     first_batch_index: u32,
-    // The last batch index that this shader invocation should process
-    // (exclusive).
+    /// The last batch index that this shader invocation should process
+    /// (exclusive).
     last_batch_index: u32,
 }
 
-// The data for each mesh that the CPU supplied to the GPU.
+/// The data for each mesh that the CPU supplied to the GPU.
 @group(0) @binding(0) var<storage> current_input: array<MeshInput>;
 
-// Data that we use to generate the indirect parameters.
-//
-// The `mesh_preprocess.wesl` shader emits these.
+/// Data that we use to generate the indirect parameters.
+///
+/// The `mesh_preprocess.wesl` shader emits these.
 @group(0) @binding(1) var<storage> indirect_parameters_metadata:
     array<IndirectParametersMetadata>;
 
-// Information about each batch set.
-//
-// A *batch set* is a set of meshes that might be multi-drawn together.
+/// Information about each batch set.
+///
+/// A *batch set* is a set of meshes that might be multi-drawn together.
 @group(0) @binding(3) var<storage, read_write> indirect_batch_sets: array<IndirectBatchSet>;
 
-// Specifies the batches that this shader invocation is to process.
+/// Specifies the batches that this shader invocation is to process.
 @group(0) @binding(4) var<uniform> indirect_parameters_build_job: IndirectParametersBuildJob;
 
 @if(INDEXED)
-// The buffer of indirect draw parameters that we generate, and that the GPU
-// reads to issue the draws.
-//
-// This buffer is for indexed meshes.
+/// The buffer of indirect draw parameters that we generate, and that the GPU
+/// reads to issue the draws.
+///
+/// This buffer is for indexed meshes.
 @group(0) @binding(5) var<storage, read_write> indirect_parameters:
     array<IndirectParametersIndexed>;
 @else   // INDEXED
-// The buffer of indirect draw parameters that we generate, and that the GPU
-// reads to issue the draws.
-//
-// This buffer is for non-indexed meshes.
+/// The buffer of indirect draw parameters that we generate, and that the GPU
+/// reads to issue the draws.
+///
+/// This buffer is for non-indexed meshes.
 @group(0) @binding(5) var<storage, read_write> indirect_parameters:
     array<IndirectParametersNonIndexed>;
 

@@ -47,7 +47,7 @@ use store_wasm::SettingsStore;
 /// appropriate filesystem location (depending on platform) for app settings. For platforms
 /// without filesystems, other storage mechanisms will be used.
 ///
-/// If you are do not have a domain name and cannot
+/// If you do not have a domain name and cannot
 /// afford one, use a reverse domain based on the URL of your repo (GitHub, GitLab, Codeberg
 /// and so on).
 ///
@@ -188,6 +188,23 @@ pub struct ReflectSettingsGroup {
     settings_key_name: Option<&'static str>,
     /// The name of the settings file, defaults to "settings".
     settings_source: Option<&'static str>,
+}
+
+impl ReflectSettingsGroup {
+    /// Returns the groups's name.
+    pub fn settings_group_name(&self) -> &'static str {
+        self.settings_group_name
+    }
+
+    /// Returns the key name within the settings file of this group. Should only be `Some` for enums.
+    pub fn settings_key_name(&self) -> Option<&'static str> {
+        self.settings_key_name
+    }
+
+    /// Returns the name of this group's settings file.
+    pub fn settings_source(&self) -> Option<&'static str> {
+        self.settings_source
+    }
 }
 
 impl<T: SettingsGroup + FromReflect + TypePath> CreateTypeData<T> for ReflectSettingsGroup {

@@ -512,7 +512,6 @@ pub fn extract_cameras(
     type ExtractedCameraComponents = (
         ExtractedCamera,
         ExtractedView,
-        RenderVisibleEntities,
         ResolvedCompositingSpace,
         TemporalJitter,
         MipBias,
@@ -545,9 +544,10 @@ pub fn extract_cameras(
     ) in query.iter()
     {
         if !camera.is_active {
+            // Note: `RenderVisibleEntities` is here because several other retained data `ViewBinnedRenderPhase<Opaque3d>` will be removed when camera is not active
             commands
                 .entity(render_entity)
-                .remove::<ExtractedCameraComponents>();
+                .remove::<(ExtractedCameraComponents, RenderVisibleEntities)>();
             continue;
         }
 

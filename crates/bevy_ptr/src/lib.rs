@@ -385,7 +385,7 @@ macro_rules! impl_ptr {
             pub unsafe fn byte_offset(self, count: isize) -> Self {
                 Self(
                     // SAFETY: The caller upholds safety for `offset` and ensures the result is not null.
-                    unsafe { NonNull::new_unchecked(self.as_ptr().offset(count)) },
+                    unsafe { NonNull::new_unchecked(self.0.as_ptr().offset(count)) },
                     PhantomData,
                 )
             }
@@ -407,7 +407,7 @@ macro_rules! impl_ptr {
             pub unsafe fn byte_add(self, count: usize) -> Self {
                 Self(
                     // SAFETY: The caller upholds safety for `add` and ensures the result is not null.
-                    unsafe { NonNull::new_unchecked(self.as_ptr().add(count)) },
+                    unsafe { NonNull::new_unchecked(self.0.as_ptr().add(count)) },
                     PhantomData,
                 )
             }
@@ -522,7 +522,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     ///   bevy_ptr::deconstruct_moving_ptr!({
     ///     let Parent { field_a, field_b, field_c } = parent_ptr;
     ///   });
-    ///   
+    ///
     ///   insert(field_a);
     ///   insert(field_b);
     ///   forget(field_c);
@@ -886,8 +886,8 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// If possible, it is strongly encouraged to use [`deref`](Self::deref) over this function,
     /// as it retains the lifetime.
     #[inline]
-    pub fn as_ptr(self) -> *mut u8 {
-        self.0.as_ptr()
+    pub fn as_ptr(self) -> *const u8 {
+        self.0.as_ptr().cast_const()
     }
 }
 
@@ -1167,17 +1167,6 @@ impl<'a, T> ThinSlicePtr<'a, T> {
             core::slice::from_raw_parts(self.ptr.as_ptr().add(range.start), range.end - range.start)
         }
     }
-
-    /// Indexes the slice without performing bounds checks.
-    ///
-    /// # Safety
-    ///
-    /// `index` must be in-bounds.
-    #[deprecated(since = "0.18.0", note = "use get_unchecked() instead")]
-    pub unsafe fn get(self, index: usize) -> &'a T {
-        // SAFETY: The caller guarantees that `index` is in-bounds.
-        unsafe { self.get_unchecked(index) }
-    }
 }
 
 impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
@@ -1324,6 +1313,25 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 
 #[cfg(any(not(debug_assertions), miri))]
 impl<T: Sized> DebugEnsureAligned for *mut T {
+    #[inline(always)]
+    fn debug_ensure_aligned(self) -> Self {
+        self
+    }
+}
+
+// Same as above, but for *const T.
+#[cfg(all(debug_assertions, not(miri)))]
+impl<T: Sized> DebugEnsureAligned for *const T {
+    #[track_caller]
+    fn debug_ensure_aligned(self) -> Self {
+        // Call into the *mut version.
+        self.cast_mut().debug_ensure_aligned();
+        self
+    }
+}
+
+#[cfg(any(not(debug_assertions), miri))]
+impl<T: Sized> DebugEnsureAligned for *const T {
     #[inline(always)]
     fn debug_ensure_aligned(self) -> Self {
         self
