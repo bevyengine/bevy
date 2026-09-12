@@ -1761,6 +1761,12 @@ impl RenderGpuCulledEntities {
     ///
     /// The `render_layers` argument specifies the set of render layers that the
     /// entity belongs to.
+    ///
+    /// Note that this method is only called for entities that the extraction
+    /// systems picked up this frame, so the extraction change detection must be
+    /// configured to catch render layer changes (see
+    /// `extract_meshes_for_gpu_building`) in order for layer changes on
+    /// GPU-culled meshes to propagate.
     pub fn update(
         &mut self,
         new_entity: MainEntity,
@@ -1770,6 +1776,10 @@ impl RenderGpuCulledEntities {
         match self.entities.entry(new_entity) {
             Entry::Occupied(mut occupied_entry) => {
                 if no_cpu_culling {
+                    if *occupied_entry.get() != render_layers {
+                        self.changed_layers.push(new_entity);
+                    }
+
                     occupied_entry.insert(render_layers);
                 } else {
                     occupied_entry.remove();
@@ -1964,6 +1974,7 @@ pub fn extract_meshes_for_gpu_building(
                 )>,
                 Changed<VisibilityRange>,
                 Changed<SkinnedMesh>,
+                Changed<RenderLayers>,
             )>,
         >,
     >,
@@ -1980,6 +1991,7 @@ pub fn extract_meshes_for_gpu_building(
         mut removed_no_cpu_culling_query,
         mut removed_visibility_range_query,
         mut removed_skinned_mesh_query,
+        mut removed_render_layers_query,
     ): (
         Extract<RemovedComponents<PreviousGlobalTransform>>,
         Extract<RemovedComponents<Lightmap>>,
@@ -1993,6 +2005,7 @@ pub fn extract_meshes_for_gpu_building(
         Extract<RemovedComponents<NoCpuCulling>>,
         Extract<RemovedComponents<VisibilityRange>>,
         Extract<RemovedComponents<SkinnedMesh>>,
+        Extract<RemovedComponents<RenderLayers>>,
     ),
     all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
@@ -2032,7 +2045,8 @@ pub fn extract_meshes_for_gpu_building(
             .chain(removed_no_automatic_batching_query.read())
             .chain(removed_no_cpu_culling_query.read())
             .chain(removed_visibility_range_query.read())
-            .chain(removed_skinned_mesh_query.read()),
+            .chain(removed_skinned_mesh_query.read())
+            .chain(removed_render_layers_query.read()),
     );
 
     // We have to skip the meshes in the potential reextraction set if we
@@ -2272,24 +2286,34 @@ impl<'a> Iterator for AtomicU64ZeroBitIter<'a> {
 pub fn collect_gpu_culled_meshes(
     mut cameras: Query<(Option<&RenderLayers>, &mut RenderVisibleEntities), With<ExtractedView>>,
     mut lights: Query<(Option<&RenderLayers>, &mut RenderShadowMapVisibleEntities)>,
-    mut render_gpu_culled_entities: ResMut<RenderGpuCulledEntities>,
+    render_gpu_culled_entities: Res<RenderGpuCulledEntities>,
 ) {
+    let default_render_layers = RenderLayers::default();
+
     // Collect cameras.
     for (maybe_render_layers, mut render_visible_entities) in &mut cameras {
+        let just_added_render_visible_entities = render_visible_entities.is_added();
         collect_gpu_culled_meshes_for_subview(
-            maybe_render_layers,
+            maybe_render_layers.unwrap_or(&default_render_layers),
             &mut render_visible_entities,
-            &mut render_gpu_culled_entities,
+            just_added_render_visible_entities,
+            &render_gpu_culled_entities,
         );
     }
 
     // Collect shadow maps.
     for (maybe_render_layers, mut render_shadow_map_visible_entities) in &mut lights {
-        for render_visible_entities in render_shadow_map_visible_entities.subviews.values_mut() {
+        let last_run = render_shadow_map_visible_entities.last_run();
+        let this_run = render_shadow_map_visible_entities.this_run();
+
+        for (render_visible_entities_added_tick, render_visible_entities) in
+            render_shadow_map_visible_entities.subviews.values_mut()
+        {
             collect_gpu_culled_meshes_for_subview(
-                maybe_render_layers,
+                maybe_render_layers.unwrap_or(&default_render_layers),
                 render_visible_entities,
-                &mut render_gpu_culled_entities,
+                render_visible_entities_added_tick.is_newer_than(last_run, this_run),
+                &render_gpu_culled_entities,
             );
         }
     }
@@ -2302,91 +2326,113 @@ pub fn collect_gpu_culled_meshes(
 /// corresponding function for entities that are culled on CPU is
 /// `collect_visible_cpu_culled_entities_for_subview`.
 fn collect_gpu_culled_meshes_for_subview(
-    maybe_view_render_layers: Option<&RenderLayers>,
+    view_render_layers: &RenderLayers,
     render_visible_entities: &mut RenderVisibleEntities,
-    render_mesh_instance_gpu_queues: &mut RenderGpuCulledEntities,
+    just_added_render_visible_entities: bool,
+    render_mesh_instance_gpu_queues: &RenderGpuCulledEntities,
 ) {
+    let is_entity_relevant =
+        |render_layers: &RenderLayers| -> bool { view_render_layers.intersects(render_layers) };
+
     // Only 3D meshes can be culled on GPU at the moment.
     let render_view_visible_mesh_entities = render_visible_entities
         .classes
         .entry(TypeId::of::<Mesh3d>())
         .or_default();
 
-    // Update the list with entities that were removed.
-    for main_entity in &render_mesh_instance_gpu_queues.removed {
-        if render_view_visible_mesh_entities
-            .entities_gpu_culling
-            .remove(main_entity)
-            .is_some()
-        {
-            render_view_visible_mesh_entities
-                .removed_entities
-                .push((Entity::PLACEHOLDER, *main_entity));
-        }
-    }
-
-    // Update the list with entities that became newly visible.
-    let mut any_added = false;
-    for main_entity in &render_mesh_instance_gpu_queues.added {
-        // Make sure the entity belongs to our set of render layers.
-        let maybe_entity_render_layers = render_mesh_instance_gpu_queues.entities.get(main_entity);
-        if let (Some(view_render_layers), Some(entity_render_layers)) =
-            (maybe_view_render_layers, maybe_entity_render_layers)
-            && !view_render_layers.intersects(entity_render_layers)
-        {
-            continue;
-        }
-
-        // Update the tables. 3D meshes have no render entity, so it's
-        // appropriate to use `Entity::PLACEHOLDER` here.
-        render_view_visible_mesh_entities
-            .entities_gpu_culling
-            .insert(*main_entity, Entity::PLACEHOLDER);
-        render_view_visible_mesh_entities.add_entity((Entity::PLACEHOLDER, *main_entity));
-        any_added = true;
-    }
-
-    // Process entities that changed layers.
-    for main_entity in &render_mesh_instance_gpu_queues.changed_layers {
-        let Some(new_render_layers) = render_mesh_instance_gpu_queues.entities.get(main_entity)
-        else {
-            continue;
-        };
-
-        // This is either treated as no change, as an addition, or as a removal.
-        let entity_was_visible = render_view_visible_mesh_entities
-            .entities_gpu_culling
-            .contains_key(main_entity);
-        let entity_is_visible = maybe_view_render_layers
-            .is_none_or(|render_layers| render_layers.intersects(new_render_layers));
-        match (entity_was_visible, entity_is_visible) {
-            (false, false) | (true, true) => {
-                // No change; do nothing.
-            }
-            (false, true) => {
-                // The entity became visible. This is an addition.
+    // `RenderGpuCulledEntities` is a global resource that only cares about this frame changed renderables, so when the camera is spawned later, this per frame information is gone.
+    // So we do a full flush on the `RenderVisibleEntities` whenever it just got added
+    if just_added_render_visible_entities {
+        // We assume `RenderVisibleEntities` is completely fresh so there will only be new entities
+        for (main_entity, render_layers) in render_mesh_instance_gpu_queues.entities.iter() {
+            if is_entity_relevant(render_layers) {
+                // Update the tables. 3D meshes have no render entity, so it's
+                // appropriate to use `Entity::PLACEHOLDER` here.
                 render_view_visible_mesh_entities
                     .entities_gpu_culling
                     .insert(*main_entity, Entity::PLACEHOLDER);
-                render_view_visible_mesh_entities.add_entity((Entity::PLACEHOLDER, *main_entity));
-                any_added = true;
-            }
-            (true, false) => {
-                // The entity became invisible. This is a removal.
                 render_view_visible_mesh_entities
-                    .entities_gpu_culling
-                    .remove(main_entity);
+                    .added_entities
+                    .push((Entity::PLACEHOLDER, *main_entity));
+            }
+        }
+
+        render_view_visible_mesh_entities.sort_added_entities();
+    } else {
+        // Update the list with entities that were removed.
+        for main_entity in &render_mesh_instance_gpu_queues.removed {
+            if render_view_visible_mesh_entities
+                .entities_gpu_culling
+                .remove(main_entity)
+                .is_some()
+            {
                 render_view_visible_mesh_entities
                     .removed_entities
                     .push((Entity::PLACEHOLDER, *main_entity));
             }
         }
-    }
 
-    // Make sure the `added_entities` list is sorted, as the
-    // `DirtySpecializations` iterator will binary search it.
-    if any_added {
-        render_view_visible_mesh_entities.sort_added_entities();
+        // Update the list with entities that became newly visible.
+        let mut any_added = false;
+        for main_entity in &render_mesh_instance_gpu_queues.added {
+            // Make sure the entity belongs to our set of render layers.
+            let maybe_render_layers = render_mesh_instance_gpu_queues.entities.get(main_entity);
+            if maybe_render_layers.is_none_or(is_entity_relevant) {
+                // Update the tables. 3D meshes have no render entity, so it's
+                // appropriate to use `Entity::PLACEHOLDER` here.
+                render_view_visible_mesh_entities
+                    .entities_gpu_culling
+                    .insert(*main_entity, Entity::PLACEHOLDER);
+                render_view_visible_mesh_entities
+                    .added_entities
+                    .push((Entity::PLACEHOLDER, *main_entity));
+                any_added = true;
+            }
+        }
+
+        // Process entities that changed layers.
+        for main_entity in &render_mesh_instance_gpu_queues.changed_layers {
+            let Some(render_layers) = render_mesh_instance_gpu_queues.entities.get(main_entity)
+            else {
+                continue;
+            };
+
+            // This is either treated as no change, as an addition, or as a removal.
+            let entity_was_relevant = render_view_visible_mesh_entities
+                .entities_gpu_culling
+                .contains_key(main_entity);
+            let entity_is_relevant = is_entity_relevant(render_layers);
+            match (entity_was_relevant, entity_is_relevant) {
+                (false, false) | (true, true) => {
+                    // No change; do nothing.
+                }
+                (false, true) => {
+                    // The entity became visible. This is an addition.
+                    render_view_visible_mesh_entities
+                        .entities_gpu_culling
+                        .insert(*main_entity, Entity::PLACEHOLDER);
+                    render_view_visible_mesh_entities
+                        .added_entities
+                        .push((Entity::PLACEHOLDER, *main_entity));
+                    any_added = true;
+                }
+                (true, false) => {
+                    // The entity became invisible. This is a removal.
+                    render_view_visible_mesh_entities
+                        .entities_gpu_culling
+                        .remove(main_entity);
+                    render_view_visible_mesh_entities
+                        .removed_entities
+                        .push((Entity::PLACEHOLDER, *main_entity));
+                }
+            }
+        }
+
+        // Make sure the `added_entities` list is sorted, as the
+        // `DirtySpecializations` iterator will binary search it.
+        if any_added {
+            render_view_visible_mesh_entities.sort_added_entities();
+        }
     }
 }
 
@@ -3466,10 +3512,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             self.skins_use_uniform_buffers,
         ));
 
-        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
-            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
-        }
-
         if key.contains(MeshPipelineKey::CONTACT_SHADOWS) {
             shader_defs.push("CONTACT_SHADOWS".into());
         }
@@ -3538,6 +3580,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
             shader_defs.push("DEPTH_PREPASS".into());
+        }
+
+        // Transparent meshes don't contribute to the depth prepass, so SSAO should not be applied.
+        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) && depth_write_enabled {
+            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
         if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {

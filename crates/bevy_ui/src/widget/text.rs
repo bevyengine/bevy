@@ -73,8 +73,6 @@ impl TextNodeFlags {
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
 /// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
 ///
-/// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
-///
 ///
 /// ```
 /// # use bevy_asset::Handle;

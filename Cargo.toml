@@ -622,6 +622,9 @@ default_font = ["bevy_internal/default_font"]
 # Allows for discovery of preloaded system fonts
 system_font_discovery = ["bevy_internal/system_font_discovery"]
 
+# Enables dictionary-based segmentation for complex scripts (CJK, Thai, Khmer, Lao, Myanmar), at the cost of a larger binary
+complex_script_segmentation = ["bevy_internal/complex_script_segmentation"]
+
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
@@ -1048,6 +1051,17 @@ required-features = ["system_font_discovery"]
 [package.metadata.example.ime_support]
 name = "IME Support"
 description = "Demonstrates IME (Input Method Editor) support for text input"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "inline_image"
+path = "examples/ui/text/inline_image.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.inline_image]
+name = "Inline Images"
+description = "Demonstrates how to display images inline with text"
 category = "UI (User Interface)"
 wasm = true
 

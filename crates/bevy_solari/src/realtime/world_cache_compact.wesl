@@ -45,7 +45,7 @@ fn compact_world_cache_single_block(
 
 @compute @workgroup_size(1024, 1, 1)
 fn compact_world_cache_blocks(@builtin(local_invocation_index) t: u32) {
-    if t == 0u { w1[0u] = 0u; } else { w1[t] = world_cache.a[t * 1024u - 1u]; }; workgroupBarrier();
+    if t == 0u { w1[0u] = 0u; } else { w1[t] = world_cache.a[t * 1024u - 1u] + u32(world_cache.life[t * 1024u - 1u] != 0u); }; workgroupBarrier();
     if t < 1u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 1u]; } workgroupBarrier();
     if t < 2u { w1[t] = w2[t]; } else { w1[t] = w2[t] + w2[t - 2u]; } workgroupBarrier();
     if t < 4u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 4u]; } workgroupBarrier();

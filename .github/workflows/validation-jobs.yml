@@ -20,8 +20,6 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_TEST_DEBUG: 0
   CARGO_PROFILE_DEV_DEBUG: 0
-  # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: nightly
   # Keep in sync between all workflows
   RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
@@ -35,11 +33,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
 
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -71,11 +65,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
 
       - name: Set up JDK 17
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
@@ -119,12 +109,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup target add wasm32-unknown-unknown --toolchain stable
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
+        with:
+          target: wasm32-unknown-unknown
 
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -183,11 +170,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build
@@ -215,19 +198,17 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        run: |
-          rustup toolchain install ${{ env.NIGHTLY_TOOLCHAIN }} --no-self-update --profile=minimal
-          rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
-          cargo -V
+      - uses: ./.github/actions/install-rust
+        with:
+          channel: nightly
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
-          key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
+          key: ${{ runner.os }}-nightly--${{ hashFiles('**/Cargo.toml') }}-
           # See .github/workflows/update-caches.yml for how keys are generated
           restore-keys: |
-            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
-            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--
+            ${{ runner.os }}-nightly--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-nightly--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
@@ -249,11 +230,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install toolchain
-        run: |
-          rustup toolchain install stable --no-self-update --profile=minimal
-          rustup override set stable
-          cargo -V
+      - uses: ./.github/actions/install-rust
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
