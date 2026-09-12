@@ -6,7 +6,8 @@ import bevy_pbr::render::{
     pbr_functions as fns,
     pbr_bindings,
 };
-import bevy_core_pipeline::tonemapping::tone_mapping;
+
+@if(TONEMAP_IN_SHADER) import bevy_core_pipeline::tonemapping::tone_mapping;
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var my_array_texture: texture_2d_array<f32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(1) var my_array_texture_sampler: sampler;
@@ -56,5 +57,10 @@ fn fragment(
 
     pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
-    return tone_mapping(fns::apply_pbr_lighting(pbr_input), view.color_grading);
+    var out = fns::apply_pbr_lighting(pbr_input);
+    // `TONEMAP_IN_SHADER` views have no tonemapping pass, so tonemap here.
+@if(TONEMAP_IN_SHADER) {
+    out = tone_mapping(out, view.color_grading);
+}
+    return out;
 }
