@@ -1,5 +1,11 @@
-// Press B for benchmark.
-// Preferably after frame time is reading consistently, rust-analyzer has calmed down, and with locked gpu clocks.
+//! Renders the Caldera Hotel scene, a large glTF scene used as a rendering stress test.
+//!
+//! The scene has a very high mesh instance count (tens of thousands), which makes it useful for
+//! exercising GPU-driven culling and batching, indirect drawing, occlusion culling, and material
+//! specialization.
+//!
+//! Press B for benchmark.
+//! Preferably after frame time is reading consistently, rust-analyzer has calmed down, and with locked gpu clocks.
 
 use std::{f32::consts::PI, time::Instant};
 
@@ -34,8 +40,8 @@ use bevy::{
 };
 
 #[derive(FromArgs, Resource, Clone)]
-/// Config
-pub struct Args {
+/// Command-line options for this example.
+struct Args {
     /// disable bloom, AO, AA, shadows
     #[argh(switch)]
     minimal: bool,
@@ -44,7 +50,7 @@ pub struct Args {
     #[argh(switch)]
     random_materials: bool,
 
-    /// quantity of unique textures sets to randomly select from. (A texture set being: base_color, roughness)
+    /// quantity of unique textures sets to randomly select from. (A texture set being: `base_color`, roughness)
     #[argh(option, default = "0")]
     texture_count: u32,
 
@@ -89,7 +95,7 @@ pub struct Args {
     hide_frame_time: bool,
 }
 
-pub fn main() {
+fn main() {
     let args: Args = argh::from_env();
 
     let mut app = App::new();
@@ -128,15 +134,15 @@ pub fn main() {
 }
 
 #[derive(Component)]
-pub struct Spin;
+struct Spin;
 
 #[derive(Component)]
 struct FrameTimeText;
 
 #[derive(Component)]
-pub struct PostProcScene;
+struct PostProcScene;
 
-pub fn setup(
+fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     args: Res<Args>,
@@ -205,7 +211,7 @@ pub fn setup(
         Hdr,
         positions[0],
         Projection::Perspective(PerspectiveProjection {
-            fov: std::f32::consts::PI / 3.0,
+            fov: PI / 3.0,
             near: 0.1,
             far: 1000.0,
             ..Default::default()
@@ -261,8 +267,8 @@ pub fn setup(
 
 // Go though each unique mesh and randomly generate a material.
 // Each unique so instances are maintained.
-#[allow(clippy::too_many_arguments)]
-pub fn assign_rng_materials(
+#[expect(clippy::too_many_arguments, reason = "One cohesive system.")]
+fn assign_rng_materials(
     scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -296,7 +302,7 @@ pub fn assign_rng_materials(
             "Mesh quantity appears incorrect. Expected: {}. Found: {}!",
             MESH_INSTANCE_QTY,
             mesh_instances.iter().len()
-        )
+        );
     }
 
     let base_color_textures = (0..args.texture_count)
@@ -382,7 +388,7 @@ fn generate_random_compressed_texture_with_mipmaps(size: u32, bc4: bool, seed: u
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct CameraPositions([Transform; 3]);
+struct CameraPositions([Transform; 3]);
 
 impl Default for CameraPositions {
     fn default() -> Self {
@@ -418,13 +424,13 @@ fn input(
         info!("{:?}", transform);
     }
     if input.just_pressed(KeyCode::Digit1) {
-        *transform = positions[0]
+        *transform = positions[0];
     }
     if input.just_pressed(KeyCode::Digit2) {
-        *transform = positions[1]
+        *transform = positions[1];
     }
     if input.just_pressed(KeyCode::Digit3) {
-        *transform = positions[2]
+        *transform = positions[2];
     }
 }
 
@@ -445,7 +451,7 @@ fn spin(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "One cohesive system.")]
 fn benchmark(
     input: Res<ButtonInput<KeyCode>>,
     mut camera_transform: Single<&mut Transform, With<Camera>>,
@@ -466,7 +472,7 @@ fn benchmark(
         *bench_frame = 0;
         // Try to render for around 3s or at least 60 frames per step
         *count_per_step = ((3.0 / time.delta_secs()) as u32).max(60);
-        println!(
+        info!(
             "Starting Benchmark with {} frames per step",
             *count_per_step
         );
@@ -475,21 +481,21 @@ fn benchmark(
         return;
     }
     if *bench_frame == 0 {
-        **camera_transform = positions[0]
+        **camera_transform = positions[0];
     } else if *bench_frame == *count_per_step {
-        **camera_transform = positions[1]
+        **camera_transform = positions[1];
     } else if *bench_frame == *count_per_step * 2 {
-        **camera_transform = positions[2]
+        **camera_transform = positions[2];
     } else if *bench_frame == *count_per_step * 3 {
         let elapsed = bench_started.unwrap().elapsed().as_secs_f32();
-        println!(
+        info!(
             "{:>7.2}ms Benchmark avg cpu frame time",
             (elapsed / *bench_frame as f32) * 1000.0
         );
         let r = 1.0 / *bench_frame as f64;
-        println!("{:>7.2}ms avg 1% low", low_high.sum_one_percent_low * r);
-        println!("{:>7.2}ms avg 1% high", low_high.sum_one_percent_high * r);
-        println!(
+        info!("{:>7.2}ms avg 1% low", low_high.sum_one_percent_low * r);
+        info!("{:>7.2}ms avg 1% high", low_high.sum_one_percent_high * r);
+        info!(
             "{:>7} Meshes\n{:>7} Mesh Instances\n{:>7} Materials\n{:>7} Material Instances",
             meshes.len(),
             has_mesh.iter().len(),
@@ -504,7 +510,7 @@ fn benchmark(
     low_high.bench_step();
 }
 
-pub fn add_no_frustum_culling(
+fn add_no_frustum_culling(
     mut commands: Commands,
     convert_query: Query<
         Entity,
@@ -520,7 +526,7 @@ pub fn add_no_frustum_culling(
 }
 
 #[inline(always)]
-pub fn uhash(a: u32, b: u32) -> u32 {
+fn uhash(a: u32, b: u32) -> u32 {
     let mut x = (a.overflowing_mul(1597334673).0) ^ (b.overflowing_mul(3812015801).0);
     // from https://nullprogram.com/blog/2018/07/31/
     x = x ^ (x >> 16);
@@ -532,12 +538,12 @@ pub fn uhash(a: u32, b: u32) -> u32 {
 }
 
 #[inline(always)]
-pub fn unormf(n: u32) -> f32 {
+fn unormf(n: u32) -> f32 {
     n as f32 * (1.0 / 0xffffffffu32 as f32)
 }
 
 #[inline(always)]
-pub fn hash_noise(x: u32, y: u32, z: u32) -> f32 {
+fn hash_noise(x: u32, y: u32, z: u32) -> f32 {
     let urnd = uhash(x, (y << 11) + z);
     unormf(urnd)
 }

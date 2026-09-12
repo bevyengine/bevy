@@ -1,6 +1,8 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
+// TODO: Remove once a wgpu release includes https://github.com/gfx-rs/wgpu/pull/9953
+#![recursion_limit = "256"]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"

@@ -58,7 +58,7 @@ pub struct Args {
     #[argh(option, default = "0.05")]
     car_density: f32,
 
-    /// adds NoCpuCulling to all meshes
+    /// adds `NoCpuCulling` to all meshes
     #[argh(switch)]
     no_cpu_culling: bool,
 
@@ -277,7 +277,7 @@ struct CityAssetsReady;
 #[derive(Message)]
 struct CitySpawned;
 
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity, reason = "One cohesive system.")]
 fn update_loading_screen(
     mut commands: Commands,
     assets: Res<CityAssets>,
@@ -354,13 +354,13 @@ fn on_city_assets_ready(
         &mut stats,
     );
 
-    println!("cars: {}", stats.cars);
-    println!("roads: {}", stats.roads);
-    println!("trees: {}", stats.trees);
-    println!("buildings: {}", stats.buildings);
-    println!("fences: {}", stats.fences);
-    println!("paths: {}", stats.paths);
-    println!(
+    info!("cars: {}", stats.cars);
+    info!("roads: {}", stats.roads);
+    info!("trees: {}", stats.trees);
+    info!("buildings: {}", stats.buildings);
+    info!("fences: {}", stats.fences);
+    info!("paths: {}", stats.paths);
+    info!(
         "total: {}",
         stats.cars + stats.roads + stats.trees + stats.buildings + stats.fences + stats.paths
     );

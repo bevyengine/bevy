@@ -26,6 +26,8 @@
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
+// TODO: Remove once a wgpu release includes https://github.com/gfx-rs/wgpu/pull/9953
+#![recursion_limit = "256"]
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
