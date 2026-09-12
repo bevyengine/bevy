@@ -57,33 +57,32 @@ fn is_module_not_found(error: &wesl::Error) -> bool {
 /// Any necessary shader translation (e.g. from WGSL to SPIR-V or vice versa)
 /// must be done internally by the renderer.
 #[derive(Clone, Debug)]
-pub enum ShaderCacheSource<'a> {
+pub enum ShaderCacheSource {
     /// SPIR-V module represented as a slice of words.
-    SpirV(&'a [u8]),
+    SpirV(Cow<'static, [u8]>),
     /// WGSL module as a string slice.
     Wgsl(String),
+}
+
+/// Cached shader after processing, which is used to create wgpu `ShaderModule`.
+#[derive(Clone, Debug)]
+pub struct ProcessedShader {
+    /// Fully composed source code of the shader module.
+    pub source: ShaderCacheSource,
+    /// Whether to enable runtime shader validation. See [`Shader::validate_shader`].
+    pub validate_shader: ValidateShader,
 }
 
 /// An id of a pipeline, typically in the [`PipelineCache`](https://docs.rs/bevy/latest/bevy/render/render_resource/struct.PipelineCache.html)
 /// Typically corresponds to a unique combination of [`Shader`] and [`ShaderDefVal`]s.
 pub type CachedPipelineId = usize;
 
-struct ShaderData<ShaderModule> {
+#[derive(Default)]
+struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Box<[ShaderDefVal]>, Arc<ShaderModule>>,
+    processed_shaders: HashMap<Box<[ShaderDefVal]>, Arc<ProcessedShader>>,
     resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
     dependents: HashSet<AssetId<Shader>>,
-}
-
-impl<T> Default for ShaderData<T> {
-    fn default() -> Self {
-        Self {
-            pipelines: Default::default(),
-            processed_shaders: Default::default(),
-            resolved_imports: Default::default(),
-            dependents: Default::default(),
-        }
-    }
 }
 
 /// A cache for shaders and shader imports, with asset state-tracking for
@@ -93,14 +92,9 @@ impl<T> Default for ShaderData<T> {
 /// to avoid a cyclic dependency with `bevy_render`, while also permitting
 /// alternative rendering implementations. The actual processing of the
 /// shader source into a usable compiled module is left to the renderer.
-pub struct ShaderCache<ShaderModule, RenderDevice> {
-    device: RenderDevice,
-    data: HashMap<AssetId<Shader>, ShaderData<ShaderModule>>,
-    load_module: fn(
-        &RenderDevice,
-        ShaderCacheSource,
-        &ValidateShader,
-    ) -> Result<ShaderModule, ShaderCacheError>,
+#[derive(Default)]
+pub struct ShaderCache {
+    data: HashMap<AssetId<Shader>, ShaderData>,
     module_path_to_asset_id: HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
@@ -141,28 +135,12 @@ impl ShaderDefVal {
     }
 }
 
-impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
+impl ShaderCache {
     /// Creates a new [`ShaderCache`] with the given shader module loading
     /// function. `load_module` is responsible for actually compiling shader
     /// source into a module usable by the render device.
-    pub fn new(
-        device: RenderDevice,
-        load_module: fn(
-            &RenderDevice,
-            ShaderCacheSource,
-            &ValidateShader,
-        ) -> Result<ShaderModule, ShaderCacheError>,
-    ) -> Self {
-        Self {
-            device,
-            load_module,
-            data: Default::default(),
-            module_path_to_asset_id: Default::default(),
-            shaders: Default::default(),
-            import_path_shaders: Default::default(),
-            waiting_on_import: Default::default(),
-            missing_import_logged: Default::default(),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Attempts to retrieve or create a compiled shader module for the given
@@ -180,7 +158,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         pipeline: CachedPipelineId,
         id: AssetId<Shader>,
         shader_defs: &[ShaderDefVal],
-    ) -> Result<Arc<ShaderModule>, ShaderCacheError> {
+    ) -> Result<Arc<ProcessedShader>, ShaderCacheError> {
         let shader = self
             .shaders
             .get(&id)
@@ -217,7 +195,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                     id, shader_defs
                 );
                 let shader_source = match &shader.source {
-                    Source::SpirV(data) => ShaderCacheSource::SpirV(data.as_ref()),
+                    Source::SpirV(data) => ShaderCacheSource::SpirV(data.clone()),
                     Source::Wesl(_) => {
                         if let Some(module_path) = wesl_module_path(&shader.import_path) {
                             let mut compiler_options = wesl::CompileOptions {
@@ -341,10 +319,10 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                     Source::Wgsl(wgsl_source) => ShaderCacheSource::Wgsl(wgsl_source.to_string()),
                 };
 
-                let shader_module =
-                    (self.load_module)(&self.device, shader_source, &shader.validate_shader)?;
-
-                entry.insert(Arc::new(shader_module))
+                entry.insert(Arc::new(ProcessedShader {
+                    source: shader_source,
+                    validate_shader: shader.validate_shader.clone(),
+                }))
             }
         };
         let module = module.clone();
@@ -551,11 +529,21 @@ pub enum ShaderCacheError {
 mod tests {
     use super::*;
 
-    fn test_cache() -> ShaderCache<String, ()> {
-        ShaderCache::new((), |_, source, _| match source {
-            ShaderCacheSource::Wgsl(wgsl) => Ok(wgsl),
-            _ => panic!("expected wgsl output"),
-        })
+    fn test_cache() -> ShaderCache {
+        ShaderCache::new()
+    }
+
+    trait ProcessedShaderExt {
+        fn contains(&self, p: &str) -> bool;
+    }
+
+    impl ProcessedShaderExt for ProcessedShader {
+        fn contains(&self, p: &str) -> bool {
+            match &self.source {
+                ShaderCacheSource::SpirV(_) => unreachable!(),
+                ShaderCacheSource::Wgsl(s) => s.contains(p),
+            }
+        }
     }
 
     #[test]
@@ -750,7 +738,7 @@ fn fragment() -> @location(0) vec4<f32> { return batch_b[0]; }
     }
 
     fn set_test_shaders(
-        cache: &mut ShaderCache<String, ()>,
+        cache: &mut ShaderCache,
     ) -> (AssetId<Shader>, AssetId<Shader>, AssetId<Shader>) {
         let (maths, lighting, root) = test_shaders();
         let (maths_id, lighting_id, root_id) = test_ids();
