@@ -186,7 +186,7 @@ impl Color {
     /// let black = Color::srgb_u32(0x000000);
     /// let red = Color::srgb_u32(0xff0000);
     /// ```
-    pub fn srgb_u32(color: u32) -> Self {
+    pub const fn srgb_u32(color: u32) -> Self {
         Self::Srgba(Srgba::rgb(
             ((color >> 16) & 0xff) as f32 / 255.,
             ((color >> 8) & 0xff) as f32 / 255.,
@@ -205,7 +205,7 @@ impl Color {
     /// let black = Color::srgba_u32(0x000000ff);
     /// let semi_transparent_red = Color::srgba_u32(0xff000080);
     /// ```
-    pub fn srgba_u32(color: u32) -> Self {
+    pub const fn srgba_u32(color: u32) -> Self {
         Self::Srgba(Srgba::new(
             ((color >> 24) & 0xff) as f32 / 255.,
             ((color >> 16) & 0xff) as f32 / 255.,
