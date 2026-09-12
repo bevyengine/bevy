@@ -4,7 +4,6 @@
 //! It also contains functions that return closures for use with
 //! [`Commands`](crate::system::Commands).
 
-use alloc::collections::VecDeque;
 use bevy_utils::prelude::DebugName;
 
 use crate::{
@@ -319,71 +318,22 @@ pub fn write_message<M: Message>(message: M) -> impl Command {
     }
 }
 
-/// A [`Command`] that despawns all entities matching a specific [`QueryFilter`].
+/// A [`Command`] that [despawns](crate::system::entity_command::despawn) all entities matching a specific [`QueryFilter`].
 #[track_caller]
 pub fn despawn_all<F: QueryFilter>() -> impl Command {
-    despawn_all_where::<(), F>(|_, _| true)
+    let caller = MaybeLocation::caller();
+    move |world: &mut World| {
+        world.despawn_all_with_caller::<F>(caller);
+    }
 }
 
-/// A [`Command`] that despawns all entities matching a specific [`QueryFilter`] and condition.
+/// A [`Command`] that [despawns](crate::system::entity_command::despawn) all entities matching a specific [`QueryFilter`] and condition.
 #[track_caller]
 pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
-    mut cond: impl FnMut(Entity, D::Item<'_, '_>) -> bool + Send + 'static,
+    cond: impl FnMut(Entity, D::Item<'_, '_>) -> bool + Send + 'static,
 ) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        let mut query = world.query_filtered::<(Entity, D), F>();
-        let mut query = query.iter_mut(world);
-
-        let mut entities_to_despawn = VecDeque::new();
-
-        while let Some((entity, data)) = query.fetch_next() {
-            if cond(entity, data) {
-                // We want to despawn the entities backwards since we're
-                // less likely to leave holes.
-                entities_to_despawn.push_front(entity);
-            }
-        }
-        // We have to explicitly drop the query to release the world borrow.
-        drop(query);
-
-        // This part of the closure does not need to be generic.
-        // Compiling it once saves a bit of compile time.
-        fn despawn_entities(
-            world: &mut World,
-            mut entities_to_despawn: VecDeque<Entity>,
-            caller: MaybeLocation,
-        ) {
-            entities_to_despawn.retain(|entity| {
-                let _ = world.despawn_no_free_with_caller(*entity, caller);
-
-                // Check if the entity wasn't already freed or reconstructed.
-                matches!(world.entities.get(*entity), Ok(None))
-            });
-
-            // We free the entities in batches so other threads can sneak in allocations.
-            // The batches should be larger than the local buffer size (128) since we
-            // want to optimize away the attempt at pushing into the local buffer.
-            const BATCH_SIZE: usize = 256;
-            let (first, second) = entities_to_despawn.as_slices();
-
-            let (first_chunks, tail) = first.as_chunks::<BATCH_SIZE>();
-
-            for chunk in first_chunks {
-                world.entity_allocator.free_many(chunk);
-            }
-
-            world.entity_allocator.free_many(tail);
-
-            let (second_chunks, tail) = second.as_chunks::<BATCH_SIZE>();
-
-            for chunk in second_chunks {
-                world.entity_allocator.free_many(chunk);
-            }
-
-            world.entity_allocator.free_many(tail);
-        }
-
-        despawn_entities(world, entities_to_despawn, caller);
+        world.despawn_all_where_with_caller::<D, F>(cond, caller);
     }
 }

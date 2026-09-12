@@ -65,7 +65,7 @@ use crate::{
         },
     },
 };
-use alloc::vec::Vec;
+use alloc::{collections::VecDeque, vec::Vec};
 use bevy_platform::{
     cell::SyncUnsafeCell,
     sync::atomic::{AtomicU32, Ordering},
@@ -1669,6 +1669,73 @@ impl World {
         })?;
         entity.despawn_no_free_with_caller(caller);
         Ok(entity.id())
+    }
+
+    /// [`Despawns`](Self::despawn) all entities matching the [`QueryFilter`].
+    #[track_caller]
+    #[inline]
+    pub fn despawn_all<F: QueryFilter>(&mut self) {
+        self.despawn_all_with_caller::<F>(MaybeLocation::caller());
+    }
+
+    /// [`Despawns`](Self::despawn) all entities matching a specific [`QueryFilter`] and condition.
+    #[track_caller]
+    #[inline]
+    pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
+        &mut self,
+        cond: impl FnMut(Entity, D::Item<'_, '_>) -> bool,
+    ) {
+        self.despawn_all_where_with_caller::<D, F>(cond, MaybeLocation::caller());
+    }
+
+    /// [`despawn_all`](Self::despawn_all) that takes a caller explicitly.
+    #[inline]
+    pub(crate) fn despawn_all_with_caller<F: QueryFilter>(&mut self, caller: MaybeLocation) {
+        self.despawn_all_where_with_caller::<(), F>(|_, _| true, caller);
+    }
+
+    /// [`despawn_all_where`](Self::despawn_all_where) that takes a caller explicitly.
+    pub(crate) fn despawn_all_where_with_caller<D: QueryData, F: QueryFilter>(
+        &mut self,
+        mut cond: impl FnMut(Entity, D::Item<'_, '_>) -> bool,
+        caller: MaybeLocation,
+    ) {
+        let mut query = self.query_filtered::<(Entity, D), F>();
+        let mut query = query.iter_mut(self);
+
+        let mut entities_to_despawn = VecDeque::new();
+
+        while let Some((entity, data)) = query.fetch_next() {
+            if cond(entity, data) {
+                // We want to despawn the entities backwards since we're
+                // less likely to leave holes.
+                entities_to_despawn.push_front(entity);
+            }
+        }
+        // We have to explicitly drop the query to release the world borrow.
+        drop(query);
+
+        // This part of the closure does not need to be generic.
+        // Compiling it once saves a bit of compile time.
+        fn despawn_entities(
+            world: &mut World,
+            mut entities_to_despawn: VecDeque<Entity>,
+            caller: MaybeLocation,
+        ) {
+            entities_to_despawn.retain(|entity| {
+                let _ = world.despawn_no_free_with_caller(*entity, caller);
+
+                // Check if the entity wasn't already freed or reconstructed.
+                matches!(world.entities.get(*entity), Ok(None))
+            });
+
+            let (head, tail) = entities_to_despawn.as_slices();
+
+            world.entity_allocator.free_many(head);
+            world.entity_allocator.free_many(tail);
+        }
+
+        despawn_entities(self, entities_to_despawn, caller);
     }
 
     /// Clears the internal component tracker state.
