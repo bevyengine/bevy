@@ -1307,6 +1307,15 @@ where
             }),
         })
     }
+
+    fn unload_asset(
+        source_asset: AssetId<Self::SourceAsset>,
+        (_, _, _, _, bind_group_allocators, render_material_bindings, ..): &mut SystemParamItem<
+            Self::Param,
+        >,
+    ) {
+        render_material_bindings.unload_material(source_asset, bind_group_allocators);
+    }
 }
 
 /// Creates a [`Material2dPipelineSpecializer`] and uses it to specialize a
@@ -1452,7 +1461,7 @@ where
 /// [`RenderMesh2dInstances`] might not be updated properly.  The easiest way to
 /// ensure that [`super::mesh::extract_2d_meshes`] re-extracts a mesh is to mark
 /// its [`Mesh2d`] as changed, so that's what this system does.
-fn mark_2d_meshes_as_changed_if_their_materials_changed<M>(
+pub fn mark_2d_meshes_as_changed_if_their_materials_changed<M>(
     mut queries: ParamSet<(
         Query<&mut Mesh2d, Or<(Changed<MeshMaterial2d<M>>, AssetChanged<MeshMaterial2d<M>>)>>,
         Query<&mut Mesh2d>,
