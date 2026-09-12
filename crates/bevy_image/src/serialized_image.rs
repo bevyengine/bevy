@@ -1,4 +1,4 @@
-use crate::{Image, ImageSampler};
+use crate::{Image, ImageSampler, SourceColorPrimaries};
 use bevy_asset::RenderAssetUsages;
 use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
@@ -30,6 +30,8 @@ pub struct SerializedImage {
     texture_descriptor: TextureDescriptor<(), ()>,
     sampler: ImageSampler,
     texture_view_descriptor: Option<SerializedTextureViewDescriptor>,
+    #[serde(default)]
+    source_color_primaries: SourceColorPrimaries,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,6 +120,7 @@ impl SerializedImage {
             texture_view_descriptor: image.texture_view_descriptor.map(|descriptor| {
                 SerializedTextureViewDescriptor::from_texture_view_descriptor(descriptor)
             }),
+            source_color_primaries: image.source_color_primaries,
         }
     }
 
@@ -144,6 +147,7 @@ impl SerializedImage {
                 .map(SerializedTextureViewDescriptor::into_texture_view_descriptor),
             asset_usage: RenderAssetUsages::RENDER_WORLD,
             copy_on_resize: false,
+            source_color_primaries: self.source_color_primaries,
         }
     }
 }
@@ -156,7 +160,7 @@ mod tests {
 
     #[test]
     fn serialize_deserialize_image() {
-        let image = Image::new(
+        let mut image = Image::new(
             Extent3d {
                 width: 3,
                 height: 1,
@@ -167,6 +171,7 @@ mod tests {
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD,
         );
+        image.source_color_primaries = SourceColorPrimaries::Bt2020;
 
         let serialized_image = SerializedImage::from_image(image.clone());
         let serialized_string = serde_json::to_string(&serialized_image).unwrap();
