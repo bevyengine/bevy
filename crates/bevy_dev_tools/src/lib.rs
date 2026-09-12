@@ -26,7 +26,6 @@ pub mod fps_overlay;
 
 #[cfg(feature = "render")]
 pub mod frame_time_graph;
-
 pub mod inspection;
 
 pub mod picking_debug;
