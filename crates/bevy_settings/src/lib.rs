@@ -459,7 +459,7 @@ fn build_settings_registry(
             // Collect all the errors into a single list so that a user can see all of them at once rather than chasing them
             // down one by one as they fix the errors.
             errors.push(format!(
-                "Type {} has #[reflect(SettingsGroup)], which requires #[reflect(Default)]. It will not be saved or loaded.",
+                "Type {} has #[reflect(SettingsGroup)], which requires #[reflect(Default)] in order to save or load.",
                 ty.type_info().type_path()
             ));
             continue;
