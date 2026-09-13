@@ -3,7 +3,7 @@ title: ReflectFromPtr::from_ptr and ReflectFromPtr::from_ptr_mut replaced with R
 pull_requests: [25754]
 ---
 
-Previously, `ReflectFromPtr` had, two methods, `from_ptr` and `from_ptr_mut`, which returned the
+Previously, `ReflectFromPtr` had two methods, `from_ptr` and `from_ptr_mut`, which returned the
 function pointers for casting from a `Ptr` to a `&dyn Reflect`, and from a `PtrMut` to a `&mut dyn Reflect`,
 respectively. These were very constrained to these two particular casts and required going into a
 reference (which can have soundness implications).
