@@ -214,11 +214,11 @@ fn handle_keyboard_shortcuts(
     setting_q: Query<(Entity, &RadioButtonOptionValue<AppSetting>), With<RadioButton>>,
     mut commands: Commands,
 ) {
-    let new_setting = if keyboard_input.just_pressed(KeyCode::ArrowRight)
-        || keyboard_input.just_pressed(KeyCode::ArrowLeft)
+    let new_setting = if keyboard_input.just_pressed(KeyCode::BracketRight)
+        || keyboard_input.just_pressed(KeyCode::BracketLeft)
     {
         let n = app_state.current_scene_id + SCENES.len();
-        if keyboard_input.pressed(KeyCode::ArrowLeft) {
+        if keyboard_input.pressed(KeyCode::BracketLeft) {
             AppSetting::ChangeScene((n - 1) % SCENES.len())
         } else {
             AppSetting::ChangeScene((n + 1) % SCENES.len())
@@ -271,7 +271,7 @@ fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
         Children [
             RadioGroupSetting::ChangeScene
             @feathers_option_buttons(
-                "Scene ([←] or [→])",
+                "Scene ([ [ ] or [ ] ])",
                 &(SCENES
                     .iter()
                     .enumerate()
