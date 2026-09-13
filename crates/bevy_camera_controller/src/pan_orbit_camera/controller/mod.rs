@@ -13,7 +13,9 @@ pub mod transform_utils;
 pub mod zoom;
 
 /// Adds [`PanOrbitCamera`](crate::pan_orbit_camera::prelude::component::PanOrbitCamera) functionality without an input plugin or any extensions. This
-/// requires an input plugin to function! You need to provide your own input plugin. You can see an example for how to connect this at `examples/camera/pan_orbit_camera_custom_input_plugin.rs`
+/// requires an input plugin to function! You need to provide your own input plugin.
+///
+/// Use [`super::DefaultPanOrbitCameraPlugins`] for a fully working controller.
 pub struct MinimalPanOrbitCameraPlugin;
 
 impl Plugin for MinimalPanOrbitCameraPlugin {
