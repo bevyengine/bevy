@@ -1,10 +1,5 @@
-use alloc::{boxed::Box, vec::Vec};
-use core::{
-    any::{Any, TypeId},
-    fmt::Debug,
-};
-
-use bevy_utils::TypeIdHashMap;
+use alloc::vec::Vec;
+use core::fmt::Debug;
 
 use crate::schedule::InternedSystemSet;
 
@@ -28,20 +23,23 @@ pub(crate) enum DependencyKind {
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
     pub(crate) set: InternedSystemSet,
-    pub(crate) options: TypeIdHashMap<Box<dyn Any>>,
+    pub(crate) is_weak: bool,
+    pub(crate) ignore_deferred: bool,
 }
 
 impl Dependency {
-    pub fn new(kind: DependencyKind, set: InternedSystemSet) -> Self {
+    pub fn new(
+        kind: DependencyKind,
+        set: InternedSystemSet,
+        is_weak: bool,
+        ignore_deferred: bool,
+    ) -> Self {
         Self {
             kind,
             set,
-            options: Default::default(),
+            is_weak,
+            ignore_deferred,
         }
-    }
-    pub fn add_config<T: 'static>(mut self, option: T) -> Self {
-        self.options.insert(TypeId::of::<T>(), Box::new(option));
-        self
     }
 }
 
