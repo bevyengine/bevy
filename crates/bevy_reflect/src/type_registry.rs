@@ -996,7 +996,7 @@ impl ReflectFromPtr {
 
     /// Converts a [`&dyn Any`] into a [`&dyn Reflect`] if the type matches the type used to
     /// construct this [`ReflectFromPtr`].
-    pub fn any_ref_as_reflect<'a>(&self, any: &'a dyn Any) -> Option<&'a dyn Reflect> {
+    pub fn as_reflect<'a>(&self, any: &'a dyn Any) -> Option<&'a dyn Reflect> {
         if (*any).type_id() != self.type_id {
             return None;
         }
@@ -1013,7 +1013,7 @@ impl ReflectFromPtr {
 
     /// Converts a [`&mut dyn Any`] into a [`&mut dyn Reflect`] if the type matches the type used to
     /// construct this [`ReflectFromPtr`].
-    pub fn any_mut_as_reflect<'a>(&self, any: &'a mut dyn Any) -> Option<&'a mut dyn Reflect> {
+    pub fn as_reflect_mut<'a>(&self, any: &'a mut dyn Any) -> Option<&'a mut dyn Reflect> {
         if (*any).type_id() != self.type_id {
             return None;
         }
@@ -1071,7 +1071,7 @@ impl ReflectFromPtr {
     ///
     /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
-    pub unsafe fn as_reflect<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
+    pub unsafe fn ptr_as_reflect<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
         let reflect_raw_pointer = (self.cast_ptr)(val.as_ptr().cast::<()>().cast_mut());
         // SAFETY: cast_ptr is guaranteed not to change the original pointer. We know the pointer is
         // non-null and that it is aligned (since `Ptr` includes the IsAligned) type state. Caller
@@ -1085,7 +1085,7 @@ impl ReflectFromPtr {
     ///
     /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
-    pub unsafe fn as_reflect_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
+    pub unsafe fn ptr_as_reflect_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
         let reflect_raw_pointer = (self.cast_ptr)(val.as_ptr().cast());
         // SAFETY: cast_ptr is guaranteed not to change the original pointer. We know the pointer is
         // non-null and that it is aligned (since `Ptr` includes the IsAligned) type state. Caller
@@ -1133,7 +1133,7 @@ mod test {
         {
             let value = PtrMut::from(&mut value);
             // SAFETY: reflect_from_ptr was constructed for the correct type
-            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_mut(value) };
+            let dyn_reflect = unsafe { reflect_from_ptr.ptr_as_reflect_mut(value) };
             match dyn_reflect.reflect_mut() {
                 bevy_reflect::ReflectMut::Struct(strukt) => {
                     strukt.field_mut("a").unwrap().apply(&2.0f32);
@@ -1144,7 +1144,7 @@ mod test {
 
         {
             // SAFETY: reflect_from_ptr was constructed for the correct type
-            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect(Ptr::from(&value)) };
+            let dyn_reflect = unsafe { reflect_from_ptr.ptr_as_reflect(Ptr::from(&value)) };
             match dyn_reflect.reflect_ref() {
                 bevy_reflect::ReflectRef::Struct(strukt) => {
                     let a = strukt
@@ -1167,7 +1167,7 @@ mod test {
         let object = Foo { a: 1.0 };
 
         let any: &dyn Any = &object;
-        let reflect = reflect_from_ptr.any_ref_as_reflect(any).unwrap();
+        let reflect = reflect_from_ptr.as_reflect(any).unwrap();
 
         let object_from_reflect = Foo::from_reflect(reflect).unwrap();
         assert_eq!(object_from_reflect, object);
@@ -1181,7 +1181,7 @@ mod test {
         let mut object = Foo { a: 1.0 };
 
         let any: &mut dyn Any = &mut object;
-        let reflect = reflect_from_ptr.any_mut_as_reflect(any).unwrap();
+        let reflect = reflect_from_ptr.as_reflect_mut(any).unwrap();
 
         let replacement = Foo { a: 2.0 };
         reflect.apply(&replacement);
@@ -1235,14 +1235,10 @@ mod test {
 
         let mut right_type = Foo { a: 1.0 };
         let mut wrong_type = 2.0;
-        assert!(reflect_from_ptr.any_ref_as_reflect(&right_type).is_some());
-        assert!(reflect_from_ptr.any_ref_as_reflect(&wrong_type).is_none());
-        assert!(reflect_from_ptr
-            .any_mut_as_reflect(&mut right_type)
-            .is_some());
-        assert!(reflect_from_ptr
-            .any_mut_as_reflect(&mut wrong_type)
-            .is_none());
+        assert!(reflect_from_ptr.as_reflect(&right_type).is_some());
+        assert!(reflect_from_ptr.as_reflect(&wrong_type).is_none());
+        assert!(reflect_from_ptr.as_reflect_mut(&mut right_type).is_some());
+        assert!(reflect_from_ptr.as_reflect_mut(&mut wrong_type).is_none());
         assert!(reflect_from_ptr
             .box_as_reflect(Box::new(right_type.clone()))
             .is_ok());

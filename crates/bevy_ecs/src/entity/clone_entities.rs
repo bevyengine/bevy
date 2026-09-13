@@ -65,7 +65,7 @@ impl<'a> SourceComponent<'a> {
             return None;
         }
         // SAFETY: `source_component_ptr` stores data represented by `component_id`, which we used to get `ReflectFromPtr`.
-        unsafe { Some(reflect_from_ptr.as_reflect(self.ptr)) }
+        unsafe { Some(reflect_from_ptr.ptr_as_reflect(self.ptr)) }
     }
 }
 
