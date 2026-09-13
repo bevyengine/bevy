@@ -21,7 +21,7 @@
 ///   blur this will be `vec2(0.0, 1.0)`.
 ///
 /// Returns the resulting color of the fragment.
-fn gaussian_blur(color_texture: texture_2d<f32>, color_texture_sampler: sampler, frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f32> {
+public fn gaussian_blur(color_texture: texture_2d<f32>, color_texture_sampler: sampler, frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f32> {
     // Usually σ (the standard deviation) is half the radius, and the radius is
     // half the CoC. So we multiply by 0.25.
     let sigma = coc * 0.25;

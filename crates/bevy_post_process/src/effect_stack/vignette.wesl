@@ -4,7 +4,7 @@ import package::effect_stack::chromatic_aberration::source_texture;
 
 /// See `package::effect_stack::Vignette` for more
 /// information on these fields.
-struct VignetteSettings {
+public struct VignetteSettings {
     intensity: f32,
     radius: f32,
     smoothness: f32,
@@ -15,12 +15,12 @@ struct VignetteSettings {
     color: vec4<f32>
 }
 
-const VISUAL_THRESHOLD: f32 = 1e-4;
+public const VISUAL_THRESHOLD: f32 = 1e-4;
 
 /// The settings supplied by the developer.
-@group(0) @binding(4) var<uniform> vignette_settings: VignetteSettings;
+@group(0) @binding(4) public var<uniform> vignette_settings: VignetteSettings;
 
-fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {
+public fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {
     let intensity = vignette_settings.intensity;
     if (intensity < VISUAL_THRESHOLD) {
         return color;

@@ -14,7 +14,7 @@ import bevy_pbr::render::{
     pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
 };
 
-struct MyExtendedMaterial {
+public struct MyExtendedMaterial {
     quantize_steps: u32,
     // Web examples WebGL2 support: structs must be 16 byte aligned.
     @if(SIXTEEN_BYTE_ALIGNMENT)
@@ -26,10 +26,10 @@ struct MyExtendedMaterial {
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(100)
-var<uniform> my_extended_material: MyExtendedMaterial;
+public var<uniform> my_extended_material: MyExtendedMaterial;
 
 @fragment
-fn fragment(
+public fn fragment(
     in: VertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> FragmentOutput {

@@ -15,14 +15,14 @@ import package::{
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION) import package::render::mesh_view_bindings::screen_space_ambient_occlusion_texture;
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION) import package::ssao::utils::ssao_multibounce;
 
-struct FullscreenVertexOutput {
+public struct FullscreenVertexOutput {
     @builtin(position)
     position: vec4<f32>,
     @location(0)
     uv: vec2<f32>,
 };
 
-struct PbrDeferredLightingDepthId {
+public struct PbrDeferredLightingDepthId {
     depth_id: u32, // limited to u8
     @if(SIXTEEN_BYTE_ALIGNMENT)
     // WebGL2 structs must be 16 byte aligned.
@@ -33,10 +33,10 @@ struct PbrDeferredLightingDepthId {
     _webgl2_padding_2: f32,
 }
 @group(2) @binding(0)
-var<uniform> depth_id: PbrDeferredLightingDepthId;
+public var<uniform> depth_id: PbrDeferredLightingDepthId;
 
 @vertex
-fn vertex(@builtin(vertex_index) vertex_index: u32) -> FullscreenVertexOutput {
+public fn vertex(@builtin(vertex_index) vertex_index: u32) -> FullscreenVertexOutput {
     // See the full screen vertex shader for explanation above for how this works.
     let uv = vec2<f32>(f32(vertex_index >> 1u), f32(vertex_index & 1u)) * 2.0;
     // Depth is stored as unorm, so we are dividing the u8 depth_id by 255.0 here.
@@ -46,7 +46,7 @@ fn vertex(@builtin(vertex_index) vertex_index: u32) -> FullscreenVertexOutput {
 }
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var frag_coord = vec4(in.position.xy, 0.0, 0.0);
 
     let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);

@@ -17,7 +17,7 @@ import bevy_render::occlusion_culling::mesh_preprocess_types::{
 };
 
 /// Specifies the batches that this shader invocation is to process.
-struct IndirectParametersBuildJob {
+public struct IndirectParametersBuildJob {
     /// The first batch index that this shader invocation should process
     /// (inclusive).
     first_batch_index: u32,
@@ -27,40 +27,40 @@ struct IndirectParametersBuildJob {
 }
 
 /// The data for each mesh that the CPU supplied to the GPU.
-@group(0) @binding(0) var<storage> current_input: array<MeshInput>;
+@group(0) @binding(0) public var<storage> current_input: array<MeshInput>;
 
 /// Data that we use to generate the indirect parameters.
 ///
 /// The `mesh_preprocess.wesl` shader emits these.
-@group(0) @binding(1) var<storage> indirect_parameters_metadata:
+@group(0) @binding(1) public var<storage> indirect_parameters_metadata:
     array<IndirectParametersMetadata>;
 
 /// Information about each batch set.
 ///
 /// A *batch set* is a set of meshes that might be multi-drawn together.
-@group(0) @binding(3) var<storage, read_write> indirect_batch_sets: array<IndirectBatchSet>;
+@group(0) @binding(3) public var<storage, read_write> indirect_batch_sets: array<IndirectBatchSet>;
 
 /// Specifies the batches that this shader invocation is to process.
-@group(0) @binding(4) var<uniform> indirect_parameters_build_job: IndirectParametersBuildJob;
+@group(0) @binding(4) public var<uniform> indirect_parameters_build_job: IndirectParametersBuildJob;
 
 @if(INDEXED)
 /// The buffer of indirect draw parameters that we generate, and that the GPU
 /// reads to issue the draws.
 ///
 /// This buffer is for indexed meshes.
-@group(0) @binding(5) var<storage, read_write> indirect_parameters:
+@group(0) @binding(5) public var<storage, read_write> indirect_parameters:
     array<IndirectParametersIndexed>;
 @else   // INDEXED
 /// The buffer of indirect draw parameters that we generate, and that the GPU
 /// reads to issue the draws.
 ///
 /// This buffer is for non-indexed meshes.
-@group(0) @binding(5) var<storage, read_write> indirect_parameters:
+@group(0) @binding(5) public var<storage, read_write> indirect_parameters:
     array<IndirectParametersNonIndexed>;
 
 @compute
 @workgroup_size(64)
-fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+public fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Figure out our instance index (i.e. batch index). If this thread doesn't
     // correspond to a valid index in the range.
     let instance_index = global_invocation_id.x + indirect_parameters_build_job.first_batch_index;

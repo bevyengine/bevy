@@ -1,7 +1,7 @@
 //! Types needed for GPU mesh uniform building.
 
 /// Per-frame data that the CPU supplies to the GPU.
-struct MeshInput {
+public struct MeshInput {
     /// The model transform.
     world_from_local: mat3x4<f32>,
     /// The lightmap UV rect, packed into 64 bits.
@@ -30,7 +30,7 @@ struct MeshInput {
 }
 
 /// Per-mesh-instance data that we retain from the previous frame.
-struct PreviousMeshInput {
+public struct PreviousMeshInput {
     /// The model transform.
     world_from_local: mat3x4<f32>,
 };
@@ -38,7 +38,7 @@ struct PreviousMeshInput {
 /// The `wgpu` indirect parameters structure. This is a union of two structures.
 /// For more information, see the corresponding comment in
 /// `gpu_preprocessing.rs`.
-struct IndirectParametersIndexed {
+public struct IndirectParametersIndexed {
     /// `vertex_count` or `index_count`.
     index_count: u32,
     /// `instance_count` in both structures.
@@ -51,7 +51,7 @@ struct IndirectParametersIndexed {
     first_instance: u32,
 }
 
-struct IndirectParametersNonIndexed {
+public struct IndirectParametersNonIndexed {
     vertex_count: u32,
     instance_count: u32,
     base_vertex: u32,
@@ -66,7 +66,7 @@ struct IndirectParametersNonIndexed {
 /// Typically, the uniform allocation and mesh preprocessing phases fill in this
 /// structure. However, parts of it may be filled in on the CPU for objects that
 /// aren't multidrawn.
-struct IndirectParametersMetadata {
+public struct IndirectParametersMetadata {
     /// The index of the first `MeshUniform` for this draw in the mesh uniform
     /// buffer.
     ///
@@ -107,13 +107,13 @@ struct IndirectParametersMetadata {
     late_instance_count: u32,
 }
 
-struct IndirectBatchSet {
+public struct IndirectBatchSet {
     indirect_parameters_count: atomic<u32>,
     indirect_parameters_base: u32,
 }
 
 /// One invocation of this compute shader: i.e. one mesh instance in a view.
-struct PreprocessWorkItem {
+public struct PreprocessWorkItem {
     /// The index of the `MeshInput` in the `current_input` buffer that we read
     /// from.
     input_index: u32,
@@ -127,7 +127,7 @@ struct PreprocessWorkItem {
 ///
 /// This is maintained by the CPU and cached for bins that don't change from
 /// frame to frame.
-struct BinMetadata {
+public struct BinMetadata {
     /// The index of the indirect parameters for this bin, relative to the first
     /// indirect parameter index for the batch set.
     ///

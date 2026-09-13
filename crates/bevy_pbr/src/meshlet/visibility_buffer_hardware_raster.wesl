@@ -17,16 +17,16 @@ import package::{
     render::mesh_functions::mesh_position_local_to_world,
 };
 import bevy_render::maths::affine3_to_square;
-var<immediate> meshlet_raster_cluster_rightmost_slot: u32;
+public var<immediate> meshlet_raster_cluster_rightmost_slot: u32;
 
-struct VertexOutput {
+public struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
     @location(0) @interpolate(flat) packed_ids: u32,
 }
 
 @vertex
-fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+public fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     let cluster_in_draw = meshlet_previous_raster_counts[1] + instance_index;
     let cluster_id = meshlet_raster_cluster_rightmost_slot - cluster_in_draw;
     let instanced_offset = meshlet_raster_clusters[cluster_id];
@@ -56,7 +56,7 @@ fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) v
 }
 
 @fragment
-fn fragment(vertex_output: VertexOutput) {
+public fn fragment(vertex_output: VertexOutput) {
     let depth = bitcast<u32>(vertex_output.position.z);
     @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
     let visibility = (u64(depth) << 32u) | u64(vertex_output.packed_ids);
@@ -65,7 +65,7 @@ fn fragment(vertex_output: VertexOutput) {
     textureAtomicMax(meshlet_visibility_buffer, vec2<u32>(vertex_output.position.xy), visibility);
 }
 
-fn dummy_vertex() -> VertexOutput {
+public fn dummy_vertex() -> VertexOutput {
     @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
     return VertexOutput(
         vec4(divide(0.0, 0.0)), // NaN vertex position
@@ -78,6 +78,6 @@ fn dummy_vertex() -> VertexOutput {
 }
 
 /// Naga doesn't allow divide by zero literals, but this lets us work around it
-fn divide(a: f32, b: f32) -> f32 {
+public fn divide(a: f32, b: f32) -> f32 {
     return a / b;
 }

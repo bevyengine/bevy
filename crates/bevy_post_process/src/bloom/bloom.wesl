@@ -6,21 +6,21 @@
 //! * [COD] - Next Generation Post Processing in Call of Duty - http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
 //! * [PBB] - Physically Based Bloom - https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 
-struct BloomUniforms {
+public struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
     viewport: vec4<f32>,
     scale: vec2<f32>,
     aspect: f32,
 };
 
-@group(0) @binding(0) var input_texture: texture_2d<f32>;
-@group(0) @binding(1) var s: sampler;
+@group(0) @binding(0) public var input_texture: texture_2d<f32>;
+@group(0) @binding(1) public var s: sampler;
 
-@group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
+@group(0) @binding(2) public var<uniform> uniforms: BloomUniforms;
 
 @if(FIRST_DOWNSAMPLE)
 /// https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
-fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
+public fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     let brightness = max(color.r, max(color.g, color.b));
     var softness = brightness - uniforms.threshold_precomputations.y;
     softness = clamp(softness, 0.0, uniforms.threshold_precomputations.z);
@@ -32,12 +32,12 @@ fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
 
 /// luminance coefficients from Rec. 709.
 /// https://en.wikipedia.org/wiki/Rec._709
-fn tonemapping_luminance(v: vec3<f32>) -> f32 {
+public fn tonemapping_luminance(v: vec3<f32>) -> f32 {
     return dot(v, vec3<f32>(0.2126, 0.7152, 0.0722));
 }
 
 /// http://graphicrants.blogspot.com/2013/12/tone-mapping.html
-fn karis_average(color: vec3<f32>) -> f32 {
+public fn karis_average(color: vec3<f32>) -> f32 {
     // Luminance calculated based on Rec. 709 color primaries.
     // This must be done in *linear* color space.
     let luma = tonemapping_luminance(color) / 4.0;
@@ -45,7 +45,7 @@ fn karis_average(color: vec3<f32>) -> f32 {
 }
 
 /// [COD] slide 153
-fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
+public fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     var a: vec3<f32>;
     var b: vec3<f32>;
     var c: vec3<f32>;
@@ -139,7 +139,7 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 }
 
 /// [COD] slide 162
-fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
+public fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
     // While this is probably technically incorrect, it makes nonuniform bloom smoother, without
     // having any impact on uniform bloom, which simply evaluates to 1.0 here.
     let frag_size = uniforms.scale / vec2<f32>(textureDimensions(input_texture));
@@ -167,7 +167,7 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
 
 @if(FIRST_DOWNSAMPLE)
 @fragment
-fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
+public fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
     let sample_uv = uniforms.viewport.xy + output_uv * uniforms.viewport.zw;
     var sample = sample_input_13_tap(sample_uv);
     // Lower bound of 0.0001 is to avoid propagating multiplying by 0.0 through the
@@ -183,11 +183,11 @@ fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32>
 }
 
 @fragment
-fn downsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+public fn downsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     return vec4<f32>(sample_input_13_tap(uv), 1.0);
 }
 
 @fragment
-fn upsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+public fn upsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     return vec4<f32>(sample_input_3x3_tent(uv), 1.0);
 }

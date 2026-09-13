@@ -1,26 +1,26 @@
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 
-@group(1) @binding(0) var<storage> values: array<f32>;
-struct Config {
+@group(1) @binding(0) public var<storage> values: array<f32>;
+public struct Config {
     dt_min: f32,
     dt_max: f32,
     dt_min_log2: f32,
     dt_max_log2: f32,
     proportional_width: u32,
 }
-@group(1) @binding(1) var<uniform> config: Config;
+@group(1) @binding(1) public var<uniform> config: Config;
 
-const RED: vec4<f32> = vec4(1.0, 0.0, 0.0, 1.0);
-const GREEN: vec4<f32> = vec4(0.0, 1.0, 0.0, 1.0);
+public const RED: vec4<f32> = vec4(1.0, 0.0, 0.0, 1.0);
+public const GREEN: vec4<f32> = vec4(0.0, 1.0, 0.0, 1.0);
 
 /// Gets a color based on the delta time
 // TODO use customizable gradient
-fn color_from_dt(dt: f32) -> vec4<f32> {
+public fn color_from_dt(dt: f32) -> vec4<f32> {
     return mix(GREEN, RED, dt / config.dt_max);
 }
 
 /// Draw an SDF square
-fn sdf_square(pos: vec2<f32>, half_size: vec2<f32>, offset: vec2<f32>) -> f32 {
+public fn sdf_square(pos: vec2<f32>, half_size: vec2<f32>, offset: vec2<f32>) -> f32 {
     let p = pos - offset;
     let dist = abs(p) - half_size;
     let outside_dist = length(max(dist, vec2<f32>(0.0, 0.0)));
@@ -29,7 +29,7 @@ fn sdf_square(pos: vec2<f32>, half_size: vec2<f32>, offset: vec2<f32>) -> f32 {
 }
 
 @fragment
-fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let dt_min = config.dt_min;
     let dt_max = config.dt_max;
     let dt_min_log2 = config.dt_min_log2;

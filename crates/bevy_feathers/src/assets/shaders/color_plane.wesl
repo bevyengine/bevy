@@ -6,16 +6,16 @@ import bevy_render::color_operations::{
     okhsl_to_linear_rgb,
 };
 
-struct ColorPlaneUniform {
+public struct ColorPlaneUniform {
     fixed_channel: f32,
 @if(SIXTEEN_BYTE_ALIGNMENT)
     _webgl2_padding_12b: vec3<f32>,
 }
 
-@group(1) @binding(0) var<uniform> uniform_data: ColorPlaneUniform;
+@group(1) @binding(0) public var<uniform> uniform_data: ColorPlaneUniform;
 
 @fragment
-fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let uv = in.uv;
 @if(PLANE_RG)
     return vec4(srgb_to_linear_rgb(vec3(uv.x, 1.0 - uv.y, uniform_data.fixed_channel)), 1.0);

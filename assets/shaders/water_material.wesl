@@ -11,7 +11,7 @@ import bevy_pbr::{
 import bevy_render::globals::Globals;
 
 /// Parameters to the water shader.
-struct WaterSettings {
+public struct WaterSettings {
     /// How much to displace each octave each frame, in the u and v directions.
     /// Two octaves are packed into each `vec4`.
     octave_vectors: array<vec4<f32>, 2>,
@@ -21,21 +21,21 @@ struct WaterSettings {
     octave_strengths: vec4<f32>,
 }
 
-@group(0) @binding(1) var<uniform> globals: Globals;
+@group(0) @binding(1) public var<uniform> globals: Globals;
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(100) var water_normals_texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(101) var water_normals_sampler: sampler;
-@group(constants::MATERIAL_BIND_GROUP) @binding(102) var<uniform> water_settings: WaterSettings;
+@group(constants::MATERIAL_BIND_GROUP) @binding(100) public var water_normals_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(101) public var water_normals_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(102) public var<uniform> water_settings: WaterSettings;
 
 /// Samples a single octave of noise and returns the resulting normal.
-fn sample_noise_octave(uv: vec2<f32>, strength: f32) -> vec3<f32> {
+public fn sample_noise_octave(uv: vec2<f32>, strength: f32) -> vec3<f32> {
     let N = textureSample(water_normals_texture, water_normals_sampler, uv).rbg * 2.0 - 1.0;
     // This isn't slerp, but it's good enough.
     return normalize(mix(vec3(0.0, 1.0, 0.0), N, strength));
 }
 
 /// Samples all four octaves of noise and returns the resulting normal.
-fn sample_noise(uv: vec2<f32>, time: f32) -> vec3<f32> {
+public fn sample_noise(uv: vec2<f32>, time: f32) -> vec3<f32> {
     let uv0 = uv * water_settings.octave_scales[0] + water_settings.octave_vectors[0].xy * time;
     let uv1 = uv * water_settings.octave_scales[1] + water_settings.octave_vectors[0].zw * time;
     let uv2 = uv * water_settings.octave_scales[2] + water_settings.octave_vectors[1].xy * time;
@@ -49,7 +49,7 @@ fn sample_noise(uv: vec2<f32>, time: f32) -> vec3<f32> {
 }
 
 @fragment
-fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> FragmentOutput {
+public fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> FragmentOutput {
     // Create the PBR input.
     var pbr_input = pbr_input_from_standard_material(in, is_front);
     // Bump the normal.

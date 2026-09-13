@@ -3,7 +3,7 @@ import bevy_pbr::light_probe::irradiance_volume;
 import bevy_pbr::render::mesh_view_bindings;
 import bevy_pbr::render::clustered_forward;
 
-struct VoxelVisualizationIrradianceVolumeInfo {
+public struct VoxelVisualizationIrradianceVolumeInfo {
     world_from_voxel: mat4x4<f32>,
     voxel_from_world: mat4x4<f32>,
     resolution: vec3<u32>,
@@ -13,10 +13,10 @@ struct VoxelVisualizationIrradianceVolumeInfo {
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(100)
-var<uniform> irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo;
+public var<uniform> irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo;
 
 @fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // Snap the world position we provide to `irradiance_volume_light()` to the
     // middle of the nearest texel.
     var unit_pos = (irradiance_volume_info.voxel_from_world *

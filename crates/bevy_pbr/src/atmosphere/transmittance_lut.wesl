@@ -9,11 +9,11 @@ import package::atmosphere::{
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
-@group(0) @binding(13) var transmittance_lut_out: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(13) public var transmittance_lut_out: texture_storage_2d<rgba16float, write>;
 
 @compute 
 @workgroup_size(16, 16, 1)
-fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
+public fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let uv: vec2<f32> = (vec2<f32>(idx.xy) + 0.5) / vec2<f32>(settings.transmittance_lut_size);
     // map UV coordinates to view height (r) and zenith cos angle (mu)
     let r_mu = transmittance_lut_uv_to_r_mu(uv);
@@ -27,7 +27,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
 /// Compute the optical depth of the atmosphere from the ground to the top atmosphere boundary
 /// at a given view height (r) and zenith cos angle (mu)
-fn ray_optical_depth(r: f32, mu: f32, sample_count: u32) -> vec3<f32> {
+public fn ray_optical_depth(r: f32, mu: f32, sample_count: u32) -> vec3<f32> {
     let t_max = max_atmosphere_distance(r, mu);
     var optical_depth = vec3<f32>(0.0f);
     var prev_t = 0.0f;

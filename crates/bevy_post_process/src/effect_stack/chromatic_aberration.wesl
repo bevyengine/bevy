@@ -4,7 +4,7 @@
 
 /// See `package::effect_stack::ChromaticAberration` for more
 /// information on these fields.
-struct ChromaticAberrationSettings {
+public struct ChromaticAberrationSettings {
     intensity: f32,
     max_samples: u32,
     unused_a: u32,
@@ -12,18 +12,18 @@ struct ChromaticAberrationSettings {
 }
 
 /// The source framebuffer texture.
-@group(0) @binding(0) var source_texture: texture_2d<f32>;
+@group(0) @binding(0) public var source_texture: texture_2d<f32>;
 /// The sampler used to sample the source framebuffer texture.
-@group(0) @binding(1) var common_sampler: sampler;
+@group(0) @binding(1) public var common_sampler: sampler;
 /// The 1D lookup table for chromatic aberration.
-@group(0) @binding(2) var chromatic_aberration_lut_texture: texture_2d<f32>;
+@group(0) @binding(2) public var chromatic_aberration_lut_texture: texture_2d<f32>;
 /// The settings supplied by the developer.
-@group(0) @binding(3) var<uniform> chromatic_aberration_settings: ChromaticAberrationSettings;
+@group(0) @binding(3) public var<uniform> chromatic_aberration_settings: ChromaticAberrationSettings;
 
 /// Radial chromatic aberration implemented using the *Inside* technique:
 ///
 /// <https://github.com/playdeadgames/publications/blob/master/INSIDE/rendering_inside_gdc2016.pdf>
-fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
+public fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
     let end_pos = mix(start_pos, vec2(0.5), chromatic_aberration_settings.intensity);
 
     // Determine the number of samples. We aim for one sample per texel, unless

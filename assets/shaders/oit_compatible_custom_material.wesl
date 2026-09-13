@@ -9,10 +9,10 @@ import bevy_pbr::render::utils;
 @if(MATERIAL_OIT_ENABLED)
 import bevy_core_pipeline::oit::draw::oit_draw;
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material_color: vec4<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) public var<uniform> material_color: vec4<f32>;
 
 @fragment
-fn fragment(
+public fn fragment(
     in: VertexOutput,
 ) -> @location(0) vec4<f32> {
 
@@ -31,7 +31,7 @@ fn fragment(
     return color;
 }
 
-fn gradient_noise(coord: vec3f, scale: f32) -> f32 {
+public fn gradient_noise(coord: vec3f, scale: f32) -> f32 {
     let grid_coord = vec3u(scale * abs(coord));
     let f = fract(scale * abs(coord));
 
@@ -62,11 +62,11 @@ fn gradient_noise(coord: vec3f, scale: f32) -> f32 {
     return noise;
 }
 
-fn rand3(seed: vec3u) -> vec3f {
+public fn rand3(seed: vec3u) -> vec3f {
     var rng: u32 = (seed.x * 3966231743u) ^ (seed.y * 3928936651u) ^ (seed.z * 53134757u);
     return rand_vec3f(&rng);
 }
 
-fn rand_vec3f(state: ptr<function, u32>) -> vec3<f32> {
+public fn rand_vec3f(state: ptr<function, u32>) -> vec3<f32> {
     return vec3f(utils::rand_f(state), utils::rand_f(state), utils::rand_f(state));
 }

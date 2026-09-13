@@ -23,28 +23,28 @@ import bevy_render::color_operations::{
 
 import bevy_render::maths::PI;
 
-const TAU: f32 = 2. * PI;
+public const TAU: f32 = 2. * PI;
 
-const RIGHT_VERTEX = 2u;
-const BOTTOM_VERTEX = 4u;
+public const RIGHT_VERTEX = 2u;
+public const BOTTOM_VERTEX = 4u;
 // must align with BORDER_* shader_flags from bevy_ui/render/mod.rs
-const RADIAL: u32 = 16u;
-const FILL_START: u32 = 32u;
-const FILL_END: u32 = 64u;
-const CONIC: u32 = 128u;
-const BORDER_LEFT: u32 = 256u;
-const BORDER_TOP: u32 = 512u;
-const BORDER_RIGHT: u32 = 1024u;
-const BORDER_BOTTOM: u32 = 2048u;
-const BORDER_ANY: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
+public const RADIAL: u32 = 16u;
+public const FILL_START: u32 = 32u;
+public const FILL_END: u32 = 64u;
+public const CONIC: u32 = 128u;
+public const BORDER_LEFT: u32 = 256u;
+public const BORDER_TOP: u32 = 512u;
+public const BORDER_RIGHT: u32 = 1024u;
+public const BORDER_BOTTOM: u32 = 2048u;
+public const BORDER_ANY: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
 
-fn enabled(flags: u32, mask: u32) -> bool {
+public fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
 }
 
-@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(0) public var<uniform> view: View;
 
-struct GradientVertexOutput {
+public struct GradientVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) @interpolate(flat) size: vec2<f32>,
     @location(2) @interpolate(flat) flags: u32,
@@ -65,7 +65,7 @@ struct GradientVertexOutput {
 };
 
 @vertex
-fn vertex(
+public fn vertex(
     @location(0) vertex_position: vec3<f32>,
     @location(1) vertex_uv: vec2<f32>,
     @location(2) flags: u32,
@@ -107,7 +107,7 @@ fn vertex(
 }
 
 @fragment
-fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
     var g_distance: f32;
     if enabled(in.flags, RADIAL) {
         g_distance = radial_distance(in.point, in.g_start, in.dir.x);
@@ -134,14 +134,14 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
     }
 }
 
-fn rem_euclid(a: f32, b: f32) -> f32 {
+public fn rem_euclid(a: f32, b: f32) -> f32 {
     return ((a % b) + b) % b;
 }
 
 // These functions are used to calculate the distance in gradient space from the start of the gradient to the point.
 // The distance in gradient space is then used to interpolate between the start and end colors.
 
-fn linear_distance(
+public fn linear_distance(
     point: vec2<f32>,
     g_start: vec2<f32>,
     g_dir: vec2<f32>,
@@ -149,7 +149,7 @@ fn linear_distance(
     return dot(point - g_start, g_dir);
 }
 
-fn radial_distance(
+public fn radial_distance(
     point: vec2<f32>,
     center: vec2<f32>,
     ratio: f32,
@@ -158,7 +158,7 @@ fn radial_distance(
     return length(vec2(d.x, d.y * ratio));
 }
 
-fn conic_distance(
+public fn conic_distance(
     start: f32,
     point: vec2<f32>,
     center: vec2<f32>,
@@ -169,7 +169,7 @@ fn conic_distance(
 }
 
 /// Mix the colors, choosing the appropriate interpolation method for the given color space
-fn mix_colors(
+public fn mix_colors(
     start_color: vec3<f32>,
     end_color: vec3<f32>,
     t: f32,
@@ -196,7 +196,7 @@ fn mix_colors(
 }
 
 /// Convert a color from the interpolation color space to linear rgba
-fn convert_to_linear_rgba(
+public fn convert_to_linear_rgba(
     color: vec4<f32>,
 ) -> vec4<f32> {
 @if(IN_OKLCH)
@@ -225,7 +225,7 @@ fn convert_to_linear_rgba(
     return vec4(rgb, color.a);
 }
 
-fn interpolate_gradient(
+public fn interpolate_gradient(
     distance: f32,
     start_color: vec4<f32>,
     start_distance: f32,

@@ -1,6 +1,6 @@
 import bevy_sprite_render::{mesh2d::vertex_output::VertexOutput, sprite_mesh::functions as sprite_fn};
 
-struct DissolveMaterial {
+public struct DissolveMaterial {
     burn_edge_color: vec4<f32>,
     amount: f32,
     burn_edge: f32,
@@ -12,10 +12,10 @@ struct DissolveMaterial {
     _webgl2_padding_16b: u32,
 }
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(20) var<uniform> material: DissolveMaterial;
+@group(constants::MATERIAL_BIND_GROUP) @binding(20) public var<uniform> material: DissolveMaterial;
 
 @fragment
-fn fragment(input: VertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(input: VertexOutput) -> @location(0) vec4<f32> {
     // Sample some simplex noise with the UV coordinates scaled up by 2 to make the noise denser
     var noise = fbm_simplex_2d(input.uv * 2.0);
     // Change the noise's range from 0..1 to burn_edge..1 - burn_edge
@@ -48,7 +48,7 @@ fn fragment(input: VertexOutput) -> @location(0) vec4<f32> {
 ///
 /// Note that usually sampling the noise from a prebaked texture is better for performance.
 /// However, to avoid increasing the size of the bevy git repository, we generate the noise in the shader.
-fn simplex_noise_2d(v: vec2<f32>) -> f32 {
+public fn simplex_noise_2d(v: vec2<f32>) -> f32 {
     let C = vec4(
         0.211324865405187, // (3.0 - sqrt(3.0)) / 6.0
         0.366025403784439, // 0.5 * (sqrt(3.0) - 1.0)
@@ -89,7 +89,7 @@ fn simplex_noise_2d(v: vec2<f32>) -> f32 {
 }
 
 /// Fractional brownian motion using simplex noise. This approach makes the noise look more detailed.
-fn fbm_simplex_2d(pos: vec2<f32>) -> f32 {
+public fn fbm_simplex_2d(pos: vec2<f32>) -> f32 {
     const octaves = 3;
     const lacunarity = 2.0;
     const gain = 0.5;
@@ -111,6 +111,6 @@ fn fbm_simplex_2d(pos: vec2<f32>) -> f32 {
     return sum / max;
 }
 
-fn permute_3_(x: vec3<f32>) -> vec3<f32> {
+public fn permute_3_(x: vec3<f32>) -> vec3<f32> {
     return (((x * 34.) + 1.) * x) % vec3(289.);
 }

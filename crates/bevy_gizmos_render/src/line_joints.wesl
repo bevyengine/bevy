@@ -1,9 +1,9 @@
 import bevy_render::{view::View, maths::affine3_to_square};
 
-@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(0) public var<uniform> view: View;
 
 
-struct LineGizmoUniform {
+public struct LineGizmoUniform {
     world_from_local: mat3x4<f32>,
     line_width: f32,
     depth_bias: f32,
@@ -13,9 +13,9 @@ struct LineGizmoUniform {
     _padding: f32,
 }
 
-@group(1) @binding(0) var<uniform> joints_gizmo: LineGizmoUniform;
+@group(1) @binding(0) public var<uniform> joints_gizmo: LineGizmoUniform;
 
-struct VertexInput {
+public struct VertexInput {
     @location(0) position_a: vec3<f32>,
     @location(1) position_b: vec3<f32>,
     @location(2) position_c: vec3<f32>,
@@ -23,15 +23,15 @@ struct VertexInput {
     @builtin(vertex_index) index: u32,
 };
 
-struct VertexOutput {
+public struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
 };
 
-const EPSILON: f32 = 4.88e-04;
+public const EPSILON: f32 = 4.88e-04;
 
 @vertex
-fn vertex_bevel(vertex: VertexInput) -> VertexOutput {
+public fn vertex_bevel(vertex: VertexInput) -> VertexOutput {
     var positions = array<vec2<f32>, 3>(
         vec2(0, 0),
         vec2(0, 0.5),
@@ -88,7 +88,7 @@ fn vertex_bevel(vertex: VertexInput) -> VertexOutput {
 }
 
 @vertex
-fn vertex_miter(vertex: VertexInput) -> VertexOutput {
+public fn vertex_miter(vertex: VertexInput) -> VertexOutput {
     var positions = array<vec3<f32>, 6>(
         vec3(0, 0, 0),
         vec3(0.5, 0, 0),
@@ -149,7 +149,7 @@ fn vertex_miter(vertex: VertexInput) -> VertexOutput {
 }
 
 @vertex
-fn vertex_round(vertex: VertexInput) -> VertexOutput {
+public fn vertex_round(vertex: VertexInput) -> VertexOutput {
     let world_from_local = affine3_to_square(joints_gizmo.world_from_local);
 
     var clip_a = view.clip_from_world * world_from_local * vec4(vertex.position_a, 1.);
@@ -205,7 +205,7 @@ fn vertex_round(vertex: VertexInput) -> VertexOutput {
     return VertexOutput(clip_position, color);
 }
 
-fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
+public fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
     // Move a if a is behind the near plane and b is in front. 
     if a.z > a.w && b.z <= b.w {
         // Interpolate a towards b until it's at the near plane.
@@ -219,7 +219,7 @@ fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
     return a;
 }
 
-fn depth(clip: vec4<f32>) -> f32 {
+public fn depth(clip: vec4<f32>) -> f32 {
     var depth: f32;
     if joints_gizmo.depth_bias >= 0. {
         depth = clip.z * (1. - joints_gizmo.depth_bias);
@@ -236,16 +236,16 @@ fn depth(clip: vec4<f32>) -> f32 {
     return depth;
 }
 
-struct FragmentInput {
+public struct FragmentInput {
     @location(0) color: vec4<f32>,
 };
 
-struct FragmentOutput {
+public struct FragmentOutput {
     @location(0) color: vec4<f32>,
 };
 
 @fragment
-fn fragment(in: FragmentInput) -> FragmentOutput {
+public fn fragment(in: FragmentInput) -> FragmentOutput {
     // return FragmentOutput(vec4(1, 1, 1, 1));
     return FragmentOutput(in.color);
 }

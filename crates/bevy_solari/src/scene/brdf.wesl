@@ -8,20 +8,20 @@ import package::scene::bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD, 
 
 enable wgpu_ray_query;
 
-struct EvaluateAndSampleBrdfResult {
+public struct EvaluateAndSampleBrdfResult {
     wi: vec3<f32>,
     throughput: vec3<f32>,
     pdf: f32,
     diffuse_selected: bool,
 }
 
-struct LobeReflectances {
+public struct LobeReflectances {
     specular: vec3<f32>,
     diffuse: vec3<f32>,
 }
 
 /// Hemispherical reflectance of each lobe
-fn lobe_reflectances(F0_metal: vec3<f32>, F0_dielectric: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> LobeReflectances {
+public fn lobe_reflectances(F0_metal: vec3<f32>, F0_dielectric: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> LobeReflectances {
     let multiscattering_factor = 1.0 / (F_ab.x + F_ab.y) - 1.0;
     let rho_specular_metallic = (F0_metal * F_ab.x + F_ab.y) * (1.0 + F0_metal * multiscattering_factor);
     let rho_specular_dielectric = (F0_dielectric * F_ab.x + F_ab.y) * (1.0 + F0_dielectric * multiscattering_factor);
@@ -31,7 +31,7 @@ fn lobe_reflectances(F0_metal: vec3<f32>, F0_dielectric: vec3<f32>, material: Re
     );
 }
 
-fn specular_lobe_sampling_probability(rho: LobeReflectances, perceptual_roughness: f32) -> f32 {
+public fn specular_lobe_sampling_probability(rho: LobeReflectances, perceptual_roughness: f32) -> f32 {
     let specular_luminance = luminance(rho.specular);
     let total_luminance = specular_luminance + luminance(rho.diffuse);
     let energy_probability = specular_luminance / max(total_luminance, 0.0001);
@@ -41,7 +41,7 @@ fn specular_lobe_sampling_probability(rho: LobeReflectances, perceptual_roughnes
     return max(energy_probability, roughness_biased_probability);
 }
 
-fn evaluate_and_sample_brdf(
+public fn evaluate_and_sample_brdf(
     wo: vec3<f32>,
     world_normal: vec3<f32>,
     material: ResolvedMaterial,
@@ -94,7 +94,7 @@ fn evaluate_and_sample_brdf(
     return EvaluateAndSampleBrdfResult(wi, throughput, pdf, diffuse_selected);
 }
 
-fn evaluate_brdf(
+public fn evaluate_brdf(
     wo: vec3<f32>,
     wi: vec3<f32>,
     world_normal: vec3<f32>,
@@ -104,7 +104,7 @@ fn evaluate_brdf(
     return evaluate_diffuse_brdf(wo, wi, world_normal, material, F_ab) + evaluate_specular_brdf(wo, wi, world_normal, material, F_ab);
 }
 
-fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> vec3<f32> {
+public fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> vec3<f32> {
     let NdotL = dot(world_normal, wi);
     let NdotV = dot(world_normal, wo);
     if NdotL < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
@@ -114,7 +114,7 @@ fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, 
     return rho.diffuse / PI * NdotL;
 }
 
-fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> vec3<f32> {
+public fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> vec3<f32> {
     let H = normalize(wi + wo);
     let NdotL = dot(world_normal, wi);
     let NdotH = min(dot(world_normal, H), 1.0);
@@ -145,7 +145,7 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
                material.metallic) * NdotL;
 }
 
-fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> f32 {
+public fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> f32 {
     let NdotV = max(dot(world_normal, wo), 0.0001);
     let F0_metal = material.base_color;
     let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
@@ -166,11 +166,11 @@ fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: Res
     return (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
 }
 
-fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
+public fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
     return f0 + (1.0 - f0) * pow(saturate(1.0 - LdotH), 5.0);
 }
 
 /// Scale/bias approximation
-fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
+public fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
     return textureSampleLevel(brdf_dfg_lut, brdf_dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
 }

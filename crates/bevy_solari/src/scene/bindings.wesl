@@ -4,7 +4,7 @@ import bevy_render::maths::affine3_to_square;
 enable wgpu_ray_query;
 enable wgpu_binding_array;
 
-struct InstanceGeometryIds {
+public struct InstanceGeometryIds {
     vertex_buffer_id: u32,
     vertex_buffer_offset: u32,
     index_buffer_id: u32,
@@ -12,24 +12,24 @@ struct InstanceGeometryIds {
     triangle_count: u32,
 }
 
-struct VertexBuffer { vertices: array<PackedVertex> }
+public struct VertexBuffer { vertices: array<PackedVertex> }
 
-struct IndexBuffer { indices: array<u32> }
+public struct IndexBuffer { indices: array<u32> }
 
-struct PackedVertex {
+public struct PackedVertex {
     a: vec4<f32>,
     b: vec4<f32>,
     tangent: vec4<f32>,
 }
 
-struct Vertex {
+public struct Vertex {
     position: vec3<f32>,
     normal: vec3<f32>,
     uv: vec2<f32>,
     tangent: vec4<f32>,
 }
 
-fn unpack_vertex(packed: PackedVertex) -> Vertex {
+public fn unpack_vertex(packed: PackedVertex) -> Vertex {
     var vertex: Vertex;
     vertex.position = packed.a.xyz;
     vertex.normal = vec3(packed.a.w, packed.b.xy);
@@ -38,7 +38,7 @@ fn unpack_vertex(packed: PackedVertex) -> Vertex {
     return vertex;
 }
 
-struct Material {
+public struct Material {
     normal_map_texture_id: u32,
     base_color_texture_id: u32,
     emissive_texture_id: u32,
@@ -52,58 +52,58 @@ struct Material {
     reflectance: f32,
 }
 
-const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
+public const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
 
-const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
+public const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
 
-struct LightSource {
+public struct LightSource {
     kind: u32, // 1 bit for kind, 31 bits for extra data
     id: u32,
 }
 
-const LIGHT_SOURCE_KIND_EMISSIVE_MESH = 0u;
-const LIGHT_SOURCE_KIND_DIRECTIONAL = 1u;
+public const LIGHT_SOURCE_KIND_EMISSIVE_MESH = 0u;
+public const LIGHT_SOURCE_KIND_DIRECTIONAL = 1u;
 
-struct DirectionalLight {
+public struct DirectionalLight {
     direction_to_light: vec3<f32>,
     cos_theta_max: f32,
     luminance: vec3<f32>,
     inverse_pdf: f32,
 }
 
-struct EnvironmentMapLight {
+public struct EnvironmentMapLight {
     light_from_world: mat3x3<f32>,
     intensity: f32,
 }
 
-const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
+public const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 
-@group(0) @binding(0) var<storage> vertex_buffers: binding_array<VertexBuffer>;
-@group(0) @binding(1) var<storage> index_buffers: binding_array<IndexBuffer>;
-@group(0) @binding(2) var textures: binding_array<texture_2d<f32>>;
-@group(0) @binding(3) var samplers: binding_array<sampler>;
-@group(0) @binding(4) var<storage> materials: array<Material>;
-@group(0) @binding(5) var tlas: acceleration_structure;
-@group(0) @binding(6) var previous_frame_tlas: acceleration_structure;
-@group(0) @binding(7) var<storage> transforms: array<mat3x4<f32>>;
-@group(0) @binding(8) var<storage> previous_frame_transforms: array<mat3x4<f32>>;
-@group(0) @binding(9) var<storage> geometry_ids: array<InstanceGeometryIds>;
-@group(0) @binding(10) var<storage> material_ids: array<u32>;
-@group(0) @binding(11) var<storage> light_sources: array<LightSource>;
-@group(0) @binding(12) var<storage> directional_lights: array<DirectionalLight>;
-@group(0) @binding(13) var<storage> previous_frame_light_id_translations: array<u32>;
-@group(0) @binding(14) var brdf_dfg_lut: texture_2d<f32>;
-@group(0) @binding(15) var brdf_dfg_lut_sampler: sampler;
-@group(0) @binding(16) var environment_map: texture_cube<f32>;
-@group(0) @binding(17) var environment_map_sampler: sampler;
-@group(0) @binding(18) var<storage> environment_map_light: EnvironmentMapLight;
+@group(0) @binding(0) public var<storage> vertex_buffers: binding_array<VertexBuffer>;
+@group(0) @binding(1) public var<storage> index_buffers: binding_array<IndexBuffer>;
+@group(0) @binding(2) public var textures: binding_array<texture_2d<f32>>;
+@group(0) @binding(3) public var samplers: binding_array<sampler>;
+@group(0) @binding(4) public var<storage> materials: array<Material>;
+@group(0) @binding(5) public var tlas: acceleration_structure;
+@group(0) @binding(6) public var previous_frame_tlas: acceleration_structure;
+@group(0) @binding(7) public var<storage> transforms: array<mat3x4<f32>>;
+@group(0) @binding(8) public var<storage> previous_frame_transforms: array<mat3x4<f32>>;
+@group(0) @binding(9) public var<storage> geometry_ids: array<InstanceGeometryIds>;
+@group(0) @binding(10) public var<storage> material_ids: array<u32>;
+@group(0) @binding(11) public var<storage> light_sources: array<LightSource>;
+@group(0) @binding(12) public var<storage> directional_lights: array<DirectionalLight>;
+@group(0) @binding(13) public var<storage> previous_frame_light_id_translations: array<u32>;
+@group(0) @binding(14) public var brdf_dfg_lut: texture_2d<f32>;
+@group(0) @binding(15) public var brdf_dfg_lut_sampler: sampler;
+@group(0) @binding(16) public var environment_map: texture_cube<f32>;
+@group(0) @binding(17) public var environment_map_sampler: sampler;
+@group(0) @binding(18) public var<storage> environment_map_light: EnvironmentMapLight;
 
-const RAY_T_MIN = 0.001f;
-const RAY_T_MAX = 100000.0f;
+public const RAY_T_MIN = 0.001f;
+public const RAY_T_MAX = 100000.0f;
 
-const RAY_NO_CULL = 0xFFu;
+public const RAY_NO_CULL = 0xFFu;
 
-fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ray_t_max: f32, ray_flag: u32) -> RayIntersection {
+public fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ray_t_max: f32, ray_flag: u32) -> RayIntersection {
     let ray = RayDesc(ray_flag, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
     var rq: ray_query;
     rayQueryInitialize(&rq, tlas, ray);
@@ -111,7 +111,7 @@ fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ra
     return rayQueryGetCommittedIntersection(&rq);
 }
 
-fn trace_ray_previous_frame(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ray_t_max: f32, ray_flag: u32) -> RayIntersection {
+public fn trace_ray_previous_frame(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ray_t_max: f32, ray_flag: u32) -> RayIntersection {
     let ray = RayDesc(ray_flag, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
     var rq: ray_query;
     rayQueryInitialize(&rq, previous_frame_tlas, ray);
@@ -119,11 +119,11 @@ fn trace_ray_previous_frame(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray
     return rayQueryGetCommittedIntersection(&rq);
 }
 
-fn sample_texture(id: u32, uv: vec2<f32>) -> vec3<f32> {
+public fn sample_texture(id: u32, uv: vec2<f32>) -> vec3<f32> {
     return textureSampleLevel(textures[id], samplers[id], uv, 0.0).rgb; // TODO: Mipmap
 }
 
-struct ResolvedMaterial {
+public struct ResolvedMaterial {
     base_color: vec3<f32>,
     emissive: vec3<f32>,
     reflectance: f32,
@@ -132,7 +132,7 @@ struct ResolvedMaterial {
     metallic: f32,
 }
 
-struct ResolvedRayHitFull {
+public struct ResolvedRayHitFull {
     world_position: vec3<f32>,
     previous_frame_world_position: vec3<f32>,
     world_normal: vec3<f32>,
@@ -144,7 +144,7 @@ struct ResolvedRayHitFull {
     material: ResolvedMaterial,
 }
 
-fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
+public fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     var m: ResolvedMaterial;
 
     m.base_color = material.base_color.rgb;
@@ -172,12 +172,12 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     return m;
 }
 
-fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
+public fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
     let barycentrics = vec3(1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y, ray_hit.barycentrics);
     return resolve_triangle_data_full(ray_hit.instance_custom_data, ray_hit.primitive_index, barycentrics);
 }
 
-fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -> array<Vertex, 3> {
+public fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -> array<Vertex, 3> {
     let index_buffer = &index_buffers[instance_geometry_ids.index_buffer_id].indices;
     let vertex_buffer = &vertex_buffers[instance_geometry_ids.vertex_buffer_id].vertices;
 
@@ -191,7 +191,7 @@ fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -
     );
 }
 
-fn transform_positions(transform: mat4x4<f32>, vertices: array<Vertex, 3>) -> array<vec3<f32>, 3> {
+public fn transform_positions(transform: mat4x4<f32>, vertices: array<Vertex, 3>) -> array<vec3<f32>, 3> {
     return array<vec3<f32>, 3>(
         (transform * vec4(vertices[0].position, 1.0)).xyz,
         (transform * vec4(vertices[1].position, 1.0)).xyz,
@@ -199,7 +199,7 @@ fn transform_positions(transform: mat4x4<f32>, vertices: array<Vertex, 3>) -> ar
     );
 }
 
-fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
+public fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
     let material_id = material_ids[instance_id];
     let material = materials[material_id];
 

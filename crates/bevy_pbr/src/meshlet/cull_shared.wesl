@@ -10,7 +10,7 @@ import package::meshlet::bindings::{
 import bevy_render::maths::affine3_to_square;
 
 /// https://github.com/zeux/meshoptimizer/blob/1e48e96c7e8059321de492865165e9ef071bffba/demo/nanite.cpp#L115
-fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, instance_id: u32) -> bool {
+public fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, instance_id: u32) -> bool {
     let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
     let world_scale = max(length(world_from_local[0]), max(length(world_from_local[1]), length(world_from_local[2])));
     let camera_pos = view.world_position;
@@ -35,13 +35,13 @@ fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, 
     }
 }
 
-fn normalize_plane(p: vec4<f32>) -> vec4<f32> {
+public fn normalize_plane(p: vec4<f32>) -> vec4<f32> {
     return p / length(p.xyz);
 }
 
 /// https://fgiesen.wordpress.com/2012/08/31/frustum-planes-from-the-projection-matrix/
 /// https://fgiesen.wordpress.com/2010/10/17/view-frustum-culling/
-fn aabb_in_frustum(aabb: MeshletAabb, instance_id: u32) -> bool {
+public fn aabb_in_frustum(aabb: MeshletAabb, instance_id: u32) -> bool {
     let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
     let clip_from_local = view.clip_from_world * world_from_local;
     let row_major = transpose(clip_from_local);
@@ -63,25 +63,25 @@ fn aabb_in_frustum(aabb: MeshletAabb, instance_id: u32) -> bool {
     return true;
 }
 
-struct ScreenAabb {
+public struct ScreenAabb {
     min: vec3<f32>,
     max: vec3<f32>,
 }
 
-fn min8(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, e: vec3<f32>, f: vec3<f32>, g: vec3<f32>, h: vec3<f32>) -> vec3<f32> {
+public fn min8(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, e: vec3<f32>, f: vec3<f32>, g: vec3<f32>, h: vec3<f32>) -> vec3<f32> {
     return min(min(min(a, b), min(c, d)), min(min(e, f), min(g, h)));
 }
 
-fn max8(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, e: vec3<f32>, f: vec3<f32>, g: vec3<f32>, h: vec3<f32>) -> vec3<f32> {
+public fn max8(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, e: vec3<f32>, f: vec3<f32>, g: vec3<f32>, h: vec3<f32>) -> vec3<f32> {
     return max(max(max(a, b), max(c, d)), max(max(e, f), max(g, h)));
 }
 
-fn min8_4(a: vec4<f32>, b: vec4<f32>, c: vec4<f32>, d: vec4<f32>, e: vec4<f32>, f: vec4<f32>, g: vec4<f32>, h: vec4<f32>) -> vec4<f32> {
+public fn min8_4(a: vec4<f32>, b: vec4<f32>, c: vec4<f32>, d: vec4<f32>, e: vec4<f32>, f: vec4<f32>, g: vec4<f32>, h: vec4<f32>) -> vec4<f32> {
     return min(min(min(a, b), min(c, d)), min(min(e, f), min(g, h)));
 }
 
 /// https://zeux.io/2023/01/12/approximate-projected-bounds/
-fn project_aabb(clip_from_local: mat4x4<f32>, near: f32, aabb: MeshletAabb, out: ptr<function, ScreenAabb>) -> bool {
+public fn project_aabb(clip_from_local: mat4x4<f32>, near: f32, aabb: MeshletAabb, out: ptr<function, ScreenAabb>) -> bool {
     let extent = aabb.half_extent * 2.0;
     let sx = clip_from_local * vec4<f32>(extent.x, 0.0, 0.0, 0.0);
     let sy = clip_from_local * vec4<f32>(0.0, extent.y, 0.0, 0.0);
@@ -120,7 +120,7 @@ fn project_aabb(clip_from_local: mat4x4<f32>, near: f32, aabb: MeshletAabb, out:
     return true;
 }
 
-fn sample_hzb(smin: vec2<u32>, smax: vec2<u32>, mip: i32) -> f32 {
+public fn sample_hzb(smin: vec2<u32>, smax: vec2<u32>, mip: i32) -> f32 {
     let texel = vec4<u32>(0, 1, 2, 3);
     let sx = min(smin.x + texel, smax.xxxx);
     let sy = min(smin.y + texel, smax.yyyy);
@@ -133,7 +133,7 @@ fn sample_hzb(smin: vec2<u32>, smax: vec2<u32>, mip: i32) -> f32 {
     return min(min(a, b), min(c, d));
 }
 
-fn sample_hzb_row(sx: vec4<u32>, sy: u32, mip: i32) -> f32 {
+public fn sample_hzb_row(sx: vec4<u32>, sy: u32, mip: i32) -> f32 {
     let a = textureLoad(depth_pyramid, vec2(sx.x, sy), mip).x;
     let b = textureLoad(depth_pyramid, vec2(sx.y, sy), mip).x;
     let c = textureLoad(depth_pyramid, vec2(sx.z, sy), mip).x;
@@ -141,7 +141,7 @@ fn sample_hzb_row(sx: vec4<u32>, sy: u32, mip: i32) -> f32 {
     return min(min(a, b), min(c, d));
 }
 
-fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
+public fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
     let hzb_size = vec2<f32>(textureDimensions(depth_pyramid).xy);
     let aabb_min = aabb.min.xy * hzb_size;
     let aabb_max = aabb.max.xy * hzb_size;
@@ -167,14 +167,14 @@ fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
     return aabb.max.z <= curr_depth;
 }
 
-fn occlusion_cull_projection() -> mat4x4<f32> {
+public fn occlusion_cull_projection() -> mat4x4<f32> {
     @if(MESHLET_FIRST_CULLING_PASS)
     return previous_view.clip_from_world;
     @else
     return view.clip_from_world;
 }
 
-fn occlusion_cull_clip_from_local(instance_id: u32) -> mat4x4<f32> {
+public fn occlusion_cull_clip_from_local(instance_id: u32) -> mat4x4<f32> {
     @if(MESHLET_FIRST_CULLING_PASS)
     let prev_world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].previous_world_from_local);
     @if(MESHLET_FIRST_CULLING_PASS)
@@ -185,7 +185,7 @@ fn occlusion_cull_clip_from_local(instance_id: u32) -> mat4x4<f32> {
     return view.clip_from_world * world_from_local;
 }
 
-fn should_occlusion_cull_aabb(aabb: MeshletAabb, instance_id: u32) -> bool {
+public fn should_occlusion_cull_aabb(aabb: MeshletAabb, instance_id: u32) -> bool {
     let projection = occlusion_cull_projection();
     var near: f32;
     if projection[3][3] == 1.0 {

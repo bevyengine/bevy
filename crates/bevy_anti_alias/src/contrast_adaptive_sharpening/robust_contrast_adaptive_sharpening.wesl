@@ -19,18 +19,18 @@
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
-struct CASUniforms {
+public struct CASUniforms {
     sharpness: f32,
 };
 
-@group(0) @binding(0) var screenTexture: texture_2d<f32>;
-@group(0) @binding(1) var samp: sampler;
-@group(0) @binding(2) var<uniform> uniforms: CASUniforms;
+@group(0) @binding(0) public var screenTexture: texture_2d<f32>;
+@group(0) @binding(1) public var samp: sampler;
+@group(0) @binding(2) public var<uniform> uniforms: CASUniforms;
 
 // This is set at the limit of providing unnatural results for sharpening.
-const FSR_RCAS_LIMIT = 0.1875;
+public const FSR_RCAS_LIMIT = 0.1875;
 // -4.0 instead of -1.0 to avoid issues with MSAA.
-const peakC = vec2<f32>(10.0, -40.0);
+public const peakC = vec2<f32>(10.0, -40.0);
 
 /// Robust Contrast Adaptive Sharpening (RCAS)
 /// Based on the following implementation:
@@ -57,7 +57,7 @@ const peakC = vec2<f32>(10.0, -40.0);
 /// This is used as a noise detection filter, to reduce the effect of RCAS on grain, and focus on real edges.
 /// The CAS node runs after tonemapping, so the input will be in the range of 0 to 1.
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Algorithm uses minimal 3x3 pixel neighborhood.
     //    b
     //  d e f

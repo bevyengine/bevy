@@ -15,11 +15,11 @@ import package::{
 import package::render::pbr_bindings::material_indices;
 
 /// Cutoff used for the premultiplied alpha modes BLEND, ADD, and ALPHA_TO_COVERAGE.
-const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
+public const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 
 /// Reusable alpha discard logic suitable for use by custom materials in the prepass.
 /// We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
-fn prepass_alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) {
+public fn prepass_alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) {
     let alpha_mode = material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
         if output_color.a < alpha_cutoff {
@@ -40,7 +40,7 @@ fn prepass_alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: v
 
 /// Samples the StandardMaterial's base color (including the base color texture, if any) and then
 /// invokes `prepass_alpha_discard` with the material's flags and alpha cutoff.
-fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
+public fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
 
 @if(MAY_DISCARD) {
 @if(BINDLESS) {
@@ -90,7 +90,7 @@ fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
 }
 
 @if(MOTION_VECTOR_PREPASS)
-fn calculate_motion_vector(world_position: vec4<f32>, previous_world_position: vec4<f32>) -> vec2<f32> {
+public fn calculate_motion_vector(world_position: vec4<f32>, previous_world_position: vec4<f32>) -> vec2<f32> {
     let clip_position_t = view.unjittered_clip_from_world * world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
     let previous_clip_position_t = previous_view_uniforms.unjittered_clip_from_world * previous_world_position;

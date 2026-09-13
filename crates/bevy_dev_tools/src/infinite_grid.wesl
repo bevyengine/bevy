@@ -1,13 +1,13 @@
 import bevy_render::view::View;
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
-struct InfiniteGridUniform {
+public struct InfiniteGridUniform {
     rot_matrix: mat3x3<f32>,
     origin: vec3<f32>,
     normal: vec3<f32>,
 };
 
-struct InfiniteGridSettings {
+public struct InfiniteGridSettings {
     scale: f32,
     /// 1 / fadeout_distance
     one_over_fadeout_distance: f32,
@@ -21,25 +21,25 @@ struct InfiniteGridSettings {
     major_line_col: vec4<f32>,
 };
 
-@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(0) public var<uniform> view: View;
 
-@group(1) @binding(0) var<uniform> infinite_grid: InfiniteGridUniform;
-@group(1) @binding(1) var<uniform> grid_settings: InfiniteGridSettings;
+@group(1) @binding(0) public var<uniform> infinite_grid: InfiniteGridUniform;
+@group(1) @binding(1) public var<uniform> grid_settings: InfiniteGridSettings;
 
 /// Same as view_transformations::position_ndc_to_world but we can't use it since
 /// it relies on bevy's view bind group
-fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
+public fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
     let world_pos = view.world_from_clip * vec4(ndc_pos, 1.0);
     return world_pos.xyz / world_pos.w;
 }
 
-struct FragmentOutput {
+public struct FragmentOutput {
     @location(0) color: vec4<f32>,
     @builtin(frag_depth) depth: f32,
 };
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
+public fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
     // Reconstruct clip-space XY from UV, then unproject to world space
     let clip_xy = in.uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
     let near_point = position_ndc_to_world(vec3(clip_xy, 1.0));

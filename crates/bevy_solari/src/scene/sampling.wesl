@@ -5,11 +5,11 @@ import package::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN
 
 enable wgpu_ray_query;
 
-fn power_heuristic(f: f32, g: f32) -> f32 {
+public fn power_heuristic(f: f32, g: f32) -> f32 {
     return balance_heuristic(f * f, g * g);
 }
 
-fn balance_heuristic(f: f32, g: f32) -> f32 {
+public fn balance_heuristic(f: f32, g: f32) -> f32 {
     // Need to guard against NaNs since ReSTIR reservoirs can have UCW=0
     if f == 0.0 {
         return 0.0;
@@ -21,7 +21,7 @@ fn balance_heuristic(f: f32, g: f32) -> f32 {
 
 /// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
 /// Result is invalid when output.z <= 0.0, and must be discarded
-fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
+public fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
         return vec3(-wi_tangent.xy, wi_tangent.z);
@@ -45,12 +45,12 @@ fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32
     return 2.0 * dot(i, m) * m - i;
 }
 
-fn ggx_vndf_sample_invalid(ray_tangent: vec3<f32>) -> bool {
+public fn ggx_vndf_sample_invalid(ray_tangent: vec3<f32>) -> bool {
     return !(ray_tangent.z > 0.0);
 }
 
 /// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
-fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
+public fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
         let mirror_wo = vec3(-wi_tangent.xy, wi_tangent.z);
@@ -83,29 +83,29 @@ fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) ->
     return select(pdf, 0.0, isnan(pdf));
 }
 
-fn isinf(x: f32) -> bool {
+public fn isinf(x: f32) -> bool {
     return (bitcast<u32>(x) & 0x7fffffffu) == 0x7f800000u;
 }
 
-fn isnan(x: f32) -> bool {
+public fn isnan(x: f32) -> bool {
     return (bitcast<u32>(x) & 0x7fffffffu) > 0x7f800000u;
 }
 
-const NULL_LIGHT_ID = 0xFFFFFFFFu;
+public const NULL_LIGHT_ID = 0xFFFFFFFFu;
 
-struct LightSample {
+public struct LightSample {
     light_id: u32,
     seed: u32,
 }
 
-struct ResolvedLightSample {
+public struct ResolvedLightSample {
     world_position: vec4<f32>,
     world_normal: vec3<f32>,
     radiance: vec3<f32>,
     inverse_pdf: f32,
 }
 
-struct LightContribution {
+public struct LightContribution {
     radiance: vec3<f32>,
     inverse_pdf: f32,
     /// inverse_pdf may not be in solid angle measure (e.g. area measure)
@@ -116,25 +116,25 @@ struct LightContribution {
     brdf_rays_can_hit: bool,
 }
 
-struct GenerateRandomLightSampleResult {
+public struct GenerateRandomLightSampleResult {
     light_sample: LightSample,
     resolved_light_sample: ResolvedLightSample,
 }
 
-fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> LightContribution {
+public fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> LightContribution {
     let sample = generate_random_light_sample(rng);
     var light_contribution = calculate_resolved_light_contribution(sample.resolved_light_sample, ray_origin, origin_world_normal);
     light_contribution.radiance *= trace_visibility(ray_origin, sample.resolved_light_sample.world_position);
     return light_contribution;
 }
 
-fn random_emissive_light_pdf(hit: ResolvedRayHitFull, ray_distance: f32, NdotV: f32) -> f32 {
+public fn random_emissive_light_pdf(hit: ResolvedRayHitFull, ray_distance: f32, NdotV: f32) -> f32 {
     let light_count = arrayLength(&light_sources);
     let area_pdf = 1.0 / (f32(light_count) * f32(hit.triangle_count) * hit.triangle_area);
     return area_pdf * (ray_distance * ray_distance) / NdotV;
 }
 
-fn sample_environment_map_light(world_direction: vec3<f32>) -> vec3<f32> {
+public fn sample_environment_map_light(world_direction: vec3<f32>) -> vec3<f32> {
     if environment_map_light.intensity == 0.0 { return vec3(0.0); }
 
     var sample_direction = environment_map_light.light_from_world * world_direction;
@@ -144,7 +144,7 @@ fn sample_environment_map_light(world_direction: vec3<f32>) -> vec3<f32> {
     return textureSampleLevel(environment_map, environment_map_sampler, sample_direction, 0.0).rgb * environment_map_light.intensity;
 }
 
-fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
+public fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
     let light_count = arrayLength(&light_sources);
     let light_id = rand_range_u(light_count, rng);
 
@@ -165,7 +165,7 @@ fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightS
     return GenerateRandomLightSampleResult(light_sample, resolved_light_sample);
 }
 
-fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) -> ResolvedLightSample {
+public fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) -> ResolvedLightSample {
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
         let directional_light = directional_lights[light_source.id];
 
@@ -209,7 +209,7 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
     }
 }
 
-fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
+public fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
     let ray = resolved_light_sample.world_position.xyz - (resolved_light_sample.world_position.w * ray_origin);
     let light_distance = length(ray);
     let wi = ray / light_distance;
@@ -224,7 +224,7 @@ fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSam
     return LightContribution(radiance, resolved_light_sample.inverse_pdf, inverse_solid_angle_pdf, wi, resolved_light_sample.world_position.w == 1.0);
 }
 
-fn trace_visibility(ray_origin: vec3<f32>, point: vec4<f32>) -> f32 {
+public fn trace_visibility(ray_origin: vec3<f32>, point: vec4<f32>) -> f32 {
     var ray_direction = point.xyz;
     var ray_t_max = RAY_T_MAX;
 
@@ -241,7 +241,7 @@ fn trace_visibility(ray_origin: vec3<f32>, point: vec4<f32>) -> f32 {
     return f32(ray_hit.kind == RAY_QUERY_INTERSECTION_NONE);
 }
 
-fn trace_visibility_previous_frame(ray_origin: vec3<f32>, point: vec4<f32>) -> f32 {
+public fn trace_visibility_previous_frame(ray_origin: vec3<f32>, point: vec4<f32>) -> f32 {
     var ray_direction = point.xyz;
     var ray_t_max = RAY_T_MAX;
 
@@ -259,7 +259,7 @@ fn trace_visibility_previous_frame(ray_origin: vec3<f32>, point: vec4<f32>) -> f
 }
 
 /// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec22%3A297
-fn triangle_barycentrics(seed: u32) -> vec3<f32> {
+public fn triangle_barycentrics(seed: u32) -> vec3<f32> {
     var rng = seed;
     var barycentrics = rand_vec2f(&rng);
     if barycentrics.x + barycentrics.y > 1.0 { barycentrics = 1.0 - barycentrics; }

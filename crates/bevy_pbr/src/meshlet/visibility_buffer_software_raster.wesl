@@ -25,11 +25,11 @@ import bevy_render::maths::affine3_to_square;
 
 // TODO: Fixed-point math and top-left rule
 
-var<workgroup> viewport_vertices: array<vec3f, 256>;
+public var<workgroup> viewport_vertices: array<vec3f, 256>;
 
 @compute
 @workgroup_size(128, 1, 1) // 128 threads per workgroup, 1-2 vertices per thread, 1 triangle per thread, 1 cluster per workgroup
-fn rasterize_cluster(
+public fn rasterize_cluster(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(local_invocation_index) local_invocation_index: u32,
     @if(MESHLET_2D_DISPATCH)
@@ -167,7 +167,7 @@ fn rasterize_cluster(
     }
 }
 
-fn write_visibility_buffer_pixel(x: f32, y: f32, z: f32, packed_ids: u32) {
+public fn write_visibility_buffer_pixel(x: f32, y: f32, z: f32, packed_ids: u32) {
     let depth = bitcast<u32>(z);
     @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
     let visibility = (u64(depth) << 32u) | u64(packed_ids);
@@ -176,14 +176,14 @@ fn write_visibility_buffer_pixel(x: f32, y: f32, z: f32, packed_ids: u32) {
     textureAtomicMax(meshlet_visibility_buffer, vec2(u32(x), u32(y)), visibility);
 }
 
-fn edge_function(a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {
+public fn edge_function(a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {
     return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 }
 
-fn min3(a: f32, b: f32, c: f32) -> f32 {
+public fn min3(a: f32, b: f32, c: f32) -> f32 {
     return min(a, min(b, c));
 }
 
-fn max3(a: f32, b: f32, c: f32) -> f32 {
+public fn max3(a: f32, b: f32, c: f32) -> f32 {
     return max(a, max(b, c));
 }

@@ -2,12 +2,12 @@
 //! performing format conversion if needed (the destination is always rgba16float).
 //! The alpha channel is filled with 1.0.
 
-@group(0) @binding(0) var src_cubemap: texture_2d_array<f32>;
-@group(0) @binding(1) var dst_cubemap: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(0) public var src_cubemap: texture_2d_array<f32>;
+@group(0) @binding(1) public var dst_cubemap: texture_storage_2d_array<rgba16float, write>;
 
 @compute
 @workgroup_size(8, 8, 1)
-fn copy(@builtin(global_invocation_id) global_id: vec3u) {
+public fn copy(@builtin(global_invocation_id) global_id: vec3u) {
     let size = textureDimensions(src_cubemap).xy;
 
     // Bounds check

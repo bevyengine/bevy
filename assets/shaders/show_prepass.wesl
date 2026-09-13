@@ -3,17 +3,17 @@ import bevy_pbr::{
     prepass::utils,
 };
 
-struct ShowPrepassSettings {
+public struct ShowPrepassSettings {
     show_depth: u32,
     show_normals: u32,
     show_motion_vectors: u32,
     padding_1: u32,
     padding_2: u32,
 }
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> settings: ShowPrepassSettings;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) public var<uniform> settings: ShowPrepassSettings;
 
 @fragment
-fn fragment(
+public fn fragment(
     @if(MULTISAMPLED) @builtin(sample_index) sample_index: u32,
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {

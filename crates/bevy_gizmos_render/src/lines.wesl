@@ -2,9 +2,9 @@
 import bevy_render::view::View;
 import bevy_render::maths::affine3_to_square;
 
-@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(0) public var<uniform> view: View;
 
-struct LineGizmoUniform {
+public struct LineGizmoUniform {
     world_from_local: mat3x4<f32>,
     line_width: f32,
     depth_bias: f32,
@@ -17,9 +17,9 @@ struct LineGizmoUniform {
     _padding: vec2<f32>,
 }
 
-@group(1) @binding(0) var<uniform> line_gizmo: LineGizmoUniform;
+@group(1) @binding(0) public var<uniform> line_gizmo: LineGizmoUniform;
 
-struct VertexInput {
+public struct VertexInput {
     @location(0) position_a: vec3<f32>,
     @location(1) position_b: vec3<f32>,
     @location(2) color_a: vec4<f32>,
@@ -27,17 +27,17 @@ struct VertexInput {
     @builtin(vertex_index) index: u32,
 };
 
-struct VertexOutput {
+public struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) uv: f32,
     @location(2) line_fraction: f32,
 };
 
-const EPSILON: f32 = 4.88e-04;
+public const EPSILON: f32 = 4.88e-04;
 
 @vertex
-fn vertex(vertex: VertexInput) -> VertexOutput {
+public fn vertex(vertex: VertexInput) -> VertexOutput {
     var positions = array<vec2<f32>, 6>(
         vec2(-0.5, 0.),
         vec2(-0.5, 1.),
@@ -135,7 +135,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     return VertexOutput(clip_position, color, uv, line_fraction);
 }
 
-fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
+public fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
     // Move a if a is behind the near plane and b is in front.
     if a.z > a.w && b.z <= b.w {
         // Interpolate a towards b until it's at the near plane.
@@ -150,18 +150,18 @@ fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
     return a;
 }
 
-struct FragmentInput {
+public struct FragmentInput {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) uv: f32,
     @location(2) line_fraction: f32,
 };
 
-struct FragmentOutput {
+public struct FragmentOutput {
     @location(0) color: vec4<f32>,
 };
 
-fn non_solid_uv(in: FragmentInput) -> f32 {
+public fn non_solid_uv(in: FragmentInput) -> f32 {
     @if(PERSPECTIVE)
     let uv = in.uv;
     @else
@@ -178,12 +178,12 @@ fn non_solid_uv(in: FragmentInput) -> f32 {
 }
 
 @fragment
-fn fragment_solid(in: FragmentInput) -> FragmentOutput {
+public fn fragment_solid(in: FragmentInput) -> FragmentOutput {
     return FragmentOutput(in.color);
 }
 
 @fragment
-fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
+public fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
     let uv = non_solid_uv(in);
     let alpha = 1.0 - floor(uv);
 
@@ -191,7 +191,7 @@ fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
 }
 
 @fragment
-fn fragment_dashed(in: FragmentInput) -> FragmentOutput {
+public fn fragment_dashed(in: FragmentInput) -> FragmentOutput {
     let uv = non_solid_uv(in);
     let alpha = 1.0 - floor(min(uv / in.line_fraction, 1.0));
 

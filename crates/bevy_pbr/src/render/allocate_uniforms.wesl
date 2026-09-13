@@ -28,7 +28,7 @@
 import bevy_render::occlusion_culling::mesh_preprocess_types::{BinMetadata, IndirectParametersMetadata};
 
 /// Information needed to allocate `MeshUniform`s.
-struct UniformAllocationMetadata {
+public struct UniformAllocationMetadata {
     /// The index of this batch set in the `IndirectBatchSet` array.
     ///
     /// We write this into the `indirect_parameters_metadata`.
@@ -51,28 +51,28 @@ struct UniformAllocationMetadata {
 };
 
 /// The number of threads in a workgroup.
-const WORKGROUP_SIZE: u32 = 256u;
+public const WORKGROUP_SIZE: u32 = 256u;
 
 /// Information needed to allocate `MeshUniform`s.
-@group(0) @binding(0) var<uniform> allocate_uniforms_metadata: UniformAllocationMetadata;
+@group(0) @binding(0) public var<uniform> allocate_uniforms_metadata: UniformAllocationMetadata;
 
 /// Information for each bin, including the indirect parameters offset and the
 /// instance count.
-@group(0) @binding(1) var<storage> bin_metadata: array<BinMetadata>;
+@group(0) @binding(1) public var<storage> bin_metadata: array<BinMetadata>;
 
 /// The array of indirect parameters metadata that we fill out, one for each
 /// batch.
-@group(0) @binding(2) var<storage, read_write> indirect_parameters_metadata:
+@group(0) @binding(2) public var<storage, read_write> indirect_parameters_metadata:
     array<IndirectParametersMetadata>;
 
 /// A temporary buffer that stores the mesh uniform index of the last instance
 /// plus one for each workgroup (i.e. for each 256-bin chunk).
 ///
 /// This is accumulated in the second stage and written out in the third.
-@group(0) @binding(3) var<storage, read_write> fan_buffer: array<u32>;
+@group(0) @binding(3) public var<storage, read_write> fan_buffer: array<u32>;
 
 /// Scratch memory that stores the prefix sum for every element in our chunk.
-var<workgroup> output_offsets: array<u32, 256>;
+public var<workgroup> output_offsets: array<u32, 256>;
 
 /// The first step of the prefix sum. This computes the prefix sum for each
 /// 256-element chunk.
@@ -82,7 +82,7 @@ var<workgroup> output_offsets: array<u32, 256>;
 /// parameters metadata for each batch here, as we can't guarantee that the
 /// following two steps will be run at all.
 @compute @workgroup_size(256, 1, 1)
-fn allocate_local_scan(
+public fn allocate_local_scan(
     @builtin(local_invocation_id) local_id: vec3<u32>,
     @builtin(workgroup_id) group_id: vec3<u32>,
     @builtin(global_invocation_id) global_id: vec3<u32>
@@ -152,7 +152,7 @@ fn allocate_local_scan(
 ///
 /// This step is omitted if there are 256 or fewer total draws.
 @compute @workgroup_size(256, 1, 1)
-fn allocate_global_scan(@builtin(local_invocation_id) local_id: vec3<u32>) {
+public fn allocate_global_scan(@builtin(local_invocation_id) local_id: vec3<u32>) {
     var sum = 0u;
     let chunk_count = div_ceil(allocate_uniforms_metadata.bin_count, WORKGROUP_SIZE);
 
@@ -192,7 +192,7 @@ fn allocate_global_scan(@builtin(local_invocation_id) local_id: vec3<u32>) {
 ///
 /// This step is omitted if there are 256 or fewer total draws.
 @compute @workgroup_size(256, 1, 1)
-fn allocate_fan(
+public fn allocate_fan(
     @builtin(workgroup_id) group_id: vec3<u32>,
     @builtin(global_invocation_id) global_id: vec3<u32>
 ) {
@@ -211,7 +211,7 @@ fn allocate_fan(
 
 /// Calculates a running exclusive sum.
 /// https://en.wikipedia.org/wiki/Prefix_sum#Algorithm_1:_Shorter_span,_more_parallel
-fn hillis_steele_scan(local_id: u32) {
+public fn hillis_steele_scan(local_id: u32) {
     for (var offset = 1u; offset < WORKGROUP_SIZE; offset *= 2u) {
         var term = 0u;
         if (local_id >= offset) {
@@ -224,6 +224,6 @@ fn hillis_steele_scan(local_id: u32) {
 }
 
 /// Divides unsigned integer a by b, rounding up.
-fn div_ceil(a: u32, b: u32) -> u32 {
+public fn div_ceil(a: u32, b: u32) -> u32 {
     return (a + b - 1u) / b;
 }

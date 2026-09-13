@@ -1,4 +1,4 @@
-struct Mesh {
+public struct Mesh {
     /// Affine 4x3 matrices transposed to 3x4
     /// Use bevy_render::maths::affine3_to_square to unpack
     world_from_local: mat3x4<f32>,
@@ -27,18 +27,18 @@ struct Mesh {
 };
 
 @if(SKINNED)
-struct SkinnedMesh {
+public struct SkinnedMesh {
     data: array<mat4x4<f32>, 256u>,
 };
 
 @if(MORPH_TARGETS)
-struct MorphWeights {
+public struct MorphWeights {
     weights: array<vec4<f32>, 64u>, // 64 = 256 / 4 (256 = MAX_MORPH_WEIGHTS)
 };
 
 /// Describes a single mesh instance that uses morph targets.
 @if(MORPH_TARGETS)
-struct MorphDescriptor {
+public struct MorphDescriptor {
     /// The index of the first morph target weight in the `morph_weights` array.
     current_weights_offset: u32,
     /// The index of the first morph target weight in the `prev_morph_weights`
@@ -55,7 +55,7 @@ struct MorphDescriptor {
 
 /// Morph displacement for a single vertex.
 @if(MORPH_TARGETS)
-struct MorphAttributes {
+public struct MorphAttributes {
     /// The position delta.
     position: vec3<f32>,
     /// Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
@@ -71,10 +71,10 @@ struct MorphAttributes {
 };
 
 // [2^0, 2^16)
-const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32     = (1u << 16u) - 1u;
-const MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT: u32 = 1u << 27u;
-const MESH_FLAGS_NO_FRUSTUM_CULLING_BIT: u32          = 1u << 28u;
-const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32             = 1u << 29u;
-const MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT: u32 = 1u << 30u;
+public const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32     = (1u << 16u) - 1u;
+public const MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT: u32 = 1u << 27u;
+public const MESH_FLAGS_NO_FRUSTUM_CULLING_BIT: u32          = 1u << 28u;
+public const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32             = 1u << 29u;
+public const MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT: u32 = 1u << 30u;
 // if the flag is set, the sign is positive, else it is negative
-const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32  = 1u << 31u;
+public const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32  = 1u << 31u;

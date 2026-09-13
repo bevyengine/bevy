@@ -12,13 +12,13 @@ import package::tonemapping::lut_bindings::{
 /// Half the size of the crossfade region between shadows and midtones and
 /// between midtones and highlights. This value, 0.1, corresponds to 10% of the
 /// gamut on either side of the cutoff point.
-const LEVEL_MARGIN: f32 = 0.1;
+public const LEVEL_MARGIN: f32 = 0.1;
 
 /// The inverse reciprocal of twice the above, used when scaling the midtone
 /// region.
-const LEVEL_MARGIN_DIV: f32 = 0.5 / LEVEL_MARGIN;
+public const LEVEL_MARGIN_DIV: f32 = 0.5 / LEVEL_MARGIN;
 
-fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
+public fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
     // Don't include code that will try to sample from LUTs if tonemap method doesn't require it
     // Allows this file to be imported without necessarily needing the lut texture bindings
 @if(TONEMAP_METHOD_AGX)
@@ -36,7 +36,7 @@ fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
 // --------------------------------------
 // By Tomasz Stachowiak
 
-fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
+public fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
     let m = mat3x3<f32>(
         0.2126, 0.7152, 0.0722,
         -0.1146, -0.3854, 0.5,
@@ -45,7 +45,7 @@ fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
     return col * m;
 }
 
-fn tonemap_curve(v: f32) -> f32 {
+public fn tonemap_curve(v: f32) -> f32 {
 @if(false) {
     // Large linear part in the lows, but compresses highs.
     let c = v + v * v + 0.5 * v * v * v;
@@ -55,11 +55,11 @@ fn tonemap_curve(v: f32) -> f32 {
 }
 }
 
-fn tonemap_curve3_(v: vec3<f32>) -> vec3<f32> {
+public fn tonemap_curve3_(v: vec3<f32>) -> vec3<f32> {
     return vec3(tonemap_curve(v.r), tonemap_curve(v.g), tonemap_curve(v.b));
 }
 
-fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
+public fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
     var boring_color = col;
     let ycbcr = rgb_to_ycbcr(boring_color);
 
@@ -85,9 +85,9 @@ fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
 // By Tomasz Stachowiak
 // https://github.com/h3r2tic/tony-mc-mapface
 
-const TONY_MC_MAPFACE_LUT_DIMS: f32 = 48.0;
+public const TONY_MC_MAPFACE_LUT_DIMS: f32 = 48.0;
 
-fn sample_tony_mc_mapface_lut(stimulus: vec3<f32>) -> vec3<f32> {
+public fn sample_tony_mc_mapface_lut(stimulus: vec3<f32>) -> vec3<f32> {
     var uv = (stimulus / (stimulus + 1.0)) * (f32(TONY_MC_MAPFACE_LUT_DIMS - 1.0) / f32(TONY_MC_MAPFACE_LUT_DIMS)) + 0.5 / f32(TONY_MC_MAPFACE_LUT_DIMS);
     return sample_current_lut(saturate(uv)).rgb;
 }
@@ -103,13 +103,13 @@ fn sample_tony_mc_mapface_lut(stimulus: vec3<f32>) -> vec3<f32> {
 // The code in this file was originally written by Stephen Hill (@self_shadow), who deserves all
 // credit for coming up with this fit and implementing it. Buy him a beer next time you see him. :)
 
-fn RRTAndODTFit(v: vec3<f32>) -> vec3<f32> {
+public fn RRTAndODTFit(v: vec3<f32>) -> vec3<f32> {
     let a = v * (v + 0.0245786) - 0.000090537;
     let b = v * (0.983729 * v + 0.4329510) + 0.238081;
     return a / b;
 }
 
-fn ACESFitted(color: vec3<f32>) -> vec3<f32> {
+public fn ACESFitted(color: vec3<f32>) -> vec3<f32> {
     var fitted_color = color;
 
     // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
@@ -152,7 +152,7 @@ fn ACESFitted(color: vec3<f32>) -> vec3<f32> {
     :param saturationAmount: expected 0-1 range with 1=neutral, 0=no saturation.
     -- ref[2] [4]
 */
-fn saturation(color: vec3<f32>, saturationAmount: f32) -> vec3<f32> {
+public fn saturation(color: vec3<f32>, saturationAmount: f32) -> vec3<f32> {
     let luma = tonemapping_luminance(color);
     return mix(vec3(luma), color, vec3(saturationAmount));
 }
@@ -162,7 +162,7 @@ fn saturation(color: vec3<f32>, saturationAmount: f32) -> vec3<f32> {
     Similar to OCIO lg2 AllocationTransform.
     ref[0]
 */
-fn convertOpenDomainToNormalizedLog2_(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
+public fn convertOpenDomainToNormalizedLog2_(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
     let in_midgray = 0.18;
 
     // remove negative before log transform
@@ -180,7 +180,7 @@ fn convertOpenDomainToNormalizedLog2_(color: vec3<f32>, minimum_ev: f32, maximum
 }
 
 // Inverse of above
-fn convertNormalizedLog2ToOpenDomain(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
+public fn convertNormalizedLog2ToOpenDomain(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
     var open_color = color;
     let in_midgray = 0.18;
     let total_exposure = maximum_ev - minimum_ev;
@@ -198,7 +198,7 @@ fn convertNormalizedLog2ToOpenDomain(color: vec3<f32>, minimum_ev: f32, maximum_
 =================*/
 
 /// Prepare the data for display encoding. Converted to log domain.
-fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
+public fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
     var prepared_image = max(vec3(0.0), Image); // clamp negatives
     let r = dot(prepared_image, vec3(0.84247906, 0.0784336, 0.07922375));
     let g = dot(prepared_image, vec3(0.04232824, 0.87846864, 0.07916613));
@@ -211,7 +211,7 @@ fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
     return prepared_image;
 }
 
-fn applyLUT3D(Image: vec3<f32>, block_size: f32) -> vec3<f32> {
+public fn applyLUT3D(Image: vec3<f32>, block_size: f32) -> vec3<f32> {
     return sample_current_lut(Image * ((block_size - 1.0) / block_size) + 0.5 / block_size).rgb;
 }
 
@@ -219,7 +219,7 @@ fn applyLUT3D(Image: vec3<f32>, block_size: f32) -> vec3<f32> {
 // -------------------------
 // -------------------------
 
-fn sample_blender_filmic_lut(stimulus: vec3<f32>) -> vec3<f32> {
+public fn sample_blender_filmic_lut(stimulus: vec3<f32>) -> vec3<f32> {
     let block_size = 64.0;
     let normalized = saturate(convertOpenDomainToNormalizedLog2_(stimulus, -11.0, 12.0));
     return applyLUT3D(normalized, block_size);
@@ -227,35 +227,35 @@ fn sample_blender_filmic_lut(stimulus: vec3<f32>) -> vec3<f32> {
 
 /// from https://64.github.io/tonemapping/
 /// reinhard on RGB oversaturates colors
-fn tonemapping_reinhard(color: vec3<f32>) -> vec3<f32> {
+public fn tonemapping_reinhard(color: vec3<f32>) -> vec3<f32> {
     return color / (1.0 + color);
 }
 
 /// luminance coefficients from Rec. 709.
 /// https://en.wikipedia.org/wiki/Rec._709
-fn tonemapping_luminance(v: vec3<f32>) -> f32 {
+public fn tonemapping_luminance(v: vec3<f32>) -> f32 {
     return dot(v, vec3<f32>(0.2126, 0.7152, 0.0722));
 }
 
-fn tonemapping_change_luminance(c_in: vec3<f32>, l_out: f32) -> vec3<f32> {
+public fn tonemapping_change_luminance(c_in: vec3<f32>, l_out: f32) -> vec3<f32> {
     let l_in = tonemapping_luminance(c_in);
     return c_in * (l_out / l_in);
 }
 
-fn tonemapping_reinhard_luminance(color: vec3<f32>) -> vec3<f32> {
+public fn tonemapping_reinhard_luminance(color: vec3<f32>) -> vec3<f32> {
     let l_old = tonemapping_luminance(color);
     let l_new = l_old / (1.0 + l_old);
     return tonemapping_change_luminance(color, l_new);
 }
 
-fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
+public fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
     return pow(color, vec3<f32>(1.0 / 2.2));
 }
 
 /// PBR Neutral tone mapping
 /// https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/pbrNeutral.glsl
 /// Adapted under Apache 2.0, per https://github.com/KhronosGroup/ToneMapping/tree/main/LICENSES
-fn tonemapping_pbr_neutral(color_in: vec3<f32>) -> vec3<f32> {
+public fn tonemapping_pbr_neutral(color_in: vec3<f32>) -> vec3<f32> {
     // Parameter controlling when highlight compression starts
     // (`K_s` in specification)
     const start_compression: f32 = 0.8 - 0.04;
@@ -302,7 +302,7 @@ fn tonemapping_pbr_neutral(color_in: vec3<f32>) -> vec3<f32> {
 
 /// Source: Advanced VR Rendering, GDC 2015, Alex Vlachos, Valve, Slide 49
 /// https://media.steampowered.com/apps/valve/2015/Alex_Vlachos_Advanced_VR_Rendering_GDC2015.pdf
-fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
+public fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
     var dither = vec3<f32>(dot(vec2<f32>(171.0, 231.0), frag_coord)).xxx;
     dither = fract(dither.rgb / vec3<f32>(103.0, 71.0, 97.0));
     return (dither - 0.5) / 255.0;
@@ -310,7 +310,7 @@ fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
 
 /// Performs the "sectional" color grading: i.e. the color grading that applies
 /// individually to shadows, midtones, and highlights.
-fn sectional_color_grading(
+public fn sectional_color_grading(
     in: vec3<f32>,
     color_grading: ptr<function, ColorGrading>,
 ) -> vec3<f32> {
@@ -370,7 +370,7 @@ fn sectional_color_grading(
     return max(color, vec3(0.0));
 }
 
-fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
+public fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
     var color = max(in.rgb, vec3(0.0));
     var color_grading = in_color_grading;   // So we can take pointers to it.
 
@@ -431,7 +431,7 @@ fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
 /// We assume here that there's a simple linear relationship between the input and output
 /// which is not true at all, but useful to at least preserve the overall luminance of colors
 /// when sampling from an already tonemapped image. (e.g. for transmissive materials when HDR is off)
-fn approximate_inverse_tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
+public fn approximate_inverse_tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
     let out = tone_mapping(in, color_grading);
     let approximate_ratio = length(in.rgb) / length(out.rgb);
     return vec4(in.rgb * approximate_ratio, in.a);

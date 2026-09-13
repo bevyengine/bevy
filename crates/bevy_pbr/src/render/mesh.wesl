@@ -10,7 +10,7 @@ import package::render::{
 @if(MORPH_TARGETS)
 /// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 /// See https://github.com/gfx-rs/naga/issues/2416
-fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> UncompressedVertex {
+public fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> UncompressedVertex {
     var vertex = vertex_in;
     let first_vertex = mesh[instance_index].first_vertex_index;
     let vertex_index = vertex.index - first_vertex;
@@ -32,7 +32,7 @@ fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> Uncompres
 }
 
 @vertex
-fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
+public fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
     let uncompressed_vertex_no_morph = decompress_vertex(vertex_no_morph, vertex_no_morph.instance_index);
 @if(MORPH_TARGETS)
@@ -98,7 +98,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 }
 
 @fragment
-fn fragment(
+public fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
 @if(VERTEX_COLORS)

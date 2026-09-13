@@ -21,15 +21,15 @@ import bevy_pbr::render::pbr_types;
 import bevy_pbr::render::pbr_fragment::pbr_input_from_standard_material;
 
 /// The material parameters
-struct Colors {
+public struct Colors {
     color1: vec4<f32>,
     color2: vec4<f32>,
 };
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(100) var<uniform> material: Colors;
+@group(constants::MATERIAL_BIND_GROUP) @binding(100) public var<uniform> material: Colors;
 
 @fragment
-fn fragment(
+public fn fragment(
     in: VertexOutput,
 ) -> FragmentOutput {
     var out: FragmentOutput;

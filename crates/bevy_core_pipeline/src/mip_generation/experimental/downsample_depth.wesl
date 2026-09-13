@@ -5,38 +5,38 @@
 //! are powers of two.
 
 @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
-@group(0) @binding(0) var mip_0: texture_storage_2d<r64uint, read>;
+@group(0) @binding(0) public var mip_0: texture_storage_2d<r64uint, read>;
 @elif(MESHLET)
-@group(0) @binding(0) var mip_0: texture_storage_2d<r32uint, read>;
+@group(0) @binding(0) public var mip_0: texture_storage_2d<r32uint, read>;
 @elif(MULTISAMPLE)
-@group(0) @binding(0) var mip_0: texture_depth_multisampled_2d;
+@group(0) @binding(0) public var mip_0: texture_depth_multisampled_2d;
 @else
-@group(0) @binding(0) var mip_0: texture_depth_2d;
-@group(0) @binding(1) var mip_1: texture_storage_2d<r32float, write>;
-@group(0) @binding(2) var mip_2: texture_storage_2d<r32float, write>;
-@group(0) @binding(3) var mip_3: texture_storage_2d<r32float, write>;
-@group(0) @binding(4) var mip_4: texture_storage_2d<r32float, write>;
-@group(0) @binding(5) var mip_5: texture_storage_2d<r32float, write>;
-@group(0) @binding(6) var mip_6: texture_storage_2d<r32float, read_write>;
-@group(0) @binding(7) var mip_7: texture_storage_2d<r32float, write>;
-@group(0) @binding(8) var mip_8: texture_storage_2d<r32float, write>;
-@group(0) @binding(9) var mip_9: texture_storage_2d<r32float, write>;
-@group(0) @binding(10) var mip_10: texture_storage_2d<r32float, write>;
-@group(0) @binding(11) var mip_11: texture_storage_2d<r32float, write>;
-@group(0) @binding(12) var mip_12: texture_storage_2d<r32float, write>;
-@group(0) @binding(13) var samplr: sampler;
-struct Constants { max_mip_level: u32 }
-var<immediate> constants: Constants;
+@group(0) @binding(0) public var mip_0: texture_depth_2d;
+@group(0) @binding(1) public var mip_1: texture_storage_2d<r32float, write>;
+@group(0) @binding(2) public var mip_2: texture_storage_2d<r32float, write>;
+@group(0) @binding(3) public var mip_3: texture_storage_2d<r32float, write>;
+@group(0) @binding(4) public var mip_4: texture_storage_2d<r32float, write>;
+@group(0) @binding(5) public var mip_5: texture_storage_2d<r32float, write>;
+@group(0) @binding(6) public var mip_6: texture_storage_2d<r32float, read_write>;
+@group(0) @binding(7) public var mip_7: texture_storage_2d<r32float, write>;
+@group(0) @binding(8) public var mip_8: texture_storage_2d<r32float, write>;
+@group(0) @binding(9) public var mip_9: texture_storage_2d<r32float, write>;
+@group(0) @binding(10) public var mip_10: texture_storage_2d<r32float, write>;
+@group(0) @binding(11) public var mip_11: texture_storage_2d<r32float, write>;
+@group(0) @binding(12) public var mip_12: texture_storage_2d<r32float, write>;
+@group(0) @binding(13) public var samplr: sampler;
+public struct Constants { max_mip_level: u32 }
+public var<immediate> constants: Constants;
 
 // TODO:
 // * Subgroup support
 // * True single pass downsampling
 
-var<workgroup> intermediate_memory: array<array<f32, 16>, 16>;
+public var<workgroup> intermediate_memory: array<array<f32, 16>, 16>;
 
 @compute
 @workgroup_size(256, 1, 1)
-fn downsample_depth_first(
+public fn downsample_depth_first(
     @builtin(workgroup_id) workgroup_id: vec3u,
     @builtin(local_invocation_index) local_invocation_index: u32,
 ) {
@@ -51,7 +51,7 @@ fn downsample_depth_first(
 
 @compute
 @workgroup_size(256, 1, 1)
-fn downsample_depth_second(@builtin(local_invocation_index) local_invocation_index: u32) {
+public fn downsample_depth_second(@builtin(local_invocation_index) local_invocation_index: u32) {
     let sub_xy = remap_for_wave_reduction(local_invocation_index % 64u);
     let x = sub_xy.x + 8u * ((local_invocation_index >> 6u) % 2u);
     let y = sub_xy.y + 8u * (local_invocation_index >> 7u);
@@ -61,7 +61,7 @@ fn downsample_depth_second(@builtin(local_invocation_index) local_invocation_ind
     downsample_mips_8_to_11(x, y, local_invocation_index);
 }
 
-fn downsample_mips_0_and_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
+public fn downsample_mips_0_and_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
     var v: vec4f;
 
     var tex = vec2(workgroup_id * 64u) + vec2(x * 2u, y * 2u);
@@ -113,7 +113,7 @@ fn downsample_mips_0_and_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation
     }
 }
 
-fn downsample_mips_2_to_5(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
+public fn downsample_mips_2_to_5(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
     if constants.max_mip_level <= 2u { return; }
     workgroupBarrier();
     downsample_mip_2(x, y, workgroup_id, local_invocation_index);
@@ -131,7 +131,7 @@ fn downsample_mips_2_to_5(x: u32, y: u32, workgroup_id: vec2u, local_invocation_
     downsample_mip_5(workgroup_id, local_invocation_index);
 }
 
-fn downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
+public fn downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
     if local_invocation_index < 64u {
         let v = reduce_4(vec4(
             intermediate_memory[x * 2u + 0u][y * 2u + 0u],
@@ -144,7 +144,7 @@ fn downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index:
     }
 }
 
-fn downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
+public fn downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
     if local_invocation_index < 16u {
         let v = reduce_4(vec4(
             intermediate_memory[x * 4u + 0u + 0u][y * 4u + 0u],
@@ -157,7 +157,7 @@ fn downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index:
     }
 }
 
-fn downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
+public fn downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
     if local_invocation_index < 4u {
         let v = reduce_4(vec4(
             intermediate_memory[x * 8u + 0u + 0u + y * 2u][y * 8u + 0u],
@@ -170,7 +170,7 @@ fn downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index:
     }
 }
 
-fn downsample_mip_5(workgroup_id: vec2u, local_invocation_index: u32) {
+public fn downsample_mip_5(workgroup_id: vec2u, local_invocation_index: u32) {
     if local_invocation_index < 1u {
         let v = reduce_4(vec4(
             intermediate_memory[0u][0u],
@@ -182,7 +182,7 @@ fn downsample_mip_5(workgroup_id: vec2u, local_invocation_index: u32) {
     }
 }
 
-fn downsample_mips_6_and_7(x: u32, y: u32) {
+public fn downsample_mips_6_and_7(x: u32, y: u32) {
     var v: vec4f;
 
     var tex = vec2(x * 4u + 0u, y * 4u + 0u);
@@ -212,7 +212,7 @@ fn downsample_mips_6_and_7(x: u32, y: u32) {
     intermediate_memory[x][y] = vr;
 }
 
-fn downsample_mips_8_to_11(x: u32, y: u32, local_invocation_index: u32) {
+public fn downsample_mips_8_to_11(x: u32, y: u32, local_invocation_index: u32) {
     if constants.max_mip_level <= 8u { return; }
     workgroupBarrier();
     downsample_mip_8(x, y, local_invocation_index);
@@ -230,7 +230,7 @@ fn downsample_mips_8_to_11(x: u32, y: u32, local_invocation_index: u32) {
     downsample_mip_11(local_invocation_index);
 }
 
-fn downsample_mip_8(x: u32, y: u32, local_invocation_index: u32) {
+public fn downsample_mip_8(x: u32, y: u32, local_invocation_index: u32) {
     if local_invocation_index < 64u {
         let v = reduce_4(vec4(
             intermediate_memory[x * 2u + 0u][y * 2u + 0u],
@@ -243,7 +243,7 @@ fn downsample_mip_8(x: u32, y: u32, local_invocation_index: u32) {
     }
 }
 
-fn downsample_mip_9(x: u32, y: u32, local_invocation_index: u32) {
+public fn downsample_mip_9(x: u32, y: u32, local_invocation_index: u32) {
     if local_invocation_index < 16u {
         let v = reduce_4(vec4(
             intermediate_memory[x * 4u + 0u + 0u][y * 4u + 0u],
@@ -256,7 +256,7 @@ fn downsample_mip_9(x: u32, y: u32, local_invocation_index: u32) {
     }
 }
 
-fn downsample_mip_10(x: u32, y: u32, local_invocation_index: u32) {
+public fn downsample_mip_10(x: u32, y: u32, local_invocation_index: u32) {
     if local_invocation_index < 4u {
         let v = reduce_4(vec4(
             intermediate_memory[x * 8u + 0u + 0u + y * 2u][y * 8u + 0u],
@@ -269,7 +269,7 @@ fn downsample_mip_10(x: u32, y: u32, local_invocation_index: u32) {
     }
 }
 
-fn downsample_mip_11(local_invocation_index: u32) {
+public fn downsample_mip_11(local_invocation_index: u32) {
     if local_invocation_index < 1u {
         let v = reduce_4(vec4(
             intermediate_memory[0u][0u],
@@ -281,14 +281,14 @@ fn downsample_mip_11(local_invocation_index: u32) {
     }
 }
 
-fn remap_for_wave_reduction(a: u32) -> vec2u {
+public fn remap_for_wave_reduction(a: u32) -> vec2u {
     return vec2(
         insertBits(extractBits(a, 2u, 3u), a, 0u, 1u),
         insertBits(extractBits(a, 3u, 3u), extractBits(a, 1u, 2u), 0u, 2u),
     );
 }
 
-fn reduce_load_mip_0(tex: vec2u) -> f32 {
+public fn reduce_load_mip_0(tex: vec2u) -> f32 {
     let a = load_mip_0(tex.x, tex.y);
     let b = load_mip_0(tex.x + 1u, tex.y);
     let c = load_mip_0(tex.x, tex.y + 1u);
@@ -296,7 +296,7 @@ fn reduce_load_mip_0(tex: vec2u) -> f32 {
     return reduce_4(vec4(a, b, c, d));
 }
 
-fn reduce_load_mip_6(tex: vec2u) -> f32 {
+public fn reduce_load_mip_6(tex: vec2u) -> f32 {
     return reduce_4(vec4(
         textureLoad(mip_6, tex + vec2(0u, 0u)).r,
         textureLoad(mip_6, tex + vec2(0u, 1u)).r,
@@ -313,7 +313,7 @@ fn reduce_load_mip_6(tex: vec2u) -> f32 {
 ///
 /// See the comments in `ViewDepthPyramid::downsample_depth` for more
 /// information.
-fn load_mip_0(x: u32, y: u32) -> f32 {
+public fn load_mip_0(x: u32, y: u32) -> f32 {
     let actual_size = textureDimensions(mip_0).xy;
     let virtual_size = vec2<u32>(
         next_power_of_two(actual_size.x),
@@ -350,7 +350,7 @@ fn load_mip_0(x: u32, y: u32) -> f32 {
 /// `st` should be in texels, not in the [0, 1] range like UVs. That is, `st` is
 /// `uv * textureDimensions(mip_0).xy`.
 @if(MESHLET)
-fn load_mip_0_meshlet(st: vec2<f32>, shift: u32) -> vec4<f32> {
+public fn load_mip_0_meshlet(st: vec2<f32>, shift: u32) -> vec4<f32> {
     let st0 = vec2<u32>(floor(st - 0.5));
     let st1 = st0 + 1u;
     return vec4<f32>(
@@ -367,7 +367,7 @@ fn load_mip_0_meshlet(st: vec2<f32>, shift: u32) -> vec4<f32> {
 /// `st` should be in texels, not in the [0, 1] range like UVs. That is, `st` is
 /// `uv * textureDimensions(mip_0).xy`.
 @if(MULTISAMPLE)
-fn load_mip_0_single_sample(st: vec2<f32>, sample: i32) -> f32 {
+public fn load_mip_0_single_sample(st: vec2<f32>, sample: i32) -> f32 {
     let st0 = vec2<u32>(floor(st - 0.5));
     let st1 = st0 + 1u;
     let v = vec4<f32>(
@@ -379,7 +379,7 @@ fn load_mip_0_single_sample(st: vec2<f32>, sample: i32) -> f32 {
     return reduce_4(v);
 }
 
-fn reduce_4(v: vec4f) -> f32 {
+public fn reduce_4(v: vec4f) -> f32 {
     return min(min(v.x, v.y), min(v.z, v.w));
 }
 
@@ -387,6 +387,6 @@ fn reduce_4(v: vec4f) -> f32 {
 ///
 /// If x is itself a power of two, this still returns the *next* power of two.
 /// This is different from Rust's `next_power_of_two` function.
-fn next_power_of_two(x: u32) -> u32 {
+public fn next_power_of_two(x: u32) -> u32 {
     return 1u << (32u - countLeadingZeros(x));
 }

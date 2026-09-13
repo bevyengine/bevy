@@ -10,7 +10,7 @@ import bevy_core_pipeline::tonemapping::tone_mapping;
 
 /// Sweep across hues on y axis with value from 0.0 to +15EV across x axis
 /// quantized into 24 steps for both axis.
-fn color_sweep(uv_input: vec2<f32>) -> vec3<f32> {
+public fn color_sweep(uv_input: vec2<f32>) -> vec3<f32> {
     var uv = uv_input;
     let steps = 24.0;
     uv.y = uv.y * (1.0 + 1.0 / steps);
@@ -31,19 +31,19 @@ fn color_sweep(uv_input: vec2<f32>) -> vec3<f32> {
     return color;
 }
 
-fn hsv_to_srgb(c: vec3<f32>) -> vec3<f32> {
+public fn hsv_to_srgb(c: vec3<f32>) -> vec3<f32> {
     let K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
     let p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
     return c.z * mix(K.xxx, clamp(p - K.xxx, vec3(0.0), vec3(1.0)), c.y);
 }
 
 /// Generates a continuous sRGB sweep.
-fn continuous_hue(uv: vec2<f32>) -> vec3<f32> {
+public fn continuous_hue(uv: vec2<f32>) -> vec3<f32> {
     return hsv_to_srgb(vec3(uv.x, 1.0, 1.0)) * max(0.0, exp2(uv.y * 9.0) - 1.0);
 }
 
 @fragment
-fn fragment(
+public fn fragment(
     in: VertexOutput,
 ) -> @location(0) vec4<f32> {
     var uv = in.uv;

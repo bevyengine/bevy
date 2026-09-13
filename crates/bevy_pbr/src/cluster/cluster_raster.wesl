@@ -28,13 +28,13 @@ import package::render::mesh_view_types::{
 import bevy_render::view::View;
 import bevy_render::maths::quat_rotate;
 
-struct Vertex {
+public struct Vertex {
     @builtin(instance_index) instance_id: u32,
     @location(0) position: vec2<f32>,
 }
 
 /// Data output from the vertex shader and input to the fragment shader.
-struct Varyings {
+public struct Varyings {
     @builtin(position) position: vec4<f32>,
     /// The index of the Z slice we're rasterizing.
     @location(0) @interpolate(flat) instance_id: u32,
@@ -46,13 +46,13 @@ struct Varyings {
 
 /// The same as the `ClusterOffsetsAndCounts` structure, but with atomic fields
 /// so that we can write to it.
-struct ClusterOffsetsAndCountsAtomic {
+public struct ClusterOffsetsAndCountsAtomic {
     data: array<ClusterOffsetsAndCountsElementAtomic>,
 }
 
 /// The same as the `ClusterOffsetsAndCountsElement` structure, but with atomic
 /// fields so that we can write to it.
-struct ClusterOffsetsAndCountsElementAtomic {
+public struct ClusterOffsetsAndCountsElementAtomic {
     offset: atomic<u32>,
     point_lights: atomic<u32>,
     spot_lights: atomic<u32>,
@@ -64,40 +64,40 @@ struct ClusterOffsetsAndCountsElementAtomic {
 }
 
 /// The list of clusterable object Z slices that we read from to.
-@group(0) @binding(0) var<storage> z_slices: array<ClusterableObjectZSlice>;
+@group(0) @binding(0) public var<storage> z_slices: array<ClusterableObjectZSlice>;
 @if(!VERTEX_SHADER)
 /// The list of indices per cluster that we write to in the populate pass.
-@group(0) @binding(1) var<storage, read_write> index_lists: ClusterableObjectIndexLists;
+@group(0) @binding(1) public var<storage, read_write> index_lists: ClusterableObjectIndexLists;
 /// Information about each light.
-@group(0) @binding(2) var<storage> clustered_lights: ClusteredLights;
+@group(0) @binding(2) public var<storage> clustered_lights: ClusteredLights;
 /// Information about each light probe (reflection probe or irradiance volume).
-@group(0) @binding(3) var<uniform> light_probes: LightProbes;
+@group(0) @binding(3) public var<uniform> light_probes: LightProbes;
 /// Information about each clustered decal.
-@group(0) @binding(4) var<storage> clustered_decals: ClusteredDecals;
+@group(0) @binding(4) public var<storage> clustered_decals: ClusteredDecals;
 /// Information about the clusters as a whole, including the dimensions of the
 /// cluster grid.
-@group(0) @binding(5) var<uniform> lights: Lights;
+@group(0) @binding(5) public var<uniform> lights: Lights;
 /// Information about the view.
-@group(0) @binding(6) var<uniform> view: View;
+@group(0) @binding(6) public var<uniform> view: View;
 @if(!VERTEX_SHADER && POPULATE_PASS) {
 /// The number of objects in each cluster, and the offset of each list.
-@group(0) @binding(7) var<storage> offsets_and_counts: ClusterOffsetsAndCounts;
+@group(0) @binding(7) public var<storage> offsets_and_counts: ClusterOffsetsAndCounts;
 /// For each cluster, the counts of objects written *so far* to it.
 ///
 /// We use this during the populate phase in order to write the ID of each object
 /// to the correct spot.
-@group(0) @binding(8) var<storage, read_write> scratchpad_offsets_and_counts:
+@group(0) @binding(8) public var<storage, read_write> scratchpad_offsets_and_counts:
     ClusterOffsetsAndCountsAtomic;
 }
 @if(!VERTEX_SHADER && !POPULATE_PASS)
 /// The number of objects in each cluster.
 ///
 /// During the count pass, we write to this.
-@group(0) @binding(7) var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCountsAtomic;
+@group(0) @binding(7) public var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCountsAtomic;
 
 /// The vertex entry point.
 @vertex
-fn vertex_main(vertex: Vertex) -> Varyings {
+public fn vertex_main(vertex: Vertex) -> Varyings {
     let instance_id = vertex.instance_id;
     let object_index = z_slices[instance_id].object_index;
     let object_type = z_slices[instance_id].object_type;
@@ -145,7 +145,7 @@ fn vertex_main(vertex: Vertex) -> Varyings {
 /// Returns the position of the quad vertex necessary to enclose all the
 /// fragments that represent the cluster AABB.
 /// The cluster bounds are supplied as `vec4(min X, min Y, max X, max Y)`.
-fn calculate_vertex_position(vertex: Vertex, cluster_bounds: vec4<u32>) -> vec4<f32> {
+public fn calculate_vertex_position(vertex: Vertex, cluster_bounds: vec4<u32>) -> vec4<f32> {
     let framebuffer_position = vec2<u32>(
         select(cluster_bounds.x, cluster_bounds.z, vertex.position.x == 1.0),
         select(cluster_bounds.y, cluster_bounds.w, vertex.position.y == 1.0)
@@ -160,7 +160,7 @@ fn calculate_vertex_position(vertex: Vertex, cluster_bounds: vec4<u32>) -> vec4<
 /// Performs a fine-grained test to ensure that the object intersects a single
 /// froxel and records the result.
 @fragment
-fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
+public fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
     let instance_id = varyings.instance_id;
     let object_index = z_slices[instance_id].object_index;
     let object_type = z_slices[instance_id].object_type;
@@ -242,7 +242,7 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
 /// Returns true if the given sphere intersects the AABB with the given
 /// boundaries.
-fn sphere_intersects_aabb(
+public fn sphere_intersects_aabb(
     sphere_center: vec3<f32>,
     sphere_radius: f32,
     aabb_center: vec3<f32>,
@@ -254,7 +254,7 @@ fn sphere_intersects_aabb(
 }
 
 /// See `bevy_light::cluster::assign::compute_aabb_for_cluster`.
-fn compute_aabb_for_cluster(
+public fn compute_aabb_for_cluster(
     z_near: f32,
     z_far: f32,
     tile_size: vec2<f32>,
@@ -322,7 +322,7 @@ fn compute_aabb_for_cluster(
 
 /// Converts a screen-space position to a view-space position.
 /// See `bevy_light::cluster::assign::screen_to_view`.
-fn screen_to_view(
+public fn screen_to_view(
     screen_size: vec2<f32>,
     view_from_clip: mat4x4<f32>,
     screen: vec2<f32>,
@@ -340,7 +340,7 @@ fn screen_to_view(
 
 /// Converts a clip-space position to a view-space position.
 /// See `bevy_light::cluster::assign::clip_to_view`.
-fn clip_to_view(view_from_clip: mat4x4<f32>, clip: vec4<f32>) -> vec4<f32> {
+public fn clip_to_view(view_from_clip: mat4x4<f32>, clip: vec4<f32>) -> vec4<f32> {
     let view = view_from_clip * clip;
     return view / view.w;
 }
@@ -348,14 +348,14 @@ fn clip_to_view(view_from_clip: mat4x4<f32>, clip: vec4<f32>) -> vec4<f32> {
 /// Calculate the intersection of a ray from the eye through the view space
 /// position to a z plane
 /// See `bevy_light::cluster::assign::line_intersection_to_z_plane`.
-fn line_intersection_to_z_plane(origin: vec3<f32>, p: vec3<f32>, z: f32) -> vec3<f32> {
+public fn line_intersection_to_z_plane(origin: vec3<f32>, p: vec3<f32>, z: f32) -> vec3<f32> {
     let v = p - origin;
     let t = (z - dot(vec3(0.0, 0.0, 1.0), origin)) / dot(vec3(0.0, 0.0, 1.0), v);
     return origin + t * v;
 }
 
 /// Computes the near and far extents of the cluster grid.
-fn compute_z_near_and_z_far(is_orthographic: bool) -> vec2<f32> {
+public fn compute_z_near_and_z_far(is_orthographic: bool) -> vec2<f32> {
     let cluster_dimensions = vec3<f32>(lights.cluster_dimensions.xyz);
     let cluster_factors = lights.cluster_factors;
     var z_near: f32;
@@ -372,7 +372,7 @@ fn compute_z_near_and_z_far(is_orthographic: bool) -> vec2<f32> {
 
 /// Returns true if a spot light should be culled.
 /// See `assign_objects_to_clusters` in `bevy_light/src/cluster/assign.rs`.
-fn cull_spot_light(
+public fn cull_spot_light(
     object_index: u32,
     cluster_aabb_sphere_center: vec3<f32>,
     cluster_aabb_sphere_radius: f32,
@@ -429,7 +429,7 @@ fn cull_spot_light(
 }
 
 /// Returns true if a rect light should be culled.
-fn cull_rect_light(
+public fn cull_rect_light(
     object_index: u32,
     cluster_aabb_sphere_center: vec3<f32>,
     cluster_aabb_sphere_radius: f32,
@@ -448,20 +448,20 @@ fn cull_rect_light(
 
 /// Computes `cos(atan(x))` cheaply.
 /// See https://en.wikipedia.org/wiki/List_of_trigonometric_identities
-fn cos_atan(tan_theta: f32) -> f32 {
+public fn cos_atan(tan_theta: f32) -> f32 {
     return inverseSqrt(1.0 + tan_theta * tan_theta);
 }
 
 /// Computes `sin(atan(x))` cheaply.
 /// See https://en.wikipedia.org/wiki/List_of_trigonometric_identities
-fn sin_atan(tan_theta: f32) -> f32 {
+public fn sin_atan(tan_theta: f32) -> f32 {
     return tan_theta * inverseSqrt(1.0 + tan_theta * tan_theta);
 }
 
 @if(!VERTEX_SHADER && POPULATE_PASS)
 /// Allocates space in the appropriate list and returns the global index that the
 /// object index should be written to.
-fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
+public fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
     switch (object_type) {
         case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: {
             return offsets_and_counts.data[cluster_index][0u].x +
@@ -511,7 +511,7 @@ fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
 }
 @if(!VERTEX_SHADER && !POPULATE_PASS)
 /// Increments the count of objects of the given type for the given cluster.
-fn increment_object_count(cluster_index: u32, object_type: u32) {
+public fn increment_object_count(cluster_index: u32, object_type: u32) {
     switch (object_type) {
         case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: {
             atomicAdd(&offsets_and_counts.data[cluster_index].point_lights, 1u);
@@ -538,7 +538,7 @@ fn increment_object_count(cluster_index: u32, object_type: u32) {
 /// Looks up and returns the world-space center and radius of the bounding sphere
 /// for the object with the given index and type.
 /// Returns a 4-vector with the fields `vec4(center X, center Y, center Z, radius)`.
-fn get_object_bounding_sphere(object_index: u32, object_type: u32) -> vec4<f32> {
+public fn get_object_bounding_sphere(object_index: u32, object_type: u32) -> vec4<f32> {
     var position = vec3<f32>(0.0);
     var radius = 0.0;
     switch (object_type) {

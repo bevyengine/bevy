@@ -4,17 +4,17 @@
 // Two textures are needed for the game of life as each pixel of step N depends on the state of its
 // neighbors at step N-1.
 
-@group(0) @binding(0) var input: texture_storage_2d<rgba32float, read>;
+@group(0) @binding(0) public var input: texture_storage_2d<rgba32float, read>;
 
-@group(0) @binding(1) var output: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(1) public var output: texture_storage_2d<rgba32float, write>;
 
-@group(0) @binding(2) var<uniform> config: GameOfLifeUniforms;
+@group(0) @binding(2) public var<uniform> config: GameOfLifeUniforms;
 
-struct GameOfLifeUniforms {
+public struct GameOfLifeUniforms {
     alive_color: vec4<f32>,
 }
 
-fn hash(value: u32) -> u32 {
+public fn hash(value: u32) -> u32 {
     var state = value;
     state = state ^ 2747636419u;
     state = state * 2654435769u;
@@ -25,12 +25,12 @@ fn hash(value: u32) -> u32 {
     return state;
 }
 
-fn randomFloat(value: u32) -> f32 {
+public fn randomFloat(value: u32) -> f32 {
     return f32(hash(value)) / 4294967295.0;
 }
 
 @compute @workgroup_size(8, 8, 1)
-fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
+public fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
 
     let randomNumber = randomFloat((invocation_id.y << 16u) | invocation_id.x);
@@ -41,12 +41,12 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     textureStore(output, location, color);
 }
 
-fn is_alive(location: vec2<i32>, offset_x: i32, offset_y: i32) -> i32 {
+public fn is_alive(location: vec2<i32>, offset_x: i32, offset_y: i32) -> i32 {
     let value: vec4<f32> = textureLoad(input, location + vec2<i32>(offset_x, offset_y));
     return i32(value.a);
 }
 
-fn count_alive(location: vec2<i32>) -> i32 {
+public fn count_alive(location: vec2<i32>) -> i32 {
     return is_alive(location, -1, -1) +
            is_alive(location, -1,  0) +
            is_alive(location, -1,  1) +
@@ -58,7 +58,7 @@ fn count_alive(location: vec2<i32>) -> i32 {
 }
 
 @compute @workgroup_size(8, 8, 1)
-fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
+public fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
 
     let n_alive = count_alive(location);

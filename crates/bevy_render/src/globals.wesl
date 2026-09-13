@@ -1,4 +1,4 @@
-struct Globals {
+public struct Globals {
     /// The time since startup in seconds
     /// Wraps to 0 after 1 hour.
     time: f32,

@@ -18,7 +18,7 @@ import bevy_pbr::render::pbr_bindings::material;
 
 /// Stores the indices of the bindless resources in the bindless resource arrays,
 /// for the `ExampleBindlessExtension` fields.
-struct ExampleBindlessExtendedMaterialIndices {
+public struct ExampleBindlessExtendedMaterialIndices {
     /// The index of the `ExampleBindlessExtendedMaterial` data in
     /// `example_extended_material`.
     material: u32,
@@ -31,7 +31,7 @@ struct ExampleBindlessExtendedMaterialIndices {
 }
 
 /// Plain data associated with this example material.
-struct ExampleBindlessExtendedMaterial {
+public struct ExampleBindlessExtendedMaterial {
     /// The color that we multiply the base color, base color texture, and
     /// modulated texture with.
     modulate_color: vec4<f32>,
@@ -40,20 +40,20 @@ struct ExampleBindlessExtendedMaterial {
 /// The indices of the bindless resources in the bindless resource arrays, for
 /// the `ExampleBindlessExtension` fields.
 @if(BINDLESS) {
-@group(constants::MATERIAL_BIND_GROUP) @binding(100) var<storage> example_extended_material_indices: array<ExampleBindlessExtendedMaterialIndices>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(100) public var<storage> example_extended_material_indices: array<ExampleBindlessExtendedMaterialIndices>;
 /// An array that holds the `ExampleBindlessExtendedMaterial` plain old data,
 /// indexed by `ExampleBindlessExtendedMaterialIndices.material`.
-@group(constants::MATERIAL_BIND_GROUP) @binding(101) var<storage> example_extended_material: array<ExampleBindlessExtendedMaterial>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(101) public var<storage> example_extended_material: array<ExampleBindlessExtendedMaterial>;
 }
 // In non-bindless mode, we simply use a uniform for the plain old data.
 @else {
-@group(constants::MATERIAL_BIND_GROUP) @binding(50) var<uniform> example_extended_material: ExampleBindlessExtendedMaterial;
-@group(constants::MATERIAL_BIND_GROUP) @binding(51) var modulate_texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(52) var modulate_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(50) public var<uniform> example_extended_material: ExampleBindlessExtendedMaterial;
+@group(constants::MATERIAL_BIND_GROUP) @binding(51) public var modulate_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(52) public var modulate_sampler: sampler;
 }
 
 @fragment
-fn fragment(
+public fn fragment(
     in: VertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> FragmentOutput {

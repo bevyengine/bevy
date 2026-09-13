@@ -1,7 +1,7 @@
 import package::render::pbr_types::StandardMaterial;
 
 @if(BINDLESS) {
-struct StandardMaterialBindings {
+public struct StandardMaterialBindings {
     material: u32,                      // 0
     base_color_texture: u32,            // 1
     base_color_sampler: u32,            // 2
@@ -35,50 +35,50 @@ struct StandardMaterialBindings {
     specular_tint_sampler: u32,         // 30
 }
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<storage> material_indices: array<StandardMaterialBindings>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(10) var<storage> material_array: array<StandardMaterial>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) public var<storage> material_indices: array<StandardMaterialBindings>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(10) public var<storage> material_array: array<StandardMaterial>;
 }
 @else {
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material: StandardMaterial;
-@group(constants::MATERIAL_BIND_GROUP) @binding(1) var base_color_texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(2) var base_color_sampler: sampler;
-@group(constants::MATERIAL_BIND_GROUP) @binding(3) var emissive_texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(4) var emissive_sampler: sampler;
-@group(constants::MATERIAL_BIND_GROUP) @binding(5) var metallic_roughness_texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(6) var metallic_roughness_sampler: sampler;
-@group(constants::MATERIAL_BIND_GROUP) @binding(7) var occlusion_texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(8) var occlusion_sampler: sampler;
-@group(constants::MATERIAL_BIND_GROUP) @binding(9) var normal_map_texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(10) var normal_map_sampler: sampler;
-@group(constants::MATERIAL_BIND_GROUP) @binding(11) var depth_map_texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(12) var depth_map_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) public var<uniform> material: StandardMaterial;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) public var base_color_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) public var base_color_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(3) public var emissive_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(4) public var emissive_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(5) public var metallic_roughness_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(6) public var metallic_roughness_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(7) public var occlusion_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(8) public var occlusion_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(9) public var normal_map_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(10) public var normal_map_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(11) public var depth_map_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(12) public var depth_map_sampler: sampler;
     @if(PBR_ANISOTROPY_TEXTURE_SUPPORTED) {
-    @group(constants::MATERIAL_BIND_GROUP) @binding(13) var anisotropy_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(14) var anisotropy_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(13) public var anisotropy_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(14) public var anisotropy_sampler: sampler;
     }
 
     @if(PBR_TRANSMISSION_TEXTURES_SUPPORTED) {
-    @group(constants::MATERIAL_BIND_GROUP) @binding(15) var specular_transmission_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(16) var specular_transmission_sampler: sampler;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(17) var thickness_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(18) var thickness_sampler: sampler;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(19) var diffuse_transmission_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(20) var diffuse_transmission_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(15) public var specular_transmission_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(16) public var specular_transmission_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(17) public var thickness_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(18) public var thickness_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(19) public var diffuse_transmission_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(20) public var diffuse_transmission_sampler: sampler;
     }
 
     @if(PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED) {
-    @group(constants::MATERIAL_BIND_GROUP) @binding(21) var clearcoat_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(22) var clearcoat_sampler: sampler;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(23) var clearcoat_roughness_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(24) var clearcoat_roughness_sampler: sampler;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(25) var clearcoat_normal_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(26) var clearcoat_normal_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(21) public var clearcoat_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(22) public var clearcoat_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(23) public var clearcoat_roughness_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(24) public var clearcoat_roughness_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(25) public var clearcoat_normal_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(26) public var clearcoat_normal_sampler: sampler;
     }
 
     @if(PBR_SPECULAR_TEXTURES_SUPPORTED) {
-    @group(constants::MATERIAL_BIND_GROUP) @binding(27) var specular_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(28) var specular_sampler: sampler;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(29) var specular_tint_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(30) var specular_tint_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(27) public var specular_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(28) public var specular_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(29) public var specular_tint_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(30) public var specular_tint_sampler: sampler;
     }
 }

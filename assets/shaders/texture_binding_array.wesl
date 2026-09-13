@@ -2,13 +2,13 @@ import bevy_pbr::render::forward_io::VertexOutput;
 
 enable wgpu_binding_array;
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var textures: binding_array<texture_2d<f32>>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(1) var nearest_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) public var textures: binding_array<texture_2d<f32>>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) public var nearest_sampler: sampler;
 // We can also have array of samplers
 // var samplers: binding_array<sampler>;
 
 @fragment
-fn fragment(
+public fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
     // Select the texture to sample from using non-uniform uv coordinates

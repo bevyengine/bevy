@@ -10,22 +10,22 @@ import bevy_pbr::deferred::types::unpack_unorm3x4_plus_unorm_20_;
 import bevy_pbr::render::rgb9e5::rgb9e5_to_vec3_;
 import bevy_render::utils::octahedral_decode;
 
-struct DebugBufferConfig {
+public struct DebugBufferConfig {
     opacity: f32,
     mip_level: u32,
 }
 
-@group(1) @binding(0) var<uniform> config: DebugBufferConfig;
-@group(1) @binding(1) var background_texture: texture_2d<f32>;
-@group(1) @binding(2) var background_sampler: sampler;
+@group(1) @binding(0) public var<uniform> config: DebugBufferConfig;
+@group(1) @binding(1) public var background_texture: texture_2d<f32>;
+@group(1) @binding(2) public var background_sampler: sampler;
 
 @if(DEBUG_DEPTH_PYRAMID) {
-@group(1) @binding(3) var depth_pyramid_texture: texture_2d<f32>;
-@group(1) @binding(4) var depth_pyramid_sampler: sampler;
+@group(1) @binding(3) public var depth_pyramid_texture: texture_2d<f32>;
+@group(1) @binding(4) public var depth_pyramid_sampler: sampler;
 }
 
 @fragment
-fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
+public fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
     let uv = frag_coord.xy / view.viewport.zw;
     let background = textureSampleLevel(background_texture, background_sampler, uv, 0.0);
     var output_color: vec4<f32> = vec4(0.0);

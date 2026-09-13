@@ -18,7 +18,7 @@ import bevy_render::utils::{octahedral_encode, octahedral_decode};
     import package::render::pbr_prepass_functions::calculate_motion_vector;
 
 /// Creates the deferred gbuffer from a PbrInput.
-fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
+public fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     // Only monochrome occlusion supported. May not be worth including at all.
     // Some models have baked occlusion, GLTF only supports monochrome.
     // Real time occlusion is applied in the deferred lighting pass.
@@ -84,7 +84,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
 }
 
 /// Creates a PbrInput from the deferred gbuffer.
-fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
+public fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
     var pbr = pbr_input_new();
 
     let flags = deferred_types::unpack_flags(gbuffer.a);
@@ -136,7 +136,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
 }
 
 @if(PREPASS_PIPELINE)
-fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
+public fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
     var out: FragmentOutput;
 
     // gbuffer

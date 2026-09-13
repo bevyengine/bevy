@@ -4,13 +4,13 @@ import bevy_render::color_operations::hwb_to_linear_rgb;
 import bevy_render::maths::PI_2;
 
 // Constants must be the same as in `color_wheel.rs`
-const RING_WIDTH: f32 = 12.0;
-const SPACING: f32 = 4.0;
-const MIN_HEIGHT: f32 = 100.0;
-const PADDING: f32 = 4.0;
-const MIN_DIAMETER: f32 = MIN_HEIGHT - 2.0 * PADDING;
+public const RING_WIDTH: f32 = 12.0;
+public const SPACING: f32 = 4.0;
+public const MIN_HEIGHT: f32 = 100.0;
+public const PADDING: f32 = 4.0;
+public const MIN_DIAMETER: f32 = MIN_HEIGHT - 2.0 * PADDING;
 
-struct ColorPlaneUniform {
+public struct ColorPlaneUniform {
   // Hue in degrees, in the range [0, 360).
   hue : f32,
   // Scale (physical pixels / logical pixels)
@@ -19,20 +19,20 @@ struct ColorPlaneUniform {
   _webgl2_padding_8b : vec2<f32>,
 }
 
-@group(1) @binding(0) var<uniform> uniform_data : ColorPlaneUniform;
+@group(1) @binding(0) public var<uniform> uniform_data : ColorPlaneUniform;
 
 // 2d cross product
-fn cross_2d(a: vec2<f32>, b: vec2<f32>) -> f32 {
+public fn cross_2d(a: vec2<f32>, b: vec2<f32>) -> f32 {
     return a.x * b.y - a.y * b.x;
 }
 
 // Line distance for triangle SDF, positive on left
-fn line_distance(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
+public fn line_distance(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
     return cross_2d(b - a, p - a) / distance(a, b);
 }
 
 @fragment
-fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let scale = uniform_data.scale;
     let min_side = max(min(in.size.x, in.size.y), MIN_DIAMETER * scale);
     let diameters = min_side / in.size;

@@ -9,11 +9,11 @@ import package::{
 };
 
 
-@group(0) @binding(13) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
+@group(0) @binding(13) public var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16, 1)
-fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
+public fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     if any(idx.xy > settings.aerial_view_lut_size.xy) { return; }
 
     let uv = (vec2<f32>(idx.xy) + 0.5) / vec2<f32>(settings.aerial_view_lut_size.xy);

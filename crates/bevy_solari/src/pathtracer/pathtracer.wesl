@@ -7,12 +7,12 @@ import package::scene::bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RA
 
 enable wgpu_ray_query;
 
-@group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
-@group(1) @binding(1) var view_output: texture_storage_2d<rgba16float, write>;
-@group(1) @binding(2) var<uniform> view: View;
+@group(1) @binding(0) public var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
+@group(1) @binding(1) public var view_output: texture_storage_2d<rgba16float, write>;
+@group(1) @binding(2) public var<uniform> view: View;
 
 @compute @workgroup_size(8, 8, 1)
-fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
+public fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= vec2u(view.viewport.zw)) {
         return;
     }

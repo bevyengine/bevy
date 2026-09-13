@@ -2,14 +2,14 @@ import bevy_render::view::View;
 import bevy_render::globals::Globals;
 
 @group(0) @binding(0)
-var<uniform> view: View;
+public var<uniform> view: View;
 @group(0) @binding(1)
-var<uniform> globals: Globals;
+public var<uniform> globals: Globals;
 
-@group(1) @binding(0) var sprite_texture: texture_2d<f32>;
-@group(1) @binding(1) var sprite_sampler: sampler;
+@group(1) @binding(0) public var sprite_texture: texture_2d<f32>;
+@group(1) @binding(1) public var sprite_sampler: sampler;
 
-struct UiVertexOutput {
+public struct UiVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
 
@@ -44,7 +44,7 @@ struct UiVertexOutput {
 }
 
 @vertex
-fn vertex(
+public fn vertex(
     @location(0) vertex_position: vec3<f32>,
     @location(1) vertex_uv: vec2<f32>,
     @location(2) vertex_color: vec4<f32>,
@@ -72,7 +72,7 @@ fn vertex(
 ///   - tl: slice min dividing point
 ///   - th: slice max dividing point
 ///   - r: number of times to repeat the slice for sides and the center
-fn map_axis_with_repeat(
+public fn map_axis_with_repeat(
     p: f32,
     il: f32,
     ih: f32,
@@ -92,7 +92,7 @@ fn map_axis_with_repeat(
     }
 }
 
-fn map_uvs_to_slice(
+public fn map_uvs_to_slice(
     uv: vec2<f32>,
     target_slices: vec4<f32>,
     texture_slices: vec4<f32>,
@@ -117,7 +117,7 @@ fn map_uvs_to_slice(
 }
 
 @fragment
-fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // map the target uvs to slice coords
     let uv = map_uvs_to_slice(in.uv, in.target_slices, in.texture_slices, in.repeat);
 

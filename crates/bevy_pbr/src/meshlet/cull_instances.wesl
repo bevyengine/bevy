@@ -16,21 +16,21 @@ import package::meshlet::cull_shared::{
     should_occlusion_cull_aabb,
 };
 
-fn instance_count() -> u32 {
+public fn instance_count() -> u32 {
     @if(MESHLET_FIRST_CULLING_PASS)
     return constants.scene_instance_count;
     @else
     return meshlet_second_pass_instance_count;
 }
 
-fn map_instance_id(id: u32) -> u32 {
+public fn map_instance_id(id: u32) -> u32 {
     @if(MESHLET_FIRST_CULLING_PASS)
     return id;
     @else
     return meshlet_second_pass_instance_candidates[id];
 }
 
-fn should_cull_instance(instance_id: u32) -> bool {
+public fn should_cull_instance(instance_id: u32) -> bool {
     let index = instance_id >> 5u;
     let bit_offset = instance_id & 31u;
     let packed_visibility = meshlet_view_instance_visibility[index];
@@ -39,7 +39,7 @@ fn should_cull_instance(instance_id: u32) -> bool {
 
 @compute
 @workgroup_size(128, 1, 1) // 1 instance per thread
-fn cull_instances(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+public fn cull_instances(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Calculate the instance ID for this thread
     let dispatch_id = global_invocation_id.x;
     if dispatch_id >= instance_count() { return; }

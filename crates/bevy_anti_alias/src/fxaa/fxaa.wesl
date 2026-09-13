@@ -8,8 +8,8 @@
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
-@group(0) @binding(0) var screenTexture: texture_2d<f32>;
-@group(0) @binding(1) var samp: sampler;
+@group(0) @binding(0) public var screenTexture: texture_2d<f32>;
+@group(0) @binding(1) public var samp: sampler;
 
 /// Trims the algorithm from processing darks.
     @if(EDGE_THRESH_MIN_LOW)
@@ -43,10 +43,10 @@ import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
     @if(EDGE_THRESH_EXTREME)
     const EDGE_THRESHOLD_MAX: f32 = 0.031;
 
-const ITERATIONS: i32 = 12; //default is 12
-const SUBPIXEL_QUALITY: f32 = 0.75;
+public const ITERATIONS: i32 = 12; //default is 12
+public const SUBPIXEL_QUALITY: f32 = 0.75;
 // #define QUALITY(q) ((q) < 5 ? 1.0 : ((q) > 5 ? ((q) < 10 ? 2.0 : ((q) < 11 ? 4.0 : 8.0)) : 1.5))
-fn QUALITY(q: i32) -> f32 {
+public fn QUALITY(q: i32) -> f32 {
     switch (q) {
         //case 0, 1, 2, 3, 4: { return 1.0; }
         default:              { return 1.0; }
@@ -57,13 +57,13 @@ fn QUALITY(q: i32) -> f32 {
     }
 }
 
-fn rgb2luma(rgb: vec3<f32>) -> f32 {
+public fn rgb2luma(rgb: vec3<f32>) -> f32 {
     return sqrt(dot(rgb, vec3<f32>(0.299, 0.587, 0.114)));
 }
 
 /// Performs FXAA post-process anti-aliasing as described in the Nvidia FXAA white paper and the associated shader code.
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let resolution = vec2<f32>(textureDimensions(screenTexture));
     let inverseScreenSize = 1.0 / resolution.xy;
     let texCoord = in.position.xy * inverseScreenSize;

@@ -14,25 +14,25 @@ import package::realtime::resolve_dlss_rr_textures::{is_delta_mirror, primary_su
 
 enable wgpu_ray_query;
 
-const RECONNECTION_FOOTPRINT_KAPPA = 0.02;
-const RECONNECTION_ROUGHNESS_MIN = 0.6;
-const RECONNECTION_RELAX_DISTANCE = 1.0;
+public const RECONNECTION_FOOTPRINT_KAPPA = 0.02;
+public const RECONNECTION_ROUGHNESS_MIN = 0.6;
+public const RECONNECTION_RELAX_DISTANCE = 1.0;
 
-const CACHE_TERMINATION_MIN_SOLID_ANGLE = PI;
+public const CACHE_TERMINATION_MIN_SOLID_ANGLE = PI;
 
 /// What tracing one path produced.
 ///
 /// `radiance` is shaded straight into the pixel. With ReSTIR the reservoir additionally carries the
 /// candidate chosen for reuse, and `radiance` holds the radiance that can not be reused.
 /// Without ReSTIR there is no reservoir and `radiance` is the entire estimate.
-struct InitialSamplingResult {
+public struct InitialSamplingResult {
     @if(RESTIR) reservoir: Reservoir,
     radiance: vec3<f32>,
 }
 
 /// Path vertices use the following convention: x0 = camera, x1 = primary ray hit (the G-buffer
 /// surface), x2 = first BRDF-sampled hit (the reconnection vertex).
-struct PathState {
+public struct PathState {
     ray_origin: vec3<f32>,
     normal: vec3<f32>,
     wo: vec3<f32>,
@@ -54,7 +54,7 @@ struct PathState {
     @if(RESTIR) selected_target_function: f32,
 }
 
-fn new_path_state(world_position: vec3<f32>, world_normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial) -> PathState {
+public fn new_path_state(world_position: vec3<f32>, world_normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial) -> PathState {
     var path: PathState;
     path.ray_origin = world_position + (world_normal * RAY_T_MIN);
     path.normal = world_normal;
@@ -75,7 +75,7 @@ fn new_path_state(world_position: vec3<f32>, world_normal: vec3<f32>, wo: vec3<f
     return path;
 }
 
-fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, workgroup_id: vec2<u32>, pixel_id: vec2<u32>, rng: ptr<function, u32>) -> InitialSamplingResult {
+public fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, workgroup_id: vec2<u32>, pixel_id: vec2<u32>, rng: ptr<function, u32>) -> InitialSamplingResult {
     let wo = normalize(view.world_position - world_position);
     let primary_NdotV = max(dot(world_normal, wo), 0.0001);
     let primary_F_ab = F_AB(material.perceptual_roughness, primary_NdotV);
@@ -200,7 +200,7 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
     return result;
 }
 
-fn generate_nee_candidate(
+public fn generate_nee_candidate(
     path: ptr<function, PathState>,
     F_ab: vec2<f32>,
     p_nee: f32,
@@ -270,7 +270,7 @@ fn generate_nee_candidate(
     }
 }
 
-struct DiSample {
+public struct DiSample {
     unbiased_contribution_weight: f32,
     light_sample: LightSample,
     wi: vec3<f32>,
@@ -279,7 +279,7 @@ struct DiSample {
     brdf_rays_can_hit: bool,
 }
 
-fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>, di_samples: u32, workgroup_id: vec2<u32>, bounce: u32, rng: ptr<function, u32>) -> DiSample {
+public fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>, di_samples: u32, workgroup_id: vec2<u32>, bounce: u32, rng: ptr<function, u32>) -> DiSample {
     var workgroup_rng = (workgroup_id.x * 5782582u) + workgroup_id.y + bounce;
     let light_tile_start = rand_range_u(128u, &workgroup_rng) * 1024u;
 
@@ -324,7 +324,7 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
     return DiSample(unbiased_contribution_weight, light_tile_samples[selected_tile_sample], selected_wi, selected_brdf_radiance, selected_inverse_solid_angle_pdf, selected_brdf_rays_can_hit);
 }
 
-fn generate_emissive_candidate(
+public fn generate_emissive_candidate(
     path: ptr<function, PathState>,
     ray_hit: ResolvedRayHitFull,
     wi: vec3<f32>,
@@ -382,7 +382,7 @@ fn generate_emissive_candidate(
     }
 }
 
-fn terminate_into_cache(
+public fn terminate_into_cache(
     path: ptr<function, PathState>,
     ray_hit: ResolvedRayHitFull,
     ray_t: f32,
@@ -437,7 +437,7 @@ fn terminate_into_cache(
 /// Section 4 (sorta)
 /// https://research.nvidia.com/labs/rtr/publication/lin2026restirptenhanced/lin2026restirptenhanced.pdf
 @if(RESTIR)
-fn reconnection_reusable(ray_t: f32, p_brdf: f32, wi: vec3<f32>, diffuse_selected: bool, ray_hit: ResolvedRayHitFull, world_position: vec3<f32>, x1_perceptual_roughness: f32, primary_NdotV: f32) -> bool {
+public fn reconnection_reusable(ray_t: f32, p_brdf: f32, wi: vec3<f32>, diffuse_selected: bool, ray_hit: ResolvedRayHitFull, world_position: vec3<f32>, x1_perceptual_roughness: f32, primary_NdotV: f32) -> bool {
     // ray_footprint = t^2 / (p_brdf * cos_x2) is the area a sample represents at x2. It goes to 0 for
     // mirror lobes (p_brdf = INF) and shrinks for sharp lobes or short segments. Compared against a
     // uniform 1/(4*PI) primary footprint, so the test trades roughness against distance.

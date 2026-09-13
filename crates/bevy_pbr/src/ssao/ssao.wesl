@@ -18,25 +18,25 @@ import bevy_render::{
     maths::{PI, HALF_PI},
 };
 
-@group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
-@group(0) @binding(1) var normals: texture_2d<f32>;
-@group(0) @binding(2) var hilbert_index_lut: texture_2d<u32>;
+@group(0) @binding(0) public var preprocessed_depth: texture_2d<f32>;
+@group(0) @binding(1) public var normals: texture_2d<f32>;
+@group(0) @binding(2) public var hilbert_index_lut: texture_2d<u32>;
 @if(USE_R16FLOAT)
-@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r16float, write>;
+@group(0) @binding(3) public var ambient_occlusion: texture_storage_2d<r16float, write>;
 @else
-@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r32float, write>;
-@group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
-@group(0) @binding(5) var<uniform> globals: Globals;
-struct SsaoSettings {
+@group(0) @binding(3) public var ambient_occlusion: texture_storage_2d<r32float, write>;
+@group(0) @binding(4) public var depth_differences: texture_storage_2d<r32uint, write>;
+@group(0) @binding(5) public var<uniform> globals: Globals;
+public struct SsaoSettings {
     radius: f32,
     thickness: f32,
 }
-@group(0) @binding(6) var<uniform> settings: SsaoSettings;
-@group(1) @binding(0) var point_clamp_sampler: sampler;
-@group(1) @binding(1) var linear_clamp_sampler: sampler;
-@group(1) @binding(2) var<uniform> view: View;
+@group(0) @binding(6) public var<uniform> settings: SsaoSettings;
+@group(1) @binding(0) public var point_clamp_sampler: sampler;
+@group(1) @binding(1) public var linear_clamp_sampler: sampler;
+@group(1) @binding(2) public var<uniform> view: View;
 
-fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
+public fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     var index = textureLoad(hilbert_index_lut, pixel_coordinates % 64, 0).r;
 
 @if(TEMPORAL_JITTER)
@@ -47,7 +47,7 @@ fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
 }
 
 /// Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
-fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 {
+public fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 {
     // Sample the pixel's depth and 4 depths around it
     let uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
     let depths_upper_left = textureGather(0, preprocessed_depth, point_clamp_sampler, uv);
@@ -75,7 +75,7 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
     return depth_center;
 }
 
-fn load_normal_view_space(uv_normals: vec2<f32>) -> vec3<f32> {
+public fn load_normal_view_space(uv_normals: vec2<f32>) -> vec3<f32> {
     var world_normal = textureSampleLevel(normals, point_clamp_sampler, uv_normals, 0.0).xyz;
     world_normal = (world_normal * 2.0) - 1.0;
     let view_from_world = mat3x3<f32>(
@@ -86,19 +86,19 @@ fn load_normal_view_space(uv_normals: vec2<f32>) -> vec3<f32> {
     return view_from_world * world_normal;
 }
 
-fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
+public fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
     let clip_xy = vec2<f32>(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y);
     let t = view.view_from_clip * vec4<f32>(clip_xy, depth, 1.0);
     let view_xyz = t.xyz / t.w;
     return view_xyz;
 }
 
-fn load_and_reconstruct_view_space_position(uv: vec2<f32>, sample_mip_level: f32) -> vec3<f32> {
+public fn load_and_reconstruct_view_space_position(uv: vec2<f32>, sample_mip_level: f32) -> vec3<f32> {
     let depth = textureSampleLevel(preprocessed_depth, linear_clamp_sampler, uv, sample_mip_level).r;
     return reconstruct_view_space_position(depth, uv);
 }
 
-fn updateSectors(
+public fn updateSectors(
     min_horizon: f32,
     max_horizon: f32,
     samples_per_slice: f32,
@@ -110,7 +110,7 @@ fn updateSectors(
     return insertBits(bitmask, 0xFFFFFFFFu, start_horizon, angle_horizon);
 }
 
-fn processSample(
+public fn processSample(
     delta_position: vec3<f32>,
     view_vec: vec3<f32>,
     sampling_direction: f32,
@@ -133,7 +133,7 @@ fn processSample(
 
 @compute
 @workgroup_size(8, 8, 1)
-fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
+public fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let slice_count = f32(constants::SLICE_COUNT);
     let samples_per_slice_side = f32(constants::SAMPLES_PER_SLICE_SIDE);
 

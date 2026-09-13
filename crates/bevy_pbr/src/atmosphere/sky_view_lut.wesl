@@ -15,11 +15,11 @@ import bevy_render::{
 };
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
-@group(0) @binding(13) var sky_view_lut_out: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(13) public var sky_view_lut_out: texture_storage_2d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16, 1)
-fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
+public fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let uv = vec2<f32>(idx.xy) / vec2<f32>(settings.sky_view_lut_size);
 
     let cam_pos = get_view_position();
