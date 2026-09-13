@@ -10,4 +10,4 @@ To migrate code:
 - Implement the `Reflect` and `Default` traits on your settings group type.
 - Annotate your settings group type with `#[reflect(Default, SettingsGroup)]`.
 
-If your code was already working, and the type implementing `SettingsGroup` was already saving and loading, you should not need to change anything in your code. The changes were intended to avoid breaking any already functioning code. 
+If your code was already working, and the type implementing `SettingsGroup` was already saving and loading, you should not need to change anything in your code. The changes were intended to avoid breaking any already functioning code.
