@@ -907,7 +907,7 @@ where
             slab_to_grow.old_slot_capacity as u64 * slab.element_layout.slot_size(),
         );
 
-        let command_buffer = encoder.finish();
+        let command_buffer = encoder.into_inner().finish();
         render_queue.submit([command_buffer]);
     }
 
