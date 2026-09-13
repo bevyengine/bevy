@@ -611,7 +611,7 @@ fn fragment() -> @location(0) vec4<f32> {
         let (maths, _, root) = test_shaders();
         let (maths_id, lighting_id, root_id) = test_ids();
         let broken_lighting = Shader::from_wesl(
-            "fn brighten(x: f32) -> f32 { return x + ; }",
+            "public fn brighten(x: f32) -> f32 { return x + ; }",
             "embedded://bevy_pbr/render/lighting.wesl",
         );
         cache.set_shader(maths_id, maths);
@@ -646,11 +646,11 @@ fn fragment() -> @location(0) vec4<f32> {
 
     fn test_shaders() -> (Shader, Shader, Shader) {
         let maths = Shader::from_wesl(
-            "fn double(x: f32) -> f32 { return x * 2.0; }",
+            "public fn double(x: f32) -> f32 { return x * 2.0; }",
             "embedded://bevy_render/maths.wesl",
         );
         let lighting = Shader::from_wesl(
-            "fn brighten(x: f32) -> f32 { return x + 0.1; }",
+            "public fn brighten(x: f32) -> f32 { return x + 0.1; }",
             "embedded://bevy_pbr/render/lighting.wesl",
         );
         let root = Shader::from_wesl(
@@ -684,12 +684,12 @@ fn fragment() -> @location(0) vec4<f32> {
         };
 
         let mut lib_a = Shader::from_wesl(
-            "var<uniform> batch_a: array<vec4<f32>, constants::BATCH_SIZE>;",
+            "public var<uniform> batch_a: array<vec4<f32>, constants::BATCH_SIZE>;",
             "embedded://bevy_a/bindings.wesl",
         );
         lib_a.shader_defs = vec![ShaderDefVal::UInt("BATCH_SIZE".into(), 3)];
         let mut lib_b = Shader::from_wesl(
-            "var<uniform> batch_b: array<vec4<f32>, constants::BATCH_SIZE>;",
+            "public var<uniform> batch_b: array<vec4<f32>, constants::BATCH_SIZE>;",
             "embedded://bevy_b/bindings.wesl",
         );
         lib_b.shader_defs = vec![ShaderDefVal::UInt("BATCH_SIZE".into(), 7)];
@@ -729,17 +729,17 @@ fn fragment() -> @location(0) vec4<f32> { return batch_b[0]; }
             uuid: bevy_asset::uuid::Uuid::from_u128(n),
         };
         let module_a = Shader::from_wesl(
-            "import bevy_cycle::b::from_b;\nfn from_a() -> f32 { return 1.0; }",
+            "import bevy_cycle::b::from_b;\npublic fn from_a() -> f32 { return 1.0; }",
             "embedded://bevy_cycle/a.wesl",
         );
         let module_b = Shader::from_wesl(
-            "import bevy_cycle::a::from_a;\nfn from_b() -> f32 { return 2.0; }",
+            "import bevy_cycle::a::from_a;\npublic fn from_b() -> f32 { return 2.0; }",
             "embedded://bevy_cycle/b.wesl",
         );
         cache.set_shader(id(1), module_a);
         cache.set_shader(id(2), module_b);
         let module_a = Shader::from_wesl(
-            "import bevy_cycle::b::from_b;\nfn from_a() -> f32 { return 3.0; }",
+            "import bevy_cycle::b::from_b;\npublic fn from_a() -> f32 { return 3.0; }",
             "embedded://bevy_cycle/a.wesl",
         );
         cache.set_shader(id(1), module_a);
