@@ -934,6 +934,7 @@ impl WinitAppRunnerState {
             match window_event.clone() {
                 BevyWindowEvent::AppLifecycle(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::CursorEntered(e) => {
                     world.write_message(e);
@@ -945,7 +946,8 @@ impl WinitAppRunnerState {
                     world.write_message(e);
                 }
                 BevyWindowEvent::FileDragAndDrop(e) => {
-                    world.write_message(e);
+                    world.write_message(e.clone());
+                    world.trigger(e);
                 }
                 BevyWindowEvent::Ime(e) => {
                     world.write_message(e);
@@ -955,33 +957,43 @@ impl WinitAppRunnerState {
                 }
                 BevyWindowEvent::WindowBackendScaleFactorChanged(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowCloseRequested(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowCreated(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowDestroyed(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowFocused(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowMoved(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowOccluded(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowResized(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowScaleFactorChanged(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowThemeChanged(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::MouseButtonInput(e) => {
                     world.write_message(e);
@@ -1250,12 +1262,12 @@ mod tests {
                 let (window_backend_scale_factor_changed, window_scale_factor_changed) =
                     react_to_scale_factor_change(window.0, &mut window.1, changed_scale_factor);
                 window_backend_scale_factor_changed_writer
-                    .write(window_backend_scale_factor_changed.clone());
+                    .write(window_backend_scale_factor_changed);
                 window_event.write(BevyWindowEvent::WindowBackendScaleFactorChanged(
                     window_backend_scale_factor_changed,
                 ));
                 if let Some(window_scale_factor_changed) = window_scale_factor_changed {
-                    window_scale_factor_changed_writer.write(window_scale_factor_changed.clone());
+                    window_scale_factor_changed_writer.write(window_scale_factor_changed);
                     window_event.write(BevyWindowEvent::WindowScaleFactorChanged(
                         window_scale_factor_changed,
                     ));
@@ -1363,7 +1375,7 @@ mod tests {
                   mut window_resized_writer: MessageWriter<WindowResized>,
                   mut window_event: MessageWriter<BevyWindowEvent>| {
                 let window_resized = react_to_resize(window.0, &mut window.1, changed_size);
-                window_resized_writer.write(window_resized.clone());
+                window_resized_writer.write(window_resized);
                 window_event.write(BevyWindowEvent::WindowResized(window_resized));
             },
         );
