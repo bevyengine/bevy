@@ -1683,7 +1683,7 @@ impl World {
     #[inline]
     pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
         &mut self,
-        cond: impl FnMut(Entity, D::Item<'_, '_>) -> bool,
+        cond: impl FnMut(D::Item<'_, '_>) -> bool,
     ) {
         self.despawn_all_where_with_caller::<D, F>(cond, MaybeLocation::caller());
     }
@@ -1691,13 +1691,13 @@ impl World {
     /// [`despawn_all`](Self::despawn_all) that takes a caller explicitly.
     #[inline]
     pub(crate) fn despawn_all_with_caller<F: QueryFilter>(&mut self, caller: MaybeLocation) {
-        self.despawn_all_where_with_caller::<(), F>(|_, _| true, caller);
+        self.despawn_all_where_with_caller::<(), F>(|_| true, caller);
     }
 
     /// [`despawn_all_where`](Self::despawn_all_where) that takes a caller explicitly.
     pub(crate) fn despawn_all_where_with_caller<D: QueryData, F: QueryFilter>(
         &mut self,
-        mut cond: impl FnMut(Entity, D::Item<'_, '_>) -> bool,
+        mut cond: impl FnMut(D::Item<'_, '_>) -> bool,
         caller: MaybeLocation,
     ) {
         let mut query = self.query_filtered::<(Entity, D), F>();
@@ -1706,7 +1706,7 @@ impl World {
         let mut entities_to_despawn = VecDeque::new();
 
         while let Some((entity, data)) = query.fetch_next() {
-            if cond(entity, data) {
+            if cond(data) {
                 // We want to despawn the entities backwards since we're
                 // less likely to leave holes.
                 entities_to_despawn.push_front(entity);

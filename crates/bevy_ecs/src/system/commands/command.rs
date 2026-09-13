@@ -330,7 +330,7 @@ pub fn despawn_all<F: QueryFilter>() -> impl Command {
 /// A [`Command`] that [despawns](crate::system::entity_command::despawn) all entities matching a specific [`QueryFilter`] and condition.
 #[track_caller]
 pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
-    cond: impl FnMut(Entity, D::Item<'_, '_>) -> bool + Send + 'static,
+    cond: impl FnMut(D::Item<'_, '_>) -> bool + Send + 'static,
 ) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {

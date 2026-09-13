@@ -497,14 +497,14 @@ impl<'w, 's> Commands<'w, 's> {
     /// struct Health(f32);
     ///
     /// fn despawn_dead(mut commands: Commands) {
-    ///     commands.despawn_all_where::<&Health, ()>(|_, health| health.0 <= 0.0);
+    ///     commands.despawn_all_where::<&Health, ()>(|health| health.0 <= 0.0);
     /// }
     ///
     /// # bevy_ecs::system::assert_is_system(despawn_dead);
     /// ```
     pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
         &mut self,
-        cond: impl FnMut(Entity, D::Item<'_, '_>) -> bool + Send + 'static,
+        cond: impl FnMut(D::Item<'_, '_>) -> bool + Send + 'static,
     ) {
         self.queue(command::despawn_all_where::<D, F>(cond));
     }
@@ -3153,7 +3153,7 @@ mod tests {
 
         let mut commands = world.commands();
 
-        commands.despawn_all_where::<&ComponentA, ()>(|_, data| data.0 < 3);
+        commands.despawn_all_where::<&ComponentA, ()>(|data| data.0 < 3);
 
         world.flush_commands();
 
