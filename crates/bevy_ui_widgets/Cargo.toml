@@ -29,7 +29,7 @@ bevy_time = { path = "../bevy_time", version = "0.20.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.20.0-dev" }
 
 # other
-accesskit = "0.24"
+accesskit = "0.25"
 parley = { version = "0.11.0", default-features = false }
 smol_str = "0.2"
 
