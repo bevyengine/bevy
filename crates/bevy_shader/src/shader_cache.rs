@@ -36,11 +36,7 @@ pub(crate) fn wesl_module_path(import_path: &ShaderImport) -> Option<wesl::synta
     }
 }
 
-/// Recovers the module path `wesl` could not resolve.
-///
-/// `wesl` resolves an import at the point of use, so it only ever asks for a module that
-/// genuinely exists, and it reports a miss as structured data. Reading that path back is what
-/// lets the module be loaded on demand instead of guessed at load time.
+/// Recovers the module path `wesl` could not resolve, so it can be loaded on demand.
 ///
 /// Only the first missing module is reported, because compilation stops there.
 fn module_not_found_path(error: &wesl::Error) -> Option<&wesl::syntax::ModulePath> {
@@ -551,8 +547,8 @@ pub enum ShaderCacheError {
     ProcessShaderError(String),
     #[error("Shader import not yet available.")]
     ShaderImportNotYetAvailable {
-        /// The module `wesl` asked for and could not find. Every path reported here is one the
-        /// compiler actually reached, so it is never speculative.
+        /// The module `wesl` asked for and could not find. Always one the compiler actually
+        /// reached, never a guess.
         missing_module: Option<ShaderImport>,
     },
     #[error("Could not create shader module: {0}")]
@@ -570,15 +566,10 @@ mod tests {
         })
     }
 
-    /// The compiler names the module it could not resolve, and that name survives to the caller
-    /// so the module can be loaded on demand.
+    /// The unresolved module is named to the caller, so it can be loaded.
     ///
-    /// This is what replaces guessing dependencies from the import statement: the path here is
-    /// one `wesl` actually reached while resolving a use site, never a speculative candidate.
-    ///
-    /// Note which module is reported. `bevy_render::maths` is written inline in the body as
-    /// `bevy_render::maths::double(1.0)`, with no import statement naming it -- a scan of the
-    /// import statements cannot see it at all. The compiler finds it without one.
+    /// Note which one: `bevy_render::maths` is written inline in the body, with no import
+    /// statement naming it, so a scan of import statements could not find it.
     #[test]
     fn missing_import_names_the_module_to_load() {
         let mut cache = test_cache();
@@ -593,8 +584,6 @@ mod tests {
             panic!("expected the shader to be waiting on an import");
         };
 
-        // It is an engine shader embedded in the binary, so it is reported as `Custom`. The
-        // render world must not request it from the asset server.
         assert_eq!(
             missing_module,
             Some(ShaderImport::Custom("bevy_render::maths".to_string())),

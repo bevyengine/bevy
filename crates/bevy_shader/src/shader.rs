@@ -13,14 +13,10 @@ fn scan_wesl_imports(
 
     fn leaves(content: &ImportContent, path: ModulePath, out: &mut Vec<ModulePath>) {
         match content {
-            ImportContent::Item(item) => {
-                // `import a::b::c` binds `c`, which may be an item declared in module `a::b` or
-                // the module `a::b::c` itself. The import statement cannot tell them apart; only
-                // the use site can, and `wesl` answers that when it resolves. Record the parent,
-                // which is always a module, and never invent `a::b::c` as a second candidate.
-                let _ = item;
-                out.push(path);
-            }
+            // `import a::b::c` binds `c`, which may be an item in module `a::b` or the module
+            // `a::b::c` itself. Only the use site disambiguates, and `wesl` does that when it
+            // resolves, so record the parent and never guess at `a::b::c`.
+            ImportContent::Item(_) => out.push(path),
             ImportContent::Collection(collection) => {
                 for import in collection {
                     let path = path.clone().join(import.path.iter().cloned());
@@ -58,37 +54,20 @@ fn scan_wesl_imports(
 
     let mut imports = Vec::new();
     for path in &paths {
-        let path = match &path.origin {
-            PathOrigin::Package(pkg) if pkg.contains('/') => Cow::Owned(ModulePath {
-                origin: PathOrigin::Package(pkg.rsplit('/').next().unwrap().to_string()),
-                components: path.components.clone(),
-            }),
-            _ => Cow::Borrowed(path),
-        };
-        let import = match &path.origin {
-            PathOrigin::Absolute => {
-                ShaderImport::AssetPath(format!("/{}", path.components.join("/")))
-            }
-            PathOrigin::Package(package) => ShaderImport::Custom(
-                core::iter::once(package.as_str())
-                    .chain(path.components.iter().map(String::as_str))
-                    .collect::<Vec<_>>()
-                    .join("::"),
-            ),
-            PathOrigin::Relative(_) => continue,
-        };
-        if !imports.contains(&import) {
+        if let Some(import) = shader_import_from_module_path(path)
+            && !imports.contains(&import)
+        {
             imports.push(import);
         }
     }
     imports
 }
 
-/// Maps a `wesl` module path onto the import Bevy uses to identify a shader.
+/// Maps a `wesl` module path onto the import Bevy identifies a shader by.
 ///
-/// The origin decides whether the module can be fetched at all: an absolute path lives under
-/// `assets/`, while a package origin is an engine shader embedded in the binary by
-/// `load_shader_library!` and must never be requested over the network.
+/// The origin decides where the module lives: absolute paths are files under `assets/`, while a
+/// package origin is an engine shader embedded in the binary, which must never be fetched.
+/// Returns `None` for a relative path, which names nothing on its own.
 pub fn shader_import_from_module_path(path: &wesl::syntax::ModulePath) -> Option<ShaderImport> {
     use wesl::syntax::{ModulePath, PathOrigin};
 
@@ -334,23 +313,14 @@ impl AssetLoader for ShaderLoader {
             _ => panic!("unhandled extension: {ext}"),
         };
 
-        // collect and store file dependencies
-        match ext.as_str() {
-            "wesl" => {
-                // Nothing is fetched here on purpose. A `wesl` import is ambiguous until it is
-                // used, so any dependency guessed from the import statement alone can be wrong.
-                // The previous code settled that by reading both candidates and keeping whichever
-                // succeeded, so one read per import was designed to miss -- a silent failed
-                // `stat` natively, an unsuppressable 404 on the web. See bevyengine/bevy#25363.
-                //
-                // Modules are discovered from compilation instead: `wesl` reports the module it
-                // could not resolve and it is loaded then, so no request is ever speculative.
-            }
-            _ => {
-                for import in &shader.imports {
-                    if let ShaderImport::AssetPath(asset_path) = import {
-                        shader.file_dependencies.push(load_context.load(asset_path));
-                    }
+        // `wesl` dependencies are deliberately not collected here. An import is ambiguous until
+        // it is used, so anything guessed from the import statement alone may not exist -- which
+        // on the web is a 404 the browser logs before we can see it (bevyengine/bevy#25363).
+        // They are discovered during compilation and loaded then.
+        if ext != "wesl" {
+            for import in &shader.imports {
+                if let ShaderImport::AssetPath(asset_path) = import {
+                    shader.file_dependencies.push(load_context.load(asset_path));
                 }
             }
         }
@@ -405,24 +375,16 @@ impl From<&'static str> for ShaderRef {
 mod tests {
     use super::*;
 
-    /// Guards the fix for bevyengine/bevy#25363 without needing a browser.
+    /// Regression test for bevyengine/bevy#25363, whose symptom was
+    /// `GET /assets/shaders/custom_material_import/COLOR_MULTIPLIER.wesl 404`.
     ///
-    /// The browser's console line was
-    /// `GET /assets/shaders/custom_material_import/COLOR_MULTIPLIER.wesl 404`. That request was
-    /// not made by `wesl`, which resolves an import at its use site and so only ever asks for a
-    /// module that exists. It was made here: `scan_wesl_imports` emitted `path + item` as a
-    /// second candidate module, and `AssetLoader::load` chose between candidates by attempting to
-    /// read each one -- so one read per import was designed to miss. Natively that is a silent
-    /// failed `stat`; on the web the browser logs it before the response reaches Rust.
-    ///
-    /// `COLOR_MULTIPLIER` is a `const` declared inside `custom_material_import`, not a module
-    /// beneath it, so it must never appear as a path.
+    /// `COLOR_MULTIPLIER` is a `const` inside `custom_material_import`, not a module beneath it,
+    /// so it must never appear as a path.
     #[test]
     fn item_import_names_only_its_parent_module() {
         let source = include_str!("../../../assets/shaders/custom_material.wesl");
         let shader = Shader::from_wesl(source, "shaders/custom_material.wesl");
 
-        // What the asset loader would turn into HTTP GETs.
         let requested: Vec<String> = shader
             .imports
             .iter()
