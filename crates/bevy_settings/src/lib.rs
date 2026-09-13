@@ -47,7 +47,7 @@ use store_wasm::SettingsStore;
 /// appropriate filesystem location (depending on platform) for app settings. For platforms
 /// without filesystems, other storage mechanisms will be used.
 ///
-/// If you are do not have a domain name and cannot
+/// If you do not have a domain name and cannot
 /// afford one, use a reverse domain based on the URL of your repo (GitHub, GitLab, Codeberg
 /// and so on).
 ///

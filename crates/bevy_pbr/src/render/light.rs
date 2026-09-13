@@ -13,6 +13,7 @@ use bevy_color::ColorToComponents;
 use bevy_core_pipeline::schedule::RootNonCameraView;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::schedule::ScheduleLabel;
+use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
@@ -442,6 +443,7 @@ pub fn extract_lights(
     )>,
     mut all_lights_found: Local<EntityHashSet>,
     mut rect_light_missing_luts_warning_emitted: Local<bool>,
+    system_change_tick: SystemChangeTick,
 ) {
     let mapper = &visibility_extraction_system_param.mapper;
 
@@ -515,7 +517,7 @@ pub fn extract_lights(
                 render_shadow_map_visible_entities
                     .subviews
                     .entry(retained_view_entity)
-                    .or_default();
+                    .or_insert_with(|| (system_change_tick.this_run(), Default::default()));
 
                 // Extract the visible entities to the list for this face.
                 let extracted_entities = &mut render_extracted_shadow_map_visible_entities
@@ -646,7 +648,7 @@ pub fn extract_lights(
             render_shadow_map_visible_entities
                 .subviews
                 .entry(retained_view_entity)
-                .or_default();
+                .or_insert_with(|| (system_change_tick.this_run(), Default::default()));
 
             // Extract the visible CPU culled entities to the list.
             let entities_cpu_culling = &mut render_extracted_shadow_map_visible_entities
@@ -816,7 +818,7 @@ pub fn extract_lights(
                     existing_shadow_map_visible_entities
                         .subviews
                         .entry(retained_view_entity)
-                        .or_default();
+                        .or_insert_with(|| (system_change_tick.this_run(), Default::default()));
 
                     // Extract the visible CPU culled entities to the list.
                     let extracted_entities = &mut existing_extracted_shadow_map_visible_entities
@@ -3087,12 +3089,13 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
     match light_entity {
         LightEntity::Directional { light_entity, .. } => {
             let retained_view_entity = extracted_view_light.retained_view_entity;
-            shadow_map_visible_entities_query
+            &shadow_map_visible_entities_query
                 .get(*light_entity)
                 .expect("Failed to get directional light visible entities")
                 .subviews
                 .get(&retained_view_entity)
                 .expect("Failed to get directional light visible entities for cascade")
+                .1
         }
         LightEntity::Point {
             light_entity,
@@ -3106,12 +3109,13 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
                 auxiliary_entity: None,
                 subview_index: *face_index as u32,
             };
-            shadow_map_visible_entities_query
+            &shadow_map_visible_entities_query
                 .get(*light_entity)
                 .expect("Failed to get point light visible entities")
                 .subviews
                 .get(&retained_view_entity)
                 .expect("Failed to get point light visible entity for face")
+                .1
         }
         LightEntity::Spot { light_entity } => {
             // We replace the auxiliary entity with `None`
@@ -3122,12 +3126,13 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
                 auxiliary_entity: None,
                 subview_index: 0,
             };
-            shadow_map_visible_entities_query
+            &shadow_map_visible_entities_query
                 .get(*light_entity)
                 .expect("Failed to get spot light visible entities")
                 .subviews
                 .get(&retained_view_entity)
                 .expect("Failed to get spot light visible entity for view")
+                .1
         }
     }
 }
