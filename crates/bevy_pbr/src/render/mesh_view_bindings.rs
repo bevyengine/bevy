@@ -32,7 +32,7 @@ use bevy_render::{
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
         Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
-        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT, VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE,
     },
 };
 use core::fmt::Write;
@@ -240,6 +240,17 @@ pub(crate) fn buffer_layout(
     }
 }
 
+/// The minimum size of the visibility ranges binding: one element of the
+/// runtime-sized storage array, or the whole fixed-size uniform array.
+pub(crate) fn visibility_ranges_min_binding_size(
+    buffer_binding_type: BufferBindingType,
+) -> NonZero<u64> {
+    match buffer_binding_type {
+        BufferBindingType::Uniform => <[Vec4; VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE]>::min_size(),
+        BufferBindingType::Storage { .. } => Vec4::min_size(),
+    }
+}
+
 /// Returns the appropriate bind group layout vec based on the parameters
 fn layout_entries(
     layout_key: MeshPipelineViewLayoutKey,
@@ -350,7 +361,9 @@ fn layout_entries(
                 buffer_layout(
                     visibility_ranges_buffer_binding_type,
                     false,
-                    Some(Vec4::min_size()),
+                    Some(visibility_ranges_min_binding_size(
+                        visibility_ranges_buffer_binding_type,
+                    )),
                 )
                 .visibility(ShaderStages::VERTEX),
             ),
