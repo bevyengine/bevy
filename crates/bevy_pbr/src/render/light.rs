@@ -32,7 +32,7 @@ use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     MaterialProperties,
 };
-use bevy_math::{ops, proj, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{ops, proj, Mat3, Mat4, Quat, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
@@ -105,6 +105,37 @@ pub struct ExtractedRectLight {
     pub width: f32,
     pub height: f32,
     pub transform: GlobalTransform,
+}
+
+impl ExtractedRectLight {
+    fn new(light: &RectLight, transform: &GlobalTransform) -> Option<Self> {
+        let affine = transform.affine();
+        let width = light.width * affine.matrix3.x_axis.length();
+        let height = light.height * affine.matrix3.y_axis.length();
+        if width == 0.0 || height == 0.0 {
+            return None;
+        }
+
+        // A rectangle only uses the XY plane. In particular, a zero Z scale must
+        // not enter GlobalTransform's scale/rotation decomposition.
+        let right = Vec3::from(affine.matrix3.x_axis).try_normalize()?;
+        let up = Vec3::from(affine.matrix3.y_axis).try_normalize()?;
+        let back = right.cross(up).try_normalize()?;
+        let up = back.cross(right);
+        let rotation = Quat::from_mat3(&Mat3::from_cols(right, up, back));
+        Some(Self {
+            color: light.color.into(),
+            intensity: light.intensity / (width * height * core::f32::consts::PI),
+            width,
+            height,
+            range: light.range,
+            transform: GlobalTransform::from(Transform {
+                translation: transform.translation(),
+                rotation,
+                ..default()
+            }),
+        })
+    }
 }
 
 #[derive(Component, Debug)]
@@ -914,22 +945,15 @@ pub fn extract_lights(
 
         all_lights_found.insert(render_entity);
 
-        let affine = transform.affine();
-        let effective_width = rect_light.width * affine.matrix3.x_axis.length();
-        let effective_height = rect_light.height * affine.matrix3.y_axis.length();
         let mut entity_commands = commands
             .get_entity(render_entity)
             .expect("RectLight entity wasn't synced.");
+        let Some(extracted_light) = ExtractedRectLight::new(rect_light, transform) else {
+            entity_commands.remove::<ExtractedRectLight>();
+            continue;
+        };
         entity_commands.insert((
-            ExtractedRectLight {
-                color: rect_light.color.into(),
-                intensity: rect_light.intensity
-                    / (effective_width * effective_height * core::f32::consts::PI),
-                width: effective_width,
-                height: effective_height,
-                range: rect_light.range,
-                transform: *transform,
-            },
+            extracted_light,
             MainEntity::from(main_entity),
             maybe_render_layers.unwrap_or_default().clone(),
         ));
@@ -3161,5 +3185,103 @@ pub fn extract_shadow_lod_origin(
             render_shadow_lod_origin.0 = global_transform.translation();
         }
         None => render_shadow_lod_origin.0 = Default::default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_extract::MainWorld;
+    use bevy_math::Quat;
+
+    #[test]
+    fn rect_light_extraction_removes_and_restores_degenerate_lights() {
+        let mut render_world = World::new();
+        let render_entity = render_world.spawn_empty().id();
+        let mut main_world = MainWorld::default();
+        main_world.init_resource::<PointLightShadowMap>();
+        main_world.init_resource::<DirectionalLightShadowMap>();
+        let entity = main_world
+            .spawn((
+                RectLight::default(),
+                GlobalTransform::IDENTITY,
+                ViewVisibility::VISIBLE,
+                RenderEntity::from(render_entity),
+            ))
+            .id();
+        render_world.insert_resource(main_world);
+        let mut schedule = Schedule::default();
+        schedule.add_systems(extract_lights);
+
+        for (scale, expected) in [
+            (Vec3::ONE, true),
+            (Vec3::new(1.0, 0.0, 1.0), false),
+            (Vec3::new(1.0, 1.0, 0.0), true),
+            (Vec3::new(0.0, 1.0, 1.0), false),
+            (Vec3::ONE, true),
+        ] {
+            render_world
+                .resource_mut::<MainWorld>()
+                .entity_mut(entity)
+                .insert(GlobalTransform::from_scale(scale));
+            schedule.run(&mut render_world);
+            let light = render_world.get::<ExtractedRectLight>(render_entity);
+            assert_eq!(light.is_some(), expected, "scale: {scale}");
+            if let Some(light) = light {
+                assert!(light.intensity.is_finite());
+                assert!(light.transform.rotation().is_finite());
+            }
+        }
+    }
+
+    #[test]
+    fn rect_light_zero_area_is_not_extracted() {
+        for scale in [
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 1.0),
+            Vec3::new(1.0, 0.0, 1.0),
+        ] {
+            assert!(ExtractedRectLight::new(
+                &RectLight::default(),
+                &GlobalTransform::from_scale(scale)
+            )
+            .is_none());
+        }
+        for (width, height) in [(0.0, 1.0), (1.0, 0.0)] {
+            let light = RectLight {
+                width,
+                height,
+                ..default()
+            };
+            assert!(ExtractedRectLight::new(&light, &GlobalTransform::IDENTITY).is_none());
+        }
+    }
+
+    #[test]
+    fn rect_light_zero_z_preserves_orientation_and_size() {
+        let rotation = Quat::from_rotation_y(0.7) * Quat::from_rotation_x(0.3);
+        for z in [0.0, 1.0, 5.0] {
+            let transform = GlobalTransform::from(Transform {
+                translation: Vec3::new(2.0, 3.0, 4.0),
+                rotation,
+                scale: Vec3::new(2.0, 3.0, z),
+            });
+            let light = ExtractedRectLight::new(&RectLight::default(), &transform).unwrap();
+            assert!(light.transform.rotation().is_finite());
+            assert!(light
+                .transform
+                .right()
+                .as_vec3()
+                .abs_diff_eq(rotation * Vec3::X, 1e-5));
+            assert!(light
+                .transform
+                .up()
+                .as_vec3()
+                .abs_diff_eq(rotation * Vec3::Y, 1e-5));
+            assert_eq!(light.transform.translation(), transform.translation());
+            assert!((light.width - 2.0).abs() < 1e-5);
+            assert!((light.height - 3.0).abs() < 1e-5);
+            assert!(light.intensity.is_finite());
+        }
     }
 }
