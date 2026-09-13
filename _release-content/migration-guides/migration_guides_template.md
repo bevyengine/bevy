@@ -6,6 +6,7 @@ pull_requests: [25548]
 The `SettingsGroup` trait now has trait bounds `Resource + Reflect + Default`, as opposed to (originally) `Resource`. This is because types that implement `SettingsGroup` will not gain any of the benefits of `SettingsGroup` (ie automatic saving and loading caused by the system included in the settings plugin) unless the type is `Reflect + Default`.
 
 To migrate code:
+
 - Implement the `Reflect` and `Default` traits on your settings group type.
 - Annotate your settings group type with `#[reflect(Default, SettingsGroup)]`.
 
