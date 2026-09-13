@@ -595,7 +595,7 @@ pub fn extract_lights(
             extracted_point_light,
             (*frusta).clone(),
             MainEntity::from(main_entity),
-            maybe_render_layers.map_or_default(|render_layers| {
+            maybe_render_layers.map_or_else(default, |render_layers| {
                 (
                     (*render_layers).clone(),
                     ExtractedRenderLayersMeta {
@@ -741,7 +741,7 @@ pub fn extract_lights(
             extracted_spot_light,
             *frustum,
             MainEntity::from(main_entity),
-            maybe_render_layers.map_or_default(|render_layers| {
+            maybe_render_layers.map_or_else(default, |render_layers| {
                 (
                     (*render_layers).clone(),
                     ExtractedRenderLayersMeta {
@@ -906,7 +906,7 @@ pub fn extract_lights(
         entity_commands.insert((
             extracted_directional_light,
             MainEntity::from(main_entity),
-            maybe_render_layers.map_or_default(|render_layers| {
+            maybe_render_layers.map_or_else(default, |render_layers| {
                 (
                     (*render_layers).clone(),
                     ExtractedRenderLayersMeta {

@@ -1,11 +1,16 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
-use bevy::prelude::*;
+use bevy::{
+    camera::visibility::{NoCpuCulling, RenderLayers},
+    prelude::*,
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, scene.spawn())
+        .add_systems(Update, (change_layers, change_light_layers))
+        .add_observer(add_ncl)
         .run();
 }
 
@@ -29,5 +34,47 @@ fn scene() -> impl SceneList {
         --
         Camera3d
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y)
+    }
+}
+
+fn add_ncl(add: On<Add<Mesh3d>>, mut commands: Commands) {
+    commands.entity(add.entity).insert(NoCpuCulling);
+}
+
+fn change_layers(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    query: Query<Entity, With<Camera3d>>,
+    mut commands: Commands,
+    mut state: Local<bool>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyP) {
+        let layers = if *state {
+            RenderLayers::layer(0)
+        } else {
+            RenderLayers::layer(1)
+        };
+        *state = !*state;
+        for entity in query {
+            commands.entity(entity).insert(layers.clone());
+        }
+    }
+}
+
+fn change_light_layers(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    query: Query<Entity, Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>>,
+    mut commands: Commands,
+    mut state: Local<bool>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyL) {
+        let layers = if *state {
+            RenderLayers::layer(0)
+        } else {
+            RenderLayers::layer(1)
+        };
+        *state = !*state;
+        for entity in query {
+            commands.entity(entity).insert(layers.clone());
+        }
     }
 }
