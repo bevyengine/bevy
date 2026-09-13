@@ -87,8 +87,6 @@ pub struct DownsamplePipeline {
 
 impl DownsamplePipeline {
     /// Returns true if the shader can downsample textures in `format`.
-    ///
-    /// Only float formats are supported because the shader stores `vec4f`.
     pub fn supports_texture_format(format: TextureFormat) -> bool {
         texture_format_shader_def(format).is_some()
     }
@@ -190,8 +188,7 @@ impl SpecializedComputePipeline for DownsamplePipeline {
 const REQUIRED_STORAGE_TEXTURES: u32 = 12;
 
 /// Returns the shader def that selects the output format of `downsample.wesl`,
-/// or `None` if the format isn't supported. Only float formats are supported
-/// because the shader stores `vec4f`.
+/// or `None` if the format isn't supported.
 fn texture_format_shader_def(format: TextureFormat) -> Option<ShaderDefVal> {
     let name = match format {
         TextureFormat::Rgba8Unorm => "TEXTURE_FORMAT_RGBA8UNORM",
