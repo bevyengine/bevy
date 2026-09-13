@@ -187,10 +187,9 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -298,10 +297,9 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -499,12 +497,11 @@ macro_rules! impl_or_query_filter {
 
             fn init_nested_access(
                 state: &Self::State,
-                _system_name: Option<&str>,
                 _component_access_set: &mut FilteredAccessSet,
-                _world: UnsafeWorldCell,
-            ) {
+            ) -> Result<(), FilteredAccessSet>  {
                 let ($($state,)*) = state;
-                $($filter::init_nested_access($state, _system_name, _component_access_set, _world);)*
+                $($filter::init_nested_access($state, _component_access_set)?;)*
+                Ok(())
             }
 
             fn init_state(world: &mut World) -> Self::State {
@@ -653,10 +650,9 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -864,10 +860,9 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -1101,10 +1096,9 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -1271,10 +1265,9 @@ unsafe impl WorldQuery for Spawned {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(_world: &mut World) {}

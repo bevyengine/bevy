@@ -581,13 +581,15 @@ mod tests {
 
 #[cfg(test)]
 mod validation_tests {
+    use alloc::boxed::Box;
+
     use crate::{
         prelude::{Component, In, IntoSystem, Resource, Schedule},
         schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
         system::{
-            DynParamBuilder, DynSystemParam, Local, ParamBuilder, ParamSet, Query, Res, ResMut,
-            RunSystemError, RunSystemOnce, Single, SystemAccess, SystemMeta, SystemParam,
-            SystemParamBuilder, SystemParamValidationError,
+            DynParamBuilder, DynSystemParam, Local, ParamBuilder, ParamSet,
+            ParameterAccessConflict, Query, Res, ResMut, RunSystemError, RunSystemOnce, Single,
+            SystemAccess, SystemMeta, SystemParam, SystemParamBuilder, SystemParamValidationError,
         },
         world::World,
     };
@@ -616,8 +618,8 @@ mod validation_tests {
             _state: &Self::State,
             _system_meta: &mut SystemMeta,
             _system_access: &mut SystemAccess,
-            _world: &mut World,
-        ) {
+        ) -> Result<(), Box<ParameterAccessConflict>> {
+            Ok(())
         }
 
         unsafe fn get_param<'world, 'state>(

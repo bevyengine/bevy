@@ -9,8 +9,8 @@ use bevy_ecs::component::ComponentId;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::{QueryData, QueryFilter, QueryState};
 use bevy_ecs::system::{
-    Deferred, SystemAccess, SystemBuffer, SystemMeta, SystemName, SystemParam,
-    SystemParamValidationError,
+    Deferred, ParameterAccessConflict, SystemAccess, SystemBuffer, SystemMeta, SystemName,
+    SystemParam, SystemParamValidationError,
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
@@ -347,10 +347,8 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 
     fn init_state(world: &mut World) -> Self::State {
         ViewQueryState {
-            resource_id: world
-                .components_registrator()
-                .register_component::<CurrentView>(),
-            query_state: QueryState::new(world),
+            resource_id: Res::<CurrentView>::init_state(world),
+            query_state: Query::init_state(world),
         }
     }
 
@@ -358,40 +356,34 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-        world: &mut World,
-    ) {
-        let component_access_set = system_access.require_shared_access::<Self>(system_meta);
-        component_access_set.add_resource_read(state.resource_id);
-
-        <Query<'_, '_, D, F> as SystemParam>::init_access(
-            &state.query_state,
-            system_meta,
-            system_access,
-            world,
-        );
+    ) -> Result<(), Box<ParameterAccessConflict>> {
+        Res::<CurrentView>::init_access(&state.resource_id, system_meta, system_access)?;
+        Query::init_access(&state.query_state, system_meta, system_access)?;
+        Ok(())
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
-        _system_meta: &SystemMeta,
+        system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
-        _change_tick: Tick,
+        change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: We have registered resource read access in init_access
-        let current_view = unsafe { world.get_resource::<CurrentView>() };
-
-        let Some(current_view) = current_view else {
-            return Err(SystemParamValidationError::skipped::<Self>(
-                "CurrentView resource not present",
-            ));
-        };
+        let current_view = unsafe {
+            Res::<CurrentView>::get_param(&mut state.resource_id, system_meta, world, change_tick)
+        }
+        .map_err(|_| {
+            SystemParamValidationError::skipped::<Self>("CurrentView resource not present")
+        })?;
 
         let entity = current_view.entity();
 
         // SAFETY: Query state access is properly registered in init_access.
         // The caller ensures the world matches the one used in init_state.
-        let item = unsafe { state.query_state.get_unchecked(world, entity) }.map_err(|_| {
+        let query =
+            unsafe { Query::get_param(&mut state.query_state, system_meta, world, change_tick) }?;
+        let item = query.get_inner(entity).map_err(|_| {
             SystemParamValidationError::skipped::<Self>("Current view entity does not match query")
         })?;
 

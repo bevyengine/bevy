@@ -1029,6 +1029,19 @@ impl FilteredAccessSet {
         true
     }
 
+    /// Returns `true` if this and `other` can be active at the same time.
+    pub fn is_compatible_single(&self, other: &FilteredAccess) -> bool {
+        if self.combined_access.is_compatible(other.access()) {
+            return true;
+        }
+        for filtered in &self.filtered_accesses {
+            if !filtered.is_compatible(other) {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Returns a vector of elements that this set and `other` cannot access at the same time.
     pub fn get_conflicts(&self, other: &FilteredAccessSet) -> AccessConflicts {
         // if the unfiltered access is incompatible, must check each pair

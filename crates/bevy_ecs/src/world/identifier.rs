@@ -1,9 +1,12 @@
 use crate::{
     change_detection::Tick,
     storage::SparseSetIndex,
-    system::{SystemAccess, SystemMeta, SystemParam, SystemParamValidationError},
+    system::{
+        ParameterAccessConflict, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
+use alloc::boxed::Box;
 use bevy_platform::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -68,11 +71,13 @@ unsafe impl SystemParam for WorldId {
 
     fn init_access(
         _state: &Self::State,
-        system_meta: &mut SystemMeta,
+        _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-        _world: &mut World,
-    ) {
-        system_access.require_shared_access::<Self>(system_meta);
+    ) -> Result<(), Box<ParameterAccessConflict>> {
+        system_access.try_extend_metadata().map_err(|access| {
+            ParameterAccessConflict::new::<Self>(access)
+                .with_suggestion_if_exclusive(system_access, "Calling `World::id()`")
+        })
     }
 
     #[inline]

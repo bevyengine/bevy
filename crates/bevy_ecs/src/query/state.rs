@@ -18,7 +18,7 @@ use crate::{
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 use crate::entity::UniqueEntityEquivalentSlice;
 
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
 use core::{fmt, ptr};
 use fixedbitset::FixedBitSet;
@@ -197,35 +197,23 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// or with any previous access.
     pub fn init_access(
         &self,
-        system_name: Option<&str>,
         component_access_set: &mut FilteredAccessSet,
-        world: UnsafeWorldCell,
-    ) {
-        let conflicts = component_access_set.get_conflicts_single(&self.component_access);
-        if !conflicts.is_empty() {
-            let mut accesses = conflicts.format_conflict_list(world);
-            // Access list may be empty (if access to all components requested)
-            if !accesses.is_empty() {
-                accesses.push(' ');
-            }
-            let type_name = DebugName::type_name::<Query<D, F>>();
-            let type_name = type_name.shortname();
-            let system = system_name
-                .map(|name| format!(" in system {name}"))
-                .unwrap_or_default();
-            panic!("error[B0001]: {type_name}{system} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001",);
+    ) -> Result<(), FilteredAccessSet> {
+        let component_access = self.component_access.clone();
+        if !component_access_set.is_compatible_single(&component_access) {
+            return Err(component_access.into());
         }
-
-        component_access_set.add(self.component_access.clone());
-        D::init_nested_access(&self.fetch_state, system_name, component_access_set, world);
-        F::init_nested_access(&self.filter_state, system_name, component_access_set, world);
+        component_access_set.add(component_access);
+        D::init_nested_access(&self.fetch_state, component_access_set)?;
+        F::init_nested_access(&self.filter_state, component_access_set)?;
+        Ok(())
     }
 
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         // SAFETY: We immediately call `init_access`
         let state = unsafe { Self::new_unchecked(world) };
-        state.init_access(None, &mut FilteredAccessSet::new(), world.into());
+        state.assert_no_conflicts_with_nested_queries(world.into());
         state
     }
 
@@ -239,7 +227,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // SAFETY: We immediately call `init_access`
         let mut state =
             unsafe { Self::from_states_uninitialized(world, fetch_state, filter_state) };
-        state.init_access(None, &mut FilteredAccessSet::new(), world.into());
+        state.assert_no_conflicts_with_nested_queries(world.into());
         state.update_archetypes(world);
         Some(state)
     }
@@ -343,9 +331,32 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 filter = core::any::type_name::<F>(),
             ),
         };
-        state.init_access(None, &mut FilteredAccessSet::new(), builder.world().into());
+        state.assert_no_conflicts_with_nested_queries(builder.world().into());
         state.update_archetypes(builder.world());
         state
+    }
+
+    fn assert_no_conflicts_with_nested_queries(&self, world: UnsafeWorldCell<'_>) {
+        self.init_access(&mut FilteredAccessSet::new())
+            .unwrap_or_else(|access2| {
+                // Find the other conflicting query.
+                // By initializing `access` with the access of the later query,
+                // the earlier one will detect the conflict instead.
+                let mut access = access2.clone();
+                let access1 = self.init_access(&mut access).expect_err(
+                    "Query with internal access conflict must always report a conflict",
+                );
+                let conflicts = access1.get_conflicts(&access2);
+                let mut accesses = conflicts.format_conflict_list(world);
+                // Access list may be empty (if access to all components requested)
+                if !accesses.is_empty() {
+                    accesses.insert_str(0, " on component(s) ");
+                }
+                panic!(
+                    "`{}` has access conflicts between nested queries{accesses}.",
+                    DebugName::type_name::<Self>().shortname()
+                );
+            });
     }
 
     /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
