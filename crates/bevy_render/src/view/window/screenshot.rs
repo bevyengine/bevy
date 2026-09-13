@@ -252,10 +252,8 @@ pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>
     }
 }
 
-fn clear_screenshots(mut commands: Commands, screenshots: Query<(), With<Captured>>) {
-    if !screenshots.is_empty() {
-        commands.despawn_all::<With<Captured>>();
-    }
+fn clear_screenshots(mut commands: Commands) {
+    commands.despawn_all::<With<Captured>>();
 }
 
 pub fn trigger_screenshots(

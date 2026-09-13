@@ -292,11 +292,13 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
         (With<PlaybackRemoveMarker>, With<AudioPlayer<T>>),
     >,
 ) {
-    commands.despawn_all_where::<&AudioSink, (With<PlaybackDespawnMarker>, With<AudioPlayer<T>>)>(
-        AudioSinkPlayback::empty,
+    commands.despawn_all_where::<
+        AnyOf<(&AudioSink, &SpatialAudioSink)>,
+        (With<PlaybackDespawnMarker>, With<AudioPlayer<T>>)
+    >(
+        |(sink, spatial)|
+            sink.is_some_and(AudioSinkPlayback::empty) || spatial.is_some_and(AudioSinkPlayback::empty)
     );
-
-    commands.despawn_all_where::<&SpatialAudioSink, (With<PlaybackDespawnMarker>, With<AudioPlayer<T>>)>(AudioSinkPlayback::empty);
 
     for (entity, sink) in &query_nonspatial_remove {
         if sink.sink.empty() {
