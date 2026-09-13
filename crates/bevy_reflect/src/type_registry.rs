@@ -924,8 +924,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> CreateTypeData<T> for ReflectDeserial
 /// # Example
 /// ```
 /// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
-/// use bevy_ptr::Ptr;
-/// use core::ptr::NonNull;
+/// use core::any::Any;
 ///
 /// #[derive(Reflect)]
 /// struct Reflected(String);
@@ -934,12 +933,11 @@ impl<T: for<'a> Deserialize<'a> + Reflect> CreateTypeData<T> for ReflectDeserial
 /// type_registry.register::<Reflected>();
 ///
 /// let mut value = Reflected("Hello world!".to_string());
-/// let value = Ptr::from(&value);
+/// let value: &dyn Any = &value;
 ///
 /// let reflect_data = type_registry.get(core::any::TypeId::of::<Reflected>()).unwrap();
 /// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
-/// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
-/// let value = unsafe { reflect_from_ptr.as_reflect(value) };
+/// let value = reflect_from_ptr.as_reflect(value).unwrap();
 ///
 /// assert_eq!(value.downcast_ref::<Reflected>().unwrap().0, "Hello world!");
 /// ```
