@@ -177,7 +177,7 @@ impl ComponentInfo {
     derive(Reflect),
     reflect(Debug, Hash, PartialEq, Clone)
 )]
-pub struct ComponentId(pub(super) usize);
+pub struct ComponentId(usize);
 
 impl ComponentId {
     /// Creates a new [`ComponentId`].
