@@ -8,31 +8,26 @@
 
 use bevy_macro_utils::BevyManifest;
 use encase_derive_impl::{implement, syn};
+use quote::ToTokens;
 
 const ENCASE: &str = "encase";
 
 fn bevy_encase_path() -> syn::Path {
-    BevyManifest::shared(|bevy_manifest| {
+    // FIXME: `encase_derive_impl` still depends on `syn` 2, while `bevy_macro_utils`
+    // uses `syn` 3, so the `syn::Path` types are incompatible. Round-trip through
+    // a string until `encase` upgrades to `syn` 3, then build the `syn` 2 path directly again.
+    let path_string = BevyManifest::shared(|bevy_manifest| {
         bevy_manifest
             .maybe_get_path("bevy_render")
             .map(|bevy_render_path| {
-                let mut segments = bevy_render_path.segments;
-                segments.push(BevyManifest::parse_str("render_resource"));
-                syn::Path {
-                    leading_colon: None,
-                    segments,
-                }
+                format!(
+                    "{} :: render_resource :: {ENCASE}",
+                    bevy_render_path.to_token_stream()
+                )
             })
-            .map(|path| {
-                let mut segments = path.segments;
-                segments.push(BevyManifest::parse_str(ENCASE));
-                syn::Path {
-                    leading_colon: None,
-                    segments,
-                }
-            })
-            .unwrap_or_else(|| bevy_manifest.get_path(ENCASE))
-    })
+            .unwrap_or_else(|| bevy_manifest.get_path(ENCASE).to_token_stream().to_string())
+    });
+    syn::parse_str(&path_string).expect("Failed to parse encase path")
 }
 
 implement!(bevy_encase_path());
