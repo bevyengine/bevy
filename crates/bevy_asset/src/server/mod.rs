@@ -298,25 +298,6 @@ impl AssetServer {
         loader.get().await.map_err(|_| error())
     }
 
-    /// Retrieves the default [`AssetLoader`] for the given [`Asset`] [`TypeId`], if one can be found.
-    pub async fn get_asset_loader_with_asset_type_id(
-        &self,
-        type_id: TypeId,
-    ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
-        let error = || MissingAssetLoaderForTypeIdError { type_id };
-
-        let loader = self.read_loaders().get_by_type(type_id).ok_or_else(error)?;
-        loader.get().await.map_err(|_| error())
-    }
-
-    /// Retrieves the default [`AssetLoader`] for the given [`Asset`] type, if one can be found.
-    pub async fn get_asset_loader_with_asset_type<A: Asset>(
-        &self,
-    ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
-        self.get_asset_loader_with_asset_type_id(TypeId::of::<A>())
-            .await
-    }
-
     /// Begins loading an [`Asset`] of type `A` stored at `path`. This will not block on the asset load. Instead,
     /// it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
     /// associated [`Assets`] resource.
@@ -544,12 +525,10 @@ impl AssetServer {
         force: bool,
         meta_transform: Option<MetaTransform>,
     ) -> Result<Option<UntypedHandle>, AssetLoadError> {
-        let input_handle_type_id = input_handle.as_ref().map(UntypedHandle::type_id);
-
         let path = path.into_owned();
         let path_clone = path.clone();
         let (mut meta, loader, mut reader) = self
-            .get_meta_loader_and_reader(&path_clone, input_handle_type_id)
+            .get_meta_loader_and_reader(&path_clone)
             .await
             .inspect_err(|e| {
                 // if there was an input handle, a "load" operation has already started, so we must produce a "failure" event, if
@@ -1379,7 +1358,6 @@ impl AssetServer {
     pub(crate) async fn get_meta_loader_and_reader<'a>(
         &'a self,
         asset_path: &'a AssetPath<'_>,
-        asset_type_id: Option<TypeId>,
     ) -> Result<
         (
             Box<dyn AssetMetaDyn>,
@@ -1447,12 +1425,9 @@ impl AssetServer {
                 }
                 Err(AssetReaderError::NotFound(_)) => {
                     // TODO: Handle error transformation
-                    let loader = { self.read_loaders().find(asset_type_id, asset_path) };
+                    let loader = { self.read_loaders().find(asset_path) };
 
-                    let error = || AssetLoadError::MissingAssetLoader {
-                        asset_type_id,
-                        asset_path: asset_path.to_string(),
-                    };
+                    let error = || AssetLoadError::MissingAssetLoader(asset_path.to_string());
 
                     let loader = loader.ok_or_else(error)?.get().await.map_err(|_| error())?;
 
@@ -1462,12 +1437,9 @@ impl AssetServer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            let loader = { self.read_loaders().find(asset_type_id, asset_path) };
+            let loader = { self.read_loaders().find(asset_path) };
 
-            let error = || AssetLoadError::MissingAssetLoader {
-                asset_type_id,
-                asset_path: asset_path.to_string(),
-            };
+            let error = || AssetLoadError::MissingAssetLoader(asset_path.to_string());
 
             let loader = loader.ok_or_else(error)?.get().await.map_err(|_| error())?;
 
@@ -2242,11 +2214,8 @@ pub enum AssetLoadError {
     UnapprovedPath(AssetPath<'static>),
     #[error(transparent)]
     RequestedHandleTypeMismatch(#[from] Box<RequestedHandleTypeMismatchError>),
-    #[error("Could not find an asset loader matching: Asset Type: {asset_type_id:?}; Path: {asset_path:?};")]
-    MissingAssetLoader {
-        asset_type_id: Option<TypeId>,
-        asset_path: String,
-    },
+    #[error("Could not find an asset loader matching path: \"{0}\"")]
+    MissingAssetLoader(String),
     #[error(transparent)]
     MissingAssetLoaderForExtension(#[from] MissingAssetLoaderForExtensionError),
     #[error(transparent)]
