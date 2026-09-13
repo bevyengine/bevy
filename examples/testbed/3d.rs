@@ -41,12 +41,21 @@ fn main() {
             white_furnace_environment_map_light::setup,
         )
         .add_systems(OnEnter(Scene::RenderLayers), render_layers::setup)
+        .add_systems(
+            OnEnter(Scene::TransparentSortPosition),
+            transparent_sort_position::setup,
+        )
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)))
         .add_systems(
             Update,
             gltf_coordinate_conversion::draw_gizmos
                 .run_if(in_state(Scene::GltfCoordinateConversion)),
+        )
+        .add_systems(
+            Update,
+            transparent_sort_position::move_cubes_sys
+                .run_if(in_state(Scene::TransparentSortPosition)),
         );
 
     match args.scene {
@@ -72,6 +81,7 @@ enum Scene {
     WhiteFurnaceSolidColorLight,
     WhiteFurnaceEnvironmentMapLight,
     RenderLayers,
+    TransparentSortPosition,
 }
 
 impl Scene {
@@ -85,6 +95,7 @@ impl Scene {
         Scene::WhiteFurnaceSolidColorLight,
         Scene::WhiteFurnaceEnvironmentMapLight,
         Scene::RenderLayers,
+        Scene::TransparentSortPosition,
     ];
 }
 
@@ -828,6 +839,93 @@ mod render_layers {
                 }
                 _ => warn!("Unexpected index {index}"),
             }
+        }
+    }
+}
+
+mod transparent_sort_position {
+    //! Visual regression test that a blended 3D mesh that only moves is
+    //! re-sorted by its new position.
+    //!
+    //! Each row has a static blue cube and a red cube that is moved
+    //! to the other side of it a few frames after the
+    //! scene starts. In the top row the red cube ends up closer to the camera,
+    //! in the bottom row it ends up farther away.
+
+    use bevy::{color::palettes::css, prelude::*};
+
+    const CURRENT_SCENE: super::Scene = super::Scene::TransparentSortPosition;
+    const CAMERA_Z: f32 = 10.0;
+    const STATIC_Z: f32 = 0.0;
+    const BEHIND: f32 = STATIC_Z - 1.0;
+    const IN_FRONT: f32 = STATIC_Z + 1.0;
+    /// Cubes spawned on entering the scene reach the render phase a frame
+    /// later, so the move waits for that.
+    const MOVE_AFTER_FRAMES: u32 = 5;
+
+    /// Moves the cube to `z` once `frames_left` reaches zero.
+    #[derive(Component)]
+    pub struct MoveTo {
+        z: f32,
+        frames_left: u32,
+    }
+
+    pub fn setup(
+        mut commands: Commands,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
+    ) {
+        commands.spawn((
+            Camera3d::default(),
+            Transform::from_xyz(0.0, 0.0, CAMERA_Z).looking_at(Vec3::ZERO, Vec3::Y),
+            DespawnOnExit(CURRENT_SCENE),
+        ));
+
+        let cube = meshes.add(Cuboid::from_length(2.0));
+        let mut material = |color: Srgba| {
+            materials.add(StandardMaterial {
+                base_color: color.with_alpha(0.9).into(),
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..default()
+            })
+        };
+        let blue = material(css::DODGER_BLUE);
+        let red = material(css::CRIMSON);
+
+        for (row_y, from, to) in [(1.6, BEHIND, IN_FRONT), (-1.6, IN_FRONT, BEHIND)] {
+            commands.spawn((
+                Mesh3d(cube.clone()),
+                MeshMaterial3d(blue.clone()),
+                Transform::from_xyz(0.0, row_y, STATIC_Z),
+                DespawnOnExit(CURRENT_SCENE),
+            ));
+            commands.spawn((
+                Mesh3d(cube.clone()),
+                MeshMaterial3d(red.clone()),
+                Transform::from_xyz(0.8, row_y - 0.5, from),
+                MoveTo {
+                    z: to,
+                    frames_left: MOVE_AFTER_FRAMES,
+                },
+                DespawnOnExit(CURRENT_SCENE),
+            ));
+        }
+    }
+
+    /// Applies each pending move once its countdown is over. Only the
+    /// `Transform` changes, which is what the retained phase must react to.
+    pub fn move_cubes_sys(
+        mut commands: Commands,
+        mut cubes: Query<(Entity, &mut Transform, &mut MoveTo)>,
+    ) {
+        for (entity, mut transform, mut move_to) in &mut cubes {
+            if move_to.frames_left > 0 {
+                move_to.frames_left -= 1;
+                continue;
+            }
+            transform.translation.z = move_to.z;
+            commands.entity(entity).remove::<MoveTo>();
         }
     }
 }
