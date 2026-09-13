@@ -144,6 +144,13 @@ alias MipWrite2dArray = texture_storage_2d_array<rgb10a2unorm, write>;
 alias MipReadWrite2dArray = texture_storage_2d_array<rgb10a2unorm, read_write>;
 }
 
+@if(TEXTURE_FORMAT_RG11B10UFLOAT) {
+alias MipWrite2d = texture_storage_2d<rg11b10ufloat, write>;
+alias MipReadWrite2d = texture_storage_2d<rg11b10ufloat, read_write>;
+alias MipWrite2dArray = texture_storage_2d_array<rg11b10ufloat, write>;
+alias MipReadWrite2dArray = texture_storage_2d_array<rg11b10ufloat, read_write>;
+}
+
 @if(ARRAY_TEXTURE) {
 alias SourceTexture = texture_2d_array<f32>;
 alias MipWrite = MipWrite2dArray;

@@ -214,6 +214,7 @@ fn texture_format_shader_def(format: TextureFormat) -> Option<ShaderDefVal> {
         TextureFormat::R16Snorm => "TEXTURE_FORMAT_R16SNORM",
         TextureFormat::R16Float => "TEXTURE_FORMAT_R16FLOAT",
         TextureFormat::Rgb10a2Unorm => "TEXTURE_FORMAT_RGB10A2UNORM",
+        TextureFormat::Rg11b10Ufloat => "TEXTURE_FORMAT_RG11B10UFLOAT",
         _ => return None,
     };
     Some(name.into())
