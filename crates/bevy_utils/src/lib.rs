@@ -131,3 +131,13 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
         callback();
     }
 }
+
+/// Like [`OnDrop`], but specialized to abort the program.
+pub struct AbortOnPanic;
+
+impl Drop for AbortOnPanic {
+    fn drop(&mut self) {
+        // Panicking during unwinding guarantees abort.
+        panic!("Aborting due to previous panic");
+    }
+}

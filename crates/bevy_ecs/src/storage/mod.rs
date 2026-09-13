@@ -64,16 +64,6 @@ impl Storages {
     }
 }
 
-/// Guards against allocator panics. Needs to be `mem::forget`en on success.
-struct AbortOnPanic;
-
-impl Drop for AbortOnPanic {
-    fn drop(&mut self) {
-        // Panicking while unwinding will force an abort.
-        panic!("Aborting due to allocator error");
-    }
-}
-
 /// Unsafe extension functions for `Vec<T>`
 trait VecExtensions<T> {
     /// Removes an element from the vector and returns it.

@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 use bevy_ptr::ConstNonNull;
+use bevy_utils::AbortOnPanic;
 use core::ptr::NonNull;
 
 use crate::{
@@ -241,6 +242,9 @@ impl<'w> BundleRemover<'w> {
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
                 if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
+                    // If the drop panics, our World will end up in an inconsistent state
+                    // and being able to use it again would be unsound.
+                    let guard = AbortOnPanic;
                     world
                         .storages
                         .sparse_sets
@@ -249,6 +253,7 @@ impl<'w> BundleRemover<'w> {
                         .unwrap()
                         // If it was already forgotten, it would not be in the set.
                         .remove(entity);
+                    core::mem::forget(guard);
                 }
             }
         }

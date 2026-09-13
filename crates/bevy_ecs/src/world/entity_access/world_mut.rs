@@ -27,6 +27,7 @@ use crate::{
 
 use alloc::vec::Vec;
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr};
+use bevy_utils::AbortOnPanic;
 use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 
 /// A mutable reference to a particular [`Entity`], and the entire world.
@@ -1698,6 +1699,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// This despawns this entity if it is currently spawned, storing the new [`EntityGeneration`](crate::entity::EntityGeneration) in [`Self::entity`] but not freeing it.
     pub(crate) fn despawn_no_free_with_caller(&mut self, caller: MaybeLocation) {
+        let guard = AbortOnPanic;
         // setup
         let Some(location) = self.location else {
             // If there is no location, we are already despawned
@@ -1862,6 +1864,7 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: We just despawned it.
         self.entity = unsafe { self.world.entities.mark_free(self.entity.index(), 1) };
         self.world.flush();
+        core::mem::forget(guard);
     }
 
     /// Despawns the current entity.

@@ -4,6 +4,7 @@ use crate::{
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr, TableRow},
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_utils::AbortOnPanic;
 use core::{cell::UnsafeCell, mem::needs_drop, num::NonZeroUsize, panic::Location};
 
 /// A type-erased contiguous container for data of a homogeneous type.
@@ -68,8 +69,6 @@ impl Column {
         last_element_index: usize,
         row: TableRow,
     ) {
-        self.data
-            .swap_remove_and_drop_unchecked_nonoverlapping(row.index(), last_element_index);
         self.added_ticks
             .swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
         self.changed_ticks
@@ -77,6 +76,8 @@ impl Column {
         self.changed_by.as_mut().map(|changed_by| {
             changed_by.swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
         });
+        self.data
+            .swap_remove_and_drop_unchecked_nonoverlapping(row.index(), last_element_index);
     }
 
     /// Swap-remove the provided row.
@@ -84,6 +85,9 @@ impl Column {
     /// If `DROP` is `true`, the removed element will be dropped as needed.
     ///
     /// If `DROP` is `false`, the removed element will be forgotten.
+    ///
+    /// # Panics
+    /// May panic due to component drop function.
     ///
     /// # Safety
     /// - `last_element_index` must be the index of the last element.
@@ -94,6 +98,13 @@ impl Column {
         last_element_index: usize,
         row: TableRow,
     ) {
+        self.added_ticks
+            .swap_remove_unchecked(row.index(), last_element_index);
+        self.changed_ticks
+            .swap_remove_unchecked(row.index(), last_element_index);
+        self.changed_by.as_mut().map(|changed_by| {
+            changed_by.swap_remove_unchecked(row.index(), last_element_index);
+        });
         if DROP {
             self.data
                 .swap_remove_and_drop_unchecked(row.index(), last_element_index);
@@ -102,13 +113,6 @@ impl Column {
                 .data
                 .swap_remove_unchecked(row.index(), last_element_index);
         }
-        self.added_ticks
-            .swap_remove_unchecked(row.index(), last_element_index);
-        self.changed_ticks
-            .swap_remove_unchecked(row.index(), last_element_index);
-        self.changed_by.as_mut().map(|changed_by| {
-            changed_by.swap_remove_unchecked(row.index(), last_element_index);
-        });
     }
 
     /// Swap-remove and forgets the removed element, but the component at `row` must not be the last element.
@@ -340,17 +344,20 @@ impl Column {
     }
 
     /// Clear all the components from this column.
+    /// Aborts the execution if the component drop function panics.
     ///
     /// # Safety
     /// - `len` must match the actual length of the column
     /// -   The caller must not use the elements this column's data until [`initializing`](Self::initialize) it again (set `len` to 0).
     pub(crate) unsafe fn clear(&mut self, len: usize) {
+        let guard = AbortOnPanic;
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
         self.data.clear(len);
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.clear_elements(len));
+        core::mem::forget(guard);
     }
 
     /// Because this method needs parameters, it can't be the implementation of the `Drop` trait.

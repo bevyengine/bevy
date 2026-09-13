@@ -4,7 +4,7 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_ptr::{MovingPtr, OwningPtr};
-use bevy_utils::TypeIdHashMap;
+use bevy_utils::{AbortOnPanic, TypeIdHashMap};
 use core::{any::TypeId, ptr::NonNull};
 use indexmap::{IndexMap, IndexSet};
 
@@ -260,6 +260,10 @@ impl BundleInfo {
             };
             // SAFETY: bundle_component is a valid index per unsafe bundle impl
             let status = unsafe { bundle_component_status.get_status(bundle_component) };
+            // Overwriting a component can cause the previous value to get dropped,
+            // which may panic, in which case our World will end up in an inconsistent state
+            // and being able to use it again would be unsound.
+            let guard = AbortOnPanic;
             match storage_type {
                 StorageType::Table => {
                     let column =
@@ -307,6 +311,7 @@ impl BundleInfo {
                     }
                 }
             }
+            core::mem::forget(guard);
             bundle_component += 1;
         });
         // Remove this once closure_lifetime_binder is stable

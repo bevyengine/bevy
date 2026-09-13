@@ -233,9 +233,9 @@ impl NonSendData {
     pub(crate) fn remove_and_drop(&mut self) {
         if self.is_present() {
             self.validate_access();
+            self.is_present = false;
             // SAFETY: There is only one element, and it's always allocated.
             unsafe { self.data.drop_last_element(Self::ROW) };
-            self.is_present = false;
         }
     }
 
