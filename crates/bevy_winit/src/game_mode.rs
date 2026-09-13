@@ -1,5 +1,6 @@
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::resource::Resource;
+use bevy_ecs::system::Commands;
 use tracing::{debug, error, info};
 use zbus::blocking::Connection;
 use zbus::proxy;
@@ -44,13 +45,13 @@ pub struct GameModePlugin;
 
 impl Plugin for GameModePlugin {
     fn build(&self, app: &mut App) {
-        gamemode(app);
+        app.add_systems(Startup, register_gamemode);
     }
 }
 
 // Connects to the GameMode daemon over D-Bus, registers this process, and stores
 // the proxy in a resource so the Drop impl can unregister on exit.
-fn gamemode(app: &mut App) {
+fn register_gamemode(mut commands: Commands) {
     let Ok(connection) = Connection::session() else {
         debug!("GameMode: no session bus, skipping");
         return;
@@ -67,7 +68,7 @@ fn gamemode(app: &mut App) {
         match proxy.register_game(pid) {
             Ok(_) => {
                 info!("GameMode registered, pid {pid}");
-                app.insert_resource(GameModeResource { proxy, pid });
+                commands.insert_resource(GameModeResource { proxy, pid });
             }
             Err(err) => error!("GameMode: register failed: {err}"),
         }
