@@ -39,9 +39,9 @@ let reflect_ptr: *const dyn Reflect = raw_pointer_cast(my_ptr.as_ptr().cast::<()
 let reflect: &dyn Reflect = unsafe { &*reflect_ptr };
 
 let my_ptr_mut: PtrMut = todo!();
-let reflect_ptr_mut: *mut dyn Reflect = raw_pointer_cast(my_ptr.as_ptr().cast());
+let reflect_ptr_mut: *mut dyn Reflect = raw_pointer_cast(my_ptr_mut.as_ptr().cast());
 // SAFETY: Same reasoning as before.
-let reflect_mut: &mut dyn Reflect = unsafe { &mut *reflect_ptr };
+let reflect_mut: &mut dyn Reflect = unsafe { &mut *reflect_ptr_mut };
 
 ```
 
