@@ -30,7 +30,6 @@ enum AppState {
 // in [`AppState::InGame`], the [`IsPaused`] state resource
 // will not exist.
 #[source(AppState = AppState::InGame)]
-#[states(scoped_entities)]
 enum IsPaused {
     #[default]
     Running,
