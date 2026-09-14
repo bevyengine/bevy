@@ -64,6 +64,7 @@ impl CompressedImageSaverUniversal {
         Ok(ImageLoaderSettings {
             format: ImageFormatSetting::Format(ImageFormat::Basis),
             is_srgb,
+            expand_grayscale: true,
             sampler: image.sampler.clone(),
             asset_usage: image.asset_usage,
             texture_format: None,

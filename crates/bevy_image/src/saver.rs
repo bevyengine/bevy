@@ -99,6 +99,7 @@ impl AssetSaver for ImageSaver {
             // data as RGBA8 data: if we later try to load as R8, we get 4 times as many pixels!
             texture_format: None,
             is_srgb,
+            expand_grayscale: true,
             sampler: asset.sampler.clone(),
             asset_usage: asset.asset_usage,
             array_layout: None,

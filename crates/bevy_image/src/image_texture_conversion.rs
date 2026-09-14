@@ -9,6 +9,7 @@ impl Image {
     pub fn from_dynamic(
         dyn_img: DynamicImage,
         is_srgb: bool,
+        expand_grayscale: bool,
         asset_usage: RenderAssetUsages,
     ) -> Image {
         use bytemuck::cast_slice;
@@ -23,8 +24,12 @@ impl Image {
                 width = image.width();
                 height = image.height();
 
-                if is_srgb {
-                    format = TextureFormat::Rgba8UnormSrgb;
+                if expand_grayscale {
+                    format = if is_srgb {
+                        TextureFormat::Rgba8UnormSrgb
+                    } else {
+                        TextureFormat::Rgba8Unorm
+                    };
                     data = DynamicImage::ImageLuma8(image).into_rgba8().into_raw();
                 } else {
                     format = TextureFormat::R8Unorm;
@@ -35,8 +40,12 @@ impl Image {
                 width = image.width();
                 height = image.height();
 
-                if is_srgb {
-                    format = TextureFormat::Rgba8UnormSrgb;
+                if expand_grayscale {
+                    format = if is_srgb {
+                        TextureFormat::Rgba8UnormSrgb
+                    } else {
+                        TextureFormat::Rgba8Unorm
+                    };
                     data = DynamicImage::ImageLumaA8(image).into_rgba8().into_raw();
                 } else {
                     format = TextureFormat::Rg8Unorm;
@@ -66,23 +75,44 @@ impl Image {
 
                 data = image.into_raw();
             }
+            // Use `Rgba16Float` for expanded 16-bit grayscale images because `Rgba16Unorm`
+            // requires `Features::TEXTURE_FORMAT_16BIT_NORM`. Converting through RGBA32F
+            // normalizes the u16 channels to the [0, 1] range before encoding them as f16.
             DynamicImage::ImageLuma16(image) => {
                 width = image.width();
                 height = image.height();
-                format = TextureFormat::R16Unorm;
 
-                let raw_data = image.into_raw();
-
-                data = cast_slice(&raw_data).to_owned();
+                if expand_grayscale {
+                    format = TextureFormat::Rgba16Float;
+                    data = DynamicImage::ImageLuma16(image)
+                        .into_rgba32f()
+                        .into_raw()
+                        .into_iter()
+                        .flat_map(|value| half::f16::from_f32(value).to_le_bytes())
+                        .collect();
+                } else {
+                    format = TextureFormat::R16Unorm;
+                    let raw_data = image.into_raw();
+                    data = cast_slice(&raw_data).to_owned();
+                }
             }
             DynamicImage::ImageLumaA16(image) => {
                 width = image.width();
                 height = image.height();
-                format = TextureFormat::Rg16Unorm;
 
-                let raw_data = image.into_raw();
-
-                data = cast_slice(&raw_data).to_owned();
+                if expand_grayscale {
+                    format = TextureFormat::Rgba16Float;
+                    data = DynamicImage::ImageLumaA16(image)
+                        .into_rgba32f()
+                        .into_raw()
+                        .into_iter()
+                        .flat_map(|value| half::f16::from_f32(value).to_le_bytes())
+                        .collect();
+                } else {
+                    format = TextureFormat::Rg16Unorm;
+                    let raw_data = image.into_raw();
+                    data = cast_slice(&raw_data).to_owned();
+                }
             }
             DynamicImage::ImageRgb16(image) => {
                 let i = DynamicImage::ImageRgb16(image).into_rgba16();
@@ -252,13 +282,15 @@ mod test {
         let mut initial = DynamicImage::new_rgba8(1, 1);
         initial.put_pixel(0, 0, Rgba::from([132, 3, 7, 200]));
 
-        let image = Image::from_dynamic(initial.clone(), true, RenderAssetUsages::RENDER_WORLD);
+        let image =
+            Image::from_dynamic(initial.clone(), true, true, RenderAssetUsages::RENDER_WORLD);
 
         // NOTE: Fails if `is_srgb = false` or the dynamic image is of the type rgb8.
         assert_eq!(initial, image.try_into_dynamic().unwrap());
 
         let luma_a8 = Image::from_dynamic(
             DynamicImage::new_luma_a8(1, 1),
+            false,
             false,
             RenderAssetUsages::RENDER_WORLD,
         );
@@ -267,6 +299,7 @@ mod test {
         let luma16 = Image::from_dynamic(
             DynamicImage::new_luma16(1, 1),
             false,
+            false,
             RenderAssetUsages::RENDER_WORLD,
         );
         assert_eq!(luma16.texture_descriptor.format, TextureFormat::R16Unorm);
@@ -274,9 +307,51 @@ mod test {
         let luma_a16 = Image::from_dynamic(
             DynamicImage::new_luma_a16(1, 1),
             false,
+            false,
             RenderAssetUsages::RENDER_WORLD,
         );
         assert_eq!(luma_a16.texture_descriptor.format, TextureFormat::Rg16Unorm);
+    }
+
+    #[test]
+    fn expand_grayscale_converts_luma_images_to_rgba() {
+        let luma8 = Image::from_dynamic(
+            DynamicImage::new_luma8(1, 1),
+            true,
+            true,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        assert_eq!(
+            luma8.texture_descriptor.format,
+            TextureFormat::Rgba8UnormSrgb
+        );
+
+        let luma_a8 = Image::from_dynamic(
+            DynamicImage::new_luma_a8(1, 1),
+            false,
+            true,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        assert_eq!(luma_a8.texture_descriptor.format, TextureFormat::Rgba8Unorm);
+
+        let luma16 = Image::from_dynamic(
+            DynamicImage::new_luma16(1, 1),
+            false,
+            true,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        assert_eq!(luma16.texture_descriptor.format, TextureFormat::Rgba16Float);
+
+        let luma_a16 = Image::from_dynamic(
+            DynamicImage::new_luma_a16(1, 1),
+            false,
+            true,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        assert_eq!(
+            luma_a16.texture_descriptor.format,
+            TextureFormat::Rgba16Float
+        );
     }
 
     #[test]

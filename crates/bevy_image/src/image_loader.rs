@@ -145,6 +145,9 @@ pub struct ImageLoaderSettings {
     /// or in sRGB space when this is not determined by
     /// the image format.
     pub is_srgb: bool,
+    /// Whether to expand grayscale images to RGBA. Defaults to `false`.
+    #[serde(default)]
+    pub expand_grayscale: bool,
     /// [`ImageSampler`] to use when rendering - this does
     /// not affect the loading of the image data.
     pub sampler: ImageSampler,
@@ -164,6 +167,7 @@ impl Default for ImageLoaderSettings {
             format: ImageFormatSetting::default(),
             texture_format: None,
             is_srgb: true,
+            expand_grayscale: false,
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
             array_layout: None,
@@ -230,6 +234,7 @@ impl AssetLoader for ImageLoader {
             image_type,
             self.supported_compressed_formats,
             settings.is_srgb,
+            settings.expand_grayscale,
             settings.sampler.clone(),
             settings.asset_usage,
         )

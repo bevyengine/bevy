@@ -1567,19 +1567,26 @@ impl Image {
                 )
             })
             .and_then(|img| match new_format {
-                TextureFormat::R8Unorm => {
-                    Some((image::DynamicImage::ImageLuma8(img.into_luma8()), false))
-                }
+                TextureFormat::R8Unorm => Some((
+                    image::DynamicImage::ImageLuma8(img.into_luma8()),
+                    false,
+                    false,
+                )),
                 TextureFormat::Rg8Unorm => Some((
                     image::DynamicImage::ImageLumaA8(img.into_luma_alpha8()),
                     false,
+                    false,
                 )),
-                TextureFormat::Rgba8UnormSrgb => {
-                    Some((image::DynamicImage::ImageRgba8(img.into_rgba8()), true))
-                }
+                TextureFormat::Rgba8UnormSrgb => Some((
+                    image::DynamicImage::ImageRgba8(img.into_rgba8()),
+                    true,
+                    false,
+                )),
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb, self.asset_usage))
+            .map(|(dyn_img, is_srgb, expand_grayscale)| {
+                Self::from_dynamic(dyn_img, is_srgb, expand_grayscale, self.asset_usage)
+            })
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
@@ -1593,6 +1600,7 @@ impl Image {
         )]
         supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
+        expand_grayscale: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
     ) -> Result<Image, TextureError> {
@@ -1631,7 +1639,7 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic(dyn_img, is_srgb, asset_usage)
+                Self::from_dynamic(dyn_img, is_srgb, expand_grayscale, asset_usage)
             }
         };
         image.sampler = image_sampler;

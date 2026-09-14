@@ -1224,6 +1224,7 @@ async fn load_image<'a, 'b>(
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
                 is_srgb,
+                true,
                 ImageSampler::Descriptor(sampler_descriptor),
                 settings.load_materials,
             )?;
@@ -1246,6 +1247,7 @@ async fn load_image<'a, 'b>(
                         mime_type.map(ImageType::MimeType).unwrap_or(image_type),
                         supported_compressed_formats,
                         is_srgb,
+                        true,
                         ImageSampler::Descriptor(sampler_descriptor),
                         settings.load_materials,
                     )?,
@@ -2031,6 +2033,7 @@ impl ImageOrPath {
                 .load_builder()
                 .with_settings(move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
+                    settings.expand_grayscale = true;
                     settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
                     settings.asset_usage = render_asset_usages;
                 })
