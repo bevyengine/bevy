@@ -19,7 +19,7 @@ use bevy_picking::events::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
-    prelude::BorderRect, ui_layout_system, BackgroundColor, BorderColor, BorderRadius,
+    prelude::BorderRect, update_computed_nodes, BackgroundColor, BorderColor, BorderRadius,
     ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
     UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
 };
@@ -480,7 +480,7 @@ impl Plugin for ScrollbarPlugin {
                 PostUpdate,
                 update_scrollbar_thumb
                     .in_set(UiSystems::Layout)
-                    .after(ui_layout_system),
+                    .after(update_computed_nodes),
             );
     }
 }
