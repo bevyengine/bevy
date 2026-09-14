@@ -37,15 +37,17 @@ impl Dependency {
         }
     }
 
-    // Marks de dependency as weak.
-    // A weak dependency allows systems to run in parallel if they do not conflict.
+    /// Marks the dependency as weak.
+    /// A weak dependency allows systems to run in parallel if they do not conflict.
     pub fn set_weak(mut self) -> Self {
         self.is_weak = true;
         self
     }
 
-    // Marks the dependency to ignore deferred commands between systems.
-    // This ensures that there will not be a sync point between systems, where commands get flushed.
+    /// Marks the dependency to ignore deferred commands between systems.
+    /// This tells the [`AutoInsertApplyDeferredPass`] to ignore this dependency when considering sync points.
+    ///
+    /// [`AutoInsertApplyDeferredPass`]: crate::schedule::AutoInsertApplyDeferredPass
     pub fn ignore_deferred(mut self) -> Self {
         self.ignore_deferred = true;
         self
