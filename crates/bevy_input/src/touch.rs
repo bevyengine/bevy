@@ -4,6 +4,7 @@
 use bevy_ecs::prelude::ReflectMessage;
 use bevy_ecs::{
     entity::Entity,
+    event::EntityEvent,
     message::{Message, MessageReader},
     resource::Resource,
     system::ResMut,
@@ -39,7 +40,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
-#[derive(Message, Debug, Clone, Copy, PartialEq)]
+#[derive(Message, EntityEvent, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -56,6 +57,7 @@ pub struct TouchInput {
     /// The position of the finger on the touchscreen.
     pub position: Vec2,
     /// The window entity registering the touch.
+    #[event_target]
     pub window: Entity,
     /// Describes how hard the screen was pressed.
     ///

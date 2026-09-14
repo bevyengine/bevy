@@ -71,6 +71,7 @@ use bevy_ecs::prelude::ReflectMessage;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
+    event::{EntityEvent, Event},
     message::{Message, MessageReader},
     system::ResMut,
 };
@@ -97,7 +98,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// The event is consumed inside of the [`keyboard_input_system`] to update the
 /// [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) and
 /// [`ButtonInput<Key>`](ButtonInput<Key>) resources.
-#[derive(Message, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Message, EntityEvent, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -137,6 +138,7 @@ pub struct KeyboardInput {
     /// event is the result of one of those repeats.
     pub repeat: bool,
     /// Window that received the input.
+    #[event_target]
     pub window: Entity,
 }
 
@@ -146,7 +148,7 @@ pub struct KeyboardInput {
 /// when, for example, switching between windows with 'Alt-Tab' or using any other
 /// OS specific key combination that leads to Bevy window losing focus and not receiving any
 /// input events
-#[derive(Message, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Event, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

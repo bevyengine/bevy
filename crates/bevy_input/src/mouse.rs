@@ -8,6 +8,7 @@ use bevy_ecs::prelude::ReflectMessage;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
+    event::{EntityEvent, Event},
     message::{Message, MessageReader},
     resource::Resource,
     system::ResMut,
@@ -32,7 +33,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is read inside of the [`mouse_button_input_system`]
 /// to update the [`ButtonInput<MouseButton>`] resource.
-#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Message, EntityEvent, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -49,6 +50,7 @@ pub struct MouseButtonInput {
     /// The pressed state of the button.
     pub state: ButtonState,
     /// Window that received the input.
+    #[event_target]
     pub window: Entity,
 }
 
@@ -97,7 +99,7 @@ pub enum MouseButton {
 /// However, the event data does not make it possible to distinguish which device it is referring to.
 ///
 /// [`DeviceEvent::MouseMotion`]: https://docs.rs/winit/latest/winit/event/enum.DeviceEvent.html#variant.MouseMotion
-#[derive(Message, Debug, Clone, Copy, PartialEq)]
+#[derive(Message, Event, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -200,7 +202,7 @@ impl Div<MouseScrollPixelsPerLine> for Vec2 {
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
-#[derive(Message, Debug, Clone, Copy, PartialEq)]
+#[derive(Message, EntityEvent, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -218,7 +220,8 @@ pub struct MouseWheel {
     pub x: f32,
     /// The vertical scroll value.
     pub y: f32,
-    /// Window that received the input.
+    /// Window that received the input.   
+    #[event_target]
     pub window: Entity,
     /// Touch phase of the input.
     ///
