@@ -60,11 +60,10 @@ fn scan_wesl_imports(
     imports
 }
 
-/// Maps a `wesl` module path onto the import Bevy identifies a shader by.
+/// Converts a `wesl` module path into a [`ShaderImport`] that Bevy uses to identify a shader.
 ///
-/// The origin decides where the module lives: absolute paths are files under `assets/`, while a
-/// package origin is an engine shader embedded in the binary, which must never be fetched.
-/// Returns `None` for a relative path, which names nothing on its own.
+/// Absolute paths are asset files; packages are shaders embedded in the binary. Relative paths
+/// name nothing on their own, so they return `None`.
 pub fn shader_import_from_module_path(path: &wesl::syntax::ModulePath) -> Option<ShaderImport> {
     use wesl::syntax::{ModulePath, PathOrigin};
 
