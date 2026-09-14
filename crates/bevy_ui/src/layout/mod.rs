@@ -2065,7 +2065,6 @@ mod tests {
         let mut app = setup_ui_test_app();
 
         let world = app.world_mut();
-
         let ui_root = world
             .spawn(Node {
                 width: Val::Rem(3.),
@@ -2073,16 +2072,27 @@ mod tests {
                 ..default()
             })
             .id();
+        world.insert_resource(UiScale(5.));
 
         app.update();
 
         let world = app.world_mut();
-
-        let rem_size = world.resource::<RemSize>();
-
         let c = world.entity(ui_root).get::<ComputedNode>().unwrap();
+        assert!(c.size().abs_diff_eq(
+            world.resource::<RemSize>().0 * world.resource::<UiScale>().0 * Vec2::new(3., 2.),
+            1e-5
+        ));
 
-        assert!(c.size().abs_diff_eq(rem_size.0 * Vec2::new(3., 2.), 1e-5));
+        world.insert_resource(RemSize(100.));
+
+        app.update();
+
+        let world = app.world_mut();
+        let c = world.entity(ui_root).get::<ComputedNode>().unwrap();
+        assert!(c.size().abs_diff_eq(
+            world.resource::<RemSize>().0 * world.resource::<UiScale>().0 * Vec2::new(3., 2.),
+            1e-5
+        ));
     }
 
     #[test]
