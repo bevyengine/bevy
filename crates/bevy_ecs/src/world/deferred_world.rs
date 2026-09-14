@@ -811,7 +811,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// - must only be used to make non-structural ECS changes
     #[inline]
-    pub fn to_unsafe_world_cell(self) -> UnsafeWorldCell<'w> {
+    pub fn into_unsafe_world_cell(self) -> UnsafeWorldCell<'w> {
         self.world
     }
 

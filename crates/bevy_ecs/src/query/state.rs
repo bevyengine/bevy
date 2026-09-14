@@ -387,7 +387,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let last_run = world.last_change_tick();
         let this_run = world.change_tick();
         // SAFETY: We have exclusive access to the entire world.
-        unsafe { self.query_unchecked_with_ticks(world.to_unsafe_world_cell(), last_run, this_run) }
+        unsafe {
+            self.query_unchecked_with_ticks(world.into_unsafe_world_cell(), last_run, this_run)
+        }
     }
 
     /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
