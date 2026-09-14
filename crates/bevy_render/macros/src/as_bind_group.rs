@@ -317,12 +317,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     ),
                     bindless_index:
                         #render_path::render_resource::BindlessIndex(#binding_index),
-                            size: #FQOption::Some(
-                                <
-                                    #converted_shader_type as
-                                    #render_path::render_resource::ShaderType
-                                >::min_size().get() as usize
-                            ),
+                    size: #FQOption::Some(
+                        <
+                            #converted_shader_type as
+                            #render_path::render_resource::ShaderType
+                        >::min_size().get() as usize
+                    ),
                 }
             });
 
@@ -476,9 +476,9 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         binding_impls.push(quote! {
                         (
                             #binding_index,
-                            #render_path::render_resource::UnpreparedBindingResource::Buffer({
+                            #render_path::render_resource::UnpreparedBindingResource::ShaderBuffer({
                                 let handle: &#asset_path::Handle<#render_path::storage::ShaderBuffer> = (&self.#field_name);
-                                storage_buffers.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.buffer.clone()
+                                handle.clone()
                             })
                         )
                         });
@@ -502,8 +502,14 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     if let Some(binding_array_binding) = binding_array_binding {
                         // Add the storage buffer to the `BindlessResourceType` list
                         // in the bindless descriptor.
-                        let bindless_resource_type = quote! {
-                            #render_path::render_resource::BindlessResourceType::Buffer
+                        let bindless_resource_type = if buffer {
+                            quote! {
+                                #render_path::render_resource::BindlessResourceType::Buffer
+                            }
+                        } else {
+                            quote! {
+                                #render_path::render_resource::BindlessResourceType::ShaderBuffer
+                            }
                         };
                         add_bindless_resource_type(
                             &render_path,

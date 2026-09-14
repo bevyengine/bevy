@@ -250,11 +250,7 @@ fn setup(
 
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
-        camera.insert(Dlss::<DlssRayReconstructionFeature> {
-            perf_quality_mode: Default::default(),
-            reset: Default::default(),
-            _phantom_data: Default::default(),
-        });
+        camera.insert(Dlss::<DlssRayReconstructionFeature>::default());
     }
     let _ = &mut camera;
 
@@ -810,11 +806,7 @@ fn toggle_dlss_rr(
         } else {
             commands
                 .entity(entity)
-                .insert(Dlss::<DlssRayReconstructionFeature> {
-                    perf_quality_mode: Default::default(),
-                    reset: Default::default(),
-                    _phantom_data: Default::default(),
-                });
+                .insert(Dlss::<DlssRayReconstructionFeature>::default());
         }
     }
 }

@@ -8,8 +8,8 @@ use log::trace;
 
 cfg_select! {
     not(all(target_arch = "wasm32", feature = "web")) => {
-        use {crate::Last, bevy_tasks::tick_global_task_pools_on_main_thread};
         use bevy_ecs::system::NonSendMarker;
+        use {crate::Last, bevy_tasks::tick_global_task_pools_on_main_thread};
 
         /// A system used to check and advanced our task pools.
         ///

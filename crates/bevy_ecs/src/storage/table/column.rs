@@ -1,9 +1,10 @@
-use super::*;
 use crate::{
-    change_detection::{AtomicTick, MaybeLocation},
-    storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
+    change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    component::ComponentInfo,
+    storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr, TableRow},
 };
-use core::{mem::needs_drop, panic::Location};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use core::{cell::UnsafeCell, mem::needs_drop, num::NonZeroUsize, panic::Location};
 
 /// A type-erased contiguous container for data of a homogeneous type.
 ///
@@ -20,14 +21,15 @@ use core::{mem::needs_drop, panic::Location};
 /// This type is used by [`Table`] and [`ComponentSparseSet`], where the corresponding capacity
 /// and length can be found.
 ///
+/// [`Table`]: crate::storage::Table
 /// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
 #[derive(Debug)]
 pub struct Column {
-    pub(super) data: BlobArray,
-    pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
-    pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
-    pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
-    pub(super) summary_tick: Option<AtomicTick>,
+    data: BlobArray,
+    added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
+    changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
+    changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    summary_tick: Option<AtomicTick>,
 }
 
 impl Column {
@@ -187,14 +189,18 @@ impl Column {
         caller: MaybeLocation,
     ) {
         self.data.initialize_unchecked(row.index(), data);
-        *self.added_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
-        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
+        self.added_ticks
+            .initialize_unchecked(row.index(), UnsafeCell::new(tick));
+        self.changed_ticks
+            .initialize_unchecked(row.index(), UnsafeCell::new(tick));
         self.changed_by
             .as_mut()
-            .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
-            .assign(caller);
+            .zip(caller)
+            .map(|(changed_by, caller)| {
+                changed_by.initialize_unchecked(row.index(), UnsafeCell::new(caller));
+            });
         if let Some(summary_tick) = &self.summary_tick {
-            summary_tick.set(tick);
+            Self::update_summary_tick(summary_tick, tick);
         }
     }
 
@@ -219,7 +225,7 @@ impl Column {
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
         if let Some(summary_tick) = &self.summary_tick {
-            summary_tick.set(change_tick);
+            Self::update_summary_tick(summary_tick, change_tick);
         }
     }
 
@@ -246,6 +252,24 @@ impl Column {
         this_run: Tick,
     ) {
         debug_assert!(self.data.layout() == src.data.layout());
+
+        // Making this a cold path avoids most of the performance cost.
+        #[cold]
+        fn update_summary_tick_from_row(
+            changed_ticks: &ThinArrayPtr<UnsafeCell<Tick>>,
+            summary_tick: &AtomicTick,
+            dst_row: TableRow,
+            this_run: Tick,
+        ) {
+            // SAFETY:
+            // - Changed tick just got initialized at dst_row
+            // - There are no mutable references to the changed tick
+            let row_change_tick = unsafe { changed_ticks.get_unchecked(dst_row.index()).read() };
+            if row_change_tick.is_newer_than(summary_tick.get(), this_run) {
+                summary_tick.set(row_change_tick);
+            }
+        }
+
         // SAFETY:
         // In bounds, same layout & correct last element index as per preconditions
         unsafe {
@@ -280,14 +304,7 @@ impl Column {
         }
 
         if let Some(summary_tick) = &self.summary_tick {
-            // SAFETY:
-            // - Changed tick just got initialized at dst_row
-            // - There are no mutable references to the changed tick
-            let row_change_tick =
-                unsafe { self.changed_ticks.get_unchecked(dst_row.index()).read() };
-            if row_change_tick.is_newer_than(summary_tick.get(), this_run) {
-                summary_tick.set(row_change_tick);
-            }
+            update_summary_tick_from_row(&self.changed_ticks, summary_tick, dst_row, this_run);
         }
     }
 
@@ -503,5 +520,12 @@ impl Column {
     #[inline]
     pub fn get_summary_tick(&self) -> Option<&AtomicTick> {
         self.summary_tick.as_ref()
+    }
+
+    /// Separate method for the sake of using `#[cold]`,
+    /// since most components won't have summary ticks.
+    #[cold]
+    fn update_summary_tick(summary_tick: &AtomicTick, tick: Tick) {
+        summary_tick.set(tick);
     }
 }

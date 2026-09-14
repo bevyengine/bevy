@@ -209,8 +209,8 @@
 //!       },
 //!       "depth_texture_usages": 16,
 //!     },
-//!     "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
-//!     "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",
+//!     "bevy_render::view::DebandDither": "Enabled",
+//!     "bevy_render::view::Tonemapping": "TonyMcMapface",
 //!     "bevy_light::cluster::ClusterConfig": {
 //!       "FixedZ": {
 //!      "dynamic_resizing": true,

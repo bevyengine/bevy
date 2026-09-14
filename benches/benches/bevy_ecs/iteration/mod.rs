@@ -1,3 +1,4 @@
+mod contiguous_par_iter_simple;
 mod heavy_compute;
 mod iter_frag;
 mod iter_frag_foreach;
@@ -177,4 +178,20 @@ fn par_iter_simple(c: &mut Criterion) {
             b.iter(move || bench.run());
         });
     }
+}
+
+fn contiguous_par_iter_simple(c: &mut Criterion) {
+    let mut group = c.benchmark_group("contiguous_par_iter_simple");
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+    for f in [0, 10, 100, 1000] {
+        group.bench_function(format!("with_{f}_fragment"), |b| {
+            let mut bench = par_iter_simple::Benchmark::new(f);
+            b.iter(move || bench.run());
+        });
+    }
+    group.bench_function("hybrid".to_string(), |b| {
+        let mut bench = par_iter_simple_foreach_hybrid::Benchmark::new();
+        b.iter(move || bench.run());
+    });
 }

@@ -1,6 +1,6 @@
-import bevy_sprite_render::sprite_mesh::types::SpriteMaterial;
+import package::sprite_mesh::types::SpriteMaterial;
 @if(BINDLESS)
-import bevy_sprite_render::sprite_mesh::types::SpriteMaterialBindings;
+import package::sprite_mesh::types::SpriteMaterialBindings;
 
 @if(BINDLESS) {
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<storage> material_indices:

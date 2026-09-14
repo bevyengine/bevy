@@ -9,9 +9,10 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Affine2, BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
+use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
-use core::{f32, num::NonZero};
+use core::num::NonZero;
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -43,35 +44,30 @@ pub struct ComputedNode {
     pub scroll_position: Vec2,
     /// The width of this node's outline in physical pixels.
     /// If this value is negative or zero then no outline will be rendered.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub outline_offset: f32,
     /// The unrounded size of the node as width and height in physical pixels.
     pub unrounded_size: Vec2,
     /// Resolved border values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub border: BorderRect,
     /// Resolved border radius values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub border_radius: ResolvedBorderRadius,
     /// Resolved padding values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub padding: BorderRect,
     /// Inverse scale factor for this Node.
     /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
     pub inverse_scale_factor: f32,
+    /// The font size used to resolve this node's `Val::Em` lengths, in logical pixels.
+    ///
+    /// Copied from the node's [`EmSize`] component during layout.
+    pub em_size: EmSize,
+    /// The root font size used to resolve this node's `Val::Rem` lengths, in logical pixels.
+    ///
+    /// Copied from the [`RemSize`] resource during layout.
+    // Stored per node rather than read from the resource because `ComputedNode` is extracted
+    // to the render world and `RemSize` is not.
+    pub rem_size: RemSize,
 }
 
 impl ComputedNode {
@@ -389,6 +385,8 @@ impl ComputedNode {
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,
         inverse_scale_factor: 1.,
+        em_size: EmSize(DEFAULT_REM_SIZE_PX),
+        rem_size: RemSize(DEFAULT_REM_SIZE_PX),
     };
 }
 
@@ -474,7 +472,8 @@ impl From<BVec2> for IgnoreScroll {
     FocusPolicy,
     ScrollPosition,
     Visibility,
-    ZIndex
+    ZIndex,
+    EmSize
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -885,6 +884,11 @@ pub enum InlineDirection {
 /// - For Flexbox containers, sets default cross axis alignment of the child items.
 /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
 ///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
+///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
@@ -898,16 +902,26 @@ pub enum AlignItems {
     Default,
     /// The items are packed towards the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// The items are packed towards the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// The items are packed towards the start of the axis, unless the flex direction is reversed;
     /// then they are packed towards the end of the axis.
     FlexStart,
+    /// Like [`FlexStart`](Self::FlexStart) but safe [`safe`](Self#safe-alignments)
+    FlexStartSafe,
     /// The items are packed towards the end of the axis, unless the flex direction is reversed;
     /// then they are packed towards the start of the axis.
     FlexEnd,
+    /// Like [`FlexEnd`](Self::FlexEnd) but safe [`safe`](Self#safe-alignments)
+    FlexEndSafe,
     /// The items are packed along the center of the axis.
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// The items are packed such that their baselines align.
     Baseline,
     /// The items are stretched to fill the space they're given.
@@ -916,6 +930,46 @@ pub enum AlignItems {
 
 impl AlignItems {
     pub const DEFAULT: Self = Self::Default;
+
+    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            AlignItems::StartSafe
+            | AlignItems::CenterSafe
+            | AlignItems::EndSafe
+            | AlignItems::FlexStartSafe
+            | AlignItems::FlexEndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            AlignItems::Default
+            | AlignItems::Start
+            | AlignItems::Center
+            | AlignItems::End
+            | AlignItems::FlexStart
+            | AlignItems::FlexEnd
+            | AlignItems::Baseline
+            | AlignItems::Stretch => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            AlignItems::Start => AlignItems::StartSafe,
+            AlignItems::Center => AlignItems::CenterSafe,
+            AlignItems::End => AlignItems::EndSafe,
+            AlignItems::FlexStart => AlignItems::FlexStartSafe,
+            AlignItems::FlexEnd => AlignItems::FlexEndSafe,
+            AlignItems::Default
+            | AlignItems::StartSafe
+            | AlignItems::EndSafe
+            | AlignItems::CenterSafe
+            | AlignItems::FlexStartSafe
+            | AlignItems::FlexEndSafe
+            | AlignItems::Baseline
+            | AlignItems::Stretch => self,
+        }
+    }
 }
 
 impl Default for AlignItems {
@@ -927,6 +981,11 @@ impl Default for AlignItems {
 /// Used to control how each individual item is aligned by default within the space they're given.
 /// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
 /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
+///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
@@ -941,10 +1000,16 @@ pub enum JustifyItems {
     Default,
     /// The items are packed towards the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// The items are packed towards the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// The items are packed along the center of the axis
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// The items are packed such that their baselines align.
     Baseline,
     /// The items are stretched to fill the space they're given.
@@ -953,6 +1018,36 @@ pub enum JustifyItems {
 
 impl JustifyItems {
     pub const DEFAULT: Self = Self::Default;
+
+    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            JustifyItems::StartSafe | JustifyItems::CenterSafe | JustifyItems::EndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            JustifyItems::Default
+            | JustifyItems::Start
+            | JustifyItems::Center
+            | JustifyItems::End
+            | JustifyItems::Baseline
+            | JustifyItems::Stretch => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            JustifyItems::Start => JustifyItems::StartSafe,
+            JustifyItems::Center => JustifyItems::CenterSafe,
+            JustifyItems::End => JustifyItems::EndSafe,
+            JustifyItems::Default
+            | JustifyItems::StartSafe
+            | JustifyItems::EndSafe
+            | JustifyItems::CenterSafe
+            | JustifyItems::Baseline
+            | JustifyItems::Stretch => self,
+        }
+    }
 }
 
 impl Default for JustifyItems {
@@ -964,6 +1059,11 @@ impl Default for JustifyItems {
 /// Used to control how the specified item is aligned within the space it's given.
 /// - For Flexbox items, controls cross axis alignment of the item.
 /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
+///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
@@ -978,16 +1078,26 @@ pub enum AlignSelf {
     Auto,
     /// This item will be aligned with the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// This item will be aligned with the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
     /// then it will be aligned with the end of the axis.
     FlexStart,
+    /// Like [`FlexStart`](Self::FlexStart) but safe [`safe`](Self#safe-alignments)
+    FlexStartSafe,
     /// This item will be aligned with the end of the axis, unless the flex direction is reversed;
     /// then it will be aligned with the start of the axis.
     FlexEnd,
+    /// Like [`FlexEnd`](Self::FlexEnd) but safe [`safe`](Self#safe-alignments)
+    FlexEndSafe,
     /// This item will be aligned along the center of the axis.
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// This item will be aligned at the baseline.
     Baseline,
     /// This item will be stretched to fill the container.
@@ -996,6 +1106,46 @@ pub enum AlignSelf {
 
 impl AlignSelf {
     pub const DEFAULT: Self = Self::Auto;
+
+    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            AlignSelf::StartSafe
+            | AlignSelf::CenterSafe
+            | AlignSelf::EndSafe
+            | AlignSelf::FlexStartSafe
+            | AlignSelf::FlexEndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            AlignSelf::Start
+            | AlignSelf::Center
+            | AlignSelf::End
+            | AlignSelf::FlexStart
+            | AlignSelf::FlexEnd
+            | AlignSelf::Stretch
+            | AlignSelf::Auto
+            | AlignSelf::Baseline => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            AlignSelf::Start => AlignSelf::StartSafe,
+            AlignSelf::Center => AlignSelf::CenterSafe,
+            AlignSelf::End => AlignSelf::EndSafe,
+            AlignSelf::FlexStart => AlignSelf::FlexStartSafe,
+            AlignSelf::FlexEnd => AlignSelf::FlexEndSafe,
+            AlignSelf::StartSafe
+            | AlignSelf::EndSafe
+            | AlignSelf::CenterSafe
+            | AlignSelf::FlexStartSafe
+            | AlignSelf::FlexEndSafe
+            | AlignSelf::Stretch
+            | AlignSelf::Auto
+            | AlignSelf::Baseline => self,
+        }
+    }
 }
 
 impl Default for AlignSelf {
@@ -1007,6 +1157,11 @@ impl Default for AlignSelf {
 /// Used to control how the specified item is aligned within the space it's given.
 /// - For children of flex nodes, this property has no effect. See `justify_content` for main axis alignment of flex items.
 /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
+///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
@@ -1021,10 +1176,16 @@ pub enum JustifySelf {
     Auto,
     /// This item will be aligned with the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// This item will be aligned with the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// This item will be aligned along the center of the axis.
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// This item will be aligned at the baseline.
     Baseline,
     /// This item will be stretched to fill the space it's given.
@@ -1033,6 +1194,36 @@ pub enum JustifySelf {
 
 impl JustifySelf {
     pub const DEFAULT: Self = Self::Auto;
+
+    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            JustifySelf::StartSafe | JustifySelf::CenterSafe | JustifySelf::EndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            JustifySelf::Start
+            | JustifySelf::Center
+            | JustifySelf::End
+            | JustifySelf::Auto
+            | JustifySelf::Stretch
+            | JustifySelf::Baseline => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            JustifySelf::Start => JustifySelf::StartSafe,
+            JustifySelf::Center => JustifySelf::CenterSafe,
+            JustifySelf::End => JustifySelf::EndSafe,
+            JustifySelf::StartSafe
+            | JustifySelf::EndSafe
+            | JustifySelf::CenterSafe
+            | JustifySelf::Auto
+            | JustifySelf::Stretch
+            | JustifySelf::Baseline => self,
+        }
+    }
 }
 
 impl Default for JustifySelf {
@@ -1044,6 +1235,11 @@ impl Default for JustifySelf {
 /// Used to control how items are distributed.
 /// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
 /// - For CSS Grid containers, controls alignment of grid rows.
+///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
@@ -1058,16 +1254,26 @@ pub enum AlignContent {
     Default,
     /// The items are packed towards the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// The items are packed towards the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// The items are packed towards the start of the axis, unless the flex direction is reversed;
     /// then the items are packed towards the end of the axis.
     FlexStart,
+    /// Like [`FlexStart`](Self::FlexStart) but safe [`safe`](Self#safe-alignments)
+    FlexStartSafe,
     /// The items are packed towards the end of the axis, unless the flex direction is reversed;
     /// then the items are packed towards the start of the axis.
     FlexEnd,
+    /// Like [`FlexEnd`](Self::FlexEnd) but safe [`safe`](Self#safe-alignments)
+    FlexEndSafe,
     /// The items are packed along the center of the axis.
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// The items are stretched to fill the container along the axis.
     Stretch,
     /// The items are distributed such that the gap between any two items is equal.
@@ -1080,6 +1286,50 @@ pub enum AlignContent {
 
 impl AlignContent {
     pub const DEFAULT: Self = Self::Default;
+
+    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            AlignContent::StartSafe
+            | AlignContent::CenterSafe
+            | AlignContent::EndSafe
+            | AlignContent::FlexStartSafe
+            | AlignContent::FlexEndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            AlignContent::Default
+            | AlignContent::Start
+            | AlignContent::Center
+            | AlignContent::End
+            | AlignContent::FlexStart
+            | AlignContent::FlexEnd
+            | AlignContent::Stretch
+            | AlignContent::SpaceBetween
+            | AlignContent::SpaceEvenly
+            | AlignContent::SpaceAround => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            AlignContent::Start => AlignContent::StartSafe,
+            AlignContent::Center => AlignContent::CenterSafe,
+            AlignContent::End => AlignContent::EndSafe,
+            AlignContent::FlexStart => AlignContent::FlexStartSafe,
+            AlignContent::FlexEnd => AlignContent::FlexEndSafe,
+            AlignContent::Default
+            | AlignContent::StartSafe
+            | AlignContent::EndSafe
+            | AlignContent::CenterSafe
+            | AlignContent::FlexStartSafe
+            | AlignContent::FlexEndSafe
+            | AlignContent::Stretch
+            | AlignContent::SpaceBetween
+            | AlignContent::SpaceEvenly
+            | AlignContent::SpaceAround => self,
+        }
+    }
 }
 
 impl Default for AlignContent {
@@ -1091,6 +1341,11 @@ impl Default for AlignContent {
 /// Used to control how items are distributed.
 /// - For Flexbox containers, controls alignment of items in the main axis.
 /// - For CSS Grid containers, controls alignment of grid columns.
+///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
@@ -1105,16 +1360,26 @@ pub enum JustifyContent {
     Default,
     /// The items are packed towards the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// The items are packed towards the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// The items are packed towards the start of the axis, unless the flex direction is reversed;
     /// then the items are packed towards the end of the axis.
     FlexStart,
+    /// Like [`FlexStart`](Self::FlexStart) but safe [`safe`](Self#safe-alignments)
+    FlexStartSafe,
     /// The items are packed towards the end of the axis, unless the flex direction is reversed;
     /// then the items are packed towards the start of the axis.
     FlexEnd,
+    /// Like [`FlexEnd`](Self::FlexEnd) but safe [`safe`](Self#safe-alignments)
+    FlexEndSafe,
     /// The items are packed along the center of the axis.
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// The items are stretched to fill the container along the axis.
     Stretch,
     /// The items are distributed such that the gap between any two items is equal.
@@ -1127,6 +1392,50 @@ pub enum JustifyContent {
 
 impl JustifyContent {
     pub const DEFAULT: Self = Self::Default;
+
+    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            JustifyContent::StartSafe
+            | JustifyContent::CenterSafe
+            | JustifyContent::EndSafe
+            | JustifyContent::FlexStartSafe
+            | JustifyContent::FlexEndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            JustifyContent::Default
+            | JustifyContent::Start
+            | JustifyContent::Center
+            | JustifyContent::End
+            | JustifyContent::FlexStart
+            | JustifyContent::FlexEnd
+            | JustifyContent::Stretch
+            | JustifyContent::SpaceBetween
+            | JustifyContent::SpaceEvenly
+            | JustifyContent::SpaceAround => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            JustifyContent::Start => JustifyContent::StartSafe,
+            JustifyContent::Center => JustifyContent::CenterSafe,
+            JustifyContent::End => JustifyContent::EndSafe,
+            JustifyContent::FlexStart => JustifyContent::FlexStartSafe,
+            JustifyContent::FlexEnd => JustifyContent::FlexEndSafe,
+            JustifyContent::Default
+            | JustifyContent::StartSafe
+            | JustifyContent::EndSafe
+            | JustifyContent::CenterSafe
+            | JustifyContent::FlexStartSafe
+            | JustifyContent::FlexEndSafe
+            | JustifyContent::Stretch
+            | JustifyContent::SpaceBetween
+            | JustifyContent::SpaceEvenly
+            | JustifyContent::SpaceAround => self,
+        }
+    }
 }
 
 impl Default for JustifyContent {
@@ -1543,6 +1852,10 @@ pub enum MinTrackSizingFunction {
     Px(f32),
     /// Track minimum size should be a percentage value
     Percent(f32),
+    /// Track minimum size should be a multiple of the grid container's font size.
+    Em(f32),
+    /// Track minimum size should be a multiple of the root font size.
+    Rem(f32),
     /// Track minimum size should be content sized under a min-content constraint
     MinContent,
     /// Track minimum size should be content sized under a max-content constraint
@@ -1572,6 +1885,10 @@ pub enum MaxTrackSizingFunction {
     Px(f32),
     /// Track maximum size should be a percentage value
     Percent(f32),
+    /// Track maximum size should be a multiple of the grid container's font size.
+    Em(f32),
+    /// Track maximum size should be a multiple of the root font size.
+    Rem(f32),
     /// Track maximum size should be content sized under a min-content constraint
     MinContent,
     /// Track maximum size should be content sized under a max-content constraint
@@ -1632,6 +1949,24 @@ impl GridTrack {
         Self {
             min_sizing_function: MinTrackSizingFunction::Percent(value),
             max_sizing_function: MaxTrackSizingFunction::Percent(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with size as a multiple of the grid container's font size.
+    pub fn em<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Em(value),
+            max_sizing_function: MaxTrackSizingFunction::Em(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with size as a multiple of the root font size.
+    pub fn rem<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Rem(value),
+            max_sizing_function: MaxTrackSizingFunction::Rem(value),
         }
         .into()
     }
@@ -1841,6 +2176,24 @@ impl RepeatedGridTrack {
         Self {
             repetition: repetition.into(),
             tracks: SmallVec::from_buf([GridTrack::percent(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with size as a multiple of the grid containers's font size.
+    pub fn em<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::em(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with size as a multiple of the root font size.
+    pub fn rem<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::rem(value)]),
         }
         .into()
     }
@@ -2516,10 +2869,18 @@ pub struct ZIndex(pub i32);
 
 /// `GlobalZIndex` allows a [`Node`] entity anywhere in the UI hierarchy to escape the implicit draw ordering of the UI's layout tree and
 /// be rendered above or below other UI nodes.
+/// Root UI nodes without a `GlobalZIndex` component receive an implicit global z-index of `0`.
 /// Nodes with a `GlobalZIndex` of greater than 0 will be drawn on top of nodes without a `GlobalZIndex` or nodes with a lower `GlobalZIndex`.
 /// Nodes with a `GlobalZIndex` of less than 0 will be drawn below nodes without a `GlobalZIndex` or nodes with a greater `GlobalZIndex`.
+/// The order of nodes with the same `GlobalZIndex` is stable between frames.
 ///
-/// If two Nodes have the same `GlobalZIndex`, the node with the greater [`ZIndex`] will be drawn on top.
+/// If two Nodes have the same `GlobalZIndex`, ties are decided in order by:
+///
+/// * The node with the higher `ZIndex`.
+/// * The node that was newly added this frame.
+/// * The node with a changed `GlobalZIndex` or `ZIndex`.
+///
+/// Otherwise the order is preserved from the previous frame.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct GlobalZIndex(pub i32);
@@ -2852,20 +3213,38 @@ impl BorderRadius {
         scale_factor: f32,
         node_size: Vec2,
         viewport_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
     ) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: self
-                .top_left
-                .resolve(scale_factor, node_size, viewport_size),
-            top_right: self
-                .top_right
-                .resolve(scale_factor, node_size, viewport_size),
-            bottom_left: self
-                .bottom_left
-                .resolve(scale_factor, node_size, viewport_size),
-            bottom_right: self
-                .bottom_right
-                .resolve(scale_factor, node_size, viewport_size),
+            top_left: self.top_left.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
+            top_right: self.top_right.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
+            bottom_left: self.bottom_left.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
+            bottom_right: self.bottom_right.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
         }
     }
 }
@@ -3156,7 +3535,7 @@ impl ComputedUiRenderTargetInfo {
 /// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
 #[derive(Component, Clone, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
-#[require(Node, OverrideClip)]
+#[require(Node)]
 pub struct FixedNode;
 
 #[cfg(test)]

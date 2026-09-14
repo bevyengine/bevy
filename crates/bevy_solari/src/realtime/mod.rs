@@ -2,8 +2,11 @@ mod extract;
 mod node;
 mod prepare;
 
-use crate::SolariPlugins;
-use bevy_app::{App, Plugin};
+use crate::{
+    scene::{prepare_raytracing_scene_resources, RaytracingSceneBindings},
+    SolariPlugins,
+};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::embedded_asset;
 use bevy_camera::Hdr;
 use bevy_core_pipeline::{
@@ -14,16 +17,26 @@ use bevy_core_pipeline::{
     },
     schedule::{Core3d, Core3dSystems},
 };
-use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    query::Has,
+    reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
+    system::{Commands, Query},
+};
 use bevy_pbr::DefaultOpaqueRendererMethod;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    init_gpu_resource, renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup,
+    RenderSystems,
 };
 use bevy_shader::load_shader_library;
 use extract::extract_solari_lighting;
 use node::{init_solari_lighting_pipelines, solari_lighting};
-use prepare::prepare_solari_lighting_resources;
+use prepare::{
+    prepare_solari_lighting_resources, setup_raytracing_scene_needs_previous_frame_data,
+};
 use tracing::warn;
 
 /// Raytraced direct and indirect lighting.
@@ -39,6 +52,7 @@ impl Plugin for SolariLightingPlugin {
         load_shader_library!(app, "presample_light_tiles.wesl");
         load_shader_library!(app, "initial_path.wesl");
         embedded_asset!(app, "restir.wesl");
+        embedded_asset!(app, "no_restir.wesl");
         load_shader_library!(app, "world_cache_query.wesl");
         embedded_asset!(app, "world_cache_compact.wesl");
         embedded_asset!(app, "world_cache_update.wesl");
@@ -49,10 +63,11 @@ impl Plugin for SolariLightingPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderApp);
-
-        let render_device = render_app.world().resource::<RenderDevice>();
-        let features = render_device.features();
+        let features = app
+            .sub_app(RenderApp)
+            .world()
+            .resource::<RenderDevice>()
+            .features();
         if !features.contains(SolariPlugins::required_wgpu_features()) {
             warn!(
                 "SolariLightingPlugin not loaded. GPU lacks support for required features: {:?}.",
@@ -61,12 +76,22 @@ impl Plugin for SolariLightingPlugin {
             return;
         }
 
-        render_app
-            .add_systems(RenderStartup, init_solari_lighting_pipelines)
+        app.add_systems(PostUpdate, manage_prepass_double_buffers);
+
+        app.sub_app_mut(RenderApp)
+            .add_systems(
+                RenderStartup,
+                init_solari_lighting_pipelines.after(init_gpu_resource::<RaytracingSceneBindings>),
+            )
             .add_systems(ExtractSchedule, extract_solari_lighting)
             .add_systems(
                 Render,
-                prepare_solari_lighting_resources.in_set(RenderSystems::PrepareResources),
+                (
+                    prepare_solari_lighting_resources,
+                    setup_raytracing_scene_needs_previous_frame_data
+                        .before(prepare_raytracing_scene_resources),
+                )
+                    .in_set(RenderSystems::PrepareResources),
             )
             .add_systems(
                 Core3d,
@@ -83,17 +108,26 @@ impl Plugin for SolariLightingPlugin {
 /// `Msaa::Off`.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(
-    Hdr,
-    DeferredPrepass,
-    DepthPrepass,
-    MotionVectorPrepass,
-    DeferredPrepassDoubleBuffer,
-    DepthPrepassDoubleBuffer
-)]
+#[require(Hdr, DeferredPrepass, DepthPrepass, MotionVectorPrepass)]
 pub struct SolariLighting {
+    /// [ReSTIR](https://en.wikipedia.org/wiki/Spatiotemporal_reservoir_resampling) is a technique to reuse path samples
+    /// between pixels and frames. This dramatically reduces noise, at the cost of a few extra rays per pixel.
+    ///
+    /// However, modern denoisers cope well with very noisy input. In many cases, turning this on
+    /// won't dramatically improve quality after denoising.
+    ///
+    /// If you want more fine shadow detail, or have scenes with more difficult lighting conditions,
+    /// turning this on may improve quality and stability, at the cost of a decent chunk of performance.
+    ///
+    /// Whether to enable this setting or not will be very scene dependent.
+    ///
+    /// Defaults to `false`.
+    pub restir: bool,
+
     /// Maximum confidence weight (effective temporal history length) a pixel
     /// can accumulate during temporal resampling.
+    ///
+    /// Has no effect when [`SolariLighting::restir`] is `false`.
     ///
     /// Higher values are more stable but slower to react to lighting changes
     /// and will lead to increased artifacts.
@@ -115,8 +149,8 @@ pub struct SolariLighting {
 
     /// Maximum number of bounces traced when generating an initial path.
     ///
-    /// Higher values capture more indirect light for greater accuracy at the cost
-    /// of more rays traced per frame. Lower values are faster but lose
+    /// Higher values capture more detail in nested reflections and more indirect lighting,
+    /// at the cost of more rays traced per frame. Lower values are faster but lose
     /// multi-bounce lighting for specular paths.
     pub max_bounces: u32,
 
@@ -183,6 +217,7 @@ pub struct SolariLighting {
 impl Default for SolariLighting {
     fn default() -> Self {
         Self {
+            restir: false,
             confidence_weight_cap: 8.0,
             primary_di_samples: 8,
             secondary_di_samples: 4,
@@ -194,6 +229,36 @@ impl Default for SolariLighting {
             world_cache_position_base_cell_size: 0.15,
             world_cache_position_lod_scale: 15.0,
             reset: true, // No temporal history on the first frame
+        }
+    }
+}
+
+/// Adds or removes the prepass double-buffer components according to [`SolariLighting::restir`].
+fn manage_prepass_double_buffers(
+    views: Query<(
+        Entity,
+        &SolariLighting,
+        Has<DeferredPrepassDoubleBuffer>,
+        Has<DepthPrepassDoubleBuffer>,
+    )>,
+    mut commands: Commands,
+) {
+    for (entity, solari_lighting, deferred_double_buffered, depth_double_buffered) in &views {
+        let mut entity = commands.entity(entity);
+        if solari_lighting.restir {
+            if !deferred_double_buffered {
+                entity.insert(DeferredPrepassDoubleBuffer);
+            }
+            if !depth_double_buffered {
+                entity.insert(DepthPrepassDoubleBuffer);
+            }
+        } else {
+            if deferred_double_buffered {
+                entity.remove::<DeferredPrepassDoubleBuffer>();
+            }
+            if depth_double_buffered {
+                entity.remove::<DepthPrepassDoubleBuffer>();
+            }
         }
     }
 }

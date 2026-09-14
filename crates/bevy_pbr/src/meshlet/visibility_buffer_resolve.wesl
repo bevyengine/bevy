@@ -1,4 +1,6 @@
-import bevy_pbr::{
+//! Functions to be used by materials for reading from a meshlet visibility buffer texture.
+
+import package::{
     meshlet::bindings::{
         Meshlet,
         meshlet_visibility_buffer,
@@ -20,12 +22,10 @@ import bevy_pbr::{
 import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack};
 
 @if(PREPASS_FRAGMENT && MOTION_VECTOR_PREPASS)
-import bevy_pbr::{
+import package::{
     prepass::bindings::previous_view_uniforms,
     render::pbr_prepass_functions::calculate_motion_vector,
 };
-
-/// Functions to be used by materials for reading from a meshlet visibility buffer texture.
 
 @if(MESHLET_MESH_MATERIAL_PASS)
 struct PartialDerivatives {
@@ -34,7 +34,7 @@ struct PartialDerivatives {
     ddy: vec3<f32>,
 }
 
-// https://github.com/ConfettiFX/The-Forge/blob/9d43e69141a9cd0ce2ce2d2db5122234d3a2d5b5/Common_3/Renderer/VisibilityBuffer2/Shaders/FSL/vb_shading_utilities.h.fsl#L90-L150
+/// https://github.com/ConfettiFX/The-Forge/blob/9d43e69141a9cd0ce2ce2d2db5122234d3a2d5b5/Common_3/Renderer/VisibilityBuffer2/Shaders/FSL/vb_shading_utilities.h.fsl#L90-L150
 @if(MESHLET_MESH_MATERIAL_PASS)
 fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, half_screen_size: vec2<f32>) -> PartialDerivatives {
     var result: PartialDerivatives;
@@ -205,7 +205,7 @@ fn normal_local_to_world(vertex_normal: vec3<f32>, instance_uniform: ptr<functio
     }
 }
 
-// https://www.jeremyong.com/graphics/2023/12/16/surface-gradient-bump-mapping/#surface-gradient-from-a-tangent-space-normal-vector-without-an-explicit-tangent-basis
+/// https://www.jeremyong.com/graphics/2023/12/16/surface-gradient-bump-mapping/#surface-gradient-from-a-tangent-space-normal-vector-without-an-explicit-tangent-basis
 @if(MESHLET_MESH_MATERIAL_PASS)
 fn calculate_world_tangent(
     world_normal: vec3<f32>,

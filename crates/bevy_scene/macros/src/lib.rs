@@ -21,10 +21,6 @@ use syn::{parse_macro_input, DeriveInput};
 /// ```rust,ignore
 /// bsn! {
 ///     <scene entry>
-///     :<cached scene include>
-///     #<name>
-///     @<SceneComponent>
-///     ~<custom Template>
 /// }
 /// ```
 ///
@@ -37,22 +33,23 @@ use syn::{parse_macro_input, DeriveInput};
 /// | `mymodule::CompA { name: val }`            | Same as above, but referring to the component by module path                                                   |
 /// | `CompA { name }`                           | Component with Rust's "field assignment shorthand". Evaluates to `CompA { name: name.into() }`                 |
 /// | `MyEnum::Variant`                          | Enum Component `MyEnum` with the `Variant` variant                                                             |
-/// | `template_value(component)`                | Insert the component value from a variable `component`                                                         |
+/// | `component`                                | Insert the component value from a variable `component`                                                         |
 /// | `template_value(CompA::from_str("foo"))`   | Insert the component value by immediately calling the constructor                                              |
-/// | `template(\|context\| { ... })`              | Register a function/closure returning a Template (eg. Component). Its passed [`context`] allowing World access |
+/// | `template(\|context\| { ... })`            | Register a function/closure returning a Template (eg. Component). Its passed [`context`] allowing World access |
 /// | `~MyType`<br>`~MyType {name: var}`         | Type implementing [`Template`], the prefix is used to distinguish it from Components which use [`FromTemplate`]|
 /// | **Including Scenes**                       |                                                                                                                |
-/// | `scene()`<br>`scene(val)`                  | Include the result of a `impl `[`Scene`] function                                                              |
-/// | `{ expr }`                                 | Include the result of `expr`, which should be a [`Scene`]                                                      |
+/// | `@scene()`<br>`@scene(val)`                | Include the result of a `impl `[`Scene`] function                                                              |
+/// | `@scene`                                   | Include a variable containing a scene                                                                          |
+/// | `@{ expr }`                                | Include the result of `expr`, which should be a [`Scene`]                                                      |
 /// | `@MySceneComp`                             | Include a [`SceneComponent`]. Fields, if any exist, will be default                                            |
 /// | `@MySceneComp { @prop: val }`              | Include a [`SceneComponent`] with a `prop` field, passed to this components scene function                     |
 /// | `@MySceneComp { name: val }`               | Include a [`SceneComponent`] with a normal field, works the same as it does for normal components              |
 /// | `@MySceneComp { @prop: val1, name: val2 }` | Include a [`SceneComponent`] with both a `prop` and a field                                                    |
 /// | `:"scene.bsn"`                             | <div class="warning">Asset format not yet implemented!</div> Include a cached scene asset file                 |
-/// | `:scene()`<br>`:@MySceneComp`              | <div class="warning">Caching for scene includes not yet implemented!</div> Include a cached scene function     |
+/// | `:scene()`<br>`:MySceneComp`               | <div class="warning">Caching for scene includes not yet implemented!</div> Include a cached scene function     |
 /// | **Named entity references**                |                                                                                                                |
 /// | `#MyName`                                  | Becomes `Name("MyName")` when used as a `part` of a scene                                                      |
-/// | `CompA(#MyName)`<br>`scene(#MyName)`       | Referring to the entity which was named `MyName` in this scope, results in an [`EntityTemplate`] being passed  |
+/// | `CompA(#MyName)`<br>`@scene(#MyName)`      | Referring to the entity which was named `MyName` in this scope, results in an [`EntityTemplate`] being passed  |
 /// | `Name("Foo")`                              | Manually sets the Name component, can be put after a `#MyName` to use a custom name while allowing references  |
 /// | **Observers**                              |                                                                                                                |
 /// | `on(\|ev: On<Ev>\| { … })`                 | Attaches an entity [`observer`] for the [`EntityEvent`] `Ev` to this entity. In this example, using a closure  |
@@ -64,19 +61,17 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// ### Scene Lists
 ///
-/// Scene list syntax appears in Relationships and the [`bsn_list!`] macro, surrounded by `[ ]`.
+/// Scene list syntax appears in Relationships (surrounded by []) and the [`bsn!`] macro.
 ///
-/// Unlike parts of a scene, which are whitespace-separated, the scenes in a scene list are comma-separated.
-/// Each comma-separated single-entity scene uses the same syntax as a single [`bsn!`] macro call.
+/// Unlike parts of a scene, which are whitespace-separated, the scenes in a scene list are `--` separated.
+/// Each `--` separated single-entity scene uses the same syntax as a single [`bsn!`] macro call.
 ///
-/// Note: The examples below omit the relationship or macro call, `Children [<scene list>]` or `bsn_list![<scene list>]`
+/// Note: The examples below omit the relationship or macro call, `Children [<scene list>]` or `bsn!{<scene list>}`
 ///
 /// | Example                      | Meaning                                                                                                               |
 /// | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-/// | `[ #Child1 CompA, #Child2 ]`     | Spawns 2 children, one with `(Name("Child1"), CompA::default())` and the other with `Name("Child2")`              |
-/// | `[ (#Child1 CompA), (#Child2) ]` | Same as above, with explicit parentheses                                                                          |
-/// | `[ #First, { expr }, #Last ]`   | Spawns an entity with name `First`, then every entity from the [`SceneList`] returned by expr, then one named `Last` |
-/// | `[ #First, ({ expr }), #Last ]` | Same as above, but the `expr` should result in a [`Scene`] and will only spawn one entity using it                   |
+/// | `[ #Child1 CompA -- #Child2 ]`   | Spawns 2 children, one with `(Name("Child1"), CompA::default())` and the other with `Name("Child2")`              |
+/// | `[ #First -- { expr } -- #Last ]`| Spawns an entity with name `First`, then every entity from the [`SceneList`] returned by expr, then one named `Last` |
 ///
 /// ### Values
 ///
@@ -117,10 +112,12 @@ use syn::{parse_macro_input, DeriveInput};
 /// Example macro showcasing most syntax (complex, most scenes won't look like this):
 /// ```rust,ignore
 /// bsn! {
-///     some_scene()        // include a scene function
+///     @some_scene()        // include a scene function
 ///     #SomeName           // entity name, will insert Name("SomeName")
 ///     ComponentA          // component without a value will use default
 ///     ComponentB(0.0)     // passing a value, other fields will use default
+///     component           // passing a component variable in
+///     component.clone()   // passing in the result of an expression that returns a component
 ///     Node {
 ///         height: px(0.1) // same with named fields, unmentioned ones stay default
 ///     }
@@ -130,27 +127,24 @@ use syn::{parse_macro_input, DeriveInput};
 ///     })
 ///     Children [                   // spawning multiple related entities using a RelationshipTarget component
 ///         #Child1 ComponentA       // whitespace doesn't have to be newlines
-///         ,                        // entities are comma-separated
-///         (other_scene() #Child3), // parentheses around a single entity are optional
-///         Link(#SomeName),         // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
+///         --                        // entities are separated by --
+///         Link(#SomeName)          // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
 ///         @MySceneComponent {      // components which derive SceneComponent have scenes and can be inherited from
 ///             @some_prop: 3,       // props, look like fields prefixed with @ but end up passed to the components scene as arguments
 ///             normal_field: 5      // while normal fields are the actual fields of the component
-///         },
-///         (
-///             Node {
-///                 width: some_var      // you can directly use variables without {}
+///         }
+///         --
+///         Node {
+///             width: some_var           // you can directly use variables without {}
+///         }
+///         ComponentB({some_var + 3.})   // values can be expressions, when wrapped in {}
+///         @Container {
+///             @items: bsn! {        // sometimes you may need to nest macro calls
+///                 #Item1 SomeComponent  // note: the name #Item1 here is in its own scope
+///                 --
+///                 #Item2 @some_scene()
 ///             }
-///             ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
-///             @Container {
-///                 @items: {
-///                     bsn_list![                // sometimes you may need to nest macro calls
-///                         #item1 SomeComponent, // note: the name #item1 here is in its own scope
-///                         some_scene() #item2
-///                     ]
-///                 }
-///             }
-///         ),
+///         }
 ///     ]
 /// };
 /// ```
@@ -184,7 +178,7 @@ pub fn bsn(input: TokenStream) -> TokenStream {
 /// This is useful when you want multiple root entities in your scene
 /// that do not share a common parent, or if you want to create multiple scenes at once.
 ///
-/// Like in relationships in [`bsn!`], commas separate entities,
+/// Like in relationships in [`bsn!`], `--` separates entities,
 /// while whitespace separates components on the same entity.
 ///
 /// All root entries in a [`bsn_list!`] share a single name scope, so sibling root entities
@@ -196,6 +190,10 @@ pub fn bsn(input: TokenStream) -> TokenStream {
 ///
 /// [`SceneList`]: https://docs.rs/bevy/latest/bevy/prelude/trait.SceneList.html
 /// [`bevy_scene`]: https://docs.rs/bevy/latest/bevy/scene/index.html
+#[deprecated(
+    since = "0.20.0",
+    note = "use bsn! {} instead, which now supports lists"
+)]
 #[proc_macro]
 pub fn bsn_list(input: TokenStream) -> TokenStream {
     crate::_bsn::bsn_list(input)

@@ -1,5 +1,5 @@
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
-import bevy_pbr::meshlet::bindings::InstancedOffset;
+import package::meshlet::bindings::InstancedOffset;
 
 @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
 @group(0) @binding(0) var meshlet_visibility_buffer: texture_storage_2d<r64uint, read>;
