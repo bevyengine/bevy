@@ -102,7 +102,7 @@ impl LightProbe {
 /// area in space.
 ///
 /// Raster image-based lighting expects a [split-sum] pair: a blurry
-/// `diffuse_map` for the irradiance, and a mipmapped `specular_map` for the specular. 
+/// `diffuse_map` for the irradiance, and a mipmapped `specular_map` for the specular.
 /// Roughness selects which mip is sampled.
 ///
 /// Path tracers such as Solari only sample the first mip level, so both of them
@@ -304,7 +304,7 @@ impl Default for GeneratedEnvironmentMapLight {
 
 /// Lets the atmosphere contribute environment lighting to your scene.
 ///
-/// Attach this component to a [`Camera3d`](bevy_camera::Camera3d) to light the 
+/// Attach this component to a [`Camera3d`](bevy_camera::Camera3d) to light the
 /// entire view, or to a [`LightProbe`] to light only a specific region.
 ///
 /// By default this also filters the cubemap for raster image-based lighting.
