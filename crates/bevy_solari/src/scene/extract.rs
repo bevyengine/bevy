@@ -1,4 +1,5 @@
 use super::{RaytracingMesh3d, RaytracingSceneBindings};
+use crate::{pathtracer::Pathtracer, realtime::SolariLighting};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_camera::Camera;
 use bevy_ecs::{
@@ -9,7 +10,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::Image;
-use bevy_light::EnvironmentMapLight;
+use bevy_light::{AtmosphereEnvironmentMapLight, EnvironmentMapLight};
 use bevy_math::Quat;
 use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
 use bevy_platform::collections::HashMap;
@@ -195,4 +196,19 @@ pub fn extract_raytracing_environment_map_light(
     }
 
     *environment_map_light = extracted_env_map_light;
+}
+
+/// Warns once if a Solari or pathtracer camera still runs atmosphere IBL filtering.
+pub fn warn_if_atmosphere_env_map_filtered(
+    lights: Query<&AtmosphereEnvironmentMapLight, Or<(With<SolariLighting>, With<Pathtracer>)>>,
+) {
+    for light in &lights {
+        if light.filtered {
+            once!(warn!(
+                "AtmosphereEnvironmentMapLight is filtered on a Solari camera. Set filtered to false \
+                 to skip unused GPU filtering."
+            ));
+            break;
+        }
+    }
 }
