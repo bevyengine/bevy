@@ -39,7 +39,7 @@ pub struct FeathersDisclosureToggle;
 
 impl FeathersDisclosureToggle {
     fn scene() -> impl Scene {
-        bsn!(
+        bsn! {
             Node {
                 width: px(12),
                 height: px(12),
@@ -53,9 +53,9 @@ impl FeathersDisclosureToggle {
             InheritableThemeTextColor(tokens::BUTTON_TEXT)
             TabIndex(0)
             Children [
-                icon(icons::CHEVRON_RIGHT)
+                @icon(icons::CHEVRON_RIGHT)
             ]
-        )
+        }
     }
 }
 

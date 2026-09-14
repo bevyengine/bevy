@@ -10,7 +10,6 @@ mod query_data;
 mod query_filter;
 mod resource;
 mod template;
-mod variant_defaults;
 mod world_query;
 
 use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
@@ -452,8 +451,13 @@ fn derive_system_param_impl(
                     }
                 }
 
-                fn init_access(state: &Self::State, system_meta: &mut #path::system::SystemMeta, component_access_set: &mut #path::query::FilteredAccessSet, world: &mut #path::world::World) {
-                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, component_access_set, world);
+                fn init_access(
+                    state: &Self::State,
+                    system_meta: &mut #path::system::SystemMeta,
+                    system_access: &mut #path::system::SystemAccess,
+                    world: &mut #path::world::World
+                ) {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access, world);
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
@@ -945,13 +949,4 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(FromTemplate, attributes(template, default))]
 pub fn derive_from_template(input: TokenStream) -> TokenStream {
     template::derive_from_template(input)
-}
-
-/// Derives a `default_<name>` for each branch of an `enum`
-/// for use with [`Template`].
-///
-/// [`Template`]: template/trait.Template.html
-#[proc_macro_derive(VariantDefaults)]
-pub fn derive_variant_defaults(input: TokenStream) -> TokenStream {
-    variant_defaults::derive_variant_defaults(input)
 }

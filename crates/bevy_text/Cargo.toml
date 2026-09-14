@@ -12,6 +12,7 @@ keywords = ["bevy"]
 default_font = []
 system_font_discovery = ["parley/system"]
 system_clipboard = ["bevy_clipboard/system_clipboard"]
+complex_script_segmentation = ["parley/complex-scripts"]
 
 [dependencies]
 # bevy

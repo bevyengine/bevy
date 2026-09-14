@@ -2,8 +2,9 @@ use core::hint::black_box;
 use std::time::Duration;
 
 use benches::bench;
-use bevy_math::{Affine3A, Dir3, Ray3d, Vec3};
+use bevy_math::{Affine3A, Dir3, Vec3};
 use bevy_picking::mesh_picking::ray_cast::{self, Backfaces};
+use bevy_shape::Ray3d;
 use criterion::{criterion_group, AxisScale, BenchmarkId, Criterion, PlotConfiguration};
 
 criterion_group!(benches, bench);
