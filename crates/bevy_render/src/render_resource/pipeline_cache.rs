@@ -89,7 +89,7 @@ const BIND_GROUP_LAYOUTS_INLINE_CAPACITY: usize = 8;
 struct WeslModuleRequest {
     /// Keeps the module alive; nothing else holds a strong handle to it.
     handle: Handle<Shader>,
-    /// Whether a load failure has already been reported, so it is logged once.
+    /// Whether or not a load failure has already been reported. This is tracked so that failures are only logged once.
     failure_logged: bool,
 }
 
@@ -238,7 +238,7 @@ pub struct PipelineCache {
     pub(crate) synchronous_pipeline_compilation: bool,
     /// If `true`, the shader cache needs to be repopulated from the main world's `Assets<Shader>`.
     needs_shader_reload: bool,
-    /// Modules `wesl` reported as unresolved while compiling, drained each frame and loaded.
+    /// Modules `wesl` reported as unresolved while compiling.
     missing_wesl_modules: HashSet<ShaderImport>,
     /// Modules already requested from the asset server, keyed so each is requested once.
     wesl_module_requests: HashMap<ShaderImport, WeslModuleRequest>,
