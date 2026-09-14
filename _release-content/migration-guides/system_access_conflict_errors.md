@@ -51,7 +51,7 @@ impl SystemParam for ExampleParameter {
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), Box<ParameterAccessConflict>> {
+    ) -> Result<(), ParameterAccessConflict> {
         let mut access: FilteredAccess = ...;
         system_access.try_extend_single(access).map_err(|access| {
             ParameterAccessConflict::new::<Self>(access)

@@ -233,6 +233,10 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// This method must return [`Err`] if the access would conflict with any existing
     /// access in the [`SystemAccess`].
+    #[expect(
+        clippy::result_large_err,
+        reason = "These methods will all be inlined, and boxing makes APIs like `fn with_code(self)` awkward."
+    )]
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
@@ -2664,6 +2668,10 @@ trait DynParamState: Sync + Send + Any {
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld);
 
     /// Registers any [`World`] access used by this [`SystemParam`]
+    #[expect(
+        clippy::result_large_err,
+        reason = "These methods will all be inlined, and boxing makes APIs like `fn with_code(self)` awkward."
+    )]
     fn init_access(
         &self,
         system_meta: &mut SystemMeta,
