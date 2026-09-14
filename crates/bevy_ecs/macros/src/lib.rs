@@ -455,7 +455,7 @@ fn derive_system_param_impl(
                     state: &Self::State,
                     system_meta: &mut #path::system::SystemMeta,
                     system_access: &mut #path::system::SystemAccess,
-                ) -> Result<(), #path::system::BoxedParameterAccessConflict> {
+                ) -> Result<(), #path::system::ParameterAccessConflict> {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access)?;
                     Ok(())
                 }

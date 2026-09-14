@@ -1,5 +1,3 @@
-use alloc::boxed::Box;
-
 #[cfg(feature = "multi_threaded")]
 use crate::message::MessageParIter;
 use crate::{
@@ -169,7 +167,7 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
         state: &Self::State,
         system_meta: &mut crate::system::SystemMeta,
         system_access: &mut crate::system::SystemAccess,
-    ) -> Result<(), Box<ParameterAccessConflict>> {
+    ) -> Result<(), ParameterAccessConflict> {
         MessageReader::<M>::init_access(state, system_meta, system_access)
             .map_err(ParameterAccessConflict::with_param::<Self>)
     }

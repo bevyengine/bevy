@@ -581,8 +581,6 @@ mod tests {
 
 #[cfg(test)]
 mod validation_tests {
-    use alloc::boxed::Box;
-
     use crate::{
         prelude::{Component, In, IntoSystem, Resource, Schedule},
         schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
@@ -618,7 +616,7 @@ mod validation_tests {
             _state: &Self::State,
             _system_meta: &mut SystemMeta,
             _system_access: &mut SystemAccess,
-        ) -> Result<(), Box<ParameterAccessConflict>> {
+        ) -> Result<(), ParameterAccessConflict> {
             Ok(())
         }
 
