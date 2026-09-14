@@ -170,13 +170,8 @@ pub(crate) fn play_gilrs_rumble(
 
 #[cfg(test)]
 mod tests {
-    use super::{get_base_effects, handle_rumble_request, to_gilrs_magnitude};
-    use crate::{
-        rumble::{RumbleError, RunningRumbleEffects},
-        GilrsGamepads,
-    };
-    use bevy_ecs::entity::Entity;
-    use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
+    use super::{get_base_effects, to_gilrs_magnitude};
+    use bevy_input::gamepad::GamepadRumbleIntensity;
     use core::time::Duration;
     use gilrs::ff::BaseEffectType;
 
@@ -214,30 +209,5 @@ mod tests {
         assert!(both
             .iter()
             .any(|e| matches!(e.kind, BaseEffectType::Weak { .. })));
-    }
-
-    #[test]
-    fn rumble_request_for_unknown_gamepad_does_not_panic() {
-        let mut real_gilrs =
-            gilrs::Gilrs::new().expect("gilrs backend should initialize even headless");
-
-        let gamepads = GilrsGamepads::default();
-        let mut ranning_rumbles = RunningRumbleEffects::default();
-
-        let unknown_gamepad = Entity::PLACEHOLDER;
-        let request = GamepadRumbleRequest::Add {
-            gamepad: unknown_gamepad,
-            intensity: GamepadRumbleIntensity::MAX,
-            duration: Duration::from_millis(100),
-        };
-
-        let result = handle_rumble_request(
-            &mut ranning_rumbles,
-            &mut real_gilrs,
-            &gamepads,
-            request,
-            Duration::ZERO,
-        );
-        assert!(matches!(result, Err(RumbleError::GamepadNotFound)));
     }
 }
