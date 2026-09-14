@@ -3519,7 +3519,7 @@ impl World {
     /// # world.insert_resource(A(1));
     /// # world.insert_resource(B(2));
     /// let mut total = 0;
-    /// for (info, _) in world.iter_resources() {
+    /// for (_, info, _) in world.iter_resources() {
     ///    println!("Resource: {}", info.name());
     ///    println!("Size: {} bytes", info.layout().size());
     ///    total += info.layout().size();
@@ -3568,7 +3568,7 @@ impl World {
     /// }));
     ///
     /// // Iterate all resources, in order to run the closures for each matching resource type
-    /// for (info, ptr) in world.iter_resources() {
+    /// for (_, info, ptr) in world.iter_resources() {
     ///     let Some(type_id) = info.type_id() else {
     ///        // It's possible for resources to not have a `TypeId` (e.g. non-Rust resources
     ///        // dynamically inserted via a scripting language) in which case we can't match them.
@@ -3643,7 +3643,7 @@ impl World {
     /// }));
     ///
     /// // Iterate all resources, in order to run the mutator closures for each matching resource type
-    /// for (info, mut mut_untyped) in world.iter_resources_mut() {
+    /// for (_, info, mut mut_untyped) in world.iter_resources_mut() {
     ///     let Some(type_id) = info.type_id() else {
     ///        // It's possible for resources to not have a `TypeId` (e.g. non-Rust resources
     ///        // dynamically inserted via a scripting language) in which case we can't match them.
