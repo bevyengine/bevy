@@ -1,6 +1,6 @@
 import bevy_render::view::View;
 import bevy_render::globals::Globals;
-import package::ui::encode_output;
+import bevy_render::writer_encode::writer_encode;
 
 @group(0) @binding(0)
 var<uniform> view: View;
@@ -127,5 +127,5 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     let color = in.color * textureSample(sprite_texture, sprite_sampler, atlas_uv);
 
-    return encode_output(color);
+    return writer_encode(color);
 }

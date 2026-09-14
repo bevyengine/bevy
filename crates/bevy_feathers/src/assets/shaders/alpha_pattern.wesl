@@ -1,6 +1,7 @@
 //! This shader draws a checkerboard pattern
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 import bevy_ui_render::ui::sd_rounded_box;
+import bevy_render::writer_encode::writer_encode;
 
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
@@ -13,5 +14,5 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let external_distance = sd_rounded_box((in.uv - 0.5) * size, size, in.border_radius_x, in.border_radius_y);
     let alpha = smoothstep(0.5, -0.5, external_distance);
 
-    return vec4<f32>(bg, alpha);
+    return writer_encode(vec4<f32>(bg, alpha));
 }

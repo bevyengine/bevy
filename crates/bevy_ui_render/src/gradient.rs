@@ -195,23 +195,24 @@ impl SpecializedRenderPipeline for GradientPipeline {
             InterpolationColorSpace::HsvaLong => "IN_HSV_LONG",
         };
 
-        let mut shader_defs = if key.anti_alias {
+        let shader_defs = if key.anti_alias {
             vec![color_space.into(), "ANTI_ALIAS".into()]
         } else {
             vec![color_space.into()]
         };
-        key.writer_encode.push_shader_defs(&mut shader_defs);
+        let mut fragment_defs = shader_defs.clone();
+        key.writer_encode.push_shader_defs(&mut fragment_defs);
 
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                shader_defs: shader_defs.clone(),
+                shader_defs,
                 buffers: vec![vertex_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
-                shader_defs,
+                shader_defs: fragment_defs,
                 targets: vec![Some(ColorTargetState {
                     format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),

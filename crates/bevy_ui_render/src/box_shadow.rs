@@ -160,19 +160,20 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 VertexFormat::Float32x2,
             ],
         );
-        let mut shader_defs = vec![ShaderDefVal::UInt("SHADOW_SAMPLES".into(), key.samples)];
-        key.writer_encode.push_shader_defs(&mut shader_defs);
+        let shader_defs = vec![ShaderDefVal::UInt("SHADOW_SAMPLES".into(), key.samples)];
+        let mut fragment_defs = shader_defs.clone();
+        key.writer_encode.push_shader_defs(&mut fragment_defs);
 
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                shader_defs: shader_defs.clone(),
+                shader_defs,
                 buffers: vec![vertex_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
-                shader_defs,
+                shader_defs: fragment_defs,
                 targets: vec![Some(ColorTargetState {
                     format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),

@@ -83,6 +83,7 @@ use derive_more::derive::From;
 ///
 /// ```wesl
 /// import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+/// import bevy_render::writer_encode::writer_encode;
 ///
 /// struct CustomMaterial {
 ///     color: vec4<f32>,
@@ -97,7 +98,9 @@ use derive_more::derive::From;
 ///
 /// @fragment
 /// fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
-///
+///     let color = material.color * textureSample(color_texture, color_sampler, in.uv);
+///     // Encode the output for the view's compositing space.
+///     return writer_encode(color);
 /// }
 /// ```
 pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {

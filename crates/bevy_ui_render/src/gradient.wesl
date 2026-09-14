@@ -1,8 +1,8 @@
 import bevy_render::view::View;
+import bevy_render::writer_encode::writer_encode;
 import package::ui::{
     draw_uinode_background,
     draw_uinode_border,
-    encode_output,
 };
 
 import bevy_render::color_operations::{
@@ -134,7 +134,7 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
     } else {
         out = draw_uinode_background(gradient_color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
     }
-    return encode_output(out);
+    return writer_encode(out);
 }
 
 fn rem_euclid(a: f32, b: f32) -> f32 {

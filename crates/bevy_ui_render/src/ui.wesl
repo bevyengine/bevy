@@ -183,11 +183,6 @@ fn nearest_border_active(point_vs_mid: vec2<f32>, size: vec2<f32>, width: vec4<f
         (enabled(flags, BORDER_BOTTOM) && min_dist == bottom);
 }
 
-/// UI shaders call this on their final color, including custom UiMaterial shaders.
-fn encode_output(color: vec4<f32>) -> vec4<f32> {
-    return writer_encode(color);
-}
-
 /// get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
@@ -271,7 +266,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     } else {
         out = draw_uinode_background(color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
     }
-    return encode_output(out);
+    return writer_encode(out);
 }
 
 /// One iteration of Newton's method on the 2D equation of an ellipse:

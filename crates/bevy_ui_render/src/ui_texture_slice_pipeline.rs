@@ -166,19 +166,18 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
                 VertexFormat::Float32x4,
             ],
         );
-        let mut shader_defs = Vec::new();
-        key.writer_encode.push_shader_defs(&mut shader_defs);
+        let mut fragment_defs = Vec::new();
+        key.writer_encode.push_shader_defs(&mut fragment_defs);
 
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
-                shader_defs,
+                shader_defs: fragment_defs,
                 targets: vec![Some(ColorTargetState {
                     format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
