@@ -41,7 +41,16 @@ the format of the written data). For these cases, we also provide `TypedRonSaver
 serialized as normal RON data (no extra fluff). You also don't need the `#Typed` suffix when loading
 the data. This however means that it is up to the user to load their data with the correct loader,
 either by using a unique extension, setting an explicit loader in the meta file, or always loading
-with the correct `T` when calling `AssetServer::load`.
+with the correct `T` when calling `AssetServer::load`. Here is what the RON file looks like:
+
+```ron
+(
+  first_field: "abc",
+  second_field: 10,
+  # Handles don't impl Serialize or Deserialize, so we can't have a handle. Use RonLoader instead!
+  # handle_field: Path("some_other_path.gltf")
+)
+```
 
 Consider using these new loaders in place of your own bespoke loaders! In general, `TypedRonLoader`
-will be the most direct replacement.
+will be the most direct replacement, while `RonLoader` is more featureful going forward.
