@@ -291,7 +291,7 @@ pub enum Chain {
     /// Systems are chained. `before -> after` ordering constraints
     /// will be added between the successive elements.
     Chained {
-        /// Specifies if the links between the chained links are weak
+        /// Specifies if the links between the chained systems are weak
         is_weak: bool,
         /// Whether or not to insert sync points between systems in this chain
         ignore_deferred: bool,
