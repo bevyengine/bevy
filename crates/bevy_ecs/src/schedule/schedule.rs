@@ -916,15 +916,13 @@ impl ScheduleGraph {
                 let mut is_chained = false;
                 let mut weak_link = false;
 
-                match metadata {
-                    Chain::Chained {
-                        is_weak,
-                        ignore_deferred: _,
-                    } => {
-                        weak_link = is_weak;
-                        is_chained = true;
-                    }
-                    _ => {}
+                if let Chain::Chained {
+                    is_weak,
+                    ignore_deferred: _,
+                } = metadata
+                {
+                    weak_link = is_weak;
+                    is_chained = true;
                 }
 
                 // Densely chained if
