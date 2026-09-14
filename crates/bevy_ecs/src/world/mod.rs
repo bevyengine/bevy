@@ -458,7 +458,7 @@ impl World {
     /// ```
     pub fn register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: impl Fn() -> R + 'static,
     ) {
         self.try_register_required_components_with::<T, R>(constructor)
             .unwrap();
@@ -569,7 +569,7 @@ impl World {
     /// ```
     pub fn try_register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: impl Fn() -> R + 'static,
     ) -> Result<(), RequiredComponentsError> {
         let requiree = self.register_component::<T>();
 
@@ -3585,15 +3585,14 @@ impl World {
     /// }
     /// ```
     #[inline]
-    pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
+    pub fn iter_resources(&self) -> impl Iterator<Item = (ComponentId, &ComponentInfo, Ptr<'_>)> {
         self.components()
-            .iter_registered()
-            .filter_map(|component_info| {
-                let component_id = component_info.id();
-                let entity = component_id.entity();
+            .iter()
+            .filter_map(|(&id, component_info)| {
+                let entity = id.entity();
                 let entity_cell = self.get_entity(entity).ok()?;
-                let resource = entity_cell.get_by_id(component_id).ok()?;
-                Some((component_info, resource))
+                let resource = entity_cell.get_by_id(id).ok()?;
+                Some((id, component_info, resource))
             })
     }
 
@@ -3662,15 +3661,16 @@ impl World {
     /// # assert_eq!(world.resource::<A>().0, 2);
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
-    pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
+    pub fn iter_resources_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (ComponentId, &ComponentInfo, MutUntyped<'_>)> {
         let unsafe_world = self.as_unsafe_world_cell();
 
         unsafe_world
             .components()
-            .iter_registered()
-            .filter_map(move |component_info| {
-                let component_id = component_info.id();
-                let entity_cell = unsafe_world.get_entity(component_id.entity()).ok()?;
+            .iter()
+            .filter_map(move |(&id, component_info)| {
+                let entity_cell = unsafe_world.get_entity(id.entity()).ok()?;
 
                 // SAFETY:
                 // - We have exclusive world access
@@ -3678,9 +3678,9 @@ impl World {
                 // or resource_entities mutably
                 // - `resource_entities` doesn't contain duplicate entities, so
                 // no duplicate references are created
-                let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
+                let mut_untyped = unsafe { entity_cell.get_mut_by_id(id).ok()? };
 
-                Some((component_info, mut_untyped))
+                Some((id, component_info, mut_untyped))
             })
     }
 
@@ -4004,7 +4004,9 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::{DetectChangesMut, MaybeLocation},
-        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo, StorageType,
+        },
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         prelude::{DetectChanges, Event, Mut, On, Res},
@@ -4205,12 +4207,12 @@ mod tests {
 
         let mut resources = world
             .iter_resources()
-            .collect::<Vec<(&ComponentInfo, Ptr<'_>)>>();
-        resources.sort_by_key(|a| a.0.id());
+            .collect::<Vec<(ComponentId, &ComponentInfo, Ptr<'_>)>>();
+        resources.sort_by_key(|a| a.0);
 
         assert_eq!(resources.len(), 2);
 
-        let (info, ptr) = resources[0];
+        let (_, info, ptr) = resources[0];
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         assert_eq!(
             // SAFETY: We know that the resource is of type `TestResource2`
@@ -4218,7 +4220,7 @@ mod tests {
             &"Hello, world!".to_string()
         );
 
-        let (info, ptr) = resources[1];
+        let (_, info, ptr) = resources[1];
         assert_eq!(info.name(), DebugName::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
@@ -4234,21 +4236,22 @@ mod tests {
         world.insert_resource(TestResource3);
         world.remove_resource::<TestResource3>();
 
-        let mut resources = world
-            .iter_resources_mut()
-            .collect::<Vec<(&ComponentInfo, MutUntyped<'_>)>>();
-        resources.sort_by_key(|a| a.0.id());
+        let mut resources =
+            world
+                .iter_resources_mut()
+                .collect::<Vec<(ComponentId, &ComponentInfo, MutUntyped<'_>)>>();
+        resources.sort_by_key(|a| a.0);
 
         let mut iter = resources.into_iter();
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
+        let (_, info, mut mut_untyped) = iter.next().unwrap();
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         // SAFETY: We know that the resource is of type `TestResource2`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
         };
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
+        let (_, info, mut mut_untyped) = iter.next().unwrap();
         assert_eq!(info.name(), DebugName::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         unsafe {

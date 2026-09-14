@@ -1,4 +1,6 @@
-use crate::{CachedSceneError, ErasedComponentTemplate, ResolvedScene, SceneList, ScenePatch};
+use crate::{
+    CachedSceneError, EmptySceneEffect, ErasedTemplate, ResolvedScene, SceneList, ScenePatch,
+};
 use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
     component::Component,
@@ -284,6 +286,10 @@ pub struct TemplatePatch<F: FnOnce(&mut T, &mut ResolveContext), T>(pub F, pub P
 
 /// Returns a [`Scene`] that completely overwrites the current value of a [`Template`] `T` with the given `value`.
 /// The `value` is cloned each time the [`Template`] is built.
+#[deprecated(
+    since = "0.20.0",
+    note = "You can generally just remove the template_value wrapper function now. If that doesn't work, wrap it in `~{}`"
+)]
 pub fn template_value<T: Template<Output: Component> + Send + Sync + 'static>(
     value: T,
 ) -> InsertTemplate {
@@ -350,7 +356,7 @@ pub struct InsertTemplate {
     /// The type id of the [`Template`] in `template`.
     pub type_id: TypeId,
     /// The template to insert.
-    pub template: Box<dyn ErasedComponentTemplate>,
+    pub template: Box<dyn ErasedTemplate>,
 }
 impl Scene for InsertTemplate {
     fn resolve(
@@ -537,11 +543,11 @@ where
     E: EventPattern<Event: EntityEvent>,
     M: 'static,
 {
-    type Output = ();
+    type Output = EmptySceneEffect;
 
     fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
         context.entity.observe(self.0.clone());
-        Ok(())
+        Ok(EmptySceneEffect)
     }
 
     fn clone_template(&self) -> Self {
@@ -560,7 +566,7 @@ where
         _context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        scene.push_bundle_template(OnTemplate(self.0, PhantomData));
+        scene.push_template(OnTemplate(self.0, PhantomData));
         Ok(())
     }
 }

@@ -32,7 +32,6 @@ use crate::{
 /// Stores metadata for a type of component or resource stored in a specific [`World`](crate::world::World).
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
-    pub(super) id: ComponentId,
     pub(super) descriptor: ComponentDescriptor,
     pub(super) hooks: ComponentHooks,
     pub(super) required_components: RequiredComponents,
@@ -42,12 +41,6 @@ pub struct ComponentInfo {
 }
 
 impl ComponentInfo {
-    /// Returns a value uniquely identifying the current component.
-    #[inline]
-    pub fn id(&self) -> ComponentId {
-        self.id
-    }
-
     /// Returns the name of the current component.
     #[inline]
     pub fn name(&self) -> DebugName {
@@ -113,9 +106,8 @@ impl ComponentInfo {
     }
 
     /// Create a new [`ComponentInfo`].
-    pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+    pub(crate) fn new(descriptor: ComponentDescriptor) -> Self {
         ComponentInfo {
-            id,
             descriptor,
             hooks: Default::default(),
             required_components: Default::default(),
@@ -428,7 +420,7 @@ impl Components {
         mut descriptor: ComponentDescriptor,
     ) {
         descriptor.initialize(id, self);
-        let info = ComponentInfo::new(id, descriptor);
+        let info = ComponentInfo::new(descriptor);
         self.components
             .try_insert(id, info)
             .expect("this component has already been registered");
@@ -699,6 +691,11 @@ impl Components {
     /// Gets an iterator over all `ComponentId`s fully registered with this instance.
     pub fn iter_registered_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.components.keys().copied()
+    }
+
+    /// Gets an iterator over all `ComponentId`s and components fully registered with this instance.
+    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &ComponentInfo)> + '_ {
+        self.components.iter()
     }
 
     pub(crate) fn get_relationship_accessor_mut(

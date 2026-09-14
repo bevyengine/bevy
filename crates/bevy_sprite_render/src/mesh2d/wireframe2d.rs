@@ -146,7 +146,7 @@ impl Plugin for Wireframe2dPlugin {
                 Render,
                 (
                     specialize_wireframes
-                        .in_set(RenderSystems::PrepareMeshes)
+                        .in_set(RenderSystems::Specialize)
                         .after(prepare_assets::<RenderWireframeMaterial>)
                         .after(prepare_assets::<RenderMesh>),
                     queue_wireframes

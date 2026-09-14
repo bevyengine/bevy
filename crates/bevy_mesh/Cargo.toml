@@ -14,6 +14,9 @@ bevy_app = { path = "../bevy_app", version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev" }
 bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.20.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev" }
+bevy_shape = { path = "../bevy_shape", version = "0.20.0-dev", features = [
+  "bevy_reflect",
+] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.20.0-dev" }
@@ -26,7 +29,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-fea
 
 # other
 bitflags = { version = "2.3", features = ["serde"] }
-bytemuck = { version = "1.5" }
+bytemuck = { version = "1.5", features = ["must_cast"] }
 wgpu-types = { version = "30", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",

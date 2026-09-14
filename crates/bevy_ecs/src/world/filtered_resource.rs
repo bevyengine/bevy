@@ -116,6 +116,10 @@ use super::error::ResourceFetchError;
 /// # world.run_system_once(system);
 /// ```
 #[derive(Clone, Copy)]
+#[deprecated(
+    since = "0.20.0",
+    note = "Use `QueryState` and `QueryBuilder` instead."
+)]
 pub struct FilteredResources<'w, 's> {
     world: UnsafeWorldCell<'w>,
     access: &'s Access,
@@ -123,6 +127,7 @@ pub struct FilteredResources<'w, 's> {
     this_run: Tick,
 }
 
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 impl<'w, 's> FilteredResources<'w, 's> {
     /// Creates a new [`FilteredResources`].
     /// # Safety
@@ -200,6 +205,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
     }
 }
 
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 impl<'w, 's> From<FilteredResourcesMut<'w, 's>> for FilteredResources<'w, 's> {
     fn from(resources: FilteredResourcesMut<'w, 's>) -> Self {
         // SAFETY:
@@ -215,6 +221,7 @@ impl<'w, 's> From<FilteredResourcesMut<'w, 's>> for FilteredResources<'w, 's> {
     }
 }
 
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 impl<'w, 's> From<&'w FilteredResourcesMut<'_, 's>> for FilteredResources<'w, 's> {
     fn from(resources: &'w FilteredResourcesMut<'_, 's>) -> Self {
         // SAFETY:
@@ -230,6 +237,7 @@ impl<'w, 's> From<&'w FilteredResourcesMut<'_, 's>> for FilteredResources<'w, 's
     }
 }
 
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
     fn from(value: &'w World) -> Self {
         const READ_ALL_RESOURCES: &Access = const { &Access::new_read_all() };
@@ -248,6 +256,7 @@ impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
     }
 }
 
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
     fn from(value: &'w mut World) -> Self {
         Self::from(&*value)
@@ -376,6 +385,10 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 /// #
 /// # world.run_system_once(system);
 /// ```
+#[deprecated(
+    since = "0.20.0",
+    note = "Use `QueryState` and `QueryBuilder` instead."
+)]
 pub struct FilteredResourcesMut<'w, 's> {
     world: UnsafeWorldCell<'w>,
     access: &'s Access,
@@ -383,6 +396,7 @@ pub struct FilteredResourcesMut<'w, 's> {
     this_run: Tick,
 }
 
+#[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
 impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// Creates a new [`FilteredResources`].
     /// # Safety
@@ -531,6 +545,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     }
 }
 
+#[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
 impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
     fn from(value: &'w mut World) -> Self {
         const WRITE_ALL_RESOURCES: &Access = const { &Access::new_write_all() };
@@ -552,11 +567,13 @@ impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
 /// Builder struct to define the access for a [`FilteredResources`].
 ///
 /// This is passed to a callback in [`FilteredResourcesParamBuilder`](crate::system::FilteredResourcesParamBuilder).
+#[deprecated(since = "0.20.0", note = "Use `QueryBuilder` instead.")]
 pub struct FilteredResourcesBuilder<'w> {
     world: &'w mut World,
     access: Access,
 }
 
+#[expect(deprecated, reason = "`FilteredResourcesBuilder` will be removed.")]
 impl<'w> FilteredResourcesBuilder<'w> {
     /// Creates a new builder with no access.
     pub fn new(world: &'w mut World) -> Self {
@@ -601,11 +618,13 @@ impl<'w> FilteredResourcesBuilder<'w> {
 /// Builder struct to define the access for a [`FilteredResourcesMut`].
 ///
 /// This is passed to a callback in [`FilteredResourcesMutParamBuilder`](crate::system::FilteredResourcesMutParamBuilder).
+#[deprecated(since = "0.20.0", note = "Use `QueryBuilder` instead.")]
 pub struct FilteredResourcesMutBuilder<'w> {
     world: &'w mut World,
     access: Access,
 }
 
+#[expect(deprecated, reason = "`FilteredResourcesMutBuilder` will be removed.")]
 impl<'w> FilteredResourcesMutBuilder<'w> {
     /// Creates a new builder with no access.
     pub fn new(world: &'w mut World) -> Self {

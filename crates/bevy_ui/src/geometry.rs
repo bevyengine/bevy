@@ -166,7 +166,12 @@ impl PartialEq for Val {
 
 impl Val {
     pub const DEFAULT: Self = Self::Auto;
+
+    /// Zero. In [`Val::Px`], but zero is the same in any unit.
     pub const ZERO: Self = Self::Px(0.0);
+
+    /// The largest finite [`Val::Px`] value.
+    pub const MAX: Self = Self::Px(f32::MAX);
 
     /// Returns the number this `Val` wraps, whatever its unit, or `None` for [`Val::Auto`].
     ///
@@ -1284,14 +1289,14 @@ pub struct CornerRadius {
 impl CornerRadius {
     /// A fully rounded corner with a circular radius of half the length of the node's shortest side.
     pub const MAX: Self = Self {
-        x: Val::Px(f32::MAX),
+        x: Val::MAX,
         y: Val::Auto,
     };
 
     /// An elliptical corner with a horizontal radius of half the node's width and a vertical radius of half its height.
     pub const MAX_ELLIPTICAL: Self = Self {
-        x: Val::Px(f32::MAX),
-        y: Val::Px(f32::MAX),
+        x: Val::MAX,
+        y: Val::MAX,
     };
 
     /// A square corner.
@@ -1335,6 +1340,46 @@ impl CornerRadius {
         Self {
             x: radius,
             y: Val::Auto,
+        }
+    }
+
+    /// Creates a corner radius with the same `radius` on both axes.
+    ///
+    /// Note that since each axis is resolved independently, the resolved radii may not be equal (see example below).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Vec2;
+    /// # use bevy_ui::{CornerRadius, Val};
+    /// # use bevy_text::{EmSize, RemSize};
+    /// let radius = Val::Px(30.0);
+    /// let size = Vec2::new(100.0, 50.0);
+    /// let viewport_size = Vec2::new(1920.0, 1080.0);
+    /// let em_size = EmSize(20.0);
+    /// let rem_size = RemSize(20.0);
+    ///
+    /// let c1 = CornerRadius::all(radius);
+    /// let c2 = CornerRadius {
+    ///     x: radius,
+    ///     y: radius,
+    /// };
+    ///
+    /// let r = c1.resolve(1.0, size, viewport_size, em_size, rem_size);
+    /// assert_eq!(
+    ///     r,
+    ///     c2.resolve(1.0, size, viewport_size, em_size, rem_size),
+    /// );
+    /// assert_eq!(
+    ///     r,
+    ///     Vec2::new(30., 25.)
+    /// );
+    /// ```
+    #[inline]
+    pub const fn all(radius: Val) -> Self {
+        Self {
+            x: radius,
+            y: radius,
         }
     }
 

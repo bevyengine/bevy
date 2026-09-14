@@ -96,6 +96,7 @@ pub struct ScheduleConfig<T: Schedulable> {
 }
 
 /// Single or nested configurations for [`Schedulable`]s.
+#[must_use]
 pub enum ScheduleConfigs<T: Schedulable> {
     /// Configuration for a single [`Schedulable`].
     ScheduleConfig(ScheduleConfig<T>),
