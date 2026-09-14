@@ -128,12 +128,10 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
     fn before_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::ScheduleConfig(config) => {
-                config.metadata.dependencies.push(Dependency::new(
-                    DependencyKind::Before,
-                    set,
-                    false,
-                    false,
-                ));
+                config
+                    .metadata
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::Before, set));
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -146,12 +144,10 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
     fn after_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::ScheduleConfig(config) => {
-                config.metadata.dependencies.push(Dependency::new(
-                    DependencyKind::After,
-                    set,
-                    false,
-                    false,
-                ));
+                config
+                    .metadata
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::After, set));
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -164,12 +160,10 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
     fn before_weak_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::ScheduleConfig(config) => {
-                config.metadata.dependencies.push(Dependency::new(
-                    DependencyKind::Before,
-                    set,
-                    true,
-                    false,
-                ));
+                config
+                    .metadata
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::Before, set).set_weak());
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -182,12 +176,10 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
     fn after_weak_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::ScheduleConfig(config) => {
-                config.metadata.dependencies.push(Dependency::new(
-                    DependencyKind::After,
-                    set,
-                    true,
-                    false,
-                ));
+                config
+                    .metadata
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::After, set).set_weak());
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -200,12 +192,10 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
     fn before_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::ScheduleConfig(config) => {
-                config.metadata.dependencies.push(Dependency::new(
-                    DependencyKind::Before,
-                    set,
-                    false,
-                    true,
-                ));
+                config
+                    .metadata
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::Before, set).ignore_deferred());
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -218,12 +208,10 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
     fn after_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::ScheduleConfig(config) => {
-                config.metadata.dependencies.push(Dependency::new(
-                    DependencyKind::After,
-                    set,
-                    false,
-                    true,
-                ));
+                config
+                    .metadata
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::After, set).ignore_deferred());
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
