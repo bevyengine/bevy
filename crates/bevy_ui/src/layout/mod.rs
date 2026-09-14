@@ -537,8 +537,8 @@ fn update_uinode_geometry_recursive(
                     );
                 }
                 child_stack.truncate(start);
-                return;
             }
+            return;
         }
 
         let use_rounding = maybe_layout_config
