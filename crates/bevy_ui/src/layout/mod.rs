@@ -3594,4 +3594,53 @@ mod tests {
             Vec2::splat(0.)
         );
     }
+
+    #[test]
+    fn root_ghostnode_transform_persists_after_updates() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+        let ghost_node = world
+            .spawn((GhostNode, UiTransform::from_translation(Val2::px(5, 10))))
+            .id();
+        let child_node = world.spawn((Node::default(), ChildOf(ghost_node))).id();
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .get::<UiGlobalTransform>(ghost_node)
+                .unwrap()
+                .translation,
+            Vec2::new(5., 10.)
+        );
+        assert_eq!(
+            world
+                .get::<UiGlobalTransform>(child_node)
+                .unwrap()
+                .translation,
+            Vec2::new(5., 10.)
+        );
+
+        world.spawn(Node::default());
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .get::<UiGlobalTransform>(ghost_node)
+                .unwrap()
+                .translation,
+            Vec2::new(5., 10.)
+        );
+        assert_eq!(
+            world
+                .get::<UiGlobalTransform>(child_node)
+                .unwrap()
+                .translation,
+            Vec2::new(5., 10.)
+        );
+    }
 }
