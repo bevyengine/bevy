@@ -1,5 +1,3 @@
-//! Upstream of awesome [crate](https://github.com/aevyrie/bevy_editor_cam) made by @aevyrie.
-//!
 //! A production-ready camera controller for 3D editors; intended for anyone who needs to rapidly
 //! and intuitively navigate virtual spaces.
 //!
@@ -167,6 +165,11 @@
 //!   [`bevy_picking::backend`] for more information.
 //! - Any number of pointing inputs, including touch.
 //! - Viewports and multi-pass rendering.
+//!
+//! ## Credits
+//!
+//! This camera controller is an upstreamed fork of the awesome [crate](https://github.com/aevyrie/bevy_editor_cam) made by @aevyrie.
+//! Thanks!
 
 #![warn(missing_docs)]
 
