@@ -13,9 +13,6 @@ fn scan_wesl_imports(
 
     fn leaves(content: &ImportContent, path: ModulePath, out: &mut Vec<ModulePath>) {
         match content {
-            // `import a::b::c` binds `c`, which may be an item in module `a::b` or the module
-            // `a::b::c` itself. Only the use site disambiguates, and `wesl` does that when it
-            // resolves, so record the parent and never guess at `a::b::c`.
             ImportContent::Item(_) => out.push(path),
             ImportContent::Collection(collection) => {
                 for import in collection {
@@ -313,10 +310,7 @@ impl AssetLoader for ShaderLoader {
             _ => panic!("unhandled extension: {ext}"),
         };
 
-        // `wesl` dependencies are deliberately not collected here. An import is ambiguous until
-        // it is used, so anything guessed from the import statement alone may not exist -- which
-        // on the web is a 404 the browser logs before we can see it (bevyengine/bevy#25363).
-        // They are discovered during compilation and loaded then.
+        // wesl dependencies are deliberately not collected here, because they are discovered during compilation.
         if ext != "wesl" {
             for import in &shader.imports {
                 if let ShaderImport::AssetPath(asset_path) = import {
@@ -375,11 +369,7 @@ impl From<&'static str> for ShaderRef {
 mod tests {
     use super::*;
 
-    /// Regression test for bevyengine/bevy#25363, whose symptom was
-    /// `GET /assets/shaders/custom_material_import/COLOR_MULTIPLIER.wesl 404`.
-    ///
-    /// `COLOR_MULTIPLIER` is a `const` inside `custom_material_import`, not a module beneath it,
-    /// so it must never appear as a path.
+    /// Regression test for bevyengine/bevy#25363
     #[test]
     fn item_import_names_only_its_parent_module() {
         let source = include_str!("../../../assets/shaders/custom_material.wesl");
@@ -399,7 +389,7 @@ mod tests {
         assert!(
             !requested
                 .contains(&"shaders/custom_material_import/COLOR_MULTIPLIER.wesl".to_string()),
-            "the #25363 404 is back: {requested:?}"
+            "invalid import was requested: {requested:?}"
         );
         assert_eq!(
             requested,

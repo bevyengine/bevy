@@ -547,8 +547,7 @@ pub enum ShaderCacheError {
     ProcessShaderError(String),
     #[error("Shader import not yet available.")]
     ShaderImportNotYetAvailable {
-        /// The module `wesl` asked for and could not find. Always one the compiler actually
-        /// reached, never a guess.
+        /// The module `wesl` asked for and could not find.
         missing_module: Option<ShaderImport>,
     },
     #[error("Could not create shader module: {0}")]
@@ -566,10 +565,6 @@ mod tests {
         })
     }
 
-    /// The unresolved module is named to the caller, so it can be loaded.
-    ///
-    /// Note which one: `bevy_render::maths` is written inline in the body, with no import
-    /// statement naming it, so a scan of import statements could not find it.
     #[test]
     fn missing_import_names_the_module_to_load() {
         let mut cache = test_cache();
@@ -591,8 +586,6 @@ mod tests {
         );
     }
 
-    /// The origin of a module path decides whether it can be fetched at all. Getting this wrong
-    /// would reintroduce the failing request #25363 is about, just for a different path.
     #[test]
     fn module_path_origin_decides_whether_it_is_fetchable() {
         use wesl::syntax::{ModulePath, PathOrigin};

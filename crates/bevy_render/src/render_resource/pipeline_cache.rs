@@ -241,11 +241,6 @@ pub struct PipelineCache {
     /// Modules `wesl` reported as unresolved while compiling, drained each frame and loaded.
     missing_wesl_modules: HashSet<ShaderImport>,
     /// Modules already requested from the asset server, keyed so each is requested once.
-    ///
-    /// Discovery reports the same module on every retry until the asset actually arrives, so
-    /// without this the same file is requested repeatedly -- once per frame under latency, which
-    /// is exactly the situation on the web. The handle also keeps the module alive: the asset
-    /// loader no longer populates `Shader::file_dependencies` for `wesl`.
     wesl_module_requests: HashMap<ShaderImport, WeslModuleRequest>,
 }
 
@@ -969,11 +964,7 @@ impl PipelineCache {
         cache.process_queue();
     }
 
-    /// Loads the `wesl` modules compilation asked for and could not find.
-    ///
-    /// Only [`ShaderImport::AssetPath`] is requested. A [`ShaderImport::Custom`] module is an
-    /// engine shader embedded in the binary, so asking the asset server for it would produce
-    /// exactly the kind of failing request this avoids.
+    /// Loads the `wesl` modules that could not be found during compilation.
     pub(crate) fn load_missing_wesl_modules_system(
         mut cache: ResMut<Self>,
         asset_server: Res<AssetServer>,
@@ -988,9 +979,7 @@ impl PipelineCache {
             let path = format!("{}.wesl", asset_path.trim_start_matches('/'));
 
             let Some(request) = cache.wesl_module_requests.get_mut(&import) else {
-                // First time this module has been asked for. Requests are keyed so that the
-                // retries leading up to the asset arriving do not each issue a load.
-                bevy_log::debug!("loading wesl module requested by the compiler: {path}");
+                // First time this module has been queried. Cache it to prevent duplicate queries.
                 let handle = asset_server.load(AssetPath::from(path));
                 cache.wesl_module_requests.insert(
                     import,
@@ -1002,9 +991,7 @@ impl PipelineCache {
                 continue;
             };
 
-            // An unresolved module is the normal discovery signal, so it is logged at debug.
-            // A load that has actually failed is not, and would otherwise leave the shader
-            // silently absent, so report it once.
+            // Report an unresolved module once.
             if !request.failure_logged
                 && let LoadState::Failed(error) = asset_server.load_state(&request.handle)
             {
