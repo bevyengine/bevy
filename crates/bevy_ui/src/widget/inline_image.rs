@@ -84,10 +84,14 @@ pub fn update_inline_image_boxes(
     >,
 ) {
     for (inline_image, mut inline_box) in &mut query {
-        if let Some(image_asset) = image_assets.get(&inline_image.image) {
+        if let Some(size) = image_assets
+            .get(&inline_image.image)
+            .map(|image_asset| inline_image.resolve_inline_box_size(image_asset.size().as_vec2()))
+            .filter(|size| size.is_finite() && size.cmpgt(Vec2::ZERO).all())
+        {
             inline_box.set_if_neq(InlineBox {
                 kind: bevy_text::InlineBoxKind::InFlow,
-                size: inline_image.resolve_inline_box_size(image_asset.size().as_vec2()),
+                size,
             });
         } else {
             inline_box.set_if_neq(InlineBox {
