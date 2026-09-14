@@ -40,9 +40,9 @@ pub use window::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorLeft, CursorMoved, DisplayGamut, DisplayTarget, DisplayTransfer,
-        FileDragAndDrop, Ime, MonitorSelection, VideoModeSelection, Window, WindowMoved,
-        WindowPlugin, WindowPosition, WindowResizeConstraints,
+        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
+        VideoModeSelection, Window, WindowMoved, WindowPlugin, WindowPosition,
+        WindowResizeConstraints,
     };
 }
 
@@ -56,6 +56,7 @@ impl Default for WindowPlugin {
         WindowPlugin {
             primary_window: Some(Window::default()),
             primary_cursor_options: Some(CursorOptions::default()),
+            primary_display_target: Some(DisplayTarget::default()),
             exit_condition: ExitCondition::OnAllClosed,
             close_when_requested: true,
         }
@@ -81,6 +82,13 @@ pub struct WindowPlugin {
     ///
     /// Has no effect if [`WindowPlugin::primary_window`] is `None`.
     pub primary_cursor_options: Option<CursorOptions>,
+
+    /// Settings for the display output of the primary window.
+    ///
+    /// Defaults to `Some(DisplayTarget::default())`.
+    ///
+    /// Has no effect if [`WindowPlugin::primary_window`] is `None`.
+    pub primary_display_target: Option<DisplayTarget>,
 
     /// Whether to exit the app when there are no open windows.
     ///
@@ -135,6 +143,9 @@ impl Plugin for WindowPlugin {
             ));
             if let Some(primary_cursor_options) = &self.primary_cursor_options {
                 entity_commands.insert(primary_cursor_options.clone());
+            }
+            if let Some(primary_display_target) = &self.primary_display_target {
+                entity_commands.insert(*primary_display_target);
             }
         }
 
