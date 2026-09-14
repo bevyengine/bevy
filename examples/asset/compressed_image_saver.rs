@@ -62,41 +62,36 @@ fn spawn_scene(
             .unwrap(),
     );
 
-    commands.spawn_scene_list(bsn_list! [
-        (
-            Mesh3d(floor_mesh)
-            MeshMaterial3d::<StandardMaterial>(asset_value(Color::WHITE))
-            Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
-        ),
-        (
-            Mesh3d(sphere_mesh)
-            MeshMaterial3d::<StandardMaterial>(asset_value(sphere_material))
-            Transform::from_xyz(0.0, 1.0, 0.0)
-            Rotating
-        ),
-        (
-            DirectionalLight {
-                illuminance: 7300.0,
-                shadow_maps_enabled: true,
-            }
-            Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y)
-            CascadeShadowConfigBuilder {
-                num_cascades: 1,
-                maximum_distance: 20.0,
-                ..default()
-            }.build()
-        ),
-        (
-            Camera3d
-            Hdr
-            Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y)
-            EnvironmentMapLight {
-                diffuse_map: diffuse_env_map,
-                specular_map: specular_env_map,
-                intensity: 1200.0,
-            }
-        )
-    ]);
+    commands.spawn_scene_list(bsn! {
+        Mesh3d(floor_mesh)
+        MeshMaterial3d::<StandardMaterial>(asset_value(Color::WHITE))
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
+        --
+        Mesh3d(sphere_mesh)
+        MeshMaterial3d::<StandardMaterial>(asset_value(sphere_material))
+        Transform::from_xyz(0.0, 1.0, 0.0)
+        Rotating
+        --
+        DirectionalLight {
+            illuminance: 7300.0,
+            shadow_maps_enabled: true,
+        }
+        Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y)
+        CascadeShadowConfigBuilder {
+            num_cascades: 1,
+            maximum_distance: 20.0,
+            ..default()
+        }.build()
+        --
+        Camera3d
+        Hdr
+        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y)
+        EnvironmentMapLight {
+            diffuse_map: diffuse_env_map,
+            specular_map: specular_env_map,
+            intensity: 1200.0,
+        }
+    });
 }
 
 #[derive(Component, Default, Clone)]

@@ -485,8 +485,8 @@ impl ExtractedView {
 /// Color grading is applied just before tonemapping for a given [`Camera`]
 /// entity, with the sole exception of the `post_saturation` value in
 /// [`ColorGradingGlobal`], which is applied after tonemapping.
-#[derive(Component, Reflect, Debug, Default, Clone)]
-#[reflect(Component, Default, Debug, Clone)]
+#[derive(Component, Reflect, Debug, Default, Clone, PartialEq)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct ColorGrading {
     /// Filmic color grading values applied to the image as a whole (as opposed
     /// to individual sections, like shadows and highlights).
@@ -514,8 +514,8 @@ pub struct ColorGrading {
 
 /// Filmic color grading values applied to the image as a whole (as opposed to
 /// individual sections, like shadows and highlights).
-#[derive(Clone, Debug, Reflect)]
-#[reflect(Default, Clone)]
+#[derive(Clone, Debug, Reflect, PartialEq)]
+#[reflect(Default, Clone, PartialEq)]
 pub struct ColorGradingGlobal {
     /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,

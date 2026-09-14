@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_camera::visibility::Visibility;
-use bevy_color::{Color, Hsla, Srgba};
+use bevy_color::{Alpha, Color, Hsla, Srgba};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
@@ -28,7 +28,7 @@ use bevy_log::warn;
 use bevy_math::{UVec2, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, Ready};
-use bevy_text::{EditableText, Justify, LineHeight, TextEdit, TextLayout};
+use bevy_text::{EditableText, FontSize, Justify, LineHeight, TextEdit, TextLayout};
 use bevy_ui::{
     prelude::AccessibleLabel, px, AlignItems, AlignSelf, Display, FlexDirection, GridPlacement,
     GridTrack, JustifySelf, Node, RepeatedGridTrack,
@@ -42,11 +42,11 @@ use crate::{
     constants::fonts,
     controls::{
         ButtonVariant, ColorChannel, ColorPlaneValue, ColorSlider, ColorSwatchGridUpdate,
-        ColorSwatchValue, FeathersButton, FeathersColorPlane, FeathersColorSlider,
-        FeathersColorSwatch, FeathersColorSwatchGrid, FeathersLazyMenu, FeathersMenuPopup,
-        FeathersMenuToolButton, FeathersNumberInput, FeathersTextInput, FeathersTextInputContainer,
-        HardLimit, NumberInputPrecision, NumberInputRange, NumberInputStep, NumberInputValue,
-        SliderBaseColor,
+        ColorSwatchValue, ColorWheelValue, FeathersButton, FeathersColorPlane, FeathersColorSlider,
+        FeathersColorSwatch, FeathersColorSwatchGrid, FeathersColorWheel, FeathersLazyMenu,
+        FeathersMenuPopup, FeathersMenuToolButton, FeathersNumberInput, FeathersTextInput,
+        FeathersTextInputContainer, HardLimit, NumberInputPrecision, NumberInputRange,
+        NumberInputStep, NumberInputValue, SliderBaseColor,
     },
     display::{caption, label},
     font_styles::InheritableFont,
@@ -66,8 +66,10 @@ pub struct ColorInputValue(pub Color);
 /// Supported color editing modes
 #[derive(Default, Clone, Copy, Reflect, PartialEq)]
 pub enum ColorInputMode {
-    /// Red/green/blue mode with R/G plane
+    /// Hue/saturation/lightness mode with color wheel
     #[default]
+    Wheel,
+    /// Red/green/blue mode with R/G plane
     RGPlane,
     /// Hue/saturation/lightness mode with H/S plane
     HSPlane,
@@ -139,8 +141,10 @@ struct ButtonEntityRefs(Entity);
 /// to trawl the hierarchy looking for them.
 #[derive(Component, Clone, Debug, FromTemplate)]
 struct PopupEntityRefs {
+    mode_wheel: Entity,
     mode_rgb: Entity,
     mode_hsl: Entity,
+    wheel: Entity,
     rg_plane: Entity,
     hs_plane: Entity,
 
@@ -312,25 +316,23 @@ impl FeathersColorInput {
             ButtonEntityRefs(#swatch)
             ColorInputState
             Children [
-                (
-                    @FeathersMenuToolButton {
-                        @caption: bsn! {
-                            #swatch
-                            @FeathersColorSwatch {
-                                @opaque_color_percentage: {props.opaque_color_percentage},
-                                @corners: RoundedCorners::None,
-                            }
-                            Node {
-                                width: px(18),
-                                min_width: px(18),
-                                height: px(18),
-                                flex_grow: 0.0,
-                                align_self: AlignSelf::Center,
-                                justify_self: JustifySelf::Start,
-                            }
-                         }
-                    }
-                )
+                @FeathersMenuToolButton {
+                    @caption: bsn! {
+                        #swatch
+                        @FeathersColorSwatch {
+                            @opaque_color_percentage: {props.opaque_color_percentage},
+                            @corners: RoundedCorners::None,
+                        }
+                        Node {
+                            width: px(18),
+                            min_width: px(18),
+                            height: px(18),
+                            flex_grow: 0.0,
+                            align_self: AlignSelf::Center,
+                            justify_self: JustifySelf::Start,
+                        }
+                        }
+                }
             ]
         }
     }
@@ -341,9 +343,11 @@ fn color_input_popup() -> Box<dyn Scene> {
     Box::new(bsn!(
         @FeathersMenuPopup
         PopupEntityRefs {
+            mode_wheel: #mode_wheel,
             mode_rgb: #mode_rgb,
             mode_hsl: #mode_hsl,
 
+            wheel: #wheel,
             rg_plane: #rg_plane,
             hs_plane: #hs_plane,
 
@@ -416,67 +420,89 @@ fn color_input_popup() -> Box<dyn Scene> {
             window_margin: 10.0,
         }
         Children [
-            (
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    column_gap: px(1),
-                }
-                Children [
-                    (
-                        #mode_rgb
-                        @FeathersButton {
-                            @caption: bsn! { @caption("RGB") },
-                            @corners: RoundedCorners::Left,
-                        }
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                column_gap: px(1),
+            }
+            Children [
+                #mode_wheel
+                @FeathersButton {
+                    @caption: bsn! {
+                        @caption("\u{1F7D5}")
                         Node {
-                            flex_grow: 1.0,
+                            top: px(3), // adjust to be visually centered vertically
                         }
-                        ActivateOnPress
-                        AccessibleLabel("RGB")
-                        on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
-                            settings.mode = ColorInputMode::RGPlane;
-                        })
-                        AutoFocus
-                    ),
-                    (
-                        #mode_hsl
-                        @FeathersButton {
-                            @caption: bsn! { @caption("HSL") },
-                            @corners: RoundedCorners::Right,
-                        }
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        ActivateOnPress
-                        AccessibleLabel("HSL")
-                        on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
-                            settings.mode = ColorInputMode::HSPlane;
-                        })
-                    ),
-                ]
-            ),
-
-            (
-                #rg_plane
-                @FeathersColorPlane::RedGreen
-                Node {
-                    width: px(256 + 8),
-                    height: px(256 + 8),
+                    },
+                    @corners: RoundedCorners::Left,
                 }
-                on(rg_color_plane_value_change)
-            ),
-
-            (
-                #hs_plane
-                @FeathersColorPlane::HueSaturation
-                Node {
-                    width: px(256 + 8),
-                    height: px(256 + 8),
+                InheritableFont {
+                    font: "embedded://bevy_feathers/assets/fonts/NotoSansSymbols2-U+1F7D5.ttf",
+                    font_size: FontSize::Px(17.0),
                 }
-                on(hs_color_plane_value_change)
-            ),
-
+                Node {
+                    flex_grow: 1.0,
+                }
+                ActivateOnPress
+                AccessibleLabel("Wheel")
+                on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
+                    settings.mode = ColorInputMode::Wheel;
+                })
+                --
+                #mode_rgb
+                @FeathersButton {
+                    @caption: bsn! { @caption("RGB") },
+                    @corners: RoundedCorners::None,
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                ActivateOnPress
+                AccessibleLabel("RGB")
+                on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
+                    settings.mode = ColorInputMode::RGPlane;
+                })
+                AutoFocus
+                --
+                #mode_hsl
+                @FeathersButton {
+                    @caption: bsn! { @caption("HSL") },
+                    @corners: RoundedCorners::Right,
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                ActivateOnPress
+                AccessibleLabel("HSL")
+                on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
+                    settings.mode = ColorInputMode::HSPlane;
+                })
+            ]
+            --
+            #wheel
+            @FeathersColorWheel
+            Node {
+                width: px(256 + 8),
+                height: px(256 + 8),
+            }
+            on(color_wheel_value_change)
+            --
+            #rg_plane
+            @FeathersColorPlane::RedGreen
+            Node {
+                width: px(256 + 8),
+                height: px(256 + 8),
+            }
+            on(rg_color_plane_value_change)
+            --
+            #hs_plane
+            @FeathersColorPlane::HueSaturation
+            Node {
+                width: px(256 + 8),
+                height: px(256 + 8),
+            }
+            on(hs_color_plane_value_change)
+            --
             #rgb_group
             Node {
                 display: Display::Grid,
@@ -491,68 +517,64 @@ fn color_input_popup() -> Box<dyn Scene> {
                 align_items: AlignItems::Center,
             }
             Children [
-                @label("R"),
-                (
-                    #r_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::Red
-                    }
-                    AccessibleLabel("Red Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #r_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=255.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(20.0)
-                    NumberInputChannel(ColorChannel::Red)
-                    on(number_input_value_change)
-                ),
-                @label("G"),
-                (
-                    #g_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::Green
-                    }
-                    AccessibleLabel("Green Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #g_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=255.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(20.0)
-                    NumberInputChannel(ColorChannel::Green)
-                    on(number_input_value_change)
-                ),
-                @label("B"),
-                (
-                    #b_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::Blue
-                    }
-                    AccessibleLabel("Blue Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #b_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=255.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(20.0)
-                    NumberInputChannel(ColorChannel::Blue)
-                    on(number_input_value_change)
-                ),
-            ],
-
+                @label("R")
+                --
+                #r_slider
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::Red
+                }
+                AccessibleLabel("Red Channel")
+                on(color_slider_value_change)
+                --
+                #r_input
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumberInputPrecision(1)
+                NumberInputStep(20.0)
+                NumberInputChannel(ColorChannel::Red)
+                on(number_input_value_change)
+                --
+                @label("G")
+                --
+                #g_slider
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::Green
+                }
+                AccessibleLabel("Green Channel")
+                on(color_slider_value_change)
+                --
+                #g_input
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumberInputPrecision(1)
+                NumberInputStep(20.0)
+                NumberInputChannel(ColorChannel::Green)
+                on(number_input_value_change)
+                --
+                @label("B")
+                --
+                #b_slider
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::Blue
+                }
+                AccessibleLabel("Blue Channel")
+                on(color_slider_value_change)
+                --
+                #b_input
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumberInputPrecision(1)
+                NumberInputStep(20.0)
+                NumberInputChannel(ColorChannel::Blue)
+                on(number_input_value_change)
+            ]
+            --
             #hsl_group
             Node {
                 display: Display::Grid,
@@ -567,77 +589,73 @@ fn color_input_popup() -> Box<dyn Scene> {
                 align_items: AlignItems::Center,
             }
             Children [
-                @label("H"),
-                (
-                    #h_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::HslHue
-                    }
-                    AccessibleLabel("Hue Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #h_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=360.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(30.0)
-                    NumberInputChannel(ColorChannel::HslHue)
-                    Node {
-                        flex_grow: 1.0,
-                    }
-                    on(number_input_value_change)
-                ),
-                @label("S"),
-                (
-                    #s_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::HslSaturation
-                    }
-                    AccessibleLabel("Saturation Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #s_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=100.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(10.0)
-                    NumberInputChannel(ColorChannel::HslSaturation)
-                    Node {
-                        flex_grow: 1.0,
-                    }
-                    on(number_input_value_change)
-                ),
-                @label("L"),
-                (
-                    #l_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::HslLightness
-                    }
-                    AccessibleLabel("Lightness Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #l_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=100.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(10.0)
-                    NumberInputChannel(ColorChannel::HslLightness)
-                    Node {
-                        flex_grow: 1.0,
-                    }
-                    on(number_input_value_change)
-                ),
-            ],
-
+                @label("H")
+                --
+                #h_slider
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::HslHue
+                }
+                AccessibleLabel("Hue Channel")
+                on(color_slider_value_change)
+                --
+                #h_input
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=360.0))
+                NumberInputPrecision(1)
+                NumberInputStep(30.0)
+                NumberInputChannel(ColorChannel::HslHue)
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(number_input_value_change)
+                --
+                @label("S")
+                --
+                #s_slider
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::HslSaturation
+                }
+                AccessibleLabel("Saturation Channel")
+                on(color_slider_value_change)
+                --
+                #s_input
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=100.0))
+                NumberInputPrecision(1)
+                NumberInputStep(10.0)
+                NumberInputChannel(ColorChannel::HslSaturation)
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(number_input_value_change)
+                --
+                @label("L")
+                --
+                #l_slider
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::HslLightness
+                }
+                AccessibleLabel("Lightness Channel")
+                on(color_slider_value_change)
+                --
+                #l_input
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=100.0))
+                NumberInputPrecision(1)
+                NumberInputStep(10.0)
+                NumberInputChannel(ColorChannel::HslLightness)
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(number_input_value_change)
+            ]
+            --
             Node {
                 display: Display::Grid,
                 column_gap: px(4),
@@ -651,64 +669,58 @@ fn color_input_popup() -> Box<dyn Scene> {
                 align_items: AlignItems::Center,
             }
             Children [
-                @label("A"),
-                (
-                    #a_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::Alpha
+                @label("A")
+                --
+                #a_slider
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::Alpha
+                }
+                AccessibleLabel("Alpha Channel")
+                on(color_slider_value_change)
+                --
+                #a_input
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumberInputPrecision(1)
+                NumberInputStep(10.0)
+                NumberInputChannel(ColorChannel::Alpha)
+                on(number_input_value_change)
+                --
+                #hex_input_container
+                @FeathersTextInputContainer
+                Node {
+                    flex_grow: 0.
+                    padding: { px(4).left() },
+                    grid_column: GridPlacement::span(2),
+                }
+                Children [
+                    #hex_input
+                    @FeathersTextInput {
+                        @max_characters: 9usize,
                     }
-                    AccessibleLabel("Alpha Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #a_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=255.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(10.0)
-                    NumberInputChannel(ColorChannel::Alpha)
-                    on(number_input_value_change)
-                ),
-                (
-                    #hex_input_container
-                    @FeathersTextInputContainer
-                    Node {
-                        flex_grow: 0.
-                        padding: { px(4).left() },
-                        grid_column: GridPlacement::span(2),
+                    TextLayout {
+                        justify: Justify::Center,
                     }
-                    Children [
-                        (
-                            #hex_input
-                            @FeathersTextInput {
-                                @max_characters: 9usize,
-                            }
-                            TextLayout {
-                                justify: Justify::Center,
-                            }
-                            InheritableFont {
-                                font: fonts::MONO
-                            }
-                            LineHeight::Px(24.0) // TODO: Make const for this
-                            on(hex_input_on_enter_key)
-                            on(hex_input_on_focus_loss)
-                        )
-                    ]
-                ),
-                (
-                    #swatch
-                    @FeathersColorSwatch {
-                        @opaque_color_percentage: 50.0,
+                    InheritableFont {
+                        font: fonts::MONO
                     }
-                    Node {
-                        flex_grow: 0.0,
-                        align_self: AlignSelf::Stretch,
-                    }
-                )
-            ],
-
+                    LineHeight::Px(24.0) // TODO: Make const for this
+                    on(hex_input_on_enter_key)
+                    on(hex_input_on_focus_loss)
+                ]
+                --
+                #swatch
+                @FeathersColorSwatch {
+                    @opaque_color_percentage: 50.0,
+                }
+                Node {
+                    flex_grow: 0.0,
+                    align_self: AlignSelf::Stretch,
+                }
+            ]
+            --
             // Recent colors
             #recent
             @FeathersColorSwatchGrid {
@@ -718,6 +730,24 @@ fn color_input_popup() -> Box<dyn Scene> {
             on(recent_color_selected)
         ]
     ))
+}
+
+fn color_wheel_value_change(
+    change: On<ValueChange<ColorWheelValue>>,
+    q_parent: Query<&ChildOf>,
+    mut q_state: Query<&mut ColorInputState>,
+    mut commands: Commands,
+) {
+    if let Some((root_id, mut state)) = color_input_state(&q_parent, &mut q_state, change.source) {
+        let alpha = state.hsl.alpha;
+        state.hsl = change.value.to_hsla().with_alpha(alpha);
+        let value: Color = state.hsl.into();
+        commands.trigger(ValueChange {
+            source: root_id,
+            value,
+            is_final: change.is_final,
+        });
+    }
 }
 
 fn rg_color_plane_value_change(
@@ -869,6 +899,7 @@ fn color_input_value_change(
         Changed<ColorInputValue>,
     >,
     q_popup: Query<&PopupEntityRefs, With<FeathersMenuPopup>>,
+    mut q_color_wheel: Query<&mut ColorWheelValue>,
     mut q_color_plane: Query<&mut ColorPlaneValue>,
     mut q_editable_text: Query<&mut EditableText>,
     mut grid_update: ColorSwatchGridUpdate,
@@ -889,6 +920,7 @@ fn color_input_value_change(
             .find_map(|child_id| q_popup.get(*child_id).ok())
         {
             update_controls(
+                &mut q_color_wheel,
                 &mut q_color_plane,
                 &mut q_editable_text,
                 &mut commands,
@@ -927,6 +959,7 @@ fn update_mode_selector(
     mut q_state: Query<&mut ColorInputState>,
     mut q_button: Query<&mut ButtonVariant>,
     mut q_node: Query<&mut Node>,
+    mut q_color_wheel: Query<&mut ColorWheelValue>,
     mut q_color_plane: Query<&mut ColorPlaneValue>,
     mut q_editable_text: Query<&mut EditableText>,
     settings: Res<ColorInputSettings>,
@@ -944,6 +977,10 @@ fn update_mode_selector(
             // Also, ensure that focus moves to a widget that is not about to be hidden,
             // as this will auto-close the popup.
             match settings.mode {
+                ColorInputMode::Wheel => {
+                    state.change_source(SourceColorSpace::Hsl);
+                    focus.set(refs.mode_wheel, FocusCause::Auto);
+                }
                 ColorInputMode::RGPlane => {
                     state.change_source(SourceColorSpace::Rgb);
                     focus.set(refs.mode_rgb, FocusCause::Auto);
@@ -955,6 +992,7 @@ fn update_mode_selector(
             }
 
             update_controls(
+                &mut q_color_wheel,
                 &mut q_color_plane,
                 &mut q_editable_text,
                 &mut commands,
@@ -970,6 +1008,10 @@ fn set_mode_selector(
     q_button: &mut Query<&mut ButtonVariant>,
     mode: ColorInputMode,
 ) {
+    if let Ok(mut wheel_variant) = q_button.get_mut(refs.mode_wheel) {
+        wheel_variant.set_if_neq(ButtonVariant::selected(mode == ColorInputMode::Wheel));
+    }
+
     if let Ok(mut rgb_variant) = q_button.get_mut(refs.mode_rgb) {
         rgb_variant.set_if_neq(ButtonVariant::selected(mode == ColorInputMode::RGPlane));
     }
@@ -985,6 +1027,16 @@ fn set_pane_visible(
     mode: ColorInputMode,
     commands: &mut Commands,
 ) {
+    set_node_visible(
+        q_node,
+        refs.wheel,
+        if mode == ColorInputMode::Wheel {
+            Display::Flex
+        } else {
+            Display::None
+        },
+        commands,
+    );
     set_node_visible(
         q_node,
         refs.rg_plane,
@@ -1036,10 +1088,11 @@ fn set_pane_visible(
         },
         commands,
     );
+    // HSL sliders are shared by the H/S plane and the wheel.
     set_node_visible(
         q_node,
         refs.hsl_group,
-        if mode == ColorInputMode::HSPlane {
+        if mode == ColorInputMode::Wheel || mode == ColorInputMode::HSPlane {
             Display::Grid
         } else {
             Display::None
@@ -1097,6 +1150,7 @@ fn popup_ready(
     mut q_color_input: Query<(&ColorInputValue, &mut ColorInputState)>,
     mut q_editable_text: Query<&mut EditableText>,
     mut q_color_plane: Query<&mut ColorPlaneValue>,
+    mut q_color_wheel: Query<&mut ColorWheelValue>,
     mut grid_update: ColorSwatchGridUpdate,
     settings: Res<ColorInputSettings>,
     mut commands: Commands,
@@ -1111,17 +1165,18 @@ fn popup_ready(
     };
 
     match settings.mode {
+        ColorInputMode::Wheel | ColorInputMode::HSPlane => {
+            state.source = SourceColorSpace::Hsl;
+            state.hsl = (*value).into();
+        }
         ColorInputMode::RGPlane => {
             state.source = SourceColorSpace::Rgb;
             state.rgb = (*value).into();
         }
-        ColorInputMode::HSPlane => {
-            state.source = SourceColorSpace::Hsl;
-            state.hsl = (*value).into();
-        }
     }
 
     update_controls(
+        &mut q_color_wheel,
         &mut q_color_plane,
         &mut q_editable_text,
         &mut commands,
@@ -1133,6 +1188,7 @@ fn popup_ready(
 }
 
 fn update_controls(
+    q_color_wheel: &mut Query<'_, '_, &mut ColorWheelValue>,
     q_color_plane: &mut Query<'_, '_, &mut ColorPlaneValue>,
     q_editable_text: &mut Query<'_, '_, &mut EditableText>,
     commands: &mut Commands<'_, '_>,
@@ -1140,6 +1196,10 @@ fn update_controls(
     state: &ColorInputState,
 ) {
     let color = state.to_color();
+
+    if let Ok(mut color_wheel_value) = q_color_wheel.get_mut(refs.wheel) {
+        color_wheel_value.set_if_neq(ColorWheelValue::from_hsla(state.hsl));
+    }
 
     if let Ok(mut color_plane_value) = q_color_plane.get_mut(refs.rg_plane) {
         color_plane_value.set_if_neq(ColorPlaneValue(Vec3::new(

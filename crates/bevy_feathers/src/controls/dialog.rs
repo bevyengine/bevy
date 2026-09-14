@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::Commands,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList};
+use bevy_scene::{bsn, on, Scene, SceneComponent, SceneList};
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, vh, vw, widget::Text, AlignItems, BorderRadius, BoxShadow, Display, FixedNode,
@@ -38,7 +38,7 @@ pub struct FeathersDialogProps {
 impl Default for FeathersDialogProps {
     fn default() -> Self {
         Self {
-            contents: Box::new(bsn_list!()),
+            contents: Box::new(bsn! {}),
             width: Val::Auto,
         }
     }
@@ -117,7 +117,7 @@ impl Default for FeathersFloatingDialogProps {
     fn default() -> Self {
         Self {
             title: String::new(),
-            contents: Box::new(bsn_list!()),
+            contents: Box::new(bsn! {}),
             width: Val::Auto,
             left: px(120),
             top: px(120),
@@ -163,34 +163,32 @@ impl FeathersFloatingDialog {
             })
             Children [
                 // Title bar; dragging it moves the window.
-                (
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::SpaceBetween,
-                        padding: UiRect::all(px(6.0)),
-                    }
-                    DialogDragHandle
-                    InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
-                    ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
-                    Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
-                    InheritableFont {
-                        font: fonts::REGULAR,
-                        font_size: size::HEADER_FONT,
-                        weight: FontWeight::BOLD,
-                    }
-                    Children [
-                        (Text({props.title}) ThemedText),
-                        @FeathersDialogClose
-                    ]
-                ),
-                (
-                    @FeathersDialogBody
-                    Children [
-                        {props.contents}
-                    ]
-                )
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                    padding: UiRect::all(px(6.0)),
+                }
+                DialogDragHandle
+                InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
+                ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
+                Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
+                InheritableFont {
+                    font: fonts::REGULAR,
+                    font_size: size::HEADER_FONT,
+                    weight: FontWeight::BOLD,
+                }
+                Children [
+                    Text({props.title}) ThemedText
+                    --
+                    @FeathersDialogClose
+                ]
+                --
+                @FeathersDialogBody
+                Children [
+                    {props.contents}
+                ]
             ]
         }
     }

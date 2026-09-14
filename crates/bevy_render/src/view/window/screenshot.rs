@@ -18,6 +18,7 @@ use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle, RenderAssetUsages};
 use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget, RenderTarget};
+use bevy_color::{ColorToPacked, LinearRgba, Srgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap, message::message_update_system, prelude::*, system::SystemState,
@@ -134,16 +135,70 @@ struct RenderScreenshotsPrepared(EntityHashMap<ScreenshotPreparedState>);
 struct RenderScreenshotsSender(Sender<(Entity, Image)>);
 
 /// Saves the captured screenshot to disk at the provided path.
+///
+/// A screenshot of an 8-bit render target saves to any format `image`
+/// supports. A screenshot of an `Rgba16Float` or `Rgba32Float` render target,
+/// for example an `Hdr` camera rendering to an `Image`, holds values outside
+/// `0..=1`. Those are kept in `.exr` and `.hdr`. Any other format clips to
+/// `0..=1` and converts to 8-bit sRGB, with a warning. `.exr` needs the `exr`
+/// cargo feature.
 pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>) {
     let path = path.as_ref().to_owned();
     move |screenshot_captured| {
+        use image::{DynamicImage, ImageFormat};
+
         let img = screenshot_captured.image.clone();
         match img.try_into_dynamic() {
-            Ok(dyn_img) => match image::ImageFormat::from_path(&path) {
+            Ok(dyn_img) => match ImageFormat::from_path(&path) {
                 Ok(format) => {
-                    // discard the alpha channel which stores brightness values when HDR is enabled to make sure
-                    // the screenshot looks right
-                    let img = dyn_img.to_rgb8();
+                    let is_float = matches!(
+                        dyn_img,
+                        DynamicImage::ImageRgb32F(_) | DynamicImage::ImageRgba32F(_)
+                    );
+                    let img = if is_float {
+                        match format {
+                            ImageFormat::OpenExr => dyn_img,
+                            ImageFormat::Hdr => {
+                                let mut rgb = dyn_img.into_rgb32f();
+                                // `image`'s Radiance encoder stores one shared exponent byte per
+                                // pixel, computed as `floor(log2(max)) + 1` in `i32` and stored as
+                                // `(exp + 128) as u8`, with no range checks. An infinite channel
+                                // overflows the `i32` add, and a channel at or above 2^127 or below
+                                // 2^-128 wraps the exponent byte. Clamp to `0.0..=2^126`, and
+                                // replace NaN and values below `f32::MIN_POSITIVE` with zero, so
+                                // the encoder accepts every value.
+                                let max = bevy_math::ops::exp2(126.0);
+                                for value in rgb.iter_mut() {
+                                    *value = value.clamp(0.0, max);
+                                    if !value.is_normal() {
+                                        *value = 0.0;
+                                    }
+                                }
+                                DynamicImage::ImageRgb32F(rgb)
+                            }
+                            _ => {
+                                warn!(
+                                    "Saving a floating point screenshot as 8-bit RGB. \
+                                    Values above 1.0 are clipped. \
+                                    Save to an .exr or .hdr path to keep them."
+                                );
+                                let rgb = dyn_img.into_rgb32f();
+                                let encoded =
+                                    image::RgbImage::from_fn(rgb.width(), rgb.height(), |x, y| {
+                                        let [r, g, b] = rgb.get_pixel(x, y).0;
+                                        image::Rgb(
+                                            Srgba::from(LinearRgba::rgb(r, g, b))
+                                                .to_u8_array_no_alpha(),
+                                        )
+                                    });
+                                DynamicImage::ImageRgb8(encoded)
+                            }
+                        }
+                    } else {
+                        // discard the alpha channel which stores brightness values when HDR is enabled to make sure
+                        // the screenshot looks right
+                        DynamicImage::ImageRgb8(dyn_img.to_rgb8())
+                    };
                     #[cfg(not(target_arch = "wasm32"))]
                     match img.save_with_format(&path, format) {
                         Ok(_) => info!("Screenshot saved to {}", path.display()),

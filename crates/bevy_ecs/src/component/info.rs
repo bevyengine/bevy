@@ -29,7 +29,6 @@ use crate::{
 /// Stores metadata for a type of component or resource stored in a specific [`World`](crate::world::World).
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
-    pub(super) id: ComponentId,
     pub(super) descriptor: ComponentDescriptor,
     pub(super) hooks: ComponentHooks,
     pub(super) required_components: RequiredComponents,
@@ -39,12 +38,6 @@ pub struct ComponentInfo {
 }
 
 impl ComponentInfo {
-    /// Returns a value uniquely identifying the current component.
-    #[inline]
-    pub fn id(&self) -> ComponentId {
-        self.id
-    }
-
     /// Returns the name of the current component.
     #[inline]
     pub fn name(&self) -> DebugName {
@@ -110,9 +103,8 @@ impl ComponentInfo {
     }
 
     /// Create a new [`ComponentInfo`].
-    pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+    pub(crate) fn new(descriptor: ComponentDescriptor) -> Self {
         ComponentInfo {
-            id,
             descriptor,
             hooks: Default::default(),
             required_components: Default::default(),
@@ -411,7 +403,7 @@ impl Components {
         mut descriptor: ComponentDescriptor,
     ) {
         descriptor.initialize(id, self);
-        let info = ComponentInfo::new(id, descriptor);
+        let info = ComponentInfo::new(descriptor);
         let least_len = id.0 + 1;
         if self.components.len() < least_len {
             self.components.resize_with(least_len, || None);

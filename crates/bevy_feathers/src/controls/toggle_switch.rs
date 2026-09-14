@@ -60,7 +60,7 @@ impl FeathersToggleSwitch {
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
             TabIndex(0)
             FocusIndicator
-            Children [(
+            Children [
                 Node {
                     position_type: PositionType::Absolute,
                     left: percent(0),
@@ -73,7 +73,7 @@ impl FeathersToggleSwitch {
                 ToggleSwitchSlide
                 ThemeBackgroundColor(tokens::SWITCH_SLIDE_BG)
                 ThemeBorderColor(tokens::SWITCH_SLIDE_BORDER)
-            )]
+            ]
         }
     }
 }

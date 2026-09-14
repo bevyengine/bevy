@@ -520,6 +520,7 @@ Example | Description
 [Deferred Gbuffer Raymarching](../examples/shader_advanced/deferred_raymarch.rs) | Writes a raymarched SDF into the deferred gbuffer so it is lit by the standard PBR deferred lighting pass
 [Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
 [Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
+[Mesh Shader Introduction](../examples/shader_advanced/mesh_shader_intro.rs) | Demonstrates how to use Task/Amplification/Mesh Shaders
 
 ### State
 
@@ -618,6 +619,7 @@ Example | Description
 [IME Support](../examples/ui/text/ime_support.rs) | Demonstrates IME (Input Method Editor) support for text input
 [Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
 [Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node
+[Inline Images](../examples/ui/text/inline_image.rs) | Demonstrates how to display images inline with text
 [Letter Spacing](../examples/ui/text/letter_spacing.rs) | Demonstrates the letter spacing feature
 [Multiline Text Input](../examples/ui/text/multiline_text_input.rs) | Demonstrates a single multiline EditableText widget
 [Multiple Text Inputs](../examples/ui/text/multiple_text_inputs.rs) | Demonstrates multiple text inputs

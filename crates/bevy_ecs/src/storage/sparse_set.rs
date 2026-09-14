@@ -815,16 +815,15 @@ impl SparseSets {
     /// - Panics if the insertion forces an reallocation and causes an out-of-memory error.
     pub(crate) fn get_or_insert(
         &mut self,
+        id: ComponentId,
         component_info: &ComponentInfo,
     ) -> &mut ComponentSparseSet {
-        if !self.sets.contains(component_info.id()) {
-            self.sets.insert(
-                component_info.id(),
-                ComponentSparseSet::new(component_info, 64),
-            );
+        if !self.sets.contains(id) {
+            self.sets
+                .insert(id, ComponentSparseSet::new(component_info, 64));
         }
 
-        self.sets.get_mut(component_info.id()).unwrap()
+        self.sets.get_mut(id).unwrap()
     }
 
     /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
@@ -944,8 +943,8 @@ mod tests {
         fn register_component<T: Component>(sets: &mut SparseSets, id: usize) {
             let descriptor = ComponentDescriptor::new::<T>();
             let id = ComponentId::new(id);
-            let info = ComponentInfo::new(id, descriptor);
-            sets.get_or_insert(&info);
+            let info = ComponentInfo::new(descriptor);
+            sets.get_or_insert(id, &info);
         }
     }
 }

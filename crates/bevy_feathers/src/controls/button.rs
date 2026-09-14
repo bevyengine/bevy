@@ -83,7 +83,7 @@ pub struct FeathersButtonProps {
 impl Default for FeathersButtonProps {
     fn default() -> Self {
         Self {
-            caption: Box::new(bsn_list!()),
+            caption: Box::new(bsn! {}),
             variant: ButtonVariant::default(),
             corners: Default::default(),
         }
