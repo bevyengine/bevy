@@ -9,24 +9,22 @@
 //! This example does not remove the `GenerateMesh` component after
 //! generating the mesh.
 
-use std::ops::Not;
-
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::tailwind::{RED_400, SKY_400},
     core_pipeline::schedule::camera_driver,
     mesh::Indices,
-    platform::collections::HashSet,
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
+        globals::{GlobalsBuffer, GlobalsUniform},
         mesh::allocator::{MeshAllocator, MeshAllocatorSettings},
         render_resource::{
             binding_types::{storage_buffer, uniform_buffer},
             *,
         },
         renderer::{RenderContext, RenderGraph, RenderQueue},
-        Render, RenderApp, RenderStartup,
+        RenderApp, RenderStartup,
     },
 };
 
@@ -54,9 +52,7 @@ impl Plugin for ComputeShaderMeshGeneratorPlugin {
         };
 
         render_app
-            .init_resource::<ChunksToProcess>()
             .add_systems(RenderStartup, init_compute_pipeline)
-            .add_systems(Render, prepare_chunks)
             .add_systems(RenderGraph, compute_mesh.before(camera_driver));
     }
     fn finish(&self, app: &mut App) {
@@ -160,51 +156,6 @@ fn setup(
     ));
 }
 
-/// This is called `ChunksToProcess` because this example originated
-/// from a use case of generating chunks of landscape or voxels
-/// It only exists in the render world.
-#[derive(Resource, Default)]
-struct ChunksToProcess(Vec<AssetId<Mesh>>);
-
-/// `processed` is a `HashSet` contains the `AssetId`s that have been
-/// processed. We use that to remove `AssetId`s that have already
-/// been processed, which means each unique `GenerateMesh` will result
-/// in one compute shader mesh generation process instead of generating
-/// the mesh every frame.
-fn prepare_chunks(
-    meshes_to_generate: Query<&GenerateMesh>,
-    mut chunks: ResMut<ChunksToProcess>,
-    pipeline_cache: Res<PipelineCache>,
-    pipeline: Res<ComputePipeline>,
-    mut processed: Local<HashSet<AssetId<Mesh>>>,
-) {
-    // If the pipeline isn't ready, then meshes
-    // won't be processed. So we want to wait until
-    // the pipeline is ready before considering any mesh processed.
-    if pipeline_cache
-        .get_compute_pipeline(pipeline.pipeline)
-        .is_some()
-    {
-        // get the AssetId for each Handle<Mesh>
-        // which we'll use later to get the relevant buffers
-        // from the mesh_allocator
-        let chunk_data: Vec<AssetId<Mesh>> = meshes_to_generate
-            .iter()
-            .filter_map(|gmesh| {
-                let id = gmesh.0.id();
-                processed.contains(&id).not().then_some(id)
-            })
-            .collect();
-
-        // Cache any meshes we're going to process this frame
-        for id in &chunk_data {
-            processed.insert(*id);
-        }
-
-        chunks.0 = chunk_data;
-    }
-}
-
 #[derive(Resource)]
 struct ComputePipeline {
     layout: BindGroupLayoutDescriptor,
@@ -224,6 +175,8 @@ fn init_compute_pipeline(
             (
                 // offsets
                 uniform_buffer::<DataRanges>(false),
+                // globals
+                uniform_buffer::<GlobalsUniform>(false),
                 // vertices
                 storage_buffer::<Vec<f32>>(false),
                 // indices
@@ -246,32 +199,36 @@ fn init_compute_pipeline(
 #[derive(ShaderType)]
 struct DataRanges {
     vertex_start: u32,
-    vertex_end: u32,
+    num_vertices: u32,
     index_start: u32,
-    index_end: u32,
+    num_indices: u32,
 }
 
 fn compute_mesh(
     mut render_context: RenderContext,
-    chunks: Res<ChunksToProcess>,
+    meshes_to_generate: Query<&GenerateMesh>,
     mesh_allocator: Res<MeshAllocator>,
     pipeline_cache: Res<PipelineCache>,
     pipeline: Res<ComputePipeline>,
     render_queue: Res<RenderQueue>,
+    globals: Res<GlobalsBuffer>,
 ) {
     let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) else {
         return;
     };
 
-    for mesh_id in &chunks.0 {
+    for mesh_id in meshes_to_generate.iter().map(|m| m.0.id()) {
         info!(?mesh_id, "processing mesh");
 
         // the mesh_allocator holds slabs of meshes, so the buffers we get here
         // can contain more data than just the mesh we're asking for.
         // That's why there is a range field.
         // You should *not* touch data in these buffers that is outside of the range.
-        let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(mesh_id).unwrap();
-        let index_buffer_slice = mesh_allocator.mesh_index_slice(mesh_id).unwrap();
+        let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(&mesh_id).unwrap();
+        let index_buffer_slice = mesh_allocator.mesh_index_slice(&mesh_id).unwrap();
+
+        let vertex_buffer_length = vertex_buffer_slice.range.end - vertex_buffer_slice.range.start;
+        let index_buffer_length = index_buffer_slice.range.end - index_buffer_slice.range.start;
 
         let first = DataRanges {
             // there are 8 vertex data values (pos, normal, uv) per vertex
@@ -279,11 +236,11 @@ fn compute_mesh(
             // which includes all of that data, so each index is worth 8 indices
             // to our shader code.
             vertex_start: vertex_buffer_slice.range.start * 8,
-            vertex_end: vertex_buffer_slice.range.end * 8,
+            num_vertices: vertex_buffer_length,
             // but each vertex index is a single value, so the index of the
             // vertex indices is exactly what the value is
             index_start: index_buffer_slice.range.start,
-            index_end: index_buffer_slice.range.end,
+            num_indices: index_buffer_length,
         };
 
         let mut uniforms = UniformBuffer::from(first);
@@ -296,6 +253,7 @@ fn compute_mesh(
             &pipeline_cache.get_bind_group_layout(&pipeline.layout),
             &BindGroupEntries::sequential((
                 &uniforms,
+                &globals.buffer,
                 vertex_buffer_slice.buffer.as_entire_buffer_binding(),
                 index_buffer_slice.buffer.as_entire_buffer_binding(),
             )),
