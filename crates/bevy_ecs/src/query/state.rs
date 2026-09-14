@@ -12,7 +12,7 @@ use crate::{
     },
     storage::TableId,
     system::Query,
-    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
@@ -379,11 +379,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
-    pub fn query_mut<'w, 's>(&'s mut self, world: &'w mut World) -> Query<'w, 's, D, F> {
+    pub fn query_mut<'w, 's>(
+        &'s mut self,
+        world: impl Into<DeferredWorld<'w>>,
+    ) -> Query<'w, 's, D, F> {
+        let mut world = world.into();
         let last_run = world.last_change_tick();
         let this_run = world.change_tick();
         // SAFETY: We have exclusive access to the entire world.
-        unsafe { self.query_unchecked_with_ticks(world.as_unsafe_world_cell(), last_run, this_run) }
+        unsafe { self.query_unchecked_with_ticks(world.to_unsafe_world_cell(), last_run, this_run) }
     }
 
     /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
