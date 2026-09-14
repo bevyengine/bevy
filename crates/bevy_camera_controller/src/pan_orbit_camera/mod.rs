@@ -6,7 +6,7 @@
 //! which moves the camera through the scene using a first-person control scheme,
 //! moving through the scene as if flying or walking.
 //!
-//! This control scheme is particularly useful for things like CAD applications or 3D modelling,
+//! This control scheme is particularly useful for things like CAD applications or 3D modeling,
 //! where you want to inspect a single object from all angles.
 //!
 //! # Philosophy
