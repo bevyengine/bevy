@@ -65,6 +65,10 @@ impl<I, V> SparseArray<I, V> {
 
 macro_rules! impl_sparse_array {
     ($ty:ident) => {
+        #[allow(
+            dead_code,
+            reason = "ImmutableSparseArray may be used again in the future."
+        )]
         impl<I: SparseSetIndex, V> $ty<I, V> {
             /// Returns `true` if the collection contains a value for the specified `index`.
             #[inline]
@@ -129,6 +133,10 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     }
 
     /// Converts the [`SparseArray`] into an immutable variant.
+    #[allow(
+        dead_code,
+        reason = "ImmutableSparseArray may be used again in the future."
+    )]
     pub(crate) fn into_immutable(self) -> ImmutableSparseArray<I, V> {
         ImmutableSparseArray {
             values: self.values.into_boxed_slice(),
@@ -543,6 +551,10 @@ pub(crate) struct ImmutableSparseSet<I, V: 'static> {
 
 macro_rules! impl_sparse_set {
     ($ty:ident) => {
+        #[allow(
+            dead_code,
+            reason = "ImmutableSparseArray may be used again in the future."
+        )]
         impl<I: SparseSetIndex, V> $ty<I, V> {
             /// Returns the number of elements in the sparse set.
             #[inline]
@@ -722,6 +734,10 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     }
 
     /// Converts the sparse set into its immutable variant.
+    #[allow(
+        dead_code,
+        reason = "ImmutableSparseArray may be used again in the future."
+    )]
     pub(crate) fn into_immutable(self) -> ImmutableSparseSet<I, V> {
         ImmutableSparseSet {
             dense: self.dense.into_boxed_slice(),
