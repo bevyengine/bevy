@@ -15,3 +15,20 @@ let id = info.id();
 let id = component_id;
 let info = components.get_info(id).unwrap();
 ```
+
+`Components::iter_registered()` now returns an iterator over `(ComponentId, &ComponentInfo)`
+pairs instead of just `&ComponentInfo`, to retain access to the component ID
+alongside the component info:
+
+```rust
+// 0.19
+for info in components.iter_registered() {
+    let id = info.id();
+    // ...
+}
+
+// 0.20
+for (id, info) in components.iter_registered() {
+    // ...
+}
+```
