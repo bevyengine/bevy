@@ -359,7 +359,7 @@ mod tests {
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ComponentId::new(1));
+            set.add_unfiltered_component_read(ComponentId::from_u32(1));
             set
         });
         let access_exclusive = SystemAccess::Exclusive;
@@ -382,7 +382,7 @@ mod tests {
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ComponentId::new(1));
+            set.add_unfiltered_component_read(ComponentId::from_u32(1));
             set
         });
         let access_exclusive = SystemAccess::Exclusive;
@@ -450,7 +450,7 @@ mod tests {
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ComponentId::new(1));
+            set.add_unfiltered_component_read(ComponentId::from_u32(1));
             set
         });
         let access_exclusive = SystemAccess::Exclusive;
@@ -461,7 +461,7 @@ mod tests {
         );
         assert_eq!(access_shared.to_filtered_access_set().into_owned(), {
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ComponentId::new(1));
+            set.add_unfiltered_component_read(ComponentId::from_u32(1));
             set
         });
         assert_eq!(access_exclusive.to_filtered_access_set().into_owned(), {
@@ -480,7 +480,7 @@ mod tests {
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ComponentId::new(1));
+            set.add_unfiltered_component_read(ComponentId::from_u32(1));
             set
         });
         let access_exclusive = SystemAccess::Exclusive;

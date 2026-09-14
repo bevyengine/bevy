@@ -21,12 +21,14 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
-    entity::{Entity, EntityLocation},
+    component::{
+        ComponentId, ComponentIdMap, Components, RequiredComponentConstructor, StorageType,
+    },
+    entity::{Entity, EntityEquivalentHashMap, EntityLocation},
     event::{Event, EventKey},
     observer::Observers,
     query::DebugCheckedUnwrap,
-    storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
+    storage::{SparseArray, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
@@ -44,7 +46,7 @@ use nonmax::NonMaxU32;
 pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 
 pub(crate) const ARCHETYPE_CREATED: EventKey =
-    EventKey(ComponentId::new(crate::component::ARCHETYPE_CREATED));
+    EventKey(ComponentId::from_u32(crate::component::ARCHETYPE_CREATED));
 
 /// An opaque location within a [`Archetype`].
 ///
@@ -391,7 +393,8 @@ pub struct Archetype {
     table_id: TableId,
     edges: Edges,
     entities: Vec<ArchetypeEntity>,
-    components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
+    component_ids: Vec<ComponentId>,
+    archetype_components: ComponentIdMap<ArchetypeComponentInfo>,
     pub(crate) flags: ArchetypeFlags,
 }
 
@@ -409,12 +412,14 @@ impl Archetype {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
         let mut flags = ArchetypeFlags::empty();
-        let mut archetype_components = SparseSet::with_capacity(min_table + min_sparse);
+        let mut component_ids = Vec::with_capacity(min_table + min_sparse);
+        let mut archetype_components = ComponentIdMap::with_capacity(min_table + min_sparse);
         for (idx, component_id) in table_components.enumerate() {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
             observers.update_archetype_flags(component_id, &mut flags);
+            component_ids.push(component_id);
             archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
@@ -435,6 +440,7 @@ impl Archetype {
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
             observers.update_archetype_flags(component_id, &mut flags);
+            component_ids.push(component_id);
             archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
@@ -450,7 +456,8 @@ impl Archetype {
             id,
             table_id,
             entities: Vec::new(),
-            components: archetype_components.into_immutable(),
+            component_ids,
+            archetype_components,
             edges: Default::default(),
             flags,
         }
@@ -510,7 +517,7 @@ impl Archetype {
     /// [`Table`]: crate::storage::Table
     #[inline]
     pub fn table_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.components
+        self.archetype_components
             .iter()
             .filter(|(_, component)| component.storage_type == StorageType::Table)
             .map(|(id, _)| *id)
@@ -523,7 +530,7 @@ impl Archetype {
     /// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
     #[inline]
     pub fn sparse_set_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.components
+        self.archetype_components
             .iter()
             .filter(|(_, component)| component.storage_type == StorageType::SparseSet)
             .map(|(id, _)| *id)
@@ -534,7 +541,7 @@ impl Archetype {
     /// All of the IDs are unique.
     #[inline]
     pub fn components(&self) -> &[ComponentId] {
-        self.components.indices()
+        self.component_ids.as_slice()
     }
 
     /// Gets an iterator of all of the components in the archetype.
@@ -542,13 +549,13 @@ impl Archetype {
     /// All of the IDs are unique.
     #[inline]
     pub fn iter_components(&self) -> impl Iterator<Item = ComponentId> + Clone {
-        self.components.indices().iter().copied()
+        self.component_ids.as_slice().iter().copied()
     }
 
     /// Returns the total number of components in the archetype
     #[inline]
     pub fn component_count(&self) -> usize {
-        self.components.len()
+        self.archetype_components.len()
     }
 
     /// Fetches an immutable reference to the archetype's [`Edges`], a cache of
@@ -656,7 +663,7 @@ impl Archetype {
     /// Checks if the archetype contains a specific component. This runs in `O(1)` time.
     #[inline]
     pub fn contains(&self, component_id: ComponentId) -> bool {
-        self.components.contains(component_id)
+        self.archetype_components.contains_key(&component_id)
     }
 
     /// Gets the type of storage where a component in the archetype can be found.
@@ -664,8 +671,8 @@ impl Archetype {
     /// This runs in `O(1)` time.
     #[inline]
     pub fn get_storage_type(&self, component_id: ComponentId) -> Option<StorageType> {
-        self.components
-            .get(component_id)
+        self.archetype_components
+            .get(&component_id)
             .map(|info| info.storage_type)
     }
 
@@ -768,7 +775,8 @@ struct ArchetypeComponents {
 
 /// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
 /// along with an [`ArchetypeRecord`] which contains some metadata about how the component is stored in the archetype.
-pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
+pub type ComponentIndex =
+    EntityEquivalentHashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
 
 /// The backing store of all [`Archetype`]s within a [`World`].
 ///

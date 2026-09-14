@@ -6,6 +6,7 @@ use alloc::collections::BTreeMap;
 use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
     component::{Component, ComponentId},
+    entity::ContainsEntity,
     entity_disabling::DefaultQueryFilters,
     prelude::Entity,
     reflect::{ReflectComponent, ReflectResource},
@@ -377,10 +378,17 @@ impl<'w> DynamicWorldBuilder<'w> {
             .components()
             .get_valid_id(TypeId::of::<DefaultQueryFilters>());
 
-        for (component_id, entity) in self.original_world.resource_entities().iter() {
+        for component_id in self.original_world.components().iter_registered_ids() {
+            let entity = component_id.entity();
+
+            if !self.original_world.entities().contains_spawned(entity) {
+                continue;
+            }
+
             if Some(component_id) == original_world_dqf_id {
                 continue;
             }
+
             let mut extract_and_push = || {
                 let type_id = self
                     .original_world
@@ -501,8 +509,8 @@ mod tests {
         assert_eq!(dynamic_world.entities.len(), 1);
         assert_eq!(dynamic_world.entities[0].entity, entity);
         assert_eq!(dynamic_world.entities[0].components.len(), 2);
-        assert!(dynamic_world.entities[0].components[0].represents::<ComponentA>());
-        assert!(dynamic_world.entities[0].components[1].represents::<ComponentB>());
+        assert!(dynamic_world.entities[0].components[0].represents::<ComponentB>());
+        assert!(dynamic_world.entities[0].components[1].represents::<ComponentA>());
     }
 
     #[test]

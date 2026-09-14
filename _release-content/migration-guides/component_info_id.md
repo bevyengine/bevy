@@ -1,6 +1,6 @@
 ---
 title: "ComponentInfo no longer stores the component ID"
-pull_requests: [25774]
+pull_requests: [25774, 24728]
 ---
 
 `ComponentInfo::id()` has been removed, and `ComponentInfo` no longer stores the component ID. Component IDs are already used as keys by the collections that store `ComponentInfo` instances; if you need both values, retain the `ComponentId` when
@@ -15,3 +15,5 @@ let id = info.id();
 let id = component_id;
 let info = components.get_info(id).unwrap();
 ```
+
+Additionally, `World::iter_resources` and `World::iter_resources_mut` now return an iterator over `(ComponentId, ComponentInfo, ...)` instead of `(ComponentInfo, ...)`.

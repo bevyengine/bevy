@@ -39,11 +39,13 @@ use crate::{
         CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutUntyped, Tick,
     },
     component::{
-        Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
+        Component, ComponentDescriptor, ComponentId, ComponentInfo, Components,
         ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable, RequiredComponents,
         RequiredComponentsError,
     },
-    entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
+    entity::{
+        ContainsEntity, Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError,
+    },
     entity_disabling::DefaultQueryFilters,
     error::{ErrorHandler, FallbackErrorHandler},
     lifecycle::{
@@ -54,7 +56,7 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
+    resource::{IsResource, Resource, IS_RESOURCE},
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{NonSendData, Storages},
     system::Commands,
@@ -100,8 +102,6 @@ pub struct World {
     pub(crate) entities: Entities,
     pub(crate) entity_allocator: EntityAllocator,
     pub(crate) components: Components,
-    pub(crate) component_ids: ComponentIds,
-    pub(crate) resource_entities: ResourceEntities,
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
@@ -133,7 +133,6 @@ impl Default for World {
             entities: Entities::new(),
             entity_allocator: EntityAllocator::default(),
             components: Default::default(),
-            resource_entities: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
@@ -147,7 +146,6 @@ impl Default for World {
             last_trigger_id: 0,
             command_queue_start: 0,
             command_queue: SyncUnsafeCell::new(CommandQueue::silent()),
-            component_ids: ComponentIds::default(),
         };
         world.bootstrap();
         world
@@ -262,26 +260,25 @@ impl World {
         &self.components
     }
 
-    /// Retrieves this world's [`ResourceEntities`].
-    #[inline]
-    pub fn resource_entities(&self) -> &ResourceEntities {
-        &self.resource_entities
-    }
-
     /// Prepares a [`ComponentsQueuedRegistrator`] for the world.
     /// **NOTE:** [`ComponentsQueuedRegistrator`] is easily misused.
     /// See its docs for important notes on when and how it should be used.
     #[inline]
     pub fn components_queue(&self) -> ComponentsQueuedRegistrator<'_> {
         // SAFETY: These are from the same world.
-        unsafe { ComponentsQueuedRegistrator::new(&self.components, &self.component_ids) }
+        unsafe {
+            ComponentsQueuedRegistrator::new(
+                &self.components,
+                self.entity_allocator().build_remote_allocator(),
+            )
+        }
     }
 
     /// Prepares a [`ComponentsRegistrator`] for the world.
     #[inline]
     pub fn components_registrator(&mut self) -> ComponentsRegistrator<'_> {
         // SAFETY: These are from the same world.
-        unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) }
+        unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.entity_allocator) }
     }
 
     /// Retrieves this world's [`Storages`] collection.
@@ -1490,7 +1487,8 @@ impl World {
         f: impl FnOnce(&mut R) -> S,
     ) -> Result<Option<S>, EntityMutableFetchError> {
         let component_id = self.register_component::<R>();
-        if let Some(entity) = self.resource_entities.get(component_id) {
+        let entity = component_id.entity();
+        if self.entities().contains_spawned(entity) {
             let mut world = DeferredWorld::from(&mut *self);
             let result = world.modify_component_with_relationship_hook_mode(
                 entity,
@@ -1526,7 +1524,8 @@ impl World {
         component_id: ComponentId,
         f: impl for<'a> FnOnce(MutUntyped<'a>) -> S,
     ) -> Result<Option<S>, EntityMutableFetchError> {
-        if let Some(entity) = self.resource_entities.get(component_id) {
+        let entity = component_id.entity();
+        if self.entities().contains_spawned(entity) {
             let mut world = DeferredWorld::from(&mut *self);
 
             let result = world.modify_component_by_id_with_relationship_hook_mode(
@@ -1928,9 +1927,9 @@ impl World {
         caller: MaybeLocation,
     ) -> (ComponentId, EntityWorldMut<'_>) {
         let resource_id = self.register_component::<R>();
+        let entity = resource_id.entity();
 
-        if let Some(entity) = self.resource_entities.get(resource_id) {
-            let entity_ref = self.get_entity(entity).expect("ResourceCache is in sync");
+        if let Ok(entity_ref) = self.get_entity(entity) {
             if !entity_ref.contains_id(resource_id) {
                 let resource = func(self);
                 move_as_ptr!(resource);
@@ -1946,7 +1945,9 @@ impl World {
 
         let resource = func(self);
         move_as_ptr!(resource);
-        let entity_mut = self.spawn_with_caller(resource, caller); // ResourceCache is updated automatically
+        // cannot panic because self.get_entity(entity) was None (entity hasn't been spawned)
+        // and self.register_component ensures that the entity is not invalid.
+        let entity_mut = self.spawn_at_unchecked(entity, resource, caller);
         (resource_id, entity_mut)
     }
 
@@ -2052,7 +2053,7 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let resource_id = self.component_id::<R>()?;
-        let entity = self.resource_entities.get(resource_id)?;
+        let entity = resource_id.entity();
         let value = self
             .get_entity_mut(entity)
             .expect("ResourceCache is in sync")
@@ -2090,9 +2091,7 @@ impl World {
     /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
-        if let Some(entity) = self.resource_entities.get(component_id)
-            && let Ok(entity_ref) = self.get_entity(entity)
-        {
+        if let Ok(entity_ref) = self.get_entity(component_id.entity()) {
             return entity_ref.contains_id(component_id);
         }
         false
@@ -2180,7 +2179,7 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<ComponentTicks> {
-        let entity = self.resource_entities.get(component_id)?;
+        let entity = component_id.entity();
         let entity_ref = self.get_entity(entity).ok()?;
         entity_ref.get_change_ticks_by_id(component_id)
     }
@@ -2366,7 +2365,7 @@ impl World {
     #[track_caller]
     pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {
         let component_id = self.component_id::<R>()?;
-        self.resource_entities().get(component_id)
+        Some(component_id.entity())
     }
 
     /// Gets an immutable reference to the non-send data of the given type, if it exists.
@@ -2816,7 +2815,7 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.valid_component_id::<R>()?;
-        let entity = self.resource_entities.get(component_id)?;
+        let entity = component_id.entity();
         let mut entity_mut = self.get_entity_mut(entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
@@ -3000,12 +2999,12 @@ impl World {
         value: OwningPtr<'_>,
         caller: MaybeLocation,
     ) {
+        let entity = component_id.entity();
         // if the resource already exists, we replace it on the same entity
-        let mut entity_mut = if let Some(entity) = self.resource_entities.get(component_id) {
-            self.get_entity_mut(entity)
-                .expect("ResourceCache is in sync")
+        let mut entity_mut = if self.entities().contains_spawned(entity) {
+            self.entity_mut(entity)
         } else {
-            self.spawn_empty()
+            self.spawn_empty_at_unchecked(entity, caller)
         };
         // SAFETY: pointer valid for this component id per precondition
         unsafe {
@@ -3372,9 +3371,13 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_resources(&mut self) {
-        let pairs: Vec<(ComponentId, Entity)> = self.resource_entities().iter().collect();
-        for (component_id, entity) in pairs {
-            self.entity_mut(entity).remove_by_id(component_id);
+        let ids: Vec<ComponentId> = self.components().iter_registered_ids().collect();
+        for component_id in ids {
+            let entity = component_id.entity();
+            if let Ok(mut entity) = self.get_entity_mut(entity) {
+                // only resource entities with a matching component_id should have a component.
+                entity.remove_by_id(component_id);
+            }
         }
     }
 
@@ -3404,7 +3407,7 @@ impl World {
 
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.entity_allocator) };
 
         // SAFETY: `registrator`, `self.storages` and `self.bundles` all come from this world.
         unsafe {
@@ -3421,7 +3424,7 @@ impl World {
 
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.entity_allocator) };
 
         // SAFETY: `registrator`, `self.bundles` and `self.storages` are all from this world.
         unsafe {
@@ -3516,7 +3519,7 @@ impl World {
     /// # world.insert_resource(A(1));
     /// # world.insert_resource(B(2));
     /// let mut total = 0;
-    /// for (info, _) in world.iter_resources() {
+    /// for (_, info, _) in world.iter_resources() {
     ///    println!("Resource: {}", info.name());
     ///    println!("Size: {} bytes", info.layout().size());
     ///    total += info.layout().size();
@@ -3565,7 +3568,7 @@ impl World {
     /// }));
     ///
     /// // Iterate all resources, in order to run the closures for each matching resource type
-    /// for (info, ptr) in world.iter_resources() {
+    /// for (_, info, ptr) in world.iter_resources() {
     ///     let Some(type_id) = info.type_id() else {
     ///        // It's possible for resources to not have a `TypeId` (e.g. non-Rust resources
     ///        // dynamically inserted via a scripting language) in which case we can't match them.
@@ -3582,14 +3585,14 @@ impl World {
     /// }
     /// ```
     #[inline]
-    pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
-        self.resource_entities
+    pub fn iter_resources(&self) -> impl Iterator<Item = (ComponentId, &ComponentInfo, Ptr<'_>)> {
+        self.components()
             .iter()
-            .filter_map(|(component_id, entity)| {
-                let component_info = self.components().get_info(component_id)?;
+            .filter_map(|(&id, component_info)| {
+                let entity = id.entity();
                 let entity_cell = self.get_entity(entity).ok()?;
-                let resource = entity_cell.get_by_id(component_id).ok()?;
-                Some((component_info, resource))
+                let resource = entity_cell.get_by_id(id).ok()?;
+                Some((id, component_info, resource))
             })
     }
 
@@ -3640,7 +3643,7 @@ impl World {
     /// }));
     ///
     /// // Iterate all resources, in order to run the mutator closures for each matching resource type
-    /// for (info, mut mut_untyped) in world.iter_resources_mut() {
+    /// for (_, info, mut mut_untyped) in world.iter_resources_mut() {
     ///     let Some(type_id) = info.type_id() else {
     ///        // It's possible for resources to not have a `TypeId` (e.g. non-Rust resources
     ///        // dynamically inserted via a scripting language) in which case we can't match them.
@@ -3658,20 +3661,16 @@ impl World {
     /// # assert_eq!(world.resource::<A>().0, 2);
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
-    pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
+    pub fn iter_resources_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (ComponentId, &ComponentInfo, MutUntyped<'_>)> {
         let unsafe_world = self.as_unsafe_world_cell();
-        // SAFETY: exclusive world access to all resources
-        let resource_entities = unsafe { unsafe_world.resource_entities() };
-        let components = unsafe_world.components();
 
-        resource_entities
+        unsafe_world
+            .components()
             .iter()
-            .filter_map(move |(component_id, entity)| {
-                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
-                let component_info =
-                    unsafe { components.get_info(component_id).debug_checked_unwrap() };
-
-                let entity_cell = unsafe_world.get_entity(entity).ok()?;
+            .filter_map(move |(&id, component_info)| {
+                let entity_cell = unsafe_world.get_entity(id.entity()).ok()?;
 
                 // SAFETY:
                 // - We have exclusive world access
@@ -3679,9 +3678,9 @@ impl World {
                 // or resource_entities mutably
                 // - `resource_entities` doesn't contain duplicate entities, so
                 // no duplicate references are created
-                let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
+                let mut_untyped = unsafe { entity_cell.get_mut_by_id(id).ok()? };
 
-                Some((component_info, mut_untyped))
+                Some((id, component_info, mut_untyped))
             })
     }
 
@@ -3732,8 +3731,8 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> bool {
-        if let Some(entity) = self.resource_entities.get(component_id)
-            && let Ok(mut entity_mut) = self.get_entity_mut(entity)
+        let entity = component_id.entity();
+        if let Ok(mut entity_mut) = self.get_entity_mut(entity)
             && entity_mut.contains_id(component_id)
         {
             entity_mut.remove_by_id(component_id);
@@ -4005,13 +4004,15 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::{DetectChangesMut, MaybeLocation},
-        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo, StorageType,
+        },
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         prelude::{DetectChanges, Event, Mut, On, Res},
         ptr::OwningPtr,
         resource::Resource,
-        world::{error::EntityMutableFetchError, DeferredWorld},
+        world::{error::EntityMutableFetchError, DeferredWorld, MutUntyped},
     };
     use alloc::{
         borrow::ToOwned,
@@ -4022,6 +4023,7 @@ mod tests {
     };
     use bevy_ecs_macros::Component;
     use bevy_platform::collections::{HashMap, HashSet};
+    use bevy_ptr::Ptr;
     use bevy_utils::prelude::DebugName;
     use core::{
         any::TypeId,
@@ -4203,14 +4205,14 @@ mod tests {
         world.insert_resource(TestResource3);
         world.remove_resource::<TestResource3>();
 
-        let mut iter = world.iter_resources();
+        let mut resources = world
+            .iter_resources()
+            .collect::<Vec<(ComponentId, &ComponentInfo, Ptr<'_>)>>();
+        resources.sort_by_key(|a| a.0);
 
-        let (info, ptr) = iter.next().unwrap();
-        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
-        // SAFETY: We know that the resource is of type `TestResource`
-        assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
+        assert_eq!(resources.len(), 2);
 
-        let (info, ptr) = iter.next().unwrap();
+        let (_, info, ptr) = resources[0];
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         assert_eq!(
             // SAFETY: We know that the resource is of type `TestResource2`
@@ -4218,7 +4220,10 @@ mod tests {
             &"Hello, world!".to_string()
         );
 
-        assert!(iter.next().is_none());
+        let (_, info, ptr) = resources[1];
+        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
+        // SAFETY: We know that the resource is of type `TestResource`
+        assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
     }
 
     #[test]
@@ -4231,20 +4236,26 @@ mod tests {
         world.insert_resource(TestResource3);
         world.remove_resource::<TestResource3>();
 
-        let mut iter = world.iter_resources_mut();
+        let mut resources =
+            world
+                .iter_resources_mut()
+                .collect::<Vec<(ComponentId, &ComponentInfo, MutUntyped<'_>)>>();
+        resources.sort_by_key(|a| a.0);
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
-        // SAFETY: We know that the resource is of type `TestResource`
-        unsafe {
-            mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
-        };
+        let mut iter = resources.into_iter();
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
+        let (_, info, mut mut_untyped) = iter.next().unwrap();
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         // SAFETY: We know that the resource is of type `TestResource2`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
+        };
+
+        let (_, info, mut mut_untyped) = iter.next().unwrap();
+        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
+        // SAFETY: We know that the resource is of type `TestResource`
+        unsafe {
+            mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
         };
 
         assert!(iter.next().is_none());
