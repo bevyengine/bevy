@@ -324,6 +324,7 @@ impl Edges {
 }
 
 /// Metadata about an [`Entity`] in a [`Archetype`].
+#[derive(Clone, Copy)]
 pub struct ArchetypeEntity {
     entity: Entity,
     table_row: TableRow,
