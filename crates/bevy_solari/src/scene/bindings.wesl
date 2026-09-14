@@ -71,6 +71,11 @@ struct DirectionalLight {
     inverse_pdf: f32,
 }
 
+struct EnvironmentMapLight {
+    light_from_world: mat3x3<f32>,
+    intensity: f32,
+}
+
 const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 
 @group(0) @binding(0) var<storage> vertex_buffers: binding_array<VertexBuffer>;
@@ -89,6 +94,9 @@ const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 @group(0) @binding(13) var<storage> previous_frame_light_id_translations: array<u32>;
 @group(0) @binding(14) var brdf_dfg_lut: texture_2d<f32>;
 @group(0) @binding(15) var brdf_dfg_lut_sampler: sampler;
+@group(0) @binding(16) var environment_map: texture_cube<f32>;
+@group(0) @binding(17) var environment_map_sampler: sampler;
+@group(0) @binding(18) var<storage> environment_map_light: EnvironmentMapLight;
 
 const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;
@@ -166,7 +174,7 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
 
 fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
     let barycentrics = vec3(1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y, ray_hit.barycentrics);
-    return resolve_triangle_data_full(ray_hit.instance_index, ray_hit.primitive_index, barycentrics);
+    return resolve_triangle_data_full(ray_hit.instance_custom_data, ray_hit.primitive_index, barycentrics);
 }
 
 fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -> array<Vertex, 3> {
@@ -209,14 +217,18 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
 
     let uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
 
+    let transform_3x3 = mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz);
+
+    let cofactor = mat3x3(cross(transform_3x3[1], transform_3x3[2]), cross(transform_3x3[2], transform_3x3[0]), cross(transform_3x3[0], transform_3x3[1]));
+    let determinant = dot(transform_3x3[0], cofactor[0]);
+    let determinant_sign = select(sign(determinant), 1.0, determinant == 0.0);
+
     let local_tangent = mat3x3(vertices[0].tangent.xyz, vertices[1].tangent.xyz, vertices[2].tangent.xyz) * barycentrics;
-    let world_tangent = vec4(
-        normalize(mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz) * local_tangent),
-        vertices[0].tangent.w,
-    );
+    let world_tangent = vec4(normalize(transform_3x3 * local_tangent), vertices[0].tangent.w * determinant_sign);
 
     let local_normal = mat3x3(vertices[0].normal, vertices[1].normal, vertices[2].normal) * barycentrics; // TODO: Use barycentric lerp, ray_hit.object_to_world, cross product geo normal
-    var world_normal = normalize(mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz) * local_normal);
+    var world_normal = normalize(determinant_sign * (cofactor * local_normal));
+
     let geometric_world_normal = world_normal;
     if material.normal_map_texture_id != TEXTURE_MAP_NONE {
         let TBN = calculate_tbn_mikktspace(world_normal, world_tangent);

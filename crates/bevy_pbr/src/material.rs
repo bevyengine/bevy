@@ -97,7 +97,7 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
-/// # use bevy_math::primitives::Capsule3d;
+/// # use bevy_shape::Capsule3d;
 /// #
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 /// pub struct CustomMaterial {
@@ -704,7 +704,7 @@ pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> Mesh
 
 pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
     match tonemapping {
-        Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
+        Tonemapping::None | Tonemapping::Linear => MeshPipelineKey::TONEMAP_METHOD_LINEAR,
         Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
         Tonemapping::ReinhardLuminance => MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
         Tonemapping::AcesFitted => MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
@@ -1201,12 +1201,16 @@ pub fn queue_material_meshes(
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut pending_mesh_material_queues: ResMut<PendingMeshMaterialQueues>,
-    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(
+        &ExtractedView,
+        &RenderVisibleEntities,
+        Has<ScreenSpaceTransmission>,
+    )>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
     dirty_specializations: Res<DirtySpecializations>,
     mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
-    for (view, visible_entities) in &views {
+    for (view, visible_entities, has_transmission) in &views {
         let (
             Some(opaque_phase),
             Some(alpha_mask_phase),
@@ -1294,7 +1298,21 @@ pub fn queue_material_meshes(
                 continue;
             };
 
-            match material.properties.render_phase_type {
+            let render_phase_type = if !has_transmission {
+                // Fall back to rendering based on alpha mode when `ScreenSpaceTransmission` is disabled
+                match material.properties.alpha_mode {
+                    AlphaMode::Blend
+                    | AlphaMode::Premultiplied
+                    | AlphaMode::Add
+                    | AlphaMode::Multiply => RenderPhaseType::Transparent,
+                    AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
+                    AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
+                }
+            } else {
+                material.properties.render_phase_type
+            };
+
+            match render_phase_type {
                 RenderPhaseType::Transmissive => {
                     let Some(draw_function) = material
                         .properties
@@ -1714,23 +1732,17 @@ where
             OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
             OpaqueRendererMethod::Auto => default_opaque_render_method.0,
         };
+        let alpha_mode = material.alpha_mode();
+        let reads_view_transmission_texture = material.reads_view_transmission_texture();
 
-        let mut mesh_pipeline_key_bits = MeshPipelineKey::empty();
-        mesh_pipeline_key_bits.set(
-            MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
-            material.reads_view_transmission_texture(),
-        );
-
-        let reads_view_transmission_texture =
-            mesh_pipeline_key_bits.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
-
+        let mesh_pipeline_key_bits = MeshPipelineKey::empty();
         let mesh_pipeline_key_bits = ErasedMeshPipelineKey::new(mesh_pipeline_key_bits);
 
-        let render_phase_type = match material.alpha_mode() {
+        let render_phase_type = match alpha_mode {
+            _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
             AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
                 RenderPhaseType::Transparent
             }
-            _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
             AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
             AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
         };
@@ -1744,7 +1756,7 @@ where
         Ok(PreparedMaterial {
             binding,
             properties: Arc::new(MaterialProperties {
-                alpha_mode: material.alpha_mode(),
+                alpha_mode,
                 depth_bias: material.depth_bias(),
                 reads_view_transmission_texture,
                 render_phase_type,

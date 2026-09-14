@@ -267,9 +267,9 @@ fn animate_spheres(mut spheres: Query<&mut Transform, With<ExampleSphere>>, time
 /// toggle occlusion culling on or off.
 fn spawn_buttons(commands: &mut Commands, light_mode: Res<LightMode>) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
             Children [
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Toggle light type",
                 &[
                     (LightMode::Directional, "Directional"),

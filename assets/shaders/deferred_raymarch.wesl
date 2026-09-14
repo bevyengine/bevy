@@ -1,7 +1,7 @@
-// Raymarches a signed distance field and packs it into the deferred gbuffer exactly as
-// a `StandardMaterial` would (via `deferred_gbuffer_from_pbr_input`), so Bevy's deferred
-// PBR lighting shades it like any other geometry. This example assumes familiarity with
-// raymarching.
+//! Raymarches a signed distance field and packs it into the deferred gbuffer exactly as
+//! a `StandardMaterial` would (via `deferred_gbuffer_from_pbr_input`), so Bevy's deferred
+//! PBR lighting shades it like any other geometry. This example assumes familiarity with
+//! raymarching.
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 import bevy_pbr::render::mesh_view_bindings::view;
@@ -88,9 +88,9 @@ fn depth_for_world_pos(world_pos: vec3<f32>) -> f32 {
     return view_z_to_depth_ndc(position_world_to_view(world_pos).z);
 }
 
-// Our render pass has two color targets, matching the deferred prepass:
-//   location 0: the packed gbuffer (Rgba32Uint)
-//   location 1: the deferred lighting pass id (R8Uint)
+/// Our render pass has two color targets, matching the deferred prepass:
+///   location 0: the packed gbuffer (Rgba32Uint)
+///   location 1: the deferred lighting pass id (R8Uint)
 struct GBufferOutput {
     @location(0) deferred: vec4<u32>,
     @location(1) deferred_lighting_pass_id: u32,
@@ -102,7 +102,7 @@ fn fragment(in: FullscreenVertexOutput) -> GBufferOutput {
     let ray = ray_for_uv(in.uv);
     let t = raymarch(ray.origin, ray.dir);
 
-    // discard so we leave the mesh gbuffer intact when we miss 
+    // discard so we leave the mesh gbuffer intact when we miss
     if t >= FAR {
         discard;
     }

@@ -219,11 +219,14 @@ mod tests {
 
     use crate::{
         change_detection::MaybeLocation,
+        component::Components,
         entity::Entity,
         lifecycle::HookContext,
+        prelude::{EntityRef, Query, SystemParamBuilder},
         ptr::OwningPtr,
-        resource::{IsResource, Resource},
-        world::{DeferredWorld, World},
+        resource::{IsResource, Resource, ResourceEntities},
+        system::{ParamBuilder, QueryParamBuilder, RunSystemOnce},
+        world::{DeferredWorld, FilteredEntityRef, World},
     };
     use alloc::vec::Vec;
     use bevy_ecs_macros::Component;
@@ -371,5 +374,55 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn get_multiple_dynamic_resources() {
+        use std::any::TypeId;
+
+        #[derive(Resource)]
+        struct ResA(u8);
+
+        #[derive(Resource)]
+        struct ResB(u8);
+
+        let mut world = World::default();
+        world.insert_resource(ResA(12));
+        world.insert_resource(ResB(34));
+
+        let system = (
+            QueryParamBuilder::new(|builder| {
+                builder.data::<EntityRef>();
+                builder.with::<IsResource>();
+                builder.or(|builder| {
+                    builder.with::<ResA>();
+                    builder.with::<ResB>();
+                });
+            }),
+            ParamBuilder,
+            ParamBuilder,
+        )
+            .build_state(&mut world)
+            .build_system(resource_system);
+
+        fn resource_system(
+            query: Query<FilteredEntityRef>,
+            resource_entities: &ResourceEntities,
+            components: &Components,
+        ) {
+            let component_id_a = components.get_id(TypeId::of::<ResA>()).unwrap();
+            let component_id_b = components.get_id(TypeId::of::<ResB>()).unwrap();
+
+            let entity_a = resource_entities.get(component_id_a).unwrap();
+            let entity_b = resource_entities.get(component_id_b).unwrap();
+
+            let entity_ref_a: FilteredEntityRef = query.get(entity_a).unwrap();
+            assert_eq!(entity_ref_a.get::<ResA>().unwrap().0, 12);
+
+            let entity_ref_b: FilteredEntityRef = query.get(entity_b).unwrap();
+            assert_eq!(entity_ref_b.get::<ResB>().unwrap().0, 34);
+        }
+
+        let _ = world.run_system_once(system);
     }
 }

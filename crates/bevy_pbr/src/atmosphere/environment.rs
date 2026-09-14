@@ -9,13 +9,17 @@ use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUs
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{With, Without},
+    lifecycle::{Insert, Remove},
+    observer::On,
+    query::{Has, With, Without},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
     template::FromTemplate,
 };
 use bevy_image::Image;
-use bevy_light::{AtmosphereEnvironmentMapLight, GeneratedEnvironmentMapLight};
+use bevy_light::{
+    AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
+};
 use bevy_math::{Quat, UVec2};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -33,6 +37,7 @@ use tracing::warn;
 // Render world representation of an environment map light for the atmosphere
 #[derive(Component, ExtractComponent, Clone, FromTemplate)]
 #[extract_app(RenderApp)]
+#[extract_component_sync_target((Self, AtmosphereProbeTextures, AtmosphereProbeBindGroups))]
 pub struct AtmosphereEnvironmentMap {
     pub environment_map: Handle<Image>,
     pub size: UVec2,
@@ -48,7 +53,7 @@ pub struct AtmosphereProbeTextures {
 }
 
 #[derive(Component)]
-pub(crate) struct AtmosphereProbeBindGroups {
+pub struct AtmosphereProbeBindGroups {
     pub environment: BindGroup,
 }
 
@@ -138,33 +143,32 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
 
 pub(super) fn prepare_probe_textures(
     view_textures: Query<&AtmosphereTextures, With<ExtractedAtmosphere>>,
-    probes: Query<
-        (Entity, &AtmosphereEnvironmentMap),
-        (
-            With<AtmosphereEnvironmentMap>,
-            Without<AtmosphereProbeTextures>,
-        ),
-    >,
+    probes: Query<(Entity, &AtmosphereEnvironmentMap), Without<AtmosphereProbeTextures>>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
+    // Get the first view entity's textures to borrow
+    let Some(view_textures) = view_textures.iter().next() else {
+        return;
+    };
+
     for (probe, render_env_map) in &probes {
-        let environment = gpu_images.get(&render_env_map.environment_map).unwrap();
-        // create a cube view
+        let Some(environment) = gpu_images.get(&render_env_map.environment_map) else {
+            continue;
+        };
+
         let environment_view = environment.texture.create_view(&TextureViewDescriptor {
             dimension: Some(TextureViewDimension::D2Array),
             ..Default::default()
         });
-        // Get the first view entity's textures to borrow
-        if let Some(view_textures) = view_textures.iter().next() {
-            commands.entity(probe).insert(AtmosphereProbeTextures {
-                environment: environment_view,
-                transmittance_lut: view_textures.transmittance_lut.clone(),
-                multiscattering_lut: view_textures.multiscattering_lut.clone(),
-                sky_view_lut: view_textures.sky_view_lut.clone(),
-                aerial_view_lut: view_textures.aerial_view_lut.clone(),
-            });
-        }
+
+        commands.entity(probe).insert(AtmosphereProbeTextures {
+            environment: environment_view,
+            transmittance_lut: view_textures.transmittance_lut.clone(),
+            multiscattering_lut: view_textures.multiscattering_lut.clone(),
+            sky_view_lut: view_textures.sky_view_lut.clone(),
+            aerial_view_lut: view_textures.aerial_view_lut.clone(),
+        });
     }
 }
 
@@ -198,53 +202,84 @@ pub fn validate_environment_map_size(size: UVec2) -> UVec2 {
     new_size
 }
 
-pub fn prepare_atmosphere_probe_components(
-    probes: Query<(Entity, &AtmosphereEnvironmentMapLight), (Without<AtmosphereEnvironmentMap>,)>,
+/// When [`AtmosphereEnvironmentMapLight`] is added to an entity, setup
+/// [`AtmosphereEnvironmentMap`] and [`GeneratedEnvironmentMapLight`].
+pub fn on_insert_atmosphere_environment_map_light(
+    insert: On<Insert<AtmosphereEnvironmentMapLight>>,
+    lights: Query<(
+        &AtmosphereEnvironmentMapLight,
+        Has<AtmosphereEnvironmentMap>,
+    )>,
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
 ) {
-    for (entity, env_map_light) in &probes {
-        // Create a cubemap image in the main world that we can reference
-        let new_size = validate_environment_map_size(env_map_light.size);
-        let mut environment_image = Image::new_fill(
-            Extent3d {
-                width: new_size.x,
-                height: new_size.y,
-                depth_or_array_layers: 6,
-            },
-            TextureDimension::D2,
-            &[0; 8],
-            TextureFormat::Rgba16Float,
-            RenderAssetUsages::all(),
-        );
+    let Ok((env_map_light, already_added_env_map)) = lights.get(insert.entity) else {
+        return;
+    };
+    let Ok(mut entity) = commands.get_entity(insert.entity) else {
+        return;
+    };
 
-        environment_image.texture_view_descriptor = Some(TextureViewDescriptor {
-            dimension: Some(TextureViewDimension::Cube),
-            ..Default::default()
-        });
+    // Handle case where someone inserts a new AtmosphereEnvironmentMapLight component
+    // on an entity that already has a AtmosphereEnvironmentMapLight component
+    if already_added_env_map {
+        entity.try_remove::<(
+            AtmosphereEnvironmentMap,
+            GeneratedEnvironmentMapLight,
+            EnvironmentMapLight,
+        )>();
+    }
 
-        environment_image.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING
-            | TextureUsages::STORAGE_BINDING
-            | TextureUsages::COPY_SRC;
+    let new_size = validate_environment_map_size(env_map_light.size);
+    let mut environment_image = Image::new_fill(
+        Extent3d {
+            width: new_size.x,
+            height: new_size.y,
+            depth_or_array_layers: 6,
+        },
+        TextureDimension::D2,
+        &[0; 8],
+        TextureFormat::Rgba16Float,
+        RenderAssetUsages::all(),
+    );
+    environment_image.texture_view_descriptor = Some(TextureViewDescriptor {
+        dimension: Some(TextureViewDimension::Cube),
+        ..Default::default()
+    });
+    environment_image.texture_descriptor.usage =
+        TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING | TextureUsages::COPY_SRC;
 
-        // Add the image to assets to get a handle
-        let environment_handle = images.add(environment_image);
+    let environment_handle = images.add(environment_image);
 
-        commands.entity(entity).insert(AtmosphereEnvironmentMap {
+    entity.insert((
+        AtmosphereEnvironmentMap {
             environment_map: environment_handle.clone(),
             size: new_size,
-        });
+        },
+        GeneratedEnvironmentMapLight {
+            environment_map: environment_handle,
+            intensity: env_map_light.intensity,
+            rotation: Quat::IDENTITY,
+            affects_lightmapped_mesh_diffuse: env_map_light.affects_lightmapped_mesh_diffuse,
+        },
+    ));
+}
 
-        commands
-            .entity(entity)
-            .insert(GeneratedEnvironmentMapLight {
-                environment_map: environment_handle,
-                intensity: env_map_light.intensity,
-                rotation: Quat::IDENTITY,
-                affects_lightmapped_mesh_diffuse: env_map_light.affects_lightmapped_mesh_diffuse,
-            });
+/// When [`AtmosphereEnvironmentMapLight`] is removed from an entity,
+/// remove the related components.
+pub fn on_remove_atmosphere_environment_map_light(
+    remove: On<Remove<AtmosphereEnvironmentMapLight>>,
+    mut commands: Commands,
+) {
+    if let Ok(mut entity) = commands.get_entity(remove.entity) {
+        entity.try_remove::<(
+            AtmosphereEnvironmentMap,
+            GeneratedEnvironmentMapLight,
+            EnvironmentMapLight,
+        )>();
     }
 }
+
 pub fn atmosphere_environment(
     view: ViewQuery<(
         &DynamicUniformIndex<GpuAtmosphere>,

@@ -225,8 +225,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            if method == MeshPipelineKey::TONEMAP_METHOD_LINEAR {
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {

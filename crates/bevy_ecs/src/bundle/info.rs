@@ -129,7 +129,7 @@ impl BundleInfo {
                     .or_insert_with(|| required_component.clone());
             }
 
-            storages.prepare_component(info);
+            storages.prepare_component(component_id, info);
         }
 
         let required_components = depth_first_components
@@ -137,7 +137,9 @@ impl BundleInfo {
             .filter(|&(required_id, _)| !explicit_component_ids.contains(&required_id))
             .inspect(|&(required_id, _)| {
                 // SAFETY: These ids came out of the passed `components`, so they must be valid.
-                storages.prepare_component(unsafe { components.get_info_unchecked(required_id) });
+                storages.prepare_component(required_id, unsafe {
+                    components.get_info_unchecked(required_id)
+                });
                 component_ids.push(required_id);
             })
             .map(|(_, required_component)| required_component.constructor)
