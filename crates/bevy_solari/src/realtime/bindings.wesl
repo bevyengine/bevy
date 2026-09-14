@@ -9,7 +9,7 @@ enable wgpu_ray_query;
 @group(1) @binding(2) var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
 @group(1) @binding(3) var gbuffer: texture_2d<u32>;
 @group(1) @binding(4) var depth_buffer: texture_depth_2d;
-@group(1) @binding(5) var motion_vectors: texture_storage_2d<rg16float, read_write>;
+@group(1) @binding(5) var motion_vectors: texture_2d<f32>;
 @group(1) @binding(6) var<uniform> view: View;
 @group(1) @binding(7) var<uniform> previous_view: PreviousViewUniforms;
 @group(1) @binding(8) var<storage, read_write> world_cache: WorldCache;
@@ -28,6 +28,7 @@ enable wgpu_ray_query;
 @group(2) @binding(2) var normal_roughness: texture_storage_2d<rgba16float, write>;
 @group(2) @binding(3) var dlss_rr_depth: texture_storage_2d<r32float, write>;
 @group(2) @binding(4) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
+@group(2) @binding(5) var denoiser_motion_vectors: texture_storage_2d<rg16float, write>;
 }
 
 /// User-configurable settings from the `SolariLighting` component, plus per-frame
