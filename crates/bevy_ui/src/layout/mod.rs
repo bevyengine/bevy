@@ -298,6 +298,7 @@ pub fn ui_layout_system(
             .get(ui_root_entity)
             .is_ok_and(|(_, is_ghost, _)| is_ghost)
         {
+            ghost_stack.push(ui_root_entity);
             collect_ui_children(
                 ui_root_entity,
                 &ui_children,
