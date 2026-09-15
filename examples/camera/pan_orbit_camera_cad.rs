@@ -45,6 +45,7 @@ fn main() {
                 explode,
                 switch_direction,
                 toggle_zoom,
+                toggle_camera_enabled,
             )
                 .chain(),
         )
@@ -222,6 +223,25 @@ fn switch_direction(
     }
 }
 
+#[derive(Component)]
+struct CameraEnabledIndicator;
+
+fn camera_enabled_status(camera_enabled: bool) -> String {
+    format!("Camera enabled: {camera_enabled}")
+}
+
+fn toggle_camera_enabled(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut cam: Query<&mut PanOrbitCamera>,
+    mut text: Query<&mut Text, With<CameraEnabledIndicator>>,
+) {
+    if keys.just_pressed(KeyCode::KeyB) {
+        let mut camera = cam.single_mut().unwrap();
+        camera.enabled = !camera.enabled;
+        text.single_mut().unwrap().0 = camera_enabled_status(camera.enabled);
+    }
+}
+
 fn setup_ui(mut commands: Commands, camera: Entity) {
     let text = "\
 Left Mouse  - Pan
@@ -231,11 +251,16 @@ Z           - Toggle passing thought surface on minimal zoom
 P           - Toggle projection
 C           - Toggle orbit constraint
 E           - Toggle explode
+B           - Enable/Disable pan orbit camera
 1-6         - Switch direction";
     commands.spawn((
         children![
             Text::new(text),
             (Text::new(zoom_status(false)), ZoomStatusIndicator),
+            (
+                Text::new(camera_enabled_status(true)),
+                CameraEnabledIndicator,
+            ),
         ],
         TextFont {
             font_size: FontSize::Px(20.0),
