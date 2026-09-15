@@ -91,8 +91,8 @@ fn scene() -> impl SceneList {
     }
 }
 
-fn demo_root() -> Box<dyn Scene> {
-    Box::new(bsn! {
+fn demo_root() -> impl Scene {
+    bsn! {
         Node {
             width: percent(100),
             height: percent(100),
@@ -111,7 +111,7 @@ fn demo_root() -> Box<dyn Scene> {
             --
             @demo_column_3()
         ]
-    })
+    }
 }
 
 #[derive(Component, Debug, Clone, Default, PartialEq)]
