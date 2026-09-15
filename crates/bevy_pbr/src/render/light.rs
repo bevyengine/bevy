@@ -48,8 +48,8 @@ use bevy_render::occlusion_culling::{
 };
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity};
 use bevy_render::view::{
-    RenderExtractedShadowMapVisibleEntities, RenderShadowLodOrigin, RenderShadowMapVisibleEntities,
-    RenderVisibleEntities, VisibilityExtractionSystemParam,
+    ExtractedRenderLayersMeta, RenderExtractedShadowMapVisibleEntities, RenderShadowLodOrigin,
+    RenderShadowMapVisibleEntities, RenderVisibleEntities, VisibilityExtractionSystemParam,
 };
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -344,7 +344,7 @@ pub fn extract_lights(
                 &GlobalTransform,
                 &ViewVisibility,
                 &CubemapFrusta,
-                Option<&RenderLayers>,
+                Option<Ref<RenderLayers>>,
                 Option<&VolumetricLight>,
             ),
             Or<(
@@ -368,7 +368,7 @@ pub fn extract_lights(
                 &GlobalTransform,
                 &ViewVisibility,
                 &Frustum,
-                Option<&RenderLayers>,
+                Option<Ref<RenderLayers>>,
                 Option<&VolumetricLight>,
             ),
             Or<(
@@ -394,7 +394,7 @@ pub fn extract_lights(
                 &CascadesFrusta,
                 &GlobalTransform,
                 &ViewVisibility,
-                Option<&RenderLayers>,
+                Option<Ref<RenderLayers>>,
                 Option<&VolumetricLight>,
                 Has<OcclusionCulling>,
                 Option<&SunDisk>,
@@ -595,7 +595,14 @@ pub fn extract_lights(
             extracted_point_light,
             (*frusta).clone(),
             MainEntity::from(main_entity),
-            maybe_render_layers.unwrap_or_default().clone(),
+            maybe_render_layers.map_or_else(default, |render_layers| {
+                (
+                    (*render_layers).clone(),
+                    ExtractedRenderLayersMeta {
+                        changed: render_layers.is_changed(),
+                    },
+                )
+            }),
         ));
     }
 
@@ -734,7 +741,14 @@ pub fn extract_lights(
             extracted_spot_light,
             *frustum,
             MainEntity::from(main_entity),
-            maybe_render_layers.unwrap_or_default().clone(),
+            maybe_render_layers.map_or_else(default, |render_layers| {
+                (
+                    (*render_layers).clone(),
+                    ExtractedRenderLayersMeta {
+                        changed: render_layers.is_changed(),
+                    },
+                )
+            }),
         ));
     }
 
@@ -892,7 +906,14 @@ pub fn extract_lights(
         entity_commands.insert((
             extracted_directional_light,
             MainEntity::from(main_entity),
-            maybe_render_layers.unwrap_or_default().clone(),
+            maybe_render_layers.map_or_else(default, |render_layers| {
+                (
+                    (*render_layers).clone(),
+                    ExtractedRenderLayersMeta {
+                        changed: render_layers.is_changed(),
+                    },
+                )
+            }),
         ));
     }
 
