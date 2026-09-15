@@ -89,6 +89,23 @@ pub struct AutoExposure {
     /// The default value is a flat line at 0.0.
     /// For more information, see [`AutoExposureCompensationCurve`].
     pub compensation_curve: Handle<AutoExposureCompensationCurve>,
+
+    /// The range of automatic exposure corrections, in stops.
+    ///
+    /// A correction of `1.0` brightens the image by one stop, and `-1.0` darkens it by one stop.
+    /// This limits the automatic correction independently of the luminance [`range`](Self::range)
+    /// used for the histogram. Setting this to `0.0..=0.0` disables the automatic correction.
+    ///
+    /// The correction starts within this range and is clamped to it after smoothing.
+    /// This includes the correction from [`compensation_curve`](Self::compensation_curve).
+    /// It is applied in addition to the camera's [`Exposure`](bevy_camera::Exposure) and
+    /// color grading settings.
+    ///
+    /// Neither limit can be NaN or infinite, and the minimum must not be greater than the maximum.
+    /// Invalid ranges are ignored with a one-time warning.
+    ///
+    /// The default value is `f32::MIN..=f32::MAX`, which does not limit the correction.
+    pub correction_range: RangeInclusive<f32>,
 }
 
 impl Default for AutoExposure {
@@ -101,6 +118,7 @@ impl Default for AutoExposure {
             exponential_transition_distance: 1.5,
             metering_mask: default(),
             compensation_curve: default(),
+            correction_range: f32::MIN..=f32::MAX,
         }
     }
 }
