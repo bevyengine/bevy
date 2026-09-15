@@ -344,7 +344,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // Start raymarching.
     for (var step = 0u; step < step_count; step += 1u) {
         // As an optimization, break if we've gotten too dark.
-        if (background_alpha < 0.001 && (ambient_intensity <= 0.0 || ambient_background_alpha < 0.001)) {
+        if (background_alpha < 0.001 && ambient_intensity > 0.0) {
             break;
         }
 
@@ -436,10 +436,11 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         background_alpha *= sample_attenuation;
         accumulated_color += sample_color * background_alpha;
 
-        // Process ambient. Ambient background alpha decreases by an amount determined by Beer's law.
-        accumulated_color += ambient_color * ambient_intensity * fog_color * scattering *
-            density * step_size_world * ambient_background_alpha;
-        ambient_background_alpha *= exp(-step_size_world * density * (absorption + scattering));
+    }
+    let extinction = absorption + scattering;
+    if (extinction > 0.0) {
+      // Use Beer's law again to accumulate the ambient light all along the path.
+      accumulated_color += ambient_color * ambient_intensity * fog_color * (scattering / extinction) * (1.0 - background_alpha);
     }
 
     // We're done! Return the color with alpha so it can be blended onto the
