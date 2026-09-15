@@ -61,6 +61,20 @@ fn setup(
             top: px(12),
             left: px(12),
         }
+        --
+        Text::new("meshlet")
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: px(12),
+            left: percent(25),
+        }
+        --
+        Text::new("regular")
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: px(12),
+            right: percent(25),
+        }
     });
 
     let sphere_mesh = Sphere::default().mesh().uv(48, 27);
