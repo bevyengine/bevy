@@ -59,6 +59,12 @@ impl<'w> From<&'w mut World> for DeferredWorld<'w> {
     }
 }
 
+impl<'w> From<&'w mut DeferredWorld<'_>> for DeferredWorld<'w> {
+    fn from(world: &'w mut DeferredWorld<'_>) -> DeferredWorld<'w> {
+        world.reborrow()
+    }
+}
+
 impl<'w> DeferredWorld<'w> {
     /// Reborrow self as a new instance of [`DeferredWorld`]
     #[inline]
@@ -444,12 +450,12 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     /// If state is from a different world then self
     #[inline]
+    #[deprecated(since = "0.19.0", note = "use `QueryState::query_mut`")]
     pub fn query<'s, D: QueryData, F: QueryFilter>(
         &mut self,
         state: &'s mut QueryState<D, F>,
     ) -> Query<'_, 's, D, F> {
-        // SAFETY: We have mutable access to the entire world
-        unsafe { state.query_unchecked(self.world) }
+        state.query_mut(self)
     }
 
     /// Gets a mutable reference to the resource of the given type
@@ -797,6 +803,15 @@ impl<'w> DeferredWorld<'w> {
     /// - must only be used to make non-structural ECS changes
     #[inline]
     pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
+        self.world
+    }
+
+    /// Gets an [`UnsafeWorldCell`] containing the underlying world.
+    ///
+    /// # Safety
+    /// - must only be used to make non-structural ECS changes
+    #[inline]
+    pub fn into_unsafe_world_cell(self) -> UnsafeWorldCell<'w> {
         self.world
     }
 
