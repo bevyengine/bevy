@@ -120,7 +120,7 @@ impl ResourceEntities {
 /// A marker component for entities that have a Resource component.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
 #[derive(Component, Debug)]
-#[component(on_insert, on_discard, on_despawn)]
+#[component(on_insert, on_discard)]
 pub struct IsResource(ComponentId);
 
 impl IsResource {
@@ -201,12 +201,8 @@ impl IsResource {
             world
                 .commands()
                 .entity(context.entity)
-                .remove_by_id(resource_component_id);
+                .try_remove_by_id(resource_component_id);
         }
-    }
-
-    pub(crate) fn on_despawn(_world: DeferredWorld, _context: HookContext) {
-        warn!("Resource entities are not supposed to be despawned.");
     }
 }
 
@@ -214,6 +210,7 @@ pub use crate::component::IS_RESOURCE;
 
 #[cfg(test)]
 mod tests {
+    use crate::prelude::With;
     use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
 
     use crate::{
@@ -281,6 +278,28 @@ mod tests {
         // make sure that trying to add a resource twice results, doesn't change the entity count
         world.insert_resource(TestResource2(String::from("Bar")));
         assert_eq!(world.entities().count_spawned(), start + 3);
+    }
+
+    #[test]
+    fn despawn_resource() {
+        #[derive(Resource)]
+        struct TestResource(i32);
+
+        let mut world = World::new();
+        world.insert_resource(TestResource(40));
+
+        let entity = world
+            .query_filtered::<Entity, With<TestResource>>()
+            .single(&world)
+            .unwrap();
+        world.despawn(entity);
+
+        assert!(!world.contains_resource::<TestResource>());
+
+        world.insert_resource(TestResource(42));
+        assert!(world.contains_resource::<TestResource>());
+        let TestResource(n) = world.get_resource::<TestResource>().unwrap();
+        assert_eq!(*n, 42);
     }
 
     #[test]
