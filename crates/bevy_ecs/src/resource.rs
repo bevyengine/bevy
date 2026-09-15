@@ -106,6 +106,11 @@ impl ResourceEntities {
         self.deref().get(id).copied()
     }
 
+    /// Clears all cached entity relationships.
+    pub(crate) fn clear(&mut self) {
+        self.0.get_mut().clear();
+    }
+
     #[inline]
     fn deref(&self) -> &SparseArray<ComponentId, Entity> {
         // SAFETY: There are no other mutable references to the map.
@@ -293,6 +298,24 @@ mod tests {
             .single(&world)
             .unwrap();
         world.despawn(entity);
+
+        assert!(!world.contains_resource::<TestResource>());
+
+        world.insert_resource(TestResource(42));
+        assert!(world.contains_resource::<TestResource>());
+        let TestResource(n) = world.get_resource::<TestResource>().unwrap();
+        assert_eq!(*n, 42);
+    }
+
+    #[test]
+    fn clear_entities() {
+        #[derive(Resource)]
+        struct TestResource(i32);
+
+        let mut world = World::new();
+        world.insert_resource(TestResource(40));
+
+        world.clear_entities();
 
         assert!(!world.contains_resource::<TestResource>());
 
