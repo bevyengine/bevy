@@ -90,14 +90,14 @@ pub struct AutoExposure {
     /// For more information, see [`AutoExposureCompensationCurve`].
     pub compensation_curve: Handle<AutoExposureCompensationCurve>,
 
-    /// The range of automatic exposure corrections, in stops.
+    /// The minimum and maximum exposure adjustments that auto exposure can apply, in stops.
     ///
     /// A correction of `1.0` brightens the image by one stop, and `-1.0` darkens it by one stop.
     /// This limits the automatic correction independently of the luminance [`range`](Self::range)
     /// used for the histogram. Setting this to `0.0..=0.0` disables the automatic correction.
     ///
-    /// The correction starts within this range and is clamped to it after smoothing.
-    /// This includes the correction from [`compensation_curve`](Self::compensation_curve).
+    /// The applied correction, including compensation from
+    /// [`compensation_curve`](Self::compensation_curve), always stays within this range.
     /// It is applied in addition to the camera's [`Exposure`](bevy_camera::Exposure) and
     /// color grading settings.
     ///
