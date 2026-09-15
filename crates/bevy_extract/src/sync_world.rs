@@ -375,8 +375,7 @@ mod sub_entities_world_query_impls {
         fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
     }
 
-    // SAFETY: Component access of Self::ReadOnly is a subset of Self.
-    // Self::ReadOnly matches exactly the same archetypes/tables as Self.
+    // SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl<L: AppLabel + Clone + Copy + Eq> QueryData for SubEntity<L> {
         const IS_READ_ONLY: bool = true;
         const IS_ARCHETYPAL: bool = <&MainEntity as QueryData>::IS_ARCHETYPAL;
@@ -506,8 +505,7 @@ mod sub_entities_world_query_impls {
         fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
     }
 
-    // SAFETY: Component access of Self::ReadOnly is a subset of Self.
-    // Self::ReadOnly matches exactly the same archetypes/tables as Self.
+    // SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl QueryData for MainEntity {
         const IS_READ_ONLY: bool = true;
         const IS_ARCHETYPAL: bool = <&MainEntity as QueryData>::IS_ARCHETYPAL;
