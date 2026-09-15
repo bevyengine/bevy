@@ -7,13 +7,13 @@ license = "MIT OR Apache-2.0"
 name = "bevy_curve"
 repository = "https://github.com/bevyengine/bevy"
 rust-version = "1.94.0"
-version = "0.20.0-dev"
+version = "0.20.0-rc.1"
 
 [dependencies]
-bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false, features = [
+bevy_math = { path = "../bevy_math", version = "0.20.0-rc.1", default-features = false, features = [
   "approx",
 ] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-features = false, optional = true }
+bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-rc.1", default-features = false, optional = true }
 
 itertools = { version = "0.14.0", default-features = false }
 thiserror = { version = "2", default-features = false }
@@ -26,7 +26,7 @@ variadics_please = "2.0"
 [dev-dependencies]
 approx = "0.5"
 # Enable the approx feature when testing.
-bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false, features = [
+bevy_math = { path = "../bevy_math", version = "0.20.0-rc.1", default-features = false, features = [
   "approx",
 ] }
 

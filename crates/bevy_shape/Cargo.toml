@@ -7,11 +7,11 @@ license = "MIT OR Apache-2.0"
 name = "bevy_shape"
 repository = "https://github.com/bevyengine/bevy"
 rust-version = "1.94.0"
-version = "0.20.0-dev"
+version = "0.20.0-rc.1"
 
 [dependencies]
-bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-features = false, features = [
+bevy_math = { path = "../bevy_math", version = "0.20.0-rc.1", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-rc.1", default-features = false, features = [
   "glam",
 ], optional = true }
 
@@ -31,7 +31,7 @@ rand_distr = { version = "0.6", optional = true }
 [dev-dependencies]
 approx = "0.5"
 # Enable the approx feature when testing.
-bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false, features = [
+bevy_math = { path = "../bevy_math", version = "0.20.0-rc.1", default-features = false, features = [
   "approx",
 ] }
 # Supply rngs for examples and tests
