@@ -8,10 +8,6 @@ use crate::bevy_state_path;
 pub fn derive_states(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    if let Err(e) = check_no_scoped_entities_attr(&ast) {
-        return e.into_compile_error().into();
-    }
-
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -41,25 +37,6 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 struct Source {
     source_type: Path,
     source_value: Pat,
-}
-
-/// Rejects the removed `#[states(scoped_entities)]` attribute.
-///
-/// State scoped entities are now always enabled, so the attribute no longer
-/// does anything. It was deprecated in 0.17; using it is now a compile error.
-fn check_no_scoped_entities_attr(ast: &DeriveInput) -> Result<()> {
-    for attr in ast.attrs.iter().filter(|a| a.path().is_ident("states")) {
-        attr.parse_nested_meta(|nested| {
-            if nested.path.is_ident("scoped_entities") {
-                return Err(nested.error(
-                    "the `#[states(scoped_entities)]` attribute has been removed: \
-                     state scoped entities are now always enabled",
-                ));
-            }
-            Ok(())
-        })?;
-    }
-    Ok(())
 }
 
 fn parse_sources_attr(ast: &DeriveInput) -> Result<Source> {
@@ -107,11 +84,6 @@ fn parse_sources_attr(ast: &DeriveInput) -> Result<Source> {
 
 pub fn derive_substates(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-
-    if let Err(e) = check_no_scoped_entities_attr(&ast) {
-        return e.into_compile_error().into();
-    }
-
     let sources = parse_sources_attr(&ast).expect("Failed to parse substate sources");
 
     let generics = ast.generics;
