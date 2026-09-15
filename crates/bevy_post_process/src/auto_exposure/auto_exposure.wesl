@@ -32,6 +32,8 @@ struct AutoExposure {
     speed_up: f32,
     speed_down: f32,
     exponential_transition_distance: f32,
+    correction_min: f32,
+    correction_max: f32,
 }
 
 struct CompensationCurve {
@@ -187,6 +189,9 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
         let exp_up = speed_up / settings.exponential_transition_distance;
         exposure = exposure + max(-speed_up, delta * exp_up);
     }
+
+    // Clamp the correction after smoothing to keep it within the configured range.
+    exposure = clamp(exposure, settings.correction_min, settings.correction_max);
 
     // Apply the exposure to the color grading settings, from where it will be used for the color
     // grading pass.
