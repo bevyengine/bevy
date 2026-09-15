@@ -1,5 +1,5 @@
-// Single pass downsampling shader for creating the mip chain for a texture
-// Ported from https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/c16b1d286b5b438b75da159ab51ff426bacea3d1/sdk/include/FidelityFX/gpu/spd/ffx_spd.h
+//! Single pass downsampling shader for creating the mip chain for a texture
+//! Ported from https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/c16b1d286b5b438b75da159ab51ff426bacea3d1/sdk/include/FidelityFX/gpu/spd/ffx_spd.h
 
 @group(0) @binding(0) var sampler_linear_clamp: sampler;
 @group(0) @binding(1) var<uniform> constants: Constants;

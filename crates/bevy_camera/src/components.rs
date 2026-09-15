@@ -100,3 +100,11 @@ pub enum CompositingSpace {
     /// Perceptually uniform blending. Often smoother gradients. Requires [`Hdr`] because its value can be outside [0, 1].
     Oklab,
 }
+
+impl CompositingSpace {
+    /// Whether this is the linear space, which needs no encode step.
+    #[inline]
+    pub fn is_linear(self) -> bool {
+        matches!(self, CompositingSpace::Linear)
+    }
+}

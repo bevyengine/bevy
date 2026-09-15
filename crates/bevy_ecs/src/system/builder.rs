@@ -8,19 +8,21 @@ use crate::{
     change_detection::{CheckChangeTicks, Tick},
     component::Mutable,
     prelude::QueryBuilder,
-    query::{FilteredAccessSet, QueryData, QueryFilter, QueryState},
+    query::{QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
         DynSystemParam, DynSystemParamState, FromInput, FunctionSystem, If, IntoResult, IntoSystem,
-        Local, ParamSet, Query, ReadOnlySystem, System, SystemInput, SystemMeta, SystemParam,
-        SystemParamFunction, SystemParamValidationError,
+        Local, ParamSet, Query, ReadOnlySystem, System, SystemAccess, SystemInput, SystemMeta,
+        SystemParam, SystemParamFunction, SystemParamValidationError,
     },
-    world::{
-        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources,
-        FilteredResourcesBuilder, FilteredResourcesMut, FilteredResourcesMutBuilder, FromWorld,
-        World,
-    },
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
+
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
+use crate::world::{
+    FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut, FilteredResourcesMutBuilder,
+};
+
 use core::{fmt::Debug, marker::PhantomData, mem};
 
 use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
@@ -424,7 +426,7 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         let inner = mem::replace(&mut self.inner, BuilderSystemInner::Invalid);
         match inner {
             BuilderSystemInner::Initialized { mut system } => {
@@ -802,8 +804,13 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
 /// A [`SystemParamBuilder`] for a [`FilteredResources`].
 /// See the [`FilteredResources`] docs for examples.
 #[derive(Clone)]
+#[deprecated(since = "0.20.0", note = "Use `QueryParamBuilder` instead.")]
 pub struct FilteredResourcesParamBuilder<T>(T);
 
+#[expect(
+    deprecated,
+    reason = "`FilteredResourcesParamBuilder` will be removed."
+)]
 impl<T> FilteredResourcesParamBuilder<T> {
     /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
     pub fn new(f: T) -> Self
@@ -814,6 +821,10 @@ impl<T> FilteredResourcesParamBuilder<T> {
     }
 }
 
+#[expect(
+    deprecated,
+    reason = "`FilteredResourcesParamBuilder` will be removed."
+)]
 impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuilder) + 'a>> {
     /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
     /// This boxes the callback so that it has a common type.
@@ -822,6 +833,10 @@ impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuil
     }
 }
 
+#[expect(
+    deprecated,
+    reason = "`FilteredResourcesParamBuilder` will be removed."
+)]
 // SAFETY: Any `Access` is a valid state for `FilteredResources`.
 unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
     SystemParamBuilder<FilteredResources<'w, 's>> for FilteredResourcesParamBuilder<T>
@@ -836,8 +851,13 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
 /// A [`SystemParamBuilder`] for a [`FilteredResourcesMut`].
 /// See the [`FilteredResourcesMut`] docs for examples.
 #[derive(Clone)]
+#[deprecated(since = "0.20.0", note = "Use `QueryParamBuilder` instead.")]
 pub struct FilteredResourcesMutParamBuilder<T>(T);
 
+#[expect(
+    deprecated,
+    reason = "`FilteredResourcesMutParamBuilder` will be removed."
+)]
 impl<T> FilteredResourcesMutParamBuilder<T> {
     /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
     pub fn new(f: T) -> Self
@@ -848,6 +868,10 @@ impl<T> FilteredResourcesMutParamBuilder<T> {
     }
 }
 
+#[expect(
+    deprecated,
+    reason = "`FilteredResourcesMutParamBuilder` will be removed."
+)]
 impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesMutBuilder) + 'a>> {
     /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
     /// This boxes the callback so that it has a common type.
@@ -856,6 +880,10 @@ impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesM
     }
 }
 
+#[expect(
+    deprecated,
+    reason = "`FilteredResourcesMutParamBuilder` will be removed."
+)]
 // SAFETY: Any `Access` is a valid state for `FilteredResourcesMut`.
 unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
     SystemParamBuilder<FilteredResourcesMut<'w, 's>> for FilteredResourcesMutParamBuilder<T>
@@ -1287,6 +1315,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(deprecated, reason = "`FilteredResources` will be removed.")]
     fn filtered_resource_conflicts_read_with_res() {
         let mut world = World::new();
         (
@@ -1301,6 +1330,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[expect(deprecated, reason = "`FilteredResources` will be removed.")]
     fn filtered_resource_conflicts_read_with_resmut() {
         let mut world = World::new();
         (
@@ -1315,6 +1345,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[expect(deprecated, reason = "`FilteredResources` will be removed.")]
     fn filtered_resource_conflicts_read_all_with_resmut() {
         let mut world = World::new();
         (
@@ -1328,6 +1359,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
     fn filtered_resource_mut_conflicts_read_with_res() {
         let mut world = World::new();
         (
@@ -1342,6 +1374,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
     fn filtered_resource_mut_conflicts_read_with_resmut() {
         let mut world = World::new();
         (
@@ -1356,6 +1389,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
     fn filtered_resource_mut_conflicts_write_with_res() {
         let mut world = World::new();
         (
@@ -1370,6 +1404,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
     fn filtered_resource_mut_conflicts_write_all_with_res() {
         let mut world = World::new();
         (
@@ -1384,6 +1419,7 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
     fn filtered_resource_mut_conflicts_write_with_resmut() {
         let mut world = World::new();
         (

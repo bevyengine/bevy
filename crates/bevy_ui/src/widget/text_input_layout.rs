@@ -5,7 +5,8 @@ use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, DetectChangesMut},
+    component::Component,
     entity::Entity,
     system::{Local, Query, Res, ResMut},
     world::Ref,
@@ -30,6 +31,13 @@ use taffy::MaybeMath;
 struct TextInputMeasure {
     width: Option<f32>,
     height: Option<f32>,
+}
+
+/// Cached inputs that determine an editable text node's intrinsic size.
+#[derive(Component, Default)]
+pub struct EditableTextContentSizeState {
+    visible_width: Option<f32>,
+    visible_lines: Option<f32>,
 }
 
 impl crate::Measure for TextInputMeasure {
@@ -72,18 +80,23 @@ fn query_family<'a, 'b>(
 /// - node width as `advance('0') * visible_width`, where `advance('0')` is looked up from font metrics.
 pub fn update_editable_text_content_size(
     mut text_input_query: Query<(
-        Ref<EditableText>,
+        &EditableText,
         Ref<TextFont>,
         Ref<LineHeight>,
         Ref<ComputedUiRenderTargetInfo>,
         &mut ContentSize,
+        &mut EditableTextContentSizeState,
     )>,
     fonts: Res<Assets<Font>>,
     mut font_cx: ResMut<FontCx>,
     rem_size: Res<RemSize>,
 ) {
-    for (editable_text, text_font, line_height, target, mut content_size) in &mut text_input_query {
-        if !(editable_text.is_changed()
+    for (editable_text, text_font, line_height, target, mut content_size, mut size_state) in
+        &mut text_input_query
+    {
+        let sizing_changed = size_state.visible_width != editable_text.visible_width
+            || size_state.visible_lines != editable_text.visible_lines;
+        if !(sizing_changed
             || text_font.is_changed()
             || line_height.is_changed()
             || target.is_changed()
@@ -91,6 +104,9 @@ pub fn update_editable_text_content_size(
         {
             continue;
         }
+
+        size_state.visible_width = editable_text.visible_width;
+        size_state.visible_lines = editable_text.visible_lines;
 
         let font_size = text_font.font_size.eval(target.logical_size(), *rem_size);
 
@@ -324,8 +340,13 @@ pub fn update_editable_text_layout(
         let cursor_width = editable_text.cursor_width;
         let cursor_blink_period = editable_text.cursor_blink_period;
         let cursor_margin = editable_text.cursor_margin;
-        let editable_text = &mut *editable_text;
-        let (editor, viewport) = (&mut editable_text.editor, &mut editable_text.viewport);
+        let viewport_before = editable_text.viewport;
+
+        // Bypass change detection, we will mark editable_text as changed
+        // at the bottom if genuinely changed, however editor.driver requires
+        // a mut ref.
+        let inner = editable_text.bypass_change_detection();
+        let (editor, viewport) = (&mut inner.editor, &mut inner.viewport);
 
         let mut driver = editor.driver(font_cx.as_mut(), layout_cx.as_mut());
 
@@ -536,6 +557,12 @@ pub fn update_editable_text_layout(
             ),
             full_layout_size.y,
         ));
+
+        // Mark editable_text as changed if it has been, since we bypassed
+        // change detection when taking a mut ref at the top
+        if layout_changed || *viewport != viewport_before {
+            editable_text.set_changed();
+        }
     }
 
     *previous_focus = current_focus;

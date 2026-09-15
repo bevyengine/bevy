@@ -1,13 +1,13 @@
-// 3x3 bilaterial filter (edge-preserving blur)
-// https://people.csail.mit.edu/sparis/bf_course/course_notes.pdf
-
-// Note: Does not use the Gaussian kernel part of a typical bilateral blur
-// From the paper: "use the information gathered on a neighborhood of 4 × 4 using a bilateral filter for
-// reconstruction, using _uniform_ convolution weights"
-
-// Note: The paper does a 4x4 (not quite centered) filter, offset by +/- 1 pixel every other frame
-// XeGTAO does a 3x3 filter, on two pixels at a time per compute thread, applied twice
-// We do a 3x3 filter, on 1 pixel per compute thread, applied once
+//! 3x3 bilaterial filter (edge-preserving blur)
+//! https://people.csail.mit.edu/sparis/bf_course/course_notes.pdf
+//!
+//! Note: Does not use the Gaussian kernel part of a typical bilateral blur
+//! From the paper: "use the information gathered on a neighborhood of 4 × 4 using a bilateral filter for
+//! reconstruction, using _uniform_ convolution weights"
+//!
+//! Note: The paper does a 4x4 (not quite centered) filter, offset by +/- 1 pixel every other frame
+//! XeGTAO does a 3x3 filter, on two pixels at a time per compute thread, applied twice
+//! We do a 3x3 filter, on 1 pixel per compute thread, applied once
 
 import bevy_render::view::View;
 

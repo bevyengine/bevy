@@ -59,10 +59,12 @@ use crate::{
     message::{
         Message, MessageCursor, MessageId, MessageIterator, MessageIteratorWithId, Messages,
     },
-    query::FilteredAccessSet,
     relationship::RelationshipHookMode,
     storage::SparseSet,
-    system::{Local, ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamValidationError},
+    system::{
+        Local, ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam,
+        SystemParamValidationError,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -317,15 +319,15 @@ impl ComponentHooks {
 }
 
 /// [`EventKey`] for [`Add`]
-pub const ADD: EventKey = EventKey(ComponentId::new(crate::component::ADD));
+pub const ADD: EventKey = EventKey(crate::component::ADD);
 /// [`EventKey`] for [`Insert`]
-pub const INSERT: EventKey = EventKey(ComponentId::new(crate::component::INSERT));
+pub const INSERT: EventKey = EventKey(crate::component::INSERT);
 /// [`EventKey`] for [`Discard`]
-pub const DISCARD: EventKey = EventKey(ComponentId::new(crate::component::DISCARD));
+pub const DISCARD: EventKey = EventKey(crate::component::DISCARD);
 /// [`EventKey`] for [`Remove`]
-pub const REMOVE: EventKey = EventKey(ComponentId::new(crate::component::REMOVE));
+pub const REMOVE: EventKey = EventKey(crate::component::REMOVE);
 /// [`EventKey`] for [`Despawn`]
-pub const DESPAWN: EventKey = EventKey(ComponentId::new(crate::component::DESPAWN));
+pub const DESPAWN: EventKey = EventKey(crate::component::DESPAWN);
 
 /// Trigger emitted when a component is inserted onto an entity that does not already have that
 /// component. Runs before `Insert`.
@@ -390,7 +392,6 @@ impl<B: Bundle> EventPattern for Insert<B> {
 #[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-
 pub struct DiscardEvent {
     /// The entity that held this component before it was discarded.
     pub entity: Entity,
@@ -700,10 +701,11 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
 
     fn init_access(
         _state: &Self::State,
-        _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        system_meta: &mut SystemMeta,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
+        system_access.require_shared_access::<Self>(system_meta);
     }
 
     #[inline]
