@@ -208,7 +208,7 @@ fn cause_error(error: If<Res<RenderError>>, device: Res<RenderDevice>, queue: Re
                 cpass.dispatch_workgroups(1, 1, 1);
             }
             device.poll(PollType::wait_indefinitely()).unwrap();
-            queue.submit([encoder.finish()]);
+            queue.submit([encoder.into_inner().finish()]);
         }
     }
 }
