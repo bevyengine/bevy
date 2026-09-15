@@ -339,12 +339,11 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // Reset `background_alpha` for a new raymarch.
     background_alpha = 1.0;
-    var ambient_background_alpha = 1.0;
 
     // Start raymarching.
     for (var step = 0u; step < step_count; step += 1u) {
         // As an optimization, break if we've gotten too dark.
-        if (background_alpha < 0.001 && ambient_intensity > 0.0) {
+        if (background_alpha < 0.001) {
             break;
         }
 
