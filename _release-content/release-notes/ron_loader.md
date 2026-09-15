@@ -1,7 +1,7 @@
 ---
 title: RonLoader and RonSaver
 authors: ["@andriyDev"]
-pull_requests: [25754]
+pull_requests: [25754, 25770]
 ---
 
 Custom assets are very useful to create. They allow users to define game-specific data that can be
