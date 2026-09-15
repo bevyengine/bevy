@@ -337,6 +337,9 @@ bevy_scene = ["bevy_internal/bevy_scene"]
 # Provides raytraced lighting (experimental)
 bevy_solari = ["bevy_internal/bevy_solari"]
 
+# Provides strand-based hair rendering
+bevy_hair_strands = ["bevy_internal/bevy_hair_strands"]
+
 # Provides sprite functionality
 bevy_sprite = ["bevy_internal/bevy_sprite"]
 
@@ -1379,6 +1382,18 @@ doc-scrape-examples = true
 [package.metadata.example.lines]
 name = "Lines"
 description = "Create a custom material to draw 3d lines"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "hair_strands"
+path = "examples/3d/hair_strands.rs"
+doc-scrape-examples = true
+required-features = ["bevy_hair_strands"]
+
+[package.metadata.example.hair_strands]
+name = "Hair Strands"
+description = "Renders strand-based hair as view-facing ribbons with an anisotropic hair material"
 category = "3D Rendering"
 wasm = true
 

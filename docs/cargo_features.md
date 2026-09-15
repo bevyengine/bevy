@@ -86,6 +86,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_gizmos|Adds support for gizmos|
 |bevy_gizmos_render|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
+|bevy_hair_strands|Provides strand-based hair rendering|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_input_focus|Enable input focus subsystem|
 |bevy_light|Provides light types such as point lights, directional lights, spotlights.|

@@ -1477,14 +1477,17 @@ impl RenderMeshInstanceGpuBuilder {
         };
         self.shared.material_bindings_index = mesh_material_binding_id;
 
-        let (first_vertex_index, vertex_count) =
-            match mesh_allocator.mesh_vertex_slice(&self.shared.asset_id.into()) {
-                Some(mesh_vertex_slice) => (
-                    mesh_vertex_slice.range.start,
-                    mesh_vertex_slice.range.end - mesh_vertex_slice.range.start,
-                ),
-                None => (0, 0),
-            };
+        // Look up the mesh's location in the mesh allocator. If it hasn't been
+        // allocated yet (for example, because the mesh asset was added after
+        // asset events were processed this frame, so it will only be extracted
+        // next frame), return None so that the entity is re-extracted next
+        // frame, exactly as we do for materials above. Otherwise the instance
+        // would be uploaded with a zero-length draw and never refreshed.
+        let mesh_vertex_slice = mesh_allocator.mesh_vertex_slice(&self.shared.asset_id.into())?;
+        let (first_vertex_index, vertex_count) = (
+            mesh_vertex_slice.range.start,
+            mesh_vertex_slice.range.end - mesh_vertex_slice.range.start,
+        );
         let (mesh_is_indexed, first_index_index, index_count) =
             match mesh_allocator.mesh_index_slice(&self.shared.asset_id.into()) {
                 Some(mesh_index_slice) => (

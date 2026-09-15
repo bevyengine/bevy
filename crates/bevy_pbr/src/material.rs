@@ -1095,6 +1095,11 @@ pub(crate) fn specialize_material_meshes(
                     continue;
                 };
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
+                    // The mesh may not have been prepared yet (for example, it
+                    // was added this frame), so try again next frame.
+                    view_pending_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {

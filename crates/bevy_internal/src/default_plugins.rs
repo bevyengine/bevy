@@ -77,6 +77,8 @@ plugin_group! {
         bevy_gltf:::GltfPlugin,
         #[cfg(feature = "bevy_pbr")]
         bevy_pbr:::PbrPlugin,
+        #[cfg(feature = "bevy_hair_strands")]
+        bevy_hair_strands:::HairStrandsPlugin,
         #[cfg(feature = "bevy_audio")]
         bevy_audio:::AudioPlugin,
         #[cfg(feature = "bevy_gilrs")]

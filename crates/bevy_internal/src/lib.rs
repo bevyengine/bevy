@@ -55,6 +55,8 @@ pub use bevy_gizmos as gizmos;
 pub use bevy_gizmos_render as gizmos_render;
 #[cfg(feature = "bevy_gltf")]
 pub use bevy_gltf as gltf;
+#[cfg(feature = "bevy_hair_strands")]
+pub use bevy_hair_strands as hair_strands;
 #[cfg(feature = "bevy_image")]
 pub use bevy_image as image;
 pub use bevy_input as input;
