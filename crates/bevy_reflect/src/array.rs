@@ -50,6 +50,8 @@ use core::{
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
 /// [`Deserialize`]: ::serde::Deserialize
+// Prevents unexpectedly importing this trait when trying to call, for example, `array::map`
+#[rust_analyzer::completions(ignore_flyimport_methods)]
 pub trait Array: PartialReflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn PartialReflect>;

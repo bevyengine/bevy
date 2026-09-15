@@ -4,8 +4,8 @@ use crate::_bsn::types::{
     BsnSceneListItems, BsnStructUpdate, BsnType, BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
-use proc_macro2::{Delimiter, Group, TokenStream, TokenTree};
-use quote::{format_ident, quote, ToTokens};
+use proc_macro2::{Delimiter, Group, Span, TokenStream, TokenTree};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use syn::{parse::Parse, ExprTuple, Ident, Lit, Member, Path};
 
@@ -64,21 +64,61 @@ pub(crate) struct BsnCodegenCtx<'a> {
     pub hoisted_expressions: &'a mut HoistedExpressions,
     /// Accumulated parsing and validation errors.
     pub errors: Vec<syn::Error>,
+    pub deprecations: Vec<TokenStream>,
 }
 impl<'a> BsnCodegenCtx<'a> {
     fn fixed_entity_ref(&mut self, ident: &Ident) -> (String, usize) {
         let string = ident.to_string();
         (ident.to_string(), self.entity_refs.get(string))
     }
+
+    fn validate_macro_uses_braces(&mut self) {
+        let span = Span::call_site();
+        let Some(source_text) = span.source_text() else {
+            return;
+        };
+
+        const BSN_LIST: &str = "bsn_list!";
+        const BSN: &str = "bsn!";
+
+        let (name, remaining) = if let Some(remaining) = source_text.strip_prefix(BSN_LIST) {
+            (BSN_LIST, remaining)
+        } else if let Some(remaining) = source_text.strip_prefix(BSN) {
+            (BSN, remaining)
+        } else {
+            eprintln!("Unknown macro root! {}", source_text);
+            return;
+        };
+
+        for character in remaining.chars() {
+            if character.is_whitespace() {
+                continue;
+            }
+
+            match character {
+                '(' | '[' => {
+                    self.deprecations.push(deprecation_warning(
+                        span,
+                        "USE_BRACE_FOR_BSN_MACRO",
+                        &format!("'{name} {character}' should not be used, as rustfmt can mangle the outputs. Use '{name} {{ }}' instead"),
+                    ));
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 pub trait BsnTokenStream: Parse {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream;
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream;
 }
 
 impl BsnTokenStream for BsnRoot {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        let tokens = self.0.to_tokens(ctx);
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        ctx.validate_macro_uses_braces();
+        let tokens = self.0.into_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
@@ -91,9 +131,15 @@ impl BsnTokenStream for BsnRoot {
             None
         };
 
-        if call_id.is_some() || hoisted_exprs.len() > 0 || errors.len() > 0 {
+        let deprecations = ctx.deprecations.iter();
+        if call_id.is_some()
+            || hoisted_exprs.len() > 0
+            || errors.len() > 0
+            || ctx.deprecations.len() > 0
+        {
             quote! {
                 #bevy_scene::SceneScope({
+                    #(#deprecations)*
                     #call_id
                     #(#hoisted_exprs)*
                     #(#errors)*
@@ -109,8 +155,9 @@ impl BsnTokenStream for BsnRoot {
 }
 
 impl BsnTokenStream for BsnListRoot {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        let tokens = self.0.to_tokens(ctx);
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        ctx.validate_macro_uses_braces();
+        let tokens = self.0.into_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
@@ -123,9 +170,15 @@ impl BsnTokenStream for BsnListRoot {
             None
         };
 
-        if errors.len() > 0 || hoisted_exprs.len() > 0 || call_id.is_some() {
+        let deprecations = ctx.deprecations.iter();
+        if errors.len() > 0
+            || hoisted_exprs.len() > 0
+            || call_id.is_some()
+            || ctx.deprecations.len() > 0
+        {
             quote! {
                 {
+                    #(#deprecations)*
                     #call_id
                     #(#hoisted_exprs)*
                     #(#errors)*
@@ -140,14 +193,14 @@ impl BsnTokenStream for BsnListRoot {
     }
 }
 
-impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
+impl Bsn {
     /// Converts to tokens and performs validation checks.
     /// Accumulates errors in [`BsnCodegenCtx`].
-    pub fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+    pub fn try_into_tokens(self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let bevy_scene = ctx.bevy_scene;
         let mut combined_patches = Vec::new();
         let mut scene_impls = Vec::new();
-        for entry in &self.entries {
+        for entry in self.entries {
             match entry.try_to_tokens(ctx) {
                 Ok(EntryResult::CombinedSceneFunction(patch)) => combined_patches.push(patch),
                 Ok(EntryResult::NewSceneImpl(scene_impl)) => {
@@ -173,12 +226,19 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
             });
         }
 
+        if let Some(span) = self.used_parens {
+            ctx.deprecations.push(deprecation_warning(
+                span,
+                "DEPRECATED_PARENTHESES",
+                "Parentheses around entities (and comma separators) have been deprecated in BSN. Remove the parentheses and use `--` to separate entities",
+            ));
+        }
         let scene_impls = AutoNestTuple(&scene_impls);
         Ok(quote! { #scene_impls })
     }
 
-    pub fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        self.try_to_tokens(ctx)
+    pub fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        self.try_into_tokens(ctx)
             .unwrap_or_else(|e| e.to_compile_error())
     }
 }
@@ -215,7 +275,7 @@ enum EntryResult {
 }
 
 impl BsnEntry {
-    fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<EntryResult> {
+    fn try_to_tokens(self, ctx: &mut BsnCodegenCtx) -> syn::Result<EntryResult> {
         let (bevy_scene, bevy_ecs) = (ctx.bevy_scene, ctx.bevy_ecs);
 
         Ok(match self {
@@ -278,7 +338,7 @@ impl BsnEntry {
                     },
                 dot_expression,
             } => EntryResult::CombinedSceneFunction({
-                let args = args.to_tokens(ctx);
+                let args = args.into_tokens(ctx);
                 if let Some(dot_expr) = dot_expression {
                     quote! {
                         _scene.insert_template::<#type_path>(#type_path::#function #args #dot_expr);
@@ -298,7 +358,7 @@ impl BsnEntry {
                     },
                 dot_expression,
             } => EntryResult::CombinedSceneFunction({
-                let args = args.to_tokens(ctx);
+                let args = args.into_tokens(ctx);
                 if let Some(dot_expr) = dot_expression {
                     quote! {
                         _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args #dot_expr);
@@ -313,15 +373,15 @@ impl BsnEntry {
                 scene_list,
                 relationship_path,
             }) => {
-                let scenes = scene_list.0.to_tokens(ctx);
+                let scenes = scene_list.0.into_tokens(ctx);
                 EntryResult::NewSceneImpl(quote! {
                     #bevy_scene::RelatedScenes::<#relationship_path>::new(#scenes)
                 })
             }
-            BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
-            BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
+            BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.into_tokens(ctx)?),
+            BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.into_tokens(ctx)?),
             BsnEntry::Name(ident) => {
-                let (name, index) = ctx.fixed_entity_ref(ident);
+                let (name, index) = ctx.fixed_entity_ref(&ident);
                 let invocation = ctx.invocation_index.clone();
                 EntryResult::CombinedSceneFunction(quote! {
                     #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
@@ -331,7 +391,7 @@ impl BsnEntry {
                 _scene.insert_template(#token_stream);
             }),
             BsnEntry::Function(BsnFnCall { args, path }) => {
-                let args = args.to_tokens(ctx);
+                let args = args.into_tokens(ctx);
                 EntryResult::CombinedSceneFunction(quote! {
                     _scene.insert_template(#path #args);
                 })
@@ -341,13 +401,13 @@ impl BsnEntry {
 }
 
 impl BsnScene {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let bevy_scene = ctx.bevy_scene;
         match self {
             BsnScene::Asset(lit) => Ok(quote! {
                 #bevy_scene::CachedSceneAsset::from(#lit)
             }),
-            BsnScene::Fn(func) => Ok(func.to_tokens(ctx)),
+            BsnScene::Fn(func) => Ok(func.into_tokens(ctx)),
             BsnScene::SceneComponent(bsn_type) => {
                 let props = format_ident!("__props");
                 let props_ref = format_ident!("__props_ref");
@@ -789,17 +849,24 @@ impl ToTokens for BsnStructUpdate {
 }
 
 impl BsnTokenStream for BsnSceneListItems {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        for comma in self.1.iter() {
+            ctx.deprecations.push(deprecation_warning(
+                *comma,
+                "DEPRECATED_COMMAS",
+                "Comma separators (and parentheses around entities) have been deprecated in BSN. Use `--` to separate entities and remove any parentheses"
+            ));
+        }
         let bevy_scene = ctx.bevy_scene;
         let scenes = self
             .0
-            .iter()
+            .into_iter()
             .map(|s| match s {
                 BsnSceneListItem::Scene(bsn) => {
-                    let tokens = bsn.to_tokens(ctx);
+                    let tokens = bsn.into_tokens(ctx);
                     quote! {#bevy_scene::EntityScene(#tokens)}
                 }
-                BsnSceneListItem::Expression(tokens) => tokens.clone(),
+                BsnSceneListItem::Expression(tokens) => tokens,
             })
             .collect::<Vec<_>>();
 
@@ -809,23 +876,23 @@ impl BsnTokenStream for BsnSceneListItems {
 }
 
 impl BsnSceneFn {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let bevy_scene = ctx.bevy_scene;
-        let args = self.args.to_tokens(ctx);
+        let args = self.args.into_tokens(ctx);
         let path = &self.path;
         quote! {#bevy_scene::SceneScope(#path #args)}
     }
 }
 
 impl BsnTokenStream for BsnFnArgs {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        let args = self.0.iter().map(|a| a.to_tokens(ctx));
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        let args = self.0.into_iter().map(|a| a.into_tokens(ctx));
         quote! { (#(#args),*) }
     }
 }
 
 impl BsnTokenStream for BsnFnArg {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let bevy_ecs = ctx.bevy_ecs;
         match self {
             BsnFnArg::EntityName(ident) => {
@@ -880,6 +947,23 @@ impl ToTokens for BsnValue {
     }
 }
 
+fn deprecation_warning(span: Span, name: &str, message: &str) -> TokenStream {
+    let name = Ident::new(name, Span::call_site());
+    quote_spanned!(span =>
+        {
+        #[allow(dead_code)]
+        #[allow(non_camel_case_types)]
+        #[allow(non_snake_case)]
+        fn #name() {
+            #[deprecated(note = #message)]
+            #[allow(non_upper_case_globals)]
+            const warning: () = ();
+            let _ = warning;
+        }
+        }
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -927,6 +1011,7 @@ mod tests {
                 invocation_index: parse_quote!(("", 0, 0)),
                 hoisted_expressions,
                 errors: Vec::new(),
+                deprecations: Vec::new(),
             }
         }
     }
@@ -1129,10 +1214,13 @@ mod tests {
             proc_macro2::Span::call_site(),
             "Test Error",
         ));
-        let root = BsnRoot(Bsn::<true> { entries: vec![] });
+        let root = BsnRoot(Bsn {
+            entries: vec![],
+            used_parens: None,
+        });
 
         // Act
-        let res = root.to_tokens(&mut ctx).to_string();
+        let res = root.into_tokens(&mut ctx).to_string();
 
         // Assert
         assert_eq!(res, expected,);
@@ -1152,10 +1240,10 @@ mod tests {
             proc_macro2::Span::call_site(),
             "Test Error",
         ));
-        let root = BsnListRoot(BsnSceneListItems(vec![]));
+        let root = BsnListRoot(BsnSceneListItems(vec![], vec![]));
 
         // Act
-        let res = root.to_tokens(&mut ctx).to_string();
+        let res = root.into_tokens(&mut ctx).to_string();
 
         // Assert
         assert_eq!(res, expected,);

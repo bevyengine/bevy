@@ -10,8 +10,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUSTDOCFLAGS: --html-in-header header.html
-  # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: nightly
 
 # Sets the permissions to allow deploying to Github pages.
 permissions:
@@ -39,11 +37,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install toolchain
-        run: |
-          rustup toolchain install ${{ env.NIGHTLY_TOOLCHAIN }} --no-self-update --profile=minimal
-          rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
-          cargo -V
+      - uses: ./.github/actions/install-rust
+        with:
+          channel: nightly
 
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps

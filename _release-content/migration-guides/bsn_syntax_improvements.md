@@ -121,3 +121,63 @@ bsn! {
 ```
 
 In general, you should now be able to remove all `template_value` instances from your BSN declarations!
+
+List syntax in BSN has also been improved. BSN used to use commas to separate entities, with optional `()` around entities to make the boundaries clearer. This resulted in a lot of syntax noise, line noise, and over-indentation:
+
+```rust
+bsn! {
+    Node 
+    Children [
+        (
+            #OkButton
+            @button("Ok")
+        ),
+        (
+            #CancelButton
+            @button("Cancel")
+        ),
+    ]
+}
+```
+
+To avoid this, many developers opted for this syntax instead, which made it very hard to visually distinguish entities:
+
+```rust
+bsn! {
+    Node 
+    Children [
+        #OkButton
+        @button("Ok"),
+        #CancelButton
+        @button("Cancel"),
+    ]
+}
+```
+
+BSN now uses `--` to separate entities:
+
+```rust
+bsn! {
+    Node 
+    Children [
+        #OkButton
+        @button("Ok")
+        --
+        #CancelButton
+        @button("Cancel")
+    ]
+}
+```
+
+This gives us the best of all worlds: entities are visually distinct, and there is no over-indentation, line noise, or syntax noise. Both `()` and `,` have been deprecated in this context.
+
+Using `[]` and `()` for `bsn_list!` (and `bsn!`) is now discouraged / warned against (ex: `bsn_list! []`), as it can result in poor rustfmt autoformatting. Instead, use `bsn_list! {}`, which is the only syntax that `rustfmt` won't touch. Don't worry, we
+plan to build a BSN auto-formatter!
+
+```rust
+bsn_list! {
+    #Ok @button("Ok")
+    --
+    #Cancel @button("Cancel")
+}
+```
