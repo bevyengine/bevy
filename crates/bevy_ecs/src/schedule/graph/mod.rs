@@ -47,7 +47,7 @@ impl Dependency {
     /// Marks the dependency to ignore deferred commands between systems.
     /// This tells the [`AutoInsertApplyDeferredPass`] to ignore this dependency when considering sync points.
     ///
-    /// [`AutoInsertApplyDeferredPass`]: crate::schedule::AutoInsertApplyDeferredPass
+    /// [`AutoInsertApplyDeferredPass`]: crate::schedule::passes::AutoInsertApplyDeferredPass
     pub fn ignore_deferred(mut self) -> Self {
         self.ignore_deferred = true;
         self
