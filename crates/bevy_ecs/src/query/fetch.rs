@@ -312,7 +312,7 @@ use variadics_please::all_tuples;
 /// # Safety
 ///
 /// - It must be valid to transmute `Self::State` to `Self::ReadOnly::State`,
-///   and the resulting `Self::ReadOnly` must have a subset of the access of `Self`
+///   and the resulting `Self::ReadOnly` must have a non-strict subset of the access of `Self`
 ///   and must match exactly the same archetypes/tables as `Self`.
 ///   Note that this is trivially true if `Self::ReadOnly == Self`.
 /// - `IS_READ_ONLY` must be `true` if and only if `Self: ReadOnlyQueryData`
@@ -1152,7 +1152,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 // SAFETY:
 // - `State` is `()` for both `EntityMut` and `EntityRef`,
 //   so transmuting always results in a valid state.
-// - Access of `EntityRef` is a subset of `EntityMut`.
+// - Access of `EntityRef` is a non-strict subset of `EntityMut`.
 // - Both `EntityMut` and `EntityRef` match all entities.
 unsafe impl<'a> QueryData for EntityMut<'a> {
     const IS_READ_ONLY: bool = false;
@@ -1422,7 +1422,7 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
 // SAFETY:
 // - `State` is `Access` for both `FilteredEntityMut` and `FilteredEntityRef`.
 //   `FilteredEntityRef` accepts any `Access`, so the transmute is always valid.
-// - Access of `FilteredEntityRef` is a subset of `FilteredEntityMut` for the same `Access`.
+// - Access of `FilteredEntityRef` is a non-strict subset of `FilteredEntityMut` for the same `Access`.
 // - Both `FilteredEntityMut` and `FilteredEntityRef` match all entities.
 unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     const IS_READ_ONLY: bool = false;
@@ -1709,7 +1709,7 @@ where
 // - `State` for both `EntityRefExcept` and `EntityMutExcept` is an `Access`
 //   with access to all components except those in `B` in the current world.
 //  `EntityRefExcept` will ignore the extra write access in the transmuted `Access`.
-// - Access of `EntityRefExcept` is a subset of `EntityMutExcept` for the same `Access`.
+// - Access of `EntityRefExcept` is a non-strict subset of `EntityMutExcept` for the same `Access`.
 // - Both `EntityMutExcept` and `EntityRefExcept` match all entities.
 unsafe impl<'a, 'b, B> QueryData for EntityMutExcept<'a, 'b, B>
 where
@@ -3148,7 +3148,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Nes
 
 // SAFETY:
 // - `Self::State` is a `QueryState<D, F>`, which can always be transmuted to a valid `QueryState<D::ReadOnly, F>`.
-// - `Self::ReadOnly` accesses `D::ReadOnly`, which is a subset of the data accessed by `D`.
+// - `Self::ReadOnly` accesses `D::ReadOnly`, which is a non-strict subset of the data accessed by `D`.
 // - `NestedQuery` always matches all entities.
 // - `IS_READ_ONLY` iff `D::IS_READ_ONLY` iff `D: ReadOnlyQueryData` iff `Self: ReadOnlyQueryData`
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for NestedQuery<D, F> {

@@ -124,7 +124,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn as_readonly(&self) -> &QueryState<D::ReadOnly, F> {
         // SAFETY: `WorldQuery` trait ensures `D::State` may be transmuted to
         // `D::ReadOnly::State` and that the resulting `QueryData`
-        // has a subset of the access and matches the exact same archetypes/tables as `D`.
+        // has a non-strict subset of the access and matches the exact same archetypes/tables as `D`.
         unsafe { self.as_transmuted_state::<D::ReadOnly>() }
     }
 
@@ -148,7 +148,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Safety
     ///
     /// It must be valid to transmute `D::State` to `NewD::State`,
-    /// and the resulting state must have a subset of the access that
+    /// and the resulting state must have a non-strict subset of the access that
     /// `D` does and match the exact same archetypes/tables
     pub(crate) unsafe fn as_transmuted_state<NewD: ReadOnlyQueryData>(
         &self,
