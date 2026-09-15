@@ -294,7 +294,7 @@ impl SystemAccess {
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::ComponentId,
+        component::ComponentIds,
         query::{FilteredAccess, FilteredAccessSet},
         system::{SystemAccess, SystemMeta},
     };
@@ -356,10 +356,11 @@ mod tests {
 
     #[test]
     fn check_compatibility() {
+        let mut ids = ComponentIds::default();
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ComponentId::new(1));
+            set.add_unfiltered_component_read(ids.next_mut());
             set
         });
         let access_exclusive = SystemAccess::Exclusive;
@@ -379,10 +380,11 @@ mod tests {
 
     #[test]
     fn conflict_reporting() {
+        let mut ids = ComponentIds::default();
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ComponentId::new(1));
+            set.add_unfiltered_component_read(ids.next_mut());
             set
         });
         let access_exclusive = SystemAccess::Exclusive;
@@ -447,10 +449,13 @@ mod tests {
 
     #[test]
     fn conversion_to_access_sets() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ComponentId::new(1));
+            set.add_unfiltered_component_read(id_1);
             set
         });
         let access_exclusive = SystemAccess::Exclusive;
@@ -461,7 +466,7 @@ mod tests {
         );
         assert_eq!(access_shared.to_filtered_access_set().into_owned(), {
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ComponentId::new(1));
+            set.add_unfiltered_component_read(id_1);
             set
         });
         assert_eq!(access_exclusive.to_filtered_access_set().into_owned(), {
@@ -475,12 +480,13 @@ mod tests {
 
     #[test]
     fn extending_access() {
+        let mut ids = ComponentIds::default();
         let mut access = SystemAccess::default();
 
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ComponentId::new(1));
+            set.add_unfiltered_component_read(ids.next_mut());
             set
         });
         let access_exclusive = SystemAccess::Exclusive;
