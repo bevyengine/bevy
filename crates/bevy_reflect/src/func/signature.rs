@@ -76,7 +76,7 @@ impl<'a, 'b> ArgListSignature<'a, 'b> {
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &Type> {
         self.0.iter().map(|arg| {
             arg.value()
-                .get_represented_type_info()
+                .runtime_type_info()
                 .unwrap_or_else(|| {
                     panic!("no `TypeInfo` found for argument: {:?}", arg);
                 })
@@ -101,7 +101,7 @@ impl Hash for ArgListSignature<'_, '_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.iter().for_each(|arg| {
             arg.value()
-                .get_represented_type_info()
+                .runtime_type_info()
                 .unwrap_or_else(|| {
                     panic!("no `TypeInfo` found for argument: {:?}", arg);
                 })
@@ -189,7 +189,7 @@ impl From<&ArgList<'_>> for ArgumentSignature {
             args.iter()
                 .map(|arg| {
                     arg.value()
-                        .get_represented_type_info()
+                        .runtime_type_info()
                         .unwrap_or_else(|| {
                             panic!("no `TypeInfo` found for argument: {:?}", arg);
                         })

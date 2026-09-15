@@ -1,6 +1,6 @@
 //! Provides access to [`Type`]: a [`TypePath`]-powered replacement for [`TypeId`].
 
-use crate::{TypePath, TypePathTable};
+use crate::{DynamicTypePath, TypePath, TypePathTable};
 use core::any::{Any, TypeId};
 use core::fmt::{Debug, Formatter};
 use core::hash::Hash;
@@ -62,6 +62,14 @@ impl Type {
     pub fn of<T: TypePath + ?Sized>() -> Self {
         Self {
             type_path_table: TypePathTable::of::<T>(),
+            type_id: TypeId::of::<T>(),
+        }
+    }
+
+    /// Create a new [`Type`] from a value.
+    pub fn of_value<T: DynamicTypePath + ?Sized + 'static>(value: &T) -> Self {
+        Self {
+            type_path_table: value.reflect_type_path_table(),
             type_id: TypeId::of::<T>(),
         }
     }
