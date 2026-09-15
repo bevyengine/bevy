@@ -9,8 +9,8 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-bevy_ci_testing = ["dep:serde", "dep:ron"]
-screenrecording = ["dep:x264"]
+bevy_ci_testing = ["dep:serde", "dep:ron", "dep:bevy_render"]
+screenrecording = ["dep:x264", "render"]
 render = [
   "dep:bevy_render",
   "dep:bevy_core_pipeline",
