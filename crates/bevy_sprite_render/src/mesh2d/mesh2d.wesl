@@ -7,10 +7,7 @@ import package::mesh2d::{
 
 @if(TONEMAP_IN_SHADER)
 import bevy_core_pipeline::tonemapping;
-@if(SRGB_OUTPUT)
-import bevy_render::color_operations::linear_to_srgb;
-@if(OKLAB_OUTPUT)
-import bevy_render::color_operations::linear_rgb_to_oklab;
+import bevy_render::writer_encode::writer_encode;
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
@@ -54,11 +51,7 @@ fn fragment(
     var color = in.color;
 @if(TONEMAP_IN_SHADER)
     color = tonemapping::tone_mapping(color, view.color_grading);
-@if(SRGB_OUTPUT)
-    color = vec4(linear_to_srgb(color.rgb), color.a);
-@if(OKLAB_OUTPUT)
-    color = vec4(linear_rgb_to_oklab(color.rgb), color.a);
-    return color;
+    return writer_encode(color);
 } @else {
     return vec4<f32>(1.0, 0.0, 1.0, 1.0);
 }

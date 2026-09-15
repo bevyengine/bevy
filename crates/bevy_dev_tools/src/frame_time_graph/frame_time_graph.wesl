@@ -1,4 +1,5 @@
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+import bevy_render::writer_encode::writer_encode;
 
 @group(1) @binding(0) var<storage> values: array<f32>;
 struct Config {
@@ -57,11 +58,11 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         let size = vec2(frame_width, frame_height) / 2.0;
         let offset = vec2(1.0 - graph_width - size.x, 1. - size.y);
         if (sdf_square(in.uv, size, offset) < 0.0) {
-            return color_from_dt(dt);
+            return writer_encode(color_from_dt(dt));
         }
 
         graph_width += frame_width;
     }
 
-    return vec4(0.0, 0.0, 0.0, 0.5);
+    return writer_encode(vec4(0.0, 0.0, 0.0, 0.5));
 }
