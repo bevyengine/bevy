@@ -848,55 +848,87 @@ impl PipelineCache {
     ) -> CachedPipelineState {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
+        let shader_module_cache = self.shader_module_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
-        let bind_group_layout = descriptor
-            .layout
-            .iter()
-            .map(|bind_group_layout_descriptor| {
-                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor)
-            })
-            .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
+        let bind_group_layout = self.collect_bind_group_layouts(&descriptor.layout);
 
         create_pipeline_task(
             async move {
-                let mut shader_cache = shader_cache.lock().unwrap();
-                let mut layout_cache = layout_cache.lock().unwrap();
+                let (mesh_module, fragment_module, task_module, layout) = {
+                    let mut shader_cache = shader_cache.lock().unwrap();
+                    let mut layout_cache = layout_cache.lock().unwrap();
 
-                let mesh_module = match shader_cache.get(
-                    id,
-                    descriptor.mesh.shader.id(),
-                    &descriptor.mesh.shader_defs,
-                ) {
-                    Ok(module) => module,
-                    Err(err) => return Err(err),
-                };
+                    let mesh_module = shader_cache.get(
+                        id,
+                        descriptor.mesh.shader.id(),
+                        &descriptor.mesh.shader_defs,
+                    )?;
 
-                let fragment_module = match &descriptor.fragment {
-                    Some(fragment) => {
-                        match shader_cache.get(id, fragment.shader.id(), &fragment.shader_defs) {
-                            Ok(module) => Some(module),
-                            Err(err) => return Err(err),
+                    let fragment_module = match &descriptor.fragment {
+                        Some(fragment) => Some(shader_cache.get(
+                            id,
+                            fragment.shader.id(),
+                            &fragment.shader_defs,
+                        )?),
+                        None => None,
+                    };
+
+                    let task_module = match &descriptor.task {
+                        Some(task) => {
+                            Some(shader_cache.get(id, task.shader.id(), &task.shader_defs)?)
                         }
-                    }
-                    None => None,
+                        None => None,
+                    };
+
+                    let layout = get_or_create_pipeline_layout(
+                        &mut layout_cache,
+                        &device,
+                        &bind_group_layout,
+                        &descriptor.layout,
+                        descriptor.immediate_size,
+                    );
+
+                    (mesh_module, fragment_module, task_module, layout)
                 };
 
-                let task_module = match &descriptor.task {
-                    Some(task) => match shader_cache.get(id, task.shader.id(), &task.shader_defs) {
-                        Ok(module) => Some(module),
-                        Err(err) => return Err(err),
-                    },
-                    None => None,
+                let mut shader_module_cache = shader_module_cache.lock().await;
+
+                let mesh_module = get_or_create_shader_module(
+                    &device,
+                    &mut shader_module_cache,
+                    &descriptor.mesh.shader.id(),
+                    &descriptor.mesh.shader_defs,
+                    &mesh_module,
+                )
+                .await?;
+
+                let fragment_module = match (&fragment_module, &descriptor.fragment) {
+                    (Some(fragment_module), Some(desc_fragment)) => Some(
+                        get_or_create_shader_module(
+                            &device,
+                            &mut shader_module_cache,
+                            &desc_fragment.shader.id(),
+                            &desc_fragment.shader_defs,
+                            fragment_module,
+                        )
+                        .await?,
+                    ),
+                    _ => None,
                 };
 
-                let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
-                    None
-                } else {
-                    Some(layout_cache.get(&device, &bind_group_layout, descriptor.immediate_size))
+                let task_module = match (&task_module, &descriptor.task) {
+                    (Some(task_module), Some(desc_task)) => Some(
+                        get_or_create_shader_module(
+                            &device,
+                            &mut shader_module_cache,
+                            &desc_task.shader.id(),
+                            &desc_task.shader_defs,
+                            task_module,
+                        )
+                        .await?,
+                    ),
+                    _ => None,
                 };
-
-                drop((shader_cache, layout_cache));
 
                 let fragment_data = descriptor.fragment.as_ref().map(|fragment| {
                     (
