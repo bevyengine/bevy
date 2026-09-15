@@ -47,15 +47,7 @@ macro_rules! parse_punctuated_vec_autocomplete_friendly {
 
 impl Parse for BsnRoot {
     fn parse(input: ParseStream) -> Result<Self> {
-        let bsn = input.parse::<Bsn>()?;
-        Ok(if input.peek(TwoMinus) || input.peek(Comma) {
-            let _ = input.parse::<CommaOrTwoMinus>()?;
-            let mut items = input.parse::<BsnSceneListItems>()?;
-            items.0.insert(0, BsnSceneListItem::Scene(bsn));
-            BsnRoot::BsnList(items)
-        } else {
-            BsnRoot::Bsn(bsn)
-        })
+        Ok(BsnRoot(input.parse::<Bsn>()?))
     }
 }
 
@@ -69,7 +61,6 @@ impl Parse for Bsn {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut entries = Vec::new();
         let mut used_parens = None;
-        // TODO: remove this case when parens are fully deprecated
         if input.peek(Paren) {
             used_parens = Some(input.span());
             let content;
