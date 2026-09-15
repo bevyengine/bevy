@@ -36,7 +36,7 @@ use bevy_render::{
         RenderDevice, RenderQueue,
     },
     texture::CachedTexture,
-    view::prepare_view_targets,
+    view::{prepare_view_targets, NeedsSceneLinearTarget},
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use dlss_wgpu::{
@@ -201,7 +201,14 @@ impl Plugin for DlssPlugin {
 /// Camera component to enable DLSS.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
-#[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass, Hdr)]
+#[require(
+    TemporalJitter,
+    MipBias,
+    DepthPrepass,
+    MotionVectorPrepass,
+    Hdr,
+    NeedsSceneLinearTarget
+)]
 pub struct Dlss<F: DlssFeature = DlssSuperResolutionFeature> {
     /// How much upscaling should be applied.
     #[reflect(remote = DlssPerfQualityModeRemoteReflect)]

@@ -49,8 +49,8 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget,
-        ViewUniform, ViewUniformOffset, ViewUniforms,
+        prepare_view_targets, ExtractedView, Msaa, NeedsSceneLinearTarget, ViewDepthStencilTexture,
+        ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -75,6 +75,7 @@ pub struct DepthOfFieldPlugin;
 /// [depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(Component, Clone, Default)]
+#[require(NeedsSceneLinearTarget)]
 pub struct DepthOfField {
     /// The appearance of the effect.
     pub mode: DepthOfFieldMode,
