@@ -2,7 +2,8 @@ use crate::{
     change_detection::Tick,
     prelude::World,
     system::{
-        ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError,
+        ParameterAccessConflict, ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam,
+        SystemParamValidationError,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -61,8 +62,8 @@ unsafe impl SystemParam for SystemName {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         _system_access: &mut SystemAccess,
-        _world: &mut World,
-    ) {
+    ) -> Result<(), ParameterAccessConflict> {
+        Ok(())
     }
 
     #[inline]

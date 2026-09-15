@@ -5,13 +5,13 @@ use crate::{
     prelude::FromWorld,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemAccess, SystemIn,
-        SystemInput, SystemParam, SystemParamItem,
+        check_system_change_tick, FromInput, ParameterAccessConflict, ReadOnlySystemParam, System,
+        SystemAccess, SystemIn, SystemInput, SystemParam, SystemParamItem,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
-use alloc::{borrow::Cow, vec, vec::Vec};
+use alloc::{borrow::Cow, format, string::String, vec, vec::Vec};
 use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
@@ -302,10 +302,9 @@ impl<Param: SystemParam> SystemState<Param> {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = Param::init_state(world);
-        let mut access = SystemAccess::default();
         // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
         // even though we don't use the calculated access.
-        Param::init_access(&param_state, &mut meta, &mut access, world);
+        init_param_or_panic::<Param>(&param_state, &mut meta, world.into());
         Self {
             meta,
             param_state,
@@ -318,10 +317,9 @@ impl<Param: SystemParam> SystemState<Param> {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = builder.build(world);
-        let mut access = SystemAccess::default();
         // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
         // even though we don't use the calculated access.
-        Param::init_access(&param_state, &mut meta, &mut access, world);
+        init_param_or_panic::<Param>(&param_state, &mut meta, world.into());
         Self {
             meta,
             param_state,
@@ -563,6 +561,120 @@ where
     }
 }
 
+/// Registers any [`World`] access used by the given [`SystemParam`].
+///
+/// This method will panic with a descriptive message if [`SystemParam::init_access`] returns [`Err`].
+fn init_param_or_panic<P: SystemParam>(
+    state: &P::State,
+    system_meta: &mut SystemMeta,
+    world: UnsafeWorldCell,
+) -> SystemAccess {
+    let mut access = SystemAccess::default();
+    P::init_access(state, system_meta, &mut access).unwrap_or_else(|err2| {
+        if DebugName::ENABLED {
+            // Find the other conflicting parameter.
+            // By initializing `access` with the access of the later parameter,
+            // the earlier one will detect the conflict instead.
+            let mut access = err2.access.clone();
+            let err1 = P::init_access(state, system_meta, &mut access).err();
+            panic_for_param_conflict(system_meta.name(), world, err1, err2);
+        } else {
+            // The ordinary panic message includes multiple `DebugName`s,
+            // each of which would be replaced with an "Enable the debug feature" message.
+            // Don't even bother calling `init_access` again if we can't use the parameter name.
+            panic_for_param_conflict_no_debug(err2);
+        }
+    });
+    access
+}
+
+/// Formats a helpful panic message for conflicting [`SystemParam`] access.
+///
+/// This is separate from [`init_param_or_panic`] so that it is not monomorphized for each [`SystemParam`] type.
+#[cold]
+fn panic_for_param_conflict(
+    system_name: &DebugName,
+    world: UnsafeWorldCell<'_>,
+    err1: Option<ParameterAccessConflict>,
+    err2: ParameterAccessConflict,
+) -> ! {
+    let err1 =
+        err1.expect("System param with internal access conflict must always report a conflict");
+
+    let conflicts = err1.access.get_conflicts(&err2.access);
+    let mut accesses = conflicts.format_conflict_list(world);
+    // Access list may be empty (if access to all components requested)
+    if !accesses.is_empty() {
+        accesses.insert_str(0, " on component(s) ");
+    }
+
+    let code = if let Some(code) = err1.code
+        && Some(code) == err2.code
+    {
+        code
+    } else if err1.access.is_exclusive() || err2.access.is_exclusive() {
+        "B0008"
+    } else {
+        "B0007"
+    };
+    let code_lower = code.to_ascii_lowercase();
+
+    // Check if both parameters were the same.
+    // Only consider parameters duplicates if the name *and* access matches.
+    // Just checking the name will give false positives with nested queries.
+    let remove_duplicate = (err1.param == err2.param && err1.access == err2.access)
+        .then_some(DebugName::borrowed("Removing the duplicate parameter"));
+
+    let mut suggestions = err1
+        .suggestions
+        .iter()
+        .chain(&err2.suggestions)
+        .collect::<Vec<_>>();
+    // Remove duplicate suggestions so that we don't suggest "Using `Without<T>`" twice for conflicting queries.
+    suggestions.sort_by_key(|s| &***s);
+    suggestions.dedup();
+
+    let suggestions = suggestions
+        .into_iter()
+        .chain(&remove_duplicate)
+        .map(|s| format!("* {s}\n"))
+        .collect::<String>();
+
+    panic!(
+        concat!(
+            "error[{}]: `{}` and `{}` parameters in system `{}` conflict{}.\n",
+            "Consider:\n",
+            "{}",
+            "* Merging conflicting parameters into a `ParamSet`\n",
+            "See: https://bevy.org/learn/errors/{}",
+        ),
+        code,
+        err1.param.shortname(),
+        err2.param.shortname(),
+        system_name,
+        accesses,
+        suggestions,
+        code_lower,
+    );
+}
+
+/// Formats a simple panic message for conflicting [`SystemParam`] access when debug strings are not available.
+///
+/// This is separate from [`init_param_or_panic`] so that it is not monomorphized for each [`SystemParam`] type.
+#[cold]
+fn panic_for_param_conflict_no_debug(err2: ParameterAccessConflict) -> ! {
+    let code = err2.code.unwrap_or("B0007");
+    let code_lower = code.to_ascii_lowercase();
+    panic!(
+        concat!(
+            "error[{}]: System parameter access conflict.\n",
+            "Enable the `debug` feature to see the system and parameter names.\n",
+            "See: https://bevy.org/learn/errors/{}"
+        ),
+        code, code_lower
+    );
+}
+
 /// A marker type used to distinguish regular function systems from exclusive function systems.
 #[doc(hidden)]
 pub struct IsFunctionSystem;
@@ -729,14 +841,7 @@ where
             world_id: world.id(),
         });
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let mut system_access = SystemAccess::default();
-        F::Param::init_access(
-            &state.param,
-            &mut self.system_meta,
-            &mut system_access,
-            world,
-        );
-        system_access
+        init_param_or_panic::<F::Param>(&state.param, &mut self.system_meta, world.into())
     }
 
     #[inline]

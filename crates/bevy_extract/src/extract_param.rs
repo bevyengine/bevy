@@ -3,8 +3,8 @@ use bevy_ecs::{
     change_detection::Tick,
     prelude::*,
     system::{
-        ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam, SystemParamItem,
-        SystemParamValidationError, SystemState,
+        ParameterAccessConflict, ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam,
+        SystemParamItem, SystemParamValidationError, SystemState,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -85,9 +85,8 @@ where
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-        world: &mut World,
-    ) {
-        Res::<MainWorld>::init_access(&state.main_world_state, system_meta, system_access, world);
+    ) -> Result<(), ParameterAccessConflict> {
+        Res::<MainWorld>::init_access(&state.main_world_state, system_meta, system_access)
     }
 
     #[inline]
