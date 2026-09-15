@@ -101,7 +101,16 @@ impl LightProbe {
 /// A pair of cubemap textures that represent the surroundings of a specific
 /// area in space.
 ///
+/// Raster image-based lighting expects a [split-sum] pair: a blurry
+/// `diffuse_map` for the irradiance, and a mipmapped `specular_map` for the specular.
+/// Roughness selects which mip is sampled.
+///
+/// Path tracers such as Solari only sample the first mip level, so both of them
+/// can point at the same unfiltered cubemap.
+///
 /// See `bevy_pbr::light_probe::environment_map` for detailed information.
+///
+/// [split-sum]: https://learnopengl.com/PBR/IBL/Specular-IBL
 #[derive(Clone, Component, Reflect, FromTemplate)]
 #[reflect(Component, Default, Clone)]
 pub struct EnvironmentMapLight {
@@ -261,7 +270,7 @@ impl Default for Skybox {
     }
 }
 
-/// A generated environment map that is filtered at runtime.
+/// Filters a cubemap at runtime into a split-sum [`EnvironmentMapLight`].
 ///
 /// See `bevy_pbr::light_probe::generate` for detailed information.
 #[derive(Clone, Component, Reflect, FromTemplate)]
@@ -293,15 +302,17 @@ impl Default for GeneratedEnvironmentMapLight {
     }
 }
 
-/// Lets the atmosphere contribute environment lighting (reflections and ambient diffuse) to your scene.
+/// Lets the atmosphere contribute environment lighting to your scene.
 ///
-/// Attach this to a [`Camera3d`](bevy_camera::Camera3d) to light the entire view, or to a
-/// [`LightProbe`] to light only a specific region.
-/// Behind the scenes, this generates an environment map from the atmosphere for image-based lighting
-/// and inserts a corresponding [`GeneratedEnvironmentMapLight`].
+/// Attach this component to a [`Camera3d`](bevy_camera::Camera3d) to light the
+/// entire view, or to a [`LightProbe`] to light only a specific region.
 ///
-/// For HDRI-based lighting, use a preauthored [`EnvironmentMapLight`] or filter one at runtime with
-/// [`GeneratedEnvironmentMapLight`].
+/// By default this also filters the cubemap for raster image-based lighting.
+/// See [`Self::filtered`] if you only need the unfiltered cubemap.
+///
+/// This creates an [`EnvironmentMapLight`] from the atmosphere automatically.
+/// See that component for details. For HDRI lighting or runtime filtering, use
+/// [`EnvironmentMapLight`] or [`GeneratedEnvironmentMapLight`] directly instead.
 #[derive(Component, Clone)]
 pub struct AtmosphereEnvironmentMapLight {
     /// Controls how bright the atmosphere's environment lighting is.
@@ -314,6 +325,11 @@ pub struct AtmosphereEnvironmentMapLight {
     pub affects_lightmapped_mesh_diffuse: bool,
     /// Cubemap resolution in pixels (must be a power-of-two).
     pub size: UVec2,
+    /// Whether to filter this cubemap for image-based lighting.
+    ///
+    /// Defaults to `true`. Set this to `false` if you're using Solari or another
+    /// path tracer, which only need the unfiltered cubemap.
+    pub filtered: bool,
 }
 
 impl Default for AtmosphereEnvironmentMapLight {
@@ -322,6 +338,7 @@ impl Default for AtmosphereEnvironmentMapLight {
             intensity: 1.0,
             affects_lightmapped_mesh_diffuse: true,
             size: UVec2::new(128, 128),
+            filtered: true,
         }
     }
 }

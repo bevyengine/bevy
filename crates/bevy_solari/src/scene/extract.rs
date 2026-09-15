@@ -1,4 +1,5 @@
 use super::{RaytracingMesh3d, RaytracingSceneBindings};
+use crate::{pathtracer::Pathtracer, realtime::SolariLighting};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_camera::Camera;
 use bevy_ecs::{
@@ -9,7 +10,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
+use bevy_light::{AtmosphereEnvironmentMapLight, EnvironmentMapLight};
 use bevy_math::Quat;
 use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
 use bevy_platform::collections::HashMap;
@@ -161,35 +162,27 @@ pub struct ExtractedEnvironmentMapLight {
 }
 
 /// Finds the environment map light to use for the raytraced scene, if any.
+///
+/// Only mip 0 of the specular cubemap is sampled.
 pub fn extract_raytracing_environment_map_light(
-    cameras: Extract<
-        Query<(
-            &Camera,
-            Option<&GeneratedEnvironmentMapLight>,
-            Option<&EnvironmentMapLight>,
-        )>,
-    >,
+    cameras: Extract<Query<(&Camera, Option<&EnvironmentMapLight>)>>,
     mut environment_map_light: ResMut<ExtractedEnvironmentMapLight>,
 ) {
     let mut extracted_env_map_light = ExtractedEnvironmentMapLight::default();
 
-    for (camera, generated, pregenerated) in &cameras {
+    for (camera, env_map) in &cameras {
         if !camera.is_active {
             continue;
         }
 
-        let env_map_light = match (generated, pregenerated) {
-            (Some(generated), _) => ExtractedEnvironmentMapLight {
-                cubemap: Some(generated.environment_map.clone()),
-                intensity: generated.intensity,
-                rotation: generated.rotation,
-            },
-            (None, Some(pregenerated)) => ExtractedEnvironmentMapLight {
-                cubemap: Some(pregenerated.specular_map.clone()),
-                intensity: pregenerated.intensity,
-                rotation: pregenerated.rotation,
-            },
-            (None, None) => continue,
+        let Some(env_map) = env_map else {
+            continue;
+        };
+
+        let env_map_light = ExtractedEnvironmentMapLight {
+            cubemap: Some(env_map.specular_map.clone()),
+            intensity: env_map.intensity,
+            rotation: env_map.rotation,
         };
 
         if extracted_env_map_light.cubemap.is_none() {
@@ -203,4 +196,19 @@ pub fn extract_raytracing_environment_map_light(
     }
 
     *environment_map_light = extracted_env_map_light;
+}
+
+/// Warns once if a Solari or pathtracer camera still runs atmosphere IBL filtering.
+pub fn warn_if_atmosphere_env_map_filtered(
+    lights: Query<&AtmosphereEnvironmentMapLight, Or<(With<SolariLighting>, With<Pathtracer>)>>,
+) {
+    for light in &lights {
+        if light.filtered {
+            once!(warn!(
+                "AtmosphereEnvironmentMapLight is filtered on a Solari camera. Set filtered to false \
+                 to skip unused GPU filtering."
+            ));
+            break;
+        }
+    }
 }
