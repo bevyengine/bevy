@@ -2948,7 +2948,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 /// // This is the relational query data.
 /// // This will never actually be constructed,
 /// // and is only used as a `QueryData` type.
-/// pub struct Parent<D: ReadOnlyQueryData, F: QueryFilter = ()>(D, F);
+/// pub struct Parent<D: QueryData, F: QueryFilter = ()>(D, F);
 ///
 /// // A type alias to delegate the `QueryData` impls to.
 /// // We need to refer to this type a lot, so the alias will help.
@@ -2962,7 +2962,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///     NestedQuery<D, F>,
 /// );
 ///
-/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> QueryData for Parent<D, F> {
+/// unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for Parent<D, F> {
 ///     // Set `Item` to what we need for this relational query.
 ///     // Here we use the output of `D`.
 ///     type Item<'w, 's> = D::Item<'w, 's>;
@@ -2982,7 +2982,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///
 ///     // Set `ReadOnly` to `Self`,
 ///     // as `NestedQuery` does not yet support mutable queries.
-///     type ReadOnly = Self;
+///     type ReadOnly = Parent<D::ReadOnly, F>;
 ///
 ///     // Delegate everything else on `QueryData` and `WorldQuery` to the type alias.
 ///     // This is sound for `unsafe` items because they delegate to the
@@ -2995,7 +2995,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///     }
 /// }
 ///
-/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> WorldQuery for Parent<D, F> {
+/// unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Parent<D, F> {
 ///     type Fetch<'w> = <ParentInner<D, F> as WorldQuery>::Fetch<'w>;
 ///     type State = <ParentInner<D, F> as WorldQuery>::State;
 ///
@@ -3042,15 +3042,17 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///     }
 /// }
 ///
-/// // Also impl `ReadOnlyQueryData`, `IterQueryData`, and `ReleaseStateQueryData`
-/// // These are safe because they delegate to the type alias, which is also read-only.
+/// // Also impl `ReadOnlyQueryData`, `IterQueryData`, and `ReleaseStateQueryData`.
+/// // `ReadOnlyQueryData` and `IterQueryData` must only be implemented for read-only queries.
+/// // Multiple entities may have the same parent, and iteration allows values for multiple entities to be alive,
+/// // so iterating `Query<Parent<&mut T>>` could cause mutable aliasing on `T`.
 /// // Do *not* impl `ArchetypeQueryData`, because `fetch` sometimes returns `None`,
 /// // and do *not* impl `SingleEntityQueryData`, because `NestedQuery` accesses other entities.
 /// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlyQueryData for Parent<D, F> {}
 ///
 /// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> IterQueryData for Parent<D, F> {}
 ///
-/// impl<D: ReadOnlyQueryData + ReleaseStateQueryData + 'static, F: QueryFilter + 'static>
+/// impl<D: ReleaseStateQueryData + 'static, F: QueryFilter + 'static>
 ///     ReleaseStateQueryData for Parent<D, F>
 /// {
 ///     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
