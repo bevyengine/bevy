@@ -137,6 +137,14 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
                 bevy_ui_widgets::ImeSystems::UpdatePosition,
                 bevy_sprite::update_text2d_layout,
             );
+            // update_placeholders writes TextFont/TextColor only on the
+            // placeholder label entities it owns; update_text2d_layout reads
+            // them on Text2d entities. Entity-disjoint by construction.
+            app.ignore_ambiguity(
+                bevy_app::PostUpdate,
+                bevy_ui_widgets::PlaceholderSystems,
+                bevy_sprite::update_text2d_layout,
+            );
         }
 
         // bevy_ui owns the Transform and cannot be animated
