@@ -246,6 +246,13 @@ impl Plugin for ImagePlugin {
                 crate::CompressedImageSaver,
             >>(crate::CompressedImageSaver::default().into());
 
+            #[cfg(all(feature = "hdr", feature = "compressed_image_saver"))]
+            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
+                crate::HdrTextureLoader,
+                bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                crate::CompressedImageSaver,
+            >>(crate::CompressedImageSaver::default().into());
+
             for file_extension in &self.default_compressed_image_processor_extensions {
                 processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
                     ImageLoader,
