@@ -1152,7 +1152,8 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 // SAFETY:
 // - `State` is `()` for both `EntityMut` and `EntityRef`,
 //   so transmuting always results in a valid state.
-// - Access of `EntityRef` is a non-strict subset of `EntityMut`.
+// - `EntityMut` has full read and write access and
+//   `EntityRef` has full read access, so the access is a subset
 // - Both `EntityMut` and `EntityRef` match all entities.
 unsafe impl<'a> QueryData for EntityMut<'a> {
     const IS_READ_ONLY: bool = false;
@@ -1422,7 +1423,8 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
 // SAFETY:
 // - `State` is `Access` for both `FilteredEntityMut` and `FilteredEntityRef`.
 //   `FilteredEntityRef` accepts any `Access`, so the transmute is always valid.
-// - Access of `FilteredEntityRef` is a non-strict subset of `FilteredEntityMut` for the same `Access`.
+// - `FilteredEntityMut` has all read and write access from the `Access` and
+//   `FilteredEntityRef` has all read access from the same `Access`, so the access is a subset
 // - Both `FilteredEntityMut` and `FilteredEntityRef` match all entities.
 unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     const IS_READ_ONLY: bool = false;
@@ -1709,7 +1711,8 @@ where
 // - `State` for both `EntityRefExcept` and `EntityMutExcept` is an `Access`
 //   with access to all components except those in `B` in the current world.
 //  `EntityRefExcept` will ignore the extra write access in the transmuted `Access`.
-// - Access of `EntityRefExcept` is a non-strict subset of `EntityMutExcept` for the same `Access`.
+// - `EntityMutExcept` has all read and write access except to components in `B` and
+//   `EntityRefExcept` has all read access access except to components in `B`, so the access is a subset
 // - Both `EntityMutExcept` and `EntityRefExcept` match all entities.
 unsafe impl<'a, 'b, B> QueryData for EntityMutExcept<'a, 'b, B>
 where
