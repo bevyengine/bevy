@@ -14,7 +14,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query, Res},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_input::{
     keyboard::{Key, KeyCode, KeyboardInput},
@@ -28,7 +28,7 @@ use bevy_picking::{
     events::{
         PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
     },
-    hover::Hovered,
+    hover::{Hovered, PointerCaptureMap},
     pointer::PointerButton,
     PickingSystems,
 };
@@ -1090,6 +1090,7 @@ fn scrubber_on_release(
 
 fn scrubber_on_drag_start(
     mut drag_start: On<PointerDragStart>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     q_root: Query<(
         &NumberInputValue,
         Option<&SoftLimit>,
@@ -1117,6 +1118,11 @@ fn scrubber_on_drag_start(
         let slider_size = (node.size().x * node.inverse_scale_factor).max(1.0) as f64;
         drag_start.propagate(false);
         drag.base_value = *input_value;
+        capture_map.capture(
+            drag_start.pointer.id,
+            drag_start.event_target(),
+            drag_start.hit.clone(),
+        );
         drag.max_distance = 0.0;
         drag.value_offset = 0.0f64;
         // Use various heuristics to determine drag speed based on which components are present.
@@ -1205,6 +1211,7 @@ fn scrubber_on_drag(
 
 fn scrubber_on_drag_end(
     mut drag_end: On<PointerDragEnd>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     q_root: Query<(
         Option<&SoftLimit>,
         Option<&HardLimit>,
@@ -1249,6 +1256,7 @@ fn scrubber_on_drag_end(
             &mut gradient,
             &mut commands,
         );
+        capture_map.release(drag_end.pointer.id);
     }
 }
 

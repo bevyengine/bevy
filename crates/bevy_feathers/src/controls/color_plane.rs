@@ -15,6 +15,7 @@ use bevy_math::{Vec2, Vec3};
 use bevy_picking::{
     cursor::EntityCursor,
     events::{PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress},
+    hover::PointerCaptureMap,
     Pickable,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
@@ -328,6 +329,7 @@ fn on_pointer_press(
 
 fn on_drag_start(
     mut drag_start: On<PointerDragStart>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_color_planes: Query<
         (&mut ColorPlaneDragState, Has<InteractionDisabled>),
         With<FeathersColorPlane>,
@@ -340,6 +342,11 @@ fn on_drag_start(
         drag_start.propagate(false);
         if !disabled {
             state.0 = true;
+            capture_map.capture(
+                drag_start.pointer.id,
+                drag_start.entity,
+                drag_start.hit.clone(),
+            );
         }
     }
 }
@@ -383,6 +390,7 @@ fn on_drag(
 
 fn on_drag_end(
     mut drag_end: On<PointerDragEnd>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_color_planes: Query<
         (&mut ColorPlaneDragState, Has<InteractionDisabled>),
         With<FeathersColorPlane>,
@@ -416,6 +424,7 @@ fn on_drag_end(
             );
         }
         state.0 = false;
+        capture_map.release(drag_end.pointer.id);
     }
 }
 
