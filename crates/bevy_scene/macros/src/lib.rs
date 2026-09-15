@@ -1,3 +1,8 @@
+//! Macros for [`bevy_scene`], including the `bsn!` scene notation macros and the
+//! `SceneComponent` derive.
+//!
+//! [`bevy_scene`]: https://docs.rs/bevy/latest/bevy/scene/index.html
+
 // work around Rust-Analyzer issue where it prefers the module highlighting and docs over the macro, even for private modules, if both share a name
 // https://github.com/rust-lang/rust-analyzer/issues/19421
 // done this way to avoid the large diff of renaming the folder
@@ -170,7 +175,7 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 #[proc_macro]
 pub fn bsn(input: TokenStream) -> TokenStream {
-    crate::_bsn::bsn(input)
+    _bsn::bsn(input)
 }
 
 /// Creates a [`SceneList`] using BSN (Bevy Scene Notation) syntax.
@@ -196,9 +201,13 @@ pub fn bsn(input: TokenStream) -> TokenStream {
 )]
 #[proc_macro]
 pub fn bsn_list(input: TokenStream) -> TokenStream {
-    crate::_bsn::bsn_list(input)
+    _bsn::bsn_list(input)
 }
 
+/// Derives [`SceneComponent`], registering which components the annotated type carries and how
+/// they are constructed from BSN.
+///
+/// [`SceneComponent`]: https://docs.rs/bevy/latest/bevy/scene/trait.SceneComponent.html
 #[proc_macro_derive(
     SceneComponent,
     attributes(component, require, relationship, relationship_target, entities, scene)

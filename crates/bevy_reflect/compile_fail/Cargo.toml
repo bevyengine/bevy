@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
+# Needed by the ui tests under `tests/`; they compile their own crates, which resolve this from here.
 bevy_reflect = { path = "../", features = ["functions"] }
 
 [dev-dependencies]
@@ -24,3 +25,6 @@ harness = false
 [[test]]
 name = "remote"
 harness = false
+
+[lints]
+workspace = true

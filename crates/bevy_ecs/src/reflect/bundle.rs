@@ -292,11 +292,10 @@ fn apply_or_insert_field_mapped(
                 "no `ReflectComponent` registration found for `{}`",
                 field.reflect_type_path(),
             );
-        } else {
-            panic!(
-                "no `ReflectBundle` registration found for `{}`",
-                field.reflect_type_path(),
-            )
         }
+        panic!(
+            "no `ReflectBundle` registration found for `{}`",
+            field.reflect_type_path(),
+        )
     }
 }

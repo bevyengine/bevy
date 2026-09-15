@@ -82,7 +82,7 @@ impl BsnTokenStream for BsnRoot {
         match self {
             BsnRoot::Bsn(bsn) => {
                 let tokens = bsn.into_tokens(ctx);
-                let errors = ctx.errors.iter().map(|e| e.to_compile_error());
+                let errors = ctx.errors.iter().map(syn::Error::to_compile_error);
                 let bevy_scene = ctx.bevy_scene;
                 let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
                 let call_id = if !ctx.entity_refs.refs.is_empty() {
@@ -120,7 +120,7 @@ impl BsnTokenStream for BsnRoot {
 impl BsnTokenStream for BsnListRoot {
     fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let tokens = self.0.into_tokens(ctx);
-        let errors = ctx.errors.iter().map(|e| e.to_compile_error());
+        let errors = ctx.errors.iter().map(syn::Error::to_compile_error);
         let bevy_scene = ctx.bevy_scene;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
         let call_id = if !ctx.entity_refs.refs.is_empty() {
@@ -170,7 +170,7 @@ impl Bsn {
                             })
                         });
                     }
-                    scene_impls.push(scene_impl)
+                    scene_impls.push(scene_impl);
                 }
                 Err(err) => scene_impls.push(err.to_compile_error()),
             }
@@ -217,10 +217,7 @@ impl BsnEntry {
                         _scene.insert_template(#template);
                     })
                 } else {
-                    let path = &[Member::Named(Ident::new(
-                        "__value",
-                        proc_macro2::Span::call_site(),
-                    ))];
+                    let path = &[Member::Named(Ident::new("__value", Span::call_site()))];
                     let assigns = ty.patch_tokens(ctx, path, true, false, false)?;
                     let path = &ty.path;
                     EntryResult::CombinedSceneFunction(if assigns.is_empty() {
@@ -242,10 +239,7 @@ impl BsnEntry {
                         _scene.insert_template(#template);
                     })
                 } else {
-                    let path = &[Member::Named(Ident::new(
-                        "__value",
-                        proc_macro2::Span::call_site(),
-                    ))];
+                    let path = &[Member::Named(Ident::new("__value", Span::call_site()))];
                     let assigns = ty.patch_tokens(ctx, path, true, false, false)?;
                     let path = &ty.path;
                     EntryResult::CombinedSceneFunction(if assigns.is_empty() {
@@ -310,8 +304,9 @@ impl BsnEntry {
                     ::Relationship, _>::new(#scenes)
                 })
             }
-            BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.into_tokens(ctx)?),
-            BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.into_tokens(ctx)?),
+            BsnEntry::UncachedScene(s) | BsnEntry::CachedScene(s) => {
+                EntryResult::NewSceneImpl(s.into_tokens(ctx)?)
+            }
             BsnEntry::Name(ident) => {
                 let (name, index) = ctx.fixed_entity_ref(&ident);
                 let invocation = ctx.invocation_index.clone();
@@ -356,10 +351,7 @@ impl BsnScene {
                         })
                     }
                 } else {
-                    let value_path = &[Member::Named(Ident::new(
-                        "__value",
-                        proc_macro2::Span::call_site(),
-                    ))];
+                    let value_path = &[Member::Named(Ident::new("__value", Span::call_site()))];
                     let template_assignments =
                         bsn_type.patch_tokens(ctx, value_path, true, false, true)?;
                     let bevy_scene = ctx.bevy_scene;
@@ -834,9 +826,9 @@ impl ToTokens for BsnValue {
             BsnValue::Lit(Lit::Str(s)) => quote! {#s.into()}.to_tokens(tokens),
             BsnValue::Lit(l) => {
                 if l.suffix().is_empty() {
-                    l.to_tokens(tokens)
+                    l.to_tokens(tokens);
                 } else {
-                    quote! {(#l).into()}.to_tokens(tokens)
+                    quote! {(#l).into()}.to_tokens(tokens);
                 }
             }
             BsnValue::Tuple(t) => {
@@ -1106,7 +1098,7 @@ mod tests {
             exprs.expressions[0].to_string(),
             "let _expr0 = { some_borrow . clone () } . into () ;"
         );
-        let assignment_output: String = res.unwrap().iter().map(|t| t.to_string()).collect();
+        let assignment_output: String = res.unwrap().iter().map(ToString::to_string).collect();
         assert!(
             assignment_output.contains("_expr0"),
             "expected hoisted ident in assignment output: {assignment_output}"
@@ -1127,10 +1119,8 @@ mod tests {
         let paths = TestPaths::new();
         let mut exprs = HoistedExpressions::default();
         let mut ctx = paths.ctx(&mut refs, &mut exprs);
-        ctx.errors.push(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            "Test Error",
-        ));
+        ctx.errors
+            .push(syn::Error::new(Span::call_site(), "Test Error"));
         let root = BsnRoot::Bsn(Bsn {
             entries: vec![],
             used_parens: None,
@@ -1156,10 +1146,8 @@ mod tests {
         let paths = TestPaths::new();
         let mut exprs = HoistedExpressions::default();
         let mut ctx = paths.ctx(&mut refs, &mut exprs);
-        ctx.errors.push(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            "Test Error",
-        ));
+        ctx.errors
+            .push(syn::Error::new(Span::call_site(), "Test Error"));
         let root = BsnListRoot(BsnSceneListItems(vec![], vec![]));
 
         // Act
