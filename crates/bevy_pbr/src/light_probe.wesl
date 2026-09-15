@@ -10,7 +10,7 @@ import package::render::mesh_view_types::{
 ///
 /// Light probe iterators yield values of this type. Note that multiple light
 /// probes can affect a single fragment.
-struct LightProbeQueryResult {
+public struct LightProbeQueryResult {
     /// The index of the light probe texture or textures in the binding array or
     /// arrays.
     texture_index: i32,
@@ -32,7 +32,7 @@ struct LightProbeQueryResult {
     flags: u32,
 };
 
-fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
+public fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
     let matrix4x4 = mat4x4<f32>(
         matrix[0],
         matrix[1],
@@ -46,7 +46,7 @@ fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
 ///
 /// This is the version used when light probes are clustered.
 @if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
-struct LightProbeIterator {
+public struct LightProbeIterator {
     /// The current offset in the light probes list.
     current_offset: u32,
     /// The last offset in the light probes list.
@@ -61,7 +61,7 @@ struct LightProbeIterator {
 /// Creates a new light probe iterator ready to iterate through light probes in
 /// the froxel containing the `world_position`.
 @if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
-fn light_probe_iterator_new(
+public fn light_probe_iterator_new(
     world_position: vec3<f32>,
     is_irradiance_volume: bool,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
@@ -93,7 +93,7 @@ fn light_probe_iterator_new(
 /// Note that multiple light probes can affect a fragment. The caller is
 /// generally expected to blend their influences together in a weighted sum.
 @if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
-fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
+public fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
     let world_position = (*iterator).world_position;
 
     var result: LightProbeQueryResult;
@@ -161,7 +161,7 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
 /// sufficient SSBO bindings typically lack bindless shaders, there will usually
 /// only be one of each type of light probe present anyway.
 @if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
-struct LightProbeIterator {
+public struct LightProbeIterator {
     /// The current index in the list of light probes for this cluster.
     current_index: u32,
     /// The last index in the list.
@@ -175,7 +175,7 @@ struct LightProbeIterator {
 
 /// Creates a new light probe iterator ready to search through light probes.
 @if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
-fn light_probe_iterator_new(
+public fn light_probe_iterator_new(
     world_position: vec3<f32>,
     is_irradiance_volume: bool,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
@@ -201,7 +201,7 @@ fn light_probe_iterator_new(
 /// used on platforms that lack bindless shaders, so there will only be at most
 /// one light probe that affects the current fragment in the first place.
 @if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
-fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
+public fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
     var result: LightProbeQueryResult;
     result.texture_index = -1;
     result.weight = 0.0;

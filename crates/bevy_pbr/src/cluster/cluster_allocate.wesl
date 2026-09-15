@@ -28,19 +28,19 @@
 import package::cluster::ClusterMetadata;
 import package::render::mesh_view_types::{ClusterOffsetsAndCounts, Lights};
 
-@group(0) @binding(0) var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCounts;
-@group(0) @binding(1) var<uniform> lights: Lights;
-@group(0) @binding(2) var<storage, read_write> clustering_metadata: ClusterMetadata;
-@group(0) @binding(3) var<storage, read_write> scratchpad_offsets_and_counts:
+@group(0) @binding(0) public var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCounts;
+@group(0) @binding(1) public var<uniform> lights: Lights;
+@group(0) @binding(2) public var<storage, read_write> clustering_metadata: ClusterMetadata;
+@group(0) @binding(3) public var<storage, read_write> scratchpad_offsets_and_counts:
     ClusterOffsetsAndCounts;
 
 /// The offset of the first clustered light within the buffer for each thread.
-var<workgroup> block_offsets: array<u32, 256>;
+public var<workgroup> block_offsets: array<u32, 256>;
 
 /// The local allocation pass that, for each chunk of 256 clusters, calculates
 /// the offset for each cluster in the chunk.
 @compute @workgroup_size(256, 1, 1)
-fn allocate_local_main(
+public fn allocate_local_main(
     @builtin(local_invocation_id) local_id: vec3<u32>,
     @builtin(workgroup_id) group_id: vec3<u32>,
     @builtin(global_invocation_id) global_id: vec3<u32>
@@ -89,7 +89,7 @@ fn allocate_local_main(
 /// The global allocation pass that propagates the offsets from each chunk of 256
 /// clusters to later chunks sequentially.
 @compute @workgroup_size(256, 1, 1)
-fn allocate_global_main(@builtin(local_invocation_id) local_id: vec3<u32>) {
+public fn allocate_global_main(@builtin(local_invocation_id) local_id: vec3<u32>) {
     let cluster_count =
         lights.cluster_dimensions.x *
         lights.cluster_dimensions.y *
@@ -123,7 +123,7 @@ fn allocate_global_main(@builtin(local_invocation_id) local_id: vec3<u32>) {
 /// The per-type counts are laid out as:
 ///   [0] = (offset, point lights, spot lights, rect lights)
 ///   [1] = (reflection probes, irradiance volumes, decals, pad)
-fn cluster_object_count(cluster_index: u32) -> u32 {
+public fn cluster_object_count(cluster_index: u32) -> u32 {
     return
         offsets_and_counts.data[cluster_index][0].y +
         offsets_and_counts.data[cluster_index][0].z +

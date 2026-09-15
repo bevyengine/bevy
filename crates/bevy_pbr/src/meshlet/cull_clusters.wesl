@@ -26,7 +26,7 @@ import bevy_render::maths::affine3_to_square;
 
 @compute
 @workgroup_size(128, 1, 1) // 1 cluster per thread
-fn cull_clusters(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+public fn cull_clusters(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     if global_invocation_id.x >= meshlet_meshlet_cull_count_read { return; }
 
     @if(MESHLET_FIRST_CULLING_PASS)

@@ -38,9 +38,9 @@ pub(crate) fn wesl_module_path(import_path: &ShaderImport) -> Option<wesl::synta
 
 fn is_module_not_found(error: &wesl::Error) -> bool {
     match error {
-        wesl::Error::ResolveError(wesl::ResolveError::ModuleNotFound(..))
-        | wesl::Error::ImportError(wesl::ImportError::ResolveError(
-            wesl::ResolveError::ModuleNotFound(..),
+        wesl::Error::ResolveError(wesl::error::ResolveError::ModuleNotFound(..))
+        | wesl::Error::ImportError(wesl::error::ImportError::ResolveError(
+            wesl::error::ResolveError::ModuleNotFound(..),
         )) => true,
         wesl::Error::Error(diagnostic) => is_module_not_found(&diagnostic.error),
         _ => false,
@@ -276,7 +276,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                             }
                             let constants_source: String = constants
                                 .iter()
-                                .map(|(name, value)| format!("const {name} = {value};\n"))
+                                .map(|(name, value)| format!("public const {name} = {value};\n"))
                                 .collect();
 
                             let shader_resolver = ShaderResolver::new(
@@ -285,45 +285,41 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                                 &constants_source,
                             );
 
-                            let compiled = wesl::compile_sourcemap(
-                                &module_path,
-                                &shader_resolver,
-                                &wesl::EscapeMangler,
-                                &compiler_options,
-                            )
-                            .map_err(|error| {
-                                // We use render_plain to avoid rendering ANSI codes
-                                // Workaround for: https://github.com/tokio-rs/tracing/issues/3378
-                                if is_module_not_found(&error) {
-                                    if self.missing_import_logged.insert(id) {
-                                        warn!(
-                                            "Shader `{}` has an unresolved import:\n{}",
-                                            shader.path,
-                                            error.diagnostic().render_plain()
-                                        );
-                                    }
-                                    ShaderCacheError::ShaderImportNotYetAvailable
-                                } else {
-                                    ShaderCacheError::ProcessShaderError(
-                                        error.diagnostic().render_plain(),
-                                    )
-                                }
-                            })?;
+                            let compiled =
+                                wesl::compile(&module_path, &compiler_options, &shader_resolver)
+                                    .map_err(|error| {
+                                        // We use render_plain to avoid rendering ANSI codes
+                                        // Workaround for: https://github.com/tokio-rs/tracing/issues/3378
+                                        if is_module_not_found(&error) {
+                                            if self.missing_import_logged.insert(id) {
+                                                warn!(
+                                                    "Shader `{}` has an unresolved import:\n{}",
+                                                    shader.path,
+                                                    error.diagnostic().render_plain()
+                                                );
+                                            }
+                                            ShaderCacheError::ShaderImportNotYetAvailable
+                                        } else {
+                                            ShaderCacheError::ProcessShaderError(
+                                                error.diagnostic().render_plain(),
+                                            )
+                                        }
+                                    })?;
 
                             for used in &compiled.modules {
-                                let used = match &used.origin {
+                                let used_path = match &used.path.origin {
                                     wesl::syntax::PathOrigin::Package(pkg) if pkg.contains('/') => {
                                         Cow::Owned(wesl::syntax::ModulePath {
                                             origin: wesl::syntax::PathOrigin::Package(
                                                 pkg.rsplit('/').next().unwrap().to_string(),
                                             ),
-                                            components: used.components.clone(),
+                                            components: used.path.components.clone(),
                                         })
                                     }
-                                    _ => Cow::Borrowed(used),
+                                    _ => Cow::Borrowed(&used.path),
                                 };
                                 if let Some(dep_id) =
-                                    self.module_path_to_asset_id.get(used.as_ref())
+                                    self.module_path_to_asset_id.get(used_path.as_ref())
                                     && *dep_id != id
                                 {
                                     wesl_dependencies.push(*dep_id);
@@ -483,7 +479,7 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
     fn resolve_source(
         &self,
         module_path: &wesl::syntax::ModulePath,
-    ) -> Result<Cow<'_, str>, wesl::ResolveError> {
+    ) -> Result<Cow<'_, str>, wesl::error::ResolveError> {
         let module_path = self.canonical_path(module_path);
         if module_path.origin == wesl::syntax::PathOrigin::Package("constants".to_string())
             && module_path.components.is_empty()
@@ -494,14 +490,14 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
             .module_path_to_asset_id
             .get(&module_path)
             .ok_or_else(|| {
-                wesl::ResolveError::ModuleNotFound(
+                wesl::error::ResolveError::ModuleNotFound(
                     module_path.clone(),
                     "no shader registered for this module path".to_string(),
                 )
             })?;
 
         let shader = self.shaders.get(asset_id).ok_or_else(|| {
-            wesl::ResolveError::ModuleNotFound(
+            wesl::error::ResolveError::ModuleNotFound(
                 module_path.clone(),
                 "shader asset not loaded".to_string(),
             )
@@ -615,7 +611,7 @@ fn fragment() -> @location(0) vec4<f32> {
         let (maths, _, root) = test_shaders();
         let (maths_id, lighting_id, root_id) = test_ids();
         let broken_lighting = Shader::from_wesl(
-            "fn brighten(x: f32) -> f32 { return x + ; }",
+            "public fn brighten(x: f32) -> f32 { return x + ; }",
             "embedded://bevy_pbr/render/lighting.wesl",
         );
         cache.set_shader(maths_id, maths);
@@ -650,11 +646,11 @@ fn fragment() -> @location(0) vec4<f32> {
 
     fn test_shaders() -> (Shader, Shader, Shader) {
         let maths = Shader::from_wesl(
-            "fn double(x: f32) -> f32 { return x * 2.0; }",
+            "public fn double(x: f32) -> f32 { return x * 2.0; }",
             "embedded://bevy_render/maths.wesl",
         );
         let lighting = Shader::from_wesl(
-            "fn brighten(x: f32) -> f32 { return x + 0.1; }",
+            "public fn brighten(x: f32) -> f32 { return x + 0.1; }",
             "embedded://bevy_pbr/render/lighting.wesl",
         );
         let root = Shader::from_wesl(
@@ -688,12 +684,12 @@ fn fragment() -> @location(0) vec4<f32> {
         };
 
         let mut lib_a = Shader::from_wesl(
-            "var<uniform> batch_a: array<vec4<f32>, constants::BATCH_SIZE>;",
+            "public var<uniform> batch_a: array<vec4<f32>, constants::BATCH_SIZE>;",
             "embedded://bevy_a/bindings.wesl",
         );
         lib_a.shader_defs = vec![ShaderDefVal::UInt("BATCH_SIZE".into(), 3)];
         let mut lib_b = Shader::from_wesl(
-            "var<uniform> batch_b: array<vec4<f32>, constants::BATCH_SIZE>;",
+            "public var<uniform> batch_b: array<vec4<f32>, constants::BATCH_SIZE>;",
             "embedded://bevy_b/bindings.wesl",
         );
         lib_b.shader_defs = vec![ShaderDefVal::UInt("BATCH_SIZE".into(), 7)];
@@ -733,17 +729,17 @@ fn fragment() -> @location(0) vec4<f32> { return batch_b[0]; }
             uuid: bevy_asset::uuid::Uuid::from_u128(n),
         };
         let module_a = Shader::from_wesl(
-            "import bevy_cycle::b::from_b;\nfn from_a() -> f32 { return 1.0; }",
+            "import bevy_cycle::b::from_b;\npublic fn from_a() -> f32 { return 1.0; }",
             "embedded://bevy_cycle/a.wesl",
         );
         let module_b = Shader::from_wesl(
-            "import bevy_cycle::a::from_a;\nfn from_b() -> f32 { return 2.0; }",
+            "import bevy_cycle::a::from_a;\npublic fn from_b() -> f32 { return 2.0; }",
             "embedded://bevy_cycle/b.wesl",
         );
         cache.set_shader(id(1), module_a);
         cache.set_shader(id(2), module_b);
         let module_a = Shader::from_wesl(
-            "import bevy_cycle::b::from_b;\nfn from_a() -> f32 { return 3.0; }",
+            "import bevy_cycle::b::from_b;\npublic fn from_a() -> f32 { return 3.0; }",
             "embedded://bevy_cycle/a.wesl",
         );
         cache.set_shader(id(1), module_a);

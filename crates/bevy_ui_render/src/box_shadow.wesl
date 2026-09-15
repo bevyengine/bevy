@@ -4,12 +4,12 @@ import package::ui::{
     select_corner_radius
 };
 
-const PI: f32 = 3.14159265358979323846;
-const SAMPLES: i32 = constants::SHADOW_SAMPLES;
+public const PI: f32 = 3.14159265358979323846;
+public const SAMPLES: i32 = constants::SHADOW_SAMPLES;
 
-@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(0) public var<uniform> view: View;
 
-struct BoxShadowVertexOutput {
+public struct BoxShadowVertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) point: vec2<f32>,
     @location(1) color: vec4<f32>,
@@ -19,12 +19,12 @@ struct BoxShadowVertexOutput {
     @location(5) @interpolate(flat) blur: f32,
 }
 
-fn gaussian(x: f32, sigma: f32) -> f32 {
+public fn gaussian(x: f32, sigma: f32) -> f32 {
     return exp(-(x * x) / (2. * sigma * sigma)) / (sqrt(2. * PI) * sigma);
 }
 
 /// Approximates the Gauss error function: https://en.wikipedia.org/wiki/Error_function
-fn erf(p: vec2<f32>) -> vec2<f32> {
+public fn erf(p: vec2<f32>) -> vec2<f32> {
     let s = sign(p);
     let a = abs(p);
     // fourth degree polynomial approximation for erf
@@ -33,7 +33,7 @@ fn erf(p: vec2<f32>) -> vec2<f32> {
     return s - s / (result * result);
 }
 
-fn horizontalRoundedBoxShadow(x: f32, y: f32, blur: f32, radius: vec2<f32>, half_size: vec2<f32>) -> f32 {
+public fn horizontalRoundedBoxShadow(x: f32, y: f32, blur: f32, radius: vec2<f32>, half_size: vec2<f32>) -> f32 {
     var c = half_size.x;
     if 0.0 < min(radius.x, radius.y) {
         let d = min(half_size.y - radius.y - abs(y), 0.);
@@ -43,7 +43,7 @@ fn horizontalRoundedBoxShadow(x: f32, y: f32, blur: f32, radius: vec2<f32>, half
     return integral.y - integral.x;
 }
 
-fn roundedBoxShadow(
+public fn roundedBoxShadow(
     lower: vec2<f32>,
     upper: vec2<f32>,
     point: vec2<f32>,
@@ -70,7 +70,7 @@ fn roundedBoxShadow(
 }
 
 @vertex
-fn vertex(
+public fn vertex(
     @location(0) vertex_position: vec3<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) vertex_color: vec4<f32>,
@@ -92,7 +92,7 @@ fn vertex(
 }
 
 @fragment
-fn fragment(
+public fn fragment(
     in: BoxShadowVertexOutput,
 ) -> @location(0) vec4<f32> {
     let g = in.color.a * roundedBoxShadow(-0.5 * in.size, 0.5 * in.size, in.point, max(in.blur, 0.01), in.radius_x, in.radius_y);

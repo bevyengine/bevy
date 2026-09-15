@@ -1,13 +1,13 @@
 //! Occlusion culling utility functions.
 
-fn get_aabb_size_in_pixels(aabb: vec4<f32>, depth_pyramid: texture_2d<f32>) -> vec2<f32> {
+public fn get_aabb_size_in_pixels(aabb: vec4<f32>, depth_pyramid: texture_2d<f32>) -> vec2<f32> {
     let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0));
     let aabb_width_pixels = (aabb.z - aabb.x) * depth_pyramid_size_mip_0.x;
     let aabb_height_pixels = (aabb.w - aabb.y) * depth_pyramid_size_mip_0.y;
     return vec2(aabb_width_pixels, aabb_height_pixels);
 }
 
-fn get_occluder_depth(
+public fn get_occluder_depth(
     aabb: vec4<f32>,
     aabb_pixel_size: vec2<f32>,
     depth_pyramid: texture_2d<f32>

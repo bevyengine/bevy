@@ -8,7 +8,7 @@ import package::render::{
 @if(BINDLESS)
 import package::render::pbr_bindings::material_indices;
 
-fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
+public fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
     // We use `textureSampleLevel` over `textureSample` because the wgpu DX12
     // backend (Fxc) panics when using "gradient instructions" inside a loop.
     // It results in the whole loop being unrolled by the shader compiler,
@@ -37,7 +37,7 @@ fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
 
 /// An implementation of parallax mapping, see https://en.wikipedia.org/wiki/Parallax_mapping
 /// Code derived from: https://web.archive.org/web/20150419215321/http://sunandblackcat.com/tipFullView.php?l=eng&topicid=28
-fn parallaxed_uv(
+public fn parallaxed_uv(
     depth_scale: f32,
     max_layer_count: f32,
     max_steps: u32,

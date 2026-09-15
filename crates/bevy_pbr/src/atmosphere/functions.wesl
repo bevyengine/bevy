@@ -33,49 +33,49 @@ import package::atmosphere::{
 
 // CONSTANTS
 /// 1 / π
-const FRAC_PI: f32 = 0.3183098862;
+public const FRAC_PI: f32 = 0.3183098862;
 /// 1 / (2π)
-const FRAC_2_PI: f32 = 0.15915494309;
+public const FRAC_2_PI: f32 = 0.15915494309;
 /// 3 / (16π)
-const FRAC_3_16_PI: f32 = 0.0596831036594607509;
+public const FRAC_3_16_PI: f32 = 0.0596831036594607509;
 /// 1 / (4π)
-const FRAC_4_PI: f32 = 0.07957747154594767;
+public const FRAC_4_PI: f32 = 0.07957747154594767;
 /// √2
-const ROOT_2: f32 = 1.41421356;
+public const ROOT_2: f32 = 1.41421356;
 /// 1 meter
-const EPSILON: f32 = 1.0;
-const MIN_EXTINCTION: vec3<f32> = vec3(1e-12);
+public const EPSILON: f32 = 1.0;
+public const MIN_EXTINCTION: vec3<f32> = vec3(1e-12);
 
 /// During raymarching, each segment is sampled at a single point. This constant determines
 /// where in the segment that sample is taken (0.0 = start, 0.5 = middle, 1.0 = end).
 /// We use 0.3 to sample closer to the start of each segment, which better approximates
 /// the exponential falloff of atmospheric density.
-const MIDPOINT_RATIO: f32 = 0.3;
+public const MIDPOINT_RATIO: f32 = 0.3;
 
 // LUT UV PARAMETERIZATIONS
 
-fn unit_to_sub_uvs(val: vec2<f32>, resolution: vec2<f32>) -> vec2<f32> {
+public fn unit_to_sub_uvs(val: vec2<f32>, resolution: vec2<f32>) -> vec2<f32> {
     return (val + 0.5f / resolution) * (resolution / (resolution + 1.0f));
 }
 
-fn sub_uvs_to_unit(val: vec2<f32>, resolution: vec2<f32>) -> vec2<f32> {
+public fn sub_uvs_to_unit(val: vec2<f32>, resolution: vec2<f32>) -> vec2<f32> {
     return (val - 0.5f / resolution) * (resolution / (resolution - 1.0f));
 }
 
-fn multiscattering_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
+public fn multiscattering_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
     let u = 0.5 + 0.5 * mu;
     let v = saturate((r - atmosphere.inner_radius) / (atmosphere.outer_radius - atmosphere.inner_radius)); //TODO
     return unit_to_sub_uvs(vec2(u, v), vec2<f32>(settings.multiscattering_lut_size));
 }
 
-fn multiscattering_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
+public fn multiscattering_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
     let adj_uv = sub_uvs_to_unit(uv, vec2<f32>(settings.multiscattering_lut_size));
     let r = mix(atmosphere.inner_radius, atmosphere.outer_radius, adj_uv.y);
     let mu = adj_uv.x * 2 - 1;
     return vec2(r, mu);
 }
 
-fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
+public fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
     let u = (azimuth * FRAC_2_PI) + 0.5;
 
     let v_horizon = sqrt(r * r - atmosphere.inner_radius * atmosphere.inner_radius);
@@ -97,7 +97,7 @@ fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
     return unit_to_sub_uvs(vec2(u, v), vec2<f32>(settings.sky_view_lut_size));
 }
 
-fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
+public fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
     let adj_uv = sub_uvs_to_unit(vec2(uv.x, 1.0 - uv.y), vec2<f32>(settings.sky_view_lut_size));
     let azimuth = (adj_uv.x - 0.5) * PI_2;
 
@@ -116,24 +116,24 @@ fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
 
 // LUT SAMPLING
 
-fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
+public fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
     return textureSampleLevel(transmittance_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
-fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
+public fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = multiscattering_lut_r_mu_to_uv(r, mu);
     return textureSampleLevel(multiscattering_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
-fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
+public fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
     let mu = ray_dir_as.y;
     let azimuth = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
     let uv = sky_view_lut_r_mu_azimuth_to_uv(r, mu, azimuth);
     return textureSampleLevel(sky_view_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
-fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
+public fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
     let view_pos = view.view_from_clip * vec4(ndc, 1.0);
     let p_view = view_pos.xyz / view_pos.w;
     let p_world = (view.world_from_view * vec4(p_view, 1.0)).xyz;
@@ -144,7 +144,7 @@ fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
 
 /// RGB channels: total inscattered light along the camera ray to the current sample.
 /// A channel: average transmittance across all wavelengths to the current sample.
-fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
+public fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
     let t_max = settings.aerial_view_lut_max_distance;
     let num_slices = f32(settings.aerial_view_lut_size.z);
     // Each texel stores the value of the scattering integral over the whole slice,
@@ -165,14 +165,14 @@ fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
 
 // ATMOSPHERE SAMPLING
 
-const ABSORPTION_DENSITY: f32 = 0.0;
-const SCATTERING_DENSITY: f32 = 1.0;
+public const ABSORPTION_DENSITY: f32 = 0.0;
+public const SCATTERING_DENSITY: f32 = 1.0;
 
 /// samples from the atmosphere density LUT.
 ///
 /// calling with `component = 0.0` will return the atmosphere's absorption density,
 /// while calling with `component = 1.0` will return the atmosphere's scattering density.
-fn sample_density_lut(r: f32, component: f32) -> vec3<f32> {
+public fn sample_density_lut(r: f32, component: f32) -> vec3<f32> {
     // sampler clamps to [0, 1] anyways, no need to clamp the altitude
     let normalized_altitude = (r - atmosphere.inner_radius) / (atmosphere.outer_radius - atmosphere.inner_radius);
     let uv = vec2(1.0 - normalized_altitude, component);
@@ -180,12 +180,12 @@ fn sample_density_lut(r: f32, component: f32) -> vec3<f32> {
 }
 
 
-const PHASE_MAPPING_N: f32 = 0.5;
+public const PHASE_MAPPING_N: f32 = 0.5;
 
 /// samples from the atmosphere scattering LUT. `neg_LdotV` is the dot product
 /// of the light direction and the incoming view vector.
 /// Nonlinear phase mapping to mitigate banding in low-resolution LUTs.
-fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
+public fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
     let normalized_altitude = (r - atmosphere.inner_radius) / (atmosphere.outer_radius - atmosphere.inner_radius);
     let phase_uv = 0.5 + 0.5 * sign(neg_LdotV) * (1.0 - pow(1.0 - abs(neg_LdotV), PHASE_MAPPING_N));
     let uv = vec2(1.0 - normalized_altitude, phase_uv);
@@ -193,7 +193,7 @@ fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
 }
 
 /// evaluates L_scat, equation 3 in the paper, which gives the total single-order scattering towards the view at a single point
-fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, world_pos: vec3<f32>) -> vec3<f32> {
+public fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, world_pos: vec3<f32>) -> vec3<f32> {
     let local_r = length(world_pos);
     let local_up = normalize(world_pos);
     var inscattering = vec3(0.0);
@@ -222,7 +222,7 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
     return inscattering;
 }
 
-fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
+public fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     let view_pos = get_view_position();
     let r = length(view_pos);
     let up = normalize(view_pos);
@@ -245,7 +245,7 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     return sun_radiance;
 }
 
-fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angular_size: f32) -> f32 {
+public fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angular_size: f32) -> f32 {
     let inner_radius = atmosphere.inner_radius;
     // Calculate the angle between horizon and sun center
     // Invert the horizon angle calculation to fix shading direction
@@ -272,7 +272,7 @@ fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angu
 // TRANSFORM UTILITIES
 
 /// Clamp a position to the planet surface (with a small epsilon) to avoid underground artifacts.
-fn clamp_to_surface(atmosphere: Atmosphere, position: vec3<f32>) -> vec3<f32> {
+public fn clamp_to_surface(atmosphere: Atmosphere, position: vec3<f32>) -> vec3<f32> {
     let min_radius = atmosphere.inner_radius + EPSILON;
     let r = length(position);
     if r < min_radius {
@@ -282,7 +282,7 @@ fn clamp_to_surface(atmosphere: Atmosphere, position: vec3<f32>) -> vec3<f32> {
     return position;
 }
 
-fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
+public fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
     let t_top = distance_to_top_atmosphere_boundary(atmosphere, r, mu);
     let t_bottom = distance_to_bottom_atmosphere_boundary(r, mu);
     let hits = ray_intersects_ground(r, mu);
@@ -290,7 +290,7 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 }
 
 /// Returns the observer's position in the atmosphere
-fn get_view_position() -> vec3<f32> {
+public fn get_view_position() -> vec3<f32> {
     let atmo_pos = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
     return clamp_to_surface(atmosphere, atmo_pos);
 }
@@ -298,41 +298,41 @@ fn get_view_position() -> vec3<f32> {
 /// We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
 /// t = distance along view ray in atmosphere space
 /// NOTE: this means that if your world is actually spherical, this will be wrong.
-fn get_local_up(r: f32, t: f32, ray_dir: vec3<f32>) -> vec3<f32> {
+public fn get_local_up(r: f32, t: f32, ray_dir: vec3<f32>) -> vec3<f32> {
     return normalize(vec3(0.0, r, 0.0) + t * ray_dir);
 }
 
 /// Given a ray starting at radius r, with mu = cos(zenith angle),
 /// and a t = distance along the ray, gives the new radius at point t
-fn get_local_r(r: f32, mu: f32, t: f32) -> f32 {
+public fn get_local_r(r: f32, mu: f32, t: f32) -> f32 {
     return sqrt(t * t + 2.0 * r * mu * t + r * r);
 }
 
 /// Convert uv [0.0 .. 1.0] coordinate to ndc space xy [-1.0 .. 1.0]
-fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
+public fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
     return uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
 }
 
 /// Convert ndc space xy coordinate [-1.0 .. 1.0] to uv [0.0 .. 1.0]
-fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
+public fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
     return ndc * vec2(0.5, -0.5) + vec2(0.5);
 }
 
 /// Converts a direction in world space to atmosphere space
-fn direction_world_to_atmosphere(dir_ws: vec3<f32>) -> vec3<f32> {
+public fn direction_world_to_atmosphere(dir_ws: vec3<f32>) -> vec3<f32> {
     let dir_as = atmosphere_transforms.atmosphere_from_world * vec4(dir_ws, 0.0);
     return dir_as.xyz;
 }
 
 /// Converts a direction in atmosphere space to world space
-fn direction_atmosphere_to_world(dir_as: vec3<f32>) -> vec3<f32> {
+public fn direction_atmosphere_to_world(dir_as: vec3<f32>) -> vec3<f32> {
     let dir_ws = atmosphere_transforms.world_from_atmosphere * vec4(dir_as, 0.0);
     return dir_ws.xyz;
 }
 
 // Modified from skybox.wesl. For this pass we don't need to apply a separate sky transform or consider camera viewport.
 /// Returns a normalized ray direction in world space.
-fn uv_to_ray_direction(uv: vec2<f32>) -> vec3<f32> {
+public fn uv_to_ray_direction(uv: vec2<f32>) -> vec3<f32> {
     // Using world positions of the fragment and camera to calculate a ray direction
     // breaks down at large translations. This code only needs to know the ray direction.
     // The ray direction is along the direction from the camera to the fragment position.
@@ -357,7 +357,7 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec3<f32> {
     return normalize(ray_direction);
 }
 
-fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
+public fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
     let sin_zenith = sin(zenith);
     let mu = cos(zenith);
     let sin_azimuth = sin(azimuth);
@@ -365,12 +365,12 @@ fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
     return vec3(sin_azimuth * sin_zenith, mu, -cos_azimuth * sin_zenith);
 }
 
-struct RaymarchSegment {
+public struct RaymarchSegment {
     start: f32,
     end: f32,
 }
 
-fn get_raymarch_segment(r: f32, mu: f32) -> RaymarchSegment {
+public fn get_raymarch_segment(r: f32, mu: f32) -> RaymarchSegment {
     // Get both intersection points with atmosphere
     let atmosphere_intersections = ray_sphere_intersect(r, mu, atmosphere.outer_radius);
     let ground_intersections = ray_sphere_intersect(r, mu, atmosphere.inner_radius);
@@ -399,12 +399,12 @@ fn get_raymarch_segment(r: f32, mu: f32) -> RaymarchSegment {
     return segment;
 }
 
-struct RaymarchResult {
+public struct RaymarchResult {
     inscattering: vec3<f32>,
     transmittance: vec3<f32>,
 }
 
-fn raymarch_atmosphere(
+public fn raymarch_atmosphere(
     pos: vec3<f32>,
     ray_dir: vec3<f32>,
     t_max: f32,

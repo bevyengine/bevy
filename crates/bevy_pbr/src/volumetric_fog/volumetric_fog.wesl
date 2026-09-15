@@ -50,7 +50,7 @@ import package::render::pbr_lighting::getDistanceAttenuation;
 
 /// The GPU version of [`VolumetricFog`]. See the comments in
 /// `volumetric_fog/mod.rs` for descriptions of the fields here.
-struct VolumetricFog {
+public struct VolumetricFog {
     clip_from_local: mat4x4<f32>,
     uvw_from_world: mat4x4<f32>,
     far_planes: array<vec4<f32>, 6>,
@@ -69,28 +69,28 @@ struct VolumetricFog {
     jitter_strength: f32,
 }
 
-@group(1) @binding(0) var<uniform> volumetric_fog: VolumetricFog;
+@group(1) @binding(0) public var<uniform> volumetric_fog: VolumetricFog;
 
 @if(MULTISAMPLED)
-@group(1) @binding(1) var depth_texture: texture_depth_multisampled_2d;
+@group(1) @binding(1) public var depth_texture: texture_depth_multisampled_2d;
 @else
-@group(1) @binding(1) var depth_texture: texture_depth_2d;
+@group(1) @binding(1) public var depth_texture: texture_depth_2d;
 
 @if(DENSITY_TEXTURE) {
-@group(1) @binding(2) var density_texture: texture_3d<f32>;
-@group(1) @binding(3) var density_sampler: sampler;
+@group(1) @binding(2) public var density_texture: texture_3d<f32>;
+@group(1) @binding(3) public var density_sampler: sampler;
 }
 
 /// 1 / (4π)
-const FRAC_4_PI: f32 = 0.07957747154594767;
+public const FRAC_4_PI: f32 = 0.07957747154594767;
 
-struct Vertex {
+public struct Vertex {
     @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
 }
 
 @vertex
-fn vertex(vertex: Vertex) -> @builtin(position) vec4<f32> {
+public fn vertex(vertex: Vertex) -> @builtin(position) vec4<f32> {
     return volumetric_fog.clip_from_local * vec4<f32>(vertex.position, 1.0);
 }
 
@@ -103,14 +103,14 @@ fn vertex(vertex: Vertex) -> @builtin(position) vec4<f32> {
 /// [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/ray-marching-get-it-right.html
 ///
 /// [2]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
-fn henyey_greenstein(neg_LdotV: f32) -> f32 {
+public fn henyey_greenstein(neg_LdotV: f32) -> f32 {
     let g = volumetric_fog.scattering_asymmetry;
     let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
     return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
 }
 
 @fragment
-fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
+public fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // Unpack the `volumetric_fog` settings.
     let uvw_from_world = volumetric_fog.uvw_from_world;
     let fog_color = volumetric_fog.fog_color;
@@ -443,7 +443,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     return vec4(accumulated_color, 1.0 - background_alpha);
 }
 
-fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
+public fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
     let light = &clustered_lights.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
@@ -476,7 +476,7 @@ fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fr
     return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id, frag_coord_xy);
 }
 
-fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
+public fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
     let light = &clustered_lights.data[light_id];
 
     let surface_to_light = (*light).position_radius.xyz - frag_position.xyz;
@@ -522,7 +522,7 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fra
 }
 
 @if(ATMOSPHERE)
-fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
+public fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
     return textureSampleLevel(
         atmosphere_transmittance_texture,

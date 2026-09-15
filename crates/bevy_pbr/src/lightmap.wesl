@@ -4,16 +4,16 @@ import package::render::mesh_bindings::mesh;
 enable wgpu_binding_array;
 
 @if(MULTIPLE_LIGHTMAPS_IN_ARRAY) {
-@group(2) @binding(4) var lightmaps_textures: binding_array<texture_2d<f32>, 4>;
-@group(2) @binding(5) var lightmaps_samplers: binding_array<sampler, 4>;
+@group(2) @binding(4) public var lightmaps_textures: binding_array<texture_2d<f32>, 4>;
+@group(2) @binding(5) public var lightmaps_samplers: binding_array<sampler, 4>;
 }
 @else {
-@group(2) @binding(4) var lightmaps_texture: texture_2d<f32>;
-@group(2) @binding(5) var lightmaps_sampler: sampler;
+@group(2) @binding(4) public var lightmaps_texture: texture_2d<f32>;
+@group(2) @binding(5) public var lightmaps_sampler: sampler;
 }
 
 /// Samples the lightmap, if any, and returns indirect illumination from it.
-fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
+public fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     let packed_uv_rect = mesh[instance_index].lightmap_uv_rect;
     let uv_rect = vec4<f32>(
         unpack2x16unorm(packed_uv_rect.x),
@@ -50,14 +50,14 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     return color * exposure;
 }
 
-fn lightmap_size(lightmap_slot: u32) -> vec2<u32> {
+public fn lightmap_size(lightmap_slot: u32) -> vec2<u32> {
     @if(MULTIPLE_LIGHTMAPS_IN_ARRAY)
     return textureDimensions(lightmaps_textures[lightmap_slot]);
     @else
     return textureDimensions(lightmaps_texture);
 }
 
-fn sample(uv: vec2<f32>, lightmap_slot: u32) -> vec3<f32> {
+public fn sample(uv: vec2<f32>, lightmap_slot: u32) -> vec3<f32> {
     // Mipmapping lightmaps is usually a bad idea due to leaking across UV
     // islands, so there's no harm in using mip level 0 and it lets us avoid
     // control flow uniformity problems.
@@ -67,34 +67,34 @@ fn sample(uv: vec2<f32>, lightmap_slot: u32) -> vec3<f32> {
     return textureSampleLevel(lightmaps_texture, lightmaps_sampler, uv, 0.0).rgb;
 }
 
-fn w0(a: f32) -> f32 {
+public fn w0(a: f32) -> f32 {
     return (1.0 / 6.0) * (a * (a * (-a + 3.0) - 3.0) + 1.0);
 }
 
-fn w1(a: f32) -> f32 {
+public fn w1(a: f32) -> f32 {
     return (1.0 / 6.0) * (a * a * (3.0 * a - 6.0) + 4.0);
 }
 
-fn w2(a: f32) -> f32 {
+public fn w2(a: f32) -> f32 {
     return (1.0 / 6.0) * (a * (a * (-3.0 * a + 3.0) + 3.0) + 1.0);
 }
 
-fn w3(a: f32) -> f32 {
+public fn w3(a: f32) -> f32 {
     return (1.0 / 6.0) * (a * a * a);
 }
 
-fn g0(a: f32) -> f32 {
+public fn g0(a: f32) -> f32 {
     return w0(a) + w1(a);
 }
 
-fn g1(a: f32) -> f32 {
+public fn g1(a: f32) -> f32 {
     return w2(a) + w3(a);
 }
 
-fn h0_approx(a: f32) -> f32 {
+public fn h0_approx(a: f32) -> f32 {
     return -0.2 - a * (0.24 * a - 0.44);
 }
 
-fn h1_approx(a: f32) -> f32 {
+public fn h1_approx(a: f32) -> f32 {
     return 1.0 + a * (0.24 * a - 0.04);
 }

@@ -5,13 +5,13 @@ import package::realtime::bindings::{
 
 enable wgpu_ray_query;
 
-@group(2) @binding(0) var<storage, read_write> world_cache_active_cells_dispatch: vec3<u32>;
+@group(2) @binding(0) public var<storage, read_write> world_cache_active_cells_dispatch: vec3<u32>;
 
-var<workgroup> w1: array<u32, 1024u>;
-var<workgroup> w2: array<u32, 1024u>;
+public var<workgroup> w1: array<u32, 1024u>;
+public var<workgroup> w2: array<u32, 1024u>;
 
 @compute @workgroup_size(1024, 1, 1)
-fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
+public fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var life = world_cache.life[global_id.x];
     if life > 0u {
         life -= 1u;
@@ -26,7 +26,7 @@ fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 
 @compute @workgroup_size(1024, 1, 1)
-fn compact_world_cache_single_block(
+public fn compact_world_cache_single_block(
     @builtin(global_invocation_id) cell_id: vec3<u32>,
     @builtin(local_invocation_index) t: u32,
 ) {
@@ -44,7 +44,7 @@ fn compact_world_cache_single_block(
 }
 
 @compute @workgroup_size(1024, 1, 1)
-fn compact_world_cache_blocks(@builtin(local_invocation_index) t: u32) {
+public fn compact_world_cache_blocks(@builtin(local_invocation_index) t: u32) {
     if t == 0u { w1[0u] = 0u; } else { w1[t] = world_cache.a[t * 1024u - 1u] + u32(world_cache.life[t * 1024u - 1u] != 0u); }; workgroupBarrier();
     if t < 1u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 1u]; } workgroupBarrier();
     if t < 2u { w1[t] = w2[t]; } else { w1[t] = w2[t] + w2[t - 2u]; } workgroupBarrier();
@@ -59,7 +59,7 @@ fn compact_world_cache_blocks(@builtin(local_invocation_index) t: u32) {
 }
 
 @compute @workgroup_size(1024, 1, 1)
-fn compact_world_cache_write_active_cells(
+public fn compact_world_cache_write_active_cells(
     @builtin(global_invocation_id) cell_id: vec3<u32>,
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(local_invocation_index) thread_index: u32,

@@ -1,4 +1,4 @@
-struct UncompressedVertex {
+public struct UncompressedVertex {
     @builtin(instance_index) instance_index: u32,
     @if(VERTEX_POSITIONS)
     @location(0) position: vec3<f32>,
@@ -20,7 +20,7 @@ struct UncompressedVertex {
     @builtin(vertex_index) index: u32,
 };
 
-struct Vertex {
+public struct Vertex {
     @builtin(instance_index) instance_index: u32,
     @if(VERTEX_POSITIONS && VERTEX_POSITIONS_COMPRESSED)
     @location(0) compressed_position: vec4<f32>,
@@ -56,7 +56,7 @@ struct Vertex {
 
 /// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 /// See https://github.com/gfx-rs/naga/issues/2416
-fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVertex {
+public fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVertex {
     let mesh_metadata = package::render::mesh_functions::get_metadata(instance_index);
     var uncompressed_vertex: UncompressedVertex;
     uncompressed_vertex.instance_index = instance_index;
@@ -95,7 +95,7 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
     return uncompressed_vertex;
 }
 
-struct VertexOutput {
+public struct VertexOutput {
     /// This is `clip position` when the struct is used as a vertex stage output
     /// and `frag coord` when used as a fragment stage input
     @builtin(position) position: vec4<f32>,
@@ -115,6 +115,6 @@ struct VertexOutput {
     @location(7) @interpolate(flat) visibility_range_dither: i32,
 }
 
-struct FragmentOutput {
+public struct FragmentOutput {
     @location(0) color: vec4<f32>,
 }

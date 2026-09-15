@@ -12,7 +12,7 @@ import bevy_render::color_operations::linear_to_srgb;
 @if(OKLAB_OUTPUT)
 import bevy_render::color_operations::linear_rgb_to_oklab;
 
-struct ColorMaterial {
+public struct ColorMaterial {
     color: vec4<f32>,
     uv_transform: mat3x3<f32>,
     /// 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
@@ -22,30 +22,30 @@ struct ColorMaterial {
 
 @if(BINDLESS) {
 /// The index table for bindless operation.
-struct ColorMaterialBindings {
+public struct ColorMaterialBindings {
     material: u32,          // 0
     color_texture: u32,     // 1
     color_sampler: u32,     // 2
 }
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<storage> color_material_indices:
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) public var<storage> color_material_indices:
     array<ColorMaterialBindings>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(10) var<storage> color_materials: array<ColorMaterial>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(10) public var<storage> color_materials: array<ColorMaterial>;
 }
 @else {
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material: ColorMaterial;
-@group(constants::MATERIAL_BIND_GROUP) @binding(1) var texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(2) var texture_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) public var<uniform> material: ColorMaterial;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) public var texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) public var texture_sampler: sampler;
 }
 
-const COLOR_MATERIAL_FLAGS_TEXTURE_BIT: u32              = 1u;
-const COLOR_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32 = 3221225472u; // (0b11u32 << 30)
-const COLOR_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32        = 0u;          // (0u32 << 30)
-const COLOR_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32          = 1073741824u; // (1u32 << 30)
-const COLOR_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32         = 2147483648u; // (2u32 << 30)
+public const COLOR_MATERIAL_FLAGS_TEXTURE_BIT: u32              = 1u;
+public const COLOR_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32 = 3221225472u; // (0b11u32 << 30)
+public const COLOR_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32        = 0u;          // (0u32 << 30)
+public const COLOR_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32          = 1073741824u; // (1u32 << 30)
+public const COLOR_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32         = 2147483648u; // (2u32 << 30)
 
 @fragment
-fn fragment(
+public fn fragment(
     in: VertexOutput,
 ) -> @location(0) vec4<f32> {
     let slot = mesh[in.instance_index].material_bind_group_slot;
@@ -95,7 +95,7 @@ fn fragment(
     return output_color;
 }
 
-fn alpha_discard(flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) -> vec4<f32> {
+public fn alpha_discard(flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
     let alpha_mode = flags & COLOR_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode == COLOR_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {

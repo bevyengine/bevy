@@ -4,29 +4,29 @@
 import bevy_render::view::View;
 import bevy_pbr::render::mesh_view_types::OitFragmentNode;
 
-@group(0) @binding(0) var<uniform> view: View;
-@group(0) @binding(1) var<storage, read> nodes: array<OitFragmentNode>;
-@group(0) @binding(2) var<storage, read_write> heads: array<u32>; // No need to be atomic
-@group(0) @binding(3) var<storage, read_write> atomic_counter: u32; // No need to be atomic
+@group(0) @binding(0) public var<uniform> view: View;
+@group(0) @binding(1) public var<storage, read> nodes: array<OitFragmentNode>;
+@group(0) @binding(2) public var<storage, read_write> heads: array<u32>; // No need to be atomic
+@group(0) @binding(3) public var<storage, read_write> atomic_counter: u32; // No need to be atomic
 
 @if(!DEPTH_PREPASS)
-@group(1) @binding(0) var depth: texture_depth_2d;
+@group(1) @binding(0) public var depth: texture_depth_2d;
 
-struct OitFragment {
+public struct OitFragment {
     color: u32,
     depth_alpha: u32,
 }
 
-struct FullscreenVertexOutput {
+public struct FullscreenVertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
 };
 
-const LINKED_LIST_END_SENTINEL: u32 = 0xFFFFFFFFu;
-const SORTED_FRAGMENT_MAX_COUNT: u32 = constants::SORTED_FRAGMENT_MAX_COUNT;
+public const LINKED_LIST_END_SENTINEL: u32 = 0xFFFFFFFFu;
+public const SORTED_FRAGMENT_MAX_COUNT: u32 = constants::SORTED_FRAGMENT_MAX_COUNT;
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     atomic_counter = 0u;
     let screen_index = u32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
 
@@ -52,7 +52,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     }
 }
 
-fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
+public fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
     // Contains all the colors and depth for this specific fragment
     // Fragments are sorted from front to back (depth values are in descending order)
     // This should make insertion sort slightly faster
@@ -125,12 +125,12 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
 
 // OVER operator using premultiplied alpha
 // see: https://en.wikipedia.org/wiki/Alpha_compositing
-fn blend(color_a: vec4<f32>, color_b: vec4<f32>) -> vec4<f32> {
+public fn blend(color_a: vec4<f32>, color_b: vec4<f32>) -> vec4<f32> {
     let final_color = color_a.rgb + (1.0 - color_a.a) * color_b.rgb;
     let alpha = color_a.a + (1.0 - color_a.a) * color_b.a;
     return vec4(final_color.rgb, alpha);
 }
 
-fn packed_depth_alpha_get_alpha(packed: u32) -> f32 {
+public fn packed_depth_alpha_get_alpha(packed: u32) -> f32 {
     return package::oit::draw::unpack_24bit_depth_8bit_alpha(packed).y;
 }

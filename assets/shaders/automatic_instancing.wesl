@@ -3,22 +3,22 @@ import bevy_pbr::render::{
     view_transformations::position_world_to_clip
 };
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(1) var texture_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) public var texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) public var texture_sampler: sampler;
 
-struct Vertex {
+public struct Vertex {
     @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
 };
 
-struct VertexOutput {
+public struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
     @location(1) color: vec4<f32>,
 };
 
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
+public fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
     // Lookup the tag for the given mesh
@@ -36,7 +36,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 }
 
 @fragment
-fn fragment(
+public fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
     return mesh.color;

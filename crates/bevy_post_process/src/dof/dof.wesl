@@ -24,7 +24,7 @@ import bevy_render::view::View;
 /// Parameters that control the depth of field effect. See
 /// `bevy_core_pipeline::dof::DepthOfFieldUniforms` for information on what these
 /// parameters mean.
-struct DepthOfFieldParams {
+public struct DepthOfFieldParams {
     /// The distance in meters to the location in focus.
     focal_distance: f32,
 
@@ -65,7 +65,7 @@ struct DepthOfFieldParams {
 }
 
 /// The first bokeh pass outputs to two render targets. We declare them here.
-struct DualOutput {
+public struct DualOutput {
     /// The vertical output.
     @location(0) output_0: vec4<f32>,
     /// The diagonal output.
@@ -76,43 +76,43 @@ struct DualOutput {
 
 /// The depth texture for the main view.
 @if(MULTISAMPLED)
-@group(0) @binding(1) var depth_texture: texture_depth_multisampled_2d;
+@group(0) @binding(1) public var depth_texture: texture_depth_multisampled_2d;
 @else   // MULTISAMPLED
-@group(0) @binding(1) var depth_texture: texture_depth_2d;
+@group(0) @binding(1) public var depth_texture: texture_depth_2d;
 
 /// The main color texture.
-@group(0) @binding(2) var color_texture_a: texture_2d<f32>;
+@group(0) @binding(2) public var color_texture_a: texture_2d<f32>;
 
 /// The auxiliary color texture that we're sampling from. This is only used as
 /// part of the second bokeh pass.
 @if(DUAL_INPUT)
-@group(0) @binding(3) var color_texture_b: texture_2d<f32>;
+@group(0) @binding(3) public var color_texture_b: texture_2d<f32>;
 
 // The global uniforms, representing data backed by buffers shared among all
 // views in the scene.
 
 /// The parameters that control the depth of field effect.
-@group(1) @binding(0) var<uniform> dof_params: DepthOfFieldParams;
+@group(1) @binding(0) public var<uniform> dof_params: DepthOfFieldParams;
 
 /// The sampler that's used to fetch texels from the source color buffer.
-@group(1) @binding(1) var color_texture_sampler: sampler;
+@group(1) @binding(1) public var color_texture_sampler: sampler;
 
 /// used to ensure `depth * (focus - f)` is always a positive number,
-const EPSILON: f32 = 1.19209290e-07;
+public const EPSILON: f32 = 1.19209290e-07;
 /// cos(-30°), used for the bokeh blur.
-const COS_NEG_FRAC_PI_6: f32 = 0.8660254037844387;
+public const COS_NEG_FRAC_PI_6: f32 = 0.8660254037844387;
 /// sin(-30°), used for the bokeh blur.
-const SIN_NEG_FRAC_PI_6: f32 = -0.5;
+public const SIN_NEG_FRAC_PI_6: f32 = -0.5;
 /// cos(-150°), used for the bokeh blur.
-const COS_NEG_FRAC_PI_5_6: f32 = -0.8660254037844387;
+public const COS_NEG_FRAC_PI_5_6: f32 = -0.8660254037844387;
 /// sin(-150°), used for the bokeh blur.
-const SIN_NEG_FRAC_PI_5_6: f32 = -0.5;
+public const SIN_NEG_FRAC_PI_5_6: f32 = -0.5;
 
 /// Calculates and returns the diameter (not the radius) of the [circle of
 /// confusion].
 ///
 /// [circle of confusion]: https://en.wikipedia.org/wiki/Circle_of_confusion
-fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
+public fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
     // Unpack the depth of field parameters.
     let focus = dof_params.focal_distance;
     let f = dof_params.focal_length;
@@ -145,7 +145,7 @@ fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
 ///
 /// * `frag_offset` is the vector, in screen-space units, from one sample to the
 ///   next. This need not be horizontal or vertical.
-fn box_blur_a(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f32> {
+public fn box_blur_a(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f32> {
     let support = i32(round(coc * 0.5));
     let uv = frag_coord.xy / vec2<f32>(textureDimensions(color_texture_a));
     let offset = frag_offset / vec2<f32>(textureDimensions(color_texture_a));
@@ -171,7 +171,7 @@ fn box_blur_a(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
 /// * `frag_offset` is the vector, in screen-space units, from one sample to the
 ///   next. This need not be horizontal or vertical.
 @if(DUAL_INPUT)
-fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f32> {
+public fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f32> {
     let support = i32(round(coc * 0.5));
     let uv = frag_coord.xy / vec2<f32>(textureDimensions(color_texture_b));
     let offset = frag_offset / vec2<f32>(textureDimensions(color_texture_b));
@@ -188,14 +188,14 @@ fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
 
 /// Calculates the horizontal component of the separable Gaussian blur.
 @fragment
-fn gaussian_horizontal(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+public fn gaussian_horizontal(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let coc = calculate_circle_of_confusion(in.position);
     return gaussian_blur(color_texture_a, color_texture_sampler, in.position, coc, vec2(1.0, 0.0));
 }
 
 /// Calculates the vertical component of the separable Gaussian blur.
 @fragment
-fn gaussian_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+public fn gaussian_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let coc = calculate_circle_of_confusion(in.position);
     return gaussian_blur(color_texture_a, color_texture_sampler, in.position, coc, vec2(0.0, 1.0));
 }
@@ -209,7 +209,7 @@ fn gaussian_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 ///       │
 ///       │
 @fragment
-fn bokeh_pass_a(in: FullscreenVertexOutput) -> DualOutput {
+public fn bokeh_pass_a(in: FullscreenVertexOutput) -> DualOutput {
     let coc = calculate_circle_of_confusion(in.position);
     let vertical = box_blur_a(in.position, coc, vec2(0.0, 1.0));
     let diagonal = box_blur_a(in.position, coc, vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6));
@@ -229,7 +229,7 @@ fn bokeh_pass_a(in: FullscreenVertexOutput) -> DualOutput {
 ///       •
 @if(DUAL_INPUT)
 @fragment
-fn bokeh_pass_b(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+public fn bokeh_pass_b(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let coc = calculate_circle_of_confusion(in.position);
     let output_0 = box_blur_a(in.position, coc, vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6));
     let output_1 = box_blur_b(in.position, coc, vec2(COS_NEG_FRAC_PI_5_6, SIN_NEG_FRAC_PI_5_6));

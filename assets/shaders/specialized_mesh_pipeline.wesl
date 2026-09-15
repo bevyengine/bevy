@@ -8,7 +8,7 @@ import bevy_pbr::render::{
     view_transformations::position_world_to_clip
 };
 
-struct Vertex {
+public struct Vertex {
     // This is needed if you are using batching and/or gpu preprocessing
     // It's a built in so you don't need to define it in the vertex layout
     @builtin(instance_index) instance_index: u32,
@@ -24,7 +24,7 @@ struct Vertex {
 };
 
 /// This is the output of the vertex shader and we also use it as the input for the fragment shader
-struct VertexOutput {
+public struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
     @if(VERTEX_COLORS)
@@ -32,7 +32,7 @@ struct VertexOutput {
 };
 
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
+public fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     // This is how bevy computes the world position
     // The vertex.instance_index is very important. Especially if you are using batching and gpu preprocessing
@@ -54,7 +54,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 }
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // We just use the raw vertex color if the mesh provides one, otherwise
     // we fall back to a hardcoded color (e.g. for the rectangle mesh,
     // which has no vertex color attribute).

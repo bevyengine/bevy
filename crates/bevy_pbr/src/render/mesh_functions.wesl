@@ -12,17 +12,17 @@ import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack};
 import bevy_render::mesh::metadata_types::MeshMetadata;
 
 @if(!MESHLET_MESH_MATERIAL_PASS)
-fn get_world_from_local(instance_index: u32) -> mat4x4<f32> {
+public fn get_world_from_local(instance_index: u32) -> mat4x4<f32> {
     return affine3_to_square(mesh[instance_index].world_from_local);
 }
 
 @if(!MESHLET_MESH_MATERIAL_PASS)
-fn get_previous_world_from_local(instance_index: u32) -> mat4x4<f32> {
+public fn get_previous_world_from_local(instance_index: u32) -> mat4x4<f32> {
     return affine3_to_square(mesh[instance_index].previous_world_from_local);
 }
 
 @if(!MESHLET_MESH_MATERIAL_PASS)
-fn get_local_from_world(instance_index: u32) -> mat4x4<f32> {
+public fn get_local_from_world(instance_index: u32) -> mat4x4<f32> {
     // the model matrix is translation * rotation * scale
     // the inverse is then scale^-1 * rotation ^-1 * translation^-1
     // the 3x3 matrix only contains the information for the rotation and scale
@@ -49,20 +49,20 @@ fn get_local_from_world(instance_index: u32) -> mat4x4<f32> {
     return inverse_model_4x4_no_trans * inverse_model_4x4_only_trans;
 }
 
-fn mesh_position_local_to_world(world_from_local: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
+public fn mesh_position_local_to_world(world_from_local: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     return world_from_local * vertex_position;
 }
 
 /// NOTE: The intermediate world_position assignment is important
 /// for precision purposes when using the 'equals' depth comparison
 /// function.
-fn mesh_position_local_to_clip(world_from_local: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
+public fn mesh_position_local_to_clip(world_from_local: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     let world_position = mesh_position_local_to_world(world_from_local, vertex_position);
     return position_world_to_clip(world_position.xyz);
 }
 
 @if(!MESHLET_MESH_MATERIAL_PASS)
-fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> vec3<f32> {
+public fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> vec3<f32> {
     // NOTE: The mikktspace method of normal mapping requires that the world normal is
     // re-normalized in the vertex shader to match the way mikktspace bakes vertex tangents
     // and normal maps so that the exact inverse process is applied when shading. Blender, Unity,
@@ -84,7 +84,7 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> 
 
 /// Calculates the sign of the determinant of the 3x3 model matrix based on a
 /// mesh flag
-fn sign_determinant_model_3x3m(mesh_flags: u32) -> f32 {
+public fn sign_determinant_model_3x3m(mesh_flags: u32) -> f32 {
     // bool(u32) is false if 0u else true
     // f32(bool) is 1.0 if true else 0.0
     // * 2.0 - 1.0 remaps 0.0 or 1.0 to -1.0 or 1.0 respectively
@@ -92,7 +92,7 @@ fn sign_determinant_model_3x3m(mesh_flags: u32) -> f32 {
 }
 
 @if(!MESHLET_MESH_MATERIAL_PASS)
-fn mesh_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: vec4<f32>, instance_index: u32) -> vec4<f32> {
+public fn mesh_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: vec4<f32>, instance_index: u32) -> vec4<f32> {
     // NOTE: The mikktspace method of normal mapping requires that the world tangent is
     // re-normalized in the vertex shader to match the way mikktspace bakes vertex tangents
     // and normal maps so that the exact inverse process is applied when shading. Blender, Unity,
@@ -123,7 +123,7 @@ fn mesh_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: ve
 /// This looks up the LOD range in the `visibility_ranges` table and compares the
 /// camera distance to determine the dithering level.
 @if(VISIBILITY_RANGE_DITHER)
-fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f32>) -> i32 {
+public fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f32>) -> i32 {
 @if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_6)
     // If we're using a storage buffer, then the length is variable.
     let visibility_buffer_array_len = arrayLength(&visibility_ranges);
@@ -152,12 +152,12 @@ fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f
 
 
 @if(!MESHLET_MESH_MATERIAL_PASS)
-fn get_tag(instance_index: u32) -> u32 {
+public fn get_tag(instance_index: u32) -> u32 {
     return mesh[instance_index].tag;
 }
 
 @if(!MESHLET_MESH_MATERIAL_PASS)
-fn get_metadata(instance_index: u32) -> MeshMetadata {
+public fn get_metadata(instance_index: u32) -> MeshMetadata {
 @if(METADATA_USE_UNIFORM_BUFFERS)
     return metadata;
 @else

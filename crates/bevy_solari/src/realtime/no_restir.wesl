@@ -7,7 +7,7 @@ import package::realtime::world_cache_query::{query_world_cache, WORLD_CACHE_CEL
 enable wgpu_ray_query;
 
 @compute @workgroup_size(8, 8, 1)
-fn initial_and_shade(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) global_id: vec3<u32>) {
+public fn initial_and_shade(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);

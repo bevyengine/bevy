@@ -22,7 +22,7 @@ import package::render::pbr_bindings::material_indices;
 
 @if(PREPASS_FRAGMENT)
 @fragment
-fn fragment(
+public fn fragment(
 @if(MESHLET_MESH_MATERIAL_PASS)
     @builtin(position) frag_coord: vec4<f32>,
 @if(!MESHLET_MESH_MATERIAL_PASS)
@@ -149,6 +149,6 @@ fn fragment(
 }
 @else
 @fragment
-fn fragment(in: prepass_io::VertexOutput) {
+public fn fragment(in: prepass_io::VertexOutput) {
     pbr_prepass_functions::prepass_sample_color_and_alpha_discard(in);
 }

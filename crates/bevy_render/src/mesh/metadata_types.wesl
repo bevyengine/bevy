@@ -1,5 +1,5 @@
 
-struct MeshMetadata {
+public struct MeshMetadata {
     /// AABB for decompressing positions.
     aabb_center: vec3<f32>,
     pad_a: u32,

@@ -2,7 +2,7 @@
 //! The actual work it does is not important for the example and
 //! has been hardcoded to return a cube mesh
 
-struct DataRanges {
+public struct DataRanges {
     /// the starting offset of the mesh data in the *vertex_data* storage buffer
     vertex_start: u32,
     vertex_end: u32,
@@ -11,12 +11,12 @@ struct DataRanges {
     index_end: u32,
 }
 
-@group(0) @binding(0) var<uniform> data_range: DataRanges;
-@group(0) @binding(1) var<storage, read_write> vertex_data: array<f32>;
-@group(0) @binding(2) var<storage, read_write> index_data: array<u32>;
+@group(0) @binding(0) public var<uniform> data_range: DataRanges;
+@group(0) @binding(1) public var<storage, read_write> vertex_data: array<f32>;
+@group(0) @binding(2) public var<storage, read_write> index_data: array<u32>;
 
 @compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+public fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // this loop is iterating over the full list of (position, normal, uv)
     // data what we have in `vertices`.
     // `192` is used because arrayLength on const arrays doesn't work
@@ -47,12 +47,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
 // hardcoded compute shader data.
 /// half the size of the cube
-const half_size = vec3(1.5);
-const min = -half_size;
-const max = half_size;
+public const half_size = vec3(1.5);
+public const min = -half_size;
+public const max = half_size;
 
 // Suppose Y-up right hand, and camera look from +Z to -Z
-const vertices = array(
+public const vertices = array(
     // xyz, normal.xyz, uv.xy
     // Front
     min.x, min.y, max.z, 0.0, 0.0, 1.0, 0.0, 0.0,
@@ -86,7 +86,7 @@ const vertices = array(
     max.x, min.y, min.z, 0.0, -1.0, 0.0, 0.0, 1.0
 );
 
-const indices = array(
+public const indices = array(
     0, 1, 2, 2, 3, 0, // front
     4, 5, 6, 6, 7, 4, // back
     8, 9, 10, 10, 11, 8, // right

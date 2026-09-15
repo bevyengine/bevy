@@ -11,15 +11,15 @@ import package::{
 import bevy_render::maths::project_onto;
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(200)
-var<uniform> inv_depth_fade_factor: f32;
+public var<uniform> inv_depth_fade_factor: f32;
 
-struct ForwardDecalInformation {
+public struct ForwardDecalInformation {
     world_position: vec4<f32>,
     uv: vec2<f32>,
     alpha: f32,
 }
 
-fn get_forward_decal_info(in: VertexOutput) -> ForwardDecalInformation {
+public fn get_forward_decal_info(in: VertexOutput) -> ForwardDecalInformation {
     let world_from_local = get_world_from_local(in.instance_index);
     let scale = (world_from_local * vec4(1.0, 1.0, 1.0, 0.0)).xyz;
     let scaled_tangent = vec4(in.world_tangent.xyz / scale, in.world_tangent.w);

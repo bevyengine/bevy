@@ -13,7 +13,7 @@ import bevy_pbr::{
 };
 
 @fragment
-fn fragment(
+public fn fragment(
     in: VertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> FragmentOutput {

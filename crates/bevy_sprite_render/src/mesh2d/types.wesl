@@ -1,4 +1,4 @@
-struct Mesh2d {
+public struct Mesh2d {
     /// Affine 4x3 matrix transposed to 3x4
     /// Use bevy_render::maths::affine3_to_square to unpack
     world_from_local: mat3x4<f32>,

@@ -1,7 +1,7 @@
 import bevy_render::view::View;
 import bevy_pbr::render::utils::coords_to_viewport_uv;
 
-struct SkyboxUniforms {
+public struct SkyboxUniforms {
 	brightness: f32,
 	transform: mat4x4<f32>,
 	@if(SIXTEEN_BYTE_ALIGNMENT)
@@ -12,12 +12,12 @@ struct SkyboxUniforms {
 	_wasm_padding_16b: u32,
 }
 
-@group(0) @binding(0) var skybox: texture_cube<f32>;
-@group(0) @binding(1) var skybox_sampler: sampler;
-@group(0) @binding(2) var<uniform> view: View;
-@group(0) @binding(3) var<uniform> uniforms: SkyboxUniforms;
+@group(0) @binding(0) public var skybox: texture_cube<f32>;
+@group(0) @binding(1) public var skybox_sampler: sampler;
+@group(0) @binding(2) public var<uniform> view: View;
+@group(0) @binding(3) public var<uniform> uniforms: SkyboxUniforms;
 
-fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32> {
+public fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32> {
     // Using world positions of the fragment and camera to calculate a ray direction
     // breaks down at large translations. This code only needs to know the ray direction.
     // The ray direction is along the direction from the camera to the fragment position.
@@ -46,7 +46,7 @@ fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32
     return normalize(ray_direction);
 }
 
-struct VertexOutput {
+public struct VertexOutput {
     @builtin(position) position: vec4<f32>,
 };
 
@@ -62,7 +62,7 @@ struct VertexOutput {
 // The digits in the corners of the right-angled triangle are the vertex
 // indices.
 @vertex
-fn skybox_vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+public fn skybox_vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     // See the explanation above for how this works.
     let clip_position = vec2(
         f32(vertex_index & 1u),
@@ -73,7 +73,7 @@ fn skybox_vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 }
 
 @fragment
-fn skybox_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+public fn skybox_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let ray_direction = coords_to_ray_direction(in.position.xy, view.main_pass_viewport);
 
     // Cube maps are left-handed so we negate the z coordinate.

@@ -11,19 +11,19 @@
 
 import bevy_render::view::View;
 
-@group(0) @binding(0) var ambient_occlusion_noisy: texture_2d<f32>;
-@group(0) @binding(1) var depth_differences: texture_2d<u32>;
+@group(0) @binding(0) public var ambient_occlusion_noisy: texture_2d<f32>;
+@group(0) @binding(1) public var depth_differences: texture_2d<u32>;
 @if(USE_R16FLOAT)
-@group(0) @binding(2) var ambient_occlusion: texture_storage_2d<r16float, write>;
+@group(0) @binding(2) public var ambient_occlusion: texture_storage_2d<r16float, write>;
 @else
-@group(0) @binding(2) var ambient_occlusion: texture_storage_2d<r32float, write>;
-@group(1) @binding(0) var point_clamp_sampler: sampler;
-@group(1) @binding(1) var linear_clamp_sampler: sampler;
-@group(1) @binding(2) var<uniform> view: View;
+@group(0) @binding(2) public var ambient_occlusion: texture_storage_2d<r32float, write>;
+@group(1) @binding(0) public var point_clamp_sampler: sampler;
+@group(1) @binding(1) public var linear_clamp_sampler: sampler;
+@group(1) @binding(2) public var<uniform> view: View;
 
 @compute
 @workgroup_size(8, 8, 1)
-fn spatial_denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
+public fn spatial_denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pixel_coordinates = vec2<i32>(global_id.xy);
     let uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
 

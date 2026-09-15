@@ -1,23 +1,23 @@
 import bevy_render::view::View;
 
-const TEXTURED = 1u;
-const RIGHT_VERTEX = 2u;
-const BOTTOM_VERTEX = 4u;
+public const TEXTURED = 1u;
+public const RIGHT_VERTEX = 2u;
+public const BOTTOM_VERTEX = 4u;
 // must align with BORDER_* shader_flags from bevy_ui/render/mod.rs
-const BORDER_LEFT: u32 = 256u;
-const BORDER_TOP: u32 = 512u;
-const BORDER_RIGHT: u32 = 1024u;
-const BORDER_BOTTOM: u32 = 2048u;
-const BORDER_ANY: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
-const INVERT: u32 = 4096u;
+public const BORDER_LEFT: u32 = 256u;
+public const BORDER_TOP: u32 = 512u;
+public const BORDER_RIGHT: u32 = 1024u;
+public const BORDER_BOTTOM: u32 = 2048u;
+public const BORDER_ANY: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
+public const INVERT: u32 = 4096u;
 
-fn enabled(flags: u32, mask: u32) -> bool {
+public fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
 }
 
-@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(0) public var<uniform> view: View;
 
-struct VertexOutput {
+public struct VertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
 
@@ -33,7 +33,7 @@ struct VertexOutput {
 };
 
 @vertex
-fn vertex(
+public fn vertex(
     @location(0) vertex_position: vec3<f32>,
     @location(1) vertex_uv: vec2<f32>,
     @location(2) vertex_color: vec4<f32>,
@@ -62,8 +62,8 @@ fn vertex(
     return out;
 }
 
-@group(1) @binding(0) var sprite_texture: texture_2d<f32>;
-@group(1) @binding(1) var sprite_sampler: sampler;
+@group(1) @binding(0) public var sprite_texture: texture_2d<f32>;
+@group(1) @binding(1) public var sprite_sampler: sampler;
 
 
 /// Returns the radius of the corner closest to the given point.
@@ -73,7 +73,7 @@ fn vertex(
 ///  - `corner_radii_x` -> The horizontal radius of each rounded corner.
 ///  - `corner_radii_y` -> The vertical radius of each rounded corner.
 ///                        Both ordered x: top left, y: top right, z: bottom right, w: bottom left.
-fn select_corner_radius(
+public fn select_corner_radius(
     point: vec2<f32>,
     corner_radii_x: vec4<f32>,
     corner_radii_y: vec4<f32>,
@@ -99,7 +99,7 @@ fn select_corner_radius(
 ///  - `size`            -> The maximum width and height of the box.
 ///  - `corner_radii_x`   -> The horizontal semi-axis of each rounded corner. Ordered counter clockwise starting top left.
 ///  - `corner_radii_y`   -> The vertical semi-axis of each rounded corner. Ordered counter clockwise starting top left.
-fn sd_rounded_box(
+public fn sd_rounded_box(
     point: vec2<f32>,
     size: vec2<f32>,
     corner_radii_x: vec4<f32>,
@@ -120,7 +120,7 @@ fn sd_rounded_box(
     return select(edge_distance, corner_distance, q.x > 0.0 && q.y > 0.0);
 }
 
-fn sd_inset_rounded_box(
+public fn sd_inset_rounded_box(
     point: vec2<f32>,
     size: vec2<f32>,
     radius_x: vec4<f32>,
@@ -161,7 +161,7 @@ fn sd_inset_rounded_box(
     return sd_rounded_box(inner_point, inner_size, rx, ry);
 }
 
-fn nearest_border_active(point_vs_mid: vec2<f32>, size: vec2<f32>, width: vec4<f32>, flags: u32) -> bool {
+public fn nearest_border_active(point_vs_mid: vec2<f32>, size: vec2<f32>, width: vec4<f32>, flags: u32) -> bool {
     if (flags & BORDER_ANY) == BORDER_ANY {
         return true;
     }
@@ -183,12 +183,12 @@ fn nearest_border_active(point_vs_mid: vec2<f32>, size: vec2<f32>, width: vec4<f
 }
 
 /// get alpha for antialiasing for sdf
-fn antialias(distance: f32) -> f32 {
+public fn antialias(distance: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
     return saturate(0.5 - distance);
 }
 
-fn draw_uinode_border(
+public fn draw_uinode_border(
     color: vec4<f32>,
     point: vec2<f32>,
     size: vec2<f32>,
@@ -231,7 +231,7 @@ fn draw_uinode_border(
     return vec4(color.rgb, saturate(color.a * t * nearest_border));
 }
 
-fn draw_uinode_background(
+public fn draw_uinode_background(
     color: vec4<f32>,
     point: vec2<f32>,
     size: vec2<f32>,
@@ -252,7 +252,7 @@ fn draw_uinode_background(
 }
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
 
     // Only use the color sampled from the texture if the `TEXTURED` flag is enabled.
@@ -284,7 +284,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 /// A scale relative to the unit scale of the ellipse may be passed in to cause
 /// the math to degenerate to length(p) when scale is 0, or otherwise give the
 /// normal distance approximation if scale is 1.
-fn distance_to_ellipse_approx(p: vec2<f32>, inv_radii_sq: vec2<f32>, scale: f32) -> f32 {
+public fn distance_to_ellipse_approx(p: vec2<f32>, inv_radii_sq: vec2<f32>, scale: f32) -> f32 {
     let p_r = p * inv_radii_sq;
     let g = dot(p, p_r) - scale;
     let dG = (1.0 + scale) * p_r;

@@ -13,7 +13,7 @@ import bevy_render::color_operations::linear_to_srgb;
 import bevy_render::color_operations::linear_rgb_to_oklab;
 
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
+public fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     let uncompressed_vertex = decompress_vertex(vertex, vertex.instance_index);
 @if(VERTEX_UVS)
@@ -47,7 +47,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 }
 
 @fragment
-fn fragment(
+public fn fragment(
     in: VertexOutput,
 ) -> @location(0) vec4<f32> {
 @if(VERTEX_COLORS) {

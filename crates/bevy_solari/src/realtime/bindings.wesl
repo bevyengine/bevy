@@ -4,35 +4,35 @@ import package::scene::sampling::{LightSample, NULL_LIGHT_ID};
 
 enable wgpu_ray_query;
 
-@group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
-@group(1) @binding(1) var<storage, read_write> light_tile_samples: array<LightSample>;
-@group(1) @binding(2) var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
-@group(1) @binding(3) var gbuffer: texture_2d<u32>;
-@group(1) @binding(4) var depth_buffer: texture_depth_2d;
-@group(1) @binding(5) var motion_vectors: texture_storage_2d<rg16float, read_write>;
-@group(1) @binding(6) var<uniform> view: View;
-@group(1) @binding(7) var<uniform> previous_view: PreviousViewUniforms;
-@group(1) @binding(8) var<storage, read_write> world_cache: WorldCache;
-@group(1) @binding(9) var<uniform> constants: SolariLightingSettings;
+@group(1) @binding(0) public var view_output: texture_storage_2d<rgba16float, read_write>;
+@group(1) @binding(1) public var<storage, read_write> light_tile_samples: array<LightSample>;
+@group(1) @binding(2) public var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
+@group(1) @binding(3) public var gbuffer: texture_2d<u32>;
+@group(1) @binding(4) public var depth_buffer: texture_depth_2d;
+@group(1) @binding(5) public var motion_vectors: texture_storage_2d<rg16float, read_write>;
+@group(1) @binding(6) public var<uniform> view: View;
+@group(1) @binding(7) public var<uniform> previous_view: PreviousViewUniforms;
+@group(1) @binding(8) public var<storage, read_write> world_cache: WorldCache;
+@group(1) @binding(9) var<uniform> public constants: SolariLightingSettings;
 
 @if(RESTIR) {
-@group(1) @binding(10) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(11) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(12) var<storage, read_write> reservoirs_a: array<Reservoir>;
-@group(1) @binding(13) var<storage, read_write> reservoirs_b: array<Reservoir>;
+@group(1) @binding(10) public var previous_gbuffer: texture_2d<u32>;
+@group(1) @binding(11) public var previous_depth_buffer: texture_depth_2d;
+@group(1) @binding(12) public var<storage, read_write> reservoirs_a: array<Reservoir>;
+@group(1) @binding(13) public var<storage, read_write> reservoirs_b: array<Reservoir>;
 }
 
 @if(DLSS_RR_GUIDE_BUFFERS) {
-@group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
-@group(2) @binding(1) var specular_albedo: texture_storage_2d<rgba8unorm, write>;
-@group(2) @binding(2) var normal_roughness: texture_storage_2d<rgba16float, write>;
-@group(2) @binding(3) var dlss_rr_depth: texture_storage_2d<r32float, write>;
-@group(2) @binding(4) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
+@group(2) @binding(0) public var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
+@group(2) @binding(1) public var specular_albedo: texture_storage_2d<rgba8unorm, write>;
+@group(2) @binding(2) public var normal_roughness: texture_storage_2d<rgba16float, write>;
+@group(2) @binding(3) public var dlss_rr_depth: texture_storage_2d<r32float, write>;
+@group(2) @binding(4) public var specular_motion_vectors: texture_storage_2d<rg16float, write>;
 }
 
 /// User-configurable settings from the `SolariLighting` component, plus per-frame
 /// state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.
-struct SolariLightingSettings {
+public struct SolariLightingSettings {
     confidence_weight_cap: f32,
     primary_di_samples: u32,
     secondary_di_samples: u32,
@@ -48,7 +48,7 @@ struct SolariLightingSettings {
 }
 
 /// Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
-struct ResolvedLightSamplePacked {
+public struct ResolvedLightSamplePacked {
     world_position_x: f32,
     world_position_y: f32,
     world_position_z: f32,
@@ -58,7 +58,7 @@ struct ResolvedLightSamplePacked {
 }
 
 /// Don't adjust the size of this struct without also adjusting `prepare::RESERVOIR_STRUCT_SIZE`.
-struct Reservoir {
+public struct Reservoir {
     sample_point_world_position: vec3<f32>,
     unbiased_contribution_weight: f32,
     radiance: vec3<f32>,
@@ -67,7 +67,7 @@ struct Reservoir {
     light_sample: LightSample,
 }
 
-fn empty_reservoir() -> Reservoir {
+public fn empty_reservoir() -> Reservoir {
     return Reservoir(
         vec3(0.0),
         0.0,
@@ -78,7 +78,7 @@ fn empty_reservoir() -> Reservoir {
     );
 }
 
-struct WorldCacheGeometryData {
+public struct WorldCacheGeometryData {
     world_position: vec3<f32>,
     padding_a: u32,
     world_normal: vec3<f32>,
@@ -86,7 +86,7 @@ struct WorldCacheGeometryData {
 }
 
 /// Keep in sync with the packed world-cache layout constants in `prepare.rs`.
-struct WorldCache {
+public struct WorldCache {
     checksums: array<atomic<u32>, constants::WORLD_CACHE_SIZE>,
     @if(WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
     life: array<u32, constants::WORLD_CACHE_SIZE>,

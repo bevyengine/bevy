@@ -2,7 +2,7 @@ import bevy_render::view::View;
 import package::fullscreen_vertex_shader::FullscreenVertexOutput;
 import bevy_pbr::render::view_transformations::uv_to_ndc;
 
-struct PreviousViewUniforms {
+public struct PreviousViewUniforms {
     view_from_world: mat4x4<f32>,
     clip_from_world: mat4x4<f32>,
     unjittered_clip_from_world: mat4x4<f32>,
@@ -11,8 +11,8 @@ struct PreviousViewUniforms {
     view_from_clip: mat4x4<f32>,
 }
 
-@group(0) @binding(0) var<uniform> view: View;
-@group(0) @binding(1) var<uniform> previous_view: PreviousViewUniforms;
+@group(0) @binding(0) public var<uniform> view: View;
+@group(0) @binding(1) public var<uniform> previous_view: PreviousViewUniforms;
 
 /// Writes motion vectors for sky pixels (depth == 0 in reversed-Z) based on camera rotation.
 ///
@@ -20,7 +20,7 @@ struct PreviousViewUniforms {
 /// reversed-Z. The GreaterEqual depth test passes only where depth == 0, so this only writes
 /// to pixels untouched by geometry.
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(1) vec4<f32> {
+public fn fragment(in: FullscreenVertexOutput) -> @location(1) vec4<f32> {
     let clip_pos = uv_to_ndc(in.uv);
     let world_pos = view.world_from_clip * vec4(clip_pos, 0.0, 1.0);
     // Use the unjittered matrices on both sides to strip TAA jitter from the motion

@@ -11,7 +11,7 @@
 import bevy_render::occlusion_culling::mesh_preprocess_types::{BinMetadata, PreprocessWorkItem};
 
 /// Information needed to unpack bins belonging to a single batch set.
-struct BinUnpackingMetadata {
+public struct BinUnpackingMetadata {
     /// The index of the first `PreprocessWorkItem` that this compute shader
     /// dispatch is to write to.
     base_output_work_item_index: u32,
@@ -34,7 +34,7 @@ struct BinUnpackingMetadata {
 /// Note that this structure isn't sorted within the
 /// `binned_mesh_instances` buffer. Instances from the same bin aren't
 /// guaranteed to be adjacent to one another.
-struct BinnedMeshInstance {
+public struct BinnedMeshInstance {
     /// The index of the `MeshInputUniform` corresponding to this mesh instance
     /// in the `MeshInputUniform` buffer.
     input_uniform_index: u32,
@@ -43,30 +43,30 @@ struct BinnedMeshInstance {
 };
 
 /// Metadata for the entire batch set.
-@group(0) @binding(0) var<uniform> bin_unpacking_metadata: BinUnpackingMetadata;
+@group(0) @binding(0) public var<uniform> bin_unpacking_metadata: BinUnpackingMetadata;
 
 /// The input array of `BinnedMeshInstance`s.
 ///
 /// Note that this array isn't sorted.
-@group(0) @binding(1) var<storage> binned_mesh_instances: array<BinnedMeshInstance>;
+@group(0) @binding(1) public var<storage> binned_mesh_instances: array<BinnedMeshInstance>;
 
 /// The output list of `PreprocessWorkItem`s.
-@group(0) @binding(2) var<storage, read_write> preprocess_work_items: array<PreprocessWorkItem>;
+@group(0) @binding(2) public var<storage, read_write> preprocess_work_items: array<PreprocessWorkItem>;
 
 /// The bin metadata, which contains the index of the GPU indirect parameters for
 /// this bin, relative to the start of the indirect parameters for this batch
 /// set.
 ///
 /// This is indexed by the bin metadata index below.
-@group(0) @binding(3) var<storage> bin_metadata: array<BinMetadata>;
+@group(0) @binding(3) public var<storage> bin_metadata: array<BinMetadata>;
 
 /// A mapping from the bin index to the metadata index within the `bin_metadata`
 /// buffer.
-@group(0) @binding(4) var<storage> bin_index_to_bin_metadata_index: array<u32>;
+@group(0) @binding(4) public var<storage> bin_index_to_bin_metadata_index: array<u32>;
 
 @compute
 @workgroup_size(64)
-fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+public fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Figure out which instance we're looking at.
     let global_id = global_invocation_id.x;
     if (global_id >= bin_unpacking_metadata.binned_mesh_instance_count) {

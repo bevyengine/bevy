@@ -16,11 +16,11 @@ import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 enable dual_source_blending;
 
 @if(MULTISAMPLED)
-@group(0) @binding(13) var depth_texture: texture_depth_multisampled_2d;
+@group(0) @binding(13) public var depth_texture: texture_depth_multisampled_2d;
 @else
-@group(0) @binding(13) var depth_texture: texture_depth_2d;
+@group(0) @binding(13) public var depth_texture: texture_depth_2d;
 
-struct RenderSkyOutput {
+public struct RenderSkyOutput {
     @if(DUAL_SOURCE_BLENDING)
     @location(0) @blend_src(0) inscattering: vec4<f32>,
     @if(DUAL_SOURCE_BLENDING)
@@ -30,7 +30,7 @@ struct RenderSkyOutput {
 }
 
 @fragment
-fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
+public fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
 
     let ray_dir_ws = uv_to_ray_direction(in.uv);

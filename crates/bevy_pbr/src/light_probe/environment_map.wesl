@@ -9,19 +9,19 @@ import package::render::clustered_forward::ClusterableObjectIndexRanges;
 import bevy_render::maths::quat_rotate;
 
 /// The maximum representable value in a 32-bit floating point number.
-const FLOAT_MAX: f32 = 3.40282347e+38;
+public const FLOAT_MAX: f32 = 3.40282347e+38;
 
-struct EnvironmentMapLight {
+public struct EnvironmentMapLight {
     diffuse: vec3<f32>,
     specular: vec3<f32>,
 };
 
-struct EnvironmentMapRadiances {
+public struct EnvironmentMapRadiances {
     irradiance: vec3<f32>,
     radiance: vec3<f32>,
 }
 
-struct MultiscatterResult {
+public struct MultiscatterResult {
     FssEss: vec3<f32>,
     FmsEms: vec3<f32>,
     Edss: vec3<f32>,
@@ -38,7 +38,7 @@ struct MultiscatterResult {
 ///
 /// * `parallax_correct` is true if parallax correction is to be applied and
 ///   false otherwise.
-fn compute_cubemap_sample_dir(
+public fn compute_cubemap_sample_dir(
     world_ray_origin: vec3<f32>,
     world_ray_direction: vec3<f32>,
     light_from_world: mat4x4<f32>,
@@ -99,7 +99,7 @@ fn compute_cubemap_sample_dir(
 
 @if(MULTIPLE_LIGHT_PROBES_IN_ARRAY)
 
-fn compute_radiances(
+public fn compute_radiances(
     input: LayerLightingInput,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
     world_position: vec3<f32>,
@@ -215,7 +215,7 @@ fn compute_radiances(
 
 @else   // MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
-fn compute_radiances(
+public fn compute_radiances(
     input: LayerLightingInput,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
     world_position: vec3<f32>,
@@ -283,7 +283,7 @@ fn compute_radiances(
 
 /// Adds the environment map light from the clearcoat layer to that of the base
 /// layer.
-fn environment_map_light_clearcoat(
+public fn environment_map_light_clearcoat(
     out: ptr<function, EnvironmentMapLight>,
     input: ptr<function, LightingInput>,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
@@ -318,7 +318,7 @@ fn environment_map_light_clearcoat(
 ///
 /// We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
 /// Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
-fn compute_multiscatter(
+public fn compute_multiscatter(
     F0: vec3<f32>,
     F_ab: vec2<f32>,
     Ems: f32,
@@ -332,7 +332,7 @@ fn compute_multiscatter(
     return MultiscatterResult(FssEss, FmsEms, Edss);
 }
 
-fn environment_map_light(
+public fn environment_map_light(
     input: ptr<function, LightingInput>,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
     found_diffuse_indirect: bool,
@@ -400,7 +400,7 @@ fn environment_map_light(
 
 /// "Moving Frostbite to Physically Based Rendering 3.0", listing 22
 /// https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf#page=70
-fn radiance_sample_direction(N: vec3<f32>, R: vec3<f32>, roughness: f32) -> vec3<f32> {
+public fn radiance_sample_direction(N: vec3<f32>, R: vec3<f32>, roughness: f32) -> vec3<f32> {
     let smoothness = saturate(1.0 - roughness);
     let lerp_factor = smoothness * (sqrt(smoothness) + roughness);
     return mix(N, R, lerp_factor);

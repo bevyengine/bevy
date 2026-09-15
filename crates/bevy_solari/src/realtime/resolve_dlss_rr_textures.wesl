@@ -11,21 +11,21 @@ enable wgpu_ray_query;
 
 /// A surface is replaced outright only when nearly all of its reflectance leaves through the delta
 /// lobe.
-const FULL_REPLACEMENT_FRACTION = 0.9;
+public const FULL_REPLACEMENT_FRACTION = 0.9;
 
 /// How far a reflector's virtual image may shift between neighboring pixels, as a fraction of the
 /// virtual distance itself, before the surface is treated as too curved to replace.
-const MAX_VIRTUAL_DEPTH_JITTER = 0.002;
+public const MAX_VIRTUAL_DEPTH_JITTER = 0.002;
 
 /// Even a perfectly flat surface measures a small nonzero normal change, because G-buffer normals are
 /// 24-bit octahedral and neighboring texels round differently.
-const NORMAL_QUANTIZATION_FLOOR = 0.002;
+public const NORMAL_QUANTIZATION_FLOOR = 0.002;
 
 /// Distance, in meters, standing in for "infinitely far" when a mirror ray finds nothing.
-const ENVIRONMENT_VIRTUAL_DISTANCE = 10000.0;
+public const ENVIRONMENT_VIRTUAL_DISTANCE = 10000.0;
 
 @compute @workgroup_size(8, 8, 1)
-fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>) {
+public fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pixel_id = global_id.xy;
     if any(pixel_id >= vec2u(view.main_pass_viewport.zw)) { return; }
 
@@ -58,13 +58,13 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     }
 }
 
-fn needs_specular_motion_vector(roughness: f32) -> bool {
+public fn needs_specular_motion_vector(roughness: f32) -> bool {
     return roughness <= 0.0625;
 }
 
 /// Carried across every bounce of the path walk, so anything derivable from a value the walk already
 /// holds is derived at the end instead of stored. What is left is only what the walk itself produces.
-struct PsrState {
+public struct PsrState {
     finished: bool,
     /// Whether this pixel's surface is being swapped out for the reflected one, or is only having its
     /// reflection's motion described. Keyed on the primary surface only, and false for anything glossy.
@@ -83,7 +83,7 @@ struct PsrState {
     throughput: vec3<f32>,
 }
 
-fn psr_init(world_normal: vec3<f32>, material: ResolvedMaterial) -> PsrState {
+public fn psr_init(world_normal: vec3<f32>, material: ResolvedMaterial) -> PsrState {
     var psr: PsrState;
     psr.finished = !needs_specular_motion_vector(material.roughness);
     psr.replace_fully = is_delta_mirror(material);
@@ -101,14 +101,14 @@ fn psr_init(world_normal: vec3<f32>, material: ResolvedMaterial) -> PsrState {
 ///
 /// A product of k Householder reflections is orthogonal with determinant (-1)^k, so it is a rotation
 /// when k is even, and a rotation composed with any one fixed reflection when k is odd.
-fn psr_chain_mirror(psr: PsrState, plane_normal: vec3<f32>) -> PsrState {
+public fn psr_chain_mirror(psr: PsrState, plane_normal: vec3<f32>) -> PsrState {
     var chained = psr;
     chained.mirror_rotor = quaternion_multiply(psr.mirror_rotor, mirror_chain_rotor(plane_normal, psr.mirror_parity_odd));
     chained.mirror_parity_odd = !psr.mirror_parity_odd;
     return chained;
 }
 
-fn psr_environment_miss(pixel_id: vec2<u32>, primary_wo: vec3<f32>) {
+public fn psr_environment_miss(pixel_id: vec2<u32>, primary_wo: vec3<f32>) {
     let far_position = view.world_position - (primary_wo * ENVIRONMENT_VIRTUAL_DISTANCE);
     textureStore(specular_motion_vectors, pixel_id, vec4(calculate_motion_vector(far_position, far_position), vec2(0.0)));
 }
@@ -117,7 +117,7 @@ fn psr_environment_miss(pixel_id: vec2<u32>, primary_wo: vec3<f32>) {
 /// first non-mirror hit; write that surface's attributes, reflected into the mirror's virtual space,
 /// to the DLSS RR guide buffers so the denoiser treats this pixel as directly seeing it.
 /// https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#primary_surface_replacement
-fn replace_primary_surface(
+public fn replace_primary_surface(
     pixel_id: vec2<u32>,
     psr: PsrState,
     ray_hit: ResolvedRayHitFull,
@@ -169,23 +169,23 @@ fn replace_primary_surface(
     textureStore(normal_roughness, pixel_id, vec4(virtual_normal, ray_hit.material.perceptual_roughness));
 }
 
-fn primary_surface_glossy(material: ResolvedMaterial) -> bool {
+public fn primary_surface_glossy(material: ResolvedMaterial) -> bool {
     return material.roughness > MIRROR_ROUGHNESS_THRESHOLD;
 }
 
-fn is_delta_mirror(material: ResolvedMaterial) -> bool {
+public fn is_delta_mirror(material: ResolvedMaterial) -> bool {
     return material.roughness <= MIRROR_ROUGHNESS_THRESHOLD
         && specular_fraction(material, F_AB(material.perceptual_roughness, 1.0)) >= FULL_REPLACEMENT_FRACTION;
 }
 
 /// Share of a surface's total reflectance that leaves through the specular lobe, in 0..1.
-fn specular_fraction(material: ResolvedMaterial, F_ab: vec2<f32>) -> f32 {
+public fn specular_fraction(material: ResolvedMaterial, F_ab: vec2<f32>) -> f32 {
     let rho = lobe_reflectances(material.base_color, calculate_F0_dielectric(vec3(material.reflectance)), material, F_ab);
     let specular_luminance = luminance(rho.specular);
     return specular_luminance / max(specular_luminance + luminance(rho.diffuse), 0.0001);
 }
 
-fn psr_bounce_reflectance(wo: vec3<f32>, wi: vec3<f32>, normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>, delta: bool) -> vec3<f32> {
+public fn psr_bounce_reflectance(wo: vec3<f32>, wi: vec3<f32>, normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>, delta: bool) -> vec3<f32> {
     if delta {
         return evaluate_specular_brdf(wo, wi, normal, material, F_ab);
     }
@@ -193,7 +193,7 @@ fn psr_bounce_reflectance(wo: vec3<f32>, wi: vec3<f32>, normal: vec3<f32>, mater
 }
 
 /// Angle, in radians, that the shading normal changes over one pixel in screen space.
-fn reflector_curvature(pixel_id: vec2<u32>, normal: vec3<f32>) -> f32 {
+public fn reflector_curvature(pixel_id: vec2<u32>, normal: vec3<f32>) -> f32 {
     let max_pixel_id = vec2<u32>(view.main_pass_viewport.zw) - vec2(1u);
     let right = load_gbuffer_normal(min(pixel_id + vec2(1u, 0u), max_pixel_id));
     let down = load_gbuffer_normal(min(pixel_id + vec2(0u, 1u), max_pixel_id));
@@ -202,11 +202,11 @@ fn reflector_curvature(pixel_id: vec2<u32>, normal: vec3<f32>) -> f32 {
     return max(0.0, angle - NORMAL_QUANTIZATION_FLOOR);
 }
 
-fn load_gbuffer_normal(pixel_id: vec2<u32>) -> vec3<f32> {
+public fn load_gbuffer_normal(pixel_id: vec2<u32>) -> vec3<f32> {
     return octahedral_decode(unpack_24bit_normal(textureLoad(gbuffer, pixel_id, 0).a));
 }
 
-fn apply_mirror_chain(psr: PsrState, v: vec3<f32>) -> vec3<f32> {
+public fn apply_mirror_chain(psr: PsrState, v: vec3<f32>) -> vec3<f32> {
     var reflected = v;
     if psr.mirror_parity_odd {
         reflected.z = -reflected.z;
@@ -217,18 +217,18 @@ fn apply_mirror_chain(psr: PsrState, v: vec3<f32>) -> vec3<f32> {
 
 /// The rotation half of `H(n) * F` at even parity, or of `F * H(n)` at odd, where `H(n)` is the
 /// Householder reflection about `plane_normal` and `F` the fixed z-axis one.
-fn mirror_chain_rotor(plane_normal: vec3<f32>, parity_odd: bool) -> vec4<f32> {
+public fn mirror_chain_rotor(plane_normal: vec3<f32>, parity_odd: bool) -> vec4<f32> {
     if parity_odd {
         return vec4(plane_normal.y, -plane_normal.x, 0.0, plane_normal.z);
     }
     return vec4(-plane_normal.y, plane_normal.x, 0.0, plane_normal.z);
 }
 
-fn quaternion_multiply(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
+public fn quaternion_multiply(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
     return vec4(a.w * b.xyz + b.w * a.xyz + cross(a.xyz, b.xyz), a.w * b.w - dot(a.xyz, b.xyz));
 }
 
-fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: vec3<f32>) -> vec2<f32> {
+public fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: vec3<f32>) -> vec2<f32> {
     let clip_position_t = view.unjittered_clip_from_world * vec4(world_position, 1.0);
     let clip_position = clip_position_t.xy / clip_position_t.w;
     let previous_clip_position_t = previous_view.unjittered_clip_from_world * vec4(previous_world_position, 1.0);
@@ -239,7 +239,7 @@ fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: v
     return (clip_position - previous_clip_position) * vec2(0.5, -0.5);
 }
 
-fn env_brdf_approx2(specular_color: vec3<f32>, alpha: f32, N: vec3<f32>, V: vec3<f32>) -> vec3<f32> {
+public fn env_brdf_approx2(specular_color: vec3<f32>, alpha: f32, N: vec3<f32>, V: vec3<f32>) -> vec3<f32> {
     let NoV = abs(dot(N, V));
 
     var X: vec4<f32>;

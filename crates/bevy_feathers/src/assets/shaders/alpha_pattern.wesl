@@ -3,7 +3,7 @@ import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 import bevy_ui_render::ui::sd_rounded_box;
 
 @fragment
-fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let uv = (in.uv - vec2<f32>(0.5, 0.5)) * in.size / 16.;
     let check = select(0.0, 1.0, (fract(uv.x) < 0.5) != (fract(uv.y) < 0.5));
     let bg = mix(vec3<f32>(0.2, 0.2, 0.2), vec3<f32>(0.6, 0.6, 0.6), check);

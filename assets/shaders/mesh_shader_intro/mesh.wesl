@@ -9,24 +9,24 @@ import super::{
 
 enable wgpu_mesh_shader;
 
-fn position_world_to_clip(world_pos: vec3<f32>) -> vec4<f32> {
+public fn position_world_to_clip(world_pos: vec3<f32>) -> vec4<f32> {
     let clip_pos = view.clip_from_world * vec4(world_pos, 1.0);
     return clip_pos;
 }
 
-fn mesh_position_local_to_world(world_from_local: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
+public fn mesh_position_local_to_world(world_from_local: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     return world_from_local * vertex_position;
 }
 
 // This data represents a cube, for simplicity reasons it is hardcoded.
 // half_size is half the size of the cube
-const half_size = vec3(0.1);
-const min = -half_size;
-const max = half_size;
+public const half_size = vec3(0.1);
+public const min = -half_size;
+public const max = half_size;
 
 // Suppose Y-up right hand, and camera look from +Z to -Z
 // 192 items
-const vertices = array(
+public const vertices = array(
     // xyz, normal.xyz, uv.xy
     // Front
     min.x, min.y, max.z, 0.0, 0.0, 1.0, 0.0, 0.0,
@@ -61,7 +61,7 @@ const vertices = array(
 );
 
 // 36 items
-const indices = array(
+public const indices = array(
     0, 1, 2, 2, 3, 0, // front
     4, 5, 6, 6, 7, 4, // back
     8, 9, 10, 10, 11, 8, // right
@@ -71,24 +71,24 @@ const indices = array(
 );
 
 
-struct PrimitiveOutput {
+public struct PrimitiveOutput {
     @builtin(triangle_indices) indices: vec3<u32>,
     @builtin(cull_primitive) cull: bool,
     @per_primitive @location(3) colorMask: vec4<f32>,
 }
 
-var<task_payload> taskPayload: TaskPayload;
+public var<task_payload> taskPayload: TaskPayload;
 
-struct MeshOutput {
+public struct MeshOutput {
     @builtin(vertices) vertices: array<VertexOutput, 24>,
     @builtin(primitives) primitives: array<PrimitiveOutput, 12>,
     @builtin(vertex_count) vertex_count: u32,
     @builtin(primitive_count) primitive_count: u32,
 }
 
-var<workgroup> mesh_output: MeshOutput;
+public var<workgroup> mesh_output: MeshOutput;
 
-struct MeshInput {
+public struct MeshInput {
     @builtin(global_invocation_id) global_invocation_id: vec3u,
     @builtin(num_workgroups) num_workgroups: vec3u,
     @builtin(workgroup_id) workgroup_id: vec3u
@@ -97,7 +97,7 @@ struct MeshInput {
 @mesh(mesh_output)
 @payload(taskPayload)
 @workgroup_size(1)
-fn mesh(mesh_input: MeshInput) {
+public fn mesh(mesh_input: MeshInput) {
     mesh_output.vertex_count = 24;
     mesh_output.primitive_count = 12;
     

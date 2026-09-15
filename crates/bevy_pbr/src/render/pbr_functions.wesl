@@ -38,7 +38,7 @@ import bevy_render::maths::{E, powsafe};
 
 /// Biasing info needed to sample from a texture. How this is done depends on
 /// whether we're rendering meshlets or regular meshes.
-struct SampleBias {
+public struct SampleBias {
     @if(MESHLET_MESH_MATERIAL_PASS)
     ddx_uv: vec2<f32>,
     @if(MESHLET_MESH_MATERIAL_PASS)
@@ -54,7 +54,7 @@ struct SampleBias {
 /// individual bytes.
 ///
 /// [1]: https://en.wikipedia.org/wiki/Ordered_dithering#Threshold_map
-const DITHER_THRESHOLD_MAP: vec4<u32> = vec4(
+public const DITHER_THRESHOLD_MAP: vec4<u32> = vec4(
     0x0a020800,
     0x060e040c,
     0x09010b03,
@@ -76,7 +76,7 @@ const DITHER_THRESHOLD_MAP: vec4<u32> = vec4(
 /// Distinguishing between negative and positive values allows the dither
 /// patterns for different LOD levels of a single mesh to mesh together properly.
 @if(VISIBILITY_RANGE_DITHER)
-fn visibility_range_dither(frag_coord: vec4<f32>, dither: i32) {
+public fn visibility_range_dither(frag_coord: vec4<f32>, dither: i32) {
     // If `dither` is 0, the object is visible.
     if (dither == 0) {
         return;
@@ -95,7 +95,7 @@ fn visibility_range_dither(frag_coord: vec4<f32>, dither: i32) {
     }
 }
 
-fn alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) -> vec4<f32> {
+public fn alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
     let alpha_mode = material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
@@ -123,7 +123,7 @@ fn alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: vec4<f32>
     return color;
 }
 
-fn prepare_world_normal(
+public fn prepare_world_normal(
     world_normal: vec3<f32>,
     double_sided: bool,
     is_front: bool,
@@ -136,7 +136,7 @@ fn prepare_world_normal(
     return output;
 }
 
-fn winding_corrected_front_facing(mesh_flags: u32, is_front: bool) -> bool {
+public fn winding_corrected_front_facing(mesh_flags: u32, is_front: bool) -> bool {
     let positive_determinant = (mesh_flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT) != 0u;
     return is_front == positive_determinant;
 }
@@ -145,7 +145,7 @@ fn winding_corrected_front_facing(mesh_flags: u32, is_front: bool) -> bool {
 /// with T, B, N columns in that order.
 ///
 /// [mikktspace]: http://www.mikktspace.com/
-fn calculate_tbn_mikktspace(world_normal: vec3<f32>, world_tangent: vec4<f32>) -> mat3x3<f32> {
+public fn calculate_tbn_mikktspace(world_normal: vec3<f32>, world_tangent: vec4<f32>) -> mat3x3<f32> {
     // NOTE: The mikktspace method of normal mapping explicitly requires that the world normal NOT
     // be re-normalized in the fragment shader. This is primarily to match the way mikktspace
     // bakes vertex tangents and normal maps so that this is the exact inverse. Blender, Unity,
@@ -172,7 +172,7 @@ fn calculate_tbn_mikktspace(world_normal: vec3<f32>, world_tangent: vec4<f32>) -
     return mat3x3(T, B, N);
 }
 
-fn apply_normal_mapping(
+public fn apply_normal_mapping(
     standard_material_flags: u32,
     TBN: mat3x3<f32>,
     double_sided: bool,
@@ -218,7 +218,7 @@ fn apply_normal_mapping(
 /// This follows the suggested implementation in the `KHR_materials_anisotropy` specification:
 /// https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md#image-based-lighting
 @if(STANDARD_MATERIAL_ANISOTROPY)
-fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingInput>) {
+public fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingInput>) {
     // Unpack.
     let N = (*lighting_input).layers[LAYER_BASE].N;
     let roughness = (*lighting_input).layers[LAYER_BASE].roughness;
@@ -248,7 +248,7 @@ fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingIn
 
 /// NOTE: Correctly calculates the view vector depending on whether
 /// the projection is orthographic or perspective.
-fn calculate_view(
+public fn calculate_view(
     world_position: vec4<f32>,
     is_orthographic: bool,
 ) -> vec3<f32> {
@@ -264,7 +264,7 @@ fn calculate_view(
 }
 
 /// Diffuse strength is inversely related to metallicity, specular and diffuse transmission
-fn calculate_diffuse_color(
+public fn calculate_diffuse_color(
     base_color: vec3<f32>,
     metallic: f32,
     specular_transmission: f32,
@@ -275,18 +275,18 @@ fn calculate_diffuse_color(
 }
 
 /// Remapping [0,1] reflectance to F0 for dielectrics
-fn calculate_F0_dielectric(reflectance: vec3<f32>) -> vec3<f32> {
+public fn calculate_F0_dielectric(reflectance: vec3<f32>) -> vec3<f32> {
     return 0.16 * reflectance * reflectance;
 }
 
 /// Remapping [0,1] reflectance to F0
 /// See https://google.github.io/filament/Filament.md.html#materialsystem/parameterization/remapping
-fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) -> vec3<f32> {
+public fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) -> vec3<f32> {
     return mix(calculate_F0_dielectric(reflectance), base_color, metallic);
 }
 
 @if(CONTACT_SHADOWS && DEPTH_PREPASS)
-fn calculate_contact_shadow(
+public fn calculate_contact_shadow(
     world_position: vec3<f32>,
     frag_coord: vec2<f32>,
     light_dir: vec3<f32>,
@@ -323,7 +323,7 @@ fn calculate_contact_shadow(
 }
 
 @if(!PREPASS_FRAGMENT)
-fn apply_pbr_lighting(
+public fn apply_pbr_lighting(
     in: pbr_types::PbrInput,
 ) -> vec4<f32> {
     var output_color: vec4<f32> = in.material.base_color;
@@ -863,7 +863,7 @@ fn apply_pbr_lighting(
 }
 
 @if(DISTANCE_FOG)
-fn apply_fog(
+public fn apply_fog(
     fog_params: mesh_view_types::Fog,
     input_color: vec4<f32>,
     fragment_world_position: vec3<f32>,
@@ -923,7 +923,7 @@ fn apply_fog(
 }
 
 @if(PREMULTIPLY_ALPHA)
-fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {
+public fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {
 // `Blend`, `Premultiplied` and `Alpha` all share the same `BlendState`. Depending
 // on the alpha mode, we premultiply the color channels by the alpha channel value,
 // (and also optionally replace the alpha value with 0.0) so that the result produces
@@ -975,7 +975,7 @@ fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32
 
 /// fog, alpha premultiply
 /// for non-hdr cameras, tonemapping and debanding
-fn main_pass_post_lighting_processing(
+public fn main_pass_post_lighting_processing(
     pbr_input: pbr_types::PbrInput,
     input_color: vec4<f32>,
 ) -> vec4<f32> {

@@ -2,7 +2,7 @@ import bevy_pbr::render::{forward_io::VertexOutput, mesh_bindings::mesh};
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
 /// The custom data that we extract from the ECS and expose to this shader.
-struct CustomMaterialData {
+public struct CustomMaterialData {
     /// The tint color for the mesh.
     color: vec3<f32>,
     /// Padding to pad this out to a multiple of 16 bytes.
@@ -14,7 +14,7 @@ struct CustomMaterialData {
 /// We need to declare this type because
 /// `binding_array<array<CustomMaterialData>>` isn't currently accepted by Naga.
 /// We have to factor the `array<CustomMaterialData>` out into a separate type.
-struct CustomMaterialDataArray {
+public struct CustomMaterialDataArray {
     data_array: array<CustomMaterialData>,
 }
 
@@ -23,7 +23,7 @@ struct CustomMaterialDataArray {
 /// The bindings table for bindless mode.
 ///
 /// These are indexes into the various arrays.
-struct CustomMaterialBindings {
+public struct CustomMaterialBindings {
     material: u32,              // 0
     /// The index of the data for this instance in the `CustomMaterialDataArray`.
     data: u32,                  // 1
@@ -35,21 +35,21 @@ struct CustomMaterialBindings {
     color_texture_sampler: u32, // 3
 }
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<storage> material_indices:
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) public var<storage> material_indices:
     array<CustomMaterialBindings>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(4) var<storage> material_data:
+@group(constants::MATERIAL_BIND_GROUP) @binding(4) public var<storage> material_data:
     binding_array<CustomMaterialDataArray>;
 
 } @else {
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(1) var<storage> material_data: CustomMaterialDataArray;
-@group(constants::MATERIAL_BIND_GROUP) @binding(2) var color_texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(3) var color_texture_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) public var<storage> material_data: CustomMaterialDataArray;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) public var color_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(3) public var color_texture_sampler: sampler;
 
 }
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // The tag stores the index of the data in the data array.
     let tag = mesh[in.instance_index].tag;
 

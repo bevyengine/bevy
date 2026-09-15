@@ -13,16 +13,16 @@ import package::{
 
 import bevy_render::maths::{PI, PI_2};
 
-const PHI_2: vec2<f32> = vec2(1.3247179572447460259609088, 1.7548776662466927600495087);
+public const PHI_2: vec2<f32> = vec2(1.3247179572447460259609088, 1.7548776662466927600495087);
 
-@group(0) @binding(13) var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(13) public var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
 
-fn s2_sequence(n: u32) -> vec2<f32> {
+public fn s2_sequence(n: u32) -> vec2<f32> {
     return fract(0.5 + f32(n) * PHI_2);
 }
 
 /// Lambert equal-area projection.
-fn uv_to_sphere(uv: vec2<f32>) -> vec3<f32> {
+public fn uv_to_sphere(uv: vec2<f32>) -> vec3<f32> {
     let phi = PI_2 * uv.y;
     let sin_lambda = 2 * uv.x - 1;
     let cos_lambda = sqrt(1 - sin_lambda * sin_lambda);
@@ -31,13 +31,13 @@ fn uv_to_sphere(uv: vec2<f32>) -> vec3<f32> {
 }
 
 /// Shared memory array for workgroup communication
-var<workgroup> multi_scat_shared_mem: array<vec3<f32>, 64>;
+public var<workgroup> multi_scat_shared_mem: array<vec3<f32>, 64>;
 /// Shared memory array for workgroup communication
-var<workgroup> l_shared_mem: array<vec3<f32>, 64>;
+public var<workgroup> l_shared_mem: array<vec3<f32>, 64>;
 
 @compute
 @workgroup_size(1, 1, 64)
-fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+public fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var uv = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(settings.multiscattering_lut_size);
 
     let r_mu = multiscattering_lut_uv_to_r_mu(uv);
@@ -76,12 +76,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(multiscattering_lut_out, global_id.xy, vec4<f32>(psi_ms, 1.0));
 }
 
-struct MultiscatteringSample {
+public struct MultiscatteringSample {
     l_2: vec3<f32>,
     f_ms: vec3<f32>,
 };
 
-fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) -> MultiscatteringSample {
+public fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) -> MultiscatteringSample {
     // get the cosine of the zenith angle of the view direction with respect to the light direction
     let mu_view = ray_dir.y;
     let t_max = max_atmosphere_distance(r, mu_view);

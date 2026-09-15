@@ -14,7 +14,7 @@ import package::realtime::bindings::{
 enable wgpu_ray_query;
 
 @compute @workgroup_size(64, 1, 1)
-fn sample_di(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
+public fn sample_di(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x >= world_cache.active_cells_count { return; }
 
     let cell_index = world_cache.active_cell_indices[active_cell_id.x];
@@ -29,7 +29,7 @@ fn sample_di(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
 }
 
 @compute @workgroup_size(64, 1, 1)
-fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
+public fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x >= world_cache.active_cells_count { return; }
 
     let cell_index = world_cache.active_cell_indices[active_cell_id.x];
@@ -49,7 +49,7 @@ fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
 }
 
 @compute @workgroup_size(64, 1, 1)
-fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
+public fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x >= world_cache.active_cells_count { return; }
 
     let cell_index = world_cache.active_cell_indices[active_cell_id.x];
@@ -77,7 +77,7 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     world_cache.luminance_deltas[cell_index] = blended_luminance_delta;
 }
 
-fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> vec3<f32> {
+public fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> vec3<f32> {
     var workgroup_rng = (workgroup_id.x * 5782582u) + workgroup_id.y;
     let light_tile_start = rand_range_u(128u, &workgroup_rng) * 1024u;
 

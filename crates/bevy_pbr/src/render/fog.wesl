@@ -9,7 +9,7 @@ import package::render::{
 };
 
 
-fn scattering_adjusted_fog_color(
+public fn scattering_adjusted_fog_color(
     fog_params: Fog,
     scattering: vec3<f32>,
 ) -> vec4<f32> {
@@ -24,7 +24,7 @@ fn scattering_adjusted_fog_color(
     }
 }
 
-fn linear_fog(
+public fn linear_fog(
     fog_params: Fog,
     input_color: vec4<f32>,
     distance: f32,
@@ -37,7 +37,7 @@ fn linear_fog(
     return vec4<f32>(mix(input_color.rgb, fog_color.rgb, fog_color.a), input_color.a);
 }
 
-fn exponential_fog(
+public fn exponential_fog(
     fog_params: Fog,
     input_color: vec4<f32>,
     distance: f32,
@@ -49,7 +49,7 @@ fn exponential_fog(
     return vec4<f32>(mix(input_color.rgb, fog_color.rgb, fog_color.a), input_color.a);
 }
 
-fn exponential_squared_fog(
+public fn exponential_squared_fog(
     fog_params: Fog,
     input_color: vec4<f32>,
     distance: f32,
@@ -61,7 +61,7 @@ fn exponential_squared_fog(
     return vec4<f32>(mix(input_color.rgb, fog_color.rgb, fog_color.a), input_color.a);
 }
 
-fn atmospheric_fog(
+public fn atmospheric_fog(
     fog_params: Fog,
     input_color: vec4<f32>,
     distance: f32,

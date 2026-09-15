@@ -8,11 +8,11 @@ import bevy_pbr::render::{
 };
 import bevy_core_pipeline::tonemapping::tone_mapping;
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var my_array_texture: texture_2d_array<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(1) var my_array_texture_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) public var my_array_texture: texture_2d_array<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) public var my_array_texture_sampler: sampler;
 
 @fragment
-fn fragment(
+public fn fragment(
     @builtin(front_facing) is_front: bool,
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {

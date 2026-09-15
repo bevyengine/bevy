@@ -1,21 +1,21 @@
 import package::render::clustered_forward::view_z_to_z_slice;
 
 // Valid values for the `object_type` field.
-const CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: u32 = 0u;
-const CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT: u32 = 1u;
-const CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE: u32 = 2u;
-const CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME: u32 = 3u;
-const CLUSTERABLE_OBJECT_TYPE_DECAL: u32 = 4u;
-const CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT: u32 = 5u;
+public const CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: u32 = 0u;
+public const CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT: u32 = 1u;
+public const CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE: u32 = 2u;
+public const CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME: u32 = 3u;
+public const CLUSTERABLE_OBJECT_TYPE_DECAL: u32 = 4u;
+public const CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT: u32 = 5u;
 
-const NDC_MIN: vec2<f32> = vec2<f32>(-1.0);
-const NDC_MAX: vec2<f32> = vec2<f32>(1.0);
+public const NDC_MIN: vec2<f32> = vec2<f32>(-1.0);
+public const NDC_MAX: vec2<f32> = vec2<f32>(1.0);
 
 /// Metadata stored on GPU that's global to all clusters for a view.
 ///
 /// See the comments in `bevy_pbr/src/cluster/gpu.rs` for information on the
 /// fields.
-struct ClusterMetadata {
+public struct ClusterMetadata {
     indirect_draw_params: ClusterRasterIndirectDrawParams,
 
     clustered_light_count: u32,
@@ -30,7 +30,7 @@ struct ClusterMetadata {
 };
 
 /// Indirect draw parameters in the format required by the WebGPU specification.
-struct ClusterRasterIndirectDrawParams {
+public struct ClusterRasterIndirectDrawParams {
     index_count: u32,
     instance_count: atomic<u32>,
     first_index: u32,
@@ -42,14 +42,14 @@ struct ClusterRasterIndirectDrawParams {
 ///
 /// See the comments in `bevy_pbr/src/cluster/gpu.rs` for information on the
 /// fields.
-struct ClusterableObjectZSlice {
+public struct ClusterableObjectZSlice {
     object_index: u32,
     object_type: u32,
     z_slice: u32,
 };
 
 /// An axis-aligned bounding box.
-struct Aabb {
+public struct Aabb {
     /// The minimum extents of the box.
     min: vec3<f32>,
     /// The maximum extents of the box.
@@ -59,7 +59,7 @@ struct Aabb {
 /// An axis-aligned bounding box using unsigned integer coordinates.
 ///
 /// This is used for cluster bounds.
-struct AabbU {
+public struct AabbU {
     /// The minimum extents of the box.
     min: vec3<u32>,
     /// The maximum extents of the box, plus one.
@@ -72,7 +72,7 @@ struct AabbU {
 /// clusters.
 ///
 /// See `bevy_light::cluster::assign::cluster_space_clusterable_object_aabb`.
-fn cluster_space_object_aabb(
+public fn cluster_space_object_aabb(
     position: vec3<f32>,
     radius: f32,
     view_from_world: mat4x4<f32>,
@@ -129,7 +129,7 @@ fn cluster_space_object_aabb(
 }
 
 /// Computes the scale of the camera from the view matrix.
-fn compute_view_from_world_scale(world_from_view: mat4x4<f32>) -> vec3<f32> {
+public fn compute_view_from_world_scale(world_from_view: mat4x4<f32>) -> vec3<f32> {
     let world_from_view_3x3 = mat3x3<f32>(
         world_from_view[0].xyz,
         world_from_view[1].xyz,
@@ -147,7 +147,7 @@ fn compute_view_from_world_scale(world_from_view: mat4x4<f32>) -> vec3<f32> {
 /// Returns the cluster coordinates corresponding to a position in normalized
 /// device coordinates.
 /// See `bevy_light::cluster::assign::ndc_position_to_cluster`.
-fn ndc_position_to_cluster(
+public fn ndc_position_to_cluster(
     cluster_dimensions: vec3<u32>,
     cluster_factors: vec2<f32>,
     is_orthographic: bool,
@@ -161,7 +161,7 @@ fn ndc_position_to_cluster(
 }
 
 /// Returns the AABB encompassing all clusters that intersect a sphere.
-fn calculate_sphere_cluster_bounds(
+public fn calculate_sphere_cluster_bounds(
     position: vec3<f32>,
     radius: f32,
     view_from_world: mat4x4<f32>,

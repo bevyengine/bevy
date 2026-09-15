@@ -8,7 +8,7 @@ import package::realtime::bindings::{light_tile_samples, light_tile_resolved_sam
 enable wgpu_ray_query;
 
 @compute @workgroup_size(1024, 1, 1)
-fn presample_light_tiles(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(local_invocation_index) sample_index: u32) {
+public fn presample_light_tiles(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(local_invocation_index) sample_index: u32) {
     let tile_id = workgroup_id.x;
     var rng = (tile_id * 0x9E3779B9u) + sample_index + constants.frame_rng;
 
@@ -19,7 +19,7 @@ fn presample_light_tiles(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builti
     light_tile_resolved_samples[i] = pack_resolved_light_sample(sample.resolved_light_sample);
 }
 
-fn pack_resolved_light_sample(sample: ResolvedLightSample) -> ResolvedLightSamplePacked {
+public fn pack_resolved_light_sample(sample: ResolvedLightSample) -> ResolvedLightSamplePacked {
     return ResolvedLightSamplePacked(
         sample.world_position.x,
         sample.world_position.y,
@@ -30,7 +30,7 @@ fn pack_resolved_light_sample(sample: ResolvedLightSample) -> ResolvedLightSampl
     );
 }
 
-fn unpack_resolved_light_sample(packed: ResolvedLightSamplePacked, exposure: f32) -> ResolvedLightSample {
+public fn unpack_resolved_light_sample(packed: ResolvedLightSamplePacked, exposure: f32) -> ResolvedLightSample {
     return ResolvedLightSample(
         vec4(packed.world_position_x, packed.world_position_y, packed.world_position_z, select(1.0, 0.0, packed.inverse_pdf < 0.0)),
         octahedral_decode(unpack2x16unorm(packed.world_normal)),

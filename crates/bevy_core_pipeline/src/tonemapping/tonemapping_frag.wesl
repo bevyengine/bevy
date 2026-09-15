@@ -7,15 +7,15 @@ import package::{
     tonemapping::{tone_mapping, screen_space_dither},
 };
 
-@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(0) public var<uniform> view: View;
 
-@group(0) @binding(1) var hdr_texture: texture_2d<f32>;
-@group(0) @binding(2) var hdr_sampler: sampler;
-@group(0) @binding(3) var dt_lut_texture: texture_3d<f32>;
-@group(0) @binding(4) var dt_lut_sampler: sampler;
+@group(0) @binding(1) public var hdr_texture: texture_2d<f32>;
+@group(0) @binding(2) public var hdr_sampler: sampler;
+@group(0) @binding(3) public var dt_lut_texture: texture_3d<f32>;
+@group(0) @binding(4) public var dt_lut_sampler: sampler;
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let hdr_color = textureSample(hdr_texture, hdr_sampler, in.uv);
 
     var output_rgb = tone_mapping(hdr_color, view.color_grading).rgb;

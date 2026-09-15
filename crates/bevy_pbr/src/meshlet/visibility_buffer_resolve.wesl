@@ -28,7 +28,7 @@ import package::{
 };
 
 @if(MESHLET_MESH_MATERIAL_PASS)
-struct PartialDerivatives {
+public struct PartialDerivatives {
     barycentrics: vec3<f32>,
     ddx: vec3<f32>,
     ddy: vec3<f32>,
@@ -36,7 +36,7 @@ struct PartialDerivatives {
 
 /// https://github.com/ConfettiFX/The-Forge/blob/9d43e69141a9cd0ce2ce2d2db5122234d3a2d5b5/Common_3/Renderer/VisibilityBuffer2/Shaders/FSL/vb_shading_utilities.h.fsl#L90-L150
 @if(MESHLET_MESH_MATERIAL_PASS)
-fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, half_screen_size: vec2<f32>) -> PartialDerivatives {
+public fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, half_screen_size: vec2<f32>) -> PartialDerivatives {
     var result: PartialDerivatives;
 
     let vertex_clip_position_0 = position_world_to_clip(vertex_world_positions[0].xyz);
@@ -82,7 +82,7 @@ fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_
 }
 
 @if(MESHLET_MESH_MATERIAL_PASS)
-struct VertexOutput {
+public struct VertexOutput {
     position: vec4<f32>,
     world_position: vec4<f32>,
     world_normal: vec3<f32>,
@@ -99,7 +99,7 @@ struct VertexOutput {
 
 /// Load the visibility buffer texture and resolve it into a VertexOutput.
 @if(MESHLET_MESH_MATERIAL_PASS)
-fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
+public fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let packed_ids = u32(textureLoad(meshlet_visibility_buffer, vec2<u32>(frag_coord.xy)).r);
     let cluster_id = packed_ids >> 7u;
     let instanced_offset = meshlet_raster_clusters[cluster_id];
@@ -176,14 +176,14 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
 }
 
 @if(MESHLET_MESH_MATERIAL_PASS)
-struct MeshletVertex {
+public struct MeshletVertex {
     position: vec3<f32>,
     normal: vec3<f32>,
     uv: vec2<f32>,
 }
 
 @if(MESHLET_MESH_MATERIAL_PASS)
-fn load_vertex(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> MeshletVertex {
+public fn load_vertex(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> MeshletVertex {
     return MeshletVertex(
         get_meshlet_vertex_position(meshlet, vertex_id),
         get_meshlet_vertex_normal(meshlet, vertex_id),
@@ -192,7 +192,7 @@ fn load_vertex(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> MeshletVertex
 }
 
 @if(MESHLET_MESH_MATERIAL_PASS)
-fn normal_local_to_world(vertex_normal: vec3<f32>, instance_uniform: ptr<function, Mesh>) -> vec3<f32> {
+public fn normal_local_to_world(vertex_normal: vec3<f32>, instance_uniform: ptr<function, Mesh>) -> vec3<f32> {
     if any(vertex_normal != vec3<f32>(0.0)) {
         return normalize(
             mat2x4_f32_to_mat3x3_unpack(
@@ -207,7 +207,7 @@ fn normal_local_to_world(vertex_normal: vec3<f32>, instance_uniform: ptr<functio
 
 /// https://www.jeremyong.com/graphics/2023/12/16/surface-gradient-bump-mapping/#surface-gradient-from-a-tangent-space-normal-vector-without-an-explicit-tangent-basis
 @if(MESHLET_MESH_MATERIAL_PASS)
-fn calculate_world_tangent(
+public fn calculate_world_tangent(
     world_normal: vec3<f32>,
     ddx_world_position: vec3<f32>,
     ddy_world_position: vec3<f32>,

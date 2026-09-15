@@ -34,7 +34,7 @@ import bevy_render::view::View;
 /// Information about each mesh instance needed to cull it on GPU.
 ///
 /// At the moment, this just consists of its axis-aligned bounding box (AABB).
-struct MeshCullingData {
+public struct MeshCullingData {
     /// The 3D center of the AABB in model space, padded with an extra unused
     /// float value.
     aabb_center: vec4<f32>,
@@ -45,7 +45,7 @@ struct MeshCullingData {
 
 /// The parameters for the indirect compute dispatch for the late mesh
 /// preprocessing phase.
-struct LatePreprocessWorkItemIndirectParameters {
+public struct LatePreprocessWorkItemIndirectParameters {
     /// The number of workgroups we're going to dispatch.
     ///
     /// This value should always be equal to `ceil(work_item_count / 64)`.
@@ -76,60 +76,60 @@ struct LatePreprocessWorkItemIndirectParameters {
 }
 
 /// These have to be in a structure because of Naga limitations on DX12.
-struct Immediates {
+public struct Immediates {
     /// The offset into the `late_preprocess_work_item_indirect_parameters`
     /// buffer.
     late_preprocess_work_item_indirect_offset: u32,
 }
 
 /// The current frame's `MeshInput`.
-@group(0) @binding(3) var<storage> current_input: array<MeshInput>;
+@group(0) @binding(3) public var<storage> current_input: array<MeshInput>;
 /// The `MeshInput` values from the previous frame.
-@group(0) @binding(4) var<storage> previous_input: array<PreviousMeshInput>;
+@group(0) @binding(4) public var<storage> previous_input: array<PreviousMeshInput>;
 /// Indices into the `MeshInput` buffer.
 ///
 /// There may be many indices that map to the same `MeshInput`.
-@group(0) @binding(5) var<storage> work_items: array<PreprocessWorkItem>;
+@group(0) @binding(5) public var<storage> work_items: array<PreprocessWorkItem>;
 /// The output array of `Mesh`es.
-@group(0) @binding(6) var<storage, read_write> output: array<Mesh>;
+@group(0) @binding(6) public var<storage, read_write> output: array<Mesh>;
 
 @if(INDIRECT)
 /// The array of indirect parameters for drawcalls.
-@group(0) @binding(7) var<storage, read_write> indirect_parameters_metadata:
+@group(0) @binding(7) public var<storage, read_write> indirect_parameters_metadata:
     array<IndirectParametersMetadata>;
 
 @if(FRUSTUM_CULLING) {
 /// Data needed to cull the meshes.
 ///
 /// At the moment, this consists only of AABBs.
-@group(0) @binding(9) var<storage> mesh_culling_data: array<MeshCullingData>;
+@group(0) @binding(9) public var<storage> mesh_culling_data: array<MeshCullingData>;
 
-@group(0) @binding(10) var<storage> visibility_ranges: array<vec4<f32>>;
+@group(0) @binding(10) public var<storage> visibility_ranges: array<vec4<f32>>;
 }
 
 @if(OCCLUSION_CULLING)
-@group(0) @binding(11) var depth_pyramid: texture_2d<f32>;
+@group(0) @binding(11) public var depth_pyramid: texture_2d<f32>;
 
 @if(OCCLUSION_CULLING && EARLY_PHASE) {
-@group(0) @binding(12) var<storage, read_write> late_preprocess_work_items:
+@group(0) @binding(12) public var<storage, read_write> late_preprocess_work_items:
     array<PreprocessWorkItem>;
 
-@group(0) @binding(13) var<storage, read_write> late_preprocess_work_item_indirect_parameters:
+@group(0) @binding(13) public var<storage, read_write> late_preprocess_work_item_indirect_parameters:
     array<LatePreprocessWorkItemIndirectParameters>;
 }
 
 @if(OCCLUSION_CULLING && LATE_PHASE)
-@group(0) @binding(13) var<storage, read> late_preprocess_work_item_indirect_parameters:
+@group(0) @binding(13) public var<storage, read> late_preprocess_work_item_indirect_parameters:
     array<LatePreprocessWorkItemIndirectParameters>;
 
 @if(OCCLUSION_CULLING)
-var<immediate> immediates: Immediates;
+public var<immediate> immediates: Immediates;
 
 @if(FRUSTUM_CULLING)
 /// Returns true if the view frustum intersects an oriented bounding box (OBB).
 ///
 /// `aabb_center.w` should be 1.0.
-fn view_frustum_intersects_obb(
+public fn view_frustum_intersects_obb(
     world_from_local: mat4x4<f32>,
     aabb_center: vec4<f32>,
     aabb_half_extents: vec3<f32>,
@@ -161,7 +161,7 @@ fn view_frustum_intersects_obb(
 
 @compute
 @workgroup_size(64)
-fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+public fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Figure out our instance index. If this thread doesn't correspond to any
     // index, bail.
     let instance_index = global_invocation_id.x;

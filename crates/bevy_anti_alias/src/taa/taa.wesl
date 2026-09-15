@@ -7,17 +7,17 @@
 /// Controls how much to blend between the current and past samples
 /// Lower numbers = less of the current sample and more of the past sample = more smoothing
 /// Values chosen empirically
-const DEFAULT_HISTORY_BLEND_RATE: f32 = 0.1; // Default blend rate to use when no confidence in history
-const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ensure at least some of the current sample is used
+public const DEFAULT_HISTORY_BLEND_RATE: f32 = 0.1; // Default blend rate to use when no confidence in history
+public const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ensure at least some of the current sample is used
 
-@group(0) @binding(0) var view_target: texture_2d<f32>;
-@group(0) @binding(1) var history: texture_2d<f32>;
-@group(0) @binding(2) var motion_vectors: texture_2d<f32>;
-@group(0) @binding(3) var depth: texture_depth_2d;
-@group(0) @binding(4) var nearest_sampler: sampler;
-@group(0) @binding(5) var linear_sampler: sampler;
+@group(0) @binding(0) public var view_target: texture_2d<f32>;
+@group(0) @binding(1) public var history: texture_2d<f32>;
+@group(0) @binding(2) public var motion_vectors: texture_2d<f32>;
+@group(0) @binding(3) public var depth: texture_depth_2d;
+@group(0) @binding(4) public var nearest_sampler: sampler;
+@group(0) @binding(5) public var linear_sampler: sampler;
 
-struct Output {
+public struct Output {
     @location(0) view_target: vec4<f32>,
     @location(1) history: vec4<f32>,
 };
@@ -27,28 +27,28 @@ struct Output {
 // Solution: Put TAA before tonemapping, tonemap TAA input, apply TAA, invert-tonemap TAA output
 // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 20
 // https://gpuopen.com/learn/optimized-reversible-tonemapper-for-resolve
-fn rcp(x: f32) -> f32 { return 1.0 / x; }
-fn max3(x: vec3<f32>) -> f32 { return max(x.r, max(x.g, x.b)); }
-fn tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(max3(color) + 1.0); }
-fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(1.0 - max3(color)); }
+public fn rcp(x: f32) -> f32 { return 1.0 / x; }
+public fn max3(x: vec3<f32>) -> f32 { return max(x.r, max(x.g, x.b)); }
+public fn tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(max3(color) + 1.0); }
+public fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(1.0 - max3(color)); }
 
 // The following 3 functions are from Playdead (MIT-licensed)
 // https://github.com/playdeadgames/temporal/blob/master/Assets/Shaders/TemporalReprojection.shader
-fn RGB_to_YCoCg(rgb: vec3<f32>) -> vec3<f32> {
+public fn RGB_to_YCoCg(rgb: vec3<f32>) -> vec3<f32> {
     let y = (rgb.r / 4.0) + (rgb.g / 2.0) + (rgb.b / 4.0);
     let co = (rgb.r / 2.0) - (rgb.b / 2.0);
     let cg = (-rgb.r / 4.0) + (rgb.g / 2.0) - (rgb.b / 4.0);
     return vec3(y, co, cg);
 }
 
-fn YCoCg_to_RGB(ycocg: vec3<f32>) -> vec3<f32> {
+public fn YCoCg_to_RGB(ycocg: vec3<f32>) -> vec3<f32> {
     let r = ycocg.x + ycocg.y - ycocg.z;
     let g = ycocg.x + ycocg.z;
     let b = ycocg.x - ycocg.y - ycocg.z;
     return saturate(vec3(r, g, b));
 }
 
-fn clip_towards_aabb_center(history_color: vec3<f32>, current_color: vec3<f32>, aabb_min: vec3<f32>, aabb_max: vec3<f32>) -> vec3<f32> {
+public fn clip_towards_aabb_center(history_color: vec3<f32>, current_color: vec3<f32>, aabb_min: vec3<f32>, aabb_max: vec3<f32>) -> vec3<f32> {
     let p_clip = 0.5 * (aabb_max + aabb_min);
     let e_clip = 0.5 * (aabb_max - aabb_min) + 0.00000001;
     let v_clip = history_color - p_clip;
@@ -62,11 +62,11 @@ fn clip_towards_aabb_center(history_color: vec3<f32>, current_color: vec3<f32>, 
     }
 }
 
-fn sample_history(u: f32, v: f32) -> vec3<f32> {
+public fn sample_history(u: f32, v: f32) -> vec3<f32> {
     return textureSample(history, linear_sampler, vec2(u, v)).rgb;
 }
 
-fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
+public fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
     var sample = textureSample(view_target, nearest_sampler, uv).rgb;
 @if(TONEMAP)
     sample = tonemap(sample);
@@ -74,7 +74,7 @@ fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
 }
 
 @fragment
-fn taa(@location(0) uv: vec2<f32>) -> Output {
+public fn taa(@location(0) uv: vec2<f32>) -> Output {
     let texture_size = vec2<f32>(textureDimensions(view_target));
     let texel_size = 1.0 / texture_size;
 

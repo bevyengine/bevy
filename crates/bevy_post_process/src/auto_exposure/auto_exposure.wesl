@@ -21,9 +21,9 @@ import bevy_render::view::View;
 import bevy_render::globals::Globals;
 
 /// Constant to convert RGB to luminance, taken from Real Time Rendering, Vol 4 pg. 278, 4th edition
-const RGB_TO_LUM = vec3<f32>(0.2125, 0.7154, 0.0721);
+public const RGB_TO_LUM = vec3<f32>(0.2125, 0.7154, 0.0721);
 
-struct AutoExposure {
+public struct AutoExposure {
     min_log_lum: f32,
     inv_log_lum_range: f32,
     log_lum_range: f32,
@@ -34,35 +34,35 @@ struct AutoExposure {
     exponential_transition_distance: f32,
 }
 
-struct CompensationCurve {
+public struct CompensationCurve {
     min_log_lum: f32,
     inv_log_lum_range: f32,
     min_compensation: f32,
     compensation_range: f32,
 }
 
-@group(0) @binding(0) var<uniform> globals: Globals;
+@group(0) @binding(0) public var<uniform> globals: Globals;
 
-@group(0) @binding(1) var<uniform> settings: AutoExposure;
+@group(0) @binding(1) public var<uniform> settings: AutoExposure;
 
-@group(0) @binding(2) var tex_color: texture_2d<f32>;
+@group(0) @binding(2) public var tex_color: texture_2d<f32>;
 
-@group(0) @binding(3) var tex_mask: texture_2d<f32>;
+@group(0) @binding(3) public var tex_mask: texture_2d<f32>;
 
-@group(0) @binding(4) var tex_compensation: texture_1d<f32>;
+@group(0) @binding(4) public var tex_compensation: texture_1d<f32>;
 
-@group(0) @binding(5) var<uniform> compensation_curve: CompensationCurve;
+@group(0) @binding(5) public var<uniform> compensation_curve: CompensationCurve;
 
-@group(0) @binding(6) var<storage, read_write> histogram: array<atomic<u32>, 64>;
+@group(0) @binding(6) public var<storage, read_write> histogram: array<atomic<u32>, 64>;
 
-@group(0) @binding(7) var<storage, read_write> exposure: f32;
+@group(0) @binding(7) public var<storage, read_write> exposure: f32;
 
-@group(0) @binding(8) var<storage, read_write> view: View;
+@group(0) @binding(8) public var<storage, read_write> view: View;
 
-var<workgroup> histogram_shared: array<atomic<u32>, 64>;
+public var<workgroup> histogram_shared: array<atomic<u32>, 64>;
 
 /// For a given color, return the histogram bin index
-fn color_to_bin(hdr: vec3<f32>) -> u32 {
+public fn color_to_bin(hdr: vec3<f32>) -> u32 {
     // Convert color to luminance
     let lum = dot(hdr, RGB_TO_LUM);
 
@@ -83,14 +83,14 @@ fn color_to_bin(hdr: vec3<f32>) -> u32 {
 /// Since the histogram is summed in the compute_average step, there is a limit to the amount of
 /// distinct values that can be represented. When using the chosen value of 16, the maximum
 /// amount of pixels that can be weighted and summed is 2^32 / 16 = 16384^2.
-fn metering_weight(coords: vec2<f32>) -> u32 {
+public fn metering_weight(coords: vec2<f32>) -> u32 {
     let pos = vec2<i32>(coords * vec2<f32>(textureDimensions(tex_mask)));
     let mask = textureLoad(tex_mask, pos, 0).r;
     return u32(mask * 16.0);
 }
 
 @compute @workgroup_size(16, 16, 1)
-fn compute_histogram(
+public fn compute_histogram(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
     @builtin(local_invocation_index) local_invocation_index: u32
 ) {
@@ -125,7 +125,7 @@ fn compute_histogram(
 }
 
 @compute @workgroup_size(1, 1, 1)
-fn compute_average(@builtin(local_invocation_index) local_index: u32) {
+public fn compute_average(@builtin(local_invocation_index) local_index: u32) {
     var histogram_sum = 0u;
 
     // Calculate the cumulative histogram and clear the histogram bins.

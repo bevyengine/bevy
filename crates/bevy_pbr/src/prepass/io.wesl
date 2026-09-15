@@ -1,6 +1,6 @@
 // Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
 // pass them to custom prepass shaders like pbr_prepass.wesl.
-struct UncompressedVertex {
+public struct UncompressedVertex {
     @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
 
@@ -27,7 +27,7 @@ struct UncompressedVertex {
     @builtin(vertex_index) index: u32,
 };
 
-struct Vertex {
+public struct Vertex {
     @builtin(instance_index) instance_index: u32,
     @if(VERTEX_POSITIONS_COMPRESSED)
     @location(0) compressed_position: vec4<f32>,
@@ -65,7 +65,7 @@ struct Vertex {
 
 // The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 // See https://github.com/gfx-rs/naga/issues/2416
-fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVertex {
+public fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVertex {
     let mesh_metadata = package::render::mesh_functions::get_metadata(instance_index);
     var uncompressed_vertex: UncompressedVertex;
     uncompressed_vertex.instance_index = instance_index;
@@ -104,7 +104,7 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
     return uncompressed_vertex;
 }
 
-struct VertexOutput {
+public struct VertexOutput {
     /// This is `clip position` when the struct is used as a vertex stage output
     /// and `frag coord` when used as a fragment stage input
     @builtin(position) position: vec4<f32>,
@@ -137,7 +137,7 @@ struct VertexOutput {
 }
 
 @if(PREPASS_FRAGMENT)
-struct FragmentOutput {
+public struct FragmentOutput {
     @if(NORMAL_PREPASS)
     @location(0) normal: vec4<f32>,
 

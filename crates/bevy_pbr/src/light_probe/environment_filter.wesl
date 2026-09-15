@@ -4,28 +4,28 @@ import package::render::{
     utils::{sample_cosine_hemisphere, dir_to_cube_uv, sample_cube_dir, hammersley_2d, rand_vec2f}
 };
 
-struct FilteringConstants {
+public struct FilteringConstants {
     mip_level: f32,
     sample_count: u32,
     roughness: f32,
     noise_size_bits: vec2u,
 }
 
-@group(0) @binding(0) var input_texture: texture_2d_array<f32>;
-@group(0) @binding(1) var input_sampler: sampler;
-@group(0) @binding(2) var output_texture: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(3) var<uniform> constants: FilteringConstants;
-@group(0) @binding(4) var blue_noise_texture: texture_2d_array<f32>;
+@group(0) @binding(0) public var input_texture: texture_2d_array<f32>;
+@group(0) @binding(1) public var input_sampler: sampler;
+@group(0) @binding(2) public var output_texture: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(3) var<uniform> public constants: FilteringConstants;
+@group(0) @binding(4) public var blue_noise_texture: texture_2d_array<f32>;
 
 /// Sample an environment map with a specific LOD
-fn sample_environment(dir: vec3f, level: f32) -> vec4f {
+public fn sample_environment(dir: vec3f, level: f32) -> vec4f {
     let cube_uv = dir_to_cube_uv(dir);
     return textureSampleLevel(input_texture, input_sampler, cube_uv.uv, cube_uv.face, level);
 }
 
 /// Blue noise randomization
 @if(HAS_BLUE_NOISE)
-fn sample_noise(pixel_coords: vec2u) -> vec4f {
+public fn sample_noise(pixel_coords: vec2u) -> vec4f {
     let noise_size = vec2u(1) << constants.noise_size_bits;
     let noise_size_mask = noise_size - vec2u(1u);
     let noise_coords = pixel_coords & noise_size_mask;
@@ -34,14 +34,14 @@ fn sample_noise(pixel_coords: vec2u) -> vec4f {
 }
 @else
 /// pseudo-random numbers using RNG
-fn sample_noise(pixel_coords: vec2u) -> vec4f {
+public fn sample_noise(pixel_coords: vec2u) -> vec4f {
     var rng_state: u32 = (pixel_coords.x * 3966231743u) ^ (pixel_coords.y * 3928936651u);
     let rnd = rand_vec2f(&rng_state);
     return vec4f(rnd, 0.0, 0.0);
 }
 
 /// Calculate LOD for environment map lookup using filtered importance sampling
-fn calculate_environment_map_lod(pdf: f32, width: f32, samples: f32) -> f32 {
+public fn calculate_environment_map_lod(pdf: f32, width: f32, samples: f32) -> f32 {
     // Solid angle of current sample
     let omega_s = 1.0 / (samples * pdf);
 
@@ -54,7 +54,7 @@ fn calculate_environment_map_lod(pdf: f32, width: f32, samples: f32) -> f32 {
 
 @compute
 @workgroup_size(8, 8, 1)
-fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
+public fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     let size = textureDimensions(output_texture).xy;
     let invSize = 1.0 / vec2f(size);
 
@@ -143,7 +143,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
 
 @compute
 @workgroup_size(8, 8, 1)
-fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
+public fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     let size = textureDimensions(output_texture).xy;
     let invSize = 1.0 / vec2f(size);
 

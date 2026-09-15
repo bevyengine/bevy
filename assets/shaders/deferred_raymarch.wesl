@@ -18,29 +18,29 @@ import bevy_pbr::render::pbr_types::{pbr_input_new, STANDARD_MATERIAL_FLAGS_ALPH
 import bevy_pbr::render::mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT;
 import bevy_render::globals::Globals;
 
-@group(0) @binding(1) var<uniform> globals: Globals;
+@group(0) @binding(1) public var<uniform> globals: Globals;
 
-const FAR: f32 = 100.0;
-const SURFACE_EPSILON: f32 = 0.001;
-const MAX_STEPS: u32 = 160u;
-const STEP_SCALE: f32 = 0.5;
+public const FAR: f32 = 100.0;
+public const SURFACE_EPSILON: f32 = 0.001;
+public const MAX_STEPS: u32 = 160u;
+public const STEP_SCALE: f32 = 0.5;
 
 // Swap this for any SDF you like, the gbuffer integration below is independent of the
 // shape.
-const GYROID_SCALE: f32 = 5.0;
+public const GYROID_SCALE: f32 = 5.0;
 
-fn gyroid_field(p: vec3<f32>) -> f32 {
+public fn gyroid_field(p: vec3<f32>) -> f32 {
     let q = p * GYROID_SCALE + globals.time * 0.6;
     return dot(sin(q), cos(q.yzx));
 }
 
-fn map(p: vec3<f32>) -> f32 {
+public fn map(p: vec3<f32>) -> f32 {
     let shell = (abs(gyroid_field(p)) - 0.14) / GYROID_SCALE;
     let ball = length(p) - 1.3;
     return max(ball, shell);
 }
 
-fn sdf_normal(p: vec3<f32>) -> vec3<f32> {
+public fn sdf_normal(p: vec3<f32>) -> vec3<f32> {
     let e = vec2<f32>(1.0, -1.0) * 0.0005;
     return normalize(
         e.xyy * map(p + e.xyy) +
@@ -50,7 +50,7 @@ fn sdf_normal(p: vec3<f32>) -> vec3<f32> {
     );
 }
 
-fn raymarch(ray_origin: vec3<f32>, ray_dir: vec3<f32>) -> f32 {
+public fn raymarch(ray_origin: vec3<f32>, ray_dir: vec3<f32>) -> f32 {
     var t = 0.0;
     for (var i = 0u; i < MAX_STEPS; i++) {
         let d = map(ray_origin + ray_dir * t);
@@ -65,12 +65,12 @@ fn raymarch(ray_origin: vec3<f32>, ray_dir: vec3<f32>) -> f32 {
     return FAR;
 }
 
-struct Ray {
+public struct Ray {
     origin: vec3<f32>,
     dir: vec3<f32>,
 }
 
-fn ray_for_uv(uv: vec2<f32>) -> Ray {
+public fn ray_for_uv(uv: vec2<f32>) -> Ray {
     let ndc = uv_to_ndc(uv);
     var ray: Ray;
     // Check ortho projection
@@ -84,21 +84,21 @@ fn ray_for_uv(uv: vec2<f32>) -> Ray {
     return ray;
 }
 
-fn depth_for_world_pos(world_pos: vec3<f32>) -> f32 {
+public fn depth_for_world_pos(world_pos: vec3<f32>) -> f32 {
     return view_z_to_depth_ndc(position_world_to_view(world_pos).z);
 }
 
 /// Our render pass has two color targets, matching the deferred prepass:
 ///   location 0: the packed gbuffer (Rgba32Uint)
 ///   location 1: the deferred lighting pass id (R8Uint)
-struct GBufferOutput {
+public struct GBufferOutput {
     @location(0) deferred: vec4<u32>,
     @location(1) deferred_lighting_pass_id: u32,
     @builtin(frag_depth) depth: f32,
 }
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> GBufferOutput {
+public fn fragment(in: FullscreenVertexOutput) -> GBufferOutput {
     let ray = ray_for_uv(in.uv);
     let t = raymarch(ray.origin, ray.dir);
 
@@ -141,7 +141,7 @@ fn fragment(in: FullscreenVertexOutput) -> GBufferOutput {
 
 // When rendering into a light's shadow map we only need depth
 @fragment
-fn fragment_shadow(in: FullscreenVertexOutput) -> @builtin(frag_depth) f32 {
+public fn fragment_shadow(in: FullscreenVertexOutput) -> @builtin(frag_depth) f32 {
     let ray = ray_for_uv(in.uv);
     let t = raymarch(ray.origin, ray.dir);
     if t >= FAR {

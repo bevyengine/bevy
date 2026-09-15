@@ -9,7 +9,7 @@ import package::{
 };
 
 @vertex
-fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f32> {
+public fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f32> {
     let vertex_index = vertex_input % 3u;
     let material_id = vertex_input / 3u;
     let material_depth = f32(material_id) / 65535.0;
@@ -18,7 +18,7 @@ fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f
 }
 
 @fragment
-fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
+public fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
     let vertex_output = resolve_vertex_output(frag_coord);
     var rng = vertex_output.cluster_id;
     let color = vec3(rand_f(&rng), rand_f(&rng), rand_f(&rng));
@@ -27,7 +27,7 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 @if(PREPASS_FRAGMENT)
 @fragment
-fn prepass_fragment(@builtin(position) frag_coord: vec4<f32>) -> prepass_io::FragmentOutput {
+public fn prepass_fragment(@builtin(position) frag_coord: vec4<f32>) -> prepass_io::FragmentOutput {
     let vertex_output = resolve_vertex_output(frag_coord);
 
     var out: prepass_io::FragmentOutput;

@@ -9,15 +9,15 @@ import package::realtime::bindings::{
 enable wgpu_ray_query;
 
 /// Maximum amount of frames a cell can live for without being queried
-const WORLD_CACHE_CELL_LIFETIME: u32 = 10u;
+public const WORLD_CACHE_CELL_LIFETIME: u32 = 10u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
-const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
+public const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 
 /// Marker value for an empty cell
-const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
+public const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
 
 @if(!WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
-fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, ray_t: f32, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
+public fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, ray_t: f32, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
     var world_position = world_position_in;
     var cell_size = get_cell_size(world_position, view_position, ray_t, rng);
 
@@ -64,7 +64,7 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     return vec3(0.0);
 }
 
-fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>, ray_t: f32, rng: ptr<function, u32>) -> f32 {
+public fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>, ray_t: f32, rng: ptr<function, u32>) -> f32 {
     let camera_distance = distance(view_position, world_position) / constants.world_cache_position_lod_scale;
     let lod_f = log2(1.0 + camera_distance);
     let lod_fract = fract(lod_f);
@@ -72,15 +72,15 @@ fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>, ray_t: f32
     return constants.world_cache_position_base_cell_size * exp2(lod);
 }
 
-fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec3<f32> {
+public fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec3<f32> {
     return floor(world_position / quantization_factor + 0.0001);
 }
 
-fn quantize_normal(world_normal: vec3<f32>) -> vec3<f32> {
+public fn quantize_normal(world_normal: vec3<f32>) -> vec3<f32> {
     return floor(world_normal + 0.0001);
 }
 
-fn compute_key(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
+public fn compute_key(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
     var key = pcg_hash(world_position.x);
     key = pcg_hash(key + world_position.y);
     key = pcg_hash(key + world_position.z);
@@ -90,7 +90,7 @@ fn compute_key(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
     return wrap_key(key);
 }
 
-fn compute_checksum(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
+public fn compute_checksum(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
     var key = iqint_hash(world_position.x);
     key = iqint_hash(key + world_position.y);
     key = iqint_hash(key + world_position.z);
@@ -100,17 +100,17 @@ fn compute_checksum(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
     return max(key, 1u); // 0u is reserved for WORLD_CACHE_EMPTY_CELL
 }
 
-fn pcg_hash(input: u32) -> u32 {
+public fn pcg_hash(input: u32) -> u32 {
     let state = input * 747796405u + 2891336453u;
     let word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
     return (word >> 22u) ^ word;
 }
 
-fn iqint_hash(input: u32) -> u32 {
+public fn iqint_hash(input: u32) -> u32 {
     let n = (input << 13u) ^ input;
     return n * (n * n * 15731u + 789221u) + 1376312589u;
 }
 
-fn wrap_key(key: u32) -> u32 {
+public fn wrap_key(key: u32) -> u32 {
     return key & (u32(WORLD_CACHE_SIZE) - 1u);
 }

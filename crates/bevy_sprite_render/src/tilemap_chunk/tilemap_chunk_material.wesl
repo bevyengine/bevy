@@ -4,11 +4,11 @@ import package::mesh2d::{
     vertex_output::VertexOutput,
 };
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var tileset: texture_2d_array<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(1) var tileset_sampler: sampler;
-@group(constants::MATERIAL_BIND_GROUP) @binding(2) var tile_data: texture_2d<u32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) public var tileset: texture_2d_array<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) public var tileset_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) public var tile_data: texture_2d<u32>;
 
-struct TileData {
+public struct TileData {
     tileset_index: u32,
     color: vec4<f32>,
     visible: bool,
@@ -17,7 +17,7 @@ struct TileData {
     mirror_d: bool,
 }
 
-fn get_tile_data(coord: vec2<u32>) -> TileData {
+public fn get_tile_data(coord: vec2<u32>) -> TileData {
     let data = textureLoad(tile_data, coord, 0);
 
     let tileset_index = data.r;
@@ -38,7 +38,7 @@ fn get_tile_data(coord: vec2<u32>) -> TileData {
 }
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let chunk_size = textureDimensions(tile_data, 0);
     let tile_uv = in.uv * vec2<f32>(chunk_size);
     var tile_coord = clamp(vec2<u32>(floor(tile_uv)), vec2<u32>(0), chunk_size - 1);

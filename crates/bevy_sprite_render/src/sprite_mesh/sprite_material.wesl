@@ -18,7 +18,7 @@ import bevy_render::color_operations::linear_to_srgb;
 import bevy_render::color_operations::linear_rgb_to_oklab;
 
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
+public fn vertex(vertex: Vertex) -> VertexOutput {
     let instance_index = vertex.instance_index;
 
 @if(BINDLESS)
@@ -68,7 +68,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 }
 
 @fragment
-fn fragment(
+public fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
     var output_color = sprite_functions::sample_final_color(mesh.uv, mesh.instance_index);

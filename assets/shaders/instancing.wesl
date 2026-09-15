@@ -1,6 +1,6 @@
 import bevy_pbr::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
 
-struct Vertex {
+public struct Vertex {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
     @location(2) uv: vec2<f32>,
@@ -9,13 +9,13 @@ struct Vertex {
     @location(4) i_color: vec4<f32>,
 };
 
-struct VertexOutput {
+public struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
 };
 
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
+public fn vertex(vertex: Vertex) -> VertexOutput {
     let position = vertex.position * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz;
     var out: VertexOutput;
     // NOTE: Passing 0 as the instance_index to get_world_from_local() is a hack
@@ -31,6 +31,6 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 }
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     return in.color;
 }

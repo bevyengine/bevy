@@ -4,7 +4,7 @@ import bevy_pbr::render::{
     forward_io::VertexOutput,
 };
 
-fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
+public fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
     let L = c.x;
     let a = c.y;
     let b = c.z;
@@ -25,7 +25,7 @@ fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
 }
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let speed = 2.0;
     // The globals binding contains various global values like time
     // which is the time since startup in seconds

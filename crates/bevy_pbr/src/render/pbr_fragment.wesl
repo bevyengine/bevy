@@ -31,7 +31,7 @@ import package::render::forward_io::VertexOutput;
 import package::render::pbr_bindings::material_indices;
 
 /// prepare a basic PbrInput from the vertex stage output, mesh binding and view binding
-fn pbr_input_from_vertex_output(
+public fn pbr_input_from_vertex_output(
     in: VertexOutput,
     is_front: bool,
     double_sided: bool,
@@ -68,7 +68,7 @@ fn pbr_input_from_vertex_output(
 
 /// Prepare a full PbrInput by sampling all textures to resolve
 /// the material members
-fn pbr_input_from_standard_material(
+public fn pbr_input_from_standard_material(
     in: VertexOutput,
     is_front: bool,
 ) -> pbr_types::PbrInput {

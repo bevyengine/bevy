@@ -1,4 +1,4 @@
-struct Atmosphere {
+public struct Atmosphere {
     ground_albedo: vec3<f32>,
     /// Radius of the planet
     /// Units: m
@@ -10,7 +10,7 @@ struct Atmosphere {
     world_to_atmosphere: mat4x4<f32>,
 }
 
-struct AtmosphereSettings {
+public struct AtmosphereSettings {
     transmittance_lut_size: vec2<u32>,
     multiscattering_lut_size: vec2<u32>,
     sky_view_lut_size: vec2<u32>,
@@ -28,7 +28,7 @@ struct AtmosphereSettings {
 /// "Atmosphere space" uses local up for the zenith so the horizon-detail
 /// parameterization concentrates texels at the viewer's horizon. Azimuth uses a
 /// world-fixed reference so the terminator stays stable when tilting the camera.
-struct AtmosphereTransforms {
+public struct AtmosphereTransforms {
     world_from_atmosphere: mat4x4<f32>,
     atmosphere_from_world: mat4x4<f32>,
 }

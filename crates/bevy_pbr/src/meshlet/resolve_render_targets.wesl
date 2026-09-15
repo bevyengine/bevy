@@ -2,15 +2,15 @@ import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 import package::meshlet::bindings::InstancedOffset;
 
 @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
-@group(0) @binding(0) var meshlet_visibility_buffer: texture_storage_2d<r64uint, read>;
+@group(0) @binding(0) public var meshlet_visibility_buffer: texture_storage_2d<r64uint, read>;
 @else
-@group(0) @binding(0) var meshlet_visibility_buffer: texture_storage_2d<r32uint, read>;
-@group(0) @binding(1) var<storage, read> meshlet_raster_clusters: array<InstancedOffset>;  // Per cluster
-@group(0) @binding(2) var<storage, read> meshlet_instance_material_ids: array<u32>; // Per entity instance
+@group(0) @binding(0) public var meshlet_visibility_buffer: texture_storage_2d<r32uint, read>;
+@group(0) @binding(1) public var<storage, read> meshlet_raster_clusters: array<InstancedOffset>;  // Per cluster
+@group(0) @binding(2) public var<storage, read> meshlet_instance_material_ids: array<u32>; // Per entity instance
 
 /// This pass writes out the depth texture.
 @fragment
-fn resolve_depth(in: FullscreenVertexOutput) -> @builtin(frag_depth) f32 {
+public fn resolve_depth(in: FullscreenVertexOutput) -> @builtin(frag_depth) f32 {
     let visibility = textureLoad(meshlet_visibility_buffer, vec2<u32>(in.position.xy)).r;
     @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
     let depth = u32(visibility >> 32u);
@@ -25,7 +25,7 @@ fn resolve_depth(in: FullscreenVertexOutput) -> @builtin(frag_depth) f32 {
 /// This pass writes out the material depth texture.
 @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
 @fragment
-fn resolve_material_depth(in: FullscreenVertexOutput) -> @builtin(frag_depth) f32 {
+public fn resolve_material_depth(in: FullscreenVertexOutput) -> @builtin(frag_depth) f32 {
     let visibility = textureLoad(meshlet_visibility_buffer, vec2<u32>(in.position.xy)).r;
 
     let depth = visibility >> 32u;

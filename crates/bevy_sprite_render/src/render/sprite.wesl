@@ -12,7 +12,7 @@ import bevy_render::{
 
 import package::render::sprite_view_bindings::view;
 
-struct VertexInput {
+public struct VertexInput {
     @builtin(vertex_index) index: u32,
     // NOTE: Instance-rate vertex buffer members prefixed with i_
     /// the first column of a 3x4 matrix that is the transpose of the affine 4x3 model matrix.
@@ -25,14 +25,14 @@ struct VertexInput {
     @location(4) i_uv_offset_scale: vec4<f32>,
 }
 
-struct VertexOutput {
+public struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) @interpolate(flat) color: vec4<f32>,
 };
 
 @vertex
-fn vertex(in: VertexInput) -> VertexOutput {
+public fn vertex(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
 
     let vertex_position = vec3<f32>(
@@ -52,11 +52,11 @@ fn vertex(in: VertexInput) -> VertexOutput {
     return out;
 }
 
-@group(1) @binding(0) var sprite_texture: texture_2d<f32>;
-@group(1) @binding(1) var sprite_sampler: sampler;
+@group(1) @binding(0) public var sprite_texture: texture_2d<f32>;
+@group(1) @binding(1) public var sprite_sampler: sampler;
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+public fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = in.color * textureSample(sprite_texture, sprite_sampler, in.uv);
 
 @if(TONEMAP_IN_SHADER)
