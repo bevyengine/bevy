@@ -611,8 +611,8 @@ pub enum NumberInputWrap {
 /// The enclosed string should be the id of a [`UnitsFormat`] that has previously been registered,
 /// such as ``length_meters`` or ``angle_degrees``.
 ///
-/// Note on serialization: it intended that this component, like most feathers-related
-/// component be serializable via reflection, so that it can be edited in the planned Bevy scene
+/// Note on serialization: it is intended that this component, like most feathers-related
+/// components be serializable via reflection, so that it can be edited in the planned Bevy scene
 /// editor. The objects pointed to by this id, however, are static and not meant to be serialized.
 #[derive(Component, Default, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -1075,7 +1075,7 @@ fn scrubber_on_release(
                 .insert(TextReadWriteMode::Editable)
                 .insert(EntityCursor::System(bevy_window::SystemCursorIcon::Text));
 
-            // Replace the text before editing; this let's us change the degree symbol (°), which
+            // Replace the text before editing; this lets us change the degree symbol (°), which
             // is hard to type, into `d`, which is easier.
             let editable_digits = units_registry.resolve(units).format(*value, true);
             let old_digits = editable_text.value().to_string();
