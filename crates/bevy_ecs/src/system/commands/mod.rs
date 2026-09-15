@@ -2823,7 +2823,7 @@ mod tests {
             .try_remove_by_id(nonexistent_component_id)
             .try_remove_by_id(world.components().get_id(TypeId::of::<W<i128>>()).unwrap())
             .remove_by_id(world.components().get_id(TypeId::of::<W<u32>>()).unwrap())
-            .remove_by_id(world.components().get_id(TypeId::of::<W<u64>>()).unwrap())
+            .remove_by_id(world.components().get_id(TypeId::of::<W<u32>>()).unwrap()) // again
             .remove_by_id(world.components().get_id(TypeId::of::<W<u64>>()).unwrap())
             .remove_by_id(world.components().get_id(TypeId::of::<DropCk>()).unwrap())
             .remove_by_id(
