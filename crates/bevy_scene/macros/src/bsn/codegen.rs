@@ -135,7 +135,7 @@ impl BsnTokenStream for BsnRoot {
         if call_id.is_some()
             || hoisted_exprs.len() > 0
             || errors.len() > 0
-            || ctx.deprecations.len() > 0
+            || !ctx.deprecations.is_empty()
         {
             quote! {
                 #bevy_scene::SceneScope({
@@ -174,7 +174,7 @@ impl BsnTokenStream for BsnListRoot {
         if errors.len() > 0
             || hoisted_exprs.len() > 0
             || call_id.is_some()
-            || ctx.deprecations.len() > 0
+            || !ctx.deprecations.is_empty()
         {
             quote! {
                 {
