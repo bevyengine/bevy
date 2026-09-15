@@ -1846,6 +1846,17 @@ impl<'a> EntityCommands<'a> {
         self.queue(entity_command::remove_by_id(component_id))
     }
 
+    /// Removes a dynamic [`Component`] from the entity if it exists.
+    ///
+    /// # Note
+    ///
+    /// If the entity does not exist when this command is executed, or the
+    /// provided [`ComponentId`] does not exist in the [`World`],
+    /// the resulting error will be ignored.
+    pub fn try_remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        self.queue_silenced(entity_command::remove_by_id(component_id))
+    }
+
     /// Removes all components associated with the entity.
     #[track_caller]
     pub fn clear(&mut self) -> &mut Self {
@@ -2808,6 +2819,7 @@ mod tests {
         // test component removal
         Commands::new(&mut command_queue, &world)
             .entity(entity)
+            .try_remove::<W<i128>>()
             .remove::<W<u32>>()
             .remove::<(W<u32>, W<u64>, SparseDropCk, DropCk)>();
 
@@ -2834,6 +2846,7 @@ mod tests {
     #[test]
     fn remove_components_by_id() {
         let mut world = World::default();
+        world.register_component::<W<i128>>(); // Never inserted.
 
         let mut command_queue = CommandQueue::default();
         let (dense_dropck, dense_is_dropped) = DropCk::new_pair();
@@ -2851,10 +2864,15 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(results_before, vec![(1u32, 2u64)]);
 
+        let nonexistent_component_id = World::default().register_component::<W<i8>>();
+
         // test component removal
         Commands::new(&mut command_queue, &world)
             .entity(entity)
+            .try_remove_by_id(nonexistent_component_id)
+            .try_remove_by_id(world.components().get_id(TypeId::of::<W<i128>>()).unwrap())
             .remove_by_id(world.components().get_id(TypeId::of::<W<u32>>()).unwrap())
+            .remove_by_id(world.components().get_id(TypeId::of::<W<u32>>()).unwrap()) // again
             .remove_by_id(world.components().get_id(TypeId::of::<W<u64>>()).unwrap())
             .remove_by_id(world.components().get_id(TypeId::of::<DropCk>()).unwrap())
             .remove_by_id(

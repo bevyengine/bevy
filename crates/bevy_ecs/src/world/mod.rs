@@ -3428,6 +3428,7 @@ impl World {
         self.storages.sparse_sets.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();
+        self.resource_entities.clear();
         self.entity_allocator.restart();
     }
 
