@@ -1732,16 +1732,17 @@ where
             OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
             OpaqueRendererMethod::Auto => default_opaque_render_method.0,
         };
+        let alpha_mode = material.alpha_mode();
         let reads_view_transmission_texture = material.reads_view_transmission_texture();
 
         let mesh_pipeline_key_bits = MeshPipelineKey::empty();
         let mesh_pipeline_key_bits = ErasedMeshPipelineKey::new(mesh_pipeline_key_bits);
 
-        let render_phase_type = match material.alpha_mode() {
+        let render_phase_type = match alpha_mode {
+            _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
             AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
                 RenderPhaseType::Transparent
             }
-            _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
             AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
             AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
         };
@@ -1755,7 +1756,7 @@ where
         Ok(PreparedMaterial {
             binding,
             properties: Arc::new(MaterialProperties {
-                alpha_mode: material.alpha_mode(),
+                alpha_mode,
                 depth_bias: material.depth_bias(),
                 reads_view_transmission_texture,
                 render_phase_type,

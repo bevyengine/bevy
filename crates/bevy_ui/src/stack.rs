@@ -34,21 +34,6 @@ pub struct UiStack {
     pub uinodes: Vec<Entity>,
 }
 
-#[derive(Default)]
-pub(crate) struct ChildBufferCache {
-    pub inner: Vec<Vec<(Entity, i32)>>,
-}
-
-impl ChildBufferCache {
-    fn pop(&mut self) -> Vec<(Entity, i32)> {
-        self.inner.pop().unwrap_or_default()
-    }
-
-    fn push(&mut self, vec: Vec<(Entity, i32)>) {
-        self.inner.push(vec);
-    }
-}
-
 /// A `StackRoot` can be either a root UI node, or a parented UI node with a `GlobalZIndex` component.
 /// The stack root and its descedents, up to any nested `StackRoots`, occupy a contiguous range in the render stack.
 #[derive(Ord, PartialOrd, PartialEq, Eq)]
@@ -65,7 +50,7 @@ pub(crate) struct StackRoot {
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each stack root,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
-    mut cache: Local<ChildBufferCache>,
+    mut cache: Local<Vec<(Entity, i32)>>,
     mut stack_roots: Local<Vec<(Entity, StackRoot)>>,
     mut stack_root_order: Local<EntityHashMap<usize>>,
     mut visited_stack_roots: Local<EntityHashSet>,
@@ -150,7 +135,7 @@ pub fn ui_stack_system(
 }
 
 fn update_uistack_recursive(
-    cache: &mut ChildBufferCache,
+    child_buffer: &mut Vec<(Entity, i32)>,
     node_entity: Entity,
     ui_children: &UiChildren,
     zindex_query: &Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
@@ -158,7 +143,7 @@ fn update_uistack_recursive(
 ) {
     ui_stack.push(node_entity);
 
-    let mut child_buffer = cache.pop();
+    let start = child_buffer.len();
     child_buffer.extend(
         ui_children
             .iter_ui_children(node_entity)
@@ -169,11 +154,22 @@ fn update_uistack_recursive(
                     .map(|zindex| (child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
             }),
     );
-    child_buffer.sort_by_key(|k| k.1);
-    for (child_entity, _) in child_buffer.drain(..) {
-        update_uistack_recursive(cache, child_entity, ui_children, zindex_query, ui_stack);
+    let end = child_buffer.len();
+
+    child_buffer[start..end].sort_by_key(|child| child.1);
+
+    for index in start..end {
+        let child_entity = child_buffer[index].0;
+        update_uistack_recursive(
+            child_buffer,
+            child_entity,
+            ui_children,
+            zindex_query,
+            ui_stack,
+        );
     }
-    cache.push(child_buffer);
+
+    child_buffer.truncate(start);
 }
 
 #[cfg(test)]

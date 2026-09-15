@@ -40,8 +40,8 @@ where
                 }
                 Children [
                     @label(name)
-                ],
-
+                ]
+                --
                 identifier
                 @FeathersNumberInput
                 NumberInputValue::I32(value)
@@ -67,9 +67,9 @@ where
                 }
                 Children [
                     @label(name)
-                ],
-
-                @FeathersNumberInput
+                ]
+                --
+               @FeathersNumberInput
                 NumberInputValue::I32(value)
                 precision
                 HardLimit::i32(limits)

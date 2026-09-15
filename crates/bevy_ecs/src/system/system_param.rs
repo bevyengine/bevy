@@ -14,13 +14,14 @@ use crate::{
         Access, FilteredAccess, IterQueryData, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
     },
-    resource::{Resource, IS_RESOURCE},
+    resource::{Resource, ResourceEntities, IS_RESOURCE},
     system::{Query, Single, SystemAccess, SystemMeta, SystemState},
-    world::{
-        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
-        FromWorld, World,
-    },
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
+
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
+use crate::world::{FilteredResources, FilteredResourcesMut};
+
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
@@ -1436,6 +1437,36 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     }
 }
 
+// SAFETY: Only reads World resource entities
+unsafe impl<'a> ReadOnlySystemParam for &'a ResourceEntities {}
+
+// SAFETY: no component value access
+unsafe impl<'a> SystemParam for &'a ResourceEntities {
+    type State = ();
+    type Item<'w, 's> = &'w ResourceEntities;
+
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        system_meta: &mut SystemMeta,
+        system_access: &mut SystemAccess,
+        _world: &mut World,
+    ) {
+        system_access.require_shared_access::<Self>(system_meta);
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        _state: &'s mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        _change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(world.resource_entities())
+    }
+}
+
 // SAFETY: Only reads World components
 unsafe impl<'a> ReadOnlySystemParam for &'a Components {}
 
@@ -2631,6 +2662,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 
 // SAFETY: Resource ComponentId access is applied to the access. If this FilteredResources
 // conflicts with any prior access, a panic will occur.
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 unsafe impl SystemParam for FilteredResources<'_, '_> {
     type State = Access;
 
@@ -2670,10 +2702,12 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
 }
 
 // SAFETY: FilteredResources only reads resources.
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 unsafe impl ReadOnlySystemParam for FilteredResources<'_, '_> {}
 
 // SAFETY: Resource ComponentId access is applied to the access. If this FilteredResourcesMut
 // conflicts with any prior access, a panic will occur.
+#[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
 unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
     type State = Access;
 

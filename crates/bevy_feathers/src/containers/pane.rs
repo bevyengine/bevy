@@ -65,7 +65,7 @@ pub fn pane_header_divider() -> impl Scene {
             width: px(1),
             align_self: AlignSelf::Stretch,
         }
-        Children [(
+        Children [
             // Because we want to extend the divider into the header padding area, we'll use
             // an absolutely-positioned child.
             Node {
@@ -76,7 +76,7 @@ pub fn pane_header_divider() -> impl Scene {
                 bottom: px(-6),
             }
             ThemeBackgroundColor(tokens::PANE_HEADER_DIVIDER)
-        )]
+        ]
     }
 }
 

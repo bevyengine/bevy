@@ -32,7 +32,9 @@ use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
 use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, ImageNodeSize, NodeImageMode, Text, TextShadow, ViewportNode};
+use bevy_ui::widget::{
+    ImageNode, ImageNodeSize, InlineImage, NodeImageMode, Text, TextShadow, ViewportNode,
+};
 use bevy_ui::{
     BackgroundColor, BackgroundGradient, BorderColor, BorderGradient, BoxShadow, CalculatedClip,
     ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, Display, Node, OuterColor, Outline,
@@ -70,7 +72,7 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
+    ComputedTextBlock, EditableText, InlineBox, PositionedGlyph, Strikethrough, StrikethroughColor,
     TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan, Underline,
     UnderlineColor,
 };
@@ -124,6 +126,7 @@ pub mod stack_z_offsets {
     pub const TEXT: f32 = 0.06;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
     pub const TEXT_CURSOR: f32 = 0.08;
+    pub const INLINE_IMAGE: f32 = 0.09;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -142,6 +145,7 @@ pub enum RenderUiSystems {
     ExtractCursor,
     ExtractDebug,
     ExtractGradient,
+    ExtractInlineImages,
 }
 
 /// Marker for controlling whether UI is rendered with or without anti-aliasing
@@ -254,6 +258,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractText,
                     RenderUiSystems::ExtractCursor,
                     RenderUiSystems::ExtractDebug,
+                    RenderUiSystems::ExtractInlineImages,
                 )
                     .chain_weak(),
             )
@@ -274,6 +279,7 @@ impl Plugin for UiRenderPlugin {
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
                     extract_text_cursor.in_set(RenderUiSystems::ExtractCursor),
                     extract_preedit_underlines.in_set(RenderUiSystems::ExtractCursor),
+                    extract_inline_images.in_set(RenderUiSystems::ExtractInlineImages),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
@@ -482,8 +488,9 @@ pub fn extract_uinode_changes(
         Query<
             Entity,
             (
-                With<TextSpan>,
+                Or<(With<TextSpan>, With<InlineImage>)>,
                 Or<(
+                    Changed<InlineImage>,
                     Changed<TextColor>,
                     Changed<TextBackgroundColor>,
                     Changed<Underline>,
@@ -494,7 +501,7 @@ pub fn extract_uinode_changes(
             ),
         >,
     >,
-    text_span_parent_query: Extract<Query<&ChildOf, With<TextSpan>>>,
+    text_span_parent_query: Extract<Query<&ChildOf, Or<(With<TextSpan>, With<InlineBox>)>>>,
     text_query: Extract<Query<Entity, With<Text>>>,
     (
         mut removed_computed_node_query,
@@ -553,9 +560,14 @@ pub fn extract_uinode_changes(
         Extract<RemovedComponents<Underline>>,
         Extract<RemovedComponents<Strikethrough>>,
     ),
-    (mut removed_strikethrough_color_query, mut removed_underline_color_query): (
+    (
+        mut removed_strikethrough_color_query,
+        mut removed_underline_color_query,
+        mut removed_inline_image_query,
+    ): (
         Extract<RemovedComponents<StrikethroughColor>>,
         Extract<RemovedComponents<UnderlineColor>>,
+        Extract<RemovedComponents<InlineImage>>,
     ),
     #[cfg(feature = "bevy_ui_debug")] mut removed_debug_options_query: Extract<
         RemovedComponents<UiDebugOptions>,
@@ -616,6 +628,7 @@ pub fn extract_uinode_changes(
             .chain(removed_strikethrough_query.read())
             .chain(removed_strikethrough_color_query.read())
             .chain(removed_underline_color_query.read())
+            .chain(removed_inline_image_query.read())
         {
             process_changed_entity(
                 main_entity.into(),
@@ -659,7 +672,7 @@ pub fn extract_uinode_changes(
     fn process_changed_entity(
         mut main_entity: MainEntity,
         commands: &mut Commands,
-        text_span_parent_query: &Query<&ChildOf, With<TextSpan>>,
+        text_span_parent_query: &Query<&ChildOf, Or<(With<TextSpan>, With<InlineBox>)>>,
         text_query: &Query<Entity, With<Text>>,
         extracted_uinodes: &mut ExtractedUiNodes,
         maybe_extra_nodes_to_invalidate: Option<&mut MainEntityHashSet>,
@@ -804,6 +817,85 @@ pub fn extract_uinode_background_colors(
                     },
                 },
             );
+        }
+    }
+}
+
+pub fn extract_inline_images(
+    mut commands: Commands,
+    extracted_uinodes: ResMut<ExtractedUiNodes>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &TextLayoutInfo,
+            &ComputedUiTargetCamera,
+            &InheritedVisibility,
+            &ComputedStackIndex,
+            &UiGlobalTransform,
+            Option<&CalculatedClip>,
+            &ComputedNode,
+        )>,
+    >,
+    inline_image_query: Extract<Query<&InlineImage, With<InlineBox>>>,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let extracted_uinodes = extracted_uinodes.into_inner();
+    let mut camera_mapper = camera_map.get_mapper();
+    for (entity, text_layout, camera, inherited_visibility, stack_index, transform, clip, uinode) in
+        extracted_uinodes
+            .changed
+            .iter()
+            .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
+    {
+        // Skip invisible images and empty nodes
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        for (inline_entity, _, rect) in text_layout.inline_boxes.iter() {
+            let Ok(image) = inline_image_query.get(*inline_entity) else {
+                continue;
+            };
+
+            if rect.is_empty()
+                || image.color.is_fully_transparent()
+                || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            {
+                continue;
+            }
+
+            extracted_uinodes
+                .uinodes
+                .entry(entity.into())
+                .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                .1
+                .insert(
+                    commands.spawn_empty().id(),
+                    ExtractedUiNode {
+                        z_order: stack_index.0 as f32 + stack_z_offsets::INLINE_IMAGE,
+                        clip: clip.cloned(),
+                        image: image.image.id(),
+                        transform: Affine2::from(*transform)
+                            * Affine2::from_translation(uinode.content_box().min + rect.center()),
+                        item: ExtractedUiItem::Node {
+                            color: image.color.into(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: rect.size(),
+                            },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border: BorderRect::ZERO,
+                            border_radius: ResolvedBorderRadius::ZERO,
+                            node_type: NodeType::Rect,
+                        },
+                    },
+                );
         }
     }
 }

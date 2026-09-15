@@ -1,3 +1,10 @@
+//! This is a port of the original [`raymarch.hlsl`] to WGSL. It's deliberately
+//! kept as close as possible so that patches to the original `raymarch.hlsl`
+//! have the greatest chances of applying to this version.
+//!
+//! [`raymarch.hlsl`]:
+//! https://gist.github.com/h3r2tic/9c8356bdaefbe80b1a22ae0aaee192db
+
 // Copyright (c) 2023 Tomasz Stachowiak
 //
 // This contribution is dual licensed under EITHER OF
@@ -6,13 +13,6 @@
 //     MIT license (http://opensource.org/licenses/MIT)
 //
 // at your option.
-//
-// This is a port of the original [`raymarch.hlsl`] to WGSL. It's deliberately
-// kept as close as possible so that patches to the original `raymarch.hlsl`
-// have the greatest chances of applying to this version.
-//
-// [`raymarch.hlsl`]:
-// https://gist.github.com/h3r2tic/9c8356bdaefbe80b1a22ae0aaee192db
 
 import package::render::mesh_view_bindings::depth_prepass_texture;
 import package::render::view_transformations::{
@@ -22,15 +22,15 @@ import package::render::view_transformations::{
     position_world_to_ndc,
 };
 
-// Allows us to sample from the depth buffer with bilinear filtering.
+/// Allows us to sample from the depth buffer with bilinear filtering.
 @if(USE_DEPTH_SAMPLERS) {
 @group(2) @binding(2) var depth_linear_sampler: sampler;
 
-// Allows us to sample from the depth buffer with nearest-neighbor filtering.
+/// Allows us to sample from the depth buffer with nearest-neighbor filtering.
 @group(2) @binding(3) var depth_nearest_sampler: sampler;
 }
 
-// Manual depth fetch helpers used on WebGPU where depth + filtering sampler is invalid.
+/// Manual depth fetch helpers used on WebGPU where depth + filtering sampler is invalid.
 @if(!USE_DEPTH_SAMPLERS)
 fn depth_texel_clamped(texel: vec2<i32>) -> f32 {
     let dims = textureDimensions(depth_prepass_texture);

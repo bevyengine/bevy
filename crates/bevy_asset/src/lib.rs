@@ -766,7 +766,7 @@ mod tests {
     use bevy_tasks::{block_on, futures::check_ready, AsyncComputeTaskPool};
     use core::{any::TypeId, assert_matches, time::Duration};
     use crossbeam_channel::TryRecvError;
-    use futures_lite::AsyncReadExt;
+    use futures_lite::{future::yield_now, AsyncReadExt};
     use ron::ser::PrettyConfig;
     use serde::{Deserialize, Serialize};
     use std::path::{Path, PathBuf};
@@ -2444,6 +2444,20 @@ mod tests {
 
             self.in_loader_sender.send_blocking(()).unwrap();
             let _ = self.gate_receiver.recv().await;
+            // There's technically a race condition above. It is possible that this order happens:
+            // 1. This loader sends through `in_loader_sender`.
+            // 2. The cancellation tests receive through the `in_loader_sender` channel.
+            // 3. The cancellation tests drop their handle, then update the app, which drops the
+            //    `Task` (which cancels the task).
+            // 4. The cancellation tests send through the `gate_receiver` channel.
+            // 5. This loader receives through `gate_receiver` **without yielding** because there's
+            //    already a message in the channel.
+            // This would mean that the loader never yields and therefore never gets a chance to be
+            // cancelled. This explicit yield gives us that chance to be cancelled. This however
+            // depends on the async runtime not doing anything "clever" (e.g., re-polling the future
+            // if it's woken immediately after returning `Poll::Pending`).
+            yield_now().await;
+
             if let Some(finished_sender) = self.finished_sender.as_ref() {
                 finished_sender.send(1).unwrap();
             }
