@@ -3,6 +3,7 @@
 use bevy::{
     asset::RenderAssetUsages,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    image::{ImageAddressMode, ImageFilterMode},
     input::common_conditions::input_just_pressed,
     pbr::experimental::meshlet::{
         MeshletMesh, MeshletMesh3d, MeshletPlugin,
@@ -199,6 +200,12 @@ fn mipmap_material(
     );
 
     image.texture_descriptor.mip_level_count = mip_colors.len() as u32;
+
+    image
+        .sampler
+        .get_or_init_descriptor()
+        .set_filter(ImageFilterMode::Linear)
+        .set_address_mode(ImageAddressMode::Repeat);
 
     image.data = Some(
         mip_colors
