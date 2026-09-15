@@ -232,7 +232,14 @@ pub(crate) fn assign_objects_to_clusters(
         if global_cluster_settings.supports_storage_buffers {
             clusterable_objects.extend(rect_lights_query.iter().filter_map(
                 |(entity, transform, view_visibility, rect_light, maybe_layers)| {
-                    if view_visibility.get() {
+                    // Degenerate rectangles are not extracted by the renderer, so
+                    // they must not occupy slots in the CPU-generated clusters.
+                    let matrix = transform.affine().matrix3;
+                    if view_visibility.get()
+                        && rect_light.width * matrix.x_axis.length() != 0.0
+                        && rect_light.height * matrix.y_axis.length() != 0.0
+                        && matrix.x_axis.cross(matrix.y_axis).try_normalize().is_some()
+                    {
                         Some(ClusterableObjectAssignmentData {
                             entity,
                             transform: *transform,
