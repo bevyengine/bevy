@@ -895,7 +895,7 @@ impl World {
     pub fn inspect_entity(
         &self,
         entity: Entity,
-    ) -> Result<impl Iterator<Item = &ComponentInfo>, EntityNotSpawnedError> {
+    ) -> Result<impl Iterator<Item = (ComponentId, &ComponentInfo)>, EntityNotSpawnedError> {
         let entity_location = self.entities().get_spawned(entity)?;
 
         let archetype = self
@@ -905,7 +905,7 @@ impl World {
 
         Ok(archetype
             .iter_components()
-            .filter_map(|id| self.components().get_info(id)))
+            .filter_map(|id| self.components().get_info(id).map(|info| (id, info))))
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
@@ -3582,14 +3582,14 @@ impl World {
     /// }
     /// ```
     #[inline]
-    pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
+    pub fn iter_resources(&self) -> impl Iterator<Item = (ComponentId, &ComponentInfo, Ptr<'_>)> {
         self.resource_entities
             .iter()
             .filter_map(|(component_id, entity)| {
                 let component_info = self.components().get_info(component_id)?;
                 let entity_cell = self.get_entity(entity).ok()?;
                 let resource = entity_cell.get_by_id(component_id).ok()?;
-                Some((component_info, resource))
+                Some((component_id, component_info, resource))
             })
     }
 
@@ -3658,7 +3658,9 @@ impl World {
     /// # assert_eq!(world.resource::<A>().0, 2);
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
-    pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
+    pub fn iter_resources_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (ComponentId, &ComponentInfo, MutUntyped<'_>)> {
         let unsafe_world = self.as_unsafe_world_cell();
         // SAFETY: exclusive world access to all resources
         let resource_entities = unsafe { unsafe_world.resource_entities() };
@@ -3681,7 +3683,7 @@ impl World {
                 // no duplicate references are created
                 let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
 
-                Some((component_info, mut_untyped))
+                Some((component_id, component_info, mut_untyped))
             })
     }
 
@@ -4005,7 +4007,9 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::{DetectChangesMut, MaybeLocation},
-        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo, StorageType,
+        },
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         prelude::{DetectChanges, Event, Mut, On, Res},
@@ -4203,14 +4207,19 @@ mod tests {
         world.insert_resource(TestResource3);
         world.remove_resource::<TestResource3>();
 
+        let id1 = world.component_id::<TestResource>().unwrap();
+        let id2 = world.component_id::<TestResource2>().unwrap();
+
         let mut iter = world.iter_resources();
 
-        let (info, ptr) = iter.next().unwrap();
+        let (id, info, ptr) = iter.next().unwrap();
+        assert_eq!(id, id1);
         assert_eq!(info.name(), DebugName::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
 
-        let (info, ptr) = iter.next().unwrap();
+        let (id, info, ptr) = iter.next().unwrap();
+        assert_eq!(id, id2);
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         assert_eq!(
             // SAFETY: We know that the resource is of type `TestResource2`
@@ -4231,16 +4240,21 @@ mod tests {
         world.insert_resource(TestResource3);
         world.remove_resource::<TestResource3>();
 
+        let id1 = world.component_id::<TestResource>().unwrap();
+        let id2 = world.component_id::<TestResource2>().unwrap();
+
         let mut iter = world.iter_resources_mut();
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
+        let (id, info, mut mut_untyped) = iter.next().unwrap();
+        assert_eq!(id, id1);
         assert_eq!(info.name(), DebugName::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
         };
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
+        let (id, info, mut mut_untyped) = iter.next().unwrap();
+        assert_eq!(id, id2);
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         // SAFETY: We know that the resource is of type `TestResource2`
         unsafe {
@@ -4360,10 +4374,12 @@ mod tests {
         let ent5 = world.spawn(Bar).id();
         let ent6 = world.spawn(Baz).id();
 
-        fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
+        fn to_type_ids(
+            component_infos: Vec<(ComponentId, &ComponentInfo)>,
+        ) -> HashSet<Option<TypeId>> {
             component_infos
                 .into_iter()
-                .map(ComponentInfo::type_id)
+                .map(|(_, info)| info.type_id())
                 .collect()
         }
 
