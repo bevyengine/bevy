@@ -18,6 +18,7 @@ extern crate std;
 extern crate alloc;
 
 mod cursor;
+mod display_target;
 mod event;
 mod monitor;
 mod raw_handle;
@@ -27,6 +28,7 @@ mod window;
 pub use crate::raw_handle::*;
 
 pub use cursor::*;
+pub use display_target::*;
 pub use event::*;
 pub use monitor::*;
 pub use system::*;
@@ -54,6 +56,7 @@ impl Default for WindowPlugin {
         WindowPlugin {
             primary_window: Some(Window::default()),
             primary_cursor_options: Some(CursorOptions::default()),
+            primary_display_target: Some(DisplayTarget::default()),
             exit_condition: ExitCondition::OnAllClosed,
             close_when_requested: true,
         }
@@ -79,6 +82,13 @@ pub struct WindowPlugin {
     ///
     /// Has no effect if [`WindowPlugin::primary_window`] is `None`.
     pub primary_cursor_options: Option<CursorOptions>,
+
+    /// Settings for the display output of the primary window.
+    ///
+    /// Defaults to `Some(DisplayTarget::default())`.
+    ///
+    /// Has no effect if [`WindowPlugin::primary_window`] is `None`.
+    pub primary_display_target: Option<DisplayTarget>,
 
     /// Whether to exit the app when there are no open windows.
     ///
@@ -133,6 +143,9 @@ impl Plugin for WindowPlugin {
             ));
             if let Some(primary_cursor_options) = &self.primary_cursor_options {
                 entity_commands.insert(primary_cursor_options.clone());
+            }
+            if let Some(primary_display_target) = &self.primary_display_target {
+                entity_commands.insert(*primary_display_target);
             }
         }
 
