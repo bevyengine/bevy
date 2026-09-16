@@ -121,7 +121,7 @@ impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
 
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Converts this `QueryState` to a `QueryState` that does not access anything mutably.
-    pub(crate) fn to_readonly(self) -> QueryState<D::ReadOnly, F> {
+    pub(crate) fn into_readonly(self) -> QueryState<D::ReadOnly, F> {
         let QueryState {
             world_id,
             archetype_generation,
@@ -2139,7 +2139,7 @@ impl<R: ReadOnlyQueryData, F: QueryFilter> ErasedQueryState<R, F> {
     /// Create an [`ErasedQueryState`] from a [`QueryState`],
     /// forgetting the original [`QueryData`] type.
     pub fn new<D: QueryData<ReadOnly = R>>(query_state: QueryState<D, F>) -> Self {
-        Self(query_state.to_readonly())
+        Self(query_state.into_readonly())
     }
 
     /// Cast to a [`QueryState`] reference, recovering the original [`QueryData`] type.
