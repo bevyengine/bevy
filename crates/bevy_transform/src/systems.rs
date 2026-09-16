@@ -696,7 +696,7 @@ mod parallel {
             // children pointers match in both directions (see assert below) to ensure the hierarchy
             // does not have any cycles. Because the hierarchy does not have cycles, we know we are
             // visiting disjoint entities in parallel, which is safe.
-            let children_iter = nodes.iter_many_unique(p_children).matched();
+            let children_iter = unsafe { nodes.iter_many_unique_unsafe(p_children) }.matched();
 
             let mut last_child = None;
             let new_children = children_iter.filter_map(
