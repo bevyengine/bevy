@@ -308,9 +308,6 @@ impl Default for GeneratedEnvironmentMapLight {
 /// [`LightProbe`] to light only a specific region.
 /// Behind the scenes, this generates an environment map from the atmosphere for image-based lighting
 /// and inserts a corresponding [`GeneratedEnvironmentMapLight`].
-/// 
-/// By default this also filters the cubemap for raster image-based lighting.
-/// See [`Self::filtered`] if you only need the unfiltered cubemap.
 ///
 /// For HDRI-based lighting, use a preauthored [`EnvironmentMapLight`] or filter one at runtime with
 /// [`GeneratedEnvironmentMapLight`].
@@ -326,10 +323,10 @@ pub struct AtmosphereEnvironmentMapLight {
     pub affects_lightmapped_mesh_diffuse: bool,
     /// Cubemap resolution in pixels (must be a power-of-two).
     pub size: UVec2,
-    /// Whether to filter this cubemap for image-based lighting.
+    /// Whether to filter this cubemap for raster image-based lighting.
     ///
-    /// Defaults to `true`. Set this to `false` if you're using bevy_solari or another
-    /// path tracer that only needs the unfiltered cubemap.
+    /// Defaults to `true`. Set this to `false` if you only need the unfiltered cubemap.
+    /// bevy_solari cameras disable this automatically.
     pub filtered: bool,
 }
 

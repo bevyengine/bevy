@@ -3,6 +3,7 @@ use crate::{pathtracer::Pathtracer, realtime::SolariLighting};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_camera::Camera;
 use bevy_ecs::{
+    entity::Entity,
     lifecycle::RemovedComponents,
     message::MessageReader,
     query::{Added, Changed, Or, With},
@@ -198,17 +199,24 @@ pub fn extract_raytracing_environment_map_light(
     *environment_map_light = extracted_env_map_light;
 }
 
-/// Warns once if a Solari or pathtracer camera still runs atmosphere IBL filtering.
-pub fn warn_if_atmosphere_env_map_filtered(
-    lights: Query<&AtmosphereEnvironmentMapLight, Or<(With<SolariLighting>, With<Pathtracer>)>>,
+/// Turns off unused cubemap filtering on Solari and pathtracer cameras.
+pub fn disable_atmosphere_env_map_filtering(
+    mut commands: Commands,
+    lights: Query<
+        (Entity, &AtmosphereEnvironmentMapLight),
+        Or<(With<SolariLighting>, With<Pathtracer>)>,
+    >,
 ) {
-    for light in &lights {
-        if light.filtered {
-            once!(warn!(
-                "AtmosphereEnvironmentMapLight is filtered on a Solari camera. Set filtered to false \
-                 to skip unused GPU filtering."
-            ));
-            break;
+    for (entity, light) in &lights {
+        if !light.filtered {
+            continue;
         }
+
+        commands
+            .entity(entity)
+            .insert(AtmosphereEnvironmentMapLight {
+                filtered: false,
+                ..light.clone()
+            });
     }
 }
