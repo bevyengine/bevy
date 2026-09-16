@@ -18,7 +18,10 @@ struct MyDataAsset {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Adding this RonLoader allows us to load any reflected type in the RON format!
+        // Adding this RonLoader allows us to load any reflected type in the RON format! This is
+        // **not** required (you can define your own asset loader as shown in the
+        // `custom_asset_loader` example, or avoid loading assets altogether and just use
+        // `Assets::add` instead), but this loader allows us to easily load our data from disk.
         .init_asset_loader::<RonLoader>()
         .init_asset::<MyDataAsset>()
         .add_systems(Startup, setup)
