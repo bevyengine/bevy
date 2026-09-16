@@ -1077,9 +1077,12 @@ mod test {
         app.update();
 
         // check the `Children` structure is spawned
-        assert_eq!(&**app.world().get::<Children>(parent).unwrap(), &[child]);
         assert_eq!(
-            &**app.world().get::<Children>(child).unwrap(),
+            app.world().get::<Children>(parent).unwrap().to_vec(),
+            &[child]
+        );
+        assert_eq!(
+            app.world().get::<Children>(child).unwrap().to_vec(),
             &[grandchild]
         );
         // Note that at this point, the `GlobalTransform`s will not have updated yet, due to
