@@ -204,6 +204,8 @@ impl Children {
     /// in place using the provided comparator function.
     ///
     /// For the stable version, see [`sort_by`](Children::sort_by).
+    ///
+    /// See also [`sort_unstable_by_key`](Children::sort_unstable_by_key).
     #[inline]
     pub fn sort_unstable_by<F>(&mut self, compare: F)
     where
@@ -216,6 +218,8 @@ impl Children {
     /// in place using the provided key extraction function.
     ///
     /// For the stable version, see [`sort_by_key`](Children::sort_by_key).
+    ///
+    /// See also [`sort_unstable_by`](Children::sort_unstable_by).
     #[inline]
     pub fn sort_unstable_by_key<K, F>(&mut self, mut compare: F)
     where
