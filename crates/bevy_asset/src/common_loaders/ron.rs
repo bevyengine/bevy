@@ -131,20 +131,28 @@ impl AssetLoader for RonLoader {
                 asset_type_info.type_path(),
             ));
         };
-        let Some(reflect_from_reflect) = type_registration.data::<ReflectFromReflect>() else {
-            return Err(ReflectedRonDeserializeError::MissingReflectFromReflect(
-                asset_type_info.type_path(),
-            ));
-        };
 
-        // Unwrap is ok because `ReflectDeserializer` deserialized this type from its type data,
-        // and we are using the ReflectFromReflect registered for this type. Strictly speaking,
-        // someone could write a bad FromReflect implementation, but we won't handle that case here.
-        // In theory, someone could also insert ReflectFromReflect for type A into the registration
-        // of type B. That would be malicious though.
-        let reflected_asset = reflect_from_reflect
-            .from_reflect(&*reflected_asset)
-            .unwrap();
+        // First use `try_into_reflect` to do the cast (in case the type reflects `Deserialize`, and
+        // therefore we have the concrete value). If that fails (i.e., we have a dynamic
+        // representation of the value), fallback to using FromReflect.
+        let reflected_asset = match reflected_asset.try_into_reflect() {
+            Ok(asset) => asset,
+            Err(partial) => {
+                let Some(reflect_from_reflect) = type_registration.data::<ReflectFromReflect>()
+                else {
+                    return Err(ReflectedRonDeserializeError::MissingReflectFromReflect(
+                        asset_type_info.type_path(),
+                    ));
+                };
+
+                // Unwrap is ok because `ReflectDeserializer` deserialized this type from its type
+                // data, and we are using the ReflectFromReflect registered for this type. Strictly
+                // speaking, someone could write a bad FromReflect implementation, but we won't
+                // handle that case here. In theory, someone could also insert ReflectFromReflect
+                // for type A into the registration of type B. That would be malicious though.
+                reflect_from_reflect.from_reflect(&*partial).unwrap()
+            }
+        };
 
         // Unwrap is ok because `finish_load_context` only fails if the Box<dyn Reflect> holds the
         // wrong type. This is only possible if someone creates ReflectAsset for type A and inserts
