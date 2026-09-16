@@ -241,7 +241,7 @@ impl Children {
 impl<'a> IntoIterator for &'a Children {
     type Item = <Self::IntoIter as Iterator>::Item;
 
-    type IntoIter = crate::entity::index_set::Iter<'a>;
+    type IntoIter = crate::entity::index_set::Iter<'a, Entity>;
 
     #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
