@@ -82,7 +82,7 @@ impl<'w> EntityWorldMut<'w> {
     /// let main_id = main_entity.id();
     ///
     /// let relationship_source = main_entity.get::<Children>().unwrap().collection();
-    /// assert_eq!(relationship_source, &[e1, e0, e3, e2, e4]);
+    /// assert_eq!(relationship_source.to_vec(), &[e1, e0, e3, e2, e4]);
     /// ```
     pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
     where

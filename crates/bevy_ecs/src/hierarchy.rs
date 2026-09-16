@@ -58,11 +58,11 @@ use core::ops::Deref;
 /// let child2 = world.spawn(ChildOf(root)).id();
 /// let grandchild = world.spawn(ChildOf(child1)).id();
 ///
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
-/// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
+/// assert_eq!(world.entity(root).get::<Children>().unwrap().to_vec(), &[child1, child2]);
+/// assert_eq!(world.entity(child1).get::<Children>().unwrap().to_vec(), &[grandchild]);
 ///
 /// world.entity_mut(child2).remove::<ChildOf>();
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1]);
+/// assert_eq!(world.entity(root).get::<Children>().unwrap().to_vec(), &[child1]);
 ///
 /// world.entity_mut(root).despawn();
 /// assert!(world.get_entity(root).is_err());
@@ -85,8 +85,8 @@ use core::ops::Deref;
 ///     child2 = Some(p.spawn_empty().id());
 /// }).id();
 ///
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1.unwrap(), child2.unwrap()]);
-/// assert_eq!(&**world.entity(child1.unwrap()).get::<Children>().unwrap(), &[grandchild.unwrap()]);
+/// assert_eq!(world.entity(root).get::<Children>().unwrap().to_vec(), &[child1.unwrap(), child2.unwrap()]);
+/// assert_eq!(world.entity(child1.unwrap()).get::<Children>().unwrap().to_vec(), &[grandchild.unwrap()]);
 /// ```
 ///
 /// [`Relationship`]: crate::relationship::Relationship
