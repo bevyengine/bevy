@@ -6,7 +6,9 @@ use bevy_ecs::{
     entity::Entity,
     error::{BevyError, Result},
     relationship::{Relationship, RelationshipTarget},
-    template::{SceneEntityReference, SceneEntityReferences, Template, TemplateContext},
+    template::{
+        FromTemplate, SceneEntityReference, SceneEntityReferences, Template, TemplateContext,
+    },
     world::{EntityWorldMut, World},
 };
 use bevy_platform::collections::HashSet;
@@ -424,6 +426,18 @@ impl ResolvedScene {
             // The method isn't stable yet, and it would require making get_or_insert_erased_template unsafe
             .downcast_mut()
             .unwrap()
+    }
+
+    /// Like [`Self::get_or_insert_template`], but it takes a [`FromTemplate`] type, which is used to look
+    /// up the [`Template`] to add.
+    pub fn get_or_insert_from_template<
+        'a,
+        T: FromTemplate<Template: Template<Output: SceneEffect> + Default + Send + Sync + 'static>,
+    >(
+        &'a mut self,
+        context: &mut ResolveContext,
+    ) -> &'a mut T::Template {
+        self.get_or_insert_template::<T::Template>(context)
     }
 
     /// Inserts the given [`Template`]. This will overwrite the existing [`Template`] of that type if it already exists.
