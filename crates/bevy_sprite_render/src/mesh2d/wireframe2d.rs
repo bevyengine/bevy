@@ -33,7 +33,6 @@ use bevy_render::{
         allocator::{MeshAllocator, MeshSlabId, MeshSlabs},
         RenderMesh,
     },
-    prelude::*,
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
@@ -50,7 +49,8 @@ use bevy_render::{
         ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthStencilTexture,
         ViewTarget,
     },
-    Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
+    RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use core::{hash::Hash, ops::Range};
@@ -146,7 +146,7 @@ impl Plugin for Wireframe2dPlugin {
                 Render,
                 (
                     specialize_wireframes
-                        .in_set(RenderSystems::PrepareMeshes)
+                        .in_set(RenderSystems::Specialize)
                         .after(prepare_assets::<RenderWireframeMaterial>)
                         .after(prepare_assets::<RenderMesh>),
                     queue_wireframes

@@ -1,4 +1,4 @@
-import bevy_pbr::render::clustered_forward::view_z_to_z_slice;
+import package::render::clustered_forward::view_z_to_z_slice;
 
 // Valid values for the `object_type` field.
 const CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: u32 = 0u;
@@ -6,14 +6,15 @@ const CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT: u32 = 1u;
 const CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE: u32 = 2u;
 const CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME: u32 = 3u;
 const CLUSTERABLE_OBJECT_TYPE_DECAL: u32 = 4u;
+const CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT: u32 = 5u;
 
 const NDC_MIN: vec2<f32> = vec2<f32>(-1.0);
 const NDC_MAX: vec2<f32> = vec2<f32>(1.0);
 
-// Metadata stored on GPU that's global to all clusters for a view.
-//
-// See the comments in `bevy_pbr/src/cluster/gpu.rs` for information on the
-// fields.
+/// Metadata stored on GPU that's global to all clusters for a view.
+///
+/// See the comments in `bevy_pbr/src/cluster/gpu.rs` for information on the
+/// fields.
 struct ClusterMetadata {
     indirect_draw_params: ClusterRasterIndirectDrawParams,
 
@@ -28,7 +29,7 @@ struct ClusterMetadata {
     farthest_z: atomic<u32>,
 };
 
-// Indirect draw parameters in the format required by the WebGPU specification.
+/// Indirect draw parameters in the format required by the WebGPU specification.
 struct ClusterRasterIndirectDrawParams {
     index_count: u32,
     instance_count: atomic<u32>,
@@ -37,40 +38,40 @@ struct ClusterRasterIndirectDrawParams {
     first_instance: u32,
 }
 
-// The GPU representation of a single Z-slice of a clusterable object.
-//
-// See the comments in `bevy_pbr/src/cluster/gpu.rs` for information on the
-// fields.
+/// The GPU representation of a single Z-slice of a clusterable object.
+///
+/// See the comments in `bevy_pbr/src/cluster/gpu.rs` for information on the
+/// fields.
 struct ClusterableObjectZSlice {
     object_index: u32,
     object_type: u32,
     z_slice: u32,
 };
 
-// An axis-aligned bounding box.
+/// An axis-aligned bounding box.
 struct Aabb {
-    // The minimum extents of the box.
+    /// The minimum extents of the box.
     min: vec3<f32>,
-    // The maximum extents of the box.
+    /// The maximum extents of the box.
     max: vec3<f32>,
 };
 
-// An axis-aligned bounding box using unsigned integer coordinates.
-//
-// This is used for cluster bounds.
+/// An axis-aligned bounding box using unsigned integer coordinates.
+///
+/// This is used for cluster bounds.
 struct AabbU {
-    // The minimum extents of the box.
+    /// The minimum extents of the box.
     min: vec3<u32>,
-    // The maximum extents of the box, plus one.
-    //
-    // We add 1 here so that 0-size AABBs can be expressed.
+    /// The maximum extents of the box, plus one.
+    ///
+    /// We add 1 here so that 0-size AABBs can be expressed.
     max: vec3<u32>,
 }
 
-// Returns the AABB of an object suitable for conversion into an AABB of
-// clusters.
-//
-// See `bevy_light::cluster::assign::cluster_space_clusterable_object_aabb`.
+/// Returns the AABB of an object suitable for conversion into an AABB of
+/// clusters.
+///
+/// See `bevy_light::cluster::assign::cluster_space_clusterable_object_aabb`.
 fn cluster_space_object_aabb(
     position: vec3<f32>,
     radius: f32,
@@ -127,7 +128,7 @@ fn cluster_space_object_aabb(
     return Aabb(vec3(ndc_min.xy, view_min.z), vec3(ndc_max.xy, view_max.z));
 }
 
-// Computes the scale of the camera from the view matrix.
+/// Computes the scale of the camera from the view matrix.
 fn compute_view_from_world_scale(world_from_view: mat4x4<f32>) -> vec3<f32> {
     let world_from_view_3x3 = mat3x3<f32>(
         world_from_view[0].xyz,
@@ -143,9 +144,9 @@ fn compute_view_from_world_scale(world_from_view: mat4x4<f32>) -> vec3<f32> {
     return vec3<f32>(1.0) / scale;
 }
 
-// Returns the cluster coordinates corresponding to a position in normalized
-// device coordinates.
-// See `bevy_light::cluster::assign::ndc_position_to_cluster`.
+/// Returns the cluster coordinates corresponding to a position in normalized
+/// device coordinates.
+/// See `bevy_light::cluster::assign::ndc_position_to_cluster`.
 fn ndc_position_to_cluster(
     cluster_dimensions: vec3<u32>,
     cluster_factors: vec2<f32>,
@@ -159,7 +160,7 @@ fn ndc_position_to_cluster(
     return clamp(vec3<u32>(xy, z_slice), vec3(0u), cluster_dimensions - vec3(1u));
 }
 
-// Returns the AABB encompassing all clusters that intersect a sphere.
+/// Returns the AABB encompassing all clusters that intersect a sphere.
 fn calculate_sphere_cluster_bounds(
     position: vec3<f32>,
     radius: f32,

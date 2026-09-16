@@ -1,43 +1,43 @@
-// A postprocessing shader that implements volumetric fog via raymarching and
-// sampling directional light shadow maps.
-//
-// The overall approach is a combination of the volumetric rendering in [1] and
-// the shadow map raymarching in [2]. First, we raytrace the AABB of the fog
-// volume in order to determine how long our ray is. Then we do a raymarch, with
-// physically-based calculations at each step to determine how much light was
-// absorbed, scattered out, and scattered in. To determine in-scattering, we
-// sample the shadow map for the light to determine whether the point was in
-// shadow or not.
-//
-// [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/intro-volume-rendering.html
-//
-// [2]: http://www.alexandre-pestana.com/volumetric-lights/
+//! A postprocessing shader that implements volumetric fog via raymarching and
+//! sampling directional light shadow maps.
+//!
+//! The overall approach is a combination of the volumetric rendering in [1] and
+//! the shadow map raymarching in [2]. First, we raytrace the AABB of the fog
+//! volume in order to determine how long our ray is. Then we do a raymarch, with
+//! physically-based calculations at each step to determine how much light was
+//! absorbed, scattered out, and scattered in. To determine in-scattering, we
+//! sample the shadow map for the light to determine whether the point was in
+//! shadow or not.
+//!
+//! [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/intro-volume-rendering.html
+//!
+//! [2]: http://www.alexandre-pestana.com/volumetric-lights/
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
-import bevy_pbr::atmosphere::{
+import package::atmosphere::{
     functions::{calculate_visible_sun_ratio, clamp_to_surface},
     bruneton_functions::transmittance_lut_r_mu_to_uv,
 };
-import bevy_pbr::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
-import bevy_pbr::render::mesh_view_bindings::{
+import package::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
+import package::render::mesh_view_bindings::{
     globals, lights, view, clustered_lights,
     atmosphere, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
 };
-import bevy_pbr::render::mesh_view_types::{
+import package::render::mesh_view_types::{
     DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT,
     POINT_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
 };
-import bevy_pbr::render::shadow_sampling::{
+import package::render::shadow_sampling::{
     sample_shadow_map_hardware,
     sample_shadow_cubemap,
     sample_shadow_map,
     SPOT_SHADOW_TEXEL_SIZE
 };
-import bevy_pbr::render::shadows::{get_cascade_index, world_to_directional_light_local};
-import bevy_pbr::render::utils::interleaved_gradient_noise;
-import bevy_pbr::render::view_transformations::{
+import package::render::shadows::{get_cascade_index, world_to_directional_light_local};
+import package::render::utils::interleaved_gradient_noise;
+import package::render::view_transformations::{
     depth_ndc_to_view_z,
     frag_coord_to_ndc,
     position_ndc_to_view,
@@ -45,11 +45,11 @@ import bevy_pbr::render::view_transformations::{
     position_view_to_world
 };
 import bevy_render::maths::orthonormalize;
-import bevy_pbr::render::clustered_forward as clustering;
-import bevy_pbr::render::pbr_lighting::getDistanceAttenuation;
+import package::render::clustered_forward as clustering;
+import package::render::pbr_lighting::getDistanceAttenuation;
 
-// The GPU version of [`VolumetricFog`]. See the comments in
-// `volumetric_fog/mod.rs` for descriptions of the fields here.
+/// The GPU version of [`VolumetricFog`]. See the comments in
+/// `volumetric_fog/mod.rs` for descriptions of the fields here.
 struct VolumetricFog {
     clip_from_local: mat4x4<f32>,
     uvw_from_world: mat4x4<f32>,
@@ -81,7 +81,7 @@ struct VolumetricFog {
 @group(1) @binding(3) var density_sampler: sampler;
 }
 
-// 1 / (4π)
+/// 1 / (4π)
 const FRAC_4_PI: f32 = 0.07957747154594767;
 
 struct Vertex {
@@ -94,15 +94,15 @@ fn vertex(vertex: Vertex) -> @builtin(position) vec4<f32> {
     return volumetric_fog.clip_from_local * vec4<f32>(vertex.position, 1.0);
 }
 
-// The common Henyey-Greenstein asymmetric phase function [1] [2].
-//
-// This determines how much light goes toward the viewer as opposed to away from
-// the viewer. From a visual point of view, it controls how the light shafts
-// appear and disappear as the camera looks at the light source.
-//
-// [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/ray-marching-get-it-right.html
-//
-// [2]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
+/// The common Henyey-Greenstein asymmetric phase function [1] [2].
+///
+/// This determines how much light goes toward the viewer as opposed to away from
+/// the viewer. From a visual point of view, it controls how the light shafts
+/// appear and disappear as the camera looks at the light source.
+///
+/// [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/ray-marching-get-it-right.html
+///
+/// [2]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 fn henyey_greenstein(neg_LdotV: f32) -> f32 {
     let g = volumetric_fog.scattering_asymmetry;
     let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
@@ -373,7 +373,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, P_view.z, is_orthographic);
         var clusterable_object_index_ranges = clustering::unpack_clusterable_object_index_ranges(cluster_index);
         for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
-            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i < clusterable_object_index_ranges.first_rect_light_index_offset;
             i = i + 1u)
         {
             let light_id = clustering::get_clusterable_object_id(i);

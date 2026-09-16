@@ -292,16 +292,21 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                                 &compiler_options,
                             )
                             .map_err(|error| {
+                                // We use render_plain to avoid rendering ANSI codes
+                                // Workaround for: https://github.com/tokio-rs/tracing/issues/3378
                                 if is_module_not_found(&error) {
                                     if self.missing_import_logged.insert(id) {
                                         warn!(
-                                            "Shader `{}` has an unresolved import:\n{error}",
-                                            shader.path
+                                            "Shader `{}` has an unresolved import:\n{}",
+                                            shader.path,
+                                            error.diagnostic().render_plain()
                                         );
                                     }
                                     ShaderCacheError::ShaderImportNotYetAvailable
                                 } else {
-                                    ShaderCacheError::ProcessShaderError(error.to_string())
+                                    ShaderCacheError::ProcessShaderError(
+                                        error.diagnostic().render_plain(),
+                                    )
                                 }
                             })?;
 

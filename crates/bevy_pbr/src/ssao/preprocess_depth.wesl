@@ -1,9 +1,9 @@
-// Inputs a depth texture and outputs a MIP-chain of depths.
-//
-// Because SSAO's performance is bound by texture reads, this increases
-// performance over using the full resolution depth for every sample.
-
-// Reference: https://research.nvidia.com/sites/default/files/pubs/2012-06_Scalable-Ambient-Obscurance/McGuire12SAO.pdf, section 2.2
+//! Inputs a depth texture and outputs a MIP-chain of depths.
+//!
+//! Because SSAO's performance is bound by texture reads, this increases
+//! performance over using the full resolution depth for every sample.
+//!
+//! Reference: https://research.nvidia.com/sites/default/files/pubs/2012-06_Scalable-Ambient-Obscurance/McGuire12SAO.pdf, section 2.2
 
 import bevy_render::view::View;
 
@@ -26,8 +26,7 @@ import bevy_render::view::View;
 @group(1) @binding(1) var linear_clamp_sampler: sampler;
 @group(1) @binding(2) var<uniform> view: View;
 
-
-// Using 4 depths from the previous MIP, compute a weighted average for the depth of the current MIP
+/// Using 4 depths from the previous MIP, compute a weighted average for the depth of the current MIP
 fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
     let depth_range_scale_factor = 0.75;
     let effect_radius = depth_range_scale_factor * 0.5 * 1.457;
@@ -46,7 +45,7 @@ fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
     return ((weight0 * depth0) + (weight1 * depth1) + (weight2 * depth2) + (weight3 * depth3)) / weight_total;
 }
 
-// Used to share the depths from the previous MIP level between all invocations in a workgroup
+/// Used to share the depths from the previous MIP level between all invocations in a workgroup
 var<workgroup> previous_mip_depth: array<array<f32, 8>, 8>;
 
 @compute
@@ -59,8 +58,9 @@ fn preprocess_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builti
     let pixel_coordinates1 = pixel_coordinates0 + vec2<i32>(1i, 0i);
     let pixel_coordinates2 = pixel_coordinates0 + vec2<i32>(0i, 1i);
     let pixel_coordinates3 = pixel_coordinates0 + vec2<i32>(1i, 1i);
-    let depths_uv = vec2<f32>(pixel_coordinates0) / view.viewport.zw;
-    let depths = textureGather(0, input_depth, point_clamp_sampler, depths_uv, vec2<i32>(1i, 1i));
+    let input_depth_size = vec2<f32>(textureDimensions(input_depth));
+    let depths_uv = (vec2<f32>(pixel_coordinates0) + view.viewport.xy) / input_depth_size;
+    let depths = textureGather(input_depth, point_clamp_sampler, depths_uv, vec2<i32>(1i, 1i));
     textureStore(preprocessed_depth_mip0, pixel_coordinates0, vec4<f32>(depths.w, 0.0, 0.0, 0.0));
     textureStore(preprocessed_depth_mip0, pixel_coordinates1, vec4<f32>(depths.z, 0.0, 0.0, 0.0));
     textureStore(preprocessed_depth_mip0, pixel_coordinates2, vec4<f32>(depths.x, 0.0, 0.0, 0.0));

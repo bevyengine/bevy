@@ -21,6 +21,7 @@ use bevy_log::debug;
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
+    diagnostic::RecordDiagnostics,
     occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
     },
@@ -87,6 +88,13 @@ pub fn early_downsample_depth(
         maybe_view_light_entities,
     ) = view.into_inner();
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(
+        ctx.command_encoder(),
+        "mip_generation::early_downsample_depth",
+    );
+
     // Downsample depth for the main Z-buffer.
     downsample_depth(
         "early_downsample_depth",
@@ -122,6 +130,7 @@ pub fn early_downsample_depth(
             );
         }
     }
+    time_span.end(ctx.command_encoder());
 }
 
 /// Produces a hierarchical Z-buffer (depth pyramid) for occlusion culling.
@@ -750,7 +759,7 @@ pub fn prepare_downsample_depth_view_bind_groups(
         let source_image = match (depth_view, shadow_occlusion_culling) {
             (Some(Some(depth_view)), _) => depth_view,
             (Some(None), _) => {
-                // Depth texture doesn't has depth aspect
+                // Depth texture doesn't have depth aspect
                 continue;
             }
             (None, Some(shadow_occlusion_culling)) => &shadow_occlusion_culling.depth_texture_view,

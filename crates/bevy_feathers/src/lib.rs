@@ -27,6 +27,7 @@ use bevy_app::{
 use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
 use bevy_input_focus::tab_navigation::TabNavigationPlugin;
+use bevy_picking::cursor::{CursorIconPlugin, DefaultCursor, EntityCursor};
 use bevy_text::{TextColor, TextFont};
 use bevy_ui::{AccessibilityUiSystems, UiSystems};
 use bevy_ui_render::{ImageNodeAssetChangedSystems, UiMaterialPlugin};
@@ -34,7 +35,6 @@ use bevy_ui_render::{ImageNodeAssetChangedSystems, UiMaterialPlugin};
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
-    cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
     theme::{ThemeContext, ThemedText, UiTheme},
 };
 
@@ -42,7 +42,6 @@ mod alpha_pattern;
 pub mod constants;
 pub mod containers;
 pub mod controls;
-pub mod cursor;
 pub mod dark_theme;
 pub mod display;
 pub mod focus;
@@ -65,6 +64,7 @@ impl Plugin for FeathersCorePlugin {
         embedded_asset!(app, "assets/fonts/FiraSans-Regular.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
         embedded_asset!(app, "assets/fonts/FiraMono-Medium.ttf");
+        embedded_asset!(app, "assets/fonts/NotoSansSymbols2-U+1F7D5.ttf");
 
         // Embedded icons
         embedded_asset!(app, "assets/icons/chevron-down.png");
@@ -74,6 +74,7 @@ impl Plugin for FeathersCorePlugin {
         // Embedded shader
         embedded_asset!(app, "assets/shaders/alpha_pattern.wesl");
         embedded_asset!(app, "assets/shaders/color_plane.wesl");
+        embedded_asset!(app, "assets/shaders/color_wheel.wesl");
 
         app.add_plugins((
             ControlsPlugin,

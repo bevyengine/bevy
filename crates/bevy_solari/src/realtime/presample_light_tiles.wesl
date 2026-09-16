@@ -2,8 +2,8 @@
 
 import bevy_pbr::render::rgb9e5::{vec3_to_rgb9e5_, rgb9e5_to_vec3_};
 import bevy_render::utils::{octahedral_encode, octahedral_decode};
-import bevy_solari::scene::sampling::{generate_random_light_sample, ResolvedLightSample};
-import bevy_solari::realtime::bindings::{light_tile_samples, light_tile_resolved_samples, view, constants, ResolvedLightSamplePacked};
+import package::scene::sampling::{generate_random_light_sample, ResolvedLightSample};
+import package::realtime::bindings::{light_tile_samples, light_tile_resolved_samples, view, constants, ResolvedLightSamplePacked};
 
 enable wgpu_ray_query;
 

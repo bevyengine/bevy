@@ -12,10 +12,9 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
-    template::template,
 };
 use bevy_log::{info, warn};
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
@@ -32,7 +31,6 @@ use bevy_ui_widgets::{
 use crate::{
     constants::{fonts, icons, size},
     controls::{ButtonVariant, FeathersButton, FeathersToolButton},
-    cursor::EntityCursor,
     display::icon,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
@@ -156,7 +154,7 @@ impl Default for FeathersLazyMenu {
         Self {
             popup: Arc::new(|| {
                 warn!("Menu content not specified");
-                Box::new(bsn!())
+                Box::new(bsn! {})
             }),
         }
     }
@@ -193,11 +191,11 @@ fn on_lazy_menu_event(
             ev.propagate(false);
             commands
                 .entity(ev.source)
-                .queue_spawn_related_scenes::<Children>(bsn!(
-                    popup()
-                    template_value(MenuFocusState::Opening(nav))
+                .queue_spawn_related_scenes::<Children>(bsn! {
+                    @popup()
+                    MenuFocusState::Opening(nav)
                     Visibility::Visible
-                ));
+                });
         }
         MenuAction::Toggle => {
             let Ok(FeathersLazyMenu { popup }) = q_menu_lazy.get(ev.source) else {
@@ -218,11 +216,11 @@ fn on_lazy_menu_event(
             if !menu_open {
                 commands
                     .entity(ev.source)
-                    .queue_spawn_related_scenes::<Children>(bsn!(
-                        popup()
-                        template_value(MenuFocusState::Opening(NavAction::First))
+                    .queue_spawn_related_scenes::<Children>(bsn! {
+                        @popup()
+                        MenuFocusState::Opening(NavAction::First)
                         Visibility::Visible
-                    ));
+                    });
             }
         }
         MenuAction::CloseAll => {
@@ -274,7 +272,7 @@ pub struct FeathersMenuButtonProps {
 impl Default for FeathersMenuButtonProps {
     fn default() -> Self {
         Self {
-            caption: Box::new(bsn_list!()),
+            caption: Box::new(bsn_list! {}),
             corners: Default::default(),
             arrow: true,
         }
@@ -294,12 +292,13 @@ impl FeathersMenuButton {
             // Additional children for menu chevron
             Children [
                 {
-                    props.arrow.then(|| bsn_list!(
+                    props.arrow.then(|| bsn_list! {
                         Node {
                             flex_grow: 1.0,
-                        },
-                        icon(icons::CHEVRON_DOWN),
-                    ))
+                        }
+                        --
+                        @icon(icons::CHEVRON_DOWN)
+                    })
                 }
             ]
         }
@@ -330,10 +329,11 @@ impl FeathersMenuToolButton {
             // Additional children for menu chevron
             Children [
                 {
-                    props.arrow.then(|| bsn_list!(
-                        Node { min_width: px(2) },
-                        icon(icons::CHEVRON_DOWN),
-                    ))
+                    props.arrow.then(|| bsn_list! {
+                        Node { min_width: px(2) }
+                        --
+                        @icon(icons::CHEVRON_DOWN)
+                    })
                 }
             ]
         }
@@ -363,7 +363,7 @@ impl FeathersMenuPopup {
             Visibility::Hidden
             ThemeBackgroundColor(tokens::MENU_BG)
             ThemeBorderColor(tokens::MENU_BORDER)
-            template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Floating))
             BoxShadow::new(
                 Srgba::BLACK.with_alpha(0.9).into(),
                 px(0),
@@ -410,7 +410,7 @@ pub struct FeathersMenuItemProps {
 impl Default for FeathersMenuItemProps {
     fn default() -> Self {
         Self {
-            caption: Box::new(bsn_list!()),
+            caption: Box::new(bsn_list! {}),
         }
     }
 }

@@ -12,7 +12,7 @@ use crate::{
     component::{Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::{EntityComponentsTrigger, GlobalTrigger},
-    lifecycle::{Add, Discard, Insert, ADD, DISCARD, INSERT},
+    lifecycle::{AddEvent, DiscardEvent, InsertEvent, ADD, DISCARD, INSERT},
     observer::Observers,
     query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
@@ -144,6 +144,7 @@ impl<'w> BundleInserter<'w> {
         archetype_after_insert: &ArchetypeAfterBundleInsert,
         world: &'a UnsafeWorldCell<'w>,
         archetype_move_type: &'a mut ArchetypeMoveType,
+        change_tick: Tick,
     ) -> (
         &'a Archetype,
         EntityLocation,
@@ -169,7 +170,7 @@ impl<'w> BundleInserter<'w> {
                     // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                     deferred_world.trigger_raw(
                         DISCARD,
-                        &mut Discard { entity },
+                        &mut DiscardEvent { entity },
                         &mut EntityComponentsTrigger {
                             components: archetype_after_insert.existing(),
                             old_archetype: Some(archetype),
@@ -294,6 +295,7 @@ impl<'w> BundleInserter<'w> {
                         location.table_id,
                         new_archetype.table_id(),
                         result.table_row,
+                        change_tick,
                     )
                 };
 
@@ -390,6 +392,7 @@ impl<'w> BundleInserter<'w> {
                     archetype_after_insert,
                     &self.world,
                     &mut self.archetype_move_type,
+                    self.change_tick,
                 )
             };
 
@@ -463,7 +466,7 @@ impl<'w> BundleInserter<'w> {
                 // SAFETY: the ADD event_key corresponds to the Add event's type
                 deferred_world.trigger_raw(
                     ADD,
-                    &mut Add { entity },
+                    &mut AddEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: archetype_after_insert.added(),
                         old_archetype: Some(old_archetype),
@@ -486,7 +489,7 @@ impl<'w> BundleInserter<'w> {
                         // SAFETY: the INSERT event_key corresponds to the Insert event's type
                         deferred_world.trigger_raw(
                             INSERT,
-                            &mut Insert { entity },
+                            &mut InsertEvent { entity },
                             &mut EntityComponentsTrigger {
                                 components: archetype_after_insert.inserted(),
                                 old_archetype: Some(old_archetype),
@@ -510,7 +513,7 @@ impl<'w> BundleInserter<'w> {
                         // SAFETY: the INSERT event_key corresponds to the Insert event's type
                         deferred_world.trigger_raw(
                             INSERT,
-                            &mut Insert { entity },
+                            &mut InsertEvent { entity },
                             &mut EntityComponentsTrigger {
                                 components: archetype_after_insert.added(),
                                 old_archetype: Some(old_archetype),

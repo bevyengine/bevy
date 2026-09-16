@@ -40,7 +40,7 @@ mod environment;
 mod node;
 pub mod resources;
 
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, AssetId};
 use bevy_camera::{Camera3d, Hdr};
 use bevy_core_pipeline::{
@@ -75,8 +75,8 @@ use bevy_transform::components::GlobalTransform;
 use bevy_shader::load_shader_library;
 use environment::{
     atmosphere_environment, init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
-    prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_components,
-    prepare_probe_textures, AtmosphereEnvironmentMap,
+    on_insert_atmosphere_environment_map_light, on_remove_atmosphere_environment_map_light,
+    prepare_atmosphere_probe_bind_groups, prepare_probe_textures, AtmosphereEnvironmentMap,
 };
 use node::{atmosphere_luts, render_sky};
 use resources::{
@@ -116,7 +116,8 @@ impl Plugin for AtmospherePlugin {
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))
-        .add_systems(Update, prepare_atmosphere_probe_components);
+        .add_observer(on_insert_atmosphere_environment_map_light)
+        .add_observer(on_remove_atmosphere_environment_map_light);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_atmosphere);

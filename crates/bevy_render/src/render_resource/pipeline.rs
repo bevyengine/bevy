@@ -1,8 +1,13 @@
-use crate::renderer::WgpuWrapper;
+use crate::renderer::wgpu_wrapper;
 use bevy_utils::define_atomic_id;
 use core::ops::Deref;
 
 define_atomic_id!(RenderPipelineId);
+
+wgpu_wrapper! {
+    #[derive(Clone, Debug)]
+    struct WgpuRenderPipeline(wgpu::RenderPipeline);
+}
 
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
@@ -11,7 +16,7 @@ define_atomic_id!(RenderPipelineId);
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
-    value: WgpuWrapper<wgpu::RenderPipeline>,
+    value: WgpuRenderPipeline,
 }
 
 impl RenderPipeline {
@@ -25,7 +30,7 @@ impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
             id: RenderPipelineId::new(),
-            value: WgpuWrapper::new(value),
+            value: WgpuRenderPipeline::new(value),
         }
     }
 }
@@ -41,6 +46,11 @@ impl Deref for RenderPipeline {
 
 define_atomic_id!(ComputePipelineId);
 
+wgpu_wrapper! {
+    #[derive(Clone, Debug)]
+    struct WgpuComputePipeline(wgpu::ComputePipeline);
+}
+
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
 /// May be converted from and dereferences to a wgpu [`ComputePipeline`](wgpu::ComputePipeline).
@@ -48,7 +58,7 @@ define_atomic_id!(ComputePipelineId);
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
-    value: WgpuWrapper<wgpu::ComputePipeline>,
+    value: WgpuComputePipeline,
 }
 
 impl ComputePipeline {
@@ -63,7 +73,7 @@ impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
             id: ComputePipelineId::new(),
-            value: WgpuWrapper::new(value),
+            value: WgpuComputePipeline::new(value),
         }
     }
 }

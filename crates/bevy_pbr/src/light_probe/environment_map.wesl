@@ -1,13 +1,14 @@
-import bevy_pbr::light_probe::{light_probe_iterator_new, light_probe_iterator_next};
-import bevy_pbr::render::mesh_view_bindings as bindings;
-import bevy_pbr::render::mesh_view_bindings::light_probes;
-import bevy_pbr::render::mesh_view_types::{
+import package::light_probe::{light_probe_iterator_new, light_probe_iterator_next};
+import package::render::mesh_view_bindings as bindings;
+import package::render::mesh_view_bindings::light_probes;
+import package::render::mesh_view_types::{
     LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE, LIGHT_PROBE_FLAG_PARALLAX_CORRECT
 };
-import bevy_pbr::render::pbr_lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT};
-import bevy_pbr::render::clustered_forward::ClusterableObjectIndexRanges;
+import package::render::pbr_lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT};
+import package::render::clustered_forward::ClusterableObjectIndexRanges;
+import bevy_render::maths::quat_rotate;
 
-// The maximum representable value in a 32-bit floating point number.
+/// The maximum representable value in a 32-bit floating point number.
 const FLOAT_MAX: f32 = 3.40282347e+38;
 
 struct EnvironmentMapLight {
@@ -26,17 +27,17 @@ struct MultiscatterResult {
     Edss: vec3<f32>,
 }
 
-// Computes the direction at which to sample the reflection probe.
-//
-// * `light_from_world` is the matrix that transforms world space into light
-//   probe space (a 1×1×1 cube centered on the origin).
-//
-// * `parallax_correction_bounds` is the half-extents of the simulated
-//   reflection boundaries used for parallax correction, in light probe space.
-//   It's ignored if the `parallax_correct` parameter is false.
-//
-// * `parallax_correct` is true if parallax correction is to be applied and
-//   false otherwise.
+/// Computes the direction at which to sample the reflection probe.
+///
+/// * `light_from_world` is the matrix that transforms world space into light
+///   probe space (a 1×1×1 cube centered on the origin).
+///
+/// * `parallax_correction_bounds` is the half-extents of the simulated
+///   reflection boundaries used for parallax correction, in light probe space.
+///   It's ignored if the `parallax_correct` parameter is false.
+///
+/// * `parallax_correct` is true if parallax correction is to be applied and
+///   false otherwise.
 fn compute_cubemap_sample_dir(
     world_ray_origin: vec3<f32>,
     world_ray_direction: vec3<f32>,
@@ -280,8 +281,8 @@ fn compute_radiances(
 
 @if(STANDARD_MATERIAL_CLEARCOAT)
 
-// Adds the environment map light from the clearcoat layer to that of the base
-// layer.
+/// Adds the environment map light from the clearcoat layer to that of the base
+/// layer.
 fn environment_map_light_clearcoat(
     out: ptr<function, EnvironmentMapLight>,
     input: ptr<function, LightingInput>,
@@ -313,10 +314,10 @@ fn environment_map_light_clearcoat(
     (*out).specular = (*out).specular * inv_Fc * inv_Fc + clearcoat_radiances.radiance * Fc;
 }
 
-// Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
-//
-// We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
-// Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
+/// Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
+///
+/// We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
+/// Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
 fn compute_multiscatter(
     F0: vec3<f32>,
     F_ab: vec2<f32>,
@@ -397,15 +398,10 @@ fn environment_map_light(
     return out;
 }
 
-// "Moving Frostbite to Physically Based Rendering 3.0", listing 22
-// https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf#page=70
+/// "Moving Frostbite to Physically Based Rendering 3.0", listing 22
+/// https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf#page=70
 fn radiance_sample_direction(N: vec3<f32>, R: vec3<f32>, roughness: f32) -> vec3<f32> {
     let smoothness = saturate(1.0 - roughness);
     let lerp_factor = smoothness * (sqrt(smoothness) + roughness);
     return mix(N, R, lerp_factor);
-}
-
-fn quat_rotate(q: vec4<f32>, dir: vec3<f32>) -> vec3<f32> {
-    let t = 2.0 * cross(q.xyz, dir);
-    return dir + q.w * t + cross(q.xyz, t);
 }
