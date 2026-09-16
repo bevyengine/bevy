@@ -3202,7 +3202,7 @@ unsafe impl<D: ReadOnlyQueryData, F: QueryFilter> IterQueryData for NestedQuery<
 // If `D::IS_ARCHETYPAL == false` or `F::IS_ARCHETYPAL == false`,
 // then the nested query may filter out some entities that *it* matches,
 // but it will never filter the outer query.
-impl<D: ReadOnlyQueryData, F: QueryFilter> ArchetypeQueryData for NestedQuery<D, F> {}
+impl<D: QueryData, F: QueryFilter> ArchetypeQueryData for NestedQuery<D, F> {}
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {
