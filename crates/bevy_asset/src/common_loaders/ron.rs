@@ -174,13 +174,14 @@ impl AssetLoader for RonLoader {
 /// omit the type. For example, for the following type:
 ///
 /// ```rust
-/// # use bevy_reflect::Reflect;
-/// # use bevy_asset::{Asset, ReflectAsset};
-/// #[derive(Reflect, Asset)]
-/// #[reflect(Asset)]
+/// # use bevy_reflect::TypePath;
+/// # use bevy_asset::Asset;
+/// # use serde::Deserialize;
+/// #[derive(Asset, TypePath, Deserialize)]
 /// struct MyStruct {
 ///     value: i32,
 /// }
+/// # bevy_asset::common_loaders::ron::TypedRonLoader::<MyStruct>::new(vec![]);
 /// ```
 ///
 /// The serialized format would be:
