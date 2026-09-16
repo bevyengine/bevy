@@ -1,5 +1,5 @@
 ---
-title: `Children` no longer derefs to a `[Entity]` slice
+title: Children no longer derefs to a Entity slice
 pull_requests: [25811]
 ---
 
