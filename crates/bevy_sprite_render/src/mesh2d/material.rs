@@ -1,6 +1,7 @@
 use crate::{
-    init_mesh_2d_pipeline, DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey,
-    RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache,
+    extract_2d_meshes, init_mesh_2d_pipeline, DrawMesh2d, Mesh2d, Mesh2dPipeline,
+    Mesh2dPipelineKey, RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+    ViewKeyCache,
 };
 use alloc::sync::Arc;
 use bevy_app::{App, Plugin, PostUpdate};
@@ -364,7 +365,7 @@ where
                             .in_set(DirtySpecializationSystems::CheckForChanges),
                         extract_entities_that_need_specializations_removed::<M>
                             .in_set(DirtySpecializationSystems::CheckForRemovals),
-                        extract_mesh_materials_2d::<M>,
+                        extract_mesh_materials_2d::<M>.before(extract_2d_meshes),
                     ),
                 );
         }
