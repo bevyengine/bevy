@@ -22,7 +22,7 @@ use crate::{
     ReflectAsset,
 };
 
-/// A loader for reflected asset types written in the [`ron`] format.
+/// A loader for reflected asset types written in the RON format.
 ///
 /// This loader supports **any** reflected asset type in its registry. This loader expects assets to
 /// be stored as a map with a single entry, where the key is the full type path of the reflected
@@ -163,7 +163,7 @@ impl AssetLoader for RonLoader {
     }
 }
 
-/// A loader for loading serializable assets written in the [`ron`] format.
+/// A loader for loading serializable assets written in the RON format.
 ///
 /// This is a typed counterpart to [`RonLoader`]. Therefore, this loader only supports a single
 /// asset type `A` (rather than any reflectable type). This however allows the serialized format to
@@ -244,13 +244,13 @@ impl<A: Asset + DeserializeOwned> AssetLoader for TypedRonLoader<A> {
     }
 }
 
-/// Settings for saving data in the `ron` format.
+/// Settings for saving data in the RON format.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RonSaverSettings {
-    /// The configuration for pretty-printing the `ron` data.
+    /// The configuration for pretty-printing the RON data.
     ///
     /// The default is [`Some`], since it is likely that users will want to view or manually edit
-    /// the `ron` after saving.
+    /// the RON after saving.
     pub pretty_config: Option<PrettyConfig>,
 }
 
@@ -266,7 +266,7 @@ impl Default for RonSaverSettings {
     }
 }
 
-/// A saver for reflected asset types to write in the [`ron`] format.
+/// A saver for reflected asset types to write in the RON format.
 ///
 /// Data written with this saver can later be loaded with [`RonLoader`]. Note: the data format
 /// written by [`RonSaver`] is **incompatible** with [`TypedRonLoader`] (since this saver writes
@@ -387,7 +387,7 @@ impl AssetSaver for RonSaver {
     }
 }
 
-/// A saver for writing serializable types in the `ron` format.
+/// A saver for writing serializable types in the RON format.
 ///
 /// Data written with this saver can later be loaded with [`TypedRonLoader<T>`]. Note: the data
 /// format written by [`TypedRonSaver`] is **incompatible** with [`RonLoader`] (since [`RonLoader`]
@@ -439,7 +439,7 @@ impl<A: Asset + Serialize + DeserializeOwned> AssetSaver for TypedRonSaver<A> {
     }
 }
 
-/// An error type for `ron` loading.
+/// An error type for RON loading.
 #[derive(Error, Debug)]
 pub enum RonDeserializeError {
     #[error(transparent)]
@@ -448,7 +448,7 @@ pub enum RonDeserializeError {
     RonSpan(#[from] ron::de::SpannedError),
 }
 
-/// An error type for `ron` loading using reflection.
+/// An error type for RON loading using reflection.
 #[derive(Error, Debug)]
 pub enum ReflectedRonDeserializeError {
     #[error(transparent)]
@@ -459,7 +459,7 @@ pub enum ReflectedRonDeserializeError {
     MissingReflectAsset(&'static str),
 }
 
-/// An error type for `ron` saving.
+/// An error type for RON saving.
 #[derive(Error, Debug)]
 pub enum RonSerializeError {
     #[error(transparent)]
@@ -468,7 +468,7 @@ pub enum RonSerializeError {
     Ron(#[from] ron::Error),
 }
 
-/// An error type for `ron` saving using reflection.
+/// An error type for RON saving using reflection.
 #[derive(Error, Debug)]
 pub enum ReflectedRonSerializeError {
     #[error(
