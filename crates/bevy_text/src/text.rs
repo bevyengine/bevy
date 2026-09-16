@@ -1,4 +1,4 @@
-use crate::{Font, TextBrush, TextError, TextLayoutInfo, TextSection};
+use crate::{Font, InlineBox, TextBrush, TextError, TextLayoutInfo, TextSection};
 use alloc::borrow::Cow;
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
@@ -1579,6 +1579,7 @@ pub fn detect_text_needs_rerender(
         (
             Or<(
                 Changed<TextSpan>,
+                Changed<InlineBox>,
                 Changed<TextFont>,
                 Changed<LineHeight>,
                 Changed<LetterSpacing>,
@@ -1586,8 +1587,7 @@ pub fn detect_text_needs_rerender(
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
             )>,
-            With<TextSpan>,
-            With<TextFont>,
+            Or<((With<TextSpan>, With<TextFont>), With<InlineBox>)>,
         ),
     >,
     mut computed: Query<(
@@ -1616,14 +1616,14 @@ pub fn detect_text_needs_rerender(
     // - Span children changed (can include additions and removals).
     for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
         if has_text_block {
-            once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
+            once!(warn!("found entity {} with a TextSpan or InlineBox that has a TextLayout, which should only be on root \
                 text entities; this warning only prints once",
                 entity));
         }
 
         let Some(span_child_of) = maybe_span_child_of else {
             once!(warn!(
-                "found entity {} with a TextSpan that has no parent; it should have an ancestor \
+                "found entity {} with a TextSpan or InlineBox that has no parent; it should have an ancestor \
                 with a root text component; this warning only prints once",
                 entity
             ));
@@ -1636,7 +1636,7 @@ pub fn detect_text_needs_rerender(
         // is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_child_of, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
+                once!(warn!("found entity {} with a TextSpan or InlineBox that is part of a broken hierarchy with a ChildOf \
                     component that points at non-existent entity {}; this warning only prints once",
                     entity, parent));
                 break;
@@ -1646,14 +1646,14 @@ pub fn detect_text_needs_rerender(
                 break;
             }
             if !has_span {
-                once!(warn!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
+                once!(warn!("found entity {} with a TextSpan or InlineBox that has an ancestor ({}) that does not have a text \
                 span component or a ComputedTextBlock component; this warning only prints once",
                     entity, parent));
                 break;
             }
             let Some(next_child_of) = maybe_child_of else {
                 once!(warn!(
-                    "found entity {} with a TextSpan that has no ancestor with the root text \
+                    "found entity {} with a TextSpan or InlineBox that has no ancestor with the root text \
                     component; this warning only prints once",
                     entity
                 ));

@@ -2,7 +2,10 @@
 use crate::message::MessageParIter;
 use crate::{
     message::{Message, MessageCursor, MessageIterator, MessageIteratorWithId, Messages},
-    system::{Local, ParameterAccessConflict, Res, SystemParam, SystemParamValidationError},
+    system::{
+        Local, ParameterAccessConflict, ReadOnlySystemParam, Res, SystemParam,
+        SystemParamValidationError,
+    },
 };
 
 /// Reads [`Message`]s of type `T` in order and tracks which messages have already been read.
@@ -189,6 +192,9 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
         }
     }
 }
+
+// SAFETY: All world access is delegated to MessageReader, which implements it.
+unsafe impl<M: Message> ReadOnlySystemParam for PopulatedMessageReader<'_, '_, M> {}
 
 #[cfg(test)]
 mod tests {

@@ -19,7 +19,7 @@ world.add_observer(|on: On<Add<A>>| {
 });
 ```
 
-For custom event types that previously made use of `B: Bundle`, its recommended to do the following:
+For custom event types that previously made use of `B: Bundle`, it's recommended to do the following:
 
 ```rust
 // Bevy 0.19

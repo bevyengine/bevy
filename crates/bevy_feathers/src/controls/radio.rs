@@ -57,7 +57,7 @@ pub struct FeathersRadioProps {
 impl Default for FeathersRadioProps {
     fn default() -> Self {
         Self {
-            caption: Box::new(bsn! {}),
+            caption: Box::new(bsn_list! {}),
         }
     }
 }

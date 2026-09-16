@@ -74,7 +74,7 @@ let system = (
     .build_system(resource_system); // works!
 ```
 
-Adding `IsResource` is therefor only occasionally necessary, as these conflicts arise. Still, since a resource entity always has an `IsResource` marker attached, it can't hurt.
+Adding `IsResource` is therefore only occasionally necessary, as these conflicts arise. Still, since a resource entity always has an `IsResource` marker attached, it can't hurt.
 
 Secondly, there's the issue of dealing with multiple resources. Given a `Query<FilteredEntityRef>` with multiple resources, how do you extract the desired resource. For this, you'd have to know what `Entity` the resource is stored on. For this purpose, we provide the `ResourceEntities` system parameter. Querying multiple resources ends up looking as follows:
 
