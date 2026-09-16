@@ -340,7 +340,7 @@ impl FeathersColorInput {
 
 // Lazily-constructed menu popup
 fn color_input_popup() -> Box<dyn Scene> {
-    Box::new(bsn!(
+    Box::new(bsn! {
         @FeathersMenuPopup
         PopupEntityRefs {
             mode_wheel: #mode_wheel,
@@ -729,7 +729,7 @@ fn color_input_popup() -> Box<dyn Scene> {
             }
             on(recent_color_selected)
         ]
-    ))
+    })
 }
 
 fn color_wheel_value_change(

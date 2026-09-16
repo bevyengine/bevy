@@ -31,7 +31,7 @@ struct DepthOfFieldParams {
     /// The [focal length]. Physically speaking, this represents "the distance
     /// from the center of the lens to the principal foci of the lens". The
     /// default value, 50 mm, is considered representative of human eyesight.
-    /// Real-world lenses range from anywhere from 5 mm for "fisheye" lenses to
+    /// Real-world lenses range anywhere from 5 mm for "fisheye" lenses to
     /// 2000 mm for "super-telephoto" lenses designed for very distant objects.
     ///
     /// The higher the value, the more blurry objects not in focus will be.

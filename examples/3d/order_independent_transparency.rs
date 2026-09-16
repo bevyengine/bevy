@@ -6,7 +6,6 @@
 
 use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
 use bevy::{
-    camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
     core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
     ecs::system::SystemParam,
@@ -174,7 +173,6 @@ fn setup(
     let mut camera = commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        RenderLayers::layer(1),
         // Msaa currently doesn't work with OIT
         Msaa::Off,
     ));
@@ -198,7 +196,6 @@ fn setup(
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
-        RenderLayers::layer(1),
     ));
 
     // Spawn the default scene
@@ -426,8 +423,6 @@ fn spawn_spheres(commands: &mut Commands, resources: &mut SceneResources) {
 
     let alpha = 0.25;
 
-    let render_layers = RenderLayers::layer(1);
-
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
@@ -436,7 +431,6 @@ fn spawn_spheres(commands: &mut Commands, resources: &mut SceneResources) {
             ..default()
         })),
         Transform::from_translation(pos_a + offset),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
@@ -446,7 +440,6 @@ fn spawn_spheres(commands: &mut Commands, resources: &mut SceneResources) {
             ..default()
         })),
         Transform::from_translation(pos_b + offset),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
@@ -456,7 +449,6 @@ fn spawn_spheres(commands: &mut Commands, resources: &mut SceneResources) {
             ..default()
         })),
         Transform::from_translation(pos_c + offset),
-        render_layers.clone(),
     ));
 }
 
@@ -467,7 +459,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
     let materials = &mut resources.materials;
 
     let quad_handle = meshes.add(Rectangle::new(3.0, 3.0).mesh());
-    let render_layers = RenderLayers::layer(1);
     let xform = |x, y, z| {
         Transform::from_rotation(Quat::from_rotation_y(0.5))
             .mul_transform(Transform::from_xyz(x, y, z))
@@ -487,7 +478,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
             ..common_params.clone()
         })),
         xform(1.0, -0.1, 0.),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
@@ -496,7 +486,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
             ..common_params.clone()
         })),
         xform(0.5, 0.2, -0.5),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
@@ -505,7 +494,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
             ..common_params.clone()
         })),
         xform(0.0, 0.4, -1.),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
@@ -514,7 +502,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
             ..common_params.clone()
         })),
         xform(-0.5, 0.6, -1.1),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
@@ -523,7 +510,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
             ..common_params
         })),
         xform(-0.8, 0.8, -1.2),
-        render_layers.clone(),
     ));
 }
 
@@ -538,15 +524,12 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
     let cube_handle = meshes.add(Cuboid::from_size(Vec3::ONE).mesh());
     let cube_material = materials.add(Color::srgb(0.8, 0.7, 0.6));
 
-    let render_layers = RenderLayers::layer(1);
-
     // front
     let x = -2.5;
     commands.spawn((
         Mesh3d(cube_handle.clone()),
         MeshMaterial3d(cube_material.clone()),
         Transform::from_xyz(x, 0.0, 2.0),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
@@ -556,7 +539,6 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
             ..default()
         })),
         Transform::from_xyz(x, 0., 0.),
-        render_layers.clone(),
     ));
 
     // intersection
@@ -564,7 +546,6 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
         Mesh3d(cube_handle.clone()),
         MeshMaterial3d(cube_material.clone()),
         Transform::from_xyz(x, 0.0, 1.0),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
@@ -574,7 +555,6 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
             ..default()
         })),
         Transform::from_xyz(0., 0., 0.),
-        render_layers.clone(),
     ));
 
     // back
@@ -583,7 +563,6 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
         Mesh3d(cube_handle.clone()),
         MeshMaterial3d(cube_material.clone()),
         Transform::from_xyz(x, 0.0, -2.0),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
@@ -593,7 +572,6 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
             ..default()
         })),
         Transform::from_xyz(x, 0., 0.),
-        render_layers.clone(),
     ));
 }
 
@@ -603,8 +581,6 @@ fn spawn_auto_instancing_test(commands: &mut Commands, resources: &mut SceneReso
     let meshes = &mut resources.meshes;
     let materials = &mut resources.materials;
     let asset_server = &mut resources.asset_server;
-
-    let render_layers = RenderLayers::layer(1);
 
     let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
     let material_handle = materials.add(StandardMaterial {
@@ -621,7 +597,6 @@ fn spawn_auto_instancing_test(commands: &mut Commands, resources: &mut SceneReso
                     Mesh3d(cube.clone()),
                     MeshMaterial3d(material_handle.clone()),
                     Transform::from_xyz(x as f32 * 2.0, y as f32 * 2.0, z as f32 * 2.0),
-                    render_layers.clone(),
                 ));
             }
         }
@@ -688,8 +663,6 @@ fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources
     let custom_materials = &mut resources.custom_materials;
     let materials = &mut resources.materials;
 
-    let render_layers = RenderLayers::layer(1);
-
     let torus = meshes.add(Torus::new(2.0, 3.0));
 
     // Spawn a torus with an ExtendedMaterial
@@ -706,7 +679,6 @@ fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources
             },
         })),
         Transform::from_rotation(Quat::from_rotation_z(0.4)),
-        render_layers.clone(),
     ));
 
     // Spawn a torus with an custom material
@@ -716,7 +688,6 @@ fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources
             color: LinearRgba::new(0.9, 0.6, 0.0, 0.5),
         })),
         Transform::from_rotation(Quat::from_rotation_z(1.0)),
-        render_layers.clone(),
     ));
 
     // Spawn a torus with a StandardMaterial
@@ -729,6 +700,5 @@ fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources
             ..default()
         })),
         Transform::from_rotation(Quat::from_rotation_x(1.0)),
-        render_layers.clone(),
     ));
 }

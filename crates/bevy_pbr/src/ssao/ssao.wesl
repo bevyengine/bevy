@@ -1,5 +1,5 @@
 //! Visibility Bitmask Ambient Occlusion (VBAO)
-//! Paper: ttps://ar5iv.labs.arxiv.org/html/2301.11376
+//! Paper: https://ar5iv.labs.arxiv.org/html/2301.11376
 //!
 //! Source code heavily based on XeGTAO v1.30 from Intel
 //! https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
