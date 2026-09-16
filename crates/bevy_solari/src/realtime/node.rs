@@ -267,7 +267,6 @@ pub fn solari_lighting(
                 &d.normal_roughness.default_view,
                 &d.depth.default_view,
                 &d.specular_motion_vectors.default_view,
-                &d.motion_vectors.default_view,
             )),
         )
     });
@@ -414,7 +413,7 @@ pub fn init_solari_lighting_pipelines(
                 storage_buffer_sized(false, None),
                 texture_2d(TextureSampleType::Uint),
                 texture_depth_2d(),
-                texture_2d(TextureSampleType::Float { filterable: false }),
+                texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::ReadWrite),
                 uniform_buffer::<ViewUniform>(true),
                 uniform_buffer::<PreviousViewData>(true),
                 storage_buffer_sized(false, None),
@@ -433,7 +432,7 @@ pub fn init_solari_lighting_pipelines(
                 storage_buffer_sized(false, None),
                 texture_2d(TextureSampleType::Uint),
                 texture_depth_2d(),
-                texture_2d(TextureSampleType::Float { filterable: false }),
+                texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::ReadWrite),
                 uniform_buffer::<ViewUniform>(true),
                 uniform_buffer::<PreviousViewData>(true),
                 storage_buffer_sized(false, None),
@@ -461,7 +460,6 @@ pub fn init_solari_lighting_pipelines(
                 texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
                 texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
                 texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly),
-                texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::WriteOnly),
                 texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::WriteOnly),
             ),
         ),

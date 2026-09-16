@@ -311,19 +311,6 @@ pub fn prepare_solari_lighting_resources(
             let specular_motion_vectors_view =
                 specular_motion_vectors.create_view(&TextureViewDescriptor::default());
 
-            let denoiser_motion_vectors = render_device.create_texture(&TextureDescriptor {
-                label: Some("solari_lighting_denoiser_motion_vectors"),
-                size: view_size.to_extents(),
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rg16Float,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
-                view_formats: &[],
-            });
-            let denoiser_motion_vectors_view =
-                denoiser_motion_vectors.create_view(&TextureViewDescriptor::default());
-
             commands
                 .entity(entity)
                 .insert(ViewDlssRayReconstructionTextures {
@@ -346,10 +333,6 @@ pub fn prepare_solari_lighting_resources(
                     specular_motion_vectors: CachedTexture {
                         texture: specular_motion_vectors,
                         default_view: specular_motion_vectors_view,
-                    },
-                    motion_vectors: CachedTexture {
-                        texture: denoiser_motion_vectors,
-                        default_view: denoiser_motion_vectors_view,
                     },
                 });
         }
