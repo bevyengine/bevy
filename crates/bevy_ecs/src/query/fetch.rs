@@ -9,8 +9,8 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     query::{
         access_iter::{EcsAccessLevel, EcsAccessType},
-        Access, DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, QueryFilter, QueryState,
-        WorldQuery,
+        Access, DebugCheckedUnwrap, ErasedQueryState, FilteredAccess, FilteredAccessSet,
+        QueryFilter, QueryState, WorldQuery,
     },
     storage::{ComponentSparseSet, Table, TableRow},
     system::Query,
@@ -3056,8 +3056,7 @@ pub struct NestedQueryFetch<'w> {
 // Accesses through the nested query are registered in `init_nested_access`
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for NestedQuery<D, F> {
     type Fetch<'w> = NestedQueryFetch<'w>;
-    // Note: The state's QueryData should be treated as D via as_transmuted_state(_mut)
-    type State = QueryState<D::ReadOnly, F>;
+    type State = ErasedQueryState<D::ReadOnly, F>;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -3103,8 +3102,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Nes
         component_access_set: &mut FilteredAccessSet,
         world: UnsafeWorldCell,
     ) {
-        // SAFETY: D is the original QueryData for the QueryState.
-        let state = unsafe { state.as_transmuted_state::<D, F>() };
+        // SAFETY: Either this was originally created as a `NestedQuery<D, F>`,
+        // in which case `D` matches the type passed to `new`,
+        // or this was created as some other type and transmuted,
+        // in which case `D: ReadOnlyQueryData` and `D == D::ReadOnly`.
+        let state = unsafe { state.as_query_state::<D>() };
 
         state.init_access(system_name, component_access_set, world);
     }
@@ -3114,7 +3116,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Nes
         // `WorldQuery::init_nested_access` must be called before `WorldQuery::init_fetch,
         // which must be called before `QueryData::fetch`,
         // and we only call methods on the `QueryState` in `fetch`.
-        unsafe { QueryState::<D, F>::new_unchecked(world) }.to_readonly()
+        ErasedQueryState::new(unsafe { QueryState::<D, F>::new_unchecked(world) })
     }
 
     fn get_state(_components: &Components) -> Option<Self::State> {
@@ -3133,8 +3135,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Nes
     }
 
     fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
-        // SAFETY: D is the original QueryData for the QueryState.
-        let state = unsafe { state.as_transmuted_state_mut::<D, F>() };
+        // SAFETY: Either this was originally created as a `NestedQuery<D, F>`,
+        // in which case `D` matches the type passed to `new`,
+        // or this was created as some other type and transmuted,
+        // in which case `D: ReadOnlyQueryData` and `D == D::ReadOnly`.
+        let state = unsafe { state.as_query_state_mut::<D>() };
 
         state.update_archetypes_unsafe_world_cell(world);
     }
@@ -3166,8 +3171,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for Nest
         _entity: Entity,
         _table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
-        // SAFETY: D is the original QueryData for the QueryState.
-        let state = unsafe { state.as_transmuted_state::<D, F>() };
+        // SAFETY: Either this was originally created as a `NestedQuery<D, F>`,
+        // in which case `D` matches the type passed to `new`,
+        // or this was created as some other type and transmuted,
+        // in which case `D: ReadOnlyQueryData` and `D == D::ReadOnly`.
+        let state = unsafe { state.as_query_state::<D>() };
 
         // SAFETY:
         // - We registered the required access in `init_nested_access`, so it's available.

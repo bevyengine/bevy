@@ -121,7 +121,7 @@ impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
 
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Converts this `QueryState` to a `QueryState` that does not access anything mutably.
-    pub fn to_readonly(self) -> QueryState<D::ReadOnly, F> {
+    pub(crate) fn to_readonly(self) -> QueryState<D::ReadOnly, F> {
         let QueryState {
             world_id,
             archetype_generation,
@@ -179,28 +179,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
     /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
     pub(crate) unsafe fn as_transmuted_state<
-        NewD: QueryData<State = D::State>,
+        NewD: ReadOnlyQueryData<State = D::State>,
         NewF: QueryFilter<State = F::State>,
     >(
         &self,
     ) -> &QueryState<NewD, NewF> {
         &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
-    }
-
-    /// Converts this `QueryState` reference to any other `QueryState` with
-    /// the same `WorldQuery::State` associated types.
-    ///
-    /// # Safety
-    ///
-    /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
-    /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
-    pub(crate) unsafe fn as_transmuted_state_mut<
-        NewD: QueryData<State = D::State>,
-        NewF: QueryFilter<State = F::State>,
-    >(
-        &mut self,
-    ) -> &mut QueryState<NewD, NewF> {
-        &mut *ptr::from_mut(self).cast::<QueryState<NewD, NewF>>()
     }
 
     /// Returns the components accessed by this query.
@@ -2142,6 +2126,52 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D, F> {
     fn from(mut value: QueryBuilder<D, F>) -> Self {
         QueryState::from_builder(&mut value)
+    }
+}
+
+/// A [`QueryState`] for some [`QueryData<ReadOnly = R>`].
+///
+/// This is used by [`NestedQuery`](crate::query::NestedQuery) as its [`WorldQuery::State`]
+/// to allow `NestedQuery<D>` and `NestedQuery<D::ReadOnly>` to have the same `State`.
+pub struct ErasedQueryState<R: ReadOnlyQueryData, F: QueryFilter>(QueryState<R, F>);
+
+impl<R: ReadOnlyQueryData, F: QueryFilter> ErasedQueryState<R, F> {
+    /// Create an [`ErasedQueryState`] from a [`QueryState`],
+    /// forgetting the original [`QueryData`] type.
+    pub fn new<D: QueryData<ReadOnly = R>>(query_state: QueryState<D, F>) -> Self {
+        Self(query_state.to_readonly())
+    }
+
+    /// Cast to a [`QueryState`] reference, recovering the original [`QueryData`] type.
+    ///
+    /// # Safety
+    ///
+    /// Either `D == R`, or `self` was created from a call to [`Self::new<D>`].
+    pub unsafe fn as_query_state<D: QueryData<ReadOnly = R>>(&self) -> &QueryState<D, F> {
+        // SAFETY: Caller ensures this is either a no-op,
+        // or that the contents were created as a valid `QueryState<D, F>`
+        unsafe {
+            ptr::from_ref(&self.0)
+                .cast::<QueryState<D, F>>()
+                .as_ref_unchecked()
+        }
+    }
+
+    /// Cast to a mutable [`QueryState`] reference, recovering the original [`QueryData`] type.
+    ///
+    /// # Safety
+    ///
+    /// Either `D == R`, or `self` was created from a call to [`Self::new<D>`].
+    pub unsafe fn as_query_state_mut<D: QueryData<ReadOnly = R>>(
+        &mut self,
+    ) -> &mut QueryState<D, F> {
+        // SAFETY: Caller ensures this is either a no-op,
+        // or that the contents were created as a valid `QueryState<D, F>`
+        unsafe {
+            ptr::from_mut(&mut self.0)
+                .cast::<QueryState<D, F>>()
+                .as_mut_unchecked()
+        }
     }
 }
 
