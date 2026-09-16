@@ -696,6 +696,7 @@ mod parallel {
             // children pointers match in both directions (see assert below) to ensure the hierarchy
             // does not have any cycles. Because the hierarchy does not have cycles, we know we are
             // visiting disjoint entities in parallel, which is safe.
+            #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             let children_iter = unsafe { nodes.iter_many_unique_unsafe(p_children) }.matched();
 
             let mut last_child = None;
