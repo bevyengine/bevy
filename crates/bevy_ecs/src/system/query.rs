@@ -1236,7 +1236,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns an [`Iterator`] over the query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities, and may not be unique if the input
-    /// doesnn't guarantee uniqueness.
+    /// doesn't guarantee uniqueness.
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// # Safety
