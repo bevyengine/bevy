@@ -548,22 +548,15 @@ impl OrderedRelationshipSourceCollection for EntityIndexSet {
     }
 
     fn remove_at(&mut self, index: usize) -> Option<Entity> {
-        (index < self.0.len()).then(|| self.0.swap_remove_index(index).unwrap())
+        self.0.swap_remove_index(index)
     }
 
     fn insert_stable(&mut self, index: usize, entity: Entity) {
-        if index < self.0.len() {
-            // Insert at end then shift into position
-            self.0.insert(entity);
-            let last = self.0.len() - 1;
-            self.0.move_index(last, index);
-        } else {
-            self.0.insert(entity);
-        }
+        self.0.insert_before(index.min(self.0.len()), entity);
     }
 
     fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
-        (index < self.0.len()).then(|| self.0.shift_remove_index(index).unwrap())
+        self.0.shift_remove_index(index)
     }
 
     fn sort(&mut self) {
@@ -571,8 +564,8 @@ impl OrderedRelationshipSourceCollection for EntityIndexSet {
     }
 
     fn insert_sorted(&mut self, entity: Entity) {
-        self.0.insert(entity);
-        self.0.sort_unstable();
+        let index = self.0.partition_point(|e| e <= &entity);
+        self.insert_stable(index, entity);
     }
 
     fn place_most_recent(&mut self, index: usize) {

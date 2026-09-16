@@ -156,9 +156,12 @@ impl Children {
         self.0.swap_indices(a_index, b_index);
     }
 
-    /// Sorts children in place using the provided comparator function.
+    /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided comparator function.
     ///
-    /// See also [`sort_by_key`](Children::sort_by_key).
+    /// For the unstable version, see [`sort_unstable_by`](Children::sort_unstable_by).
+    ///
+    /// See also [`sort_by_key`](Children::sort_by_key), [`sort_by_cached_key`](Children::sort_by_cached_key).
     #[inline]
     pub fn sort_by<F>(&mut self, compare: F)
     where
@@ -167,9 +170,12 @@ impl Children {
         self.0.sort_by(compare);
     }
 
-    /// Sorts children in place using the provided key extraction function.
+    /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided key extraction function.
     ///
-    /// See also [`sort_by`](Children::sort_by).
+    /// For the unstable version, see [`sort_unstable_by_key`](Children::sort_unstable_by_key).
+    ///
+    /// See also [`sort_by`](Children::sort_by), [`sort_by_cached_key`](Children::sort_by_cached_key).
     #[inline]
     pub fn sort_by_key<K, F>(&mut self, mut compare: F)
     where
@@ -179,28 +185,18 @@ impl Children {
         self.0.sort_by(|a, b| compare(a).cmp(&compare(b)));
     }
 
-    /// Sorts children in place using the provided key extraction function.
-    /// Only evaluates each key at most once per sort, caching the intermediate
-    /// results in memory.
+    /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided key extraction function. Only evaluates each key at most
+    /// once per sort, caching the intermediate results in memory.
     ///
     /// See also [`sort_by`](Children::sort_by), [`sort_by_key`](Children::sort_by_key).
     #[inline]
-    pub fn sort_by_cached_key<K, F>(&mut self, mut compare: F)
+    pub fn sort_by_cached_key<K, F>(&mut self, compare: F)
     where
         F: FnMut(&Entity) -> K,
         K: Ord,
     {
-        // Collect (index, key) pairs, sort by key, then reorder.
-        let mut indexed_keys: alloc::vec::Vec<(usize, K)> = self
-            .0
-            .iter()
-            .enumerate()
-            .map(|(i, e)| (i, compare(e)))
-            .collect();
-        indexed_keys.sort_by(|a, b| a.1.cmp(&b.1));
-        let order: alloc::vec::Vec<Entity> = indexed_keys.iter().map(|(i, _)| self.0[*i]).collect();
-        self.0.clear();
-        self.0.extend(order);
+        self.0.sort_by_cached_key(compare);
     }
 
     /// Sorts children [unstably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
@@ -568,7 +564,7 @@ mod tests {
                 .entity(entity)
                 .get::<Children>()
                 .map_or_else(Default::default, |c| {
-                    c.into_iter().map(|&e| get_hierarchy(world, e)).collect()
+                    c.iter().map(|e| get_hierarchy(world, e)).collect()
                 }),
         }
     }
