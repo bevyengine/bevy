@@ -107,6 +107,9 @@ pub const BRP_OBSERVE_METHOD: &str = "world.observe+watch";
 /// The method path for a `schedule.graph` request.
 pub const BRP_SCHEDULE_GRAPH: &str = "schedule.graph";
 
+/// The method path for an `app.info` request.
+pub const BRP_APP_INFO_METHOD: &str = "app.info";
+
 /// The method path for a `rpc.discover` request.
 pub const RPC_DISCOVER_METHOD: &str = "rpc.discover";
 
@@ -557,6 +560,19 @@ pub struct BrpScheduleListResponse {
 pub struct BrpScheduleGraphResponse {
     /// The extracted data for the requested schedule.
     pub schedule_data: ScheduleData,
+}
+
+/// Overrides the application name reported by an `app.info` request.
+#[derive(Resource, Debug, Clone)]
+pub struct RemoteAppName(pub String);
+
+/// The response to an `app.info` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpAppInfoResponse {
+    /// The name of the running application.
+    pub app_name: String,
+    /// The version of the Bevy engine the application was built against.
+    pub bevy_version: String,
 }
 
 /// One query match result: a single entity paired with the requested components.
@@ -1718,6 +1734,20 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
     serde_json::to_value(schemas).map_err(BrpError::internal)
 }
 
+/// Handles an `app.info` request coming from a client.
+pub fn process_remote_app_info_request(In(_params): In<Option<Value>>, world: &World) -> BrpResult {
+    let app_name = world
+        .get_resource::<RemoteAppName>()
+        .map_or_else(|| "bevy".to_owned(), |name| name.0.clone());
+
+    let response = BrpAppInfoResponse {
+        app_name,
+        bevy_version: env!("CARGO_PKG_VERSION").to_owned(),
+    };
+
+    serde_json::to_value(response).map_err(BrpError::internal)
+}
+
 /// Handles a `schedule.list` request coming from a client.
 pub fn schedule_list(In(_params): In<Option<Value>>, world: &World) -> BrpResult {
     let schedules = world.resource::<Schedules>();
@@ -2485,5 +2515,28 @@ mod tests {
             .schedule_data
             .dependency
             .contains(&(apply_deferred_index, f2_index)));
+    }
+
+    #[test]
+    fn app_info_defaults() {
+        let world = World::default();
+
+        let response = process_remote_app_info_request(In(None), &world).unwrap();
+        let response = serde_json::from_value::<BrpAppInfoResponse>(response).unwrap();
+
+        assert_eq!(response.app_name, "bevy");
+        assert_eq!(response.bevy_version, env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn app_info_uses_remote_app_name() {
+        let mut world = World::default();
+        world.insert_resource(RemoteAppName("Demo".into()));
+
+        let response = process_remote_app_info_request(In(None), &world).unwrap();
+        let response = serde_json::from_value::<BrpAppInfoResponse>(response).unwrap();
+
+        assert_eq!(response.app_name, "Demo");
+        assert_eq!(response.bevy_version, env!("CARGO_PKG_VERSION"));
     }
 }

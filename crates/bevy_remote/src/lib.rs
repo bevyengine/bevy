@@ -478,6 +478,12 @@
 //! This contains schema information about that type, including field definitions, type information, reflect type information, and other metadata
 //! helpful for understanding the structure of the type.
 //!
+//! ### `app.info`
+//!
+//! Retrieve the name of the running application and the Bevy version it was built against. This method has no parameters.
+//!
+//! `result`: An object with `app_name` and `bevy_version` string fields.
+//!
 //! ### `rpc.discover`
 //!
 //! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
@@ -778,6 +784,11 @@ impl RemotePlugin {
         .with_method(
             builtin_methods::BRP_SCHEDULE_LIST,
             builtin_methods::schedule_list,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_APP_INFO_METHOD,
+            builtin_methods::process_remote_app_info_request,
             to_main,
         )
         .with_method(
