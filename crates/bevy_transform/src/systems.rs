@@ -488,7 +488,7 @@ mod parallel {
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use crate::systems::StaticTransformOptimizations;
     use alloc::{sync::Arc, vec::Vec};
-    use bevy_ecs::{entity::UniqueEntitySlice, prelude::*, system::lifetimeless::Read};
+    use bevy_ecs::{prelude::*, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
