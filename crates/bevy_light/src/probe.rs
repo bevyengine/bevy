@@ -326,7 +326,7 @@ pub struct AtmosphereEnvironmentMapLight {
     /// Whether to filter this cubemap for raster image-based lighting.
     ///
     /// Defaults to `true`. Set this to `false` if you only need the unfiltered cubemap.
-    /// bevy_solari cameras disable this automatically.
+    /// `bevy_solari` cameras disable this automatically.
     pub filtered: bool,
 }
 
