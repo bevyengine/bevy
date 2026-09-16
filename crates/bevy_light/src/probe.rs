@@ -105,8 +105,8 @@ impl LightProbe {
 /// `diffuse_map` for the irradiance, and a mipmapped `specular_map` for the specular.
 /// Material roughness selects which mip is sampled from the specular map.
 ///
-/// Path tracers such as bevy_solari only sample the first mip level, so both of them
-/// can point at the same unfiltered cubemap.
+/// Path tracers such as bevy_solari only sample the first mip level, so both
+/// the `diffuse_map` and `specular_map` can point at the same unfiltered cubemap.
 ///
 /// See `bevy_pbr::light_probe::environment_map` for detailed information.
 ///
@@ -270,7 +270,7 @@ impl Default for Skybox {
     }
 }
 
-/// Filters a cubemap at runtime into a split-sum [`EnvironmentMapLight`].
+/// A generated environment map that is filtered at runtime.
 ///
 /// See `bevy_pbr::light_probe::generate` for detailed information.
 #[derive(Clone, Component, Reflect, FromTemplate)]
@@ -302,17 +302,18 @@ impl Default for GeneratedEnvironmentMapLight {
     }
 }
 
-/// Lets the atmosphere contribute environment lighting to your scene.
+/// Lets the atmosphere contribute environment lighting (reflections and ambient diffuse) to your scene.
 ///
-/// Attach this component to a [`Camera3d`](bevy_camera::Camera3d) to light the
-/// entire view, or to a [`LightProbe`] to light only a specific region.
-///
+/// Attach this to a [`Camera3d`](bevy_camera::Camera3d) to light the entire view, or to a
+/// [`LightProbe`] to light only a specific region.
+/// Behind the scenes, this generates an environment map from the atmosphere for image-based lighting
+/// and inserts a corresponding [`GeneratedEnvironmentMapLight`].
+/// 
 /// By default this also filters the cubemap for raster image-based lighting.
 /// See [`Self::filtered`] if you only need the unfiltered cubemap.
 ///
-/// This creates an [`EnvironmentMapLight`] from the atmosphere automatically.
-/// See that component for details. For HDRI lighting or runtime filtering, use
-/// [`EnvironmentMapLight`] or [`GeneratedEnvironmentMapLight`] directly instead.
+/// For HDRI-based lighting, use a preauthored [`EnvironmentMapLight`] or filter one at runtime with
+/// [`GeneratedEnvironmentMapLight`].
 #[derive(Component, Clone)]
 pub struct AtmosphereEnvironmentMapLight {
     /// Controls how bright the atmosphere's environment lighting is.
