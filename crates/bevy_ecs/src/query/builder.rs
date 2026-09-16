@@ -44,7 +44,7 @@ pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
 }
 
 impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
-    /// Creates a new builder with the accesses required for `Q` and `F`
+    /// Creates a new builder with the accesses required for `D` and `F`
     pub fn new(world: &'w mut World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);

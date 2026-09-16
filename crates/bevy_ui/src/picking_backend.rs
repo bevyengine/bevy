@@ -21,7 +21,7 @@
 //!   `(-0.5, -0.5, 0.)` at the top left and `(0.5, 0.5, 0.)` in the bottom right. Coordinates are
 //!   relative to the entire node, not just the visible region. This backend does not provide a `normal`.
 
-use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
+use crate::{prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
 use bevy_camera::{visibility::InheritedVisibility, Camera, RenderTarget};
 use bevy_ecs::{prelude::*, query::QueryData};
@@ -92,6 +92,7 @@ pub struct NodeQuery {
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedUiTargetCamera,
     text_node: Option<(&'static TextLayoutInfo, &'static ComputedTextBlock)>,
+    calculated_clip: Option<&'static CalculatedClip>,
 }
 
 /// Computes the UI node entities under each pointer.
@@ -106,8 +107,6 @@ pub fn ui_picking(
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: MessageWriter<PointerHits>,
-    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: Query<&ChildOf, Without<OverrideClip>>,
     pickable_query: Query<&Pickable>,
 ) {
     // Map from each camera to its active pointers and their positions in viewport space
@@ -203,47 +202,34 @@ pub fn ui_picking(
             // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
             // Coordinates are relative to the entire node, not just the visible region.
             for (pointer_id, cursor_position) in pointers_on_this_cam.iter() {
-                if let Some((text_layout_info, text_block)) = node.text_node {
-                    if let Some(text_entity) = pick_ui_text_section(
-                        node.node,
-                        node.transform,
-                        *cursor_position,
-                        text_layout_info,
-                        text_block,
-                    ) && clip_check_recursive(
-                        *cursor_position,
-                        node_entity,
-                        &clipping_query,
-                        &child_of_query,
-                    ) {
-                        if settings.require_markers && !pickable_query.contains(text_entity) {
-                            continue;
-                        }
-
-                        hit_nodes
-                            .entry((camera_entity, *pointer_id))
-                            .or_default()
-                            .push((
-                                text_entity,
-                                camera_entity,
-                                node.pickable.cloned(),
-                                node.transform.inverse().transform_point2(*cursor_position)
-                                    / node.node.size(),
-                            ));
-                    }
-                } else if node.node.contains_point(*node.transform, *cursor_position)
-                    && clip_check_recursive(
-                        *cursor_position,
-                        node_entity,
-                        &clipping_query,
-                        &child_of_query,
-                    )
+                if node.node.contains_point(*node.transform, *cursor_position)
+                    && node
+                        .calculated_clip
+                        .is_none_or(|clip| clip.contains_point(*cursor_position))
+                    && let Some(target) = node
+                        .text_node
+                        .and_then(|(text_layout_info, text_block)| {
+                            pick_ui_text_section(
+                                node.node,
+                                node.transform,
+                                *cursor_position,
+                                text_layout_info,
+                                text_block,
+                            )
+                            .filter(|&text_entity| {
+                                !settings.require_markers || pickable_query.contains(text_entity)
+                            })
+                        })
+                        .or_else(|| {
+                            (!settings.require_markers || node.pickable.is_some())
+                                .then_some(node_entity)
+                        })
                 {
                     hit_nodes
                         .entry((camera_entity, *pointer_id))
                         .or_default()
                         .push((
-                            node_entity,
+                            target,
                             camera_entity,
                             node.pickable.cloned(),
                             node.transform.inverse().transform_point2(*cursor_position)
@@ -298,12 +284,14 @@ fn pick_ui_text_section(
 ) -> Option<Entity> {
     let local_point = global_transform
         .try_inverse()
-        .map(|transform| transform.transform_point2(point) + 0.5 * uinode.size())?;
-
-    for run in text_layout_info.run_geometry.iter() {
-        if run.bounds.contains(local_point) {
-            return text_block.entities().get(run.span_index).map(|e| e.entity);
-        }
-    }
-    None
+        .map(|transform| transform.transform_point2(point) - uinode.content_box().min)?;
+    let section_index = text_layout_info
+        .run_geometry
+        .iter()
+        .find(|run| run.bounds.contains(local_point))
+        .map(|run| run.section_index)?;
+    text_block
+        .entities()
+        .get(section_index as usize)
+        .map(|e| e.entity)
 }

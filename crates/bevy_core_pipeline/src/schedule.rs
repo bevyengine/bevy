@@ -9,21 +9,28 @@
 //! The [`camera_driver`] system is responsible for iterating over all cameras in the world
 //! and executing their associated schedules. In this way, the schedule for each camera is a
 //! sub-schedule or sub-graph of the root render graph schedule.
+use core::fmt::{self, Display, Formatter};
+
 use bevy_camera::{ClearColor, NormalizedRenderTarget};
 use bevy_ecs::{
+    entity::EntityHashSet,
     prelude::*,
-    schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, SystemSet},
+    schedule::{InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel, SystemSet},
+    system::SystemState,
 };
+#[cfg(feature = "trace")]
 use bevy_log::info_span;
-use bevy_platform::collections::HashSet;
+use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, SortedCameras},
+    diagnostic::{DiagnosticsRecorder, RecordDiagnostics},
     render_resource::{
         CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
         RenderPassDescriptor, StoreOp,
     },
     renderer::{CurrentView, PendingCommandBuffers, RenderDevice, RenderQueue},
-    view::ExtractedWindows,
+    sync_world::MainEntity,
+    view::ExtractedWindow,
 };
 
 /// Schedule label for the Core 3D rendering pipeline.
@@ -34,6 +41,7 @@ pub struct Core3d;
 /// These stages include and run in the following order:
 /// - `Prepass`: Initial rendering operations, such as depth pre-pass.
 /// - `MainPass`: The primary rendering operations, including drawing opaque and transparent objects.
+/// - `EarlyPostProcess`: Initial post processing effects.
 /// - `PostProcess`: Final rendering operations, such as post-processing effects.
 ///
 /// Additional systems can be added to these sets to customize the rendering pipeline, or additional
@@ -42,6 +50,7 @@ pub struct Core3d;
 pub enum Core3dSystems {
     Prepass,
     MainPass,
+    EarlyPostProcess,
     PostProcess,
 }
 
@@ -57,7 +66,7 @@ impl Core3d {
             ..Default::default()
         });
 
-        schedule.configure_sets((Prepass, MainPass, PostProcess).chain());
+        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain_weak());
 
         schedule
     }
@@ -69,14 +78,18 @@ pub struct Core2d;
 
 /// System sets for the Core 2D rendering pipeline, defining the main stages of rendering.
 /// These stages include and run in the following order:
+/// - `Prepass`: Initial rendering operations, such as depth pre-pass.
 /// - `MainPass`: The primary rendering operations, including drawing 2D sprites and meshes.
+/// - `EarlyPostProcess`: Initial post processing effects.
 /// - `PostProcess`: Final rendering operations, such as post-processing effects.
 ///
 /// Additional systems can be added to these sets to customize the rendering pipeline, or additional
 /// sets can be created relative to these core sets.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Core2dSystems {
+    Prepass,
     MainPass,
+    EarlyPostProcess,
     PostProcess,
 }
 
@@ -92,7 +105,7 @@ impl Core2d {
             ..Default::default()
         });
 
-        schedule.configure_sets((MainPass, PostProcess).chain());
+        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain_weak());
 
         schedule
     }
@@ -100,7 +113,17 @@ impl Core2d {
 
 /// Holds the entity of windows that are a render target for a camera
 #[derive(Resource)]
-struct CameraWindows(HashSet<Entity>);
+struct CameraWindows(EntityHashSet);
+
+/// A render-world marker component for a view that corresponds to neither a
+/// camera nor a camera-associated shadow map.
+///
+/// This is used for point light and spot light shadow maps, since these aren't
+/// associated with views.
+#[derive(Clone, Copy, Component, Debug, Reflect)]
+#[reflect(Clone, Component)]
+#[reflect(from_reflect = false)]
+pub struct RootNonCameraView(#[reflect(ignore)] pub InternedScheduleLabel);
 
 /// The default entry point for camera driven rendering added to the root [`bevy_render::renderer::RenderGraph`]
 /// schedule. This system iterates over all cameras in the world, executing their associated
@@ -110,67 +133,152 @@ struct CameraWindows(HashSet<Entity>);
 /// and clears any swap chains that were not covered by a camera. Users can order any additional
 /// operations (e.g. one-off compute passes) before or after this system in the root render
 /// graph schedule.
-pub fn camera_driver(world: &mut World) {
-    let sorted_cameras: Vec<_> = {
+pub fn camera_driver(
+    world: &mut World,
+    state: &mut SystemState<Query<(MainEntity, &ExtractedWindow)>>,
+) {
+    // Gather up all cameras and auxiliary views not associated with a camera.
+    let root_views: Vec<_> = {
+        let mut auxiliary_views = world.query_filtered::<Entity, With<RootNonCameraView>>();
         let sorted = world.resource::<SortedCameras>();
-        sorted.0.iter().map(|c| (c.entity, c.order)).collect()
+        auxiliary_views
+            .iter(world)
+            .map(RootView::Auxiliary)
+            .chain(sorted.0.iter().map(|c| RootView::Camera {
+                entity: c.entity,
+                order: c.order,
+            }))
+            .collect()
     };
 
-    let mut camera_windows = HashSet::default();
+    let mut camera_windows = EntityHashSet::default();
 
-    for camera in sorted_cameras {
-        #[cfg(feature = "trace")]
-        let (camera_entity, order) = camera;
-        #[cfg(not(feature = "trace"))]
-        let (camera_entity, _) = camera;
-        let Some(camera) = world.get::<ExtractedCamera>(camera_entity) else {
-            continue;
-        };
+    let diagnostics_enabled = world.contains_resource::<DiagnosticsRecorder>();
+    let mut reached_root_camera = false;
+    if diagnostics_enabled {
+        let device = world.resource::<RenderDevice>().clone();
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("camera_driver_diagnostic_span"),
+        });
+        world
+            .resource::<DiagnosticsRecorder>()
+            .begin_time_span(&mut encoder, "auxiliary_views".into());
+        world
+            .resource_mut::<PendingCommandBuffers>()
+            .push_encoder(encoder, "camera_driver_span_begin");
+    }
+    let end_time_span = |world: &mut World| {
+        let device = world.resource::<RenderDevice>().clone();
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("camera_driver_diagnostic_span"),
+        });
+        world
+            .resource::<DiagnosticsRecorder>()
+            .end_time_span(&mut encoder);
+        world
+            .resource_mut::<PendingCommandBuffers>()
+            .push_encoder(encoder, "camera_driver_span_end");
+    };
 
-        let schedule = camera.schedule;
-        let target = camera.target.clone();
-
+    for root_view in root_views {
         let mut run_schedule = true;
-        if let Some(NormalizedRenderTarget::Window(window_ref)) = &target {
-            let window_entity = window_ref.entity();
-            let windows = world.resource::<ExtractedWindows>();
-            if windows
-                .windows
-                .get(&window_entity)
-                .is_some_and(|w| w.physical_width > 0 && w.physical_height > 0)
-            {
-                camera_windows.insert(window_entity);
-            } else {
-                run_schedule = false;
+        let (schedule, view_entity);
+
+        match root_view {
+            RootView::Camera {
+                entity: camera_entity,
+                ..
+            } => {
+                if diagnostics_enabled && !reached_root_camera {
+                    reached_root_camera = true;
+                    end_time_span(world);
+                }
+                let Some(camera) = world.get::<ExtractedCamera>(camera_entity) else {
+                    continue;
+                };
+
+                schedule = camera.schedule;
+                let target = camera.target.clone();
+
+                if let Some(NormalizedRenderTarget::Window(window_ref)) = &target {
+                    let window_entity = window_ref.entity();
+
+                    if let Ok(windows) = state.get(world)
+                        && windows
+                            .iter()
+                            .find(|(e, _)| *e == window_entity)
+                            .is_some_and(|(_, w)| w.physical_width > 0 && w.physical_height > 0)
+                    {
+                        camera_windows.insert(window_entity);
+                    } else {
+                        run_schedule = false;
+                    }
+                }
+
+                view_entity = camera_entity;
+            }
+
+            RootView::Auxiliary(auxiliary_view_entity) => {
+                let Some(root_view) = world.get::<RootNonCameraView>(auxiliary_view_entity) else {
+                    continue;
+                };
+
+                view_entity = auxiliary_view_entity;
+                schedule = root_view.0;
             }
         }
 
         if run_schedule {
-            world.insert_resource(CurrentView(camera_entity));
+            world.insert_resource(CurrentView(view_entity));
 
             #[cfg(feature = "trace")]
-            let _span = bevy_log::info_span!(
-                "camera_schedule",
-                camera = format!("Camera {} ({:?})", order, camera_entity)
-            )
-            .entered();
+            let _span =
+                bevy_log::info_span!("camera_schedule", camera = root_view.to_string()).entered();
 
             world.run_schedule(schedule);
         }
     }
+    if diagnostics_enabled && !reached_root_camera {
+        end_time_span(world);
+    }
+
     world.remove_resource::<CurrentView>();
 
     world.insert_resource(CameraWindows(camera_windows));
 }
 
-pub(crate) fn submit_pending_command_buffers(world: &mut World) {
-    let mut pending = world.resource_mut::<PendingCommandBuffers>();
-    let buffer_count = pending.len();
-    let buffers = pending.take();
+/// A view not associated with any other camera.
+enum RootView {
+    /// A camera.
+    Camera { entity: Entity, order: isize },
 
-    if !buffers.is_empty() {
+    /// An auxiliary view not associated with a camera.
+    ///
+    /// This is currently used for point and spot light shadow maps.
+    Auxiliary(Entity),
+}
+
+impl Display for RootView {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match *self {
+            RootView::Camera { entity, order } => write!(f, "Camera {} ({:?})", order, entity),
+            RootView::Auxiliary(entity) => write!(f, "Auxiliary View {:?}", entity),
+        }
+    }
+}
+
+pub(crate) fn submit_pending_command_buffers(
+    world: &mut World,
+    state: &mut SystemState<(ResMut<PendingCommandBuffers>, Res<RenderQueue>)>,
+) {
+    let (mut pending, queue) = state.get_mut(world).unwrap();
+    #[cfg(feature = "trace")]
+    let buffer_count = pending.len();
+    let mut buffers = pending.finish().peekable();
+
+    if buffers.peek().is_some() {
+        #[cfg(feature = "trace")]
         let _span = info_span!("queue_submit", count = buffer_count).entered();
-        let queue = world.resource::<RenderQueue>();
         queue.submit(buffers);
     }
 }
@@ -181,11 +289,12 @@ pub(crate) fn handle_uncovered_swap_chains(world: &mut World) {
         let Some(camera_windows) = world.remove_resource::<CameraWindows>() else {
             return;
         };
-        let windows = world.resource::<ExtractedWindows>();
-        windows
-            .iter()
+
+        world
+            .query::<(MainEntity, &ExtractedWindow)>()
+            .iter(world)
             .filter_map(|(window_entity, window)| {
-                if camera_windows.0.contains(window_entity) {
+                if camera_windows.0.contains(&window_entity.entity()) {
                     return None;
                 }
                 let swap_chain_texture = window.swap_chain_texture_view.as_ref()?;

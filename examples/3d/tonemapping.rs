@@ -17,7 +17,7 @@ use bevy::{
 use std::f32::consts::PI;
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wesl";
 
 fn main() {
     App::new()
@@ -100,7 +100,7 @@ fn setup(
 fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Main scene
     commands.spawn((
-        SceneRoot(asset_server.load(
+        WorldAssetRoot(asset_server.load(
             GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
         )),
         SceneNumber(1),
@@ -108,7 +108,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Flight Helmet
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
@@ -182,7 +182,7 @@ fn setup_image_viewer_scene(
             ..default()
         },
         TextColor(Color::BLACK),
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         Node {
             align_self: AlignSelf::Center,
             margin: UiRect::all(auto()),
@@ -295,7 +295,7 @@ fn toggle_tonemapping_method(
     per_method_settings: Res<PerMethodSettings>,
 ) {
     if keys.just_pressed(KeyCode::Digit1) {
-        **tonemapping = Tonemapping::None;
+        **tonemapping = Tonemapping::Linear;
     } else if keys.just_pressed(KeyCode::Digit2) {
         **tonemapping = Tonemapping::Reinhard;
     } else if keys.just_pressed(KeyCode::Digit3) {
@@ -310,6 +310,8 @@ fn toggle_tonemapping_method(
         **tonemapping = Tonemapping::TonyMcMapface;
     } else if keys.just_pressed(KeyCode::Digit8) {
         **tonemapping = Tonemapping::BlenderFilmic;
+    } else if keys.just_pressed(KeyCode::Digit9) {
+        **tonemapping = Tonemapping::KhronosPbrNeutral;
     }
 
     **color_grading = (*per_method_settings
@@ -434,8 +436,8 @@ fn update_ui(
 
     text.push_str("\n\nTonemapping Method:\n");
     text.push_str(&format!(
-        "(1) {} Disabled\n",
-        if tonemapping == Tonemapping::None {
+        "(1) {} Linear\n",
+        if tonemapping == Tonemapping::Linear {
             ">"
         } else {
             ""
@@ -492,6 +494,14 @@ fn update_ui(
     text.push_str(&format!(
         "(8) {} Blender Filmic\n",
         if tonemapping == Tonemapping::BlenderFilmic {
+            ">"
+        } else {
+            ""
+        }
+    ));
+    text.push_str(&format!(
+        "(9) {} Khronos PBR Neutral\n",
+        if tonemapping == Tonemapping::KhronosPbrNeutral {
             ">"
         } else {
             ""
@@ -580,7 +590,7 @@ impl Default for PerMethodSettings {
         let mut settings = <HashMap<_, _>>::default();
 
         for method in [
-            Tonemapping::None,
+            Tonemapping::Linear,
             Tonemapping::Reinhard,
             Tonemapping::ReinhardLuminance,
             Tonemapping::AcesFitted,
@@ -588,6 +598,7 @@ impl Default for PerMethodSettings {
             Tonemapping::SomewhatBoringDisplayTransform,
             Tonemapping::TonyMcMapface,
             Tonemapping::BlenderFilmic,
+            Tonemapping::KhronosPbrNeutral,
         ] {
             settings.insert(
                 method,

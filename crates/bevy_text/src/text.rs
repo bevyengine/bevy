@@ -1,5 +1,6 @@
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
-use bevy_asset::Handle;
+use crate::{Font, InlineBox, TextBrush, TextError, TextLayoutInfo, TextSection};
+use alloc::borrow::Cow;
+use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
@@ -8,7 +9,8 @@ use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
-use parley::{FontFeature, Layout};
+use parley::setting::Tag;
+use parley::{FontFamily, FontFeature, FontVariation, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::SmolStr;
@@ -38,7 +40,7 @@ pub struct TextEntity {
 pub struct ComputedTextBlock {
     /// Text layout, used to generate [`TextLayoutInfo`].
     #[reflect(ignore, clone)]
-    pub(crate) layout: Layout<(u32, FontSmoothing)>,
+    pub(crate) layout: Layout<TextBrush>,
     /// Entities for all text spans in the block, including the root-level text.
     ///
     /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
@@ -81,7 +83,7 @@ impl Debug for ComputedTextBlock {
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `section_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
@@ -102,7 +104,7 @@ impl ComputedTextBlock {
     }
 
     /// Accesses the shaped layout buffer.
-    pub fn buffer(&self) -> &Layout<(u32, FontSmoothing)> {
+    pub fn buffer(&self) -> &Layout<TextBrush> {
         &self.layout
     }
 }
@@ -144,18 +146,18 @@ impl TextLayout {
     }
 
     /// Makes a new [`TextLayout`] with the specified [`Justify`].
-    pub fn new_with_justify(justify: Justify) -> Self {
+    pub fn justify(justify: Justify) -> Self {
         Self::default().with_justify(justify)
     }
 
     /// Makes a new [`TextLayout`] with the specified [`LineBreak`].
-    pub fn new_with_linebreak(linebreak: LineBreak) -> Self {
+    pub fn linebreak(linebreak: LineBreak) -> Self {
         Self::default().with_linebreak(linebreak)
     }
 
     /// Makes a new [`TextLayout`] with soft wrapping disabled.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
-    pub fn new_with_no_wrap() -> Self {
+    pub fn no_wrap() -> Self {
         Self::default().with_no_wrap()
     }
 
@@ -188,7 +190,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor, LineHeight)]
+#[require(TextFont, TextColor, LineHeight, LetterSpacing)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -198,13 +200,11 @@ impl TextSpan {
     }
 }
 
-impl TextSpanComponent for TextSpan {}
-
-impl TextSpanAccess for TextSpan {
-    fn read_span(&self) -> &str {
+impl TextSection for TextSpan {
+    fn get_text(&self) -> &str {
         self.as_str()
     }
-    fn write_span(&mut self) -> &mut String {
+    fn get_text_mut(&mut self) -> &mut String {
         &mut *self
     }
 }
@@ -265,11 +265,11 @@ impl From<Justify> for parley::Alignment {
     }
 }
 
-#[derive(Clone, Debug, Reflect, PartialEq)]
 /// Determines how the font face for a text sections is selected.
 ///
 /// A [`FontSource`] can be a handle to a font asset, a font family name,
-/// or a generic font category that is resolved using Parley's font database.
+/// a CSS font-family list, an ordered family list, or a generic font category
+/// that is resolved using Parley's font database.
 ///
 /// Font family fallback (selection of a font when the requested font is not found)
 /// is automatically handled by [`parley::fontique`].
@@ -280,6 +280,7 @@ impl From<Justify> for parley::Alignment {
 ///
 /// You can check which font family is used for a given [`FontSource`]
 /// by calling [`FontCx::get_family`](crate::FontCx::get_family).
+#[derive(Clone, Debug, Reflect, PartialEq, FromTemplate)]
 pub enum FontSource {
     /// Use a specific font face referenced by a [`Font`] asset handle.
     ///
@@ -288,13 +289,317 @@ pub enum FontSource {
     ///   `FiraMono-subset.ttf` compiled into the library is used.
     /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
     ///   handle.
+    #[default]
     Handle(Handle<Font>),
     /// Resolve the font by family name using the font database.
     Family(SmolStr),
+    /// Font family list in CSS format.
+    ///
+    /// For example: `"Arial, Noto Sans, sans-serif"`.
+    Families(SmolStr),
+    /// Ordered list of font sources.
+    List(#[template(built_in)] Vec<FontSource>),
+    /// Resolve the font using a generic font family.
+    Generic(GenericFontFamily),
+}
+
+impl FontSource {
+    /// Resolve the font by family name using the font database.
+    pub fn family(family: impl Into<SmolStr>) -> Self {
+        Self::Family(family.into())
+    }
+
+    /// Font family list in CSS format.
+    ///
+    /// For example: `"Arial, 'Noto Sans', sans-serif"`.
+    pub fn families(source: impl Into<SmolStr>) -> Self {
+        Self::Families(source.into())
+    }
+
+    /// Creates an ordered list of font sources.
+    pub fn list<I, F>(list: I) -> Self
+    where
+        I: IntoIterator<Item = F>,
+        F: Into<FontSource>,
+    {
+        Self::List(list.into_iter().map(Into::into).collect())
+    }
+
+    /// Returns a depth-first flattened list of sources, recursively replacing `FontSource::List` entries with their contents.
+    pub fn flatten(&self) -> SmallVec<[&FontSource; 4]> {
+        let mut sources = SmallVec::new();
+        self.flatten_into(&mut sources);
+        sources
+    }
+
+    fn flatten_into<'a>(&'a self, sources: &mut SmallVec<[&'a FontSource; 4]>) {
+        match self {
+            FontSource::List(font_sources) => {
+                for source in font_sources {
+                    source.flatten_into(sources);
+                }
+            }
+            source => sources.push(source),
+        }
+    }
+
     /// Fonts with serifs — small decorative strokes at the ends of letterforms.
     ///
     /// Serif fonts are typically used for long passages of text and represent
     /// a more traditional or formal typographic style.
+    pub const fn serif() -> Self {
+        Self::Generic(GenericFontFamily::Serif)
+    }
+    /// Fonts without serifs.
+    ///
+    /// Sans-serif fonts generally have low stroke contrast and plain stroke
+    /// endings, making them common for UI text and on-screen reading.
+    pub const fn sans_serif() -> Self {
+        Self::Generic(GenericFontFamily::SansSerif)
+    }
+
+    /// Fonts that use a cursive or handwritten style.
+    ///
+    /// Glyphs often resemble connected or flowing pen or brush strokes rather
+    /// than printed letterforms.
+    pub const fn cursive() -> Self {
+        Self::Generic(GenericFontFamily::Cursive)
+    }
+
+    /// Decorative or expressive fonts.
+    ///
+    /// Fantasy fonts are primarily intended for display purposes and may
+    /// prioritize visual style over readability.
+    pub const fn fantasy() -> Self {
+        Self::Generic(GenericFontFamily::Fantasy)
+    }
+
+    /// Fonts in which all glyphs have the same fixed advance width.
+    ///
+    /// Monospace fonts are commonly used for code, tabular data, and text
+    /// where vertical alignment is important.
+    pub const fn monospace() -> Self {
+        Self::Generic(GenericFontFamily::Monospace)
+    }
+
+    /// The default user interface system font.
+    pub const fn system_ui() -> Self {
+        Self::Generic(GenericFontFamily::SystemUi)
+    }
+
+    /// Alternative serif font for user interfaces.
+    pub const fn ui_serif() -> Self {
+        Self::Generic(GenericFontFamily::UiSerif)
+    }
+
+    /// Alternative sans-serif font for user interfaces.
+    pub const fn ui_sans_serif() -> Self {
+        Self::Generic(GenericFontFamily::UiSansSerif)
+    }
+
+    /// Alternative monospace font for user interfaces.
+    pub const fn ui_monospace() -> Self {
+        Self::Generic(GenericFontFamily::UiMonospace)
+    }
+
+    /// Fonts that have rounded features.
+    pub const fn ui_rounded() -> Self {
+        Self::Generic(GenericFontFamily::UiRounded)
+    }
+
+    /// Fonts that are specifically designed to render emoji.
+    pub const fn emoji() -> Self {
+        Self::Generic(GenericFontFamily::Emoji)
+    }
+
+    /// This is for the particular stylistic concerns of representing
+    /// mathematics: superscript and subscript, brackets that cross several
+    /// lines, nesting expressions, and double struck glyphs with distinct
+    /// meanings.
+    pub const fn math() -> Self {
+        Self::Generic(GenericFontFamily::Math)
+    }
+
+    /// A particular style of Chinese characters that are between serif-style
+    /// Song and cursive-style Kai forms. This style is often used for
+    /// government documents.
+    pub const fn fang_song() -> Self {
+        Self::Generic(GenericFontFamily::FangSong)
+    }
+
+    /// Returns true if the `FontSource` is a list-like source (either the `Families` or `List` variant).
+    pub const fn is_list_like(&self) -> bool {
+        matches!(self, FontSource::Families(_) | FontSource::List(_))
+    }
+
+    /// Returns true if this `FontSource` is a `List` that contains at least one list-like source.
+    pub fn is_recursive(&self) -> bool {
+        match self {
+            FontSource::List(font_sources) => font_sources.iter().any(Self::is_list_like),
+            _ => false,
+        }
+    }
+
+    /// Resolve the [`FontSource`] to a Parley [`FontFamily`].
+    pub fn resolve_font_family<'a>(
+        &'a self,
+        fonts: &'a Assets<Font>,
+    ) -> Result<FontFamily<'a>, TextError> {
+        Ok(match self {
+            FontSource::Handle(handle) => {
+                FontFamily::Single(parley::FontFamilyName::Named(Cow::Borrowed(
+                    fonts
+                        .get(handle.id())
+                        .ok_or(TextError::NoSuchFont)?
+                        .alias
+                        .as_str(),
+                )))
+            }
+            FontSource::Family(family) => FontFamily::named(family.as_str()),
+            FontSource::Families(source) => FontFamily::Source(Cow::Borrowed(source.as_str())),
+            FontSource::List(_) => {
+                let font_sources = self.flatten();
+                match font_sources.as_slice() {
+                    [] => FontFamily::List(Cow::Owned(Vec::new())),
+                    [source] => match *source {
+                        FontSource::Handle(handle) => {
+                            FontFamily::Single(parley::FontFamilyName::Named(Cow::Borrowed(
+                                fonts
+                                    .get(handle.id())
+                                    .ok_or(TextError::NoSuchFont)?
+                                    .alias
+                                    .as_str(),
+                            )))
+                        }
+                        FontSource::Family(family) => FontFamily::Single(
+                            parley::FontFamilyName::Named(Cow::Borrowed(family.as_str())),
+                        ),
+                        FontSource::Families(source) => {
+                            FontFamily::Source(Cow::Borrowed(source.as_str()))
+                        }
+                        FontSource::Generic(generic_family) => {
+                            #[cfg(not(feature = "system_font_discovery"))]
+                            bevy_log::error_once!( "A generic FontSource ({generic_family:?}) was used, but the `system_font_discovery` \
+                            feature is not enabled. Text may not render. Enable the feature to allow Bevy \
+                            to discover system fonts.");
+                            FontFamily::Single(parley::FontFamilyName::Generic(
+                                (*generic_family).into(),
+                            ))
+                        }
+                        FontSource::List(_) => {
+                            unreachable!("FontSource::flatten should not return lists")
+                        }
+                    },
+                    _ => {
+                        let mut families = Vec::new();
+                        for source in font_sources.iter().copied() {
+                            match source {
+                                FontSource::Handle(handle) => {
+                                    families.push(parley::FontFamilyName::Named(Cow::Borrowed(
+                                        fonts
+                                            .get(handle.id())
+                                            .ok_or(TextError::NoSuchFont)?
+                                            .alias
+                                            .as_str(),
+                                    )));
+                                }
+                                FontSource::Family(family) => {
+                                    families.push(parley::FontFamilyName::Named(Cow::Borrowed(
+                                        family.as_str(),
+                                    )));
+                                }
+                                FontSource::Families(source) => {
+                                    families.extend(
+                                        parley::FontFamilyName::parse_css_list(source.as_str())
+                                            .map_while(Result::ok),
+                                    );
+                                }
+                                FontSource::List(_) => {
+                                    unreachable!("FontSource::flatten should not return lists")
+                                }
+                                FontSource::Generic(generic_family) => {
+                                    #[cfg(not(feature = "system_font_discovery"))]
+                                    bevy_log::error_once!( "A generic FontSource ({generic_family:?}) was used, but the `system_font_discovery` \
+                                    feature is not enabled. Text may not render. Enable the feature to allow Bevy \
+                                    to discover system fonts.");
+                                    families.push(parley::FontFamilyName::Generic(
+                                        (*generic_family).into(),
+                                    ));
+                                }
+                            }
+                        }
+                        FontFamily::List(Cow::Owned(families))
+                    }
+                }
+            }
+            FontSource::Generic(generic_family) => {
+                #[cfg(not(feature = "system_font_discovery"))]
+                bevy_log::error_once!( "A generic FontSource ({generic_family:?}) was used, but the `system_font_discovery` \
+                feature is not enabled. Text may not render. Enable the feature to allow Bevy \
+                to discover system fonts.");
+                FontFamily::Single(parley::FontFamilyName::Generic((*generic_family).into()))
+            }
+        })
+    }
+}
+
+impl Default for FontSource {
+    fn default() -> Self {
+        Self::Handle(Handle::default())
+    }
+}
+
+impl From<Handle<Font>> for FontSource {
+    fn from(handle: Handle<Font>) -> Self {
+        Self::Handle(handle)
+    }
+}
+
+impl From<&Handle<Font>> for FontSource {
+    fn from(handle: &Handle<Font>) -> Self {
+        Self::Handle(handle.clone())
+    }
+}
+
+impl From<SmolStr> for FontSource {
+    fn from(families: SmolStr) -> Self {
+        FontSource::Families(families)
+    }
+}
+
+impl From<&str> for FontSource {
+    fn from(families: &str) -> Self {
+        FontSource::Families(families.into())
+    }
+}
+
+impl From<GenericFontFamily> for FontSource {
+    fn from(generic: GenericFontFamily) -> Self {
+        Self::Generic(generic)
+    }
+}
+
+impl From<Vec<FontSource>> for FontSource {
+    fn from(list: Vec<FontSource>) -> Self {
+        Self::List(list)
+    }
+}
+
+impl<const N: usize> From<[FontSource; N]> for FontSource {
+    fn from(list: [FontSource; N]) -> Self {
+        Self::List(list.into())
+    }
+}
+
+/// Generic font families that are resolved through Parley's font database.
+#[derive(Default, Clone, Copy, Debug, Reflect, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum GenericFontFamily {
+    /// Fonts with serifs — small decorative strokes at the ends of letterforms.
+    ///
+    /// Serif fonts are typically used for long passages of text and represent
+    /// a more traditional or formal typographic style.
+    #[default]
     Serif,
     /// Fonts without serifs.
     ///
@@ -320,7 +625,7 @@ pub enum FontSource {
     SystemUi,
     /// Alternative serif font for user interfaces.
     UiSerif,
-    /// Alternative sans-erif font for user interfaces.
+    /// Alternative sans-serif font for user interfaces.
     UiSansSerif,
     /// Alternative monospace font for user interfaces.
     UiMonospace,
@@ -339,45 +644,38 @@ pub enum FontSource {
     FangSong,
 }
 
-impl Default for FontSource {
-    fn default() -> Self {
-        Self::Handle(Handle::default())
-    }
-}
-
-impl From<Handle<Font>> for FontSource {
-    fn from(handle: Handle<Font>) -> Self {
-        Self::Handle(handle)
-    }
-}
-
-impl From<&Handle<Font>> for FontSource {
-    fn from(handle: &Handle<Font>) -> Self {
-        Self::Handle(handle.clone())
-    }
-}
-
-impl From<SmolStr> for FontSource {
-    fn from(family: SmolStr) -> Self {
-        FontSource::Family(family)
-    }
-}
-
-impl From<&str> for FontSource {
-    fn from(family: &str) -> Self {
-        FontSource::Family(family.into())
+impl From<GenericFontFamily> for parley::GenericFamily {
+    fn from(generic: GenericFontFamily) -> Self {
+        match generic {
+            GenericFontFamily::Serif => Self::Serif,
+            GenericFontFamily::SansSerif => Self::SansSerif,
+            GenericFontFamily::Cursive => Self::Cursive,
+            GenericFontFamily::Fantasy => Self::Fantasy,
+            GenericFontFamily::Monospace => Self::Monospace,
+            GenericFontFamily::SystemUi => Self::SystemUi,
+            GenericFontFamily::UiSerif => Self::UiSerif,
+            GenericFontFamily::UiSansSerif => Self::UiSansSerif,
+            GenericFontFamily::UiMonospace => Self::UiMonospace,
+            GenericFontFamily::UiRounded => Self::UiRounded,
+            GenericFontFamily::Emoji => Self::Emoji,
+            GenericFontFamily::Math => Self::Math,
+            GenericFontFamily::FangSong => Self::FangSong,
+        }
     }
 }
 
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, the line height, and the antialiasing method.
-#[derive(Component, Clone, Debug, Reflect, PartialEq)]
+#[derive(Component, Clone, Debug, Reflect, PartialEq, FromTemplate)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
     /// Specifies the font face used for this text section.
     ///
     /// A `FontSource` can be a handle to a font asset, a font family name,
-    /// or a generic font category that is resolved using Cosmic Text's font database.
+    /// a CSS font-family list, an ordered family list, or a generic font category
+    /// that is resolved using Parley's
+    /// [`FontContext`](`parley::FontContext`) which is accessible through the
+    /// [`FontCx`](`crate::FontCx`) resource.
     pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
@@ -402,6 +700,8 @@ pub struct TextFont {
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
     pub font_features: FontFeatures,
+    /// OpenType variations for variable fonts that support them.
+    pub font_variations: FontVariations,
 }
 
 impl TextFont {
@@ -459,11 +759,12 @@ impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            font_size: FontSize::from(20.),
+            font_size: FontSize::Rem(1.),
             style: FontStyle::Normal,
             weight: FontWeight::NORMAL,
             width: FontWidth::NORMAL,
             font_features: FontFeatures::default(),
+            font_variations: FontVariations::default(),
             font_smoothing: Default::default(),
         }
     }
@@ -501,7 +802,7 @@ impl FontSize {
         // Viewport size in logical pixels
         logical_viewport_size: Vec2,
         // Base Rem size in logical pixels
-        rem_size: f32,
+        rem_size: RemSize,
     ) -> f32 {
         match self {
             FontSize::Px(s) => s,
@@ -509,7 +810,7 @@ impl FontSize {
             FontSize::Vh(s) => logical_viewport_size.y * s / 100.,
             FontSize::VMin(s) => logical_viewport_size.min_element() * s / 100.,
             FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
-            FontSize::Rem(s) => rem_size * s,
+            FontSize::Rem(s) => rem_size.0 * s,
         }
     }
 }
@@ -563,13 +864,53 @@ impl From<f32> for FontSize {
     }
 }
 
-/// Base value used to resolve `Rem` units for font sizes.
-#[derive(Resource, Copy, Clone, Debug, PartialEq, Deref, DerefMut)]
+/// Default [`RemSize`] and [`EmSize`], in logical pixels
+pub const DEFAULT_REM_SIZE_PX: f32 = 20.0;
+
+/// The root font size, in logical pixels.
+///
+/// `Rem` units always resolve against this one global resource, including
+/// `FontSize::Rem`, `LetterSpacing::Rem` and `Val::Rem`.
+#[derive(Resource, Copy, Clone, Debug, PartialEq, Deref, DerefMut, Reflect)]
 pub struct RemSize(pub f32);
 
 impl Default for RemSize {
     fn default() -> Self {
-        Self(20.)
+        Self(DEFAULT_REM_SIZE_PX)
+    }
+}
+
+/// The font size, in logical pixels, used to resolve `Val::Em` values in a UI node.
+///
+/// `Em` units are relative to the font size of the node they sit on, and this is that
+/// font size made concrete. Required by `Node`, so every UI node has one.
+///
+/// If the node has a `TextFont`, the `EmSize` is derived from it whenever the `TextFont`,
+/// `RemSize` or render-target info changes; until then any value you place on it persists.
+/// If it does not have a `TextFont`, the value is yours to set, for example by an app-level
+/// propagation system. `EmSize` defaults to [`DEFAULT_REM_SIZE_PX`], which matches the default
+/// [`RemSize`] but does not track changes to it. Use `Val::Rem` instead for values that
+/// should follow the root font size.
+///
+/// Removing a `TextFont` leaves the last derived value in place.
+#[derive(Debug, PartialEq, Clone, Copy, Reflect, Component)]
+#[reflect(Default, PartialEq, Debug, Clone, Component)]
+pub struct EmSize(pub f32);
+
+impl Default for EmSize {
+    fn default() -> Self {
+        EmSize(DEFAULT_REM_SIZE_PX)
+    }
+}
+
+impl EmSize {
+    /// Resolves a [`FontSize`] to a concrete [`EmSize`] in logical pixels.
+    pub fn from_font_size(
+        font_size: FontSize,
+        logical_viewport_size: Vec2,
+        rem_size: RemSize,
+    ) -> Self {
+        EmSize(font_size.eval(logical_viewport_size, rem_size))
     }
 }
 
@@ -649,37 +990,38 @@ impl From<FontWeight> for parley::style::FontWeight {
     }
 }
 
+/// The visual width of a font as a ratio of its normal width, typically 0.5 to 2.0.
 /// `<https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>`
-#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash, Reflect)]
-pub struct FontWidth(u16);
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Reflect)]
+pub struct FontWidth(pub f32);
 
 impl FontWidth {
     /// 50% of normal width.
-    pub const ULTRA_CONDENSED: Self = Self(1);
+    pub const ULTRA_CONDENSED: Self = Self(0.5);
 
     /// 62.5% of normal width.
-    pub const EXTRA_CONDENSED: Self = Self(2);
+    pub const EXTRA_CONDENSED: Self = Self(0.625);
 
     /// 75% of normal width.
-    pub const CONDENSED: Self = Self(3);
+    pub const CONDENSED: Self = Self(0.75);
 
     /// 87.5% of normal width.
-    pub const SEMI_CONDENSED: Self = Self(4);
+    pub const SEMI_CONDENSED: Self = Self(0.875);
 
     /// 100% of normal width. This is the default.
-    pub const NORMAL: Self = Self(5);
+    pub const NORMAL: Self = Self(1.0);
 
     /// 112.5% of normal width.
-    pub const SEMI_EXPANDED: Self = Self(6);
+    pub const SEMI_EXPANDED: Self = Self(1.125);
 
     /// 125% of normal width.
-    pub const EXPANDED: Self = Self(7);
+    pub const EXPANDED: Self = Self(1.25);
 
     /// 150% of normal width.
-    pub const EXTRA_EXPANDED: Self = Self(8);
+    pub const EXTRA_EXPANDED: Self = Self(1.5);
 
     /// 200% of normal width.
-    pub const ULTRA_EXPANDED: Self = Self(9);
+    pub const ULTRA_EXPANDED: Self = Self(2.0);
 }
 
 impl Default for FontWidth {
@@ -690,17 +1032,7 @@ impl Default for FontWidth {
 
 impl From<FontWidth> for parley::FontWidth {
     fn from(value: FontWidth) -> Self {
-        match value.0 {
-            1 => parley::FontWidth::ULTRA_CONDENSED,
-            2 => parley::FontWidth::EXTRA_CONDENSED,
-            3 => parley::FontWidth::CONDENSED,
-            4 => parley::FontWidth::SEMI_CONDENSED,
-            6 => parley::FontWidth::SEMI_EXPANDED,
-            7 => parley::FontWidth::EXPANDED,
-            8 => parley::FontWidth::EXTRA_EXPANDED,
-            9 => parley::FontWidth::ULTRA_EXPANDED,
-            _ => parley::FontWidth::NORMAL,
-        }
+        parley::FontWidth::from_ratio(value.0)
     }
 }
 
@@ -714,7 +1046,7 @@ pub enum FontStyle {
     Italic,
     /// A typically sloped version of the regular face.
     ///
-    /// The contained f32 is the slant angle of the text, in degrees.
+    /// The contained `f32` is the slant angle of the text, in degrees.
     Oblique(Option<f32>),
 }
 
@@ -898,15 +1230,111 @@ where
     }
 }
 
-impl From<&FontFeatures> for parley::style::FontSettings<'static, FontFeature> {
+impl From<&FontFeatures> for parley::style::FontFeatures<'static> {
     fn from(font_features: &FontFeatures) -> Self {
-        parley::style::FontSettings::List(
+        parley::style::FontFeatures::List(
             font_features
                 .features
                 .iter()
                 .map(|(tag, value)| FontFeature {
-                    tag: u32::from_be_bytes(tag.0),
+                    tag: Tag::new(&tag.0),
                     value: *value as u16,
+                })
+                .collect(),
+        )
+    }
+}
+
+/// An OpenType font variation tag.
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+pub struct FontVariationTag([u8; 4]);
+
+impl FontVariationTag {
+    /// Varies the stroke thickness. The range is typically 1 to 1000.
+    pub const WEIGHT: FontVariationTag = FontVariationTag::new(b"wght");
+
+    /// Varies the width of glyphs from narrower to wider. The range is typically 50 to 200 with
+    /// 100 being standard width.
+    pub const WIDTH: FontVariationTag = FontVariationTag::new(b"wdth");
+
+    /// Varies between upright and slanted glyphs. The range is typically between -90 and +90 degrees,
+    /// where 0 is upright.
+    pub const SLANT: FontVariationTag = FontVariationTag::new(b"slnt");
+
+    /// Varies the design of glyphs for different optical sizes (physical font size).
+    /// The range is typically 6 to 72.
+    pub const OPTICAL_SIZE: FontVariationTag = FontVariationTag::new(b"opsz");
+
+    /// Create a new [`FontVariationTag`] from raw bytes.
+    pub const fn new(src: &[u8; 4]) -> Self {
+        Self(*src)
+    }
+}
+
+impl Debug for FontVariationTag {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match from_utf8(&self.0) {
+            Ok(s) => write!(f, "FontVariationTag(\"{}\")", s),
+            Err(_) => write!(f, "FontVariationTag({:?})", self.0),
+        }
+    }
+}
+
+/// OpenType font variations for variable fonts that support them.
+///
+/// Variable fonts expose named axes (e.g. `wght`, `FILL`) that accept continuous `f32` values.
+/// This is distinct from [`FontFeatures`], which mainly controls on/off OpenType layout features.
+///
+/// # Usage
+/// ```
+/// use bevy_text::{FontVariationTag, FontVariations};
+///
+/// let variations = FontVariations::builder()
+///     .set(FontVariationTag::WEIGHT, 400.0)
+///     .build();
+/// ```
+#[derive(Clone, Debug, Default, Reflect, PartialEq)]
+pub struct FontVariations {
+    variations: Vec<(FontVariationTag, f32)>,
+}
+
+impl FontVariations {
+    /// Create a new [`FontVariationsBuilder`].
+    pub fn builder() -> FontVariationsBuilder {
+        FontVariationsBuilder::default()
+    }
+}
+
+/// A builder for [`FontVariations`].
+#[derive(Clone, Default)]
+pub struct FontVariationsBuilder {
+    variations: Vec<(FontVariationTag, f32)>,
+}
+
+impl FontVariationsBuilder {
+    /// Set a font variation to a specific value.
+    pub fn set(mut self, tag: FontVariationTag, value: f32) -> Self {
+        self.variations.push((tag, value));
+        self
+    }
+
+    /// Build a [`FontVariations`] from the values set within this builder.
+    pub fn build(self) -> FontVariations {
+        FontVariations {
+            variations: self.variations,
+        }
+    }
+}
+
+impl From<&FontVariations> for parley::style::FontVariations<'static> {
+    fn from(font_variations: &FontVariations) -> Self {
+        parley::style::FontVariations::List(
+            font_variations
+                .variations
+                .iter()
+                .map(|(tag, value)| FontVariation {
+                    tag: Tag::new(&tag.0),
+                    value: *value,
                 })
                 .collect(),
         )
@@ -926,7 +1354,8 @@ pub enum LineHeight {
 }
 
 impl LineHeight {
-    pub(crate) fn eval(self, _font_size: f32) -> parley::LineHeight {
+    /// eval a line height
+    pub fn eval(self) -> parley::LineHeight {
         match self {
             LineHeight::Px(px) => parley::LineHeight::Absolute(px),
             LineHeight::RelativeToFont(scale) => parley::LineHeight::FontSizeRelative(scale),
@@ -937,6 +1366,36 @@ impl LineHeight {
 impl Default for LineHeight {
     fn default() -> Self {
         LineHeight::RelativeToFont(1.2)
+    }
+}
+
+/// Specifies the space between each letter of text for `Text` and `Text2d`
+///
+/// Default is 0
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+pub enum LetterSpacing {
+    /// Set letter spacing to a specific number of logical pixels
+    Px(f32),
+    /// Set letter spacing to a multiple of the root font size ([`RemSize`])
+    Rem(f32),
+}
+
+impl LetterSpacing {
+    /// Evaluate a [`LetterSpacing`] into logical pixels either
+    /// because it specifies them directly or using the global
+    /// [`RemSize`] resource.
+    pub(crate) fn eval(self, rem_size: RemSize) -> f32 {
+        match self {
+            LetterSpacing::Px(px) => px,
+            LetterSpacing::Rem(rem) => rem * rem_size.0,
+        }
+    }
+}
+
+impl Default for LetterSpacing {
+    fn default() -> Self {
+        Self::Px(0.0)
     }
 }
 
@@ -1091,7 +1550,8 @@ pub enum FontHinting {
 }
 
 impl FontHinting {
-    pub(crate) fn should_hint(self) -> bool {
+    /// Returns true if font hinting is enabled.
+    pub fn is_enabled(self) -> bool {
         matches!(self, FontHinting::Enabled)
     }
 }
@@ -1107,6 +1567,7 @@ pub fn detect_text_needs_rerender(
                 Changed<TextFont>,
                 Changed<TextLayout>,
                 Changed<LineHeight>,
+                Changed<LetterSpacing>,
                 Changed<Children>,
             )>,
             With<TextFont>,
@@ -1118,14 +1579,15 @@ pub fn detect_text_needs_rerender(
         (
             Or<(
                 Changed<TextSpan>,
+                Changed<InlineBox>,
                 Changed<TextFont>,
                 Changed<LineHeight>,
+                Changed<LetterSpacing>,
                 Changed<Children>,
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
             )>,
-            With<TextSpan>,
-            With<TextFont>,
+            Or<((With<TextSpan>, With<TextFont>), With<InlineBox>)>,
         ),
     >,
     mut computed: Query<(
@@ -1154,14 +1616,14 @@ pub fn detect_text_needs_rerender(
     // - Span children changed (can include additions and removals).
     for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
         if has_text_block {
-            once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
+            once!(warn!("found entity {} with a TextSpan or InlineBox that has a TextLayout, which should only be on root \
                 text entities; this warning only prints once",
                 entity));
         }
 
         let Some(span_child_of) = maybe_span_child_of else {
             once!(warn!(
-                "found entity {} with a TextSpan that has no parent; it should have an ancestor \
+                "found entity {} with a TextSpan or InlineBox that has no parent; it should have an ancestor \
                 with a root text component; this warning only prints once",
                 entity
             ));
@@ -1174,7 +1636,7 @@ pub fn detect_text_needs_rerender(
         // is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_child_of, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
+                once!(warn!("found entity {} with a TextSpan or InlineBox that is part of a broken hierarchy with a ChildOf \
                     component that points at non-existent entity {}; this warning only prints once",
                     entity, parent));
                 break;
@@ -1184,14 +1646,14 @@ pub fn detect_text_needs_rerender(
                 break;
             }
             if !has_span {
-                once!(warn!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
+                once!(warn!("found entity {} with a TextSpan or InlineBox that has an ancestor ({}) that does not have a text \
                 span component or a ComputedTextBlock component; this warning only prints once",
                     entity, parent));
                 break;
             }
             let Some(next_child_of) = maybe_child_of else {
                 once!(warn!(
-                    "found entity {} with a TextSpan that has no ancestor with the root text \
+                    "found entity {} with a TextSpan or InlineBox that has no ancestor with the root text \
                     component; this warning only prints once",
                     entity
                 ));
@@ -1199,5 +1661,91 @@ pub fn detect_text_needs_rerender(
             };
             parent = next_child_of.parent();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_asset::Assets;
+
+    use crate::Font;
+
+    use super::*;
+
+    #[test]
+    fn flattening_single_font_source_returns_source() {
+        let source = FontSource::Family("Fira Mono".into());
+
+        assert_eq!(source.flatten().into_iter().collect::<Vec<_>>(), [&source]);
+    }
+
+    #[test]
+    fn flattening_lists_preserves_list_order() {
+        let list = vec![
+            FontSource::family("Fira Mono"),
+            FontSource::sans_serif(),
+            FontSource::families("Garamond, Mona Sans"),
+        ];
+
+        assert_eq!(
+            FontSource::List(list.clone())
+                .flatten()
+                .into_iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            list
+        );
+    }
+
+    #[test]
+    fn font_source_flatten_recursively_flattens_lists() {
+        let source = FontSource::list([
+            FontSource::family("Fira Sans"),
+            FontSource::List(vec![
+                FontSource::emoji(),
+                FontSource::List(Vec::new()),
+                FontSource::families("Mona Sans, Garamond"),
+                FontSource::List(vec![FontSource::fantasy(), FontSource::ui_monospace()]),
+            ]),
+            FontSource::family("Fira Mono"),
+        ]);
+
+        assert_eq!(
+            source.flatten().into_iter().cloned().collect::<Vec<_>>(),
+            [
+                FontSource::Family("Fira Sans".into()),
+                FontSource::emoji(),
+                FontSource::families("Mona Sans, Garamond"),
+                FontSource::fantasy(),
+                FontSource::ui_monospace(),
+                FontSource::family("Fira Mono"),
+            ]
+        );
+    }
+
+    #[test]
+    fn empty_font_source_list_is_empty_and_resolves_to_empty_family_list() {
+        let list = FontSource::List(Vec::new());
+        assert!(list.flatten().is_empty());
+        assert_eq!(
+            list.resolve_font_family(&Assets::<Font>::default()),
+            Ok(FontFamily::List(Cow::Owned(Vec::new())))
+        );
+    }
+
+    #[test]
+    fn singleton_font_source_list_resolves_handle_to_single_family() {
+        let mut dummy_font = Font::from_bytes(Vec::new());
+        dummy_font.alias = "Dummy Font".to_string();
+        let mut fonts = Assets::<Font>::default();
+        let dummy_font_handle = fonts.add(dummy_font.clone());
+        let source = FontSource::list([FontSource::from(dummy_font_handle)]);
+
+        assert_eq!(
+            source.resolve_font_family(&fonts),
+            Ok(FontFamily::Single(parley::FontFamilyName::Named(
+                Cow::Borrowed("Dummy Font")
+            )))
+        );
     }
 }

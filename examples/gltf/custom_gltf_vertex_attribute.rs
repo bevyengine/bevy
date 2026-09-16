@@ -7,11 +7,11 @@ use bevy::{
     reflect::TypePath,
     render::render_resource::*,
     shader::ShaderRef,
-    sprite_render::{Material2d, Material2dKey, Material2dPlugin},
+    sprite_render::{Material2d, Material2dKey, Material2dPipeline, Material2dPlugin},
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wesl";
 
 /// This vertex attribute supplies barycentric coordinates for each triangle.
 ///
@@ -80,6 +80,7 @@ impl Material2d for CustomMaterial {
     }
 
     fn specialize(
+        _pipeline: &Material2dPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayoutRef,
         _key: Material2dKey<Self>,

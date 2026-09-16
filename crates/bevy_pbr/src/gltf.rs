@@ -1,5 +1,5 @@
 use bevy_gltf::{
-    extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+    extensions::{ErasedGltfExtensionHandler, GltfExtensionHandler, GltfExtensionHandlers},
     gltf, GltfAssetLabel, GltfMaterial,
 };
 
@@ -70,6 +70,10 @@ pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> Standard
         #[cfg(feature = "pbr_specular_textures")]
         specular_tint_texture: material.specular_tint_texture.clone(),
         clearcoat: material.clearcoat,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_channel: material.clearcoat_channel.clone(),
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_texture: material.clearcoat_texture.clone(),
         clearcoat_perceptual_roughness: material.clearcoat_perceptual_roughness,
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         clearcoat_roughness_channel: material.clearcoat_roughness_channel.clone(),
@@ -98,10 +102,15 @@ pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> Standard
 struct GltfExtensionHandlerPbr;
 
 impl GltfExtensionHandler for GltfExtensionHandlerPbr {
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
         Box::new((*self).clone())
     }
-    fn on_root(&mut self, load_context: &mut LoadContext<'_>, _gltf: &gltf::Gltf) {
+    fn on_root(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        _gltf: &gltf::Gltf,
+        _settings: &bevy_gltf::GltfLoaderSettings,
+    ) {
         // create the `StandardMaterial` for the glTF `DefaultMaterial` so
         // it can be accessed when meshes don't have materials.
         let std_label = format!("{}/std", GltfAssetLabel::DefaultMaterial);

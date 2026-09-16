@@ -34,6 +34,8 @@ fn main() {
             OnEnter(Scene::TextureAtlasBuilder),
             texture_atlas_builder::setup,
         )
+        .add_systems(OnEnter(Scene::ColorConsistency), color_consistency::setup)
+        .add_systems(OnExit(Scene::ColorConsistency), color_consistency::teardown)
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
 
@@ -48,7 +50,7 @@ fn main() {
     app.run();
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
 enum Scene {
     #[default]
     Shapes,
@@ -58,6 +60,20 @@ enum Scene {
     SpriteSlicing,
     Gizmos,
     TextureAtlasBuilder,
+    ColorConsistency,
+}
+
+impl Scene {
+    const ALL_ORDERED: &'static [Scene] = &[
+        Scene::Shapes,
+        Scene::Bloom,
+        Scene::Text,
+        Scene::Sprite,
+        Scene::SpriteSlicing,
+        Scene::Gizmos,
+        Scene::TextureAtlasBuilder,
+        Scene::ColorConsistency,
+    ];
 }
 
 impl std::str::FromStr for Scene {
@@ -77,15 +93,12 @@ impl std::str::FromStr for Scene {
 
 impl Next for Scene {
     fn next(&self) -> Self {
-        match self {
-            Scene::Shapes => Scene::Bloom,
-            Scene::Bloom => Scene::Text,
-            Scene::Text => Scene::Sprite,
-            Scene::Sprite => Scene::SpriteSlicing,
-            Scene::SpriteSlicing => Scene::Gizmos,
-            Scene::Gizmos => Scene::TextureAtlasBuilder,
-            Scene::TextureAtlasBuilder => Scene::Shapes,
-        }
+        Scene::ALL_ORDERED[(Scene::ALL_ORDERED
+            .iter()
+            .position(|scene| scene == self)
+            .unwrap()
+            + 1)
+            % Scene::ALL_ORDERED.len()]
     }
 }
 
@@ -256,7 +269,7 @@ mod text {
         ] {
             let mut text = commands.spawn((
                 Text2d::new("L R\n"),
-                TextLayout::new_with_justify(justify),
+                TextLayout::justify(justify),
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
                 DespawnOnExit(super::Scene::Text),
@@ -352,7 +365,7 @@ mod sprite_slicing {
                 custom_size: Some(Vec2::new(200.0, 200.0)),
                 ..default()
             },
-            Transform::from_translation(Vec3::new(150.0, 50.0, 0.0)),
+            Transform::from_translation(Vec3::new(150.0, 50.0, 1.0)),
             DespawnOnExit(super::Scene::SpriteSlicing),
         ));
 
@@ -541,5 +554,80 @@ mod texture_atlas_builder {
                 ));
             }
         }
+    }
+}
+
+mod color_consistency {
+    //! Visual regression test for <https://github.com/bevyengine/bevy/issues/23577>.
+    //!
+    //! The clear color and shapes rendered using different pipelines (sprites,
+    //! 2D meshes, UI background) should produce identical pixel values for the
+    //! same sRGB input color.
+    //!
+    //! If the color conversion paths are consistent, the entire window will appear
+    //! as a uniform solid color with no visible boundaries between the strips.
+
+    use bevy::{core_pipeline::tonemapping::Tonemapping, prelude::*};
+
+    // We've chosen the sRGB value from issue #23577, in case it can be reproduced elsewhere.
+    const TEST_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
+    const DEFAULT_WIDTH: f32 = 1280.0;
+    const DEFAULT_HEIGHT: f32 = 720.0;
+    const STRIP_WIDTH: f32 = DEFAULT_WIDTH / 3.0;
+    const STRIP_HEIGHT: f32 = DEFAULT_HEIGHT / 3.0;
+
+    pub fn setup(
+        mut commands: Commands,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<ColorMaterial>>,
+    ) {
+        // The window background is drawn with the clear color.
+        commands.insert_resource(ClearColor(TEST_COLOR));
+
+        // Make sure there's no tonemapping
+        commands.spawn((
+            Camera2d,
+            Tonemapping::None,
+            DespawnOnExit(super::Scene::ColorConsistency),
+        ));
+
+        // Top third for sprites
+        commands.spawn((
+            Sprite {
+                color: TEST_COLOR,
+                custom_size: Some(Vec2::new(STRIP_WIDTH, STRIP_HEIGHT)),
+                ..default()
+            },
+            Transform::from_xyz(0.0, STRIP_HEIGHT, 0.0),
+            DespawnOnExit(super::Scene::ColorConsistency),
+        ));
+
+        // Middle third for 2D meshes
+        commands.spawn((
+            Mesh2d(meshes.add(Rectangle::new(STRIP_WIDTH, STRIP_HEIGHT))),
+            MeshMaterial2d(materials.add(ColorMaterial::from_color(TEST_COLOR))),
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            DespawnOnExit(super::Scene::ColorConsistency),
+        ));
+
+        // Bottom third for UI nodes
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(0.0),
+                left: Val::Px(0.0),
+                width: Val::Percent(33.3),
+                height: Val::Px(STRIP_HEIGHT),
+                ..default()
+            },
+            BackgroundColor(TEST_COLOR),
+            DespawnOnExit(super::Scene::ColorConsistency),
+        ));
+    }
+
+    // Remember to reset the clear color
+    // Tonemapping is per-camera, and is reset when the camera despawns
+    pub fn teardown(mut commands: Commands) {
+        commands.insert_resource(ClearColor::default());
     }
 }

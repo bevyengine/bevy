@@ -37,19 +37,17 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{resource::Resource, schedule::IntoScheduleConfigs as _};
 use bevy_light::FogVolume;
-use bevy_math::{
-    primitives::{Cuboid, Plane3d},
-    Vec2, Vec3,
-};
+use bevy_math::{Vec2, Vec3};
 use bevy_mesh::{Mesh, Meshable};
 use bevy_render::{
     render_resource::SpecializedRenderPipelines,
     sync_component::{SyncComponent, SyncComponentPlugin},
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shape::{Cuboid, Plane3d};
 use render::{volumetric_fog, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
-use crate::{volumetric_fog::render::init_volumetric_fog_pipeline, MeshPipelineSet};
+use crate::{volumetric_fog::render::init_volumetric_fog_pipeline, MeshPipelineSystems};
 
 pub mod render;
 
@@ -64,7 +62,7 @@ pub struct FogAssets {
 
 impl Plugin for VolumetricFogPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "volumetric_fog.wgsl");
+        embedded_asset!(app, "volumetric_fog.wesl");
 
         let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
         let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh());
@@ -81,11 +79,11 @@ impl Plugin for VolumetricFogPlugin {
                 plane_mesh,
                 cube_mesh,
             })
-            .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
-            .init_resource::<VolumetricFogUniformBuffer>()
+            .init_gpu_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
+            .init_gpu_resource::<VolumetricFogUniformBuffer>()
             .add_systems(
                 RenderStartup,
-                init_volumetric_fog_pipeline.after(MeshPipelineSet),
+                init_volumetric_fog_pipeline.after(MeshPipelineSystems),
             )
             .add_systems(ExtractSchedule, render::extract_volumetric_fog)
             .add_systems(
@@ -102,11 +100,11 @@ impl Plugin for VolumetricFogPlugin {
                 Core3d,
                 volumetric_fog
                     .after(Core3dSystems::MainPass)
-                    .before(Core3dSystems::PostProcess),
+                    .before(Core3dSystems::EarlyPostProcess),
             );
     }
 }
 
-impl SyncComponent<VolumetricFogPlugin> for FogVolume {
-    type Out = Self;
+impl SyncComponent<RenderApp, VolumetricFogPlugin> for FogVolume {
+    type Target = Self;
 }

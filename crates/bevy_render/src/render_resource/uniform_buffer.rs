@@ -195,7 +195,7 @@ impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
     }
 }
 
-impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
+impl<T: ShaderType> DynamicUniformBuffer<T> {
     pub fn new_with_alignment(alignment: u64) -> Self {
         Self {
             scratch: DynamicUniformBufferWrapper::new_with_alignment(Vec::new(), alignment),
@@ -224,12 +224,6 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.scratch.as_ref().is_empty()
-    }
-
-    /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM).
-    #[inline]
-    pub fn push(&mut self, value: &T) -> u32 {
-        self.scratch.write(value).unwrap() as u32
     }
 
     pub fn set_label(&mut self, label: Option<&str>) {
@@ -307,9 +301,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         }
 
         if let Some(buffer) = self.buffer.as_deref() {
-            let buffer_view = queue
-                .write_buffer_with(buffer, 0, NonZero::<u64>::new(buffer.size())?)
-                .unwrap();
+            let buffer_view =
+                queue.write_buffer_with(buffer, 0, NonZero::<u64>::new(buffer.size())?)?;
             Some(DynamicUniformBufferWriter {
                 buffer: encase::DynamicUniformBuffer::new_with_alignment(
                     QueueWriteBufferViewWrapper {
@@ -354,6 +347,14 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     }
 }
 
+impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
+    /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM).
+    #[inline]
+    pub fn push(&mut self, value: &T) -> u32 {
+        self.scratch.write(value).unwrap() as u32
+    }
+}
+
 /// A writer that can be used to directly write elements into the target buffer.
 ///
 /// For more information, see [`DynamicUniformBuffer::get_writer`].
@@ -385,12 +386,16 @@ impl BufferMut for QueueWriteBufferViewWrapper {
 
     #[inline]
     fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
-        self.buffer_view.write(offset, val);
+        self.buffer_view
+            .slice(offset..offset + val.len())
+            .copy_from_slice(val);
     }
 
     #[inline]
     fn write_slice(&mut self, offset: usize, val: &[u8]) {
-        self.buffer_view.write_slice(offset, val);
+        self.buffer_view
+            .slice(offset..offset + val.len())
+            .copy_from_slice(val);
     }
 }
 

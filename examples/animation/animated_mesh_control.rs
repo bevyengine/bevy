@@ -4,7 +4,7 @@ use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
     animation::RepeatAnimation, light::CascadeShadowConfigBuilder, prelude::*,
-    scene::SceneInstanceReady,
+    world_serialization::WorldInstanceReady,
 };
 
 const FOX_PATH: &str = "models/animated/Fox.glb";
@@ -127,7 +127,7 @@ fn spawn_fox_asset_when_ready(
 
     // Fox
     commands
-        .spawn(SceneRoot(
+        .spawn(WorldAssetRoot(
             fox.default_scene
                 .clone()
                 .expect("a default scene exists in this file"),
@@ -137,10 +137,10 @@ fn spawn_fox_asset_when_ready(
 
 // An `AnimationPlayer` is automatically added to the scene when loading the
 // glTF file, so it already exists on the appropriate entity when
-// `SceneInstanceReady` fires. There will be only one player in this example,
+// `WorldInstanceReady` fires. There will be only one player in this example,
 // so we use `Single`.
 fn setup_scene(
-    _ready: On<SceneInstanceReady>,
+    _ready: On<WorldInstanceReady>,
     mut commands: Commands,
     animations: Res<Animations>,
     player: Single<(Entity, &mut AnimationPlayer)>,

@@ -105,10 +105,10 @@ pub fn dds_buffer_to_image(
     image.data = if let Some(transcode_format) = transcode_format {
         match transcode_format {
             TranscodeFormat::Rgb8 => {
-                let data = dds
-                    .data
-                    .chunks_exact(3)
-                    .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], u8::MAX])
+                let (chunks, _) = dds.data.as_chunks();
+                let data = chunks
+                    .iter()
+                    .flat_map(|&[r, g, b]| [r, g, b, u8::MAX])
                     .collect();
                 Some(data)
             }
@@ -348,18 +348,10 @@ mod test {
         let (block_width, block_height) = desc.format.block_dimensions();
         let layer_iterations = desc.array_layer_count();
 
-        let outer_iteration;
-        let inner_iteration;
-        match TextureDataOrder::default() {
-            TextureDataOrder::LayerMajor => {
-                outer_iteration = layer_iterations;
-                inner_iteration = desc.mip_level_count;
-            }
-            TextureDataOrder::MipMajor => {
-                outer_iteration = desc.mip_level_count;
-                inner_iteration = layer_iterations;
-            }
-        }
+        let (outer_iteration, inner_iteration) = match TextureDataOrder::default() {
+            TextureDataOrder::LayerMajor => (layer_iterations, desc.mip_level_count),
+            TextureDataOrder::MipMajor => (desc.mip_level_count, layer_iterations),
+        };
 
         let mut binary_offset = 0;
         for outer in 0..outer_iteration {

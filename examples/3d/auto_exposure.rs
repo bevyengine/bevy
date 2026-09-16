@@ -12,12 +12,14 @@
 //! | `V`                | Visualize Metering Mask                |
 
 use bevy::{
+    curve::cubic_splines::LinearSpline,
     light::Skybox,
-    math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
+    math::vec2,
     post_process::auto_exposure::{
         AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin,
     },
     prelude::*,
+    shape::Plane3d,
 };
 
 fn main() {
@@ -46,7 +48,7 @@ fn setup(
             ..default()
         },
         Skybox {
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             brightness: light_consts::lux::DIRECT_SUNLIGHT,
             ..default()
         },

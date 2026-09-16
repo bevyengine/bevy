@@ -73,7 +73,7 @@ fn setup(mut commands: Commands) {
                 BorderColor::all(YELLOW),
             ))
             .observe(
-                move |on_pressed: On<Pointer<Press>>,
+                move |on_pressed: On<PointerPress>,
                       mut label_query: Query<&mut Text>,
                       mut camera_query: Query<&mut Camera>| {
                     let Ok(mut label_text) = label_query.get_mut(label_entity) else {

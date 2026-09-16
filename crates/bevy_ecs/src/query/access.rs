@@ -1,41 +1,221 @@
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::{component::ComponentId, resource::IS_RESOURCE};
 use alloc::{format, string::String, vec, vec::Vec};
+use core::iter::FusedIterator;
+use core::mem;
 use core::{fmt, fmt::Debug};
 use derive_more::From;
-use fixedbitset::FixedBitSet;
+use fixedbitset::{Difference, FixedBitSet, Intersection, IntoOnes, Ones, Union};
 use thiserror::Error;
 
-/// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
-/// to read.
-///
-/// Instead of the raw integer representation of the `FixedBitSet`, the list of
-/// indexes are shown.
-///
-/// Normal `FixedBitSet` `Debug` output:
-/// ```text
-/// read_and_writes: FixedBitSet { data: [ 160 ], length: 8 }
-/// ```
-///
-/// Which, unless you are a computer, doesn't help much understand what's in
-/// the set. With `FormattedBitSet`, we convert the present set entries into
-/// what they stand for, it is much clearer what is going on:
-/// ```text
-/// read_and_writes: [ 5, 7 ]
-/// ```
-struct FormattedBitSet<'a> {
-    bit_set: &'a FixedBitSet,
+/// A set of bits that is either a finite set, or the set complement of a finite set.
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum InvertibleComponentIdSet {
+    /// A finite [`InvertibleComponentIdSet`] that includes all components in the inner set.
+    Included(ComponentIdSet),
+    /// An unbounded [`InvertibleComponentIdSet`] that includes all components *not* in the inner set.
+    Excluded(ComponentIdSet),
 }
 
-impl<'a> FormattedBitSet<'a> {
-    fn new(bit_set: &'a FixedBitSet) -> Self {
-        Self { bit_set }
+impl Default for InvertibleComponentIdSet {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-impl<'a> Debug for FormattedBitSet<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list().entries(self.bit_set.ones()).finish()
+impl InvertibleComponentIdSet {
+    /// Creates a new empty `InvertibleSet`.
+    #[inline]
+    pub const fn new() -> Self {
+        Self::Included(ComponentIdSet::new())
+    }
+
+    /// Creates a new `InvertibleSet` that includes all components.
+    #[inline]
+    pub const fn new_all() -> Self {
+        Self::Excluded(ComponentIdSet::new())
+    }
+
+    /// Adds a [`ComponentId`] to the set.
+    #[inline]
+    pub fn insert(&mut self, index: ComponentId) {
+        match self {
+            Self::Included(included) => included.insert(index),
+            Self::Excluded(excluded) => excluded.remove(index),
+        }
+    }
+
+    /// Removes a [`ComponentId`] from the set.
+    #[inline]
+    pub fn remove(&mut self, index: ComponentId) {
+        match self {
+            Self::Included(included) => included.remove(index),
+            Self::Excluded(excluded) => excluded.insert(index),
+        }
+    }
+
+    /// Removes all [`ComponentId`]s from the set.
+    #[inline]
+    pub fn clear(&mut self) {
+        *self = Self::new();
+    }
+
+    /// Adds all [`ComponentId`]s to the set.
+    #[inline]
+    pub fn all(&mut self) {
+        *self = Self::new_all();
+    }
+
+    /// Returns `true` if the [`ComponentId`] is in the set.
+    #[inline]
+    pub fn contains(&self, index: ComponentId) -> bool {
+        match self {
+            Self::Included(included) => included.contains(index),
+            Self::Excluded(excluded) => !excluded.contains(index),
+        }
+    }
+
+    /// Returns `true` if the set is empty.
+    /// Note that an unbounded set is never clear.
+    #[inline]
+    pub fn is_clear(&self) -> bool {
+        match self {
+            Self::Included(included) => included.is_clear(),
+            Self::Excluded(_) => false,
+        }
+    }
+
+    /// Returns `true` if the set contains all components.
+    /// Note that a finite set is never fully set.
+    #[inline]
+    pub fn is_all(&self) -> bool {
+        match self {
+            Self::Included(_) => false,
+            Self::Excluded(excluded) => excluded.is_clear(),
+        }
+    }
+
+    /// Returns `true` if this is an unbounded set, or `false` if it is a finite set.
+    #[inline]
+    pub fn is_unbounded(&self) -> bool {
+        match self {
+            Self::Included(_) => false,
+            Self::Excluded(_) => true,
+        }
+    }
+
+    /// If this is a finite set, returns the set.
+    /// If this is an unbounded set, returns `None`.
+    #[inline]
+    pub fn into_finite_set(self) -> Option<ComponentIdSet> {
+        match self {
+            Self::Included(included) => Some(included),
+            Self::Excluded(_) => None,
+        }
+    }
+
+    /// If this is a finite set, returns the set.
+    /// If this is an unbounded set, returns `None`.
+    #[inline]
+    pub fn as_finite_set(&self) -> Option<&ComponentIdSet> {
+        match self {
+            Self::Included(included) => Some(included),
+            Self::Excluded(_) => None,
+        }
+    }
+
+    /// If this is an unbounded set, returns the set of components
+    /// that are excluded from the set.
+    /// If this is a finite set, returns `None`.
+    #[inline]
+    pub fn as_exclusion_set(&self) -> Option<&ComponentIdSet> {
+        match self {
+            Self::Included(_) => None,
+            Self::Excluded(excluded) => Some(excluded),
+        }
+    }
+
+    /// In-place union of two sets.
+    pub fn union_with(&mut self, other: &Self) {
+        match (&mut *self, other) {
+            (Self::Included(this), Self::Included(other)) => this.union_with(other),
+            (Self::Included(this), Self::Excluded(other)) => {
+                this.difference_from(other);
+                *self = Self::Excluded(mem::take(this));
+            }
+            (Self::Excluded(this), Self::Included(other)) => this.difference_with(other),
+            (Self::Excluded(this), Self::Excluded(other)) => this.intersect_with(other),
+        }
+    }
+
+    /// Returns the union of two sets.
+    pub fn union(&self, other: &Self) -> Self {
+        let mut result = self.clone();
+        result.union_with(other);
+        result
+    }
+
+    /// In-place difference of two sets.
+    pub fn difference_with(&mut self, other: &Self) {
+        match (&mut *self, other) {
+            (Self::Included(this), Self::Included(other)) => this.difference_with(other),
+            (Self::Included(this), Self::Excluded(other)) => this.intersect_with(other),
+            (Self::Excluded(this), Self::Included(other)) => this.union_with(other),
+            (Self::Excluded(this), Self::Excluded(other)) => {
+                this.difference_from(other);
+                *self = Self::Included(mem::take(this));
+            }
+        }
+    }
+
+    /// Returns the set difference of two sets.
+    pub fn difference(&self, other: &Self) -> Self {
+        let mut result = self.clone();
+        result.difference_with(other);
+        result
+    }
+
+    /// In-place intersection of two sets.
+    pub fn intersect_with(&mut self, other: &Self) {
+        match (&mut *self, other) {
+            (Self::Included(this), Self::Included(other)) => this.intersect_with(other),
+            (Self::Included(this), Self::Excluded(other)) => this.difference_with(other),
+            (Self::Excluded(this), Self::Included(other)) => {
+                this.difference_from(other);
+                *self = Self::Included(mem::take(this));
+            }
+            (Self::Excluded(this), Self::Excluded(other)) => this.union_with(other),
+        }
+    }
+
+    /// Returns the intersection of two sets.
+    pub fn intersection(&self, other: &Self) -> Self {
+        let mut result = self.clone();
+        result.intersect_with(other);
+        result
+    }
+
+    /// Returns `true` if `self` has no elements in common with `other`.
+    /// This is equivalent to checking for an empty intersection.
+    pub fn is_disjoint(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Included(this), Self::Included(other)) => this.is_disjoint(other),
+            // Two sets are disjoint if one is a subset of the other's complement.
+            (Self::Included(this), Self::Excluded(other)) => this.is_subset(other),
+            (Self::Excluded(this), Self::Included(other)) => other.is_subset(this),
+            (Self::Excluded(_), Self::Excluded(_)) => false,
+        }
+    }
+
+    /// Returns `true` if the set is a subset of another, i.e. `other` contains at least all the values in `self`.
+    pub fn is_subset(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Included(this), Self::Included(other)) => this.is_subset(other),
+            // Two sets are disjoint if one is a subset of the other's complement.
+            (Self::Included(this), Self::Excluded(other)) => this.is_disjoint(other),
+            (Self::Excluded(_), Self::Included(_)) => false,
+            (Self::Excluded(this), Self::Excluded(other)) => other.is_subset(this),
+        }
     }
 }
 
@@ -43,57 +223,33 @@ impl<'a> Debug for FormattedBitSet<'a> {
 ///
 /// Used internally to ensure soundness during system initialization and execution.
 /// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
-#[derive(Eq, PartialEq, Default, Hash)]
+#[derive(Eq, PartialEq, Default, Debug)]
 pub struct Access {
-    /// All accessed components, or forbidden components if
-    /// `Self::component_read_and_writes_inverted` is set.
-    read_and_writes: FixedBitSet,
-    /// All exclusively-accessed components, or components that may not be
-    /// exclusively accessed if `Self::component_writes_inverted` is set.
-    writes: FixedBitSet,
-    /// Is `true` if this component can read all components *except* those
-    /// present in `Self::read_and_writes`.
-    read_and_writes_inverted: bool,
-    /// Is `true` if this component can write to all components *except* those
-    /// present in `Self::writes`.
-    writes_inverted: bool,
+    /// All accessed components.
+    ///
+    /// Note: this includes those in [`Self::writes`], since a mutable access also allows read-only
+    /// access.
+    reads: InvertibleComponentIdSet,
+    /// All exclusively-accessed components.
+    writes: InvertibleComponentIdSet,
     // Components that are not accessed, but whose presence in an archetype affect query results.
-    archetypal: FixedBitSet,
+    archetypal: ComponentIdSet,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
 impl Clone for Access {
     fn clone(&self) -> Self {
         Self {
-            read_and_writes: self.read_and_writes.clone(),
+            reads: self.reads.clone(),
             writes: self.writes.clone(),
-            read_and_writes_inverted: self.read_and_writes_inverted,
-            writes_inverted: self.writes_inverted,
             archetypal: self.archetypal.clone(),
         }
     }
 
     fn clone_from(&mut self, source: &Self) {
-        self.read_and_writes.clone_from(&source.read_and_writes);
+        self.reads.clone_from(&source.reads);
         self.writes.clone_from(&source.writes);
-        self.read_and_writes_inverted = source.read_and_writes_inverted;
-        self.writes_inverted = source.writes_inverted;
         self.archetypal.clone_from(&source.archetypal);
-    }
-}
-
-impl Debug for Access {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Access")
-            .field(
-                "read_and_writes",
-                &FormattedBitSet::new(&self.read_and_writes),
-            )
-            .field("writes", &FormattedBitSet::new(&self.writes))
-            .field("read_and_writes_inverted", &self.read_and_writes_inverted)
-            .field("writes_inverted", &self.writes_inverted)
-            .field("archetypal", &FormattedBitSet::new(&self.archetypal))
-            .finish()
     }
 }
 
@@ -101,11 +257,9 @@ impl Access {
     /// Creates an empty [`Access`] collection.
     pub const fn new() -> Self {
         Self {
-            read_and_writes_inverted: false,
-            writes_inverted: false,
-            read_and_writes: FixedBitSet::new(),
-            writes: FixedBitSet::new(),
-            archetypal: FixedBitSet::new(),
+            reads: InvertibleComponentIdSet::new(),
+            writes: InvertibleComponentIdSet::new(),
+            archetypal: ComponentIdSet::new(),
         }
     }
 
@@ -113,127 +267,55 @@ impl Access {
     /// This is equivalent to calling `read_all()` on `Access::new()`,
     /// but is available in a `const` context.
     pub(crate) const fn new_read_all() -> Self {
-        let mut access = Self::new();
-        // Note that we cannot use `read_all()`
-        // because `FixedBitSet::clear()` is not `const`.
-        access.read_and_writes_inverted = true;
-        access
+        Self {
+            reads: InvertibleComponentIdSet::new_all(),
+            writes: InvertibleComponentIdSet::new(),
+            archetypal: ComponentIdSet::new(),
+        }
     }
 
     /// Creates an [`Access`] with read and write access to all components.
     /// This is equivalent to calling `write_all()` on `Access::new()`,
     /// but is available in a `const` context.
     pub(crate) const fn new_write_all() -> Self {
-        let mut access = Self::new();
-        // Note that we cannot use `write_all()`
-        // because `FixedBitSet::clear()` is not `const`.
-        access.read_and_writes_inverted = true;
-        access.writes_inverted = true;
-        access
-    }
-
-    fn add_sparse_set_index_read(&mut self, index: usize) {
-        if !self.read_and_writes_inverted {
-            self.read_and_writes.grow_and_insert(index);
-        } else if index < self.read_and_writes.len() {
-            self.read_and_writes.remove(index);
+        Self {
+            reads: InvertibleComponentIdSet::new_all(),
+            writes: InvertibleComponentIdSet::new_all(),
+            archetypal: ComponentIdSet::new(),
         }
-    }
-
-    fn add_sparse_set_index_write(&mut self, index: usize) {
-        if !self.writes_inverted {
-            self.writes.grow_and_insert(index);
-        } else if index < self.writes.len() {
-            self.writes.remove(index);
-        }
-    }
-
-    /// Adds access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::add_read")]
-    pub fn add_component_read(&mut self, index: ComponentId) {
-        self.add_read(index);
     }
 
     /// Adds access to the component given by `index`.
     pub fn add_read(&mut self, index: ComponentId) {
-        let sparse_set_index = index.index();
-        self.add_sparse_set_index_read(sparse_set_index);
-    }
-
-    /// Adds exclusive access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::add_write")]
-    pub fn add_component_write(&mut self, index: ComponentId) {
-        self.add_write(index);
+        self.reads.insert(index);
     }
 
     /// Adds exclusive access to the component given by `index`.
     pub fn add_write(&mut self, index: ComponentId) {
-        let sparse_set_index = index.index();
-        self.add_sparse_set_index_read(sparse_set_index);
-        self.add_sparse_set_index_write(sparse_set_index);
+        self.reads.insert(index);
+        self.writes.insert(index);
     }
 
-    /// Adds access to the resource given by `index`.
-    #[deprecated(
-        since = "0.19.0",
-        note = "Call `FilteredAccessSet::add_resource_read`.  If this is called in a `WorldQuery` impl, then you will need to implement `init_nested_access` to modify the `FilteredAccessSet`."
-    )]
-    pub fn add_resource_read(&mut self, index: ComponentId) {
-        self.add_read(index);
-    }
-
-    /// Adds exclusive access to the resource given by `index`.
-    #[deprecated(
-        since = "0.19.0",
-        note = "Call `FilteredAccessSet::add_resource_write`.  If this is called in a `WorldQuery` impl, then you will need to implement `init_nested_access` to modify the `FilteredAccessSet`."
-    )]
-    pub fn add_resource_write(&mut self, index: ComponentId) {
-        self.add_write(index);
-    }
-
-    fn remove_sparse_set_index_read(&mut self, index: usize) {
-        if self.read_and_writes_inverted {
-            self.read_and_writes.grow_and_insert(index);
-        } else if index < self.read_and_writes.len() {
-            self.read_and_writes.remove(index);
-        }
-    }
-
-    fn remove_sparse_set_index_write(&mut self, index: usize) {
-        if self.writes_inverted {
-            self.writes.grow_and_insert(index);
-        } else if index < self.writes.len() {
-            self.writes.remove(index);
-        }
-    }
-
-    /// Removes both read and write access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::remove_read")]
-    pub fn remove_component_read(&mut self, index: ComponentId) {
-        self.remove_read(index);
-    }
-
-    /// Removes both read and write access to the component given by `index`.
+    /// Removes read access to the component given by `index`.
+    ///
+    /// This also removes write access, since if you can't even read a component, you also can't
+    /// write to it.
     ///
     /// Because this method corresponds to the set difference operator ∖, it can
     /// create complicated logical formulas that you should verify correctness
     /// of. For example, A ∪ (B ∖ A) isn't equivalent to (A ∪ B) ∖ A, so you
-    /// can't replace a call to `remove_component_read` followed by a call to
-    /// `extend` with a call to `extend` followed by a call to
-    /// `remove_read`.
+    /// can't replace a call to [`Self::remove_read`] followed by a call to
+    /// [`Self::extend`] with a call to [`Self::extend`] followed by a call to
+    /// [`Self::remove_read`].
     pub fn remove_read(&mut self, index: ComponentId) {
-        let sparse_set_index = index.index();
-        self.remove_sparse_set_index_write(sparse_set_index);
-        self.remove_sparse_set_index_read(sparse_set_index);
+        self.writes.remove(index);
+        self.reads.remove(index);
     }
 
     /// Removes write access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::remove_write")]
-    pub fn remove_component_write(&mut self, index: ComponentId) {
-        self.remove_write(index);
-    }
-
-    /// Removes write access to the component given by `index`.
+    ///
+    /// Unlike [`Self::remove_read`], this method only removes write access, since it's reasonable
+    /// to "downgrade" write access to only read access.
     ///
     /// Because this method corresponds to the set difference operator ∖, it can
     /// create complicated logical formulas that you should verify correctness
@@ -242,8 +324,7 @@ impl Access {
     /// `extend` with a call to `extend` followed by a call to
     /// `remove_write`.
     pub fn remove_write(&mut self, index: ComponentId) {
-        let sparse_set_index = index.index();
-        self.remove_sparse_set_index_write(sparse_set_index);
+        self.writes.remove(index);
     }
 
     /// Adds an archetypal (indirect) access to the component given by `index`.
@@ -256,75 +337,27 @@ impl Access {
     /// [`Has<T>`]: crate::query::Has
     /// [`Allow<T>`]: crate::query::filter::Allow
     pub fn add_archetypal(&mut self, index: ComponentId) {
-        self.archetypal.grow_and_insert(index.index());
-    }
-
-    /// Returns `true` if this can access the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::has_read")]
-    pub fn has_component_read(&self, index: ComponentId) -> bool {
-        self.has_read(index)
+        self.archetypal.insert(index);
     }
 
     /// Returns `true` if this can access the component given by `index`.
     pub fn has_read(&self, index: ComponentId) -> bool {
-        self.read_and_writes_inverted ^ self.read_and_writes.contains(index.index())
-    }
-
-    /// Returns `true` if this can access any component.
-    #[deprecated(since = "0.19.0", note = "use Access::has_any_read")]
-    pub fn has_any_component_read(&self) -> bool {
-        self.has_any_read()
+        self.reads.contains(index)
     }
 
     /// Returns `true` if this can access any component.
     pub fn has_any_read(&self) -> bool {
-        self.read_and_writes_inverted || !self.read_and_writes.is_clear()
-    }
-
-    /// Returns `true` if this can exclusively access the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::has_write")]
-    pub fn has_component_write(&self, index: ComponentId) -> bool {
-        self.has_write(index)
+        !self.reads.is_clear()
     }
 
     /// Returns `true` if this can exclusively access the component given by `index`.
     pub fn has_write(&self, index: ComponentId) -> bool {
-        self.writes_inverted ^ self.writes.contains(index.index())
-    }
-
-    /// Returns `true` if this accesses any component mutably.
-    #[deprecated(since = "0.19.0", note = "use Access::has_any_write")]
-    pub fn has_any_component_write(&self) -> bool {
-        self.has_any_write()
+        self.writes.contains(index)
     }
 
     /// Returns `true` if this accesses any component mutably.
     pub fn has_any_write(&self) -> bool {
-        self.writes_inverted || !self.writes.is_clear()
-    }
-
-    /// Returns `true` if this can access the resource given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::has_component_read")]
-    pub fn has_resource_read(&self, index: ComponentId) -> bool {
-        self.has_read(index)
-    }
-
-    /// Returns `true` if this can access any resource.
-    #[deprecated(since = "0.19.0", note = "use Access::has_any_component_read")]
-    pub fn has_any_resource_read(&self) -> bool {
-        self.has_any_read()
-    }
-
-    /// Returns `true` if this can exclusively access the resource given by `index`.
-    #[deprecated(since = "0.19.0", note = "use Access::has_component_write")]
-    pub fn has_resource_write(&self, index: ComponentId) -> bool {
-        self.has_write(index)
-    }
-
-    /// Returns `true` if this accesses any resource mutably.
-    #[deprecated(since = "0.19.0", note = "use Access::has_any_component_write")]
-    pub fn has_any_resource_write(&self) -> bool {
-        self.has_any_write()
+        !self.writes.is_clear()
     }
 
     /// Returns true if this has an archetypal (indirect) access to the component given by `index`.
@@ -336,88 +369,49 @@ impl Access {
     ///
     /// [`Has<T>`]: crate::query::Has
     pub fn has_archetypal(&self, index: ComponentId) -> bool {
-        self.archetypal.contains(index.index())
-    }
-
-    /// Sets this as having access to all components (i.e. `EntityRef`).
-    #[deprecated(since = "0.19.0", note = "use Access::read_all")]
-    pub fn read_all_components(&mut self) {
-        self.read_all();
+        self.archetypal.contains(index)
     }
 
     /// Sets this as having access to all components (i.e. `EntityRef` and `&World`).
     #[inline]
     pub fn read_all(&mut self) {
-        self.read_and_writes_inverted = true;
-        self.read_and_writes.clear();
-    }
-
-    /// Sets this as having mutable access to all components (i.e. `EntityMut` and `&mut World`).
-    #[deprecated(since = "0.19.0", note = "use Access::write_all")]
-    pub fn write_all_components(&mut self) {
-        self.write_all();
+        self.reads.all();
     }
 
     /// Sets this as having mutable access to all components (i.e. `EntityMut` and `&mut World`).
     #[inline]
     pub fn write_all(&mut self) {
-        self.read_all();
-        self.writes_inverted = true;
-        self.writes.clear();
-    }
-
-    /// Returns `true` if this has access to all components (i.e. `EntityRef` and `&World`).
-    #[deprecated(since = "0.19.0", note = "use Access::has_read_all")]
-    pub fn has_read_all_components(&self) -> bool {
-        self.has_read_all()
+        self.reads.all();
+        self.writes.all();
     }
 
     /// Returns `true` if this has access to all components (i.e. `EntityRef` and `&World`).
     #[inline]
     pub fn has_read_all(&self) -> bool {
-        self.read_and_writes_inverted && self.read_and_writes.is_clear()
-    }
-
-    /// Returns `true` if this has write access to all components (i.e. `EntityMut` and `&mut World`).
-    #[deprecated(since = "0.19.0", note = "use Access::has_write_all")]
-    pub fn has_write_all_components(&self) -> bool {
-        self.has_write_all()
+        self.reads.is_all()
     }
 
     /// Returns `true` if this has write access to all components (i.e. `EntityMut` and `&mut World`).
     #[inline]
     pub fn has_write_all(&self) -> bool {
-        self.writes_inverted && self.writes.is_clear()
+        self.writes.is_all()
     }
 
     /// Removes all writes.
     pub fn clear_writes(&mut self) {
-        self.writes_inverted = false;
         self.writes.clear();
     }
 
     /// Removes all accesses.
     pub fn clear(&mut self) {
-        self.read_and_writes_inverted = false;
-        self.writes_inverted = false;
-        self.read_and_writes.clear();
+        self.reads.clear();
         self.writes.clear();
     }
 
     /// Adds all access from `other`.
     pub fn extend(&mut self, other: &Access) {
-        invertible_union_with(
-            &mut self.read_and_writes,
-            &mut self.read_and_writes_inverted,
-            &other.read_and_writes,
-            other.read_and_writes_inverted,
-        );
-        invertible_union_with(
-            &mut self.writes,
-            &mut self.writes_inverted,
-            &other.writes,
-            other.writes_inverted,
-        );
+        self.reads.union_with(&other.reads);
+        self.writes.union_with(&other.writes);
         self.archetypal.union_with(&other.archetypal);
     }
 
@@ -425,24 +419,8 @@ impl Access {
     /// This removes any reads and writes for any component written by `other`,
     /// and removes any writes for any component read by `other`.
     pub fn remove_conflicting_access(&mut self, other: &Access) {
-        invertible_difference_with(
-            &mut self.read_and_writes,
-            &mut self.read_and_writes_inverted,
-            &other.writes,
-            other.writes_inverted,
-        );
-        invertible_difference_with(
-            &mut self.writes,
-            &mut self.writes_inverted,
-            &other.read_and_writes,
-            other.read_and_writes_inverted,
-        );
-    }
-
-    /// Returns `true` if the access and `other` can be active at the same time.
-    #[deprecated(since = "0.19.0", note = "use Access::is_compatible")]
-    pub fn is_components_compatible(&self, other: &Access) -> bool {
-        self.is_compatible(other)
+        self.reads.difference_with(&other.writes);
+        self.writes.difference_with(&other.reads);
     }
 
     /// Returns `true` if the access and `other` can be active at the same time.
@@ -452,141 +430,25 @@ impl Access {
     pub fn is_compatible(&self, other: &Access) -> bool {
         // We have a conflict if we write and they read or write, or if they
         // write and we read or write.
-        for (
-            lhs_writes,
-            rhs_reads_and_writes,
-            lhs_writes_inverted,
-            rhs_reads_and_writes_inverted,
-        ) in [
-            (
-                &self.writes,
-                &other.read_and_writes,
-                self.writes_inverted,
-                other.read_and_writes_inverted,
-            ),
-            (
-                &other.writes,
-                &self.read_and_writes,
-                other.writes_inverted,
-                self.read_and_writes_inverted,
-            ),
-        ] {
-            match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
-                (true, true) => return false,
-                (false, true) => {
-                    if !lhs_writes.is_subset(rhs_reads_and_writes) {
-                        return false;
-                    }
-                }
-                (true, false) => {
-                    if !rhs_reads_and_writes.is_subset(lhs_writes) {
-                        return false;
-                    }
-                }
-                (false, false) => {
-                    if !lhs_writes.is_disjoint(rhs_reads_and_writes) {
-                        return false;
-                    }
-                }
-            }
-        }
-
-        true
-    }
-
-    /// Returns `true` if the set is a subset of another, i.e. `other` contains
-    /// at least all the values in `self`.
-    #[deprecated(since = "0.19.0", note = "use Access::is_subset")]
-    pub fn is_subset_components(&self, other: &Access) -> bool {
-        self.is_subset(other)
+        self.writes.is_disjoint(&other.reads) && other.writes.is_disjoint(&self.reads)
     }
 
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
     /// at least all the values in `self`.
     pub fn is_subset(&self, other: &Access) -> bool {
-        for (
-            our_components,
-            their_components,
-            our_components_inverted,
-            their_components_inverted,
-        ) in [
-            (
-                &self.read_and_writes,
-                &other.read_and_writes,
-                self.read_and_writes_inverted,
-                other.read_and_writes_inverted,
-            ),
-            (
-                &self.writes,
-                &other.writes,
-                self.writes_inverted,
-                other.writes_inverted,
-            ),
-        ] {
-            match (our_components_inverted, their_components_inverted) {
-                (true, true) => {
-                    if !their_components.is_subset(our_components) {
-                        return false;
-                    }
-                }
-                (true, false) => {
-                    return false;
-                }
-                (false, true) => {
-                    if !our_components.is_disjoint(their_components) {
-                        return false;
-                    }
-                }
-                (false, false) => {
-                    if !our_components.is_subset(their_components) {
-                        return false;
-                    }
-                }
-            }
-        }
-
-        true
+        self.reads.is_subset(&other.reads) && self.writes.is_subset(&other.writes)
     }
 
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
     #[inline]
     pub fn get_conflicts(&self, other: &Access) -> AccessConflicts {
-        let mut conflicts = FixedBitSet::new();
-
         // We have a conflict if we write and they read or write, or if they
         // write and we read or write.
-        for (
-            lhs_writes,
-            rhs_reads_and_writes,
-            lhs_writes_inverted,
-            rhs_reads_and_writes_inverted,
-        ) in [
-            (
-                &self.writes,
-                &other.read_and_writes,
-                self.writes_inverted,
-                other.read_and_writes_inverted,
-            ),
-            (
-                &other.writes,
-                &self.read_and_writes,
-                other.writes_inverted,
-                self.read_and_writes_inverted,
-            ),
-        ] {
-            // There's no way that I can see to do this without a temporary.
-            // Neither CNF nor DNF allows us to avoid one.
-            let temp_conflicts: FixedBitSet =
-                match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
-                    (true, true) => return AccessConflicts::All,
-                    (false, true) => lhs_writes.difference(rhs_reads_and_writes).collect(),
-                    (true, false) => rhs_reads_and_writes.difference(lhs_writes).collect(),
-                    (false, false) => lhs_writes.intersection(rhs_reads_and_writes).collect(),
-                };
-            conflicts.union_with(&temp_conflicts);
-        }
-
-        AccessConflicts::Individual(conflicts)
+        let mut conflicts = self.writes.intersection(&other.reads);
+        conflicts.union_with(&other.writes.intersection(&self.reads));
+        conflicts
+            .into_finite_set()
+            .map_or(AccessConflicts::All, AccessConflicts::Individual)
     }
 
     /// Returns the indices of the components that this has an archetypal access to.
@@ -597,16 +459,44 @@ impl Access {
     /// Currently, this is only used for [`Has<T>`].
     ///
     /// [`Has<T>`]: crate::query::Has
-    pub fn archetypal(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.archetypal.ones().map(ComponentId::new)
+    pub fn archetypal(&self) -> &ComponentIdSet {
+        &self.archetypal
     }
 
-    /// Returns an iterator over the component IDs and their [`ComponentAccessKind`].
-    #[deprecated(since = "0.19.0", note = "use Access::try_iter_access")]
-    pub fn try_iter_component_access(
-        &self,
-    ) -> Result<impl Iterator<Item = ComponentAccessKind> + '_, UnboundedAccessError> {
-        self.try_iter_access()
+    /// Returns the set of components with read access,
+    /// or an error if the access is unbounded.
+    ///
+    /// This includes components with write access, since write access also allows you to read the
+    /// component.
+    #[deprecated(since = "0.20.0", note = "use `reads_and_writes().as_finite_set()")]
+    pub fn try_reads_and_writes(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
+        self.reads.as_finite_set().ok_or(UnboundedAccessError {
+            writes_inverted: self.writes.is_unbounded(),
+            reads_inverted: self.reads.is_unbounded(),
+        })
+    }
+
+    /// Returns the set of components with read or write access.
+    ///
+    /// This includes components with write access, since write access also allows you to read the
+    /// component.
+    pub fn reads(&self) -> &InvertibleComponentIdSet {
+        &self.reads
+    }
+
+    /// Returns the set of components with write access,
+    /// or an error if the access is unbounded.
+    #[deprecated(since = "0.20.0", note = "use `writes().as_finite_set()")]
+    pub fn try_writes(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
+        self.writes.as_finite_set().ok_or(UnboundedAccessError {
+            writes_inverted: self.writes.is_unbounded(),
+            reads_inverted: self.reads.is_unbounded(),
+        })
+    }
+
+    /// Returns the set of components with write access.
+    pub fn writes(&self) -> &InvertibleComponentIdSet {
+        &self.writes
     }
 
     /// Returns an iterator over the component IDs and their [`ComponentAccessKind`].
@@ -642,82 +532,25 @@ impl Access {
     pub fn try_iter_access(
         &self,
     ) -> Result<impl Iterator<Item = ComponentAccessKind> + '_, UnboundedAccessError> {
-        // writes_inverted is only ever true when read_and_writes_inverted is
-        // also true. Therefore it is sufficient to check just read_and_writes_inverted.
-        if self.read_and_writes_inverted {
-            return Err(UnboundedAccessError {
-                writes_inverted: self.writes_inverted,
-                read_and_writes_inverted: self.read_and_writes_inverted,
-            });
-        }
-
-        let reads_and_writes = self.read_and_writes.ones().map(|index| {
-            let sparse_index = ComponentId::new(index);
-
+        let reads = self.reads.as_finite_set().ok_or(UnboundedAccessError {
+            writes_inverted: self.writes.is_unbounded(),
+            reads_inverted: self.reads.is_unbounded(),
+        })?;
+        let accesses = reads.iter().map(|index| {
             if self.writes.contains(index) {
-                ComponentAccessKind::Exclusive(sparse_index)
+                ComponentAccessKind::Exclusive(index)
             } else {
-                ComponentAccessKind::Shared(sparse_index)
+                ComponentAccessKind::Shared(index)
             }
         });
 
         let archetypal = self
             .archetypal
-            .ones()
-            .filter(|&index| !self.writes.contains(index) && !self.read_and_writes.contains(index))
-            .map(|index| ComponentAccessKind::Archetypal(ComponentId::new(index)));
+            .difference(reads)
+            .map(ComponentAccessKind::Archetypal);
 
-        Ok(reads_and_writes.chain(archetypal))
+        Ok(accesses.chain(archetypal))
     }
-}
-
-/// Performs an in-place union of `other` into `self`, where either set may be inverted.
-///
-/// Each set corresponds to a `FixedBitSet` if `inverted` is `false`,
-/// or to the infinite (co-finite) complement of the `FixedBitSet` if `inverted` is `true`.
-///
-/// This updates the `self` set to include any elements in the `other` set.
-/// Note that this may change `self_inverted` to `true` if we add an infinite
-/// set to a finite one, resulting in a new infinite set.
-fn invertible_union_with(
-    self_set: &mut FixedBitSet,
-    self_inverted: &mut bool,
-    other_set: &FixedBitSet,
-    other_inverted: bool,
-) {
-    match (*self_inverted, other_inverted) {
-        (true, true) => self_set.intersect_with(other_set),
-        (true, false) => self_set.difference_with(other_set),
-        (false, true) => {
-            *self_inverted = true;
-            // We have to grow here because the new bits are going to get flipped to 1.
-            self_set.grow(other_set.len());
-            self_set.toggle_range(..);
-            self_set.intersect_with(other_set);
-        }
-        (false, false) => self_set.union_with(other_set),
-    }
-}
-
-/// Performs an in-place set difference of `other` from `self`, where either set may be inverted.
-///
-/// Each set corresponds to a `FixedBitSet` if `inverted` is `false`,
-/// or to the infinite (co-finite) complement of the `FixedBitSet` if `inverted` is `true`.
-///
-/// This updates the `self` set to remove any elements in the `other` set.
-/// Note that this may change `self_inverted` to `false` if we remove an
-/// infinite set from another infinite one, resulting in a finite difference.
-fn invertible_difference_with(
-    self_set: &mut FixedBitSet,
-    self_inverted: &mut bool,
-    other_set: &FixedBitSet,
-    other_inverted: bool,
-) {
-    // We can share the implementation of `invertible_union_with` with some algebra:
-    // A - B = A & !B = !(!A | B)
-    *self_inverted = !*self_inverted;
-    invertible_union_with(self_set, self_inverted, other_set, other_inverted);
-    *self_inverted = !*self_inverted;
 }
 
 /// Error returned when attempting to iterate over items included in an [`Access`]
@@ -730,7 +563,7 @@ pub struct UnboundedAccessError {
     pub writes_inverted: bool,
     /// [`Access`] is defined in terms of _excluding_ [shared](ComponentAccessKind::Shared) and
     /// [exclusive](ComponentAccessKind::Exclusive) access.
-    pub read_and_writes_inverted: bool,
+    pub reads_inverted: bool,
 }
 
 /// Describes the level of access for a particular component as defined in an [`Access`].
@@ -775,7 +608,7 @@ impl ComponentAccessKind {
 #[derive(Debug, Eq, PartialEq)]
 pub struct FilteredAccess {
     pub(crate) access: Access,
-    pub(crate) required: FixedBitSet,
+    pub(crate) required: ComponentIdSet,
     // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
     // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
     pub(crate) filter_sets: Vec<AccessFilters>,
@@ -813,12 +646,12 @@ impl From<FilteredAccess> for FilteredAccessSet {
 }
 
 /// Records how two accesses conflict with each other
-#[derive(Debug, PartialEq, From)]
+#[derive(Debug, PartialEq, Eq, From)]
 pub enum AccessConflicts {
     /// Conflict is for all indices
     All,
     /// There is a conflict for a subset of indices
-    Individual(FixedBitSet),
+    Individual(ComponentIdSet),
 }
 
 impl AccessConflicts {
@@ -828,7 +661,7 @@ impl AccessConflicts {
                 *s = AccessConflicts::All;
             }
             (AccessConflicts::Individual(this), AccessConflicts::Individual(other)) => {
-                this.extend(other.ones());
+                this.extend(other);
             }
             _ => {}
         }
@@ -838,7 +671,7 @@ impl AccessConflicts {
     pub fn is_empty(&self) -> bool {
         match self {
             Self::All => false,
-            Self::Individual(set) => set.is_empty(),
+            Self::Individual(set) => set.is_clear(),
         }
     }
 
@@ -846,15 +679,11 @@ impl AccessConflicts {
         match self {
             AccessConflicts::All => String::new(),
             AccessConflicts::Individual(indices) => indices
-                .ones()
+                .iter()
                 .map(|index| {
                     format!(
                         "{}",
-                        world
-                            .components()
-                            .get_name(ComponentId::new(index))
-                            .unwrap()
-                            .shortname()
+                        world.components().get_name(index).unwrap().shortname()
                     )
                 })
                 .collect::<Vec<_>>()
@@ -864,13 +693,13 @@ impl AccessConflicts {
 
     /// An [`AccessConflicts`] which represents the absence of any conflict
     pub(crate) fn empty() -> Self {
-        Self::Individual(FixedBitSet::new())
+        Self::Individual(ComponentIdSet::new())
     }
 }
 
 impl From<Vec<ComponentId>> for AccessConflicts {
     fn from(value: Vec<ComponentId>) -> Self {
-        Self::Individual(value.iter().map(|c| c.index()).collect())
+        Self::Individual(value.into_iter().collect())
     }
 }
 
@@ -880,7 +709,7 @@ impl FilteredAccess {
     pub fn matches_everything() -> Self {
         Self {
             access: Access::default(),
-            required: FixedBitSet::default(),
+            required: ComponentIdSet::default(),
             filter_sets: vec![AccessFilters::default()],
         }
     }
@@ -890,7 +719,7 @@ impl FilteredAccess {
     pub fn matches_nothing() -> Self {
         Self {
             access: Access::default(),
-            required: FixedBitSet::default(),
+            required: ComponentIdSet::default(),
             filter_sets: Vec::new(),
         }
     }
@@ -908,22 +737,10 @@ impl FilteredAccess {
     }
 
     /// Adds access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use FilteredAccess::add_read")]
-    pub fn add_component_read(&mut self, index: ComponentId) {
-        self.add_read(index);
-    }
-
-    /// Adds access to the component given by `index`.
     pub fn add_read(&mut self, index: ComponentId) {
         self.access.add_read(index);
         self.add_required(index);
         self.and_with(index);
-    }
-
-    /// Adds exclusive access to the component given by `index`.
-    #[deprecated(since = "0.19.0", note = "use FilteredAccess::add_write")]
-    pub fn add_component_write(&mut self, index: ComponentId) {
-        self.add_write(index);
     }
 
     /// Adds exclusive access to the component given by `index`.
@@ -934,7 +751,7 @@ impl FilteredAccess {
     }
 
     fn add_required(&mut self, index: ComponentId) {
-        self.required.grow_and_insert(index.index());
+        self.required.insert(index);
     }
 
     /// Adds a `With` filter: corresponds to a conjunction (AND) operation.
@@ -943,7 +760,7 @@ impl FilteredAccess {
     /// Adding `AND With<C>` via this method transforms it into the equivalent of  `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
     pub fn and_with(&mut self, index: ComponentId) {
         for filter in &mut self.filter_sets {
-            filter.with.grow_and_insert(index.index());
+            filter.with.insert(index);
         }
     }
 
@@ -953,7 +770,7 @@ impl FilteredAccess {
     /// Adding `AND Without<C>` via this method transforms it into the equivalent of  `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
     pub fn and_without(&mut self, index: ComponentId) {
         for filter in &mut self.filter_sets {
-            filter.without.grow_and_insert(index.index());
+            filter.without.insert(index);
         }
     }
 
@@ -1043,36 +860,41 @@ impl FilteredAccess {
         self.access.write_all();
     }
 
-    /// Sets the underlying unfiltered access as having access to all components.
-    #[deprecated(since = "0.19.0", note = "use FilteredAccess::read_all")]
-    pub fn read_all_components(&mut self) {
-        self.read_all();
-    }
-
-    /// Sets the underlying unfiltered access as having mutable access to all components.
-    #[deprecated(since = "0.19.0", note = "use FilteredAccess::write_all")]
-    pub fn write_all_components(&mut self) {
-        self.write_all();
-    }
-
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
     /// at least all the values in `self`.
     pub fn is_subset(&self, other: &FilteredAccess) -> bool {
         self.required.is_subset(&other.required) && self.access().is_subset(other.access())
     }
 
+    /// Returns the set of components that must be present for this access to match.
+    /// These components will also be included in the [`AccessFilters::with`] collection
+    /// for every filter in [`Self::filter_sets`].
+    ///
+    /// This is used by [query transmutes](crate::system::Query::transmute_lens) to ensure that
+    /// components read by the query are present.
+    /// This will include components from query types like `&C`,
+    /// but not from filters like [`With<C>`](super::With),
+    /// and not from optional data like `Option<&C>`.
+    pub fn required(&self) -> &ComponentIdSet {
+        &self.required
+    }
+
+    /// The list of filters, expressed in disjunctive normal form.
+    ///
+    /// This [`FilteredAccess`] will match an entity if
+    /// *any* of the [`AccessFilters`] matches the entity.
+    pub fn filter_sets(&self) -> &[AccessFilters] {
+        &self.filter_sets
+    }
+
     /// Returns the indices of the elements that this access filters for.
     pub fn with_filters(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.filter_sets
-            .iter()
-            .flat_map(|f| f.with.ones().map(ComponentId::new))
+        self.filter_sets.iter().flat_map(|f| f.with.iter())
     }
 
     /// Returns the indices of the elements that this access filters out.
     pub fn without_filters(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.filter_sets
-            .iter()
-            .flat_map(|f| f.without.ones().map(ComponentId::new))
+        self.filter_sets.iter().flat_map(|f| f.without.iter())
     }
 
     /// Returns true if the index is used by this `FilteredAccess` in filters or archetypal access.
@@ -1083,14 +905,17 @@ impl FilteredAccess {
             || self
                 .filter_sets
                 .iter()
-                .any(|f| f.with.contains(index.index()) || f.without.contains(index.index()))
+                .any(|f| f.with.contains(index) || f.without.contains(index))
     }
 }
 
-#[derive(Eq, PartialEq, Default)]
-pub(crate) struct AccessFilters {
-    pub(crate) with: FixedBitSet,
-    pub(crate) without: FixedBitSet,
+/// A clause in disjunctive normal form that filters entities by their components.
+/// An [`AccessFilters`] matches entities that have *all* the components in the
+/// `with` filters and *none* of the components in the `without` filters.
+#[derive(Eq, PartialEq, Default, Debug)]
+pub struct AccessFilters {
+    pub(crate) with: ComponentIdSet,
+    pub(crate) without: ComponentIdSet,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -1108,16 +933,17 @@ impl Clone for AccessFilters {
     }
 }
 
-impl Debug for AccessFilters {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AccessFilters")
-            .field("with", &FormattedBitSet::new(&self.with))
-            .field("without", &FormattedBitSet::new(&self.without))
-            .finish()
-    }
-}
-
 impl AccessFilters {
+    /// The set of components that must all be present for this [`AccessFilters`] to match.
+    pub fn with(&self) -> &ComponentIdSet {
+        &self.with
+    }
+
+    /// The set of components that must all be absent for this [`AccessFilters`] to match.
+    pub fn without(&self) -> &ComponentIdSet {
+        &self.without
+    }
+
     fn is_ruled_out_by(&self, other: &Self) -> bool {
         // Although not technically complete, we don't consider the case when `AccessFilters`'s
         // `without` bitset contradicts its own `with` bitset (e.g. `(With<A>, Without<A>)`).
@@ -1236,12 +1062,6 @@ impl FilteredAccessSet {
     }
 
     /// Adds a read access to a resource to the set.
-    #[deprecated(since = "0.19.0", note = "FilteredAccessSet::add_resource_read")]
-    pub fn add_unfiltered_resource_read(&mut self, index: ComponentId) {
-        self.add_resource_read(index);
-    }
-
-    /// Adds a read access to a resource to the set.
     pub fn add_resource_read(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
         filter.add_read(index);
@@ -1250,7 +1070,7 @@ impl FilteredAccessSet {
     }
 
     /// Adds a read access to a component to the set.
-    pub(crate) fn add_unfiltered_component_read(&mut self, index: ComponentId) {
+    pub fn add_unfiltered_component_read(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
         filter.add_read(index);
         self.add(filter);
@@ -1264,12 +1084,6 @@ impl FilteredAccessSet {
     }
 
     /// Adds a write access to a resource to the set.
-    #[deprecated(since = "0.19.0", note = "FilteredAccessSet::add_resource_write")]
-    pub fn add_unfiltered_resource_write(&mut self, index: ComponentId) {
-        self.add_resource_write(index);
-    }
-
-    /// Adds a write access to a resource to the set.
     pub fn add_resource_write(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
         filter.add_write(index);
@@ -1278,7 +1092,7 @@ impl FilteredAccessSet {
     }
 
     /// Adds a write access to a resource to the set.
-    pub(crate) fn add_unfiltered_component_write(&mut self, index: ComponentId) {
+    pub fn add_unfiltered_component_write(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
         filter.add_write(index);
         self.add(filter);
@@ -1320,64 +1134,254 @@ impl FilteredAccessSet {
     }
 }
 
+/// A set of [`ComponentId`]s.
+#[derive(Default, Eq)]
+#[repr(transparent)]
+pub struct ComponentIdSet(FixedBitSet);
+
+impl PartialEq for ComponentIdSet {
+    fn eq(&self, other: &Self) -> bool {
+        // `FixedBitSet` requires equal lengths for equality,
+        // but we consider two sets equal if they have the same bits set
+        self.0.symmetric_difference(&other.0).next().is_none()
+    }
+}
+
+impl ComponentIdSet {
+    /// Create a new empty `ComponentIdSet`.
+    #[inline]
+    pub const fn new() -> Self {
+        Self(FixedBitSet::new())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_bits(bits: FixedBitSet) -> Self {
+        Self(bits)
+    }
+
+    /// Adds a [`ComponentId`] to the set.
+    #[inline]
+    pub fn insert(&mut self, index: ComponentId) {
+        self.0.grow_and_insert(index.index());
+    }
+
+    /// Removes a [`ComponentId`] from the set.
+    #[inline]
+    pub fn remove(&mut self, index: ComponentId) {
+        if index.index() < self.0.len() {
+            self.0.remove(index.index());
+        }
+    }
+
+    /// Removes all [`ComponentId`]s from the set.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    /// Returns `true` if the [`ComponentId`] is in the set.
+    #[inline]
+    pub fn contains(&self, index: ComponentId) -> bool {
+        self.0.contains(index.index())
+    }
+
+    /// Returns `true` if `self` has no elements in common with `other`. This
+    /// is equivalent to checking for an empty intersection.
+    #[inline]
+    pub fn is_disjoint(&self, other: &ComponentIdSet) -> bool {
+        self.0.is_disjoint(&other.0)
+    }
+
+    /// Returns `true` if the set is a subset of another, i.e. `other` contains
+    /// at least all the values in `self`.
+    #[inline]
+    pub fn is_subset(&self, other: &ComponentIdSet) -> bool {
+        self.0.is_subset(&other.0)
+    }
+
+    /// Returns `true` if the set is empty.
+    #[inline]
+    pub fn is_clear(&self) -> bool {
+        self.0.is_clear()
+    }
+
+    /// Iterates the [`ComponentId`]s in the set.
+    #[inline]
+    pub fn iter(&self) -> ComponentIdIter<Ones<'_>> {
+        ComponentIdIter(self.0.ones())
+    }
+
+    /// Returns a lazy iterator over the union of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn union<'a>(&'a self, other: &'a ComponentIdSet) -> ComponentIdIter<Union<'a>> {
+        ComponentIdIter(self.0.union(&other.0))
+    }
+
+    /// Returns a lazy iterator over the intersection of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn intersection<'a>(
+        &'a self,
+        other: &'a ComponentIdSet,
+    ) -> ComponentIdIter<Intersection<'a>> {
+        ComponentIdIter(self.0.intersection(&other.0))
+    }
+
+    /// Returns a lazy iterator over the difference of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn difference<'a>(&'a self, other: &'a ComponentIdSet) -> ComponentIdIter<Difference<'a>> {
+        ComponentIdIter(self.0.difference(&other.0))
+    }
+
+    /// In-place union of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn union_with(&mut self, other: &ComponentIdSet) {
+        self.0.union_with(&other.0);
+    }
+
+    /// In-place intersection of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn intersect_with(&mut self, other: &ComponentIdSet) {
+        self.0.intersect_with(&other.0);
+    }
+
+    /// In-place difference of two [`ComponentIdSet`]s.
+    #[inline]
+    pub fn difference_with(&mut self, other: &ComponentIdSet) {
+        self.0.difference_with(&other.0);
+    }
+
+    /// In-place reversed difference of two [`ComponentIdSet`]s.
+    /// This sets `self` to be `other.difference(self)`.
+    #[inline]
+    pub fn difference_from(&mut self, other: &ComponentIdSet) {
+        // Calculate `other - self` as `!self & other`
+        // We have to grow here because the new bits are going to get flipped to 1.
+        self.0.grow(other.0.len());
+        self.0.toggle_range(..);
+        self.0.intersect_with(&other.0);
+    }
+}
+
+impl Debug for ComponentIdSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // `FixedBitSet` normally has a `Debug` output like:
+        // FixedBitSet { data: [ 160 ], length: 8 }
+        // Instead, print the list of set values, like:
+        // [ 5, 7 ]
+        // Don't wrap in `ComponentId`, since that would just output:
+        // [ ComponentId(5), ComponentId(7) ]
+        f.debug_list().entries(self.0.ones()).finish()
+    }
+}
+
+impl Clone for ComponentIdSet {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+
+    #[inline]
+    fn clone_from(&mut self, source: &Self) {
+        self.0.clone_from(&source.0);
+    }
+}
+
+impl IntoIterator for ComponentIdSet {
+    type Item = ComponentId;
+
+    type IntoIter = ComponentIdIter<IntoOnes>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        ComponentIdIter(self.0.into_ones())
+    }
+}
+
+impl<'a> IntoIterator for &'a ComponentIdSet {
+    type Item = ComponentId;
+
+    type IntoIter = ComponentIdIter<Ones<'a>>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl FromIterator<ComponentId> for ComponentIdSet {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = ComponentId>>(iter: T) -> Self {
+        Self(FixedBitSet::from_iter(
+            iter.into_iter().map(ComponentId::index),
+        ))
+    }
+}
+
+impl Extend<ComponentId> for ComponentIdSet {
+    #[inline]
+    fn extend<T: IntoIterator<Item = ComponentId>>(&mut self, iter: T) {
+        self.0.extend(iter.into_iter().map(ComponentId::index));
+    }
+}
+
+/// An iterator of [`ComponentId`]s.
+///
+/// This is equivalent to `map(ComponentId::new)`,
+/// but is a named type to allow it to be used in associated types.
+#[repr(transparent)]
+pub struct ComponentIdIter<I>(I);
+
+impl<I: Iterator<Item = usize>> Iterator for ComponentIdIter<I> {
+    type Item = ComponentId;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(ComponentId::new)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+}
+
+impl<I: DoubleEndedIterator<Item = usize>> DoubleEndedIterator for ComponentIdIter<I> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.next_back().map(ComponentId::new)
+    }
+}
+
+impl<I: FusedIterator<Item = usize>> FusedIterator for ComponentIdIter<I> {}
+
 #[cfg(test)]
 mod tests {
-    use super::{invertible_difference_with, invertible_union_with};
     use crate::{
-        component::ComponentId,
+        component::ComponentIds,
         query::{
-            access::AccessFilters, Access, AccessConflicts, ComponentAccessKind, FilteredAccess,
+            access::{AccessFilters, InvertibleComponentIdSet},
+            Access, AccessConflicts, ComponentAccessKind, ComponentIdSet, FilteredAccess,
             FilteredAccessSet, UnboundedAccessError,
         },
     };
     use alloc::{vec, vec::Vec};
     use fixedbitset::FixedBitSet;
 
-    fn create_sample_access() -> Access {
-        let mut access = Access::default();
-
-        access.add_read(ComponentId::new(1));
-        access.add_read(ComponentId::new(2));
-        access.add_write(ComponentId::new(3));
-        access.add_archetypal(ComponentId::new(5));
-        access.read_all();
-
-        access
-    }
-
-    fn create_sample_filtered_access() -> FilteredAccess {
-        let mut filtered_access = FilteredAccess::default();
-
-        filtered_access.add_write(ComponentId::new(1));
-        filtered_access.add_read(ComponentId::new(2));
-        filtered_access.add_required(ComponentId::new(3));
-        filtered_access.and_with(ComponentId::new(4));
-
-        filtered_access
-    }
-
-    fn create_sample_access_filters() -> AccessFilters {
-        let mut access_filters = AccessFilters::default();
-
-        access_filters.with.grow_and_insert(3);
-        access_filters.without.grow_and_insert(5);
-
-        access_filters
-    }
-
-    fn create_sample_filtered_access_set() -> FilteredAccessSet {
-        let mut filtered_access_set = FilteredAccessSet::default();
-
-        filtered_access_set.add_unfiltered_component_read(ComponentId::new(2));
-        filtered_access_set.add_unfiltered_component_write(ComponentId::new(4));
-        filtered_access_set.read_all();
-
-        filtered_access_set
-    }
-
     #[test]
     fn test_access_clone() {
-        let original = create_sample_access();
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_5 = ids.next_mut();
+
+        let mut original = Access::default();
+        original.add_read(id_1);
+        original.add_read(id_2);
+        original.add_write(id_3);
+        original.add_archetypal(id_5);
+        original.read_all();
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1385,12 +1389,27 @@ mod tests {
 
     #[test]
     fn test_access_clone_from() {
-        let original = create_sample_access();
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+        let id_5 = ids.next_mut();
+        let id_7 = ids.next_mut();
+        let id_8 = ids.next_mut();
+
+        let mut original = Access::default();
+        original.add_read(id_1);
+        original.add_read(id_2);
+        original.add_write(id_3);
+        original.add_archetypal(id_5);
+        original.read_all();
+
         let mut cloned = Access::default();
 
-        cloned.add_write(ComponentId::new(7));
-        cloned.add_read(ComponentId::new(4));
-        cloned.add_archetypal(ComponentId::new(8));
+        cloned.add_write(id_7);
+        cloned.add_read(id_4);
+        cloned.add_archetypal(id_8);
         cloned.write_all();
 
         cloned.clone_from(&original);
@@ -1400,7 +1419,18 @@ mod tests {
 
     #[test]
     fn test_filtered_access_clone() {
-        let original = create_sample_filtered_access();
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
+        let mut original = FilteredAccess::default();
+        original.add_write(id_1);
+        original.add_read(id_2);
+        original.add_required(id_3);
+        original.and_with(id_4);
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1408,11 +1438,23 @@ mod tests {
 
     #[test]
     fn test_filtered_access_clone_from() {
-        let original = create_sample_filtered_access();
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+        let id_7 = ids.next_mut();
+
+        let mut original = FilteredAccess::default();
+        original.add_write(id_1);
+        original.add_read(id_2);
+        original.add_required(id_3);
+        original.and_with(id_4);
+
         let mut cloned = FilteredAccess::default();
 
-        cloned.add_write(ComponentId::new(7));
-        cloned.add_read(ComponentId::new(4));
+        cloned.add_write(id_7);
+        cloned.add_read(id_4);
         cloned.append_or(&FilteredAccess::default());
 
         cloned.clone_from(&original);
@@ -1422,7 +1464,14 @@ mod tests {
 
     #[test]
     fn test_access_filters_clone() {
-        let original = create_sample_access_filters();
+        let mut ids = ComponentIds::default();
+        let id_3 = ids.next_mut();
+        let id_5 = ids.next_mut();
+
+        let mut original = AccessFilters::default();
+        original.with.insert(id_3);
+        original.without.insert(id_5);
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1430,11 +1479,20 @@ mod tests {
 
     #[test]
     fn test_access_filters_clone_from() {
-        let original = create_sample_access_filters();
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_5 = ids.next_mut();
+
+        let mut original = AccessFilters::default();
+        original.with.insert(id_3);
+        original.without.insert(id_5);
+
         let mut cloned = AccessFilters::default();
 
-        cloned.with.grow_and_insert(1);
-        cloned.without.grow_and_insert(2);
+        cloned.with.insert(id_1);
+        cloned.without.insert(id_2);
 
         cloned.clone_from(&original);
 
@@ -1443,7 +1501,15 @@ mod tests {
 
     #[test]
     fn test_filtered_access_set_clone() {
-        let original = create_sample_filtered_access_set();
+        let mut ids = ComponentIds::default();
+        let id_2 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
+        let mut original = FilteredAccessSet::default();
+        original.add_unfiltered_component_read(id_2);
+        original.add_unfiltered_component_write(id_4);
+        original.read_all();
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1451,11 +1517,21 @@ mod tests {
 
     #[test]
     fn test_filtered_access_set_from() {
-        let original = create_sample_filtered_access_set();
+        let mut ids = ComponentIds::default();
+        let id_2 = ids.next_mut();
+        let id_4 = ids.next_mut();
+        let id_7 = ids.next_mut();
+        let id_9 = ids.next_mut();
+
+        let mut original = FilteredAccessSet::default();
+        original.add_unfiltered_component_read(id_2);
+        original.add_unfiltered_component_write(id_4);
+        original.read_all();
+
         let mut cloned = FilteredAccessSet::default();
 
-        cloned.add_unfiltered_component_read(ComponentId::new(7));
-        cloned.add_unfiltered_component_write(ComponentId::new(9));
+        cloned.add_unfiltered_component_read(id_7);
+        cloned.add_unfiltered_component_write(id_9);
         cloned.write_all();
 
         cloned.clone_from(&original);
@@ -1465,9 +1541,12 @@ mod tests {
 
     #[test]
     fn read_all_access_conflicts() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+
         // read_all / single write
         let mut access_a = Access::default();
-        access_a.add_write(ComponentId::new(0));
+        access_a.add_write(id_0);
 
         let mut access_b = Access::default();
         access_b.read_all();
@@ -1486,98 +1565,107 @@ mod tests {
 
     #[test]
     fn access_get_conflicts() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+
         let mut access_a = Access::default();
-        access_a.add_read(ComponentId::new(0));
-        access_a.add_read(ComponentId::new(1));
+        access_a.add_read(id_0);
+        access_a.add_read(id_1);
 
         let mut access_b = Access::default();
-        access_b.add_read(ComponentId::new(0));
-        access_b.add_write(ComponentId::new(1));
+        access_b.add_read(id_0);
+        access_b.add_write(id_1);
 
-        assert_eq!(
-            access_a.get_conflicts(&access_b),
-            vec![ComponentId::new(1)].into()
-        );
+        assert_eq!(access_a.get_conflicts(&access_b), vec![id_1].into());
 
         let mut access_c = Access::default();
-        access_c.add_write(ComponentId::new(0));
-        access_c.add_write(ComponentId::new(1));
+        access_c.add_write(id_0);
+        access_c.add_write(id_1);
 
-        assert_eq!(
-            access_a.get_conflicts(&access_c),
-            vec![ComponentId::new(0), ComponentId::new(1)].into()
-        );
-        assert_eq!(
-            access_b.get_conflicts(&access_c),
-            vec![ComponentId::new(0), ComponentId::new(1)].into()
-        );
+        assert_eq!(access_a.get_conflicts(&access_c), vec![id_0, id_1].into());
+        assert_eq!(access_b.get_conflicts(&access_c), vec![id_0, id_1].into());
 
         let mut access_d = Access::default();
-        access_d.add_read(ComponentId::new(0));
+        access_d.add_read(id_0);
 
         assert_eq!(access_d.get_conflicts(&access_a), AccessConflicts::empty());
         assert_eq!(access_d.get_conflicts(&access_b), AccessConflicts::empty());
-        assert_eq!(
-            access_d.get_conflicts(&access_c),
-            vec![ComponentId::new(0)].into()
-        );
+        assert_eq!(access_d.get_conflicts(&access_c), vec![id_0].into());
     }
 
     #[test]
     fn filtered_combined_access() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+
         let mut access_a = FilteredAccessSet::default();
-        access_a.add_unfiltered_component_read(ComponentId::new(1));
+        access_a.add_unfiltered_component_read(id_1);
 
         let mut filter_b = FilteredAccess::default();
-        filter_b.add_write(ComponentId::new(1));
+        filter_b.add_write(id_1);
 
         let conflicts = access_a.get_conflicts_single(&filter_b);
         assert_eq!(
             &conflicts,
-            &AccessConflicts::from(vec![ComponentId::new(1)]),
+            &AccessConflicts::from(vec![id_1]),
             "access_a: {access_a:?}, filter_b: {filter_b:?}"
         );
     }
 
     #[test]
     fn filtered_access_extend() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
         let mut access_a = FilteredAccess::default();
-        access_a.add_read(ComponentId::new(0));
-        access_a.add_read(ComponentId::new(1));
-        access_a.and_with(ComponentId::new(2));
+        access_a.add_read(id_0);
+        access_a.add_read(id_1);
+        access_a.and_with(id_2);
 
         let mut access_b = FilteredAccess::default();
-        access_b.add_read(ComponentId::new(0));
-        access_b.add_write(ComponentId::new(3));
-        access_b.and_without(ComponentId::new(4));
+        access_b.add_read(id_0);
+        access_b.add_write(id_3);
+        access_b.and_without(id_4);
 
         access_a.extend(&access_b);
 
         let mut expected = FilteredAccess::default();
-        expected.add_read(ComponentId::new(0));
-        expected.add_read(ComponentId::new(1));
-        expected.and_with(ComponentId::new(2));
-        expected.add_write(ComponentId::new(3));
-        expected.and_without(ComponentId::new(4));
+        expected.add_read(id_0);
+        expected.add_read(id_1);
+        expected.and_with(id_2);
+        expected.add_write(id_3);
+        expected.and_without(id_4);
 
         assert!(access_a.eq(&expected));
     }
 
     #[test]
     fn filtered_access_extend_or() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
         let mut access_a = FilteredAccess::default();
         // Exclusive access to `(&mut A, &mut B)`.
-        access_a.add_write(ComponentId::new(0));
-        access_a.add_write(ComponentId::new(1));
+        access_a.add_write(id_0);
+        access_a.add_write(id_1);
 
         // Filter by `With<C>`.
         let mut access_b = FilteredAccess::default();
-        access_b.and_with(ComponentId::new(2));
+        access_b.and_with(id_2);
 
         // Filter by `(With<D>, Without<E>)`.
         let mut access_c = FilteredAccess::default();
-        access_c.and_with(ComponentId::new(3));
-        access_c.and_without(ComponentId::new(4));
+        access_c.and_with(id_3);
+        access_c.and_without(id_4);
 
         // Turns `access_b` into `Or<(With<C>, (With<D>, Without<D>))>`.
         access_b.append_or(&access_c);
@@ -1589,17 +1677,20 @@ mod tests {
         // The intention here is to test that exclusive access implied by `add_write`
         // forms correct normalized access structs when extended with `Or` filters.
         let mut expected = FilteredAccess::default();
-        expected.add_write(ComponentId::new(0));
-        expected.add_write(ComponentId::new(1));
+        expected.add_write(id_0);
+        expected.add_write(id_1);
         // The resulted access is expected to represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>, Without<E>))>`.
         expected.filter_sets = vec![
             AccessFilters {
-                with: FixedBitSet::with_capacity_and_blocks(3, [0b111]),
-                without: FixedBitSet::default(),
+                with: ComponentIdSet::from_bits(FixedBitSet::with_capacity_and_blocks(3, [0b111])),
+                without: ComponentIdSet::default(),
             },
             AccessFilters {
-                with: FixedBitSet::with_capacity_and_blocks(4, [0b1011]),
-                without: FixedBitSet::with_capacity_and_blocks(5, [0b10000]),
+                with: ComponentIdSet::from_bits(FixedBitSet::with_capacity_and_blocks(4, [0b1011])),
+                without: ComponentIdSet::from_bits(FixedBitSet::with_capacity_and_blocks(
+                    5,
+                    [0b10000],
+                )),
             },
         ];
 
@@ -1608,32 +1699,42 @@ mod tests {
 
     #[test]
     fn try_iter_component_access_simple() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_5 = ids.next_mut();
+
         let mut access = Access::default();
 
-        access.add_read(ComponentId::new(1));
-        access.add_read(ComponentId::new(2));
-        access.add_write(ComponentId::new(3));
-        access.add_archetypal(ComponentId::new(5));
+        access.add_read(id_1);
+        access.add_read(id_2);
+        access.add_write(id_3);
+        access.add_archetypal(id_5);
 
         let result = access.try_iter_access().map(Iterator::collect::<Vec<_>>);
 
         assert_eq!(
             result,
             Ok(vec![
-                ComponentAccessKind::Shared(ComponentId::new(1)),
-                ComponentAccessKind::Shared(ComponentId::new(2)),
-                ComponentAccessKind::Exclusive(ComponentId::new(3)),
-                ComponentAccessKind::Archetypal(ComponentId::new(5)),
+                ComponentAccessKind::Shared(id_1),
+                ComponentAccessKind::Shared(id_2),
+                ComponentAccessKind::Exclusive(id_3),
+                ComponentAccessKind::Archetypal(id_5),
             ]),
         );
     }
 
     #[test]
     fn try_iter_component_access_unbounded_write_all() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+
         let mut access = Access::default();
 
-        access.add_read(ComponentId::new(1));
-        access.add_read(ComponentId::new(2));
+        access.add_read(id_1);
+        access.add_read(id_2);
         access.write_all();
 
         let result = access.try_iter_access().map(Iterator::collect::<Vec<_>>);
@@ -1642,17 +1743,21 @@ mod tests {
             result,
             Err(UnboundedAccessError {
                 writes_inverted: true,
-                read_and_writes_inverted: true
+                reads_inverted: true
             }),
         );
     }
 
     #[test]
     fn try_iter_component_access_unbounded_read_all() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+
         let mut access = Access::default();
 
-        access.add_read(ComponentId::new(1));
-        access.add_read(ComponentId::new(2));
+        access.add_read(id_1);
+        access.add_read(id_2);
         access.read_all();
 
         let result = access.try_iter_access().map(Iterator::collect::<Vec<_>>);
@@ -1661,50 +1766,60 @@ mod tests {
             result,
             Err(UnboundedAccessError {
                 writes_inverted: false,
-                read_and_writes_inverted: true
+                reads_inverted: true
             }),
         );
     }
 
-    /// Create a `FixedBitSet` with a given number of total bits and a given list of bits to set.
+    /// Create a `ComponentIdSet` with a given number of total bits and a given list of bits to set.
     /// Setting the number of bits is important in tests since the `PartialEq` impl checks that the length matches.
-    fn bit_set(bits: usize, iter: impl IntoIterator<Item = usize>) -> FixedBitSet {
+    fn bit_set(bits: usize, iter: impl IntoIterator<Item = usize>) -> ComponentIdSet {
         let mut result = FixedBitSet::with_capacity(bits);
         result.extend(iter);
-        result
+        ComponentIdSet::from_bits(result)
     }
 
     #[test]
-    fn invertible_union_with_tests() {
-        let invertible_union = |mut self_inverted: bool, other_inverted: bool| {
-            // Check all four possible bit states: In both sets, the first, the second, or neither
-            let mut self_set = bit_set(4, [0, 1]);
-            let other_set = bit_set(4, [0, 2]);
-            invertible_union_with(
-                &mut self_set,
-                &mut self_inverted,
-                &other_set,
-                other_inverted,
-            );
-            (self_set, self_inverted)
-        };
+    fn invertible_union_tests() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
 
-        // Check each combination of `inverted` flags
-        let (s, i) = invertible_union(false, false);
+        let set0 = ComponentIdSet::from_iter([id_0]);
+        let set1 = ComponentIdSet::from_iter([id_1]);
+        let set2 = ComponentIdSet::from_iter([id_2]);
+        let set01 = ComponentIdSet::from_iter([id_0, id_1]);
+        let set02 = ComponentIdSet::from_iter([id_0, id_2]);
+        let set012 = ComponentIdSet::from_iter([id_0, id_1, id_2]);
+
+        // Check each combination of `Included` and `Excluded`
         // [0, 1] | [0, 2] = [0, 1, 2]
-        assert_eq!((s, i), (bit_set(4, [0, 1, 2]), false));
-
-        let (s, i) = invertible_union(false, true);
+        assert_eq!(
+            InvertibleComponentIdSet::Included(set01.clone())
+                .union(&InvertibleComponentIdSet::Included(set02.clone())),
+            InvertibleComponentIdSet::Included(set012.clone())
+        );
         // [0, 1] | [1, 3, ...] = [0, 1, 3, ...]
-        assert_eq!((s, i), (bit_set(4, [2]), true));
+        assert_eq!(
+            InvertibleComponentIdSet::Included(set01.clone())
+                .union(&InvertibleComponentIdSet::Excluded(set02.clone())),
+            InvertibleComponentIdSet::Excluded(set2.clone())
+        );
 
-        let (s, i) = invertible_union(true, false);
         // [2, 3, ...] | [0, 2] = [0, 2, 3, ...]
-        assert_eq!((s, i), (bit_set(4, [1]), true));
+        assert_eq!(
+            InvertibleComponentIdSet::Excluded(set01.clone())
+                .union(&InvertibleComponentIdSet::Included(set02.clone())),
+            InvertibleComponentIdSet::Excluded(set1.clone())
+        );
 
-        let (s, i) = invertible_union(true, true);
         // [2, 3, ...] | [1, 3, ...] = [1, 2, 3, ...]
-        assert_eq!((s, i), (bit_set(4, [0]), true));
+        assert_eq!(
+            InvertibleComponentIdSet::Excluded(set01.clone())
+                .union(&InvertibleComponentIdSet::Excluded(set02.clone())),
+            InvertibleComponentIdSet::Excluded(set0.clone())
+        );
     }
 
     #[test]
@@ -1713,51 +1828,231 @@ mod tests {
         // make sure we invert the bits beyond the original length.
         // Failing to call `grow` before `toggle_range` would cause bit 1 to be zero,
         // which would incorrectly treat it as included in the output set.
-        let mut self_set = bit_set(1, [0]);
-        let mut self_inverted = false;
-        let other_set = bit_set(3, [0, 1]);
-        let other_inverted = true;
-        invertible_union_with(
-            &mut self_set,
-            &mut self_inverted,
-            &other_set,
-            other_inverted,
-        );
+        let mut self_set = InvertibleComponentIdSet::Included(bit_set(1, [0]));
+        let other_set = InvertibleComponentIdSet::Excluded(bit_set(3, [0, 1]));
+        self_set.union_with(&other_set);
 
         // [0] | [2, ...] = [0, 2, ...]
-        assert_eq!((self_set, self_inverted), (bit_set(3, [1]), true));
+        assert_eq!(
+            self_set,
+            InvertibleComponentIdSet::Excluded(bit_set(3, [1]))
+        );
     }
 
     #[test]
-    fn invertible_difference_with_tests() {
-        let invertible_difference = |mut self_inverted: bool, other_inverted: bool| {
-            // Check all four possible bit states: In both sets, the first, the second, or neither
-            let mut self_set = bit_set(4, [0, 1]);
-            let other_set = bit_set(4, [0, 2]);
-            invertible_difference_with(
-                &mut self_set,
-                &mut self_inverted,
-                &other_set,
-                other_inverted,
-            );
-            (self_set, self_inverted)
-        };
+    fn invertible_difference_tests() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
 
-        // Check each combination of `inverted` flags
-        let (s, i) = invertible_difference(false, false);
+        let set0 = ComponentIdSet::from_iter([id_0]);
+        let set1 = ComponentIdSet::from_iter([id_1]);
+        let set2 = ComponentIdSet::from_iter([id_2]);
+        let set01 = ComponentIdSet::from_iter([id_0, id_1]);
+        let set02 = ComponentIdSet::from_iter([id_0, id_2]);
+        let set012 = ComponentIdSet::from_iter([id_0, id_1, id_2]);
+
+        // Check each combination of `Included` and `Excluded`
         // [0, 1] - [0, 2] = [1]
-        assert_eq!((s, i), (bit_set(4, [1]), false));
-
-        let (s, i) = invertible_difference(false, true);
+        assert_eq!(
+            InvertibleComponentIdSet::Included(set01.clone())
+                .difference(&InvertibleComponentIdSet::Included(set02.clone())),
+            InvertibleComponentIdSet::Included(set1.clone())
+        );
         // [0, 1] - [1, 3, ...] = [0]
-        assert_eq!((s, i), (bit_set(4, [0]), false));
+        assert_eq!(
+            InvertibleComponentIdSet::Included(set01.clone())
+                .difference(&InvertibleComponentIdSet::Excluded(set02.clone())),
+            InvertibleComponentIdSet::Included(set0.clone())
+        );
 
-        let (s, i) = invertible_difference(true, false);
         // [2, 3, ...] - [0, 2] = [3, ...]
-        assert_eq!((s, i), (bit_set(4, [0, 1, 2]), true));
+        assert_eq!(
+            InvertibleComponentIdSet::Excluded(set01.clone())
+                .difference(&InvertibleComponentIdSet::Included(set02.clone())),
+            InvertibleComponentIdSet::Excluded(set012.clone())
+        );
 
-        let (s, i) = invertible_difference(true, true);
         // [2, 3, ...] - [1, 3, ...] = [2]
-        assert_eq!((s, i), (bit_set(4, [2]), false));
+        assert_eq!(
+            InvertibleComponentIdSet::Excluded(set01.clone())
+                .difference(&InvertibleComponentIdSet::Excluded(set02.clone())),
+            InvertibleComponentIdSet::Included(set2.clone())
+        );
+    }
+
+    #[test]
+    fn invertible_intersection_tests() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+
+        let set0 = ComponentIdSet::from_iter([id_0]);
+        let set1 = ComponentIdSet::from_iter([id_1]);
+        let set2 = ComponentIdSet::from_iter([id_2]);
+        let set01 = ComponentIdSet::from_iter([id_0, id_1]);
+        let set02 = ComponentIdSet::from_iter([id_0, id_2]);
+        let set012 = ComponentIdSet::from_iter([id_0, id_1, id_2]);
+
+        // Check each combination of `Included` and `Excluded`
+        // [0, 1] & [0, 2] = [0]
+        assert_eq!(
+            InvertibleComponentIdSet::Included(set01.clone())
+                .intersection(&InvertibleComponentIdSet::Included(set02.clone())),
+            InvertibleComponentIdSet::Included(set0.clone())
+        );
+        // [0, 1] & [1, 3, ...] = [1]
+        assert_eq!(
+            InvertibleComponentIdSet::Included(set01.clone())
+                .intersection(&InvertibleComponentIdSet::Excluded(set02.clone())),
+            InvertibleComponentIdSet::Included(set1.clone())
+        );
+
+        // [2, 3, ...] & [0, 2] = [2]
+        assert_eq!(
+            InvertibleComponentIdSet::Excluded(set01.clone())
+                .intersection(&InvertibleComponentIdSet::Included(set02.clone())),
+            InvertibleComponentIdSet::Included(set2.clone())
+        );
+
+        // [2, 3, ...] & [1, 3, ...] = [3, ...]
+        assert_eq!(
+            InvertibleComponentIdSet::Excluded(set01.clone())
+                .intersection(&InvertibleComponentIdSet::Excluded(set02.clone())),
+            InvertibleComponentIdSet::Excluded(set012.clone())
+        );
+    }
+
+    #[test]
+    fn component_id_set_insert_remove_clear() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+
+        let mut set = ComponentIdSet::new();
+        assert!(!set.contains(id_0));
+        assert!(!set.contains(id_1));
+        assert!(!set.contains(id_2));
+        assert!(set.is_clear());
+        set.insert(id_2);
+        set.insert(id_1);
+        assert!(!set.contains(id_0));
+        assert!(set.contains(id_1));
+        assert!(set.contains(id_2));
+        assert!(!set.is_clear());
+        set.remove(id_1);
+        assert!(!set.contains(id_0));
+        assert!(!set.contains(id_1));
+        assert!(set.contains(id_2));
+        assert!(!set.is_clear());
+        set.insert(id_2);
+        set.insert(id_1);
+        assert!(!set.contains(id_0));
+        assert!(set.contains(id_1));
+        assert!(set.contains(id_2));
+        assert!(!set.is_clear());
+        set.clear();
+        assert!(!set.contains(id_0));
+        assert!(!set.contains(id_1));
+        assert!(!set.contains(id_2));
+        assert!(set.is_clear());
+    }
+
+    #[test]
+    fn component_id_set_remove_out_of_range() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
+        let mut set = ComponentIdSet::new();
+        set.remove(id_3);
+        set.insert(id_1);
+        set.remove(id_4);
+        assert!(set.iter().eq([id_1]));
+    }
+
+    #[test]
+    fn component_id_set_is_subset_is_disjoint() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+        let id_5 = ids.next_mut();
+
+        let set_1234 = ComponentIdSet::from_iter([id_1, id_2, id_3, id_4]);
+        let set_23 = ComponentIdSet::from_iter([id_2, id_3]);
+        let set_45 = ComponentIdSet::from_iter([id_4, id_5]);
+        assert!(set_23.is_subset(&set_1234));
+        assert!(!set_1234.is_subset(&set_23));
+        assert!(set_23.is_disjoint(&set_45));
+        assert!(set_45.is_disjoint(&set_23));
+        assert!(!set_1234.is_disjoint(&set_23));
+        assert!(!set_23.is_disjoint(&set_1234));
+    }
+
+    #[test]
+    fn component_id_set_union_intersection_difference() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+
+        let set_13 = ComponentIdSet::from_iter([id_1, id_3]);
+        let set_23 = ComponentIdSet::from_iter([id_2, id_3]);
+
+        assert!(set_13.union(&set_23).eq([id_1, id_3, id_2]));
+        assert!(set_23.union(&set_13).eq([id_2, id_3, id_1]));
+        assert!(set_13.intersection(&set_23).eq([id_3]));
+        assert!(set_23.intersection(&set_13).eq([id_3]));
+        assert!(set_13.difference(&set_23).eq([id_1]));
+        assert!(set_23.difference(&set_13).eq([id_2]));
+    }
+
+    #[test]
+    fn component_id_set_union_intersection_difference_with() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+
+        let set_13 = ComponentIdSet::from_iter([id_1, id_3]);
+        let set_23 = ComponentIdSet::from_iter([id_2, id_3]);
+
+        let mut s = set_13.clone();
+        s.union_with(&set_23);
+        assert!(s.iter().eq([id_1, id_2, id_3]));
+
+        let mut s = set_23.clone();
+        s.union_with(&set_13);
+        assert!(s.iter().eq([id_1, id_2, id_3]));
+
+        let mut s = set_13.clone();
+        s.intersect_with(&set_23);
+        assert!(s.iter().eq([id_3]));
+
+        let mut s = set_23.clone();
+        s.intersect_with(&set_13);
+        assert!(s.iter().eq([id_3]));
+
+        let mut s = set_13.clone();
+        s.difference_with(&set_23);
+        assert!(s.iter().eq([id_1]));
+
+        let mut s = set_23.clone();
+        s.difference_with(&set_13);
+        assert!(s.iter().eq([id_2]));
+
+        let mut s = set_13.clone();
+        s.difference_from(&set_23);
+        assert!(s.iter().eq([id_2]));
+
+        let mut s = set_23.clone();
+        s.difference_from(&set_13);
+        assert!(s.iter().eq([id_1]));
     }
 }

@@ -10,14 +10,37 @@ use bevy_ptr::{OwningPtr, Ptr};
 use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, num::NonZero, panic::Location};
 use nonmax::{NonMaxU32, NonMaxUsize};
 
+/// A map from `I` to `V` implemented as a `Vec<Option<V>>`.
+///
+/// The key type, `I`, must implement [`SparseSetIndex`]
+/// to allow conversion to and from array indexes.
+///
+/// This supports fast O(1) lookups, since they are simple
+/// array indexing operations with no calculations.
+///
+/// However, it may use a lot of excess memory if the
+/// values are large or the set is sparsely populated.
 #[derive(Debug)]
 pub(crate) struct SparseArray<I, V = I> {
     values: Vec<Option<V>>,
     marker: PhantomData<I>,
 }
 
-/// A space-optimized version of [`SparseArray`] that cannot be changed
-/// after construction.
+/// A map from `I` to `V` implemented as a `Box<[Option<V>]>`.
+///
+/// This uses less space than [`SparseArray`] because it does not
+/// need to store both length and capacity,
+/// but it cannot be changed after construction.
+///
+/// The key type, `I`, must implement [`SparseSetIndex`]
+/// to allow conversion to and from array indexes.
+///
+/// This supports fast O(1) lookups, since they are simple
+/// array indexing operations with no calculations.
+///
+/// However, it may use a lot of excess memory if the
+/// values are large or the set is sparsely populated.
+
 #[derive(Debug)]
 pub(crate) struct ImmutableSparseArray<I, V = I> {
     values: Box<[Option<V>]>,
@@ -111,6 +134,19 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
             values: self.values.into_boxed_slice(),
             marker: PhantomData,
         }
+    }
+
+    /// Returns an iterator over the non-empty values in the array.
+    ///
+    /// This must scan the entire array to find non-empty values,
+    /// which may be slow even if the array is sparsely populated.
+    #[inline]
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (I, &V)> {
+        self.values.iter().enumerate().filter_map(|(index, value)| {
+            value
+                .as_ref()
+                .map(|value| (SparseSetIndex::get_sparse_set_index(index), value))
+        })
     }
 }
 
@@ -264,6 +300,7 @@ impl ComponentSparseSet {
                     added: self.dense.get_added_tick_unchecked(dense_index),
                     changed: self.dense.get_changed_tick_unchecked(dense_index),
                     changed_by: self.dense.get_changed_by_unchecked(dense_index),
+                    summary_tick: self.dense.get_summary_tick(),
                 },
             ))
         }
@@ -445,22 +482,75 @@ impl Drop for ComponentSparseSet {
     }
 }
 
-/// A data structure that blends dense and sparse storage
+/// A map from `I` to `V` that combines dense and sparse storage.
 ///
-/// `I` is the type of the indices, while `V` is the type of data stored in the dense storage.
+/// This is implemented as a sparse array mapping keys to dense indexes,
+/// plus dense arrays of indexes and keys.
+///
+/// The key type, `I`, must implement [`SparseSetIndex`]
+/// to allow conversion to and from array indexes.
+///
+/// This supports fast O(1) lookups, since they consist of one array index to map
+/// the key to a dense index, followed by a second array index to find the value.
+///
+/// This may use a lot of excess memory if the set is sparsely populated,
+/// since it stores an empty entry for each key.
+///
+/// Compared to a simple `Vec<Option<V>>`,
+/// the dense storage of values takes less memory when `V` is large,
+/// although the overhead of tracking which entries have values
+/// may make it larger when `V` is small or the set is densely populated.
 #[derive(Debug)]
 pub struct SparseSet<I, V: 'static> {
+    /// The mapping from dense index to value.
+    ///
+    /// `dense[sparse[k]]` holds the value for `k`.
     dense: Vec<V>,
+
+    /// The reverse mapping from dense index to key.
+    ///
+    /// `indices[sparse[k]] == k`
     indices: Vec<I>,
+
+    /// The mapping from keys to dense indexes.
     sparse: SparseArray<I, NonMaxUsize>,
 }
 
-/// A space-optimized version of [`SparseSet`] that cannot be changed
-/// after construction.
+/// A map from `I` to `V` that combines dense and sparse storage.
+///
+/// This is implemented as a sparse array mapping keys to dense indexes,
+/// plus dense arrays of indexes and keys.
+///
+/// This uses less space than [`SparseSet`] because it does not
+/// need to store both length and capacity,
+/// but it cannot be changed after construction.
+///
+/// The key type, `I`, must implement [`SparseSetIndex`]
+/// to allow conversion to and from array indexes.
+///
+/// This supports fast O(1) lookups, since they consist of one array index to map
+/// the key to a dense index, followed by a second array index to find the value.
+///
+/// This may use a lot of excess memory if the set is sparsely populated,
+/// since it stores an empty entry for each key.
+///
+/// Compared to a simple `Vec<Option<V>>`,
+/// the dense storage of values takes less memory when `V` is large,
+/// although the overhead of tracking which entries have values
+/// may make it larger when `V` is small or the set is densely populated.
 #[derive(Debug)]
 pub(crate) struct ImmutableSparseSet<I, V: 'static> {
+    /// The mapping from dense index to value.
+    ///
+    /// `dense[sparse[k]]` holds the value for `k`.
     dense: Box<[V]>,
+
+    /// The reverse mapping from dense index to key.
+    ///
+    /// `indices[sparse[k]] == k`
     indices: Box<[I]>,
+
+    /// The mapping from keys to dense indexes.
     sparse: ImmutableSparseArray<I, NonMaxUsize>,
 }
 
@@ -725,16 +815,15 @@ impl SparseSets {
     /// - Panics if the insertion forces an reallocation and causes an out-of-memory error.
     pub(crate) fn get_or_insert(
         &mut self,
+        id: ComponentId,
         component_info: &ComponentInfo,
     ) -> &mut ComponentSparseSet {
-        if !self.sets.contains(component_info.id()) {
-            self.sets.insert(
-                component_info.id(),
-                ComponentSparseSet::new(component_info, 64),
-            );
+        if !self.sets.contains(id) {
+            self.sets
+                .insert(id, ComponentSparseSet::new(component_info, 64));
         }
 
-        self.sets.get_mut(component_info.id()).unwrap()
+        self.sets.get_mut(id).unwrap()
     }
 
     /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
@@ -763,7 +852,7 @@ impl SparseSets {
 mod tests {
     use super::SparseSets;
     use crate::{
-        component::{Component, ComponentDescriptor, ComponentId, ComponentInfo},
+        component::{Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo},
         entity::{Entity, EntityIndex},
         storage::SparseSet,
     };
@@ -823,6 +912,7 @@ mod tests {
 
     #[test]
     fn sparse_sets() {
+        let mut ids = ComponentIds::default();
         let mut sets = SparseSets::default();
 
         #[derive(Component, Default, Debug)]
@@ -831,13 +921,16 @@ mod tests {
         #[derive(Component, Default, Debug)]
         struct TestComponent2;
 
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+
         assert_eq!(sets.len(), 0);
         assert!(sets.is_empty());
 
-        register_component::<TestComponent1>(&mut sets, 1);
+        register_component::<TestComponent1>(&mut sets, id_1);
         assert_eq!(sets.len(), 1);
 
-        register_component::<TestComponent2>(&mut sets, 2);
+        register_component::<TestComponent2>(&mut sets, id_2);
         assert_eq!(sets.len(), 2);
 
         // check its shape by iter
@@ -846,16 +939,12 @@ mod tests {
             .map(|(id, set)| (id, set.len()))
             .collect::<Vec<_>>();
         collected_sets.sort();
-        assert_eq!(
-            collected_sets,
-            vec![(ComponentId::new(1), 0), (ComponentId::new(2), 0),]
-        );
+        assert_eq!(collected_sets, vec![(id_1, 0), (id_2, 0),]);
 
-        fn register_component<T: Component>(sets: &mut SparseSets, id: usize) {
+        fn register_component<T: Component>(sets: &mut SparseSets, id: ComponentId) {
             let descriptor = ComponentDescriptor::new::<T>();
-            let id = ComponentId::new(id);
-            let info = ComponentInfo::new(id, descriptor);
-            sets.get_or_insert(&info);
+            let info = ComponentInfo::new(descriptor);
+            sets.get_or_insert(id, &info);
         }
     }
 }

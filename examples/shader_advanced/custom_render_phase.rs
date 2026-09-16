@@ -14,8 +14,8 @@ use std::ops::Range;
 
 use bevy::camera::Viewport;
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
-use bevy::math::Affine3Ext;
-use bevy::pbr::{MeshPipelineSet, SetMeshViewEmptyBindGroup, ViewKeyCache};
+use bevy::mesh::{MeshAttributeCompressionFlags, MeshCompressionArgs};
+use bevy::pbr::{self, MeshPipelineSystems, SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
     core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
@@ -34,8 +34,8 @@ use bevy::{
     render::{
         batching::{
             gpu_preprocessing::{
-                batch_and_prepare_sorted_render_phase, IndirectParametersCpuMetadata,
-                UntypedPhaseIndirectParametersBuffers,
+                batch_and_prepare_sorted_render_phase, BatchedInstanceBuffers,
+                IndirectParametersMetadata, UntypedPhaseIndirectParametersBuffers,
             },
             GetBatchData, GetFullBatchData,
         },
@@ -52,10 +52,10 @@ use bevy::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState,
             PipelineCache, PrimitiveState, RenderPassDescriptor, RenderPipelineDescriptor,
             SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-            TextureFormat, VertexState,
+            VertexState,
         },
         renderer::{RenderContext, ViewQuery},
-        sync_world::MainEntity,
+        sync_world::{MainEntity, MainEntityHashSet},
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
@@ -63,7 +63,7 @@ use bevy::{
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 
-const SHADER_ASSET_PATH: &str = "shaders/custom_stencil.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/custom_stencil.wesl";
 
 fn main() {
     App::new()
@@ -94,6 +94,22 @@ fn setup(
         // The circle doesn't have it so it won't be rendered in our pass
         DrawStencil,
     ));
+    commands.spawn((
+        Mesh3d(
+            meshes.add(
+                Sphere::new(0.5)
+                    .mesh()
+                    .build()
+                    .compressed_mesh(&MeshCompressionArgs::regular())
+                    .unwrap(),
+            ),
+        ),
+        MeshMaterial3d(materials.add(Color::srgb_u8(124, 255, 144))),
+        Transform::from_xyz(2.0, 0.5, 0.0),
+        // This marker component is used to identify which mesh will be used in our custom pass
+        // The circle doesn't have it so it won't be rendered in our pass
+        DrawStencil,
+    ));
     // light
     commands.spawn((
         PointLight {
@@ -112,6 +128,7 @@ fn setup(
 }
 
 #[derive(Component, ExtractComponent, Clone, Copy, Default)]
+#[extract_app(RenderApp)]
 struct DrawStencil;
 
 struct MeshStencilPhasePlugin;
@@ -131,7 +148,10 @@ impl Plugin for MeshStencilPhasePlugin {
             .add_render_command::<Stencil3d, DrawMesh3dStencil>()
             .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
             .init_resource::<PendingCustomMeshQueues>()
-            .add_systems(RenderStartup, init_stencil_pipeline.after(MeshPipelineSet))
+            .add_systems(
+                RenderStartup,
+                init_stencil_pipeline.after(MeshPipelineSystems),
+            )
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
                 Render,
@@ -184,9 +204,18 @@ impl SpecializedMeshPipeline for StencilPipeline {
         key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut shader_defs = Vec::new();
         // We will only use the position of the mesh in our shader so we only need to specify that
         let mut vertex_attributes = Vec::new();
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
+            // Handle compressed vertex positions.
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             // Make sure this matches the shader location
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
@@ -201,21 +230,23 @@ impl SpecializedMeshPipeline for StencilPipeline {
             // mesh pipeline
             layout: vec![
                 // Bind group 0 is the view uniform
-                view_layout.main_layout.clone(),
+                view_layout.main_layout,
                 // Bind group 1 is empty
-                view_layout.empty_layout.clone(),
+                view_layout.empty_layout,
                 // Bind group 2 is the mesh uniform
                 self.mesh_pipeline.mesh_layouts.model_only.clone(),
             ],
             vertex: VertexState {
                 shader: self.shader_handle.clone(),
+                shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
+                shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: key.target_format(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -223,6 +254,7 @@ impl SpecializedMeshPipeline for StencilPipeline {
             }),
             primitive: PrimitiveState {
                 topology: key.primitive_topology(),
+                strip_index_format: key.strip_index_format(),
                 cull_mode: Some(Face::Back),
                 ..default()
             },
@@ -344,18 +376,21 @@ impl CachedRenderPipelinePhaseItem for Stencil3d {
 }
 
 impl GetBatchData for StencilPipeline {
-    type Param = (
-        SRes<RenderMeshInstances>,
-        SRes<RenderAssets<RenderMesh>>,
-        SRes<MeshAllocator>,
-    );
-    type CompareData = AssetId<Mesh>;
+    type Param = (SRes<RenderMeshInstances>, SRes<MeshAllocator>);
+    // Placing `AssetId<Mesh>` in the batch set compare data prevents Bevy from
+    // trying to multi-draw items with different meshes together. This is fine
+    // for this simple example.
+    type BatchSetCompareData = AssetId<Mesh>;
+    type BatchCompareData = ();
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, _render_assets, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, mesh_allocator): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
-    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+    ) -> Option<(
+        Self::BufferData,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
                 "`get_batch_data` should never be called in GPU mesh uniform \
@@ -369,24 +404,20 @@ impl GetBatchData for StencilPipeline {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
-        let mesh_uniform = {
-            let mesh_transforms = &mesh_instance.transforms;
-            let (local_from_world_transpose_a, local_from_world_transpose_b) =
-                mesh_transforms.world_from_local.inverse_transpose_3x3();
-            MeshUniform {
-                world_from_local: mesh_transforms.world_from_local.to_transpose(),
-                previous_world_from_local: mesh_transforms.previous_world_from_local.to_transpose(),
-                lightmap_uv_rect: UVec2::ZERO,
-                local_from_world_transpose_a,
-                local_from_world_transpose_b,
-                flags: mesh_transforms.flags,
-                first_vertex_index,
-                current_skin_index: u32::MAX,
-                material_and_lightmap_bind_group_slot: 0,
-                tag: 0,
-                morph_descriptor_index: u32::MAX,
-            }
-        };
+        let metadata_index = mesh_allocator
+            .mesh_metadata_slice(&mesh_instance.mesh_asset_id())
+            .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
+
+        let mesh_uniform = MeshUniform::new(
+            &mesh_instance.transforms,
+            first_vertex_index,
+            mesh_instance.material_bindings_index().slot,
+            None,
+            None,
+            None,
+            Some(mesh_instance.tag()),
+            metadata_index,
+        );
         Some((mesh_uniform, None))
     }
 }
@@ -395,9 +426,12 @@ impl GetFullBatchData for StencilPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_index_and_compare_data(
-        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
-    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
+    ) -> Option<(
+        NonMaxU32,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
@@ -411,12 +445,12 @@ impl GetFullBatchData for StencilPipeline {
             NonMaxU32::new(mesh_instance.gpu_specific.current_uniform_index())?,
             mesh_instance
                 .should_batch()
-                .then_some(mesh_instance.mesh_asset_id()),
+                .then_some((mesh_instance.mesh_asset_id(), ())),
         ))
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, _render_assets, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, mesh_allocator): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -431,6 +465,9 @@ impl GetFullBatchData for StencilPipeline {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
+        let metadata_index = mesh_allocator
+            .mesh_metadata_slice(&mesh_instance.mesh_asset_id())
+            .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
 
         Some(MeshUniform::new(
             &mesh_instance.transforms,
@@ -439,7 +476,8 @@ impl GetFullBatchData for StencilPipeline {
             None,
             None,
             None,
-            None,
+            Some(mesh_instance.tag()),
+            metadata_index,
         ))
     }
 
@@ -453,12 +491,16 @@ impl GetFullBatchData for StencilPipeline {
         // Note that `IndirectParameters` covers both of these structures, even
         // though they actually have distinct layouts. See the comment above that
         // type for more information.
-        let indirect_parameters = IndirectParametersCpuMetadata {
+        let indirect_parameters = IndirectParametersMetadata {
             base_output_index,
             batch_set_index: match batch_set_index {
                 None => !0,
                 Some(batch_set_index) => u32::from(batch_set_index),
             },
+            // These fields are filled in by the GPU:
+            mesh_index: 0,
+            early_instance_count: 0,
+            late_instance_count: 0,
         };
 
         if indexed {
@@ -521,12 +563,16 @@ fn queue_custom_meshes(
     custom_draw_pipeline: Res<StencilPipeline>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    maybe_batched_instance_buffers: Option<
+        Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    >,
     mut custom_render_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_custom_mesh_queues: ResMut<PendingCustomMeshQueues>,
     has_marker: Query<(), With<DrawStencil>>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (view, visible_entities) in &mut views {
         let Some(custom_phase) = custom_render_phases.get_mut(&view.retained_view_entity) else {
@@ -557,6 +603,7 @@ fn queue_custom_meshes(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_custom_mesh_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             // We only want meshes with the marker component to be queued to our phase.
             if has_marker.get(*render_entity).is_err() {
@@ -580,7 +627,10 @@ fn queue_custom_meshes(
             // For this example we only specialize based on the mesh topology
             // but you could have more complex keys and that's where you'd need to create those keys
             let mut mesh_key = view_key;
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            mesh_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
+                mesh.primitive_topology(),
+                mesh.index_format(),
+            );
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
@@ -597,9 +647,20 @@ fn queue_custom_meshes(
             };
             // At this point we have all the data we need to create a phase item and add it to our
             // phase
-            custom_phase.add(Stencil3d {
+            custom_phase.add_retained(Stencil3d {
                 sorting_info: TransparentSortingInfo3d::Sorted {
-                    mesh_center: mesh_instance.center,
+                    mesh_center: pbr::get_mesh_instance_world_from_local(
+                        *visible_entity,
+                        mesh_instance.current_uniform_index,
+                        &render_mesh_instances,
+                        maybe_batched_instance_buffers.as_deref(),
+                    )
+                    .transform_point3(
+                        render_meshes
+                            .get(mesh_instance.mesh_asset_id())
+                            .unwrap()
+                            .aabb_center,
+                    ),
                     depth_bias: 0.0,
                 },
                 distance: FloatOrd(0.0),

@@ -1,11 +1,11 @@
 use crate::{
     error::ReflectCloneError,
+    info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
     reflect::{impl_full_reflect, ApplyError},
-    type_info::{OpaqueInfo, TypeInfo, Typed},
     type_path::DynamicTypePath,
-    type_registry::{FromType, GetTypeRegistration, ReflectFromPtr, TypeRegistration},
+    type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::NonGenericTypeInfoCell,
 };
 use bevy_platform::prelude::*;
@@ -23,15 +23,15 @@ macro_rules! impl_reflect_for_atomic {
             impl GetTypeRegistration for $ty {
                 fn get_type_registration() -> TypeRegistration {
                     let mut registration = TypeRegistration::of::<Self>();
-                    registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-                    registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
-                    registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
+                    registration.register_type_data::<ReflectFromPtr, Self>();
+                    registration.register_type_data::<ReflectFromReflect, Self>();
+                    registration.register_type_data::<ReflectDefault, Self>();
 
                     // Serde only supports atomic types when the "std" feature is enabled
                     #[cfg(feature = "std")]
                     {
-                        registration.insert::<crate::type_registry::ReflectSerialize>(FromType::<Self>::from_type());
-                        registration.insert::<crate::type_registry::ReflectDeserialize>(FromType::<Self>::from_type());
+                        registration.register_type_data::<crate::type_registry::ReflectSerialize, Self>();
+                        registration.register_type_data::<crate::type_registry::ReflectDeserialize, Self>();
                     }
 
                     registration

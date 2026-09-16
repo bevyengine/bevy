@@ -10,6 +10,8 @@ use bevy_reflect::prelude::*;
 use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
+///
+/// SDR colors are in `[0.0, 1.0]`. Values above `1.0` are HDR intensities.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -26,11 +28,11 @@ use thiserror::Error;
     reflect(Serialize, Deserialize)
 )]
 pub struct Srgba {
-    /// The red channel. [0.0, 1.0]
+    /// The red channel. [0.0, 1.0] for SDR colors.
     pub red: f32,
-    /// The green channel. [0.0, 1.0]
+    /// The green channel. [0.0, 1.0] for SDR colors.
     pub green: f32,
-    /// The blue channel. [0.0, 1.0]
+    /// The blue channel. [0.0, 1.0] for SDR colors.
     pub blue: f32,
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,
@@ -412,6 +414,18 @@ impl From<Xyza> for Srgba {
 impl From<Srgba> for Xyza {
     fn from(value: Srgba) -> Self {
         LinearRgba::from(value).into()
+    }
+}
+
+#[cfg(feature = "wgpu-types")]
+impl From<Srgba> for wgpu_types::Color {
+    fn from(color: Srgba) -> Self {
+        wgpu_types::Color {
+            r: color.red as f64,
+            g: color.green as f64,
+            b: color.blue as f64,
+            a: color.alpha as f64,
+        }
     }
 }
 

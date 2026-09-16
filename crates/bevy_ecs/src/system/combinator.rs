@@ -6,9 +6,9 @@ use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::ErrorContext,
     prelude::World,
-    query::FilteredAccessSet,
+    query::FilteredAccess,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn, SystemParamValidationError},
+    system::{input::SystemInput, SystemAccess, SystemIn},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -168,14 +168,11 @@ where
             world: &mut PrivateUnsafeWorldCell,
         ) -> Result<S::Out, RunSystemError> {
             // SAFETY: see comment on `Func::combine` call
-            match (|| unsafe {
-                system.validate_param_unsafe(world.0)?;
-                system.run_unsafe(input, world.0)
-            })() {
-                // let the world's default error handler handle the error if `Failed(_)`
+            match unsafe { system.run_unsafe(input, world.0) } {
+                // let the world's fallback error handler handle the error if `Failed(_)`
                 Err(RunSystemError::Failed(err)) => {
-                    // SAFETY: We registered access to DefaultErrorHandler in `initialize`.
-                    (unsafe { world.0.default_error_handler() })(
+                    // SAFETY: We registered access to FallbackErrorHandler in `initialize`.
+                    (unsafe { world.0.fallback_error_handler() })(
                         err,
                         ErrorContext::System {
                             name: system.name(),
@@ -199,14 +196,14 @@ where
             input,
             &mut PrivateUnsafeWorldCell(world),
             // SAFETY: The world accesses for both underlying systems have been registered,
-            // so the caller will guarantee that no other systems will conflict with (`a` or `b`) and the `DefaultErrorHandler` resource.
+            // so the caller will guarantee that no other systems will conflict with (`a` or `b`) and the `FallbackErrorHandler` resource.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
             // Since we require a `combine` to pass in a mutable reference to `world` and that's a private type
             // passed to a function as an unbound non-'static generic argument, they can never be called in parallel
             // or re-entrantly because that would require forging another instance of `PrivateUnsafeWorldCell`.
             // This means that the world accesses in the two closures will not conflict with each other.
-            // The closure's access to the DefaultErrorHandler does not
-            // conflict with any potential access to the DefaultErrorHandler by
+            // The closure's access to the FallbackErrorHandler does not
+            // conflict with any potential access to the FallbackErrorHandler by
             // the systems since the closures are not run in parallel.
             |input, world| unsafe { run_system(&mut self.a, input, world) },
             // SAFETY: See the comment above.
@@ -233,26 +230,18 @@ where
         self.b.queue_deferred(world);
     }
 
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        _world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // Both systems are validated in `Self::run_unsafe`, so that we get the
-        // chance to run the second system even if the first one fails to
-        // validate.
-        Ok(())
-    }
-
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
 
-        // We might need to read the default error handler after the component
+        // We might need to read the fallback error handler after the component
         // systems have run to report failures.
-        let error_resource = world.register_resource::<crate::error::DefaultErrorHandler>();
-        a_access.add_resource_read(error_resource);
+        let error_resource = world.register_component::<crate::error::FallbackErrorHandler>();
+        let mut error_resource_access = FilteredAccess::default();
+        error_resource_access.add_read(error_resource);
+        a_access.ensure_filtered_access(error_resource_access);
+
         a_access
     }
 
@@ -298,28 +287,132 @@ where
 }
 
 /// An [`IntoSystem`] creating an instance of [`PipeSystem`].
+///
+/// This `struct` is created by [`IntoSystem::pipe()`].
+/// See its documentation for more.
 #[derive(Clone)]
-pub struct IntoPipeSystem<A, B> {
+pub struct IntoPipeSystem<A, B, N: PipeSystemName = ()> {
     a: A,
     b: B,
+    /// A function for determining the name of the [`PipeSystem`].
+    ///
+    /// The default value of `()` implements [`PipeSystemName`]
+    /// by combining the names of both systems.
+    name: N,
 }
 
 impl<A, B> IntoPipeSystem<A, B> {
     /// Creates a new [`IntoSystem`] that pipes two inner systems.
+    ///
+    /// Unless changed, the name of the system will be
+    /// set to a combination of the names of the inner systems.
     pub const fn new(a: A, b: B) -> Self {
-        Self { a, b }
+        Self { a, b, name: () }
+    }
+
+    /// Set the name of the output [`PipeSystem`] to the output of a function.
+    ///
+    /// The parameters to the function are the names of the two systems.
+    /// The first system is the one passed as `self` to [`IntoSystem::pipe`],
+    /// and the second system is the one passed as a parameter.
+    ///
+    /// Note that when piping multiple systems, they may themselves be [`PipeSystem`]s!
+    pub fn with_name_fn(
+        self,
+        name: impl FnOnce(DebugName, DebugName) -> DebugName,
+    ) -> IntoPipeSystem<A, B, impl PipeSystemName> {
+        IntoPipeSystem {
+            a: self.a,
+            b: self.b,
+            name,
+        }
+    }
+
+    /// Set the name of the output [`PipeSystem`] to the given string.
+    pub fn with_name(
+        self,
+        name: impl Into<DebugName>,
+    ) -> IntoPipeSystem<A, B, impl PipeSystemName> {
+        self.with_name_fn(|_, _| name.into())
+    }
+
+    /// Set the name of the output [`PipeSystem`] to the name of the first system.
+    ///
+    /// Note that the "first" system is the one passed as `self` to [`IntoSystem::pipe`].
+    /// When piping multiple systems, that may itself by another [`PipeSystem`]!
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let a = IntoSystem::into_system(|| {}).with_name("a");
+    /// # let b = IntoSystem::into_system(|| {}).with_name("b");
+    /// # let c = IntoSystem::into_system(|| {}).with_name("c");
+    /// let system = a.pipe(b).pipe(c).with_first_name();
+    /// assert_eq!("Pipe(a, b)", &*IntoSystem::into_system(system).name());
+    /// # let a = IntoSystem::into_system(|| {}).with_name("a");
+    /// # let b = IntoSystem::into_system(|| {}).with_name("b");
+    /// # let c = IntoSystem::into_system(|| {}).with_name("c");
+    /// let system = a.pipe(b.pipe(c)).with_first_name();
+    /// assert_eq!("a", &*IntoSystem::into_system(system).name());
+    /// ```
+    pub fn with_first_name(self) -> IntoPipeSystem<A, B, impl PipeSystemName> {
+        self.with_name_fn(|name_1, _name_2| name_1)
+    }
+
+    /// Set the name of the output [`PipeSystem`] to the name of the second system.
+    ///   
+    /// Note that the "second" system is the one passed as a parameter to [`IntoSystem::pipe`].
+    /// When piping multiple systems, that may itself by another [`PipeSystem`]!
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let a = IntoSystem::into_system(|| {}).with_name("a");
+    /// # let b = IntoSystem::into_system(|| {}).with_name("b");
+    /// # let c = IntoSystem::into_system(|| {}).with_name("c");
+    /// let system = a.pipe(b).pipe(c).with_second_name();
+    /// assert_eq!("c", &*IntoSystem::into_system(system).name());
+    /// # let a = IntoSystem::into_system(|| {}).with_name("a");
+    /// # let b = IntoSystem::into_system(|| {}).with_name("b");
+    /// # let c = IntoSystem::into_system(|| {}).with_name("c");
+    /// let system = a.pipe(b.pipe(c)).with_second_name();
+    /// assert_eq!("Pipe(b, c)", &*IntoSystem::into_system(system).name());
+    /// ```
+    pub fn with_second_name(self) -> IntoPipeSystem<A, B, impl PipeSystemName> {
+        self.with_name_fn(|_name_1, name_2| name_2)
+    }
+}
+
+/// A function for determining the name of a [`PipeSystem`]
+/// from the names of its inner systems.
+///
+/// This is a trait so that a [`IntoPipeSystem`] with a name function
+/// can still be a ZST for use in [`World::run_system_cached`].
+pub trait PipeSystemName {
+    /// Determines the name of the [`PipeSystem`].
+    fn name(self, name1: DebugName, name2: DebugName) -> DebugName;
+}
+
+impl<F: FnOnce(DebugName, DebugName) -> DebugName> PipeSystemName for F {
+    fn name(self, name1: DebugName, name2: DebugName) -> DebugName {
+        self(name1, name2)
+    }
+}
+
+impl PipeSystemName for () {
+    fn name(self, name1: DebugName, name2: DebugName) -> DebugName {
+        DebugName::owned(format!("Pipe({name1}, {name2})"))
     }
 }
 
 #[doc(hidden)]
 pub struct IsPipeSystemMarker;
 
-impl<A, B, IA, OA, IB, OB, MA, MB> IntoSystem<IA, OB, (IsPipeSystemMarker, OA, IB, MA, MB)>
-    for IntoPipeSystem<A, B>
+impl<A, B, N, IA, OA, IB, OB, MA, MB> IntoSystem<IA, OB, (IsPipeSystemMarker, OA, IB, MA, MB)>
+    for IntoPipeSystem<A, B, N>
 where
     IA: SystemInput,
     A: IntoSystem<IA, OA, MA>,
     B: IntoSystem<IB, OB, MB>,
+    N: PipeSystemName,
     for<'a> IB: SystemInput<Inner<'a> = OA>,
 {
     type System = PipeSystem<A::System, B::System>;
@@ -327,12 +420,15 @@ where
     fn into_system(this: Self) -> Self::System {
         let system_a = IntoSystem::into_system(this.a);
         let system_b = IntoSystem::into_system(this.b);
-        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
-        PipeSystem::new(system_a, system_b, DebugName::owned(name))
+        let name = this.name.name(system_a.name(), system_b.name());
+        PipeSystem::new(system_a, system_b, name)
     }
 }
 
 /// A [`System`] created by piping the output of the first system into the input of the second.
+///
+/// This `struct` is created by [`IntoSystem::pipe()`].
+/// See its documentation for more.
 ///
 /// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the receiving system.
 ///
@@ -415,9 +511,6 @@ where
         // SAFETY: Upheld by caller
         unsafe {
             let value = self.a.run_unsafe(input, world)?;
-            // `Self::validate_param_unsafe` already validated the first system,
-            // but we still need to validate the second system once the first one runs.
-            self.b.validate_param_unsafe(world)?;
             self.b.run_unsafe(value, world)
         }
     }
@@ -439,19 +532,7 @@ where
         self.b.queue_deferred(world);
     }
 
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // We only validate parameters for the first system,
-        // since it may make changes to the world that affect
-        // whether the second system has valid parameters.
-        // The second system will be validated in `Self::run_unsafe`.
-        // SAFETY: Delegate to the `System` implementation for `a`.
-        unsafe { self.a.validate_param_unsafe(world) }
-    }
-
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
@@ -490,7 +571,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::error::DefaultErrorHandler;
+    use crate::error::FallbackErrorHandler;
     use crate::prelude::*;
     use bevy_utils::prelude::DebugName;
 
@@ -501,17 +582,17 @@ mod tests {
 
     #[test]
     fn combinator_with_error_handler_access() {
-        fn my_system(_: ResMut<DefaultErrorHandler>) {}
+        fn my_system(_: ResMut<FallbackErrorHandler>) {}
         fn a() -> bool {
             true
         }
-        fn b(_: ResMut<DefaultErrorHandler>) -> bool {
+        fn b(_: ResMut<FallbackErrorHandler>) -> bool {
             true
         }
         fn asdf(_: In<bool>) {}
 
         let mut world = World::new();
-        world.insert_resource(DefaultErrorHandler::default());
+        world.insert_resource(FallbackErrorHandler::default());
 
         let system = CombinatorSystem::<OrElseMarker, _, _>::new(
             IntoSystem::into_system(a),
@@ -548,5 +629,46 @@ mod tests {
         schedule.add_systems(my_exclusive_system.pipe(out_pipe));
 
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn pipe_system_names() {
+        let make_system = || {
+            let system1 = IntoSystem::into_system(|| {}).with_name(DebugName::borrowed("system1"));
+            let system2 = IntoSystem::into_system(|| {}).with_name(DebugName::borrowed("system2"));
+            system1.pipe(system2)
+        };
+
+        let system = IntoSystem::into_system(make_system());
+        assert_eq!(
+            DebugName::owned("Pipe(system1, system2)".into()),
+            system.name()
+        );
+
+        let system = IntoSystem::into_system(make_system().with_name("custom name"));
+        assert_eq!(DebugName::borrowed("custom name"), system.name());
+
+        let system = IntoSystem::into_system(make_system().with_first_name());
+        assert_eq!(DebugName::borrowed("system1"), system.name());
+
+        let system = IntoSystem::into_system(make_system().with_second_name());
+        assert_eq!(DebugName::borrowed("system2"), system.name());
+    }
+
+    #[test]
+    fn pipe_system_zst() {
+        let mut world = World::new();
+
+        fn system1() {}
+        fn system2() {}
+
+        // Ensure `IntoPipeSystem` is a ZST that can be used with `run_system_cached`
+        world.run_system_cached(system1.pipe(system2)).unwrap();
+        world
+            .run_system_cached(system1.pipe(system2).with_first_name())
+            .unwrap();
+        world
+            .run_system_cached(system1.pipe(system2).with_second_name())
+            .unwrap();
     }
 }

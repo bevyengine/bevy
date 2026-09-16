@@ -26,7 +26,6 @@ impl Pitch {
 }
 
 impl Decodable for Pitch {
-    type DecoderItem = <SineWave as Iterator>::Item;
     type Decoder = TakeDuration<SineWave>;
 
     fn decoder(&self) -> Self::Decoder {

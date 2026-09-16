@@ -162,9 +162,16 @@ impl TaskPool {
 
         let executor = Arc::new(crate::executor::Executor::new());
 
-        let num_threads = builder
+        let num_requested_threads = builder
             .num_threads
             .unwrap_or_else(crate::available_parallelism);
+
+        // In tests, we want there to be at least two threads so that we're
+        // actually testing multithreaded behavior.
+        #[cfg(all(test, feature = "multi_threaded"))]
+        let num_threads = num_requested_threads.max(2);
+        #[cfg(not(all(test, feature = "multi_threaded")))]
+        let num_threads = num_requested_threads;
 
         let threads = (0..num_threads)
             .map(|i| {
@@ -560,7 +567,7 @@ impl TaskPool {
     where
         T: Send + 'static,
     {
-        Task::new(self.executor.spawn(future))
+        self.executor.spawn(future)
     }
 
     /// Spawns a static future on the thread-local async executor for the
@@ -578,7 +585,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+        TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future))
     }
 
     /// Runs a function with the local executor. Typically used to tick

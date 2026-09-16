@@ -327,7 +327,7 @@ pub fn generate_mipmaps<M: Material + GetImages>(
                     }
                     // Touch material to trigger change detection
                     for material_h in material_handles.iter() {
-                        let _ = materials.get_mut(*material_h);
+                        let _ = materials.get_mut(*material_h).as_deref_mut();
                     }
                 }
                 false

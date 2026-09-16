@@ -1,0 +1,36 @@
+(
+  resources: {
+    "world_serialization::ResourceA": (
+      score: 1,
+    ),
+  },
+  entities: {
+    4294967297: (
+      components: {
+        "bevy_ecs::name::Name": "joe",
+        "bevy_transform::components::global_transform::GlobalTransform": ((1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (0.0, 0.0, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (1.0, 1.0, 1.0),
+        ),
+        "world_serialization::ComponentA": (
+          x: 1.0,
+          y: 2.0,
+        ),
+        "world_serialization::ComponentB": (
+          value: "hello",
+        ),
+        "bevy_world_serialization::components::WorldAssetRoot": (Path("models/FlightHelmet/FlightHelmet.gltf#Scene0")),
+      },
+    ),
+    4294967298: (
+      components: {
+        "world_serialization::ComponentA": (
+          x: 3.0,
+          y: 4.0,
+        ),
+      },
+    ),
+  },
+)

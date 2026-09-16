@@ -79,10 +79,8 @@ pub fn gilrs_event_system(
                     events.write(event.clone().into());
                     connection_events.write(event);
                 }
-                EventType::ButtonChanged(gilrs_button, raw_value, _) => {
-                    let Some(button) = convert_button(gilrs_button) else {
-                        continue;
-                    };
+                EventType::ButtonChanged(gilrs_button, raw_value, code) => {
+                    let button = convert_button(gilrs_button, code);
                     let gamepad = gamepads
                         .id_to_entity
                         .get(&gilrs_event.id)
@@ -95,8 +93,8 @@ pub fn gilrs_event_system(
                         gamepad, button, raw_value,
                     ));
                 }
-                EventType::AxisChanged(gilrs_axis, raw_value, _) => {
-                    let Some(axis) = convert_axis(gilrs_axis) else {
+                EventType::AxisChanged(gilrs_axis, raw_value, code) => {
+                    let Some(axis) = convert_axis(gilrs_axis, code) else {
                         continue;
                     };
                     let gamepad = gamepads

@@ -1,17 +1,20 @@
-use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
+use crate::{
+    convert::ReflectConvert, serde::Serializable, FromReflect, Reflect, TypeData, TypeInfo,
+    TypePath, Typed,
+};
 use alloc::{boxed::Box, string::String};
 use bevy_platform::{
     collections::{HashMap, HashSet},
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use bevy_ptr::{Ptr, PtrMut};
-use bevy_utils::TypeIdMap;
+use bevy_reflect::CreateTypeData;
+use bevy_utils::TypeIdHashMap;
 use core::{
-    any::TypeId,
+    any::{Any, TypeId},
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
-use downcast_rs::{impl_downcast, Downcast};
 use serde::{Deserialize, Serialize};
 
 /// A registry of [reflected] types.
@@ -27,7 +30,7 @@ use serde::{Deserialize, Serialize};
 /// [Registering]: TypeRegistry::register
 /// [crate-level documentation]: crate
 pub struct TypeRegistry {
-    registrations: TypeIdMap<TypeRegistration>,
+    registrations: TypeIdHashMap<TypeRegistration>,
     short_path_to_id: HashMap<&'static str, TypeId>,
     type_path_to_id: HashMap<&'static str, TypeId>,
     ambiguous_names: HashSet<&'static str>,
@@ -290,22 +293,18 @@ impl TypeRegistry {
         type_id: TypeId,
         get_registration: impl FnOnce() -> TypeRegistration,
     ) -> bool {
-        use bevy_platform::collections::hash_map::Entry;
-
-        match self.registrations.entry(type_id) {
-            Entry::Occupied(_) => false,
-            Entry::Vacant(entry) => {
-                let registration = get_registration();
-                Self::update_registration_indices(
-                    &registration,
-                    &mut self.short_path_to_id,
-                    &mut self.type_path_to_id,
-                    &mut self.ambiguous_names,
-                );
-                entry.insert(registration);
-                true
-            }
+        if self.registrations.contains_key(&type_id) {
+            return false;
         }
+        let registration = get_registration();
+        Self::update_registration_indices(
+            &registration,
+            &mut self.short_path_to_id,
+            &mut self.type_path_to_id,
+            &mut self.ambiguous_names,
+        );
+        self.registrations.insert(type_id, registration);
+        true
     }
 
     /// Internal method to register additional lookups for a given [`TypeRegistration`].
@@ -330,7 +329,7 @@ impl TypeRegistry {
     ///
     /// Most of the time [`TypeRegistry::register`] can be used instead to register a type you derived [`Reflect`] for.
     /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
-    /// or where the type is generic and cannot register e.g. [`ReflectSerialize`] unconditionally without knowing the specific type parameters,
+    /// or where the type is generic and cannot register the type data unconditionally without knowing the specific type parameters,
     /// this method can be used to insert additional type data.
     ///
     /// # Example
@@ -342,7 +341,7 @@ impl TypeRegistry {
     /// type_registry.register_type_data::<Option<String>, ReflectSerialize>();
     /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
     /// ```
-    pub fn register_type_data<T: Reflect + TypePath, D: TypeData + FromType<T>>(&mut self) {
+    pub fn register_type_data<T: Reflect + TypePath, D: CreateTypeData<T>>(&mut self) {
         let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
             panic!(
                 "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
@@ -350,7 +349,90 @@ impl TypeRegistry {
                 D = core::any::type_name::<D>(),
             )
         });
-        data.insert(D::from_type());
+        data.insert(D::create_type_data(()));
+    }
+
+    /// Registers the type data `D` with parameter `P` for type `T`.
+    ///
+    /// Most of the time [`TypeRegistry::register`] can be used instead to register a type you derived [`Reflect`] for.
+    /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
+    /// or where the type is generic and cannot register the type data unconditionally without knowing the specific type parameters,
+    /// this method can be used to insert additional type data.
+    ///
+    /// If no parameters are needed for the type data or the type data does not accept parameters,
+    /// then [`TypeRegistry::register_type_data`] may be used instead.
+    pub fn register_type_data_with<T: Reflect + TypePath, D: CreateTypeData<T, P>, P>(
+        &mut self,
+        params: P,
+    ) {
+        let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `TypeRegistry::register_type_data_with` for type `{T}` with data `{D}` and params `{P}` without registering `{T}` first",
+                T = T::type_path(),
+                D = ::core::any::type_name::<D>(),
+                P = ::core::any::type_name::<P>(),
+            )
+        });
+        data.insert(D::create_type_data(params));
+    }
+
+    /// Registers a fallible conversion from type T to U with the reflection
+    /// system.
+    ///
+    /// The supplied closure is expected to produce a value of type U, given an
+    /// instance of type T. If the conversion fails, the closure should return
+    /// the input value, wrapped in an `Err` variant.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::TypeRegistry;
+    ///
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<i32>();
+    /// type_registry.register::<String>();
+    /// type_registry.register_type_conversion::<i32, String, _>(|n| Ok(n.to_string()));
+    /// ```
+    pub fn register_type_conversion<T, U, F>(&mut self, function: F)
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath,
+        F: Fn(T) -> Result<U, T> + Clone + Send + Sync + 'static,
+    {
+        let data = self.get_mut(TypeId::of::<U>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `TypeRegistry::register_type_conversion` for type `{U}` without registering `{U}` first",
+                U = U::type_path(),
+            )
+        });
+        data.get_or_insert_data_with(ReflectConvert::default)
+            .register_type_conversion(function);
+    }
+
+    /// Given types T and U, where `U: From<T>`, registers that conversion with
+    /// the reflection system.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::TypeRegistry;
+    ///
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<u8>();
+    /// type_registry.register::<u32>();
+    /// type_registry.register_type_conversion::<u8, u32, _>(|n| Ok(n.into()));
+    /// ```
+    pub fn register_into_type_conversion<T, U>(&mut self)
+    where
+        T: Reflect + TypePath,
+        U: Reflect + TypePath + From<T>,
+    {
+        let data = self.get_mut(TypeId::of::<U>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `TypeRegistry::register_type_conversion` for type `{U}` without registering `{U}` first",
+                U = U::type_path(),
+            )
+        });
+        data.get_or_insert_data_with(ReflectConvert::default)
+            .register_type_conversion::<T, U, _>(|input| Ok(input.into()));
     }
 
     /// Whether the type with given [`TypeId`] has been registered in this registry.
@@ -535,19 +617,19 @@ impl TypeRegistryArc {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{TypeRegistration, std_traits::ReflectDefault, FromType};
+/// # use bevy_reflect::{TypeRegistration, std_traits::ReflectDefault, CreateTypeData};
 /// let mut registration = TypeRegistration::of::<Option<String>>();
 ///
 /// assert_eq!("core::option::Option<alloc::string::String>", registration.type_info().type_path());
 /// assert_eq!("Option<String>", registration.type_info().type_path_table().short_path());
 ///
-/// registration.insert::<ReflectDefault>(FromType::<Option<String>>::from_type());
+/// registration.insert::<ReflectDefault>(CreateTypeData::<Option<String>>::create_type_data(()));
 /// assert!(registration.data::<ReflectDefault>().is_some())
 /// ```
 ///
 /// [crate-level documentation]: crate
 pub struct TypeRegistration {
-    data: TypeIdMap<Box<dyn TypeData>>,
+    data: TypeIdHashMap<Box<dyn TypeData>>,
     type_info: &'static TypeInfo,
 }
 
@@ -583,16 +665,46 @@ impl TypeRegistration {
     ///
     /// If another instance of `T` was previously inserted, it is replaced.
     ///
+    /// Note that unlike [`TypeRegistration::register_type_data`], this will not
+    /// automatically insert any type data dependencies for `T`.
+    /// That will need to be done manually using [`CreateTypeData::insert_dependencies`].
+    ///
     /// [type data]: TypeData
     pub fn insert<T: TypeData>(&mut self, data: T) {
         self.data.insert(TypeId::of::<T>(), Box::new(data));
     }
 
+    /// Gets the instance of `T` into this registration's [type data], if it exists. If it does not
+    /// exist, it will insert a new instance using `get_data` and then return it.
+    ///
+    /// [type data]: TypeData
+    pub fn get_or_insert_data_with<T: TypeData>(&mut self, get_data: impl FnOnce() -> T) -> &mut T {
+        let boxed_data = self
+            .data
+            .entry(TypeId::of::<T>())
+            .or_insert_with(|| Box::new(get_data()));
+        boxed_data.downcast_mut::<T>().unwrap()
+    }
+
     /// Inserts the [`TypeData`] instance of `T` created for `V`, and inserts any
     /// [`TypeData`] dependencies for that combination of `T` and `V`.
+    ///
+    /// To register [`TypeData`] that requires input (i.e. it doesn't take `()` as its input),
+    /// see [`TypeRegistration::register_type_data_with`].
     #[inline]
-    pub fn register_type_data<T: TypeData + FromType<V>, V>(&mut self) {
-        self.insert(T::from_type());
+    pub fn register_type_data<T: CreateTypeData<V>, V>(&mut self) {
+        self.insert(T::create_type_data(()));
+        T::insert_dependencies(self);
+    }
+
+    /// Inserts the [`TypeData`] instance of `T` created for `V` with some input `I`,
+    /// and inserts any [`TypeData`] dependencies for that combination of `T`, `V`, and `I`.
+    ///
+    /// To register [`TypeData`] that doesn't require input (i.e. it expects `()`),
+    /// see [`TypeRegistration::register_type_data`].
+    #[inline]
+    pub fn register_type_data_with<T: CreateTypeData<V, I>, V, I>(&mut self, input: I) {
+        self.insert(T::create_type_data(input));
         T::insert_dependencies(self);
     }
 
@@ -709,7 +821,7 @@ impl TypeRegistration {
 
 impl Clone for TypeRegistration {
     fn clone(&self) -> Self {
-        let mut data = TypeIdMap::default();
+        let mut data = TypeIdHashMap::default();
         for (id, type_data) in &self.data {
             data.insert(*id, (*type_data).clone_type_data());
         }
@@ -721,57 +833,17 @@ impl Clone for TypeRegistration {
     }
 }
 
-/// A trait used to type-erase type metadata.
-///
-/// Type data can be registered to the [`TypeRegistry`] and stored on a type's [`TypeRegistration`].
-///
-/// While type data is often generated using the [`#[reflect_trait]`](crate::reflect_trait) macro,
-/// almost any type that implements [`Clone`] can be considered "type data".
-/// This is because it has a blanket implementation over all `T` where `T: Clone + Send + Sync + 'static`.
-///
-/// See the [crate-level documentation] for more information on type data and type registration.
-///
-/// [crate-level documentation]: crate
-pub trait TypeData: Downcast + Send + Sync {
-    /// Creates a type-erased clone of this value.
-    fn clone_type_data(&self) -> Box<dyn TypeData>;
-}
-
-impl_downcast!(TypeData);
-
-impl<T: 'static + Send + Sync> TypeData for T
-where
-    T: Clone,
-{
-    fn clone_type_data(&self) -> Box<dyn TypeData> {
-        Box::new(self.clone())
-    }
-}
-
-/// Trait used to generate [`TypeData`] for trait reflection.
-///
-/// This is used by the `#[derive(Reflect)]` macro to generate an implementation
-/// of [`TypeData`] to pass to [`TypeRegistration::insert`].
-pub trait FromType<T> {
-    /// Creates an instance of `Self` for type `T`.
-    fn from_type() -> Self;
-    /// Inserts [`TypeData`] dependencies of this [`TypeData`].
-    /// This is especially useful for trait [`TypeData`] that has a supertrait (ex: `A: B`).
-    /// When the [`TypeData`] for `A` is inserted, the `B` [`TypeData`] will also be inserted.
-    fn insert_dependencies(_type_registration: &mut TypeRegistration) {}
-}
-
 /// A struct used to serialize reflected instances of a type.
 ///
 /// A `ReflectSerialize` for type `T` can be obtained via
-/// [`FromType::from_type`].
+/// [`CreateTypeData::create_type_data`].
 #[derive(Clone)]
 pub struct ReflectSerialize {
     get_serializable: fn(value: &dyn Reflect) -> Serializable,
 }
 
-impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
-    fn from_type() -> Self {
+impl<T: TypePath + FromReflect + erased_serde::Serialize> CreateTypeData<T> for ReflectSerialize {
+    fn create_type_data(_input: ()) -> Self {
         ReflectSerialize {
             get_serializable: |value| {
                 value
@@ -807,7 +879,7 @@ impl ReflectSerialize {
 /// A struct used to deserialize reflected instances of a type.
 ///
 /// A `ReflectDeserialize` for type `T` can be obtained via
-/// [`FromType::from_type`].
+/// [`CreateTypeData::create_type_data`].
 #[derive(Clone)]
 pub struct ReflectDeserialize {
     /// Function used by [`ReflectDeserialize::deserialize`] to
@@ -833,8 +905,8 @@ impl ReflectDeserialize {
     }
 }
 
-impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
-    fn from_type() -> Self {
+impl<T: for<'a> Deserialize<'a> + Reflect> CreateTypeData<T> for ReflectDeserialize {
+    fn create_type_data(_input: ()) -> Self {
         ReflectDeserialize {
             func: |deserializer| Ok(Box::new(T::deserialize(deserializer)?)),
         }
@@ -846,14 +918,13 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// that you know implements [`Reflect`], but have no way of turning it into a `&dyn Reflect`.
 ///
 /// This is where [`ReflectFromPtr`] comes in, when creating a [`ReflectFromPtr`] for a given type `T: Reflect`.
-/// Internally, this saves a concrete function `*const T -> const dyn Reflect` which lets you create a trait object of [`Reflect`]
+/// Internally, this saves a concrete function `*mut T -> *mut dyn Reflect` which lets you create a trait object of [`Reflect`]
 /// from a pointer.
 ///
 /// # Example
 /// ```
 /// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
-/// use bevy_ptr::Ptr;
-/// use core::ptr::NonNull;
+/// use core::any::Any;
 ///
 /// #[derive(Reflect)]
 /// struct Reflected(String);
@@ -862,20 +933,28 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// type_registry.register::<Reflected>();
 ///
 /// let mut value = Reflected("Hello world!".to_string());
-/// let value = Ptr::from(&value);
+/// let value: &dyn Any = &value;
 ///
 /// let reflect_data = type_registry.get(core::any::TypeId::of::<Reflected>()).unwrap();
 /// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
-/// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
-/// let value = unsafe { reflect_from_ptr.as_reflect(value) };
+/// let value = reflect_from_ptr.as_reflect(value).unwrap();
 ///
 /// assert_eq!(value.downcast_ref::<Reflected>().unwrap().0, "Hello world!");
 /// ```
 #[derive(Clone)]
 pub struct ReflectFromPtr {
+    /// The type ID that this cast is generated for.
+    ///
+    /// This **may be** different from the type ID used to fetch this type data from the type
+    /// registration, if a user creates this instance for type A, but then inserts it into type B's
+    /// type registration. Therefore, for safety, we store it in this type data so that users can
+    /// assert to ensure soundness.
     type_id: TypeId,
-    from_ptr: unsafe fn(Ptr) -> &dyn Reflect,
-    from_ptr_mut: unsafe fn(PtrMut) -> &mut dyn Reflect,
+    /// The thunk for casting from an arbitrary pointer to a [`dyn Reflect`] pointer.
+    ///
+    /// This thunk effectively just adds the vtable pointer for [`Reflect`] for the type to whatever
+    /// pointer you pass in. This function does no validation.
+    cast_ptr: fn(*mut ()) -> *mut dyn Reflect,
 }
 
 #[expect(
@@ -888,15 +967,114 @@ impl ReflectFromPtr {
         self.type_id
     }
 
+    /// Returns the underlying function to cast from an arbitrary pointer to a [`dyn Reflect`]
+    /// pointer.
+    ///
+    /// This function effectively just adds the vtable pointer for [`Reflect`] for the type this
+    /// [`ReflectFromPtr`] was constructed for, to whatever pointer you pass in. This function does
+    /// no validation or manipulation - it just does a pointer cast.
+    ///
+    /// The returned function is technically safe. We simply manipulate some pointers. However,
+    /// using the result of this function requires the normal safety requirements. In particular,
+    /// you must ensure that the original pointer actually pointed to a value of the type that this
+    /// [`ReflectFromPtr`] was constructed for. This can be verified by checking that the type ID
+    /// returned by [`ReflectFromPtr::type_id`] matches the original pointer's runtime type ID.
+    /// Note: It is **not** sufficient that you got this [`ReflectFromPtr`] from the type registry
+    /// for type ID A. It is possible for someone to overwrite the [`ReflectFromPtr`] type data with
+    /// that of a different type. Therefore, to ensure soundness, you must check [`ReflectFromPtr::type_id`].
+    ///
+    /// If you need to call this function for a `*const ()`, you may simple use
+    /// [`cast_mut`] for the input and [`cast_const`] for the output.
+    ///
+    /// [`cast_mut`]: https://doc.rust-lang.org/stable/std/primitive.pointer.html#method.cast_mut
+    /// [`cast_const`]: https://doc.rust-lang.org/stable/std/primitive.pointer.html#method.cast_const
+    pub fn raw_pointer_cast(&self) -> fn(*mut ()) -> *mut dyn Reflect {
+        self.cast_ptr
+    }
+
+    /// Converts a [`&dyn Any`] into a [`&dyn Reflect`] if the type matches the type used to
+    /// construct this [`ReflectFromPtr`].
+    pub fn as_reflect<'a>(&self, any: &'a dyn Any) -> Option<&'a dyn Reflect> {
+        if (*any).type_id() != self.type_id {
+            return None;
+        }
+
+        let data_ptr = core::ptr::from_ref(any).cast::<()>().cast_mut();
+        let reflect_ptr: *const dyn Reflect = (self.cast_ptr)(data_ptr).cast_const();
+
+        // SAFETY: We only casted the data pointer of the `any`, so the new reference we create has
+        // the same validity as the `any` reference. Since the type_id of `any` and `self.type_id`
+        // matches, we know that the data in `any` actually holds this type, which impls `Reflect`.
+        // This function definition also ensures that the new borrow does not outlive `any`.
+        Some(unsafe { &*reflect_ptr })
+    }
+
+    /// Converts a [`&mut dyn Any`] into a [`&mut dyn Reflect`] if the type matches the type used to
+    /// construct this [`ReflectFromPtr`].
+    pub fn as_reflect_mut<'a>(&self, any: &'a mut dyn Any) -> Option<&'a mut dyn Reflect> {
+        if (*any).type_id() != self.type_id {
+            return None;
+        }
+
+        let data_ptr = core::ptr::from_mut(any).cast();
+        let reflect_ptr: *mut dyn Reflect = (self.cast_ptr)(data_ptr);
+
+        // SAFETY: We only casted the data pointer of the `any`, so the new reference we create has
+        // the same validity as the `any` reference. Since the type_id of `any` and `self.type_id`
+        // matches, we know that the data in `any` actually holds this type, which impls `Reflect`.
+        // This function definition also ensures that the new borrow does not outlive `any`.
+        Some(unsafe { &mut *reflect_ptr })
+    }
+
+    /// Converts a [`Box<dyn Any>`] into a [`Box<dyn Reflect>`] if the type matches the type used to
+    /// construct this [`ReflectFromPtr`].
+    ///
+    /// If the type does not match [`Self::type_id`], returns an [`Err`] holding `any`.
+    pub fn box_as_reflect(&self, any: Box<dyn Any>) -> Result<Box<dyn Reflect>, Box<dyn Any>> {
+        if (*any).type_id() != self.type_id {
+            return Err(any);
+        }
+
+        let data_ptr = Box::into_raw(any).cast();
+        let reflect_ptr: *mut dyn Reflect = (self.cast_ptr)(data_ptr);
+
+        // SAFETY: We just leaked the box, and haven't given the pointer anywhere else, so we still
+        // own this pointer. We only casted the pointer of the `any`, so the pointer has the same
+        // validity as the original box. Since the type_id of `any` and `self.type_id` matches, we
+        // know that the data in `any` actually holds this type, which impls `Reflect`.
+        Ok(unsafe { Box::from_raw(reflect_ptr) })
+    }
+
+    /// Converts a [`Arc<dyn Any>`] into a [`Arc<dyn Reflect>`] if the type matches the type used to
+    /// construct this [`ReflectFromPtr`].
+    ///
+    /// If the type does not match [`Self::type_id`], returns an [`Err`] holding `any`.
+    pub fn arc_as_reflect(&self, any: Arc<dyn Any>) -> Result<Arc<dyn Reflect>, Arc<dyn Any>> {
+        if (*any).type_id() != self.type_id {
+            return Err(any);
+        }
+
+        let data_ptr = Arc::into_raw(any).cast::<()>().cast_mut();
+        let reflect_ptr: *const dyn Reflect = (self.cast_ptr)(data_ptr).cast_const();
+
+        // SAFETY: We just got this data pointer from Arc::into_raw, so we can convert it back
+        // from_raw. Since the type_id of `any` and `self.type_id` matches, we know that the data in
+        // `any` actually holds this type, which impls `Reflect`.
+        Ok(unsafe { Arc::from_raw(reflect_ptr) })
+    }
+
     /// Convert `Ptr` into `&dyn Reflect`.
     ///
     /// # Safety
     ///
     /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
-    pub unsafe fn as_reflect<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
-        // SAFETY: contract uphold by the caller.
-        unsafe { (self.from_ptr)(val) }
+    pub unsafe fn ptr_as_reflect<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
+        let reflect_raw_pointer = (self.cast_ptr)(val.as_ptr().cast::<()>().cast_mut());
+        // SAFETY: cast_ptr is guaranteed not to change the original pointer. We know the pointer is
+        // non-null and that it is aligned (since `Ptr` includes the IsAligned) type state. Caller
+        // guarantees that `val` points to a value of the type that we were constructed for.
+        unsafe { &*reflect_raw_pointer }
     }
 
     /// Convert `PtrMut` into `&mut dyn Reflect`.
@@ -905,52 +1083,23 @@ impl ReflectFromPtr {
     ///
     /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
-    pub unsafe fn as_reflect_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
-        // SAFETY: contract uphold by the caller.
-        unsafe { (self.from_ptr_mut)(val) }
-    }
-    /// Get a function pointer to turn a `Ptr` into `&dyn Reflect` for
-    /// the type this [`ReflectFromPtr`] was constructed for.
-    ///
-    /// # Safety
-    ///
-    /// When calling the unsafe function returned by this method you must ensure that:
-    /// - The input `Ptr` points to the `Reflect` type this `ReflectFromPtr`
-    ///   was constructed for.
-    pub fn from_ptr(&self) -> unsafe fn(Ptr) -> &dyn Reflect {
-        self.from_ptr
-    }
-    /// Get a function pointer to turn a `PtrMut` into `&mut dyn Reflect` for
-    /// the type this [`ReflectFromPtr`] was constructed for.
-    ///
-    /// # Safety
-    ///
-    /// When calling the unsafe function returned by this method you must ensure that:
-    /// - The input `PtrMut` points to the `Reflect` type this `ReflectFromPtr`
-    ///   was constructed for.
-    pub fn from_ptr_mut(&self) -> unsafe fn(PtrMut) -> &mut dyn Reflect {
-        self.from_ptr_mut
+    pub unsafe fn ptr_as_reflect_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
+        let reflect_raw_pointer = (self.cast_ptr)(val.as_ptr().cast());
+        // SAFETY: cast_ptr is guaranteed not to change the original pointer. We know the pointer is
+        // non-null and that it is aligned (since `Ptr` includes the IsAligned) type state. Caller
+        // guarantees that `val` points to a value of the type that we were constructed for.
+        unsafe { &mut *reflect_raw_pointer }
     }
 }
 
-#[expect(
-    unsafe_code,
-    reason = "We must interact with pointers here, which are inherently unsafe."
-)]
-impl<T: Reflect> FromType<T> for ReflectFromPtr {
-    fn from_type() -> Self {
+impl<T: Reflect> CreateTypeData<T> for ReflectFromPtr {
+    fn create_type_data(_input: ()) -> Self {
         ReflectFromPtr {
             type_id: TypeId::of::<T>(),
-            from_ptr: |ptr| {
-                // SAFETY: `from_ptr_mut` is either called in `ReflectFromPtr::as_reflect`
-                // or returned by `ReflectFromPtr::from_ptr`, both lay out the invariants
-                // required by `deref`
-                unsafe { ptr.deref::<T>() as &dyn Reflect }
-            },
-            from_ptr_mut: |ptr| {
-                // SAFETY: same as above, but for `as_reflect_mut`, `from_ptr_mut` and `deref_mut`.
-                unsafe { ptr.deref_mut::<T>() as &mut dyn Reflect }
-            },
+            // First, cast the `*mut ()` into a `*mut T` (which lets Rust know what type we're
+            // talking about). Then, cast it into a `*mut dyn Reflect` which Rust then inserts the
+            // vtable for `T` into.
+            cast_ptr: |ptr| ptr.cast::<T>() as *mut dyn Reflect,
         }
     }
 }
@@ -963,13 +1112,13 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 mod test {
     use super::*;
 
+    #[derive(Reflect, PartialEq, Debug, Clone)]
+    struct Foo {
+        a: f32,
+    }
+
     #[test]
     fn test_reflect_from_ptr() {
-        #[derive(Reflect)]
-        struct Foo {
-            a: f32,
-        }
-
         let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
         let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
 
@@ -982,7 +1131,7 @@ mod test {
         {
             let value = PtrMut::from(&mut value);
             // SAFETY: reflect_from_ptr was constructed for the correct type
-            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_mut(value) };
+            let dyn_reflect = unsafe { reflect_from_ptr.ptr_as_reflect_mut(value) };
             match dyn_reflect.reflect_mut() {
                 bevy_reflect::ReflectMut::Struct(strukt) => {
                     strukt.field_mut("a").unwrap().apply(&2.0f32);
@@ -993,7 +1142,7 @@ mod test {
 
         {
             // SAFETY: reflect_from_ptr was constructed for the correct type
-            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect(Ptr::from(&value)) };
+            let dyn_reflect = unsafe { reflect_from_ptr.ptr_as_reflect(Ptr::from(&value)) };
             match dyn_reflect.reflect_ref() {
                 bevy_reflect::ReflectRef::Struct(strukt) => {
                     let a = strukt
@@ -1006,6 +1155,100 @@ mod test {
                 _ => panic!("invalid reflection"),
             }
         }
+    }
+
+    #[test]
+    fn convert_any_ref_to_reflect() {
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        let object = Foo { a: 1.0 };
+
+        let any: &dyn Any = &object;
+        let reflect = reflect_from_ptr.as_reflect(any).unwrap();
+
+        let object_from_reflect = Foo::from_reflect(reflect).unwrap();
+        assert_eq!(object_from_reflect, object);
+    }
+
+    #[test]
+    fn convert_any_mut_to_reflect() {
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        let mut object = Foo { a: 1.0 };
+
+        let any: &mut dyn Any = &mut object;
+        let reflect = reflect_from_ptr.as_reflect_mut(any).unwrap();
+
+        let replacement = Foo { a: 2.0 };
+        reflect.apply(&replacement);
+
+        // We mutated `object` through `reflect` which we casted through `&mut dyn Any`.
+        assert_eq!(object, replacement);
+    }
+
+    #[test]
+    fn convert_box_to_reflect() {
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        let any: Box<dyn Any> = Box::new(Foo { a: 1.0 });
+        let mut reflect = reflect_from_ptr.box_as_reflect(any).unwrap();
+
+        let replacement = Foo { a: 2.0 };
+        reflect.apply(&replacement);
+
+        // We consumed the value, which was mutated through reflection.
+        let final_object: Foo = reflect.take().unwrap();
+        assert_eq!(final_object, replacement);
+    }
+
+    #[test]
+    fn convert_arc_to_reflect() {
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        let any: Arc<dyn Any> = Arc::new(Foo { a: 1.0 });
+        let reflect = reflect_from_ptr.arc_as_reflect(any).unwrap();
+
+        // We can use reflection to access the "a" field.
+        match reflect.reflect_ref() {
+            crate::ReflectRef::Struct(strukt) => {
+                let a = strukt
+                    .field("a")
+                    .unwrap()
+                    .try_downcast_ref::<f32>()
+                    .unwrap();
+                assert_eq!(*a, 1.0);
+            }
+            _ => panic!("unexpected meta-type"),
+        }
+    }
+
+    #[test]
+    fn checks_type_ids_for_any_conversions() {
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        let mut right_type = Foo { a: 1.0 };
+        let mut wrong_type = 2.0;
+        assert!(reflect_from_ptr.as_reflect(&right_type).is_some());
+        assert!(reflect_from_ptr.as_reflect(&wrong_type).is_none());
+        assert!(reflect_from_ptr.as_reflect_mut(&mut right_type).is_some());
+        assert!(reflect_from_ptr.as_reflect_mut(&mut wrong_type).is_none());
+        assert!(reflect_from_ptr
+            .box_as_reflect(Box::new(right_type.clone()))
+            .is_ok());
+        assert!(reflect_from_ptr
+            .box_as_reflect(Box::new(wrong_type))
+            .is_err());
+        assert!(reflect_from_ptr
+            .arc_as_reflect(Arc::new(right_type))
+            .is_ok());
+        assert!(reflect_from_ptr
+            .arc_as_reflect(Arc::new(wrong_type))
+            .is_err());
     }
 
     #[test]

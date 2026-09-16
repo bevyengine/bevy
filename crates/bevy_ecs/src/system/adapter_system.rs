@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
 
-use super::{IntoSystem, ReadOnlySystem, RunSystemError, System, SystemParamValidationError};
+use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
 use crate::{
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -162,16 +162,7 @@ where
         self.system.queue_deferred(world);
     }
 
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.system.validate_param_unsafe(world) }
-    }
-
-    fn initialize(&mut self, world: &mut crate::prelude::World) -> crate::query::FilteredAccessSet {
+    fn initialize(&mut self, world: &mut crate::prelude::World) -> crate::system::SystemAccess {
         self.system.initialize(world)
     }
 

@@ -7,13 +7,13 @@ use bevy_light::{
         ClusterableObjectCounts, ClusterableObjects, Clusters, GlobalClusterGpuSettings,
         GlobalClusterSettings,
     },
-    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, PointLight, SpotLight,
+    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, PointLight, RectLight, SpotLight,
 };
 use bevy_math::{uvec4, UVec3, UVec4, Vec4};
 use bevy_render::{
     render_resource::{
         BindingResource, BufferBindingType, BufferUsages, DownlevelFlags, RawBufferVec, ShaderSize,
-        ShaderType, StorageBuffer, UniformBuffer, UninitBufferVec,
+        ShaderType, StorageBuffer, UniformBuffer,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::{MainEntity, RenderEntity},
@@ -27,7 +27,7 @@ use crate::{MeshPipeline, RenderViewLightProbes};
 pub(crate) mod gpu;
 
 // NOTE: this must be kept in sync with the same constants in
-// `mesh_view_types.wgsl`.
+// `mesh_view_types.wesl`.
 pub const MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS: usize = 204;
 // Make sure that the clusterable object buffer doesn't overflow the maximum
 // size of a UBO on WebGL 2.
@@ -38,7 +38,7 @@ const _: () =
 // at least that many are supported using this constant and SupportedBindingType::from_device()
 pub const CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT: u32 = 3;
 
-// this must match CLUSTER_COUNT_SIZE in pbr.wgsl
+// this must match CLUSTER_COUNT_SIZE in pbr.wesl
 // and must be large enough to contain MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS
 const CLUSTER_COUNT_SIZE: u32 = 9;
 
@@ -71,10 +71,16 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
     // We need to support compute shaders to use GPU clustering. To deal with
     // the `WGPU_SETTINGS_PRIO="webgl2"` environment setting, we check the
     // `RenderDevice` limits in addition to the `RenderAdapter`.
-    let gpu_clustering_supported = adapter
-        .get_downlevel_capabilities()
-        .flags
-        .contains(DownlevelFlags::COMPUTE_SHADERS)
+    //
+    // Some android devices report the capabilities and limits wrong, so we can't rely on them.
+    // See <https://github.com/bevyengine/bevy/issues/23208> for Android issues
+    //
+    // GPU clustering doesn't work properly on iOS simulator. See https://github.com/bevyengine/bevy/issues/23428
+    let gpu_clustering_supported = !(cfg!(target_os = "android") || cfg!(target_abi = "sim"))
+        && adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::COMPUTE_SHADERS)
         && device.limits().max_storage_buffers_per_shader_stage > 0;
 
     let gpu_clustering = if gpu_clustering_supported {
@@ -98,7 +104,7 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
 }
 
 /// The GPU-side structure that stores information about a clustered light
-/// (point or spot).
+/// (point, spot or rectangle).
 ///
 /// This is *not* used for other clustered objects, such as light probes.
 #[derive(Copy, Clone, ShaderType, Default, Pod, Zeroable, Debug)]
@@ -106,8 +112,11 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
 pub struct GpuClusteredLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spot lights: 2 components of the direction (x,z), spot_scale and spot_offset
+    // For rect lights: rotation quaternion.
     pub(crate) light_custom_data: Vec4,
+    // For rect lights: pack height in color_inverse_square_range.w.
     pub(crate) color_inverse_square_range: Vec4,
+    // For rect lights: pack width in position_radius.w.
     pub(crate) position_radius: Vec4,
     pub(crate) flags: u32,
     pub(crate) shadow_depth_bias: f32,
@@ -217,8 +226,8 @@ struct GpuClusterableObjectIndexListsStorage {
 #[derive(ShaderType, Default)]
 struct GpuClusterOffsetsAndCountsStorage {
     /// The starting offset, followed by the number of point lights, spot
-    /// lights, reflection probes, and irradiance volumes in each cluster, in
-    /// that order. The remaining fields are filled with zeroes.
+    /// lights, rect lights, reflection probes, and irradiance volumes in each cluster,
+    /// in that order. The remaining fields are filled with zeroes.
     #[shader(size(runtime))]
     data: Vec<GpuClusterOffsetAndCounts>,
 }
@@ -234,7 +243,7 @@ enum ViewClusterBuffers {
         cluster_offsets_and_counts: UniformBuffer<GpuClusterOffsetsAndCountsUniform>,
     },
     Storage {
-        clusterable_object_index_lists: UninitBufferVec<u32>,
+        clusterable_object_index_lists: StorageBuffer<GpuClusterableObjectIndexListsStorage>,
         cluster_offsets_and_counts: StorageBuffer<GpuClusterOffsetsAndCountsStorage>,
     },
 }
@@ -294,6 +303,10 @@ impl GpuClusteredLights {
         self.data.len()
     }
 
+    pub(crate) fn is_storage_buffer(&self) -> bool {
+        self.is_storage_buffer
+    }
+
     pub(crate) fn add(&mut self, light: GpuClusteredLight) {
         if self.is_storage_buffer || self.data.len() < MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS {
             self.data.push(light);
@@ -346,6 +359,7 @@ impl GpuClusteredLights {
 type ClusterExtractionMapperQueryFlags = (
     Has<PointLight>,
     Has<SpotLight>,
+    Has<RectLight>,
     Has<EnvironmentMapLight>,
     Has<IrradianceVolume>,
     Has<ClusteredDecal>,
@@ -354,6 +368,7 @@ type ClusterExtractionMapperQueryFlags = (
 type ClusterExtractionMapperQueryFilter = Or<(
     With<PointLight>,
     With<SpotLight>,
+    With<RectLight>,
     With<EnvironmentMapLight>,
     With<IrradianceVolume>,
     With<ClusteredDecal>,
@@ -415,6 +430,7 @@ pub fn extract_clusters_for_cpu_clustering(
                     (
                         is_point_light,
                         is_spot_light,
+                        is_rect_light,
                         is_reflection_probe,
                         is_irradiance_volume,
                         is_clustered_decal,
@@ -431,7 +447,7 @@ pub fn extract_clusters_for_cpu_clustering(
                 if let Some(render_entity) = maybe_render_entity {
                     if is_clustered_decal {
                         data.push(ExtractedClusterableObjectElement::Decal(**render_entity));
-                    } else if is_point_light || is_spot_light {
+                    } else if is_point_light || is_spot_light || is_rect_light {
                         data.push(ExtractedClusterableObjectElement::Light(**render_entity));
                     }
                 }
@@ -593,7 +609,7 @@ impl ViewClusterBindings {
                 cluster_offsets_and_counts,
                 ..
             } => {
-                clusterable_object_index_lists.clear();
+                clusterable_object_index_lists.get_mut().data.clear();
                 cluster_offsets_and_counts.get_mut().data.clear();
             }
         }
@@ -625,9 +641,14 @@ impl ViewClusterBindings {
                         offset as u32,
                         counts.point_lights,
                         counts.spot_lights,
-                        counts.reflection_probes,
+                        counts.rect_lights,
                     ),
-                    uvec4(counts.irradiance_volumes, counts.decals, 0, 0),
+                    uvec4(
+                        counts.reflection_probes,
+                        counts.irradiance_volumes,
+                        counts.decals,
+                        0,
+                    ),
                 ]);
             }
         }
@@ -654,11 +675,11 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists.get_mut().data[array_index][component] |=
                     index << (8 * sub_index);
             }
-            ViewClusterBuffers::Storage { .. } => {
-                error!(
-                    "Shouldn't be pushing a clusterable object index from CPU when GPU clustering \
-                     is in use"
-                );
+            ViewClusterBuffers::Storage {
+                clusterable_object_index_lists,
+                ..
+            } => {
+                clusterable_object_index_lists.get_mut().data.push(index);
             }
         }
 
@@ -711,7 +732,10 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists,
                 ..
             } => {
-                clusterable_object_index_lists.add_multiple(elements);
+                clusterable_object_index_lists
+                    .get_mut()
+                    .data
+                    .extend(iter::repeat_n(0, elements));
                 self.n_indices += elements;
             }
         }
@@ -730,7 +754,7 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists,
                 cluster_offsets_and_counts,
             } => {
-                clusterable_object_index_lists.write_buffer(render_device);
+                clusterable_object_index_lists.write_buffer(render_device, render_queue);
                 cluster_offsets_and_counts.write_buffer(render_device, render_queue);
             }
         }
@@ -798,9 +822,7 @@ impl ViewClusterBuffers {
 
     fn storage() -> Self {
         ViewClusterBuffers::Storage {
-            clusterable_object_index_lists: UninitBufferVec::new(
-                BufferUsages::STORAGE | BufferUsages::COPY_DST,
-            ),
+            clusterable_object_index_lists: StorageBuffer::default(),
             cluster_offsets_and_counts: StorageBuffer::default(),
         }
     }

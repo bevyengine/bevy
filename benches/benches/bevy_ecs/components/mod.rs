@@ -1,4 +1,3 @@
-mod add_remove;
 mod add_remove_big_sparse_set;
 mod add_remove_big_table;
 mod add_remove_sparse_set;

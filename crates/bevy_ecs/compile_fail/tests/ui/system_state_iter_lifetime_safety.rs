@@ -14,10 +14,10 @@ struct State {
 
 impl State {
     fn get_components(&mut self, world: &mut World) {
-        let q1 = self.state_r.get(&world);
+        let q1 = self.state_r.get(&world).unwrap();
         let a1 = q1.iter().next().unwrap();
 
-        let mut q2 = self.state_w.get_mut(world);
+        let mut q2 = self.state_w.get_mut(world).unwrap();
         //~^ E0502
         let _ = q2.iter_mut().next().unwrap();
 

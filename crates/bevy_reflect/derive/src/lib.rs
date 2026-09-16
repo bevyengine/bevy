@@ -35,6 +35,7 @@ mod serialization;
 mod string_expr;
 mod struct_utility;
 mod trait_reflection;
+mod type_data;
 mod type_path;
 mod where_clause_options;
 
@@ -123,7 +124,8 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// It will automatically generate implementations for `Reflect`, `Typed`, `GetTypeRegistration`, and `FromReflect`.
 /// And, depending on the item's structure, will either implement `Struct`, `TupleStruct`, or `Enum`.
 ///
-/// See the [`FromReflect`] derive macro for more information on how to customize the `FromReflect` implementation.
+/// See the [`FromReflect`] derive macro for more information on how to customize the [`FromReflect`] implementation.
+/// To implement [`FromReflect`] manually while deriving [`Reflect`], [opt out](#reflectfrom_reflect--false) of the default implementation.
 ///
 /// # Container Attributes
 ///
@@ -132,17 +134,29 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///
 /// In addition to those listed, this macro can also use the attributes for [`TypePath`] derives.
 ///
-/// ## `#[reflect(Ident)]`
+/// ## `#[reflect(TypeData)]`
 ///
-/// The `#[reflect(Ident)]` attribute is used to add type data registrations to the `GetTypeRegistration`
-/// implementation corresponding to the given identifier, prepended by `Reflect`.
+/// The `#[reflect(TypeData)]` attribute is used to add type data registrations to the `GetTypeRegistration`
+/// implementation corresponding to the given type, prepended by `Reflect`.
 ///
-/// For example, `#[reflect(Foo, Bar)]` would add two registrations:
-/// one for `ReflectFoo` and another for `ReflectBar`.
-/// This assumes these types are indeed in-scope wherever this macro is called.
+/// For example, `#[reflect(Foo, path::to::Bar)]` would add two registrations:
+/// one for `ReflectFoo` and another for `path::to::ReflectBar`.
+/// This assumes these types are indeed accessible from their given paths.
 ///
 /// This is often used with traits that have been marked by the [`#[reflect_trait]`](macro@reflect_trait)
 /// macro in order to register the type's implementation of that trait.
+///
+/// ### Type Data Input
+///
+/// If the type data's implementation allows for input,
+/// that input can be specified using a function-call-like syntax.
+/// For example, `#[reflect(Foo(42))]` would pass the value `42`
+/// as the input to the `ReflectFoo` type data.
+///
+/// Some type data accept a tuple of values.
+/// The macro will automatically convert the input to a tuple if given >=2 parameters.
+/// For example, `#[reflect(Foo(42, "hello"))]` would pass the tuple `(42, "hello")`
+/// as the input to the `ReflectFoo` type data.
 ///
 /// ### Default Registrations
 ///
@@ -154,7 +168,9 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///
 /// ### Special Identifiers
 ///
-/// There are a few "special" identifiers that work a bit differently:
+/// There are a few "special" identifiers that work a bit differently.
+/// It's important that you define these with just the identifier alone
+/// (not their equivalent path nor an alias) to ensure they work as intended.
 ///
 /// * `#[reflect(Clone)]` will force the implementation of `Reflect::reflect_clone` to rely on
 ///   the type's [`Clone`] implementation.
@@ -505,7 +521,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 /// Because of this, **it can only be used on [object-safe] traits.**
 ///
 /// For a trait named `MyTrait`, this will generate the struct `ReflectMyTrait`.
-/// The generated struct can be created using `FromType` with any type that implements the trait.
+/// The generated struct can be created using `CreateTypeData` with any type that implements the trait.
 /// The creation and registration of this generated struct as type data can be automatically handled
 /// by [`#[derive(Reflect)]`](Reflect).
 ///
@@ -530,7 +546,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 /// }
 ///
 /// // We can create the type data manually if we wanted:
-/// let my_trait: ReflectMyTrait = FromType::<SomeStruct>::from_type();
+/// let my_trait: ReflectMyTrait = CreateTypeData::<SomeStruct>::create_type_data(());
 ///
 /// // Or we can simply get it from the registry:
 /// let mut registry = TypeRegistry::default();
@@ -554,7 +570,8 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// Generates a wrapper type that can be used to "derive `Reflect`" for remote types.
 ///
 /// This works by wrapping the remote type in a generated wrapper that has the `#[repr(transparent)]` attribute.
-/// This allows the two types to be safely [transmuted] back-and-forth.
+/// The generated `ReflectRemote` implementation uses this representation to convert between the
+/// wrapper and remote type.
 ///
 /// # Defining the Wrapper
 ///
@@ -624,13 +641,12 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// ## Safety
+/// ## Conversion
 ///
-/// When using the `#[reflect(remote = path::to::MyType)]` field attribute, be sure you are defining the correct wrapper type.
-/// Internally, this field will be unsafely [transmuted], and is only sound if using a wrapper generated for the remote type.
-/// This also means keeping your wrapper definitions up-to-date with the remote types.
+/// The wrapper type must implement `ReflectRemote` with `Remote` equal to the field's actual
+/// type. Generated reflection code uses the wrapper's conversion methods; in particular,
+/// `FromReflect` calls `ReflectRemote::into_remote` to construct the field value.
 ///
-/// [transmuted]: std::mem::transmute
 #[proc_macro_attribute]
 pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
     remote::reflect_remote(args, input)

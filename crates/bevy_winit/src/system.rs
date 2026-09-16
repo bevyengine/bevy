@@ -6,14 +6,14 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
     message::MessageWriter,
-    prelude::{Changed, Component},
+    prelude::{Changed, Commands, Component},
     system::{Local, NonSendMarker, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
-    ClosingWindow, CursorOptions, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window,
-    WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
-    WindowResized, WindowWrapper,
+    ClosingWindow, CursorOptions, HasWindows, Monitor, OnMonitor, PrimaryMonitor, RawHandleWrapper,
+    VideoMode, Window, WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused,
+    WindowMode, WindowResized, WindowScaleFactorChanged, WindowWrapper,
 };
 use tracing::{error, info, warn};
 
@@ -22,6 +22,17 @@ use winit::{
     event_loop::ActiveEventLoop,
 };
 
+use crate::{
+    accessibility::ACCESS_KIT_ADAPTERS,
+    converters::{
+        convert_enabled_buttons, convert_resize_direction, convert_window_level,
+        convert_window_theme, convert_winit_theme,
+    },
+    resolve_exclusive_fullscreen, select_monitor,
+    state::react_to_resize,
+    winit_monitors::WinitMonitors,
+    CreateMonitorParams, CreateWindowParams, WINIT_WINDOWS,
+};
 use bevy_app::AppExit;
 use bevy_ecs::{prelude::MessageReader, query::With, system::Res};
 use bevy_math::{IVec2, UVec2};
@@ -29,18 +40,6 @@ use bevy_math::{IVec2, UVec2};
 use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
-
-use crate::{
-    accessibility::ACCESS_KIT_ADAPTERS,
-    converters::{
-        convert_enabled_buttons, convert_resize_direction, convert_window_level,
-        convert_window_theme, convert_winit_theme,
-    },
-    get_selected_videomode, select_monitor,
-    state::react_to_resize,
-    winit_monitors::WinitMonitors,
-    CreateMonitorParams, CreateWindowParams, WINIT_WINDOWS,
-};
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
 /// [`Window`] component.
@@ -120,6 +119,14 @@ pub fn create_windows(
                         winit_window.recognize_pan_gesture(true, min, max);
                     } else {
                         winit_window.recognize_pan_gesture(false, 0, 0);
+                    }
+                }
+
+                #[cfg(target_os = "macos")]
+                {
+                    // Request app activation via `focus_window()` if the window should start focused.
+                    if window.focused {
+                        winit_window.focus_window();
                     }
                 }
 
@@ -230,7 +237,14 @@ pub fn create_monitors(
             true
         } else {
             info!("Monitor removed {}", entity);
-            commands.entity(*entity).despawn();
+
+            commands
+                .entity(*entity)
+                // Remove the monitor's linked windows before despawning
+                //  it to prevent those windows from being despawned too.
+                .remove::<HasWindows>()
+                .despawn();
+
             idx += 1;
             false
         }
@@ -271,13 +285,19 @@ pub(crate) fn despawn_windows(
         }
     }
 
-    // On macOS, when exiting, we need to tell the rendering thread the windows are about to
-    // close to ensure that they are dropped on the main thread. Otherwise, the app will hang.
+    // On macOS, many things need to be dropped on the main thread, or the app will hang:
+    // - notify the rendering thread the windows are about to close
+    // - take the `WindowWrapper`s out of `WINIT_WINDOWS` and into the local `windows_to_drop`
     if !exit_event_reader.is_empty() {
         exit_event_reader.clear();
-        for window in window_entities.iter() {
-            closing_event_writer.write(WindowClosing { window });
-        }
+        WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
+            for window in window_entities.iter() {
+                closing_event_writer.write(WindowClosing { window });
+                if let Some(wrapper) = winit_windows.remove_window(window) {
+                    windows_to_drop.push(wrapper);
+                }
+            }
+        });
     }
 }
 
@@ -298,13 +318,19 @@ pub(crate) struct CachedCursorOptions(CursorOptions);
 /// - [`Window::canvas`] cannot be changed after the window is created.
 /// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
 pub(crate) fn changed_windows(
-    mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
+    mut commands: Commands,
+    mut changed_windows: Query<
+        (Entity, &mut Window, &mut CachedWindow, Option<&OnMonitor>),
+        Changed<Window>,
+    >,
     monitors: Res<WinitMonitors>,
     mut window_resized: MessageWriter<WindowResized>,
+    mut window_event: MessageWriter<WindowEvent>,
+    mut window_rescaled: MessageWriter<WindowScaleFactorChanged>,
     _non_send_marker: NonSendMarker,
 ) {
     WINIT_WINDOWS.with_borrow(|winit_windows| {
-        for (entity, mut window, mut cache) in &mut changed_windows {
+        for (entity, mut window, mut cache, monitor_relationship) in &mut changed_windows {
             let Some(winit_window) = winit_windows.get_window(entity) else {
                 continue;
             };
@@ -324,26 +350,17 @@ pub(crate) fn changed_windows(
                         ))))
                     }
                     WindowMode::Fullscreen(monitor_selection, video_mode_selection) => {
-                        let monitor = &select_monitor(
+                        let monitor = select_monitor(
                             &monitors,
                             winit_window.primary_monitor(),
                             winit_window.current_monitor(),
                             &monitor_selection,
-                        )
-                        .unwrap_or_else(|| {
-                            panic!("Could not find monitor for {monitor_selection:?}")
-                        });
-
-                        if let Some(video_mode) = get_selected_videomode(monitor, &video_mode_selection)
-                        {
-                            Some(Some(winit::window::Fullscreen::Exclusive(video_mode)))
-                        } else {
-                            warn!(
-                                "Could not find valid fullscreen video mode for {:?} {:?}",
-                                monitor_selection, video_mode_selection
-                            );
-                            None
-                        }
+                        );
+                        Some(Some(resolve_exclusive_fullscreen(
+                            monitor,
+                            monitor_selection,
+                            video_mode_selection,
+                        )))
                     }
                     WindowMode::Windowed => Some(None),
                 };
@@ -354,48 +371,56 @@ pub(crate) fn changed_windows(
                     }
             }
 
+            // Set position before size so the window is on the correct monitor
+            // (and thus using the correct scale factor) when size is applied.
+            if window.position != cache.position
+                && let Some(position) = crate::winit_window_position(
+                    &window.position,
+                    &window.resolution,
+                    &monitors,
+                    winit_window.primary_monitor(),
+                    winit_window.current_monitor(),
+                ) {
+                    let should_set = match winit_window.outer_position() {
+                        Ok(current_position) => current_position != position,
+                        _ => true,
+                    };
+
+                    if should_set {
+                        winit_window.set_outer_position(position);
+                    }
+                }
+
             if window.resolution != cache.resolution {
-                let mut physical_size = PhysicalSize::new(
+                let cache_physical_size = PhysicalSize::new(
+                    cache.resolution.physical_width(),
+                    cache.resolution.physical_height(),
+                );
+                let requested_physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
                     window.resolution.physical_height(),
                 );
 
-                let cached_physical_size = PhysicalSize::new(
-                    cache.physical_width(),
-                    cache.physical_height(),
-                );
-
-                let base_scale_factor = window.resolution.base_scale_factor();
-
-                // Note: this may be different from `winit`'s base scale factor if
-                // `scale_factor_override` is set to Some(f32)
-                let scale_factor = window.scale_factor();
-                let cached_scale_factor = cache.scale_factor();
-
-                // Check and update `winit`'s physical size only if the window is not maximized
-                if scale_factor != cached_scale_factor && !winit_window.is_maximized() {
-                    let logical_size =
-                        if let Some(cached_factor) = cache.resolution.scale_factor_override() {
-                            physical_size.to_logical::<f32>(cached_factor as f64)
-                        } else {
-                            physical_size.to_logical::<f32>(base_scale_factor as f64)
-                        };
-
-                    // Scale factor changed, updating physical and logical size
-                    if let Some(forced_factor) = window.resolution.scale_factor_override() {
-                        // This window is overriding the OS-suggested DPI, so its physical size
-                        // should be set based on the overriding value. Its logical size already
-                        // incorporates any resize constraints.
-                        physical_size = logical_size.to_physical::<u32>(forced_factor as f64);
-                    } else {
-                        physical_size = logical_size.to_physical::<u32>(base_scale_factor as f64);
+                if cache_physical_size != requested_physical_size {
+                    // In `None` case, the request will be handled by winit::event::WindowEvent::Resized
+                    if let Some(new_physical_size) = winit_window.request_inner_size(requested_physical_size) {
+                        let event = react_to_resize(entity, &mut window, new_physical_size);
+                        // Need to send two very similar events because different systems rely on those.
+                        window_resized.write(event.clone());
+                        window_event.write(event.into());
                     }
                 }
 
-                if physical_size != cached_physical_size
-                    && let Some(new_physical_size) = winit_window.request_inner_size(physical_size) {
-                        react_to_resize(entity, &mut window, new_physical_size, &mut window_resized);
-                    }
+                let cache_scale_factor = cache.scale_factor();
+                let requested_scale_factor = window.scale_factor();
+
+                if cache_scale_factor != requested_scale_factor {
+                    // If the scale factor has changed we don't query anything from winit, but send events for camera system to handle.
+                    let event = WindowScaleFactorChanged { scale_factor: requested_scale_factor as f64, window: entity};
+                    // Need to send two very similar events because different systems rely on those.
+                    window_rescaled.write(event.clone());
+                    window_event.write(event.into());
+                }
             }
 
             if window.physical_cursor_position() != cache.physical_cursor_position()
@@ -444,23 +469,23 @@ pub(crate) fn changed_windows(
                 );
             }
 
-            if window.position != cache.position
-                && let Some(position) = crate::winit_window_position(
-                    &window.position,
-                    &window.resolution,
-                    &monitors,
-                    winit_window.primary_monitor(),
-                    winit_window.current_monitor(),
-                ) {
-                    let should_set = match winit_window.outer_position() {
-                        Ok(current_position) => current_position != position,
-                        _ => true,
-                    };
-
-                    if should_set {
-                        winit_window.set_outer_position(position);
+            if let Some(monitor_link) = monitor_relationship {
+                if let Some(winit_monitor) = winit_window.current_monitor() {
+                    if let Some(linked_monitor) = monitors.find_entity(monitor_link.0) &&
+                        winit_monitor != linked_monitor &&
+                        let Some((_, winit_monitor_entity)) = monitors.monitors.iter().find(|(h, _)| h == &winit_monitor) {
+                        commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
                     }
+                } else {
+                    commands.entity(entity).remove::<OnMonitor>();
                 }
+            } else {
+                if let Some(winit_monitor) = winit_window.current_monitor()
+                    && let Some((_, winit_monitor_entity)) = monitors.monitors.iter()
+                    .find(|(h, _)| h == &winit_monitor) {
+                    commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
+                }
+            }
 
             if let Some(maximized) = window.internal.take_maximize_request() {
                 winit_window.set_maximized(maximized);

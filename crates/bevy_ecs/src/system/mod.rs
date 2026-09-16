@@ -114,17 +114,16 @@
 //! - [`FilteredResources`](crate::world::FilteredResources)
 //! - [`FilteredResourcesMut`](crate::world::FilteredResourcesMut)
 //! - [`DynSystemParam`]
-//! - [`Vec<P>`] where `P: SystemParam`
+//! - [`Vec<P>`] and [`SmallVec<[P, N]>`](smallvec::SmallVec) where `P: SystemParam`
 //! - [`ParamSet<Vec<P>>`] where `P: SystemParam`
 //!
 //! [`Vec<P>`]: alloc::vec::Vec
 
+mod access;
 mod adapter_system;
 mod builder;
 mod combinator;
 mod commands;
-mod exclusive_function_system;
-mod exclusive_system_param;
 mod function_system;
 mod input;
 mod observer_system;
@@ -137,12 +136,11 @@ mod system_registry;
 
 use core::any::TypeId;
 
+pub use access::*;
 pub use adapter_system::*;
 pub use builder::*;
 pub use combinator::*;
 pub use commands::*;
-pub use exclusive_function_system::*;
-pub use exclusive_system_param::*;
 pub use function_system::*;
 pub use input::*;
 pub use observer_system::*;
@@ -193,6 +191,15 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///
     /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
     /// where `T` is the return type of the first system.
+    ///
+    /// # System Names
+    ///
+    /// By default, the [`System::name()`] of the resulting [`PipeSystem`] will be
+    /// set to a combination of the names of the inner systems.
+    /// This can be changed by calling [`IntoPipeSystem::with_first_name`] or
+    /// [`IntoPipeSystem::with_second_name`] to take the name from one of the inner systems,
+    /// or [`IntoPipeSystem::with_name`] or [`IntoPipeSystem::with_name_fn`]
+    /// to set a different name.
     fn pipe<B, BIn, BOut, MarkerB>(self, system: B) -> IntoPipeSystem<Self, B>
     where
         Out: 'static,
@@ -418,8 +425,8 @@ mod tests {
             SystemCondition,
         },
         system::{
-            Commands, ExclusiveMarker, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet,
-            Query, Res, ResMut, Single, StaticSystemParam, System, SystemState,
+            Commands, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res,
+            ResMut, Single, StaticSystemParam, System, SystemState,
         },
         world::{DeferredWorld, EntityMut, FromWorld, World},
     };
@@ -1077,24 +1084,6 @@ mod tests {
     }
 
     #[test]
-    fn function_system_as_exclusive() {
-        let mut world = World::default();
-
-        world.insert_resource(SystemRan::No);
-
-        fn sys(_marker: ExclusiveMarker, mut system_ran: ResMut<SystemRan>) {
-            *system_ran = SystemRan::Yes;
-        }
-
-        let mut sys = IntoSystem::into_system(sys);
-        sys.initialize(&mut world);
-        assert!(sys.is_exclusive());
-
-        run_system(&mut world, sys);
-        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
-    }
-
-    #[test]
     fn removal_tracking() {
         let mut world = World::new();
 
@@ -1318,7 +1307,7 @@ mod tests {
             Option<Single<&B>>,
             ParamSet<(Query<&C>, Query<&D>)>,
         )> = SystemState::new(&mut world);
-        let (a, query, _) = system_state.get(&world);
+        let (a, query, _) = system_state.get(&world).unwrap();
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
             **query.unwrap(),
@@ -1345,7 +1334,7 @@ mod tests {
         // The following line shouldn't compile because the parameters used are not ReadOnlySystemParam
         // let (a, query) = system_state.get(&world);
 
-        let (a, query) = system_state.get_mut(&mut world);
+        let (a, query) = system_state.get_mut(&mut world).unwrap();
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
             **query.unwrap(),
@@ -1365,18 +1354,18 @@ mod tests {
         let mut system_state: SystemState<Option<Single<&A, Changed<A>>>> =
             SystemState::new(&mut world);
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert_eq!(**query.unwrap(), A(1));
         }
 
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert!(query.is_none());
         }
 
         world.entity_mut(entity).get_mut::<A>().unwrap().0 = 2;
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert_eq!(**query.unwrap(), A(2));
         }
     }
@@ -1390,12 +1379,12 @@ mod tests {
         let mut system_state: SystemState<Option<Single<(&A, SpawnDetails), Spawned>>> =
             SystemState::new(&mut world);
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert_eq!(query.unwrap().1.spawn_tick(), spawn_tick);
         }
 
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert!(query.is_none());
         }
     }
@@ -1406,7 +1395,7 @@ mod tests {
         let mut world = World::default();
         let mut system_state = SystemState::<Query<&A>>::new(&mut world);
         let mismatched_world = World::default();
-        system_state.get(&mismatched_world);
+        system_state.get(&mismatched_world).unwrap();
     }
 
     #[test]
@@ -1422,7 +1411,7 @@ mod tests {
 
         let mut system_state = SystemState::<Query<&A>>::new(&mut world);
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert_eq!(
                 query.iter().collect::<Vec<_>>(),
                 vec![&A(1)],
@@ -1432,7 +1421,7 @@ mod tests {
 
         world.spawn((A(2), B(2)));
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert_eq!(
                 query.iter().collect::<Vec<_>>(),
                 vec![&A(1), &A(2)],
@@ -1462,19 +1451,19 @@ mod tests {
 
         impl State {
             fn hold_res<'w>(&mut self, world: &'w World) -> ResourceHolder<'w> {
-                let a = self.state.get(world);
+                let a = self.state.get(world).unwrap();
                 ResourceHolder {
                     value: a.into_inner(),
                 }
             }
             fn hold_component<'w>(&mut self, world: &'w World, entity: Entity) -> Holder<'w> {
-                let q = self.state_q.get(world);
+                let q = self.state_q.get(world).unwrap();
                 let a = q.get_inner(entity).unwrap();
                 Holder { value: a }
             }
             fn hold_components<'w>(&mut self, world: &'w World) -> Vec<Holder<'w>> {
                 let mut components = Vec::new();
-                let q = self.state_q.get(world);
+                let q = self.state_q.get(world).unwrap();
                 for a in q.iter_inner() {
                     components.push(Holder { value: a });
                 }
@@ -1494,7 +1483,7 @@ mod tests {
 
         let mut system_state = SystemState::<Query<&mut A>>::new(&mut world);
         {
-            let mut query = system_state.get_mut(&mut world);
+            let mut query = system_state.get_mut(&mut world).unwrap();
             assert_eq!(
                 query.iter_mut().map(|m| *m).collect::<Vec<A>>(),
                 vec![A(1), A(2)],
@@ -1799,7 +1788,8 @@ mod tests {
         assert_is_system(exclusive_with_state);
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
-        returning::<()>.run_if(returning::<bool>.pipe(not));
+        // check that this compiles
+        let _ = returning::<()>.run_if(returning::<bool>.pipe(not));
     }
 
     #[test]
@@ -1968,14 +1958,14 @@ mod tests {
         schedule.add_systems(|_query: Query<&Name>| todo!());
         schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
 
-        fn obs(_event: On<Add, Name>) {
+        fn obs(_event: On<Add<Name>>) {
             todo!()
         }
 
         world.add_observer(obs);
-        world.add_observer(|_event: On<Add, Name>| {});
-        world.add_observer(|_event: On<Add, Name>| todo!());
-        world.add_observer(|_event: On<Add, Name>| -> () { todo!() });
+        world.add_observer(|_event: On<Add<Name>>| {});
+        world.add_observer(|_event: On<Add<Name>>| todo!());
+        world.add_observer(|_event: On<Add<Name>>| -> () { todo!() });
 
         fn my_command(_world: &mut World) {
             todo!()

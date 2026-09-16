@@ -14,7 +14,7 @@ use crate::{
     change_detection::{CheckChangeTicks, Tick},
     component::{ComponentId, Components},
     prelude::{SystemIn, SystemSet},
-    query::{AccessConflicts, FilteredAccessSet},
+    query::AccessConflicts,
     schedule::{
         graph::{
             DagAnalysis, DagGroups, DiGraph,
@@ -23,10 +23,8 @@ use crate::{
         },
         BoxedCondition, InternedSystemSet, ScheduleGraph,
     },
-    storage::SparseSetIndex,
     system::{
-        ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemParamValidationError,
-        SystemStateFlags,
+        ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemAccess, SystemStateFlags,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
@@ -39,10 +37,10 @@ pub(crate) struct SystemNode {
 /// A [`ScheduleSystem`] stored alongside the access returned from [`System::initialize`].
 pub struct SystemWithAccess {
     /// The system itself.
-    pub system: ScheduleSystem,
+    pub(crate) system: ScheduleSystem,
     /// The access returned by [`System::initialize`].
     /// This will be empty if the system has not been initialized yet.
-    pub access: FilteredAccessSet,
+    pub(crate) access: SystemAccess,
 }
 
 impl SystemWithAccess {
@@ -51,8 +49,18 @@ impl SystemWithAccess {
     pub fn new(system: ScheduleSystem) -> Self {
         Self {
             system,
-            access: FilteredAccessSet::new(),
+            access: SystemAccess::default(),
         }
+    }
+
+    /// Returns the underlying [`ScheduleSystem`]
+    pub fn system(&self) -> &ScheduleSystem {
+        &self.system
+    }
+
+    /// Returns the underlying [`SystemAccess`]
+    pub fn access(&self) -> &SystemAccess {
+        &self.access
     }
 }
 
@@ -66,8 +74,8 @@ impl System for SystemWithAccess {
     }
 
     #[inline]
-    fn type_id(&self) -> TypeId {
-        self.system.type_id()
+    fn system_type(&self) -> TypeId {
+        self.system.system_type()
     }
 
     #[inline]
@@ -102,16 +110,7 @@ impl System for SystemWithAccess {
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Caller ensures the same safety requirements.
-        unsafe { self.system.validate_param_unsafe(world) }
-    }
-
-    #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         self.system.initialize(world)
     }
 
@@ -142,16 +141,16 @@ pub struct ConditionWithAccess {
     pub condition: BoxedCondition,
     /// The access returned by [`System::initialize`].
     /// This will be empty if the system has not been initialized yet.
-    pub access: FilteredAccessSet,
+    pub access: SystemAccess,
 }
 
 impl ConditionWithAccess {
     /// Constructs a new [`ConditionWithAccess`] from a [`BoxedCondition`].
     /// The `access` will initially be empty.
-    pub const fn new(condition: BoxedCondition) -> Self {
+    pub fn new(condition: BoxedCondition) -> Self {
         Self {
             condition,
-            access: FilteredAccessSet::new(),
+            access: SystemAccess::default(),
         }
     }
 }
@@ -166,8 +165,8 @@ impl System for ConditionWithAccess {
     }
 
     #[inline]
-    fn type_id(&self) -> TypeId {
-        self.condition.type_id()
+    fn system_type(&self) -> TypeId {
+        self.condition.system_type()
     }
 
     #[inline]
@@ -202,16 +201,7 @@ impl System for ConditionWithAccess {
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Caller ensures the same safety requirements.
-        unsafe { self.condition.validate_param_unsafe(world) }
-    }
-
-    #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         self.condition.initialize(world)
     }
 
@@ -620,19 +610,16 @@ impl Systems {
                 continue;
             }
 
-            let system_a = &self[a];
-            let system_b = &self[b];
-            if system_a.is_exclusive() || system_b.is_exclusive() {
+            let access_a = &self[a].access;
+            let access_b = &self[b].access;
+            if access_a.is_exclusive() || access_b.is_exclusive() {
                 conflicting_systems.push((a, b, Box::new([])));
             } else {
-                let access_a = &system_a.access;
-                let access_b = &system_b.access;
                 if !access_a.is_compatible(access_b) {
                     match access_a.get_conflicts(access_b) {
                         AccessConflicts::Individual(conflicts) => {
                             let conflicts: Box<[_]> = conflicts
-                                .ones()
-                                .map(ComponentId::get_sparse_set_index)
+                                .iter()
                                 .filter(|id| !ignored_ambiguities.contains(id))
                                 .collect();
                             if !conflicts.is_empty() {

@@ -18,8 +18,6 @@
 
 extern crate alloc;
 
-use core::error::Error;
-
 #[cfg(target_os = "android")]
 mod android_tracing;
 mod once;
@@ -54,13 +52,7 @@ pub use tracing_subscriber;
 
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
-use tracing_subscriber::{
-    filter::{FromEnvError, ParseError},
-    layer::Layered,
-    prelude::*,
-    registry::Registry,
-    EnvFilter, Layer,
-};
+use tracing_subscriber::{layer::Layered, prelude::*, registry::Registry, EnvFilter, Layer};
 #[cfg(feature = "tracing-chrome")]
 use {
     bevy_ecs::resource::Resource,
@@ -255,6 +247,14 @@ pub struct LogPlugin {
     ///
     /// Please see the `examples/app/log_layers.rs` for a complete example.
     pub fmt_layer: fn(app: &mut App) -> Option<BoxedFmtLayer>,
+
+    /// Whether to stream events to the Tracy profiler or collector. Only enable
+    /// this if you actually intend to run the profiler; the enabled Tracy
+    /// client will buffer events without bound until it finds a profiler or
+    /// collector to connect to, which results in excessive memory use if you
+    /// never run the profiler.
+    #[cfg(feature = "tracing-tracy")]
+    pub enable_tracy: bool,
 }
 
 /// A boxed [`Layer`] that can be used with [`LogPlugin::custom_layer`].
@@ -286,6 +286,7 @@ pub const DEFAULT_FILTER: &str = concat!(
     "symphonia_format_riff::demuxer=warn,",
     "symphonia_format_wav::demuxer=warn,",
     "calloop::loop_logic=error,",
+    "calloop::sources=debug,",
 );
 
 impl Default for LogPlugin {
@@ -295,18 +296,22 @@ impl Default for LogPlugin {
             level: Level::INFO,
             custom_layer: |_| None,
             fmt_layer: |_| None,
+            #[cfg(feature = "tracing-tracy")]
+            enable_tracy: true,
         }
     }
 }
 
 impl Plugin for LogPlugin {
-    #[expect(clippy::print_stderr, reason = "Allowed during logger setup")]
     fn build(&self, app: &mut App) {
         #[cfg(feature = "trace")]
         {
             let old_handler = std::panic::take_hook();
             std::panic::set_hook(Box::new(move |infos| {
-                eprintln!("{}", tracing_error::SpanTrace::capture());
+                #[expect(clippy::print_stderr, reason = "Allowed during logger setup")]
+                {
+                    eprintln!("{}", tracing_error::SpanTrace::capture());
+                }
                 old_handler(infos);
             }));
         }
@@ -317,21 +322,7 @@ impl Plugin for LogPlugin {
         // add optional layer provided by user
         let subscriber = subscriber.with((self.custom_layer)(app));
 
-        let default_filter = { format!("{},{}", self.level, self.filter) };
-        let filter_layer = EnvFilter::try_from_default_env()
-            .or_else(|from_env_error| {
-                _ = from_env_error
-                    .source()
-                    .and_then(|source| source.downcast_ref::<ParseError>())
-                    .map(|parse_err| {
-                        // we cannot use the `error!` macro here because the logger is not ready yet.
-                        eprintln!("LogPlugin failed to parse filter from env: {parse_err}");
-                    });
-
-                Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))
-            })
-            .unwrap();
-        let subscriber = subscriber.with(filter_layer);
+        let subscriber = subscriber.with(self.build_filter_layer());
 
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
@@ -363,7 +354,11 @@ impl Plugin for LogPlugin {
             };
 
             #[cfg(feature = "tracing-tracy")]
-            let tracy_layer = tracing_tracy::TracyLayer::default();
+            let tracy_layer = if self.enable_tracy {
+                Some(tracing_tracy::TracyLayer::default())
+            } else {
+                None
+            };
 
             let fmt_layer = (self.fmt_layer)(app).unwrap_or_else(|| {
                 // note: the implementation of `Default` reads from the env var NO_COLOR
@@ -408,7 +403,9 @@ impl Plugin for LogPlugin {
             tracing::subscriber::set_global_default(finished_subscriber).is_err();
 
         #[cfg(feature = "tracing-tracy")]
-        warn!("Tracing with Tracy is active, memory consumption will grow until a client is connected");
+        if self.enable_tracy {
+            warn!("Tracing with Tracy is active, memory consumption will grow until a client is connected");
+        }
 
         match (logger_already_set, subscriber_already_set) {
             (true, true) => error!(
@@ -417,6 +414,38 @@ impl Plugin for LogPlugin {
             (true, false) => error!("Could not set global logger as it is already set. Consider disabling LogPlugin."),
             (false, true) => error!("Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."),
             (false, false) => (),
+        }
+    }
+}
+
+impl LogPlugin {
+    fn build_filter_layer(&self) -> EnvFilter {
+        // Start with the default filters, then add the env filters afterwards, so that the env filters
+        // can be used to selectively override the default filters
+        let default_filters =
+            EnvFilter::builder().parse_lossy(format!("{},{}", self.level, self.filter));
+        // We must manually parse and add the directives individually because `EnvFilter` has no helper methods for adding
+        // multiple directives at once.
+        let env_filters = std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_default();
+        let result = env_filters
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .try_fold(default_filters.clone(), |filters, directive| {
+                directive.parse().map(|d| filters.add_directive(d))
+            });
+        // Fall back to just the default filters if the env filters are malformed
+        match result {
+            Ok(combined_filters) => combined_filters,
+            Err(e) => {
+                #[expect(
+                    clippy::print_stderr,
+                    reason = "We cannot use the `error!` macro here because the logger is not ready yet."
+                )]
+                {
+                    eprintln!("LogPlugin failed to parse filter from env: {e}");
+                }
+                default_filters
+            }
         }
     }
 }

@@ -1,5 +1,5 @@
 pub mod extensions;
-mod gltf_ext;
+pub mod gltf_ext;
 
 use alloc::sync::Arc;
 use async_lock::RwLock;
@@ -32,14 +32,14 @@ use bevy_mesh::UvChannel;
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
+    Indices, Mesh, Mesh3d, MeshCompressionArgs, MeshVertexAttribute, PrimitiveTopology,
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
-use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
+use bevy_world_serialization::WorldAsset;
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -130,21 +130,6 @@ pub enum GltfError {
     /// Failed to generate morph targets.
     #[error("failed to generate morph targets: {0}")]
     MorphTarget(#[from] bevy_mesh::morph::MorphBuildError),
-    /// Zero or 2+ `gltf::Mesh`s were returned in a `gltf::Document` from the `on_primitive` hook
-    #[error(
-        "expected exactly one Mesh in Document returned from on_gltf_primitive hook, got: {0}"
-    )]
-    OnPrimitiveMeshCount(usize),
-    /// Zero or 2+ `gltf::Primitive`s were returned in a `gltf::Document` from the `on_primitive` hook
-    #[error(
-        "expected exactly one Primitive in Mesh returned from on_gltf_primitive hook, got: {0}"
-    )]
-    OnPrimitivePrimitiveCount(usize),
-    /// Zero or 2+ `Vec<u8>`s were returned in the `Vec<Vec<u8>>` from the `on_primitive` hook
-    #[error(
-        "expected exactly one Vec<u8> in buffers returned from on_gltf_primitive hook, got: {0}"
-    )]
-    OnPrimitiveBufferCount(usize),
     /// Circular children in Nodes
     #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
     #[from(ignore)]
@@ -173,10 +158,12 @@ pub struct GltfLoader {
     /// glTF extension data processors.
     /// These are Bevy-side processors designed to access glTF
     /// extension data during the loading process.
-    pub extensions: Arc<RwLock<Vec<Box<dyn extensions::GltfExtensionHandler>>>>,
+    pub extensions: Arc<RwLock<Vec<Box<dyn extensions::ErasedGltfExtensionHandler>>>>,
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+    /// Default mesh compression arguments for the loaded meshes.
+    pub default_mesh_compression: MeshCompressionArgs,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -189,14 +176,15 @@ pub struct GltfLoader {
 /// # use bevy_asset::{AssetServer, Handle};
 /// # use bevy_gltf::*;
 /// # let asset_server: AssetServer = panic!();
-/// let gltf_handle: Handle<Gltf> = asset_server.load_with_settings(
-///     "my.gltf",
-///     |s: &mut GltfLoaderSettings| {
-///         s.load_cameras = false;
-///     }
-/// );
+/// let gltf_handle: Handle<Gltf> = asset_server.load_builder().with_settings(
+///         |s: &mut GltfLoaderSettings| {
+///             s.load_cameras = false;
+///         }
+///     )
+///     .load("my.gltf");
 /// ```
 #[derive(Serialize, Deserialize)]
+#[serde(default)]
 pub struct GltfLoaderSettings {
     /// If empty, the gltf mesh nodes will be skipped.
     ///
@@ -230,6 +218,9 @@ pub struct GltfLoaderSettings {
     pub convert_coordinates: Option<GltfConvertCoordinates>,
     /// Optionally overrides [`GltfPlugin::skinned_mesh_bounds_policy`](crate::GltfPlugin).
     pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
+    /// Mesh attribute compression arguments for the loaded meshes.
+    /// If `None`, uses the global default set by [`GltfPlugin::mesh_compression`](crate::GltfPlugin::mesh_compression).
+    pub mesh_compression: Option<MeshCompressionArgs>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -246,6 +237,7 @@ impl Default for GltfLoaderSettings {
             validate: true,
             convert_coordinates: None,
             skinned_mesh_bounds_policy: None,
+            mesh_compression: None,
         }
     }
 }
@@ -271,7 +263,7 @@ impl GltfLoader {
         // Let extensions process the root data for the extension ids
         // they've subscribed to.
         for extension in extensions.iter_mut() {
-            extension.on_root(load_context, &gltf);
+            extension.on_root(load_context, &gltf, settings);
         }
 
         let file_name = load_context
@@ -315,10 +307,8 @@ impl GltfLoader {
             use bevy_animation::{
                 animated_field, animation_curves::*, gltf_curves::*, VariableCurve,
             };
-            use bevy_math::{
-                curve::{ConstantCurve, Interval, UnevenSampleAutoCurve},
-                Quat, Vec4,
-            };
+            use bevy_curve::{ConstantCurve, Interval, UnevenSampleAutoCurve};
+            use bevy_math::{Quat, Vec4};
             use gltf::animation::util::ReadOutputs;
             let mut animations = vec![];
             let mut named_animations = <HashMap<_, _>>::default();
@@ -584,17 +574,19 @@ impl GltfLoader {
                     );
                     }
                 }
+
+                // let extensions handle extension data placed on animations before creating
+                // the `Handle`
+                for extension in extensions.iter_mut() {
+                    extension.on_animation(load_context, &animation, &mut animation_clip);
+                }
+
                 let handle = load_context.add_labeled_asset(
                     GltfAssetLabel::Animation(animation.index()).to_string(),
                     animation_clip,
                 );
                 if let Some(name) = animation.name() {
                     named_animations.insert(name.into(), handle.clone());
-                }
-
-                // let extensions handle extension data placed on animations
-                for extension in extensions.iter_mut() {
-                    extension.on_animation(&animation, handle.clone());
                 }
 
                 animations.push(handle);
@@ -647,9 +639,11 @@ impl GltfLoader {
                 }
             }
         } else {
+            // This cfg is redundant, but if we don't explicitly cfg it out, Wasm will compile it
+            // and fail.
             #[cfg(not(target_arch = "wasm32"))]
-            IoTaskPool::get()
-                .scope(|scope| {
+            {
+                let textures = IoTaskPool::get().scope(|scope| {
                     gltf.textures().for_each(|gltf_texture| {
                         let asset_path = load_context.path().clone();
                         let linear_textures = &linear_textures;
@@ -667,29 +661,25 @@ impl GltfLoader {
                             .await
                         });
                     });
-                })
-                .into_iter()
-                // order is preserved if the futures are only spawned from the root scope
-                .zip(gltf.textures())
-                .for_each(|(result, texture)| match result {
-                    Ok(image) => {
-                        image.process_loaded_texture(load_context, &mut texture_handles);
-                        // let extensions handle texture data
-                        for extension in extensions.iter_mut() {
-                            extension.on_texture(&texture, texture_handles.last().unwrap().clone());
-                        }
-                    }
-                    Err(err) => {
-                        warn!("Error loading glTF texture: {}", err);
-                    }
                 });
+                // order is preserved if the futures are only spawned from the root scope
+                for (result, texture) in textures.into_iter().zip(gltf.textures()) {
+                    result?.process_loaded_texture(load_context, &mut texture_handles);
+                    // let extensions handle texture data
+                    for extension in extensions.iter_mut() {
+                        extension.on_texture(&texture, texture_handles.last().unwrap().clone());
+                    }
+                }
+            }
         }
 
         let mut materials = vec![];
         let mut named_materials = <HashMap<_, _>>::default();
         // Only include materials in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_materials flag
         if !settings.load_materials.is_empty() {
-            // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
+            // NOTE: materials must be loaded after textures because image load() calls will happen
+            // before load_builder().with_settings().load(), preventing is_srgb from being set
+            // properly.
             for material in gltf.materials() {
                 let (label, gltf_material) = load_material(
                     &material,
@@ -732,117 +722,104 @@ impl GltfLoader {
         }
         for gltf_mesh in gltf.meshes() {
             let mut primitives = vec![];
+
+            let gltf_mesh_on_skinned_nodes = meshes_on_skinned_nodes.contains(&gltf_mesh.index());
+            let gltf_mesh_on_non_skinned_nodes =
+                meshes_on_non_skinned_nodes.contains(&gltf_mesh.index());
+
             for primitive in gltf_mesh.primitives() {
                 let primitive_label = GltfAssetLabel::Primitive {
                     mesh: gltf_mesh.index(),
                     primitive: primitive.index(),
                 };
-                let primitive_topology = primitive_topology(primitive.mode())?;
 
-                let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
-
-                let mut out_doc: Option<gltf::Document> = None;
-                let mut out_data: Option<Vec<Vec<u8>>> = None;
+                // a Mesh that can be generated by a user's extension,
+                // such as when decompressing draco buffers
+                let mut user_mesh: Option<Mesh> = None;
                 for extension in extensions.iter_mut() {
-                    extension.on_gltf_primitive(
-                        load_context,
-                        &gltf,
-                        &primitive,
-                        &buffer_data,
-                        &mut out_doc,
-                        &mut out_data,
-                    );
+                    extension
+                        .on_gltf_primitive(
+                            load_context,
+                            &gltf,
+                            &gltf_mesh,
+                            &primitive,
+                            &buffer_data,
+                            &loader.custom_vertex_attributes,
+                            gltf_mesh_on_skinned_nodes,
+                            gltf_mesh_on_non_skinned_nodes,
+                            &mut user_mesh,
+                        )
+                        .await;
                 }
 
-                // if there is a `gltf::Document`, then we have transformed
-                // mesh output, such as decompressed data, and need to validate
-                // what we expect to exist in the document.
-                let primitive = if let Some(doc) = &out_doc {
-                    let mesh_count = doc.meshes().len();
-                    if mesh_count != 1 {
-                        return Err(GltfError::OnPrimitiveMeshCount(mesh_count));
-                    }
-                    let mesh = doc.meshes().next().unwrap();
-                    let primitive_count = mesh.primitives().len();
-                    if primitive_count != 1 {
-                        return Err(GltfError::OnPrimitivePrimitiveCount(primitive_count));
-                    }
-                    mesh.primitives().next().unwrap()
+                let mut mesh = if let Some(user_mesh_provided) = user_mesh {
+                    user_mesh_provided
                 } else {
-                    // otherwise, re-use the original primitive since no transformation
-                    // has occurred.
-                    primitive
-                };
+                    let primitive_topology = primitive_topology(primitive.mode())?;
 
-                let buffer_data = if let Some(data) = &out_data {
-                    let buffer_count = data.len();
-                    if buffer_count != 1 {
-                        return Err(GltfError::OnPrimitiveBufferCount(buffer_count));
-                    }
-                    data
-                } else {
-                    &buffer_data
-                };
+                    let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
 
-                // Read vertex attributes
-                for (semantic, accessor) in primitive.attributes() {
-                    if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
-                        if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
-                            warn!(
-                        "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
-                        semantic,
-                        primitive_label
-                    );
-                            continue;
-                        } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
-                            error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+                    // Read vertex attributes
+                    for (semantic, accessor) in primitive.attributes() {
+                        if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
+                            if !gltf_mesh_on_skinned_nodes {
+                                warn!(
+                                    "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
+                                    semantic,
+                                    primitive_label
+                                );
+                                continue;
+                            } else if gltf_mesh_on_non_skinned_nodes {
+                                error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+                            }
+                        }
+                        match convert_attribute(
+                            semantic,
+                            accessor,
+                            &buffer_data,
+                            &loader.custom_vertex_attributes,
+                            convert_coordinates.rotate_meshes,
+                        ) {
+                            Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
+                            Err(err) => warn!("{}", err),
                         }
                     }
-                    match convert_attribute(
-                        semantic,
-                        accessor,
-                        buffer_data,
-                        &loader.custom_vertex_attributes,
-                        convert_coordinates.rotate_meshes,
-                    ) {
-                        Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
-                        Err(err) => warn!("{}", err),
-                    }
-                }
 
-                // Read vertex indices
-                let reader =
-                    primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
-                if let Some(indices) = reader.read_indices() {
-                    mesh.insert_indices(match indices {
-                        ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
-                        ReadIndices::U16(is) => Indices::U16(is.collect()),
-                        ReadIndices::U32(is) => Indices::U32(is.collect()),
-                    });
-                };
+                    // Read vertex indices
+                    let reader =
+                        primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
+                    if let Some(indices) = reader.read_indices() {
+                        mesh.insert_indices(match indices {
+                            ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
+                            ReadIndices::U16(is) => Indices::U16(is.collect()),
+                            ReadIndices::U32(is) => Indices::U32(is.collect()),
+                        });
+                    };
 
-                {
-                    let morph_target_reader = reader.read_morph_targets();
-                    if morph_target_reader.len() != 0 {
-                        mesh.set_morph_targets(
-                            morph_target_reader
-                                .flat_map(|i| PrimitiveMorphAttributesIter {
-                                    convert_coordinates: convert_coordinates.rotate_meshes,
-                                    positions: i.0,
-                                    normals: i.1,
-                                    tangents: i.2,
-                                })
-                                .collect(),
-                        );
+                    {
+                        let morph_target_reader = reader.read_morph_targets();
+                        if morph_target_reader.len() != 0 {
+                            mesh.set_morph_targets(
+                                morph_target_reader
+                                    .flat_map(|i| PrimitiveMorphAttributesIter {
+                                        convert_coordinates: convert_coordinates.rotate_meshes,
+                                        positions: i.0,
+                                        normals: i.1,
+                                        tangents: i.2,
+                                    })
+                                    .collect(),
+                            );
 
-                        let extras = gltf_mesh.extras().as_ref();
-                        if let Some(names) = extras.and_then(|extras| {
-                            serde_json::from_str::<MorphTargetNames>(extras.get()).ok()
-                        }) {
-                            mesh.set_morph_target_names(names.target_names);
+                            let extras = gltf_mesh.extras().as_ref();
+                            if let Some(names) = extras.and_then(|extras| {
+                                serde_json::from_str::<MorphTargetNames>(extras.get()).ok()
+                            }) {
+                                mesh.set_morph_target_names(names.target_names);
+                            }
                         }
                     }
-                }
+                    mesh
+                };
 
                 if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
                     && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
@@ -890,7 +867,19 @@ impl GltfLoader {
                     warn!("Failed to generate skinned mesh bounds: {err}");
                 }
 
-                let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
+                let mesh_handle = load_context.add_labeled_asset(
+                    primitive_label.to_string(),
+                    mesh.compressed_mesh(
+                        settings
+                            .mesh_compression
+                            .as_ref()
+                            .unwrap_or(&loader.default_mesh_compression),
+                    )
+                    .unwrap_or_else(|(mesh, err)| {
+                        tracing::debug!("Failed to compress mesh: {:?}", err);
+                        mesh
+                    }),
+                );
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
                     &primitive,
@@ -1147,7 +1136,7 @@ impl GltfLoader {
                 );
             }
 
-            let loaded_scene = scene_load_context.finish(Scene::new(world));
+            let loaded_scene = scene_load_context.finish(WorldAsset::new(world));
             let scene_handle = load_context.add_loaded_labeled_asset(
                 GltfAssetLabel::Scene(scene.index()).to_string(),
                 loaded_scene,
@@ -1508,15 +1497,16 @@ fn load_material(
         anisotropy_texture: anisotropy.anisotropy_texture,
         // From the `KHR_materials_specular` spec:
         // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
-        reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
+        reflectance: specular.specular_factor * 0.5,
         #[cfg(feature = "pbr_specular_textures")]
         specular_channel: specular.specular_channel,
         #[cfg(feature = "pbr_specular_textures")]
         specular_texture: specular.specular_texture,
-        specular_tint: match specular.specular_color_factor {
-            Some(color) => Color::linear_rgb(color[0] as f32, color[1] as f32, color[2] as f32),
-            None => Color::WHITE,
-        },
+        specular_tint: Color::linear_rgb(
+            specular.specular_color_factor[0],
+            specular.specular_color_factor[1],
+            specular.specular_color_factor[2],
+        ),
         #[cfg(feature = "pbr_specular_textures")]
         specular_tint_channel: specular.specular_color_channel,
         #[cfg(feature = "pbr_specular_textures")]
@@ -1530,13 +1520,6 @@ fn load_material(
 }
 
 /// Loads a glTF node.
-#[cfg_attr(
-    not(target_arch = "wasm32"),
-    expect(
-        clippy::result_large_err,
-        reason = "`GltfError` is only barely past the threshold for large errors."
-    )
-)]
 fn load_node(
     gltf_node: &Node,
     child_spawner: &mut ChildSpawner,
@@ -1551,7 +1534,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     textures: &[Handle<Image>],
     convert_coordinates: &GltfConvertCoordinates,
-    extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
+    extensions: &mut [Box<dyn extensions::ErasedGltfExtensionHandler>],
     skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
@@ -2045,7 +2028,7 @@ impl ImageOrPath {
                 sampler_descriptor,
                 render_asset_usages,
             } => load_context
-                .loader()
+                .load_builder()
                 .with_settings(move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
                     settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
@@ -2057,11 +2040,19 @@ impl ImageOrPath {
     }
 }
 
-struct PrimitiveMorphAttributesIter<'s> {
-    convert_coordinates: bool,
-    positions: Option<Iter<'s, [f32; 3]>>,
-    normals: Option<Iter<'s, [f32; 3]>>,
-    tangents: Option<Iter<'s, [f32; 3]>>,
+/// An Iterator that iterates over morph target positions, normals,
+/// and tangents while optionally handling coordinate conversions.
+/// Used when setting morph targets on a `Mesh` while reading them
+/// from a primitive.
+pub struct PrimitiveMorphAttributesIter<'s> {
+    /// Should the values be converted
+    pub convert_coordinates: bool,
+    /// Vertex position displacements
+    pub positions: Option<Iter<'s, [f32; 3]>>,
+    /// Vertex normal displacements
+    pub normals: Option<Iter<'s, [f32; 3]>>,
+    /// Vertex tangent displacements
+    pub tangents: Option<Iter<'s, [f32; 3]>>,
 }
 
 impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
@@ -2111,9 +2102,12 @@ struct AnimationContext {
     pub path: SmallVec<[Name; 8]>,
 }
 
+/// Applications like Blender place shape key names in
+/// the glTF extras as a list of target names.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct MorphTargetNames {
+pub struct MorphTargetNames {
+    /// The list of target names (or shape keys)
     pub target_names: Vec<String>,
 }
 
@@ -2121,10 +2115,7 @@ struct MorphTargetNames {
 mod test {
     use std::path::Path;
 
-    use crate::{
-        extensions::{GltfExtensionHandler, GltfExtensionHandlers},
-        Gltf, GltfAssetLabel, GltfMaterial, GltfNode, GltfSkin,
-    };
+    use crate::{Gltf, GltfAssetLabel, GltfLoaderSettings, GltfMaterial, GltfNode, GltfSkin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
@@ -2139,7 +2130,7 @@ mod test {
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
     use bevy_reflect::TypePath;
-    use bevy_scene::ScenePlugin;
+    use bevy_world_serialization::WorldSerializationPlugin;
 
     fn test_app(dir: Dir) -> App {
         let mut app = App::new();
@@ -2152,7 +2143,7 @@ mod test {
             LogPlugin::default(),
             TaskPoolPlugin::default(),
             AssetPlugin::default(),
-            ScenePlugin,
+            WorldSerializationPlugin,
             MeshPlugin,
             crate::GltfPlugin::default(),
         ));
@@ -2579,7 +2570,7 @@ mod test {
             LogPlugin::default(),
             TaskPoolPlugin::default(),
             AssetPlugin::default(),
-            ScenePlugin,
+            WorldSerializationPlugin,
             MeshPlugin,
             crate::GltfPlugin::default(),
         ));
@@ -2710,221 +2701,94 @@ mod test {
                 .then_some(())
         });
     }
-    fn load_gltf_into_app_with_extension(
-        gltf_path: &str,
-        gltf: &str,
-        extension: Box<dyn GltfExtensionHandler>,
-    ) -> App {
-        #[expect(
-            dead_code,
-            reason = "This struct is used to keep the handle alive. As such, we have no need to handle the handle directly."
-        )]
-        #[derive(Resource)]
-        struct GltfHandle(Handle<Gltf>);
 
-        let dir = Dir::default();
-        dir.insert_asset_text(Path::new(gltf_path), gltf);
-        let mut app = test_app(dir);
-        app.world_mut()
-            .resource_mut::<GltfExtensionHandlers>()
-            .0
-            .write_blocking()
-            .push(extension);
-        app.update();
-        let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle: Handle<Gltf> = asset_server.load(gltf_path.to_string());
-        let handle_id = handle.id();
-        app.insert_resource(GltfHandle(handle));
-        app.update();
-        run_app_until(&mut app, |_world| {
-            let load_state = asset_server.get_load_state(handle_id).unwrap();
-            match load_state {
-                LoadState::Loaded => Some(()),
-                LoadState::Failed(err) => panic!("{err}"),
-                _ => None,
-            }
-        });
-        app
-    }
+    #[test]
+    fn image_error_is_an_error() {
+        let (mut app, dir) = test_app_custom_asset_source();
 
-    const TRIANGLE_GLTF_DATA: &str = r#"
+        dir.insert_asset_text(
+            Path::new("abc.gltf"),
+            r#"
 {
-  "asset": {
-    "version": "2.0"
-  },
-  "scene": 0,
-  "scenes": [
-    {
-      "name": "Scene",
-      "nodes": [0]
-    }
-  ],
-  "nodes": [
-    {
-      "mesh": 0,
-      "name": "triangle-object"
-    }
-  ],
-  "meshes": [
-    {
-      "name": "triangle-mesh",
-      "primitives": [
+    "asset": {
+        "version": "2.0"
+    },
+    "textures": [
         {
-          "attributes": {
-            "POSITION": 0
-          },
-          "indices": 1
+            "source": 0,
+            "sampler": 0
         }
-      ]
-    }
-  ],
-  "accessors": [
-    {
-      "bufferView": 0,
-      "componentType": 5126,
-      "count": 3,
-      "max": [0.9971705079078674, 0, 0.9971704483032227],
-      "min": [0, 0, 0],
-      "type": "VEC3"
-    },
-    {
-      "bufferView": 1,
-      "componentType": 5123,
-      "count": 3,
-      "type": "SCALAR"
-    }
-  ],
-  "bufferViews": [
-    {
-      "buffer": 0,
-      "byteLength": 36,
-      "byteOffset": 0,
-      "target": 34962
-    },
-    {
-      "buffer": 0,
-      "byteLength": 6,
-      "byteOffset": 36,
-      "target": 34963
-    }
-  ],
-  "buffers": [
-    {
-        "byteLength": 44,
-        "uri" : "data:application/gltf-buffer;base64,AAAAAAAAAAAAAACAAAAAAAAAAACQRn8/kUZ/PwAAAACQRn8/AQACAAAAAAA="
-    }
-  ]
+    ],
+    "images": [
+        {
+            "bufferView": 0,
+            "mimeType": "image/png"
+        }
+    ],
+    "samplers": [
+        {
+            "magFilter": 9729,
+            "minFilter": 9729
+        }
+    ],
+    "buffers": [
+        {
+          "byteLength": 1,
+          "uri": "data:application/gltf-buffer;base64,AAAA"
+        }
+    ],
+    "bufferViews": [
+        {
+            "buffer": 0,
+            "byteLength": 1
+        }
+    ]
 }
-"#;
-
-    // Test to ensure that the loader will fail if a Document is constructed with
-    // no Mesh
-    #[test]
-    #[should_panic(
-        expected = "Failed to load asset 'test.gltf' with asset loader 'bevy_gltf::loader::GltfLoader': expected exactly one Mesh in Document returned from on_gltf_primitive hook, got: 0"
-    )]
-    fn on_gltf_primitive_doc_fail() {
-        #[derive(Default, Clone)]
-        struct PrimitiveExtension {}
-
-        impl GltfExtensionHandler for PrimitiveExtension {
-            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
-                Box::new((*self).clone())
-            }
-            fn on_gltf_primitive(
-                &mut self,
-                _load_context: &mut LoadContext<'_>,
-                _gltf_document: &gltf::Gltf,
-                _gltf_primitive: &gltf::Primitive,
-                _buffer_data: &[Vec<u8>],
-                out_doc: &mut Option<gltf::Document>,
-                _out_data: &mut Option<Vec<Vec<u8>>>,
-            ) {
-                *out_doc = Some(gltf::Document::from_json_without_validation(
-                    gltf::json::Root::default(),
-                ));
-            }
-        }
-        let gltf_path = "test.gltf";
-        let _ = load_gltf_into_app_with_extension(
-            gltf_path,
-            TRIANGLE_GLTF_DATA,
-            Box::new(PrimitiveExtension::default()),
+"#,
         );
+
+        app.init_asset::<Image>();
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
+        run_app_until(&mut app, |_| match asset_server.load_state(&handle) {
+            LoadState::Failed(err) => {
+                let err = err.to_string();
+                assert!(
+                    // Depending on the `image` crate's feature flags, we may get different errors.
+                    // Specifically, either the `image/png` mime type is warned about, or the buffer
+                    // is not big enough to be valid PNG data.
+                    err.contains("failed to load an image: unexpected end of file")
+                        || err.contains("invalid image mime type: image/png"),
+                    "incorrect error message: {err}"
+                );
+                Some(())
+            }
+            LoadState::Loading => None,
+            state => panic!("Unexpected load state: {state:?}"),
+        });
     }
 
-    // Test to ensure that the loader will fail if a Document is constructed with
-    // a single Mesh, but no Primitive
     #[test]
-    #[should_panic(
-        expected = "Failed to load asset 'test.gltf' with asset loader 'bevy_gltf::loader::GltfLoader': expected exactly one Primitive in Mesh returned from on_gltf_primitive hook, got: 0"
-    )]
-    fn on_gltf_primitive_prim_fail() {
-        #[derive(Default, Clone)]
-        struct PrimitiveExtension {}
+    fn partial_loader_settings_use_defaults() {
+        let settings: GltfLoaderSettings = serde_json::from_str(
+            r#"
+            {
+                "load_cameras": false
+            }
+            "#,
+        )
+        .unwrap();
 
-        impl GltfExtensionHandler for PrimitiveExtension {
-            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
-                Box::new((*self).clone())
-            }
-            fn on_gltf_primitive(
-                &mut self,
-                _load_context: &mut LoadContext<'_>,
-                _gltf_document: &gltf::Gltf,
-                _gltf_primitive: &gltf::Primitive,
-                _buffer_data: &[Vec<u8>],
-                out_doc: &mut Option<gltf::Document>,
-                _out_data: &mut Option<Vec<Vec<u8>>>,
-            ) {
-                let mut root = gltf::json::Root::default();
-                root.push(gltf::json::Mesh {
-                    extensions: Default::default(),
-                    extras: Default::default(),
-                    name: Some("Empty Mesh".into()),
-                    primitives: vec![],
-                    weights: None,
-                });
-                *out_doc = Some(gltf::Document::from_json_without_validation(root));
-            }
-        }
-        let gltf_path = "test.gltf";
-        let _ = load_gltf_into_app_with_extension(
-            gltf_path,
-            TRIANGLE_GLTF_DATA,
-            Box::new(PrimitiveExtension::default()),
-        );
-    }
-
-    // Test to ensure that the loader will fail if no buffers are returned
-    #[test]
-    #[should_panic(
-        expected = "Failed to load asset 'test.gltf' with asset loader 'bevy_gltf::loader::GltfLoader': expected exactly one Vec<u8> in buffers returned from on_gltf_primitive hook, got: 0"
-    )]
-    fn on_gltf_buffer_count_fail() {
-        #[derive(Default, Clone)]
-        struct PrimitiveExtension {}
-
-        impl GltfExtensionHandler for PrimitiveExtension {
-            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
-                Box::new((*self).clone())
-            }
-            fn on_gltf_primitive(
-                &mut self,
-                _load_context: &mut LoadContext<'_>,
-                _gltf_document: &gltf::Gltf,
-                _gltf_primitive: &gltf::Primitive,
-                _buffer_data: &[Vec<u8>],
-                _out_doc: &mut Option<gltf::Document>,
-                out_data: &mut Option<Vec<Vec<u8>>>,
-            ) {
-                *out_data = Some(vec![]);
-            }
-        }
-        let gltf_path = "test.gltf";
-        let _ = load_gltf_into_app_with_extension(
-            gltf_path,
-            TRIANGLE_GLTF_DATA,
-            Box::new(PrimitiveExtension::default()),
-        );
+        let default = GltfLoaderSettings::default();
+        assert_eq!(settings.load_meshes, default.load_meshes);
+        assert_eq!(settings.load_materials, default.load_materials);
+        assert!(!settings.load_cameras);
+        assert_eq!(settings.load_lights, default.load_lights);
+        assert_eq!(settings.load_animations, default.load_animations);
+        assert_eq!(settings.include_source, default.include_source);
+        assert_eq!(settings.default_sampler, default.default_sampler);
+        assert_eq!(settings.override_sampler, default.override_sampler);
+        assert_eq!(settings.validate, default.validate);
     }
 }

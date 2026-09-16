@@ -245,7 +245,7 @@ pub struct DefaultSpatialScale(pub SpatialScale);
 ///
 /// Playback can be configured using the [`PlaybackSettings`] component. Note that changes to the
 /// [`PlaybackSettings`] component will *not* affect already-playing audio.
-#[derive(Component, Reflect)]
+#[derive(Component, Reflect, FromTemplate)]
 #[reflect(Component, Clone)]
 #[require(PlaybackSettings)]
 pub struct AudioPlayer<Source = AudioSource>(pub Handle<Source>)

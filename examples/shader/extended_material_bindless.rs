@@ -13,7 +13,7 @@ use bevy::{
 };
 
 /// The path to the example material shader.
-static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wgsl";
+static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wesl";
 
 /// The example bindless material extension.
 ///

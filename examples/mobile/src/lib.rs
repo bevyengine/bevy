@@ -4,7 +4,11 @@ use bevy::{
     color::palettes::basic::*,
     input::{gestures::RotationGesture, touch::TouchPhase},
     log::{Level, LogPlugin},
+    picking::hover::Hovered,
+    platform::collections::HashSet,
     prelude::*,
+    ui::Pressed,
+    ui_widgets::Button,
     window::{AppLifecycle, ScreenEdge, WindowMode},
     winit::WinitSettings,
 };
@@ -20,7 +24,7 @@ pub fn main() {
             .set(LogPlugin {
                 // This will show some log events from Bevy to the native logger.
                 level: Level::DEBUG,
-                filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
+                filter: "wgpu=error,naga=info,bevy_render=info,bevy_ecs=trace".to_string(),
                 ..Default::default()
             })
             .set(WindowPlugin {
@@ -97,7 +101,11 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    device: Res<bevy::render::renderer::RenderDevice>,
 ) {
+    bevy::log::info!("Configured wgpu adapter Limits: {:#?}", device.limits());
+    bevy::log::info!("Configured wgpu adapter Features: {:#?}", device.features());
+
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
@@ -141,6 +149,7 @@ fn setup_scene(
     commands
         .spawn((
             Button,
+            Hovered::default(),
             Node {
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
@@ -158,26 +167,38 @@ fn setup_scene(
                 ..default()
             },
             TextColor::BLACK,
-            TextLayout::new_with_justify(Justify::Center),
+            TextLayout::justify(Justify::Center),
         ));
 }
 
 fn button_handler(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
+    mut button_query: Query<
+        (
+            Entity,
+            Option<Ref<Pressed>>,
+            Ref<Hovered>,
+            &mut BackgroundColor,
+        ),
+        With<Button>,
     >,
+    mut removed_pressed: RemovedComponents<Pressed>,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = BLUE.into();
-            }
-            Interaction::Hovered => {
-                *color = GRAY.into();
-            }
-            Interaction::None => {
-                *color = WHITE.into();
+    let just_unpressed: HashSet<Entity> = removed_pressed.read().collect();
+    for (entity, pressed, hovered, mut color) in &mut button_query {
+        if hovered.is_changed()
+            || pressed.as_ref().is_some_and(Ref::is_changed)
+            || just_unpressed.contains(&entity)
+        {
+            match (pressed.is_some(), hovered.get()) {
+                (true, _) => {
+                    *color = BLUE.into();
+                }
+                (_, true) => {
+                    *color = GRAY.into();
+                }
+                _ => {
+                    *color = WHITE.into();
+                }
             }
         }
     }

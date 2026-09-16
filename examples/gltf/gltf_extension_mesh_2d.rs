@@ -3,7 +3,7 @@
 use bevy::{
     asset::LoadContext,
     gltf::{
-        extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+        extensions::{ErasedGltfExtensionHandler, GltfExtensionHandler, GltfExtensionHandlers},
         GltfPlugin,
     },
     mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
@@ -12,11 +12,11 @@ use bevy::{
     reflect::TypePath,
     render::render_resource::*,
     shader::ShaderRef,
-    sprite_render::{Material2d, Material2dKey, Material2dPlugin},
+    sprite_render::{Material2d, Material2dKey, Material2dPipeline, Material2dPlugin},
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wesl";
 
 /// This vertex attribute supplies barycentric coordinates for each triangle.
 ///
@@ -55,7 +55,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/barycentric/barycentric.gltf")),
         ),
@@ -92,7 +92,7 @@ impl Plugin for GltfToMesh2dPlugin {
 struct GltfExtensionHandlerToMesh2d;
 
 impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
         Box::new((*self).clone())
     }
 
@@ -131,6 +131,7 @@ impl Material2d for CustomMaterial {
     }
 
     fn specialize(
+        _pipeline: &Material2dPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayoutRef,
         _key: Material2dKey<Self>,

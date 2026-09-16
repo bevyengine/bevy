@@ -1,6 +1,6 @@
 # Helpers for compile fail tests
 
-This crate contains everything needed to set up compile tests for the Bevy repo. The `CI` workflow executes these tests on the stable rust toolchain (see [tools/ci](../../tools/ci/src/main.rs)).
+This crate contains everything needed to set up compile tests for the Bevy repo. The `CI` workflow executes these tests on the stable Rust toolchain (see [tools/ci](../../tools/ci/src/main.rs)).
 
 ## Writing new test cases
 

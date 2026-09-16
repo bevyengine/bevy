@@ -8,26 +8,42 @@ pub use render_context::{
     CurrentView, FlushCommands, PendingCommandBuffers, RenderContext, RenderContextState, ViewQuery,
 };
 pub use render_device::*;
-pub use wgpu_wrapper::WgpuWrapper;
+
+pub(crate) use wgpu_wrapper::wgpu_wrapper;
 
 use crate::{
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
-    view::{ExtractedWindows, ViewTarget},
+    sync_world::MainEntity,
+    view::{screenshot::SubmitScreenshotCommandsState, ExtractedWindow, ViewTarget},
 };
-use alloc::sync::Arc;
 use bevy_camera::NormalizedRenderTarget;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::{prelude::*, system::SystemState};
-use bevy_log::{debug, info, info_span, warn};
+#[cfg(feature = "trace")]
+use bevy_log::info_span;
+use bevy_log::{debug, info, warn};
 use bevy_render::camera::ExtractedCamera;
 use bevy_window::RawHandleWrapperHolder;
 use wgpu::{
-    Adapter, AdapterInfo, Backends, DeviceType, Instance, Queue, RequestAdapterOptions, Trace,
+    Adapter, AdapterInfo, Backends, DeviceType, ForceShaderModelToken, Instance, Queue,
+    RequestAdapterOptions, Trace,
 };
 
 /// Schedule label for the root render graph schedule. This schedule runs once per frame
 /// in the [`render_system`] system and is responsible for driving the entire rendering process.
+///
+/// The default bevy render graph is executed as follows:
+/// ```ignore
+/// RenderApp (App)
+///   Render (Schedule)
+///     RenderSystems::Render (SystemSet)
+///       render_system (System)
+///         RenderGraph (Schedule)
+///           camera_driver (System)
+///             Core2d (Schedule)
+///             Core3d (Schedule)
+///             CUSTOM_PIPELINE (Schedule)
+/// ```
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct RenderGraph;
 
@@ -41,7 +57,7 @@ impl RenderGraph {
                 RenderGraphSystems::Submit,
                 RenderGraphSystems::Finish,
             )
-                .chain(),
+                .chain_weak(),
         );
         schedule
     }
@@ -65,7 +81,12 @@ pub enum RenderGraphSystems {
 /// calls present on swap chains that need to be presented.
 pub fn render_system(
     world: &mut World,
-    state: &mut SystemState<Query<(&ViewTarget, &ExtractedCamera)>>,
+    present_state: &mut SystemState<(
+        Query<(&ViewTarget, &ExtractedCamera)>,
+        Query<(MainEntity, &mut ExtractedWindow)>,
+        Res<RenderQueue>,
+    )>,
+    screenshot_state: &mut SystemState<SubmitScreenshotCommandsState>,
 ) {
     #[cfg(feature = "trace")]
     let _span = info_span!("main_render_schedule").entered();
@@ -79,31 +100,31 @@ pub fn render_system(
         let mut encoder =
             render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
-        crate::view::screenshot::submit_screenshot_commands(world, &mut encoder);
+        crate::view::screenshot::submit_screenshot_commands(world, screenshot_state, &mut encoder);
         crate::gpu_readback::submit_readback_commands(world, &mut encoder);
 
         render_queue.submit([encoder.finish()]);
     }
 
     {
+        #[cfg(feature = "trace")]
         let _span = info_span!("present_frames").entered();
 
-        world.resource_scope(|world, mut windows: Mut<ExtractedWindows>| {
-            let views = state.get(world);
-            for window in windows.values_mut() {
+        if let Ok((views, mut windows, render_queue)) = present_state.get_mut(world) {
+            for (window_entity, mut window) in &mut windows {
                 let view_needs_present = views.iter().any(|(view_target, camera)| {
                     matches!(
                         camera.target,
-                        Some(NormalizedRenderTarget::Window(w)) if w.entity() == window.entity
+                        Some(NormalizedRenderTarget::Window(w)) if w.entity() == window_entity
                     ) && view_target.needs_present()
                 });
 
                 if view_needs_present || window.needs_initial_present {
-                    window.present();
+                    window.present(&render_queue);
                     window.needs_initial_present = false;
                 }
             }
-        });
+        }
 
         #[cfg(feature = "tracing-tracy")]
         bevy_log::event!(
@@ -116,23 +137,24 @@ pub fn render_system(
     crate::view::screenshot::collect_screenshots(world);
 }
 
-/// This queue is used to enqueue tasks for the GPU to execute asynchronously.
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderQueue(pub Arc<WgpuWrapper<Queue>>);
+wgpu_wrapper! {
+    /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
+    #[derive(Resource, Clone)]
+    pub struct RenderQueue(Queue);
 
-/// The handle to the physical device being used for rendering.
-/// See [`Adapter`] for more info.
-#[derive(Resource, Clone, Debug, Deref, DerefMut)]
-pub struct RenderAdapter(pub Arc<WgpuWrapper<Adapter>>);
+    /// The handle to the physical device being used for rendering.
+    /// See [`Adapter`] for more info.
+    #[derive(Resource, Clone, Debug)]
+    pub struct RenderAdapter(Adapter);
 
-/// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
-/// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderInstance(pub Arc<WgpuWrapper<Instance>>);
+    /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`].
+    #[derive(Resource, Clone)]
+    pub struct RenderInstance(Instance);
 
-/// The [`AdapterInfo`] of the adapter in use by the renderer.
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderAdapterInfo(pub WgpuWrapper<AdapterInfo>);
+    /// The [`AdapterInfo`] of the adapter in use by the renderer.
+    #[derive(Resource, Clone)]
+    pub struct RenderAdapterInfo(AdapterInfo);
+}
 
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
@@ -185,28 +207,35 @@ pub async fn initialize_renderer(
         backends,
         flags: options.instance_flags,
         memory_budget_thresholds: options.instance_memory_budget_thresholds,
+        display: None,
         backend_options: wgpu::BackendOptions {
             gl: wgpu::GlBackendOptions {
                 gles_minor_version: options.gles3_minor_version,
                 fence_behavior: wgpu::GlFenceBehavior::Normal,
+                debug_fns: wgpu::GlDebugFns::Auto,
             },
             dx12: wgpu::Dx12BackendOptions {
                 shader_compiler: options.dx12_shader_compiler.clone(),
                 presentation_system: wgpu::wgt::Dx12SwapchainKind::from_env().unwrap_or_default(),
                 latency_waitable_object: wgpu::wgt::Dx12UseFrameLatencyWaitableObject::from_env()
                     .unwrap_or_default(),
+                force_shader_model: ForceShaderModelToken::default(),
+                agility_sdk: None,
             },
-            noop: wgpu::NoopBackendOptions { enable: false },
+            noop: wgpu::NoopBackendOptions {
+                enable: false,
+                ..Default::default()
+            },
         },
     };
 
     #[cfg(not(feature = "raw_vulkan_init"))]
-    let instance = Instance::new(&instance_descriptor);
+    let instance = Instance::new(instance_descriptor);
     #[cfg(feature = "raw_vulkan_init")]
     let mut additional_vulkan_features = raw_vulkan_init::AdditionalVulkanFeatures::default();
     #[cfg(feature = "raw_vulkan_init")]
     let instance = raw_vulkan_init::create_raw_vulkan_instance(
-        &instance_descriptor,
+        instance_descriptor,
         &raw_vulkan_init_settings,
         &mut additional_vulkan_features,
     );
@@ -242,6 +271,7 @@ pub async fn initialize_renderer(
         power_preference: options.power_preference,
         compatible_surface: surface.as_ref(),
         force_fallback_adapter,
+        apply_limit_buckets: false,
     };
 
     #[cfg(not(target_family = "wasm"))]
@@ -316,158 +346,7 @@ pub async fn initialize_renderer(
         // specified max_limits. For 'min' limits, take the maximum instead. This is intended to
         // err on the side of being conservative. We can't claim 'higher' limits that are supported
         // but we can constrain to 'lower' limits.
-        limits = wgpu::Limits {
-            max_texture_dimension_1d: limits
-                .max_texture_dimension_1d
-                .min(constrained_limits.max_texture_dimension_1d),
-            max_texture_dimension_2d: limits
-                .max_texture_dimension_2d
-                .min(constrained_limits.max_texture_dimension_2d),
-            max_texture_dimension_3d: limits
-                .max_texture_dimension_3d
-                .min(constrained_limits.max_texture_dimension_3d),
-            max_texture_array_layers: limits
-                .max_texture_array_layers
-                .min(constrained_limits.max_texture_array_layers),
-            max_bind_groups: limits
-                .max_bind_groups
-                .min(constrained_limits.max_bind_groups),
-            max_dynamic_uniform_buffers_per_pipeline_layout: limits
-                .max_dynamic_uniform_buffers_per_pipeline_layout
-                .min(constrained_limits.max_dynamic_uniform_buffers_per_pipeline_layout),
-            max_dynamic_storage_buffers_per_pipeline_layout: limits
-                .max_dynamic_storage_buffers_per_pipeline_layout
-                .min(constrained_limits.max_dynamic_storage_buffers_per_pipeline_layout),
-            max_sampled_textures_per_shader_stage: limits
-                .max_sampled_textures_per_shader_stage
-                .min(constrained_limits.max_sampled_textures_per_shader_stage),
-            max_samplers_per_shader_stage: limits
-                .max_samplers_per_shader_stage
-                .min(constrained_limits.max_samplers_per_shader_stage),
-            max_storage_buffers_per_shader_stage: limits
-                .max_storage_buffers_per_shader_stage
-                .min(constrained_limits.max_storage_buffers_per_shader_stage),
-            max_storage_textures_per_shader_stage: limits
-                .max_storage_textures_per_shader_stage
-                .min(constrained_limits.max_storage_textures_per_shader_stage),
-            max_uniform_buffers_per_shader_stage: limits
-                .max_uniform_buffers_per_shader_stage
-                .min(constrained_limits.max_uniform_buffers_per_shader_stage),
-            max_binding_array_elements_per_shader_stage: limits
-                .max_binding_array_elements_per_shader_stage
-                .min(constrained_limits.max_binding_array_elements_per_shader_stage),
-            max_binding_array_sampler_elements_per_shader_stage: limits
-                .max_binding_array_sampler_elements_per_shader_stage
-                .min(constrained_limits.max_binding_array_sampler_elements_per_shader_stage),
-            max_uniform_buffer_binding_size: limits
-                .max_uniform_buffer_binding_size
-                .min(constrained_limits.max_uniform_buffer_binding_size),
-            max_storage_buffer_binding_size: limits
-                .max_storage_buffer_binding_size
-                .min(constrained_limits.max_storage_buffer_binding_size),
-            max_vertex_buffers: limits
-                .max_vertex_buffers
-                .min(constrained_limits.max_vertex_buffers),
-            max_vertex_attributes: limits
-                .max_vertex_attributes
-                .min(constrained_limits.max_vertex_attributes),
-            max_vertex_buffer_array_stride: limits
-                .max_vertex_buffer_array_stride
-                .min(constrained_limits.max_vertex_buffer_array_stride),
-            max_immediate_size: limits
-                .max_immediate_size
-                .min(constrained_limits.max_immediate_size),
-            min_uniform_buffer_offset_alignment: limits
-                .min_uniform_buffer_offset_alignment
-                .max(constrained_limits.min_uniform_buffer_offset_alignment),
-            min_storage_buffer_offset_alignment: limits
-                .min_storage_buffer_offset_alignment
-                .max(constrained_limits.min_storage_buffer_offset_alignment),
-            max_inter_stage_shader_components: limits
-                .max_inter_stage_shader_components
-                .min(constrained_limits.max_inter_stage_shader_components),
-            max_compute_workgroup_storage_size: limits
-                .max_compute_workgroup_storage_size
-                .min(constrained_limits.max_compute_workgroup_storage_size),
-            max_compute_invocations_per_workgroup: limits
-                .max_compute_invocations_per_workgroup
-                .min(constrained_limits.max_compute_invocations_per_workgroup),
-            max_compute_workgroup_size_x: limits
-                .max_compute_workgroup_size_x
-                .min(constrained_limits.max_compute_workgroup_size_x),
-            max_compute_workgroup_size_y: limits
-                .max_compute_workgroup_size_y
-                .min(constrained_limits.max_compute_workgroup_size_y),
-            max_compute_workgroup_size_z: limits
-                .max_compute_workgroup_size_z
-                .min(constrained_limits.max_compute_workgroup_size_z),
-            max_compute_workgroups_per_dimension: limits
-                .max_compute_workgroups_per_dimension
-                .min(constrained_limits.max_compute_workgroups_per_dimension),
-            max_buffer_size: limits
-                .max_buffer_size
-                .min(constrained_limits.max_buffer_size),
-            max_bindings_per_bind_group: limits
-                .max_bindings_per_bind_group
-                .min(constrained_limits.max_bindings_per_bind_group),
-            max_non_sampler_bindings: limits
-                .max_non_sampler_bindings
-                .min(constrained_limits.max_non_sampler_bindings),
-            max_blas_primitive_count: limits
-                .max_blas_primitive_count
-                .min(constrained_limits.max_blas_primitive_count),
-            max_blas_geometry_count: limits
-                .max_blas_geometry_count
-                .min(constrained_limits.max_blas_geometry_count),
-            max_tlas_instance_count: limits
-                .max_tlas_instance_count
-                .min(constrained_limits.max_tlas_instance_count),
-            max_color_attachments: limits
-                .max_color_attachments
-                .min(constrained_limits.max_color_attachments),
-            max_color_attachment_bytes_per_sample: limits
-                .max_color_attachment_bytes_per_sample
-                .min(constrained_limits.max_color_attachment_bytes_per_sample),
-            max_task_mesh_workgroup_total_count: limits
-                .max_task_mesh_workgroup_total_count
-                .min(constrained_limits.max_task_mesh_workgroup_total_count),
-            max_task_mesh_workgroups_per_dimension: limits
-                .max_task_mesh_workgroups_per_dimension
-                .min(constrained_limits.max_task_mesh_workgroups_per_dimension),
-            max_task_invocations_per_workgroup: limits
-                .max_task_invocations_per_workgroup
-                .min(constrained_limits.max_task_invocations_per_workgroup),
-            max_task_invocations_per_dimension: limits
-                .max_task_invocations_per_dimension
-                .min(constrained_limits.max_task_invocations_per_dimension),
-            max_mesh_invocations_per_workgroup: limits
-                .max_mesh_invocations_per_workgroup
-                .min(constrained_limits.max_mesh_invocations_per_workgroup),
-            max_mesh_invocations_per_dimension: limits
-                .max_mesh_invocations_per_dimension
-                .min(constrained_limits.max_mesh_invocations_per_dimension),
-            max_task_payload_size: limits
-                .max_task_payload_size
-                .min(constrained_limits.max_task_payload_size),
-            max_mesh_output_vertices: limits
-                .max_mesh_output_vertices
-                .min(constrained_limits.max_mesh_output_vertices),
-            max_mesh_output_primitives: limits
-                .max_mesh_output_primitives
-                .min(constrained_limits.max_mesh_output_primitives),
-            max_mesh_output_layers: limits
-                .max_mesh_output_layers
-                .min(constrained_limits.max_mesh_output_layers),
-            max_mesh_multiview_view_count: limits
-                .max_mesh_multiview_view_count
-                .min(constrained_limits.max_mesh_multiview_view_count),
-            max_acceleration_structures_per_shader_stage: limits
-                .max_acceleration_structures_per_shader_stage
-                .min(constrained_limits.max_acceleration_structures_per_shader_stage),
-            max_multiview_view_count: limits
-                .max_multiview_view_count
-                .min(constrained_limits.max_multiview_view_count),
-        };
+        limits = limits.or_worse_values_from(constrained_limits);
     }
 
     let device_descriptor = wgpu::DeviceDescriptor {
@@ -499,10 +378,10 @@ pub async fn initialize_renderer(
 
     RenderResources(
         RenderDevice::from(device),
-        RenderQueue(Arc::new(WgpuWrapper::new(queue))),
-        RenderAdapterInfo(WgpuWrapper::new(adapter_info)),
-        RenderAdapter(Arc::new(WgpuWrapper::new(adapter))),
-        RenderInstance(Arc::new(WgpuWrapper::new(instance))),
+        RenderQueue::new(queue),
+        RenderAdapterInfo::new(adapter_info),
+        RenderAdapter::new(adapter),
+        RenderInstance::new(instance),
         #[cfg(feature = "raw_vulkan_init")]
         additional_vulkan_features,
     )

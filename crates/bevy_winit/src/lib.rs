@@ -16,14 +16,14 @@ extern crate alloc;
 
 use bevy_derive::Deref;
 use bevy_reflect::Reflect;
-use bevy_window::{RawHandleWrapperHolder, WindowEvent};
+use bevy_window::{ExitSystems, RawHandleWrapperHolder, WindowEvent};
 use core::cell::RefCell;
 use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
-use bevy_app::{App, Last, Plugin};
+use bevy_app::{App, Last, OnAppExitSystems, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_window::{exit_on_all_closed, CursorOptions, Window, WindowCreated};
+use bevy_window::{CursorOptions, Window, WindowCreated};
 use system::{changed_cursor_options, changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
@@ -62,12 +62,6 @@ thread_local! {
 /// This plugin will add systems and resources that sync with the `winit` backend and also
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
-///
-/// The `M` message type can be used to pass custom messages to the `winit`'s loop, and handled as messages
-/// in systems.
-///
-/// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
-/// `WakeUp` is the default event that bevy uses.
 #[derive(Default)]
 pub struct WinitPlugin {
     /// Allows the window (and the event loop) to be created on any thread
@@ -109,6 +103,21 @@ impl Plugin for WinitPlugin {
             event_loop_builder.with_any_thread(self.run_on_any_thread);
         }
 
+        #[cfg(target_os = "macos")]
+        {
+            use bevy_ecs::system::SystemState;
+            use winit::platform::macos::EventLoopBuilderExtMacOS;
+
+            // Don't request app activation on startup if all its windows should
+            // start unfocused. Otherwise, app activation would focus one of the
+            // windows.
+            let mut initial_windows_state =
+                SystemState::<Query<(Entity, &Window)>>::new(app.world_mut());
+            let initial_windows = initial_windows_state.get(app.world()).unwrap();
+            let initially_focused = initial_windows.iter().any(|(_, window)| window.focused);
+            event_loop_builder.with_activate_ignoring_other_apps(initially_focused);
+        }
+
         #[cfg(target_os = "windows")]
         {
             use winit::platform::windows::EventLoopBuilderExtWindows;
@@ -127,20 +136,30 @@ impl Plugin for WinitPlugin {
             .build()
             .expect("Failed to build event loop");
 
+        let event_loop_proxy = event_loop.create_proxy();
+
+        // Wake up the event loop when `Ctrl+C` is received so that the app can
+        // exit even while idle in a reactive update mode
+        #[cfg(any(all(unix, not(target_os = "horizon")), windows))]
+        {
+            let event_loop_proxy = event_loop_proxy.clone();
+            bevy_app::TerminalCtrlCHandlerPlugin::register_exit_handler(move || {
+                let _ = event_loop_proxy.send_event(WinitUserEvent::WakeUp);
+            });
+        }
+
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
-            .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()))
+            .insert_resource(EventLoopProxyWrapper(event_loop_proxy))
             .add_message::<RawWinitWindowEvent>()
             .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(
                 Last,
                 (
-                    // `exit_on_all_closed` only checks if windows exist but doesn't access data,
-                    // so we don't need to care about its ordering relative to `changed_windows`
-                    changed_windows.ambiguous_with(exit_on_all_closed),
+                    changed_windows,
                     changed_cursor_options,
-                    despawn_windows,
+                    despawn_windows.after(ExitSystems).after(OnAppExitSystems),
                     check_keyboard_focus_lost,
                 )
                     .chain(),
@@ -150,7 +169,7 @@ impl Plugin for WinitPlugin {
         app.add_plugins(cursor::WinitCursorPlugin);
 
         app.add_observer(
-            |_window: On<Add, Window>, event_loop_proxy: Res<EventLoopProxyWrapper>| -> Result {
+            |_window: On<Add<Window>>, event_loop_proxy: Res<EventLoopProxyWrapper>| -> Result {
                 event_loop_proxy.send_event(WinitUserEvent::WindowAdded)?;
 
                 Ok(())

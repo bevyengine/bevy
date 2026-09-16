@@ -4,7 +4,6 @@
 [![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy)
 [![Downloads](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy)
 [![Docs](https://docs.rs/bevy/badge.svg)](https://docs.rs/bevy/latest/bevy/)
-[![CI](https://github.com/bevyengine/bevy/workflows/CI/badge.svg)](https://github.com/bevyengine/bevy/actions)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
 ## What is Bevy?
@@ -54,7 +53,7 @@ If you'd like to help build Bevy, check out the **[Contributor's Guide](https://
 For simple problems, feel free to [open an issue](https://github.com/bevyengine/bevy/issues) or
 [PR](https://github.com/bevyengine/bevy/pulls) and tackle it yourself!
 
-For more complex architecture decisions and experimental mad science, please open an [RFC](https://github.com/bevyengine/rfcs) (Request For Comments) so we can brainstorm together effectively!
+For more complex architecture decisions and experimental mad science, please open a [GitHub Discussion](https://github.com/bevyengine/bevy/discussions) so we can brainstorm together effectively!
 
 ## Getting Started
 

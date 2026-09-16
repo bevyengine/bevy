@@ -9,15 +9,25 @@ pub fn new_tracy_gpu_context(
     adapter_info: &RenderAdapterInfo,
     device: &RenderDevice,
     queue: &RenderQueue,
-) -> GpuContext {
+) -> Option<GpuContext> {
     let tracy_gpu_backend = match adapter_info.backend {
         Backend::Vulkan => GpuContextType::Vulkan,
         Backend::Dx12 => GpuContextType::Direct3D12,
         Backend::Gl => GpuContextType::OpenGL,
-        Backend::Metal | Backend::BrowserWebGpu | Backend::Noop => GpuContextType::Invalid,
+        Backend::Metal | Backend::BrowserWebGpu | Backend::Noop => {
+            // Previously this path would return a `GpuContextType::Invalid` and
+            // the whole function just returned a non-optional `GpuContext`.
+            // However calling the `initial_timestamp` function would freeze on
+            // macOS (at least 26.3) and therefore the whole Bevy app wouldn't
+            // start when trying to tracy with Tracy.
+            //
+            // An issue was filed on the wgpu-profiler repository that the function
+            // is copied from. https://github.com/Wumpf/wgpu-profiler/issues/107
+            return None;
+        }
     };
 
-    let tracy_client = Client::running().unwrap();
+    let tracy_client = Client::running()?;
     tracy_client
         .new_gpu_context(
             Some("RenderQueue"),
@@ -25,7 +35,7 @@ pub fn new_tracy_gpu_context(
             initial_timestamp(device, queue),
             queue.get_timestamp_period(),
         )
-        .unwrap()
+        .ok()
 }
 
 // Code copied from https://github.com/Wumpf/wgpu-profiler/blob/f9de342a62cb75f50904a98d11dd2bbeb40ceab8/src/tracy.rs
@@ -64,6 +74,6 @@ fn initial_timestamp(device: &RenderDevice, queue: &RenderQueue) -> i64 {
         .poll(PollType::wait_indefinitely())
         .expect("Failed to poll device for map async");
 
-    let view = map_buffer.slice(..).get_mapped_range();
+    let view = map_buffer.slice(..).get_mapped_range().unwrap();
     i64::from_le_bytes((*view).try_into().unwrap())
 }

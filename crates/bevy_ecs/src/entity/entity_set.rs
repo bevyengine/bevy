@@ -7,10 +7,11 @@ use bevy_platform::collections::HashSet;
 
 use core::{
     array,
+    cmp::Ordering,
     fmt::{Debug, Formatter},
     hash::{BuildHasher, Hash},
-    iter::{self, FusedIterator},
-    option, result,
+    iter::{self, FusedIterator, Product, Sum},
+    option, ptr, result,
 };
 
 use super::{Entity, UniqueEntityEquivalentSlice};
@@ -58,7 +59,7 @@ pub trait ContainsEntity {
 /// To obtain hash values forming the same total order as [`Entity`], any [`Hasher`] used must be
 /// deterministic and concerning [`Entity`], collisionless.
 /// Standard library hash collections handle collisions with an [`Eq`] fallback, but do not account for
-/// determinism when [`BuildHasher`] is unspecified,.
+/// determinism when [`BuildHasher`] is unspecified.
 ///
 /// [`Hash`]: core::hash::Hash
 /// [`Hasher`]: core::hash::Hasher
@@ -143,12 +144,12 @@ unsafe impl<T: EntityEquivalent> EntityEquivalent for Arc<T> {}
 /// As a consequence, [`into_iter()`] on `EntitySet` will always produce another `EntitySet`.
 ///
 /// Implementing this trait allows for unique query iteration over a list of entities.
-/// See [`iter_many_unique`] and [`iter_many_unique_mut`]
+/// See [`iter_many_unique`] and [`iter_many_unique_mut`].
 ///
 /// Note that there is no guarantee of the [`IntoIterator`] impl being deterministic,
 /// it might return different iterators when called multiple times.
 /// Neither is there a guarantee that the comparison trait impls of `EntitySet` match that
-/// of the respective [`EntitySetIterator`] (or of a [`Vec`] collected from its elements)
+/// of the respective [`EntitySetIterator`] (or of a [`Vec`] collected from its elements).
 ///
 /// [`Self::IntoIter`]: IntoIterator::IntoIter
 /// [`into_iter()`]: IntoIterator::into_iter
@@ -342,9 +343,10 @@ pub trait FromEntitySetIterator<A: EntityEquivalent>: FromIterator<A> {
 impl<T: EntityEquivalent + Hash, S: BuildHasher + Default> FromEntitySetIterator<T>
     for HashSet<T, S>
 {
+    #[inline]
     fn from_entity_set_iter<I: EntitySet<Item = T>>(set_iter: I) -> Self {
         let iter = set_iter.into_iter();
-        let set = HashSet::<T, S>::with_capacity_and_hasher(iter.size_hint().0, S::default());
+        let set = HashSet::with_capacity_and_hasher(iter.size_hint().0, S::default());
         iter.fold(set, |mut set, e| {
             // SAFETY: Every element in self is unique.
             unsafe {
@@ -358,14 +360,17 @@ impl<T: EntityEquivalent + Hash, S: BuildHasher + Default> FromEntitySetIterator
 /// An iterator that yields unique entities.
 ///
 /// This wrapper can provide an [`EntitySetIterator`] implementation when an instance of `I` is known to uphold uniqueness.
+#[repr(transparent)]
 pub struct UniqueEntityIter<I: Iterator<Item: EntityEquivalent>> {
     iter: I,
 }
 
 impl<I: EntitySetIterator> UniqueEntityIter<I> {
     /// Constructs a `UniqueEntityIter` from an [`EntitySetIterator`].
-    pub fn from_entity_set_iterator<S>(iter: I) -> Self {
-        Self { iter }
+    #[inline]
+    pub const fn from_entity_set_iter(iter: I) -> Self {
+        // SAFETY: iter implements `EntitySetIterator`.
+        unsafe { Self::from_iter_unchecked(iter) }
     }
 }
 
@@ -375,8 +380,31 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     /// # Safety
     /// `iter` must only yield unique elements.
     /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
-    pub unsafe fn from_iterator_unchecked(iter: I) -> Self {
+    #[inline]
+    pub const unsafe fn from_iter_unchecked(iter: I) -> Self {
         Self { iter }
+    }
+
+    /// Constructs a [`UniqueEntityIter`] from an iterator unsafely.
+    ///
+    /// # Safety
+    /// `iter` must only yield unique elements.
+    /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
+    #[inline]
+    pub const unsafe fn from_iter_ref_unchecked(iter: &I) -> &Self {
+        // SAFETY: UniqueEntityIter is a transparent wrapper around I.
+        unsafe { &*ptr::from_ref(iter).cast() }
+    }
+
+    /// Constructs a [`UniqueEntityIter`] from an iterator unsafely.
+    ///
+    /// # Safety
+    /// `iter` must only yield unique elements.
+    /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
+    #[inline]
+    pub const unsafe fn from_iter_mut_unchecked(iter: &mut I) -> &mut Self {
+        // SAFETY: UniqueEntityIter is a transparent wrapper around I.
+        unsafe { &mut *ptr::from_mut(iter).cast() }
     }
 
     /// Returns the inner `I`.
@@ -385,7 +413,7 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     }
 
     /// Returns a reference to the inner `I`.
-    pub fn as_inner(&self) -> &I {
+    pub const fn as_inner(&self) -> &I {
         &self.iter
     }
 
@@ -395,11 +423,21 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     ///
     /// `self` must always contain an iterator that yields unique elements,
     /// even while this reference is live.
-    pub unsafe fn as_mut_inner(&mut self) -> &mut I {
+    pub const unsafe fn as_mut_inner(&mut self) -> &mut I {
         &mut self.iter
     }
 }
 
+// The following methods are not forwarded:
+// `try_fold` and `try_for_each` are dependent on the nightly `Try` trait.
+//
+// `chain`, `zip`, `map`, `filter`, `filter_map`, `enumerate`, `peekable`,
+// `skip_while`, `take_while`, `map_while`, `skip`, take, `scan`, `flat_map`,
+// `flatten`, `inspect`, `rev`, `copied`, `cloned` and `cycle`
+// return combinator iterator types with no public construction methods.
+//
+// `unzip` because no tuples implement `EntityEquivalent`.
+// `rposition`, given that the compiler cannot infer the implied bounds for I.
 impl<I: Iterator<Item: EntityEquivalent>> Iterator for UniqueEntityIter<I> {
     type Item = I::Item;
 
@@ -410,13 +448,279 @@ impl<I: Iterator<Item: EntityEquivalent>> Iterator for UniqueEntityIter<I> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.iter.count()
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.iter.last()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth(n)
+    }
+
+    fn for_each<F>(self, f: F)
+    where
+        Self: Sized,
+        F: FnMut(Self::Item),
+    {
+        self.iter.for_each(f);
+    }
+
+    fn collect<B: FromIterator<Self::Item>>(self) -> B
+    where
+        Self: Sized,
+    {
+        self.iter.collect()
+    }
+
+    fn partition<B, F>(self, f: F) -> (B, B)
+    where
+        Self: Sized,
+        B: Default + Extend<Self::Item>,
+        F: FnMut(&Self::Item) -> bool,
+    {
+        self.iter.partition(f)
+    }
+
+    fn fold<B, F>(self, init: B, f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        self.iter.fold(init, f)
+    }
+
+    fn reduce<F>(self, f: F) -> Option<Self::Item>
+    where
+        Self: Sized,
+        F: FnMut(Self::Item, Self::Item) -> Self::Item,
+    {
+        self.iter.reduce(f)
+    }
+
+    fn all<F>(&mut self, f: F) -> bool
+    where
+        Self: Sized,
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.iter.all(f)
+    }
+
+    fn any<F>(&mut self, f: F) -> bool
+    where
+        Self: Sized,
+        F: FnMut(Self::Item) -> bool,
+    {
+        self.iter.any(f)
+    }
+
+    fn find<P>(&mut self, predicate: P) -> Option<Self::Item>
+    where
+        Self: Sized,
+        P: FnMut(&Self::Item) -> bool,
+    {
+        self.iter.find(predicate)
+    }
+
+    fn find_map<B, F>(&mut self, f: F) -> Option<B>
+    where
+        Self: Sized,
+        F: FnMut(Self::Item) -> Option<B>,
+    {
+        self.iter.find_map(f)
+    }
+
+    fn position<P>(&mut self, predicate: P) -> Option<usize>
+    where
+        Self: Sized,
+        P: FnMut(Self::Item) -> bool,
+    {
+        self.iter.position(predicate)
+    }
+
+    fn max(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+        Self::Item: Ord,
+    {
+        self.iter.max()
+    }
+
+    fn min(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+        Self::Item: Ord,
+    {
+        self.iter.min()
+    }
+
+    fn max_by_key<B: Ord, F>(self, f: F) -> Option<Self::Item>
+    where
+        Self: Sized,
+        F: FnMut(&Self::Item) -> B,
+    {
+        self.iter.max_by_key(f)
+    }
+
+    fn max_by<F>(self, compare: F) -> Option<Self::Item>
+    where
+        Self: Sized,
+        F: FnMut(&Self::Item, &Self::Item) -> Ordering,
+    {
+        self.iter.max_by(compare)
+    }
+
+    fn min_by_key<B: Ord, F>(self, f: F) -> Option<Self::Item>
+    where
+        Self: Sized,
+        F: FnMut(&Self::Item) -> B,
+    {
+        self.iter.min_by_key(f)
+    }
+
+    fn min_by<F>(self, compare: F) -> Option<Self::Item>
+    where
+        Self: Sized,
+        F: FnMut(&Self::Item, &Self::Item) -> Ordering,
+    {
+        self.iter.min_by(compare)
+    }
+
+    fn sum<S>(self) -> S
+    where
+        Self: Sized,
+        S: Sum<Self::Item>,
+    {
+        self.iter.sum()
+    }
+
+    fn product<P>(self) -> P
+    where
+        Self: Sized,
+        P: Product<Self::Item>,
+    {
+        self.iter.product()
+    }
+
+    fn cmp<O>(self, other: O) -> Ordering
+    where
+        O: IntoIterator<Item = Self::Item>,
+        Self::Item: Ord,
+        Self: Sized,
+    {
+        self.iter.cmp(other)
+    }
+
+    fn partial_cmp<O>(self, other: O) -> Option<Ordering>
+    where
+        O: IntoIterator,
+        Self::Item: PartialOrd<O::Item>,
+        Self: Sized,
+    {
+        self.iter.partial_cmp(other)
+    }
+
+    fn eq<O>(self, other: O) -> bool
+    where
+        O: IntoIterator,
+        Self::Item: PartialEq<O::Item>,
+        Self: Sized,
+    {
+        self.iter.eq(other)
+    }
+
+    fn lt<O>(self, other: O) -> bool
+    where
+        O: IntoIterator,
+        Self::Item: PartialOrd<O::Item>,
+        Self: Sized,
+    {
+        self.iter.lt(other)
+    }
+
+    fn le<O>(self, other: O) -> bool
+    where
+        O: IntoIterator,
+        Self::Item: PartialOrd<O::Item>,
+        Self: Sized,
+    {
+        self.iter.le(other)
+    }
+
+    fn gt<O>(self, other: O) -> bool
+    where
+        O: IntoIterator,
+        Self::Item: PartialOrd<O::Item>,
+        Self: Sized,
+    {
+        self.iter.gt(other)
+    }
+
+    fn ge<O>(self, other: O) -> bool
+    where
+        O: IntoIterator,
+        Self::Item: PartialOrd<O::Item>,
+        Self: Sized,
+    {
+        self.iter.ge(other)
+    }
+
+    fn is_sorted(self) -> bool
+    where
+        Self: Sized,
+        Self::Item: PartialOrd,
+    {
+        self.iter.is_sorted()
+    }
+
+    fn is_sorted_by<F>(self, compare: F) -> bool
+    where
+        Self: Sized,
+        F: FnMut(&Self::Item, &Self::Item) -> bool,
+    {
+        self.iter.is_sorted_by(compare)
+    }
+
+    fn is_sorted_by_key<F, K>(self, f: F) -> bool
+    where
+        Self: Sized,
+        F: FnMut(Self::Item) -> K,
+        K: PartialOrd,
+    {
+        self.iter.is_sorted_by_key(f)
+    }
 }
 
 impl<I: ExactSizeIterator<Item: EntityEquivalent>> ExactSizeIterator for UniqueEntityIter<I> {}
 
+// `try_rfold` is dependent on the nightly `Try` trait, and can thus not be forwarded here.
 impl<I: DoubleEndedIterator<Item: EntityEquivalent>> DoubleEndedIterator for UniqueEntityIter<I> {
+    #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.iter.nth_back(n)
+    }
+
+    fn rfold<B, F>(self, init: B, f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        self.iter.rfold(init, f)
+    }
+
+    fn rfind<P>(&mut self, predicate: P) -> Option<Self::Item>
+    where
+        Self: Sized,
+        P: FnMut(&Self::Item) -> bool,
+    {
+        self.iter.rfind(predicate)
     }
 }
 
@@ -465,6 +769,10 @@ impl<I: EntitySetIterator + Clone> Clone for UniqueEntityIter<I> {
             iter: self.iter.clone(),
         }
     }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.iter.clone_from(&source.iter);
+    }
 }
 
 impl<I: Iterator<Item: EntityEquivalent> + Debug> Debug for UniqueEntityIter<I> {
@@ -479,15 +787,16 @@ impl<I: Iterator<Item: EntityEquivalent> + Debug> Debug for UniqueEntityIter<I> 
 mod tests {
     use alloc::{vec, vec::Vec};
 
-    use crate::prelude::{Schedule, World};
+    use crate::{
+        component::Component,
+        entity::{Entity, EntityEquivalentHashMap, EntityEquivalentHashSet},
+        prelude::{Schedule, World},
+        query::{QueryState, With},
+        system::Query,
+        world::Mut,
+    };
 
-    use crate::component::Component;
-    use crate::entity::Entity;
-    use crate::query::{QueryState, With};
-    use crate::system::Query;
-    use crate::world::Mut;
-
-    use super::UniqueEntityIter;
+    use super::{ContainsEntity, EntityEquivalent, UniqueEntityIter};
 
     #[derive(Component, Clone)]
     pub struct Thing;
@@ -506,7 +815,7 @@ mod tests {
 
         // SAFETY: SpawnBatchIter is `EntitySetIterator`,
         let mut unique_entity_iter =
-            unsafe { UniqueEntityIter::from_iterator_unchecked(spawn_batch.iter()) };
+            unsafe { UniqueEntityIter::from_iter_unchecked(spawn_batch.iter()) };
 
         let entity_set = unique_entity_iter
             .by_ref()
@@ -522,8 +831,10 @@ mod tests {
             .cloned();
 
         // With `iter_many_mut` collecting is not possible, because you need to drop each `Mut`/`&mut` before the next is retrieved.
-        let _results: Vec<Mut<Thing>> =
-            query.iter_many_unique_mut(&mut world, entity_set).collect();
+        let _results: Vec<Mut<Thing>> = query
+            .iter_many_unique_mut(&mut world, entity_set)
+            .unwrapped()
+            .collect();
     }
 
     #[test]
@@ -543,5 +854,57 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_systems(system);
         schedule.run(&mut world);
+    }
+
+    #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+    struct EntityWrapper(Entity);
+
+    impl ContainsEntity for EntityWrapper {
+        fn entity(&self) -> Entity {
+            self.0
+        }
+    }
+
+    impl EntityWrapper {
+        fn new(index: u32) -> EntityWrapper {
+            EntityWrapper(Entity::from_raw_u32(index).unwrap())
+        }
+    }
+
+    // SAFETY: EntityWrapper is a newtype around Entity that derives its comparison traits.
+    unsafe impl EntityEquivalent for EntityWrapper {}
+
+    #[test]
+    fn entity_equivalent_map_test() {
+        type EntityWrapperMap = EntityEquivalentHashMap<EntityWrapper, i32>;
+
+        let mut map = EntityWrapperMap::default();
+        map.insert(EntityWrapper::new(0), 10);
+        map.insert(EntityWrapper::new(1), 11);
+        map.insert(EntityWrapper::new(0), 12);
+        assert_eq!(map.len(), 2);
+        assert!(map
+            .get(&EntityWrapper::new(0))
+            .is_some_and(|val| *val == 12));
+        map.remove(&EntityWrapper::new(1));
+        assert_eq!(map.len(), 1);
+        map.clear();
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn entity_equivalent_set_test() {
+        type EntityWrapperSet = EntityEquivalentHashSet<EntityWrapper>;
+
+        let mut set = EntityWrapperSet::default();
+        set.insert(EntityWrapper::new(0));
+        set.insert(EntityWrapper::new(1));
+        set.insert(EntityWrapper::new(0));
+        assert_eq!(set.len(), 2);
+        assert!(set.get(&EntityWrapper::new(0)).is_some());
+        set.remove(&EntityWrapper::new(1));
+        assert_eq!(set.len(), 1);
+        set.clear();
+        assert!(set.is_empty());
     }
 }

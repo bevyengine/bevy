@@ -10,9 +10,9 @@ use bevy_camera::{
     primitives::Aabb,
     visibility::{InheritedVisibility, ViewVisibility},
 };
-use bevy_math::{bounding::Aabb3d, Ray3d};
 use bevy_mesh::{Mesh, Mesh2d, Mesh3d};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_shape::{Aabb3d, Ray3d};
 
 use intersections::*;
 pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMeshHit};
@@ -110,7 +110,7 @@ pub struct RayCastBackfaces;
 /// A simplified mesh component that can be used for [ray casting](super::MeshRayCast).
 ///
 /// Consider using this component for complex meshes that don't need perfectly accurate ray casting.
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
+#[derive(Component, FromTemplate, Clone, Debug, Deref, DerefMut, Reflect)]
 #[reflect(Component, Debug, Clone)]
 pub struct SimplifiedMesh(pub Handle<Mesh>);
 
@@ -129,6 +129,7 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 ///
 /// ```
 /// # use bevy_math::prelude::*;
+/// # use bevy_shape::prelude::*;
 /// # use bevy_picking::prelude::*;
 /// fn ray_cast_system(mut ray_cast: MeshRayCast) {
 ///     let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
@@ -145,6 +146,7 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_math::prelude::*;
+/// # use bevy_shape::prelude::*;
 /// # use bevy_picking::prelude::*;
 /// # #[derive(Component)]
 /// # struct Foo;

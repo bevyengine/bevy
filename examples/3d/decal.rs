@@ -2,7 +2,6 @@
 //! Note: On Wasm, this example only runs on WebGPU
 
 use bevy::{
-    anti_alias::fxaa::Fxaa,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::DepthPrepass,
     pbr::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
@@ -27,18 +26,57 @@ fn setup(
 ) {
     // Spawn the forward decal
     commands.spawn((
-        Name::new("Decal"),
+        Name::new("Decal Blue"),
         ForwardDecal,
         MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
             base: StandardMaterial {
                 base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
+                base_color: Color::srgb(0.3, 0.5, 0.8),
+                alpha_mode: AlphaMode::Opaque,
+                depth_bias: 0.0,
                 ..default()
             },
             extension: ForwardDecalMaterialExt {
                 depth_fade_factor: 1.0,
             },
         })),
-        Transform::from_scale(Vec3::splat(4.0)),
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(-1.0, 0.0, -1.0)),
+    ));
+
+    commands.spawn((
+        Name::new("Decal Green"),
+        ForwardDecal,
+        MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
+            base: StandardMaterial {
+                base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
+                base_color: Color::srgba(0.0, 1.0, 0.0, 0.5),
+                alpha_mode: AlphaMode::Blend,
+                depth_bias: 2.0,
+                ..default()
+            },
+            extension: ForwardDecalMaterialExt {
+                depth_fade_factor: 1.0,
+            },
+        })),
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(1.0, 0.0, -1.0)),
+    ));
+
+    commands.spawn((
+        Name::new("Decal Red"),
+        ForwardDecal,
+        MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
+            base: StandardMaterial {
+                base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
+                base_color: Color::srgba(1.0, 0.0, 0.0, 0.5),
+                alpha_mode: AlphaMode::Add,
+                depth_bias: 4.0,
+                ..default()
+            },
+            extension: ForwardDecalMaterialExt {
+                depth_fade_factor: 1.0,
+            },
+        })),
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(0.0, 0.0, 1.0)),
     ));
 
     commands.spawn((
@@ -47,10 +85,6 @@ fn setup(
         FreeCamera::default(),
         // Must enable the depth prepass to render forward decals
         DepthPrepass,
-        // Must disable MSAA to use decals on WebGPU
-        Msaa::Off,
-        // FXAA is a fine alternative to MSAA for anti-aliasing
-        Fxaa::default(),
         Transform::from_xyz(2.0, 9.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 

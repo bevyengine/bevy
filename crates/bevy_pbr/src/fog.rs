@@ -3,7 +3,9 @@ use bevy_color::{Color, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_math::{ops, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::extract_component::ExtractComponent;
+use bevy_render::{extract_component::ExtractComponent, RenderApp};
+
+use crate::ViewFogUniformOffset;
 
 /// Configures the “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect,
 /// in which objects appear progressively more covered in atmospheric haze the further away they are from the camera.
@@ -48,7 +50,9 @@ use bevy_render::extract_component::ExtractComponent;
 /// [`StandardMaterial`](crate::StandardMaterial) instances via the `fog_enabled` flag.
 #[derive(Debug, Clone, Component, Reflect, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
+#[extract_component_sync_target((Self, ViewFogUniformOffset))]
 #[reflect(Component, Default, Debug, Clone)]
+#[extract_app(RenderApp)]
 pub struct DistanceFog {
     /// The color of the fog effect.
     ///

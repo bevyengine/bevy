@@ -2,6 +2,7 @@
 //! Shows two colored buttons with transparent text.
 
 use bevy::prelude::*;
+use bevy::ui_widgets::Button;
 
 fn main() {
     App::new()
@@ -46,12 +47,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                         // Alpha channel of the color controls transparency.
+                        // An alpha value of 0.2 means that the color is mostly transparent,
+                        // but a little bit of the RGB color is still visible.
+                        // (The color is white in this case since RGB values are all 1.0)
+
+                        // An alpha value of 1.0 means that the color is not transparent at all.
+                        // An alpha value of 0.0 means the color is completely transparent.
                         TextColor(Color::srgba(1.0, 1.0, 1.0, 0.2)),
                     ));
                 });
 
-            // Button with a different color,
-            // to demonstrate the text looks different due to its transparency.
+            // Button with a different background color,
+            // to demonstrate that the same color text looks different due to its transparency.
             parent
                 .spawn((
                     Button,

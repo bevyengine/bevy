@@ -7,6 +7,7 @@ use bevy_render::{
 };
 use core::{num::NonZero, ops::Range};
 use range_alloc::RangeAllocator;
+use wgpu_types::WriteOnly;
 
 /// Wrapper for a GPU buffer holding a large amount of data that persists across frames.
 pub struct PersistentGpuBuffer<T: PersistentGpuBufferable> {
@@ -71,7 +72,7 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
             let mut buffer_view = render_queue
                 .write_buffer_with(&self.buffer, buffer_slice.start, buffer_slice_size)
                 .unwrap();
-            data.write_bytes_le(metadata, &mut buffer_view, buffer_slice.start);
+            data.write_bytes_le(metadata, buffer_view.slice(..), buffer_slice.start);
         }
 
         let queue_saturation = queue_count as f32 / self.write_queue.capacity() as f32;
@@ -126,7 +127,7 @@ pub trait PersistentGpuBufferable {
     fn write_bytes_le(
         &self,
         metadata: Self::Metadata,
-        buffer_slice: &mut [u8],
+        buffer_slice: WriteOnly<[u8]>,
         buffer_offset: BufferAddress,
     );
 }

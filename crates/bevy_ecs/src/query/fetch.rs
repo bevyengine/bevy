@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
     change_detection::{
-        ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
+        AtomicTick, ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
         ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, MaybeLocation, Tick,
     },
     component::{Component, ComponentId, Components, Mutable, StorageType},
@@ -21,7 +21,7 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, iter, marker::PhantomData, panic::Location};
+use core::{cell::UnsafeCell, iter, marker::PhantomData, ops::Range, panic::Location};
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -406,13 +406,14 @@ pub unsafe trait QueryData: WorldQuery {
     label = "invalid contiguous `Query` data",
     note = "if `{Self}` is a custom query type, using `QueryData` derive macro, ensure that the `#[query_data(contiguous(target))]` attribute is added"
 )]
-pub trait ContiguousQueryData: ArchetypeQueryData {
+pub trait ContiguousQueryData: ArchetypeQueryData + IterQueryData {
     /// Item returned by [`ContiguousQueryData::fetch_contiguous`].
     /// Represents a contiguous chunk of memory.
     type Contiguous<'w, 's>;
 
     /// Fetch [`ContiguousQueryData::Contiguous`] which represents a contiguous chunk of memory (e.g., an array) in the current [`Table`].
     /// This must always be called after [`WorldQuery::set_table`].
+    /// The given `range` specifies the range of rows of the table that will be returned and must be valid.
     ///
     /// # Safety
     ///
@@ -420,10 +421,13 @@ pub trait ContiguousQueryData: ArchetypeQueryData {
     /// - `entities`'s length must match the length of the set table.
     /// - `entities` must match the entities of the set table.
     /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
+    /// - `range` must specify a valid range of rows in the table.
+    /// - `range.start` must be less than `range.end`.
     unsafe fn fetch_contiguous<'w, 's>(
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
+        range: Range<u32>,
     ) -> Self::Contiguous<'w, 's>;
 }
 
@@ -433,6 +437,9 @@ pub trait ContiguousQueryData: ArchetypeQueryData {
 /// so later calls don't invalidate earlier items.
 /// This is how methods like [`Iterator::collect`] work.
 /// It is therefore unsound to offer an [`Iterator`] for a [`QueryData`] for which only one instance may be alive concurrently.
+///
+/// To iterate over a [`QueryData`] that does not implement [`IterQueryData`],
+/// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method.
 ///
 /// For `QueryData` that implement this trait, [`QueryData::fetch`] may be called for one entity while an item is still alive for a different entity.
 ///
@@ -531,6 +538,14 @@ unsafe impl WorldQuery for Entity {
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(_world: &mut World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
@@ -543,6 +558,8 @@ unsafe impl WorldQuery for Entity {
     ) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -598,8 +615,9 @@ impl ContiguousQueryData for Entity {
         _state: &'s Self::State,
         _fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
+        range: Range<u32>,
     ) -> Self::Contiguous<'w, 's> {
-        entities
+        &entities[(range.start as usize)..(range.end as usize)]
     }
 }
 
@@ -646,6 +664,14 @@ unsafe impl WorldQuery for EntityLocation {
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(_world: &mut World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
@@ -658,6 +684,8 @@ unsafe impl WorldQuery for EntityLocation {
     ) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -827,6 +855,14 @@ unsafe impl WorldQuery for SpawnDetails {
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(_world: &mut World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
@@ -839,6 +875,8 @@ unsafe impl WorldQuery for SpawnDetails {
     ) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY:
@@ -961,6 +999,14 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         access.read_all();
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(_world: &mut World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
@@ -973,6 +1019,8 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     ) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -1077,6 +1125,14 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
         access.write_all();
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(_world: &mut World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
@@ -1089,6 +1145,8 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     ) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: access of `EntityRef` is a subset of `EntityMut`
@@ -1190,6 +1248,14 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
         filtered_access.access.extend(state);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(_world: &mut World) -> Self::State {
         Access::default()
     }
@@ -1204,6 +1270,8 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     ) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -1321,6 +1389,14 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
         filtered_access.access.extend(state);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(_world: &mut World) -> Self::State {
         Access::default()
     }
@@ -1335,6 +1411,8 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     ) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
@@ -1447,6 +1525,14 @@ where
         access.extend(state);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(world: &mut World) -> Self::State {
         let mut access = Access::new();
         access.read_all();
@@ -1474,6 +1560,8 @@ where
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`.
@@ -1570,6 +1658,14 @@ where
         access.extend(state);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(world: &mut World) -> Self::State {
         let mut access = Access::new();
         access.write_all();
@@ -1597,6 +1693,8 @@ where
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: All accesses that `EntityRefExcept` provides are also accesses that
@@ -1662,7 +1760,7 @@ unsafe impl WorldQuery for &Archetype {
         (world.entities(), world.archetypes())
     }
 
-    // This could probably be a non-dense query and just set a Option<&Archetype> fetch value in
+    // This could probably be a non-dense query and just set an Option<&Archetype> fetch value in
     // set_archetypes, but forcing archetypal iteration is likely to be slower in any compound query.
     const IS_DENSE: bool = true;
 
@@ -1685,6 +1783,14 @@ unsafe impl WorldQuery for &Archetype {
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(_world: &mut World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
@@ -1697,6 +1803,8 @@ unsafe impl WorldQuery for &Archetype {
     ) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -1848,6 +1956,14 @@ unsafe impl<T: Component> WorldQuery for &T {
         access.add_read(component_id);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.register_component::<T>()
     }
@@ -1862,6 +1978,8 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> bool {
         set_contains_id(state)
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -1917,6 +2035,7 @@ impl<T: Component> ContiguousQueryData for &T {
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
+        range: Range<u32>,
     ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
@@ -1925,7 +2044,15 @@ impl<T: Component> ContiguousQueryData for &T {
                 // SAFETY:
                 // - `table` is `entities.len()` long
                 // - `UnsafeCell<T>` has the same layout as `T`
-                unsafe { table.cast().as_slice_unchecked(entities.len()) }
+                // - `range` refers to a valid range of the table
+                // - `range.start` is less than or equal to `range.end`
+                let slice = unsafe {
+                    table
+                        .cast()
+                        .slice_unchecked((range.start as usize)..(range.end as usize))
+                };
+                debug_assert_eq!(slice.len(), entities.len());
+                slice
             },
             |_| {
                 #[cfg(debug_assertions)]
@@ -1964,6 +2091,7 @@ pub struct RefFetch<'w, T: Component> {
             ThinSlicePtr<'w, UnsafeCell<T>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
+            Option<&'w AtomicTick>,
             MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
@@ -2055,6 +2183,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             column
                 .get_changed_ticks_slice(table.entity_count() as usize)
                 .into(),
+            column.get_summary_tick(),
             column
                 .get_changed_by_slice(table.entity_count() as usize)
                 .map(Into::into),
@@ -2072,6 +2201,14 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         access.add_read(component_id);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.register_component::<T>()
     }
@@ -2086,6 +2223,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) -> bool {
         set_contains_id(state)
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -2111,7 +2250,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
         Some(fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, callers) =
+                let (table_components, added_ticks, changed_ticks, _summary_tick, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -2185,16 +2324,19 @@ impl<T: Component> ContiguousQueryData for Ref<'_, T> {
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
+        range: Range<u32>,
     ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, callers) =
+                let (table_components, added_ticks, changed_ticks, summary_tick, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
-                ContiguousRef {
+                let range = (range.start as usize)..(range.end as usize);
+
+                let contiguous_ref = ContiguousRef {
                     // SAFETY: `entities` has the same length as the rows in the set table.
-                    value: unsafe { table_components.cast().as_slice_unchecked(entities.len()) },
+                    value: unsafe { table_components.cast().slice_unchecked(range.clone()) },
                     // SAFETY:
                     // - The caller ensures the permission to access ticks.
                     // - `entities` has the same length as the rows in the set table hence the
@@ -2203,13 +2345,18 @@ impl<T: Component> ContiguousQueryData for Ref<'_, T> {
                         ContiguousComponentTicksRef::from_slice_ptrs(
                             added_ticks,
                             changed_ticks,
+                            summary_tick,
                             callers,
-                            entities.len(),
+                            range,
                             fetch.this_run,
                             fetch.last_run,
                         )
                     },
-                }
+                };
+
+                debug_assert_eq!(entities.len(), contiguous_ref.value.len());
+
+                contiguous_ref
             },
             |_| {
                 #[cfg(debug_assertions)]
@@ -2231,6 +2378,7 @@ pub struct WriteFetch<'w, T: Component> {
             ThinSlicePtr<'w, UnsafeCell<T>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
+            Option<&'w AtomicTick>,
             MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
@@ -2322,6 +2470,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             column
                 .get_changed_ticks_slice(table.entity_count() as usize)
                 .into(),
+            column.get_summary_tick(),
             column
                 .get_changed_by_slice(table.entity_count() as usize)
                 .map(Into::into),
@@ -2339,6 +2488,14 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         access.add_write(component_id);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.register_component::<T>()
     }
@@ -2353,6 +2510,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) -> bool {
         set_contains_id(state)
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: access of `&T` is a subset of `&mut T`
@@ -2378,7 +2537,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
         Some(fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, callers) =
+                let (table_components, added_ticks, changed_ticks, summary_tick, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -2390,6 +2549,13 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 // SAFETY: The caller ensures `table_row` is in range.
                 let caller =
                     callers.map(|callers| unsafe { callers.get_unchecked(table_row.index()) });
+                // Make it statically known whether the atomic tick is present or not.
+                let summary_tick = if T::HAS_SUMMARY_TICK {
+                    // SAFETY: Summary tick presence always matches `T::HAS_SUMMARY_TICK`.
+                    Some(unsafe { summary_tick.debug_checked_unwrap() })
+                } else {
+                    None
+                };
 
                 Mut {
                     value: component.deref_mut(),
@@ -2399,6 +2565,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                         changed_by: caller.map(|caller| caller.deref_mut()),
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
+                        summary_tick,
                     },
                 }
             },
@@ -2448,17 +2615,20 @@ impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
     unsafe fn fetch_contiguous<'w, 's>(
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
-        entities: &'w [Entity],
+        _entities: &'w [Entity],
+        range: Range<u32>,
     ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, callers) =
+                let (table_components, added_ticks, changed_ticks, summary_tick, callers) =
                     unsafe { table.debug_checked_unwrap() };
+
+                let range = (range.start as usize)..(range.end as usize);
 
                 ContiguousMut {
                     // SAFETY: `entities` has the same length as the rows in the set table.
-                    value: unsafe { table_components.as_mut_slice_unchecked(entities.len()) },
+                    value: unsafe { table_components.slice_mut_unchecked(range.clone()) },
                     // SAFETY:
                     // - The caller ensures the permission to access ticks.
                     // - `entities` has the same length as the rows in the set table hence the
@@ -2467,8 +2637,9 @@ impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
                         ContiguousComponentTicksMut::from_slice_ptrs(
                             added_ticks,
                             changed_ticks,
+                            summary_tick,
                             callers,
-                            entities.len(),
+                            range,
                             fetch.this_run,
                             fetch.last_run,
                         )
@@ -2546,6 +2717,14 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         access.add_write(component_id);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     // Forwarded to `&mut T`
     fn init_state(world: &mut World) -> ComponentId {
         <&mut T as WorldQuery>::init_state(world)
@@ -2563,6 +2742,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     ) -> bool {
         <&mut T as WorldQuery>::matches_component_set(state, set_contains_id)
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
@@ -2618,8 +2799,9 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
+        range: Range<u32>,
     ) -> Self::Contiguous<'w, 's> {
-        <&mut T as ContiguousQueryData>::fetch_contiguous(state, fetch, entities)
+        <&mut T as ContiguousQueryData>::fetch_contiguous(state, fetch, entities, range)
     }
 }
 
@@ -2663,31 +2845,192 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///
 /// # Example
 ///
+/// The simplest way to use a `NestedQuery` is with a `#[derive(QueryData)]` struct.
+/// The `Query` will be available on the generated `Item` struct,
+/// and we can use the query in methods on that struct.
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::query::{QueryData, NestedQuery};
+/// # use bevy_ecs::query::{NestedQuery, QueryData, QueryFilter, ReadOnlyQueryData};
 /// #
-/// #[derive(Component)]
-/// struct A(Entity);
+/// # #[derive(Component)]
+/// # struct Data(usize);
+/// #
+/// # let mut world = World::new();
+/// #
+/// // We want to create a relational query data
+/// // that lets us query components on an entity's parent,
+/// // like this:
+/// let root = world.spawn(Data(3)).id();
+/// let child = world.spawn(ChildOf(root)).id();
 ///
-/// #[derive(Component)]
-/// struct Name(String);
+/// let mut query = world.query::<Parent<&Data>>();
+/// let &Data(data) = query.query(&mut world).get(child).unwrap().data().unwrap();
+/// assert_eq!(data, 3);
 ///
+/// // We derive a query data struct that contains the relation plus a `NestedQuery`
 /// #[derive(QueryData)]
-/// struct NameFromA {
-///     a: &'static A,
-///     query: NestedQuery<&'static Name>,
+/// struct Parent<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static = ()> {
+///     // This will query `ChildOf` on the entity itself,
+///     // so we can find the parent entity
+///     parent: &'static ChildOf,
+///     // This will provide a `Query` that we can use to
+///     // query data on the parent entity
+///     nested_query: NestedQuery<D, F>,
 /// }
 ///
-/// impl<'w, 's> NameFromAItem<'w, 's> {
-///     fn name(&self) -> Option<&str> {
-///         self.query.get(self.a.0).ok().map(|name| &*name.0)
+/// // And add a method on the generated item struct to invoke the nested query.
+/// impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ParentItem<'w, 's, D, F> {
+///     fn data(&self) -> Option<D::Item<'w, 's>> {
+///         // We need to use `_inner` methods to return the full `'w` lifetime.
+///         self.nested_query.get_inner(self.parent.parent()).ok()
+///     }
+/// }
+/// ```
+///
+/// In order to make a query that returns the inner query data directly,
+/// instead of through an intermediate `Item` struct,
+/// you can implement `QueryData` manually by delegating to `NestedQuery`.
+///
+/// ```
+/// # use bevy_ecs::{
+/// #     archetype::Archetype,
+/// #     change_detection::Tick,
+/// #     component::{ComponentId, Components},
+/// #     prelude::*,
+/// #     query::{
+/// #         EcsAccessType, FilteredAccess, FilteredAccessSet, IterQueryData, NestedQuery,
+/// #         QueryData, QueryFilter, ReadOnlyQueryData, ReleaseStateQueryData, WorldQuery,
+/// #     },
+/// #     storage::{Table, TableRow},
+/// #     world::unsafe_world_cell::UnsafeWorldCell,
+/// # };
+/// #
+/// # #[derive(Component)]
+/// # struct Data(usize);
+/// #
+/// # let mut world = World::new();
+/// #
+/// // We want to create a relational query data
+/// // that lets us query components on an entity's parent,
+/// // like this:
+/// let root = world.spawn(Data(3)).id();
+/// let child = world.spawn(ChildOf(root)).id();
+///
+/// let mut query = world.query::<Parent<&Data>>();
+/// let &Data(data) = query.query(&mut world).get(child).unwrap();
+/// assert_eq!(data, 3);
+///
+/// // This is the relational query data.
+/// // This will never actually be constructed,
+/// // and is only used as a `QueryData` type.
+/// pub struct Parent<D: ReadOnlyQueryData, F: QueryFilter = ()>(D, F);
+///
+/// // A type alias to delegate the `QueryData` impls to.
+/// // We need to refer to this type a lot, so the alias will help.
+/// // This could also be a `#[derive(QueryData)]` type.
+/// type ParentInner<D, F> = (
+///     // This will query `ChildOf` on the entity itself,
+///     // so we can find the parent entity
+///     &'static ChildOf,
+///     // This will provide a `Query` that we can use to
+///     // query data on the parent entity
+///     NestedQuery<D, F>,
+/// );
+///
+/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> QueryData for Parent<D, F> {
+///     // Set `Item` to what we need for this relational query.
+///     // Here we use the output of `D`.
+///     type Item<'w, 's> = D::Item<'w, 's>;
+///
+///     unsafe fn fetch<'w, 's>(state: &'s Self::State, fetch: &mut Self::Fetch<'w>, entity: Entity, table_row: TableRow) -> Option<Self::Item<'w, 's>> {
+///         // In `fetch`, first delegate to the type alias to get the parts:
+///         let (&ChildOf(parent), nested_query) =
+///             <ParentInner<D, F> as QueryData>::fetch(state, fetch, entity, table_row)?;
+///         // Then use the `NestedQuery` to get the data we need.
+///         // We need to use `_inner` methods to return the full `'w` lifetime.
+///         nested_query.get_inner(parent).ok()
+///     }
+///
+///     fn shrink<'wlong: 'wshort, 'wshort, 's>(item: Self::Item<'wlong, 's>) -> Self::Item<'wshort, 's> {
+///         D::shrink(item)
+///     }
+///
+///     // Set `ReadOnly` to `Self`,
+///     // as `NestedQuery` does not yet support mutable queries.
+///     type ReadOnly = Self;
+///
+///     // Delegate everything else on `QueryData` and `WorldQuery` to the type alias.
+///     // This is sound for `unsafe` items because they delegate to the
+///     // sound implementations on the type alias.
+///     const IS_READ_ONLY: bool = <ParentInner<D, F> as QueryData>::IS_READ_ONLY;
+///     const IS_ARCHETYPAL: bool = <ParentInner<D, F> as QueryData>::IS_ARCHETYPAL;
+///
+///     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+///         <ParentInner<D, F> as QueryData>::iter_access(state)
 ///     }
 /// }
 ///
-/// fn system(query: Query<NameFromA>) {
-///     for item in query {
-///         let name: Option<&str> = item.name();
+/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> WorldQuery for Parent<D, F> {
+///     type Fetch<'w> = <ParentInner<D, F> as WorldQuery>::Fetch<'w>;
+///     type State = <ParentInner<D, F> as WorldQuery>::State;
+///
+///     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+///         <ParentInner<D, F> as WorldQuery>::shrink_fetch(fetch)
+///     }
+///
+///     unsafe fn init_fetch<'w, 's>(world: UnsafeWorldCell<'w>, state: &'s Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
+///         <ParentInner<D, F> as WorldQuery>::init_fetch(world, state, last_run, this_run)
+///     }
+///
+///     const IS_DENSE: bool = <ParentInner<D, F> as WorldQuery>::IS_DENSE;
+///
+///     unsafe fn set_archetype<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, archetype: &'w Archetype, table: &'w Table) {
+///         <ParentInner<D, F> as WorldQuery>::set_archetype(fetch, state, archetype, table)
+///     }
+///
+///     unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
+///         <ParentInner<D, F> as WorldQuery>::set_table(fetch, state, table)
+///     }
+///
+///     fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
+///         <ParentInner<D, F> as WorldQuery>::update_component_access(state, access)
+///     }
+///
+///     fn init_nested_access(state: &Self::State, system_name: Option<&str>, component_access_set: &mut FilteredAccessSet, world: UnsafeWorldCell) {
+///         <ParentInner<D, F> as WorldQuery>::init_nested_access(state, system_name, component_access_set, world)
+///     }
+///
+///     fn init_state(world: &mut World) -> Self::State {
+///         <ParentInner<D, F> as WorldQuery>::init_state(world)
+///     }
+///
+///     fn get_state(components: &Components) -> Option<Self::State> {
+///         <ParentInner<D, F> as WorldQuery>::get_state(components)
+///     }
+///
+///     fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+///         <ParentInner<D, F> as WorldQuery>::matches_component_set(state, set_contains_id)
+///     }
+///
+///     fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+///         <ParentInner<D, F> as WorldQuery>::update_archetypes(state, world)
+///     }
+/// }
+///
+/// // Also impl `ReadOnlyQueryData`, `IterQueryData`, and `ReleaseStateQueryData`
+/// // These are safe because they delegate to the type alias, which is also read-only.
+/// // Do *not* impl `ArchetypeQueryData`, because `fetch` sometimes returns `None`,
+/// // and do *not* impl `SingleEntityQueryData`, because `NestedQuery` accesses other entities.
+/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlyQueryData for Parent<D, F> {}
+///
+/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> IterQueryData for Parent<D, F> {}
+///
+/// impl<D: ReadOnlyQueryData + ReleaseStateQueryData + 'static, F: QueryFilter + 'static>
+///     ReleaseStateQueryData for Parent<D, F>
+/// {
+///     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
+///         D::release_state(item)
 ///     }
 /// }
 /// ```
@@ -3033,11 +3376,12 @@ impl<T: ContiguousQueryData> ContiguousQueryData for Option<T> {
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
+        range: Range<u32>,
     ) -> Self::Contiguous<'w, 's> {
         fetch
             .matches
             // SAFETY: The invariants are upheld by the caller
-            .then(|| unsafe { T::fetch_contiguous(state, &mut fetch.fetch, entities) })
+            .then(|| unsafe { T::fetch_contiguous(state, &mut fetch.fetch, entities, range) })
     }
 }
 
@@ -3163,6 +3507,14 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         access.access_mut().add_archetypal(component_id);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.register_component::<T>()
     }
@@ -3178,6 +3530,8 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         // `Has<T>` always matches
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -3232,6 +3586,7 @@ impl<T: Component> ContiguousQueryData for Has<T> {
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         _entities: &'w [Entity],
+        _range: Range<u32>,
     ) -> Self::Contiguous<'w, 's> {
         *fetch
     }
@@ -3360,11 +3715,14 @@ macro_rules! impl_tuple_query_data {
                 state: &'s Self::State,
                 fetch: &mut Self::Fetch<'w>,
                 entities: &'w [Entity],
+                range: Range<u32>,
             ) -> Self::Contiguous<'w, 's> {
                 let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
-                ($(unsafe {$name::fetch_contiguous($state, $name, entities)},)*)
+                ($(unsafe {
+                    $name::fetch_contiguous($state, $name, entities, range.clone())
+                },)*)
             }
         }
     };
@@ -3616,13 +3974,16 @@ macro_rules! impl_anytuple_fetch {
                 state: &'s Self::State,
                 fetch: &mut Self::Fetch<'w>,
                 entities: &'w [Entity],
+                range: Range<u32>,
             ) -> Self::Contiguous<'w, 's> {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // Matches the [`QueryData::fetch`] except it always returns Some
                 ($(
                     // SAFETY: The invariants are upheld by the caller
-                    $name.1.then(|| unsafe { $name::fetch_contiguous($state, &mut $name.0, entities) }),
+                    $name.1.then(|| unsafe {
+                        $name::fetch_contiguous($state, &mut $name.0, entities, range.clone())
+                    }),
                 )*)
             }
         }
@@ -3687,6 +4048,14 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     unsafe fn set_table<'w>(_fetch: &mut (), _state: &D::State, _table: &Table) {}
 
     fn update_component_access(_state: &D::State, _access: &mut FilteredAccess) {}
+
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
 
     fn init_state(world: &mut World) -> Self::State {
         D::init_state(world)
@@ -3790,6 +4159,14 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _system_name: Option<&str>,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+    }
+
     fn init_state(_world: &mut World) -> Self::State {}
 
     fn get_state(_components: &Components) -> Option<Self::State> {
@@ -3802,6 +4179,8 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     ) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: `Self::ReadOnly` is `Self`
@@ -3915,12 +4294,19 @@ impl<C: Component, T: Copy, S: Copy> Copy for StorageSwitch<C, T, S> {}
 
 #[cfg(test)]
 mod tests {
+    use core::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Mutex;
+
     use super::*;
+    use crate::batching::BatchingStrategy;
     use crate::change_detection::DetectChanges;
-    use crate::query::Without;
+    use crate::query::{QueryNotDenseError, Without};
     use crate::system::{assert_is_system, Query};
+    use alloc::sync::Arc;
+    use alloc::{vec, vec::Vec};
     use bevy_ecs::prelude::Schedule;
     use bevy_ecs_macros::QueryData;
+    use fixedbitset::FixedBitSet;
 
     #[derive(Component)]
     pub struct A;
@@ -4007,6 +4393,14 @@ mod tests {
 
             fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
+            fn init_nested_access(
+                _state: &Self::State,
+                _system_name: Option<&str>,
+                _component_access_set: &mut FilteredAccessSet,
+                _world: UnsafeWorldCell,
+            ) {
+            }
+
             fn init_state(_world: &mut World) {}
 
             fn get_state(_components: &Components) -> Option<()> {
@@ -4019,6 +4413,8 @@ mod tests {
             ) -> bool {
                 true
             }
+
+            fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
         }
 
         // SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -4244,7 +4640,7 @@ mod tests {
 
         let mut query = world.query::<&mut S>();
         let iter = query.contiguous_iter_mut(&mut world);
-        assert!(iter.is_none());
+        assert!(iter.is_err());
     }
 
     #[test]
@@ -4318,5 +4714,362 @@ mod tests {
         }
 
         assert_eq!(present, [true; 3]);
+    }
+
+    // Tests that contiguous parallel iteration can correctly mutate all
+    // instances of a component in the world.
+    #[test]
+    fn contiguous_par_iter_basic_test() {
+        // Declare a couple of components.
+
+        #[derive(Component, PartialEq, Eq, Debug)]
+        pub struct C {
+            id: i32,
+            found: bool,
+        }
+
+        #[derive(Component, PartialEq, Eq, Debug)]
+        pub struct D(i32);
+
+        // Build a task pool.
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        // Spawn a world with a couple of tables.
+        let mut world = World::new();
+        for id in 0..100 {
+            world.spawn(C { id, found: false });
+        }
+        for id in 100..150 {
+            world.spawn((C { id, found: false }, D(id)));
+        }
+
+        // Update every row, and check that the correct number of rows were
+        // matched contiguously.
+        let total_found = AtomicUsize::new(0);
+        let mut contiguous_query = world.query::<&mut C>();
+        contiguous_query
+            .contiguous_par_iter_mut(&mut world)
+            .unwrap()
+            .for_each(|cs| {
+                for c in cs {
+                    c.found = true;
+                    total_found.fetch_add(1, Ordering::Relaxed);
+                }
+            });
+        assert_eq!(total_found.load(Ordering::Relaxed), 150);
+
+        // Check that the query updated every row.
+        let mut check_query = world.query::<&C>();
+        assert!(check_query.iter(&world).all(|c| c.found));
+    }
+
+    // Tests that parallel contiguous iteration on a single large table
+    // correctly splits up the table into individual jobs.
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
+    #[test]
+    fn contiguous_par_iter_single_table_scheduling_test() {
+        // Declare the ID component.
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct C(i32);
+
+        // Build a task pool.
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        // Spawn 1000 entities in a single table.
+        let mut world = World::new();
+        for id in 0..1000 {
+            world.spawn(C(id));
+        }
+
+        // Do a contiguous parallel query, and mutate the components as we do
+        // so. We ask for 64 rows per job in order to ensure that there will be
+        // many jobs. Using a vector of bitsets, record which jobs processed
+        // which entity.
+        let (total_chunks, total_rows) = (AtomicUsize::new(0), AtomicUsize::new(0));
+        let mut contiguous_query = world.query::<&mut C>();
+        contiguous_query
+            .contiguous_par_iter_mut(&mut world)
+            .unwrap()
+            .batching_strategy(BatchingStrategy::fixed(64))
+            .for_each(|cs| {
+                total_chunks.fetch_add(1, Ordering::Relaxed);
+                for c in cs {
+                    c.0 += 1;
+                    total_rows.fetch_add(1, Ordering::Relaxed);
+                }
+            });
+
+        // Make sure that we visited every row.
+        assert_eq!(total_rows.load(Ordering::Relaxed), 1000);
+
+        // Make sure that the scheduler used multiple jobs to process the table.
+        assert!(total_chunks.load(Ordering::Relaxed) > 1);
+
+        // Make sure that the rows were indeed updated.
+        let mut query = world.query::<&C>();
+        let mut all_ids = query.iter(&world).map(|c| c.0).collect::<Vec<_>>();
+        all_ids.sort_unstable();
+        assert_eq!(all_ids, (1..1001).collect::<Vec<_>>());
+    }
+
+    // Tests that contiguous iteration can yield jobs that simultaneously span
+    // multiple small tables and represent portions of large tables.
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
+    #[test]
+    fn contiguous_par_iter_multi_table_scheduling_test() {
+        // Declare the ID component.
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CMain(i32);
+
+        // Declare a few extra components so that we can place our entities into
+        // different tables.
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra0;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra1;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra2;
+
+        // Build a task pool.
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        // We have four tables:
+        // 1. Entities [0, 120): `CMain`
+        // 2. Entities [120, 125): `CMain`, `CExtra0`
+        // 3. Entities [125, 130): `CMain`, `CExtra1`
+        // 4. Entities [130, 135): `CMain`, `CExtra2`
+        let mut world = World::new();
+        for id in 0..120 {
+            world.spawn(CMain(id));
+        }
+        for id in 120..125 {
+            world.spawn((CMain(id), CExtra0));
+        }
+        for id in 125..130 {
+            world.spawn((CMain(id), CExtra1));
+        }
+        for id in 130..135 {
+            world.spawn((CMain(id), CExtra2));
+        }
+
+        // Do a contiguous parallel query. We ask for 50 rows per job, which
+        // simultaneously guarantees that (a) one of the jobs will contain
+        // multiple tables and that (b) the large table (`CMain`) will be split
+        // over multiple jobs. Using a vector of bitsets, record which jobs
+        // processed which entity.
+        let mut contiguous_query = world.query::<&mut CMain>();
+        let all_jobs = Mutex::new(vec![]);
+        contiguous_query
+            .contiguous_par_iter_mut(&mut world)
+            .unwrap()
+            .batching_strategy(BatchingStrategy::fixed(50))
+            .for_each_init(
+                || {
+                    let job = Arc::new(Mutex::new(FixedBitSet::with_capacity(135)));
+                    all_jobs.lock().unwrap().push(job.clone());
+                    job
+                },
+                |job, components| {
+                    let mut job = job.lock().unwrap();
+                    for component in components {
+                        assert!(!job[component.0 as usize]);
+                        job.insert(component.0 as usize);
+                    }
+                },
+            );
+
+        // Pull out our bitsets.
+        let all_jobs = all_jobs
+            .into_inner()
+            .unwrap()
+            .into_iter()
+            .map(|job| Arc::try_unwrap(job).unwrap().into_inner().unwrap())
+            .collect::<Vec<_>>();
+
+        // Make sure every row was visited.
+        assert!(all_jobs
+            .iter()
+            .fold(FixedBitSet::with_capacity(135), |mut acc, item| {
+                acc.union_with(item);
+                acc
+            })
+            .is_full());
+
+        // Make sure every row was visited once.
+        assert_eq!(
+            all_jobs.iter().map(|job| job.count_ones(..)).sum::<usize>(),
+            135
+        );
+
+        // Make sure no job exceeded the batch size.
+        assert!(all_jobs.iter().all(|job| job.count_ones(..) <= 50));
+
+        // Make sure that the `CMain` table was split across at least two jobs.
+        assert!(
+            all_jobs
+                .iter()
+                .filter(|job| job.contains_any_in_range(0..120))
+                .count()
+                >= 2
+        );
+
+        // Make sure that there's at least one job with multiple tables in it.
+        assert!(all_jobs.iter().any(|job| {
+            let has_main_table = job.contains_any_in_range(0..120);
+            let has_extra_table_0 = job.contains_any_in_range(120..125);
+            let has_extra_table_1 = job.contains_any_in_range(125..130);
+            let has_extra_table_2 = job.contains_any_in_range(130..135);
+            ((has_main_table as u32)
+                + (has_extra_table_0 as u32)
+                + (has_extra_table_1 as u32)
+                + (has_extra_table_2 as u32))
+                >= 2
+        }));
+    }
+
+    // Tests that contiguous iteration workloads that exceed the maximum number
+    // of tables per job (currently 32) work properly.
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
+    #[test]
+    fn contiguous_par_iter_table_job_limit_test() {
+        // Declare the ID component.
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CMain(i32);
+
+        // Now we need to create a lot of tables. We do so by creating a set of
+        // 8 components. Each combination of components (present, not present)
+        // will require a separate table, and thus we have 2⁸ = 256 different
+        // tables.
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra0;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra1;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra2;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra3;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra4;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra5;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra6;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra7;
+
+        // Build a task pool.
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        // Spawn our entities. We will have 256 different entities, each of
+        // which has its own table.
+        let mut world = World::new();
+        for id in 0..256 {
+            let mut entity = world.spawn(CMain(id));
+            if id & (1 << 0) != 0 {
+                entity.insert(CExtra0);
+            }
+            if id & (1 << 1) != 0 {
+                entity.insert(CExtra1);
+            }
+            if id & (1 << 2) != 0 {
+                entity.insert(CExtra2);
+            }
+            if id & (1 << 3) != 0 {
+                entity.insert(CExtra3);
+            }
+            if id & (1 << 4) != 0 {
+                entity.insert(CExtra4);
+            }
+            if id & (1 << 5) != 0 {
+                entity.insert(CExtra5);
+            }
+            if id & (1 << 6) != 0 {
+                entity.insert(CExtra6);
+            }
+            if id & (1 << 7) != 0 {
+                entity.insert(CExtra7);
+            }
+        }
+
+        // Do a contiguous parallel query. We ask for 1024 rows per job, which
+        // we won't get as the maximum number of tables per job is 32. Using a
+        // vector of bitsets, record which jobs processed which entity.
+        let mut contiguous_query = world.query::<&mut CMain>();
+        let all_jobs = Mutex::new(vec![]);
+        contiguous_query
+            .contiguous_par_iter_mut(&mut world)
+            .unwrap()
+            .batching_strategy(BatchingStrategy::fixed(1024))
+            .for_each_init(
+                || {
+                    let job = Arc::new(Mutex::new(FixedBitSet::with_capacity(256)));
+                    all_jobs.lock().unwrap().push(job.clone());
+                    job
+                },
+                |job, components| {
+                    let mut job = job.lock().unwrap();
+                    for component in components {
+                        assert!(!job[component.0 as usize]);
+                        job.insert(component.0 as usize);
+                    }
+                },
+            );
+
+        // Pull out our bitsets.
+        let all_jobs = all_jobs
+            .into_inner()
+            .unwrap()
+            .into_iter()
+            .map(|job| Arc::try_unwrap(job).unwrap().into_inner().unwrap())
+            .collect::<Vec<_>>();
+
+        // Make sure every row was visited.
+        assert!(all_jobs
+            .iter()
+            .fold(FixedBitSet::with_capacity(256), |mut acc, item| {
+                acc.union_with(item);
+                acc
+            })
+            .is_full());
+
+        // Make sure every row was visited once.
+        assert_eq!(
+            all_jobs.iter().map(|job| job.count_ones(..)).sum::<usize>(),
+            256
+        );
+
+        // Make sure there were at least two jobs.
+        assert!(all_jobs.len() >= 2);
+    }
+
+    // Tests that attempting to contiguously iterate in parallel over a query
+    // that contains sparse sets fails (as the query isn't dense).
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
+    #[test]
+    fn contiguous_par_iter_failure_test() {
+        // Declare a couple of components, one of which is a sparse set.
+
+        #[derive(Component, Clone, Copy)]
+        struct C;
+
+        #[derive(Component, Clone, Copy)]
+        #[component(storage = "SparseSet")]
+        struct S;
+
+        // Build a task pool.
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        // Spawn a world with those two components.
+        let mut world = World::new();
+        for _ in 0..100 {
+            world.spawn((C, S));
+        }
+
+        // This query should fail, as queries over sparse sets aren't dense.
+        let mut sparse_query = world.query::<(&C, &S)>();
+        assert!(matches!(
+            sparse_query.contiguous_par_iter(&world),
+            Err(QueryNotDenseError(_))
+        ));
     }
 }

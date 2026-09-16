@@ -20,7 +20,7 @@ use wgpu::{BindingResource, Limits};
     not(target_arch = "wasm32"),
     feature = "webgpu"
 ))]
-const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 20;
+const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u64 = 1 << 20;
 
 // WebGL2 quirk: using uniform buffers larger than 4KB will cause extremely
 // long shader compilation times, so the limit needs to be lower on WebGL2.
@@ -28,7 +28,7 @@ const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 20;
 // indexing uniform buffers, and instead emulate it with large switch statements
 // over buffer indices that take a long time to compile.
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 12;
+const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u64 = 1 << 12;
 
 /// Similar to [`DynamicUniformBuffer`], except every N elements (depending on size)
 /// are grouped into a batch as an `array<T, N>` in WGSL.
@@ -52,7 +52,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     pub fn batch_size(limits: &Limits) -> usize {
         (limits
             .max_uniform_buffer_binding_size
-            .min(MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE) as u64
+            .min(MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE)
             / T::min_size().get()) as usize
     }
 
