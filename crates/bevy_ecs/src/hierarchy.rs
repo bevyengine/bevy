@@ -18,7 +18,6 @@ use crate::{
     template::FromTemplate,
     world::{EntityWorldMut, FromWorld, World},
 };
-use alloc::vec::Vec;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -236,7 +235,7 @@ impl Children {
         self.0.contains(entity)
     }
 
-    /// Collects the children into a [`Vec`].
+    /// Collects the children into a [`Vec`](alloc::vec::Vec).
     #[inline]
     pub fn to_vec(&self) -> alloc::vec::Vec<Entity> {
         self.0.iter().copied().collect()
