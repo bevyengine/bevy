@@ -5297,6 +5297,17 @@ doc-scrape-examples = true
 [package.metadata.example.test_skinned_mesh_bounds]
 hidden = true
 
+[[example]]
+name = "test_meshlet"
+path = "tests/3d/test_meshlet.rs"
+doc-scrape-examples = true
+required-features = ["meshlet", "meshlet_processor", "free_camera"]
+
+[package.metadata.example.test_meshlet]
+hidden = true
+# Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
+wasm = false
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
