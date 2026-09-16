@@ -19,8 +19,6 @@ use crate::state::{StateTransitionEvent, States};
 /// Entities marked with this component will be despawned
 /// when a [`StateTransitionEvent<S>`] matching the given predicate is sent.
 ///
-/// If you need to disable this behavior, add the attribute `#[states(scoped_entities = false)]` when deriving [`States`].
-///
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::{prelude::*, system::ScheduleSystem};
@@ -107,8 +105,6 @@ pub fn despawn_entities_when_state<S: States>(
 /// Entities marked with this component will be despawned
 /// upon exiting the given state.
 ///
-/// If you need to disable this behavior, add the attribute `#[states(scoped_entities = false)]` when deriving [`States`].
-///
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::{prelude::*, system::ScheduleSystem};
@@ -184,8 +180,6 @@ pub fn despawn_entities_on_exit_state<S: States>(
 /// Entities marked with this component will be despawned
 /// upon entering the given state.
 ///
-/// If you need to disable this behavior, add the attribute `#[states(scoped_entities = false)]` when deriving [`States`].
-///
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::{prelude::*, system::ScheduleSystem};
@@ -259,8 +253,6 @@ pub fn despawn_entities_on_enter_state<S: States>(
 
 /// Entities marked with this component will be disabled
 /// when a [`StateTransitionEvent<S>`] matching the given predicate is sent.
-///
-/// If you need to disable this behavior, add the attribute `#[states(scoped_entities = false)]` when deriving [`States`].
 ///
 /// ```
 /// use bevy_state::prelude::*;
@@ -348,8 +340,6 @@ pub fn disable_entities_when_state<S: States>(
 /// Entities marked with this component will be disabled
 /// upon exiting the given state.
 ///
-/// If you need to disable this behavior, add the attribute `#[states(scoped_entities = false)]` when deriving [`States`].
-///
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::{prelude::*, system::ScheduleSystem};
@@ -429,8 +419,6 @@ pub fn disable_entities_on_exit_state<S: States>(
 /// Entities marked with this component will be disabled
 /// upon entering the given state.
 ///
-/// If you need to disable this behavior, add the attribute `#[states(scoped_entities = false)]` when deriving [`States`].
-///
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::{prelude::*, system::ScheduleSystem};
@@ -506,8 +494,6 @@ pub fn disable_entities_on_enter_state<S: States>(
 
 /// Entities marked with this component will be enabled
 /// when a [`StateTransitionEvent<S>`] matching the given predicate is sent.
-///
-/// If you need to disable this behavior, add the attribute `#[states(scoped_entities = false)]` when deriving [`States`].
 ///
 /// ```
 /// use bevy_state::prelude::*;
@@ -595,8 +581,6 @@ pub fn enable_entities_when_state<S: States>(
 /// Entities marked with this component will be enabled
 /// upon exiting the given state.
 ///
-/// If you need to disable this behavior, add the attribute `#[states(scoped_entities = false)]` when deriving [`States`].
-///
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::{prelude::*, system::ScheduleSystem};
@@ -675,8 +659,6 @@ pub fn enable_entities_on_exit_state<S: States>(
 
 /// Entities marked with this component will be enabled
 /// upon entering the given state.
-///
-/// If you need to disable this behavior, add the attribute `#[states(scoped_entities = false)]` when deriving [`States`].
 ///
 /// ```
 /// use bevy_state::prelude::*;
