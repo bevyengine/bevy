@@ -497,7 +497,7 @@ mod tests {
         world
             .entity(entity)
             .get::<Children>()
-            .map(|c| c.to_vec())
+            .map(Children::to_vec)
             .unwrap_or_default()
     }
 
