@@ -9,7 +9,7 @@ use ron::ser::PrettyConfig;
 
 use bevy_reflect::{
     serde::{ReflectDeserializer, ReflectSerializer},
-    Reflect, ReflectFromPtr, ReflectFromReflect, TypePath, TypeRegistryArc,
+    Reflect, ReflectFromPtr, TypePath, TypeRegistryArc,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
@@ -132,26 +132,19 @@ impl AssetLoader for RonLoader {
             ));
         };
 
-        // First use `try_into_reflect` to do the cast (in case the type reflects `Deserialize`, and
-        // therefore we have the concrete value). If that fails (i.e., we have a dynamic
-        // representation of the value), fallback to using FromReflect.
-        let reflected_asset = match reflected_asset.try_into_reflect() {
-            Ok(asset) => asset,
-            Err(partial) => {
-                let Some(reflect_from_reflect) = type_registration.data::<ReflectFromReflect>()
-                else {
-                    return Err(ReflectedRonDeserializeError::MissingReflectFromReflect(
-                        asset_type_info.type_path(),
-                    ));
-                };
-
-                // Unwrap is ok because `ReflectDeserializer` deserialized this type from its type
-                // data, and we are using the ReflectFromReflect registered for this type. Strictly
-                // speaking, someone could write a bad FromReflect implementation, but we won't
-                // handle that case here. In theory, someone could also insert ReflectFromReflect
-                // for type A into the registration of type B. That would be malicious though.
-                reflect_from_reflect.from_reflect(&*partial).unwrap()
-            }
+        // At this point, we need the concrete type. `ReflectDeserializer` internally uses the
+        // `ReflectFromReflect` for the loaded type to convert into a concrete type. If that fails,
+        // that must mean `ReflectFromReflect` wasn't registered for the type, so there's nothing we
+        // can do.
+        let Ok(reflected_asset) = reflected_asset.try_into_reflect() else {
+            // We're kind of cheating here: the current implementation of `ReflectDeserializer` (at
+            // the time of writing) only doesn't return the concrete type if `ReflectFromReflect` is
+            // not registered. We return that here for better error messages (even though an
+            // arbitrary implementation might not return the concrete type for other reasons, or
+            // might try other fallbacks).
+            return Err(ReflectedRonDeserializeError::MissingReflectFromReflect(
+                asset_type_info.type_path(),
+            ));
         };
 
         // Unwrap is ok because `finish_load_context` only fails if the Box<dyn Reflect> holds the
