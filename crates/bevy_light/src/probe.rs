@@ -105,7 +105,7 @@ impl LightProbe {
 /// `diffuse_map` for the irradiance, and a mipmapped `specular_map` for the specular.
 /// Material roughness selects which mip is sampled from the specular map.
 ///
-/// Path tracers such as bevy_solari only sample the first mip level, so both
+/// Path tracers such as `bevy_solari` only sample the first mip level, so both
 /// the `diffuse_map` and `specular_map` can point at the same unfiltered cubemap.
 ///
 /// See `bevy_pbr::light_probe::environment_map` for detailed information.
