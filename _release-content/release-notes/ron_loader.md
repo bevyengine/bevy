@@ -7,11 +7,12 @@ pull_requests: [25754, 25770]
 Custom assets are very useful to create. They allow users to define game-specific data that can be
 shared across your entities. Unfortunately, to take full advantage of this, you need to define an
 `AssetLoader` for your type. This can be cumbersome, since for most types, you just want to save and
-load some plain old data!
+load some plain old data! Previously, we didn't have an out-of-the-box way to do this.
 
-Now, we provide `RonSaver` and `RonLoader`. These types support **any** reflected asset. `RonLoader`
-is able to load `.ron` files and reads the desired type from inside the file (in other words, its
-format is self-documenting), and `RonSaver` exists to write these kinds of files.
+Now, we provide `RonSaver` and `RonLoader` as ready-to-use asset savers/loaders. These types support
+**any** reflected asset. `RonLoader` is able to load `.ron` files and reads the desired type from
+inside the file (in other words, its format is self-documenting), and `RonSaver` exists to write
+these kinds of files.
 
 ```rust
 // Register the asset loader.
