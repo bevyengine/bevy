@@ -43,7 +43,7 @@ fn setup(
     mut meshlets: ResMut<Assets<MeshletMesh>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    commands.spawn_scene_list(bsn! {
+    commands.spawn_scene_list(bsn_list! {
         Camera3d
         Transform::from_translation(Vec3::new(0.0, 1.5, -3.0))
             .looking_at(vec3(0.0, 0.0, 1.5), Vec3::Y)
@@ -102,7 +102,7 @@ fn setup(
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
     for distance in [0.0, 8.0, 32.0, 128.0] {
-        commands.spawn_scene_list(bsn! {
+        commands.spawn_scene_list(bsn_list! {
             Mesh3d({sphere_mesh_asset.clone()})
             MeshMaterial3d::<StandardMaterial>({mipmap_material.clone()})
             Transform::from_xyz(-0.5, 0.0, distance)
