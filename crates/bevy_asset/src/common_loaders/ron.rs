@@ -11,10 +11,7 @@ use bevy_reflect::{
     serde::{ReflectDeserializer, ReflectSerializer},
     Reflect, ReflectFromPtr, ReflectFromReflect, TypePath, TypeRegistryArc,
 };
-use serde::{
-    de::{DeserializeOwned, DeserializeSeed},
-    Deserialize, Serialize,
-};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
@@ -118,10 +115,8 @@ impl AssetLoader for RonLoader {
         let reflect_deserializer =
             ReflectDeserializer::with_processor(&registry, &mut handle_processor);
 
-        let mut ron_deserializer =
-            ron::Deserializer::from_bytes(&buffer).map_err(Into::<RonDeserializeError>::into)?;
-        let reflected_asset = reflect_deserializer
-            .deserialize(&mut ron_deserializer)
+        let reflected_asset = ron::Options::default()
+            .from_bytes_seed(&buffer, reflect_deserializer)
             .map_err(Into::<RonDeserializeError>::into)?;
 
         // Unwrap is ok because the `ReflectDeserializer` will produce values representing a
@@ -450,8 +445,6 @@ pub enum RonDeserializeError {
     IoError(#[from] std::io::Error),
     #[error(transparent)]
     RonSpan(#[from] ron::de::SpannedError),
-    #[error(transparent)]
-    Ron(#[from] ron::Error),
 }
 
 /// An error type for `ron` loading using reflection.
