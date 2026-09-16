@@ -19,6 +19,7 @@ use derive_more::From;
 /// Provides read access to the source component (the component being cloned) in a [`ComponentCloneFn`].
 pub struct SourceComponent<'a> {
     ptr: Ptr<'a>,
+    id: ComponentId,
     info: &'a ComponentInfo,
 }
 
@@ -44,6 +45,11 @@ impl<'a> SourceComponent<'a> {
     /// Returns the "raw" pointer to the source component.
     pub fn ptr(&self) -> Ptr<'a> {
         self.ptr
+    }
+
+    /// Returns the [`ComponentId`] of the source component.
+    pub fn id(&self) -> ComponentId {
+        self.id
     }
 
     /// Returns a reference to the component on the source entity as [`&dyn Reflect`](bevy_reflect::Reflect).
@@ -637,6 +643,7 @@ impl EntityCloner {
                     unsafe { source_entity.get_by_id(component).debug_checked_unwrap() };
 
                 let source_component = SourceComponent {
+                    id: component,
                     info,
                     ptr: source_component_ptr,
                 };
