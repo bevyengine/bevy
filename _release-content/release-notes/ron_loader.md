@@ -27,7 +27,7 @@ Here is an example of a RON file that can be loaded by `RonLoader` (this loader 
 
 ```ron
 {
-  "my_crate::MyData": (
+  "MyData": (
     first_field: "abc",
     second_field: 10,
     handle_field: Path("some_other_path.gltf")

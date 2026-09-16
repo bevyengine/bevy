@@ -42,7 +42,7 @@ use crate::{
 ///
 /// ```ron
 /// {
-///     "my_crate::MyStruct": (
+///     "MyStruct": (
 ///         value: 123
 ///     )
 /// }

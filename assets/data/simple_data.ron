@@ -1,5 +1,5 @@
 {
-    "custom_asset::MyDataAsset": (
+    "MyDataAsset": (
         text: "Hello World!",
         color: Srgba((
             red: 0.196,
