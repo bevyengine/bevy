@@ -103,9 +103,9 @@ impl LightProbe {
 ///
 /// Raster image-based lighting expects a [split-sum] pair: a blurry
 /// `diffuse_map` for the irradiance, and a mipmapped `specular_map` for the specular.
-/// Roughness selects which mip is sampled.
+/// Material roughness selects which mip is sampled from the specular map.
 ///
-/// Path tracers such as Solari only sample the first mip level, so both of them
+/// Path tracers such as bevy_solari only sample the first mip level, so both of them
 /// can point at the same unfiltered cubemap.
 ///
 /// See `bevy_pbr::light_probe::environment_map` for detailed information.
@@ -327,8 +327,8 @@ pub struct AtmosphereEnvironmentMapLight {
     pub size: UVec2,
     /// Whether to filter this cubemap for image-based lighting.
     ///
-    /// Defaults to `true`. Set this to `false` if you're using Solari or another
-    /// path tracer, which only need the unfiltered cubemap.
+    /// Defaults to `true`. Set this to `false` if you're using bevy_solari or another
+    /// path tracer that only needs the unfiltered cubemap.
     pub filtered: bool,
 }
 
