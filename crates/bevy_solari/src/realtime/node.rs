@@ -425,7 +425,7 @@ pub fn init_solari_lighting_pipelines(
                 storage_buffer_sized(false, None),
                 texture_2d(TextureSampleType::Uint),
                 texture_depth_2d(),
-                motion_vectors_binding.clone(),
+                motion_vectors_binding,
                 uniform_buffer::<ViewUniform>(true),
                 uniform_buffer::<PreviousViewData>(true),
                 storage_buffer_sized(false, None),
