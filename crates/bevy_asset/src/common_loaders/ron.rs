@@ -58,14 +58,15 @@ use crate::{
 ///
 /// This loader requires that the held type implements **and** reflects [`Asset`].
 ///
-/// This loader also supports loading asset types with handles using the
-/// [`HandleDeserializeProcessor`].
+/// This loader also supports loading asset types with [`Handle`]s to other assets (which will be
+/// automatically loaded too).
 ///
 /// Warning: When performing an untyped load using [`LoadBuilder::load_untyped`], load the `#Typed`
 /// subasset. If you instead load the root asset, you will get a [`Handle<LoadedUntypedAsset>`]
 /// which stores an [`UntypedHandle`] whose type ID is for [`LoadedUntypedAsset`], which then
 /// internally stores your desired asset type.
 ///
+/// [`Handle`]: crate::Handle
 /// [`LoadBuilder::load_untyped`]: crate::LoadBuilder::load_untyped
 /// [`Handle<LoadedUntypedAsset>`]: crate::Handle
 /// [`UntypedHandle`]: crate::UntypedHandle
