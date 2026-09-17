@@ -22,7 +22,7 @@ use crate::{
 use bevy_reflect::std_traits::ReflectDefault;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use core::ops::{Deref, DerefMut};
+use core::ops::Deref;
 
 /// Stores the parent entity of this child entity with this component.
 ///
