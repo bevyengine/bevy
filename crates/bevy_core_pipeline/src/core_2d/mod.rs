@@ -441,7 +441,7 @@ pub fn prepare_core_2d_depth_textures(
         };
 
         let cached_texture = textures
-            .entry(camera.target.clone())
+            .entry((camera.target.clone(), msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
