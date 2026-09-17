@@ -143,7 +143,7 @@ impl FromWorld for ChildOf {
 ///
 /// # Ordering
 ///
-/// This method does not guarantee any specific ordering unless methods that guarantee sorting or the stabilty
+/// This method does not guarantee any specific ordering unless methods that guarantee sorting or the stability
 /// of the existing order are used.
 ///
 /// [`Relationship`]: crate::relationship::Relationship
