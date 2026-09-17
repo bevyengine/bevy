@@ -4123,7 +4123,7 @@ mod tests {
 
         let world = app.world_mut();
         assert_eq!(world.get::<ComputedNode>(child1).unwrap().size.x, 1000.);
-        assert_eq!(world.get::<ComputedNode>(child2).unwrap().size.x, 1000.)
+        assert_eq!(world.get::<ComputedNode>(child2).unwrap().size.x, 1000.);
     }
 
     #[test]
@@ -4184,6 +4184,47 @@ mod tests {
                 .rect
                 .width(),
             100.
+        );
+    }
+
+    #[test]
+    fn zz_stale_reached_flag_check() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let node = world
+            .spawn(Node {
+                width: px(10),
+                height: px(10),
+                ..default()
+            })
+            .id();
+        let non_ui_root = world.spawn_empty().id();
+
+        // frame 1: full walk (Added<Node>), clearing pass resets `reached` to false
+        app.update();
+        assert_eq!(
+            app.world().get::<ComputedNode>(node).unwrap().size(),
+            Vec2::splat(10.)
+        );
+
+        // frame 2: incremental-only change (no hierarchy change) -> needs_full_walk == false,
+        // so `node` gets `reached = true` and nothing resets it.
+        app.world_mut().get_mut::<Node>(node).unwrap().width = px(20);
+        app.update();
+        assert_eq!(
+            app.world().get::<ComputedNode>(node).unwrap().size(),
+            Vec2::new(20., 10.)
+        );
+
+        // frame 3: detach from the UI hierarchy -> full walk, node unreachable
+        app.world_mut()
+            .entity_mut(node)
+            .insert(ChildOf(non_ui_root));
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(node).unwrap().size(),
+            Vec2::ZERO
         );
     }
 }
