@@ -376,7 +376,9 @@ pub fn ui_layout_system(
     // so they aren't cleared below.
     for ghost_node in ghost_stack.iter() {
         if let Ok(mut computed_layout) = computed_layout_query.get_mut(*ghost_node) {
-            computed_layout.bypass_change_detection().set_reached(true);
+            let computed_layout = computed_layout.bypass_change_detection();
+            computed_layout.clear();
+            computed_layout.set_reached(true);
         }
     }
 
