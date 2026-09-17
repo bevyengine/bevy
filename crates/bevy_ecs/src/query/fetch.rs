@@ -9,8 +9,8 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     query::{
         access_iter::{EcsAccessLevel, EcsAccessType},
-        Access, DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, QueryFilter, QueryState,
-        WorldQuery,
+        Access, DebugCheckedUnwrap, ErasedQueryState, FilteredAccess, FilteredAccessSet,
+        QueryFilter, QueryState, WorldQuery,
     },
     storage::{ComponentSparseSet, Table, TableRow},
     system::Query,
@@ -2812,7 +2812,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 /// It is not normally useful to query directly,
 /// since it's equivalent to adding another [`Query`] parameter to a system.
 ///
-/// Note that this requires the inner query to be a [`ReadOnlyQueryData`]
+/// Note that this is only an [`IterQueryData`] if the underlying query data is [`ReadOnlyQueryData`],
 /// to prevent mutable aliasing.
 ///
 /// ```
@@ -2821,11 +2821,13 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 /// #
 /// # #[derive(Component)]
 /// # struct A;
-/// fn system(mut query: Query<NestedQuery<&A>>) {
+/// fn system(mut query: Query<NestedQuery<&mut A>>, entity: Entity) {
 ///     // This works, because it performs read-only iteration
 ///     for a in &query {
 ///         let a: Query<&A> = a;
 ///     }
+///     // And this works, because it can only be called for one entity at a time
+///     let a: Query<&mut A> = query.get_mut(entity).unwrap();
 /// }
 /// ```
 ///
@@ -2838,6 +2840,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 /// fn system(mut query: Query<NestedQuery<&mut A>>) {
 ///     // This fails, because it would allow mutable aliasing of `&mut A`
 ///     for a in &mut query {
+/// //           ^^^^^^^^^^ `&mut bevy_ecs::system::Query<'_, '_, NestedQuery<&mut A>>` is not an iterator
 ///         let a: Query<&mut A> = a;
 ///     }
 /// }
@@ -2924,7 +2927,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 /// // This is the relational query data.
 /// // This will never actually be constructed,
 /// // and is only used as a `QueryData` type.
-/// pub struct Parent<D: ReadOnlyQueryData, F: QueryFilter = ()>(D, F);
+/// pub struct Parent<D: QueryData, F: QueryFilter = ()>(D, F);
 ///
 /// // A type alias to delegate the `QueryData` impls to.
 /// // We need to refer to this type a lot, so the alias will help.
@@ -2938,7 +2941,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///     NestedQuery<D, F>,
 /// );
 ///
-/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> QueryData for Parent<D, F> {
+/// unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for Parent<D, F> {
 ///     // Set `Item` to what we need for this relational query.
 ///     // Here we use the output of `D`.
 ///     type Item<'w, 's> = D::Item<'w, 's>;
@@ -2958,7 +2961,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///
 ///     // Set `ReadOnly` to `Self`,
 ///     // as `NestedQuery` does not yet support mutable queries.
-///     type ReadOnly = Self;
+///     type ReadOnly = Parent<D::ReadOnly, F>;
 ///
 ///     // Delegate everything else on `QueryData` and `WorldQuery` to the type alias.
 ///     // This is sound for `unsafe` items because they delegate to the
@@ -2971,7 +2974,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///     }
 /// }
 ///
-/// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> WorldQuery for Parent<D, F> {
+/// unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Parent<D, F> {
 ///     type Fetch<'w> = <ParentInner<D, F> as WorldQuery>::Fetch<'w>;
 ///     type State = <ParentInner<D, F> as WorldQuery>::State;
 ///
@@ -3018,15 +3021,17 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///     }
 /// }
 ///
-/// // Also impl `ReadOnlyQueryData`, `IterQueryData`, and `ReleaseStateQueryData`
-/// // These are safe because they delegate to the type alias, which is also read-only.
+/// // Also impl `ReadOnlyQueryData`, `IterQueryData`, and `ReleaseStateQueryData`.
+/// // `ReadOnlyQueryData` and `IterQueryData` must only be implemented for read-only queries.
+/// // Multiple entities may have the same parent, and iteration allows values for multiple entities to be alive,
+/// // so iterating `Query<Parent<&mut T>>` could cause mutable aliasing on `T`.
 /// // Do *not* impl `ArchetypeQueryData`, because `fetch` sometimes returns `None`,
 /// // and do *not* impl `SingleEntityQueryData`, because `NestedQuery` accesses other entities.
 /// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlyQueryData for Parent<D, F> {}
 ///
 /// unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> IterQueryData for Parent<D, F> {}
 ///
-/// impl<D: ReadOnlyQueryData + ReleaseStateQueryData + 'static, F: QueryFilter + 'static>
+/// impl<D: ReleaseStateQueryData + 'static, F: QueryFilter + 'static>
 ///     ReleaseStateQueryData for Parent<D, F>
 /// {
 ///     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -3049,11 +3054,9 @@ pub struct NestedQueryFetch<'w> {
 // SAFETY:
 // Does not access any components on the current entity
 // Accesses through the nested query are registered in `init_nested_access`
-unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> WorldQuery
-    for NestedQuery<D, F>
-{
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for NestedQuery<D, F> {
     type Fetch<'w> = NestedQueryFetch<'w>;
-    type State = QueryState<D, F>;
+    type State = ErasedQueryState<D::ReadOnly, F>;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -3099,6 +3102,12 @@ unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> WorldQuery
         component_access_set: &mut FilteredAccessSet,
         world: UnsafeWorldCell,
     ) {
+        // SAFETY: Either this was originally created as a `NestedQuery<D, F>`,
+        // in which case `D` matches the type passed to `new`,
+        // or this was created as some other type and transmuted,
+        // in which case `D: ReadOnlyQueryData` and `D == D::ReadOnly`.
+        let state = unsafe { state.as_query_state::<D>() };
+
         state.init_access(system_name, component_access_set, world);
     }
 
@@ -3107,7 +3116,7 @@ unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> WorldQuery
         // `WorldQuery::init_nested_access` must be called before `WorldQuery::init_fetch,
         // which must be called before `QueryData::fetch`,
         // and we only call methods on the `QueryState` in `fetch`.
-        unsafe { QueryState::<D, F>::new_unchecked(world) }
+        ErasedQueryState::new(unsafe { QueryState::<D, F>::new_unchecked(world) })
     }
 
     fn get_state(_components: &Components) -> Option<Self::State> {
@@ -3126,6 +3135,12 @@ unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> WorldQuery
     }
 
     fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+        // SAFETY: Either this was originally created as a `NestedQuery<D, F>`,
+        // in which case `D` matches the type passed to `new`,
+        // or this was created as some other type and transmuted,
+        // in which case `D: ReadOnlyQueryData` and `D == D::ReadOnly`.
+        let state = unsafe { state.as_query_state_mut::<D>() };
+
         state.update_archetypes_unsafe_world_cell(world);
     }
 }
@@ -3133,16 +3148,14 @@ unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> WorldQuery
 // SAFETY:
 // `Self::ReadOnly` accesses `D::ReadOnly`, which is a subset of the data accessed by `D`
 // `IS_READ_ONLY` iff `D::IS_READ_ONLY` iff `D: ReadOnlyQueryData` iff `Self: ReadOnlyQueryData`
-unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> QueryData
-    for NestedQuery<D, F>
-{
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for NestedQuery<D, F> {
     const IS_READ_ONLY: bool = D::IS_READ_ONLY;
     // Nested queries are always archetypal because `fetch` always returns `Some`.
     // If `D::IS_ARCHETYPAL == false` or `F::IS_ARCHETYPAL == false`,
     // then the nested query may filter out some entities that *it* matches,
     // but it will not filter the outer query.
     const IS_ARCHETYPAL: bool = true;
-    type ReadOnly = NestedQuery<D, F>;
+    type ReadOnly = NestedQuery<D::ReadOnly, F>;
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
@@ -3158,6 +3171,12 @@ unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> QueryData
         _entity: Entity,
         _table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
+        // SAFETY: Either this was originally created as a `NestedQuery<D, F>`,
+        // in which case `D` matches the type passed to `new`,
+        // or this was created as some other type and transmuted,
+        // in which case `D: ReadOnlyQueryData` and `D == D::ReadOnly`.
+        let state = unsafe { state.as_query_state::<D>() };
+
         // SAFETY:
         // - We registered the required access in `init_nested_access`, so it's available.
         // - If we are fetching multiple entities concurrently,
@@ -3191,7 +3210,7 @@ unsafe impl<D: ReadOnlyQueryData, F: QueryFilter> IterQueryData for NestedQuery<
 // If `D::IS_ARCHETYPAL == false` or `F::IS_ARCHETYPAL == false`,
 // then the nested query may filter out some entities that *it* matches,
 // but it will never filter the outer query.
-impl<D: ReadOnlyQueryData, F: QueryFilter> ArchetypeQueryData for NestedQuery<D, F> {}
+impl<D: QueryData, F: QueryFilter> ArchetypeQueryData for NestedQuery<D, F> {}
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {
