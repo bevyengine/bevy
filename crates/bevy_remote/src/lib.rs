@@ -582,6 +582,8 @@ pub mod builtin_methods;
 #[cfg(feature = "http")]
 pub mod http;
 pub mod schemas;
+#[cfg(feature = "bevy_debug_stepping")]
+pub mod stepping_methods;
 
 const CHANNEL_SIZE: usize = 16;
 
@@ -835,28 +837,28 @@ impl RemotePlugin {
     #[cfg(feature = "bevy_debug_stepping")]
     fn add_stepping_methods(self, to_main: bool) -> Self {
         self.with_method(
-            builtin_methods::BRP_STEPPING_STATUS,
-            builtin_methods::stepping_status,
+            stepping_methods::BRP_STEPPING_STATUS,
+            stepping_methods::stepping_status,
             to_main,
         )
         .with_method(
-            builtin_methods::BRP_STEPPING_ENABLE,
-            builtin_methods::stepping_enable,
+            stepping_methods::BRP_STEPPING_ENABLE,
+            stepping_methods::stepping_enable,
             to_main,
         )
         .with_method(
-            builtin_methods::BRP_STEPPING_DISABLE,
-            builtin_methods::stepping_disable,
+            stepping_methods::BRP_STEPPING_DISABLE,
+            stepping_methods::stepping_disable,
             to_main,
         )
         .with_method(
-            builtin_methods::BRP_STEPPING_STEP_FRAME,
-            builtin_methods::stepping_step_frame,
+            stepping_methods::BRP_STEPPING_STEP_FRAME,
+            stepping_methods::stepping_step_frame,
             to_main,
         )
         .with_method(
-            builtin_methods::BRP_STEPPING_CONTINUE_FRAME,
-            builtin_methods::stepping_continue_frame,
+            stepping_methods::BRP_STEPPING_CONTINUE_FRAME,
+            stepping_methods::stepping_continue_frame,
             to_main,
         )
     }
