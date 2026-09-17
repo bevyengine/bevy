@@ -141,6 +141,11 @@ impl FromWorld for ChildOf {
 /// using the [`IntoIterator`] trait.
 /// For more complex access patterns, see the [`RelationshipTarget`] trait.
 ///
+/// # Ordering
+///
+/// This method does not guarantee any specific ordering unless methods that guarantee sorting or the stabilty
+/// of the existing order are used.
+///
 /// [`Relationship`]: crate::relationship::Relationship
 /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 #[derive(Component, Default, Debug, PartialEq, Eq)]
