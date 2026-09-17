@@ -482,7 +482,8 @@
 //!
 //! Retrieve the name of the running application and the Bevy version it was built against. This method has no parameters.
 //!
-//! `result`: An object with `app_name` and `bevy_version` string fields.
+//! `result`: An object with `app_name`, `bevy_version`, and `sub_app` string fields. `sub_app` is either
+//! `"main"` or `"render"`, depending on which `SubApp` handled the request.
 //!
 //! ### `rpc.discover`
 //!
@@ -788,7 +789,13 @@ impl RemotePlugin {
         )
         .with_method(
             builtin_methods::BRP_APP_INFO_METHOD,
-            builtin_methods::process_remote_app_info_request,
+            if to_main {
+                builtin_methods::process_remote_app_info_request_main
+                    as fn(In<Option<Value>>, &World) -> BrpResult
+            } else {
+                builtin_methods::process_remote_app_info_request_render
+                    as fn(In<Option<Value>>, &World) -> BrpResult
+            },
             to_main,
         )
         .with_method(

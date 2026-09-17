@@ -573,6 +573,8 @@ pub struct BrpAppInfoResponse {
     pub app_name: String,
     /// The version of the Bevy engine the application was built against.
     pub bevy_version: String,
+    /// Which `SubApp` handled the request: `"main"` or `"render"`.
+    pub sub_app: String,
 }
 
 /// One query match result: a single entity paired with the requested components.
@@ -1734,8 +1736,28 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
     serde_json::to_value(schemas).map_err(BrpError::internal)
 }
 
+/// Handles an `app.info` request coming from a client connected to the main app.
+pub fn process_remote_app_info_request_main(
+    In(params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+    process_remote_app_info_request(In(params), world, "main")
+}
+
+/// Handles an `app.info` request coming from a client connected to the render app.
+pub fn process_remote_app_info_request_render(
+    In(params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+    process_remote_app_info_request(In(params), world, "render")
+}
+
 /// Handles an `app.info` request coming from a client.
-pub fn process_remote_app_info_request(In(_params): In<Option<Value>>, world: &World) -> BrpResult {
+fn process_remote_app_info_request(
+    In(_params): In<Option<Value>>,
+    world: &World,
+    sub_app: &str,
+) -> BrpResult {
     let app_name = world
         .get_resource::<RemoteAppName>()
         .map_or_else(|| "bevy".to_owned(), |name| name.0.clone());
@@ -1743,6 +1765,7 @@ pub fn process_remote_app_info_request(In(_params): In<Option<Value>>, world: &W
     let response = BrpAppInfoResponse {
         app_name,
         bevy_version: env!("CARGO_PKG_VERSION").to_owned(),
+        sub_app: sub_app.to_owned(),
     };
 
     serde_json::to_value(response).map_err(BrpError::internal)
@@ -2521,11 +2544,12 @@ mod tests {
     fn app_info_defaults() {
         let world = World::default();
 
-        let response = process_remote_app_info_request(In(None), &world).unwrap();
+        let response = process_remote_app_info_request_main(In(None), &world).unwrap();
         let response = serde_json::from_value::<BrpAppInfoResponse>(response).unwrap();
 
         assert_eq!(response.app_name, "bevy");
         assert_eq!(response.bevy_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(response.sub_app, "main");
     }
 
     #[test]
@@ -2533,10 +2557,21 @@ mod tests {
         let mut world = World::default();
         world.insert_resource(RemoteAppName("Demo".into()));
 
-        let response = process_remote_app_info_request(In(None), &world).unwrap();
+        let response = process_remote_app_info_request_main(In(None), &world).unwrap();
         let response = serde_json::from_value::<BrpAppInfoResponse>(response).unwrap();
 
         assert_eq!(response.app_name, "Demo");
         assert_eq!(response.bevy_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(response.sub_app, "main");
+    }
+
+    #[test]
+    fn app_info_render_sub_app() {
+        let world = World::default();
+
+        let response = process_remote_app_info_request_render(In(None), &world).unwrap();
+        let response = serde_json::from_value::<BrpAppInfoResponse>(response).unwrap();
+
+        assert_eq!(response.sub_app, "render");
     }
 }
