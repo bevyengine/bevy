@@ -617,12 +617,21 @@ impl BundleInfo {
             // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
             {
                 let current_archetype = &archetypes[archetype_id];
+                let (current_table_components, current_sparse_set_components): (Vec<_>, Vec<_>) =
+                    current_archetype
+                        .iter_components()
+                        .partition(|&component_id| {
+                            // SAFETY: Every component in an archetype is registered in this world.
+                            unsafe { components.get_info_unchecked(component_id) }.storage_type()
+                                == StorageType::Table
+                        });
+
                 table_components = if new_table_components.is_empty() {
                     // If there are no new table components, we can keep using this table.
                     table_id = current_archetype.table_id();
-                    current_archetype.table_components().collect()
+                    current_table_components
                 } else {
-                    new_table_components.extend(current_archetype.table_components());
+                    new_table_components.extend(current_table_components);
                     // Sort to ignore order while hashing.
                     new_table_components.sort_unstable();
                     // SAFETY: all component ids in `new_table_components` exist
@@ -636,9 +645,9 @@ impl BundleInfo {
                 };
 
                 sparse_set_components = if new_sparse_set_components.is_empty() {
-                    current_archetype.sparse_set_components().collect()
+                    current_sparse_set_components
                 } else {
-                    new_sparse_set_components.extend(current_archetype.sparse_set_components());
+                    new_sparse_set_components.extend(current_sparse_set_components);
                     // Sort to ignore order while hashing.
                     new_sparse_set_components.sort_unstable();
                     new_sparse_set_components
