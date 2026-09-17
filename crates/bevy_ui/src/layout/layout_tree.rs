@@ -151,11 +151,11 @@ pub struct ComputedLayout {
     is_root: bool,
     /// children
     children: Vec<NodeId>,
-    /// true if layout changed
+    /// if true, the layout returned from `Taffy` changed
     layout_changed: bool,
-    /// self is dirty
+    /// if true local inputs have changed
     self_dirty: bool,
-    ///  true if subtree needs update
+    ///  if true this node or its descendent's geometry needs to be updated.
     subtree_dirty: bool,
     /// true if node has an `Outline` component
     has_outline: bool,
