@@ -104,7 +104,7 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
         if ray.kind == RAY_QUERY_INTERSECTION_NONE {
             @if(DLSS_RR_GUIDE_BUFFERS)
             if !psr.finished && !next_bounce.diffuse_selected {
-                psr_environment_miss(pixel_id, wo);
+                psr_environment_miss(pixel_id, psr, world_position, wo);
             }
 
             let environment_map_light_radiance = sample_environment_map_light(next_bounce.wi);
