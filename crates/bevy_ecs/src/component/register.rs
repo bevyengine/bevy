@@ -4,20 +4,20 @@ use bevy_utils::TypeIdHashMap;
 use core::any::Any;
 use core::{any::TypeId, fmt::Debug, ops::Deref};
 
-use crate::component::{enforce_no_required_components_recursion, RequiredComponentsRegistrator};
-use crate::entity::{EntityAllocator, RemoteAllocator};
-use crate::lifecycle::ComponentHooks;
 use crate::{
     component::{
-        Component, ComponentDescriptor, ComponentId, Components, RequiredComponents, StorageType,
+        enforce_no_required_components_recursion, Component, ComponentDescriptor, ComponentId,
+        Components, RequiredComponents, RequiredComponentsRegistrator, StorageType,
     },
+    entity::EntityAllocator,
+    lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
 };
 
 /// A [`Components`] wrapper that enables additional features, like registration.
 pub struct ComponentsRegistrator<'w> {
     pub(super) components: &'w mut Components,
-    pub(super) allocator: &'w mut EntityAllocator,
+    pub(super) allocator: &'w EntityAllocator,
     pub(super) recursion_check_stack: Vec<ComponentId>,
 }
 
@@ -35,7 +35,7 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # Safety
     ///
     /// The [`Components`] and [`EntityAllocator`] must come from the same world.
-    pub unsafe fn new(components: &'w mut Components, allocator: &'w mut EntityAllocator) -> Self {
+    pub unsafe fn new(components: &'w mut Components, allocator: &'w EntityAllocator) -> Self {
         Self {
             components,
             allocator,
@@ -48,12 +48,7 @@ impl<'w> ComponentsRegistrator<'w> {
     /// It is generally not a good idea to queue a registration when you can instead register directly on this type.
     pub fn as_queued(&self) -> ComponentsQueuedRegistrator<'_> {
         // SAFETY: ensured by the caller that created self.
-        unsafe {
-            ComponentsQueuedRegistrator::new(
-                self.components,
-                self.allocator.build_remote_allocator(),
-            )
-        }
+        unsafe { ComponentsQueuedRegistrator::new(self.components, self.allocator) }
     }
 
     /// Applies every queued registration.
@@ -377,7 +372,7 @@ impl Debug for QueuedComponents {
 /// Use this only if you need to know the id of a component but do not need to modify the contents of the world based on that id.
 pub struct ComponentsQueuedRegistrator<'w> {
     components: &'w Components,
-    allocator: RemoteAllocator,
+    allocator: &'w EntityAllocator,
 }
 
 impl Deref for ComponentsQueuedRegistrator<'_> {
@@ -394,7 +389,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// # Safety
     ///
     /// The [`Components`] and [`RemoteAllocator`] must come from the same world.
-    pub unsafe fn new(components: &'w Components, allocator: RemoteAllocator) -> Self {
+    pub unsafe fn new(components: &'w Components, allocator: &'w EntityAllocator) -> Self {
         Self {
             components,
             allocator,

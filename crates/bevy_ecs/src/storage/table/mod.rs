@@ -881,10 +881,9 @@ mod tests {
     #[test]
     fn table() {
         let mut components = Components::default();
-        let mut allocator = EntityAllocator::default();
+        let allocator = EntityAllocator::default();
         // SAFETY: They are both new.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut components, &mut allocator) };
+        let mut registrator = unsafe { ComponentsRegistrator::new(&mut components, &allocator) };
         let component_id = registrator.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
