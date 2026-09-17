@@ -11,7 +11,7 @@ use bevy_ecs::{
 use crate::{
     layout::{
         layout_tree::{collect_ui_children, entity_node_id, node_id_entity, ComputedLayout},
-        UiTreeChanged,
+        UiTreeDirty,
     },
     ContentSize, Display, FixedNode, GhostNode, Node,
 };
@@ -20,7 +20,7 @@ use crate::{
 pub fn print_ui_layout_tree(
     root_node_query: Query<Entity, (With<Node>, Without<ChildOf>)>,
     fixed_nodes_query: Query<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>,
-    ui_hierarchy: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
+    ui_hierarchy: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
     layout_query: Query<(&Node, &ComputedLayout, &ContentSize)>,
     mut root_stack: Local<Vec<taffy::NodeId>>,
 ) {

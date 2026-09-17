@@ -1,7 +1,7 @@
 use crate::{
     layout::{
         layout_tree::{ComputedLayout, TaffyStyle},
-        UiTreeChanged,
+        UiTreeDirty,
     },
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val,
@@ -480,7 +480,7 @@ impl From<BVec2> for IgnoreScroll {
     Visibility,
     ZIndex,
     EmSize,
-    UiTreeChanged
+    UiTreeDirty
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(

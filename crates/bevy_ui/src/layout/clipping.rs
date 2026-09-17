@@ -1,6 +1,6 @@
 use crate::{
     layout_tree::ComputedLayout, ui_transform::UiGlobalTransform, CalculatedClip, Display,
-    FixedNode, GhostNode, Node, OverrideClip, UiTreeChanged,
+    FixedNode, GhostNode, Node, OverrideClip, UiTreeDirty,
 };
 
 use super::ComputedNode;
@@ -27,7 +27,7 @@ pub fn update_clipping_system(
         Has<OverrideClip>,
         Has<FixedNode>,
         Has<GhostNode>,
-        Ref<UiTreeChanged>,
+        Ref<UiTreeDirty>,
     )>,
     ui_children: Query<&Children, With<Node>>,
 ) {
@@ -61,7 +61,7 @@ fn update_clipping(
         Has<OverrideClip>,
         Has<FixedNode>,
         Has<GhostNode>,
-        Ref<UiTreeChanged>,
+        Ref<UiTreeDirty>,
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<CalculatedClip>,

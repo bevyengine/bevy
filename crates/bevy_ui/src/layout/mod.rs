@@ -29,13 +29,13 @@ mod convert;
 pub mod debug;
 pub mod layout_tree;
 
-/// `UiTreeChanged` is used to signal that a `Node` 's subtree contains a
+/// `UiTreeDirty` is used to signal that a `Node` 's subtree contains a
 /// change that requires a layout update.
 /// ZST marker component uses change detection to signal changes.
 ///
 /// Optimization copied from `bevy_transform`'s `TransformTreeChanged`.
 #[derive(Component, Default, Debug, Clone)]
-pub struct UiTreeChanged;
+pub struct UiTreeDirty;
 
 #[derive(Copy, Clone)]
 pub struct LayoutContext {
@@ -150,8 +150,8 @@ pub fn sync_taffy_styles_with_nodes(
 }
 
 /// Identify entities whose UI layout input components have been changed, added or removed.
-/// Mark their `UiTreeChanged` component changed, then walk up the tree and mark
-/// each ancestor's `UiTreeChanged` changed.
+/// Mark their `UiTreeDirty` component changed, then walk up the tree and mark
+/// each ancestor's `UiTreeDirty` changed.
 pub fn mark_dirty_ui_trees(
     changed_ui_components_query: Query<
         Entity,
@@ -181,7 +181,7 @@ pub fn mark_dirty_ui_trees(
     mut removed_nodes: RemovedComponents<Node>,
     mut removed_ghost_nodes: RemovedComponents<GhostNode>,
     mut removed_override_clip: RemovedComponents<OverrideClip>,
-    mut trees: Query<(&mut UiTreeChanged, Option<&ChildOf>)>,
+    mut trees: Query<(&mut UiTreeDirty, Option<&ChildOf>)>,
 ) {
     let removed = removed_outlines
         .read()
@@ -213,7 +213,7 @@ pub fn mark_dirty_ui_trees(
 pub fn ui_layout_system(
     ui_root_node_query: Query<Entity, (With<Node>, Without<ChildOf>)>,
     fixed_nodes_query: Query<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>,
-    ui_children: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
+    ui_children: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
     target_query: Query<Ref<ComputedUiRenderTargetInfo>>,
     node_query: Query<
         (
@@ -226,7 +226,7 @@ pub fn ui_layout_system(
             Option<Ref<LayoutConfig>>,
             Option<Ref<IgnoreScroll>>,
             Has<OverrideClip>,
-            Ref<UiTreeChanged>,
+            Ref<UiTreeDirty>,
         ),
         With<Node>,
     >,
@@ -396,7 +396,7 @@ pub fn update_computed_nodes(
         Option<&IgnoreScroll>,
         Has<FixedNode>,
         Has<GhostNode>,
-        Ref<UiTreeChanged>,
+        Ref<UiTreeDirty>,
         Option<&Children>,
     )>,
     mut child_stack: Local<Vec<Entity>>,
@@ -446,7 +446,7 @@ fn update_uinode_geometry_recursive(
         Option<&IgnoreScroll>,
         Has<FixedNode>,
         Has<GhostNode>,
-        Ref<UiTreeChanged>,
+        Ref<UiTreeDirty>,
         Option<&Children>,
     )>,
     inverse_target_scale_factor: f32,
@@ -752,7 +752,7 @@ pub fn update_border_radius(
 
 #[cfg(test)]
 mod tests {
-    use crate::layout::{mark_dirty_ui_trees, UiTreeChanged};
+    use crate::layout::{mark_dirty_ui_trees, UiTreeDirty};
     use crate::layout_tree::compute_layout;
     use crate::layout_tree::TaffyStyle;
     use crate::update_border_radius;
@@ -1238,7 +1238,7 @@ mod tests {
 
         fn test_system(
             In(root_node_entity): In<Entity>,
-            ui_children: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
+            ui_children: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
             node_query: Query<
                 (
                     Ref<TaffyStyle>,
@@ -1250,7 +1250,7 @@ mod tests {
                     Option<Ref<LayoutConfig>>,
                     Option<Ref<IgnoreScroll>>,
                     Has<OverrideClip>,
-                    Ref<UiTreeChanged>,
+                    Ref<UiTreeDirty>,
                 ),
                 With<Node>,
             >,

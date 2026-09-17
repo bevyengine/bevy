@@ -20,7 +20,7 @@ use taffy::{
 };
 
 use crate::{
-    layout::UiTreeChanged, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
+    layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
     LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
     UiTransform,
 };
@@ -111,7 +111,7 @@ pub(super) fn node_id_entity(node_id: NodeId) -> Entity {
 
 pub(super) fn collect_ui_children(
     parent: Entity,
-    ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
+    ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
     child_stack: &mut Vec<NodeId>,
     ghost_stack: &mut Vec<Entity>,
 ) -> bool {
@@ -275,7 +275,7 @@ impl ComputedLayout {
 pub(crate) fn compute_layout(
     ui_root_entity: Entity,
     render_target_resolution: UVec2,
-    ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
+    ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
     node_query: &Query<
         (
             Ref<TaffyStyle>,
@@ -287,7 +287,7 @@ pub(crate) fn compute_layout(
             Option<Ref<LayoutConfig>>,
             Option<Ref<IgnoreScroll>>,
             Has<OverrideClip>,
-            Ref<UiTreeChanged>,
+            Ref<UiTreeDirty>,
         ),
         With<Node>,
     >,
@@ -385,7 +385,7 @@ pub(crate) fn compute_layout(
 fn sync_runtime_layout_tree<'a>(
     root: Entity,
     entity: Entity,
-    ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
+    ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
     node_query: &Query<
         (
             Ref<TaffyStyle>,
@@ -397,7 +397,7 @@ fn sync_runtime_layout_tree<'a>(
             Option<Ref<LayoutConfig>>,
             Option<Ref<IgnoreScroll>>,
             Has<OverrideClip>,
-            Ref<UiTreeChanged>,
+            Ref<UiTreeDirty>,
         ),
         With<Node>,
     >,
