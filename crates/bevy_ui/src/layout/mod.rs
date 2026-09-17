@@ -3912,4 +3912,66 @@ mod tests {
         assert!(world.get::<CalculatedClip>(descendant).is_some());
         assert!(world.get::<CalculatedClip>(descendant).is_some());
     }
+
+    #[test]
+    fn adding_fixednode_updates_sibling() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let child1 = world
+            .spawn(Node {
+                width: percent(100.),
+                height: percent(100.),
+                ..default()
+            })
+            .id();
+        let child2 = world
+            .spawn(Node {
+                width: percent(100.),
+                height: percent(100.),
+                ..default()
+            })
+            .id();
+
+        world
+            .spawn(Node {
+                width: px(100.),
+                height: px(100.),
+                ..default()
+            })
+            .add_children(&[child1, child2]);
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(world.get::<ComputedNode>(child1).unwrap().size.x, 50.);
+        assert_eq!(world.get::<ComputedNode>(child2).unwrap().size.x, 50.);
+        world.entity_mut(child1).insert(FixedNode);
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(world.get::<ComputedNode>(child1).unwrap().size.x, 1000.);
+        assert_eq!(world.get::<ComputedNode>(child2).unwrap().size.x, 100.);
+        world.entity_mut(child1).remove::<FixedNode>();
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(world.get::<ComputedNode>(child1).unwrap().size.x, 50.);
+        assert_eq!(world.get::<ComputedNode>(child2).unwrap().size.x, 50.);
+        world.entity_mut(child2).insert(FixedNode);
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(world.get::<ComputedNode>(child1).unwrap().size.x, 100.);
+        assert_eq!(world.get::<ComputedNode>(child2).unwrap().size.x, 1000.);
+        world.entity_mut(child1).insert(FixedNode);
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(world.get::<ComputedNode>(child1).unwrap().size.x, 1000.);
+        assert_eq!(world.get::<ComputedNode>(child2).unwrap().size.x, 1000.)
+    }
 }
