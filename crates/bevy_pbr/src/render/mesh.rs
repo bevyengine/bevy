@@ -2416,37 +2416,41 @@ fn collect_gpu_culled_meshes_for_subview(
         }
 
         // Process entities that changed layers.
+        let mut process_changed_layer = |main_entity: &MainEntity, render_layers: &RenderLayers| {
+            let entity_is_relevant = is_entity_relevant(render_layers);
+            let entity_was_relevant = render_view_visible_mesh_entities
+                .entities_gpu_culling
+                .contains_key(main_entity);
+
+            match (entity_was_relevant, entity_is_relevant) {
+                (false, false) | (true, true) => {
+                    // No change; do nothing.
+                }
+                (false, true) => {
+                    // The entity became visible. This is an addition.
+                    render_view_visible_mesh_entities
+                        .entities_gpu_culling
+                        .insert(*main_entity, Entity::PLACEHOLDER);
+                    render_view_visible_mesh_entities
+                        .added_entities
+                        .push((Entity::PLACEHOLDER, *main_entity));
+                    any_added = true;
+                }
+                (true, false) => {
+                    // The entity became invisible. This is a removal.
+                    render_view_visible_mesh_entities
+                        .entities_gpu_culling
+                        .remove(main_entity);
+                    render_view_visible_mesh_entities
+                        .removed_entities
+                        .push((Entity::PLACEHOLDER, *main_entity));
+                }
+            }
+        };
+
         if view_render_layers_changed {
             for (main_entity, render_layers) in render_mesh_instance_gpu_queues.entities.iter() {
-                let entity_is_relevant = is_entity_relevant(render_layers);
-                let entity_was_relevant = render_view_visible_mesh_entities
-                    .entities_gpu_culling
-                    .contains_key(main_entity);
-
-                match (entity_was_relevant, entity_is_relevant) {
-                    (false, false) | (true, true) => {
-                        // No change; do nothing.
-                    }
-                    (false, true) => {
-                        // The entity became visible. This is an addition.
-                        render_view_visible_mesh_entities
-                            .entities_gpu_culling
-                            .insert(*main_entity, Entity::PLACEHOLDER);
-                        render_view_visible_mesh_entities
-                            .added_entities
-                            .push((Entity::PLACEHOLDER, *main_entity));
-                        any_added = true;
-                    }
-                    (true, false) => {
-                        // The entity became invisible. This is a removal.
-                        render_view_visible_mesh_entities
-                            .entities_gpu_culling
-                            .remove(main_entity);
-                        render_view_visible_mesh_entities
-                            .removed_entities
-                            .push((Entity::PLACEHOLDER, *main_entity));
-                    }
-                }
+                process_changed_layer(main_entity, render_layers);
             }
         } else {
             for main_entity in &render_mesh_instance_gpu_queues.changed_layers {
@@ -2454,36 +2458,7 @@ fn collect_gpu_culled_meshes_for_subview(
                 else {
                     continue;
                 };
-
-                // This is either treated as no change, as an addition, or as a removal.
-                let entity_was_relevant = render_view_visible_mesh_entities
-                    .entities_gpu_culling
-                    .contains_key(main_entity);
-                let entity_is_relevant = is_entity_relevant(render_layers);
-                match (entity_was_relevant, entity_is_relevant) {
-                    (false, false) | (true, true) => {
-                        // No change; do nothing.
-                    }
-                    (false, true) => {
-                        // The entity became visible. This is an addition.
-                        render_view_visible_mesh_entities
-                            .entities_gpu_culling
-                            .insert(*main_entity, Entity::PLACEHOLDER);
-                        render_view_visible_mesh_entities
-                            .added_entities
-                            .push((Entity::PLACEHOLDER, *main_entity));
-                        any_added = true;
-                    }
-                    (true, false) => {
-                        // The entity became invisible. This is a removal.
-                        render_view_visible_mesh_entities
-                            .entities_gpu_culling
-                            .remove(main_entity);
-                        render_view_visible_mesh_entities
-                            .removed_entities
-                            .push((Entity::PLACEHOLDER, *main_entity));
-                    }
-                }
+                process_changed_layer(main_entity, render_layers);
             }
         }
 

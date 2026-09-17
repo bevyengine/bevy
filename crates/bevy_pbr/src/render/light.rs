@@ -344,7 +344,7 @@ pub fn extract_lights(
                 &GlobalTransform,
                 &ViewVisibility,
                 &CubemapFrusta,
-                Option<Ref<RenderLayers>>,
+                Option<&RenderLayers>,
                 Option<&VolumetricLight>,
             ),
             Or<(
@@ -368,7 +368,7 @@ pub fn extract_lights(
                 &GlobalTransform,
                 &ViewVisibility,
                 &Frustum,
-                Option<Ref<RenderLayers>>,
+                Option<&RenderLayers>,
                 Option<&VolumetricLight>,
             ),
             Or<(
@@ -394,7 +394,7 @@ pub fn extract_lights(
                 &CascadesFrusta,
                 &GlobalTransform,
                 &ViewVisibility,
-                Option<Ref<RenderLayers>>,
+                Option<&RenderLayers>,
                 Option<&VolumetricLight>,
                 Has<OcclusionCulling>,
                 Option<&SunDisk>,
@@ -595,14 +595,7 @@ pub fn extract_lights(
             extracted_point_light,
             (*frusta).clone(),
             MainEntity::from(main_entity),
-            maybe_render_layers.map_or_else(default, |render_layers| {
-                (
-                    (*render_layers).clone(),
-                    ExtractedRenderLayersMeta {
-                        changed: render_layers.is_changed(),
-                    },
-                )
-            }),
+            maybe_render_layers.unwrap_or_default().clone(),
         ));
     }
 
@@ -741,14 +734,7 @@ pub fn extract_lights(
             extracted_spot_light,
             *frustum,
             MainEntity::from(main_entity),
-            maybe_render_layers.map_or_else(default, |render_layers| {
-                (
-                    (*render_layers).clone(),
-                    ExtractedRenderLayersMeta {
-                        changed: render_layers.is_changed(),
-                    },
-                )
-            }),
+            maybe_render_layers.unwrap_or_default().clone(),
         ));
     }
 
@@ -906,14 +892,7 @@ pub fn extract_lights(
         entity_commands.insert((
             extracted_directional_light,
             MainEntity::from(main_entity),
-            maybe_render_layers.map_or_else(default, |render_layers| {
-                (
-                    (*render_layers).clone(),
-                    ExtractedRenderLayersMeta {
-                        changed: render_layers.is_changed(),
-                    },
-                )
-            }),
+            maybe_render_layers.unwrap_or_default().clone(),
         ));
     }
 
@@ -969,6 +948,37 @@ pub fn extract_lights(
             RenderExtractedShadowMapVisibleEntities,
             RenderShadowMapVisibleEntities,
         )>();
+    }
+}
+
+pub fn extract_lights_render_layers_meta(
+    mut commands: Commands,
+    all_light_query: Extract<
+        Query<
+            (RenderEntity, Ref<RenderLayers>),
+            Or<(
+                With<PointLight>,
+                With<SpotLight>,
+                With<DirectionalLight>,
+                With<RectLight>,
+            )>,
+        >,
+    >,
+    mut extracted_render_layer_meta_query: Query<&mut ExtractedRenderLayersMeta>,
+) {
+    for (render_entity, render_layers) in all_light_query.iter() {
+        match extracted_render_layer_meta_query.get_mut(render_entity) {
+            Ok(mut meta) => {
+                meta.changed = render_layers.is_changed();
+            }
+            Err(_) => {
+                commands
+                    .entity(render_entity)
+                    .insert(ExtractedRenderLayersMeta {
+                        changed: render_layers.is_changed(),
+                    });
+            }
+        }
     }
 }
 
