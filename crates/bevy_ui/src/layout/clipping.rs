@@ -97,14 +97,6 @@ fn update_clipping(
         return;
     }
 
-    if !has_ghost_node
-        && !force_update
-        && !computed_layout.layout_changed()
-        && !computed_layout.subtree_dirty()
-    {
-        return;
-    }
-
     // If the UI node entity has an `OverrideClip`, discard any inherited clip rect
     if has_override_clip {
         maybe_inherited_clip = None;
