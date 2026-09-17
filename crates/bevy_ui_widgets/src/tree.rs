@@ -239,6 +239,25 @@ fn owning_tree(
         .find(|ancestor| trees.contains(*ancestor))
 }
 
+/// Returns the set of [`TreeView`] entities where at least one child has changed.
+fn owning_trees(
+    changed_entities: impl Iterator<Item = Entity>,
+    parents: &Query<&ChildOf>,
+    trees: &Query<Entity, With<TreeView>>,
+) -> EntityHashSet {
+    changed_entities
+        .filter_map(|entity| {
+            if trees.contains(entity) {
+                Some(entity)
+            } else {
+                parents
+                    .iter_ancestors(entity)
+                    .find(|ancestor| trees.contains(*ancestor))
+            }
+        })
+        .collect()
+}
+
 fn request_selection(
     view: &TreeView,
     selection: &SelectedTreeItem,
@@ -426,9 +445,10 @@ fn update_tree_item_levels(
     trees: Query<Entity, With<TreeView>>,
     children: Query<&Children>,
     containers: Query<(), With<TreeItemChildren>>,
+    parents: Query<&ChildOf>,
     mut queries: ParamSet<(
         Query<
-            (),
+            Entity,
             (
                 Or<(Changed<Children>, Added<TreeItem>)>,
                 Or<(With<TreeView>, With<TreeItem>, With<TreeItemChildren>)>,
@@ -437,13 +457,14 @@ fn update_tree_item_levels(
         Query<&mut TreeItem>,
     )>,
 ) {
-    if queries.p0().is_empty() {
+    let changed_trees = owning_trees(queries.p0().iter(), &parents, &trees);
+    if changed_trees.is_empty() {
         return;
     }
 
     let mut levels = Vec::new();
     let mut items = queries.p1();
-    for tree in trees.iter() {
+    for tree in changed_trees {
         collect_levels(tree, 0, &children, &containers, &items, &mut levels);
     }
     for (row, level) in levels {
