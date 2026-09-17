@@ -915,7 +915,7 @@ mod tests {
 
     #[test]
     fn sparse_sets() {
-        let mut ids = EntityAllocator::default();
+        let ids = EntityAllocator::default();
         let mut sets = SparseSets::default();
 
         #[derive(Component, Default, Debug)]

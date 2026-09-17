@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn check_compatibility() {
-        let mut ids = EntityAllocator::default();
+        let ids = EntityAllocator::default();
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn conflict_reporting() {
-        let mut ids = EntityAllocator::default();
+        let ids = EntityAllocator::default();
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
@@ -450,7 +450,7 @@ mod tests {
 
     #[test]
     fn conversion_to_access_sets() {
-        let mut ids = EntityAllocator::default();
+        let ids = EntityAllocator::default();
         let id_1 = ComponentId::new(ids.alloc());
 
         let access_none = SystemAccess::None;
@@ -481,13 +481,13 @@ mod tests {
 
     #[test]
     fn extending_access() {
-        let mut ids = EntityAllocator::default();
+        let ids = EntityAllocator::default();
         let mut access = SystemAccess::default();
 
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ComponentId(ids.alloc()));
+            set.add_unfiltered_component_read(ComponentId::new(ids.alloc()));
             set
         });
         let access_exclusive = SystemAccess::Exclusive;
