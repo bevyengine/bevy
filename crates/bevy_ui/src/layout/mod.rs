@@ -181,7 +181,12 @@ pub fn mark_dirty_ui_trees(
     mut removed_nodes: RemovedComponents<Node>,
     mut removed_ghost_nodes: RemovedComponents<GhostNode>,
     mut removed_override_clip: RemovedComponents<OverrideClip>,
-    mut trees: Query<(&mut UiTreeDirty, Option<&ChildOf>)>,
+    mut trees: Query<(
+        &mut UiTreeDirty,
+        Has<FixedNode>,
+        Has<GhostNode>,
+        Option<&ChildOf>,
+    )>,
 ) {
     let removed = removed_outlines
         .read()
@@ -194,13 +199,21 @@ pub fn mark_dirty_ui_trees(
         .chain(removed_override_clip.read());
 
     for mut next in changed_ui_components_query.iter().chain(removed) {
-        while let Ok((mut dirty_tree, maybe_child_of)) = trees.get_mut(next) {
+        while let Ok((mut dirty_tree, is_fixed_node, is_ghost_node, maybe_child_of)) =
+            trees.get_mut(next)
+        {
             // If `UiDirtyTree` was added since the last update, `is_changed()` will be `true` even if this node wasn't already visited.
             // So we can't skip it as we don't know if it was already visited.
             if dirty_tree.is_changed() && !dirty_tree.is_added() {
                 break;
             }
             dirty_tree.set_changed();
+            // Since `FixedNode`s create a new layout context, changes to a `FixedNode` or its descendants do not affect their ancestors.
+            // So abort upwards dirty tree propagation.
+            // A ghost node cannot also be fixed, so `FixedNode` is ignored if `GhostNode` is present.
+            if is_fixed_node && !is_ghost_node {
+                break;
+            }
             let Some(child_of) = maybe_child_of else {
                 // Reached UI root
                 break;
