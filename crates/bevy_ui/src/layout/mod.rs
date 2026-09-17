@@ -33,6 +33,7 @@ pub mod layout_tree;
 /// change that requires a layout update.
 /// ZST marker component uses change detection to signal changes.
 ///
+/// Doesn't need to be reset,
 /// Optimization copied from `bevy_transform`'s `TransformTreeChanged`.
 #[derive(Component, Default, Debug, Clone)]
 pub struct UiTreeDirty;
@@ -272,7 +273,7 @@ pub fn ui_layout_system(
         RemovedComponents<GhostNode>,
     ),
     rem_size: Res<RemSize>,
-
+    parent_query: Query<&ChildOf>,
     (mut child_stack, mut root_stack, mut fixed_node_changes, mut ghost_stack): (
         Local<Vec<taffy::NodeId>>,
         Local<Vec<taffy::NodeId>>,
@@ -324,11 +325,13 @@ pub fn ui_layout_system(
         }
     }
     root_stack.retain(|node_id| !fixed_nodes_query.contains(node_id_entity(*node_id)));
-    root_stack.extend(
-        fixed_nodes_query
-            .iter()
-            .filter_map(|(entity, is_ghost)| (!is_ghost).then_some(entity_node_id(entity))),
-    );
+    root_stack.extend(fixed_nodes_query.iter().filter_map(|(entity, is_ghost)| {
+        (!is_ghost
+            && parent_query
+                .iter_ancestors::<ChildOf>(entity)
+                .all(|ancestor| ui_children.contains(ancestor)))
+        .then_some(entity_node_id(entity))
+    }));
 
     let mut computed_layout_query = node_queries.p0();
     for root_node in root_stack.iter().copied() {
