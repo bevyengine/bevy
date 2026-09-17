@@ -20,9 +20,9 @@ use bevy_picking::events::{
 use bevy_picking::hover::PointerCaptureMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
-    prelude::BorderRect, update_computed_nodes, BackgroundColor, BorderColor, BorderRadius,
-    ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
-    UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
+    prelude::BorderRect, update_border_radius, update_computed_nodes, BackgroundColor, BorderColor,
+    BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy,
+    ScrollPosition, UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
@@ -485,7 +485,8 @@ impl Plugin for ScrollbarPlugin {
                 PostUpdate,
                 update_scrollbar_thumb
                     .in_set(UiSystems::Layout)
-                    .after(update_computed_nodes),
+                    .after(update_computed_nodes)
+                    .after(update_border_radius),
             );
     }
 }
