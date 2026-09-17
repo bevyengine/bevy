@@ -6,6 +6,7 @@ use std::sync::Mutex;
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_dev_tools::schedule_data::serde::ScheduleData;
+use bevy_diagnostic::{DiagnosticPath, DiagnosticsStore};
 use bevy_ecs::{
     component::ComponentId,
     entity::{ContainsEntity, Entity},
@@ -109,6 +110,12 @@ pub const BRP_SCHEDULE_GRAPH: &str = "schedule.graph";
 
 /// The method path for an `app.info` request.
 pub const BRP_APP_INFO_METHOD: &str = "app.info";
+
+/// The method path for a `diagnostics.list` request.
+pub const BRP_DIAGNOSTICS_LIST_METHOD: &str = "diagnostics.list";
+
+/// The method path for a `diagnostics.get` request.
+pub const BRP_DIAGNOSTICS_GET_METHOD: &str = "diagnostics.get";
 
 /// The method path for a `rpc.discover` request.
 pub const RPC_DISCOVER_METHOD: &str = "rpc.discover";
@@ -541,6 +548,44 @@ pub struct BrpScheduleListResponse {
     schedule_labels: Vec<String>,
     unavailable_schedule_labels: Vec<String>,
     empty_schedule_labels: Vec<String>,
+}
+
+/// The response to a `diagnostics.list` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub struct BrpDiagnosticsListResponse {
+    /// The paths of every diagnostic registered in the world, sorted.
+    pub diagnostics: Vec<String>,
+}
+
+/// `diagnostics.get`: Retrieves the current values of diagnostics.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub struct BrpDiagnosticsGetParams {
+    /// The diagnostic paths to retrieve, or all diagnostics when omitted.
+    pub paths: Option<Vec<String>>,
+}
+
+/// A single diagnostic in a `diagnostics.get` response.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpDiagnostic {
+    /// The path identifying this diagnostic.
+    pub path: String,
+    /// The latest measured value, if any.
+    pub value: Option<f64>,
+    /// The simple moving average of the recorded history, if any.
+    pub average: Option<f64>,
+    /// The exponential moving average of the recorded history, if any.
+    pub smoothed: Option<f64>,
+    /// The suffix used when logging this diagnostic, typically a unit.
+    pub suffix: String,
+    /// The number of measurements currently kept in history.
+    pub history_len: usize,
+}
+
+/// The response to a `diagnostics.get` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub struct BrpDiagnosticsGetResponse {
+    /// The requested diagnostics, skipping any path that is not registered.
+    pub diagnostics: Vec<BrpDiagnostic>,
 }
 
 /// The response to a `schedule.graph` request.
@@ -1795,6 +1840,68 @@ pub fn schedule_list(In(_params): In<Option<Value>>, world: &World) -> BrpResult
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
+/// Handles a `diagnostics.list` request coming from a client.
+///
+/// Returns an empty list when no [`DiagnosticsStore`] is present in the world.
+pub fn process_remote_diagnostics_list_request(
+    In(_params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+    let mut diagnostics = match world.get_resource::<DiagnosticsStore>() {
+        Some(store) => store
+            .iter()
+            .map(|diagnostic| diagnostic.path().as_str().to_owned())
+            .collect::<Vec<_>>(),
+        None => Vec::new(),
+    };
+    diagnostics.sort();
+
+    serde_json::to_value(BrpDiagnosticsListResponse { diagnostics }).map_err(BrpError::internal)
+}
+
+/// Handles a `diagnostics.get` request coming from a client.
+///
+/// Paths that are not registered are silently skipped, and an empty list is returned when no
+/// [`DiagnosticsStore`] is present in the world.
+pub fn process_remote_diagnostics_get_request(
+    In(params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+    let paths = params
+        .map(parse::<BrpDiagnosticsGetParams>)
+        .transpose()?
+        .and_then(|params| params.paths);
+
+    let Some(store) = world.get_resource::<DiagnosticsStore>() else {
+        return serde_json::to_value(BrpDiagnosticsGetResponse::default())
+            .map_err(BrpError::internal);
+    };
+
+    let to_response = |diagnostic: &bevy_diagnostic::Diagnostic| BrpDiagnostic {
+        path: diagnostic.path().as_str().to_owned(),
+        value: diagnostic.value(),
+        average: diagnostic.average(),
+        smoothed: diagnostic.smoothed(),
+        suffix: diagnostic.suffix.to_string(),
+        history_len: diagnostic.history_len(),
+    };
+
+    let diagnostics = match paths {
+        Some(paths) => paths
+            .into_iter()
+            .filter_map(|path| store.get(&DiagnosticPath::new(path)))
+            .map(to_response)
+            .collect::<Vec<_>>(),
+        None => {
+            let mut diagnostics = store.iter().map(to_response).collect::<Vec<_>>();
+            diagnostics.sort_by(|a, b| a.path.cmp(&b.path));
+            diagnostics
+        }
+    };
+
+    serde_json::to_value(BrpDiagnosticsGetResponse { diagnostics }).map_err(BrpError::internal)
+}
+
 /// Handles a `schedule.graph` request coming from a client.
 ///
 /// Bevy removes a schedule from the world before running it, meaning that not all Schedules are available.
@@ -2570,5 +2677,88 @@ mod tests {
         let response = serde_json::from_value::<BrpAppInfoResponse>(response).unwrap();
 
         assert_eq!(response.sub_app, "render");
+    }
+
+    fn diagnostics_world() -> World {
+        let mut world = World::default();
+        let mut store = DiagnosticsStore::default();
+        store.add(
+            bevy_diagnostic::Diagnostic::new(DiagnosticPath::const_new("a/b")).with_suffix("ms"),
+        );
+        store.add(bevy_diagnostic::Diagnostic::new(DiagnosticPath::const_new(
+            "c/d",
+        )));
+        store
+            .get_mut(&DiagnosticPath::const_new("a/b"))
+            .unwrap()
+            .add_measurement(bevy_diagnostic::DiagnosticMeasurement {
+                time: bevy_platform::time::Instant::now(),
+                value: 4.0,
+            });
+        world.insert_resource(store);
+        world
+    }
+
+    #[test]
+    fn diagnostics_list_without_store() {
+        let world = World::default();
+
+        let response = process_remote_diagnostics_list_request(In(None), &world).unwrap();
+        let response: BrpDiagnosticsListResponse = serde_json::from_value(response).unwrap();
+
+        assert!(response.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn diagnostics_list_returns_sorted_paths() {
+        let world = diagnostics_world();
+
+        let response = process_remote_diagnostics_list_request(In(None), &world).unwrap();
+        let response: BrpDiagnosticsListResponse = serde_json::from_value(response).unwrap();
+
+        assert_eq!(
+            response.diagnostics,
+            vec!["a/b".to_owned(), "c/d".to_owned()]
+        );
+    }
+
+    #[test]
+    fn diagnostics_get_with_paths() {
+        let world = diagnostics_world();
+        let params = serde_json::json!({ "paths": ["a/b"] });
+
+        let response = process_remote_diagnostics_get_request(In(Some(params)), &world).unwrap();
+        let response: BrpDiagnosticsGetResponse = serde_json::from_value(response).unwrap();
+
+        assert_eq!(response.diagnostics.len(), 1);
+        let diagnostic = &response.diagnostics[0];
+        assert_eq!(diagnostic.path, "a/b");
+        assert_eq!(diagnostic.value, Some(4.0));
+        assert_eq!(diagnostic.suffix, "ms");
+        assert_eq!(diagnostic.history_len, 1);
+    }
+
+    #[test]
+    fn diagnostics_get_without_paths_returns_all() {
+        let world = diagnostics_world();
+
+        let response = process_remote_diagnostics_get_request(In(None), &world).unwrap();
+        let response: BrpDiagnosticsGetResponse = serde_json::from_value(response).unwrap();
+
+        assert_eq!(response.diagnostics.len(), 2);
+        assert_eq!(response.diagnostics[1].path, "c/d");
+        assert_eq!(response.diagnostics[1].value, None);
+    }
+
+    #[test]
+    fn diagnostics_get_skips_unknown_paths() {
+        let world = diagnostics_world();
+        let params = serde_json::json!({ "paths": ["a/b", "nope/nope"] });
+
+        let response = process_remote_diagnostics_get_request(In(Some(params)), &world).unwrap();
+        let response: BrpDiagnosticsGetResponse = serde_json::from_value(response).unwrap();
+
+        assert_eq!(response.diagnostics.len(), 1);
+        assert_eq!(response.diagnostics[0].path, "a/b");
     }
 }
