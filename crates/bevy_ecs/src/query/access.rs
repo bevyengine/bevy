@@ -1150,6 +1150,7 @@ impl FilteredAccessSet {
 mod tests {
     use crate::{
         component::{ComponentId, ComponentIdSet},
+        entity::EntityAllocator,
         query::{
             access::{AccessFilters, InvertibleComponentIdSet},
             Access, AccessConflicts, ComponentAccessKind, FilteredAccess, FilteredAccessSet,
@@ -1158,51 +1159,23 @@ mod tests {
     };
     use alloc::{vec, vec::Vec};
 
-    fn create_sample_access() -> Access {
-        let mut access = Access::default();
-
-        access.add_read(ComponentId::from_u32(1));
-        access.add_read(ComponentId::from_u32(2));
-        access.add_write(ComponentId::from_u32(3));
-        access.add_archetypal(ComponentId::from_u32(5));
-        access.read_all();
-
-        access
-    }
-
-    fn create_sample_filtered_access() -> FilteredAccess {
-        let mut filtered_access = FilteredAccess::default();
-
-        filtered_access.add_write(ComponentId::from_u32(1));
-        filtered_access.add_read(ComponentId::from_u32(2));
-        filtered_access.add_required(ComponentId::from_u32(3));
-        filtered_access.and_with(ComponentId::from_u32(4));
-
-        filtered_access
-    }
-
-    fn create_sample_access_filters() -> AccessFilters {
-        let mut access_filters = AccessFilters::default();
-
-        access_filters.with.insert(ComponentId::from_u32(3));
-        access_filters.without.insert(ComponentId::from_u32(5));
-
-        access_filters
-    }
-
-    fn create_sample_filtered_access_set() -> FilteredAccessSet {
-        let mut filtered_access_set = FilteredAccessSet::default();
-
-        filtered_access_set.add_unfiltered_component_read(ComponentId::from_u32(2));
-        filtered_access_set.add_unfiltered_component_write(ComponentId::from_u32(4));
-        filtered_access_set.read_all();
-
-        filtered_access_set
+    fn generate_ids(count: u32) -> Vec<ComponentId> {
+        let ids = EntityAllocator::default();
+        ids.alloc_many(count).map(|e| ComponentId::new(e)).collect()
     }
 
     #[test]
     fn test_access_clone() {
-        let original = create_sample_access();
+        let ids = generate_ids(4);
+        let (id_1, id_2, id_3, id_5) = (ids[0], ids[1], ids[2], ids[3]);
+
+        let mut original = Access::default();
+        original.add_read(id_1);
+        original.add_read(id_2);
+        original.add_write(id_3);
+        original.add_archetypal(id_5);
+        original.read_all();
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1210,12 +1183,22 @@ mod tests {
 
     #[test]
     fn test_access_clone_from() {
-        let original = create_sample_access();
+        let ids = generate_ids(7);
+        let (id_1, id_2, id_3, id_4, id_5, id_7, id_8) =
+            (ids[0], ids[1], ids[2], ids[3], ids[4], ids[5], ids[6]);
+
+        let mut original = Access::default();
+        original.add_read(id_1);
+        original.add_read(id_2);
+        original.add_write(id_3);
+        original.add_archetypal(id_5);
+        original.read_all();
+
         let mut cloned = Access::default();
 
-        cloned.add_write(ComponentId::from_u32(7));
-        cloned.add_read(ComponentId::from_u32(4));
-        cloned.add_archetypal(ComponentId::from_u32(8));
+        cloned.add_write(id_7);
+        cloned.add_read(id_4);
+        cloned.add_archetypal(id_8);
         cloned.write_all();
 
         cloned.clone_from(&original);
@@ -1225,7 +1208,15 @@ mod tests {
 
     #[test]
     fn test_filtered_access_clone() {
-        let original = create_sample_filtered_access();
+        let ids = generate_ids(4);
+        let (id_1, id_2, id_3, id_4) = (ids[0], ids[1], ids[2], ids[3]);
+
+        let mut original = FilteredAccess::default();
+        original.add_write(id_1);
+        original.add_read(id_2);
+        original.add_required(id_3);
+        original.and_with(id_4);
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1233,11 +1224,19 @@ mod tests {
 
     #[test]
     fn test_filtered_access_clone_from() {
-        let original = create_sample_filtered_access();
+        let ids = generate_ids(5);
+        let (id_1, id_2, id_3, id_4, id_7) = (ids[0], ids[1], ids[2], ids[3], ids[4]);
+
+        let mut original = FilteredAccess::default();
+        original.add_write(id_1);
+        original.add_read(id_2);
+        original.add_required(id_3);
+        original.and_with(id_4);
+
         let mut cloned = FilteredAccess::default();
 
-        cloned.add_write(ComponentId::from_u32(7));
-        cloned.add_read(ComponentId::from_u32(4));
+        cloned.add_write(id_7);
+        cloned.add_read(id_4);
         cloned.append_or(&FilteredAccess::default());
 
         cloned.clone_from(&original);
@@ -1247,7 +1246,13 @@ mod tests {
 
     #[test]
     fn test_access_filters_clone() {
-        let original = create_sample_access_filters();
+        let ids = generate_ids(5);
+        let (id_3, id_5) = (ids[0], ids[1]);
+
+        let mut original = AccessFilters::default();
+        original.with.insert(id_3);
+        original.without.insert(id_5);
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1255,11 +1260,17 @@ mod tests {
 
     #[test]
     fn test_access_filters_clone_from() {
-        let original = create_sample_access_filters();
+        let ids = generate_ids(4);
+        let (id_1, id_2, id_3, id_5) = (ids[0], ids[1], ids[2], ids[3]);
+
+        let mut original = AccessFilters::default();
+        original.with.insert(id_3);
+        original.without.insert(id_5);
+
         let mut cloned = AccessFilters::default();
 
-        cloned.with.insert(ComponentId::from_u32(1));
-        cloned.without.insert(ComponentId::from_u32(2));
+        cloned.with.insert(id_1);
+        cloned.without.insert(id_2);
 
         cloned.clone_from(&original);
 
@@ -1268,7 +1279,14 @@ mod tests {
 
     #[test]
     fn test_filtered_access_set_clone() {
-        let original = create_sample_filtered_access_set();
+        let ids = generate_ids(5);
+        let (id_2, id_4) = (ids[0], ids[1]);
+
+        let mut original = FilteredAccessSet::default();
+        original.add_unfiltered_component_read(id_2);
+        original.add_unfiltered_component_write(id_4);
+        original.read_all();
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1276,11 +1294,18 @@ mod tests {
 
     #[test]
     fn test_filtered_access_set_from() {
-        let original = create_sample_filtered_access_set();
+        let ids = generate_ids(4);
+        let (id_2, id_4, id_7, id_9) = (ids[0], ids[1], ids[2], ids[3]);
+
+        let mut original = FilteredAccessSet::default();
+        original.add_unfiltered_component_read(id_2);
+        original.add_unfiltered_component_write(id_4);
+        original.read_all();
+
         let mut cloned = FilteredAccessSet::default();
 
-        cloned.add_unfiltered_component_read(ComponentId::from_u32(7));
-        cloned.add_unfiltered_component_write(ComponentId::from_u32(9));
+        cloned.add_unfiltered_component_read(id_7);
+        cloned.add_unfiltered_component_write(id_9);
         cloned.write_all();
 
         cloned.clone_from(&original);
@@ -1290,9 +1315,12 @@ mod tests {
 
     #[test]
     fn read_all_access_conflicts() {
+        let ids = generate_ids(1);
+        let id_0 = ids[0];
+
         // read_all / single write
         let mut access_a = Access::default();
-        access_a.add_write(ComponentId::from_u32(0));
+        access_a.add_write(id_0);
 
         let mut access_b = Access::default();
         access_b.read_all();
@@ -1311,79 +1339,76 @@ mod tests {
 
     #[test]
     fn access_get_conflicts() {
+        let ids = generate_ids(2);
+        let (id_0, id_1) = (ids[0], ids[1]);
+
         let mut access_a = Access::default();
-        access_a.add_read(ComponentId::from_u32(0));
-        access_a.add_read(ComponentId::from_u32(1));
+        access_a.add_read(id_0);
+        access_a.add_read(id_1);
 
         let mut access_b = Access::default();
-        access_b.add_read(ComponentId::from_u32(0));
-        access_b.add_write(ComponentId::from_u32(1));
+        access_b.add_read(id_0);
+        access_b.add_write(id_1);
 
-        assert_eq!(
-            access_a.get_conflicts(&access_b),
-            vec![ComponentId::from_u32(1)].into()
-        );
+        assert_eq!(access_a.get_conflicts(&access_b), vec![id_1].into());
 
         let mut access_c = Access::default();
-        access_c.add_write(ComponentId::from_u32(0));
-        access_c.add_write(ComponentId::from_u32(1));
+        access_c.add_write(id_0);
+        access_c.add_write(id_1);
 
-        assert_eq!(
-            access_a.get_conflicts(&access_c),
-            vec![ComponentId::from_u32(0), ComponentId::from_u32(1)].into()
-        );
-        assert_eq!(
-            access_b.get_conflicts(&access_c),
-            vec![ComponentId::from_u32(0), ComponentId::from_u32(1)].into()
-        );
+        assert_eq!(access_a.get_conflicts(&access_c), vec![id_0, id_1].into());
+        assert_eq!(access_b.get_conflicts(&access_c), vec![id_0, id_1].into());
 
         let mut access_d = Access::default();
-        access_d.add_read(ComponentId::from_u32(0));
+        access_d.add_read(id_0);
 
         assert_eq!(access_d.get_conflicts(&access_a), AccessConflicts::empty());
         assert_eq!(access_d.get_conflicts(&access_b), AccessConflicts::empty());
-        assert_eq!(
-            access_d.get_conflicts(&access_c),
-            vec![ComponentId::from_u32(0)].into()
-        );
+        assert_eq!(access_d.get_conflicts(&access_c), vec![id_0].into());
     }
 
     #[test]
     fn filtered_combined_access() {
+        let ids = generate_ids(1);
+        let id_1 = ids[0];
+
         let mut access_a = FilteredAccessSet::default();
-        access_a.add_unfiltered_component_read(ComponentId::from_u32(1));
+        access_a.add_unfiltered_component_read(id_1);
 
         let mut filter_b = FilteredAccess::default();
-        filter_b.add_write(ComponentId::from_u32(1));
+        filter_b.add_write(id_1);
 
         let conflicts = access_a.get_conflicts_single(&filter_b);
         assert_eq!(
             &conflicts,
-            &AccessConflicts::from(vec![ComponentId::from_u32(1)]),
+            &AccessConflicts::from(vec![id_1]),
             "access_a: {access_a:?}, filter_b: {filter_b:?}"
         );
     }
 
     #[test]
     fn filtered_access_extend() {
+        let ids = generate_ids(5);
+        let (id_0, id_1, id_2, id_3, id_4) = (ids[0], ids[1], ids[2], ids[3], ids[4]);
+
         let mut access_a = FilteredAccess::default();
-        access_a.add_read(ComponentId::from_u32(0));
-        access_a.add_read(ComponentId::from_u32(1));
-        access_a.and_with(ComponentId::from_u32(2));
+        access_a.add_read(id_0);
+        access_a.add_read(id_1);
+        access_a.and_with(id_2);
 
         let mut access_b = FilteredAccess::default();
-        access_b.add_read(ComponentId::from_u32(0));
-        access_b.add_write(ComponentId::from_u32(3));
-        access_b.and_without(ComponentId::from_u32(4));
+        access_b.add_read(id_0);
+        access_b.add_write(id_3);
+        access_b.and_without(id_4);
 
         access_a.extend(&access_b);
 
         let mut expected = FilteredAccess::default();
-        expected.add_read(ComponentId::from_u32(0));
-        expected.add_read(ComponentId::from_u32(1));
-        expected.and_with(ComponentId::from_u32(2));
-        expected.add_write(ComponentId::from_u32(3));
-        expected.and_without(ComponentId::from_u32(4));
+        expected.add_read(id_0);
+        expected.add_read(id_1);
+        expected.and_with(id_2);
+        expected.add_write(id_3);
+        expected.and_without(id_4);
 
         assert!(access_a.eq(&expected));
     }
@@ -1394,19 +1419,22 @@ mod tests {
 
     #[test]
     fn filtered_access_extend_or() {
+        let ids = generate_ids(5);
+        let (id_0, id_1, id_2, id_3, id_4) = (ids[0], ids[1], ids[2], ids[3], ids[4]);
+
         let mut access_a = FilteredAccess::default();
         // Exclusive access to `(&mut A, &mut B)`.
-        access_a.add_write(ComponentId::from_u32(0));
-        access_a.add_write(ComponentId::from_u32(1));
+        access_a.add_write(id_0);
+        access_a.add_write(id_1);
 
         // Filter by `With<C>`.
         let mut access_b = FilteredAccess::default();
-        access_b.and_with(ComponentId::from_u32(2));
+        access_b.and_with(id_2);
 
         // Filter by `(With<D>, Without<E>)`.
         let mut access_c = FilteredAccess::default();
-        access_c.and_with(ComponentId::from_u32(3));
-        access_c.and_without(ComponentId::from_u32(4));
+        access_c.and_with(id_3);
+        access_c.and_without(id_4);
 
         // Turns `access_b` into `Or<(With<C>, (With<D>, Without<D>))>`.
         access_b.append_or(&access_c);
@@ -1418,8 +1446,8 @@ mod tests {
         // The intention here is to test that exclusive access implied by `add_write`
         // forms correct normalized access structs when extended with `Or` filters.
         let mut expected = FilteredAccess::default();
-        expected.add_write(ComponentId::from_u32(0));
-        expected.add_write(ComponentId::from_u32(1));
+        expected.add_write(id_0);
+        expected.add_write(id_1);
         // The resulted access is expected to represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>, Without<E>))>`.
         expected.filter_sets = vec![
             AccessFilters {
@@ -1439,12 +1467,15 @@ mod tests {
     fn try_iter_component_access_simple() {
         use bevy_platform::collections::HashSet;
 
+        let ids = generate_ids(4);
+        let (id_1, id_2, id_3, id_5) = (ids[0], ids[1], ids[2], ids[3]);
+
         let mut access = Access::default();
 
-        access.add_read(ComponentId::from_u32(1));
-        access.add_read(ComponentId::from_u32(2));
-        access.add_write(ComponentId::from_u32(3));
-        access.add_archetypal(ComponentId::from_u32(5));
+        access.add_read(id_1);
+        access.add_read(id_2);
+        access.add_write(id_3);
+        access.add_archetypal(id_5);
 
         let result = access
             .try_iter_access()
@@ -1453,20 +1484,23 @@ mod tests {
         assert_eq!(
             result,
             Ok(HashSet::from_iter([
-                ComponentAccessKind::Shared(ComponentId::from_u32(1)),
-                ComponentAccessKind::Shared(ComponentId::from_u32(2)),
-                ComponentAccessKind::Exclusive(ComponentId::from_u32(3)),
-                ComponentAccessKind::Archetypal(ComponentId::from_u32(5)),
+                ComponentAccessKind::Shared(id_1),
+                ComponentAccessKind::Shared(id_2),
+                ComponentAccessKind::Exclusive(id_3),
+                ComponentAccessKind::Archetypal(id_5),
             ])),
         );
     }
 
     #[test]
     fn try_iter_component_access_unbounded_write_all() {
+        let ids = generate_ids(2);
+        let (id_1, id_2) = (ids[0], ids[1]);
+
         let mut access = Access::default();
 
-        access.add_read(ComponentId::from_u32(1));
-        access.add_read(ComponentId::from_u32(2));
+        access.add_read(id_1);
+        access.add_read(id_2);
         access.write_all();
 
         let result = access.try_iter_access().map(Iterator::collect::<Vec<_>>);
@@ -1482,10 +1516,13 @@ mod tests {
 
     #[test]
     fn try_iter_component_access_unbounded_read_all() {
+        let ids = generate_ids(2);
+        let (id_1, id_2) = (ids[0], ids[1]);
+
         let mut access = Access::default();
 
-        access.add_read(ComponentId::from_u32(1));
-        access.add_read(ComponentId::from_u32(2));
+        access.add_read(id_1);
+        access.add_read(id_2);
         access.read_all();
 
         let result = access.try_iter_access().map(Iterator::collect::<Vec<_>>);
@@ -1501,16 +1538,15 @@ mod tests {
 
     #[test]
     fn invertible_union_tests() {
-        let set0 = ComponentIdSet::from_iter([ComponentId::from_u32(0)]);
-        let set1 = ComponentIdSet::from_iter([ComponentId::from_u32(1)]);
-        let set2 = ComponentIdSet::from_iter([ComponentId::from_u32(2)]);
-        let set01 = ComponentIdSet::from_iter([ComponentId::from_u32(0), ComponentId::from_u32(1)]);
-        let set02 = ComponentIdSet::from_iter([ComponentId::from_u32(0), ComponentId::from_u32(2)]);
-        let set012 = ComponentIdSet::from_iter([
-            ComponentId::from_u32(0),
-            ComponentId::from_u32(1),
-            ComponentId::from_u32(2),
-        ]);
+        let ids = generate_ids(3);
+        let (id_0, id_1, id_2) = (ids[0], ids[1], ids[2]);
+
+        let set0 = ComponentIdSet::from_iter([id_0]);
+        let set1 = ComponentIdSet::from_iter([id_1]);
+        let set2 = ComponentIdSet::from_iter([id_2]);
+        let set01 = ComponentIdSet::from_iter([id_0, id_1]);
+        let set02 = ComponentIdSet::from_iter([id_0, id_2]);
+        let set012 = ComponentIdSet::from_iter([id_0, id_1, id_2]);
 
         // Check each combination of `Included` and `Excluded`
         // [0, 1] | [0, 2] = [0, 1, 2]
@@ -1543,16 +1579,15 @@ mod tests {
 
     #[test]
     fn invertible_difference_tests() {
-        let set0 = ComponentIdSet::from_iter([ComponentId::from_u32(0)]);
-        let set1 = ComponentIdSet::from_iter([ComponentId::from_u32(1)]);
-        let set2 = ComponentIdSet::from_iter([ComponentId::from_u32(2)]);
-        let set01 = ComponentIdSet::from_iter([ComponentId::from_u32(0), ComponentId::from_u32(1)]);
-        let set02 = ComponentIdSet::from_iter([ComponentId::from_u32(0), ComponentId::from_u32(2)]);
-        let set012 = ComponentIdSet::from_iter([
-            ComponentId::from_u32(0),
-            ComponentId::from_u32(1),
-            ComponentId::from_u32(2),
-        ]);
+        let ids = generate_ids(3);
+        let (id_0, id_1, id_2) = (ids[0], ids[1], ids[2]);
+
+        let set0 = ComponentIdSet::from_iter([id_0]);
+        let set1 = ComponentIdSet::from_iter([id_1]);
+        let set2 = ComponentIdSet::from_iter([id_2]);
+        let set01 = ComponentIdSet::from_iter([id_0, id_1]);
+        let set02 = ComponentIdSet::from_iter([id_0, id_2]);
+        let set012 = ComponentIdSet::from_iter([id_0, id_1, id_2]);
 
         // Check each combination of `Included` and `Excluded`
         // [0, 1] - [0, 2] = [1]
@@ -1585,16 +1620,15 @@ mod tests {
 
     #[test]
     fn invertible_intersection_tests() {
-        let set0 = ComponentIdSet::from_iter([ComponentId::from_u32(0)]);
-        let set1 = ComponentIdSet::from_iter([ComponentId::from_u32(1)]);
-        let set2 = ComponentIdSet::from_iter([ComponentId::from_u32(2)]);
-        let set01 = ComponentIdSet::from_iter([ComponentId::from_u32(0), ComponentId::from_u32(1)]);
-        let set02 = ComponentIdSet::from_iter([ComponentId::from_u32(0), ComponentId::from_u32(2)]);
-        let set012 = ComponentIdSet::from_iter([
-            ComponentId::from_u32(0),
-            ComponentId::from_u32(1),
-            ComponentId::from_u32(2),
-        ]);
+        let ids = generate_ids(3);
+        let (id_0, id_1, id_2) = (ids[0], ids[1], ids[2]);
+
+        let set0 = ComponentIdSet::from_iter([id_0]);
+        let set1 = ComponentIdSet::from_iter([id_1]);
+        let set2 = ComponentIdSet::from_iter([id_2]);
+        let set01 = ComponentIdSet::from_iter([id_0, id_1]);
+        let set02 = ComponentIdSet::from_iter([id_0, id_2]);
+        let set012 = ComponentIdSet::from_iter([id_0, id_1, id_2]);
 
         // Check each combination of `Included` and `Excluded`
         // [0, 1] & [0, 2] = [0]

@@ -684,18 +684,8 @@ impl Components {
     }
 
     /// Gets an iterator over all components fully registered with this instance.
-    pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.values()
-    }
-
-    /// Gets an iterator over all `ComponentId`s fully registered with this instance.
-    pub fn iter_registered_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.components.keys().copied()
-    }
-
-    /// Gets an iterator over all `ComponentId`s and components fully registered with this instance.
-    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &ComponentInfo)> + '_ {
-        self.components.iter()
+    pub fn iter_registered(&self) -> impl Iterator<Item = (ComponentId, &ComponentInfo)> + '_ {
+        self.components.iter().map(|(index, info)| (*index, info))
     }
 
     pub(crate) fn get_relationship_accessor_mut(

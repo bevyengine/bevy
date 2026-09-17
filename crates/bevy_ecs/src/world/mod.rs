@@ -67,7 +67,7 @@ use crate::{
         },
     },
 };
-use alloc::vec::Vec;
+use alloc::{collections::VecDeque, vec::Vec};
 use bevy_platform::{
     cell::SyncUnsafeCell,
     sync::atomic::{AtomicU32, Ordering},
@@ -887,7 +887,7 @@ impl World {
     pub fn inspect_entity(
         &self,
         entity: Entity,
-    ) -> Result<impl Iterator<Item = &ComponentInfo>, EntityNotSpawnedError> {
+    ) -> Result<impl Iterator<Item = (ComponentId, &ComponentInfo)>, EntityNotSpawnedError> {
         let entity_location = self.entities().get_spawned(entity)?;
 
         let archetype = self
@@ -897,7 +897,7 @@ impl World {
 
         Ok(archetype
             .iter_components()
-            .filter_map(|id| self.components().get_info(id)))
+            .filter_map(|id| self.components().get_info(id).map(|info| (id, info))))
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
@@ -1663,6 +1663,73 @@ impl World {
         })?;
         entity.despawn_no_free_with_caller(caller);
         Ok(entity.id())
+    }
+
+    /// [`Despawns`](Self::despawn) all entities matching the [`QueryFilter`].
+    #[track_caller]
+    #[inline]
+    pub fn despawn_all<F: QueryFilter>(&mut self) {
+        self.despawn_all_with_caller::<F>(MaybeLocation::caller());
+    }
+
+    /// [`Despawns`](Self::despawn) all entities matching a specific [`QueryFilter`] and condition.
+    #[track_caller]
+    #[inline]
+    pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
+        &mut self,
+        cond: impl FnMut(D::Item<'_, '_>) -> bool,
+    ) {
+        self.despawn_all_where_with_caller::<D, F>(cond, MaybeLocation::caller());
+    }
+
+    /// [`despawn_all`](Self::despawn_all) that takes a caller explicitly.
+    #[inline]
+    pub(crate) fn despawn_all_with_caller<F: QueryFilter>(&mut self, caller: MaybeLocation) {
+        self.despawn_all_where_with_caller::<(), F>(|_| true, caller);
+    }
+
+    /// [`despawn_all_where`](Self::despawn_all_where) that takes a caller explicitly.
+    pub(crate) fn despawn_all_where_with_caller<D: QueryData, F: QueryFilter>(
+        &mut self,
+        mut cond: impl FnMut(D::Item<'_, '_>) -> bool,
+        caller: MaybeLocation,
+    ) {
+        let mut query = self.query_filtered::<(Entity, D), F>();
+        let mut query = query.iter_mut(self);
+
+        let mut entities_to_despawn = VecDeque::new();
+
+        while let Some((entity, data)) = query.fetch_next() {
+            if cond(data) {
+                // We want to despawn the entities backwards since we're
+                // less likely to leave holes.
+                entities_to_despawn.push_front(entity);
+            }
+        }
+        // We have to explicitly drop the query to release the world borrow.
+        drop(query);
+
+        // This part of the closure does not need to be generic.
+        // Compiling it once saves a bit of compile time.
+        fn despawn_entities(
+            world: &mut World,
+            mut entities_to_despawn: VecDeque<Entity>,
+            caller: MaybeLocation,
+        ) {
+            entities_to_despawn.retain(|entity| {
+                let _ = world.despawn_no_free_with_caller(*entity, caller);
+
+                // Check if the entity wasn't already freed or reconstructed.
+                matches!(world.entities.get(*entity), Ok(None))
+            });
+
+            let (head, tail) = entities_to_despawn.as_slices();
+
+            world.entity_allocator.free_many(head);
+            world.entity_allocator.free_many(tail);
+        }
+
+        despawn_entities(self, entities_to_despawn, caller);
     }
 
     /// Clears the internal component tracker state.
@@ -3366,7 +3433,11 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_resources(&mut self) {
-        let ids: Vec<ComponentId> = self.components().iter_registered_ids().collect();
+        let ids: Vec<ComponentId> = self
+            .components()
+            .iter_registered()
+            .map(|(id, _)| id)
+            .collect();
         for component_id in ids {
             let entity = component_id.entity();
             if let Ok(mut entity) = self.get_entity_mut(entity) {
@@ -3581,9 +3652,9 @@ impl World {
     /// ```
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (ComponentId, &ComponentInfo, Ptr<'_>)> {
-        self.components()
-            .iter()
-            .filter_map(|(&id, component_info)| {
+        self.components
+            .iter_registered()
+            .filter_map(|(id, component_info)| {
                 let entity = id.entity();
                 let entity_cell = self.get_entity(entity).ok()?;
                 let resource = entity_cell.get_by_id(id).ok()?;
@@ -3663,8 +3734,8 @@ impl World {
 
         unsafe_world
             .components()
-            .iter()
-            .filter_map(move |(&id, component_info)| {
+            .iter_registered()
+            .filter_map(move |(id, component_info)| {
                 let entity_cell = unsafe_world.get_entity(id.entity()).ok()?;
 
                 // SAFETY:
@@ -4366,10 +4437,12 @@ mod tests {
         let ent5 = world.spawn(Bar).id();
         let ent6 = world.spawn(Baz).id();
 
-        fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
+        fn to_type_ids(
+            component_infos: Vec<(ComponentId, &ComponentInfo)>,
+        ) -> HashSet<Option<TypeId>> {
             component_infos
                 .into_iter()
-                .map(ComponentInfo::type_id)
+                .map(|(_, info)| info.type_id())
                 .collect()
         }
 

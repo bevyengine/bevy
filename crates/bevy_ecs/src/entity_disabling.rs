@@ -245,6 +245,8 @@ mod tests {
 
     use super::*;
     use crate::{
+        component::ComponentId,
+        entity::EntityAllocator,
         prelude::{EntityMut, EntityRef, World},
         query::{Has, With},
     };
@@ -252,59 +254,60 @@ mod tests {
 
     #[test]
     fn filters_modify_access() {
+        let ids = EntityAllocator::default();
+        let id_1 = ComponentId(ids.alloc());
+        let id_2 = ComponentId(ids.alloc());
+        let id_4 = ComponentId(ids.alloc());
+
         let mut filters = DefaultQueryFilters::empty();
-        filters.register_disabling_component(ComponentId::from_u32(1));
+        filters.register_disabling_component(id_1);
 
         // A component access with an unrelated component
         let mut component_access = FilteredAccess::default();
-        component_access
-            .access_mut()
-            .add_read(ComponentId::from_u32(2));
+        component_access.access_mut().add_read(id_2);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(0, applied_access.with_filters().count());
         assert_eq!(
-            vec![ComponentId::from_u32(1)],
+            vec![id_1],
             applied_access.without_filters().collect::<Vec<_>>()
         );
 
         // We add a with filter, now we expect to see both filters
-        component_access.and_with(ComponentId::from_u32(4));
+        component_access.and_with(id_4);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::from_u32(4)],
+            vec![id_4],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(
-            vec![ComponentId::from_u32(1)],
+            vec![id_1],
             applied_access.without_filters().collect::<Vec<_>>()
         );
 
         let copy = component_access.clone();
         // We add a rule targeting a default component, that filter should no longer be added
-        component_access.and_with(ComponentId::from_u32(1));
+        component_access.and_with(id_1);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::from_u32(1), ComponentId::from_u32(4)],
+            vec![id_1, id_4],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(0, applied_access.without_filters().count());
 
         // Archetypal access should also filter rules
         component_access = copy.clone();
-        component_access
-            .access_mut()
-            .add_archetypal(ComponentId::from_u32(1));
+        component_access.access_mut().add_archetypal(id_1);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::from_u32(4)],
+            vec![id_4],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(0, applied_access.without_filters().count());
