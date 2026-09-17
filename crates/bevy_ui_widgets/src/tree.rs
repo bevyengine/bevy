@@ -12,7 +12,7 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, With},
     reflect::{ReflectComponent, ReflectEvent},
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query, ResMut},
+    system::{Commands, ParamSet, Query, ResMut},
     template::FromTemplate,
 };
 use bevy_input::{
@@ -426,20 +426,23 @@ fn update_tree_item_levels(
     trees: Query<Entity, With<TreeView>>,
     children: Query<&Children>,
     containers: Query<(), With<TreeItemChildren>>,
-    changed: Query<
-        (),
-        (
-            Changed<Children>,
-            Or<(With<TreeView>, With<TreeItem>, With<TreeItemChildren>)>,
-        ),
-    >,
-    mut items: Query<&mut TreeItem>,
+    mut queries: ParamSet<(
+        Query<
+            (),
+            (
+                Or<(Changed<Children>, Added<TreeItem>)>,
+                Or<(With<TreeView>, With<TreeItem>, With<TreeItemChildren>)>,
+            ),
+        >,
+        Query<&mut TreeItem>,
+    )>,
 ) {
-    if changed.is_empty() {
+    if queries.p0().is_empty() {
         return;
     }
 
     let mut levels = Vec::new();
+    let mut items = queries.p1();
     for tree in trees.iter() {
         collect_levels(tree, 0, &children, &containers, &items, &mut levels);
     }
