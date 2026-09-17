@@ -89,7 +89,11 @@ fn update_clipping(
     }
 
     // If `OverrideClip` or `Node::override` was changed, `tree_changed.is_changed` should be `true``
-    if !force_update && !tree_changed.is_changed() {
+    if !force_update
+        && !tree_changed.is_changed()
+        && !computed_layout.layout_changed()
+        && !computed_layout.subtree_dirty()
+    {
         return;
     }
 
