@@ -187,7 +187,7 @@ impl ComputedLayout {
         self.unrounded.is_some() && self.rounded.is_some()
     }
 
-    /// True if layout changed in last update
+    /// True if the layout output by taffy was changed in the last update.
     #[inline]
     pub const fn layout_changed(&self) -> bool {
         self.layout_changed
@@ -199,7 +199,7 @@ impl ComputedLayout {
         self.subtree_dirty
     }
 
-    /// True if self dirty
+    /// True if local inputs changed such as `UiTransform` and `ScrollPosition`.
     #[inline]
     pub const fn self_dirty(&self) -> bool {
         self.self_dirty
