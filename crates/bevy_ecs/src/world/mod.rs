@@ -266,19 +266,14 @@ impl World {
     #[inline]
     pub fn components_queue(&self) -> ComponentsQueuedRegistrator<'_> {
         // SAFETY: These are from the same world.
-        unsafe {
-            ComponentsQueuedRegistrator::new(
-                &self.components,
-                self.entity_allocator().build_remote_allocator(),
-            )
-        }
+        unsafe { ComponentsQueuedRegistrator::new(&self.components, &self.entity_allocator) }
     }
 
     /// Prepares a [`ComponentsRegistrator`] for the world.
     #[inline]
     pub fn components_registrator(&mut self) -> ComponentsRegistrator<'_> {
         // SAFETY: These are from the same world.
-        unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.entity_allocator) }
+        unsafe { ComponentsRegistrator::new(&mut self.components, &self.entity_allocator) }
     }
 
     /// Retrieves this world's [`Storages`] collection.
@@ -3407,7 +3402,7 @@ impl World {
 
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.entity_allocator) };
+            unsafe { ComponentsRegistrator::new(&mut self.components, &self.entity_allocator) };
 
         // SAFETY: `registrator`, `self.storages` and `self.bundles` all come from this world.
         unsafe {
@@ -3424,7 +3419,7 @@ impl World {
 
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.entity_allocator) };
+            unsafe { ComponentsRegistrator::new(&mut self.components, &self.entity_allocator) };
 
         // SAFETY: `registrator`, `self.bundles` and `self.storages` are all from this world.
         unsafe {
