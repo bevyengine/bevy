@@ -194,14 +194,15 @@ pub fn mark_dirty_ui_trees(
         .chain(removed_override_clip.read());
 
     for mut next in changed_ui_components_query.iter().chain(removed) {
-        while let Ok((mut tree, maybe_child_of)) = trees.get_mut(next) {
-            // If tree was added since the last update, `is_changed` will be set before this system began
-            // so we can't know if it was already visited.
-            if tree.is_changed() && !tree.is_added() {
+        while let Ok((mut dirty_tree, maybe_child_of)) = trees.get_mut(next) {
+            // If `UiDirtyTree` was added since the last update, `is_changed()` will be `true` even if this node wasn't already visited.
+            // So we can't skip it as we don't know if it was already visited.
+            if dirty_tree.is_changed() && !dirty_tree.is_added() {
                 break;
             }
-            tree.set_changed();
+            dirty_tree.set_changed();
             let Some(child_of) = maybe_child_of else {
+                // Reached UI root
                 break;
             };
             next = child_of.0;
