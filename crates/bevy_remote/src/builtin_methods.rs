@@ -562,14 +562,14 @@ pub struct BrpScheduleGraphResponse {
     pub schedule_data: ScheduleData,
 }
 
-/// Overrides the application name reported by an `app.info` request.
+/// Overrides the human-readable application name reported by an `app.info` request.
 #[derive(Resource, Debug, Clone)]
 pub struct RemoteAppName(pub String);
 
 /// The response to an `app.info` request.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpAppInfoResponse {
-    /// The name of the running application.
+    /// The human-readable name of the running application, not a unique identifier.
     pub app_name: String,
     /// The version of the Bevy engine the application was built against.
     pub bevy_version: String,
