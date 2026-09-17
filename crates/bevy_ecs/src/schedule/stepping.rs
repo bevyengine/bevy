@@ -207,6 +207,7 @@ impl Stepping {
     }
 
     /// Enable stepping for a given [`SystemSet`] within a [`Schedule`].
+    ///
     /// If a number of sets are enabled, we only step through those sets.
     /// If none are enabled, but the schedule *is* enabled, we step through the entire schedule.
     /// If the [`SystemSet`] is not contained within the [`Schedule`], this method does nothing.
@@ -221,6 +222,7 @@ impl Stepping {
     }
 
     /// Disable stepping for a given [`SystemSet`] within a [`Schedule`].
+    ///
     /// If the [`SystemSet`] is not contained within the [`Schedule`], this method does nothing.
     pub fn remove_system_set(
         &mut self,
@@ -235,6 +237,7 @@ impl Stepping {
     }
 
     /// Disable stepping for all [`SystemSet`]s within a [`Schedule`].
+    ///
     /// This makes it so that you effectively step through the entire schedule, not skipping a single part.
     /// To also disable stepping for the schedule, use [`Stepping::remove_schedule`].
     pub fn reset_system_sets(&mut self, schedule: impl ScheduleLabel) -> &mut Self {
