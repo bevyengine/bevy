@@ -787,7 +787,7 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.24"
+accesskit = "0.25"
 nonmax = "0.5"
 gltf = "1.4"
 indexmap = "2"
@@ -5297,6 +5297,17 @@ doc-scrape-examples = true
 
 [package.metadata.example.test_skinned_mesh_bounds]
 hidden = true
+
+[[example]]
+name = "test_meshlet"
+path = "tests/3d/test_meshlet.rs"
+doc-scrape-examples = true
+required-features = ["meshlet", "meshlet_processor", "free_camera"]
+
+[package.metadata.example.test_meshlet]
+hidden = true
+# Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
+wasm = false
 
 [profile.wasm-release]
 inherits = "release"

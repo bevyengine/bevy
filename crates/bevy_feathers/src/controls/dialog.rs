@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::Commands,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{bsn, on, Scene, SceneComponent, SceneList};
+use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList};
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, vh, vw, widget::Text, AlignItems, BorderRadius, BoxShadow, Display, FixedNode,
@@ -38,7 +38,7 @@ pub struct FeathersDialogProps {
 impl Default for FeathersDialogProps {
     fn default() -> Self {
         Self {
-            contents: Box::new(bsn! {}),
+            contents: Box::new(bsn_list! {}),
             width: Val::Auto,
         }
     }
@@ -117,7 +117,7 @@ impl Default for FeathersFloatingDialogProps {
     fn default() -> Self {
         Self {
             title: String::new(),
-            contents: Box::new(bsn! {}),
+            contents: Box::new(bsn_list! {}),
             width: Val::Auto,
             left: px(120),
             top: px(120),
