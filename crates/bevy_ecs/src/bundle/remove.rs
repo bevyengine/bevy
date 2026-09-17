@@ -238,9 +238,12 @@ impl<'w> BundleRemover<'w> {
             if old_archetype.contains(component_id) {
                 world.removed_components.write(component_id, entity);
 
+                // SAFETY: `component_id` is valid because it comes from the bundle's components.
+                let storage_type =
+                    unsafe { world.components.get_info_unchecked(component_id) }.storage_type();
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
-                if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
+                if storage_type == StorageType::SparseSet {
                     world
                         .storages
                         .sparse_sets
@@ -401,10 +404,7 @@ impl BundleInfo {
             // This bundle removal result is cached. Just return that!
             (result, false)
         } else {
-            let mut next_table_components;
-            let mut next_sparse_set_components;
-            let next_table_id;
-            {
+            let (next_table_components, next_sparse_set_components, next_table_id) = {
                 let current_archetype = &mut archetypes[archetype_id];
                 let mut removed_table_components = Vec::new();
                 let mut removed_sparse_set_components = Vec::new();
@@ -432,15 +432,23 @@ impl BundleInfo {
                 // Archetype components are already sorted.
                 removed_table_components.sort_unstable();
                 removed_sparse_set_components.sort_unstable();
-                next_table_components = current_archetype.table_components().collect();
-                next_sparse_set_components = current_archetype.sparse_set_components().collect();
+
+                let (mut next_table_components, mut next_sparse_set_components): (Vec<_>, Vec<_>) =
+                    current_archetype
+                        .iter_components()
+                        .partition(|&component_id| {
+                            // SAFETY: Every archetype component is registered in this world.
+                            unsafe { components.get_info_unchecked(component_id) }.storage_type()
+                                == StorageType::Table
+                        });
+
                 sorted_remove(&mut next_table_components, &removed_table_components);
                 sorted_remove(
                     &mut next_sparse_set_components,
                     &removed_sparse_set_components,
                 );
 
-                next_table_id = if removed_table_components.is_empty() {
+                let next_table_id = if removed_table_components.is_empty() {
                     current_archetype.table_id()
                 } else {
                     // SAFETY: all components in next_table_components exist
@@ -450,7 +458,13 @@ impl BundleInfo {
                             .get_id_or_insert(&next_table_components, components)
                     }
                 };
-            }
+
+                (
+                    next_table_components,
+                    next_sparse_set_components,
+                    next_table_id,
+                )
+            };
 
             // SAFETY:
             // - table id was created if it doesn't exist
