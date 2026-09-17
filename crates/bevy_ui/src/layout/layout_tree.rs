@@ -272,7 +272,7 @@ impl ComputedLayout {
 }
 
 /// Compute and store layout results for one UI root entity.
-pub(crate) fn compute_layout(
+pub fn compute_layout(
     ui_root_entity: Entity,
     render_target_resolution: UVec2,
     ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
