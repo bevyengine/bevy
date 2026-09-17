@@ -40,13 +40,6 @@ fn load_motion_vector(pixel_id: vec2<u32>) -> vec2<f32> {
     return textureLoad(motion_vectors, pixel_id, 0).xy;
 }
 
-@if(DLSS_RR_GUIDE_BUFFERS) {
-fn store_denoiser_motion_vector(pixel_id: vec2<u32>, motion_vector: vec2<f32>) {
-    @if(MOTION_VECTORS_READ_WRITE)
-    textureStore(motion_vectors, pixel_id, vec4(motion_vector, vec2(0.0)));
-}
-}
-
 /// User-configurable settings from the `SolariLighting` component, plus per-frame
 /// state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.
 struct SolariLightingSettings {

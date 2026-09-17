@@ -3,7 +3,7 @@ import bevy_pbr::deferred::types::unpack_24bit_normal;
 import bevy_pbr::render::pbr_functions::{calculate_diffuse_color, calculate_F0, calculate_F0_dielectric};
 import bevy_render::utils::octahedral_decode;
 import package::realtime::gbuffer_utils::gpixel_resolve;
-import package::realtime::bindings::{gbuffer, depth_buffer, load_motion_vector, store_denoiser_motion_vector, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
+import package::realtime::bindings::{gbuffer, depth_buffer, load_motion_vector, motion_vectors, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
 import package::scene::brdf::{evaluate_specular_brdf, F_AB, lobe_reflectances};
 import package::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, ResolvedMaterial, ResolvedRayHitFull};
 
@@ -152,7 +152,8 @@ fn replace_primary_surface(
 
     let primary_depth = textureLoad(depth_buffer, pixel_id, 0);
     textureStore(dlss_rr_depth, pixel_id, vec4(primary_depth * primary_distance / path_length));
-    store_denoiser_motion_vector(pixel_id, specular_motion_vector);
+    @if(MOTION_VECTORS_READ_WRITE)
+    textureStore(motion_vectors, pixel_id, vec4(specular_motion_vector, vec2(0.0)));
 
     let reflected_diffuse = calculate_diffuse_color(ray_hit.material.base_color, ray_hit.material.metallic, 0.0, 0.0);
     let reflected_F0 = calculate_F0(ray_hit.material.base_color, ray_hit.material.metallic, vec3(ray_hit.material.reflectance));
