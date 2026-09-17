@@ -828,6 +828,43 @@ impl RemotePlugin {
             builtin_methods::process_remote_diagnostics_get_request,
             to_main,
         )
+        .add_stepping_methods(to_main)
+    }
+
+    /// Add the `stepping.*` BRP methods.
+    #[cfg(feature = "bevy_debug_stepping")]
+    fn add_stepping_methods(self, to_main: bool) -> Self {
+        self.with_method(
+            builtin_methods::BRP_STEPPING_STATUS,
+            builtin_methods::stepping_status,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_STEPPING_ENABLE,
+            builtin_methods::stepping_enable,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_STEPPING_DISABLE,
+            builtin_methods::stepping_disable,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_STEPPING_STEP_FRAME,
+            builtin_methods::stepping_step_frame,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_STEPPING_CONTINUE_FRAME,
+            builtin_methods::stepping_continue_frame,
+            to_main,
+        )
+    }
+
+    /// Leaves the method list untouched without the `bevy_debug_stepping` feature.
+    #[cfg(not(feature = "bevy_debug_stepping"))]
+    fn add_stepping_methods(self, _to_main: bool) -> Self {
+        self
     }
 }
 
