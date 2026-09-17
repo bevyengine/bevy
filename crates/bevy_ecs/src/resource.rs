@@ -215,7 +215,6 @@ pub use crate::component::IS_RESOURCE;
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::With;
     use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
 
     use crate::{
@@ -293,10 +292,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(TestResource(40));
 
-        let entity = world
-            .query_filtered::<Entity, With<TestResource>>()
-            .single(&world)
-            .unwrap();
+        let entity = world.resource_entity::<TestResource>().unwrap();
         world.despawn(entity);
 
         assert!(!world.contains_resource::<TestResource>());
