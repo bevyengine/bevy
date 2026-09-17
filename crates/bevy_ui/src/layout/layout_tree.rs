@@ -390,7 +390,7 @@ pub fn compute_layout(
     Ok(())
 }
 
-fn sync_runtime_layout_tree<'a>(
+fn sync_runtime_layout_tree(
     root: Entity,
     entity: Entity,
     ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
