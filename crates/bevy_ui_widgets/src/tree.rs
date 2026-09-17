@@ -1101,4 +1101,178 @@ mod tests {
             1
         );
     }
+
+    #[test]
+    fn hiding_the_focused_row_updates_tab_index_and_focus() {
+        let (mut app, window) = tree_app();
+        let fixture = spawn_tree(&mut app, window, true);
+        focus(&mut app, fixture.child_a);
+        assert_eq!(
+            app.world().entity(fixture.child_a).get::<TabIndex>(),
+            Some(&TabIndex(0))
+        );
+
+        app.world_mut().entity_mut(fixture.parent).insert(TreeItem {
+            expanded: false,
+            has_children: true,
+            level: 0,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world().entity(fixture.child_a).get::<TabIndex>(),
+            Some(&TabIndex(-1))
+        );
+        press_key(&mut app, KeyCode::ArrowDown, window);
+        assert_ne!(
+            app.world().resource::<InputFocus>().get(),
+            Some(fixture.child_a)
+        );
+    }
+
+    #[test]
+    fn disabled_tree_does_not_steal_focus_when_a_row_becomes_hidden() {
+        let (mut app, window) = tree_app();
+        let fixture = spawn_tree(&mut app, window, true);
+        app.world_mut()
+            .entity_mut(fixture.tree)
+            .insert(InteractionDisabled);
+        focus(&mut app, fixture.child_a);
+
+        app.world_mut().entity_mut(fixture.parent).insert(TreeItem {
+            expanded: false,
+            has_children: true,
+            level: 0,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<InputFocus>().get(),
+            Some(fixture.child_a)
+        );
+    }
+
+    #[test]
+    fn disabled_parent_hides_its_children_from_navigation() {
+        let (mut app, window) = tree_app();
+        let fixture = spawn_tree(&mut app, window, true);
+        app.world_mut()
+            .entity_mut(fixture.parent)
+            .insert(InteractionDisabled);
+        focus(&mut app, fixture.first);
+
+        press_key(&mut app, KeyCode::ArrowDown, window);
+
+        assert_eq!(
+            app.world().resource::<InputFocus>().get(),
+            Some(fixture.last)
+        );
+    }
+
+    #[test]
+    fn inserting_tree_item_without_a_children_change_updates_level() {
+        let (mut app, window) = tree_app();
+        let tree = app
+            .world_mut()
+            .spawn((TreeView::default(), ChildOf(window)))
+            .id();
+        let parent = app
+            .world_mut()
+            .spawn((
+                TreeItem {
+                    expanded: true,
+                    has_children: true,
+                    level: 0,
+                },
+                ChildOf(tree),
+            ))
+            .id();
+        let container = app
+            .world_mut()
+            .spawn((TreeItemChildren, ChildOf(parent)))
+            .id();
+        app.update();
+
+        let late_row = app.world_mut().spawn(ChildOf(container)).id();
+        app.update();
+
+        app.world_mut()
+            .entity_mut(late_row)
+            .insert(TreeItem::default());
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .entity(late_row)
+                .get::<TreeItem>()
+                .unwrap()
+                .level,
+            1
+        );
+    }
+
+    #[test]
+    fn reparenting_a_row_into_a_collapsed_branch_updates_its_tab_index() {
+        let (mut app, window) = tree_app();
+        let tree = app
+            .world_mut()
+            .spawn((TreeView::default(), ChildOf(window)))
+            .id();
+        let parent_a = app
+            .world_mut()
+            .spawn((
+                TreeItem {
+                    expanded: true,
+                    has_children: true,
+                    level: 0,
+                },
+                ChildOf(tree),
+            ))
+            .id();
+        let container_a = app
+            .world_mut()
+            .spawn((TreeItemChildren, ChildOf(parent_a)))
+            .id();
+        let moved_row = app
+            .world_mut()
+            .spawn((
+                TreeItem {
+                    level: 1,
+                    ..Default::default()
+                },
+                ChildOf(container_a),
+            ))
+            .id();
+        let parent_b = app
+            .world_mut()
+            .spawn((
+                TreeItem {
+                    expanded: false,
+                    has_children: true,
+                    level: 0,
+                },
+                ChildOf(tree),
+            ))
+            .id();
+        let container_b = app
+            .world_mut()
+            .spawn((TreeItemChildren, ChildOf(parent_b)))
+            .id();
+        app.update();
+        focus(&mut app, moved_row);
+        assert_eq!(
+            app.world().entity(moved_row).get::<TabIndex>(),
+            Some(&TabIndex(0))
+        );
+
+        app.world_mut()
+            .entity_mut(moved_row)
+            .insert(ChildOf(container_b));
+        app.update();
+
+        assert_eq!(
+            app.world().entity(moved_row).get::<TabIndex>(),
+            Some(&TabIndex(-1))
+        );
+    }
 }
