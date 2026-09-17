@@ -3878,4 +3878,38 @@ mod tests {
         assert_eq!(world.get::<ComputedNode>(descendant).unwrap().size.x, 50.);
         assert_eq!(world.get::<ComputedNode>(descendant).unwrap().size.y, 50.);
     }
+
+    #[test]
+    fn adding_fixednode_clears_inherited_clipping() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let descendant = world.spawn(Node::default()).id();
+        let mid = world.spawn(Node::default()).add_child(descendant).id();
+        world
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(mid);
+
+        app.update();
+
+        let world = app.world_mut();
+        assert!(world.get::<CalculatedClip>(descendant).is_some());
+        assert!(world.get::<CalculatedClip>(mid).is_some());
+        world.entity_mut(mid).insert(FixedNode);
+
+        app.update();
+
+        let world = app.world_mut();
+        assert!(world.get::<CalculatedClip>(descendant).is_none());
+        assert!(world.get::<CalculatedClip>(mid).is_none());
+        world.entity_mut(mid).remove::<FixedNode>();
+
+        app.update();
+
+        let world = app.world();
+        assert!(world.get::<CalculatedClip>(descendant).is_some());
+        assert!(world.get::<CalculatedClip>(descendant).is_some());
+    }
 }
