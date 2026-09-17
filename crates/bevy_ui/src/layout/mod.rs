@@ -796,6 +796,7 @@ mod tests {
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_math::{BVec2, Rect, UVec2, Vec2};
+    use bevy_text::TextFont;
     use bevy_utils::prelude::default;
 
     const TARGET_WIDTH: u32 = 1000;
