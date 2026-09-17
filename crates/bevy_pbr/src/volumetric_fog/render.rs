@@ -800,3 +800,26 @@ fn calculate_fog_volume_clip_from_local_transforms(
         vec4(0.0, 0.0, z_near, z_near),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use std::f32::consts::FRAC_PI_4;
+
+    use super::*;
+    use bevy_math::{proj, Quat};
+
+    // A rotated fog volume that doesn't reach the near plane shouldn't be treated as interior.
+    #[test]
+    fn orthographic_camera_outside_rotated_fog_volume() {
+        let clip_from_view = proj::orthographic(-5.0, 5.0, -5.0, 5.0, 1000.0, 0.0);
+        let world_from_local = Affine3A::from_rotation_translation(
+            Quat::from_rotation_y(FRAC_PI_4),
+            Vec3::new(1.0, 0.0, -2.0),
+        );
+        let local_from_view = world_from_local.inverse();
+        assert!(!camera_is_inside_fog_volume(
+            &local_from_view,
+            &clip_from_view
+        ));
+    }
+}
