@@ -490,7 +490,7 @@ fn sync_runtime_layout_tree(
         || !computed_layout.has_layout();
     subtree_dirty |= own_dirty;
 
-    computed_layout.reached = true;
+    computed_layout.reached |= needs_full_walk;
     computed_layout.layout_changed = false;
 
     let outline_changed = (computed_layout.has_outline != outline.is_some())
