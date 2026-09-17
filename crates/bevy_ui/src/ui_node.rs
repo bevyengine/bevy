@@ -3598,7 +3598,7 @@ pub struct FixedNode;
 /// - A `GhostNode` is given zero size during layout.
 /// - Its position is the same as its parent.
 /// - Its `UiTransform` will be resolved and applied normally, except that instead of its own size, percentage
-/// values are based on the size of the `GhostNode`'s parent.
+///   values are based on the size of the `GhostNode`'s parent.
 /// - Events pass through normally.
 /// - `FixedNode` is ignored on a `GhostNode`. This could be allowed eventually maybe, but it's a little tricky how to handle the implicit roots.
 /// - `OverrideClip` is not ignored on a `GhostNode`.
