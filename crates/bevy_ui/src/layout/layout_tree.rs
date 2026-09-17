@@ -269,6 +269,14 @@ impl ComputedLayout {
     pub fn is_root(&self) -> bool {
         self.is_root
     }
+
+    /// Clear dirty flags that are only valid for the current frame.
+    #[inline]
+    pub(super) const fn clear_transient_dirty_flags(&mut self) {
+        self.layout_changed = false;
+        self.self_dirty = false;
+        self.subtree_dirty = false;
+    }
 }
 
 /// Compute and store layout results for one UI root entity.

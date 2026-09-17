@@ -194,6 +194,7 @@ impl Plugin for UiPlugin {
                 propagate_ui_target_cameras
                     .in_set(UiSystems::Prepare)
                     .before(bevy_app::TransformGizmoRenderStep),
+                clear_transient_dirty_flags.in_set(UiSystems::Prepare),
                 (
                     sync_taffy_styles_with_nodes,
                     mark_dirty_ui_trees,

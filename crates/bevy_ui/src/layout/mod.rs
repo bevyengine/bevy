@@ -150,6 +150,17 @@ pub fn sync_taffy_styles_with_nodes(
         });
 }
 
+/// Clear the local dirty flags that are only valid for the current frame.
+pub fn clear_transient_dirty_flags(mut computed_layout_query: Query<&mut ComputedLayout>) {
+    computed_layout_query
+        .par_iter_mut()
+        .for_each(|mut computed_layout| {
+            computed_layout
+                .bypass_change_detection()
+                .clear_transient_dirty_flags();
+        });
+}
+
 /// Identify entities whose UI layout input components have been changed, added or removed.
 /// Mark their `UiTreeDirty` component changed, then walk up the tree and mark
 /// each ancestor's `UiTreeDirty` changed.
@@ -773,9 +784,9 @@ mod tests {
     use crate::layout::{mark_dirty_ui_trees, UiTreeDirty};
     use crate::layout_tree::compute_layout;
     use crate::layout_tree::TaffyStyle;
-    use crate::update_border_radius;
     use crate::update_computed_nodes;
     use crate::UiSystems;
+    use crate::{clear_transient_dirty_flags, update_border_radius};
     use crate::{
         layout::clipping::update_clipping_system, layout::layout_tree::ComputedLayout, prelude::*,
         sync_font_size_to_em_size, sync_taffy_styles_with_nodes, ui_layout_system,
@@ -813,6 +824,7 @@ mod tests {
             (
                 ApplyDeferred,
                 propagate_ui_target_cameras,
+                clear_transient_dirty_flags,
                 sync_font_size_to_em_size,
                 sync_taffy_styles_with_nodes,
                 mark_dirty_ui_trees,
