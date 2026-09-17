@@ -432,7 +432,7 @@ impl PrepassPipeline {
             && !emulate_unclipped_depth
             && !material_properties.prepass_reads_material()
         {
-            // The shaders for depth only opaque prepass doesn't need material's bind group.
+            // The shaders for depth only opaque prepass don't need the material's bind group.
             // We set an empty layout and batch them by setting `material_bind_group_index` to `None` in batch set key.
             bind_group_layouts.push(self.empty_layout.clone());
         } else {

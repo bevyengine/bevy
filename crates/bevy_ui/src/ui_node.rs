@@ -984,7 +984,7 @@ pub enum AlignItems {
 impl AlignItems {
     pub const DEFAULT: Self = Self::Default;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             AlignItems::StartSafe
@@ -1072,7 +1072,7 @@ pub enum JustifyItems {
 impl JustifyItems {
     pub const DEFAULT: Self = Self::Default;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             JustifyItems::StartSafe | JustifyItems::CenterSafe | JustifyItems::EndSafe => true,
@@ -1160,7 +1160,7 @@ pub enum AlignSelf {
 impl AlignSelf {
     pub const DEFAULT: Self = Self::Auto;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             AlignSelf::StartSafe
@@ -1248,7 +1248,7 @@ pub enum JustifySelf {
 impl JustifySelf {
     pub const DEFAULT: Self = Self::Auto;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             JustifySelf::StartSafe | JustifySelf::CenterSafe | JustifySelf::EndSafe => true,
@@ -1340,7 +1340,7 @@ pub enum AlignContent {
 impl AlignContent {
     pub const DEFAULT: Self = Self::Default;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             AlignContent::StartSafe
@@ -1446,7 +1446,7 @@ pub enum JustifyContent {
 impl JustifyContent {
     pub const DEFAULT: Self = Self::Default;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             JustifyContent::StartSafe
@@ -2233,7 +2233,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of grid tracks with size as a multiple of the grid containers's font size.
+    /// Create a repeating set of grid tracks with size as a multiple of the grid container's font size.
     pub fn em<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
         Self {
             repetition: repetition.into(),

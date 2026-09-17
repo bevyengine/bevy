@@ -32,7 +32,7 @@ If `SoftLimit` is _not_ present, then the widget behaves more like a "scrubber",
 no slide bar, and drag speed is calculated based on a heuristic that takes into account precision,
 step, and the current input value.
 
-In either of this cases, a non-drag click event will activate "typing" mode, where a value can
+In either of these cases, a non-drag click event will activate "typing" mode, where a value can
 be entered by typing digits.
 
 Like all feathers widgets, this is a "controlled" widget, which means that the internal numeric

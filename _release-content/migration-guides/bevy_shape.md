@@ -4,7 +4,7 @@ pull_requests: [25302]
 ---
 
 `bevy_shape` is a new crate centered around the geometric primitives provided
-by bevy. These primtiives and related traits have been split out from
+by Bevy. These primitives and related traits have been split out from
 `bevy_math` and are now available from different import paths than they used to
 be.
 
