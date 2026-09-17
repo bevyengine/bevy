@@ -10,3 +10,4 @@ This note will be completed once the rest of the series lands.
 
 - Added `app.info` to the Bevy Remote Protocol (#25822)
 - Added `diagnostics.list` and `diagnostics.get` to the Bevy Remote Protocol (#25824)
+- Added `WorldSummary` to `bevy_dev_tools` inspection (#25818)

@@ -1,4 +1,6 @@
-//! Statistical summaries about the [`World`].
+//! Condensed [inspection](super) results for an entire [`World`].
+//!
+//! See [`WorldSummary`] for the output, and [`WorldSummaryExt`] to generate.
 
 use bevy_ecs::{archetype::ArchetypeId, component::ComponentId, system::Commands, world::World};
 use bevy_log::info;
