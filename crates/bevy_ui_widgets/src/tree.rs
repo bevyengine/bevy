@@ -171,9 +171,10 @@ fn visible_rows(
         let Ok((item, disabled)) = rows.get(child) else {
             continue;
         };
-        if !disabled {
-            out.push(child);
+        if disabled {
+            continue;
         }
+        out.push(child);
         if item.expanded {
             for row_child in child_containers(child, children, containers) {
                 visible_rows(row_child, children, rows, containers, out);
