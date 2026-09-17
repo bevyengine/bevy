@@ -10,10 +10,7 @@ use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::ExtractedCamera,
     render_phase::{ViewBinnedRenderPhases, ViewSortedRenderPhases},
-    render_resource::{
-        FilterMode, Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureDimension,
-        TextureUsages, TextureView,
-    },
+    render_resource::{Texture, TextureDescriptor, TextureDimension, TextureUsages, TextureView},
     renderer::RenderDevice,
     texture::TextureCache,
     view::ExtractedView,
@@ -40,7 +37,6 @@ impl FromWorld for TransmissionSampler {
 pub struct ViewTransmissionTexture {
     pub texture: Texture,
     pub view: TextureView,
-    pub sampler: Sampler,
 }
 
 pub fn prepare_core_3d_transmission_textures(
@@ -111,7 +107,6 @@ pub fn prepare_core_3d_transmission_textures(
         commands.entity(entity).insert(ViewTransmissionTexture {
             texture: cached_texture.texture,
             view: cached_texture.default_view,
-            sampler: transmission_sampler.0.clone(),
         });
     }
 }

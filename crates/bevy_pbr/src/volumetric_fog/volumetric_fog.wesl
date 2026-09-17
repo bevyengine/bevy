@@ -21,7 +21,7 @@ import package::atmosphere::{
 import package::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
 import package::render::mesh_view_bindings::{
     globals, lights, view, clustered_lights,
-    atmosphere, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
+    atmosphere, atmosphere_transmittance_texture, linear_sampler
 };
 import package::render::mesh_view_types::{
     DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
@@ -526,5 +526,5 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
     return textureSampleLevel(
         atmosphere_transmittance_texture,
-        atmosphere_transmittance_sampler, uv, 0.0).rgb;
+        linear_sampler, uv, 0.0).rgb;
 }
