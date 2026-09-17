@@ -12,7 +12,7 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, With},
     reflect::{ReflectComponent, ReflectEvent},
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, ResMut},
     template::FromTemplate,
 };
 use bevy_input::{
@@ -481,12 +481,12 @@ fn collect_levels(
 /// Derives [`Selected`] and the roving [`TabIndex`] from each tree's validated
 /// [`SelectedTreeItem`] and the current focus, in `PostUpdate`, only when relevant state changed.
 fn update_tree_view_derived_state(
-    trees: Query<(Entity, &SelectedTreeItem), With<TreeView>>,
+    trees: Query<(Entity, &SelectedTreeItem, Has<InteractionDisabled>), With<TreeView>>,
     children: Query<&Children>,
     rows: RowQuery,
     row_state: Query<(Has<Selected>, &TabIndex), With<TreeItem>>,
     containers: ContainerQuery,
-    focus: Option<Res<InputFocus>>,
+    mut focus: Option<ResMut<InputFocus>>,
     changed_trees: Query<
         (),
         (
@@ -505,17 +505,23 @@ fn update_tree_view_derived_state(
             )>,
         ),
     >,
+    changed_containers: Query<(), (With<TreeItemChildren>, Changed<Children>)>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut commands: Commands,
 ) {
     let focus_changed = focus.as_ref().is_some_and(DetectChanges::is_changed);
     let disabled_removed = !removed_disabled.is_empty();
     removed_disabled.clear();
-    if !focus_changed && !disabled_removed && changed_trees.is_empty() && changed_rows.is_empty() {
+    if !focus_changed
+        && !disabled_removed
+        && changed_trees.is_empty()
+        && changed_rows.is_empty()
+        && changed_containers.is_empty()
+    {
         return;
     }
 
-    for (tree, selection) in trees.iter() {
+    for (tree, selection, tree_disabled) in trees.iter() {
         let tree_rows = children
             .iter_descendants(tree)
             .filter(|descendant| rows.contains(*descendant))
@@ -523,16 +529,26 @@ fn update_tree_view_derived_state(
         let enabled = |entity: &Entity| {
             tree_rows.contains(entity) && rows.get(*entity).is_ok_and(|(_, disabled)| !disabled)
         };
+        let mut visible = Vec::new();
+        visible_rows(tree, &children, &rows, &containers, &mut visible);
+        let visible_set = visible.iter().copied().collect::<EntityHashSet>();
+
+        let current_focus = focus.as_deref().and_then(InputFocus::get);
         let selected = selection.0.filter(enabled);
-        let focused = focus
-            .as_ref()
-            .and_then(|focus| focus.get())
-            .filter(|entity| enabled(entity));
-        let roving = focused.or(selected).or_else(|| {
-            let mut visible = Vec::new();
-            visible_rows(tree, &children, &rows, &containers, &mut visible);
-            visible.first().copied()
-        });
+        let focused =
+            current_focus.filter(|entity| enabled(entity) && visible_set.contains(entity));
+        let roving = focused
+            .or_else(|| selected.filter(|entity| visible_set.contains(entity)))
+            .or_else(|| visible.first().copied());
+
+        if let Some(focused_entity) = current_focus
+            && !tree_disabled
+            && tree_rows.contains(&focused_entity)
+            && Some(focused_entity) != roving
+            && let Some((focus, roving)) = focus.as_deref_mut().zip(roving)
+        {
+            focus.set(roving, FocusCause::Navigated);
+        }
 
         for row in tree_rows.iter().copied() {
             let Ok((is_selected, tab_index)) = row_state.get(row) else {
