@@ -3697,4 +3697,72 @@ mod tests {
             Vec2::new(120., 0.)
         );
     }
+
+    #[test]
+    fn geometry_updates_skip_clean_subtrees() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let grandchild = world
+            .spawn(Node {
+                width: px(10.),
+                height: px(10.),
+                ..default()
+            })
+            .id();
+        let child = world
+            .spawn(Node {
+                width: px(50.),
+                height: px(50.),
+                ..default()
+            })
+            .add_child(grandchild)
+            .id();
+        world
+            .spawn(Node {
+                width: px(100.),
+                height: px(100.),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+
+        let wrong_translation = Vec2::new(-999., -999.);
+
+        // Update `UiGlobalTransform`'s translation to an obviously wrong value, so we can compare it later to check `grandchild` was updated.
+        *app.world_mut()
+            .get_mut::<UiGlobalTransform>(grandchild)
+            .unwrap() = bevy_math::Affine2::from_translation(wrong_translation).into();
+
+        app.world_mut().entity_mut(child).insert(Node {
+            width: px(60.),
+            height: px(50.),
+            ..default()
+        });
+        app.update();
+        assert_ne!(
+            app.world()
+                .get::<UiGlobalTransform>(grandchild)
+                .unwrap()
+                .translation,
+            wrong_translation,
+            "failed to update a dirty subtree"
+        );
+
+        // Nothing is changed this frame, so `grandchild` should not be updated.
+        *app.world_mut()
+            .get_mut::<UiGlobalTransform>(grandchild)
+            .unwrap() = bevy_math::Affine2::from_translation(wrong_translation).into();
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<UiGlobalTransform>(grandchild)
+                .unwrap()
+                .translation,
+            wrong_translation,
+            "updated a clean subtree"
+        );
+    }
 }
