@@ -5,8 +5,8 @@ use crate::{
     prelude::FromWorld,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, FromInput, ParameterAccessConflict, ReadOnlySystemParam, System,
-        SystemAccess, SystemIn, SystemInput, SystemParam, SystemParamItem,
+        check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemAccess, SystemIn,
+        SystemInput, SystemParam, SystemParamAccessConflict, SystemParamItem,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
@@ -595,8 +595,8 @@ fn init_param_or_panic<P: SystemParam>(
 fn panic_for_param_conflict(
     system_name: &DebugName,
     world: UnsafeWorldCell<'_>,
-    err1: Option<ParameterAccessConflict>,
-    err2: ParameterAccessConflict,
+    err1: Option<SystemParamAccessConflict>,
+    err2: SystemParamAccessConflict,
 ) -> ! {
     let err1 =
         err1.expect("System param with internal access conflict must always report a conflict");
@@ -662,7 +662,7 @@ fn panic_for_param_conflict(
 ///
 /// This is separate from [`init_param_or_panic`] so that it is not monomorphized for each [`SystemParam`] type.
 #[cold]
-fn panic_for_param_conflict_no_debug(err2: ParameterAccessConflict) -> ! {
+fn panic_for_param_conflict_no_debug(err2: SystemParamAccessConflict) -> ! {
     let code = err2.code.unwrap_or("B0007");
     let code_lower = code.to_ascii_lowercase();
     panic!(

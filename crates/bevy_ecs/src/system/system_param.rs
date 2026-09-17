@@ -241,7 +241,7 @@ pub unsafe trait SystemParam: Sized {
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict>;
+    ) -> Result<(), SystemParamAccessConflict>;
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
@@ -295,7 +295,7 @@ pub unsafe trait SystemParam: Sized {
 ///
 /// This contains information about the parameter that had an access conflict,
 /// and can be used to construct a panic message.
-pub struct ParameterAccessConflict {
+pub struct SystemParamAccessConflict {
     /// The access requested by the conflicting parameter.
     pub access: SystemAccess,
 
@@ -314,8 +314,8 @@ pub struct ParameterAccessConflict {
     pub code: Option<&'static str>,
 }
 
-impl ParameterAccessConflict {
-    /// Constructs a new [`ParameterAccessConflict`] with the provided [`SystemAccess`]
+impl SystemParamAccessConflict {
+    /// Constructs a new [`SystemParamAccessConflict`] with the provided [`SystemAccess`]
     /// and the parameter name initialized from the type name of `T`.
     pub fn new<T>(access: SystemAccess) -> Self {
         Self {
@@ -401,7 +401,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_access
             .try_extend_metadata()
             // When conflicting with `Exclusive` access, report the main query access and ignore nested queries
@@ -428,7 +428,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
                         }
                     }
                 };
-                ParameterAccessConflict::new::<Self>(SystemAccess::Shared(access))
+                SystemParamAccessConflict::new::<Self>(SystemAccess::Shared(access))
                     .with_suggestion(suggestion)
                     .with_code("B0001")
             })
@@ -465,9 +465,9 @@ unsafe impl<'a, 'b, D: IterQueryData + 'static, F: QueryFilter + 'static> System
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         Query::init_access(state, system_meta, system_access)
-            .map_err(ParameterAccessConflict::with_param::<Self>)
+            .map_err(SystemParamAccessConflict::with_param::<Self>)
     }
 
     #[inline]
@@ -518,9 +518,9 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         Query::init_access(state, system_meta, system_access)
-            .map_err(ParameterAccessConflict::with_param::<Self>)
+            .map_err(SystemParamAccessConflict::with_param::<Self>)
     }
 
     #[inline]
@@ -704,7 +704,7 @@ macro_rules! impl_param_set {
                 non_snake_case,
                 reason = "Certain variable names are provided by the caller, not by us."
             )]
-            fn init_access(state: &Self::State, system_meta: &mut SystemMeta, system_access: &mut SystemAccess) -> Result<(), ParameterAccessConflict> {
+            fn init_access(state: &Self::State, system_meta: &mut SystemMeta, system_access: &mut SystemAccess) -> Result<(), SystemParamAccessConflict> {
                 let ($($param,)*) = state;
                 $(
                     // Call `init_access` on a clone of the original access set to check for conflicts
@@ -795,13 +795,13 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         &component_id: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         let mut filter = FilteredAccess::default();
         filter.add_read(component_id);
         filter.and_with(IS_RESOURCE);
 
         system_access.try_extend_single(filter).map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access)
+            SystemParamAccessConflict::new::<Self>(access)
                 .with_suggestion_if_exclusive(system_access, "Calling `World::resource()`")
                 .with_code("B0002")
         })
@@ -844,13 +844,13 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
         &component_id: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         let mut filter = FilteredAccess::default();
         filter.add_write(component_id);
         filter.and_with(IS_RESOURCE);
 
         system_access.try_extend_single(filter).map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access)
+            SystemParamAccessConflict::new::<Self>(access)
                 .with_suggestion_if_exclusive(system_access, "Calling `World::resource_mut()`")
                 .with_code("B0002")
         })
@@ -894,13 +894,13 @@ unsafe impl SystemParam for &'_ World {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         let mut filtered_access = FilteredAccess::default();
         filtered_access.read_all();
 
         system_access
             .try_extend_single(filtered_access)
-            .map_err(ParameterAccessConflict::new::<Self>)
+            .map_err(SystemParamAccessConflict::new::<Self>)
     }
 
     #[inline]
@@ -926,12 +926,12 @@ unsafe impl SystemParam for &'_ mut World {
         _state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         // Exclusive systems must be ran on the main thread.
         system_meta.set_non_send();
 
         system_access.try_extend_exclusive().map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access)
+            SystemParamAccessConflict::new::<Self>(access)
                 .with_suggestion("Using a `&mut SystemState` parameter")
                 .with_suggestion(
                     "Using a `Commands` parameter instead of `&mut World` to defer changes",
@@ -963,13 +963,13 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         let mut filtered_access = FilteredAccess::default();
         filtered_access.write_all();
 
         system_access
             .try_extend_single(filtered_access)
-            .map_err(ParameterAccessConflict::new::<Self>)
+            .map_err(SystemParamAccessConflict::new::<Self>)
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -1158,7 +1158,7 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         _system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         Ok(())
     }
 
@@ -1353,7 +1353,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
         _state: &Self::State,
         system_meta: &mut SystemMeta,
         _system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_meta.set_has_deferred();
         Ok(())
     }
@@ -1392,7 +1392,7 @@ unsafe impl SystemParam for NonSendMarker {
         _state: &Self::State,
         system_meta: &mut SystemMeta,
         _system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_meta.set_non_send();
         Ok(())
     }
@@ -1428,7 +1428,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_meta.set_non_send();
 
         let mut filtered_access = FilteredAccess::default();
@@ -1437,7 +1437,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         system_access
             .try_extend_single(filtered_access)
             .map_err(|access| {
-                ParameterAccessConflict::new::<Self>(access)
+                SystemParamAccessConflict::new::<Self>(access)
                     .with_suggestion_if_exclusive(system_access, "Calling `World::non_send()`")
                     .with_code("B0002")
             })
@@ -1474,7 +1474,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_meta.set_non_send();
 
         let mut filtered_access = FilteredAccess::default();
@@ -1483,7 +1483,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_access
             .try_extend_single(filtered_access)
             .map_err(|access| {
-                ParameterAccessConflict::new::<Self>(access)
+                SystemParamAccessConflict::new::<Self>(access)
                     .with_suggestion_if_exclusive(system_access, "Calling `World::non_send_mut()`")
                     .with_code("B0002")
             })
@@ -1520,9 +1520,9 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_access.try_extend_metadata().map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access)
+            SystemParamAccessConflict::new::<Self>(access)
                 .with_suggestion_if_exclusive(system_access, "Calling `World::archetypes()`")
         })
     }
@@ -1552,9 +1552,9 @@ unsafe impl<'a> SystemParam for &'a ResourceEntities {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_access.try_extend_metadata().map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access)
+            SystemParamAccessConflict::new::<Self>(access)
                 .with_suggestion_if_exclusive(system_access, "Calling `World::resource_entities()`")
         })
     }
@@ -1584,9 +1584,9 @@ unsafe impl<'a> SystemParam for &'a Components {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_access.try_extend_metadata().map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access)
+            SystemParamAccessConflict::new::<Self>(access)
                 .with_suggestion_if_exclusive(system_access, "Calling `World::components()`")
         })
     }
@@ -1616,9 +1616,9 @@ unsafe impl<'a> SystemParam for &'a Entities {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_access.try_extend_metadata().map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access)
+            SystemParamAccessConflict::new::<Self>(access)
                 .with_suggestion_if_exclusive(system_access, "Calling `World::entities()`")
         })
     }
@@ -1648,9 +1648,9 @@ unsafe impl<'a> SystemParam for &'a EntityAllocator {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_access.try_extend_metadata().map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access)
+            SystemParamAccessConflict::new::<Self>(access)
                 .with_suggestion_if_exclusive(system_access, "Calling `World::entity_allocator()`")
         })
     }
@@ -1680,9 +1680,9 @@ unsafe impl<'a> SystemParam for &'a Bundles {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_access.try_extend_metadata().map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access)
+            SystemParamAccessConflict::new::<Self>(access)
                 .with_suggestion_if_exclusive(system_access, "Calling `World::bundles()`")
         })
     }
@@ -1741,7 +1741,7 @@ unsafe impl SystemParam for SystemChangeTick {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         _system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         Ok(())
     }
 
@@ -1773,7 +1773,7 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         T::init_access(state, system_meta, system_access)
     }
 
@@ -1814,7 +1814,7 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         T::init_access(state, system_meta, system_access)
     }
 
@@ -1908,7 +1908,7 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         T::init_access(state, system_meta, system_access)
     }
 
@@ -1955,7 +1955,7 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         for state in state {
             T::init_access(state, system_meta, system_access)?;
         }
@@ -2007,7 +2007,7 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         for state in state {
             // Call `init_access` on a clone of the original access set to check for conflicts
             let system_access_clone = &mut system_access.clone();
@@ -2110,7 +2110,7 @@ unsafe impl<T: SystemParam, const N: usize> SystemParam for SmallVec<[T; N]> {
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         for state in state {
             T::init_access(state, system_meta, system_access)?;
         }
@@ -2177,7 +2177,7 @@ macro_rules! impl_system_param_tuple {
                 ($($param::init_state(world),)*)
             }
 
-            fn init_access(state: &Self::State, _system_meta: &mut SystemMeta, _system_access: &mut SystemAccess) -> Result<(), ParameterAccessConflict> {
+            fn init_access(state: &Self::State, _system_meta: &mut SystemMeta, _system_access: &mut SystemAccess) -> Result<(), SystemParamAccessConflict> {
                 let ($($param,)*) = state;
                 $($param::init_access($param, _system_meta, _system_access)?;)*
                 Ok(())
@@ -2353,7 +2353,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         P::init_access(state, system_meta, system_access)
     }
 
@@ -2388,7 +2388,7 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         _system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         Ok(())
     }
 
@@ -2421,7 +2421,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         _system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         Ok(())
     }
 
@@ -2454,7 +2454,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for &'_ mut SystemState<P> {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         _system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         Ok(())
     }
 
@@ -2676,7 +2676,7 @@ trait DynParamState: Sync + Send + Any {
         &self,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict>;
+    ) -> Result<(), SystemParamAccessConflict>;
 
     /// Validates the inner parameter by calling [`SystemParam::get_param`] and discarding the value.
     ///
@@ -2706,7 +2706,7 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         &self,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         T::init_access(&self.0, system_meta, system_access)
     }
 
@@ -2735,7 +2735,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         state.0.init_access(system_meta, system_access)
     }
 
@@ -2785,7 +2785,7 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         access: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         let mut filtered_access = FilteredAccess::default();
         filtered_access.access_mut().extend(access);
         filtered_access.and_with(IS_RESOURCE);
@@ -2793,7 +2793,7 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         system_access
             .try_extend_single(filtered_access)
             .map_err(|access| {
-                ParameterAccessConflict::new::<Self>(access)
+                SystemParamAccessConflict::new::<Self>(access)
                     .with_suggestion_if_exclusive(system_access, "Calling `World::resource()`")
                     .with_code("B0002")
             })
@@ -2831,7 +2831,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         access: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         let mut filtered_access = FilteredAccess::default();
         filtered_access.access_mut().extend(access);
         filtered_access.and_with(IS_RESOURCE);
@@ -2839,7 +2839,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         system_access
             .try_extend_single(filtered_access)
             .map_err(|access| {
-                ParameterAccessConflict::new::<Self>(access)
+                SystemParamAccessConflict::new::<Self>(access)
                     .with_suggestion_if_exclusive(system_access, "Calling `World::resource_mut()`")
                     .with_code("B0002")
             })

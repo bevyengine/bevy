@@ -62,8 +62,8 @@ use crate::{
     relationship::RelationshipHookMode,
     storage::SparseSet,
     system::{
-        Local, ParameterAccessConflict, ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam,
-        SystemParamValidationError,
+        Local, ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam,
+        SystemParamAccessConflict, SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
@@ -703,9 +703,9 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_access.try_extend_metadata().map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access).with_suggestion_if_exclusive(
+            SystemParamAccessConflict::new::<Self>(access).with_suggestion_if_exclusive(
                 system_access,
                 "Calling `World::removed_components()`",
             )

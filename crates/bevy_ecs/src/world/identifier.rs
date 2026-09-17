@@ -2,7 +2,8 @@ use crate::{
     change_detection::Tick,
     storage::SparseSetIndex,
     system::{
-        ParameterAccessConflict, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError,
+        SystemAccess, SystemMeta, SystemParam, SystemParamAccessConflict,
+        SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
@@ -72,9 +73,9 @@ unsafe impl SystemParam for WorldId {
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         system_access.try_extend_metadata().map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access)
+            SystemParamAccessConflict::new::<Self>(access)
                 .with_suggestion_if_exclusive(system_access, "Calling `World::id()`")
         })
     }

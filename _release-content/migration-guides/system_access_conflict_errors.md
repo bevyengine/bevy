@@ -17,7 +17,7 @@ either by returning the value directly or using the `?` operator.
 
 Note that propagating the error will include the type name
 of the *inner* parameter in the panic message.
-Use `map_err(ParameterAccessConflict::with_param::<Self>)`
+Use `map_err(SystemParamAccessConflict::with_param::<Self>)`
 to replace it with the wrapper's type name, if desired.
 
 Implementations that perform no access can simply return `Ok(())`.
@@ -27,7 +27,7 @@ Use `SystemAccess::try_extend_metadata` if you call such methods in `get_param`.
 
 Implementations that need to register custom access
 should call one of the `SystemAccess::try_extend` methods to try to add the access,
-and then call `ParameterAccessConflict::new::<Self>` on an `Err`.
+and then call `SystemParamAccessConflict::new::<Self>` on an `Err`.
 
 ```rust
 impl SystemParam for ExampleParameter {
@@ -51,10 +51,10 @@ impl SystemParam for ExampleParameter {
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         let mut access: FilteredAccess = ...;
         system_access.try_extend_single(access).map_err(|access| {
-            ParameterAccessConflict::new::<Self>(access)
+            SystemParamAccessConflict::new::<Self>(access)
                 // If you have additional suggestions to display to the user on conflict,
                 // call `with_suggestion` or `with_suggestion_if_exclusive` to add them.
                 .with_suggestion("Suggestion on conflict")

@@ -9,7 +9,7 @@ use bevy_ecs::component::ComponentId;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::{QueryData, QueryFilter, QueryState};
 use bevy_ecs::system::{
-    Deferred, ParameterAccessConflict, SystemAccess, SystemBuffer, SystemMeta, SystemName,
+    Deferred, SystemParamAccessConflict, SystemAccess, SystemBuffer, SystemMeta, SystemName,
     SystemParam, SystemParamValidationError,
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
@@ -356,7 +356,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         Res::<CurrentView>::init_access(&state.resource_id, system_meta, system_access)?;
         Query::init_access(&state.query_state, system_meta, system_access)?;
         Ok(())

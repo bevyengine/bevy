@@ -911,7 +911,7 @@ mod tests {
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
         system::{
-            Commands, NonSendMut, ParameterAccessConflict, SystemAccess, SystemMeta, SystemParam,
+            Commands, NonSendMut, SystemAccess, SystemMeta, SystemParam, SystemParamAccessConflict,
             SystemParamValidationError,
         },
         world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -933,10 +933,10 @@ mod tests {
             _state: &Self::State,
             _system_meta: &mut SystemMeta,
             system_access: &mut SystemAccess,
-        ) -> Result<(), ParameterAccessConflict> {
+        ) -> Result<(), SystemParamAccessConflict> {
             system_access
                 .try_extend_exclusive()
-                .map_err(ParameterAccessConflict::new::<Self>)
+                .map_err(SystemParamAccessConflict::new::<Self>)
         }
 
         unsafe fn get_param<'world, 'state>(

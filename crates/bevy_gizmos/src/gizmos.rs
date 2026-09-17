@@ -12,7 +12,7 @@ use bevy_ecs::{
     change_detection::Tick,
     resource::Resource,
     system::{
-        Deferred, ParameterAccessConflict, ReadOnlySystemParam, Res, SystemAccess, SystemBuffer,
+        Deferred, SystemParamAccessConflict, ReadOnlySystemParam, Res, SystemAccess, SystemBuffer,
         SystemMeta, SystemParam, SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -210,7 +210,7 @@ where
         state: &Self::State,
         system_meta: &mut SystemMeta,
         system_access: &mut SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         GizmosState::<Config, Clear>::init_access(&state.state, system_meta, system_access)
     }
 

@@ -3,7 +3,7 @@ use crate::message::MessageParIter;
 use crate::{
     message::{Message, MessageCursor, MessageIterator, MessageIteratorWithId, Messages},
     system::{
-        Local, ParameterAccessConflict, ReadOnlySystemParam, Res, SystemParam,
+        Local, ReadOnlySystemParam, Res, SystemParam, SystemParamAccessConflict,
         SystemParamValidationError,
     },
 };
@@ -170,9 +170,9 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
         state: &Self::State,
         system_meta: &mut crate::system::SystemMeta,
         system_access: &mut crate::system::SystemAccess,
-    ) -> Result<(), ParameterAccessConflict> {
+    ) -> Result<(), SystemParamAccessConflict> {
         MessageReader::<M>::init_access(state, system_meta, system_access)
-            .map_err(ParameterAccessConflict::with_param::<Self>)
+            .map_err(SystemParamAccessConflict::with_param::<Self>)
     }
 
     unsafe fn get_param<'world, 'state>(

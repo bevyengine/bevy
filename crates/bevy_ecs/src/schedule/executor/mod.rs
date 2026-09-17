@@ -585,9 +585,9 @@ mod validation_tests {
         prelude::{Component, In, IntoSystem, Resource, Schedule},
         schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
         system::{
-            DynParamBuilder, DynSystemParam, Local, ParamBuilder, ParamSet,
-            ParameterAccessConflict, Query, Res, ResMut, RunSystemError, RunSystemOnce, Single,
-            SystemAccess, SystemMeta, SystemParam, SystemParamBuilder, SystemParamValidationError,
+            DynParamBuilder, DynSystemParam, Local, ParamBuilder, ParamSet, Query, Res, ResMut,
+            RunSystemError, RunSystemOnce, Single, SystemAccess, SystemMeta, SystemParam,
+            SystemParamAccessConflict, SystemParamBuilder, SystemParamValidationError,
         },
         world::World,
     };
@@ -616,7 +616,7 @@ mod validation_tests {
             _state: &Self::State,
             _system_meta: &mut SystemMeta,
             _system_access: &mut SystemAccess,
-        ) -> Result<(), ParameterAccessConflict> {
+        ) -> Result<(), SystemParamAccessConflict> {
             Ok(())
         }
 
