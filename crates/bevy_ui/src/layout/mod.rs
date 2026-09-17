@@ -3830,7 +3830,7 @@ mod tests {
     }
 
     #[test]
-    fn percentage_sizes_are_updated_after_ghost_removal() {
+    fn percentage_sizes_are_updated_after_intermediate_ghost_insertion_and_removal() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
         let descendant = world
@@ -3840,33 +3840,35 @@ mod tests {
                 ..default()
             })
             .id();
-        let ghost = world
-            .spawn((
-                GhostNode,
-                Node {
-                    width: px(50.),
-                    height: px(50.),
-                    ..default()
-                },
-            ))
+        let mid = world
+            .spawn((Node {
+                width: px(50.),
+                height: px(50.),
+                ..default()
+            },))
             .add_child(descendant)
             .id();
-        let root = world
+        world
             .spawn(Node {
                 width: px(100.),
                 height: px(100.),
                 ..default()
             })
-            .add_child(ghost)
-            .id();
+            .add_child(mid);
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(world.get::<ComputedNode>(descendant).unwrap().size.x, 50.);
+        assert_eq!(world.get::<ComputedNode>(descendant).unwrap().size.y, 50.);
+        world.entity_mut(mid).insert(GhostNode);
 
         app.update();
 
         let world = app.world_mut();
         assert_eq!(world.get::<ComputedNode>(descendant).unwrap().size.x, 100.);
         assert_eq!(world.get::<ComputedNode>(descendant).unwrap().size.y, 100.);
-
-        world.entity_mut(ghost).remove::<GhostNode>();
+        world.entity_mut(mid).remove::<GhostNode>();
 
         app.update();
 
