@@ -43,12 +43,14 @@ pub enum TreeSelectionMode {
 /// A tree nests as `TreeView -> TreeItem -> TreeItemChildren -> TreeItem`. Rows are never spawned
 /// by the widget. Selection lives in [`SelectedTreeItem`] and expansion in [`TreeItem::expanded`];
 /// both only change when [`tree_view_self_update`] and [`tree_view_expand_self_update`] are added.
-#[derive(Component, Debug, Default, Clone, Copy, PartialEq, Reflect)]
+#[derive(Component, Debug, Default, Clone, PartialEq, Reflect)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Tree)), SelectedTreeItem)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct TreeView {
     /// How many rows may be selected at once.
     pub selection: TreeSelectionMode,
+    /// Top-to-bottom order of this tree's visible rows. Derived in `PostUpdate`.
+    pub visible_rows: Vec<Entity>,
 }
 
 /// The selected [`TreeItem`] within a [`TreeView`]. The referenced entity must be an enabled row
@@ -121,7 +123,11 @@ impl Plugin for TreePlugin {
             .add_observer(tree_item_on_key_input)
             .add_systems(
                 PostUpdate,
-                (update_tree_item_levels, update_tree_view_derived_state)
+                (
+                    update_tree_item_levels,
+                    update_visible_rows,
+                    update_tree_view_derived_state,
+                )
                     .chain()
                     .after(crate::MenuFocusSystem)
                     .before(InputFocusSystems::FocusChangeEvents),
@@ -411,18 +417,16 @@ fn tree_item_on_key_input(
         Navigation::In => first_child_row(row, &children, &rows, &containers),
         Navigation::Out => parent_row(row, &parents, &rows, &containers),
         _ => {
-            let mut visible = Vec::new();
-            visible_rows(tree, &children, &rows, &containers, &mut visible);
-            let current = visible.iter().position(|visible| *visible == row);
+            let current = view.visible_rows.iter().position(|visible| *visible == row);
             match navigation {
                 Navigation::Previous => current
                     .filter(|index| *index > 0)
-                    .map(|index| visible[index - 1]),
+                    .map(|index| view.visible_rows[index - 1]),
                 Navigation::Next => current
-                    .filter(|index| *index + 1 < visible.len())
-                    .map(|index| visible[index + 1]),
-                Navigation::First => visible.first().copied(),
-                Navigation::Last => visible.last().copied(),
+                    .filter(|index| *index + 1 < view.visible_rows.len())
+                    .map(|index| view.visible_rows[index + 1]),
+                Navigation::First => view.visible_rows.first().copied(),
+                Navigation::Last => view.visible_rows.last().copied(),
                 _ => None,
             }
         }
@@ -503,14 +507,59 @@ fn collect_levels(
     }
 }
 
+fn update_visible_rows(
+    trees: Query<Entity, With<TreeView>>,
+    children: Query<&Children>,
+    rows: RowQuery,
+    containers: ContainerQuery,
+    parents: Query<&ChildOf>,
+    mut views: Query<&mut TreeView>,
+    changed: Query<
+        Entity,
+        (
+            Or<(
+                Changed<Children>,
+                Changed<TreeItem>,
+                Added<InteractionDisabled>,
+            )>,
+            Or<(With<TreeView>, With<TreeItem>, With<TreeItemChildren>)>,
+        ),
+    >,
+    mut removed_disabled: RemovedComponents<InteractionDisabled>,
+) {
+    let changed_trees = owning_trees(
+        changed.iter().chain(removed_disabled.read()),
+        &parents,
+        &trees,
+    );
+
+    for tree in changed_trees {
+        let mut visible_rows_buffer = Vec::new();
+        visible_rows(
+            tree,
+            &children,
+            &rows,
+            &containers,
+            &mut visible_rows_buffer,
+        );
+        if let Ok(mut view) = views.get_mut(tree) {
+            view.visible_rows = visible_rows_buffer;
+        }
+    }
+}
+
 /// Derives [`Selected`] and the roving [`TabIndex`] from each tree's validated
 /// [`SelectedTreeItem`] and the current focus, in `PostUpdate`, only when relevant state changed.
 fn update_tree_view_derived_state(
-    trees: Query<(Entity, &SelectedTreeItem, Has<InteractionDisabled>), With<TreeView>>,
+    trees: Query<(
+        Entity,
+        &TreeView,
+        &SelectedTreeItem,
+        Has<InteractionDisabled>,
+    )>,
     children: Query<&Children>,
     rows: RowQuery,
     row_state: Query<(Has<Selected>, &TabIndex), With<TreeItem>>,
-    containers: ContainerQuery,
     mut focus: Option<ResMut<InputFocus>>,
     changed_trees: Query<
         (),
@@ -546,7 +595,7 @@ fn update_tree_view_derived_state(
         return;
     }
 
-    for (tree, selection, tree_disabled) in trees.iter() {
+    for (tree, view, selection, tree_disabled) in trees.iter() {
         let tree_rows = children
             .iter_descendants(tree)
             .filter(|descendant| rows.contains(*descendant))
@@ -554,9 +603,7 @@ fn update_tree_view_derived_state(
         let enabled = |entity: &Entity| {
             tree_rows.contains(entity) && rows.get(*entity).is_ok_and(|(_, disabled)| !disabled)
         };
-        let mut visible = Vec::new();
-        visible_rows(tree, &children, &rows, &containers, &mut visible);
-        let visible_set = visible.iter().copied().collect::<EntityHashSet>();
+        let visible_set = view.visible_rows.iter().copied().collect::<EntityHashSet>();
 
         let current_focus = focus.as_deref().and_then(InputFocus::get);
         let selected = selection.0.filter(enabled);
@@ -564,7 +611,7 @@ fn update_tree_view_derived_state(
             current_focus.filter(|entity| enabled(entity) && visible_set.contains(entity));
         let roving = focused
             .or_else(|| selected.filter(|entity| visible_set.contains(entity)))
-            .or_else(|| visible.first().copied());
+            .or_else(|| view.visible_rows.first().copied());
 
         if let Some(focused_entity) = current_focus
             && !tree_disabled
@@ -1315,5 +1362,45 @@ mod tests {
             app.world().entity(moved_row).get::<TabIndex>(),
             Some(&TabIndex(-1))
         );
+    }
+
+    #[test]
+    fn adding_a_row_to_an_existing_container_updates_visible_rows() {
+        let (mut app, window) = tree_app();
+        let tree = app
+            .world_mut()
+            .spawn((TreeView::default(), ChildOf(window)))
+            .id();
+        let parent = app
+            .world_mut()
+            .spawn((
+                TreeItem {
+                    expanded: true,
+                    has_children: true,
+                    level: 0,
+                },
+                ChildOf(tree),
+            ))
+            .id();
+        let container = app
+            .world_mut()
+            .spawn((TreeItemChildren, ChildOf(parent)))
+            .id();
+        let child_a = app
+            .world_mut()
+            .spawn((TreeItem::default(), ChildOf(container)))
+            .id();
+        app.update();
+        focus(&mut app, child_a);
+
+        let child_b = app
+            .world_mut()
+            .spawn((TreeItem::default(), ChildOf(container)))
+            .id();
+        app.update();
+
+        press_key(&mut app, KeyCode::ArrowDown, window);
+
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(child_b));
     }
 }
