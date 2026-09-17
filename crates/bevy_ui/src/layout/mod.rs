@@ -3974,4 +3974,65 @@ mod tests {
         assert_eq!(world.get::<ComputedNode>(child1).unwrap().size.x, 1000.);
         assert_eq!(world.get::<ComputedNode>(child2).unwrap().size.x, 1000.)
     }
+
+    #[test]
+    fn adding_fixednode_updates_sibling_clipping() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let descendant = world.spawn(Node::default()).id();
+        let child1 = world
+            .spawn(Node {
+                width: percent(100.),
+                height: percent(100.),
+                ..default()
+            })
+            .id();
+        let child2 = world
+            .spawn(Node {
+                width: percent(100.),
+                height: percent(100.),
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(descendant)
+            .id();
+        world
+            .spawn(Node {
+                width: px(100.),
+                height: px(100.),
+                ..default()
+            })
+            .add_children(&[child1, child2]);
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(world.get::<ComputedNode>(child2).unwrap().size.x, 50.);
+        assert_eq!(
+            world
+                .get::<CalculatedClip>(descendant)
+                .unwrap()
+                .rects()
+                .unwrap()[0]
+                .rect
+                .width(),
+            50.
+        );
+        world.entity_mut(child1).insert(FixedNode);
+
+        app.update();
+
+        let world = app.world();
+        assert_eq!(world.get::<ComputedNode>(child2).unwrap().size.x, 100.);
+        assert_eq!(
+            world
+                .get::<CalculatedClip>(descendant)
+                .unwrap()
+                .rects()
+                .unwrap()[0]
+                .rect
+                .width(),
+            100.
+        );
+    }
 }
