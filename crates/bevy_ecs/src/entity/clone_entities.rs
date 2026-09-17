@@ -2160,7 +2160,7 @@ mod tests {
             .linked_cloning(true)
             .clone_entity(root, clone_root);
 
-        let root_children = world.entity(clone_root).get::<Children>().unwrap().to_vec();
+        let root_children = world.entity(clone_root).get::<Children>().unwrap();
 
         assert!(root_children.iter().all(|e| *e != child1 && *e != child2));
         assert_eq!(root_children.len(), 2);
@@ -2181,7 +2181,7 @@ mod tests {
         );
 
         assert_eq!(
-            world.entity(root).get::<Children>().unwrap().to_vec(),
+            world.entity(root).get::<Children>().unwrap().as_slice(),
             &[child1, child2]
         );
     }

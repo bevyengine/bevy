@@ -58,11 +58,11 @@ use core::ops::Deref;
 /// let child2 = world.spawn(ChildOf(root)).id();
 /// let grandchild = world.spawn(ChildOf(child1)).id();
 ///
-/// assert_eq!(world.entity(root).get::<Children>().unwrap().to_vec(), &[child1, child2]);
-/// assert_eq!(world.entity(child1).get::<Children>().unwrap().to_vec(), &[grandchild]);
+/// assert_eq!(world.entity(root).get::<Children>().unwrap().as_slice(), &[child1, child2]);
+/// assert_eq!(world.entity(child1).get::<Children>().unwrap().as_slice(), &[grandchild]);
 ///
 /// world.entity_mut(child2).remove::<ChildOf>();
-/// assert_eq!(world.entity(root).get::<Children>().unwrap().to_vec(), &[child1]);
+/// assert_eq!(world.entity(root).get::<Children>().unwrap().as_slice(), &[child1]);
 ///
 /// world.entity_mut(root).despawn();
 /// assert!(world.get_entity(root).is_err());
@@ -85,8 +85,8 @@ use core::ops::Deref;
 ///     child2 = Some(p.spawn_empty().id());
 /// }).id();
 ///
-/// assert_eq!(world.entity(root).get::<Children>().unwrap().to_vec(), &[child1.unwrap(), child2.unwrap()]);
-/// assert_eq!(world.entity(child1.unwrap()).get::<Children>().unwrap().to_vec(), &[grandchild.unwrap()]);
+/// assert_eq!(world.entity(root).get::<Children>().unwrap().as_slice(), &[child1.unwrap(), child2.unwrap()]);
+/// assert_eq!(world.entity(child1.unwrap()).get::<Children>().unwrap().as_slice(), &[grandchild.unwrap()]);
 /// ```
 ///
 /// [`Relationship`]: crate::relationship::Relationship
@@ -233,12 +233,6 @@ impl Children {
     #[inline]
     pub fn contains(&self, entity: &Entity) -> bool {
         self.0.contains(entity)
-    }
-
-    /// Collects the children into a [`Vec`](alloc::vec::Vec).
-    #[inline]
-    pub fn to_vec(&self) -> alloc::vec::Vec<Entity> {
-        self.0.iter().copied().collect()
     }
 }
 
@@ -501,7 +495,7 @@ mod tests {
         world
             .entity(entity)
             .get::<Children>()
-            .map(Children::to_vec)
+            .map(|c| c.iter().collect())
             .unwrap_or_default()
     }
 
