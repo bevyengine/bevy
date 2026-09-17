@@ -38,9 +38,9 @@ import package::render::shadow_sampling::{
 import package::render::shadows::{get_cascade_index, world_to_directional_light_local};
 import package::render::utils::interleaved_gradient_noise;
 import package::render::view_transformations::{
+    direction_view_to_world,
     frag_coord_to_ndc,
     position_ndc_to_view,
-    position_ndc_to_world,
     position_view_to_world
 };
 import bevy_render::maths::orthonormalize;
@@ -136,25 +136,26 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let view_end_depth_from_buffer = -position_ndc_to_view(
         frag_coord_to_ndc(vec4(position.xy, ndc_end_depth_from_buffer, 1.0))).z;
 
-    // Calculate the start position of the ray. Since we're only rendering front
-    // faces of the AABB, this is the current fragment's depth.
-    let view_start_pos = position_ndc_to_view(frag_coord_to_ndc(frag_coord));
+    // Build the view ray from the near plane so this works for orthographic
+    // projections too, then clip it against the six face planes.
+    let ndc_xy = frag_coord_to_ndc(frag_coord).xy;
+    let Ro_view = position_ndc_to_view(vec3(ndc_xy, 1.0));
+    let Rd_view = normalize(position_ndc_to_view(vec3(ndc_xy, 0.5)) - Ro_view);
 
-    // Slab test against the six face planes. `t` is relative to
-    // `view_start_pos`, so t = 1 is the fragment being drawn.
     var t_enter = 0.0;
     var t_exit = 3.402823e+38;
     var misses = false;
     for (var plane_index = 0; plane_index < 6; plane_index += 1) {
         let plane = volumetric_fog.far_planes[plane_index];
-        let denom = dot(plane.xyz, view_start_pos.xyz);
+        let dist = dot(plane.xyz, Ro_view) + plane.w;
+        let denom = dot(plane.xyz, Rd_view);
         if (abs(denom) < 1e-9) {
-            if (plane.w < 0.0) {
+            if (dist < 0.0) {
                 misses = true;
             }
             continue;
         }
-        let t = -plane.w / denom;
+        let t = -dist / denom;
         if (denom > 0.0) {
             t_enter = max(t_enter, t);
         } else {
@@ -162,16 +163,15 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         }
     }
 
-    let t_start = max(t_enter, 1.0);
-    if (misses || t_exit <= t_start) {
+    if (misses || t_exit <= t_enter) {
         return vec4(0.0, 0.0, 0.0, 0.0);
     }
 
-    let start_pos_view = view_start_pos.xyz * t_start;
+    let start_pos_view = Ro_view + Rd_view * t_enter;
 
     // We assume world and view have the same scale here.
     let start_depth_view = -start_pos_view.z;
-    let end_depth_view = min(-view_start_pos.z * t_exit, view_end_depth_from_buffer);
+    let end_depth_view = min(-(Ro_view + Rd_view * t_exit).z, view_end_depth_from_buffer);
 
     let ray_length_view = max(0.0, end_depth_view - start_depth_view);
     // If the end is behind the start of the first opaque pixel, then we know it
@@ -184,12 +184,10 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     let directional_light_count = lights.n_directional_lights;
 
-    // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in NDC,
-    // view, and world coordinates.
-    let Rd_ndc = vec3(frag_coord_to_ndc(position).xy, 1.0);
-    let Rd_view = normalize(position_ndc_to_view(Rd_ndc));
+    // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in world
+    // coordinates.
     var Ro_world = position_view_to_world(start_pos_view);
-    let Rd_world = normalize(position_ndc_to_world(Rd_ndc) - view.world_position);
+    let Rd_world = normalize(direction_view_to_world(Rd_view));
 
     // Offset by jitter.
     let jitter = interleaved_gradient_noise(position.xy, globals.frame_count) * jitter_strength;
