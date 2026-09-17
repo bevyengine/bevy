@@ -3828,4 +3828,50 @@ mod tests {
         assert_eq!(world.get::<ComputedNode>(descendant2).unwrap().size.x, 200.);
         assert_eq!(world.get::<ComputedNode>(descendant2).unwrap().size.y, 300.);
     }
+
+    #[test]
+    fn percentage_sizes_are_updated_after_ghost_removal() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let descendant = world
+            .spawn(Node {
+                width: percent(100.),
+                height: percent(100.),
+                ..default()
+            })
+            .id();
+        let ghost = world
+            .spawn((
+                GhostNode,
+                Node {
+                    width: px(50.),
+                    height: px(50.),
+                    ..default()
+                },
+            ))
+            .add_child(descendant)
+            .id();
+        let root = world
+            .spawn(Node {
+                width: px(100.),
+                height: px(100.),
+                ..default()
+            })
+            .add_child(ghost)
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(world.get::<ComputedNode>(descendant).unwrap().size.x, 100.);
+        assert_eq!(world.get::<ComputedNode>(descendant).unwrap().size.y, 100.);
+
+        world.entity_mut(ghost).remove::<GhostNode>();
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(world.get::<ComputedNode>(descendant).unwrap().size.x, 50.);
+        assert_eq!(world.get::<ComputedNode>(descendant).unwrap().size.y, 50.);
+    }
 }
