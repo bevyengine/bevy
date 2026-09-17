@@ -4186,4 +4186,43 @@ mod tests {
             100.
         );
     }
+
+    #[test]
+    fn node_parented_to_empty_root_should_be_cleared() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let node = world
+            .spawn(Node {
+                width: px(10),
+                height: px(10),
+                ..default()
+            })
+            .id();
+        let empty_root = world.spawn_empty().id();
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(
+            world.get::<ComputedNode>(node).unwrap().size(),
+            Vec2::splat(10.)
+        );
+        world.get_mut::<Node>(node).unwrap().width = px(20);
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(
+            world.get::<ComputedNode>(node).unwrap().size(),
+            Vec2::new(20., 10.)
+        );
+        world.entity_mut(node).insert(ChildOf(empty_root));
+
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(node).unwrap().size(),
+            Vec2::ZERO
+        );
+    }
 }
