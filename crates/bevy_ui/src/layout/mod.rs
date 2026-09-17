@@ -283,7 +283,6 @@ pub fn ui_layout_system(
         Query<Entity, Added<GhostNode>>,
         RemovedComponents<GhostNode>,
     ),
-    rem_size: Res<RemSize>,
     parent_query: Query<&ChildOf>,
     (mut child_stack, mut root_stack, mut fixed_node_changes, mut ghost_stack): (
         Local<Vec<taffy::NodeId>>,
@@ -361,7 +360,6 @@ pub fn ui_layout_system(
             &fixed_node_changes,
             &mut buffer_query,
             &mut font_system,
-            *rem_size,
             &mut child_stack,
             needs_full_walk,
             &mut ghost_stack,
@@ -1288,7 +1286,6 @@ mod tests {
             mut node_queries: ParamSet<(Query<&mut ComputedLayout>,)>,
             mut buffer_query: Query<&mut bevy_text::ComputedTextBlock>,
             mut font_system: ResMut<bevy_text::FontCx>,
-            rem_size: Res<RemSize>,
             mut child_stack: Local<Vec<taffy::NodeId>>,
             mut ghost_stack: Local<Vec<Entity>>,
         ) {
@@ -1302,7 +1299,6 @@ mod tests {
                 &[],
                 &mut buffer_query,
                 &mut font_system,
-                *rem_size,
                 &mut child_stack,
                 true,
                 &mut ghost_stack,

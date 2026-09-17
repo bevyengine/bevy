@@ -9,7 +9,7 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_math::{UVec2, Vec2};
-use bevy_text::{ComputedTextBlock, FontCx, RemSize};
+use bevy_text::{ComputedTextBlock, FontCx};
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
     compute_hidden_layout, compute_leaf_layout, compute_root_layout, round_layout,
@@ -304,7 +304,6 @@ pub fn compute_layout(
     fixed_node_changes: &[Entity],
     buffer_query: &mut Query<&mut ComputedTextBlock>,
     font_system: &mut FontCx,
-    rem_size: RemSize,
     child_stack: &mut Vec<NodeId>,
     needs_full_walk: bool,
     ghost_stack: &mut Vec<Entity>,
@@ -316,7 +315,6 @@ pub fn compute_layout(
         node_query,
         computed_layout_query,
         fixed_node_changes,
-        rem_size,
         child_stack,
         needs_full_walk,
         ghost_stack,
@@ -411,7 +409,6 @@ fn sync_runtime_layout_tree(
     >,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_node_changes: &[Entity],
-    rem_size: RemSize,
     child_stack: &mut Vec<NodeId>,
     needs_full_walk: bool,
     ghost_stack: &mut Vec<Entity>,
@@ -457,7 +454,6 @@ fn sync_runtime_layout_tree(
             node_query,
             computed_layout_query,
             fixed_node_changes,
-            rem_size,
             child_stack,
             needs_full_walk,
             ghost_stack,
