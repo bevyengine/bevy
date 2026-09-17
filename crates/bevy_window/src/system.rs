@@ -2,10 +2,7 @@ use crate::{ClosingWindow, PrimaryWindow, Window, WindowCloseRequested, WindowEv
 
 use alloc::vec::Vec;
 use bevy_app::AppExit;
-use bevy_ecs::{
-    message::{MessageCursor, Messages},
-    prelude::*,
-};
+use bevy_ecs::prelude::*;
 
 /// A [`SystemSet`] for the system that exits the application.
 /// Which can be either [`exit_on_all_closed`] or [`exit_on_primary_closed`].
@@ -17,97 +14,103 @@ pub struct ExitSystems;
 pub struct WindowEventSystems;
 
 /// Splits each [`WindowEvent`] into the matching typed message.
-pub fn send_typed_window_events(world: &mut World, mut cursor: Local<MessageCursor<WindowEvent>>) {
-    let Some(messages) = world.get_resource::<Messages<WindowEvent>>() else {
+pub fn send_typed_window_events(
+    mut window_events: MessageReader<WindowEvent>,
+    mut commands: Commands,
+) {
+    if window_events.is_empty() {
         return;
-    };
-    let window_events: Vec<WindowEvent> = cursor.read(messages).cloned().collect();
+    }
+    let window_events: Vec<WindowEvent> = window_events.read().cloned().collect();
 
-    for window_event in window_events {
-        match window_event {
-            WindowEvent::AppLifecycle(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::CursorEntered(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::CursorLeft(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::CursorMoved(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::FileDragAndDrop(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::Ime(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::RequestRedraw(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::WindowBackendScaleFactorChanged(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::WindowCloseRequested(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::WindowCreated(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::WindowDestroyed(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::WindowFocused(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::WindowMoved(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::WindowOccluded(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::WindowResized(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::WindowScaleFactorChanged(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::WindowThemeChanged(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::MouseButtonInput(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::MouseMotion(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::MouseWheel(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::PinchGesture(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::RotationGesture(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::DoubleTapGesture(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::PanGesture(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::TouchInput(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::KeyboardInput(e) => {
-                world.write_message(e);
-            }
-            WindowEvent::KeyboardFocusLost(e) => {
-                world.write_message(e);
+    // Calling directly queue instead of individual `commands.write_message` to queue a single command for all messages
+    commands.queue(move |world: &mut World| {
+        for window_event in window_events {
+            match window_event {
+                WindowEvent::AppLifecycle(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::CursorEntered(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::CursorLeft(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::CursorMoved(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::FileDragAndDrop(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::Ime(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::RequestRedraw(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::WindowBackendScaleFactorChanged(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::WindowCloseRequested(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::WindowCreated(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::WindowDestroyed(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::WindowFocused(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::WindowMoved(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::WindowOccluded(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::WindowResized(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::WindowScaleFactorChanged(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::WindowThemeChanged(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::MouseButtonInput(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::MouseMotion(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::MouseWheel(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::PinchGesture(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::RotationGesture(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::DoubleTapGesture(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::PanGesture(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::TouchInput(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::KeyboardInput(e) => {
+                    world.write_message(e);
+                }
+                WindowEvent::KeyboardFocusLost(e) => {
+                    world.write_message(e);
+                }
             }
         }
-    }
+    });
 }
 
 /// Exit the application when there are no open windows.
