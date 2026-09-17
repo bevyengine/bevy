@@ -12,6 +12,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
+use bevy_extract::extract_instances::ExtractInstancesPlugin;
 use bevy_image::Image;
 use bevy_light::{
     cluster::ClusterVisibilityClass, EnvironmentMapLight, IrradianceVolume, LightProbe,
@@ -19,10 +20,9 @@ use bevy_light::{
 use bevy_math::{Affine3A, FloatOrd, Mat4, Quat, Vec3, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    extract_instances::ExtractInstancesPlugin,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
-    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
     texture::{FallbackImage, GpuImage},
@@ -776,7 +776,7 @@ pub(crate) fn binding_arrays_are_usable(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
 ) -> bool {
-    let adapter_info = RenderAdapterInfo(WgpuWrapper::new(render_adapter.get_info()));
+    let adapter_info = RenderAdapterInfo::new(render_adapter.get_info());
 
     bevy_render::get_adreno_model(&adapter_info).is_none_or(|model| model > 610)
         && render_device

@@ -334,7 +334,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
 
         /// Process the field value to account for remote types.
         ///
-        /// If the field is a remote type, then the value will be transmuted accordingly.
+        /// If the field is a remote type, then the value will be converted accordingly.
         fn process_field_value(
             ident: &Ident,
             field: &StructField,

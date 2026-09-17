@@ -23,6 +23,7 @@ fn create_world() -> World {
                     Layout::new::<()>(),
                     None,
                     true,
+                    false,
                     ComponentCloneBehavior::Default,
                     None,
                 ));

@@ -233,9 +233,9 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
                 top: px(10),
             }
             Children [
-                Text::new("Move with arrow keys.")
-            ],
-
+                Text("Move with arrow keys.")
+            ]
+            --
             Node {
                 position_type: PositionType::Absolute,
                 left: px(10),
@@ -247,11 +247,11 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
             Button
             Hovered::default()
             BackgroundColor(NORMAL_BUTTON)
-            on(|event: On<Add, Pressed>,
+            on(|event: On<Add<Pressed>>,
                 mut commands: Commands| {
                     commands.entity(event.entity).insert(BackgroundColor(PRESSED_BUTTON));
             })
-            on(|event: On<Remove, Pressed>,
+            on(|event: On<Remove<Pressed>>,
                 is_hovered: Query<&Hovered>,
                 mut commands: Commands| {
                     if is_hovered.get(event.entity).is_ok_and(Hovered::get) {
@@ -261,12 +261,12 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
                     }
             })
             Children [
-                Text::new("Restart Game")
+                Text("Restart Game")
                 TextFont {
                         font_size: FontSize::Px(33.0),
                 }
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-            ],
+                TextColor(Color::srgb(0.9, 0.9, 0.9))
+            ]
         ]
     });
     info!("Setup game");

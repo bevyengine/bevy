@@ -1,5 +1,5 @@
-import bevy_pbr::render::mesh_view_types as types;
-import bevy_pbr::atmosphere::types as atmosphere_types;
+import package::render::mesh_view_types as types;
+import package::atmosphere::types as atmosphere_types;
 import bevy_render::{
     view::View,
     globals::Globals,
@@ -80,8 +80,10 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @if(DEFERRED_PREPASS)
 @group(0) @binding(23) var deferred_prepass_texture: texture_2d<u32>;
 
+@if (VIEW_TRANSMISSION_TEXTURE) {
 @group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;
 @group(0) @binding(25) var view_transmission_sampler: sampler;
+}
 
 @if(OIT_ENABLED) {
 @group(0) @binding(26) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;

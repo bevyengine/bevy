@@ -1,4 +1,4 @@
-use crate::{Font, TextBrush, TextError, TextLayoutInfo, TextSection};
+use crate::{Font, InlineBox, TextBrush, TextError, TextLayoutInfo, TextSection};
 use alloc::borrow::Cow;
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
@@ -592,7 +592,7 @@ impl<const N: usize> From<[FontSource; N]> for FontSource {
 }
 
 /// Generic font families that are resolved through Parley's font database.
-#[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq, Hash, FromTemplate)]
+#[derive(Default, Clone, Copy, Debug, Reflect, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum GenericFontFamily {
     /// Fonts with serifs — small decorative strokes at the ends of letterforms.
@@ -759,7 +759,7 @@ impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            font_size: FontSize::from(20.),
+            font_size: FontSize::Rem(1.),
             style: FontStyle::Normal,
             weight: FontWeight::NORMAL,
             width: FontWidth::NORMAL,
@@ -802,7 +802,7 @@ impl FontSize {
         // Viewport size in logical pixels
         logical_viewport_size: Vec2,
         // Base Rem size in logical pixels
-        rem_size: f32,
+        rem_size: RemSize,
     ) -> f32 {
         match self {
             FontSize::Px(s) => s,
@@ -810,7 +810,7 @@ impl FontSize {
             FontSize::Vh(s) => logical_viewport_size.y * s / 100.,
             FontSize::VMin(s) => logical_viewport_size.min_element() * s / 100.,
             FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
-            FontSize::Rem(s) => rem_size * s,
+            FontSize::Rem(s) => rem_size.0 * s,
         }
     }
 }
@@ -864,13 +864,53 @@ impl From<f32> for FontSize {
     }
 }
 
-/// Base value used to resolve `Rem` units for font sizes.
-#[derive(Resource, Copy, Clone, Debug, PartialEq, Deref, DerefMut)]
+/// Default [`RemSize`] and [`EmSize`], in logical pixels
+pub const DEFAULT_REM_SIZE_PX: f32 = 20.0;
+
+/// The root font size, in logical pixels.
+///
+/// `Rem` units always resolve against this one global resource, including
+/// `FontSize::Rem`, `LetterSpacing::Rem` and `Val::Rem`.
+#[derive(Resource, Copy, Clone, Debug, PartialEq, Deref, DerefMut, Reflect)]
 pub struct RemSize(pub f32);
 
 impl Default for RemSize {
     fn default() -> Self {
-        Self(20.)
+        Self(DEFAULT_REM_SIZE_PX)
+    }
+}
+
+/// The font size, in logical pixels, used to resolve `Val::Em` values in a UI node.
+///
+/// `Em` units are relative to the font size of the node they sit on, and this is that
+/// font size made concrete. Required by `Node`, so every UI node has one.
+///
+/// If the node has a `TextFont`, the `EmSize` is derived from it whenever the `TextFont`,
+/// `RemSize` or render-target info changes; until then any value you place on it persists.
+/// If it does not have a `TextFont`, the value is yours to set, for example by an app-level
+/// propagation system. `EmSize` defaults to [`DEFAULT_REM_SIZE_PX`], which matches the default
+/// [`RemSize`] but does not track changes to it. Use `Val::Rem` instead for values that
+/// should follow the root font size.
+///
+/// Removing a `TextFont` leaves the last derived value in place.
+#[derive(Debug, PartialEq, Clone, Copy, Reflect, Component)]
+#[reflect(Default, PartialEq, Debug, Clone, Component)]
+pub struct EmSize(pub f32);
+
+impl Default for EmSize {
+    fn default() -> Self {
+        EmSize(DEFAULT_REM_SIZE_PX)
+    }
+}
+
+impl EmSize {
+    /// Resolves a [`FontSize`] to a concrete [`EmSize`] in logical pixels.
+    pub fn from_font_size(
+        font_size: FontSize,
+        logical_viewport_size: Vec2,
+        rem_size: RemSize,
+    ) -> Self {
+        EmSize(font_size.eval(logical_viewport_size, rem_size))
     }
 }
 
@@ -1337,15 +1377,18 @@ impl Default for LineHeight {
 pub enum LetterSpacing {
     /// Set letter spacing to a specific number of logical pixels
     Px(f32),
-    /// Set letter spacing to a multiple of the font size
+    /// Set letter spacing to a multiple of the root font size ([`RemSize`])
     Rem(f32),
 }
 
 impl LetterSpacing {
-    pub(crate) fn eval(self, rem_size: f32) -> f32 {
+    /// Evaluate a [`LetterSpacing`] into logical pixels either
+    /// because it specifies them directly or using the global
+    /// [`RemSize`] resource.
+    pub(crate) fn eval(self, rem_size: RemSize) -> f32 {
         match self {
             LetterSpacing::Px(px) => px,
-            LetterSpacing::Rem(rem) => rem * rem_size,
+            LetterSpacing::Rem(rem) => rem * rem_size.0,
         }
     }
 }
@@ -1536,6 +1579,7 @@ pub fn detect_text_needs_rerender(
         (
             Or<(
                 Changed<TextSpan>,
+                Changed<InlineBox>,
                 Changed<TextFont>,
                 Changed<LineHeight>,
                 Changed<LetterSpacing>,
@@ -1543,8 +1587,7 @@ pub fn detect_text_needs_rerender(
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
             )>,
-            With<TextSpan>,
-            With<TextFont>,
+            Or<((With<TextSpan>, With<TextFont>), With<InlineBox>)>,
         ),
     >,
     mut computed: Query<(
@@ -1573,14 +1616,14 @@ pub fn detect_text_needs_rerender(
     // - Span children changed (can include additions and removals).
     for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
         if has_text_block {
-            once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
+            once!(warn!("found entity {} with a TextSpan or InlineBox that has a TextLayout, which should only be on root \
                 text entities; this warning only prints once",
                 entity));
         }
 
         let Some(span_child_of) = maybe_span_child_of else {
             once!(warn!(
-                "found entity {} with a TextSpan that has no parent; it should have an ancestor \
+                "found entity {} with a TextSpan or InlineBox that has no parent; it should have an ancestor \
                 with a root text component; this warning only prints once",
                 entity
             ));
@@ -1593,7 +1636,7 @@ pub fn detect_text_needs_rerender(
         // is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_child_of, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
+                once!(warn!("found entity {} with a TextSpan or InlineBox that is part of a broken hierarchy with a ChildOf \
                     component that points at non-existent entity {}; this warning only prints once",
                     entity, parent));
                 break;
@@ -1603,14 +1646,14 @@ pub fn detect_text_needs_rerender(
                 break;
             }
             if !has_span {
-                once!(warn!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
+                once!(warn!("found entity {} with a TextSpan or InlineBox that has an ancestor ({}) that does not have a text \
                 span component or a ComputedTextBlock component; this warning only prints once",
                     entity, parent));
                 break;
             }
             let Some(next_child_of) = maybe_child_of else {
                 once!(warn!(
-                    "found entity {} with a TextSpan that has no ancestor with the root text \
+                    "found entity {} with a TextSpan or InlineBox that has no ancestor with the root text \
                     component; this warning only prints once",
                     entity
                 ));

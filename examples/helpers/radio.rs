@@ -66,7 +66,8 @@ where
         }
         RadioGroup
         Children [
-            label(title),
+            @label(title)
+            --
             {buttons}
         ]
     }
@@ -84,18 +85,18 @@ where
     if is_selected {
         Box::new(bsn! {
             @FeathersRadio {
-                @caption: bsn! { caption(option_name) }
+                @caption: bsn! { @caption(option_name) }
             }
-            Hovered::default()
+            Hovered
             Checked
             RadioButtonOptionValue<T>(option_value)
         })
     } else {
         Box::new(bsn! {
             @FeathersRadio {
-                @caption: bsn! { caption(option_name) }
+                @caption: bsn! { @caption(option_name) }
             }
-            Hovered::default()
+            Hovered
             RadioButtonOptionValue<T>(option_value)
         })
     }

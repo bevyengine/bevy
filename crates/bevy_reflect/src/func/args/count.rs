@@ -181,7 +181,8 @@ impl Iterator for ArgCountIter {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.count.len(), Some(self.count.len()))
+        let remaining = self.count.len().saturating_sub(self.found as usize);
+        (remaining, Some(remaining))
     }
 }
 

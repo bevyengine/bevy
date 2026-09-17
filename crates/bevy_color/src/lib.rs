@@ -119,6 +119,7 @@ mod okhwba;
 mod oklaba;
 mod oklcha;
 pub mod palettes;
+mod primaries;
 mod srgba;
 #[cfg(test)]
 mod test_colors;
@@ -152,6 +153,7 @@ pub use okhsva::*;
 pub use okhwba::*;
 pub use oklaba::*;
 pub use oklcha::*;
+pub use primaries::*;
 pub use srgba::*;
 pub use xyza::*;
 

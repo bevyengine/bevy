@@ -268,7 +268,7 @@ fn new_archetype_created_triggered_first() {
     world.add_observer(|t: On<ArchetypeCreated>, mut log: ResMut<Log>| {
         log.0.push((Some(t.event().0), "Archetype created"));
     });
-    world.add_observer(|t: On<Insert, A>, mut log: ResMut<Log>| {
+    world.add_observer(|t: On<Insert<A>>, mut log: ResMut<Log>| {
         log.0.push((
             t.trigger().new_archetype.map(Archetype::id),
             "Bundle inserted",

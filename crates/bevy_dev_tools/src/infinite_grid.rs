@@ -111,7 +111,7 @@ pub struct InfiniteGridSettings {
     pub z_axis_color: Color,
     /// The color of the minor lines of the grid
     pub minor_line_color: Color,
-    /// The color of the major lines of the grid. Every 10th line is considered major
+    /// The color of the major lines of the grid
     pub major_line_color: Color,
     /// How far the grid will be visible relative to the camera
     pub fadeout_distance: f32,
@@ -120,6 +120,8 @@ pub struct InfiniteGridSettings {
     /// The scale of the distance between the lines. A smaller value increases the distance between
     /// the lines
     pub scale: f32,
+    /// The interval at which major lines are drawn
+    pub major_line_interval: u32,
 }
 
 impl Default for InfiniteGridSettings {
@@ -134,6 +136,7 @@ impl Default for InfiniteGridSettings {
             fadeout_distance: 100.,
             dot_fadeout_strength: 0.25,
             scale: 1.0,
+            major_line_interval: 10,
         }
     }
 }
@@ -152,6 +155,8 @@ struct InfiniteGridSettingsUniform {
     one_over_fadeout_distance: f32,
     // 1 / dot_fadeout_strength
     one_over_dot_fadeout: f32,
+    // 1 / major_line_interval
+    one_over_major_line_interval: f32,
     x_axis_color: Vec3,
     z_axis_color: Vec3,
     minor_line_color: Vec4,
@@ -164,6 +169,7 @@ impl InfiniteGridSettingsUniform {
             scale: settings.scale,
             one_over_fadeout_distance: 1. / settings.fadeout_distance,
             one_over_dot_fadeout: 1. / settings.dot_fadeout_strength,
+            one_over_major_line_interval: 1. / settings.major_line_interval.max(1) as f32,
             x_axis_color: settings.x_axis_color.to_linear().to_vec3(),
             z_axis_color: settings.z_axis_color.to_linear().to_vec3(),
             minor_line_color: settings.minor_line_color.to_linear().to_vec4(),

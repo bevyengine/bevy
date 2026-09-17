@@ -1,4 +1,4 @@
-import bevy_pbr::meshlet::bindings::{
+import package::meshlet::bindings::{
     MeshletAabb,
     DispatchIndirectArgs,
     InstancedOffset,
@@ -9,7 +9,7 @@ import bevy_pbr::meshlet::bindings::{
 };
 import bevy_render::maths::affine3_to_square;
 
-// https://github.com/zeux/meshoptimizer/blob/1e48e96c7e8059321de492865165e9ef071bffba/demo/nanite.cpp#L115
+/// https://github.com/zeux/meshoptimizer/blob/1e48e96c7e8059321de492865165e9ef071bffba/demo/nanite.cpp#L115
 fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, instance_id: u32) -> bool {
     let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
     let world_scale = max(length(world_from_local[0]), max(length(world_from_local[1]), length(world_from_local[2])));
@@ -39,8 +39,8 @@ fn normalize_plane(p: vec4<f32>) -> vec4<f32> {
     return p / length(p.xyz);
 }
 
-// https://fgiesen.wordpress.com/2012/08/31/frustum-planes-from-the-projection-matrix/
-// https://fgiesen.wordpress.com/2010/10/17/view-frustum-culling/
+/// https://fgiesen.wordpress.com/2012/08/31/frustum-planes-from-the-projection-matrix/
+/// https://fgiesen.wordpress.com/2010/10/17/view-frustum-culling/
 fn aabb_in_frustum(aabb: MeshletAabb, instance_id: u32) -> bool {
     let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
     let clip_from_local = view.clip_from_world * world_from_local;
@@ -80,7 +80,7 @@ fn min8_4(a: vec4<f32>, b: vec4<f32>, c: vec4<f32>, d: vec4<f32>, e: vec4<f32>, 
     return min(min(min(a, b), min(c, d)), min(min(e, f), min(g, h)));
 }
 
-// https://zeux.io/2023/01/12/approximate-projected-bounds/
+/// https://zeux.io/2023/01/12/approximate-projected-bounds/
 fn project_aabb(clip_from_local: mat4x4<f32>, near: f32, aabb: MeshletAabb, out: ptr<function, ScreenAabb>) -> bool {
     let extent = aabb.half_extent * 2.0;
     let sx = clip_from_local * vec4<f32>(extent.x, 0.0, 0.0, 0.0);
@@ -155,14 +155,14 @@ fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
     // it wraps around firstLeadingBit(0) = ~0 to 0
     // TODO: we actually sample a 4x4 block, so ideally this would be `max(..., 3u) - 3u`.
     var mip = max(firstLeadingBit(max_size) + 1u, 2u) - 2u;
-    
+
     if any((max_texel >> vec2(mip)) > (min_texel >> vec2(mip)) + 3) {
         mip += 1u;
     }
 
     let smin = min_texel >> vec2<u32>(mip);
     let smax = max_texel >> vec2<u32>(mip);
-    
+
     let curr_depth = sample_hzb(smin, smax, i32(mip));
     return aabb.max.z <= curr_depth;
 }

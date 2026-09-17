@@ -7,7 +7,7 @@
 //! `Curve<Vec3>` that we want to use to animate something. That could be defined in
 //! a number of different ways, but let's imagine that we've defined it [using a function]:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
+//!     # use bevy_curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_math::vec3;
 //!     let wobble_curve = FunctionCurve::new(
 //!         Interval::UNIT,
@@ -25,7 +25,7 @@
 //! the adaptor [`AnimatableCurve`], which wraps any [`Curve`] and [`AnimatableProperty`] and turns it into an
 //! [`AnimationCurve`] that will use the given curve to animate the entity's property:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
+//!     # use bevy_curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_math::vec3;
 //!     # use bevy_transform::components::Transform;
 //!     # use bevy_animation::{animated_field, animation_curves::*};
@@ -38,7 +38,7 @@
 //! And finally, this [`AnimationCurve`] needs to be added to an [`AnimationClip`] in order to
 //! actually animate something. This is what that looks like:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
+//!     # use bevy_curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_animation::{AnimationClip, AnimationTargetId, animated_field, animation_curves::*};
 //!     # use bevy_transform::components::Transform;
 //!     # use bevy_ecs::name::Name;
@@ -77,7 +77,7 @@
 //!
 //! This is the lowest-level option with the most control, but it is also the most complicated.
 //!
-//! [using a function]: bevy_math::curve::FunctionCurve
+//! [using a function]: bevy_curve::FunctionCurve
 //! [translation component of a `Transform`]: bevy_transform::prelude::Transform::translation
 //! [`AnimationClip`]: crate::AnimationClip
 //! [there]: AnimatableProperty
@@ -96,11 +96,11 @@ use crate::{
     prelude::{Animatable, BlendInput},
     AnimationEntityMut, AnimationEvaluationError,
 };
-use bevy_ecs::component::{Component, Mutable};
-use bevy_math::curve::{
+use bevy_curve::{
     cores::{UnevenCore, UnevenCoreError},
     Curve, Interval,
 };
+use bevy_ecs::component::{Component, Mutable};
 use bevy_platform::hash::Hashed;
 use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
 use downcast_rs::{impl_downcast, Downcast};

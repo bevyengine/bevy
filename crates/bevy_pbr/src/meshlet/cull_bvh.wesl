@@ -1,4 +1,4 @@
-import bevy_pbr::meshlet::bindings::{
+import package::meshlet::bindings::{
     InstancedOffset,
     get_aabb,
     get_aabb_error,
@@ -18,7 +18,7 @@ import bevy_pbr::meshlet::bindings::{
     meshlet_second_pass_bvh_dispatch,
     meshlet_second_pass_bvh_queue,
 };
-import bevy_pbr::meshlet::cull_shared::{
+import package::meshlet::cull_shared::{
     lod_error_is_imperceptible,
     aabb_in_frustum,
     should_occlusion_cull_aabb,
@@ -55,7 +55,7 @@ fn cull_bvh(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     var value = InstancedOffset(instance_id, child_offset);
 
     // If we pass, try occlusion culling
-    // If this node was occluded, push it's children to the second pass to check against this frame's HZB
+    // If this node was occluded, push its children to the second pass to check against this frame's HZB
     if should_occlusion_cull_aabb(aabb, instance_id) {
         @if(MESHLET_FIRST_CULLING_PASS)
         if child_count == 255u {

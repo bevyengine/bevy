@@ -31,6 +31,7 @@ use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_resource::{
         binding_types::{
@@ -791,6 +792,10 @@ pub(crate) fn depth_of_field(
     else {
         return;
     };
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "depth_of_field");
+
     // We can be in either Gaussian blur or bokeh mode here. Both modes are
     // similar, consisting of two passes each.
     for pipeline_render_info in view_pipelines.pipeline_render_info().iter() {
@@ -799,6 +804,7 @@ pub(crate) fn depth_of_field(
             view_uniforms.uniforms.binding(),
             &**global_bind_group,
         ) else {
+            time_span.end(ctx.command_encoder());
             return;
         };
 
@@ -896,4 +902,5 @@ pub(crate) fn depth_of_field(
         // Render the full-screen pass.
         render_pass.draw(0..3, 0..1);
     }
+    time_span.end(ctx.command_encoder());
 }
