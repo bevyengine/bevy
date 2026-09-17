@@ -14,16 +14,11 @@ enable wgpu_binding_array;
 @group(0) @binding(2) var point_shadow_textures: texture_depth_cube;
 @else
 @group(0) @binding(2) var point_shadow_textures: texture_depth_cube_array;
-@group(0) @binding(3) var point_shadow_textures_comparison_sampler: sampler_comparison;
-@if(PCSS_SAMPLERS_AVAILABLE)
-@group(0) @binding(4) var point_shadow_textures_linear_sampler: sampler;
+@group(0) @binding(3) var shadow_textures_comparison_sampler: sampler_comparison;
 @if(NO_ARRAY_TEXTURES_SUPPORT)
 @group(0) @binding(5) var directional_shadow_textures: texture_depth_2d;
 @else
 @group(0) @binding(5) var directional_shadow_textures: texture_depth_2d_array;
-@group(0) @binding(6) var directional_shadow_textures_comparison_sampler: sampler_comparison;
-@if(PCSS_SAMPLERS_AVAILABLE)
-@group(0) @binding(7) var directional_shadow_textures_linear_sampler: sampler;
 
 @if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3) {
 @group(0) @binding(8) var<storage> clustered_lights: types::ClusteredLights;
@@ -80,10 +75,11 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @if(DEFERRED_PREPASS)
 @group(0) @binding(23) var deferred_prepass_texture: texture_2d<u32>;
 
-@if (VIEW_TRANSMISSION_TEXTURE) {
+// Shared linear sampler used for transmission, atmosphere, area-light LUTs, and DFG LUT.
+@group(0) @binding(25) var linear_sampler: sampler;
+
+@if(VIEW_TRANSMISSION_TEXTURE)
 @group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;
-@group(0) @binding(25) var view_transmission_sampler: sampler;
-}
 
 @if(OIT_ENABLED) {
 @group(0) @binding(26) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
@@ -95,22 +91,17 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 
 @if(ATMOSPHERE) {
 @group(0) @binding(31) var atmosphere_transmittance_texture: texture_2d<f32>;
-@group(0) @binding(32) var atmosphere_transmittance_sampler: sampler;
 @group(0) @binding(33) var<storage> atmosphere: atmosphere_types::Atmosphere;
 }
 
 @if(BLUE_NOISE_TEXTURE)
 @group(0) @binding(34) var blue_noise_texture: texture_2d_array<f32>;
 
-@if(AREA_LIGHT_LUTS) {
+@if(AREA_LIGHT_LUTS)
 @group(0) @binding(35) var area_light_luts: texture_2d_array<f32>;
-@group(0) @binding(36) var area_light_luts_sampler: sampler;
-}
 
-@if(DFG_LUT) {
+@if(DFG_LUT)
 @group(0) @binding(37) var dfg_lut: texture_2d<f32>;
-@group(0) @binding(38) var dfg_lut_sampler: sampler;
-}
 
 @if(ENVIRONMENT_MAP && MULTIPLE_LIGHT_PROBES_IN_ARRAY) {
 @group(1) @binding(0) var diffuse_environment_maps: binding_array<texture_cube<f32>, 8u>;
