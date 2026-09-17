@@ -3773,4 +3773,59 @@ mod tests {
             "updated a clean subtree"
         );
     }
+
+    #[test]
+    fn percentage_sizes_are_based_on_closest_non_ghost_ancestor() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let descendant2 = world
+            .spawn(Node {
+                position_type: PositionType::Absolute,
+                width: percent(100.),
+                height: percent(100.),
+                ..default()
+            })
+            .id();
+        let ghost2 = world.spawn(GhostNode).add_child(descendant2).id();
+        let descendant1 = world
+            .spawn(Node {
+                position_type: PositionType::Absolute,
+                width: percent(100.),
+                height: percent(100.),
+                ..default()
+            })
+            .id();
+        let ghost1 = world
+            .spawn(GhostNode)
+            .add_children(&[ghost2, descendant1])
+            .id();
+        let root = world
+            .spawn(Node {
+                width: px(100.),
+                height: px(100.),
+                ..default()
+            })
+            .add_child(ghost1)
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+        assert_eq!(world.get::<ComputedNode>(descendant1).unwrap().size.x, 100.);
+        assert_eq!(world.get::<ComputedNode>(descendant1).unwrap().size.y, 100.);
+        assert_eq!(world.get::<ComputedNode>(descendant2).unwrap().size.x, 100.);
+        assert_eq!(world.get::<ComputedNode>(descendant2).unwrap().size.y, 100.);
+
+        world.get_mut::<Node>(root).unwrap().width = px(200.);
+        world.get_mut::<Node>(root).unwrap().height = px(300.);
+
+        app.update();
+
+        let world = app.world();
+
+        assert_eq!(world.get::<ComputedNode>(descendant1).unwrap().size.x, 200.);
+        assert_eq!(world.get::<ComputedNode>(descendant1).unwrap().size.y, 300.);
+        assert_eq!(world.get::<ComputedNode>(descendant2).unwrap().size.x, 200.);
+        assert_eq!(world.get::<ComputedNode>(descendant2).unwrap().size.y, 300.);
+    }
 }
