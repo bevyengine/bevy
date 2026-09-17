@@ -199,7 +199,7 @@ pub fn extract_raytracing_environment_map_light(
     *environment_map_light = extracted_env_map_light;
 }
 
-/// Turns off unused cubemap filtering on Solari and pathtracer cameras.
+/// Turn off atmosphere cubemap filtering for Solari cameras to save performance, since Solari does not require it.
 pub fn disable_atmosphere_env_map_filtering(
     mut commands: Commands,
     lights: Query<
