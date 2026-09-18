@@ -276,6 +276,8 @@ impl ComputedLayout {
             .map(|node_id| node_id_entity(*node_id))
     }
 
+    /// True if this UI node is a layout root.
+    /// A layout root has the `Node` component and is either parentless, only has `GhostNode` ancestors, or is a `FixedNode`.
     #[inline]
     pub fn is_layout_root(&self) -> bool {
         self.is_layout_root
