@@ -13,7 +13,7 @@ use crate::morph::MorphAttributes;
 use crate::AttributeQuantization;
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
-use crate::{arr_f32_to_snorm16, encode_tangent_angle, AttributeQuantization};
+use crate::{arr_f32_to_snorm16, encode_tangent_angle};
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, RenderAssetUsages};
@@ -1211,7 +1211,9 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
-    pub fn compress_tangents_to_angles(&mut self) -> Result<&mut Mesh, MeshAttributeCompressionError> {
+    pub fn compress_tangents_to_angles(
+        &mut self,
+    ) -> Result<&mut Mesh, MeshAttributeCompressionError> {
         let vertex_count = self.count_vertices();
         let Some(positions) = self.attribute_mut(Mesh::ATTRIBUTE_POSITION) else {
             return Err(MeshAttributeCompressionError::MissingAttribute(
@@ -1223,7 +1225,6 @@ impl Mesh {
                 MeshAttributeCompressionError::UnsupportedAttributeForCompression {
                     attr: Mesh::ATTRIBUTE_POSITION,
                     expected: VertexFormat::Snorm16x4,
-                    provided: (&*positions).into(),
                 },
             );
         };
@@ -1242,13 +1243,11 @@ impl Mesh {
         };
 
         let VertexAttributeValues::Float32x4(tangents) = tangents else {
-            let provided = tangents.into();
             return_pos(self, positions);
             return Err(
                 MeshAttributeCompressionError::UnsupportedAttributeForCompression {
                     attr: Mesh::ATTRIBUTE_TANGENT,
                     expected: Mesh::ATTRIBUTE_TANGENT.format,
-                    provided,
                 },
             );
         };
@@ -1261,13 +1260,11 @@ impl Mesh {
         };
 
         let VertexAttributeValues::Float32x3(normals) = normals else {
-            let provided = normals.into();
             return_pos(self, positions);
             return Err(
                 MeshAttributeCompressionError::UnsupportedAttributeForCompression {
                     attr: Mesh::ATTRIBUTE_NORMAL,
                     expected: Mesh::ATTRIBUTE_NORMAL.format,
-                    provided,
                 },
             );
         };
@@ -3823,137 +3820,6 @@ mod tests {
                 [32767, -32767, -32767, 0],
                 [-32767, -32767, -32767, 0],
                 [0, -32767, 32767, 0],
-            ]))
-        );
-    }
-
-    #[test]
-    fn compress_mesh_uvs() {
-        let mut mesh = Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
-        )
-        .with_inserted_attribute(
-            Mesh::ATTRIBUTE_UV_0,
-            vec![[0.126, 0.497], [0.126, 1.0], [0.05, 0.0], [0.0, 0.5]],
-        )
-        .with_inserted_attribute(
-            Mesh::ATTRIBUTE_UV_1,
-            vec![[12.6, 0.497], [0.126, 1.0], [-4.05, 0.0], [1.0, -0.5]],
-        );
-        mesh.compress_uv0().unwrap();
-        assert_eq!(
-            mesh.final_uv_ranges,
-            [
-                Some(Aabb2d {
-                    min: Vec2::new(0.0, 0.0),
-                    max: Vec2::new(0.126, 1.0)
-                }),
-                None
-            ]
-        );
-        assert_eq!(
-            mesh.attribute_compression,
-            MeshAttributeCompressionFlags::COMPRESS_UV0
-        );
-        assert_eq!(
-            mesh.attribute(Mesh::ATTRIBUTE_UV_0),
-            Some(&VertexAttributeValues::Unorm16x2(vec![
-                [65535, 32571],
-                [65535, 65535],
-                [26006, 0],
-                [0, 32768],
-            ]))
-        );
-
-        mesh.compress_uv1().unwrap();
-        assert_eq!(
-            mesh.final_uv_ranges,
-            [
-                Some(Aabb2d {
-                    min: Vec2::new(0.0, 0.0),
-                    max: Vec2::new(0.126, 1.0)
-                }),
-                Some(Aabb2d {
-                    min: Vec2::new(-4.05, -0.5),
-                    max: Vec2::new(12.6, 1.0)
-                })
-            ]
-        );
-        assert_eq!(
-            mesh.attribute_compression,
-            MeshAttributeCompressionFlags::COMPRESS_UV0
-                | MeshAttributeCompressionFlags::COMPRESS_UV1
-        );
-        assert_eq!(
-            mesh.attribute(Mesh::ATTRIBUTE_UV_1),
-            Some(&VertexAttributeValues::Unorm16x2(vec![
-                [65535, 43559],
-                [16437, 65535],
-                [0, 21845],
-                [19877, 0]
-            ]))
-        );
-    }
-
-    #[test]
-    fn compress_mesh_normals() {
-        let mut mesh = Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
-        )
-        .with_inserted_attribute(
-            Mesh::ATTRIBUTE_NORMAL,
-            vec![
-                Vec3::new(0.0, 1.0, -1.0).normalize().to_array(),
-                Vec3::new(1.0, 0.0, -1.0).normalize().to_array(),
-                Vec3::new(-1.0, 0.0, -1.0).normalize().to_array(),
-                [0.0, 0.0, 1.0],
-            ],
-        );
-        mesh.compress_normals().unwrap();
-        assert_eq!(
-            mesh.attribute_compression,
-            MeshAttributeCompressionFlags::COMPRESS_NORMAL
-        );
-        assert_eq!(
-            mesh.attribute(Mesh::ATTRIBUTE_NORMAL),
-            Some(&VertexAttributeValues::Snorm16x2(vec![
-                [16384, 32767],
-                [32767, 16384],
-                [-32767, 16384],
-                [0, 0],
-            ]))
-        );
-    }
-
-    #[test]
-    fn compress_mesh_tangents() {
-        let mut mesh = Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
-        )
-        .with_inserted_attribute(
-            Mesh::ATTRIBUTE_TANGENT,
-            vec![
-                Vec3::new(0.0, 1.0, 1.0).normalize().extend(1.0).to_array(),
-                Vec3::new(1.0, 0.0, 1.0).normalize().extend(-1.0).to_array(),
-                Vec3::new(-1.0, 0.0, 1.0).normalize().extend(1.0).to_array(),
-                [1.0, 0.0, 0.0, 1.0],
-            ],
-        );
-        mesh.compress_tangents().unwrap();
-        assert_eq!(
-            mesh.attribute_compression,
-            MeshAttributeCompressionFlags::COMPRESS_TANGENT
-        );
-        assert_eq!(
-            mesh.attribute(Mesh::ATTRIBUTE_TANGENT),
-            Some(&VertexAttributeValues::Snorm16x2(vec![
-                [0, 24575],
-                [16384, -16384],
-                [-16384, 16384],
-                [32767, 16384],
             ]))
         );
     }

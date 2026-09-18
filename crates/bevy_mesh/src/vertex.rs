@@ -1,10 +1,7 @@
 use alloc::sync::Arc;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::resource::Resource;
-use bevy_math::{
-    bounding::{Aabb2d, Aabb3d, BoundingVolume},
-    ops, vec2, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
-};
+use bevy_math::{vec2, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_platform::collections::HashSet;
@@ -1247,7 +1244,7 @@ fn orthonormal_y_axis(z_basis: Vec3) -> Vec3 {
 pub fn encode_tangent_angle(tangent: Vec4, normal: Vec3) -> f32 {
     // Bias to ensure that encoding as snorm16 preserves the sign.
     let bits = 16.;
-    let bias = 1. / (ops::powf(2.0, bits - 1.) - 1.);
+    let bias = 1. / (bevy_math::ops::powf(2.0, bits - 1.) - 1.);
 
     let orientation = tangent.w.signum();
     let t0 = orthonormal_y_axis(normal);
@@ -1268,7 +1265,7 @@ pub fn decode_tangent_angle(tangent_angle: f32, normal: Vec3) -> Vec4 {
     let sign = tangent_angle.signum();
     let angle = tangent_angle.abs() * core::f32::consts::TAU;
     let t0 = orthonormal_y_axis(normal);
-    let tangent = t0 * ops::cos(angle) + normal.cross(t0) * ops::sin(angle);
+    let tangent = t0 * bevy_math::ops::cos(angle) + normal.cross(t0) * bevy_math::ops::sin(angle);
     tangent.extend(sign)
 }
 
