@@ -728,9 +728,10 @@ mod tests {
                 scope.spawn(async move {
                     if *foo != 42 {
                         panic!("not 42!?!?")
+                    } else {
+                        count_clone.fetch_add(1, Ordering::Relaxed);
+                        *foo
                     }
-                    count_clone.fetch_add(1, Ordering::Relaxed);
-                    *foo
                 });
             }
         });
@@ -811,18 +812,20 @@ mod tests {
                     scope.spawn(async move {
                         if *foo != 42 {
                             panic!("not 42!?!?")
+                        } else {
+                            count_clone.fetch_add(1, Ordering::Relaxed);
+                            *foo
                         }
-                        count_clone.fetch_add(1, Ordering::Relaxed);
-                        *foo
                     });
                 } else {
                     let count_clone = local_count.clone();
                     scope.spawn_on_scope(async move {
                         if *foo != 42 {
                             panic!("not 42!?!?")
+                        } else {
+                            count_clone.fetch_add(1, Ordering::Relaxed);
+                            *foo
                         }
-                        count_clone.fetch_add(1, Ordering::Relaxed);
-                        *foo
                     });
                 }
             }
@@ -892,9 +895,10 @@ mod tests {
                         scope.spawn(async move {
                             if *foo != 42 {
                                 panic!("not 42!?!?")
+                            } else {
+                                count_clone_clone.fetch_add(1, Ordering::Relaxed);
+                                *foo
                             }
-                            count_clone_clone.fetch_add(1, Ordering::Relaxed);
-                            *foo
                         });
                     }
                     *foo
