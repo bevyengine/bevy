@@ -18,7 +18,7 @@ pub use node::main_transmissive_pass_3d;
 pub use phase::Transmissive3d;
 pub use texture::ViewTransmissionTexture;
 
-use texture::{prepare_core_3d_transmission_textures, TransmissionSampler};
+use texture::prepare_core_3d_transmission_textures;
 
 use crate::{DrawMaterial, MeshPipelineKey};
 
@@ -36,7 +36,6 @@ impl Plugin for ScreenSpaceTransmissionPlugin {
         render_app
             .init_resource::<DrawFunctions<Transmissive3d>>()
             .init_resource::<ViewSortedRenderPhases<Transmissive3d>>()
-            .init_gpu_resource::<TransmissionSampler>()
             .add_render_command::<Transmissive3d, DrawMaterial>()
             .add_systems(
                 Render,
