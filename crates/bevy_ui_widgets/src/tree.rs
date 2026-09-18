@@ -12,8 +12,9 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, With},
     reflect::{ReflectComponent, ReflectEvent},
     schedule::IntoScheduleConfigs,
-    system::{Commands, ParamSet, Query, ResMut},
+    system::{Commands, ParamSet, Query, Res, ResMut},
     template::FromTemplate,
+    world::World,
 };
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
@@ -560,7 +561,7 @@ fn update_tree_view_derived_state(
     children: Query<&Children>,
     rows: RowQuery,
     row_state: Query<(Has<Selected>, &TabIndex), With<TreeItem>>,
-    mut focus: Option<ResMut<InputFocus>>,
+    focus: Option<Res<InputFocus>>,
     changed_trees: Query<
         (),
         (
@@ -617,9 +618,13 @@ fn update_tree_view_derived_state(
             && !tree_disabled
             && tree_rows.contains(&focused_entity)
             && Some(focused_entity) != roving
-            && let Some((focus, roving)) = focus.as_deref_mut().zip(roving)
+            && let Some(roving) = roving
         {
-            focus.set(roving, FocusCause::Navigated);
+            commands.queue(move |world: &mut World| {
+                world
+                    .resource_mut::<InputFocus>()
+                    .set(roving, FocusCause::Navigated);
+            });
         }
 
         for row in tree_rows.iter().copied() {
