@@ -88,8 +88,6 @@ impl Default for LayoutContext {
 pub enum LayoutError {
     #[error("Invalid hierarchy")]
     InvalidHierarchy,
-    #[error("Taffy error: {0}")]
-    TaffyError(taffy::tree::TaffyError),
 }
 
 /// For any entity with a [`TextFont`], set [`EmSize`] to the font size resolved

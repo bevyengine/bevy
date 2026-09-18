@@ -43,7 +43,6 @@ taffy = { version = "0.14", default-features = false, features = [
   "flexbox",
   "grid",
   "content_size",
-  "taffy_tree",
 ] }
 serde = { version = "1", features = ["derive"], optional = true }
 uuid = { version = "1.21.0", features = ["v4"], optional = true }
