@@ -4287,4 +4287,59 @@ mod tests {
         assert_eq!(c2, c3);
         assert_ne!(t2, t3);
     }
+
+    #[test]
+    fn child_layout_change_does_not_mark_parent_self_dirty() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let child = world.spawn(Node::default()).id();
+        let parent = world.spawn(Node::default()).add_child(child).id();
+
+        app.update();
+
+        app.world_mut().get_mut::<Node>(child).unwrap().width = px(10);
+
+        app.update();
+
+        let computed_layout = app.world().get::<ComputedLayout>(parent).unwrap();
+        assert!(computed_layout.subtree_dirty());
+        assert!(!computed_layout.self_dirty());
+    }
+
+    #[test]
+    fn child_layout_change_does_not_update_clean_sibling() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let child = world
+            .spawn(Node {
+                position_type: PositionType::Absolute,
+                ..default()
+            })
+            .id();
+        let sibling = world.spawn(Node::default()).id();
+        world
+            .spawn(Node {
+                width: px(100),
+                height: px(100),
+                ..default()
+            })
+            .add_children(&[child, sibling]);
+
+        app.update();
+
+        let world = app.world_mut();
+        let wrong_translation = Vec2::splat(-999.);
+        *world.get_mut::<UiGlobalTransform>(sibling).unwrap() =
+            bevy_math::Affine2::from_translation(wrong_translation).into();
+        world.get_mut::<Node>(child).unwrap().width = px(10);
+
+        app.update();
+
+        let world = app.world();
+        assert_eq!(world.get::<ComputedNode>(child).unwrap().size().x, 10.);
+        assert_eq!(
+            world.get::<UiGlobalTransform>(sibling).unwrap().translation,
+            wrong_translation
+        );
+    }
 }
