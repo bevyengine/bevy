@@ -4225,4 +4225,66 @@ mod tests {
             Vec2::ZERO
         );
     }
+
+    #[test]
+    fn computed_node_is_unchanged_after_ui_transform_updated() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let node = world
+            .spawn(Node {
+                width: px(100),
+                height: px(100),
+                ..default()
+            })
+            .id();
+
+        let entity_ref = world.entity(node);
+
+        let c0 = entity_ref.get_ref::<ComputedNode>().unwrap().last_changed();
+        let t0 = entity_ref
+            .get_ref::<UiGlobalTransform>()
+            .unwrap()
+            .last_changed();
+
+        app.update();
+
+        let world = app.world_mut();
+        let entity_ref = world.entity(node);
+        let c1 = entity_ref.get_ref::<ComputedNode>().unwrap().last_changed();
+        let t1 = entity_ref
+            .get_ref::<UiGlobalTransform>()
+            .unwrap()
+            .last_changed();
+
+        assert_ne!(c0, c1);
+        assert_ne!(t0, t1);
+
+        app.update();
+
+        let world = app.world_mut();
+        let mut entity_mut = world.entity_mut(node);
+        let c2 = entity_mut.get_ref::<ComputedNode>().unwrap().last_changed();
+        let t2 = entity_mut
+            .get_ref::<UiGlobalTransform>()
+            .unwrap()
+            .last_changed();
+
+        assert_eq!(c1, c2);
+        assert_eq!(t1, t2);
+
+        entity_mut.insert(UiTransform::from_translation(Val2::px(10, 5)));
+
+        app.update();
+
+        let world = app.world_mut();
+        let entity_mut = world.entity_mut(node);
+        let c3 = entity_mut.get_ref::<ComputedNode>().unwrap().last_changed();
+        let t3 = entity_mut
+            .get_ref::<UiGlobalTransform>()
+            .unwrap()
+            .last_changed();
+
+        assert_eq!(c2, c3);
+        assert_ne!(t2, t3);
+    }
 }
