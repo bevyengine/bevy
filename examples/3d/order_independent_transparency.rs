@@ -215,7 +215,7 @@ fn handle_keyboard_shortcuts(
     mut commands: Commands,
 ) {
     let new_setting = if keyboard_input.just_pressed(KeyCode::KeyS)
-        || keyboard_input.just_pressed(KeyCode::BracketLeft)
+        || keyboard_input.just_pressed(KeyCode::KeyA)
     {
         let n = app_state.current_scene_id + SCENES.len();
         if keyboard_input.pressed(KeyCode::KeyA) {
