@@ -2154,6 +2154,17 @@ doc-scrape-examples = true
 
 [package.metadata.example.custom_asset]
 name = "Custom Asset"
+description = "Implements a custom asset, with a default loader"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "custom_asset_loader"
+path = "examples/asset/custom_asset_loader.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_asset_loader]
+name = "Custom Asset Loader"
 description = "Implements a custom asset loader"
 category = "Assets"
 wasm = true
