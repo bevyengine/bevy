@@ -435,7 +435,7 @@ impl SubtreeState {
     }
 }
 
-/// Synchronises the cached hierarchy stored in the `ComputedLayout` components and resolves its dirty state.
+/// Synchronizes the cached hierarchy stored in the `ComputedLayout` components and resolves its dirty state.
 fn sync_layout_tree(
     root: Entity,
     entity: Entity,
