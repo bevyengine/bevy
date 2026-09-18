@@ -2,6 +2,7 @@
 
 use bevy::{
     color::palettes,
+    ecs::template::OptionTemplate,
     feathers::{
         constants::{fonts, icons},
         containers::*,
@@ -18,12 +19,13 @@ use bevy::{
     picking::cursor::{EntityCursor, OverrideCursor},
     prelude::*,
     text::{EditableText, TextEdit, TextEditChange},
-    ui::{Checked, InteractionDisabled, Selected},
+    ui::{Checked, Expanded, InteractionDisabled, Selected},
     ui_widgets::{
         checkbox_self_update, listbox_update_selection,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-        radio_self_update, slider_self_update, Activate, ActivateOnPress, RadioGroup, RequestClose,
-        SliderPrecision, SliderStep, SliderValue, ValueChange,
+        radio_self_update, slider_self_update, tree_view_expand_self_update, tree_view_self_update,
+        Activate, ActivateOnPress, RadioGroup, RequestClose, SliderPrecision, SliderStep,
+        SliderValue, TreeItemExpandChange, ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -58,6 +60,12 @@ struct DemoDialogToggle;
 
 #[derive(Component, Clone, Copy, Default)]
 struct DemoScalarField;
+
+#[derive(Component, Clone, Copy, Default)]
+struct DemoLazyBranch;
+
+#[derive(Component, Clone, Copy, Default)]
+struct DemoPopulated;
 
 #[derive(Component, Clone, Copy, Default)]
 enum DemoVec3Field {
@@ -1038,7 +1046,80 @@ fn demo_column_3() -> impl Scene {
                 ColorInputValue(palettes::tailwind::BLUE_800)
                 on(color_input_self_update)
             ]
+            --
+            @subpane() Children [
+                @subpane_header() Children [
+                    @caption("Tree")
+                ]
+                --
+                @subpane_body() Children [
+                    @FeathersTreeView {
+                        @selected: OptionTemplate::Some(#camera_row),
+                        @rows: bsn_list! {
+                            #camera_row
+                            @FeathersTreeItem {
+                                @label: bsn_list! { @caption("Camera") },
+                            }
+                            --
+                            @FeathersTreeItem {
+                                @has_children: true,
+                                @label: bsn_list! { @caption("Scene") },
+                                @children: bsn_list! {
+                                    @FeathersTreeItem {
+                                        @label: bsn_list! { @caption("Ground") },
+                                    }
+                                    --
+                                    @FeathersTreeItem {
+                                        @label: bsn_list! { @caption("Player") },
+                                    }
+                                },
+                            }
+                            Expanded
+                            --
+                            @FeathersTreeItem {
+                                @has_children: true,
+                                @label: bsn_list! { @caption("Assets") },
+                            }
+                            DemoLazyBranch
+                        }
+                    }
+                    on(tree_view_self_update)
+                    on(tree_view_expand_self_update)
+                    on(populate_demo_branch)
+                ]
+            ]
         ]
+    }
+}
+
+/// Spawns the child rows of the "Assets" row the first time it is expanded.
+fn populate_demo_branch(
+    change: On<TreeItemExpandChange>,
+    lazy: Query<&Children, (With<DemoLazyBranch>, Without<DemoPopulated>)>,
+    containers: Query<(), With<FeathersTreeItemChildren>>,
+    mut commands: Commands,
+) {
+    if !change.expanded {
+        return;
+    }
+    let Ok(row_children) = lazy.get(change.item) else {
+        return;
+    };
+    let Some(container) = row_children
+        .iter()
+        .find(|child| containers.contains(*child))
+    else {
+        return;
+    };
+    commands.entity(change.item).insert(DemoPopulated);
+    for name in ["Mesh", "Material"] {
+        commands
+            .spawn_scene(bsn! {
+                @FeathersTreeItem {
+                    @label: bsn_list! { @caption({name}) },
+                }
+            })
+            .insert(ChildOf(container));
     }
 }
 
