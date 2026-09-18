@@ -401,15 +401,15 @@ pub fn compute_layout(
     Ok(())
 }
 
-/// The current state of a UI subtree and what needs to updated.
+/// The current state of a UI subtree and what needs to be updated.
 #[derive(Clone, Copy, Default, PartialEq)]
 enum SubtreeState {
     // Nothing in this subtree changed.
     #[default]
     Clean,
-    // A Taffy input for this node or one of its descendants has changed. Taffy's cache should be cleared for this node.
+    /// A Taffy input for this node or one of its descendants has changed. Taffy's cache should be cleared for this node.
     LayoutDirty,
-    // This node or a descendant needs its `ComputedNode`, `UiGlobalTransform`, or `CalculatedClip` recomputed, but Taffy inputs were unchanged.
+    /// This node or a descendant needs its `ComputedNode`, `UiGlobalTransform`, or `CalculatedClip` recomputed, but Taffy inputs were unchanged.
     GeometryDirty,
 }
 
