@@ -90,7 +90,7 @@ fn orthonormalize(z_basis: vec3<f32>) -> mat3x3<f32> {
     return mat3x3(x_basis, y_basis, z_basis);
 }
 
-// Like `orthonormalize`, but only returns the orthonormal y axis.
+/// Like `orthonormalize`, but only returns the orthonormal y axis.
 fn orthonormal_y_axis(z_basis: vec3f) -> vec3f {
     let sign = select(-1.0, 1.0, z_basis.z >= 0.0);
     let a = -1.0 / (sign + z_basis.z);
@@ -100,11 +100,6 @@ fn orthonormal_y_axis(z_basis: vec3f) -> vec3f {
     return y_basis;
 }
 
-// Returns true if any part of a sphere is on the positive side of a plane.
-//
-// `sphere_center.w` should be 1.0.
-//
-// This is used for frustum culling.
 /// Rotates a direction by a rotation quaternion q.
 fn quat_rotate(q: vec4<f32>, dir: vec3<f32>) -> vec3<f32> {
     let t = 2.0 * cross(q.xyz, dir);
