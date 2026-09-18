@@ -2,7 +2,10 @@
 use crate::message::MessageParIter;
 use crate::{
     message::{Message, MessageCursor, MessageIterator, MessageIteratorWithId, Messages},
-    system::{Local, Res, SystemParam, SystemParamValidationError},
+    system::{
+        Local, ReadOnlySystemParam, Res, SystemParam, SystemParamAccessConflict,
+        SystemParamValidationError,
+    },
 };
 
 /// Reads [`Message`]s of type `T` in order and tracks which messages have already been read.
@@ -167,9 +170,9 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
         state: &Self::State,
         system_meta: &mut crate::system::SystemMeta,
         system_access: &mut crate::system::SystemAccess,
-        world: &mut crate::prelude::World,
-    ) {
-        MessageReader::<M>::init_access(state, system_meta, system_access, world);
+    ) -> Result<(), SystemParamAccessConflict> {
+        MessageReader::<M>::init_access(state, system_meta, system_access)
+            .map_err(SystemParamAccessConflict::with_param::<Self>)
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -189,6 +192,9 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
         }
     }
 }
+
+// SAFETY: All world access is delegated to MessageReader, which implements it.
+unsafe impl<M: Message> ReadOnlySystemParam for PopulatedMessageReader<'_, '_, M> {}
 
 #[cfg(test)]
 mod tests {
