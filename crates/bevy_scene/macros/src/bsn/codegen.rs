@@ -86,7 +86,13 @@ impl<'a> BsnCodegenCtx<'a> {
         } else if let Some(remaining) = source_text.strip_prefix(BSN) {
             (BSN, remaining)
         } else {
-            eprintln!("Unknown macro root! {}", source_text);
+            #[expect(
+                clippy::print_stderr,
+                reason = "The `bsn!` macro cannot know the caller's logging setup."
+            )]
+            {
+                eprintln!("Unknown macro root! {}", source_text);
+            }
             return;
         };
 
@@ -119,7 +125,7 @@ impl BsnTokenStream for BsnRoot {
     fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         ctx.validate_macro_uses_braces();
         let tokens = self.0.into_tokens(ctx);
-        let errors = ctx.errors.iter().map(|e| e.to_compile_error());
+        let errors = ctx.errors.iter().map(syn::Error::to_compile_error);
         let bevy_scene = ctx.bevy_scene;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
         let call_id = if !ctx.entity_refs.refs.is_empty() {
