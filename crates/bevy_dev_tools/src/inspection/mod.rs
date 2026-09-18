@@ -5,3 +5,4 @@
 //! and presenting that data to the user in a number of convenient, often interactive ways.
 
 pub mod label_resolution;
+pub mod world_summary;
