@@ -368,10 +368,12 @@ macro_rules! embedded_asset {
 #[doc(hidden)]
 #[cfg(feature = "embedded_watcher")]
 pub fn watched_path(source_file_path: &'static str, asset_path: &'static str) -> PathBuf {
-    PathBuf::from(source_file_path)
-        .parent()
-        .unwrap()
-        .join(asset_path)
+    crate::path::normalize_path(
+        &std::path::absolute(source_file_path).expect("file!() did not return a path"),
+    )
+    .parent()
+    .unwrap()
+    .join(asset_path)
 }
 
 /// Returns an empty PathBuf.

@@ -9,7 +9,7 @@ use bevy_render::{
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthStencilTexture, ViewTarget},
 };
 use core::ops::Range;
 use tracing::error;
@@ -24,7 +24,7 @@ pub fn main_transmissive_pass_3d(
         &ScreenSpaceTransmission,
         &ViewTarget,
         Option<&ViewTransmissionTexture>,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         Option<&MainPassResolutionOverride>,
     )>,
     transmissive_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,

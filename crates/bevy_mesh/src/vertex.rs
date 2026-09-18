@@ -8,6 +8,7 @@ use bevy_math::{
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_platform::collections::HashSet;
+use bevy_shape::{Aabb2d, Aabb3d, BoundingVolume};
 use bytemuck::{bytes_of, cast_slice};
 use core::hash::{Hash, Hasher};
 #[cfg(feature = "serialize")]
@@ -263,6 +264,9 @@ impl AttributeQuantization {
         &self,
         values: &[[f32; N]],
     ) -> VertexAttributeValues {
+        const {
+            assert!(N == 1 || N == 2 || N == 4);
+        }
         match self {
             AttributeQuantization::Unorm8 => {
                 let values = values.iter().map(|v| arr_f32_to_unorm8(*v)).collect();
@@ -1200,7 +1204,7 @@ pub fn octahedral_encode_signed(v: Vec3) -> Vec2 {
 pub fn octahedral_encode_tangent(v: Vec3, sign: f32) -> Vec2 {
     // Bias to ensure that encoding as snorm16 preserves the sign.
     let bits = 16.;
-    let bias = 1. / (ops::powf(2.0, bits - 1.) - 1.);
+    let bias = 1. / (bevy_math::ops::powf(2.0, bits - 1.) - 1.);
 
     let mut n_xy = octahedral_encode_signed(v);
     // Map y to always be positive.

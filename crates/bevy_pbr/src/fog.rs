@@ -3,7 +3,7 @@ use bevy_color::{Color, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_math::{ops, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::extract_component::ExtractComponent;
+use bevy_render::{extract_component::ExtractComponent, RenderApp};
 
 use crate::ViewFogUniformOffset;
 
@@ -52,6 +52,7 @@ use crate::ViewFogUniformOffset;
 #[extract_component_filter(With<Camera>)]
 #[extract_component_sync_target((Self, ViewFogUniformOffset))]
 #[reflect(Component, Default, Debug, Clone)]
+#[extract_app(RenderApp)]
 pub struct DistanceFog {
     /// The color of the fog effect.
     ///

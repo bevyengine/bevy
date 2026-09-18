@@ -4,6 +4,7 @@ pub mod entity_command;
 #[cfg(feature = "std")]
 mod parallel_scope;
 
+use bevy_ecs_macros::SystemParam;
 use bevy_ptr::move_as_ptr;
 pub use command::Command;
 pub use entity_command::EntityCommand;
@@ -15,7 +16,6 @@ use alloc::boxed::Box;
 use core::marker::PhantomData;
 
 use crate::{
-    self as bevy_ecs,
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
@@ -27,17 +27,12 @@ use crate::{
     event::{EntityEvent, Event},
     message::Message,
     observer::{IntoEntityObserver, IntoObserver},
+    query::{QueryData, QueryFilter},
     relationship::RelationshipHookMode,
     resource::Resource,
     schedule::ScheduleLabel,
-    system::{
-        BoxedSystem, Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput,
-        SystemParamValidationError,
-    },
-    world::{
-        command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
-        EntityWorldMut, FromWorld, World,
-    },
+    system::{BoxedSystem, Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput},
+    world::{CommandQueue, EntityWorldMut, FromWorld, World},
 };
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
@@ -103,8 +98,13 @@ use crate::{
 /// The [`error`](crate::error) module provides some simple error handlers for convenience.
 ///
 /// [`ApplyDeferred`]: crate::schedule::ApplyDeferred
+#[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    queue: InternalQueue<'s>,
+    /// The command queue that commands will be pushed to.
+    ///
+    /// This must not be exposed as a `&mut` to untrusted code,
+    /// as calling `apply()` on it could execute commands before [`World::command_queue_start`].
+    queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
     allocator: &'w EntityAllocator,
 }
@@ -114,107 +114,6 @@ unsafe impl Send for Commands<'_, '_> {}
 
 // SAFETY: `Commands` never gives access to the inner commands.
 unsafe impl Sync for Commands<'_, '_> {}
-
-const _: () = {
-    type __StructFieldsAlias<'w, 's> = (
-        Deferred<'s, CommandQueue>,
-        &'w EntityAllocator,
-        &'w Entities,
-    );
-    #[doc(hidden)]
-    pub struct FetchState {
-        state: <__StructFieldsAlias<'static, 'static> as bevy_ecs::system::SystemParam>::State,
-    }
-    // SAFETY: Only reads Entities
-    unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
-        type State = FetchState;
-
-        type Item<'w, 's> = Commands<'w, 's>;
-
-        #[track_caller]
-        fn init_state(world: &mut World) -> Self::State {
-            FetchState {
-                state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
-                    world,
-                ),
-            }
-        }
-
-        fn init_access(
-            state: &Self::State,
-            system_meta: &mut bevy_ecs::system::SystemMeta,
-            component_access_set: &mut bevy_ecs::query::FilteredAccessSet,
-            world: &mut World,
-        ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_access(
-                &state.state,
-                system_meta,
-                component_access_set,
-                world,
-            );
-        }
-
-        fn apply(
-            state: &mut Self::State,
-            system_meta: &bevy_ecs::system::SystemMeta,
-            world: &mut World,
-        ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
-                &mut state.state,
-                system_meta,
-                world,
-            );
-        }
-
-        fn queue(
-            state: &mut Self::State,
-            system_meta: &bevy_ecs::system::SystemMeta,
-            world: bevy_ecs::world::DeferredWorld,
-        ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::queue(
-                &mut state.state,
-                system_meta,
-                world,
-            );
-        }
-
-        #[inline]
-        #[track_caller]
-        unsafe fn get_param<'w, 's>(
-            state: &'s mut Self::State,
-            system_meta: &bevy_ecs::system::SystemMeta,
-            world: UnsafeWorldCell<'w>,
-            change_tick: bevy_ecs::change_detection::Tick,
-        ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-            // SAFETY: Upheld by caller
-            let params = unsafe {
-                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
-                    &mut state.state,
-                    system_meta,
-                    world,
-                    change_tick,
-                )?
-            };
-            Ok(Commands {
-                queue: InternalQueue::CommandQueue(params.0),
-                allocator: params.1,
-                entities: params.2,
-            })
-        }
-    }
-    // SAFETY: Only reads Entities
-    unsafe impl<'w, 's> bevy_ecs::system::ReadOnlySystemParam for Commands<'w, 's>
-    where
-        Deferred<'s, CommandQueue>: bevy_ecs::system::ReadOnlySystemParam,
-        &'w Entities: bevy_ecs::system::ReadOnlySystemParam,
-    {
-    }
-};
-
-enum InternalQueue<'s> {
-    CommandQueue(Deferred<'s, CommandQueue>),
-    RawCommandQueue(RawCommandQueue),
-}
 
 impl<'w, 's> Commands<'w, 's> {
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
@@ -229,26 +128,7 @@ impl<'w, 's> Commands<'w, 's> {
         entities: &'w Entities,
     ) -> Self {
         Self {
-            queue: InternalQueue::CommandQueue(Deferred(queue)),
-            allocator,
-            entities,
-        }
-    }
-
-    /// Returns a new `Commands` instance from a [`RawCommandQueue`] and an [`Entities`] reference.
-    ///
-    /// This is used when constructing [`Commands`] from a [`DeferredWorld`](crate::world::DeferredWorld).
-    ///
-    /// # Safety
-    ///
-    /// * Caller ensures that `queue` must outlive `'w`
-    pub(crate) unsafe fn new_raw_from_entities(
-        queue: RawCommandQueue,
-        allocator: &'w EntityAllocator,
-        entities: &'w Entities,
-    ) -> Self {
-        Self {
-            queue: InternalQueue::RawCommandQueue(queue),
+            queue: Deferred(queue),
             allocator,
             entities,
         }
@@ -289,12 +169,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     pub fn reborrow(&mut self) -> Commands<'w, '_> {
         Commands {
-            queue: match &mut self.queue {
-                InternalQueue::CommandQueue(queue) => InternalQueue::CommandQueue(queue.reborrow()),
-                InternalQueue::RawCommandQueue(queue) => {
-                    InternalQueue::RawCommandQueue(queue.clone())
-                }
-            },
+            queue: self.queue.reborrow(),
             allocator: self.allocator,
             entities: self.entities,
         }
@@ -302,13 +177,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Take all commands from `other` and append them to `self`, leaving `other` empty.
     pub fn append(&mut self, other: &mut CommandQueue) {
-        match &mut self.queue {
-            InternalQueue::CommandQueue(queue) => queue.bytes.append(&mut other.bytes),
-            InternalQueue::RawCommandQueue(queue) => {
-                // SAFETY: Pointers in `RawCommandQueue` are never null
-                unsafe { queue.bytes.as_mut() }.append(&mut other.bytes);
-            }
-        }
+        self.queue.bytes.append(&mut other.bytes);
     }
 
     /// Spawns a new empty [`Entity`] and returns its corresponding [`EntityCommands`].
@@ -593,6 +462,53 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::spawn_batch(batch));
     }
 
+    /// Despawns all entities matching the given [`QueryFilter`].
+    ///
+    /// This method is equivalent to iterating over all the filtered entities
+    /// and [despawning](EntityCommands::despawn) them one by one, but is faster by allocating far fewer commands.
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    ///
+    /// #[derive(Component)]
+    /// struct PleaseDespawn;
+    ///
+    /// fn despawn_entities(mut commands: Commands) {
+    ///     commands.despawn_all::<With<PleaseDespawn>>();
+    /// }
+    ///
+    /// # bevy_ecs::system::assert_is_system(despawn_entities);
+    /// ```
+    pub fn despawn_all<F: QueryFilter>(&mut self) {
+        self.queue(command::despawn_all::<F>());
+    }
+
+    /// Despawns all entities matching the given [`QueryFilter`] and condition.
+    ///
+    /// This method is equivalent to iterating over all the filtered entities
+    /// and [despawning](EntityCommands::despawn) them one by one, but is faster by allocating far fewer commands.
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    ///
+    /// #[derive(Component)]
+    /// struct Health(f32);
+    ///
+    /// fn despawn_dead(mut commands: Commands) {
+    ///     commands.despawn_all_where::<&Health, ()>(|health| health.0 <= 0.0);
+    /// }
+    ///
+    /// # bevy_ecs::system::assert_is_system(despawn_dead);
+    /// ```
+    pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
+        &mut self,
+        cond: impl FnMut(D::Item<'_, '_>) -> bool + Send + 'static,
+    ) {
+        self.queue(command::despawn_all_where::<D, F>(cond));
+    }
+
     /// Pushes a generic [`Command`] to the command queue.
     ///
     /// If the [`Command`] returns a [`Result`],
@@ -695,7 +611,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn queue_handled(
         &mut self,
         command: impl Command,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
     }
@@ -706,18 +622,7 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     fn queue_internal(&mut self, command: impl Command<Out = ()>) {
-        match &mut self.queue {
-            InternalQueue::CommandQueue(queue) => {
-                queue.push(command);
-            }
-            InternalQueue::RawCommandQueue(queue) => {
-                // SAFETY: `RawCommandQueue` is only every constructed in `Commands::new_raw_from_entities`
-                // where the caller of that has ensured that `queue` outlives `self`
-                unsafe {
-                    queue.push(command);
-                }
-            }
-        }
+        self.queue.push(command);
     }
 
     /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
@@ -2069,7 +1974,7 @@ impl<'a> EntityCommands<'a> {
     pub fn queue_handled(
         &mut self,
         command: impl EntityCommand,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
     ) -> &mut Self {
         self.commands
             .queue_handled(command.with_entity(self.entity), error_handler);
@@ -2583,6 +2488,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 mod tests {
     use crate::{
         component::Component,
+        query::{Or, With, Without},
         resource::Resource,
         system::Commands,
         world::{CommandQueue, FromWorld, World},
@@ -3201,5 +3107,59 @@ mod tests {
             Some(expected),
             world.entities().entity_get_spawn_or_despawn_tick(id)
         );
+    }
+
+    #[test]
+    fn despawn_all_command_despawns() {
+        let mut world = World::default();
+
+        #[derive(Component)]
+        struct ComponentA;
+
+        #[derive(Component)]
+        struct ComponentB;
+
+        #[derive(Component)]
+        struct ComponentC;
+
+        let a_1 = world.spawn(ComponentA).id();
+        let a_2 = world.spawn(ComponentA).id();
+        let a_b = world.spawn((ComponentA, ComponentB)).id();
+        let c = world.spawn(ComponentC).id();
+
+        let mut commands = world.commands();
+
+        commands.despawn_all::<Or<(With<ComponentC>, (With<ComponentA>, Without<ComponentB>))>>();
+
+        world.flush_commands();
+
+        assert!(world.get_entity(a_1).is_err());
+        assert!(world.get_entity(a_2).is_err());
+        assert!(world.get_entity(c).is_err());
+
+        assert!(world.get_entity(a_b).is_ok());
+    }
+
+    #[test]
+    fn despawn_all_where_command_checks() {
+        let mut world = World::default();
+
+        #[derive(Component)]
+        struct ComponentA(usize);
+
+        let a_1 = world.spawn(ComponentA(1)).id();
+        let a_2 = world.spawn(ComponentA(2)).id();
+        let a_3 = world.spawn(ComponentA(3)).id();
+
+        let mut commands = world.commands();
+
+        commands.despawn_all_where::<&ComponentA, ()>(|data| data.0 < 3);
+
+        world.flush_commands();
+
+        assert!(world.get_entity(a_1).is_err());
+        assert!(world.get_entity(a_2).is_err());
+
+        assert!(world.get_entity(a_3).is_ok());
     }
 }

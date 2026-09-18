@@ -333,6 +333,50 @@ impl BlobArray {
         core::ptr::copy::<u8>(value.as_ptr(), dst.as_ptr(), size);
     }
 
+    /// Initializes the value at `dst_index` by swap-removing an element from `src`.
+    ///
+    /// # Safety
+    /// - `src_index` & `dst_index` must be in bounds of their [`BlobArray`]
+    /// - `src_last_element_index` must be the last element in `src`
+    /// - The value [`Layout`] and drop function of `src` and `self` must match
+    #[inline]
+    pub unsafe fn initialize_from_swap_remove_unchecked(
+        &mut self,
+        src: &mut Self,
+        src_last_element_index: usize,
+        src_index: usize,
+        dst_index: usize,
+    ) {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(src.capacity > src_last_element_index);
+            debug_assert!(src.capacity > src_index);
+            debug_assert!(self.capacity > dst_index);
+        }
+        // SAFETY:
+        // - exclusive references guarantee disjointness
+        // - in bounds per precondition
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                src.get_unchecked(src_index).as_ptr(),
+                self.get_unchecked_mut(dst_index).as_ptr(),
+                self.item_layout.size(),
+            );
+        }
+        if src_index != src_last_element_index {
+            // SAFETY:
+            // - indices disjoint
+            // - in bounds per precondition
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    src.get_unchecked(src_last_element_index).as_ptr(),
+                    src.get_unchecked_mut(src_index).as_ptr(),
+                    self.item_layout.size(),
+                );
+            }
+        }
+    }
+
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
     ///
     /// # Safety
@@ -442,7 +486,6 @@ impl BlobArray {
             debug_assert!(self.capacity > index_to_remove);
             debug_assert_ne!(index_to_keep, index_to_remove);
         }
-        debug_assert_ne!(index_to_keep, index_to_remove);
         core::ptr::swap_nonoverlapping::<u8>(
             self.get_unchecked_mut(index_to_keep).as_ptr(),
             self.get_unchecked_mut(index_to_remove).as_ptr(),

@@ -15,7 +15,7 @@ pub struct GlobalsPlugin;
 
 impl Plugin for GlobalsPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "globals.wgsl");
+        load_shader_library!(app, "globals.wesl");
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_gpu_resource::<GlobalsBuffer>()
@@ -41,6 +41,7 @@ fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
 /// Currently only contains values related to time.
 #[derive(Default, Clone, Resource, ExtractResource, Reflect, ShaderType)]
 #[reflect(Resource, Default, Clone)]
+#[extract_app(RenderApp)]
 pub struct GlobalsUniform {
     /// The time since startup in seconds.
     /// Wraps to 0 after 1 hour.

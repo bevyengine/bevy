@@ -66,7 +66,7 @@ pub fn init_auto_exposure_pipeline(mut commands: Commands, asset_server: Res<Ass
                 ),
             ),
         ),
-        histogram_shader: load_embedded_asset!(asset_server.as_ref(), "auto_exposure.wgsl"),
+        histogram_shader: load_embedded_asset!(asset_server.as_ref(), "auto_exposure.wesl"),
     });
 }
 

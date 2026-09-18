@@ -15,6 +15,7 @@ use bevy_asset::{
 use bevy_ecs::prelude::*;
 use bevy_scene::{prelude::*, ScenePatch};
 use bevy_ui::prelude::*;
+use bevy_ui_widgets::Button;
 
 criterion_group!(benches, spawn);
 
@@ -145,16 +146,25 @@ fn named_passing() -> impl Scene {
     bsn! {
         #Name
         Children [
-            (#Name0 Reference(#Name) Reference(#Name0)),
-            (#Name1 Reference(#Name) Reference(#Name1)),
-            (#Name2 Reference(#Name) Reference(#Name2)),
-            (#Name3 Reference(#Name) Reference(#Name3)),
-            (#Name4 Reference(#Name) Reference(#Name4)),
-            (#Name5 Reference(#Name) Reference(#Name5)),
-            (#Name6 Reference(#Name) Reference(#Name6)),
-            (#Name7 Reference(#Name) Reference(#Name7)),
-            (#Name8 Reference(#Name) Reference(#Name8)),
-            (#Name9 Reference(#Name) Reference(#Name9)),
+            #Name0 Reference(#Name) Reference(#Name0)
+            --
+            #Name1 Reference(#Name) Reference(#Name1)
+            --
+            #Name2 Reference(#Name) Reference(#Name2)
+            --
+            #Name3 Reference(#Name) Reference(#Name3)
+            --
+            #Name4 Reference(#Name) Reference(#Name4)
+            --
+            #Name5 Reference(#Name) Reference(#Name5)
+            --
+            #Name6 Reference(#Name) Reference(#Name6)
+            --
+            #Name7 Reference(#Name) Reference(#Name7)
+            --
+            #Name8 Reference(#Name) Reference(#Name8)
+            --
+            #Name9 Reference(#Name) Reference(#Name9)
         ]
     }
 }
@@ -193,16 +203,25 @@ fn ui() -> impl Scene {
     bsn! {
         Node
         Children [
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
-            (button() Node { width: Val::Px(200.) }),
+            @button() Node { width: Val::Px(200.) }
+            --
+            @button() Node { width: Val::Px(200.) }
+            --
+            @button() Node { width: Val::Px(200.) }
+            --
+            @button() Node { width: Val::Px(200.) }
+            --
+            @button() Node { width: Val::Px(200.) }
+            --
+            @button() Node { width: Val::Px(200.) }
+            --
+            @button() Node { width: Val::Px(200.) }
+            --
+            @button() Node { width: Val::Px(200.) }
+            --
+            @button() Node { width: Val::Px(200.) }
+            --
+            @button() Node { width: Val::Px(200.) }
         ]
     }
 }
@@ -211,16 +230,25 @@ fn ui_loaded_asset() -> impl Scene {
     bsn! {
         Node
         Children [
-            (:"button.bsn" Node { width: Val::Px(200.) }),
-            (:"button.bsn" Node { width: Val::Px(200.) }),
-            (:"button.bsn" Node { width: Val::Px(200.) }),
-            (:"button.bsn" Node { width: Val::Px(200.) }),
-            (:"button.bsn" Node { width: Val::Px(200.) }),
-            (:"button.bsn" Node { width: Val::Px(200.) }),
-            (:"button.bsn" Node { width: Val::Px(200.) }),
-            (:"button.bsn" Node { width: Val::Px(200.) }),
-            (:"button.bsn" Node { width: Val::Px(200.) }),
-            (:"button.bsn" Node { width: Val::Px(200.) }),
+            :"button.bsn" Node { width: Val::Px(200.) }
+            --
+            :"button.bsn" Node { width: Val::Px(200.) }
+            --
+            :"button.bsn" Node { width: Val::Px(200.) }
+            --
+            :"button.bsn" Node { width: Val::Px(200.) }
+            --
+            :"button.bsn" Node { width: Val::Px(200.) }
+            --
+            :"button.bsn" Node { width: Val::Px(200.) }
+            --
+            :"button.bsn" Node { width: Val::Px(200.) }
+            --
+            :"button.bsn" Node { width: Val::Px(200.) }
+            --
+            :"button.bsn" Node { width: Val::Px(200.) }
+            --
+            :"button.bsn" Node { width: Val::Px(200.) }
         ]
     }
 }
@@ -250,16 +278,25 @@ fn button() -> impl Scene {
             align_items: AlignItems::Center,
         }
         Children [
-            (Text("Text") Marker Marker1 Marker2 Marker3),
-            (Text("Text") Marker Marker1 Marker2 Marker3),
-            (Text("Text") Marker Marker1 Marker2 Marker3),
-            (Text("Text") Marker Marker1 Marker2 Marker3),
-            (Text("Text") Marker Marker1 Marker2 Marker3),
-            (Text("Text") Marker Marker1 Marker2 Marker3),
-            (Text("Text") Marker Marker1 Marker2 Marker3),
-            (Text("Text") Marker Marker1 Marker2 Marker3),
-            (Text("Text") Marker Marker1 Marker2 Marker3),
-            (Text("Text") Marker Marker1 Marker2 Marker3),
+            Text("Text") Marker Marker1 Marker2 Marker3
+            --
+            Text("Text") Marker Marker1 Marker2 Marker3
+            --
+            Text("Text") Marker Marker1 Marker2 Marker3
+            --
+            Text("Text") Marker Marker1 Marker2 Marker3
+            --
+            Text("Text") Marker Marker1 Marker2 Marker3
+            --
+            Text("Text") Marker Marker1 Marker2 Marker3
+            --
+            Text("Text") Marker Marker1 Marker2 Marker3
+            --
+            Text("Text") Marker Marker1 Marker2 Marker3
+            --
+            Text("Text") Marker Marker1 Marker2 Marker3
+            --
+            Text("Text") Marker Marker1 Marker2 Marker3
         ]
     }
 }

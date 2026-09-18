@@ -3,12 +3,12 @@ use core::ptr::NonNull;
 use bevy_ptr::{ConstNonNull, MovingPtr};
 
 use crate::{
-    archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
+    archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus, ARCHETYPE_CREATED},
     bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::{MaybeLocation, Tick},
     entity::{Entity, EntityAllocator, EntityLocation},
-    event::EntityComponentsTrigger,
-    lifecycle::{Add, Insert, ADD, INSERT},
+    event::{EntityComponentsTrigger, GlobalTrigger},
+    lifecycle::{AddEvent, InsertEvent, ADD, INSERT},
     relationship::RelationshipHookMode,
     storage::Table,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -69,7 +69,19 @@ impl<'w> BundleSpawner<'w> {
             // SAFETY:
             // - we have exclusive ownership of the world and hold no references to command queue or component data
             // - as this goes through `DeferredWorld`, our pointers will not be invalidated
-            unsafe { spawner.world.into_deferred() }.trigger(ArchetypeCreated(new_archetype_id));
+            // SAFETY:
+            // - we have exclusive ownership of the world and hold no references to command queue or component data
+            // - as this goes through `DeferredWorld`, our pointers will not be invalidated
+            let mut world = unsafe { spawner.world.into_deferred() };
+            // SAFETY: the ARCHETYPE_CREATED event_key corresponds to the ArchetypeCreated event's type
+            unsafe {
+                world.trigger_raw(
+                    ARCHETYPE_CREATED,
+                    &mut ArchetypeCreated(new_archetype_id),
+                    &mut GlobalTrigger,
+                    MaybeLocation::caller(),
+                );
+            }
         }
         spawner
     }
@@ -139,6 +151,7 @@ impl<'w> BundleSpawner<'w> {
                 entities.set_location(entity.index(), Some(location));
                 entities.mark_spawned_or_despawned(entity.index(), caller, self.change_tick);
             }
+
             location
         };
 
@@ -159,7 +172,7 @@ impl<'w> BundleSpawner<'w> {
                 // SAFETY: the ADD event_key corresponds to the Add event's type
                 deferred_world.trigger_raw(
                     ADD,
-                    &mut Add { entity },
+                    &mut AddEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: bundle_info.contributed_components(),
                         old_archetype: None,
@@ -179,7 +192,7 @@ impl<'w> BundleSpawner<'w> {
                 // SAFETY: the INSERT event_key corresponds to the Insert event's type
                 deferred_world.trigger_raw(
                     INSERT,
-                    &mut Insert { entity },
+                    &mut InsertEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: bundle_info.contributed_components(),
                         old_archetype: None,

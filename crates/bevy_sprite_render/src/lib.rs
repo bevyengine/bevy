@@ -15,7 +15,6 @@ mod render;
 mod sprite_mesh;
 #[cfg(feature = "bevy_text")]
 mod text2d;
-mod texture_slice;
 mod tilemap_chunk;
 
 /// The sprite prelude.
@@ -23,21 +22,23 @@ mod tilemap_chunk;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{ColorMaterial, MeshMaterial2d, SpriteMaterial};
+    pub use crate::{
+        ColorMaterial, ExtendedMaterial2d, MaterialExtension2d, MeshMaterial2d, SpriteMaterial,
+        SpriteMaterialPlugin, SpriteMeshMaterial,
+    };
 }
 
 use bevy_shader::load_shader_library;
 pub use mesh2d::*;
 pub use render::*;
 pub use sprite_mesh::*;
-pub(crate) use texture_slice::*;
 pub use tilemap_chunk::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, AssetEventSystems};
+use bevy_asset::embedded_asset;
 use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
-use bevy_image::{prelude::*, TextureAtlasPlugin};
+use bevy_image::TextureAtlasPlugin;
 use bevy_mesh::Mesh2d;
 use bevy_render::{
     batching::sort_binned_render_phase, render_phase::AddRenderCommand,
@@ -53,18 +54,11 @@ pub use crate::text2d::extract_text2d_sprite;
 #[derive(Default)]
 pub struct SpriteRenderPlugin;
 
-/// System set for sprite rendering.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum SpriteSystems {
-    ExtractSprites,
-    ComputeSlices,
-}
-
 impl Plugin for SpriteRenderPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "render/sprite_view_bindings.wgsl");
+        load_shader_library!(app, "render/sprite_view_bindings.wesl");
 
-        embedded_asset!(app, "render/sprite.wgsl");
+        embedded_asset!(app, "render/sprite.wesl");
 
         if !app.is_plugin_added::<TextureAtlasPlugin>() {
             app.add_plugins(TextureAtlasPlugin);
@@ -72,20 +66,12 @@ impl Plugin for SpriteRenderPlugin {
 
         app.add_plugins((
             Mesh2dRenderPlugin,
+            Materials2dPlugin,
             ColorMaterialPlugin,
             SpriteMeshPlugin,
             TilemapChunkPlugin,
             TilemapChunkMaterialPlugin,
-        ))
-        .add_systems(
-            PostUpdate,
-            (
-                compute_slices_on_asset_event.before(AssetEventSystems),
-                compute_slices_on_sprite_change,
-            )
-                .in_set(SpriteSystems::ComputeSlices),
-        );
-
+        ));
         app.register_required_components::<Sprite, SyncToRenderWorld>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -102,10 +88,9 @@ impl Plugin for SpriteRenderPlugin {
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_sprites.in_set(SpriteSystems::ExtractSprites),
                         extract_sprite_events,
                         #[cfg(feature = "bevy_text")]
-                        extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
+                        extract_text2d_sprite,
                     ),
                 )
                 .add_systems(
@@ -113,7 +98,7 @@ impl Plugin for SpriteRenderPlugin {
                     (
                         queue_sprites
                             .in_set(RenderSystems::Queue)
-                            .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                            .ambiguous_with(queue_material2d_meshes),
                         prepare_sprite_image_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         prepare_sprite_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         sort_binned_render_phase::<Opaque2d>.in_set(RenderSystems::PhaseSort),

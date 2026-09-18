@@ -10,9 +10,10 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
-    error::{CommandOutput, ErrorContext, ErrorHandler, Result},
+    error::{BevyError, CommandOutput, ErrorContext, Result},
     event::Event,
     message::{Message, Messages},
+    query::{QueryData, QueryFilter},
     resource::Resource,
     schedule::ScheduleLabel,
     system::{IntoSystem, SystemId, SystemInput},
@@ -63,7 +64,10 @@ pub trait Command: Send + 'static {
     /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
     #[inline]
-    fn handle_error_with(self, error_handler: ErrorHandler) -> impl Command<Out = ()>
+    fn handle_error_with(
+        self,
+        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
+    ) -> impl Command<Out = ()>
     where
         Self: Sized,
     {
@@ -311,5 +315,25 @@ pub fn write_message<M: Message>(message: M) -> impl Command {
     move |world: &mut World| {
         let mut messages = world.resource_mut::<Messages<M>>();
         messages.write_with_caller(message, caller);
+    }
+}
+
+/// A [`Command`] that [despawns](crate::system::entity_command::despawn) all entities matching a specific [`QueryFilter`].
+#[track_caller]
+pub fn despawn_all<F: QueryFilter>() -> impl Command {
+    let caller = MaybeLocation::caller();
+    move |world: &mut World| {
+        world.despawn_all_with_caller::<F>(caller);
+    }
+}
+
+/// A [`Command`] that [despawns](crate::system::entity_command::despawn) all entities matching a specific [`QueryFilter`] and condition.
+#[track_caller]
+pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
+    cond: impl FnMut(D::Item<'_, '_>) -> bool + Send + 'static,
+) -> impl Command {
+    let caller = MaybeLocation::caller();
+    move |world: &mut World| {
+        world.despawn_all_where_with_caller::<D, F>(cond, caller);
     }
 }

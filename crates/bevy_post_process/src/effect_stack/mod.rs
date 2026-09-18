@@ -124,11 +124,11 @@ pub struct PostProcessingUniformBufferOffsets {
 
 impl Plugin for EffectStackPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "chromatic_aberration.wgsl");
-        load_shader_library!(app, "lens_distortion.wgsl");
-        load_shader_library!(app, "vignette.wgsl");
+        load_shader_library!(app, "chromatic_aberration.wesl");
+        load_shader_library!(app, "lens_distortion.wesl");
+        load_shader_library!(app, "vignette.wesl");
 
-        embedded_asset!(app, "post_process.wgsl");
+        embedded_asset!(app, "post_process.wesl");
 
         // Load the default chromatic aberration LUT.
         let mut assets = app.world_mut().resource_mut::<Assets<_>>();
@@ -214,7 +214,7 @@ pub(crate) fn init_post_processing_pipeline(
         bind_group_layout,
         common_sampler,
         fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "post_process.wgsl"),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "post_process.wesl"),
     });
 }
 

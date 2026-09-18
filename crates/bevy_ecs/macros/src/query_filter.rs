@@ -96,11 +96,11 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         const _: () = {
             #[doc(hidden)]
-            #[doc = concat!(
+            #[doc = ::core::concat!(
                 "Automatically generated internal [`WorldQuery`](",
-                stringify!(#path),
+                ::core::stringify!(#path),
                 "::query::WorldQuery) state type for [`",
-                stringify!(#struct_name),
+                ::core::stringify!(#struct_name),
                 "`], used for caching."
             )]
             #[automatically_derived]

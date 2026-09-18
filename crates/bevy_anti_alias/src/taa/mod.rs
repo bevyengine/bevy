@@ -48,7 +48,7 @@ pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "taa.wgsl");
+        embedded_asset!(app, "taa.wesl");
 
         app.add_plugins(SyncComponentPlugin::<TemporalAntiAliasing>::default());
 
@@ -129,7 +129,7 @@ impl Default for TemporalAntiAliasing {
     }
 }
 
-impl SyncComponent for TemporalAntiAliasing {
+impl SyncComponent<RenderApp> for TemporalAntiAliasing {
     type Target = Self;
 }
 
@@ -264,7 +264,7 @@ fn init_taa_pipeline(
         ),
     );
 
-    let fragment_shader = load_embedded_asset!(asset_server.as_ref(), "taa.wgsl");
+    let fragment_shader = load_embedded_asset!(asset_server.as_ref(), "taa.wesl");
 
     let variants = Variants::new(
         TaaPipelineSpecializer,

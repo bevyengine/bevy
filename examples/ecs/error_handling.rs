@@ -2,8 +2,8 @@
 //! syntax.
 
 use bevy::ecs::{entity::SpawnError, error::warn, world::DeferredWorld};
-use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
+use bevy::shape::sampling::UniformMeshSampler;
 
 use chacha20::ChaCha8Rng;
 use rand::distr::Distribution;
@@ -124,7 +124,7 @@ fn setup(
 
 // Observer systems can also return a `Result`.
 fn fallible_observer(
-    pointer_move: On<Pointer<Move>>,
+    pointer_move: On<PointerMove>,
     mut world: DeferredWorld,
     mut step: Local<f32>,
 ) -> Result {

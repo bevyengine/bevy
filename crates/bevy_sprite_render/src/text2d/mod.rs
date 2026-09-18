@@ -49,6 +49,9 @@ pub fn extract_text2d_sprite(
         )>,
     >,
 ) {
+    extracted_sprites.sprites.clear();
+    extracted_slices.slices.clear();
+
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
 
@@ -98,13 +101,9 @@ pub fn extract_text2d_sprite(
                 transform,
                 color: text_background_color.0.into(),
                 image_handle_id: AssetId::default(),
-                flip_x: false,
                 flip_y: true,
                 kind: ExtractedSpriteKind::Single {
-                    anchor: Vec2::ZERO,
-                    rect: None,
-                    scaling_mode: None,
-                    custom_size: Some(run.bounds.size()),
+                    custom_size: run.bounds.size(),
                 },
             });
         }
@@ -142,7 +141,6 @@ pub fn extract_text2d_sprite(
                         transform: shadow_transform,
                         color,
                         image_handle_id: atlas_info.texture,
-                        flip_x: false,
                         flip_y: true,
                         kind: ExtractedSpriteKind::Slices {
                             indices: start..end,
@@ -173,13 +171,9 @@ pub fn extract_text2d_sprite(
                         transform,
                         color,
                         image_handle_id: AssetId::default(),
-                        flip_x: false,
                         flip_y: false,
                         kind: ExtractedSpriteKind::Single {
-                            anchor: Vec2::ZERO,
-                            rect: None,
-                            scaling_mode: None,
-                            custom_size: Some(run.strikethrough_size()),
+                            custom_size: run.strikethrough_size(),
                         },
                     });
                 }
@@ -195,13 +189,9 @@ pub fn extract_text2d_sprite(
                         transform,
                         color,
                         image_handle_id: AssetId::default(),
-                        flip_x: false,
                         flip_y: false,
                         kind: ExtractedSpriteKind::Single {
-                            anchor: Vec2::ZERO,
-                            rect: None,
-                            scaling_mode: None,
-                            custom_size: Some(run.underline_size()),
+                            custom_size: run.underline_size(),
                         },
                     });
                 }
@@ -224,14 +214,10 @@ pub fn extract_text2d_sprite(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             if *section_index != current_section {
-                color = text_colors
-                    .get(
-                        computed_block
-                            .entities()
-                            .get(*section_index as usize)
-                            .map(|t| t.entity)
-                            .unwrap_or(Entity::PLACEHOLDER),
-                    )
+                color = computed_block
+                    .entities()
+                    .get(*section_index as usize)
+                    .and_then(|t| text_colors.get(t.entity).ok())
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
                 current_section = *section_index;
@@ -253,7 +239,6 @@ pub fn extract_text2d_sprite(
                     transform,
                     color,
                     image_handle_id: atlas_info.texture,
-                    flip_x: false,
                     flip_y: true,
                     kind: ExtractedSpriteKind::Slices {
                         indices: start..end,
@@ -294,13 +279,9 @@ pub fn extract_text2d_sprite(
                     transform,
                     color,
                     image_handle_id: AssetId::default(),
-                    flip_x: false,
                     flip_y: false,
                     kind: ExtractedSpriteKind::Single {
-                        anchor: Vec2::ZERO,
-                        rect: None,
-                        scaling_mode: None,
-                        custom_size: Some(run.strikethrough_size()),
+                        custom_size: run.strikethrough_size(),
                     },
                 });
             }
@@ -322,13 +303,9 @@ pub fn extract_text2d_sprite(
                     transform,
                     color,
                     image_handle_id: AssetId::default(),
-                    flip_x: false,
                     flip_y: false,
                     kind: ExtractedSpriteKind::Single {
-                        anchor: Vec2::ZERO,
-                        rect: None,
-                        scaling_mode: None,
-                        custom_size: Some(run.underline_size()),
+                        custom_size: run.underline_size(),
                     },
                 });
             }

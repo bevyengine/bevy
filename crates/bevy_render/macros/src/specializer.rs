@@ -44,7 +44,7 @@ enum Key {
     Whole,
     Default,
     Index(Index),
-    Custom(Expr),
+    Custom(Box<Expr>),
 }
 
 impl Key {
@@ -56,7 +56,7 @@ impl Key {
                 let member = Member::Unnamed(index.clone());
                 parse_quote!(key.#member)
             }
-            Key::Custom(expr) => expr.clone(),
+            Key::Custom(expr) => *expr.clone(),
         }
     }
 }
@@ -72,10 +72,14 @@ impl Parse for Key {
                 Err(syn::Error::new_spanned(ident, KEY_ERROR_MSG))
             }
         } else {
-            input.parse::<Expr>().map(Key::Custom).map_err(|mut err| {
-                err.extend(syn::Error::new(err.span(), KEY_ERROR_MSG));
-                err
-            })
+            input
+                .parse::<Expr>()
+                .map(Box::new)
+                .map(Key::Custom)
+                .map_err(|mut err| {
+                    err.extend(syn::Error::new(err.span(), KEY_ERROR_MSG));
+                    err
+                })
         }
     }
 }

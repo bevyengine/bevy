@@ -66,6 +66,11 @@ pub enum ApplyError {
         /// Name of the missing variant.
         variant_name: Box<str>,
     },
+
+    #[error(transparent)]
+    /// A value could not be converted to its dynamic representation via
+    /// [`PartialReflect::to_dynamic`] while applying it.
+    CloneError(#[from] ReflectCloneError),
 }
 
 impl From<ReflectKindMismatchError> for ApplyError {
@@ -252,16 +257,19 @@ where
     /// To attempt to clone the value directly such that it returns a concrete instance of this type,
     /// use [`reflect_clone`].
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This method will panic if the [kind] is [opaque] and the call to [`reflect_clone`] fails.
+    /// This method returns an error whenever any value it must convert is [opaque] and the call to
+    /// [`reflect_clone`] on it fails. This includes opaque values nested anywhere inside the type:
+    /// the conversion is all-or-nothing, so a single non-cloneable opaque field fails the whole call
+    /// rather than producing a partial result.
     ///
     /// # Example
     ///
     /// ```
     /// # use bevy_reflect::{PartialReflect};
     /// let value = (1, true, 3.14);
-    /// let dynamic_value = value.to_dynamic();
+    /// let dynamic_value = value.to_dynamic().unwrap();
     /// assert!(dynamic_value.is_dynamic())
     /// ```
     ///
@@ -274,21 +282,21 @@ where
     /// [`DynamicStruct`]: crate::structs::DynamicStruct
     /// [opaque]: crate::ReflectKind::Opaque
     /// [`reflect_clone`]: PartialReflect::reflect_clone
-    fn to_dynamic(&self) -> Box<dyn PartialReflect> {
+    fn to_dynamic(&self) -> Result<Box<dyn PartialReflect>, ReflectCloneError> {
         match self.reflect_ref() {
-            ReflectRef::Struct(dyn_struct) => Box::new(dyn_struct.to_dynamic_struct()),
+            ReflectRef::Struct(dyn_struct) => Ok(Box::new(dyn_struct.to_dynamic_struct()?)),
             ReflectRef::TupleStruct(dyn_tuple_struct) => {
-                Box::new(dyn_tuple_struct.to_dynamic_tuple_struct())
+                Ok(Box::new(dyn_tuple_struct.to_dynamic_tuple_struct()?))
             }
-            ReflectRef::Tuple(dyn_tuple) => Box::new(dyn_tuple.to_dynamic_tuple()),
-            ReflectRef::List(dyn_list) => Box::new(dyn_list.to_dynamic_list()),
-            ReflectRef::Array(dyn_array) => Box::new(dyn_array.to_dynamic_array()),
-            ReflectRef::Map(dyn_map) => Box::new(dyn_map.to_dynamic_map()),
-            ReflectRef::Set(dyn_set) => Box::new(dyn_set.to_dynamic_set()),
-            ReflectRef::Enum(dyn_enum) => Box::new(dyn_enum.to_dynamic_enum()),
+            ReflectRef::Tuple(dyn_tuple) => Ok(Box::new(dyn_tuple.to_dynamic_tuple()?)),
+            ReflectRef::List(dyn_list) => Ok(Box::new(dyn_list.to_dynamic_list()?)),
+            ReflectRef::Array(dyn_array) => Ok(Box::new(dyn_array.to_dynamic_array()?)),
+            ReflectRef::Map(dyn_map) => Ok(Box::new(dyn_map.to_dynamic_map()?)),
+            ReflectRef::Set(dyn_set) => Ok(Box::new(dyn_set.to_dynamic_set()?)),
+            ReflectRef::Enum(dyn_enum) => Ok(Box::new(dyn_enum.to_dynamic_enum()?)),
             #[cfg(feature = "functions")]
-            ReflectRef::Function(dyn_function) => Box::new(dyn_function.to_dynamic_function()),
-            ReflectRef::Opaque(value) => value.reflect_clone().unwrap().into_partial_reflect(),
+            ReflectRef::Function(dyn_function) => Ok(Box::new(dyn_function.to_dynamic_function())),
+            ReflectRef::Opaque(value) => Ok(value.reflect_clone()?.into_partial_reflect()),
         }
     }
 

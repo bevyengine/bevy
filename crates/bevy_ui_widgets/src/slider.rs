@@ -1,5 +1,3 @@
-use core::ops::RangeInclusive;
-
 use accesskit::{Orientation, Role};
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
@@ -7,7 +5,7 @@ use bevy_ecs::event::EntityEvent;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::Insert;
 use bevy_ecs::query::Has;
-use bevy_ecs::system::Res;
+use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::world::DeferredWorld;
 use bevy_ecs::{
     component::Component,
@@ -21,12 +19,17 @@ use bevy_input::ButtonState;
 use bevy_input_focus::FocusedInput;
 use bevy_log::warn_once;
 use bevy_math::ops;
-use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press, Release};
+use bevy_picking::events::{
+    PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+};
+use bevy_picking::hover::PointerCaptureMap;
+
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     ComputedNode, ComputedUiRenderTargetInfo, InteractionDisabled, Pressed, UiGlobalTransform,
     UiScale,
 };
+use core::ops::RangeInclusive;
 
 use crate::ValueChange;
 use bevy_ecs::entity::Entity;
@@ -75,6 +78,9 @@ pub enum TrackClick {
 /// optional step size can be specified via [`SliderStep`], and you can control the rounding
 /// during dragging with [`SliderPrecision`].
 ///
+/// The canonical way to update the slider value is to insert a new [`SliderValue`] component,
+/// overwriting the old one. The value can be set during initial construction and updated later.
+///
 /// You can also control the slider remotely by triggering a [`SetSliderValue`] event on it. This
 /// can be useful in a console environment for controlling the value gamepad inputs.
 ///
@@ -92,6 +98,10 @@ pub enum TrackClick {
 ///
 /// In cases where overhang is desired for artistic reasons, the thumb may have additional
 /// decorative child elements, absolutely positioned, which don't affect the size measurement.
+///
+/// **Note:** For information on how widget state is managed
+/// and how to respond to state changes, see the [crate-level documentation].
+/// [crate-level documentation]: crate
 #[derive(Component, Debug, Default, Clone)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::Slider)),
@@ -253,7 +263,7 @@ pub struct SliderDragState {
 }
 
 pub(crate) fn slider_on_pointer_down(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     q_slider: Query<(
         Entity,
         &Slider,
@@ -315,7 +325,7 @@ pub(crate) fn slider_on_pointer_down(
         // Detect track click.
         let Some(normalized_pos) = node.normalize_point(
             *transform,
-            press.pointer_location.position * node_target.scale_factor() / ui_scale.0,
+            press.pointer.position * node_target.scale_factor() / ui_scale.0,
         ) else {
             return;
         };
@@ -369,23 +379,29 @@ pub(crate) fn slider_on_pointer_down(
 }
 
 pub(crate) fn slider_on_drag_start(
-    mut drag_start: On<Pointer<DragStart>>,
+    mut drag_start: On<PointerDragStart>,
     mut q_slider: Query<
         (&SliderValue, &mut SliderDragState, Has<InteractionDisabled>),
         With<Slider>,
     >,
+    mut capture_map: ResMut<PointerCaptureMap>,
 ) {
     if let Ok((value, mut drag, disabled)) = q_slider.get_mut(drag_start.entity) {
         drag_start.propagate(false);
         if !disabled {
             drag.dragging = true;
             drag.offset = value.0;
+            capture_map.capture(
+                drag_start.pointer.id,
+                drag_start.entity,
+                drag_start.hit.clone(),
+            );
         }
     }
 }
 
 pub(crate) fn slider_on_drag(
-    mut event: On<Pointer<Drag>>,
+    mut event: On<PointerDrag>,
     q_slider: Query<
         (
             &Slider,
@@ -428,7 +444,8 @@ pub(crate) fn slider_on_drag(
 }
 
 pub(crate) fn slider_on_drag_end(
-    mut drag_end: On<Pointer<DragEnd>>,
+    mut drag_end: On<PointerDragEnd>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_slider: Query<
         (
             Entity,
@@ -471,6 +488,7 @@ pub(crate) fn slider_on_drag_end(
             }
             commands.entity(slider_ent).remove::<Pressed>();
             drag.dragging = false;
+            capture_map.release(drag_end.pointer.id);
         }
     }
 }
@@ -538,7 +556,7 @@ fn emit_slider_drag_value_change(
 }
 
 fn slider_on_pointer_up(
-    mut release: On<Pointer<Release>>,
+    mut release: On<PointerRelease>,
     mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
     mut commands: Commands,
 ) {
@@ -551,7 +569,7 @@ fn slider_on_pointer_up(
 }
 
 fn slider_on_pointer_cancel(
-    mut release: On<Pointer<Cancel>>,
+    mut release: On<PointerCancel>,
     mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
     mut commands: Commands,
 ) {
@@ -598,7 +616,7 @@ fn slider_on_key_input(
     }
 }
 
-pub(crate) fn slider_on_insert(insert: On<Insert, Slider>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert(insert: On<Insert<Slider>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let orientation = entity
         .get::<Slider>()
@@ -613,7 +631,7 @@ pub(crate) fn slider_on_insert(insert: On<Insert, Slider>, mut world: DeferredWo
     }
 }
 
-pub(crate) fn slider_on_insert_value(insert: On<Insert, SliderValue>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert_value(insert: On<Insert<SliderValue>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let value = entity.get::<SliderValue>().unwrap().0;
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -621,7 +639,7 @@ pub(crate) fn slider_on_insert_value(insert: On<Insert, SliderValue>, mut world:
     }
 }
 
-pub(crate) fn slider_on_insert_range(insert: On<Insert, SliderRange>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert_range(insert: On<Insert<SliderRange>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let range = *entity.get::<SliderRange>().unwrap();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -630,7 +648,7 @@ pub(crate) fn slider_on_insert_range(insert: On<Insert, SliderRange>, mut world:
     }
 }
 
-pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert_step(insert: On<Insert<SliderStep>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let step = entity.get::<SliderStep>().unwrap().0;
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -703,11 +721,13 @@ fn slider_on_set_value(
                 range.clamp(value.0 + delta * step.map(|s| s.0).unwrap_or_default())
             }
         };
-        commands.trigger(ValueChange {
-            source: set_slider_value.entity,
-            value: new_value,
-            is_final: true,
-        });
+        if new_value != value.0 {
+            commands.trigger(ValueChange {
+                source: set_slider_value.entity,
+                value: new_value,
+                is_final: true,
+            });
+        }
     }
 }
 
@@ -743,6 +763,210 @@ impl Plugin for SliderPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_camera::NormalizedRenderTarget;
+    use bevy_ecs::hierarchy::ChildOf;
+    use bevy_input::keyboard::Key;
+    use bevy_input::InputPlugin;
+    use bevy_input_focus::{
+        tab_navigation::{TabIndex, TabNavigationPlugin},
+        FocusCause, InputDispatchPlugin, InputFocus, InputFocusPlugin,
+    };
+    use bevy_math::Vec2;
+    use bevy_picking::{
+        backend::HitData,
+        events::Pointer,
+        pointer::{Location, PointerButton, PointerId},
+    };
+    use bevy_window::{PrimaryWindow, Window};
+
+    /// Builds a headless app with the slider observers plus [`slider_self_update`] (so a
+    /// `ValueChange` is written back into [`SliderValue`]) and [`InputDispatchPlugin`] (so raw
+    /// [`KeyboardInput`] reaches the focused slider as `FocusedInput<KeyboardInput>`).
+    fn slider_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins((
+            InputPlugin,
+            InputFocusPlugin,
+            InputDispatchPlugin,
+            TabNavigationPlugin,
+            SliderPlugin,
+        ));
+        app.add_observer(slider_self_update);
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        app.update();
+        (app, window)
+    }
+
+    /// Spawns a focused slider with value 50 in range [0, 100] and a step of 10.
+    fn spawn_focused_slider(app: &mut App, window: Entity) -> Entity {
+        let slider = app
+            .world_mut()
+            .spawn((
+                Slider::default(),
+                SliderValue(50.0),
+                SliderRange::new(0.0, 100.0),
+                SliderStep(10.0),
+                TabIndex(0),
+                ChildOf(window),
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(slider, FocusCause::Navigated);
+        app.update();
+        slider
+    }
+
+    #[test]
+    fn slider_captures_pointer_on_drag_start() {
+        let (mut app, window) = slider_app();
+        let slider = spawn_focused_slider(&mut app, window);
+        let camera = app.world_mut().spawn_empty().id();
+        app.init_resource::<PointerCaptureMap>();
+
+        let hit = HitData {
+            camera,
+            depth: 0.0,
+            position: None,
+            normal: None,
+            extra: None,
+        };
+
+        let pointer = Pointer::new(
+            PointerId::Mouse,
+            Location {
+                target: NormalizedRenderTarget::None {
+                    width: 0,
+                    height: 0,
+                },
+                position: Vec2::ZERO,
+            },
+        );
+
+        app.world_mut().trigger(PointerDragStart {
+            entity: slider,
+            pointer,
+            button: PointerButton::Primary,
+            hit,
+        });
+
+        let capture_map = app.world().resource::<PointerCaptureMap>();
+
+        let (captured_entity, _) = capture_map
+            .get(&PointerId::Mouse)
+            .expect("slider should capture the pointer on drag start");
+
+        assert_eq!(captured_entity, slider);
+    }
+
+    fn press_key(app: &mut App, key_code: KeyCode, logical_key: Key, window: Entity) {
+        app.world_mut().write_message(KeyboardInput {
+            key_code,
+            logical_key,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+    }
+
+    fn slider_value(app: &App, slider: Entity) -> f32 {
+        app.world().entity(slider).get::<SliderValue>().unwrap().0
+    }
+
+    /// Arrow keys change a focused slider's value by its step, clamped to the range.
+    #[test]
+    fn arrow_keys_change_focused_slider_value() {
+        let (mut app, window) = slider_app();
+        let slider = spawn_focused_slider(&mut app, window);
+
+        press_key(&mut app, KeyCode::ArrowRight, Key::ArrowRight, window);
+        assert_eq!(
+            slider_value(&app, slider),
+            60.0,
+            "Right arrow adds one step"
+        );
+
+        press_key(&mut app, KeyCode::ArrowLeft, Key::ArrowLeft, window);
+        press_key(&mut app, KeyCode::ArrowLeft, Key::ArrowLeft, window);
+        assert_eq!(
+            slider_value(&app, slider),
+            40.0,
+            "Left arrow subtracts one step each press"
+        );
+    }
+
+    /// Home / End jump a focused slider to the range extremes.
+    #[test]
+    fn home_end_keys_jump_slider_to_extremes() {
+        let (mut app, window) = slider_app();
+        let slider = spawn_focused_slider(&mut app, window);
+
+        press_key(&mut app, KeyCode::Home, Key::Home, window);
+        assert_eq!(slider_value(&app, slider), 0.0, "Home jumps to range start");
+
+        press_key(&mut app, KeyCode::End, Key::End, window);
+        assert_eq!(slider_value(&app, slider), 100.0, "End jumps to range end");
+    }
+
+    /// Arrow keys clamp at the range boundaries rather than overshooting.
+    #[test]
+    fn arrow_keys_clamp_at_slider_bounds() {
+        let (mut app, window) = slider_app();
+        let slider = spawn_focused_slider(&mut app, window);
+
+        press_key(&mut app, KeyCode::End, Key::End, window); // 100
+        press_key(&mut app, KeyCode::ArrowRight, Key::ArrowRight, window); // still 100
+        assert_eq!(slider_value(&app, slider), 100.0, "cannot exceed range end");
+    }
+
+    /// A key press with no slider focused leaves the value untouched.
+    #[test]
+    fn arrow_keys_do_nothing_without_focus() {
+        let (mut app, window) = slider_app();
+        let slider = spawn_focused_slider(&mut app, window);
+        app.world_mut().resource_mut::<InputFocus>().clear();
+
+        press_key(&mut app, KeyCode::ArrowRight, Key::ArrowRight, window);
+        assert_eq!(
+            slider_value(&app, slider),
+            50.0,
+            "an unfocused slider must not respond to arrow keys"
+        );
+    }
+
+    /// A disabled slider ignores arrow keys.
+    #[test]
+    fn disabled_slider_ignores_arrow_keys() {
+        let (mut app, window) = slider_app();
+        let slider = app
+            .world_mut()
+            .spawn((
+                Slider::default(),
+                SliderValue(50.0),
+                SliderRange::new(0.0, 100.0),
+                SliderStep(10.0),
+                InteractionDisabled,
+                TabIndex(0),
+                ChildOf(window),
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(slider, FocusCause::Navigated);
+        app.update();
+
+        press_key(&mut app, KeyCode::ArrowRight, Key::ArrowRight, window);
+        assert_eq!(
+            slider_value(&app, slider),
+            50.0,
+            "a disabled slider must not respond to arrow keys"
+        );
+    }
 
     #[test]
     fn test_slider_precision_rounding() {
