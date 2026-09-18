@@ -90,7 +90,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// [`PhantomData`] is a special type of `SystemParam` that does nothing.
 /// This is useful for constraining generic types or lifetimes.
 ///
-/// # Example
+/// ### Example
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -112,7 +112,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// # bevy_ecs::system::assert_is_system(my_system::<()>);
 /// ```
 ///
-/// # Generic `SystemParam`s
+/// ## Generic `SystemParam`s
 ///
 /// When using the derive macro, you may see an error in the form of:
 ///
@@ -124,7 +124,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// To solve this error, you can wrap the field of type `[ParamType]` with [`StaticSystemParam`]
 /// (i.e. `StaticSystemParam<[ParamType]>`).
 ///
-/// ## Details
+/// ### Details
 ///
 /// The derive macro requires that the [`SystemParam`] implementation of
 /// each field `F`'s [`Item`](`SystemParam::Item`)'s is itself `F`
