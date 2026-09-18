@@ -4373,4 +4373,58 @@ mod tests {
             .unwrap()
             .is_fully_clipped());
     }
+
+    #[test]
+    fn computed_node_for_unreachable_node_should_be_unchanged() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let unreachable = world.spawn(Node::default()).id();
+        let non_ui_node = world.spawn_empty().add_child(unreachable).id();
+        world.spawn(Node::default()).add_child(non_ui_node);
+
+        app.update();
+
+        let t = app
+            .world()
+            .entity(unreachable)
+            .get_ref::<ComputedNode>()
+            .unwrap()
+            .last_changed();
+        app.world_mut().spawn(Node::default());
+
+        app.update();
+
+        assert_eq!(
+            t,
+            app.world()
+                .entity(unreachable)
+                .get_ref::<ComputedNode>()
+                .unwrap()
+                .last_changed()
+        );
+    }
+
+    #[test]
+    fn computed_layout_for_unreachable_node_should_be_clean() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let unreachable = world.spawn(Node::default()).id();
+        let non_ui_node = world.spawn_empty().add_child(unreachable).id();
+        world.spawn(Node::default()).add_child(non_ui_node);
+
+        app.update();
+
+        app.world_mut().spawn(Node::default());
+
+        app.update();
+
+        let c = app
+            .world()
+            .entity(unreachable)
+            .get_ref::<ComputedLayout>()
+            .unwrap();
+        assert!(!c.self_dirty());
+        assert!(!c.subtree_dirty());
+        assert!(!c.layout_changed());
+    }
 }
