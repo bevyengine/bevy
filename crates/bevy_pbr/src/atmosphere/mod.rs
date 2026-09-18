@@ -89,8 +89,8 @@ use crate::resources::prepare_atmosphere_buffers;
 
 use self::resources::{
     prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-    AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTextures,
-    AtmosphereTransformsOffset, RenderSkyPipelineId,
+    AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTextures, AtmosphereTransformsOffset,
+    RenderSkyPipelineId,
 };
 
 #[doc(hidden)]
