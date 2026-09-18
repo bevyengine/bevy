@@ -5548,6 +5548,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "headless_tree"
+path = "examples/ui/widgets/headless_tree.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_tree]
+name = "Headless Tree"
+description = "Demonstrates the headless tree view with lazy population and keyboard navigation"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "standard_widgets_observers"
 path = "examples/ui/widgets/standard_widgets_observers.rs"
 doc-scrape-examples = true
