@@ -155,7 +155,6 @@ pub struct ComputedLayout {
     /// This UI node is a layout root. That is either a parentless root UI node, a UI node with only `GhostNode` ancestors, or a `FixedNode`.
     is_layout_root: bool,
     /// List of this UI Node's children (either directly or transitively via `GhostNode`s) that are also valid UI nodes. Non-UI nodes shouldn't be in this list.
-    /// `NodeId` wraps a `u64`. The `Entity` id
     ui_children: Vec<NodeId>,
     /// If true, the layout returned from `Taffy` changed since the last frame.
     /// Set to `false` each frame `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
