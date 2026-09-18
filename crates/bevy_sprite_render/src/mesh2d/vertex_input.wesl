@@ -21,7 +21,6 @@ struct Vertex {
     @location(0) compressed_position_tangent_angle: vec4<f32>,
     @if(VERTEX_POSITIONS && VERTEX_POSITIONS_COMPRESSED && !VERTEX_PACKED_TANGENT_ANGLE)
     @location(0) compressed_position: vec4<f32>,
-    
     @if(VERTEX_POSITIONS && !VERTEX_POSITIONS_COMPRESSED)
     @location(0) position: vec3<f32>,
     @if(VERTEX_NORMALS && VERTEX_NORMALS_COMPRESSED)
