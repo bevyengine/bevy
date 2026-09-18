@@ -4342,4 +4342,35 @@ mod tests {
             wrong_translation
         );
     }
+
+    #[test]
+    fn clipping_updates_skip_clean_subtrees() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let child = world.spawn(Node::default()).id();
+        let sibling = world.spawn(Node::default()).id();
+        world
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_children(&[child, sibling]);
+
+        app.update();
+
+        // Overwrite `sibling`'s clipping so we can check whether it gets recomputed.
+        *app.world_mut().get_mut::<CalculatedClip>(sibling).unwrap() = CalculatedClip::FullyClipped;
+
+        // `child` has no children, so setting a `ScrollPosition` should do nothing.
+        app.world_mut()
+            .entity_mut(child)
+            .insert(ScrollPosition(Vec2::splat(50.)));
+        app.update();
+
+        assert!(app
+            .world()
+            .get::<CalculatedClip>(sibling)
+            .unwrap()
+            .is_fully_clipped());
+    }
 }
