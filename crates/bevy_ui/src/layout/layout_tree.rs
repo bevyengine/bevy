@@ -98,6 +98,8 @@ pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
     },
 });
 
+/// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.
+/// We create and assign the `NodeId`s ourselves in order that each `NodeId` corresponds to an `Entity`.
 pub(super) const fn entity_node_id(entity: Entity) -> NodeId {
     NodeId::new(entity.to_bits())
 }
@@ -105,10 +107,13 @@ pub(super) const fn entity_node_id(entity: Entity) -> NodeId {
 /// `entity.to_bits()` can't be zero, so we use a `NodeId` of zero to represent viewport nodes.
 pub const VIEWPORT_NODE_ID: NodeId = NodeId::new(0u64);
 
+/// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.
+/// We create and assign the `NodeId`s ourselves in order that each `NodeId` corresponds to an `Entity`.
 pub(super) fn node_id_entity(node_id: NodeId) -> Entity {
     Entity::from_bits(u64::from(node_id))
 }
 
+/// Collect the `NodeId`s of only the children that are valid UI nodes that should be exposed to Taffy.
 pub(super) fn collect_ui_children(
     parent: Entity,
     ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
@@ -145,25 +150,26 @@ pub struct ComputedLayout {
     rounded: Option<Layout>,
     /// cached sizing results
     cache: Cache,
-    /// was reached from a layout root by the last full walk
-    reached: bool,
-    /// is a layout root
-    is_root: bool,
-    /// children
-    children: Vec<NodeId>,
+    /// This UI node was reached from a layout root by the last full walk
+    reached_in_full_walk: bool,
+    /// This UI node is a layout root. That is either a parentless root UI node, a UI node with only `GhostNode` ancestors, or a `FixedNode`.
+    is_layout_root: bool,
+    /// List of this UI Node's children (either directly or transitively via `GhostNode`s) that are also valid UI nodes. Non-UI nodes shouldn't be in this list.
+    /// `NodeId` wraps a `u64`. The `Entity` id
+    ui_children: Vec<NodeId>,
     /// if true, the layout returned from `Taffy` changed
     layout_changed: bool,
-    /// if true local inputs have changed
+    /// If true local inputs have changed.
     self_dirty: bool,
-    ///  if true this node or its descendent's geometry needs to be updated.
+    /// If true this node or its descendent's geometry needs to be updated.
     subtree_dirty: bool,
-    /// true if node has an `Outline` component
+    /// True if the node has an `Outline` component.
     has_outline: bool,
-    /// true if node has a `LayoutConfig` component
+    /// True if node has a `LayoutConfig` component.
     has_layout_config: bool,
-    /// true if node has an `IgnoreScroll` component
+    /// True if node has an `IgnoreScroll` component.
     has_ignore_scroll: bool,
-    /// true if node has an `OverrideClip` component
+    /// True if node has an `OverrideClip` component.
     has_override_clip: bool,
 }
 
@@ -173,9 +179,9 @@ impl ComputedLayout {
         self.unrounded = None;
         self.rounded = None;
         self.cache.clear();
-        self.children.clear();
-        self.reached = false;
-        self.is_root = false;
+        self.ui_children.clear();
+        self.reached_in_full_walk = false;
+        self.is_layout_root = false;
         self.layout_changed = false;
         self.subtree_dirty = false;
         self.self_dirty = false;
@@ -227,13 +233,13 @@ impl ComputedLayout {
     /// Set whether the last full walk reached this node from a layout root
     #[inline]
     pub(super) const fn set_reached(&mut self, reached: bool) {
-        self.reached = reached;
+        self.reached_in_full_walk = reached;
     }
 
     /// Returns true if the last full walk reached this node from a layout root
     #[inline]
     pub(super) const fn reached(&self) -> bool {
-        self.reached
+        self.reached_in_full_walk
     }
 
     /// Get the layout geometry and size
@@ -254,7 +260,7 @@ impl ComputedLayout {
     /// merged with any `Node`'s hoisted up to replace a [`GhostNode`] ancestor.
     #[inline]
     pub fn child_nodes(&self) -> &[NodeId] {
-        &self.children
+        &self.ui_children
     }
 
     /// Get the UI children for this Node, by `Entity`.
@@ -262,12 +268,14 @@ impl ComputedLayout {
     /// merged with any `Node`'s hoisted up to replace a [`GhostNode`] ancestor.
     #[inline]
     pub fn child_entities(&self) -> impl Iterator<Item = Entity> {
-        self.children.iter().map(|node_id| node_id_entity(*node_id))
+        self.ui_children
+            .iter()
+            .map(|node_id| node_id_entity(*node_id))
     }
 
     #[inline]
     pub fn is_root(&self) -> bool {
-        self.is_root
+        self.is_layout_root
     }
 
     /// Clear dirty flags that are only valid for the current frame.
@@ -471,26 +479,26 @@ fn sync_runtime_layout_tree(
         return None;
     };
     let computed_layout = computed_layout.bypass_change_detection();
-    let was_root = computed_layout.is_root;
-    computed_layout.is_root = entity == root;
+    let was_root = computed_layout.is_layout_root;
+    computed_layout.is_layout_root = entity == root;
     let new_children = &child_stack[start..end];
-    let children_changed = computed_layout.children != new_children;
+    let children_changed = computed_layout.ui_children != new_children;
     if children_changed {
-        computed_layout.children.clear();
-        computed_layout.children.extend_from_slice(new_children);
+        computed_layout.ui_children.clear();
+        computed_layout.ui_children.extend_from_slice(new_children);
     }
 
     child_stack.truncate(start);
 
     let own_dirty = style.is_changed()
         || children_changed
-        || was_root != computed_layout.is_root
+        || was_root != computed_layout.is_layout_root
         || content_size.is_changed()
         || fixed_node_changes.contains(&entity)
         || !computed_layout.has_layout();
     subtree_dirty |= own_dirty;
 
-    computed_layout.reached |= needs_full_walk;
+    computed_layout.reached_in_full_walk |= needs_full_walk;
     computed_layout.layout_changed = false;
 
     let outline_changed = (computed_layout.has_outline != outline.is_some())
@@ -551,7 +559,7 @@ impl UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
             .computed_layout_query
             .get(node_id_entity(node_id))
             .expect("missing computed layout")
-            .children
+            .ui_children
     }
 
     #[inline(always)]
