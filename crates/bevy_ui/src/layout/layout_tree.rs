@@ -157,13 +157,13 @@ pub struct ComputedLayout {
     /// List of this UI Node's children (either directly or transitively via `GhostNode`s) that are also valid UI nodes. Non-UI nodes shouldn't be in this list.
     ui_children: Vec<NodeId>,
     /// If true, the layout returned from `Taffy` changed since the last frame.
-    /// Set to `false` each frame `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
+    /// Set to `false` each frame in `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
     layout_changed: bool,
     /// If `true` local inputs have changed since the last frame.
-    /// Set to `false` each frame `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
+    /// Set to `false` each frame in `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
     self_dirty: bool,
     /// If `true` this node or its descendent's geometry needs to be updated.
-    /// Set to `false` each frame `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
+    /// Set to `false` each frame in `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
     subtree_dirty: bool,
     /// True if the node has an `Outline` component.
     has_outline: bool,
@@ -403,7 +403,7 @@ pub fn compute_layout(
 /// The current state of a UI subtree and what needs to be updated.
 #[derive(Clone, Copy, Default, PartialEq)]
 enum SubtreeState {
-    // Nothing in this subtree changed.
+    /// Nothing in this subtree changed.
     #[default]
     Clean,
     /// A Taffy input for this node or one of its descendants has changed. Taffy's cache should be cleared for this node.
