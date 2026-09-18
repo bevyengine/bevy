@@ -403,7 +403,7 @@ pub fn compute_layout(
 /// The current state of a UI subtree and what needs to be updated.
 #[derive(Clone, Copy, Default, PartialEq)]
 enum SubtreeState {
-    /// Nothing in this subtree changed.
+    /// Nothing in this subtree needs to be updated.
     #[default]
     Clean,
     /// A Taffy input for this node or one of its descendants has changed. Taffy's cache should be cleared for this node.

@@ -4274,4 +4274,45 @@ mod tests {
         assert!(!c.subtree_dirty());
         assert!(!c.layout_changed());
     }
+
+    #[test]
+    fn changing_ghost_nodes_ui_transform_updates_descendant_clipping() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+        let descendant = world.spawn(Node::default()).id();
+        let clipper = world
+            .spawn(Node {
+                width: px(10),
+                height: px(10),
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(descendant)
+            .id();
+        let ghost = world.spawn(GhostNode).add_child(clipper).id();
+        world
+            .spawn(Node {
+                width: px(100),
+                height: px(100),
+                ..default()
+            })
+            .add_child(ghost);
+
+        app.update();
+
+        let clip = app
+            .world()
+            .get::<CalculatedClip>(descendant)
+            .unwrap()
+            .clone();
+        app.world_mut()
+            .get_mut::<UiTransform>(ghost)
+            .unwrap()
+            .translation = Val2::px(20., 0.);
+
+        app.update();
+
+        assert!(clip != *app.world().get::<CalculatedClip>(descendant).unwrap());
+    }
 }
