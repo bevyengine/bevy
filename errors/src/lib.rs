@@ -13,3 +13,18 @@ pub struct B0003;
 
 #[doc = include_str!("../B0004.md")]
 pub struct B0004;
+
+#[doc = include_str!("../B0005.md")]
+pub struct B0005;
+
+#[doc = include_str!("../B0006.md")]
+pub struct B0006;
+
+#[doc = include_str!("../B0007.md")]
+pub struct B0007;
+
+#[doc = include_str!("../B0008.md")]
+pub struct B0008;
+
+#[doc = include_str!("../B0009.md")]
+pub struct B0009;

@@ -3,7 +3,7 @@ import bevy_pbr::deferred::types::unpack_24bit_normal;
 import bevy_pbr::render::pbr_functions::{calculate_diffuse_color, calculate_F0, calculate_F0_dielectric};
 import bevy_render::utils::octahedral_decode;
 import package::realtime::gbuffer_utils::gpixel_resolve;
-import package::realtime::bindings::{gbuffer, depth_buffer, motion_vectors, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
+import package::realtime::bindings::{gbuffer, depth_buffer, load_motion_vector, motion_vectors, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
 import package::scene::brdf::{evaluate_specular_brdf, F_AB, lobe_reflectances};
 import package::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, ResolvedMaterial, ResolvedRayHitFull};
 
@@ -30,7 +30,7 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     if any(pixel_id >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
-    let surface_motion_vector = textureLoad(motion_vectors, pixel_id).xy;
+    let surface_motion_vector = load_motion_vector(pixel_id);
 
     textureStore(dlss_rr_depth, pixel_id, vec4(depth));
 
@@ -132,7 +132,7 @@ fn replace_primary_surface(
 
     // Too curved to track the reflection; fall back to the surface's own motion so the guide is not stale
     if psr.replace_fully && 2.0 * reflector_curvature(pixel_id, primary_normal) * psr.reflection_length > MAX_VIRTUAL_DEPTH_JITTER * path_length {
-        textureStore(specular_motion_vectors, pixel_id, vec4(textureLoad(motion_vectors, pixel_id).xy, vec2(0.0)));
+        textureStore(specular_motion_vectors, pixel_id, vec4(load_motion_vector(pixel_id), vec2(0.0)));
         return;
     }
 
@@ -152,6 +152,7 @@ fn replace_primary_surface(
 
     let primary_depth = textureLoad(depth_buffer, pixel_id, 0);
     textureStore(dlss_rr_depth, pixel_id, vec4(primary_depth * primary_distance / path_length));
+    @if(MOTION_VECTORS_READ_WRITE)
     textureStore(motion_vectors, pixel_id, vec4(specular_motion_vector, vec2(0.0)));
 
     let reflected_diffuse = calculate_diffuse_color(ray_hit.material.base_color, ray_hit.material.metallic, 0.0, 0.0);
