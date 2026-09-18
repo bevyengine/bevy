@@ -3136,12 +3136,12 @@ mod tests {
         let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
         assert!(computed_root.child_entities().eq(core::iter::once(child)));
         assert!(computed_root.has_layout());
-        assert!(computed_root.is_root());
+        assert!(computed_root.is_layout_root());
 
         let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
         assert!(computed_child.child_nodes().is_empty());
         assert!(computed_child.has_layout());
-        assert!(!computed_child.is_root());
+        assert!(!computed_child.is_layout_root());
 
         app.world_mut().entity_mut(ghost).detach_all_children();
         app.update();
@@ -3149,12 +3149,12 @@ mod tests {
         let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
         assert!(computed_root.child_nodes().is_empty());
         assert!(computed_root.has_layout());
-        assert!(computed_root.is_root());
+        assert!(computed_root.is_layout_root());
 
         let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
         assert!(computed_root.child_nodes().is_empty());
         assert!(computed_child.has_layout());
-        assert!(computed_child.is_root());
+        assert!(computed_child.is_layout_root());
     }
 
     #[test]
@@ -3177,12 +3177,12 @@ mod tests {
         let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
         assert!(computed_root.child_nodes().is_empty());
         assert!(computed_root.has_layout());
-        assert!(computed_root.is_root());
+        assert!(computed_root.is_layout_root());
 
         let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
         assert!(computed_child.child_nodes().is_empty());
         assert!(computed_child.has_layout());
-        assert!(computed_child.is_root());
+        assert!(computed_child.is_layout_root());
     }
 
     #[test]
@@ -3197,7 +3197,7 @@ mod tests {
         app.update();
 
         let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
-        assert!(computed_root.is_root());
+        assert!(computed_root.is_layout_root());
         assert!(computed_root.child_nodes().is_empty());
 
         let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
@@ -3261,11 +3261,11 @@ mod tests {
 
         let computed_fixed = app.world().get::<ComputedLayout>(fixed).unwrap();
         assert!(computed_fixed.has_layout());
-        assert!(computed_fixed.is_root());
+        assert!(computed_fixed.is_layout_root());
 
         let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
         assert!(computed_child.has_layout());
-        assert!(!computed_child.is_root());
+        assert!(!computed_child.is_layout_root());
     }
 
     #[test]
@@ -3285,11 +3285,11 @@ mod tests {
 
         let computed_fixed = app.world().get::<ComputedLayout>(fixed).unwrap();
         assert!(computed_fixed.has_layout());
-        assert!(computed_fixed.is_root());
+        assert!(computed_fixed.is_layout_root());
 
         let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
         assert!(computed_child.has_layout());
-        assert!(computed_child.is_root());
+        assert!(computed_child.is_layout_root());
 
         app.world_mut().entity_mut(ghost).remove::<GhostNode>();
         app.update();
@@ -3302,11 +3302,11 @@ mod tests {
 
         let computed_fixed = app.world().get::<ComputedLayout>(fixed).unwrap();
         assert!(computed_fixed.has_layout());
-        assert!(computed_fixed.is_root());
+        assert!(computed_fixed.is_layout_root());
 
         let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
         assert!(computed_child.has_layout());
-        assert!(!computed_child.is_root());
+        assert!(!computed_child.is_layout_root());
     }
 
     #[test]

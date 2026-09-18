@@ -144,11 +144,11 @@ pub(super) fn collect_ui_children(
 /// Cached and computed layout state for a UI node.
 #[derive(Component, Debug, Clone, Default)]
 pub struct ComputedLayout {
-    /// unrounded layout
+    /// The unrounded layout for this node returned from Taffy.
     unrounded: Option<Layout>,
-    /// rounded layout
+    /// The rounded layout for this node returned from Taffy.
     rounded: Option<Layout>,
-    /// cached sizing results
+    /// Cached sizing results used during layout by Taffy.
     cache: Cache,
     /// This UI node was reached from a layout root by the last full walk
     reached_in_full_walk: bool,
@@ -157,11 +157,14 @@ pub struct ComputedLayout {
     /// List of this UI Node's children (either directly or transitively via `GhostNode`s) that are also valid UI nodes. Non-UI nodes shouldn't be in this list.
     /// `NodeId` wraps a `u64`. The `Entity` id
     ui_children: Vec<NodeId>,
-    /// if true, the layout returned from `Taffy` changed
+    /// If true, the layout returned from `Taffy` changed since the last frame.
+    /// Set to `false` each frame `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
     layout_changed: bool,
-    /// If true local inputs have changed.
+    /// If `true` local inputs have changed since the last frame.
+    /// Set to `false` each frame `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
     self_dirty: bool,
-    /// If true this node or its descendent's geometry needs to be updated.
+    /// If `true` this node or its descendent's geometry needs to be updated.
+    /// Set to `false` each frame `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
     subtree_dirty: bool,
     /// True if the node has an `Outline` component.
     has_outline: bool,
@@ -274,7 +277,7 @@ impl ComputedLayout {
     }
 
     #[inline]
-    pub fn is_root(&self) -> bool {
+    pub fn is_layout_root(&self) -> bool {
         self.is_layout_root
     }
 
