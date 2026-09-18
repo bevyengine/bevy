@@ -422,6 +422,10 @@ impl SubtreeState {
         matches!(self, Self::LayoutDirty | Self::GeometryDirty)
     }
 
+    /// Combines the updates required by two states.
+    /// `LayoutDirty` requires both layout and geometry updates, so it includes `GeometryDirty`.
+    /// The combined state is only `Clean` if both source states are clean.
+    #[must_use]
     const fn merge(self, other: Self) -> Self {
         match (self, other) {
             (Self::LayoutDirty, _) | (_, Self::LayoutDirty) => Self::LayoutDirty,
