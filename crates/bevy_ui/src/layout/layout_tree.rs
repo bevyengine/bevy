@@ -321,7 +321,7 @@ pub fn compute_layout(
     needs_full_walk: bool,
     ghost_stack: &mut Vec<Entity>,
 ) -> Result<(), LayoutError> {
-    let Some(subtree_state) = sync_runtime_layout_tree(
+    let Some(subtree_state) = sync_layout_tree(
         ui_root_entity,
         ui_root_entity,
         ui_children,
@@ -431,7 +431,8 @@ impl SubtreeState {
     }
 }
 
-fn sync_runtime_layout_tree(
+/// Synchronises the cached hierarchy stored in the `ComputedLayout` components and resolves its dirty state.
+fn sync_layout_tree(
     root: Entity,
     entity: Entity,
     ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
@@ -491,7 +492,7 @@ fn sync_runtime_layout_tree(
     let mut child_count = 0;
     for child_index in start..end {
         let child_node = child_stack[child_index];
-        if let Some(built_subtree_state) = sync_runtime_layout_tree(
+        if let Some(built_subtree_state) = sync_layout_tree(
             root,
             node_id_entity(child_node),
             ui_children,
