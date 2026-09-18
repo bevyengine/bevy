@@ -321,7 +321,7 @@ pub fn compute_layout(
     needs_full_walk: bool,
     ghost_stack: &mut Vec<Entity>,
 ) -> Result<(), LayoutError> {
-    let Some((dirty, _)) = sync_runtime_layout_tree(
+    let Some(subtree_state) = sync_runtime_layout_tree(
         ui_root_entity,
         ui_root_entity,
         ui_children,
@@ -335,7 +335,7 @@ pub fn compute_layout(
         return Err(LayoutError::InvalidHierarchy);
     };
 
-    if !dirty {
+    if subtree_state != SubtreeState::LayoutDirty {
         return Ok(());
     }
 
@@ -401,6 +401,36 @@ pub fn compute_layout(
     Ok(())
 }
 
+/// The current state of a UI subtree and what needs to updated.
+#[derive(Clone, Copy, Default, PartialEq)]
+enum SubtreeState {
+    // Nothing in this subtree changed.
+    #[default]
+    Clean,
+    // A Taffy input for this node or one of its descendants has changed. Taffy's cache should be cleared for this node.
+    LayoutDirty,
+    // This node or a descendant needs its `ComputedNode`, `UiGlobalTransform`, or `CalculatedClip` recomputed, but Taffy inputs were unchanged.
+    GeometryDirty,
+}
+
+impl SubtreeState {
+    const fn needs_relayout(self) -> bool {
+        matches!(self, Self::LayoutDirty)
+    }
+
+    const fn needs_geometry(self) -> bool {
+        matches!(self, Self::LayoutDirty | Self::GeometryDirty)
+    }
+
+    const fn merge(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::LayoutDirty, _) | (_, Self::LayoutDirty) => Self::LayoutDirty,
+            (Self::GeometryDirty, _) | (_, Self::GeometryDirty) => Self::GeometryDirty,
+            (Self::Clean, Self::Clean) => Self::Clean,
+        }
+    }
+}
+
 fn sync_runtime_layout_tree(
     root: Entity,
     entity: Entity,
@@ -425,7 +455,7 @@ fn sync_runtime_layout_tree(
     child_stack: &mut Vec<NodeId>,
     needs_full_walk: bool,
     ghost_stack: &mut Vec<Entity>,
-) -> Option<(bool, bool)> {
+) -> Option<SubtreeState> {
     let Ok((
         style,
         content_size,
@@ -449,18 +479,19 @@ fn sync_runtime_layout_tree(
     // Nothing in this subtree changed, so its cached children, cache and flags are all
     // still valid. Reported clean, and left for the next full walk to mark as reached.
     if !needs_full_walk && !tree_changed.is_changed() {
-        return Some((false, false));
+        return Some(SubtreeState::Clean);
     }
 
-    let mut subtree_dirty = false;
-    let mut computed_subtree_dirty = false;
+    let mut subtree_state = SubtreeState::Clean;
+    // let mut subtree_dirty = false;
+    // let mut computed_subtree_dirty = false;
     let start = child_stack.len();
     let dirty_ghost = collect_ui_children(entity, ui_children, child_stack, ghost_stack);
     let end = child_stack.len();
     let mut child_count = 0;
     for child_index in start..end {
         let child_node = child_stack[child_index];
-        if let Some((built_child_dirty, built_computed_subtree_dirty)) = sync_runtime_layout_tree(
+        if let Some(built_subtree_state) = sync_runtime_layout_tree(
             root,
             node_id_entity(child_node),
             ui_children,
@@ -473,8 +504,7 @@ fn sync_runtime_layout_tree(
         ) {
             child_stack[start + child_count] = child_node;
             child_count += 1;
-            subtree_dirty |= built_child_dirty;
-            computed_subtree_dirty |= built_computed_subtree_dirty;
+            subtree_state = subtree_state.merge(built_subtree_state);
         }
     }
     let end = start + child_count;
@@ -501,7 +531,10 @@ fn sync_runtime_layout_tree(
         || content_size.is_changed()
         || fixed_node_changes.contains(&entity)
         || !computed_layout.has_layout();
-    subtree_dirty |= own_dirty;
+    // subtree_dirty |= own_dirty;
+    if own_dirty {
+        subtree_state = subtree_state.merge(SubtreeState::LayoutDirty);
+    }
 
     computed_layout.reached_in_full_walk |= needs_full_walk;
     computed_layout.layout_changed = false;
@@ -526,13 +559,16 @@ fn sync_runtime_layout_tree(
     computed_layout.has_outline = outline.is_some();
     computed_layout.has_override_clip = has_override_clip;
 
-    computed_layout.subtree_dirty =
-        computed_layout.self_dirty || computed_subtree_dirty || dirty_ghost;
-    if subtree_dirty {
+    if computed_layout.self_dirty || dirty_ghost {
+        subtree_state = subtree_state.merge(SubtreeState::GeometryDirty);
+    }
+    computed_layout.subtree_dirty = subtree_state.needs_geometry();
+
+    if subtree_state.needs_relayout() {
         computed_layout.cache.clear();
     }
 
-    Some((subtree_dirty, computed_layout.subtree_dirty))
+    Some(subtree_state)
 }
 
 #[derive(Default)]
