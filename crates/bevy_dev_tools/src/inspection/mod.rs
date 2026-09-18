@@ -4,5 +4,6 @@
 //! dividing its responsibilities between extracting data about the world state,
 //! and presenting that data to the user in a number of convenient, often interactive ways.
 
+pub mod entity_grouping;
 pub mod label_resolution;
 pub mod world_summary;
