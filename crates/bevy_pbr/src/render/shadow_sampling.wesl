@@ -42,14 +42,14 @@ fn search_for_blockers_in_shadow_map_hardware(
     @if(NO_ARRAY_TEXTURES_SUPPORT)
     let sampled_depth = textureSampleLevel(
         view_bindings::directional_shadow_textures,
-        view_bindings::shadow_textures_linear_sampler,
+        view_bindings::linear_sampler,
         light_local,
         0u,
     );
     @else   // NO_ARRAY_TEXTURES_SUPPORT
     let sampled_depth = textureSampleLevel(
         view_bindings::directional_shadow_textures,
-        view_bindings::shadow_textures_linear_sampler,
+        view_bindings::linear_sampler,
         light_local,
         array_index,
         0u,
@@ -351,13 +351,13 @@ fn search_for_blockers_in_shadow_cubemap_hardware(
     @if(NO_CUBE_ARRAY_TEXTURES_SUPPORT)
     let sampled_depth = textureSample(
         view_bindings::point_shadow_textures,
-        view_bindings::shadow_textures_linear_sampler,
+        view_bindings::linear_sampler,
         light_local,
     );
     @else
     let sampled_depth = textureSample(
         view_bindings::point_shadow_textures,
-        view_bindings::shadow_textures_linear_sampler,
+        view_bindings::linear_sampler,
         light_local,
         i32(light_id),
     );

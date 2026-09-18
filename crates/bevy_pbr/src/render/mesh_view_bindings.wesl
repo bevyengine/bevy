@@ -15,8 +15,6 @@ enable wgpu_binding_array;
 @else
 @group(0) @binding(2) var point_shadow_textures: texture_depth_cube_array;
 @group(0) @binding(3) var shadow_textures_comparison_sampler: sampler_comparison;
-@if(PCSS_SAMPLERS_AVAILABLE)
-@group(0) @binding(4) var shadow_textures_linear_sampler: sampler;
 @if(NO_ARRAY_TEXTURES_SUPPORT)
 @group(0) @binding(5) var directional_shadow_textures: texture_depth_2d;
 @else

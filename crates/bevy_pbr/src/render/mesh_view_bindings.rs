@@ -73,7 +73,7 @@ pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 18;
 pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 19;
 pub const LINEAR_SAMPLER_BINDING_INDEX: u32 = 25;
 
-/// A plain `Linear/Repeat` sampler shared across multiple view bindings
+/// A `Linear/ClampToEdge` sampler shared across multiple view bindings
 #[derive(Resource)]
 pub struct LinearSampler(pub Sampler);
 
@@ -81,6 +81,7 @@ impl FromWorld for LinearSampler {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         Self(render_device.create_sampler(&SamplerDescriptor {
+            label: Some("linear_sampler"),
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             ..Default::default()
@@ -299,9 +300,6 @@ fn layout_entries(
             ),
             // Point Shadow Texture Array Comparison Sampler
             (3, sampler(SamplerBindingType::Comparison)),
-            // Point Shadow Texture Array Linear Sampler
-            #[cfg(feature = "experimental_pbr_pcss")]
-            (4, sampler(SamplerBindingType::Filtering)),
             // Directional Shadow Texture Array
             (
                 5,
@@ -779,8 +777,6 @@ pub fn prepare_mesh_view_bind_groups(
                 (1, light_binding.clone()),
                 (2, &shadow_bindings.point_light_depth_texture_view),
                 (3, &shadow_samplers.shadow_comparison_sampler),
-                #[cfg(feature = "experimental_pbr_pcss")]
-                (4, &shadow_samplers.shadow_linear_sampler),
                 (5, &shadow_bindings.directional_light_depth_texture_view),
                 (8, clusterable_objects_binding.clone()),
                 (
