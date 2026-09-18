@@ -484,8 +484,6 @@ fn sync_layout_tree(
     }
 
     let mut subtree_state = SubtreeState::Clean;
-    // let mut subtree_dirty = false;
-    // let mut computed_subtree_dirty = false;
     let start = child_stack.len();
     let dirty_ghost = collect_ui_children(entity, ui_children, child_stack, ghost_stack);
     let end = child_stack.len();
@@ -526,14 +524,13 @@ fn sync_layout_tree(
 
     child_stack.truncate(start);
 
-    let own_dirty = style.is_changed()
+    if style.is_changed()
         || children_changed
         || was_root != computed_layout.is_layout_root
         || content_size.is_changed()
         || fixed_node_changes.contains(&entity)
-        || !computed_layout.has_layout();
-    // subtree_dirty |= own_dirty;
-    if own_dirty {
+        || !computed_layout.has_layout()
+    {
         subtree_state = subtree_state.merge(SubtreeState::LayoutDirty);
     }
 
@@ -547,7 +544,8 @@ fn sync_layout_tree(
     let ignore_scroll_changed = (computed_layout.has_ignore_scroll != ignore_scroll.is_some())
         || ignore_scroll.is_some_and(|ignore_scroll| ignore_scroll.is_changed());
     let override_clip_changed = computed_layout.has_override_clip != has_override_clip;
-    computed_layout.self_dirty = own_dirty
+
+    computed_layout.self_dirty = subtree_state.needs_relayout()
         || transform.is_changed()
         || scroll_position.is_changed()
         || outline_changed
