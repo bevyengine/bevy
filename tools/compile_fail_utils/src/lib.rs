@@ -1,3 +1,5 @@
+//! Helpers for writing `ui_test`-based compile-fail tests.
+
 use std::{
     env,
     path::{Path, PathBuf},
