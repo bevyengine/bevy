@@ -2151,6 +2151,17 @@ doc-scrape-examples = true
 
 [package.metadata.example.custom_asset]
 name = "Custom Asset"
+description = "Implements a custom asset, with a default loader"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "custom_asset_loader"
+path = "examples/asset/custom_asset_loader.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_asset_loader]
+name = "Custom Asset Loader"
 description = "Implements a custom asset loader"
 category = "Assets"
 wasm = true
@@ -5529,6 +5540,17 @@ doc-scrape-examples = true
 [package.metadata.example.headless_tabs]
 name = "Headless Tabs"
 description = "Demonstrates controlled and self-updating headless tab lists"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "headless_tree"
+path = "examples/ui/widgets/headless_tree.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_tree]
+name = "Headless Tree"
+description = "Demonstrates the headless tree view with lazy population and keyboard navigation"
 category = "UI (User Interface)"
 wasm = true
 

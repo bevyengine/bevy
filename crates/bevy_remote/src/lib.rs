@@ -485,6 +485,21 @@
 //! `result`: An object with `app_name`, `bevy_version`, and `sub_app` string fields. `sub_app` is either
 //! `"main"` or `"render"`, depending on which `SubApp` handled the request.
 //!
+//! ### `diagnostics.list`
+//!
+//! List the paths of all diagnostics registered in the app. This method has no parameters.
+//!
+//! `result`: An object with a `diagnostics` field containing a sorted array of diagnostic paths.
+//!
+//! ### `diagnostics.get`
+//!
+//! Retrieve the current values of diagnostics, skipping any path that is not registered.
+//!
+//! `params` (optional):
+//! - `paths`: An array of diagnostic paths to retrieve. When omitted, all diagnostics are returned.
+//!
+//! `result`: An object with a `diagnostics` field containing an array of objects with `path`, `value`, `average`, `smoothed`, `suffix` and `history_len` fields.
+//!
 //! ### `rpc.discover`
 //!
 //! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
@@ -801,6 +816,16 @@ impl RemotePlugin {
         .with_method(
             builtin_methods::BRP_SCHEDULE_GRAPH,
             builtin_methods::schedule_graph,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_DIAGNOSTICS_LIST_METHOD,
+            builtin_methods::process_remote_diagnostics_list_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_DIAGNOSTICS_GET_METHOD,
+            builtin_methods::process_remote_diagnostics_get_request,
             to_main,
         )
     }
