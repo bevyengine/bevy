@@ -285,7 +285,8 @@ impl core::error::Error for ComponentInspectionError {}
 pub struct ComponentInspectionSettings {
     /// How much detail to include when inspecting component values.
     pub detail_level: ComponentDetailLevel,
-    /// Whether full type names should be used when displaying component values.
+    /// Whether type paths in the value string are kept in full.
+    /// When false, every `::` in the formatted value is collapsed, including inside string values.
     pub full_type_names: bool,
     /// Whether the reflected value should be stored in [`ComponentInspection`].
     pub store_reflected_value: bool,
@@ -295,7 +296,7 @@ impl Default for ComponentInspectionSettings {
     fn default() -> Self {
         Self {
             detail_level: ComponentDetailLevel::Values,
-            full_type_names: false,
+            full_type_names: true,
             store_reflected_value: false,
         }
     }
@@ -470,5 +471,36 @@ mod tests {
         let displayed = inspection.to_string();
         assert!(displayed.contains("Health"), "{displayed}");
         assert!(displayed.contains('7'), "{displayed}");
+    }
+
+    #[derive(Component, Reflect, Debug, PartialEq)]
+    #[reflect(Component)]
+    struct Pathish {
+        path: String,
+    }
+
+    #[test]
+    fn default_settings_keep_double_colons_in_values() {
+        let mut world = World::new();
+        world.init_resource::<AppTypeRegistry>();
+        world
+            .resource_mut::<AppTypeRegistry>()
+            .write()
+            .register::<Pathish>();
+
+        let entity = world
+            .spawn(Pathish {
+                path: "bevy::prelude".to_string(),
+            })
+            .id();
+
+        let inspection = world
+            .inspect_component::<Pathish>(entity, ComponentInspectionSettings::default())
+            .unwrap();
+
+        assert_eq!(
+            inspection.value.unwrap(),
+            "bevy_dev_tools::inspection::component_inspection::tests::Pathish {\n  path: \"bevy::prelude\",\n}"
+        );
     }
 }
