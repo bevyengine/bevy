@@ -145,7 +145,7 @@ fn update_clipping(
     };
 
     let propagated_force_update = force_update
-        || tree_changed.is_changed()
+        || (has_ghost_node && tree_changed.is_changed())
         || computed_layout.layout_changed()
         || computed_layout.self_dirty();
     for &child in ui_children.get(entity).into_iter().flatten() {
