@@ -49,7 +49,7 @@ pub enum TreeSelectionMode {
 pub struct TreeView {
     /// How many rows may be selected at once.
     pub selection: TreeSelectionMode,
-    /// Top-to-bottom order of this tree's visible rows. Updated by [`update_visible_rows`] in [`PostUpdate`]
+    /// Top-to-bottom order of this tree's visible rows, refreshed in `PostUpdate` when the tree changes.
     pub visible_rows: Vec<Entity>,
 }
 
