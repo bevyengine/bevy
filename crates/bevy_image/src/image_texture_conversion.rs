@@ -20,16 +20,28 @@ impl Image {
 
         match dyn_img {
             DynamicImage::ImageLuma8(image) => {
+                // Do not use R8Unorm: it breaks grayscale rendering.
+                let image = DynamicImage::ImageLuma8(image).into_rgba8();
                 width = image.width();
                 height = image.height();
-                format = TextureFormat::R8Unorm;
+                format = if is_srgb {
+                    TextureFormat::Rgba8UnormSrgb
+                } else {
+                    TextureFormat::Rgba8Unorm
+                };
 
                 data = image.into_raw();
             }
             DynamicImage::ImageLumaA8(image) => {
+                // Do not use Rg8Unorm: it breaks grayscale rendering.
+                let image = DynamicImage::ImageLumaA8(image).into_rgba8();
                 width = image.width();
                 height = image.height();
-                format = TextureFormat::Rg8Unorm;
+                format = if is_srgb {
+                    TextureFormat::Rgba8UnormSrgb
+                } else {
+                    TextureFormat::Rgba8Unorm
+                };
 
                 data = image.into_raw();
             }
@@ -252,7 +264,7 @@ mod test {
             false,
             RenderAssetUsages::RENDER_WORLD,
         );
-        assert_eq!(luma_a8.texture_descriptor.format, TextureFormat::Rg8Unorm);
+        assert_eq!(luma_a8.texture_descriptor.format, TextureFormat::Rgba8Unorm);
 
         let luma16 = Image::from_dynamic(
             DynamicImage::new_luma16(1, 1),
