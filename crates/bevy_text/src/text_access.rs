@@ -163,7 +163,7 @@ impl<'a, R: TextSection> Iterator for TextSpanIter<'a, R> {
         loop {
             let (children, idx) = self.stack.last_mut()?;
 
-            while let Some(child) = children.get(*idx) {
+            while let Some(child) = children.get_index(*idx) {
                 // Increment to prep the next entity in this stack level.
                 *idx += 1;
 
@@ -288,7 +288,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
             };
 
             loop {
-                let Some(child) = children.get(*idx) else {
+                let Some(child) = children.get_index(*idx) else {
                     // All children at this stack entry have been iterated.
                     stack.pop();
                     break;
@@ -521,7 +521,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
             };
 
             loop {
-                let Some(child) = children.get(*idx) else {
+                let Some(child) = children.get_index(*idx) else {
                     // All children at this stack entry have been iterated.
                     stack.pop();
                     break;

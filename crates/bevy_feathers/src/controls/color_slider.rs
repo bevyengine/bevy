@@ -362,7 +362,7 @@ fn update_track_color(
         if let Some(gradient_ent) = q_children
             .get(slider_ent)
             .ok()
-            .and_then(|children| children.get(1))
+            .and_then(|children| children.get_index(1))
             && let Ok(mut gradient) = q_gradient.get_mut(*gradient_ent)
             && let [Gradient::Linear(left), Gradient::Linear(right)] = &mut gradient.0[..]
         {
