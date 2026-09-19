@@ -30,6 +30,9 @@ pub use time::*;
 pub use timer::*;
 pub use virt::*;
 
+#[cfg(feature = "std")]
+use crossbeam_channel::TryRecvError;
+
 /// The time prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
@@ -165,13 +168,13 @@ pub fn time_system(
             *has_received_time = true;
             Some(new_time)
         }
-        Some(Err(_)) => {
+        Some(Err(TryRecvError::Disconnected)) => {
             if *has_received_time {
                 log::warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
             }
             None
         }
-        None => None,
+        Some(Err(TryRecvError::Empty)) | None => None,
     };
 
     match update_strategy.as_ref() {
