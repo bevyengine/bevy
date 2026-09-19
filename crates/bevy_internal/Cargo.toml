@@ -352,6 +352,7 @@ pan_orbit_camera = [
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
+bevy_remote_client = ["bevy_remote", "bevy_remote/client"]
 
 # Provides picking functionality without any backend
 bevy_picking = ["dep:bevy_picking"]
