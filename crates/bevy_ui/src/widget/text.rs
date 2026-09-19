@@ -37,9 +37,6 @@ pub struct TextNodeFlags {
     /// If set then the text will be recomputed.
     needs_recompute: bool,
     /// The most recently installed fixed measure for non-wrapping text.
-    ///
-    /// This is cached separately from [`ContentSize`] because the UI layout system moves the
-    /// measure from [`ContentSize`] into Taffy's node context.
     no_wrap_measure: Option<Vec2>,
 }
 
@@ -202,7 +199,7 @@ impl TextMeasure {
 }
 
 impl Measure for TextMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs) -> Vec2 {
+    fn measure(&self, measure_args: MeasureArgs) -> Vec2 {
         let mut width = measure_args.resolve_width();
         let height = measure_args.resolve_height();
 
