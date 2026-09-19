@@ -104,12 +104,24 @@ impl BevyManifest {
             }
             Some(path)
         };
+        let find_in_target_deps = |dep_field: &str| {
+            self.manifest
+                .get("target")?
+                .as_table_like()?
+                .iter()
+                .find_map(|(_, i)| {
+                    let cfg_table = i.as_table_like()?;
 
-        let deps = self.manifest.get("dependencies");
-        let deps_dev = self.manifest.get("dev-dependencies");
+                    cfg_table.get(dep_field).and_then(find_in_deps)
+                })
+        };
 
-        deps.and_then(find_in_deps)
-            .or_else(|| deps_dev.and_then(find_in_deps))
+        self.manifest
+            .get("dependencies")
+            .and_then(find_in_deps)
+            .or_else(|| find_in_target_deps("dependencies"))
+            .or_else(|| self.manifest.get("dev-dependencies").and_then(find_in_deps))
+            .or_else(|| find_in_target_deps("dev-dependencies"))
     }
 
     /// Attempt to parse the provided [path](str) as a [syntax tree node](syn::parse::Parse)
