@@ -195,6 +195,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Adds all access from this query and any nested queries to the `component_access_set`.
     /// Panics if the access from this query and any nested queries conflict with each other
     /// or with any previous access.
+    #[expect(
+        clippy::result_large_err,
+        reason = "Boxing `FilteredAccessSet` adds unnecessary noise."
+    )]
     pub fn init_access(
         &self,
         component_access_set: &mut FilteredAccessSet,

@@ -23,6 +23,10 @@ pub enum SystemAccess {
     Exclusive,
 }
 
+#[expect(
+    clippy::result_large_err,
+    reason = "Boxing `SystemAccess` adds unnecessary noise to the various methods / APIs"
+)]
 impl SystemAccess {
     /// Returns true if the system does not access the world at all, so it can run
     /// in parallel with any other system.

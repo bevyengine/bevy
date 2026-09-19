@@ -398,6 +398,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         unsafe { QueryState::new_unchecked(world) }
     }
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "Boxing `FilteredAccessSet` adds unnecessary noise."
+    )]
     fn init_access(
         state: &Self::State,
         _system_meta: &mut SystemMeta,
