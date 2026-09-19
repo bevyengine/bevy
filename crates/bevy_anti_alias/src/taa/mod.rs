@@ -4,13 +4,14 @@ use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
     schedule::{Core3d, Core3dSystems},
+    tonemapping::Tonemapping,
     FullscreenShader,
 };
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     error::BevyError,
     prelude::{Component, Entity, ReflectComponent},
-    query::With,
+    query::{Has, With},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -19,7 +20,7 @@ use bevy_image::ToExtents;
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{ExtractedCamera, MipBias, TemporalJitter},
+    camera::{ExtractedCamera, MipBias, TemporalJitter, TonemapInShader},
     diagnostic::RecordDiagnostics,
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
@@ -34,7 +35,7 @@ use bevy_render::{
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa, NeedsSceneLinearTarget, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::default;
@@ -110,7 +111,13 @@ impl Plugin for TemporalAntiAliasPlugin {
 /// 2. Render particles after TAA
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass)]
+#[require(
+    TemporalJitter,
+    MipBias,
+    DepthPrepass,
+    MotionVectorPrepass,
+    NeedsSceneLinearTarget
+)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {
     /// Set to true to delete the saved temporal history (past frames).
@@ -443,12 +450,18 @@ fn prepare_taa_pipelines(
         &ExtractedCamera,
         &ExtractedView,
         &TemporalAntiAliasing,
+        Option<&Tonemapping>,
+        Has<TonemapInShader>,
     )>,
 ) -> Result<(), BevyError> {
-    for (entity, camera, view, taa_settings) in &cameras {
+    for (entity, camera, view, taa_settings, tonemapping, tonemap_in_shader) in &cameras {
         let mut pipeline_key = TaaPipelineKey {
             target_format: view.target_format,
-            tonemap: camera.hdr,
+            // TAA runs before the tonemapping pass, so the main texture still holds the
+            // scene-referred values the reversible tonemapper needs. A `TonemapInShader`
+            // view is already tonemapped and needs no reversible pass.
+            tonemap: camera.hdr
+                || (tonemapping.is_some_and(Tonemapping::is_enabled) && !tonemap_in_shader),
             reset: taa_settings.reset,
         };
         let pipeline_id = pipeline
