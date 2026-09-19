@@ -175,10 +175,9 @@ impl ComponentMetadataMap {
     pub fn generate(world: &World) -> Self {
         let mut map = HashMap::new();
 
-        for index in 0..world.components().num_registered() {
-            let component_id = ComponentId::new(index);
-            if let Ok(metadata) = ComponentTypeMetadata::new(world, component_id) {
-                map.insert(component_id, metadata);
+        for (id, _) in world.components().iter_registered() {
+            if let Ok(metadata) = ComponentTypeMetadata::new(world, id) {
+                map.insert(id, metadata);
             }
         }
 
@@ -209,12 +208,11 @@ impl ComponentMetadataMap {
 
     /// Adds entries for component types that are not yet in the map, leaving existing entries alone.
     pub fn update(&mut self, world: &World) {
-        for index in 0..world.components().num_registered() {
-            let component_id = ComponentId::new(index);
-            if !self.map.contains_key(&component_id)
-                && let Ok(metadata) = ComponentTypeMetadata::new(world, component_id)
+        for (id, _) in world.components().iter_registered() {
+            if !self.map.contains_key(&id)
+                && let Ok(metadata) = ComponentTypeMetadata::new(world, id)
             {
-                self.map.insert(component_id, metadata);
+                self.map.insert(id, metadata);
             }
         }
     }
@@ -449,7 +447,7 @@ mod tests {
     #[test]
     fn unregistered_component_id_returns_error() {
         let world = test_world();
-        let component_id = ComponentId::new(usize::MAX);
+        let component_id = ComponentId::from_u32(464149);
 
         let result = ComponentTypeMetadata::new(&world, component_id);
 
