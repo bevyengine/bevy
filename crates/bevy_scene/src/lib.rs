@@ -464,7 +464,7 @@
 //! fn enemy(hp: u32, name: &str) -> impl Scene {
 //!     let name_string = name.to_string();
 //!     bsn! {
-//!         #{name}
+//!         Name({name.to_string()})
 //!         Health { current: {hp / 2}, max: hp }
 //!         Sprite { image: {name_string + ".png"} }
 //!     }
