@@ -1,5 +1,4 @@
 use bevy_ecs_macro_logic::component::{DeriveComponent, StorageAttribute, StorageTy};
-use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, Path};
@@ -11,17 +10,12 @@ pub fn derive_resource(ast: &mut DeriveInput) -> TokenStream {
         Err(e) => return e.into_compile_error(),
     };
 
-    let struct_name = &ast.ident;
-    let (_, type_generics, _) = &ast.generics.split_for_impl();
+    // We add an extra insert hook to the resource
+    derive_component.additional_insert_hook = Some(quote!(#bevy_ecs::resource::on_resource_insert));
 
     // We add the component_id existence check here to avoid recursive init during required components initialization.
     derive_component.additional_requires.push(quote! {
-        let resource_component_id = if let #FQOption::Some(id) = required_components.components_registrator().component_id::<#struct_name #type_generics>() {
-            id
-        } else {
-            required_components.components_registrator().register_component::<#struct_name #type_generics>()
-        };
-        required_components.register_required::<#bevy_ecs::resource::IsResource>(move || #bevy_ecs::resource::IsResource::new(resource_component_id));
+        required_components.register_required::<#bevy_ecs::resource::IsResource>(|| #bevy_ecs::resource::IsResource);
     });
 
     let component_impl = match derive_component.impl_component(ast, &bevy_ecs, StorageTy::SparseSet)

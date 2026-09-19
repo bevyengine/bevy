@@ -245,7 +245,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        component::ComponentIds,
+        component::ComponentId,
+        entity::EntityAllocator,
         prelude::{EntityMut, EntityRef, World},
         query::{Has, With},
     };
@@ -253,10 +254,10 @@ mod tests {
 
     #[test]
     fn filters_modify_access() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_4 = ids.next_mut();
+        let ids = EntityAllocator::default();
+        let id_1 = ComponentId::new(ids.alloc());
+        let id_2 = ComponentId::new(ids.alloc());
+        let id_4 = ComponentId::new(ids.alloc());
 
         let mut filters = DefaultQueryFilters::empty();
         filters.register_disabling_component(id_1);
@@ -294,7 +295,7 @@ mod tests {
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![id_1, id_4],
+            vec![id_4, id_1],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(0, applied_access.without_filters().count());

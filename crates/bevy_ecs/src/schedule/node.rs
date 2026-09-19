@@ -620,6 +620,7 @@ impl Systems {
                         AccessConflicts::Individual(conflicts) => {
                             let conflicts: Box<[_]> = conflicts
                                 .iter()
+                                .copied()
                                 .filter(|id| !ignored_ambiguities.contains(id))
                                 .collect();
                             if !conflicts.is_empty() {

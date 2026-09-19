@@ -65,6 +65,10 @@ impl<I, V> SparseArray<I, V> {
 
 macro_rules! impl_sparse_array {
     ($ty:ident) => {
+        #[allow(
+            dead_code,
+            reason = "ImmutableSparseArray may be used again in the future."
+        )]
         impl<I: SparseSetIndex, V> $ty<I, V> {
             /// Returns `true` if the collection contains a value for the specified `index`.
             #[inline]
@@ -129,24 +133,15 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     }
 
     /// Converts the [`SparseArray`] into an immutable variant.
+    #[allow(
+        dead_code,
+        reason = "ImmutableSparseArray may be used again in the future."
+    )]
     pub(crate) fn into_immutable(self) -> ImmutableSparseArray<I, V> {
         ImmutableSparseArray {
             values: self.values.into_boxed_slice(),
             marker: PhantomData,
         }
-    }
-
-    /// Returns an iterator over the non-empty values in the array.
-    ///
-    /// This must scan the entire array to find non-empty values,
-    /// which may be slow even if the array is sparsely populated.
-    #[inline]
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (I, &V)> {
-        self.values.iter().enumerate().filter_map(|(index, value)| {
-            value
-                .as_ref()
-                .map(|value| (SparseSetIndex::get_sparse_set_index(index), value))
-        })
     }
 }
 
@@ -556,6 +551,10 @@ pub(crate) struct ImmutableSparseSet<I, V: 'static> {
 
 macro_rules! impl_sparse_set {
     ($ty:ident) => {
+        #[allow(
+            dead_code,
+            reason = "ImmutableSparseArray may be used again in the future."
+        )]
         impl<I: SparseSetIndex, V> $ty<I, V> {
             /// Returns the number of elements in the sparse set.
             #[inline]
@@ -735,6 +734,10 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     }
 
     /// Converts the sparse set into its immutable variant.
+    #[allow(
+        dead_code,
+        reason = "ImmutableSparseArray may be used again in the future."
+    )]
     pub(crate) fn into_immutable(self) -> ImmutableSparseSet<I, V> {
         ImmutableSparseSet {
             dense: self.dense.into_boxed_slice(),
@@ -852,8 +855,8 @@ impl SparseSets {
 mod tests {
     use super::SparseSets;
     use crate::{
-        component::{Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo},
-        entity::{Entity, EntityIndex},
+        component::{Component, ComponentDescriptor, ComponentId, ComponentInfo},
+        entity::{Entity, EntityAllocator, EntityIndex},
         storage::SparseSet,
     };
     use alloc::{vec, vec::Vec};
@@ -912,7 +915,7 @@ mod tests {
 
     #[test]
     fn sparse_sets() {
-        let mut ids = ComponentIds::default();
+        let ids = EntityAllocator::default();
         let mut sets = SparseSets::default();
 
         #[derive(Component, Default, Debug)]
@@ -921,8 +924,8 @@ mod tests {
         #[derive(Component, Default, Debug)]
         struct TestComponent2;
 
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
+        let id_1 = ComponentId::new(ids.alloc());
+        let id_2 = ComponentId::new(ids.alloc());
 
         assert_eq!(sets.len(), 0);
         assert!(sets.is_empty());

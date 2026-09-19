@@ -217,7 +217,8 @@ impl SystemAccess {
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::ComponentIds,
+        component::ComponentId,
+        entity::EntityAllocator,
         query::{FilteredAccess, FilteredAccessSet},
         system::SystemAccess,
     };
@@ -281,11 +282,11 @@ mod tests {
 
     #[test]
     fn check_compatibility() {
-        let mut ids = ComponentIds::default();
+        let ids = EntityAllocator::default();
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ids.next_mut());
+            set.add_unfiltered_component_read(ComponentId::new(ids.alloc()));
             set
         });
         let access_exclusive = SystemAccess::Exclusive;
@@ -305,11 +306,11 @@ mod tests {
 
     #[test]
     fn conflict_reporting() {
-        let mut ids = ComponentIds::default();
+        let ids = EntityAllocator::default();
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ids.next_mut());
+            set.add_unfiltered_component_read(ComponentId::new(ids.alloc()));
             set
         });
         let access_exclusive = SystemAccess::Exclusive;
@@ -373,8 +374,8 @@ mod tests {
 
     #[test]
     fn conversion_to_access_sets() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
+        let ids = EntityAllocator::default();
+        let id_1 = ComponentId::new(ids.alloc());
 
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
@@ -404,13 +405,13 @@ mod tests {
 
     #[test]
     fn extending_access() {
-        let mut ids = ComponentIds::default();
+        let ids = EntityAllocator::default();
         let mut access = SystemAccess::default();
 
         let access_none = SystemAccess::None;
         let access_shared = SystemAccess::Shared({
             let mut set = FilteredAccessSet::default();
-            set.add_unfiltered_component_read(ids.next_mut());
+            set.add_unfiltered_component_read(ComponentId::new(ids.alloc()));
             set
         });
         let access_exclusive = SystemAccess::Exclusive;
