@@ -3,10 +3,11 @@ use crate::{
     component::{ComponentId, ComponentInfo},
     entity::{Entity, EntityIndex},
     query::DebugCheckedUnwrap,
-    storage::{AbortOnPanic, Column, TableRow, VecExtensions},
+    storage::{Column, TableRow, VecExtensions},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
+use bevy_utils::AbortOnPanic;
 use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, num::NonZero, panic::Location};
 use nonmax::{NonMaxU32, NonMaxUsize};
 
@@ -419,6 +420,9 @@ impl ComponentSparseSet {
     /// Removes (and drops) the entity's component value from the sparse set.
     ///
     /// Returns `true` if `entity` had a component value in the sparse set.
+    ///
+    /// # Panics
+    /// May panic due to component drop function.
     pub(crate) fn remove(&mut self, entity: Entity) -> bool {
         self.sparse
             .remove(entity.index())
