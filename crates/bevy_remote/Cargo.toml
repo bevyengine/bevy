@@ -28,6 +28,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.20.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", version = "0.20.0-dev", features = [
   "schedule_data",
 ] }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev", features = [
   "serialize",
 ] }

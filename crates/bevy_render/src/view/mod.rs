@@ -1115,11 +1115,7 @@ impl PostProcessBindGroupCache {
             return true;
         }
         let (texture_b, _) = &self.b;
-        if *texture_b != view_target.main_texture_other_view().id() {
-            return true;
-        }
-
-        false
+        *texture_b != view_target.main_texture_other_view().id()
     }
 
     /// Updates the bind group associated with each main textures

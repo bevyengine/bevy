@@ -34,6 +34,7 @@ members = [
   "examples/large_scenes/bistro",
   "examples/large_scenes/caldera_hotel",
   "examples/large_scenes/bevy_city",
+  "examples/large_scenes/zero_day",
   # Mipmap generator for testing large bevy scenes with mips and texture compression.
   "examples/large_scenes/mipmap_generator",
   # Benchmarks
@@ -786,7 +787,7 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.24"
+accesskit = "0.25"
 nonmax = "0.5"
 gltf = "1.4"
 indexmap = "2"
@@ -2153,6 +2154,17 @@ doc-scrape-examples = true
 
 [package.metadata.example.custom_asset]
 name = "Custom Asset"
+description = "Implements a custom asset, with a default loader"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "custom_asset_loader"
+path = "examples/asset/custom_asset_loader.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_asset_loader]
+name = "Custom Asset Loader"
 description = "Implements a custom asset loader"
 category = "Assets"
 wasm = true
@@ -5297,6 +5309,17 @@ doc-scrape-examples = true
 [package.metadata.example.test_skinned_mesh_bounds]
 hidden = true
 
+[[example]]
+name = "test_meshlet"
+path = "tests/3d/test_meshlet.rs"
+doc-scrape-examples = true
+required-features = ["meshlet", "meshlet_processor", "free_camera"]
+
+[package.metadata.example.test_meshlet]
+hidden = true
+# Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
+wasm = false
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -5521,6 +5544,17 @@ doc-scrape-examples = true
 [package.metadata.example.headless_tabs]
 name = "Headless Tabs"
 description = "Demonstrates controlled and self-updating headless tab lists"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "headless_tree"
+path = "examples/ui/widgets/headless_tree.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_tree]
+name = "Headless Tree"
+description = "Demonstrates the headless tree view with lazy population and keyboard navigation"
 category = "UI (User Interface)"
 wasm = true
 

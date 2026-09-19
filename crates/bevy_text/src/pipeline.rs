@@ -61,7 +61,7 @@ pub enum TextElement<'a> {
         /// Letter spacing.
         letter_spacing: LetterSpacing,
     },
-    /// Space reversed in the the layout by an [`InlineBox`](crate::InlineBox).    
+    /// Space reserved in the layout by an [`InlineBox`](crate::InlineBox).
     Box(&'a crate::InlineBox),
 }
 

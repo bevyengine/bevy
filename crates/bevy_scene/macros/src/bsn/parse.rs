@@ -47,15 +47,7 @@ macro_rules! parse_punctuated_vec_autocomplete_friendly {
 
 impl Parse for BsnRoot {
     fn parse(input: ParseStream) -> Result<Self> {
-        let bsn = input.parse::<Bsn>()?;
-        Ok(if input.peek(TwoMinus) || input.peek(Comma) {
-            let _ = input.parse::<CommaOrTwoMinus>()?;
-            let mut items = input.parse::<BsnSceneListItems>()?;
-            items.0.insert(0, BsnSceneListItem::Scene(bsn));
-            BsnRoot::BsnList(items)
-        } else {
-            BsnRoot::Bsn(bsn)
-        })
+        Ok(BsnRoot(input.parse::<Bsn>()?))
     }
 }
 
@@ -69,7 +61,6 @@ impl Parse for Bsn {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut entries = Vec::new();
         let mut used_parens = None;
-        // TODO: remove this case when parens are fully deprecated
         if input.peek(Paren) {
             used_parens = Some(input.span());
             let content;
@@ -487,7 +478,7 @@ impl Parse for BsnNamedField {
 /// fully parsing Rust expressions, which makes this less strict and cheaper to parse.
 /// This also allows autocomplete to work, even if the tokens aren't a valid rust expression.
 ///
-/// This will accept anything "tuple-like" in the form (X1, ..., XY), where XY is a TokenStream.
+/// This will accept anything "tuple-like" in the form (X1, ..., XY), where XY is a `TokenStream`.
 fn parse_tuple_loose(input: &ParseBuffer) -> Result<Vec<TokenStream>> {
     let content;
     parenthesized!(content in input);
@@ -696,7 +687,7 @@ impl Parse for BsnFnArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut fn_args = Vec::new();
         for tokens in parse_tuple_loose(input)? {
-            fn_args.push(syn::parse2::<BsnFnArg>(tokens)?)
+            fn_args.push(syn::parse2::<BsnFnArg>(tokens)?);
         }
         Ok(BsnFnArgs(fn_args))
     }
