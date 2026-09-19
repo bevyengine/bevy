@@ -3089,6 +3089,54 @@ impl<'a, 'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator
     }
 }
 
+/// [System parameter] that skips systems if any entity matches the provided filter, much like [`Single`]/[`Populated`], but expecting zero matches.
+///
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if any matching entity exists.
+/// This will cause the system to be skipped, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
+///
+/// Note that [`SkipIfAny`] does not contain any data. It is only used for system validation.
+/// Since this is the case, you should prefix argument names with an underscore (`_`) to avoid
+/// any dead code warnings - e.g. `_skip_my_filter:`.
+///
+/// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
+/// This can be notably expensive for non-archetypal filters such as [`Added`](crate::query::Added),
+/// [`Changed`](crate::query::Changed), or [`Spawned`](crate::query::Spawned) which must individually check each query
+/// result for a match.
+///
+/// See [`Query`] for more details.
+///
+/// Alternatively, you may use the [`any_with_component`](crate::schedule::common_conditions::any_with_component) or [`any_match_filter`](crate::schedule::common_conditions::any_match_filter) run conditions with the [`not`](crate::schedule::common_conditions::not) condition.
+///
+/// [System parameter]: crate::system::SystemParam
+///
+/// # Example
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Component)]
+/// struct MenuItem;
+///
+/// #[derive(Component)]
+/// struct MenuSelection;
+///
+/// fn init_selection(
+///     mut commands: Commands,
+///     item_query: Populated<Entity, With<MenuItem>>,
+///
+///     // Don't forget to prefix the argument with _ or an unused error will occur
+///     _skip_existing: SkipIfAny<With<MenuSelection>>,
+/// ) {
+///     let Some(first) = item_query.iter().next() else {
+///         unreachable!();
+///     };
+///
+///     commands.entity(first).try_insert(MenuSelection);
+/// }
+/// ```
+pub struct SkipIfAny<F: QueryFilter = ()> {
+    pub(crate) _filter: PhantomData<F>,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{prelude::*, query::QueryEntityError};

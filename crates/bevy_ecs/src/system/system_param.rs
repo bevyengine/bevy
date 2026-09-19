@@ -15,7 +15,7 @@ use crate::{
         QueryState, ReadOnlyQueryData,
     },
     resource::{Resource, ResourceEntities, IS_RESOURCE},
-    system::{Query, Single, SystemAccess, SystemMeta, SystemState},
+    system::{Query, Single, SkipIfAny, SystemAccess, SystemMeta, SystemState},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
@@ -547,6 +547,49 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
     for Populated<'w, 's, D, F>
 {
 }
+
+// SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
+// this Query conflicts with any prior access, a panic will occur.
+unsafe impl<F: QueryFilter + 'static> SystemParam for SkipIfAny<F> {
+    type State = QueryState<(), F>;
+    type Item<'w, 's> = SkipIfAny<F>;
+
+    fn init_state(world: &mut World) -> Self::State {
+        Query::init_state(world)
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        system_access: &mut SystemAccess,
+    ) -> Result<(), SystemParamAccessConflict> {
+        Query::init_access(state, system_meta, system_access)
+            .map_err(SystemParamAccessConflict::with_param::<Self>)
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: Delegate to existing `SystemParam` implementations.
+        let query = unsafe { Query::get_param(state, system_meta, world, change_tick) }?;
+        if query.is_empty() {
+            Ok(SkipIfAny {
+                _filter: PhantomData,
+            })
+        } else {
+            Err(SystemParamValidationError::skipped::<Self>(
+                "Matching entities found in SkipIfAny filter",
+            ))
+        }
+    }
+}
+
+// SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
+unsafe impl<F: QueryFilter + 'static> ReadOnlySystemParam for SkipIfAny<F> {}
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
 ///
