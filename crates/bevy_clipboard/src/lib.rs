@@ -57,6 +57,73 @@ pub struct ClipboardPlugin;
 impl bevy_app::Plugin for ClipboardPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<Clipboard>();
+        // At startup, not first use: the listener must already be live when
+        // the first paste keystroke's `paste` event fires.
+        #[cfg(target_arch = "wasm32")]
+        paste_stash::install();
+    }
+}
+
+/// Text stashed from the browser's `paste` event, which is readable without
+/// any permission (the keystroke is the grant). `readText()` prompts on
+/// Chrome and doesn't exist for page JS on Firefox, so keystroke-driven
+/// reads should come from here and leave `readText()` to programmatic ones.
+#[cfg(target_arch = "wasm32")]
+mod paste_stash {
+    use core::cell::RefCell;
+    use wasm_bindgen::{closure::Closure, JsCast};
+
+    std::thread_local! {
+        /// The most recent paste event's text and its `performance.now()`
+        /// arrival time, consumed by the next fetch.
+        static STASH: RefCell<Option<(String, f64)>> = const { RefCell::new(None) };
+        static INSTALLED: core::cell::Cell<bool> = const { core::cell::Cell::new(false) };
+    }
+
+    /// The fetch lands a frame or two after the paste event; the bound only
+    /// keeps an abandoned paste from satisfying a later unrelated read.
+    const FRESH_MS: f64 = 1_000.0;
+
+    fn now_ms() -> f64 {
+        web_sys::window()
+            .and_then(|w| w.performance())
+            .map(|p| p.now())
+            .unwrap_or(0.0)
+    }
+
+    /// Install the window-level `paste` listener. Idempotent; the closure
+    /// leaks on purpose (it must outlive everything).
+    pub(crate) fn install() {
+        if INSTALLED.with(|i| i.replace(true)) {
+            return;
+        }
+        let Some(window) = web_sys::window() else {
+            return;
+        };
+        let closure =
+            Closure::<dyn FnMut(web_sys::ClipboardEvent)>::new(|ev: web_sys::ClipboardEvent| {
+                if let Some(data) = ev.clipboard_data()
+                    && let Ok(text) = data.get_data("text/plain")
+                {
+                    STASH.with(|s| *s.borrow_mut() = Some((text, now_ms())));
+                }
+            });
+        if window
+            .add_event_listener_with_callback("paste", closure.as_ref().unchecked_ref())
+            .is_ok()
+        {
+            closure.forget();
+        } else {
+            INSTALLED.with(|i| i.set(false));
+        }
+    }
+
+    /// The stashed paste, if fresh. Consuming: one paste, one fetch.
+    pub(crate) fn take_fresh() -> Option<String> {
+        STASH.with(|s| match s.borrow_mut().take() {
+            Some((text, at)) if now_ms() - at <= FRESH_MS => Some(text),
+            _ => None,
+        })
     }
 }
 
@@ -242,7 +309,11 @@ impl Clipboard {
 
         #[cfg(target_arch = "wasm32")]
         {
-            if let Some(clipboard) = web_sys::window().map(|w| w.navigator().clipboard()) {
+            // A paste keystroke already delivered its text through the
+            // permissionless `paste` event; skip readText() and its prompt.
+            if let Some(text) = paste_stash::take_fresh() {
+                ClipboardRead::Ready(Ok(text))
+            } else if let Some(clipboard) = web_sys::window().map(|w| w.navigator().clipboard()) {
                 let shared = Arc::new(Mutex::new(None));
                 let shared_clone = shared.clone();
                 wasm_bindgen_futures::spawn_local(async move {
