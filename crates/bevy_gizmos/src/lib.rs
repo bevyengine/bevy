@@ -78,13 +78,13 @@ pub mod prelude {
     };
 }
 
-use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
-use bevy_asset::{Asset, AssetApp, Assets, Handle};
+use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, PostUpdate, RunFixedMainLoop};
+use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets, Handle};
 use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
     prelude::Entity,
     resource::Resource,
-    schedule::{IntoScheduleConfigs, SystemSet},
+    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Res, ResMut},
 };
 use bevy_reflect::TypePath;
@@ -127,7 +127,25 @@ pub trait AppGizmoBuilder {
     /// Registers [`GizmoConfigGroup`] in the app enabling the use of [Gizmos&lt;Config&gt;](crate::gizmos::Gizmos).
     ///
     /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
+    /// The gizmos in the [`GizmoConfigGroup`] will be prepared to render in the [`PostUpdate`] schedule
+    /// before [`AssetEventSystems`] to ensure they start to render in the same frame they were
+    /// requested. The [`DefaultGizmoConfigGroup`] is initialized with this method.
+    ///
+    /// If this [`PostUpdate`] schedule is incompatible with the application's systems that request
+    /// gizmos, use [`init_gizmo_group_delayed_render`](Self::init_gizmo_group_delayed_render) to
+    /// initialize a separate gizmo config group. Notably, [`PostUpdate`] systems that render
+    /// gizmos after [`TransformSystems::Propagate`](bevy_transform::TransformSystems::Propagate)
+    /// must be part of a gizmo group initialized with delayed render.
     fn init_gizmo_group<Config: GizmoConfigGroup>(&mut self) -> &mut Self;
+
+    /// Registers [`GizmoConfigGroup`] in the app enabling the use of [Gizmos&lt;Config&gt;](crate::gizmos::Gizmos).
+    ///
+    /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
+    /// The gizmos in the [`GizmoConfigGroup`] will be prepared for rendering in the [`Last`] schedule.
+    /// Note that gizmos in this config group will start to render one frame later.
+    /// See [`init_gizmo_group`](Self::init_gizmo_group_delayed_render) for reasons why
+    /// the delayed start in rendering may be necessary.
+    fn init_gizmo_group_delayed_render<Config: GizmoConfigGroup>(&mut self) -> &mut Self;
 
     /// Insert a [`GizmoConfig`] into a specific [`GizmoConfigGroup`].
     ///
@@ -141,43 +159,13 @@ pub trait AppGizmoBuilder {
 
 impl AppGizmoBuilder for App {
     fn init_gizmo_group<Config: GizmoConfigGroup>(&mut self) -> &mut Self {
-        if self.world().contains_resource::<GizmoStorage<Config, ()>>() {
-            return self;
-        }
+        init_group_with_mesh_sys_schedule::<Config>(self, PostUpdate);
 
-        self.world_mut()
-            .get_resource_or_init::<GizmoConfigStore>()
-            .register::<Config>();
+        self
+    }
 
-        let mut handles = self.world_mut().get_resource_or_init::<GizmoHandles>();
-
-        handles.handles.insert(TypeId::of::<Config>(), None);
-
-        // These handles are safe to mutate in any order
-        self.allow_ambiguous_resource::<GizmoHandles>();
-
-        self.init_resource::<GizmoStorage<Config, ()>>()
-            .init_resource::<GizmoStorage<Config, Fixed>>()
-            .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
-            .add_systems(
-                RunFixedMainLoop,
-                start_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::RunFixedMainLoopSystems::BeforeFixedMainLoop),
-            )
-            .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
-            .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
-            .add_systems(
-                RunFixedMainLoop,
-                end_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::RunFixedMainLoopSystems::AfterFixedMainLoop),
-            )
-            .add_systems(
-                Last,
-                (
-                    propagate_gizmos::<Config, Fixed>.before(GizmoMeshSystems),
-                    update_gizmo_meshes::<Config>.in_set(GizmoMeshSystems),
-                ),
-            );
+    fn init_gizmo_group_delayed_render<Config: GizmoConfigGroup>(&mut self) -> &mut Self {
+        init_group_with_mesh_sys_schedule::<Config>(self, Last);
 
         self
     }
@@ -195,6 +183,52 @@ impl AppGizmoBuilder for App {
 
         self
     }
+}
+
+pub(crate) fn init_group_with_mesh_sys_schedule<Config: GizmoConfigGroup>(
+    app: &mut App,
+    mesh_sys_schedule: impl ScheduleLabel,
+) {
+    if app.world().contains_resource::<GizmoStorage<Config, ()>>() {
+        return;
+    }
+
+    app.world_mut()
+        .get_resource_or_init::<GizmoConfigStore>()
+        .register::<Config>();
+
+    let mut handles = app.world_mut().get_resource_or_init::<GizmoHandles>();
+
+    handles.handles.insert(TypeId::of::<Config>(), None);
+
+    // These handles are safe to mutate in any order
+    app.allow_ambiguous_resource::<GizmoHandles>();
+
+    app.init_resource::<GizmoStorage<Config, ()>>()
+        .init_resource::<GizmoStorage<Config, Fixed>>()
+        .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
+        // This ensures gizmos in this GizmoConfigGroup that are configured to update
+        // meshes in `PostUpdate` are rendered in the same frame.
+        .configure_sets(PostUpdate, GizmoMeshSystems.before(AssetEventSystems))
+        .add_systems(
+            RunFixedMainLoop,
+            start_gizmo_context::<Config, Fixed>
+                .in_set(bevy_app::RunFixedMainLoopSystems::BeforeFixedMainLoop),
+        )
+        .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
+        .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
+        .add_systems(
+            RunFixedMainLoop,
+            end_gizmo_context::<Config, Fixed>
+                .in_set(bevy_app::RunFixedMainLoopSystems::AfterFixedMainLoop),
+        )
+        .add_systems(
+            mesh_sys_schedule,
+            (
+                propagate_gizmos::<Config, Fixed>.before(GizmoMeshSystems),
+                update_gizmo_meshes::<Config>.in_set(GizmoMeshSystems),
+            ),
+        );
 }
 
 /// Holds handles to the line gizmos for each gizmo configuration group
@@ -280,6 +314,11 @@ pub fn propagate_gizmos<Config, Clear>(
 }
 
 /// System set for updating the rendering meshes for drawing gizmos.
+///
+/// Depending on how the [`GizmoConfigGroup`] is configured, this runs
+/// in either [`PostUpdate`] or [`Last`]. If it runs in [`PostUpdate`],
+/// it is configured to run before [`AssetEventSystems`] to ensure that
+/// gizmos are drawn in the same frame they are requested.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GizmoMeshSystems;
 
