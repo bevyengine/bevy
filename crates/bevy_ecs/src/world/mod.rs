@@ -1671,6 +1671,20 @@ impl World {
         Ok(entity.id())
     }
 
+    pub(crate) fn despawn_no_free_no_flush_with_caller(
+        &mut self,
+        entity: Entity,
+        caller: MaybeLocation,
+    ) -> Result<Entity, EntityDespawnError> {
+        let mut entity = self.get_entity_mut(entity).map_err(|err| match err {
+            EntityMutableFetchError::NotSpawned(err) => err,
+            // Only one entity.
+            EntityMutableFetchError::AliasedMutability(_) => unreachable!(),
+        })?;
+        entity.despawn_no_free_no_flush_with_caller(caller);
+        Ok(entity.id())
+    }
+
     /// [`Despawns`](Self::despawn) all entities matching the [`QueryFilter`].
     #[track_caller]
     #[inline]
@@ -1723,7 +1737,7 @@ impl World {
             caller: MaybeLocation,
         ) {
             entities_to_despawn.retain(|entity| {
-                let _ = world.despawn_no_free_with_caller(*entity, caller);
+                let _ = world.despawn_no_free_no_flush_with_caller(*entity, caller);
 
                 // Check if the entity wasn't already freed or reconstructed.
                 matches!(world.entities.get(*entity), Ok(None))
@@ -1733,6 +1747,8 @@ impl World {
 
             world.entity_allocator.free_many(head);
             world.entity_allocator.free_many(tail);
+
+            world.flush();
         }
 
         despawn_entities(self, entities_to_despawn, caller);
