@@ -1,4 +1,5 @@
 import bevy_sprite_render::{mesh2d::vertex_output::VertexOutput, sprite_mesh::functions as sprite_fn};
+import bevy_render::writer_encode::writer_encode;
 
 struct DissolveMaterial {
     burn_edge_color: vec4<f32>,
@@ -41,7 +42,7 @@ fn fragment(input: VertexOutput) -> @location(0) vec4<f32> {
 
     // Apply alpha discard and tint
     color = sprite_fn::get_final_color(color, input.instance_index);
-    return color;
+    return writer_encode(color);
 }
 
 /// An implementation of the simplex noise algorithm to generate noise for the dissolve effect. Credit to <https://crates.io/crates/noisy_bevy>.

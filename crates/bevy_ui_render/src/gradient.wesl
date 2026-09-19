@@ -1,4 +1,5 @@
 import bevy_render::view::View;
+import bevy_render::writer_encode::writer_encode;
 import package::ui::{
     draw_uinode_background,
     draw_uinode_border,
@@ -127,11 +128,13 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
         in.flags
     );
 
+    var out: vec4<f32>;
     if enabled(in.flags, BORDER_ANY) {
-        return draw_uinode_border(gradient_color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
+        out = draw_uinode_border(gradient_color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
     } else {
-        return draw_uinode_background(gradient_color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
+        out = draw_uinode_background(gradient_color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
     }
+    return writer_encode(out);
 }
 
 fn rem_euclid(a: f32, b: f32) -> f32 {
