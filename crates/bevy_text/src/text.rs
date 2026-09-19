@@ -617,7 +617,7 @@ impl<const N: usize> From<[FontSource; N]> for FontSource {
     }
 }
 
-/// Holds the default font source. Used when `Fontsource` is set to `Default`.
+/// The default font source used to resolve `FontSource::Default`.
 /// `DefaultFontSource(FontSource::Default)` is mapped to the default Font asset.
 #[derive(Clone, Debug, Reflect, PartialEq, Default, Resource, Deref, DerefMut)]
 pub struct DefaultFontSource(pub FontSource);
