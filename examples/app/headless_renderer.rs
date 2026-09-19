@@ -370,7 +370,7 @@ fn image_copy_driver(
             src_image.texture_descriptor.size,
         );
 
-        render_queue.submit(std::iter::once(encoder.finish()));
+        render_queue.submit(std::iter::once(encoder.into_inner().finish()));
     }
 }
 
