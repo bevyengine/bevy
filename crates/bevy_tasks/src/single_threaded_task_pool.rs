@@ -156,6 +156,7 @@ impl TaskPool {
             executor_ref,
             pending_tasks,
             results_ref,
+            spawned: RefCell::new(Vec::new()),
             scope: PhantomData,
             env: PhantomData,
         };
@@ -260,7 +261,11 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     pending_tasks: &'scope Cell<usize>,
     // Vector to gather results of all futures spawned during scope run
     results_ref: &'env RefCell<Vec<Option<T>>>,
-
+    // Task handles for spawned futures, so they can be cancelled on drop.
+    // Without this, a panic in the scope callback would skip the completion
+    // loop, and the executor's own Drop would later drop queued futures after
+    // the borrowed Scope state has been freed (use-after-free).
+    spawned: RefCell<Vec<Task<()>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
@@ -319,8 +324,38 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
             pending_tasks.update(|i| i - 1);
         };
 
-        // spawn the job itself
-        self.executor_ref.spawn(f).detach();
+        // spawn the job itself — store the task handle instead of detaching
+        // so that `Scope::drop` can cancel any pending futures before the
+        // borrowed stack state is freed (e.g. when the scope callback panics).
+        let task = self.executor_ref.spawn(f);
+        self.spawned.borrow_mut().push(task);
+    }
+}
+
+impl<'scope, 'env, T> Drop for Scope<'scope, 'env, T> {
+    fn drop(&mut self) {
+        let mut tasks = self.spawned.borrow_mut();
+        if tasks.is_empty() {
+            return;
+        }
+        let tasks = mem::take(&mut *tasks);
+        // Drive the executor while cancelling all spawned tasks.
+        //
+        // This ensures futures are dropped (and their Drop glue runs) while
+        // the scope's borrowed state (`results`, `pending_tasks`, `executor`)
+        // is still alive — even during unwinding when the completion loop in
+        // `scope_with_executor` is skipped.
+        //
+        // Without this, a panic in the scope callback would leave pending
+        // futures in the executor's queue. The executor is dropped *after*
+        // `results` and `pending_tasks` (reverse declaration order), so its
+        // Drop would run future destructors that access already-freed borrows,
+        // producing use-after-free.
+        block_on(self.executor_ref.run(async move {
+            for task in tasks {
+                task.cancel().await;
+            }
+        }));
     }
 }
 
@@ -342,7 +377,7 @@ crate::cfg::std! {
 
 #[cfg(test)]
 mod test {
-    use std::{time, thread};
+    use std::{panic::AssertUnwindSafe, time, thread};
 
     use super::*;
 
@@ -366,5 +401,40 @@ mod test {
                 receiver.recv().await
             });
         });
+    }
+
+    /// Panic in `scope` must cancel pending futures before the scope
+    /// stack is unwound, otherwise future drop glue may access freed state.
+    #[test]
+    fn scope_panic_cancels_pending_futures() {
+        use core::sync::atomic::{AtomicBool, Ordering};
+
+        let pool = TaskPool::new();
+
+        // A flag set when the spawned future actually begins executing.
+        // If the fix works, the future is cancelled before it can poll.
+        let ran = Arc::new(AtomicBool::new(false));
+        let ran2 = ran.clone();
+
+        let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            pool.scope(|scope| {
+                scope.spawn(async move {
+                    ran2.store(true, Ordering::SeqCst);
+                    std::future::pending::<()>().await;
+                });
+                panic!("test panic in scope");
+            });
+        }));
+        assert!(result.is_err(), "expected the panic to propagate");
+
+        // Without the fix, the executor would drop the pending future
+        // after the scope state is freed — use-after-free.
+        // The task must not have executed past its first poll.
+        // (On the single-threaded executor, the scope callback panics
+        // before any spawned future is driven.)
+        assert!(
+            !ran.load(Ordering::SeqCst),
+            "spawned future ran despite scope panic"
+        );
     }
 }
