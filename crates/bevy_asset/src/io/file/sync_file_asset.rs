@@ -6,7 +6,11 @@ use crate::io::{
     PathStream, Reader, ReaderNotSeekableError, SeekableReader, Writer,
 };
 
-use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
+use alloc::{
+    borrow::{Cow, ToOwned},
+    boxed::Box,
+    vec::Vec,
+};
 use core::{pin::Pin, task::Poll};
 use std::{
     fs::{read_dir, File},
@@ -99,6 +103,10 @@ impl Stream for DirReader {
 }
 
 impl AssetReader for FileAssetReader {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        Cow::Borrowed(&self.root_path)
+    }
+
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let full_path = self.root_path.join(path);
         match File::open(&full_path) {
@@ -182,6 +190,10 @@ impl AssetReader for FileAssetReader {
 }
 
 impl AssetWriter for FileAssetWriter {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        Cow::Borrowed(&self.root_path)
+    }
+
     async fn write<'a>(&'a self, path: &'a Path) -> Result<Box<Writer>, AssetWriterError> {
         let full_path = self.root_path.join(path);
         if let Some(parent) = full_path.parent() {

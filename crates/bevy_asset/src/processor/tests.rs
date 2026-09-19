@@ -1,4 +1,5 @@
 use alloc::{
+    borrow::Cow,
     boxed::Box,
     collections::BTreeMap,
     string::{String, ToString},
@@ -16,7 +17,7 @@ use core::marker::PhantomData;
 use futures_lite::AsyncWriteExt;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use bevy_app::{App, TaskPoolPlugin};
 use bevy_ecs::error::BevyError;
@@ -199,6 +200,10 @@ impl<R: AssetReader> LockGatedReader<R> {
 }
 
 impl<R: AssetReader> AssetReader for LockGatedReader<R> {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        self.reader.root_path()
+    }
+
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let _guard = self.gate.read().await;
         self.reader.read(path).await
