@@ -10,7 +10,7 @@ pub use binder::{RaytracingSceneBindings, RaytracingSceneNeedsPreviousFrameData}
 pub use types::RaytracingMesh3d;
 
 use crate::SolariPlugins;
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
     mesh::{
@@ -27,9 +27,10 @@ use binder::{
 };
 use blas::{compact_raytracing_blas, delete_raytracing_blas, prepare_raytracing_blas, BlasManager};
 use extract::{
-    extract_raytracing_environment_map_light, extract_raytracing_material_assets,
-    extract_raytracing_scene_meshes_and_materials, extract_raytracing_scene_structural,
-    extract_raytracing_scene_transforms, ExtractedEnvironmentMapLight, StandardMaterialAssets,
+    disable_atmosphere_env_map_filtering, extract_raytracing_environment_map_light,
+    extract_raytracing_material_assets, extract_raytracing_scene_meshes_and_materials,
+    extract_raytracing_scene_structural, extract_raytracing_scene_transforms,
+    ExtractedEnvironmentMapLight, StandardMaterialAssets,
 };
 use tracing::warn;
 
@@ -45,6 +46,8 @@ impl Plugin for RaytracingScenePlugin {
     }
 
     fn finish(&self, app: &mut App) {
+        app.add_systems(PostUpdate, disable_atmosphere_env_map_filtering);
+
         let render_app = app.sub_app_mut(RenderApp);
 
         let render_device = render_app.world().resource::<RenderDevice>();
