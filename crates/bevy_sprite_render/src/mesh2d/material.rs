@@ -910,6 +910,10 @@ pub fn specialize_material2d_meshes(
                 mesh_instance.material_bindings_index = material_2d.binding;
 
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                    // Retry specialization once the mesh is ready.
+                    view_pending_mesh_material2d_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
 
