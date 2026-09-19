@@ -183,4 +183,10 @@ impl<'w, 's, M: Message> MessageMutator<'w, 's, M> {
     {
         self.messages.write_default()
     }
+
+    /// Filter messages for which the predicate returns 'false', flagging the messages so that
+    /// downstream readers never see them.
+    pub fn filter(&mut self, f: impl FnMut(&M) -> bool) {
+        self.messages.filter(f);
+    }
 }
