@@ -74,7 +74,12 @@ impl WorldAsset {
             .components()
             .get_id(TypeId::of::<DefaultQueryFilters>());
 
-        let ids: Vec<ComponentId> = self.world.components().iter_registered_ids().collect();
+        let ids: Vec<ComponentId> = self
+            .world
+            .components()
+            .iter_registered()
+            .map(|(id, _)| id)
+            .collect();
         // Resources archetype
         for component_id in ids {
             let source_entity = component_id.entity();
