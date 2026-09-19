@@ -4,7 +4,7 @@ use core::any::Any;
 
 use crate::{
     error::ErrorContext,
-    event::{EventPattern, EventPatternTrigger},
+    event::{EventPattern, EventTriggerState, Trigger},
     observer::TriggerContext,
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -67,20 +67,16 @@ pub(super) unsafe fn observer_system_runner<E: EventPattern, S: ObserverSystem<E
         return;
     }
 
-    // SAFETY: Caller ensures `trigger_ptr` is castable to `&mut E::Trigger<'_>`
-    // The soundness story here is complicated: This casts to &'a mut E::Trigger<'a> which notably
-    // casts the _arbitrary lifetimes_ of the passed in `trigger_ptr` (&'w E::Trigger<'t>, which are
-    // 'w and 't on On<'w, 't>) as the _same_ lifetime 'a, which is _local to this function call_.
-    // This becomes On<'a, 'a> in practice. This is why `On<'w, 't>` has the strict constraint that
-    // the 'w lifetime can never be exposed. To do so would make it possible to introduce use-after-free bugs.
-    // See this thread for more details: <https://github.com/bevyengine/bevy/pull/20731#discussion_r2311907935>
-    let trigger: &mut EventPatternTrigger<'_, E> = unsafe { trigger_ptr.deref_mut() };
+    // SAFETY: Caller ensures `trigger_ptr` is castable to `&mut E::Event::Trigger::State<'_>`.
+    // Because the `PtrMut` might contain arbitrary lifetimes, we must use `Trigger::reborrow`
+    // to ensure that the observer only witnesses the shortest lifetime of the trigger state.
+    let trigger: &mut EventTriggerState<'_, E::Event> = unsafe { trigger_ptr.deref_mut() };
 
     let on: On<E> = On::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut E`
         unsafe { event_ptr.deref_mut() },
         observer,
-        trigger,
+        <E::Event as Event>::Trigger::reborrow(trigger),
         trigger_context,
     );
 
