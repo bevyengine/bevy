@@ -1188,7 +1188,7 @@ mod tests {
 
     fn generate_ids(count: u32) -> Vec<ComponentId> {
         let ids = EntityAllocator::default();
-        ids.alloc_many(count).map(|e| ComponentId::new(e)).collect()
+        ids.alloc_many(count).map(ComponentId::new).collect()
     }
 
     #[test]
