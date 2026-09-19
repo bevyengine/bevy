@@ -1,6 +1,6 @@
 use core::ops::Range;
 
-use super::{ImageNodeBindGroups, UiBatch, UiMeta, UiViewTarget};
+use super::{ImageNodeBindGroups, UiMeta, UiViewTarget};
 
 use crate::UiCameraView;
 use bevy_ecs::{
@@ -83,6 +83,8 @@ pub struct TransparentUi {
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
     pub indexed: bool,
+    // Index to UiMeta batch . None if isn't
+    pub batch_index: Option<u32>,
 }
 
 impl PhaseItem for TransparentUi {
@@ -182,47 +184,54 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
     }
 }
 pub struct SetUiTextureBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
-    type Param = SRes<ImageNodeBindGroups>;
+impl<const I: usize> RenderCommand<TransparentUi> for SetUiTextureBindGroup<I> {
+    type Param = (SRes<ImageNodeBindGroups>, SRes<UiMeta>);
     type ViewQuery = ();
-    type ItemQuery = Read<UiBatch>;
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &TransparentUi,
         _view: (),
-        batch: Option<&'w UiBatch>,
-        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
+        _entity: Option<()>,
+        (image_bind_groups, ui_meta): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let image_bind_groups = image_bind_groups.into_inner();
-        let Some(batch) = batch else {
+        let Some(batch_index) = item.batch_index else {
             return RenderCommandResult::Skip;
         };
-
-        pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
+        let Some(batch) = ui_meta.into_inner().batches.get(batch_index as usize) else {
+            return RenderCommandResult::Failure("batch index out of range");
+        };
+        let Some(bind_group) = image_bind_groups.into_inner().values.get(&batch.image) else {
+            return RenderCommandResult::Failure("missing image bind group");
+        };
+        pass.set_bind_group(I, bind_group, &[]);
         RenderCommandResult::Success
     }
 }
 
 pub struct DrawUiNode;
-impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
+impl RenderCommand<TransparentUi> for DrawUiNode {
     type Param = SRes<UiMeta>;
     type ViewQuery = ();
-    type ItemQuery = Read<UiBatch>;
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &TransparentUi,
         _view: (),
-        batch: Option<&'w UiBatch>,
+        _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(batch) = batch else {
+        let Some(batch_index) = item.batch_index else {
             return RenderCommandResult::Skip;
         };
         let ui_meta = ui_meta.into_inner();
+        let Some(batch) = ui_meta.batches.get(batch_index as usize) else {
+            return RenderCommandResult::Failure("batch index out of range");
+        };
         let Some(vertices) = ui_meta.vertices.buffer() else {
             return RenderCommandResult::Failure("missing vertices to draw ui");
         };
