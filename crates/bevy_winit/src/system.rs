@@ -13,7 +13,7 @@ use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
     ClosingWindow, CursorOptions, HasWindows, Monitor, OnMonitor, PrimaryMonitor, RawHandleWrapper,
     VideoMode, Window, WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused,
-    WindowMode, WindowResized, WindowScaleFactorChanged, WindowWrapper,
+    WindowMode, WindowScaleFactorChanged, WindowWrapper,
 };
 use tracing::{error, info, warn};
 
@@ -140,8 +140,6 @@ pub fn create_windows(
 /// focus in that swapping between Bevy windows keeps window focus.
 pub(crate) fn check_keyboard_focus_lost(
     mut window_focused_reader: MessageReader<WindowFocused>,
-    mut keyboard_focus_lost_writer: MessageWriter<KeyboardFocusLost>,
-    mut keyboard_input_writer: MessageWriter<KeyboardInput>,
     mut window_event_writer: MessageWriter<WindowEvent>,
     mut q_windows: Query<&mut WinitWindowPressedKeys>,
 ) {
@@ -158,7 +156,6 @@ pub(crate) fn check_keyboard_focus_lost(
     if !focus_gained {
         if !focus_lost.is_empty() {
             window_event_writer.write(WindowEvent::KeyboardFocusLost(KeyboardFocusLost));
-            keyboard_focus_lost_writer.write(KeyboardFocusLost);
         }
 
         for window in focus_lost {
@@ -174,8 +171,7 @@ pub(crate) fn check_keyboard_focus_lost(
                     window,
                     text: None,
                 };
-                window_event_writer.write(WindowEvent::KeyboardInput(event.clone()));
-                keyboard_input_writer.write(event);
+                window_event_writer.write(WindowEvent::KeyboardInput(event));
             }
         }
     }
@@ -324,9 +320,7 @@ pub(crate) fn changed_windows(
         Changed<Window>,
     >,
     monitors: Res<WinitMonitors>,
-    mut window_resized: MessageWriter<WindowResized>,
     mut window_event: MessageWriter<WindowEvent>,
-    mut window_rescaled: MessageWriter<WindowScaleFactorChanged>,
     _non_send_marker: NonSendMarker,
 ) {
     WINIT_WINDOWS.with_borrow(|winit_windows| {
@@ -405,8 +399,6 @@ pub(crate) fn changed_windows(
                     // In `None` case, the request will be handled by winit::event::WindowEvent::Resized
                     if let Some(new_physical_size) = winit_window.request_inner_size(requested_physical_size) {
                         let event = react_to_resize(entity, &mut window, new_physical_size);
-                        // Need to send two very similar events because different systems rely on those.
-                        window_resized.write(event.clone());
                         window_event.write(event.into());
                     }
                 }
@@ -417,8 +409,6 @@ pub(crate) fn changed_windows(
                 if cache_scale_factor != requested_scale_factor {
                     // If the scale factor has changed we don't query anything from winit, but send events for camera system to handle.
                     let event = WindowScaleFactorChanged { scale_factor: requested_scale_factor as f64, window: entity};
-                    // Need to send two very similar events because different systems rely on those.
-                    window_rescaled.write(event.clone());
                     window_event.write(event.into());
                 }
             }
