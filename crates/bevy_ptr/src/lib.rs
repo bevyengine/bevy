@@ -1123,7 +1123,12 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     ///
     /// # Safety
     ///
-    /// `index` must be in-bounds.
+    /// - `index` must be in-bounds.
+    /// - For the entire lifetime `'a` of the returned reference, the value at `index` must not
+    ///   be mutated through any means other than the pointee's own interior mutability (e.g. if
+    ///   `T` is itself an [`UnsafeCell`]). This includes writes through a raw pointer and writes
+    ///   through an [`UnsafeCell`] this `ThinSlicePtr` was [cast](Self::cast) from: once cast,
+    ///   the memory is no longer treated as containing an `UnsafeCell` for aliasing purposes.
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> &'a T {
         // We cannot use `debug_assert!` here because `self.len` does not exist when not in debug
@@ -1205,6 +1210,13 @@ impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
     }
 
     /// Returns a slice pointer to the underlying type `T`.
+    ///
+    /// This does not by itself require `unsafe`, but it discards the [`UnsafeCell`] from the
+    /// pointee's type. Any subsequent unsafe call on the result (e.g.
+    /// [`get_unchecked`](ThinSlicePtr::get_unchecked) or
+    /// [`as_slice_unchecked`](ThinSlicePtr::as_slice_unchecked)) that hands out a `&T` therefore
+    /// requires, as part of its own safety contract, that nothing mutates the pointee through the
+    /// original [`UnsafeCell`] for as long as that `&T` is live.
     pub fn cast(&self) -> ThinSlicePtr<'a, T> {
         ThinSlicePtr {
             // SAFETY: `self.ptr` is non null hence `UnsafeCell::raw_get` always returns a non null pointer
@@ -1249,12 +1261,18 @@ mod private {
 /// Extension trait for helper methods on [`UnsafeCell`]
 pub trait UnsafeCellDeref<'a, T>: private::SealedUnsafeCell {
     /// # Safety
-    /// - The returned value must be unique and not alias any mutable or immutable references to the contents of the [`UnsafeCell`].
+    /// - For the entire lifetime `'a` of the returned reference, no other access to the contents
+    ///   of the [`UnsafeCell`] may exist or be created — neither a reference (mutable or
+    ///   immutable) nor a read or write through a raw pointer (e.g. via [`UnsafeCell::get`] or
+    ///   [`UnsafeCell::raw_get`]).
     /// - At all times, you must avoid data races. If multiple threads have access to the same [`UnsafeCell`], then any writes must have a proper happens-before relation to all other accesses or use atomics ([`UnsafeCell`] docs for reference).
     unsafe fn deref_mut(self) -> &'a mut T;
 
     /// # Safety
-    /// - For the lifetime `'a` of the returned value you must not construct a mutable reference to the contents of the [`UnsafeCell`].
+    /// - For the entire lifetime `'a` of the returned reference, the contents of the
+    ///   [`UnsafeCell`] must not be mutated by any means — neither by constructing a mutable
+    ///   reference to them, nor by writing through a raw pointer (e.g. via [`UnsafeCell::get`] or
+    ///   [`UnsafeCell::raw_get`]) — whether through this alias of the [`UnsafeCell`] or any other.
     /// - At all times, you must avoid data races. If multiple threads have access to the same [`UnsafeCell`], then any writes must have a proper happens-before relation to all other accesses or use atomics ([`UnsafeCell`] docs for reference).
     unsafe fn deref(self) -> &'a T;
 
