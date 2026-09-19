@@ -46,12 +46,7 @@ pub(super) unsafe fn observer_system_runner<E: EventPattern, S: ObserverSystem<E
     // SAFETY: Observer was triggered so must have an `Observer`
     let mut state = unsafe { observer_cell.get_mut::<Observer>().debug_checked_unwrap() };
 
-    // TODO: Move this check into the observer cache to avoid dynamic dispatch
-    let last_trigger = world.last_trigger_id();
-    if state.last_trigger_id == last_trigger {
-        return;
-    }
-    state.last_trigger_id = last_trigger;
+    state.last_trigger_id = world.last_trigger_id();
 
     // SAFETY:
     // - Conditions are initialized during observer registration (hook_on_add)
