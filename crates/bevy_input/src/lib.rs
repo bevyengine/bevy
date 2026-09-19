@@ -74,7 +74,9 @@ use bevy_reflect::Reflect;
 use gestures::*;
 
 #[cfg(feature = "keyboard")]
-use keyboard::{keyboard_input_system, Key, KeyCode, KeyboardFocusLost, KeyboardInput};
+use keyboard::{
+    keyboard_input_system, Key, KeyCode, KeyboardFocusLost, KeyboardInput, PressedKeys,
+};
 
 #[cfg(feature = "mouse")]
 use mouse::{
@@ -114,6 +116,7 @@ impl Plugin for InputPlugin {
             .add_message::<KeyboardFocusLost>()
             .init_resource::<ButtonInput<KeyCode>>()
             .init_resource::<ButtonInput<Key>>()
+            .init_resource::<PressedKeys>()
             .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystems));
 
         #[cfg(feature = "mouse")]
