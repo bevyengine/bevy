@@ -4860,7 +4860,7 @@ wasm = true
 name = "local_inspector"
 path = "examples/inspector/local_inspector.rs"
 doc-scrape-examples = true
-required-features = ["bevy_inspector"]
+required-features = ["bevy_inspector", "debug"]
 
 [package.metadata.example.local_inspector]
 name = "Local Inspector"
