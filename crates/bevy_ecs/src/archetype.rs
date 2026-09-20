@@ -9,7 +9,7 @@
 //! Archetypes are not to be confused with [`Table`]s. Each archetype stores its table
 //! components in one table, and each archetype uniquely points to one table, but multiple
 //! archetypes may store their table components in the same table. These archetypes
-//! differ only by the [`SparseSet`] components.
+//! differ only by the [`crate::storage::SparseSet`] components.
 //!
 //! Like tables, archetypes can be created but are never cleaned up. Empty archetypes are
 //! not removed, and persist until the world is dropped.
@@ -407,7 +407,9 @@ impl Archetype {
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
             observers.update_archetype_flags(component_id, &mut flags);
-            component_ids.push(component_id);
+            if !component_ids.contains(&component_id) {
+                component_ids.push(component_id);
+            }
             // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
             // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
             // component in the `table_components` vector
@@ -422,14 +424,14 @@ impl Archetype {
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
             observers.update_archetype_flags(component_id, &mut flags);
-            component_ids.push(component_id);
+            if !component_ids.contains(&component_id) {
+                component_ids.push(component_id);
+            }
             component_index
                 .entry(component_id)
                 .or_default()
                 .insert(id, ArchetypeRecord { column: None });
         }
-
-        component_ids.sort();
 
         Self {
             id,

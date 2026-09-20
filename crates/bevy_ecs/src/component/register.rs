@@ -388,7 +388,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     ///
     /// # Safety
     ///
-    /// The [`Components`] and [`RemoteAllocator`] must come from the same world.
+    /// The [`Components`] and [`EntityAllocator`] must come from the same world.
     pub unsafe fn new(components: &'w Components, allocator: &'w EntityAllocator) -> Self {
         Self {
             components,
