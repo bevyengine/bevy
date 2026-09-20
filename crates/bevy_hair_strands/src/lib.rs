@@ -11,9 +11,15 @@
 //! [`Mesh`](bevy_mesh::Mesh) generated for them automatically. On the GPU each
 //! ribbon is widened to face the camera and shaded with an anisotropic
 //! Kajiya-Kay model that reacts to every light, shadow map and fog volume in
-//! the scene like `StandardMaterial` does. Far away, only as many strands are
-//! drawn as keep each about a pixel wide ([`HairMaterial::min_pixel_width`]),
-//! the survivors widened to cover for the rest.
+//! the scene like `StandardMaterial` does, and takes its indirect light from
+//! the same environment maps, irradiance volumes and screen-space ambient
+//! occlusion. Strands thinner than a pixel are drawn a pixel wide at their
+//! true coverage; far away, only as many strands are drawn as keep each about
+//! a pixel wide ([`HairMaterial::min_pixel_width`]), the survivors widened to
+//! cover for the rest. Points deep in the hair mass are darkened by a
+//! per-point occlusion baked from the strand density around them
+//! ([`HairMaterial::volume_occlusion`]), and each strand may carry its own
+//! colour and width ([`HairStrand::color`], [`HairStrand::width`]).
 //!
 //! ```ignore
 //! use bevy_hair_strands::{HairMaterial, HairStrand, HairStrands, HairStrands3d};
@@ -39,7 +45,7 @@ mod strands;
 pub use material::{HairMaterial, HairMaterialUniform, MIN_KEEP_FRACTION};
 pub use strands::{
     update_hair_strand_bounds, update_hair_strand_meshes, HairStrand, HairStrands, HairStrands3d,
-    HairStrandsBoundsPadding, ATTRIBUTE_HAIR_PARAMS, ATTRIBUTE_HAIR_TANGENT,
+    HairStrandsBoundsPadding, ATTRIBUTE_HAIR_PARAMS, ATTRIBUTE_HAIR_STRAND, ATTRIBUTE_HAIR_TANGENT,
 };
 
 use bevy_app::{App, Plugin, PostUpdate};

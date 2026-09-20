@@ -3,8 +3,10 @@
 //! Two heads are grown a procedural hairstyle each. The strands live in a
 //! [`HairStrands`] asset; the ribbon mesh is regenerated automatically whenever
 //! that asset changes, which is what pressing `Space` does, and the culling
-//! bounds follow the strand width set on the material. Zoom out to watch the
-//! level of detail thin the strands while the hair keeps its coverage.
+//! bounds follow the strand width set on the material. The dark head has a
+//! scattering of grey strands and the fair one sun-bleached ones, each strand
+//! its own width; deep in either mass the strands darken. Zoom out to watch
+//! the level of detail thin the strands while the hair keeps its coverage.
 
 use std::f32::consts::{PI, TAU};
 
@@ -210,6 +212,12 @@ fn grow_hair(seed: u64, style: Style) -> HairStrands {
         Style::Straight => (2_400, 14, 0.7..1.1, 0.03, 0.45),
         Style::Wavy => (2_000, 16, 0.45..0.75, 0.16, 0.3),
     };
+    // A few strands of another colour: grey in the dark hair, sun-bleached
+    // in the fair.
+    let (odd_one_in, odd_color) = match style {
+        Style::Straight => (25, Color::srgb(0.62, 0.6, 0.58)),
+        Style::Wavy => (6, Color::srgb(0.9, 0.78, 0.55)),
+    };
 
     let mut strands = HairStrands::new();
     for _ in 0..strand_count {
@@ -250,7 +258,11 @@ fn grow_hair(seed: u64, style: Style) -> HairStrands {
             }
             points.push(point);
         }
-        strands.push(HairStrand::new(points));
+        let mut strand = HairStrand::new(points).with_width(rng.random_range(0.7..1.3));
+        if rng.random_range(0..odd_one_in) == 0 {
+            strand = strand.with_color(odd_color);
+        }
+        strands.push(strand);
     }
     strands
 }

@@ -2,6 +2,7 @@ use bevy_asset::{
     prelude::AssetChanged, AsAssetId, Asset, AssetId, Assets, Handle, RenderAssetUsages,
 };
 use bevy_camera::{primitives::Aabb, visibility::NoAutoAabb};
+use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -10,7 +11,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut},
     template::FromTemplate,
 };
-use bevy_math::{Vec3, Vec3A};
+use bevy_math::{UVec3, Vec3, Vec3A};
 use bevy_mesh::{
     Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology, VertexAttributeValues,
     VertexFormat,
@@ -40,18 +41,48 @@ pub const ATTRIBUTE_HAIR_TANGENT: MeshVertexAttribute = MeshVertexAttribute::new
 /// * `x` — which side of the ribbon this vertex is on (`0` or `255`, read as `-1.0` or `1.0`),
 /// * `y` — normalized arc-length position along the strand (`0` at the root, `255` at the tip),
 /// * `z` — a per-strand pseudo-random value, stable for a given strand index,
-/// * `w` — unused.
+/// * `w` — how buried the point is in the hair mass (`0` at the surface, `255` deep inside),
+///   from the density of control points around it; see [`HairStrands::burial`].
 pub const ATTRIBUTE_HAIR_PARAMS: MeshVertexAttribute =
     MeshVertexAttribute::new("Hair_Params", 0x4841_4952_5041_524d, VertexFormat::Unorm8x4);
 
+/// Per-strand colour and width, packed as `Unorm8x4`, present only when some
+/// strand in the asset sets its own ([`HairStrands::has_strand_attributes`]):
+///
+/// * `rgb` — the strand's own colour, sRGB-encoded ([`HairStrand::color`]; white when unset),
+/// * `a` — bit 7: whether the strand has its own colour; bits 0-6: its width
+///   as a multiplier on the material's, halved ([`HairStrand::width`], so
+///   `0..=2` fits in 127 steps).
+pub const ATTRIBUTE_HAIR_STRAND: MeshVertexAttribute =
+    MeshVertexAttribute::new("Hair_Strand", 0x4841_4952_5354_5244, VertexFormat::Unorm8x4);
+
 /// A single hair strand: a polyline of control points in the local space of the
-/// entity that renders it, ordered from root to tip.
-#[derive(Reflect, Clone, Debug, Default, PartialEq)]
+/// entity that renders it, ordered from root to tip, with an optional colour
+/// and width of its own.
+#[derive(Reflect, Clone, Debug, PartialEq)]
 #[reflect(Default, Clone, PartialEq)]
 pub struct HairStrand {
     /// Control points from root to tip. Strands with fewer than two points are
     /// skipped when building the mesh.
     pub points: Vec<Vec3>,
+    /// This strand's own colour, used instead of the material's base colour:
+    /// a grey hair, a sun-bleached one, a highlight. `None` for the
+    /// material's colour. The material's per-strand variation and root
+    /// occlusion still apply.
+    pub color: Option<Color>,
+    /// This strand's width as a multiplier on the material's, `0.0..=2.0`;
+    /// `1.0` for the material's width.
+    pub width: f32,
+}
+
+impl Default for HairStrand {
+    fn default() -> Self {
+        Self {
+            points: Vec::new(),
+            color: None,
+            width: 1.0,
+        }
+    }
 }
 
 impl HairStrand {
@@ -59,18 +90,51 @@ impl HairStrand {
     pub fn new(points: impl Into<Vec<Vec3>>) -> Self {
         Self {
             points: points.into(),
+            ..Default::default()
         }
+    }
+
+    /// Gives the strand its own colour; see [`Self::color`].
+    pub fn with_color(mut self, color: impl Into<Color>) -> Self {
+        self.color = Some(color.into());
+        self
+    }
+
+    /// Gives the strand its own width; see [`Self::width`].
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
     }
 
     /// Total polyline length of the strand.
     pub fn length(&self) -> f32 {
         self.points.windows(2).map(|w| w[0].distance(w[1])).sum()
     }
+
+    /// Whether the strand sets a colour or width of its own.
+    fn has_attributes(&self) -> bool {
+        self.color.is_some() || self.width != 1.0
+    }
+
+    /// The strand's colour and width as the GPU reads them.
+    fn packed_attributes(&self) -> [u8; 4] {
+        let rgb = self.color.map_or([255, 255, 255], |color| {
+            let srgb = color.to_srgba();
+            [
+                pack_unorm8(srgb.red),
+                pack_unorm8(srgb.green),
+                pack_unorm8(srgb.blue),
+            ]
+        });
+        let width = ((self.width * 0.5).clamp(0.0, 1.0) * 127.0).round() as u8;
+        let has_color = if self.color.is_some() { 0x80 } else { 0 };
+        [rgb[0], rgb[1], rgb[2], has_color | width]
+    }
 }
 
 impl From<Vec<Vec3>> for HairStrand {
     fn from(points: Vec<Vec3>) -> Self {
-        Self { points }
+        Self::new(points)
     }
 }
 
@@ -100,6 +164,10 @@ pub struct HairStrands {
     pub strands: Vec<HairStrand>,
 }
 
+/// Cells along the longest side of the strands' bounds in the density grid
+/// [`HairStrands::burial`] is measured on.
+const BURIAL_CELLS: u32 = 48;
+
 impl HairStrands {
     /// Creates an empty set of strands.
     pub const fn new() -> Self {
@@ -128,6 +196,18 @@ impl HairStrands {
         self.strands.iter().map(|s| s.points.len()).sum()
     }
 
+    /// Whether any strand sets a colour or width of its own, in which case
+    /// the mesh carries [`ATTRIBUTE_HAIR_STRAND`].
+    pub fn has_strand_attributes(&self) -> bool {
+        self.strands.iter().any(HairStrand::has_attributes)
+    }
+
+    /// The widest strand's width multiplier ([`HairStrand::width`]), at least
+    /// `1.0`; the bounds are padded by it.
+    pub fn max_width(&self) -> f32 {
+        self.strands.iter().map(|s| s.width).fold(1.0, f32::max)
+    }
+
     /// Iterator over the strands that can actually be rendered (at least two points).
     fn renderable(&self) -> impl Iterator<Item = &HairStrand> {
         self.strands.iter().filter(|s| s.points.len() >= 2)
@@ -153,6 +233,67 @@ impl HairStrands {
         })
     }
 
+    /// How buried each control point of the renderable strands is in the hair
+    /// mass, in strand order: `0` at the surface, `255` deep inside.
+    ///
+    /// The points are counted into a grid of [`BURIAL_CELLS`] cells along the
+    /// longest side of their bounds, each point's density is the count in the
+    /// three-by-three-by-three cells around it, and the densities are scaled
+    /// so their 95th percentile is `255`. Relative, so a sparse hairstyle and
+    /// a dense one both go from light at the surface to dark inside. The
+    /// material's `volume_occlusion` says how dark.
+    pub fn burial(&self) -> Vec<u8> {
+        let Some(bounds) = self.aabb(0.0) else {
+            return Vec::new();
+        };
+        let min = Vec3::from(bounds.min());
+        let size = Vec3::from(bounds.max()) - min;
+        let cell = (size.max_element() / BURIAL_CELLS as f32).max(1e-6);
+        let dims =
+            ((size / cell).floor().as_uvec3() + UVec3::ONE).min(UVec3::splat(BURIAL_CELLS + 1));
+        let cell_index = |point: Vec3| -> usize {
+            let c = ((point - min) / cell)
+                .floor()
+                .as_uvec3()
+                .min(dims - UVec3::ONE);
+            ((c.z * dims.y + c.y) * dims.x + c.x) as usize
+        };
+        let mut counts = vec![0u32; (dims.x * dims.y * dims.z) as usize];
+        for point in self.renderable().flat_map(|s| s.points.iter()) {
+            counts[cell_index(*point)] += 1;
+        }
+        // Each cell's density is the count in it and its neighbours.
+        let mut density = vec![0u32; counts.len()];
+        for z in 0..dims.z {
+            for y in 0..dims.y {
+                for x in 0..dims.x {
+                    let mut sum = 0;
+                    for dz in z.saturating_sub(1)..(z + 2).min(dims.z) {
+                        for dy in y.saturating_sub(1)..(y + 2).min(dims.y) {
+                            for dx in x.saturating_sub(1)..(x + 2).min(dims.x) {
+                                sum += counts[((dz * dims.y + dy) * dims.x + dx) as usize];
+                            }
+                        }
+                    }
+                    density[((z * dims.y + y) * dims.x + x) as usize] = sum;
+                }
+            }
+        }
+        let mut per_point: Vec<u32> = self
+            .renderable()
+            .flat_map(|s| s.points.iter())
+            .map(|point| density[cell_index(*point)])
+            .collect();
+        let mut sorted = per_point.clone();
+        let at = (sorted.len() - 1) * 95 / 100;
+        let reference = *sorted.select_nth_unstable(at).1;
+        let reference = reference.max(1) as f32;
+        for value in &mut per_point {
+            *value = pack_unorm8(*value as f32 / reference) as u32;
+        }
+        per_point.into_iter().map(|v| v as u8).collect()
+    }
+
     /// Builds the ribbon [`Mesh`] for these strands.
     ///
     /// Every control point produces two vertices (one for each edge of the
@@ -161,8 +302,10 @@ impl HairStrands {
     /// segment between consecutive control points becomes two triangles.
     ///
     /// The mesh carries [`Mesh::ATTRIBUTE_POSITION`], [`ATTRIBUTE_HAIR_TANGENT`]
-    /// and [`ATTRIBUTE_HAIR_PARAMS`] (20 bytes a vertex), and is intended to be
-    /// drawn with [`HairMaterial`](crate::HairMaterial).
+    /// and [`ATTRIBUTE_HAIR_PARAMS`] (20 bytes a vertex), plus
+    /// [`ATTRIBUTE_HAIR_STRAND`] when some strand has its own colour or width
+    /// (4 more), and is intended to be drawn with
+    /// [`HairMaterial`](crate::HairMaterial).
     ///
     /// The mesh is for the render world only: once uploaded, its data is not
     /// kept in [`Assets<Mesh>`], since the strands themselves are the source
@@ -171,16 +314,22 @@ impl HairStrands {
     pub fn to_mesh(&self) -> Mesh {
         let point_count: usize = self.renderable().map(|s| s.points.len()).sum();
         let vertex_count = point_count * 2;
+        let with_attributes = self.has_strand_attributes();
 
         let mut positions: Vec<[f32; 3]> = Vec::with_capacity(vertex_count);
         let mut tangents: Vec<[i8; 4]> = Vec::with_capacity(vertex_count);
         let mut params: Vec<[u8; 4]> = Vec::with_capacity(vertex_count);
+        let mut attributes: Vec<[u8; 4]> =
+            Vec::with_capacity(if with_attributes { vertex_count } else { 0 });
         let mut indices: Vec<u32> = Vec::with_capacity(point_count.saturating_sub(1) * 6);
+        let burial = self.burial();
+        let mut buried = burial.iter().copied();
 
         for (strand_index, strand) in self.renderable().enumerate() {
             let points = &strand.points;
             let seed = pack_unorm8(strand_seed(strand_index));
             let total_length = strand.length();
+            let strand_attributes = strand.packed_attributes();
 
             let base = positions.len() as u32;
             let mut arc_length = 0.0;
@@ -203,12 +352,16 @@ impl HairStrands {
                     i as f32 / (points.len() - 1) as f32
                 };
                 let t = pack_unorm8(t);
+                let depth = buried.next().unwrap_or(0);
 
                 let position = point.to_array();
                 for side in [0, 255] {
                     positions.push(position);
                     tangents.push(tangent);
-                    params.push([side, t, seed, 0]);
+                    params.push([side, t, seed, depth]);
+                    if with_attributes {
+                        attributes.push(strand_attributes);
+                    }
                 }
             }
 
@@ -221,7 +374,7 @@ impl HairStrands {
             }
         }
 
-        Mesh::new(
+        let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::RENDER_WORLD,
         )
@@ -234,7 +387,14 @@ impl HairStrands {
             ATTRIBUTE_HAIR_PARAMS,
             VertexAttributeValues::Unorm8x4(params),
         )
-        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_indices(Indices::U32(indices));
+        if with_attributes {
+            mesh.insert_attribute(
+                ATTRIBUTE_HAIR_STRAND,
+                VertexAttributeValues::Unorm8x4(attributes),
+            );
+        }
+        mesh
     }
 }
 
@@ -299,22 +459,22 @@ impl AsAssetId for HairStrands3d {
 
 /// How far the bounds of an entity reach beyond its control points: its
 /// [`HairStrandsBoundsPadding`] if it has one, else what its
-/// [`HairMaterial`] can widen a ribbon by, else
+/// [`HairMaterial`] can widen a ribbon by, times the widest strand, else
 /// [`HairStrandsBoundsPadding::DEFAULT`] while the material is not loaded.
 fn bounds_padding(
     padding: Option<&HairStrandsBoundsPadding>,
     material: Option<&MeshMaterial3d<HairMaterial>>,
     materials: &Assets<HairMaterial>,
+    strands: &HairStrands,
 ) -> f32 {
     if let Some(padding) = padding {
         return padding.0;
     }
     material
         .and_then(|material| materials.get(&material.0))
-        .map_or(
-            HairStrandsBoundsPadding::DEFAULT,
-            HairMaterial::bounds_padding,
-        )
+        .map_or(HairStrandsBoundsPadding::DEFAULT, |material| {
+            material.bounds_padding() * strands.max_width()
+        })
 }
 
 /// Rebuilds the ribbon mesh of every entity whose [`HairStrands3d`] component
@@ -357,7 +517,7 @@ pub fn update_hair_strand_meshes(
         }
 
         *aabb = hair
-            .aabb(bounds_padding(padding, material, &materials))
+            .aabb(bounds_padding(padding, material, &materials, hair))
             .unwrap_or_default();
     }
 }
@@ -384,7 +544,7 @@ pub fn update_hair_strand_bounds(
     for (hair, mut aabb, padding, material) in &mut query {
         if let Some(hair) = strands.get(&hair.0) {
             *aabb = hair
-                .aabb(bounds_padding(padding, material, &materials))
+                .aabb(bounds_padding(padding, material, &materials, hair))
                 .unwrap_or_default();
         }
     }
@@ -396,9 +556,9 @@ pub fn update_hair_strand_bounds(
 /// Ribbons are widened on the GPU, so the bounds computed from the control
 /// points alone would be slightly too small. Without this component the
 /// padding is taken from the entity's [`HairMaterial`]
-/// ([`HairMaterial::bounds_padding`]); set it yourself when that is not
-/// right, for instance on an entity whose transform is scaled (the ribbon
-/// width is in world units, the padding in local ones).
+/// ([`HairMaterial::bounds_padding`]) and the widest strand; set it yourself
+/// when that is not right, for instance on an entity whose transform is
+/// scaled (the ribbon width is in world units, the padding in local ones).
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct HairStrandsBoundsPadding(pub f32);
@@ -439,8 +599,10 @@ mod tests {
         assert!(indices.iter().all(|&i| i < 10));
         // Second strand starts at vertex 6.
         assert_eq!(&indices[12..18], &[6, 7, 8, 7, 9, 8]);
-        // Position, tangent and params: 12 + 4 + 4 bytes a vertex.
+        // Position, tangent and params: 12 + 4 + 4 bytes a vertex, and no
+        // strand attribute when no strand sets one.
         assert_eq!(mesh.get_vertex_size(), 20);
+        assert!(mesh.attribute(ATTRIBUTE_HAIR_STRAND).is_none());
         assert_eq!(mesh.asset_usage, RenderAssetUsages::RENDER_WORLD);
     }
 
@@ -457,8 +619,8 @@ mod tests {
             panic!("missing tangents");
         };
         // Sides alternate, t runs root->tip by arc length, seed is constant per strand.
-        assert_eq!(params[0], [0, 0, params[0][2], 0]);
-        assert_eq!(params[1], [255, 0, params[0][2], 0]);
+        assert_eq!(params[0][..3], [0, 0, params[0][2]]);
+        assert_eq!(params[1][..3], [255, 0, params[0][2]]);
         assert_eq!(params[2][1], 128);
         assert_eq!(params[5][1], 255);
         assert_eq!(params[5][2], params[0][2]);
@@ -481,6 +643,65 @@ mod tests {
         let seeds: Vec<u8> = (0..16).map(|i| pack_unorm8(strand_seed(i))).collect();
         let kept = seeds.iter().filter(|&&s| s < 128).count();
         assert!((6..=10).contains(&kept), "{seeds:?}");
+    }
+
+    #[test]
+    fn strand_attributes() {
+        let plain = HairStrand::new([Vec3::ZERO, Vec3::Y]);
+        assert!(!plain.has_attributes());
+        assert_eq!(plain.packed_attributes(), [255, 255, 255, 64]);
+        let grey = HairStrand::new([Vec3::ZERO, Vec3::Y])
+            .with_color(Color::srgb(0.5, 0.5, 0.5))
+            .with_width(1.5);
+        assert!(grey.has_attributes());
+        assert_eq!(grey.packed_attributes(), [128, 128, 128, 0x80 | 95]);
+        let strands = HairStrands::from_iter([plain, grey]);
+        assert!(strands.has_strand_attributes());
+        assert_eq!(strands.max_width(), 1.5);
+        let mesh = strands.to_mesh();
+        assert_eq!(mesh.get_vertex_size(), 24);
+        let Some(VertexAttributeValues::Unorm8x4(values)) = mesh.attribute(ATTRIBUTE_HAIR_STRAND)
+        else {
+            panic!("missing strand attribute");
+        };
+        assert_eq!(values[0], [255, 255, 255, 64]);
+        assert_eq!(values[7], [128, 128, 128, 0x80 | 95]);
+    }
+
+    #[test]
+    fn burial_is_deeper_inside_the_mass() {
+        // A dense bundle of vertical strands, and one lone strand far to the side.
+        let mut strands = HairStrands::new();
+        for i in 0..10 {
+            for j in 0..10 {
+                let x = i as f32 * 0.01;
+                let z = j as f32 * 0.01;
+                strands.push(HairStrand::new(
+                    (0..10)
+                        .map(|k| Vec3::new(x, k as f32 * 0.01, z))
+                        .collect::<Vec<_>>(),
+                ));
+            }
+        }
+        strands.push(HairStrand::new([
+            Vec3::new(1.0, 0.0, 1.0),
+            Vec3::new(1.0, 0.1, 1.0),
+        ]));
+        let burial = strands.burial();
+        assert_eq!(burial.len(), strands.point_count());
+        // The centre of the bundle is buried; its corner less so; the lone
+        // strand not at all.
+        let centre = burial[(5 * 10 + 5) * 10 + 5];
+        let corner = burial[0];
+        let lone = burial[burial.len() - 1];
+        assert!(centre > corner, "{centre} > {corner}");
+        assert!(corner > lone, "{corner} > {lone}");
+        assert!(lone < 16, "{lone}");
+        assert!(centre >= 200, "{centre}");
+        // Empty and single-point cases do not panic.
+        assert!(HairStrands::new().burial().is_empty());
+        let one = HairStrands::from_iter([HairStrand::new([Vec3::ZERO, Vec3::ZERO])]);
+        assert_eq!(one.burial().len(), 2);
     }
 
     #[test]
@@ -516,6 +737,7 @@ mod tests {
     #[test]
     fn padding_comes_from_the_material() {
         let mut materials = Assets::<HairMaterial>::default();
+        let strands = two_strands();
         let wide = HairMaterial {
             root_width: 0.02,
             tip_width: 0.01,
@@ -529,20 +751,30 @@ mod tests {
         };
         assert_eq!(thinned.bounds_padding(), 0.01 / MIN_KEEP_FRACTION);
         let handle = MeshMaterial3d(materials.add(wide));
-        assert_eq!(bounds_padding(None, Some(&handle), &materials), 0.01);
+        assert_eq!(
+            bounds_padding(None, Some(&handle), &materials, &strands),
+            0.01
+        );
+        // A wider strand widens the padding.
+        let mut wider = strands.clone();
+        wider.strands[0].width = 2.0;
+        assert_eq!(
+            bounds_padding(None, Some(&handle), &materials, &wider),
+            0.02
+        );
         // An explicit component wins; no material at all falls back.
         let explicit = HairStrandsBoundsPadding(0.3);
         assert_eq!(
-            bounds_padding(Some(&explicit), Some(&handle), &materials),
+            bounds_padding(Some(&explicit), Some(&handle), &materials, &strands),
             0.3
         );
         assert_eq!(
-            bounds_padding(None, None, &materials),
+            bounds_padding(None, None, &materials, &strands),
             HairStrandsBoundsPadding::DEFAULT
         );
         let unloaded = MeshMaterial3d(Handle::<HairMaterial>::default());
         assert_eq!(
-            bounds_padding(None, Some(&unloaded), &materials),
+            bounds_padding(None, Some(&unloaded), &materials, &strands),
             HairStrandsBoundsPadding::DEFAULT
         );
     }

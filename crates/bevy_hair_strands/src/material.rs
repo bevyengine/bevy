@@ -8,7 +8,7 @@ use bevy_render::render_resource::{
 };
 use bevy_shader::ShaderRef;
 
-use crate::{ATTRIBUTE_HAIR_PARAMS, ATTRIBUTE_HAIR_TANGENT};
+use crate::{ATTRIBUTE_HAIR_PARAMS, ATTRIBUTE_HAIR_STRAND, ATTRIBUTE_HAIR_TANGENT};
 
 fn shader_ref(path: std::path::PathBuf) -> ShaderRef {
     ShaderRef::Path(AssetPath::from_path_buf(path).with_source("embedded"))
@@ -23,8 +23,17 @@ fn shader_ref(path: std::path::PathBuf) -> ShaderRef {
 /// contributes, and shadows, fog and tonemapping behave like `StandardMaterial`.
 ///
 /// Ribbons are widened in the vertex shader between [`root_width`](Self::root_width)
-/// and [`tip_width`](Self::tip_width) and always face the camera. The material is
-/// opaque and double-sided.
+/// and [`tip_width`](Self::tip_width) and always face the camera. A ribbon
+/// thinner than a pixel is drawn a pixel wide and its true width carried as
+/// coverage, which alpha-to-coverage turns into samples under multisampling
+/// and an ordered dither into a keep-or-discard without it, so fine strands
+/// neither shimmer nor vanish. The material is opaque and double-sided.
+///
+/// Indirect light comes from wherever `StandardMaterial` takes it: the ambient
+/// colour, an environment map, an irradiance volume and screen-space ambient
+/// occlusion. Deep in the hair mass less light gets in
+/// ([`volume_occlusion`](Self::volume_occlusion)), baked per point from the
+/// density of strands around it when the mesh is built.
 ///
 /// Far away, where a strand would be thinner than
 /// [`min_pixel_width`](Self::min_pixel_width), only a fraction of the strands
@@ -68,6 +77,11 @@ pub struct HairMaterial {
     /// to cover for the rest. Never fewer than [`MIN_KEEP_FRACTION`] of them
     /// are kept. `0.0` draws every strand at every distance.
     pub min_pixel_width: f32,
+    /// How much light the interior of the hair mass loses, `0.0` for none:
+    /// a point that is fully buried in strands is darkened by this fraction,
+    /// one at the surface not at all. Applies to every light, direct and
+    /// indirect, as the crate's stand-in for hair shadowing hair.
+    pub volume_occlusion: f32,
 }
 
 /// The smallest fraction of an entity's strands that level of detail keeps,
@@ -106,6 +120,7 @@ impl Default for HairMaterial {
             root_occlusion: 0.35,
             color_variation: 0.15,
             min_pixel_width: 1.0,
+            volume_occlusion: 0.5,
         }
     }
 }
@@ -138,6 +153,8 @@ pub struct HairMaterialUniform {
     pub color_variation: f32,
     /// [`HairMaterial::min_pixel_width`].
     pub min_pixel_width: f32,
+    /// [`HairMaterial::volume_occlusion`].
+    pub volume_occlusion: f32,
 }
 
 impl From<&HairMaterial> for HairMaterialUniform {
@@ -155,6 +172,7 @@ impl From<&HairMaterial> for HairMaterialUniform {
             root_occlusion: material.root_occlusion,
             color_variation: material.color_variation,
             min_pixel_width: material.min_pixel_width,
+            volume_occlusion: material.volume_occlusion,
         }
     }
 }
@@ -178,12 +196,35 @@ impl Material for HairMaterial {
         layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        let vertex_layout = layout.0.get_layout(&[
+        let mut attributes = vec![
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             ATTRIBUTE_HAIR_TANGENT.at_shader_location(1),
             ATTRIBUTE_HAIR_PARAMS.at_shader_location(2),
-        ])?;
+        ];
+        // Strands with their own colour or width carry a fourth attribute;
+        // the shaders read it only when told it is there.
+        if layout.0.contains(ATTRIBUTE_HAIR_STRAND) {
+            attributes.push(ATTRIBUTE_HAIR_STRAND.at_shader_location(3));
+            descriptor
+                .vertex
+                .shader_defs
+                .push("HAIR_STRAND_ATTRIBUTES".into());
+            if let Some(fragment) = descriptor.fragment.as_mut() {
+                fragment.shader_defs.push("HAIR_STRAND_ATTRIBUTES".into());
+            }
+        }
+        let vertex_layout = layout.0.get_layout(&attributes)?;
         descriptor.vertex.buffers = vec![vertex_layout];
+        // In the main pass under multisampling, the coverage of a ribbon
+        // thinner than a pixel goes out as alpha and becomes samples. The
+        // prepass and shadow passes draw the true width and have no alpha.
+        let prepass = descriptor
+            .label
+            .as_deref()
+            .is_some_and(|label| label.starts_with("prepass"));
+        if !prepass && descriptor.multisample.count > 1 {
+            descriptor.multisample.alpha_to_coverage_enabled = true;
+        }
         // Ribbons are flat and always face the camera, so backface culling
         // would only ever remove geometry we want to keep.
         descriptor.primitive.cull_mode = None;

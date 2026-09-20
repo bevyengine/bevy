@@ -6,6 +6,9 @@
 // is used unchanged.
 
 import package::hair_functions::{HairVertex, decode_params, strand_width_scale, expand_ribbon};
+
+@if(HAIR_STRAND_ATTRIBUTES)
+import package::hair_functions::decode_strand_width;
 import bevy_pbr::{
     prepass::io::VertexOutput,
     render::{
@@ -20,7 +23,9 @@ fn vertex(vertex: HairVertex) -> VertexOutput {
     let params = decode_params(vertex.params);
     // Level of detail is decided once, from this frame's transform, so the
     // previous position below expands the same strands to the same width.
-    let width_scale = strand_width_scale(world_from_local, params.z);
+    var width_scale = strand_width_scale(world_from_local, params.z);
+@if(HAIR_STRAND_ATTRIBUTES)
+    width_scale = width_scale * decode_strand_width(vertex.strand);
     let ribbon = expand_ribbon(
         world_from_local,
         vertex.position,
@@ -28,6 +33,9 @@ fn vertex(vertex: HairVertex) -> VertexOutput {
         params.x,
         params.y,
         width_scale,
+        // The true width: the main pass alone widens thin ribbons, and its
+        // depth test lets it grow past what is written here.
+        0.0,
     );
 
     var out: VertexOutput;
@@ -53,6 +61,9 @@ fn vertex(vertex: HairVertex) -> VertexOutput {
         params.x,
         params.y,
         width_scale,
+        // The true width: the main pass alone widens thin ribbons, and its
+        // depth test lets it grow past what is written here.
+        0.0,
     );
     out.previous_world_position = previous_ribbon.world_position;
 }
