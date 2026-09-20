@@ -1246,6 +1246,11 @@ impl ScheduleGraph {
         }
     }
 
+    /// tells you if a dependency is weak
+    pub fn dependency_is_weak(&self, lhs: NodeId, rhs: NodeId) -> bool {
+        self.weak_node_edges.contains(&(lhs, rhs))
+    }
+
     /// Initializes any newly-added systems and conditions by calling
     /// [`System::initialize`](crate::system::System).
     pub fn initialize(&mut self, world: &mut World) {

@@ -48,6 +48,45 @@ impl AppData {
     }
 }
 
+/// Dependency Kind
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum DependencyKind {
+    /// Weak dependency
+    Weak,
+    /// Strict depedency
+    Strict,
+    /// Added during a build pass
+    BuildPass,
+}
+
+/// f
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct DependencyData {
+    kind: DependencyKind,
+}
+
+impl DependencyData {
+    /// from is_weak
+    pub fn from_is_weak(is_weak: bool) -> Self {
+        if is_weak {
+            DependencyData {
+                kind: DependencyKind::Weak,
+            }
+        } else {
+            DependencyData {
+                kind: DependencyKind::Strict,
+            }
+        }
+    }
+
+    /// from build pass
+    pub fn from_build_pass() -> Self {
+        DependencyData {
+            kind: DependencyKind::BuildPass,
+        }
+    }
+}
+
 /// Data about a particular schedule.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ScheduleData {
@@ -64,7 +103,7 @@ pub struct ScheduleData {
     /// A list of ordering constraints, ensuring that one system/system set runs before another.
     ///
     /// The order is (first, second).
-    pub dependency: Vec<(ScheduleIndex, ScheduleIndex)>,
+    pub dependency: Vec<(ScheduleIndex, ScheduleIndex, DependencyData)>,
     /// The components that these systems access.
     pub components: Vec<ComponentData>,
     /// A list of conflicts between systems.
@@ -408,7 +447,13 @@ impl ScheduleData {
             .dependency()
             .graph()
             .all_edges()
-            .map(|(a, b)| (node_id_to_schedule_index(a), node_id_to_schedule_index(b)))
+            .map(|(a, b)| {
+                (
+                    node_id_to_schedule_index(a),
+                    node_id_to_schedule_index(b),
+                    DependencyData::from_is_weak(graph.dependency_is_weak(a, b)),
+                )
+            })
             .collect::<Vec<_>>();
 
         if let Some(build_metadata) = build_metadata {
@@ -421,6 +466,7 @@ impl ScheduleData {
                         (
                             node_id_to_schedule_index(NodeId::System(*a)),
                             node_id_to_schedule_index(NodeId::System(*b)),
+                            DependencyData::from_build_pass(),
                         )
                     }),
             );
@@ -489,9 +535,9 @@ pub mod tests {
     use bevy_platform::collections::HashMap;
 
     use crate::schedule_data::serde::{
-        AccessConflict, AccessData, AccessFiltersData, AppData, ComponentData, ExtractAppDataError,
-        FilteredAccessData, ScheduleData, ScheduleIndex, SystemConflict, SystemData, SystemSetData,
-        SystemSetIndex,
+        AccessConflict, AccessData, AccessFiltersData, AppData, ComponentData, DependencyData,
+        ExtractAppDataError, FilteredAccessData, ScheduleData, ScheduleIndex, SystemConflict,
+        SystemData, SystemSetData, SystemSetIndex,
     };
 
     fn app_data_from_app(app: &mut App) -> Result<AppData, ExtractAppDataError> {
@@ -643,7 +689,7 @@ pub mod tests {
             schedule.hierarchy.sort();
 
             // Reindex the dependencies, and sort it.
-            for (parent, child) in schedule.dependency.iter_mut() {
+            for (parent, child, _kind) in schedule.dependency.iter_mut() {
                 reindex_schedule_index(parent);
                 reindex_schedule_index(child);
             }
@@ -861,8 +907,16 @@ pub mod tests {
         assert_eq!(
             update.dependency,
             [
-                (ScheduleIndex::System(0), ScheduleIndex::System(1)),
-                (ScheduleIndex::System(1), ScheduleIndex::System(2)),
+                (
+                    ScheduleIndex::System(0),
+                    ScheduleIndex::System(1),
+                    DependencyData::from_is_weak(false)
+                ),
+                (
+                    ScheduleIndex::System(1),
+                    ScheduleIndex::System(2),
+                    DependencyData::from_is_weak(false)
+                ),
             ]
         );
         assert_eq!(update.components.len(), 0);
@@ -895,8 +949,16 @@ pub mod tests {
         assert_eq!(
             update.dependency,
             [
-                (ScheduleIndex::SystemSet(0), ScheduleIndex::SystemSet(1)),
-                (ScheduleIndex::SystemSet(1), ScheduleIndex::SystemSet(2)),
+                (
+                    ScheduleIndex::SystemSet(0),
+                    ScheduleIndex::SystemSet(1),
+                    DependencyData::from_is_weak(false)
+                ),
+                (
+                    ScheduleIndex::SystemSet(1),
+                    ScheduleIndex::SystemSet(2),
+                    DependencyData::from_is_weak(false)
+                ),
             ]
         );
         assert_eq!(update.components.len(), 0);
@@ -1031,17 +1093,53 @@ pub mod tests {
             update.dependency,
             [
                 // a->sync and a->b
-                (ScheduleIndex::System(0), ScheduleIndex::System(2)),
-                (ScheduleIndex::System(0), ScheduleIndex::System(3)),
-                (ScheduleIndex::System(0), ScheduleIndex::System(4)),
-                (ScheduleIndex::System(1), ScheduleIndex::System(2)),
-                (ScheduleIndex::System(1), ScheduleIndex::System(3)),
-                (ScheduleIndex::System(1), ScheduleIndex::System(4)),
+                (
+                    ScheduleIndex::System(0),
+                    ScheduleIndex::System(2),
+                    DependencyData::from_build_pass()
+                ),
+                (
+                    ScheduleIndex::System(0),
+                    ScheduleIndex::System(3),
+                    DependencyData::from_is_weak(false)
+                ),
+                (
+                    ScheduleIndex::System(0),
+                    ScheduleIndex::System(4),
+                    DependencyData::from_is_weak(false)
+                ),
+                (
+                    ScheduleIndex::System(1),
+                    ScheduleIndex::System(2),
+                    DependencyData::from_build_pass()
+                ),
+                (
+                    ScheduleIndex::System(1),
+                    ScheduleIndex::System(3),
+                    DependencyData::from_is_weak(false)
+                ),
+                (
+                    ScheduleIndex::System(1),
+                    ScheduleIndex::System(4),
+                    DependencyData::from_is_weak(false)
+                ),
                 // sync->b
-                (ScheduleIndex::System(2), ScheduleIndex::System(3)),
-                (ScheduleIndex::System(2), ScheduleIndex::System(4)),
+                (
+                    ScheduleIndex::System(2),
+                    ScheduleIndex::System(3),
+                    DependencyData::from_build_pass()
+                ),
+                (
+                    ScheduleIndex::System(2),
+                    ScheduleIndex::System(4),
+                    DependencyData::from_build_pass()
+                ),
                 // c0->c1
-                (ScheduleIndex::System(5), ScheduleIndex::System(6)),
+                (
+                    ScheduleIndex::System(5),
+                    ScheduleIndex::System(6),
+                    DependencyData::from_is_weak(false)
+                ),
             ]
         );
         assert_eq!(update.components.len(), 0);
@@ -1163,7 +1261,11 @@ pub mod tests {
             update.dependency,
             [
                 // e0 -> e1
-                (ScheduleIndex::System(8), ScheduleIndex::System(9)),
+                (
+                    ScheduleIndex::System(8),
+                    ScheduleIndex::System(9),
+                    DependencyData::from_is_weak(false)
+                ),
             ]
         );
         assert_eq!(
