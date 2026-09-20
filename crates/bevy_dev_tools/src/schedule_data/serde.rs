@@ -53,7 +53,7 @@ impl AppData {
 pub enum DependencyKind {
     /// Weak dependency.
     Weak,
-    /// Strict depedency.
+    /// Strict dependency.
     Strict,
     /// Added during a build pass (always strict).
     BuildPass,

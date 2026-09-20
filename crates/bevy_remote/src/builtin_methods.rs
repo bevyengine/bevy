@@ -2207,7 +2207,7 @@ mod tests {
         cache_schedule_build_metadata,
         schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind},
     };
-    use bevy_dev_tools::schedule_data::serde::ScheduleIndex;
+    use bevy_dev_tools::schedule_data::serde::{DependencyData, ScheduleIndex};
     use bevy_ecs::{
         component::Component,
         event::Event,
@@ -2632,19 +2632,23 @@ mod tests {
         let f1_index = system_index(&response, "f1").unwrap();
         let f2_index = system_index(&response, "f2").unwrap();
         let apply_deferred_index = system_index(&response, "apply_deferred").unwrap();
+        let strict = DependencyData::from_is_weak(false);
+        let build_pass = DependencyData::from_build_pass();
         assert_eq!(response.schedule_data.dependency.len(), 3);
         assert!(response
             .schedule_data
             .dependency
-            .contains(&(f1_index, f2_index)));
-        assert!(response
-            .schedule_data
-            .dependency
-            .contains(&(f1_index, apply_deferred_index)));
-        assert!(response
-            .schedule_data
-            .dependency
-            .contains(&(apply_deferred_index, f2_index)));
+            .contains(&(f1_index, f2_index, strict)));
+        assert!(response.schedule_data.dependency.contains(&(
+            f1_index,
+            apply_deferred_index,
+            build_pass
+        )));
+        assert!(response.schedule_data.dependency.contains(&(
+            apply_deferred_index,
+            f2_index,
+            build_pass
+        )));
     }
 
     #[test]
