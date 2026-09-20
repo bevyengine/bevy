@@ -32,7 +32,7 @@ use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     MaterialProperties,
 };
-use bevy_math::{ops, proj, Mat3, Mat4, Quat, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{ops, proj, Dir3, Mat3, Mat4, Quat, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
@@ -84,7 +84,9 @@ pub struct ExtractedPointLight {
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
-    pub transform: GlobalTransform,
+    pub position: Vec3,
+    /// The direction of emission for spot lights. Unused for point lights.
+    pub direction: Dir3,
     pub shadow_maps_enabled: bool,
     pub contact_shadows_enabled: bool,
     pub shadow_depth_bias: f32,
@@ -141,7 +143,7 @@ impl ExtractedRectLight {
 pub struct ExtractedDirectionalLight {
     pub color: LinearRgba,
     pub illuminance: f32,
-    pub transform: GlobalTransform,
+    pub dir_to_light: Dir3,
     pub shadow_maps_enabled: bool,
     pub contact_shadows_enabled: bool,
     pub volumetric: bool,
@@ -603,7 +605,8 @@ pub fn extract_lights(
             intensity: point_light.intensity / (4.0 * core::f32::consts::PI),
             range: point_light.range,
             radius: point_light.radius,
-            transform: *transform,
+            position: transform.translation(),
+            direction: Dir3::NEG_Z,
             shadow_maps_enabled: point_light.shadow_maps_enabled,
             contact_shadows_enabled: point_light.contact_shadows_enabled,
             shadow_depth_bias: point_light.shadow_depth_bias,
@@ -742,7 +745,8 @@ pub fn extract_lights(
             intensity: spot_light.intensity / (4.0 * core::f32::consts::PI),
             range: spot_light.range,
             radius: spot_light.radius,
-            transform: *transform,
+            position: transform.translation(),
+            direction: transform.forward(),
             shadow_maps_enabled: spot_light.shadow_maps_enabled,
             contact_shadows_enabled: spot_light.contact_shadows_enabled,
             shadow_depth_bias: spot_light.shadow_depth_bias,
@@ -895,7 +899,7 @@ pub fn extract_lights(
         let extracted_directional_light = ExtractedDirectionalLight {
             color: directional_light.color.into(),
             illuminance: directional_light.illuminance,
-            transform: *transform,
+            dir_to_light: transform.back(),
             volumetric: volumetric_light.is_some(),
             affects_lightmapped_mesh_diffuse: directional_light.affects_lightmapped_mesh_diffuse,
             #[cfg(feature = "experimental_pbr_pcss")]
@@ -1361,7 +1365,7 @@ pub fn prepare_lights(
             Some((inner, outer)) => {
                 flags |= PointLightFlags::SPOT_LIGHT;
 
-                let light_direction = light.transform.forward();
+                let light_direction = light.direction;
                 if light_direction.y.is_sign_negative() {
                     flags |= PointLightFlags::SPOT_LIGHT_Y_NEGATIVE;
                 }
@@ -1400,7 +1404,7 @@ pub fn prepare_lights(
                 color_inverse_square_range: (light.color.to_vec4() * light.intensity)
                     .xyz()
                     .extend(1.0 / (light.range * light.range)),
-                position_radius: light.transform.translation().extend(light.radius),
+                position_radius: light.position.extend(light.radius),
                 flags: flags.bits(),
                 shadow_depth_bias: light.shadow_depth_bias,
                 shadow_normal_bias: light.shadow_normal_bias,
@@ -1840,7 +1844,7 @@ pub fn prepare_lights(
                 // we don't use the alpha at all, so no reason to multiply only [0..3]
                 color: Vec4::from_slice(&light.color.to_f32_array()) * light.illuminance,
                 // direction is negated to be ready for N.L
-                dir_to_light: light.transform.back().into(),
+                dir_to_light: light.dir_to_light.into(),
                 flags: flags.bits(),
                 soft_shadow_size: light.soft_shadow_size.unwrap_or_default(),
                 shadow_depth_bias: light.shadow_depth_bias,
@@ -2179,7 +2183,7 @@ fn create_point_shadow_maps(
     // ignore scale because we don't want to effectively scale light radius and range
     // by applying those as a view transform to shadow map rendering of objects
     // and ignore rotation because we want the shadow map projections to align with the axes
-    let view_translation = GlobalTransform::from_translation(light.transform.translation());
+    let view_translation = GlobalTransform::from_translation(light.position);
 
     let cube_face_projection = proj::perspective_infinite_reverse(
         core::f32::consts::FRAC_PI_2,
@@ -2288,7 +2292,7 @@ fn create_spot_shadow_map(
     directional_light_shadow_map_size: u32,
     gpu_preprocessing_support_max_supported_mode: GpuPreprocessingMode,
 ) {
-    let spot_world_from_view = spot_light_world_from_view(&light.transform);
+    let spot_world_from_view = spot_light_world_from_view(light.position, light.direction);
     let spot_world_from_view = spot_world_from_view.into();
 
     let angle = light.spot_light_angles.expect("lights should be sorted so that \
@@ -3190,6 +3194,73 @@ mod tests {
     use super::*;
     use bevy_extract::MainWorld;
     use bevy_math::Quat;
+
+    #[test]
+    fn extracted_lights_preserve_position_and_direction_without_scale() {
+        let mut render_world = World::new();
+        let point_entity = render_world.spawn_empty().id();
+        let spot_entity = render_world.spawn_empty().id();
+        let directional_entity = render_world.spawn_empty().id();
+        let mut main_world = MainWorld::default();
+        main_world.init_resource::<PointLightShadowMap>();
+        main_world.init_resource::<DirectionalLightShadowMap>();
+        let rotation = Quat::from_rotation_y(0.7) * Quat::from_rotation_x(0.3);
+        let transform = GlobalTransform::from(Transform {
+            translation: Vec3::new(2.0, 3.0, 4.0),
+            rotation,
+            scale: Vec3::new(0.0, 3.0, 5.0),
+        });
+        main_world.spawn((
+            PointLight::default(),
+            GlobalTransform::from(Transform {
+                scale: Vec3::ZERO,
+                translation: transform.translation(),
+                ..default()
+            }),
+            ViewVisibility::VISIBLE,
+            RenderEntity::from(point_entity),
+        ));
+        main_world.spawn((
+            SpotLight::default(),
+            transform,
+            ViewVisibility::VISIBLE,
+            RenderEntity::from(spot_entity),
+        ));
+        main_world.spawn((
+            DirectionalLight::default(),
+            transform,
+            ViewVisibility::VISIBLE,
+            RenderEntity::from(directional_entity),
+        ));
+        render_world.insert_resource(main_world);
+        let mut schedule = Schedule::default();
+        schedule.add_systems(extract_lights);
+        schedule.run(&mut render_world);
+
+        let point = render_world
+            .get::<ExtractedPointLight>(point_entity)
+            .unwrap();
+        assert_eq!(point.position, transform.translation());
+        assert!(point.spot_light_angles.is_none());
+        let spot = render_world
+            .get::<ExtractedPointLight>(spot_entity)
+            .unwrap();
+        assert_eq!(spot.position, transform.translation());
+        assert!(spot
+            .direction
+            .as_vec3()
+            .abs_diff_eq(rotation * Vec3::NEG_Z, 1e-5));
+        let shadow_transform = spot_light_world_from_view(spot.position, spot.direction);
+        assert!(Vec3::from(shadow_transform.matrix3.z_axis).abs_diff_eq(rotation * Vec3::Z, 1e-5));
+        assert_eq!(Vec3::from(shadow_transform.translation), spot.position);
+        let directional = render_world
+            .get::<ExtractedDirectionalLight>(directional_entity)
+            .unwrap();
+        assert!(directional
+            .dir_to_light
+            .as_vec3()
+            .abs_diff_eq(rotation * Vec3::Z, 1e-5));
+    }
 
     #[test]
     fn rect_light_extraction_removes_and_restores_degenerate_lights() {
