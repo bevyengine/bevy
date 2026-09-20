@@ -88,6 +88,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_input_focus|Enable input focus subsystem|
+|bevy_inspector|Entity inspector built on bevy_ui and bevy_feathers.|
 |bevy_light|Provides light types such as point lights, directional lights, spotlights.|
 |bevy_log|Enable integration with `tracing` and `log`|
 |bevy_material|Provides materials.|

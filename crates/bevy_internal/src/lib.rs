@@ -60,6 +60,8 @@ pub use bevy_image as image;
 pub use bevy_input as input;
 #[cfg(feature = "bevy_input_focus")]
 pub use bevy_input_focus as input_focus;
+#[cfg(feature = "bevy_inspector")]
+pub use bevy_inspector as inspector;
 #[cfg(feature = "bevy_light")]
 pub use bevy_light as light;
 #[cfg(feature = "bevy_log")]

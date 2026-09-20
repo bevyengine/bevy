@@ -432,6 +432,9 @@ bevy_settings = ["bevy_internal/bevy_settings"]
 # Feathers widget collection.
 bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
+# Entity inspector built on bevy_ui and bevy_feathers.
+bevy_inspector = ["bevy_internal/bevy_inspector", "bevy_feathers"]
+
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
@@ -4852,6 +4855,18 @@ name = "Infinite grid"
 description = "Demonstrates Bevy's infinite grid, suitable as a ground plane for editors"
 category = "Dev tools"
 wasm = true
+
+[[example]]
+name = "local_inspector"
+path = "examples/inspector/local_inspector.rs"
+doc-scrape-examples = true
+required-features = ["bevy_inspector"]
+
+[package.metadata.example.local_inspector]
+name = "Local Inspector"
+description = "Inspects the app's own world with the bevy_inspector entity tree panel"
+category = "Dev tools"
+wasm = false
 
 [[example]]
 name = "2d_top_down_camera"
