@@ -355,7 +355,7 @@ impl SystemLocation for (Interned<dyn ScheduleLabel>, Option<Interned<dyn System
     fn get_system_location(
         &self,
     ) -> (Interned<dyn ScheduleLabel>, Option<Interned<dyn SystemSet>>) {
-        self.clone()
+        *self
     }
 }
 
