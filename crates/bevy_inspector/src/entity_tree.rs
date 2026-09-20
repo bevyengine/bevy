@@ -432,7 +432,11 @@ fn entity_label(world: &World, entity: Entity) -> String {
             let priority = info
                 .type_id()
                 .and_then(|type_id| registry?.get_priority_by_type_id(type_id));
-            (component_id, info.name().shortname().to_string(), priority)
+            (
+                component_id,
+                crate::component_short_name(world, component_id),
+                priority,
+            )
         })
         .collect();
 
