@@ -407,9 +407,8 @@ impl Archetype {
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
             observers.update_archetype_flags(component_id, &mut flags);
-            if !component_ids.contains(&component_id) {
-                component_ids.push(component_id);
-            }
+            component_ids.push(component_id);
+
             // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
             // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
             // component in the `table_components` vector
@@ -424,9 +423,8 @@ impl Archetype {
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
             observers.update_archetype_flags(component_id, &mut flags);
-            if !component_ids.contains(&component_id) {
-                component_ids.push(component_id);
-            }
+            component_ids.push(component_id);
+
             component_index
                 .entry(component_id)
                 .or_default()

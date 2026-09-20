@@ -939,7 +939,7 @@ mod tests {
             .map(|(id, set)| (id, set.len()))
             .collect::<Vec<_>>();
         collected_sets.sort();
-        assert_eq!(collected_sets, vec![(id_1, 0), (id_2, 0),]);
+        assert_eq!(collected_sets, vec![(id_2, 0), (id_1, 0),]);
 
         fn register_component<T: Component>(sets: &mut SparseSets, id: ComponentId) {
             let descriptor = ComponentDescriptor::new::<T>();
