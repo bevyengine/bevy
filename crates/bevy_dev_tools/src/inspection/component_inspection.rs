@@ -24,19 +24,32 @@ use crate::inspection::{
 ///
 /// Pair this with [`ComponentTypeMetadata`] for full type information.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentInspection {
     /// The entity that owns the component.
     pub entity: Entity,
     /// The [`ComponentId`] of the component.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::component_id")
+    )]
     pub component_id: ComponentId,
     /// The type name of the component.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::debug_name")
+    )]
     pub name: DebugName,
     /// The shallow size of the component in memory, excluding heap allocations.
     pub memory_size: MemorySize,
     /// The value of the component as a string, gathered via reflection.
     pub value: Option<String>,
     /// The reflected value of the component.
+    #[cfg_attr(feature = "serialize", serde(skip))]
     pub reflected_value: Option<Box<dyn PartialReflect>>,
+    /// The value of the component as structured JSON, gathered via reflection.
+    #[cfg(feature = "serialize")]
+    pub serialized_value: Option<serde_json::Value>,
 }
 
 impl Clone for ComponentInspection {
@@ -53,6 +66,8 @@ impl Clone for ComponentInspection {
             memory_size: self.memory_size,
             value: self.value.clone(),
             reflected_value,
+            #[cfg(feature = "serialize")]
+            serialized_value: self.serialized_value.clone(),
         }
     }
 }
@@ -72,12 +87,22 @@ impl Display for ComponentInspection {
 ///
 /// For the value of a component on an entity, see [`ComponentInspection`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentTypeMetadata {
     /// The [`ComponentId`] of the component type.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::component_id")
+    )]
     pub component_id: ComponentId,
     /// The type name of the component.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::debug_name")
+    )]
     pub name: DebugName,
     /// The [`TypeId`] of the component type, or `None` for dynamic types.
+    #[cfg_attr(feature = "serialize", serde(skip))]
     pub type_id: Option<TypeId>,
     /// The minimum size in bytes of the component type, computed via [`core::alloc::Layout`].
     pub memory_size: MemorySize,
@@ -86,12 +111,21 @@ pub struct ComponentTypeMetadata {
     /// Whether the component type is mutable while in the ECS.
     pub mutable: bool,
     /// The storage type of this component.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::storage_type")
+    )]
     pub storage_type: StorageType,
     /// Whether the underlying component type can freely be shared across threads.
     pub is_send_and_sync: bool,
     /// The components that are automatically added alongside this component.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::slice_component_id")
+    )]
     pub required_components: Vec<ComponentId>,
     /// The registered type information of the component, if it is reflected and registered.
+    #[cfg_attr(feature = "serialize", serde(skip))]
     pub type_registration: Option<TypeRegistration>,
 }
 
@@ -146,6 +180,7 @@ impl Display for ComponentTypeMetadata {
 
 /// The result of inspecting a component type, rather than a component on an entity.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentTypeInspection {
     /// The number of entities that have a component of this type.
     pub entity_count: usize,
@@ -165,8 +200,15 @@ impl Display for ComponentTypeInspection {
 
 /// A cache of component type metadata, keyed by [`ComponentId`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentMetadataMap {
     /// The cached metadata.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(
+            with = "crate::inspection::serde_conversions::hash_map_component_id_component_type_metadata"
+        )
+    )]
     pub map: HashMap<ComponentId, ComponentTypeMetadata>,
 }
 
@@ -252,13 +294,26 @@ impl FromWorld for ComponentMetadataMap {
 
 /// An error that can occur when attempting to inspect a component.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum ComponentInspectionError {
     /// The component was not found on the entity.
-    ComponentNotFound(ComponentId),
+    ComponentNotFound(
+        #[cfg_attr(
+            feature = "serialize",
+            serde(with = "crate::inspection::serde_conversions::component_id")
+        )]
+        ComponentId,
+    ),
     /// The component type was not registered in the world.
     ComponentNotRegistered(&'static str),
     /// The component ID provided was not registered in the world.
-    ComponentIdNotRegistered(ComponentId),
+    ComponentIdNotRegistered(
+        #[cfg_attr(
+            feature = "serialize",
+            serde(with = "crate::inspection::serde_conversions::component_id")
+        )]
+        ComponentId,
+    ),
 }
 
 impl Display for ComponentInspectionError {
@@ -290,6 +345,9 @@ pub struct ComponentInspectionSettings {
     pub full_type_names: bool,
     /// Whether the reflected value should be stored in [`ComponentInspection`].
     pub store_reflected_value: bool,
+    /// Whether the structured JSON value should be stored in [`ComponentInspection`].
+    #[cfg(feature = "serialize")]
+    pub include_serialized_value: bool,
 }
 
 impl Default for ComponentInspectionSettings {
@@ -298,6 +356,8 @@ impl Default for ComponentInspectionSettings {
             detail_level: ComponentDetailLevel::Values,
             full_type_names: true,
             store_reflected_value: false,
+            #[cfg(feature = "serialize")]
+            include_serialized_value: false,
         }
     }
 }
