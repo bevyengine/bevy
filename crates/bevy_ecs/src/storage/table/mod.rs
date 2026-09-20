@@ -763,21 +763,10 @@ impl Tables {
         // - The caller ensures that all new columns will be written to immediately.
         let dst_row = unsafe { dst_table.allocate(src_table.entities.swap_remove(row.index())) };
 
-        let mut dst_iter = dst_table.columns.iter_mut().peekable();
-
         for (src_component_id, src_column) in src_table.columns.iter_mut() {
-            // Skip past any destination columns that don't exist in the source table.
-            // The caller is responsible for initializing those columns.
-            while dst_iter
-                .next_if(|(dst_component_id, _)| *dst_component_id < src_component_id)
-                .is_some()
-            {}
-
-            // Then move the value in the source column if it exists in the destination table,
+            // Move the value in the source column if it exists in the destination table,
             // or remove it if it does not.
-            if let Some((_, dst_column)) =
-                dst_iter.next_if(|(dst_component_id, _)| *dst_component_id == src_component_id)
-            {
+            if let Some(dst_column) = dst_table.columns.get_mut(src_component_id) {
                 // SAFETY:
                 // - `src_column` and `dst_column` correspond to the same `ComponentId`.
                 // - The caller ensures `row` is in-bounds for `src_column`.
@@ -805,9 +794,6 @@ impl Tables {
                 }
             }
         }
-
-        // Need to end the mutable borrow so we can return `dst_table`.
-        drop(dst_iter);
 
         TableMoveResult {
             new_table: dst_table,
