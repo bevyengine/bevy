@@ -1,13 +1,14 @@
-//! Shows the `bevy_inspector` entity tree panel inspecting the app's own world.
+//! Shows the `bevy_inspector` entity tree and details panels inspecting the app's own world.
 //!
 //! Run with the `bevy_inspector` feature enabled:
 //! ```bash
-//! cargo run --example local_inspector --features="bevy_inspector"
+//! cargo run --example local_inspector --features="bevy_inspector,debug"
 //! ```
 
 use bevy::{
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
     inspector::{
+        details_panel::details_panel,
         entity_tree::{entity_tree_panel, InspectorUi},
         InspectorPlugin, InspectorSelection,
     },
@@ -75,9 +76,14 @@ fn inspector_ui() -> impl Scene {
             left: px(12),
             top: px(12),
             bottom: px(12),
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Stretch,
+            column_gap: px(12),
         }
         Children [
             @entity_tree_panel()
+            --
+            @details_panel()
         ]
     }
 }
