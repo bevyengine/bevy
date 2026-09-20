@@ -19,14 +19,17 @@ use bevy_scene::{bsn, bsn_list, Scene, SceneComponent, SceneList};
 use bevy_text::{FontSize, FontWeight};
 use bevy_ui::{
     px, AlignItems, Display, Expandable, Expanded, FlexDirection, InteractionDisabled,
-    JustifyContent, Node, Outline, Selected, UiRect, UiSystems, UiTransform,
+    JustifyContent, Node, Outline, Overflow, PositionType, Selected, UiRect, UiSystems,
+    UiTransform,
 };
 use bevy_ui_widgets::{
-    MenuFocusSystem, SelectedTreeItem, TreeItem, TreeItemChildren, TreeItemToggle, TreeView,
+    ControlOrientation, MenuFocusSystem, ScrollArea, SelectedTreeItem, TreeItem, TreeItemChildren,
+    TreeItemToggle, TreeView,
 };
 
 use crate::{
     constants::{fonts, icons, size},
+    controls::{FeathersScrollbar, ScrollbarGutter},
     display::icon,
     font_styles::InheritableFont,
     theme::{InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, UiTheme},
@@ -71,18 +74,41 @@ impl FeathersTreeView {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Stretch,
                 justify_content: JustifyContent::Start,
-                padding: UiRect::all(px(2)),
+                padding: UiRect {
+                    top: px(2),
+                    bottom: px(2),
+                    left: px(2),
+                    right: px(14)
+                },
             }
+            ScrollbarGutter(px(14))
             TreeView
             SelectedTreeItem({props.selected})
-            InheritableThemeTextColor(tokens::LISTROW_TEXT)
-            InheritableFont {
-                font: fonts::REGULAR,
-                font_size: FontSize::Px(14.0),
-                weight: FontWeight::NORMAL,
-            }
             Children [
-                {props.rows}
+                #inner
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Stretch,
+                    justify_content: JustifyContent::Start,
+                    overflow: Overflow::scroll_y(),
+                }
+                ScrollArea
+                Children [
+                    {props.rows}
+                ]
+                --
+                @FeathersScrollbar {
+                    @target: #inner,
+                    @orientation: {ControlOrientation::Vertical}
+                }
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: px(4),
+                    top: px(0),
+                    bottom: px(0),
+                    width: px(6),
+                }
             ]
         }
     }
@@ -139,6 +165,11 @@ impl FeathersTreeItem {
                 Hovered
                 ThemeBackgroundColor(tokens::LISTROW_BG)
                 InheritableThemeTextColor(tokens::LISTROW_TEXT)
+                InheritableFont {
+                    font: fonts::REGULAR,
+                    font_size: FontSize::Px(14.0),
+                    weight: FontWeight::NORMAL,
+                }
                 Children [
                     FeathersTreeItemToggle
                     TreeItemToggle

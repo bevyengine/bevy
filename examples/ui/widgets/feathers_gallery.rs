@@ -1083,6 +1083,9 @@ fn demo_column_3() -> impl Scene {
                             DemoLazyBranch
                         }
                     }
+                    Node {
+                        max_height: px(110)
+                    }
                     on(tree_view_self_update)
                     on(tree_view_expand_self_update)
                     on(populate_demo_branch)
@@ -1112,7 +1115,8 @@ fn populate_demo_branch(
         return;
     };
     commands.entity(change.item).insert(DemoPopulated);
-    for name in ["Mesh", "Material"] {
+    for index in 1..=12 {
+        let name = format!("Asset {index}");
         commands
             .spawn_scene(bsn! {
                 @FeathersTreeItem {
