@@ -7,6 +7,9 @@ use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
 
+/// Padding in pixels between glyph textures and the font atlas edges.
+const GLYPH_ATLAS_PADDING: u32 = 2;
+
 /// Key identifying a glyph
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GlyphCacheKey {
@@ -59,7 +62,10 @@ impl FontAtlas {
         Self {
             texture_atlas: TextureAtlasLayout::new_empty(size),
             glyph_to_atlas_index: HashMap::default(),
-            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 2),
+            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(
+                size,
+                GLYPH_ATLAS_PADDING,
+            ),
             texture,
         }
     }
@@ -157,8 +163,12 @@ pub fn add_glyph_to_atlas(
             .size
             .height
             .max(glyph_texture.width());
-        // Pick the higher of 512 or the smallest power of 2 greater than glyph_max_size
-        let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512);
+        // Returns the smallest power-of-two atlas size that fits the glyph and its
+        // required padding, with a minimum size of 512 pixels.
+        let containing = glyph_max_size
+            .saturating_add(GLYPH_ATLAS_PADDING * 2)
+            .next_power_of_two()
+            .max(512);
 
         let mut new_atlas = FontAtlas::new(textures, UVec2::splat(containing), font_smoothing);
 
@@ -264,4 +274,45 @@ pub fn get_glyph_atlas_info(
                 is_alpha_mask: location.is_alpha_mask,
             })
     })
+}
+
+#[cfg(test)]
+mod allocation_regression_tests {
+    use super::*;
+    use swash::{scale::ScaleContext, FontRef};
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/25224.
+    // Atlas sizing must account for the padding used when constructing the atlas.
+    #[test]
+    fn new_atlas_fits_boundary_sized_glyph_with_padding() {
+        let font =
+            FontRef::from_index(include_bytes!("FiraMono-subset.ttf"), 0).expect("valid test font");
+        let glyph_id = font.charmap().map('M');
+        let mut scale_context = ScaleContext::new();
+        let mut measurement_scaler = scale_context.builder(font).size(1479.0).build();
+        let (glyph_texture, _, _) = get_outlined_glyph_texture(
+            &mut measurement_scaler,
+            glyph_id,
+            FontSmoothing::AntiAliased,
+        )
+        .expect("glyph should rasterize");
+        assert_eq!(
+            glyph_texture.width().max(glyph_texture.height()),
+            1021,
+            "test font no longer reproduces the atlas boundary"
+        );
+
+        let mut scaler = scale_context.builder(font).size(1479.0).build();
+        let mut font_atlases = Vec::new();
+        let mut textures = Assets::default();
+
+        add_glyph_to_atlas(
+            &mut font_atlases,
+            &mut textures,
+            &mut scaler,
+            FontSmoothing::AntiAliased,
+            glyph_id,
+        )
+        .expect("a newly created atlas should fit the glyph that requested it");
+    }
 }

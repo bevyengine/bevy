@@ -1,8 +1,8 @@
 use bevy_camera::ManualTextureViewHandle;
 use bevy_ecs::resource::Resource;
+use bevy_extract_macros::ExtractResource;
 use bevy_math::UVec2;
 use bevy_platform::collections::HashMap;
-use bevy_render_macros::ExtractResource;
 use wgpu::TextureFormat;
 
 use crate::{render_resource::TextureView, RenderApp};

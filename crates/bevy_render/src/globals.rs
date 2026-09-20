@@ -15,7 +15,7 @@ pub struct GlobalsPlugin;
 
 impl Plugin for GlobalsPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "globals.wgsl");
+        load_shader_library!(app, "globals.wesl");
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_gpu_resource::<GlobalsBuffer>()

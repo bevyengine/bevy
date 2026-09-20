@@ -22,7 +22,7 @@ pub fn number_input_f32<T>(
     number_input_identifier: Option<T>,
     value: f32,
     precision: NumberInputPrecision,
-    limits: core::ops::Range<f32>,
+    limits: core::ops::RangeInclusive<f32>,
 ) -> Box<dyn Scene>
 where
     T: Template<Output: Component> + Send + Sync + Unpin + 'static,
@@ -39,17 +39,19 @@ where
                     width: px(150),
                 }
                 Children [
-                    label(name)
-                ],
-
+                    @label(name)
+                ]
+                --
+                identifier
+                @FeathersNumberInput
+                NumberInputValue::F32(value)
+                precision
+                HardLimit::f32(limits)
                 Node {
                     align_items: AlignItems::Center,
+                    flex_grow: 1.0,
+                    min_width: px(50),
                 }
-                template_value(identifier)
-                @FeathersNumberInput
-                template_value(NumberInputValue::F32(value))
-                template_value(precision)
-                HardLimit::f32(limits)
             ]
         })
     } else {
@@ -64,16 +66,18 @@ where
                     width: px(150),
                 }
                 Children [
-                    label(name)
-                ],
-
+                    @label(name)
+                ]
+                --
+                @FeathersNumberInput
+                NumberInputValue::F32(value)
+                precision
+                HardLimit::f32(limits)
                 Node {
                     align_items: AlignItems::Center,
+                    flex_grow: 1.0,
+                    min_width: px(50),
                 }
-                @FeathersNumberInput
-                template_value(NumberInputValue::F32(value))
-                template_value(precision)
-                HardLimit::f32(limits)
             ]
         })
     }

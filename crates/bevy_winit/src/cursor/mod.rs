@@ -1,3 +1,5 @@
+//! Cursor handling for winit windows.
+
 #[cfg(feature = "custom_cursor")]
 mod custom_cursor;
 
@@ -13,7 +15,7 @@ use bevy_ecs::{entity::EntityHashSet, prelude::*, system::SystemState};
 use bevy_image::{Image, TextureAtlasLayout};
 #[cfg(feature = "custom_cursor")]
 use bevy_window::CustomCursor;
-use bevy_window::{CursorIcon, SystemCursorIcon, Window};
+use bevy_window::{CursorIcon, CursorSystems, SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]
 use winit::event_loop::ActiveEventLoop;
 
@@ -31,7 +33,7 @@ impl Plugin for WinitCursorPlugin {
             app.init_resource::<WinitCustomCursorCache>();
         }
 
-        app.add_systems(Last, update_cursors)
+        app.add_systems(Last, update_cursors.in_set(CursorSystems::Update))
             .add_observer(on_remove_cursor_icon);
     }
 }
@@ -221,7 +223,7 @@ fn update_cursors(
 }
 
 /// Resets the cursor to the default icon when `CursorIcon` is removed.
-fn on_remove_cursor_icon(remove: On<Remove, CursorIcon>, mut commands: Commands) {
+fn on_remove_cursor_icon(remove: On<Remove<CursorIcon>>, mut commands: Commands) {
     // Use `try_insert` to avoid panic if the window is being destroyed.
     commands
         .entity(remove.entity)

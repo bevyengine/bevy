@@ -18,11 +18,19 @@ use bevy_reflect::Reflect;
 /// the `InteractionDisabled` component should be added to the root entity of the widget - the
 /// same entity that contains the `AccessibilityNode` component. This will ensure that
 /// the a11y tree is updated correctly.
+///
+/// For developers familiar with the web and HTML, the word "disabled" as used here should be
+/// interpreted as working more like the `aria-disabled` (which doesn't prevent input focus)
+/// than the `disabled` attribute (which does). However, unlike `aria-disabled`, which is purely
+/// advisory, this does make the widget non-operable.
+///
+/// In particular, this marker currently has no effect on the "click-to-focus" observer which
+/// lives in [`bevy_input_focus`], as that is a lower-level crate that this one depends on.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct InteractionDisabled;
 
-pub(crate) fn on_add_disabled(add: On<Add, InteractionDisabled>, mut world: DeferredWorld) {
+pub(crate) fn on_add_disabled(add: On<Add<InteractionDisabled>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_disabled();
@@ -30,7 +38,7 @@ pub(crate) fn on_add_disabled(add: On<Add, InteractionDisabled>, mut world: Defe
 }
 
 pub(crate) fn on_remove_disabled(
-    remove: On<Remove, InteractionDisabled>,
+    remove: On<Remove<InteractionDisabled>>,
     mut world: DeferredWorld,
 ) {
     let mut entity = world.entity_mut(remove.entity);
@@ -55,7 +63,7 @@ pub struct Checkable;
 #[reflect(Component, Default, Clone)]
 pub struct Checked;
 
-pub(crate) fn on_add_checkable(add: On<Add, Checkable>, mut world: DeferredWorld) {
+pub(crate) fn on_add_checkable(add: On<Add<Checkable>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     let checked = entity.get::<Checked>().is_some();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -66,22 +74,22 @@ pub(crate) fn on_add_checkable(add: On<Add, Checkable>, mut world: DeferredWorld
     }
 }
 
-pub(crate) fn on_remove_checkable(add: On<Remove, Checkable>, mut world: DeferredWorld) {
+pub(crate) fn on_remove_checkable(remove: On<Remove<Checkable>>, mut world: DeferredWorld) {
     // Remove the 'toggled' attribute entirely.
-    let mut entity = world.entity_mut(add.entity);
+    let mut entity = world.entity_mut(remove.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.clear_toggled();
     }
 }
 
-pub(crate) fn on_add_checked(add: On<Add, Checked>, mut world: DeferredWorld) {
+pub(crate) fn on_add_checked(add: On<Add<Checked>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::True);
     }
 }
 
-pub(crate) fn on_remove_checked(remove: On<Remove, Checked>, mut world: DeferredWorld) {
+pub(crate) fn on_remove_checked(remove: On<Remove<Checked>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(remove.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::False);
@@ -97,7 +105,7 @@ pub struct Selectable;
 #[derive(Component, Default, Debug, Clone)]
 pub struct Selected;
 
-pub(crate) fn on_add_selectable(add: On<Add, Selectable>, mut world: DeferredWorld) {
+pub(crate) fn on_add_selectable(add: On<Add<Selectable>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     let selected = entity.get::<Selected>().is_some();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -105,22 +113,22 @@ pub(crate) fn on_add_selectable(add: On<Add, Selectable>, mut world: DeferredWor
     }
 }
 
-pub(crate) fn on_remove_selectable(add: On<Add, Selectable>, mut world: DeferredWorld) {
+pub(crate) fn on_remove_selectable(remove: On<Remove<Selectable>>, mut world: DeferredWorld) {
     // Remove the 'toggled' attribute entirely.
-    let mut entity = world.entity_mut(add.entity);
+    let mut entity = world.entity_mut(remove.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.clear_selected();
     }
 }
 
-pub(crate) fn on_add_selected(add: On<Add, Selected>, mut world: DeferredWorld) {
+pub(crate) fn on_add_selected(add: On<Add<Selected>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_selected(true);
     }
 }
 
-pub(crate) fn on_remove_selected(remove: On<Remove, Selected>, mut world: DeferredWorld) {
+pub(crate) fn on_remove_selected(remove: On<Remove<Selected>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(remove.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_selected(false);

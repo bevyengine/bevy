@@ -3,6 +3,7 @@
 use crate::number_input_f32::number_input_f32;
 use crate::number_input_i32::number_input_i32;
 use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+use bevy::feathers::tokens::semantic::SURFACE_PANE_BODY;
 use bevy::{
     color::palettes::css::*,
     feathers::{
@@ -11,7 +12,6 @@ use bevy::{
         dark_theme::create_dark_theme,
         display::caption,
         theme::{ThemeProps, UiTheme},
-        tokens::PANE_BODY_BG,
         FeathersPlugins,
     },
     prelude::*,
@@ -193,8 +193,8 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
     commands.spawn_scene_list(bsn_list! {
         // Camera
         Camera2d
-        BoxShadowSamples({app_settings.samples}),
-
+        BoxShadowSamples({app_settings.samples})
+        --
         // Centered shape with shadow
         Node {
             width: percent(100),
@@ -204,7 +204,7 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
         }
         BackgroundColor(GRAY)
         Children [
-            template_value(node)
+            node
             BorderColor::all(WHITE)
             BackgroundColor(Color::srgb(0.21, 0.21, 0.21))
             BoxShadow(vec![ShadowStyle {
@@ -215,9 +215,9 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
                 blur_radius: px(app_settings.blur),
             }])
             ShadowNode
-        ],
-
-        settings_panel_scene(&app_settings),
+        ]
+        --
+        @settings_panel_scene(&app_settings)
     });
 }
 
@@ -232,61 +232,68 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
     bsn! {
         SettingsPanel
         ZIndex(10)
-        pane()
-        main_ui_node_scene()
+        @pane()
+        @main_ui_node_scene()
         Children [
-            pane_body()
+            @pane_body()
             Children [
-                feathers_option_buttons(
+                @feathers_option_buttons(
                     "Shape",
                     &SHAPE_OPTIONS,
                     selected_shape_index,
-                ),
-                number_input_f32(
+                )
+                --
+                @number_input_f32(
                     AppNumberInputF32::XOffset.label(),
                     Some(AppNumberInputF32::XOffset),
                     app_settings.x_offset,
                     NumberInputPrecision(0),
-                    -200. ..200.
-                ),
-                number_input_f32(
+                    -200. ..=200.
+                )
+                --
+                @number_input_f32(
                     AppNumberInputF32::YOffset.label(),
                     Some(AppNumberInputF32::YOffset),
                     app_settings.y_offset,
                     NumberInputPrecision(0),
-                    -200. ..200.
-                ),
-                number_input_f32(
+                    -200. ..=200.
+                )
+                --
+                @number_input_f32(
                     AppNumberInputF32::Blur.label(),
                     Some(AppNumberInputF32::Blur),
                     app_settings.blur,
                     NumberInputPrecision(0),
-                    0. ..100.
-                ),
-                number_input_f32(
+                    0. ..=100.
+                )
+                --
+                @number_input_f32(
                     AppNumberInputF32::Spread.label(),
                     Some(AppNumberInputF32::Spread),
                     app_settings.spread,
                     NumberInputPrecision(0),
-                    -200. ..200.
-                ),
-                number_input_i32(
+                    -200. ..=200.
+                )
+                --
+                @number_input_i32(
                     AppNumberInputI32::Count.label(),
                     Some(AppNumberInputI32::Count),
                     app_settings.count as i32,
                     NumberInputPrecision(0),
-                    1..3
-                ),
-                number_input_i32(
+                    1..=3
+                )
+                --
+                @number_input_i32(
                     AppNumberInputI32::Samples.label(),
                     Some(AppNumberInputI32::Samples),
                     app_settings.samples as i32,
                     NumberInputPrecision(0),
-                    1..15
-                ),
+                    0..=15
+                )
+                --
                 // Reset button
                 @FeathersButton {
-                    @caption: bsn! { caption("Reset") }
+                    @caption: bsn! { @caption("Reset") }
                 }
                 on(on_activate_reset)
             ]
@@ -297,7 +304,7 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
 fn get_example_theme() -> ThemeProps {
     let mut props = create_dark_theme();
     // Pane background color is made a little transparent to see the objects behind the setting controls.
-    if let Some(color) = props.color.get_mut(&PANE_BODY_BG) {
+    if let Some(color) = props.semantic_base.get_mut(&SURFACE_PANE_BODY) {
         color.set_alpha(0.9);
     }
     props

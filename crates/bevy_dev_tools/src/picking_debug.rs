@@ -7,7 +7,9 @@ use bevy_color::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_picking::backend::HitData;
 use bevy_picking::hover::HoverMap;
-use bevy_picking::pointer::{Location, PointerId, PointerInput, PointerLocation, PointerPress};
+use bevy_picking::pointer::{
+    Location, PointerId, PointerInput, PointerLocation, PointerPressState,
+};
 use bevy_picking::prelude::*;
 use bevy_picking::PickingSystems;
 use bevy_reflect::prelude::*;
@@ -82,7 +84,9 @@ pub struct DebugPickingPlugin;
 
 impl Plugin for DebugPickingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<DebugPickingMode>()
+        app.register_type::<PointerDebugOverlayOf>()
+            .register_type::<PointerDebugOverlay>()
+            .init_resource::<DebugPickingMode>()
             .add_systems(
                 PreUpdate,
                 pointer_debug_visibility.in_set(PickingSystems::PostHover),
@@ -93,19 +97,19 @@ impl Plugin for DebugPickingPlugin {
                     // This leaves room to easily change the log-level associated
                     // with different events, should that be desired.
                     log_message_debug::<PointerInput>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_message_debug::<Over>,
-                    log_pointer_message_debug::<Out>,
-                    log_pointer_message_debug::<Press>,
-                    log_pointer_message_debug::<Release>,
-                    log_pointer_message_debug::<Click>,
-                    log_pointer_event_trace::<Move>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_message_debug::<DragStart>,
-                    log_pointer_event_trace::<Drag>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_message_debug::<DragEnd>,
-                    log_pointer_message_debug::<DragEnter>,
-                    log_pointer_event_trace::<DragOver>.run_if(DebugPickingMode::is_noisy),
-                    log_pointer_message_debug::<DragLeave>,
-                    log_pointer_message_debug::<DragDrop>,
+                    log_message_debug::<PointerOver>,
+                    log_message_debug::<PointerOut>,
+                    log_message_debug::<PointerPress>,
+                    log_message_debug::<PointerRelease>,
+                    log_message_debug::<PointerClick>,
+                    log_message_trace::<PointerMove>.run_if(DebugPickingMode::is_noisy),
+                    log_message_debug::<PointerDragStart>,
+                    log_message_trace::<PointerDrag>.run_if(DebugPickingMode::is_noisy),
+                    log_message_debug::<PointerDragEnd>,
+                    log_message_debug::<PointerDragEnter>,
+                    log_message_trace::<PointerDragOver>.run_if(DebugPickingMode::is_noisy),
+                    log_message_debug::<PointerDragLeave>,
+                    log_message_debug::<PointerDragDrop>,
                 )
                     .distributive_run_if(DebugPickingMode::is_enabled)
                     .in_set(PickingSystems::Last),
@@ -122,50 +126,65 @@ impl Plugin for DebugPickingPlugin {
 }
 
 /// Listen for any message and logs it at the debug level
-pub fn log_message_debug<M: Message + Debug>(mut events: MessageReader<PointerInput>) {
+pub fn log_message_debug<M: Message + Debug>(mut events: MessageReader<M>) {
     for event in events.read() {
         debug!("{event:?}");
     }
 }
 
-/// Listens for pointer events of type `E` and logs them at "debug" level
-pub fn log_pointer_message_debug<E: Debug + Clone + Reflect>(
-    mut pointer_reader: MessageReader<Pointer<E>>,
-) {
-    for pointer in pointer_reader.read() {
-        debug!("{pointer}");
+/// Listen for any message and logs it at the trace level
+pub fn log_message_trace<M: Message + Debug>(mut events: MessageReader<M>) {
+    for event in events.read() {
+        trace!("{event:?}");
     }
 }
 
-/// Listens for pointer events of type `E` and logs them at "trace" level
-pub fn log_pointer_event_trace<E: Debug + Clone + Reflect>(
-    mut pointer_reader: MessageReader<Pointer<E>>,
-) {
-    for pointer in pointer_reader.read() {
-        trace!("{pointer}");
+/// Relates a debug overlay entity to the pointer it visualizes.
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+#[relationship(relationship_target = PointerDebugOverlay)]
+pub struct PointerDebugOverlayOf {
+    /// The pointer visualized by this debug overlay.
+    #[relationship]
+    pub pointer: Entity,
+}
+
+/// Stores the debug overlay entity associated with a pointer.
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+#[relationship_target(relationship = PointerDebugOverlayOf, linked_spawn)]
+pub struct PointerDebugOverlay {
+    overlay: Entity,
+}
+
+impl PointerDebugOverlay {
+    /// Returns the entity containing the pointer's debug overlay.
+    pub fn overlay(&self) -> Entity {
+        self.overlay
     }
 }
 
 /// Adds [`PointerDebug`] to pointers automatically.
 pub fn add_pointer_debug(
     mut commands: Commands,
-    pointers: Query<Entity, (With<PointerId>, Without<PointerDebug>)>,
+    pointers: Query<Entity, (With<PointerId>, Without<PointerDebugOverlay>)>,
 ) {
-    for entity in &pointers {
-        commands.entity(entity).insert(PointerDebug::default());
+    for pointer in &pointers {
+        commands.spawn(PointerDebugOverlayOf { pointer });
+        commands.entity(pointer).insert(PointerDebug::default());
     }
 }
 
-/// Hide text from pointers.
+/// Hide pointer debug overlays.
 pub fn pointer_debug_visibility(
     debug: Res<DebugPickingMode>,
-    mut pointers: Query<&mut Visibility, With<PointerId>>,
+    mut overlays: Query<&mut Visibility, With<PointerDebugOverlayOf>>,
 ) {
     let visible = match *debug {
         DebugPickingMode::Disabled => Visibility::Hidden,
         _ => Visibility::Visible,
     };
-    for mut vis in &mut pointers {
+    for mut vis in &mut overlays {
         *vis = visible;
     }
 }
@@ -177,7 +196,7 @@ pub struct PointerDebug {
     pub location: Option<Location>,
 
     /// Representation of the different pointer button states.
-    pub press: PointerPress,
+    pub press: PointerPressState,
 
     /// List of hit elements to be displayed.
     pub hits: Vec<(String, HitData)>,
@@ -216,7 +235,7 @@ pub fn update_debug_data(
     mut pointers: Query<(
         &PointerId,
         &PointerLocation,
-        &PointerPress,
+        &PointerPressState,
         &mut PointerDebug,
     )>,
 ) {
@@ -245,10 +264,10 @@ pub fn debug_draw(
     mut commands: Commands,
     camera_query: Query<(Entity, &Camera, &RenderTarget)>,
     primary_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
-    pointers: Query<(Entity, &PointerId, &PointerDebug)>,
+    pointers: Query<(&PointerDebugOverlay, &PointerId, &PointerDebug)>,
     scale: Res<UiScale>,
 ) {
-    for (entity, id, debug) in &pointers {
+    for (overlay, id, debug) in &pointers {
         let Some(pointer_location) = &debug.location else {
             continue;
         };
@@ -269,7 +288,7 @@ pub fn debug_draw(
             }
 
             commands
-                .entity(entity)
+                .entity(overlay.overlay())
                 .despawn_related::<Children>()
                 .insert((
                     Node {

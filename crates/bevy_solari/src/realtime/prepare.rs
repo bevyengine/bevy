@@ -1,4 +1,5 @@
 use super::SolariLighting;
+use crate::scene::RaytracingSceneNeedsPreviousFrameData;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_anti_alias::dlss::{
     Dlss, DlssRayReconstructionFeature, ViewDlssRayReconstructionTextures,
@@ -43,6 +44,16 @@ pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
 
 /// Amount of entries in the world cache (must be a power of 2, and >= 2^10)
 pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
+/// Sum of per-cell field sizes in `WorldCache`. Keep in sync with `realtime_bindings.wgsl`.
+const WORLD_CACHE_ENTRY_SIZE: u64 = 84;
+/// Size of the fixed `b` array (`array<u32, WORLD_CACHE_SIZE / 1024>`).
+const WORLD_CACHE_B_SIZE: u64 = (WORLD_CACHE_SIZE / 1024) * size_of::<u32>() as u64;
+/// Offset of `active_cells_count`.
+pub const WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET: u64 =
+    WORLD_CACHE_SIZE * WORLD_CACHE_ENTRY_SIZE + WORLD_CACHE_B_SIZE;
+/// Must stay under wgpu's default `max_storage_buffer_binding_size` (128 MiB or 2^27 bytes).
+pub const WORLD_CACHE_BUFFER_SIZE: u64 =
+    (WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + size_of::<u32>() as u64).next_multiple_of(16);
 
 /// GPU representation of the user-configurable [`SolariLighting`] settings, plus
 /// per-frame state.
@@ -67,7 +78,7 @@ struct SolariLightingUniforms {
 }
 
 impl SolariLightingUniforms {
-    fn new(settings: &SolariLighting, frame_count: u32) -> Self {
+    fn new(settings: &SolariLighting, frame_count: u32, force_reset: bool) -> Self {
         Self {
             confidence_weight_cap: settings.confidence_weight_cap,
             primary_di_samples: settings.primary_di_samples,
@@ -80,8 +91,22 @@ impl SolariLightingUniforms {
             world_cache_position_base_cell_size: settings.world_cache_position_base_cell_size,
             world_cache_position_lod_scale: settings.world_cache_position_lod_scale,
             frame_rng: frame_count.wrapping_mul(5782582),
-            reset: settings.reset as u32,
+            reset: (settings.reset || force_reset) as u32,
         }
+    }
+}
+
+/// Declares to the raytracing scene whether any view needs last frame's TLAS and light ids.
+pub fn setup_raytracing_scene_needs_previous_frame_data(
+    views: Query<&SolariLighting>,
+    needs_previous_frame_data: Option<Res<RaytracingSceneNeedsPreviousFrameData>>,
+    mut commands: Commands,
+) {
+    let restir_used = views.iter().any(|solari_lighting| solari_lighting.restir);
+    match (restir_used, needs_previous_frame_data.is_some()) {
+        (true, false) => commands.insert_resource(RaytracingSceneNeedsPreviousFrameData),
+        (false, true) => commands.remove_resource::<RaytracingSceneNeedsPreviousFrameData>(),
+        _ => {}
     }
 }
 
@@ -91,20 +116,15 @@ pub struct SolariLightingResources {
     pub constants: Buffer,
     pub light_tile_samples: Buffer,
     pub light_tile_resolved_samples: Buffer,
-    pub reservoirs_a: Buffer,
-    pub reservoirs_b: Buffer,
-    pub world_cache_checksums: Buffer,
-    pub world_cache_life: Buffer,
-    pub world_cache_radiance: Buffer,
-    pub world_cache_geometry_data: Buffer,
-    pub world_cache_luminance_deltas: Buffer,
-    pub world_cache_active_cells_new_radiance: Buffer,
-    pub world_cache_a: Buffer,
-    pub world_cache_b: Buffer,
-    pub world_cache_active_cell_indices: Buffer,
-    pub world_cache_active_cells_count: Buffer,
+    pub reservoirs: Option<SolariReservoirBuffers>,
+    pub world_cache: Buffer,
     pub world_cache_active_cells_dispatch: Buffer,
     pub view_size: UVec2,
+}
+
+pub struct SolariReservoirBuffers {
+    pub a: Buffer,
+    pub b: Buffer,
 }
 
 pub fn prepare_solari_lighting_resources(
@@ -149,11 +169,13 @@ pub fn prepare_solari_lighting_resources(
             view_size = *resolution_override;
         }
 
-        let uniforms = SolariLightingUniforms::new(solari_lighting, frame_count.0);
+        let reusable = solari_lighting_resources.filter(|r| {
+            r.view_size == view_size && r.reservoirs.is_some() == solari_lighting.restir
+        });
+        let uniforms =
+            SolariLightingUniforms::new(solari_lighting, frame_count.0, reusable.is_none());
 
-        if let Some(solari_lighting_resources) = solari_lighting_resources
-            && solari_lighting_resources.view_size == view_size
-        {
+        if let Some(solari_lighting_resources) = reusable {
             // The constants uniform can change every frame, so always upload it.
             render_queue.write_buffer(
                 &solari_lighting_resources.constants,
@@ -185,83 +207,24 @@ pub fn prepare_solari_lighting_resources(
             mapped_at_creation: false,
         });
 
-        let reservoirs_buffer = |name| {
-            render_device.create_buffer(&BufferDescriptor {
-                label: Some(name),
-                size: (view_size.x * view_size.y) as u64 * RESERVOIR_STRUCT_SIZE,
-                usage: BufferUsages::STORAGE,
-                mapped_at_creation: false,
-            })
-        };
-        let reservoirs_a = reservoirs_buffer("solari_lighting_reservoirs_a");
-        let reservoirs_b = reservoirs_buffer("solari_lighting_reservoirs_b");
-
-        let world_cache_checksums = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_checksums"),
-            size: WORLD_CACHE_SIZE * size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
+        let reservoirs = solari_lighting.restir.then(|| {
+            let reservoirs_buffer = |name| {
+                render_device.create_buffer(&BufferDescriptor {
+                    label: Some(name),
+                    size: (view_size.x * view_size.y) as u64 * RESERVOIR_STRUCT_SIZE,
+                    usage: BufferUsages::STORAGE,
+                    mapped_at_creation: false,
+                })
+            };
+            SolariReservoirBuffers {
+                a: reservoirs_buffer("solari_lighting_reservoirs_a"),
+                b: reservoirs_buffer("solari_lighting_reservoirs_b"),
+            }
         });
 
-        let world_cache_life = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_life"),
-            size: WORLD_CACHE_SIZE * size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_radiance = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_radiance"),
-            size: WORLD_CACHE_SIZE * size_of::<[f32; 4]>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_geometry_data = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_geometry_data"),
-            size: WORLD_CACHE_SIZE * size_of::<[f32; 8]>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_luminance_deltas = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_luminance_deltas"),
-            size: WORLD_CACHE_SIZE * size_of::<f32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_active_cells_new_radiance =
-            render_device.create_buffer(&BufferDescriptor {
-                label: Some("solari_lighting_world_cache_active_cells_new_radiance"),
-                size: WORLD_CACHE_SIZE * size_of::<[f32; 4]>() as u64,
-                usage: BufferUsages::STORAGE,
-                mapped_at_creation: false,
-            });
-
-        let world_cache_a = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_a"),
-            size: WORLD_CACHE_SIZE * size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-        let world_cache_b = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_b"),
-            size: 1024 * size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_active_cell_indices = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_active_cell_indices"),
-            size: WORLD_CACHE_SIZE * size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_active_cells_count = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_active_cells_count"),
-            size: size_of::<u32>() as u64,
+        let world_cache = render_device.create_buffer(&BufferDescriptor {
+            label: Some("solari_lighting_world_cache"),
+            size: WORLD_CACHE_BUFFER_SIZE,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
@@ -277,18 +240,8 @@ pub fn prepare_solari_lighting_resources(
             constants,
             light_tile_samples,
             light_tile_resolved_samples,
-            reservoirs_a,
-            reservoirs_b,
-            world_cache_checksums,
-            world_cache_life,
-            world_cache_radiance,
-            world_cache_geometry_data,
-            world_cache_luminance_deltas,
-            world_cache_active_cells_new_radiance,
-            world_cache_a,
-            world_cache_b,
-            world_cache_active_cell_indices,
-            world_cache_active_cells_count,
+            reservoirs,
+            world_cache,
             world_cache_active_cells_dispatch,
             view_size,
         });
@@ -333,6 +286,18 @@ pub fn prepare_solari_lighting_resources(
             let normal_roughness_view =
                 normal_roughness.create_view(&TextureViewDescriptor::default());
 
+            let dlss_rr_depth = render_device.create_texture(&TextureDescriptor {
+                label: Some("solari_lighting_dlss_rr_depth"),
+                size: view_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R32Float,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            });
+            let dlss_rr_depth_view = dlss_rr_depth.create_view(&TextureViewDescriptor::default());
+
             let specular_motion_vectors = render_device.create_texture(&TextureDescriptor {
                 label: Some("solari_lighting_specular_motion_vectors"),
                 size: view_size.to_extents(),
@@ -360,6 +325,10 @@ pub fn prepare_solari_lighting_resources(
                     normal_roughness: CachedTexture {
                         texture: normal_roughness,
                         default_view: normal_roughness_view,
+                    },
+                    depth: CachedTexture {
+                        texture: dlss_rr_depth,
+                        default_view: dlss_rr_depth_view,
                     },
                     specular_motion_vectors: CachedTexture {
                         texture: specular_motion_vectors,

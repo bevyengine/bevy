@@ -185,6 +185,13 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         access.and_with(id);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _component_access_set: &mut FilteredAccessSet,
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.register_component::<T>()
     }
@@ -199,6 +206,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     ) -> bool {
         set_contains_id(id)
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: WorldQuery impl performs no access at all
@@ -286,6 +295,13 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         access.and_without(id);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _component_access_set: &mut FilteredAccessSet,
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.register_component::<T>()
     }
@@ -300,6 +316,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     ) -> bool {
         !set_contains_id(id)
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: WorldQuery impl performs no access at all
@@ -479,12 +497,11 @@ macro_rules! impl_or_query_filter {
 
             fn init_nested_access(
                 state: &Self::State,
-                _system_name: Option<&str>,
                 _component_access_set: &mut FilteredAccessSet,
-                _world: UnsafeWorldCell,
-            ) {
+            ) -> Result<(), FilteredAccessSet>  {
                 let ($($state,)*) = state;
-                $($filter::init_nested_access($state, _system_name, _component_access_set, _world);)*
+                $($filter::init_nested_access($state, _component_access_set)?;)*
+                Ok(())
             }
 
             fn init_state(world: &mut World) -> Self::State {
@@ -631,6 +648,13 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
         access.access_mut().add_archetypal(id);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _component_access_set: &mut FilteredAccessSet,
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.register_component::<T>()
     }
@@ -643,6 +667,8 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
         // Allow<T> always matches
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: WorldQuery impl performs no access at all
@@ -832,6 +858,13 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         access.add_read(id);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _component_access_set: &mut FilteredAccessSet,
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.register_component::<T>()
     }
@@ -846,6 +879,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     ) -> bool {
         set_contains_id(id)
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: WorldQuery impl performs only read access on ticks
@@ -1059,6 +1094,13 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         access.add_read(id);
     }
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _component_access_set: &mut FilteredAccessSet,
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.register_component::<T>()
     }
@@ -1073,6 +1115,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     ) -> bool {
         set_contains_id(id)
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: WorldQuery impl performs only read access on ticks
@@ -1219,6 +1263,13 @@ unsafe impl WorldQuery for Spawned {
     #[inline]
     fn update_component_access(_state: &(), _access: &mut FilteredAccess) {}
 
+    fn init_nested_access(
+        _state: &Self::State,
+        _component_access_set: &mut FilteredAccessSet,
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
+    }
+
     fn init_state(_world: &mut World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
@@ -1228,6 +1279,8 @@ unsafe impl WorldQuery for Spawned {
     fn matches_component_set(_state: &(), _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 // SAFETY: WorldQuery impl accesses no components or component ticks

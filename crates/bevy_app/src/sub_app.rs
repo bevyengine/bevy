@@ -34,7 +34,7 @@ type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 /// #[derive(Resource, Default)]
 /// struct Val(pub i32);
 ///
-/// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+/// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel, Default)]
 /// struct ExampleApp;
 ///
 /// // Create an app with a certain resource.
@@ -611,12 +611,13 @@ impl SubApps {
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs::schedule::SystemLocation;
+
     #[test]
     fn sub_app_add_message_schedules_update_system() {
         use crate::{First, SubApp};
         use bevy_ecs::message::Messages;
         use bevy_ecs::prelude::Message;
-        use bevy_ecs::schedule::ScheduleLabel;
 
         #[derive(Message, Clone, Copy)]
         struct TestMsg;
@@ -624,7 +625,7 @@ mod tests {
         // Wire the sub-app to actually run `First` each update so the test
         // does not silently pass simply because nothing in the schedule runs.
         let mut sub_app = SubApp {
-            update_schedule: Some(First.intern()),
+            update_schedule: Some(First.get_system_location().0),
             ..Default::default()
         };
 

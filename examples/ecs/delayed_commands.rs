@@ -32,7 +32,7 @@ fn spawn(mut commands: Commands) {
 }
 
 fn click(
-    click: On<Pointer<Click>>,
+    click: On<PointerClick>,
     mut commands: Commands,
     squares: Query<(Entity, &Transform), With<BlinkySquare>>,
     cameras: Query<(&Camera, &GlobalTransform)>,
@@ -42,7 +42,7 @@ fn click(
     for (entity, transform) in squares.iter() {
         // convert the pointer position to world position
         let mouse_world_pos = camera
-            .viewport_to_world_2d(camera_transform, click.pointer_location.position)
+            .viewport_to_world_2d(camera_transform, click.pointer.position)
             .unwrap();
 
         // delay the blinkiness by distance to cursor

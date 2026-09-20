@@ -13,7 +13,7 @@ use bevy::{
         dark_theme::create_dark_theme,
         display::label,
         theme::{ThemeProps, UiTheme},
-        tokens::{PANE_BODY_BG, PANE_HEADER_BG, PANE_HEADER_BORDER},
+        tokens::semantic::{SURFACE_PANE_BODY, SURFACE_PANE_HEADER},
         FeathersPlugins,
     },
     light::CascadeShadowConfigBuilder,
@@ -114,11 +114,14 @@ fn add_buttons(commands: &mut Commands, color_grading: &ColorGrading) {
         }
         Children [
             // Create the first pane, which contains the global controls.
-            pane_for_global_controls(color_grading),
+            @pane_for_global_controls(color_grading)
+            --
             // Create the following panes for individual controls.
-            pane_for_section(SectionColorGradingName::Highlights, color_grading),
-            pane_for_section(SectionColorGradingName::Midtones, color_grading),
-            pane_for_section(SectionColorGradingName::Shadows, color_grading),
+            @pane_for_section(SectionColorGradingName::Highlights, color_grading)
+            --
+            @pane_for_section(SectionColorGradingName::Midtones, color_grading)
+            --
+            @pane_for_section(SectionColorGradingName::Shadows, color_grading)
         ]
     });
 }
@@ -130,27 +133,30 @@ fn pane_for_global_controls(color_grading: &ColorGrading) -> impl Scene {
         |option| number_input_for_value(ColorGradingSetting::Global(option), color_grading);
 
     bsn! {
-        pane()
+        @pane()
         Children [
             // Spawn the label ("Highlights", etc.)
-            pane_header()
+            @pane_header()
             Children[
                 Node {
                     width: px(120)
                     align_self: AlignSelf::Start,
                 }
                 Children [
-                    label("Global Settings")
+                    @label("Global Settings")
                 ]
-            ],
-
+            ]
+            --
             // Spawn the buttons
-            pane_body()
+            @pane_body()
             Children [
-                make_button(GlobalColorGradingSetting::Exposure),
-                make_button(GlobalColorGradingSetting::Temperature),
-                make_button(GlobalColorGradingSetting::Tint),
-                make_button(GlobalColorGradingSetting::Hue),
+                @make_button(GlobalColorGradingSetting::Exposure)
+                --
+                @make_button(GlobalColorGradingSetting::Temperature)
+                --
+                @make_button(GlobalColorGradingSetting::Tint)
+                --
+                @make_button(GlobalColorGradingSetting::Hue)
             ]
         ]
     }
@@ -167,28 +173,30 @@ fn pane_for_section(section: SectionColorGradingName, color_grading: &ColorGradi
     };
 
     bsn! {
-        pane()
+        @pane()
         Children [
             // Spawn the label ("Highlights", etc.)
-            pane_header()
-            Children [
+            @pane_header() Children [
                 Node {
                     width: px(120),
                     align_self: AlignSelf::Start,
                 }
                 Children [
-                    label(section.to_string())
-                ],
-            ],
-
+                    @label(section.to_string())
+                ]
+            ]
+            --
             // Spawn the buttons.
-            pane_body()
-            Children[
-                make_button(SectionColorGradingSetting::Saturation),
-                make_button(SectionColorGradingSetting::Contrast),
-                make_button(SectionColorGradingSetting::Gamma),
-                make_button(SectionColorGradingSetting::Gain),
-                make_button(SectionColorGradingSetting::Lift),
+            @pane_body() Children[
+                @make_button(SectionColorGradingSetting::Saturation)
+                --
+                @make_button(SectionColorGradingSetting::Contrast)
+                --
+                @make_button(SectionColorGradingSetting::Gamma)
+                --
+                @make_button(SectionColorGradingSetting::Gain)
+                --
+                @make_button(SectionColorGradingSetting::Lift)
             ]
         ]
     }
@@ -214,18 +222,18 @@ fn number_input_for_value(
                 width: px(120),
             }
             Children[
-                label(setting_label)
-            ],
-
+                @label(setting_label)
+            ]
+            --
             Node {
                 align_items: AlignItems::Center,
                 width: px(50),
             }
             @FeathersNumberInput
-            template_value(NumberInputValue::F32(setting.get(color_grading)))
-            template_value(setting)
+            NumberInputValue::F32({setting.get(color_grading)})
+            setting
             NumberInputPrecision(2)
-            HardLimit::f32(0. ..10.)
+            HardLimit::f32(0. ..=10.)
         ]
     }
 }
@@ -437,8 +445,8 @@ fn get_example_theme() -> ThemeProps {
     let mut props = create_dark_theme();
 
     // Pane background colors are made a little transparent to see the objects behind the setting controls.
-    for token in [PANE_HEADER_BG, PANE_HEADER_BORDER, PANE_BODY_BG] {
-        if let Some(color) = props.color.get_mut(&token) {
+    for token in [SURFACE_PANE_BODY, SURFACE_PANE_HEADER] {
+        if let Some(color) = props.semantic_base.get_mut(&token) {
             color.set_alpha(0.9);
         }
     }
@@ -455,9 +463,9 @@ fn add_help_text(commands: &mut Commands) {
             top: px(12),
         }
         Children [
-            Text::new("Drag a setting's input value to change the scene.\n\
-                        Click into an input field to change values via keyboard.\n\
-                        Values must be between 0 and 10.")
+            Text("Drag a setting's input value to change the scene.\n\
+                Click into an input field to change values via keyboard.\n\
+                Values must be between 0 and 10.")
         ]
     });
 }

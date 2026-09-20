@@ -25,7 +25,7 @@ use bevy_ecs::{
     relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{ImageSampler, TextureFormatPixelInfo};
+use bevy_image::TextureFormatPixelInfo;
 use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
@@ -35,6 +35,7 @@ use bevy_mesh::{
     skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshAttributeCompressionFlags,
     MeshTag, MeshVertexBufferLayoutRef, VertexAttributeDescriptor,
 };
+use bevy_platform::collections::HashSet;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::batching::gpu_preprocessing::{
     BufferDataInput, PreviousInstanceInputUniformBuffer,
@@ -148,8 +149,8 @@ pub struct MeshPipelineSystems;
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "forward_io.wgsl");
-        load_shader_library!(app, "mesh_view_types.wgsl", |settings| *settings =
+        load_shader_library!(app, "forward_io.wesl");
+        load_shader_library!(app, "mesh_view_types.wesl", |settings| *settings =
             ShaderSettings {
                 shader_defs: vec![
                     ShaderDefVal::UInt(
@@ -161,16 +162,16 @@ impl Plugin for MeshRenderPlugin {
                         MAX_CASCADES_PER_LIGHT as u32,
                     ),
                     ShaderDefVal::UInt("MAX_RECT_LIGHTS".into(), MAX_RECT_LIGHTS as u32,),
-                ]
+                ],
             });
-        load_shader_library!(app, "mesh_view_bindings.wgsl");
-        load_shader_library!(app, "mesh_types.wgsl");
-        load_shader_library!(app, "mesh_functions.wgsl");
-        load_shader_library!(app, "skinning.wgsl");
-        load_shader_library!(app, "morph.wgsl");
-        load_shader_library!(app, "occlusion_culling.wgsl");
+        load_shader_library!(app, "mesh_view_bindings.wesl");
+        load_shader_library!(app, "mesh_types.wesl");
+        load_shader_library!(app, "mesh_functions.wesl");
+        load_shader_library!(app, "skinning.wesl");
+        load_shader_library!(app, "morph.wesl");
+        load_shader_library!(app, "occlusion_culling.wesl");
 
-        embedded_asset!(app, "mesh.wgsl");
+        embedded_asset!(app, "mesh.wesl");
 
         if app.get_sub_app(RenderApp).is_none() {
             return;
@@ -196,7 +197,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<RenderMaterialInstances>()
                 .configure_sets(
                     ExtractSchedule,
-                    MeshExtractionSystems.after(view::extract_visibility_ranges),
+                    MeshExtractionSystems.after_weak(view::extract_visibility_ranges),
                 )
                 .add_systems(
                     ExtractSchedule,
@@ -328,7 +329,7 @@ impl Plugin for MeshRenderPlugin {
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
         // whether storage buffers are supported, or the maximum uniform buffer binding size.
-        load_shader_library!(app, "mesh_bindings.wgsl", move |settings| *settings =
+        load_shader_library!(app, "mesh_bindings.wesl", move |settings| *settings =
             ShaderSettings {
                 shader_defs: mesh_bindings_shader_defs.clone(),
             });
@@ -388,7 +389,10 @@ pub fn check_views_need_specialization(
             Has<ContactShadows>,
         ),
     )>,
+    mut seen_views: Local<HashSet<RetainedViewEntity>>,
 ) {
+    seen_views.clear();
+
     for (
         view,
         camera,
@@ -405,6 +409,8 @@ pub fn check_views_need_specialization(
         (has_oit, has_atmosphere, has_ssr, has_contact_shadows),
     ) in views.iter_mut()
     {
+        seen_views.insert(view.retained_view_entity);
+
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_target_format(view.target_format);
 
@@ -476,11 +482,12 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if !camera.is_some_and(|camera| camera.hdr) {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
+        if camera.is_none_or(|camera| !camera.hdr)
+            && let Some(tonemapping) = tonemapping
+            && tonemapping.is_enabled()
+        {
+            view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+            view_key |= tonemapping_pipeline_key(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
@@ -492,6 +499,7 @@ pub fn check_views_need_specialization(
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
         if let Some(transmission) = transmission {
+            view_key |= MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE;
             view_key |= transmission.quality.pipeline_key();
         }
         if !view_key_cache
@@ -504,6 +512,8 @@ pub fn check_views_need_specialization(
                 .insert(view.retained_view_entity);
         }
     }
+
+    view_key_cache.retain(|view, _| seen_views.contains(view));
 }
 
 #[derive(Component)]
@@ -719,7 +729,7 @@ impl MeshUniform {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wesl!
 bitflags::bitflags! {
     /// Various flags and tightly-packed values on a mesh.
     ///
@@ -1752,6 +1762,12 @@ impl RenderGpuCulledEntities {
     ///
     /// The `render_layers` argument specifies the set of render layers that the
     /// entity belongs to.
+    ///
+    /// Note that this method is only called for entities that the extraction
+    /// systems picked up this frame, so the extraction change detection must be
+    /// configured to catch render layer changes (see
+    /// `extract_meshes_for_gpu_building`) in order for layer changes on
+    /// GPU-culled meshes to propagate.
     pub fn update(
         &mut self,
         new_entity: MainEntity,
@@ -1761,6 +1777,10 @@ impl RenderGpuCulledEntities {
         match self.entities.entry(new_entity) {
             Entry::Occupied(mut occupied_entry) => {
                 if no_cpu_culling {
+                    if *occupied_entry.get() != render_layers {
+                        self.changed_layers.push(new_entity);
+                    }
+
                     occupied_entry.insert(render_layers);
                 } else {
                     occupied_entry.remove();
@@ -1955,6 +1975,7 @@ pub fn extract_meshes_for_gpu_building(
                 )>,
                 Changed<VisibilityRange>,
                 Changed<SkinnedMesh>,
+                Changed<RenderLayers>,
             )>,
         >,
     >,
@@ -1971,6 +1992,7 @@ pub fn extract_meshes_for_gpu_building(
         mut removed_no_cpu_culling_query,
         mut removed_visibility_range_query,
         mut removed_skinned_mesh_query,
+        mut removed_render_layers_query,
     ): (
         Extract<RemovedComponents<PreviousGlobalTransform>>,
         Extract<RemovedComponents<Lightmap>>,
@@ -1984,6 +2006,7 @@ pub fn extract_meshes_for_gpu_building(
         Extract<RemovedComponents<NoCpuCulling>>,
         Extract<RemovedComponents<VisibilityRange>>,
         Extract<RemovedComponents<SkinnedMesh>>,
+        Extract<RemovedComponents<RenderLayers>>,
     ),
     all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
@@ -2023,7 +2046,8 @@ pub fn extract_meshes_for_gpu_building(
             .chain(removed_no_automatic_batching_query.read())
             .chain(removed_no_cpu_culling_query.read())
             .chain(removed_visibility_range_query.read())
-            .chain(removed_skinned_mesh_query.read()),
+            .chain(removed_skinned_mesh_query.read())
+            .chain(removed_render_layers_query.read()),
     );
 
     // We have to skip the meshes in the potential reextraction set if we
@@ -2263,24 +2287,34 @@ impl<'a> Iterator for AtomicU64ZeroBitIter<'a> {
 pub fn collect_gpu_culled_meshes(
     mut cameras: Query<(Option<&RenderLayers>, &mut RenderVisibleEntities), With<ExtractedView>>,
     mut lights: Query<(Option<&RenderLayers>, &mut RenderShadowMapVisibleEntities)>,
-    mut render_gpu_culled_entities: ResMut<RenderGpuCulledEntities>,
+    render_gpu_culled_entities: Res<RenderGpuCulledEntities>,
 ) {
+    let default_render_layers = RenderLayers::default();
+
     // Collect cameras.
     for (maybe_render_layers, mut render_visible_entities) in &mut cameras {
+        let just_added_render_visible_entities = render_visible_entities.is_added();
         collect_gpu_culled_meshes_for_subview(
-            maybe_render_layers,
+            maybe_render_layers.unwrap_or(&default_render_layers),
             &mut render_visible_entities,
-            &mut render_gpu_culled_entities,
+            just_added_render_visible_entities,
+            &render_gpu_culled_entities,
         );
     }
 
     // Collect shadow maps.
     for (maybe_render_layers, mut render_shadow_map_visible_entities) in &mut lights {
-        for render_visible_entities in render_shadow_map_visible_entities.subviews.values_mut() {
+        let last_run = render_shadow_map_visible_entities.last_run();
+        let this_run = render_shadow_map_visible_entities.this_run();
+
+        for (render_visible_entities_added_tick, render_visible_entities) in
+            render_shadow_map_visible_entities.subviews.values_mut()
+        {
             collect_gpu_culled_meshes_for_subview(
-                maybe_render_layers,
+                maybe_render_layers.unwrap_or(&default_render_layers),
                 render_visible_entities,
-                &mut render_gpu_culled_entities,
+                render_visible_entities_added_tick.is_newer_than(last_run, this_run),
+                &render_gpu_culled_entities,
             );
         }
     }
@@ -2293,91 +2327,113 @@ pub fn collect_gpu_culled_meshes(
 /// corresponding function for entities that are culled on CPU is
 /// `collect_visible_cpu_culled_entities_for_subview`.
 fn collect_gpu_culled_meshes_for_subview(
-    maybe_view_render_layers: Option<&RenderLayers>,
+    view_render_layers: &RenderLayers,
     render_visible_entities: &mut RenderVisibleEntities,
-    render_mesh_instance_gpu_queues: &mut RenderGpuCulledEntities,
+    just_added_render_visible_entities: bool,
+    render_mesh_instance_gpu_queues: &RenderGpuCulledEntities,
 ) {
+    let is_entity_relevant =
+        |render_layers: &RenderLayers| -> bool { view_render_layers.intersects(render_layers) };
+
     // Only 3D meshes can be culled on GPU at the moment.
     let render_view_visible_mesh_entities = render_visible_entities
         .classes
         .entry(TypeId::of::<Mesh3d>())
         .or_default();
 
-    // Update the list with entities that were removed.
-    for main_entity in &render_mesh_instance_gpu_queues.removed {
-        if render_view_visible_mesh_entities
-            .entities_gpu_culling
-            .remove(main_entity)
-            .is_some()
-        {
-            render_view_visible_mesh_entities
-                .removed_entities
-                .push((Entity::PLACEHOLDER, *main_entity));
-        }
-    }
-
-    // Update the list with entities that became newly visible.
-    let mut any_added = false;
-    for main_entity in &render_mesh_instance_gpu_queues.added {
-        // Make sure the entity belongs to our set of render layers.
-        let maybe_entity_render_layers = render_mesh_instance_gpu_queues.entities.get(main_entity);
-        if let (Some(view_render_layers), Some(entity_render_layers)) =
-            (maybe_view_render_layers, maybe_entity_render_layers)
-            && !view_render_layers.intersects(entity_render_layers)
-        {
-            continue;
-        }
-
-        // Update the tables. 3D meshes have no render entity, so it's
-        // appropriate to use `Entity::PLACEHOLDER` here.
-        render_view_visible_mesh_entities
-            .entities_gpu_culling
-            .insert(*main_entity, Entity::PLACEHOLDER);
-        render_view_visible_mesh_entities.add_entity((Entity::PLACEHOLDER, *main_entity));
-        any_added = true;
-    }
-
-    // Process entities that changed layers.
-    for main_entity in &render_mesh_instance_gpu_queues.changed_layers {
-        let Some(new_render_layers) = render_mesh_instance_gpu_queues.entities.get(main_entity)
-        else {
-            continue;
-        };
-
-        // This is either treated as no change, as an addition, or as a removal.
-        let entity_was_visible = render_view_visible_mesh_entities
-            .entities_gpu_culling
-            .contains_key(main_entity);
-        let entity_is_visible = maybe_view_render_layers
-            .is_none_or(|render_layers| render_layers.intersects(new_render_layers));
-        match (entity_was_visible, entity_is_visible) {
-            (false, false) | (true, true) => {
-                // No change; do nothing.
-            }
-            (false, true) => {
-                // The entity became visible. This is an addition.
+    // `RenderGpuCulledEntities` is a global resource that only cares about this frame changed renderables, so when the camera is spawned later, this per frame information is gone.
+    // So we do a full flush on the `RenderVisibleEntities` whenever it just got added
+    if just_added_render_visible_entities {
+        // We assume `RenderVisibleEntities` is completely fresh so there will only be new entities
+        for (main_entity, render_layers) in render_mesh_instance_gpu_queues.entities.iter() {
+            if is_entity_relevant(render_layers) {
+                // Update the tables. 3D meshes have no render entity, so it's
+                // appropriate to use `Entity::PLACEHOLDER` here.
                 render_view_visible_mesh_entities
                     .entities_gpu_culling
                     .insert(*main_entity, Entity::PLACEHOLDER);
-                render_view_visible_mesh_entities.add_entity((Entity::PLACEHOLDER, *main_entity));
-                any_added = true;
-            }
-            (true, false) => {
-                // The entity became invisible. This is a removal.
                 render_view_visible_mesh_entities
-                    .entities_gpu_culling
-                    .remove(main_entity);
+                    .added_entities
+                    .push((Entity::PLACEHOLDER, *main_entity));
+            }
+        }
+
+        render_view_visible_mesh_entities.sort_added_entities();
+    } else {
+        // Update the list with entities that were removed.
+        for main_entity in &render_mesh_instance_gpu_queues.removed {
+            if render_view_visible_mesh_entities
+                .entities_gpu_culling
+                .remove(main_entity)
+                .is_some()
+            {
                 render_view_visible_mesh_entities
                     .removed_entities
                     .push((Entity::PLACEHOLDER, *main_entity));
             }
         }
-    }
 
-    // Make sure the `added_entities` list is sorted, as the
-    // `DirtySpecializations` iterator will binary search it.
-    if any_added {
-        render_view_visible_mesh_entities.sort_added_entities();
+        // Update the list with entities that became newly visible.
+        let mut any_added = false;
+        for main_entity in &render_mesh_instance_gpu_queues.added {
+            // Make sure the entity belongs to our set of render layers.
+            let maybe_render_layers = render_mesh_instance_gpu_queues.entities.get(main_entity);
+            if maybe_render_layers.is_none_or(is_entity_relevant) {
+                // Update the tables. 3D meshes have no render entity, so it's
+                // appropriate to use `Entity::PLACEHOLDER` here.
+                render_view_visible_mesh_entities
+                    .entities_gpu_culling
+                    .insert(*main_entity, Entity::PLACEHOLDER);
+                render_view_visible_mesh_entities
+                    .added_entities
+                    .push((Entity::PLACEHOLDER, *main_entity));
+                any_added = true;
+            }
+        }
+
+        // Process entities that changed layers.
+        for main_entity in &render_mesh_instance_gpu_queues.changed_layers {
+            let Some(render_layers) = render_mesh_instance_gpu_queues.entities.get(main_entity)
+            else {
+                continue;
+            };
+
+            // This is either treated as no change, as an addition, or as a removal.
+            let entity_was_relevant = render_view_visible_mesh_entities
+                .entities_gpu_culling
+                .contains_key(main_entity);
+            let entity_is_relevant = is_entity_relevant(render_layers);
+            match (entity_was_relevant, entity_is_relevant) {
+                (false, false) | (true, true) => {
+                    // No change; do nothing.
+                }
+                (false, true) => {
+                    // The entity became visible. This is an addition.
+                    render_view_visible_mesh_entities
+                        .entities_gpu_culling
+                        .insert(*main_entity, Entity::PLACEHOLDER);
+                    render_view_visible_mesh_entities
+                        .added_entities
+                        .push((Entity::PLACEHOLDER, *main_entity));
+                    any_added = true;
+                }
+                (true, false) => {
+                    // The entity became invisible. This is a removal.
+                    render_view_visible_mesh_entities
+                        .entities_gpu_culling
+                        .remove(main_entity);
+                    render_view_visible_mesh_entities
+                        .removed_entities
+                        .push((Entity::PLACEHOLDER, *main_entity));
+                }
+            }
+        }
+
+        // Make sure the `added_entities` list is sorted, as the
+        // `DirtySpecializations` iterator will binary search it.
+        if any_added {
+            render_view_visible_mesh_entities.sort_added_entities();
+        }
     }
 }
 
@@ -2709,12 +2765,11 @@ pub struct MeshPipeline {
     /// are used and this will be `None`, otherwise uniform buffers will be used with batches
     /// of this many `MeshUniform`s, stored at dynamic offsets within the uniform buffer.
     /// Use code like this in custom shaders:
-    /// ```wgsl
-    /// ##ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-    /// @group(1) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
-    /// ##else
+    /// ```wesl
+    /// @if(PER_OBJECT_BUFFER_BATCH_SIZE)
+    /// @group(1) @binding(0) var<uniform> mesh: array<Mesh, u32(constants::PER_OBJECT_BUFFER_BATCH_SIZE)>;
+    /// @else
     /// @group(1) @binding(0) var<storage> mesh: array<Mesh>;
-    /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
 
@@ -2743,7 +2798,7 @@ fn init_mesh_pipeline(
     view_layouts: Res<MeshPipelineViewLayouts>,
     asset_server: Res<AssetServer>,
 ) {
-    let shader = load_embedded_asset!(asset_server.as_ref(), "mesh.wgsl");
+    let shader = load_embedded_asset!(asset_server.as_ref(), "mesh.wesl");
 
     let clustered_forward_buffer_binding_type =
         render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
@@ -2784,12 +2839,8 @@ pub fn build_dummy_white_gpu_image(
 ) -> GpuImage {
     let image = Image::default();
     let texture = render_device.create_texture(&image.texture_descriptor);
-    let sampler = match image.sampler {
-        ImageSampler::Default => (**default_sampler).clone(),
-        ImageSampler::Descriptor(ref descriptor) => {
-            render_device.create_sampler(&descriptor.as_wgpu())
-        }
-    };
+    // The default image always uses the default sampler.
+    let sampler = (**default_sampler).clone();
 
     if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
         render_queue.write_texture(
@@ -3063,7 +3114,7 @@ bitflags::bitflags! {
                                                             // Emulated via fragment shader depth on hardware that doesn't support it natively
                                                             // See: https://www.w3.org/TR/webgpu/#depth-clipping and https://therealmjp.github.io/posts/shadow-maps/#disabling-z-clipping
         const TEMPORAL_JITTER                   = 1 << 10;
-        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 11;
+        const VIEW_TRANSMISSION_TEXTURE         = 1 << 11;
         const LIGHTMAPPED                       = 1 << 12;
         const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 13;
         const IRRADIANCE_VOLUME                 = 1 << 14;
@@ -3095,7 +3146,7 @@ bitflags::bitflags! {
         const BLEND_ALPHA                       = 3 << Self::BLEND_SHIFT_BITS;                     //
         const BLEND_ALPHA_TO_COVERAGE           = 4 << Self::BLEND_SHIFT_BITS;                     // ← We still have room for three more values without adding more bits
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_LINEAR             = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -3462,10 +3513,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             self.skins_use_uniform_buffers,
         ));
 
-        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
-            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
-        }
-
         if key.contains(MeshPipelineKey::CONTACT_SHADOWS) {
             shader_defs.push("CONTACT_SHADOWS".into());
         }
@@ -3478,7 +3525,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
-        let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
+        let mut alpha_to_coverage_enabled = false;
         if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
@@ -3516,7 +3563,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
             alpha_to_coverage_enabled = true;
             shader_defs.push("ALPHA_TO_COVERAGE".into());
         } else {
@@ -3527,7 +3573,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
         }
 
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
@@ -3536,6 +3581,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
             shader_defs.push("DEPTH_PREPASS".into());
+        }
+
+        // Transparent meshes don't contribute to the depth prepass, so SSAO should not be applied.
+        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) && depth_write_enabled {
+            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
         if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
@@ -3554,7 +3604,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("DEFERRED_PREPASS".into());
         }
 
-        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
@@ -3586,8 +3636,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            if method == MeshPipelineKey::TONEMAP_METHOD_LINEAR {
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
@@ -3645,6 +3695,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
         }
 
+        if key.contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE) {
+            shader_defs.push("VIEW_TRANSMISSION_TEXTURE".into());
+        }
+
         let blur_quality =
             key.intersection(MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS);
 
@@ -3690,7 +3744,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let format = key.target_format();
 
         // This is defined here so that custom shaders that use something other than
-        // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this
+        // the mesh binding from bevy_pbr::render::mesh_bindings can easily make use of this
         // in their own shaders.
         if let Some(per_object_buffer_batch_size) = self.per_object_buffer_batch_size {
             shader_defs.push(ShaderDefVal::UInt(

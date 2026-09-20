@@ -189,6 +189,8 @@ fn setup(
     images: ResMut<Assets<Image>>,
     counter: ResMut<BevyCounter>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     let args = args.into_inner();
     let images = images.into_inner();
 

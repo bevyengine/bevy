@@ -1,6 +1,6 @@
 use crate::{App, Plugin};
 use bevy_ecs::{
-    schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, SingleThreadedExecutor, SystemSet},
+    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::Local,
     world::World,
 };
@@ -51,6 +51,7 @@ use bevy_ecs::{
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct EntryPoint;
 
+/// TODO: Write Docs
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Main;
 
