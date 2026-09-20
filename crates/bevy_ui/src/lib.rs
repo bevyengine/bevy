@@ -74,7 +74,7 @@ pub mod prelude {
             gradients::*,
             ui_node::*,
             ui_transform::*,
-            widget::{ImageNode, Label, NodeImageMode, ViewportNode},
+            widget::{ImageNode, InlineImage, Label, NodeImageMode, ViewportNode},
             UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
@@ -242,6 +242,9 @@ fn build_text_interop(app: &mut App) {
     app.add_systems(
         PostUpdate,
         (
+            widget::update_inline_image_boxes
+                .before(detect_text_needs_rerender)
+                .in_set(UiSystems::Content),
             widget::measure_text_system
                 .after(detect_text_needs_rerender)
                 .after(bevy_text::load_font_assets_into_font_collection)

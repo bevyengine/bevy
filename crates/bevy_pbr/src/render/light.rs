@@ -13,6 +13,7 @@ use bevy_color::ColorToComponents;
 use bevy_core_pipeline::schedule::RootNonCameraView;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::schedule::ScheduleLabel;
+use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
@@ -471,6 +472,7 @@ pub fn extract_lights(
     )>,
     mut all_lights_found: Local<EntityHashSet>,
     mut rect_light_missing_luts_warning_emitted: Local<bool>,
+    system_change_tick: SystemChangeTick,
 ) {
     let mapper = &visibility_extraction_system_param.mapper;
 
@@ -544,7 +546,7 @@ pub fn extract_lights(
                 render_shadow_map_visible_entities
                     .subviews
                     .entry(retained_view_entity)
-                    .or_default();
+                    .or_insert_with(|| (system_change_tick.this_run(), Default::default()));
 
                 // Extract the visible entities to the list for this face.
                 let extracted_entities = &mut render_extracted_shadow_map_visible_entities
@@ -675,7 +677,7 @@ pub fn extract_lights(
             render_shadow_map_visible_entities
                 .subviews
                 .entry(retained_view_entity)
-                .or_default();
+                .or_insert_with(|| (system_change_tick.this_run(), Default::default()));
 
             // Extract the visible CPU culled entities to the list.
             let entities_cpu_culling = &mut render_extracted_shadow_map_visible_entities
@@ -845,7 +847,7 @@ pub fn extract_lights(
                     existing_shadow_map_visible_entities
                         .subviews
                         .entry(retained_view_entity)
-                        .or_default();
+                        .or_insert_with(|| (system_change_tick.this_run(), Default::default()));
 
                     // Extract the visible CPU culled entities to the list.
                     let extracted_entities = &mut existing_extracted_shadow_map_visible_entities
@@ -2384,7 +2386,7 @@ pub struct SpecializedShadowMaterialPipelineCache {
 #[derive(Deref, DerefMut, Default)]
 pub struct SpecializedShadowMaterialViewPipelineCache {
     #[deref]
-    map: MainEntityHashMap<(CachedRenderPipelineId, DrawFunctionId)>,
+    map: MainEntityHashMap<(CachedRenderPipelineId, DrawFunctionId, bool)>,
 }
 
 pub fn check_views_lights_need_specialization(
@@ -2669,7 +2671,10 @@ pub(crate) fn specialize_shadows(
                     .resource_mut::<SpecializedShadowMaterialPipelineCache>()
                     .entry(item.retained_view_entity)
                     .or_default()
-                    .insert(item.visible_entity, (pipeline_id, draw_function));
+                    .insert(
+                        item.visible_entity,
+                        (pipeline_id, draw_function, is_depth_only_opaque),
+                    );
             }
             Err(err) => error!("{}", err),
         }
@@ -2740,7 +2745,7 @@ pub fn queue_shadows(
             &view_pending_shadow_queues.prev_frame,
             &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
-            let Some(&(pipeline_id, draw_function)) =
+            let Some(&(pipeline_id, draw_function, is_depth_only_opaque)) =
                 view_specialized_material_pipeline_cache.get(main_entity)
             else {
                 continue;
@@ -2768,26 +2773,22 @@ pub fn queue_shadows(
                 continue;
             }
 
-            let Some(material_instance) = render_material_instances.instances.get(main_entity)
-            else {
-                continue;
-            };
-            let Some(material) = render_materials.get(material_instance.asset_id) else {
-                // We couldn't fetch the material, probably because the
-                // material hasn't been loaded yet. Add the entity to the
-                // list of pending shadows and bail.
-                view_pending_shadow_queues
-                    .current_frame
-                    .insert((*render_entity, *main_entity));
-                continue;
-            };
-
-            let depth_only_draw_function = material
-                .properties
-                .get_draw_function(ShadowsDepthOnlyDrawFunction);
-            let material_bind_group_index = if Some(draw_function) == depth_only_draw_function {
+            let material_bind_group_index = if is_depth_only_opaque {
                 None
             } else {
+                let Some(material_instance) = render_material_instances.instances.get(main_entity)
+                else {
+                    continue;
+                };
+                let Some(material) = render_materials.get(material_instance.asset_id) else {
+                    // We couldn't fetch the material, probably because the
+                    // material hasn't been loaded yet. Add the entity to the
+                    // list of pending shadows and bail.
+                    view_pending_shadow_queues
+                        .current_frame
+                        .insert((*render_entity, *main_entity));
+                    continue;
+                };
                 Some(material.binding.group.0)
             };
 
@@ -3109,12 +3110,13 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
     match light_entity {
         LightEntity::Directional { light_entity, .. } => {
             let retained_view_entity = extracted_view_light.retained_view_entity;
-            shadow_map_visible_entities_query
+            &shadow_map_visible_entities_query
                 .get(*light_entity)
                 .expect("Failed to get directional light visible entities")
                 .subviews
                 .get(&retained_view_entity)
                 .expect("Failed to get directional light visible entities for cascade")
+                .1
         }
         LightEntity::Point {
             light_entity,
@@ -3128,12 +3130,13 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
                 auxiliary_entity: None,
                 subview_index: *face_index as u32,
             };
-            shadow_map_visible_entities_query
+            &shadow_map_visible_entities_query
                 .get(*light_entity)
                 .expect("Failed to get point light visible entities")
                 .subviews
                 .get(&retained_view_entity)
                 .expect("Failed to get point light visible entity for face")
+                .1
         }
         LightEntity::Spot { light_entity } => {
             // We replace the auxiliary entity with `None`
@@ -3144,12 +3147,13 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
                 auxiliary_entity: None,
                 subview_index: 0,
             };
-            shadow_map_visible_entities_query
+            &shadow_map_visible_entities_query
                 .get(*light_entity)
                 .expect("Failed to get spot light visible entities")
                 .subviews
                 .get(&retained_view_entity)
                 .expect("Failed to get spot light visible entity for view")
+                .1
         }
     }
 }

@@ -4,7 +4,7 @@ use crate::_bsn::types::{
     BsnSceneListItems, BsnStructUpdate, BsnType, BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::{Delimiter, Group, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use syn::{parse::Parse, ExprTuple, Ident, Lit, Member, Path};
@@ -71,6 +71,50 @@ impl<'a> BsnCodegenCtx<'a> {
         let string = ident.to_string();
         (ident.to_string(), self.entity_refs.get(string))
     }
+
+    fn validate_macro_uses_braces(&mut self) {
+        let span = Span::call_site();
+        let Some(source_text) = span.source_text() else {
+            return;
+        };
+
+        const BSN_LIST: &str = "bsn_list!";
+        const BSN: &str = "bsn!";
+
+        let (name, remaining) = if let Some(remaining) = source_text.strip_prefix(BSN_LIST) {
+            (BSN_LIST, remaining)
+        } else if let Some(remaining) = source_text.strip_prefix(BSN) {
+            (BSN, remaining)
+        } else {
+            #[expect(
+                clippy::print_stderr,
+                reason = "The `bsn!` macro cannot know the caller's logging setup."
+            )]
+            {
+                eprintln!("Unknown macro root! {}", source_text);
+            }
+            return;
+        };
+
+        for character in remaining.chars() {
+            if character.is_whitespace() {
+                continue;
+            }
+
+            match character {
+                '(' | '[' => {
+                    self.deprecations.push(deprecation_warning(
+                        span,
+                        "USE_BRACE_FOR_BSN_MACRO",
+                        &format!("'{name} {character}' should not be used, as rustfmt can mangle the outputs. Use '{name} {{ }}' instead"),
+                    ));
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 pub trait BsnTokenStream: Parse {
@@ -79,39 +123,38 @@ pub trait BsnTokenStream: Parse {
 
 impl BsnTokenStream for BsnRoot {
     fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        match self {
-            BsnRoot::Bsn(bsn) => {
-                let tokens = bsn.into_tokens(ctx);
-                let errors = ctx.errors.iter().map(|e| e.to_compile_error());
-                let bevy_scene = ctx.bevy_scene;
-                let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
-                let call_id = if !ctx.entity_refs.refs.is_empty() {
-                    quote! {
-                        static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
-                        let _call_id = _CALL_ID.increment();
-                    }
-                } else {
-                    quote! {}
-                };
+        ctx.validate_macro_uses_braces();
+        let tokens = self.0.into_tokens(ctx);
+        let errors = ctx.errors.iter().map(syn::Error::to_compile_error);
+        let bevy_scene = ctx.bevy_scene;
+        let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
+        let call_id = if !ctx.entity_refs.refs.is_empty() {
+            Some(quote! {
+                static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
+                let _call_id = _CALL_ID.increment();
+            })
+        } else {
+            None
+        };
 
-                let deprecations = ctx.deprecations.iter();
-                // NOTE: Assigning the result to a variable first so that the LSP's
-                // type inference can see assignments before it encounters
-                // any compile errors. This keeps autocomplete working in broken states,
-                // e.g. when typing the name of a field but no value yet.
-                quote! {
-                    #bevy_scene::SceneScope({
-                        #(#deprecations)*
-                        #call_id
-                        #(#hoisted_exprs)*
-                        let _res = #tokens;
-                        #(#errors)*
-                        _res
-                    })
-                }
+        let deprecations = ctx.deprecations.iter();
+        if call_id.is_some()
+            || hoisted_exprs.len() > 0
+            || errors.len() > 0
+            || !ctx.deprecations.is_empty()
+        {
+            quote! {
+                #bevy_scene::SceneScope({
+                    #(#deprecations)*
+                    #call_id
+                    #(#hoisted_exprs)*
+                    #(#errors)*
+                    #tokens
+                })
             }
-            BsnRoot::BsnList(bsn_scene_list_items) => {
-                BsnListRoot(bsn_scene_list_items).into_tokens(ctx)
+        } else {
+            quote! {
+                #bevy_scene::SceneScope(#tokens)
             }
         }
     }
@@ -119,33 +162,38 @@ impl BsnTokenStream for BsnRoot {
 
 impl BsnTokenStream for BsnListRoot {
     fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        ctx.validate_macro_uses_braces();
         let tokens = self.0.into_tokens(ctx);
-        let errors = ctx.errors.iter().map(|e| e.to_compile_error());
+        let errors = ctx.errors.iter().map(syn::Error::to_compile_error);
         let bevy_scene = ctx.bevy_scene;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
         let call_id = if !ctx.entity_refs.refs.is_empty() {
-            quote! {
+            Some(quote! {
                 static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
                 let _call_id = _CALL_ID.increment();
-            }
+            })
         } else {
-            quote! {}
+            None
         };
 
         let deprecations = ctx.deprecations.iter();
-
-        // NOTE: Assigning the result to a variable first so that the LSP's
-        // type inference can see assignments before it encounters
-        // any compile errors. This keeps autocomplete working in broken states,
-        // e.g. when typing the name of a field but no value yet.
-        quote! {
-            {
-                #(#deprecations)*
-                #call_id
-                #(#hoisted_exprs)*
-                let _res = #bevy_scene::SceneListScope(#tokens);
-                #(#errors)*
-                _res
+        if errors.len() > 0
+            || hoisted_exprs.len() > 0
+            || call_id.is_some()
+            || !ctx.deprecations.is_empty()
+        {
+            quote! {
+                {
+                    #(#deprecations)*
+                    #call_id
+                    #(#hoisted_exprs)*
+                    #(#errors)*
+                    #bevy_scene::SceneListScope(#tokens)
+                }
+            }
+        } else {
+            quote! {
+                #bevy_scene::SceneListScope(#tokens)
             }
         }
     }
@@ -170,7 +218,7 @@ impl Bsn {
                             })
                         });
                     }
-                    scene_impls.push(scene_impl)
+                    scene_impls.push(scene_impl);
                 }
                 Err(err) => scene_impls.push(err.to_compile_error()),
             }
@@ -191,12 +239,39 @@ impl Bsn {
                 "Parentheses around entities (and comma separators) have been deprecated in BSN. Remove the parentheses and use `--` to separate entities",
             ));
         }
-        Ok(quote! { #bevy_scene::auto_nest_tuple!(#(#scene_impls),*) })
+        let scene_impls = AutoNestTuple(&scene_impls);
+        Ok(quote! { #scene_impls })
     }
 
     pub fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         self.try_into_tokens(ctx)
             .unwrap_or_else(|e| e.to_compile_error())
+    }
+}
+
+/// Creates a tuple that will be nested after it passes 11 items.
+/// When there is a single item, it is _not_ wrapped in a tuple.
+/// This is implemented in a way that creates the smallest number of trait impls possible.
+struct AutoNestTuple<'a>(&'a [TokenStream]);
+
+impl<'a> ToTokens for AutoNestTuple<'a> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        if self.0.len() >= 12 {
+            let items0 = AutoNestTuple(&self.0[0..11]);
+            let items1 = AutoNestTuple(&self.0[11..]);
+            tokens.extend([TokenTree::Group(Group::new(
+                Delimiter::Parenthesis,
+                quote! {#items0, #items1},
+            ))]);
+        } else if self.0.len() == 1 {
+            self.0[0].to_tokens(tokens);
+        } else {
+            let items = self.0;
+            tokens.extend([TokenTree::Group(Group::new(
+                Delimiter::Parenthesis,
+                quote! {#(#items),*},
+            ))]);
+        }
     }
 }
 
@@ -217,10 +292,7 @@ impl BsnEntry {
                         _scene.insert_template(#template);
                     })
                 } else {
-                    let path = &[Member::Named(Ident::new(
-                        "__value",
-                        proc_macro2::Span::call_site(),
-                    ))];
+                    let path = &[Member::Named(Ident::new("__value", Span::call_site()))];
                     let assigns = ty.patch_tokens(ctx, path, true, false, false)?;
                     let path = &ty.path;
                     EntryResult::CombinedSceneFunction(if assigns.is_empty() {
@@ -242,19 +314,16 @@ impl BsnEntry {
                         _scene.insert_template(#template);
                     })
                 } else {
-                    let path = &[Member::Named(Ident::new(
-                        "__value",
-                        proc_macro2::Span::call_site(),
-                    ))];
+                    let path = &[Member::Named(Ident::new("__value", Span::call_site()))];
                     let assigns = ty.patch_tokens(ctx, path, true, false, false)?;
                     let path = &ty.path;
                     EntryResult::CombinedSceneFunction(if assigns.is_empty() {
                         quote! {
-                            let _ = _scene.get_or_insert_template::<<#path as #bevy_ecs::template::FromTemplate>::Template>(_context);
+                            let _ = _scene.get_or_insert_from_template::<#path>(_context);
                         }
                     } else {
                         quote! {
-                            let __value = _scene.get_or_insert_template::<<#path as #bevy_ecs::template::FromTemplate>::Template>(_context);
+                            let __value = _scene.get_or_insert_from_template::<#path>(_context);
                             #(#assigns)*
                         }
                     })
@@ -306,12 +375,12 @@ impl BsnEntry {
             }) => {
                 let scenes = scene_list.0.into_tokens(ctx);
                 EntryResult::NewSceneImpl(quote! {
-                    #bevy_scene::RelatedScenes::<<#relationship_path as #bevy_ecs::relationship::RelationshipTarget>
-                    ::Relationship, _>::new(#scenes)
+                    #bevy_scene::RelatedScenes::<#relationship_path>::new(#scenes)
                 })
             }
-            BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.into_tokens(ctx)?),
-            BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.into_tokens(ctx)?),
+            BsnEntry::UncachedScene(s) | BsnEntry::CachedScene(s) => {
+                EntryResult::NewSceneImpl(s.into_tokens(ctx)?)
+            }
             BsnEntry::Name(ident) => {
                 let (name, index) = ctx.fixed_entity_ref(&ident);
                 let invocation = ctx.invocation_index.clone();
@@ -350,30 +419,37 @@ impl BsnScene {
                 let template_patch = if bsn_type.variant.is_some() {
                     let enum_tokens = bsn_type.enum_tokens(ctx, true)?;
                     let bevy_scene = ctx.bevy_scene;
-                    quote! {
+                    Some(quote! {
                         <#path as #bevy_scene::PatchFromTemplate>::patch(move |__value, _context| {
                             *__value = #enum_tokens;
                         })
-                    }
+                    })
                 } else {
-                    let value_path = &[Member::Named(Ident::new(
-                        "__value",
-                        proc_macro2::Span::call_site(),
-                    ))];
+                    let value_path = &[Member::Named(Ident::new("__value", Span::call_site()))];
                     let template_assignments =
                         bsn_type.patch_tokens(ctx, value_path, true, false, true)?;
                     let bevy_scene = ctx.bevy_scene;
-                    quote! {
-                        <#path as #bevy_scene::PatchFromTemplate>::patch(move |__value, _context| {
-                            #(#template_assignments)*
+                    if template_assignments.is_empty() {
+                        None
+                    } else {
+                        Some(quote! {
+                            <#path as #bevy_scene::PatchFromTemplate>::patch(move |__value, _context| {
+                                #(#template_assignments)*
+                            })
                         })
                     }
+                };
+
+                let scene = if let Some(template_patch) = template_patch {
+                    quote! {(<#path as #bevy_scene::SceneComponent>::scene(#props), #template_patch)}
+                } else {
+                    quote! {<#path as #bevy_scene::SceneComponent>::scene(#props)}
                 };
                 Ok(quote! {{
                     let mut #props = <<#path as #bevy_scene::SceneComponent>::Props as #FQDefault>::default();
                     let #props_ref = &mut #props;
                     #(#props_assignments)*
-                    (<#path as #bevy_scene::SceneComponent>::scene(#props), #template_patch)
+                    #scene
                 }})
             }
             BsnScene::Expression(tokens) => Ok(quote! {
@@ -780,15 +856,20 @@ impl BsnTokenStream for BsnSceneListItems {
             ));
         }
         let bevy_scene = ctx.bevy_scene;
-        let scenes = self.0.into_iter().map(|s| match s {
-            BsnSceneListItem::Scene(bsn) => {
-                let tokens = bsn.into_tokens(ctx);
-                quote! {#bevy_scene::EntityScene(#tokens)}
-            }
-            BsnSceneListItem::Expression(tokens) => tokens.clone(),
-        });
+        let scenes = self
+            .0
+            .into_iter()
+            .map(|s| match s {
+                BsnSceneListItem::Scene(bsn) => {
+                    let tokens = bsn.into_tokens(ctx);
+                    quote! {#bevy_scene::EntityScene(#tokens)}
+                }
+                BsnSceneListItem::Expression(tokens) => tokens,
+            })
+            .collect::<Vec<_>>();
 
-        quote! { #bevy_scene::auto_nest_tuple!(#(#scenes),*) }
+        let scenes = AutoNestTuple(&scenes);
+        quote! { #scenes }
     }
 }
 
@@ -834,9 +915,9 @@ impl ToTokens for BsnValue {
             BsnValue::Lit(Lit::Str(s)) => quote! {#s.into()}.to_tokens(tokens),
             BsnValue::Lit(l) => {
                 if l.suffix().is_empty() {
-                    l.to_tokens(tokens)
+                    l.to_tokens(tokens);
                 } else {
-                    quote! {(#l).into()}.to_tokens(tokens)
+                    quote! {(#l).into()}.to_tokens(tokens);
                 }
             }
             BsnValue::Tuple(t) => {
@@ -1106,7 +1187,7 @@ mod tests {
             exprs.expressions[0].to_string(),
             "let _expr0 = { some_borrow . clone () } . into () ;"
         );
-        let assignment_output: String = res.unwrap().iter().map(|t| t.to_string()).collect();
+        let assignment_output: String = res.unwrap().iter().map(ToString::to_string).collect();
         assert!(
             assignment_output.contains("_expr0"),
             "expected hoisted ident in assignment output: {assignment_output}"
@@ -1120,18 +1201,16 @@ mod tests {
     #[test]
     fn bsn_root_preserves_inference_on_error() {
         // Arrange
-        let expected = "bevy_scene :: SceneScope ({ let _res = bevy_scene :: auto_nest_tuple \
-            ! () ; :: core :: compile_error ! { \"Test Error\" } _res })";
+        let expected =
+            "bevy_scene :: SceneScope ({ :: core :: compile_error ! { \"Test Error\" } () })";
 
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
         let mut exprs = HoistedExpressions::default();
         let mut ctx = paths.ctx(&mut refs, &mut exprs);
-        ctx.errors.push(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            "Test Error",
-        ));
-        let root = BsnRoot::Bsn(Bsn {
+        ctx.errors
+            .push(syn::Error::new(Span::call_site(), "Test Error"));
+        let root = BsnRoot(Bsn {
             entries: vec![],
             used_parens: None,
         });
@@ -1147,19 +1226,14 @@ mod tests {
     fn bsn_list_root_preserves_inference_on_error() {
         // Arrange
         let expected =
-            "{ let _res = bevy_scene :: SceneListScope (bevy_scene :: auto_nest_tuple ! ()) ;"
-                .to_string()
-                + " :: core :: compile_error ! { \"Test Error\" }"
-                + " _res }";
+            "{ :: core :: compile_error ! { \"Test Error\" } bevy_scene :: SceneListScope (()) }";
 
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
         let mut exprs = HoistedExpressions::default();
         let mut ctx = paths.ctx(&mut refs, &mut exprs);
-        ctx.errors.push(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            "Test Error",
-        ));
+        ctx.errors
+            .push(syn::Error::new(Span::call_site(), "Test Error"));
         let root = BsnListRoot(BsnSceneListItems(vec![], vec![]));
 
         // Act

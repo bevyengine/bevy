@@ -15,9 +15,9 @@ use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
-use bevy_utils::{default, TypeIdHashMap};
+use bevy_utils::default;
 use core::{
-    any::{Any, TypeId},
+    any::TypeId,
     fmt::{Debug, Write},
 };
 use fixedbitset::FixedBitSet;
@@ -282,12 +282,6 @@ impl Schedules {
     }
 }
 
-/// Marker stored in a [`Chain`]'s options by
-/// [`chain_weak`](crate::schedule::IntoScheduleConfigs::chain_weak) to tag its edges as weak,
-/// meaning the ordering is only kept between systems that actually conflict (access the same data in a way that is incompatible with the borrow checker). See `chain_weak`
-/// for the semantics.
-pub(crate) struct Weak;
-
 /// Chain systems into dependencies
 #[derive(Default)]
 pub enum Chain {
@@ -296,22 +290,48 @@ pub enum Chain {
     Unchained,
     /// Systems are chained. `before -> after` ordering constraints
     /// will be added between the successive elements.
-    Chained(TypeIdHashMap<Box<dyn Any>>),
+    Chained {
+        /// Specifies if the links between the chained systems are weak
+        is_weak: bool,
+        /// Whether or not to insert sync points between systems in this chain
+        ignore_deferred: bool,
+    },
 }
 
 impl Chain {
     /// Specify that the systems must be chained.
     pub fn set_chained(&mut self) {
         if matches!(self, Chain::Unchained) {
-            *self = Self::Chained(Default::default());
+            *self = Self::Chained {
+                is_weak: false,
+                ignore_deferred: false,
+            };
         };
     }
-    /// Specify that the systems must be chained, and add the specified configuration for
-    /// all dependencies created between these systems.
-    pub fn set_chained_with_config<T: 'static>(&mut self, config: T) {
+
+    /// Specify that the systems must be chained, and the links are weak
+    pub fn set_chained_weak(&mut self) {
         self.set_chained();
-        if let Chain::Chained(config_map) = self {
-            config_map.insert(TypeId::of::<T>(), Box::new(config));
+        if let Chain::Chained {
+            is_weak,
+            ignore_deferred: _,
+        } = self
+        {
+            *is_weak = true;
+        } else {
+            unreachable!()
+        };
+    }
+
+    /// Specify that the systems must be chained, and the links ignore deferred operations
+    pub fn set_chained_ignore_deferred(&mut self) {
+        self.set_chained();
+        if let Chain::Chained {
+            is_weak: _,
+            ignore_deferred,
+        } = self
+        {
+            *ignore_deferred = true;
         } else {
             unreachable!()
         };
@@ -502,7 +522,7 @@ impl Schedule {
         self
     }
 
-    /// Configures a collection of system sets in this schedule, adding them if they does not exist.
+    /// Configures a collection of system sets in this schedule, adding them if they don't exist.
     #[track_caller]
     pub fn configure_sets<M>(
         &mut self,
@@ -893,16 +913,22 @@ impl ScheduleGraph {
             } => {
                 self.apply_collective_conditions(&mut configs, collective_conditions);
 
-                let is_chained = matches!(metadata, Chain::Chained(_));
-                let is_weak = matches!(
-                    &metadata,
-                    Chain::Chained(options) if options.contains_key(&TypeId::of::<Weak>())
-                );
+                let mut is_chained = false;
+                let mut weak_link = false;
+
+                if let Chain::Chained {
+                    is_weak,
+                    ignore_deferred: _,
+                } = metadata
+                {
+                    weak_link = is_weak;
+                    is_chained = true;
+                }
 
                 // Densely chained if
                 // * a non-weak chain whose configs are all densely chained, or
                 // * a single densely chained config
-                let mut densely_chained = (is_chained && !is_weak) || configs.len() == 1;
+                let mut densely_chained = (is_chained && !weak_link) || configs.len() == 1;
                 let mut configs = configs.into_iter();
                 let mut nodes = Vec::new();
 
@@ -919,7 +945,11 @@ impl ScheduleGraph {
                     let current_result = self.process_configs(current, collect_nodes || is_chained);
                     densely_chained &= current_result.densely_chained;
 
-                    if let Chain::Chained(chain_options) = &metadata {
+                    if let Chain::Chained {
+                        is_weak,
+                        ignore_deferred,
+                    } = &metadata
+                    {
                         // if the current result is densely chained, we only need to chain the first node
                         let current_nodes = if current_result.densely_chained {
                             &current_result.nodes[..1]
@@ -939,7 +969,7 @@ impl ScheduleGraph {
                             for current_node in current_nodes {
                                 self.dependency.add_edge(*previous_node, *current_node);
 
-                                if is_weak {
+                                if weak_link {
                                     self.weak_node_edges.insert((*previous_node, *current_node));
                                 } else {
                                     self.strict_node_edges
@@ -950,7 +980,8 @@ impl ScheduleGraph {
                                     pass.add_dependency(
                                         *previous_node,
                                         *current_node,
-                                        chain_options,
+                                        *is_weak,
+                                        *ignore_deferred,
                                     );
                                 }
                             }
@@ -1166,25 +1197,33 @@ impl ScheduleGraph {
             self.dependency.add_node(NodeId::Set(key));
         }
 
-        for (kind, key, options) in
-            dependencies
-                .into_iter()
-                .map(|Dependency { kind, set, options }| {
-                    (kind, self.system_sets.get_key_or_insert(set), options)
-                })
-        {
+        for (kind, key, is_weak, ignore_deferred) in dependencies.into_iter().map(
+            |Dependency {
+                 kind,
+                 set,
+                 is_weak,
+                 ignore_deferred,
+             }| {
+                (
+                    kind,
+                    self.system_sets.get_key_or_insert(set),
+                    is_weak,
+                    ignore_deferred,
+                )
+            },
+        ) {
             let (lhs, rhs) = match kind {
                 DependencyKind::Before => (id, NodeId::Set(key)),
                 DependencyKind::After => (NodeId::Set(key), id),
             };
             self.dependency.add_edge(lhs, rhs);
-            if options.contains_key(&TypeId::of::<Weak>()) {
+            if is_weak {
                 self.weak_node_edges.insert((lhs, rhs));
             } else {
                 self.strict_node_edges.insert((lhs, rhs));
             }
             for pass in self.passes.values_mut() {
-                pass.add_dependency(lhs, rhs, &options);
+                pass.add_dependency(lhs, rhs, is_weak, ignore_deferred);
             }
 
             // ensure set also appears in hierarchy graph
@@ -2938,12 +2977,12 @@ mod tests {
         struct Pass<const N: usize>;
 
         impl<const N: usize> ScheduleBuildPass for Pass<N> {
-            type EdgeOptions = ();
             fn add_dependency(
                 &mut self,
                 _from: crate::schedule::NodeId,
                 _to: crate::schedule::NodeId,
-                _options: Option<&Self::EdgeOptions>,
+                _is_weak: bool,
+                _ignore_deferred: bool,
             ) {
             }
             fn build(
