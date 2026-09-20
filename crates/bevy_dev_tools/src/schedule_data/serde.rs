@@ -48,25 +48,26 @@ impl AppData {
     }
 }
 
-/// Dependency Kind
+/// Describes the kind of dependency.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum DependencyKind {
-    /// Weak dependency
+    /// Weak dependency.
     Weak,
-    /// Strict depedency
+    /// Strict depedency.
     Strict,
-    /// Added during a build pass
+    /// Added during a build pass (always strict).
     BuildPass,
 }
 
-/// f
+/// Data about a particular dependency.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DependencyData {
-    kind: DependencyKind,
+    /// The kind of dependency.
+    pub kind: DependencyKind,
 }
 
 impl DependencyData {
-    /// from is_weak
+    /// Build dependency data from `is_weak`.
     pub fn from_is_weak(is_weak: bool) -> Self {
         if is_weak {
             DependencyData {
@@ -79,7 +80,7 @@ impl DependencyData {
         }
     }
 
-    /// from build pass
+    /// Build dependency data from build pass.
     pub fn from_build_pass() -> Self {
         DependencyData {
             kind: DependencyKind::BuildPass,
@@ -102,7 +103,7 @@ pub struct ScheduleData {
     pub hierarchy: Vec<(SystemSetIndex, ScheduleIndex)>,
     /// A list of ordering constraints, ensuring that one system/system set runs before another.
     ///
-    /// The order is (first, second).
+    /// The order is (first, second, data).
     pub dependency: Vec<(ScheduleIndex, ScheduleIndex, DependencyData)>,
     /// The components that these systems access.
     pub components: Vec<ComponentData>,

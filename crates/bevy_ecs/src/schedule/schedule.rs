@@ -1246,7 +1246,7 @@ impl ScheduleGraph {
         }
     }
 
-    /// tells you if a dependency is weak
+    /// If there is a weak dependency from `lhs` to `rhs`.
     pub fn dependency_is_weak(&self, lhs: NodeId, rhs: NodeId) -> bool {
         self.weak_node_edges.contains(&(lhs, rhs))
     }
