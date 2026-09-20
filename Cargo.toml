@@ -404,7 +404,7 @@ pan_orbit_camera = ["bevy_internal/pan_orbit_camera"]
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
 
-# Enable the Bevy Remote Protocol HTTP client
+# Enable a native client for calling a running app over the Bevy Remote Protocol, used by in-engine tools like the inspector and by the remote examples
 bevy_remote_client = ["bevy_remote", "bevy_internal/bevy_remote_client"]
 
 # Enable integration with `tracing` and `log`

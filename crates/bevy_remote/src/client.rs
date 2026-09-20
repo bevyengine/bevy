@@ -1,7 +1,49 @@
-//! A native HTTP client for the Bevy Remote Protocol.
+//! A native JSON-RPC 2.0 over HTTP client for the Bevy Remote Protocol.
 //!
-//! [`BrpClient`] speaks the same JSON-RPC over HTTP wire format that
-//! [`RemoteHttpPlugin`](crate::http::RemoteHttpPlugin) accepts.
+//! [`BrpClient`] speaks to the same wire format that
+//! [`RemoteHttpPlugin`](crate::http::RemoteHttpPlugin) serves: it is the client half of the
+//! protocol documented at the [crate root](crate), including the method list. It follows the
+//! usual shape of a thin RPC client library: send one request, decode the response envelope,
+//! return the result or a typed error. There is no connection pooling, no retries, and no
+//! authentication; callers that need those build them on top.
+//!
+//! This lives in `bevy_remote` behind its own `client` feature, rather than in a separate crate,
+//! so it can reuse the crate's own request and response types ([`BrpRequest`], [`BrpResponse`],
+//! [`BrpPayload`], [`BrpError`]) instead of a parallel copy that could drift from the server, and
+//! so it can reuse the same `hyper` and `smol` stack the `http` feature already depends on,
+//! adding no new dependencies. Gating it behind its own feature, separate from `bevy_remote`
+//! and `http`, keeps apps that only serve BRP from compiling the client. It is meant for
+//! in-engine tooling such as the entity inspector, editors, and examples and tests that
+//! previously reached for a third-party blocking HTTP client. Like the server, it is native
+//! only and does not build on `wasm`.
+//!
+//! Construct a client with [`BrpClient::localhost`] or [`BrpClient::new`], then either `await`
+//! [`BrpClient::call`] from an async context, or call [`BrpClient::spawn_call`] from a system to
+//! get back a [`Task`] to store in a resource and poll with
+//! [`poll_once`](bevy_tasks::futures_lite::future::poll_once) each frame:
+//!
+//! ```rust,no_run
+//! # use bevy_remote::client::BrpClient;
+//! # async fn call() {
+//! let client = BrpClient::localhost(15702);
+//! match client.call("world.list_components", None).await {
+//!     Ok(_value) => { /* use the result */ }
+//!     Err(_error) => { /* `Io`, `Http`, `Json`, `Remote`, or `InvalidResponse` */ }
+//! }
+//! # }
+//! ```
+//!
+//! Errors distinguish where the call failed: [`BrpClientError::Io`] and
+//! [`BrpClientError::Http`] for transport failures, [`BrpClientError::Json`] for a body that
+//! did not deserialize, [`BrpClientError::Remote`] for a JSON-RPC error the app returned, and
+//! [`BrpClientError::InvalidResponse`] for anything else that does not match the protocol.
+//!
+//! Not yet supported:
+//!
+//! * Watching methods (`+watch` suffixed), which stream server-sent events rather than
+//!   returning a single response.
+//! * Batch requests.
+//! * Talking to the render sub-app's separate port.
 
 #![cfg(not(target_family = "wasm"))]
 
