@@ -103,7 +103,8 @@ pub struct ExtractedRectLight {
     pub range: f32,
     pub width: f32,
     pub height: f32,
-    pub transform: GlobalTransform,
+    pub position: Vec3,
+    pub rotation: Quat,
 }
 
 impl ExtractedRectLight {
@@ -128,11 +129,8 @@ impl ExtractedRectLight {
             width,
             height,
             range: light.range,
-            transform: GlobalTransform::from(Transform {
-                translation: transform.translation(),
-                rotation,
-                ..default()
-            }),
+            position: transform.translation(),
+            rotation,
         })
     }
 }
@@ -1435,11 +1433,11 @@ pub fn prepare_lights(
             global_clusterable_object_meta
                 .gpu_clustered_lights
                 .add(GpuClusteredLight {
-                    light_custom_data: Vec4::from(light.transform.rotation()),
+                    light_custom_data: Vec4::from(light.rotation),
                     color_inverse_square_range: (light.color.to_vec4() * light.intensity)
                         .xyz()
                         .extend(light.height),
-                    position_radius: light.transform.translation().extend(light.width),
+                    position_radius: light.position.extend(light.width),
                     flags: PointLightFlags::RECT_LIGHT.bits(),
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
@@ -2096,11 +2094,11 @@ pub fn prepare_lights(
             for (index, (_, _, rect_light, _)) in
                 rect_lights.iter().enumerate().take(MAX_RECT_LIGHTS)
             {
-                let right = rect_light.transform.right().into();
-                let up = rect_light.transform.up().into();
+                let right = rect_light.rotation * Vec3::X;
+                let up = rect_light.rotation * Vec3::Y;
                 gpu_lights.rect_lights[index] = GpuRectLight {
                     color: rect_light.color.to_vec4() * rect_light.intensity,
-                    position: rect_light.transform.translation(),
+                    position: rect_light.position,
                     right,
                     up,
                     width: rect_light.width,
@@ -3224,7 +3222,8 @@ mod tests {
             assert_eq!(light.is_some(), expected, "scale: {scale}");
             if let Some(light) = light {
                 assert!(light.intensity.is_finite());
-                assert!(light.transform.rotation().is_finite());
+                assert!(light.rotation.is_finite());
+                assert!(light.rotation.is_normalized());
             }
         }
     }
@@ -3262,18 +3261,11 @@ mod tests {
                 scale: Vec3::new(2.0, 3.0, z),
             });
             let light = ExtractedRectLight::new(&RectLight::default(), &transform).unwrap();
-            assert!(light.transform.rotation().is_finite());
-            assert!(light
-                .transform
-                .right()
-                .as_vec3()
-                .abs_diff_eq(rotation * Vec3::X, 1e-5));
-            assert!(light
-                .transform
-                .up()
-                .as_vec3()
-                .abs_diff_eq(rotation * Vec3::Y, 1e-5));
-            assert_eq!(light.transform.translation(), transform.translation());
+            assert!(light.rotation.is_finite());
+            assert!(light.rotation.is_normalized());
+            assert!((light.rotation * Vec3::X).abs_diff_eq(rotation * Vec3::X, 1e-5));
+            assert!((light.rotation * Vec3::Y).abs_diff_eq(rotation * Vec3::Y, 1e-5));
+            assert_eq!(light.position, transform.translation());
             assert!((light.width - 2.0).abs() < 1e-5);
             assert!((light.height - 3.0).abs() < 1e-5);
             assert!(light.intensity.is_finite());
