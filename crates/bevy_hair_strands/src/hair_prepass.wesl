@@ -5,7 +5,7 @@
 // casts shadows and occludes correctly. The default prepass fragment shader
 // is used unchanged.
 
-import package::hair_functions::{HairVertex, expand_ribbon};
+import package::hair_functions::{HairVertex, decode_params, strand_width_scale, expand_ribbon};
 import bevy_pbr::{
     prepass::io::VertexOutput,
     render::{
@@ -17,12 +17,17 @@ import bevy_pbr::{
 @vertex
 fn vertex(vertex: HairVertex) -> VertexOutput {
     let world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
+    let params = decode_params(vertex.params);
+    // Level of detail is decided once, from this frame's transform, so the
+    // previous position below expands the same strands to the same width.
+    let width_scale = strand_width_scale(world_from_local, params.z);
     let ribbon = expand_ribbon(
         world_from_local,
         vertex.position,
-        vertex.tangent,
-        vertex.params.x,
-        vertex.params.y,
+        vertex.tangent.xyz,
+        params.x,
+        params.y,
+        width_scale,
     );
 
     var out: VertexOutput;
@@ -44,9 +49,10 @@ fn vertex(vertex: HairVertex) -> VertexOutput {
     let previous_ribbon = expand_ribbon(
         previous_world_from_local,
         vertex.position,
-        vertex.tangent,
-        vertex.params.x,
-        vertex.params.y,
+        vertex.tangent.xyz,
+        params.x,
+        params.y,
+        width_scale,
     );
     out.previous_world_position = previous_ribbon.world_position;
 }

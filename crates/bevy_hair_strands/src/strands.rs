@@ -11,33 +11,38 @@ use bevy_ecs::{
     template::FromTemplate,
 };
 use bevy_math::{Vec3, Vec3A};
-use bevy_mesh::{Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology, VertexFormat};
+use bevy_mesh::{
+    Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology, VertexAttributeValues,
+    VertexFormat,
+};
+use bevy_pbr::MeshMaterial3d;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use derive_more::derive::From;
 use tracing::warn;
 
+use crate::HairMaterial;
+
 /// Per-vertex strand tangent (the direction the strand travels at this control
-/// point, in local space). Used by the vertex shader to orient the ribbon and
-/// by the fragment shader for anisotropic shading.
+/// point, in local space), packed as `Snorm8x4` with `w` unused. Used by the
+/// vertex shader to orient the ribbon and by the fragment shader for
+/// anisotropic shading.
 ///
 /// A "high" random id is used to avoid collisions with other custom attributes.
 /// See [`MeshVertexAttribute`] for more info.
 pub const ATTRIBUTE_HAIR_TANGENT: MeshVertexAttribute = MeshVertexAttribute::new(
     "Hair_Tangent",
     0x4841_4952_5441_4e47,
-    VertexFormat::Float32x3,
+    VertexFormat::Snorm8x4,
 );
 
-/// Per-vertex strand parameters:
+/// Per-vertex strand parameters, packed as `Unorm8x4`:
 ///
-/// * `x` — which side of the ribbon this vertex is on (`-1.0` or `1.0`),
-/// * `y` — normalized arc-length position along the strand (`0.0` at the root, `1.0` at the tip),
-/// * `z` — a per-strand pseudo-random value in `[0, 1)`, stable for a given strand index.
-pub const ATTRIBUTE_HAIR_PARAMS: MeshVertexAttribute = MeshVertexAttribute::new(
-    "Hair_Params",
-    0x4841_4952_5041_524d,
-    VertexFormat::Float32x3,
-);
+/// * `x` — which side of the ribbon this vertex is on (`0` or `255`, read as `-1.0` or `1.0`),
+/// * `y` — normalized arc-length position along the strand (`0` at the root, `255` at the tip),
+/// * `z` — a per-strand pseudo-random value, stable for a given strand index,
+/// * `w` — unused.
+pub const ATTRIBUTE_HAIR_PARAMS: MeshVertexAttribute =
+    MeshVertexAttribute::new("Hair_Params", 0x4841_4952_5041_524d, VertexFormat::Unorm8x4);
 
 /// A single hair strand: a polyline of control points in the local space of the
 /// entity that renders it, ordered from root to tip.
@@ -156,20 +161,25 @@ impl HairStrands {
     /// segment between consecutive control points becomes two triangles.
     ///
     /// The mesh carries [`Mesh::ATTRIBUTE_POSITION`], [`ATTRIBUTE_HAIR_TANGENT`]
-    /// and [`ATTRIBUTE_HAIR_PARAMS`], and is intended to be drawn with
-    /// [`HairMaterial`](crate::HairMaterial).
+    /// and [`ATTRIBUTE_HAIR_PARAMS`] (20 bytes a vertex), and is intended to be
+    /// drawn with [`HairMaterial`](crate::HairMaterial).
+    ///
+    /// The mesh is for the render world only: once uploaded, its data is not
+    /// kept in [`Assets<Mesh>`], since the strands themselves are the source
+    /// of truth and the bounds come from [`Self::aabb`]. Rebuild it from the
+    /// strands rather than reading it back.
     pub fn to_mesh(&self) -> Mesh {
         let point_count: usize = self.renderable().map(|s| s.points.len()).sum();
         let vertex_count = point_count * 2;
 
         let mut positions: Vec<[f32; 3]> = Vec::with_capacity(vertex_count);
-        let mut tangents: Vec<[f32; 3]> = Vec::with_capacity(vertex_count);
-        let mut params: Vec<[f32; 3]> = Vec::with_capacity(vertex_count);
+        let mut tangents: Vec<[i8; 4]> = Vec::with_capacity(vertex_count);
+        let mut params: Vec<[u8; 4]> = Vec::with_capacity(vertex_count);
         let mut indices: Vec<u32> = Vec::with_capacity(point_count.saturating_sub(1) * 6);
 
         for (strand_index, strand) in self.renderable().enumerate() {
             let points = &strand.points;
-            let seed = strand_seed(strand_index);
+            let seed = pack_unorm8(strand_seed(strand_index));
             let total_length = strand.length();
 
             let base = positions.len() as u32;
@@ -185,17 +195,20 @@ impl HairStrands {
                 let next = points[(i + 1).min(points.len() - 1)];
                 let tangent = (next - prev).try_normalize().unwrap_or(last_tangent);
                 last_tangent = tangent;
+                let tangent = pack_snorm8x4(tangent);
 
                 let t = if total_length > 0.0 {
                     arc_length / total_length
                 } else {
                     i as f32 / (points.len() - 1) as f32
                 };
+                let t = pack_unorm8(t);
 
-                for side in [-1.0, 1.0] {
-                    positions.push(point.to_array());
-                    tangents.push(tangent.to_array());
-                    params.push([side, t, seed]);
+                let position = point.to_array();
+                for side in [0, 255] {
+                    positions.push(position);
+                    tangents.push(tangent);
+                    params.push([side, t, seed, 0]);
                 }
             }
 
@@ -210,11 +223,17 @@ impl HairStrands {
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
+            RenderAssetUsages::RENDER_WORLD,
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(ATTRIBUTE_HAIR_TANGENT, tangents)
-        .with_inserted_attribute(ATTRIBUTE_HAIR_PARAMS, params)
+        .with_inserted_attribute(
+            ATTRIBUTE_HAIR_TANGENT,
+            VertexAttributeValues::Snorm8x4(tangents),
+        )
+        .with_inserted_attribute(
+            ATTRIBUTE_HAIR_PARAMS,
+            VertexAttributeValues::Unorm8x4(params),
+        )
         .with_inserted_indices(Indices::U32(indices))
     }
 }
@@ -229,10 +248,23 @@ impl FromIterator<HairStrand> for HairStrands {
 
 /// A well-distributed pseudo-random value in `[0, 1)` for a strand index
 /// (a golden-ratio low-discrepancy sequence), so neighbouring strands get
-/// noticeably different shading variation.
+/// noticeably different shading variation, and any prefix of the range
+/// `[0, f)` picks an even spread of the strands (which is how level of
+/// detail thins them).
 fn strand_seed(index: usize) -> f32 {
     const GOLDEN_RATIO_CONJUGATE: f64 = 0.618_033_988_749_895;
     ((index as f64 + 1.0) * GOLDEN_RATIO_CONJUGATE).fract() as f32
+}
+
+/// A value in `[0, 1]` as the GPU reads a `Unorm8`.
+fn pack_unorm8(value: f32) -> u8 {
+    (value.clamp(0.0, 1.0) * 255.0).round() as u8
+}
+
+/// A unit vector as the GPU reads a `Snorm8x4` (`w` unused).
+fn pack_snorm8x4(v: Vec3) -> [i8; 4] {
+    let pack = |x: f32| (x.clamp(-1.0, 1.0) * 127.0).round() as i8;
+    [pack(v.x), pack(v.y), pack(v.z), 0]
 }
 
 /// A component that renders a [`HairStrands`] asset on this entity.
@@ -265,11 +297,32 @@ impl AsAssetId for HairStrands3d {
     }
 }
 
+/// How far the bounds of an entity reach beyond its control points: its
+/// [`HairStrandsBoundsPadding`] if it has one, else what its
+/// [`HairMaterial`] can widen a ribbon by, else
+/// [`HairStrandsBoundsPadding::DEFAULT`] while the material is not loaded.
+fn bounds_padding(
+    padding: Option<&HairStrandsBoundsPadding>,
+    material: Option<&MeshMaterial3d<HairMaterial>>,
+    materials: &Assets<HairMaterial>,
+) -> f32 {
+    if let Some(padding) = padding {
+        return padding.0;
+    }
+    material
+        .and_then(|material| materials.get(&material.0))
+        .map_or(
+            HairStrandsBoundsPadding::DEFAULT,
+            HairMaterial::bounds_padding,
+        )
+}
+
 /// Rebuilds the ribbon mesh of every entity whose [`HairStrands3d`] component
 /// or [`HairStrands`] asset changed, and refreshes its [`Aabb`].
 ///
-/// The bounding box is padded by [`HairStrandsBoundsPadding`] so ribbons that
-/// are widened in the vertex shader are not culled at the edges of the view.
+/// The bounding box is padded so ribbons that are widened in the vertex
+/// shader are not culled at the edges of the view: by the entity's
+/// [`HairStrandsBoundsPadding`], or else by what its [`HairMaterial`] needs.
 pub fn update_hair_strand_meshes(
     mut query: Query<
         (
@@ -277,20 +330,24 @@ pub fn update_hair_strand_meshes(
             &mut Mesh3d,
             &mut Aabb,
             Option<&HairStrandsBoundsPadding>,
+            Option<&MeshMaterial3d<HairMaterial>>,
         ),
         Or<(Changed<HairStrands3d>, AssetChanged<HairStrands3d>)>,
     >,
     strands: Res<Assets<HairStrands>>,
+    materials: Res<Assets<HairMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (hair, mut mesh3d, mut aabb, padding) in &mut query {
+    for (hair, mut mesh3d, mut aabb, padding, material) in &mut query {
         let Some(hair) = strands.get(&hair.0) else {
             // Not loaded yet; `AssetChanged` will fire once it is.
             continue;
         };
         let mesh = hair.to_mesh();
 
-        // Reuse the mesh asset we generated earlier, if any, instead of churning handles.
+        // Reuse the mesh asset we generated earlier, if any, instead of churning
+        // handles. (Its data has gone to the GPU, but the asset is still there
+        // to be replaced.)
         if mesh3d.0 != Handle::default() && meshes.get(&mesh3d.0).is_some() {
             if let Err(err) = meshes.insert(&mesh3d.0, mesh) {
                 warn!("Failed to update hair strand mesh: {err}");
@@ -300,23 +357,35 @@ pub fn update_hair_strand_meshes(
         }
 
         *aabb = hair
-            .aabb(padding.map_or(HairStrandsBoundsPadding::DEFAULT, |p| p.0))
+            .aabb(bounds_padding(padding, material, &materials))
             .unwrap_or_default();
     }
 }
 
-/// Refreshes the [`Aabb`] of entities whose [`HairStrandsBoundsPadding`] changed
-/// without rebuilding their mesh.
+/// Refreshes the [`Aabb`] of entities whose [`HairStrandsBoundsPadding`] or
+/// [`HairMaterial`] changed without rebuilding their mesh.
 pub fn update_hair_strand_bounds(
     mut query: Query<
-        (&HairStrands3d, &mut Aabb, &HairStrandsBoundsPadding),
-        Changed<HairStrandsBoundsPadding>,
+        (
+            &HairStrands3d,
+            &mut Aabb,
+            Option<&HairStrandsBoundsPadding>,
+            Option<&MeshMaterial3d<HairMaterial>>,
+        ),
+        Or<(
+            Changed<HairStrandsBoundsPadding>,
+            Changed<MeshMaterial3d<HairMaterial>>,
+            AssetChanged<MeshMaterial3d<HairMaterial>>,
+        )>,
     >,
     strands: Res<Assets<HairStrands>>,
+    materials: Res<Assets<HairMaterial>>,
 ) {
-    for (hair, mut aabb, padding) in &mut query {
+    for (hair, mut aabb, padding, material) in &mut query {
         if let Some(hair) = strands.get(&hair.0) {
-            *aabb = hair.aabb(padding.0).unwrap_or_default();
+            *aabb = hair
+                .aabb(bounds_padding(padding, material, &materials))
+                .unwrap_or_default();
         }
     }
 }
@@ -325,14 +394,18 @@ pub fn update_hair_strand_bounds(
 /// beyond its control points.
 ///
 /// Ribbons are widened on the GPU, so the bounds computed from the control
-/// points alone would be slightly too small. Set this to at least half the
-/// widest strand width used by the entity's [`HairMaterial`](crate::HairMaterial).
+/// points alone would be slightly too small. Without this component the
+/// padding is taken from the entity's [`HairMaterial`]
+/// ([`HairMaterial::bounds_padding`]); set it yourself when that is not
+/// right, for instance on an entity whose transform is scaled (the ribbon
+/// width is in world units, the padding in local ones).
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct HairStrandsBoundsPadding(pub f32);
 
 impl HairStrandsBoundsPadding {
-    /// Padding used when the component is absent.
+    /// Padding used while an entity has neither the component nor a loaded
+    /// [`HairMaterial`].
     pub const DEFAULT: f32 = 0.05;
 }
 
@@ -345,7 +418,7 @@ impl Default for HairStrandsBoundsPadding {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_mesh::VertexAttributeValues;
+    use crate::MIN_KEEP_FRACTION;
 
     fn two_strands() -> HairStrands {
         HairStrands::from_iter([
@@ -366,31 +439,48 @@ mod tests {
         assert!(indices.iter().all(|&i| i < 10));
         // Second strand starts at vertex 6.
         assert_eq!(&indices[12..18], &[6, 7, 8, 7, 9, 8]);
+        // Position, tangent and params: 12 + 4 + 4 bytes a vertex.
+        assert_eq!(mesh.get_vertex_size(), 20);
+        assert_eq!(mesh.asset_usage, RenderAssetUsages::RENDER_WORLD);
     }
 
     #[test]
     fn params_and_tangents() {
         let mesh = two_strands().to_mesh();
-        let Some(VertexAttributeValues::Float32x3(params)) = mesh.attribute(ATTRIBUTE_HAIR_PARAMS)
+        let Some(VertexAttributeValues::Unorm8x4(params)) = mesh.attribute(ATTRIBUTE_HAIR_PARAMS)
         else {
             panic!("missing params");
         };
-        let Some(VertexAttributeValues::Float32x3(tangents)) =
+        let Some(VertexAttributeValues::Snorm8x4(tangents)) =
             mesh.attribute(ATTRIBUTE_HAIR_TANGENT)
         else {
             panic!("missing tangents");
         };
         // Sides alternate, t runs root->tip by arc length, seed is constant per strand.
-        assert_eq!(params[0], [-1.0, 0.0, params[0][2]]);
-        assert_eq!(params[1], [1.0, 0.0, params[0][2]]);
-        assert_eq!(params[2][1], 0.5);
-        assert_eq!(params[5][1], 1.0);
+        assert_eq!(params[0], [0, 0, params[0][2], 0]);
+        assert_eq!(params[1], [255, 0, params[0][2], 0]);
+        assert_eq!(params[2][1], 128);
+        assert_eq!(params[5][1], 255);
         assert_eq!(params[5][2], params[0][2]);
         assert_ne!(params[6][2], params[0][2]);
-        assert!(params.iter().all(|p| (0.0..1.0).contains(&p[2])));
         // First strand is straight up.
-        assert_eq!(tangents[0], [0.0, 1.0, 0.0]);
-        assert_eq!(tangents[3], [0.0, 1.0, 0.0]);
+        assert_eq!(tangents[0], [0, 127, 0, 0]);
+        assert_eq!(tangents[3], [0, 127, 0, 0]);
+    }
+
+    #[test]
+    fn packing() {
+        assert_eq!(pack_unorm8(0.0), 0);
+        assert_eq!(pack_unorm8(1.0), 255);
+        assert_eq!(pack_unorm8(2.0), 255);
+        assert_eq!(pack_snorm8x4(Vec3::NEG_X), [-127, 0, 0, 0]);
+        let diagonal = pack_snorm8x4(Vec3::ONE.normalize());
+        assert_eq!(diagonal, [73, 73, 73, 0]);
+        // Seeds are spread over the whole byte, so any prefix of the range
+        // picks an even spread of the strands.
+        let seeds: Vec<u8> = (0..16).map(|i| pack_unorm8(strand_seed(i))).collect();
+        let kept = seeds.iter().filter(|&&s| s < 128).count();
+        assert!((6..=10).contains(&kept), "{seeds:?}");
     }
 
     #[test]
@@ -406,12 +496,13 @@ mod tests {
     fn coincident_points_do_not_produce_nan_tangents() {
         let strands = HairStrands::from_iter([HairStrand::new([Vec3::ZERO, Vec3::ZERO, Vec3::Y])]);
         let mesh = strands.to_mesh();
-        let Some(VertexAttributeValues::Float32x3(tangents)) =
+        let Some(VertexAttributeValues::Snorm8x4(tangents)) =
             mesh.attribute(ATTRIBUTE_HAIR_TANGENT)
         else {
             panic!("missing tangents");
         };
-        assert!(tangents.iter().flatten().all(|v| v.is_finite()));
+        // The first point takes the next segment's direction: straight up.
+        assert_eq!(tangents[0], [0, 127, 0, 0]);
     }
 
     #[test]
@@ -420,5 +511,39 @@ mod tests {
         assert_eq!(aabb.min(), Vec3A::new(-0.5, -0.5, -0.5));
         assert_eq!(aabb.max(), Vec3A::new(1.5, 2.5, 0.5));
         assert!(HairStrands::new().aabb(0.5).is_none());
+    }
+
+    #[test]
+    fn padding_comes_from_the_material() {
+        let mut materials = Assets::<HairMaterial>::default();
+        let wide = HairMaterial {
+            root_width: 0.02,
+            tip_width: 0.01,
+            min_pixel_width: 0.0,
+            ..Default::default()
+        };
+        assert_eq!(wide.bounds_padding(), 0.01);
+        let thinned = HairMaterial {
+            min_pixel_width: 1.0,
+            ..wide.clone()
+        };
+        assert_eq!(thinned.bounds_padding(), 0.01 / MIN_KEEP_FRACTION);
+        let handle = MeshMaterial3d(materials.add(wide));
+        assert_eq!(bounds_padding(None, Some(&handle), &materials), 0.01);
+        // An explicit component wins; no material at all falls back.
+        let explicit = HairStrandsBoundsPadding(0.3);
+        assert_eq!(
+            bounds_padding(Some(&explicit), Some(&handle), &materials),
+            0.3
+        );
+        assert_eq!(
+            bounds_padding(None, None, &materials),
+            HairStrandsBoundsPadding::DEFAULT
+        );
+        let unloaded = MeshMaterial3d(Handle::<HairMaterial>::default());
+        assert_eq!(
+            bounds_padding(None, Some(&unloaded), &materials),
+            HairStrandsBoundsPadding::DEFAULT
+        );
     }
 }

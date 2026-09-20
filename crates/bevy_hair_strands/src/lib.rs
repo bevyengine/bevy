@@ -11,7 +11,9 @@
 //! [`Mesh`](bevy_mesh::Mesh) generated for them automatically. On the GPU each
 //! ribbon is widened to face the camera and shaded with an anisotropic
 //! Kajiya-Kay model that reacts to every light, shadow map and fog volume in
-//! the scene like `StandardMaterial` does.
+//! the scene like `StandardMaterial` does. Far away, only as many strands are
+//! drawn as keep each about a pixel wide ([`HairMaterial::min_pixel_width`]),
+//! the survivors widened to cover for the rest.
 //!
 //! ```ignore
 //! use bevy_hair_strands::{HairMaterial, HairStrand, HairStrands, HairStrands3d};
@@ -34,7 +36,7 @@
 mod material;
 mod strands;
 
-pub use material::{HairMaterial, HairMaterialUniform};
+pub use material::{HairMaterial, HairMaterialUniform, MIN_KEEP_FRACTION};
 pub use strands::{
     update_hair_strand_bounds, update_hair_strand_meshes, HairStrand, HairStrands, HairStrands3d,
     HairStrandsBoundsPadding, ATTRIBUTE_HAIR_PARAMS, ATTRIBUTE_HAIR_TANGENT,
@@ -59,7 +61,8 @@ pub mod prelude {
 /// Runs in [`PostUpdate`] before [`AssetEventSystems`] so that a generated
 /// [`Mesh`](bevy_mesh::Mesh) is announced to the renderer in the same frame
 /// its entity is, and before visibility bounds are checked. A change to a
-/// [`HairStrands`] asset is therefore picked up on the following frame.
+/// [`HairStrands`] or [`HairMaterial`] asset is therefore picked up on the
+/// following frame.
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HairStrandsSystems;
 

@@ -2,12 +2,14 @@
 //!
 //! Two heads are grown a procedural hairstyle each. The strands live in a
 //! [`HairStrands`] asset; the ribbon mesh is regenerated automatically whenever
-//! that asset changes, which is what pressing `Space` does.
+//! that asset changes, which is what pressing `Space` does, and the culling
+//! bounds follow the strand width set on the material. Zoom out to watch the
+//! level of detail thin the strands while the hair keeps its coverage.
 
 use std::f32::consts::{PI, TAU};
 
 use bevy::{
-    hair_strands::{prelude::*, HairStrandsBoundsPadding},
+    hair_strands::prelude::*,
     light::{CascadeShadowConfigBuilder, NotShadowCaster},
     math::ops,
     prelude::*,
@@ -21,7 +23,8 @@ Controls
 Space: regrow the hair
 Up / Down: thicker / thinner strands
 Left / Right: shift the primary highlight
-R: toggle camera rotation";
+R: toggle camera rotation
+Z / X: camera nearer / further (level of detail)";
 
 const HEAD_RADIUS: f32 = 0.5;
 
@@ -33,23 +36,24 @@ fn main() {
             brightness: 150.0,
             ..default()
         })
-        .insert_resource(CameraRotation(true))
+        .insert_resource(CameraOrbit {
+            angle: 0.0,
+            distance: 3.6,
+            rotating: true,
+        })
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                orbit_camera,
-                orbit_point_light,
-                handle_input,
-                update_hair_bounds,
-            ),
-        )
+        .add_systems(Update, (orbit_camera, orbit_point_light, handle_input))
         .run();
 }
 
-/// Whether the camera is currently orbiting the scene.
+/// The camera's orbit about the heads: where it is on the circle, how far out
+/// (`Z` / `X`), and whether it is moving (`R`).
 #[derive(Resource)]
-struct CameraRotation(bool);
+struct CameraOrbit {
+    angle: f32,
+    distance: f32,
+    rotating: bool,
+}
 
 /// The seed a head's hairstyle was grown from, so it can be regrown differently.
 #[derive(Component)]
@@ -128,7 +132,6 @@ fn setup(
 
     for (index, (position, style, material)) in heads.into_iter().enumerate() {
         let seed = 1000 + index as u64;
-        let bounds_padding = HairStrandsBoundsPadding(material.root_width);
         commands
             .spawn((
                 Mesh3d(head_mesh.clone()),
@@ -138,7 +141,6 @@ fn setup(
             .with_child((
                 HairStrands3d(hair_strands.add(grow_hair(seed, style))),
                 MeshMaterial3d(hair_materials.add(material)),
-                bounds_padding,
                 Hairstyle { seed, style },
             ));
     }
@@ -254,16 +256,20 @@ fn grow_hair(seed: u64, style: Style) -> HairStrands {
 }
 
 fn orbit_camera(
-    rotation: Res<CameraRotation>,
+    mut orbit: ResMut<CameraOrbit>,
     time: Res<Time>,
     mut camera: Query<&mut Transform, With<Camera3d>>,
 ) {
-    if !rotation.0 {
-        return;
+    if orbit.rotating {
+        orbit.angle += time.delta_secs() * 0.25;
     }
-    let angle = time.elapsed_secs() * 0.25;
+    let (angle, distance) = (orbit.angle, orbit.distance);
     for mut transform in &mut camera {
-        transform.translation = Vec3::new(ops::sin(angle) * 3.6, 0.8, ops::cos(angle) * 3.6);
+        transform.translation = Vec3::new(
+            ops::sin(angle) * distance,
+            0.8 * distance / 3.6,
+            ops::cos(angle) * distance,
+        );
         transform.look_at(Vec3::new(0.0, 0.1, 0.0), Vec3::Y);
     }
 }
@@ -278,7 +284,7 @@ fn orbit_point_light(time: Res<Time>, mut light: Query<&mut Transform, With<Orbi
 fn handle_input(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut rotation: ResMut<CameraRotation>,
+    mut orbit: ResMut<CameraOrbit>,
     mut hair_strands: ResMut<Assets<HairStrands>>,
     mut hair_materials: ResMut<Assets<HairMaterial>>,
     mut heads: Query<(
@@ -288,7 +294,17 @@ fn handle_input(
     )>,
 ) {
     if keys.just_pressed(KeyCode::KeyR) {
-        rotation.0 = !rotation.0;
+        orbit.rotating = !orbit.rotating;
+    }
+    // Nearer or further, in the same proportion each second, so the level of
+    // detail can be watched thinning the strands as they shrink on screen.
+    let zoom = match (keys.pressed(KeyCode::KeyZ), keys.pressed(KeyCode::KeyX)) {
+        (true, false) => 0.5,
+        (false, true) => 2.0,
+        _ => 1.0,
+    };
+    if zoom != 1.0 {
+        orbit.distance = (orbit.distance * ops::powf(zoom, time.delta_secs())).clamp(1.5, 60.0);
     }
 
     let regrow = keys.just_pressed(KeyCode::Space);
@@ -327,21 +343,6 @@ fn handle_input(
             material.root_width = (material.root_width + width_delta).clamp(0.002, 0.05);
             material.tip_width = (material.tip_width + width_delta * 0.3).clamp(0.001, 0.02);
             material.specular_shift = (material.specular_shift + shift_delta).clamp(-0.6, 0.6);
-        }
-    }
-}
-
-/// Keeps the culling bounds padded to the current strand width.
-fn update_hair_bounds(
-    hair_materials: Res<Assets<HairMaterial>>,
-    mut heads: Query<(&MeshMaterial3d<HairMaterial>, &mut HairStrandsBoundsPadding)>,
-) {
-    if !hair_materials.is_changed() {
-        return;
-    }
-    for (material, mut padding) in &mut heads {
-        if let Some(material) = hair_materials.get(&material.0) {
-            padding.set_if_neq(HairStrandsBoundsPadding(material.root_width));
         }
     }
 }

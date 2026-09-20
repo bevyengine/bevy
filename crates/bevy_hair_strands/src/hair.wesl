@@ -4,9 +4,9 @@
 // ("Practical Real-Time Hair Rendering and Shading", ATI 2004), lit by the
 // same directional / point / spot lights and shadow maps as `StandardMaterial`.
 
-import package::hair_functions::{material, HairVertex, expand_ribbon};
+import package::hair_functions::{material, HairVertex, decode_params, strand_width_scale, expand_ribbon};
 import bevy_pbr::render::{
-    mesh_functions::get_world_from_local,
+    mesh_functions,
     mesh_bindings::mesh,
     mesh_view_bindings as view_bindings,
     mesh_view_bindings::view,
@@ -25,6 +25,9 @@ import bevy_pbr::render::pbr_functions::apply_fog;
 @if(TONEMAP_IN_SHADER)
 import bevy_core_pipeline::tonemapping::{tone_mapping, screen_space_dither};
 
+@if(VISIBILITY_RANGE_DITHER)
+import bevy_pbr::render::pbr_functions::visibility_range_dither;
+
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
@@ -33,17 +36,22 @@ struct VertexOutput {
     /// x: ribbon side (-1 / +1), y: root->tip parameter, z: per-strand seed.
     @location(3) params: vec3<f32>,
     @location(4) @interpolate(flat) instance_index: u32,
+    @if(VISIBILITY_RANGE_DITHER)
+    @location(5) @interpolate(flat) visibility_range_dither: i32,
 }
 
 @vertex
 fn vertex(vertex: HairVertex) -> VertexOutput {
-    let world_from_local = get_world_from_local(vertex.instance_index);
+    let world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
+    let params = decode_params(vertex.params);
+    let width_scale = strand_width_scale(world_from_local, params.z);
     let ribbon = expand_ribbon(
         world_from_local,
         vertex.position,
-        vertex.tangent,
-        vertex.params.x,
-        vertex.params.y,
+        vertex.tangent.xyz,
+        params.x,
+        params.y,
+        width_scale,
     );
 
     var out: VertexOutput;
@@ -51,8 +59,11 @@ fn vertex(vertex: HairVertex) -> VertexOutput {
     out.position = position_world_to_clip(ribbon.world_position.xyz);
     out.world_tangent = ribbon.world_tangent;
     out.world_normal = ribbon.world_normal;
-    out.params = vertex.params;
+    out.params = params;
     out.instance_index = vertex.instance_index;
+@if(VISIBILITY_RANGE_DITHER)
+    out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
+        vertex.instance_index, world_from_local[3]);
     return out;
 }
 
@@ -104,6 +115,10 @@ fn shade_light(surface: HairSurface, L: vec3<f32>) -> vec3<f32> {
 
 @fragment
 fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> @location(0) vec4<f32> {
+    // In the crossfade section of a visibility range, discard by the pattern.
+@if(VISIBILITY_RANGE_DITHER)
+    visibility_range_dither(in.position, in.visibility_range_dither);
+
     let seed = in.params.z;
     let t = in.params.y;
 

@@ -25,6 +25,11 @@ fn shader_ref(path: std::path::PathBuf) -> ShaderRef {
 /// Ribbons are widened in the vertex shader between [`root_width`](Self::root_width)
 /// and [`tip_width`](Self::tip_width) and always face the camera. The material is
 /// opaque and double-sided.
+///
+/// Far away, where a strand would be thinner than
+/// [`min_pixel_width`](Self::min_pixel_width), only a fraction of the strands
+/// is drawn, widened to keep the same coverage, so distant hair costs a
+/// fraction of the fragments and shadow maps thin by their own resolution.
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone, PartialEq)]
 #[reflect(Default, Debug, Clone, PartialEq)]
 #[uniform(0, HairMaterialUniform)]
@@ -37,9 +42,9 @@ pub struct HairMaterial {
     /// Tint of the secondary specular highlight. This is light that has entered
     /// and exited the strand, so it usually carries the hair color.
     pub secondary_specular_color: Color,
-    /// Ribbon width, in local units, at the root of each strand.
+    /// Ribbon width, in world units, at the root of each strand.
     pub root_width: f32,
-    /// Ribbon width, in local units, at the tip of each strand.
+    /// Ribbon width, in world units, at the tip of each strand.
     pub tip_width: f32,
     /// How far the primary highlight's tangent is shifted along the ribbon
     /// normal. Negative values move it toward the root.
@@ -57,6 +62,33 @@ pub struct HairMaterial {
     /// Per-strand random brightness variation, `0.0` for none. `0.2` varies
     /// each strand's albedo by up to ±20%.
     pub color_variation: f32,
+    /// Level of detail: once a strand's root would be drawn thinner than this
+    /// many pixels (in the main view or a shadow map), only the fraction of
+    /// the strands that keeps the survivors this wide is drawn, each widened
+    /// to cover for the rest. Never fewer than [`MIN_KEEP_FRACTION`] of them
+    /// are kept. `0.0` draws every strand at every distance.
+    pub min_pixel_width: f32,
+}
+
+/// The smallest fraction of an entity's strands that level of detail keeps,
+/// so the survivors are never widened by more than its reciprocal. Mirrored
+/// in `hair_functions.wesl`.
+pub const MIN_KEEP_FRACTION: f32 = 0.125;
+
+impl HairMaterial {
+    /// How far, in world units, a ribbon of this material can reach beyond
+    /// its control points: half the widest strand, times what level of
+    /// detail may widen it by. [`HairStrands3d`](crate::HairStrands3d)
+    /// entities without a [`HairStrandsBoundsPadding`](crate::HairStrandsBoundsPadding)
+    /// have their bounds padded by this.
+    pub fn bounds_padding(&self) -> f32 {
+        let widening = if self.min_pixel_width > 0.0 {
+            1.0 / MIN_KEEP_FRACTION
+        } else {
+            1.0
+        };
+        0.5 * self.root_width.max(self.tip_width) * widening
+    }
 }
 
 impl Default for HairMaterial {
@@ -73,6 +105,7 @@ impl Default for HairMaterial {
             secondary_exponent: 24.0,
             root_occlusion: 0.35,
             color_variation: 0.15,
+            min_pixel_width: 1.0,
         }
     }
 }
@@ -103,6 +136,8 @@ pub struct HairMaterialUniform {
     pub root_occlusion: f32,
     /// [`HairMaterial::color_variation`].
     pub color_variation: f32,
+    /// [`HairMaterial::min_pixel_width`].
+    pub min_pixel_width: f32,
 }
 
 impl From<&HairMaterial> for HairMaterialUniform {
@@ -119,6 +154,7 @@ impl From<&HairMaterial> for HairMaterialUniform {
             secondary_exponent: material.secondary_exponent,
             root_occlusion: material.root_occlusion,
             color_variation: material.color_variation,
+            min_pixel_width: material.min_pixel_width,
         }
     }
 }
