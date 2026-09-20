@@ -428,6 +428,9 @@ impl Archetype {
                 .or_default()
                 .insert(id, ArchetypeRecord { column: None });
         }
+
+        component_ids.sort();
+
         Self {
             id,
             table_id,

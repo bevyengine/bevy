@@ -972,7 +972,7 @@ mod tests {
         assert!(world.entity(e).contains::<Z>());
         assert!(world.entity(e).contains::<V>());
 
-        world.entity_mut(e).insert(X);
+        world.entity_mut(e).insert(X); // fails for some reason.
         assert!(world.entity(e).contains::<X>());
         assert!(world.entity(e).contains::<Y>());
         assert!(world.entity(e).contains::<Z>());
