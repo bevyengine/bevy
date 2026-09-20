@@ -31,8 +31,8 @@ use bevy_utils::default;
 pub struct AutoExposure {
     /// The range of exposure values for the histogram.
     ///
-    /// Pixel values below this range will be ignored, and pixel values above this range will be
-    /// clamped in the sense that they will count towards the highest bin in the histogram.
+    /// Pixel values below this range count towards the lowest bin and are metered at the minimum
+    /// luminance. Pixel values above this range count towards the highest bin in the histogram.
     /// The default value is `-8.0..=8.0`.
     pub range: RangeInclusive<f32>,
 
