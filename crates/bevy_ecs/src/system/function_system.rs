@@ -501,6 +501,10 @@ where
     current_ptr: subsecond::HotFnPtr,
     state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
+    /// Used to take a different change ticking approach for exclusive systems;
+    /// external users should use [`SystemAccess::is_exclusive`] via
+    /// [`System::initialize`] instead.
+    is_exclusive: bool,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn(In) -> (Marker, Out)>,
 }
@@ -530,6 +534,7 @@ where
                 .ptr_address(),
             state,
             system_meta,
+            is_exclusive: false,
             marker: PhantomData,
         }
     }
@@ -556,6 +561,7 @@ where
                 .ptr_address(),
             state: None,
             system_meta: SystemMeta::new::<F>(),
+            is_exclusive: false,
             marker: PhantomData,
         }
     }
@@ -779,30 +785,45 @@ where
 
         let state = self.state.as_mut().expect(Self::ERROR_UNINITIALIZED);
         assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
-        // SAFETY:
-        // - The above assert ensures the world matches.
-        // - All world accesses used by `F::Param` have been registered, so the caller
-        //   will ensure that there are no data access conflicts.
-        let params = unsafe {
-            F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick)
-        }?;
 
-        #[cfg(feature = "hotpatching")]
-        let out = {
-            let mut hot_fn = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run);
+        let run = |world: UnsafeWorldCell| -> Result<Out, RunSystemError> {
             // SAFETY:
-            // - pointer used to call is from the current jump table
-            unsafe {
-                hot_fn
-                    .try_call_with_ptr(self.current_ptr, (&mut self.func, input, params))
-                    .expect("Error calling hotpatched system. Run a full rebuild")
-            }
+            // - The above assert ensures the world matches.
+            // - All world accesses used by `F::Param` have been registered, so the caller
+            //   will ensure that there are no data access conflicts.
+            let params = unsafe {
+                F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick)
+            }?;
+
+            #[cfg(feature = "hotpatching")]
+            let out = {
+                let mut hot_fn = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run);
+                // SAFETY:
+                // - pointer used to call is from the current jump table
+                unsafe {
+                    hot_fn
+                        .try_call_with_ptr(self.current_ptr, (&mut self.func, input, params))
+                        .expect("Error calling hotpatched system. Run a full rebuild")
+                }
+            };
+            #[cfg(not(feature = "hotpatching"))]
+            let out = self.func.run(input, params);
+
+            IntoResult::into_result(out)
         };
-        #[cfg(not(feature = "hotpatching"))]
-        let out = self.func.run(input, params);
+
+        let out = if self.is_exclusive {
+            let last_run = self.system_meta.last_run;
+            // SAFETY: The system was initialized with exclusive world access, and the
+            // caller guarantees that this system may access the world mutably.
+            let world = unsafe { world.world_mut() };
+            world.last_change_tick_scope(last_run, |world| run(world.as_unsafe_world_cell()))?
+        } else {
+            run(world)?
+        };
 
         self.system_meta.last_run = change_tick;
-        IntoResult::into_result(out)
+        Ok(out)
     }
 
     #[cfg(feature = "hotpatching")]
@@ -841,7 +862,10 @@ where
             world_id: world.id(),
         });
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        init_param_or_panic::<F::Param>(&state.param, &mut self.system_meta, world.into())
+        let access =
+            init_param_or_panic::<F::Param>(&state.param, &mut self.system_meta, world.into());
+        self.is_exclusive = access.is_exclusive();
+        access
     }
 
     #[inline]

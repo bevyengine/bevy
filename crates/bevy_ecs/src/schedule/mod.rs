@@ -109,6 +109,37 @@ mod tests {
         }
 
         #[test]
+        fn exclusive_system_change_detection() {
+            #[derive(Resource, Default)]
+            struct TestResource(bool);
+            #[derive(Resource, Default)]
+            struct ChangeHistory(Vec<bool>);
+
+            fn exclusive_system(world: &mut World) {
+                let changed = world.is_resource_changed::<TestResource>();
+                world.resource_mut::<ChangeHistory>().0.push(changed);
+            }
+
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<TestResource>();
+            world.init_resource::<ChangeHistory>();
+            schedule.add_systems(exclusive_system);
+
+            // The resource was just added for the first time, so it should be considered changed.
+            schedule.run(&mut world);
+            // The resource has not been modified since the last run, so it should not be considered changed.
+            schedule.run(&mut world);
+
+            world.resource_mut::<TestResource>().0 = true;
+            // The resource has been modified, so it should be considered changed.
+            schedule.run(&mut world);
+
+            assert_eq!(world.resource::<ChangeHistory>().0, vec![true, false, true]);
+        }
+
+        #[test]
         #[cfg(not(miri))]
         fn parallel_execution() {
             use alloc::sync::Arc;
