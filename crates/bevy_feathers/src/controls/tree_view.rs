@@ -126,8 +126,9 @@ pub struct FeathersTreeItemProps {
     pub label: Box<dyn SceneList>,
     /// Child rows, shown while the row is expanded.
     pub children: Box<dyn SceneList>,
-    /// Whether the row can be expanded, which is independent of whether `children` is empty.
-    pub has_children: bool,
+    /// Whether the row can be expanded.
+    /// Set this for rows whose child rows are populated later, such as on first expand.
+    pub expandable: bool,
 }
 
 impl Default for FeathersTreeItemProps {
@@ -135,7 +136,7 @@ impl Default for FeathersTreeItemProps {
         Self {
             label: Box::new(bsn_list! {}),
             children: Box::new(bsn_list! {}),
-            has_children: false,
+            expandable: false,
         }
     }
 }
@@ -150,7 +151,7 @@ impl FeathersTreeItem {
                 align_items: AlignItems::Stretch,
             }
             TreeItem {
-                has_children: {props.has_children},
+                has_children: {props.expandable},
             }
             Children [
                 FeathersTreeItemHeader

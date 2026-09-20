@@ -1062,7 +1062,7 @@ fn demo_column_3() -> impl Scene {
                             }
                             --
                             @FeathersTreeItem {
-                                @has_children: true,
+                                @expandable: true,
                                 @label: bsn_list! { @caption("Scene") },
                                 @children: bsn_list! {
                                     @FeathersTreeItem {
@@ -1077,7 +1077,7 @@ fn demo_column_3() -> impl Scene {
                             Expanded
                             --
                             @FeathersTreeItem {
-                                @has_children: true,
+                                @expandable: true,
                                 @label: bsn_list! { @caption("Assets") },
                             }
                             DemoLazyBranch
