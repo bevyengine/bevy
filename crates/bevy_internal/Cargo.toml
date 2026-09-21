@@ -329,6 +329,7 @@ embedded_watcher = ["bevy_asset?/embedded_watcher"]
 bevy_debug_stepping = [
   "bevy_ecs/bevy_debug_stepping",
   "bevy_app/bevy_debug_stepping",
+  "bevy_remote?/bevy_debug_stepping",
 ]
 
 # Enables the meshlet renderer for dense high-poly scenes (experimental)

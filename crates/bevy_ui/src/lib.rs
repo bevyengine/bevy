@@ -43,7 +43,7 @@ pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
 pub use interaction_states::{
-    Checkable, Checked, InteractionDisabled, Pressed, Selectable, Selected,
+    Checkable, Checked, Expandable, Expanded, InteractionDisabled, Pressed, Selectable, Selected,
 };
 pub use layout::*;
 pub use measurement::*;
@@ -229,6 +229,10 @@ impl Plugin for UiPlugin {
             .add_observer(interaction_states::on_remove_checkable)
             .add_observer(interaction_states::on_add_checked)
             .add_observer(interaction_states::on_remove_checked)
+            .add_observer(interaction_states::on_add_expandable)
+            .add_observer(interaction_states::on_remove_expandable)
+            .add_observer(interaction_states::on_add_expanded)
+            .add_observer(interaction_states::on_remove_expanded)
             .add_observer(interaction_states::on_add_selectable)
             .add_observer(interaction_states::on_remove_selectable)
             .add_observer(interaction_states::on_add_selected)

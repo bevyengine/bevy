@@ -8,7 +8,7 @@ use bevy::{
     },
     picking::hover::Hovered,
     prelude::*,
-    ui::Selected,
+    ui::{Expanded, Selected},
     ui_widgets::{
         tree_view_expand_self_update, tree_view_self_update, SelectedTreeItem, TreeItem,
         TreeItemChildren, TreeItemExpandChange, TreeItemToggle, TreeView,
@@ -81,9 +81,9 @@ fn showcase() -> impl SceneList {
                 --
                 @row()
                 TreeItem {
-                    expanded: true,
                     has_children: true,
                 }
+                Expanded
                 Children [
                     @row_header("Scene", true)
                     --
@@ -207,7 +207,7 @@ fn populate_lazy_branch(
 fn update_row_styles(
     focus: Res<InputFocus>,
     focus_visible: Res<InputFocusVisible>,
-    rows: Query<(Has<Selected>, &TreeItem), With<ShowcaseRow>>,
+    rows: Query<(Has<Selected>, Has<Expanded>, &TreeItem), With<ShowcaseRow>>,
     parents: Query<&ChildOf>,
     mut headers: Query<
         (
@@ -223,7 +223,7 @@ fn update_row_styles(
 ) {
     for (child_of, hovered, mut background, mut border, mut node) in &mut headers {
         let row = child_of.parent();
-        let Ok((selected, item)) = rows.get(row) else {
+        let Ok((selected, _, item)) = rows.get(row) else {
             continue;
         };
         background.0 = match (selected, hovered.get()) {
@@ -246,10 +246,10 @@ fn update_row_styles(
         else {
             continue;
         };
-        let Ok((_, item)) = rows.get(row) else {
+        let Ok((_, expanded, item)) = rows.get(row) else {
             continue;
         };
-        let glyph = match (item.has_children, item.expanded) {
+        let glyph = match (item.has_children, expanded) {
             (false, _) => " ",
             (true, false) => "+",
             (true, true) => "-",

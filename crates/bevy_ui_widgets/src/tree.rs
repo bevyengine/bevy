@@ -26,7 +26,7 @@ use bevy_input_focus::{
 };
 use bevy_picking::{events::PointerClick, pointer::PointerButton};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui::{InteractionDisabled, Selectable, Selected};
+use bevy_ui::{Expandable, Expanded, InteractionDisabled, Selectable, Selected};
 
 /// Determines how many rows of a [`TreeView`] may be selected at once.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
@@ -42,8 +42,9 @@ pub enum TreeSelectionMode {
 /// Headless tree-view behavior and policy.
 ///
 /// A tree nests as `TreeView -> TreeItem -> TreeItemChildren -> TreeItem`. Rows are never spawned
-/// by the widget. Selection lives in [`SelectedTreeItem`] and expansion in [`TreeItem::expanded`];
-/// both only change when [`tree_view_self_update`] and [`tree_view_expand_self_update`] are added.
+/// by the widget. Selection lives in [`SelectedTreeItem`] and expansion in the [`Expanded`]
+/// marker; both only change when [`tree_view_self_update`] and [`tree_view_expand_self_update`]
+/// are added.
 #[derive(Component, Debug, Default, Clone, PartialEq, Reflect)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Tree)), SelectedTreeItem)]
 #[reflect(Component, Default, Clone, PartialEq)]
@@ -61,7 +62,8 @@ pub struct TreeView {
 pub struct SelectedTreeItem(#[template(built_in)] pub Option<Entity>);
 
 /// A headless tree row. Rows are focusable through a roving [`TabIndex`], and derive [`Selected`]
-/// from the containing tree's valid [`SelectedTreeItem`] value.
+/// from the containing tree's valid [`SelectedTreeItem`] value and [`Expandable`] from
+/// `has_children`. A row is expanded while it holds the [`Expanded`] marker.
 #[derive(Component, Debug, Default, Clone, Copy, PartialEq, Reflect)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::TreeItem)),
@@ -70,8 +72,6 @@ pub struct SelectedTreeItem(#[template(built_in)] pub Option<Entity>);
 )]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct TreeItem {
-    /// Whether this row's child rows are shown.
-    pub expanded: bool,
     /// Whether this row can be expanded. Rows without children never expand.
     pub has_children: bool,
     /// Nesting depth of this row, where top-level rows are zero. Derived in `PostUpdate`.
@@ -149,19 +149,26 @@ pub fn tree_view_self_update(
     }
 }
 
-/// Observer that applies expansion requests to [`TreeItem::expanded`].
+/// Observer that applies expansion requests by adding or removing [`Expanded`].
 pub fn tree_view_expand_self_update(
     change: On<TreeItemExpandChange>,
-    mut items: Query<&mut TreeItem>,
+    items: Query<Has<Expanded>, With<TreeItem>>,
+    mut commands: Commands,
 ) {
-    if let Ok(mut item) = items.get_mut(change.item)
-        && item.expanded != change.expanded
-    {
-        item.expanded = change.expanded;
+    let Ok(expanded) = items.get(change.item) else {
+        return;
+    };
+    if expanded == change.expanded {
+        return;
+    }
+    if change.expanded {
+        commands.entity(change.item).insert(Expanded);
+    } else {
+        commands.entity(change.item).remove::<Expanded>();
     }
 }
 
-type RowQuery<'w, 's> = Query<'w, 's, (&'static TreeItem, Has<InteractionDisabled>)>;
+type RowQuery<'w, 's> = Query<'w, 's, (&'static TreeItem, Has<Expanded>, Has<InteractionDisabled>)>;
 type ContainerQuery<'w, 's> = Query<'w, 's, (), With<TreeItemChildren>>;
 
 fn visible_rows(
@@ -175,14 +182,14 @@ fn visible_rows(
         return;
     };
     for child in container_children.iter().copied() {
-        let Ok((item, disabled)) = rows.get(child) else {
+        let Ok((_, expanded, disabled)) = rows.get(child) else {
             continue;
         };
         if disabled {
             continue;
         }
         out.push(child);
-        if item.expanded {
+        if expanded {
             for row_child in child_containers(child, children, containers) {
                 visible_rows(row_child, children, rows, containers, out);
             }
@@ -214,7 +221,7 @@ fn first_child_row(
                 nested
                     .iter()
                     .copied()
-                    .find(|child| rows.get(*child).is_ok_and(|(_, disabled)| !disabled))
+                    .find(|child| rows.get(*child).is_ok_and(|(.., disabled)| !disabled))
             })
         })
         .next()
@@ -233,7 +240,7 @@ fn parent_row(
     let parent = parents.get(container).ok()?.parent();
     rows.get(parent)
         .ok()
-        .and_then(|(_, disabled)| if disabled { None } else { Some(parent) })
+        .and_then(|(.., disabled)| if disabled { None } else { Some(parent) })
 }
 
 fn owning_tree(
@@ -313,7 +320,7 @@ fn tree_view_on_click(
     if owning_tree(row, &parents, &trees) != Some(click.entity) {
         return;
     }
-    let Ok((item, row_disabled)) = rows.get(row) else {
+    let Ok((item, expanded, row_disabled)) = rows.get(row) else {
         return;
     };
     if tree_disabled || row_disabled {
@@ -326,7 +333,7 @@ fn tree_view_on_click(
             commands.trigger(TreeItemExpandChange {
                 tree: click.entity,
                 item: row,
-                expanded: !item.expanded,
+                expanded: !expanded,
             });
         }
         return;
@@ -350,7 +357,7 @@ fn tree_item_on_key_input(
     mut commands: Commands,
 ) {
     let row = input.focused_entity;
-    let Ok((item, row_disabled)) = rows.get(row) else {
+    let Ok((item, expanded, row_disabled)) = rows.get(row) else {
         return;
     };
     let Some(tree) = owning_tree(row, &parents, &trees) else {
@@ -395,7 +402,7 @@ fn tree_item_on_key_input(
             commands.trigger(TreeItemActivate { tree, item: row });
             return;
         }
-        Navigation::In if item.has_children && !item.expanded => {
+        Navigation::In if item.has_children && !expanded => {
             commands.trigger(TreeItemExpandChange {
                 tree,
                 item: row,
@@ -403,7 +410,7 @@ fn tree_item_on_key_input(
             });
             return;
         }
-        Navigation::Out if item.has_children && item.expanded => {
+        Navigation::Out if item.has_children && expanded => {
             commands.trigger(TreeItemExpandChange {
                 tree,
                 item: row,
@@ -521,15 +528,20 @@ fn update_visible_rows(
             Or<(
                 Changed<Children>,
                 Changed<TreeItem>,
+                Added<Expanded>,
                 Added<InteractionDisabled>,
             )>,
             Or<(With<TreeView>, With<TreeItem>, With<TreeItemChildren>)>,
         ),
     >,
+    mut removed_expanded: RemovedComponents<Expanded>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
 ) {
     let changed_trees = owning_trees(
-        changed.iter().chain(removed_disabled.read()),
+        changed
+            .iter()
+            .chain(removed_expanded.read())
+            .chain(removed_disabled.read()),
         &parents,
         &trees,
     );
@@ -549,8 +561,9 @@ fn update_visible_rows(
     }
 }
 
-/// Derives [`Selected`] and the roving [`TabIndex`] from each tree's validated
-/// [`SelectedTreeItem`] and the current focus, in `PostUpdate`, only when relevant state changed.
+/// Derives [`Selected`], [`Expandable`] and the roving [`TabIndex`] from each tree's validated
+/// [`SelectedTreeItem`], row `has_children` and the current focus, in `PostUpdate`, only when
+/// relevant state changed.
 fn update_tree_view_derived_state(
     trees: Query<(
         Entity,
@@ -560,7 +573,7 @@ fn update_tree_view_derived_state(
     )>,
     children: Query<&Children>,
     rows: RowQuery,
-    row_state: Query<(Has<Selected>, &TabIndex), With<TreeItem>>,
+    row_state: Query<(&TreeItem, Has<Selected>, Has<Expandable>, &TabIndex)>,
     focus: Option<Res<InputFocus>>,
     changed_trees: Query<
         (),
@@ -576,18 +589,23 @@ fn update_tree_view_derived_state(
             Or<(
                 Changed<TreeItem>,
                 Changed<Children>,
+                Added<Expanded>,
                 Added<InteractionDisabled>,
             )>,
         ),
     >,
     changed_containers: Query<(), (With<TreeItemChildren>, Changed<Children>)>,
+    mut removed_expanded: RemovedComponents<Expanded>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut commands: Commands,
 ) {
     let focus_changed = focus.as_ref().is_some_and(DetectChanges::is_changed);
+    let expanded_removed = !removed_expanded.is_empty();
     let disabled_removed = !removed_disabled.is_empty();
+    removed_expanded.clear();
     removed_disabled.clear();
     if !focus_changed
+        && !expanded_removed
         && !disabled_removed
         && changed_trees.is_empty()
         && changed_rows.is_empty()
@@ -602,7 +620,7 @@ fn update_tree_view_derived_state(
             .filter(|descendant| rows.contains(*descendant))
             .collect::<EntityHashSet>();
         let enabled = |entity: &Entity| {
-            tree_rows.contains(entity) && rows.get(*entity).is_ok_and(|(_, disabled)| !disabled)
+            tree_rows.contains(entity) && rows.get(*entity).is_ok_and(|(.., disabled)| !disabled)
         };
         let visible_set = view.visible_rows.iter().copied().collect::<EntityHashSet>();
 
@@ -628,9 +646,18 @@ fn update_tree_view_derived_state(
         }
 
         for row in tree_rows.iter().copied() {
-            let Ok((is_selected, tab_index)) = row_state.get(row) else {
+            let Ok((item, is_selected, is_expandable, tab_index)) = row_state.get(row) else {
                 continue;
             };
+            if item.has_children && !is_expandable {
+                commands.entity(row).insert(Expandable);
+            } else if !item.has_children && is_expandable {
+                commands
+                    .entity(row)
+                    .remove::<Expanded>()
+                    .remove::<Expandable>();
+            }
+
             let should_select = selected == Some(row);
             if should_select && !is_selected {
                 commands.entity(row).insert(Selected);
@@ -768,17 +795,17 @@ mod tests {
             .world_mut()
             .spawn((TreeItem::default(), ChildOf(tree)))
             .id();
-        let parent = app
-            .world_mut()
-            .spawn((
-                TreeItem {
-                    expanded,
-                    has_children: true,
-                    level: 0,
-                },
-                ChildOf(tree),
-            ))
-            .id();
+        let mut parent_entity = app.world_mut().spawn((
+            TreeItem {
+                has_children: true,
+                level: 0,
+            },
+            ChildOf(tree),
+        ));
+        if expanded {
+            parent_entity.insert(Expanded);
+        }
+        let parent = parent_entity.id();
         let container = app
             .world_mut()
             .spawn((TreeItemChildren, ChildOf(parent)))
@@ -886,13 +913,7 @@ mod tests {
 
         press_key(&mut app, KeyCode::ArrowRight, window);
 
-        assert!(
-            app.world()
-                .entity(fixture.parent)
-                .get::<TreeItem>()
-                .unwrap()
-                .expanded
-        );
+        assert!(app.world().entity(fixture.parent).contains::<Expanded>());
     }
 
     #[test]
@@ -989,11 +1010,7 @@ mod tests {
             Some(fixture.parent)
         );
 
-        app.world_mut().entity_mut(fixture.parent).insert(TreeItem {
-            expanded: true,
-            has_children: true,
-            level: 0,
-        });
+        app.world_mut().entity_mut(fixture.parent).insert(Expanded);
         app.update();
 
         press_key(&mut app, KeyCode::ArrowRight, window);
@@ -1205,11 +1222,9 @@ mod tests {
             Some(&TabIndex(0))
         );
 
-        app.world_mut().entity_mut(fixture.parent).insert(TreeItem {
-            expanded: false,
-            has_children: true,
-            level: 0,
-        });
+        app.world_mut()
+            .entity_mut(fixture.parent)
+            .remove::<Expanded>();
         app.update();
 
         assert_eq!(
@@ -1232,11 +1247,9 @@ mod tests {
             .insert(InteractionDisabled);
         focus(&mut app, fixture.child_a);
 
-        app.world_mut().entity_mut(fixture.parent).insert(TreeItem {
-            expanded: false,
-            has_children: true,
-            level: 0,
-        });
+        app.world_mut()
+            .entity_mut(fixture.parent)
+            .remove::<Expanded>();
         app.update();
 
         assert_eq!(
@@ -1273,10 +1286,10 @@ mod tests {
             .world_mut()
             .spawn((
                 TreeItem {
-                    expanded: true,
                     has_children: true,
                     level: 0,
                 },
+                Expanded,
                 ChildOf(tree),
             ))
             .id();
@@ -1315,10 +1328,10 @@ mod tests {
             .world_mut()
             .spawn((
                 TreeItem {
-                    expanded: true,
                     has_children: true,
                     level: 0,
                 },
+                Expanded,
                 ChildOf(tree),
             ))
             .id();
@@ -1340,7 +1353,6 @@ mod tests {
             .world_mut()
             .spawn((
                 TreeItem {
-                    expanded: false,
                     has_children: true,
                     level: 0,
                 },
@@ -1370,6 +1382,25 @@ mod tests {
     }
 
     #[test]
+    fn expandable_is_derived_from_has_children() {
+        let (mut app, window) = tree_app();
+        let fixture = spawn_tree(&mut app, window, true);
+
+        assert!(app.world().entity(fixture.parent).contains::<Expandable>());
+        assert!(!app.world().entity(fixture.first).contains::<Expandable>());
+
+        app.world_mut().entity_mut(fixture.parent).insert(TreeItem {
+            has_children: false,
+            level: 0,
+        });
+        app.update();
+        app.update();
+
+        assert!(!app.world().entity(fixture.parent).contains::<Expandable>());
+        assert!(!app.world().entity(fixture.parent).contains::<Expanded>());
+    }
+
+    #[test]
     fn adding_a_row_to_an_existing_container_updates_visible_rows() {
         let (mut app, window) = tree_app();
         let tree = app
@@ -1380,10 +1411,10 @@ mod tests {
             .world_mut()
             .spawn((
                 TreeItem {
-                    expanded: true,
                     has_children: true,
                     level: 0,
                 },
+                Expanded,
                 ChildOf(tree),
             ))
             .id();
