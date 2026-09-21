@@ -34,7 +34,7 @@ custom_cursor = [
   "bytemuck",
 ]
 
-game_mode = ["dep:zbus"]
+linux_game_mode = ["dep:zbus"]
 
 [dependencies]
 # bevy

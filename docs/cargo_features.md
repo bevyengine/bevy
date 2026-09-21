@@ -137,7 +137,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |flac|FLAC audio format support (through `claxon`)|
 |force_disable_dlss|Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.|
 |free_camera|Enables the free cam from bevy_camera_controller|
-|game_mode|Enable Feral Interactive's `GameMode` integration on Linux|
 |gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
 |gestures|Gestures support. Automatically enabled by `bevy_window`.|
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
@@ -153,6 +152,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |keyboard|Keyboard support. Automatically enabled by `bevy_window`.|
 |ktx2|KTX2 compressed texture support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
+|linux_game_mode|Enable Feral Interactive's `GameMode` integration on Linux|
 |mesh_picking|Provides an implementation for picking meshes|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
 |meshlet_processor|Enables processing meshes into meshlet meshes for `bevy_pbr`|

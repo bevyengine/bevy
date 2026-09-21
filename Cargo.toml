@@ -612,7 +612,7 @@ force_disable_dlss = ["bevy_internal/force_disable_dlss"]
 accesskit_unix = ["bevy_internal/accesskit_unix"]
 
 # Enable Feral Interactive's `GameMode` integration on Linux
-game_mode = ["bevy_internal/game_mode"]
+linux_game_mode = ["bevy_internal/linux_game_mode"]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_internal/glam_assert"]
