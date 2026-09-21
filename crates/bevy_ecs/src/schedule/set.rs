@@ -149,7 +149,7 @@ define_label!(
     ///
     /// The derive macro for system sets also includes a `default_schedule` attribute. Providing a
     /// [`ScheduleLabel`] in this attribute allows the system set to be used in place of the
-    /// [`ScheduleLabel`] in a [`Schedules::add_systems`] call.
+    /// [`ScheduleLabel`] in a [`Schedules::add_systems()`] call.
     ///
     /// ```rust
     /// use bevy_ecs::{prelude::*, schedule::{ScheduleLabel, SystemSet}};

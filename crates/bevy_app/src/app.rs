@@ -57,7 +57,7 @@ pub(crate) enum AppError {
 }
 
 /// [`App`] is the primary API for writing user applications. It automates the setup of a
-/// [standard lifecycle](Main) and provides interface glue for [plugins](`Plugin`).
+/// [standard lifecycle](crate::main_schedule::Main) and provides interface glue for [plugins](`Plugin`).
 ///
 /// A single [`App`] can contain multiple [`SubApp`] instances, but [`App`] methods only affect
 /// the "main" one. To access a particular [`SubApp`], use [`get_sub_app`](App::get_sub_app)
