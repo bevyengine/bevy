@@ -80,7 +80,18 @@ mod tests {
     }
 
     mod system_execution {
+        use crate::{
+            change_detection::DetectChanges,
+            error::BevyError,
+            system::{IntoSystem, System},
+        };
+
         use super::*;
+
+        #[derive(Resource, Default)]
+        struct TestResource(bool);
+        #[derive(Resource, Default)]
+        struct ChangeHistory(Vec<bool>);
 
         #[test]
         fn run_system() {
@@ -110,11 +121,6 @@ mod tests {
 
         #[test]
         fn exclusive_system_change_detection() {
-            #[derive(Resource, Default)]
-            struct TestResource(bool);
-            #[derive(Resource, Default)]
-            struct ChangeHistory(Vec<bool>);
-
             fn exclusive_system(world: &mut World) {
                 let changed = world.is_resource_changed::<TestResource>();
                 world.resource_mut::<ChangeHistory>().0.push(changed);
@@ -137,6 +143,29 @@ mod tests {
             schedule.run(&mut world);
 
             assert_eq!(world.resource::<ChangeHistory>().0, vec![true, false, true]);
+        }
+
+        #[test]
+        fn failed_systems_should_update_change_ticks() {
+            fn fallible_system(
+                res: Res<TestResource>,
+                mut history: ResMut<ChangeHistory>,
+            ) -> Result<(), BevyError> {
+                history.0.push(res.is_changed());
+                Err("intentional failure".into())
+            }
+
+            let mut world = World::default();
+            world.init_resource::<TestResource>();
+            world.init_resource::<ChangeHistory>();
+
+            let mut system = IntoSystem::<(), (), _>::into_system(fallible_system);
+            system.initialize(&mut world);
+
+            let _ = system.run((), &mut world);
+            let _ = system.run((), &mut world);
+
+            assert_eq!(world.resource::<ChangeHistory>().0, vec![true, false]);
         }
 
         #[test]

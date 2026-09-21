@@ -776,54 +776,83 @@ where
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
+        // This guard is used by exclusive systems to temporarily set the world's
+        // last change tick to the system's last run tick, and then restore it
+        // when the system finishes running, regardless of whether the system
+        // completes successfully or panics.
+        struct LastTickGuard<'a> {
+            world: UnsafeWorldCell<'a>,
+            last_tick: Tick,
+        }
+        // By setting the change tick in the drop impl, we ensure that
+        // the change tick gets reset even if a panic occurs during the scope.
+        impl Drop for LastTickGuard<'_> {
+            fn drop(&mut self) {
+                // SAFETY: The guard was only created under exclusive access to
+                // the world, and nothing else is accessing the world mutably
+                // when this drop occurs.
+                let world = unsafe { self.world.world_mut() };
+                world.last_change_tick = self.last_tick;
+            }
+        }
+
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
-
-        let change_tick = world.increment_change_tick();
 
         let input = F::In::from_inner(input);
 
         let state = self.state.as_mut().expect(Self::ERROR_UNINITIALIZED);
         assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
 
-        let run = |world: UnsafeWorldCell| -> Result<Out, RunSystemError> {
-            // SAFETY:
-            // - The above assert ensures the world matches.
-            // - All world accesses used by `F::Param` have been registered, so the caller
-            //   will ensure that there are no data access conflicts.
-            let params = unsafe {
-                F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick)
-            }?;
+        let (change_tick, _guard) = if self.is_exclusive {
+            // SAFETY: an exclusive system has sole access to the world.
+            let exclusive_world = unsafe { world.world_mut() };
+            let change_tick = exclusive_world.change_tick();
+            let previous_tick = exclusive_world.last_change_tick();
+            exclusive_world.last_change_tick = self.system_meta.last_run;
 
-            #[cfg(feature = "hotpatching")]
-            let out = {
-                let mut hot_fn = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run);
-                // SAFETY:
-                // - pointer used to call is from the current jump table
-                unsafe {
-                    hot_fn
-                        .try_call_with_ptr(self.current_ptr, (&mut self.func, input, params))
-                        .expect("Error calling hotpatched system. Run a full rebuild")
-                }
-            };
-            #[cfg(not(feature = "hotpatching"))]
-            let out = self.func.run(input, params);
-
-            IntoResult::into_result(out)
-        };
-
-        let out = if self.is_exclusive {
-            let last_run = self.system_meta.last_run;
-            // SAFETY: The system was initialized with exclusive world access, and the
-            // caller guarantees that this system may access the world mutably.
-            let world = unsafe { world.world_mut() };
-            world.last_change_tick_scope(last_run, |world| run(world.as_unsafe_world_cell()))?
+            (
+                change_tick,
+                Some(LastTickGuard {
+                    world,
+                    last_tick: previous_tick,
+                }),
+            )
         } else {
-            run(world)?
+            (world.increment_change_tick(), None)
         };
 
-        self.system_meta.last_run = change_tick;
-        Ok(out)
+        // SAFETY:
+        // - The above assert ensures the world matches.
+        // - All world accesses used by `F::Param` have been registered, so the caller
+        //   will ensure that there are no data access conflicts.
+        let params = unsafe {
+            F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick)
+        }?;
+
+        #[cfg(feature = "hotpatching")]
+        let out = {
+            let mut hot_fn = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run);
+            // SAFETY:
+            // - pointer used to call is from the current jump table
+            unsafe {
+                hot_fn
+                    .try_call_with_ptr(self.current_ptr, (&mut self.func, input, params))
+                    .expect("Error calling hotpatched system. Run a full rebuild")
+            }
+        };
+        #[cfg(not(feature = "hotpatching"))]
+        let out = self.func.run(input, params);
+
+        if self.is_exclusive {
+            // SAFETY: The system has exclusive access to the world.
+            let world = unsafe { world.world_mut() };
+            world.flush();
+            self.system_meta.last_run = world.increment_change_tick();
+        } else {
+            self.system_meta.last_run = change_tick;
+        }
+        IntoResult::into_result(out)
     }
 
     #[cfg(feature = "hotpatching")]
