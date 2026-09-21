@@ -1624,6 +1624,7 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
         Option<&mut ViewGpuClusteringBuffers>,
+        Option<&mut ViewClusterBindings>,
     )>,
     render_clustered_decals: Res<RenderClusteredDecals>,
     render_device: Res<RenderDevice>,
@@ -1650,16 +1651,12 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
         maybe_environment_maps,
         maybe_irradiance_volumes,
         maybe_existing_buffers,
+        maybe_existing_cluster_bindings,
     ) in &mut views_query
     {
-        // Allocate the cluster array.
-        let mut view_clusters_bindings =
-            ViewClusterBindings::new(BufferBindingType::Storage { read_only: false });
-        view_clusters_bindings.clear();
         let cluster_count = extracted_cluster_config.dimensions.x as usize
             * extracted_cluster_config.dimensions.y as usize
             * extracted_cluster_config.dimensions.z as usize;
-        view_clusters_bindings.reserve_clusters(cluster_count);
 
         all_view_main_entities.insert(*view_main_entity);
 
@@ -1709,13 +1706,21 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             farthest_z: 0,
         };
 
-        // Make room for the appropriate number of indices.
-        view_clusters_bindings
-            .reserve_indices(view_clustering_buffer_size_data.max_index_list_capacity);
-        view_clusters_bindings.write_buffers(render_device, &render_queue);
-
         let mut entity_commands = commands.entity(view_entity);
-        entity_commands.insert(view_clusters_bindings);
+
+        if let Some(mut bindings) = maybe_existing_cluster_bindings {
+            bindings.clear();
+            bindings.reserve_clusters(cluster_count);
+            bindings.reserve_indices(view_clustering_buffer_size_data.max_index_list_capacity);
+            bindings.write_buffers(render_device, &render_queue);
+        } else {
+            let mut bindings =
+                ViewClusterBindings::new(BufferBindingType::Storage { read_only: false });
+            bindings.reserve_clusters(cluster_count);
+            bindings.reserve_indices(view_clustering_buffer_size_data.max_index_list_capacity);
+            bindings.write_buffers(render_device, &render_queue);
+            entity_commands.insert(bindings);
+        }
 
         if let Some(mut b) = maybe_existing_buffers {
             b.update(
