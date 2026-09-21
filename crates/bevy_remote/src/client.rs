@@ -1,5 +1,13 @@
 //! A native JSON-RPC 2.0 over HTTP client for the Bevy Remote Protocol.
 //!
+//! A running Bevy app that serves BRP exposes its world over HTTP, and anything that wants to
+//! look at or change that world from outside the app needs to speak the protocol. That covers a
+//! second Bevy app acting as a tool, such as an entity inspector, an editor, or a test harness
+//! like the `integration_test` example, and any Rust program that would otherwise hand-roll HTTP
+//! and JSON-RPC. This client is that piece: one call sends a method and gets back the decoded
+//! result or a typed error, on Bevy's own async stack, so a tool built in Bevy can use it from
+//! systems without blocking.
+//!
 //! [`BrpClient`] speaks to the same wire format that
 //! [`RemoteHttpPlugin`](crate::http::RemoteHttpPlugin) serves: it is the client half of the
 //! protocol documented at the [crate root](crate), including the method list. It follows the
@@ -7,15 +15,14 @@
 //! return the result or a typed error. There is no connection pooling, no retries, and no
 //! authentication; callers that need those build them on top.
 //!
-//! This lives in `bevy_remote` behind its own `client` feature, rather than in a separate crate,
-//! so it can reuse the crate's own request and response types ([`BrpRequest`], [`BrpResponse`],
-//! [`BrpPayload`], [`BrpError`]) instead of a parallel copy that could drift from the server, and
-//! so it can reuse the same `hyper` and `smol` stack the `http` feature already depends on,
-//! adding no new dependencies. Gating it behind its own feature, separate from `bevy_remote`
-//! and `http`, keeps apps that only serve BRP from compiling the client. It is meant for
-//! in-engine tooling such as the entity inspector, editors, and examples and tests that
-//! previously reached for a third-party blocking HTTP client. Like the server, it is native
-//! only and does not build on `wasm`.
+//! This lives in `bevy_remote` behind its own `client` feature: it reuses the crate's own
+//! request and response types ([`BrpRequest`], [`BrpResponse`], [`BrpPayload`], [`BrpError`])
+//! and the same `hyper` and `smol` stack the `http` feature already depends on, adding no new
+//! dependencies. Gating it behind its own feature, separate from `bevy_remote` and `http`, keeps
+//! apps that only serve BRP from compiling the client. It is meant for in-engine tooling such as
+//! the entity inspector, editors, and examples and tests that previously reached for a
+//! third-party blocking HTTP client. Like the server, it is native only and does not build on
+//! `wasm`.
 //!
 //! Construct a client with [`BrpClient::localhost`] or [`BrpClient::new`], then either `await`
 //! [`BrpClient::call`] from an async context, or call [`BrpClient::spawn_call`] from a system to
