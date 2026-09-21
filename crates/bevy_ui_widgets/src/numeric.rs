@@ -5,7 +5,7 @@ use bevy_log::warn_once;
 use bevy_reflect::Reflect;
 
 /// Used to indicate what format of numbers we are editing. This affects the type
-/// of [`ValueChange`] event that is emitted.
+/// of [`crate::ValueChange`] event that is emitted.
 #[derive(Default, Clone, Copy, Reflect)]
 pub enum NumericFormat {
     /// A 32-bit float
