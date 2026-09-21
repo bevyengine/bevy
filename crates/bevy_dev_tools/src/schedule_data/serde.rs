@@ -1000,7 +1000,7 @@ pub mod tests {
             simple_system("c0"),
             simple_system("c1"),
         ] {
-            assert!(main.systems.contains(&system))
+            assert!(main.systems.contains(&system));
         }
 
         for set in [
