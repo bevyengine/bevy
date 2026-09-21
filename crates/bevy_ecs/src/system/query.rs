@@ -3026,7 +3026,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> Single<'w, 's, D, F> {
 ///
 /// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
 /// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added),
-/// [`Changed`](crate::query::Changed) of [`Spawned`](crate::query::Spawned) which must individually check each query
+/// [`Changed`](crate::query::Changed), or [`Spawned`](crate::query::Spawned) which must individually check each query
 /// result for a match.
 ///
 /// See [`Query`] for more details.
