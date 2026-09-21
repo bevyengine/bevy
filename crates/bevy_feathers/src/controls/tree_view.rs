@@ -151,7 +151,7 @@ impl FeathersTreeItem {
                 align_items: AlignItems::Stretch,
             }
             TreeItem {
-                has_children: {props.expandable},
+                expandable: {props.expandable},
             }
             Children [
                 FeathersTreeItemHeader
