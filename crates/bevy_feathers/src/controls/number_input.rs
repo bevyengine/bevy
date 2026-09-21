@@ -757,7 +757,9 @@ fn number_input_on_insert_disabled(
             &mut gradient,
             &mut commands,
         );
-        commands.entity(text_id).insert(TextReadWriteMode::ReadOnly);
+        commands
+            .entity(text_id)
+            .try_insert(TextReadWriteMode::ReadOnly);
     }
 }
 
@@ -793,7 +795,9 @@ fn number_input_on_remove_disabled(
             &mut gradient,
             &mut commands,
         );
-        commands.entity(text_id).insert(TextReadWriteMode::Editable);
+        commands
+            .entity(text_id)
+            .try_insert(TextReadWriteMode::Editable);
     }
 }
 
@@ -1369,8 +1373,8 @@ fn set_slidebar_styles(
     // Change cursor shape and text color
     commands
         .entity(slidebar_id)
-        .insert(EntityCursor::System(cursor_shape))
-        .insert(ThemeTextColor(font_color_token));
+        .try_insert(EntityCursor::System(cursor_shape))
+        .try_insert(ThemeTextColor(font_color_token));
 }
 
 fn emit_drag_value_change(
@@ -1978,6 +1982,7 @@ impl Plugin for NumberInputPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_ecs::world::World;
 
     #[test]
     fn test_length_meters_format() {
@@ -2073,5 +2078,41 @@ mod tests {
             NumberInputValue::F64(val) => assert!((val - (-0.505)).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
+    }
+
+    #[test]
+    fn despawn_disabled_number_input_does_not_panic() {
+        let mut world = World::new();
+        world.init_resource::<UiTheme>();
+        world.init_resource::<InputFocus>();
+
+        let text_id = world
+            .spawn((
+                Hovered::default(),
+                BackgroundGradient(vec![Gradient::Linear(LinearGradient {
+                    angle: 0.0,
+                    stops: vec![
+                        ColorStop::new(Color::NONE, percent(0)),
+                        ColorStop::new(Color::NONE, percent(50)),
+                        ColorStop::new(Color::NONE, percent(50)),
+                        ColorStop::new(Color::NONE, percent(100)),
+                    ],
+                    color_space: InterpolationColorSpace::Srgba,
+                })]),
+            ))
+            .id();
+
+        let number_input = world
+            .spawn((FeathersNumberInput, InteractionDisabled))
+            .add_child(text_id)
+            .id();
+
+        world
+            .entity_mut(number_input)
+            .observe(number_input_on_insert_disabled)
+            .observe(number_input_on_remove_disabled);
+
+        world.despawn(number_input);
+        world.flush();
     }
 }

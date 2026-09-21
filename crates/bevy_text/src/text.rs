@@ -300,7 +300,7 @@ pub enum FontSource {
     List(#[template(built_in)] Vec<FontSource>),
     /// Resolve the font using a generic font family.
     Generic(GenericFontFamily),
-    /// Use the default font source from the `DefaultFontSource` resource.
+    /// Use the default font source from the [`DefaultFontSource`] resource.
     #[default]
     Default,
 }
