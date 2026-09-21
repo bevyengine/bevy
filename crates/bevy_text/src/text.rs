@@ -513,7 +513,7 @@ impl FontSource {
                                     match source.resolve_font_family(fonts, default_source)? {
                                         FontFamily::Single(family) => families.push(family),
                                         FontFamily::List(list) => {
-                                            families.extend(list.into_owned())
+                                            families.extend(list.into_owned());
                                         }
                                         FontFamily::Source(source) => {
                                             for family in parley::FontFamilyName::parse_css_list(
