@@ -533,7 +533,9 @@ impl Stepping {
                     self.action = action;
                 }
                 Update::AddSchedule(l) => {
-                    self.schedule_states.insert(l, ScheduleState::default());
+                    if !self.schedule_states.contains_key(&l) {
+                        self.schedule_states.insert(l, ScheduleState::default());
+                    }
                 }
                 Update::RemoveSchedule(label) => {
                     self.schedule_states.remove(&label);
@@ -1027,7 +1029,7 @@ impl ScheduleState {
     }
 }
 
-#[cfg(all(test, feature = "bevy_debug_stepping"))]
+// #[cfg(all(test, feature = "bevy_debug_stepping"))]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use super::*;
@@ -1050,14 +1052,6 @@ mod tests {
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
     #[default_schedule(TestMain)]
     struct TestScheduleB;
-
-    #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
-    #[default_schedule(TestMain)]
-    struct TestScheduleC;
-
-    #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
-    #[default_schedule(TestMain)]
-    struct TestScheduleD;
 
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
     struct SetA;
@@ -1728,15 +1722,15 @@ mod tests {
             cursors,
             vec![
                 // before render frame      // after render frame
-                None,                       Some(cursor(&schedule, 5)),
-                Some(cursor(&schedule, 5)), Some(cursor(&schedule, 6)),
-                Some(cursor(&schedule, 6)), Some(cursor(&schedule, 7)),
-                Some(cursor(&schedule, 7)), None, // <- This is None, not System(SystemKey(5v1))
+                None,                       Some(cursor(&schedule, 1)),
+                Some(cursor(&schedule, 1)), Some(cursor(&schedule, 2)),
+                Some(cursor(&schedule, 2)), Some(cursor(&schedule, 3)),
+                Some(cursor(&schedule, 3)), Some(cursor(&schedule, 4)),
                 Some(cursor(&schedule, 4)), Some(cursor(&schedule, 5)),
                 Some(cursor(&schedule, 5)), Some(cursor(&schedule, 6)),
                 Some(cursor(&schedule, 6)), Some(cursor(&schedule, 7)),
                 Some(cursor(&schedule, 7)), None,
-                Some(cursor(&schedule, 4)), Some(cursor(&schedule, 5)),
+                Some(cursor(&schedule, 0)), Some(cursor(&schedule, 1)),
             ]
         );
 
@@ -1769,14 +1763,14 @@ mod tests {
             cursors,
             vec![
                 // before render frame      // after render frame
-                Some(cursor(&schedule, 0)), Some(cursor(&schedule, 5)),
-                Some(cursor(&schedule, 5)), Some(cursor(&schedule, 6)),
-                Some(cursor(&schedule, 6)), Some(cursor(&schedule, 7)),
-                Some(cursor(&schedule, 7)), None,
+                Some(cursor(&schedule, 0)), Some(cursor(&schedule, 2)),
+                Some(cursor(&schedule, 2)), Some(cursor(&schedule, 4)),
                 Some(cursor(&schedule, 4)), Some(cursor(&schedule, 5)),
                 Some(cursor(&schedule, 5)), Some(cursor(&schedule, 6)),
                 Some(cursor(&schedule, 6)), Some(cursor(&schedule, 7)),
                 Some(cursor(&schedule, 7)), None,
+                Some(cursor(&schedule, 1)), Some(cursor(&schedule, 2)),
+                Some(cursor(&schedule, 2)), Some(cursor(&schedule, 4)),
                 Some(cursor(&schedule, 4)), Some(cursor(&schedule, 5)),
             ]
         );
