@@ -476,7 +476,11 @@ pub fn extract_uinode_changes(
                         Changed<Underline>,
                         Changed<Strikethrough>,
                     )>,
-                    Or<(Changed<StrikethroughColor>, Changed<UnderlineColor>)>,
+                    Or<(
+                        Changed<StrikethroughColor>,
+                        Changed<UnderlineColor>,
+                        Changed<BorderStyle>,
+                    )>,
                 )>,
             ),
         >,
@@ -564,10 +568,12 @@ pub fn extract_uinode_changes(
         mut removed_strikethrough_color_query,
         mut removed_underline_color_query,
         mut removed_inline_image_query,
+        mut removed_border_style_query,
     ): (
         Extract<RemovedComponents<StrikethroughColor>>,
         Extract<RemovedComponents<UnderlineColor>>,
         Extract<RemovedComponents<InlineImage>>,
+        Extract<RemovedComponents<BorderStyle>>,
     ),
     #[cfg(feature = "bevy_ui_debug")] mut removed_debug_options_query: Extract<
         RemovedComponents<UiDebugOptions>,
@@ -629,6 +635,7 @@ pub fn extract_uinode_changes(
             .chain(removed_strikethrough_color_query.read())
             .chain(removed_underline_color_query.read())
             .chain(removed_inline_image_query.read())
+            .chain(removed_border_style_query.read())
         {
             process_changed_entity(
                 main_entity.into(),
@@ -1051,7 +1058,7 @@ pub enum Bevel {
     Outset,
 }
 
-const SHADE_AMOUNT: f32 = 0.2;
+pub const SHADE_AMOUNT: f32 = 0.2;
 
 /// Returns the beveled colors for a border ring.
 pub fn bevel_colors(colors: [LinearRgba; 4], bevel: Bevel) -> [LinearRgba; 4] {
@@ -1212,43 +1219,42 @@ pub fn extract_uinode_borders(
                     colors: border_colors,
                 }),
             }
+        }
 
-            if computed_node.outline_width() <= 0. {
-                continue;
-            }
+        if computed_node.outline_width() <= 0. {
+            continue;
+        }
 
-            if let Some(outline) =
-                maybe_outline.filter(|outline| !outline.color.is_fully_transparent())
-            {
-                let outline_size = computed_node.outlined_node_size();
-                extracted_uinodes
-                    .uinodes
-                    .entry(entity.into())
-                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                    .1
-                    .insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
-                            image,
-                            clip: maybe_clip.cloned(),
-                            transform: transform.into(),
-                            item: ExtractedUiItem::Node {
-                                color: outline.color.into(),
-                                rect: Rect {
-                                    max: outline_size,
-                                    ..Default::default()
-                                },
-                                atlas_scaling: None,
-                                flip_x: false,
-                                flip_y: false,
-                                border: BorderRect::all(computed_node.outline_width()),
-                                border_radius: computed_node.outline_radius(),
-                                node_type: NodeType::Border(shader_flags::BORDER_ALL),
+        if let Some(outline) = maybe_outline.filter(|outline| !outline.color.is_fully_transparent())
+        {
+            let outline_size = computed_node.outlined_node_size();
+            extracted_uinodes
+                .uinodes
+                .entry(entity.into())
+                .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                .1
+                .insert(
+                    commands.spawn_empty().id(),
+                    ExtractedUiNode {
+                        z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
+                        image,
+                        clip: maybe_clip.cloned(),
+                        transform: transform.into(),
+                        item: ExtractedUiItem::Node {
+                            color: outline.color.into(),
+                            rect: Rect {
+                                max: outline_size,
+                                ..Default::default()
                             },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border: BorderRect::all(computed_node.outline_width()),
+                            border_radius: computed_node.outline_radius(),
+                            node_type: NodeType::Border(shader_flags::BORDER_ALL),
                         },
-                    );
-            }
+                    },
+                );
         }
     }
 }
