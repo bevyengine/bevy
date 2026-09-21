@@ -28,13 +28,16 @@ pub struct SerializeSchedulesPlugin {
     /// schedules. In order to run a schedule, Bevy removes it from the world, meaning if this
     /// system is added to schedule [`Update`](bevy_app::Update), that schedule and also [`Main`]
     /// will not be included in the [`AppData`]. The default is the [`Main`] schedule since usually
-    /// there is only one system ([`Main::run_main`]), so there's very little data to collect.
+    /// there is only one system ([`bevy_app::EntryPoint::run_main`]), so there's very little data
+    /// to collect.
     ///
     /// Avoid changing this field. This is intended for power-users who might not use the [`Main`]
     /// schedule at all. It may also be worth considering just calling [`AppData::from_schedules`]
     /// manually to ensure a particular schedule is present.
     ///
     /// Usually, this will be set using [`Self::in_schedule`].
+    ///
+    /// [`Main`]: bevy_app::Main
     pub schedule: Interned<dyn ScheduleLabel>,
 }
 
