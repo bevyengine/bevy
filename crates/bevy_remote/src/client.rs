@@ -1,12 +1,14 @@
-//! A native JSON-RPC 2.0 over HTTP client for the Bevy Remote Protocol.
+//! An asynchronous JSON-RPC 2.0 over HTTP client for the Bevy Remote Protocol.
 //!
-//! A running Bevy app that serves BRP exposes its world over HTTP, and anything that wants to
-//! look at or change that world from outside the app needs to speak the protocol. That covers a
-//! second Bevy app acting as a tool, such as an entity inspector, an editor, or a test harness
-//! like the `integration_test` example, and any Rust program that would otherwise hand-roll HTTP
-//! and JSON-RPC. This client is that piece: one call sends a method and gets back the decoded
-//! result or a typed error, on Bevy's own async stack, so a tool built in Bevy can use it from
-//! systems without blocking.
+//! This module facilitates the creation of external tools
+//! (such as entity inspectors, editors or test harnesses)
+//! to access the ECS world of a local or remote Bevy application
+//! that acts as a server.
+//! It provides a thin asynchronous [`BrpClient`]
+//! that sends simple BRP requests to the server Bevy application
+//! (see [`RemoteHttpPlugin`]).
+//!
+//! [`RemoteHttpPlugin`]: crate::http::RemoteHttpPlugin
 //!
 //! [`BrpClient`] speaks to the same wire format that
 //! [`RemoteHttpPlugin`](crate::http::RemoteHttpPlugin) serves: it is the client half of the
