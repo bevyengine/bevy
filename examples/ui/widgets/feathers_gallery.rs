@@ -22,8 +22,9 @@ use bevy::{
     ui_widgets::{
         checkbox_self_update, listbox_update_selection,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-        radio_self_update, slider_self_update, Activate, ActivateOnPress, RadioGroup, RequestClose,
-        SliderPrecision, SliderStep, SliderValue, ValueChange,
+        radio_self_update, slider_self_update, Activate, ActivateOnPress, NumericRange,
+        NumericValue, RadioGroup, RequestClose, SliderPrecision, SliderStep, SliderValue,
+        ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -909,7 +910,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -921,7 +922,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -932,7 +933,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -943,7 +944,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -1180,7 +1181,7 @@ fn update_colors(
         for scalar_input_ent in q_scalar_input.iter() {
             commands
                 .entity(scalar_input_ent)
-                .insert(NumberInputValue::F32(states.scalar_prop));
+                .insert(NumericValue::F32(states.scalar_prop));
         }
 
         for (vec3_input_ent, axis) in q_vec3_input.iter() {
@@ -1192,7 +1193,7 @@ fn update_colors(
 
             commands
                 .entity(vec3_input_ent)
-                .insert(NumberInputValue::F32(new_value));
+                .insert(NumericValue::F32(new_value));
         }
     }
 }
