@@ -48,6 +48,7 @@ use core::{
 /// - [`Single`] - Exactly one matching query item.
 /// - [`Option<Single>`] - Zero or one matching query item.
 /// - [`Populated`] - At least one matching query item.
+/// - [`SkipIfAny`] - Exactly zero matching query items.
 ///
 /// These parameters will prevent systems from running if their requirements are not met.
 ///
@@ -3032,6 +3033,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> Single<'w, 's, D, F> {
 ///
 /// If the system doesn't need to perform the query but should still be skipped if it is empty,
 /// you may use the [`any_with_component`](crate::schedule::common_conditions::any_with_component) or [`any_match_filter`](crate::schedule::common_conditions::any_match_filter) run conditions.
+/// In this case, as an alternative to run conditions, you can achieve a similar result by adding [`SkipIfAny`] as an argument to your system instead.
 ///
 /// [System parameter]: crate::system::SystemParam
 pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
