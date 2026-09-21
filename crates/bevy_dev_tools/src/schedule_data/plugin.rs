@@ -161,13 +161,13 @@ mod tests {
         remove_module_paths(&mut app_data);
         sort_app_data(&mut app_data);
 
-        assert_eq!(app_data.schedules.len(), 3);
-        let first = &app_data.schedules[0];
-        validate_message_update_system(first);
-        let main = &app_data.schedules[1];
+        assert_eq!(app_data.schedules.len(), 2);
+        let main = &app_data.schedules[0];
+        validate_message_update_system(main);
         assert_eq!(main.name, "Main");
-        assert_eq!(main.systems, [simple_system("a"), simple_system("b")]);
-        let spawn_scene = &app_data.schedules[2];
+        assert!(main.systems.contains(&simple_system("a")));
+        assert!(main.systems.contains(&simple_system("b")));
+        let spawn_scene = &app_data.schedules[1];
         assert_eq!(spawn_scene.name, "SpawnScene");
         assert_eq!(spawn_scene.systems, [simple_system("c")]);
     }

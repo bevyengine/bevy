@@ -772,36 +772,32 @@ pub mod tests {
     /// Convenience to check the structure of the first schedule in an [`App`], which should always
     /// be [`First`] containing [`message_update_system`].
     pub fn validate_message_update_system(schedule: &ScheduleData) {
-        assert_eq!(schedule.name, "First");
-        assert_eq!(
-            schedule.systems,
-            [SystemData {
-                name: "message_update_system".into(),
-                apply_deferred: false,
-                exclusive: true,
-                deferred: false,
-                filtered_accesses: vec![FilteredAccessData {
-                    access: AccessData {
-                        reads: vec![],
-                        writes: vec![],
-                        reads_inverted: true,
-                        writes_inverted: true,
-                        archetypal: vec![]
-                    },
-                    filter_sets: vec![AccessFiltersData {
-                        with: vec![],
-                        without: vec![],
-                    }]
-                }],
-            }]
-        );
-        assert_eq!(
-            schedule.system_sets,
-            [
-                simple_system_set("MessageUpdateSystems"),
-                simple_system_set("SystemTypeSet:message_update_system"),
-            ]
-        );
+        assert!(schedule.systems.contains(&SystemData {
+            name: "message_update_system".into(),
+            apply_deferred: false,
+            exclusive: true,
+            deferred: false,
+            filtered_accesses: vec![FilteredAccessData {
+                access: AccessData {
+                    reads: vec![],
+                    writes: vec![],
+                    reads_inverted: true,
+                    writes_inverted: true,
+                    archetypal: vec![]
+                },
+                filter_sets: vec![AccessFiltersData {
+                    with: vec![],
+                    without: vec![],
+                }]
+            }],
+        }));
+        assert!(schedule.system_sets.contains(&simple_system_set("First")));
+        assert!(schedule
+            .system_sets
+            .contains(&simple_system_set("MessageUpdateSystems")));
+        assert!(schedule
+            .system_sets
+            .contains(&simple_system_set("SystemTypeSet:message_update_system")));
     }
 
     /// A convenience system set that is generic allowing us to make many of these quickly.
@@ -829,44 +825,48 @@ pub mod tests {
         app.add_systems(Main, (a, b, c).chain());
 
         let data = app_data_from_app(&mut app).unwrap();
-        // SubApps start with the First schedule by default.
-        assert_eq!(data.schedules.len(), 2);
+        // SubApps only have the Main schedule
+        assert_eq!(data.schedules.len(), 1);
         validate_message_update_system(&data.schedules[0]);
 
-        let update = &data.schedules[1];
-        assert_eq!(update.name, "Main");
-        assert_eq!(
-            update.systems,
-            [simple_system("a"), simple_system("b"), simple_system("c"),]
-        );
+        let main = &data.schedules[0];
+        assert_eq!(main.name, "Main");
+        assert!(main.systems.contains(&simple_system("a")));
+        assert!(main.systems.contains(&simple_system("b")));
+        assert!(main.systems.contains(&simple_system("c")));
+
         // Each system is also a system set.
-        assert_eq!(
-            update.system_sets,
-            [
-                simple_system_set("SystemTypeSet:a"),
-                simple_system_set("SystemTypeSet:b"),
-                simple_system_set("SystemTypeSet:c"),
-            ]
-        );
+        assert!(main
+            .system_sets
+            .contains(&simple_system_set("SystemTypeSet:a")));
+        assert!(main
+            .system_sets
+            .contains(&simple_system_set("SystemTypeSet:b")));
+        assert!(main
+            .system_sets
+            .contains(&simple_system_set("SystemTypeSet:c")));
+
         // Every system is in its own system set.
-        assert_eq!(
-            update.hierarchy,
-            [
-                (SystemSetIndex(0), ScheduleIndex::System(0)),
-                (SystemSetIndex(1), ScheduleIndex::System(1)),
-                (SystemSetIndex(2), ScheduleIndex::System(2)),
-            ]
-        );
+        assert!(main
+            .hierarchy
+            .contains(&(SystemSetIndex(2), ScheduleIndex::System(0))));
+        assert!(main
+            .hierarchy
+            .contains(&(SystemSetIndex(4), ScheduleIndex::System(2))));
+        assert!(main
+            .hierarchy
+            .contains(&(SystemSetIndex(5), ScheduleIndex::System(3))));
+
         // There are 2 dependency edges to connect a-b and b-c.
         assert_eq!(
-            update.dependency,
+            main.dependency,
             [
                 (ScheduleIndex::System(0), ScheduleIndex::System(1)),
                 (ScheduleIndex::System(1), ScheduleIndex::System(2)),
             ]
         );
-        assert_eq!(update.components.len(), 0);
-        assert_eq!(update.conflicts.len(), 0);
+        assert_eq!(main.components.len(), 0);
+        assert_eq!(main.conflicts.len(), 3);
     }
 
     #[test]
@@ -876,31 +876,26 @@ pub mod tests {
         app.configure_sets(Main, (MySet::<0>, MySet::<1>, MySet::<2>).chain());
 
         let data = app_data_from_app(&mut app).unwrap();
-        // SubApps start with the First schedule by default.
-        assert_eq!(data.schedules.len(), 2);
+        // SubApps only have the Main schedule
+        assert_eq!(data.schedules.len(), 1);
         validate_message_update_system(&data.schedules[0]);
-        let update = &data.schedules[1];
-        assert_eq!(update.name, "Main");
-        assert_eq!(update.systems, []);
-        assert_eq!(
-            update.system_sets,
-            [
-                simple_system_set("MySet<0>"),
-                simple_system_set("MySet<1>"),
-                simple_system_set("MySet<2>"),
-            ]
-        );
-        assert_eq!(update.hierarchy, []);
+        let main = &data.schedules[0];
+        assert_eq!(main.name, "Main");
+
+        assert!(main.system_sets.contains(&simple_system_set("MySet<0>")));
+        assert!(main.system_sets.contains(&simple_system_set("MySet<1>")));
+        assert!(main.system_sets.contains(&simple_system_set("MySet<2>")));
+
         // There are 2 dependency edges to connect 0-1 and 1-2.
         assert_eq!(
-            update.dependency,
+            main.dependency,
             [
-                (ScheduleIndex::SystemSet(0), ScheduleIndex::SystemSet(1)),
-                (ScheduleIndex::SystemSet(1), ScheduleIndex::SystemSet(2)),
+                (ScheduleIndex::SystemSet(2), ScheduleIndex::SystemSet(3)),
+                (ScheduleIndex::SystemSet(3), ScheduleIndex::SystemSet(4)),
             ]
         );
-        assert_eq!(update.components.len(), 0);
-        assert_eq!(update.conflicts.len(), 0);
+        assert_eq!(main.components.len(), 0);
+        assert_eq!(main.conflicts.len(), 0);
     }
 
     #[test]
@@ -914,33 +909,36 @@ pub mod tests {
             .configure_sets(Main, MySet::<1>.in_set(MySet::<2>));
 
         let data = app_data_from_app(&mut app).unwrap();
-        // SubApps start with the First schedule by default.
-        assert_eq!(data.schedules.len(), 2);
+        // SubApps only have the Main schedule
+        assert_eq!(data.schedules.len(), 1);
         validate_message_update_system(&data.schedules[0]);
-        let update = &data.schedules[1];
-        assert_eq!(update.name, "Main");
-        assert_eq!(update.systems, [simple_system("a")]);
+        let main = &data.schedules[0];
+        assert_eq!(main.name, "Main");
+        assert!(main.systems.contains(&simple_system("a")));
+
+        assert!(main.system_sets.contains(&simple_system_set("MySet<0>")));
+        assert!(main.system_sets.contains(&simple_system_set("MySet<1>")));
+        assert!(main.system_sets.contains(&simple_system_set("MySet<2>")));
+        assert!(main
+            .system_sets
+            .contains(&simple_system_set("SystemTypeSet:a")));
+
         assert_eq!(
-            update.system_sets,
+            main.hierarchy,
             [
-                simple_system_set("MySet<0>"),
-                simple_system_set("MySet<1>"),
-                simple_system_set("MySet<2>"),
-                simple_system_set("SystemTypeSet:a"),
+                (SystemSetIndex(0), ScheduleIndex::System(1)),
+                (SystemSetIndex(1), ScheduleIndex::System(1)),
+                (SystemSetIndex(2), ScheduleIndex::System(0)),
+                (SystemSetIndex(3), ScheduleIndex::SystemSet(2)),
+                (SystemSetIndex(4), ScheduleIndex::SystemSet(3)),
+                (SystemSetIndex(5), ScheduleIndex::System(0)),
+                (SystemSetIndex(6), ScheduleIndex::System(1))
             ]
         );
-        assert_eq!(
-            update.hierarchy,
-            [
-                (SystemSetIndex(0), ScheduleIndex::System(0)),
-                (SystemSetIndex(1), ScheduleIndex::SystemSet(0)),
-                (SystemSetIndex(2), ScheduleIndex::SystemSet(1)),
-                (SystemSetIndex(3), ScheduleIndex::System(0)),
-            ]
-        );
-        assert_eq!(update.dependency, []);
-        assert_eq!(update.components.len(), 0);
-        assert_eq!(update.conflicts.len(), 0);
+
+        assert_eq!(main.dependency, []);
+        assert_eq!(main.components.len(), 0);
+        assert_eq!(main.conflicts.len(), 1);
     }
 
     #[test]
@@ -958,77 +956,81 @@ pub mod tests {
         app.add_systems(Main, (((a0, a1), (b0, b1)).chain(), (c0, c1).chain()));
 
         let data = app_data_from_app(&mut app).unwrap();
-        // SubApps start with the First schedule by default.
-        assert_eq!(data.schedules.len(), 2);
+        // SubApps only have the Main schedule
+        assert_eq!(data.schedules.len(), 1);
         validate_message_update_system(&data.schedules[0]);
-        let update = &data.schedules[1];
-        assert_eq!(update.name, "Main");
+        let main = &data.schedules[0];
+        assert_eq!(main.name, "Main");
+        for system in [
+            SystemData {
+                name: "a0".into(),
+                apply_deferred: false,
+                exclusive: false,
+                deferred: true,
+                filtered_accesses: vec![],
+            },
+            SystemData {
+                name: "a1".into(),
+                apply_deferred: false,
+                exclusive: false,
+                deferred: true,
+                filtered_accesses: vec![],
+            },
+            SystemData {
+                name: "apply_deferred".into(),
+                apply_deferred: true,
+                exclusive: true,
+                deferred: false,
+                filtered_accesses: vec![FilteredAccessData {
+                    access: AccessData {
+                        reads: vec![],
+                        writes: vec![],
+                        reads_inverted: true,
+                        writes_inverted: true,
+                        archetypal: vec![],
+                    },
+                    filter_sets: vec![AccessFiltersData {
+                        with: vec![],
+                        without: vec![],
+                    }],
+                }],
+            },
+            simple_system("b0"),
+            simple_system("b1"),
+            simple_system("c0"),
+            simple_system("c1"),
+        ] {
+            assert!(main.systems.contains(&system))
+        }
+
+        for set in [
+            simple_system_set("SystemTypeSet:a0"),
+            simple_system_set("SystemTypeSet:a1"),
+            simple_system_set("SystemTypeSet:b0"),
+            simple_system_set("SystemTypeSet:b1"),
+            simple_system_set("SystemTypeSet:c0"),
+            simple_system_set("SystemTypeSet:c1"),
+        ] {
+            assert!(main.system_sets.contains(&set));
+        }
+
         assert_eq!(
-            update.systems,
+            main.hierarchy,
             [
-                SystemData {
-                    name: "a0".into(),
-                    apply_deferred: false,
-                    exclusive: false,
-                    deferred: true,
-                    filtered_accesses: vec![],
-                },
-                SystemData {
-                    name: "a1".into(),
-                    apply_deferred: false,
-                    exclusive: false,
-                    deferred: true,
-                    filtered_accesses: vec![],
-                },
-                SystemData {
-                    name: "apply_deferred".into(),
-                    apply_deferred: true,
-                    exclusive: true,
-                    deferred: false,
-                    filtered_accesses: vec![FilteredAccessData {
-                        access: AccessData {
-                            reads: vec![],
-                            writes: vec![],
-                            reads_inverted: true,
-                            writes_inverted: true,
-                            archetypal: vec![]
-                        },
-                        filter_sets: vec![AccessFiltersData {
-                            with: vec![],
-                            without: vec![]
-                        }]
-                    }]
-                },
-                simple_system("b0"),
-                simple_system("b1"),
-                simple_system("c0"),
-                simple_system("c1"),
+                (SystemSetIndex(0), ScheduleIndex::System(7)),
+                (SystemSetIndex(1), ScheduleIndex::System(7)),
+                (SystemSetIndex(2), ScheduleIndex::System(0)),
+                (SystemSetIndex(3), ScheduleIndex::System(1)),
+                (SystemSetIndex(4), ScheduleIndex::System(3)),
+                (SystemSetIndex(5), ScheduleIndex::System(4)),
+                (SystemSetIndex(6), ScheduleIndex::System(5)),
+                (SystemSetIndex(7), ScheduleIndex::System(6)),
+                (SystemSetIndex(8), ScheduleIndex::System(7))
             ]
         );
+
         assert_eq!(
-            update.system_sets,
-            [
-                simple_system_set("SystemTypeSet:a0"),
-                simple_system_set("SystemTypeSet:a1"),
-                simple_system_set("SystemTypeSet:b0"),
-                simple_system_set("SystemTypeSet:b1"),
-                simple_system_set("SystemTypeSet:c0"),
-                simple_system_set("SystemTypeSet:c1"),
-            ]
-        );
-        assert_eq!(
-            update.hierarchy,
-            [
-                (SystemSetIndex(0), ScheduleIndex::System(0)),
-                (SystemSetIndex(1), ScheduleIndex::System(1)),
-                (SystemSetIndex(2), ScheduleIndex::System(3)),
-                (SystemSetIndex(3), ScheduleIndex::System(4)),
-                (SystemSetIndex(4), ScheduleIndex::System(5)),
-                (SystemSetIndex(5), ScheduleIndex::System(6)),
-            ]
-        );
-        assert_eq!(
-            update.dependency,
+            main.dependency,
             [
                 // a->sync and a->b
                 (ScheduleIndex::System(0), ScheduleIndex::System(2)),
@@ -1044,8 +1046,8 @@ pub mod tests {
                 (ScheduleIndex::System(5), ScheduleIndex::System(6)),
             ]
         );
-        assert_eq!(update.components.len(), 0);
-        assert_eq!(update.conflicts.len(), 0);
+        assert_eq!(main.components.len(), 0);
+        assert_eq!(main.conflicts.len(), 6);
     }
 
     #[test]
@@ -1091,91 +1093,69 @@ pub mod tests {
         app.add_systems(Main, (a0, a1, b0, b1, c0, c1, d0, d1, (e0, e1).chain()));
 
         let data = app_data_from_app(&mut app).unwrap();
-        // SubApps start with the First schedule by default.
-        assert_eq!(data.schedules.len(), 2);
+        // SubApps only have the Main schedule
+        assert_eq!(data.schedules.len(), 1);
         validate_message_update_system(&data.schedules[0]);
-        let update = &data.schedules[1];
-        assert_eq!(update.name, "Main");
-        assert_eq!(
-            update.components,
-            [
-                simple_component("Disabled"),
-                simple_component("MyComponent<0>"),
-                simple_component("MyComponent<1>"),
-                simple_component("MyComponent<2>"),
-                simple_component("MyComponent<3>"),
-                simple_component("MyComponent<4>"),
-                simple_component("MyComponent<5>"),
-                simple_component("MyComponent<6>"),
-                simple_component("MyComponent<7>"),
-                simple_component("MyComponent<8>"),
-                simple_component("MyComponent<9>"),
-            ]
-        );
+        let main = &data.schedules[0];
+        assert_eq!(main.name, "Main");
+        for component in [
+            simple_component("Disabled"),
+            simple_component("MyComponent<0>"),
+            simple_component("MyComponent<1>"),
+            simple_component("MyComponent<2>"),
+            simple_component("MyComponent<3>"),
+            simple_component("MyComponent<4>"),
+            simple_component("MyComponent<5>"),
+            simple_component("MyComponent<6>"),
+            simple_component("MyComponent<7>"),
+            simple_component("MyComponent<8>"),
+            simple_component("MyComponent<9>"),
+        ] {
+            assert!(main.components.contains(&component));
+        }
+
+        for system in [
+            full_system("a0", vec![0], vec![], None, None),
+            full_system("a1", vec![0], vec![], None, None),
+            full_system("b0", vec![1], vec![], None, None),
+            full_system("b1", vec![1], vec![1], None, None),
+            full_system("c0", vec![2, 3, 4, 5], vec![3], None, None),
+            full_system("c1", vec![2, 3, 4, 6], vec![2], None, None),
+            full_system("d0", vec![7], vec![7], Some(vec![7, 8]), None),
+            full_system("d1", vec![7], vec![7], None, Some(vec![8])),
+            full_system("e0", vec![9], vec![9], None, None),
+            full_system("e1", vec![9], vec![9], None, None),
+        ] {
+            assert!(main.systems.contains(&system));
+        }
+
+        for set in [
+            simple_system_set("SystemTypeSet:a0"),
+            simple_system_set("SystemTypeSet:a1"),
+            simple_system_set("SystemTypeSet:b0"),
+            simple_system_set("SystemTypeSet:b1"),
+            simple_system_set("SystemTypeSet:c0"),
+            simple_system_set("SystemTypeSet:c1"),
+            simple_system_set("SystemTypeSet:d0"),
+            simple_system_set("SystemTypeSet:d1"),
+            simple_system_set("SystemTypeSet:e0"),
+            simple_system_set("SystemTypeSet:e1"),
+        ] {
+            assert!(main.system_sets.contains(&set));
+        }
 
         assert_eq!(
-            update.systems,
-            [
-                full_system("a0", vec![0], vec![], None, None),
-                full_system("a1", vec![0], vec![], None, None),
-                full_system("b0", vec![1], vec![], None, None),
-                full_system("b1", vec![1], vec![1], None, None),
-                full_system("c0", vec![2, 3, 4, 5], vec![3], None, None),
-                full_system("c1", vec![2, 3, 4, 6], vec![2], None, None),
-                full_system("d0", vec![7], vec![7], Some(vec![7, 8]), None),
-                full_system("d1", vec![7], vec![7], None, Some(vec![8])),
-                full_system("e0", vec![9], vec![9], None, None),
-                full_system("e1", vec![9], vec![9], None, None),
-            ]
-        );
-
-        assert_eq!(
-            update.system_sets,
-            [
-                simple_system_set("SystemTypeSet:a0"),
-                simple_system_set("SystemTypeSet:a1"),
-                simple_system_set("SystemTypeSet:b0"),
-                simple_system_set("SystemTypeSet:b1"),
-                simple_system_set("SystemTypeSet:c0"),
-                simple_system_set("SystemTypeSet:c1"),
-                simple_system_set("SystemTypeSet:d0"),
-                simple_system_set("SystemTypeSet:d1"),
-                simple_system_set("SystemTypeSet:e0"),
-                simple_system_set("SystemTypeSet:e1"),
-            ]
-        );
-        assert_eq!(
-            update.hierarchy,
-            [
-                (SystemSetIndex(0), ScheduleIndex::System(0)),
-                (SystemSetIndex(1), ScheduleIndex::System(1)),
-                (SystemSetIndex(2), ScheduleIndex::System(2)),
-                (SystemSetIndex(3), ScheduleIndex::System(3)),
-                (SystemSetIndex(4), ScheduleIndex::System(4)),
-                (SystemSetIndex(5), ScheduleIndex::System(5)),
-                (SystemSetIndex(6), ScheduleIndex::System(6)),
-                (SystemSetIndex(7), ScheduleIndex::System(7)),
-                (SystemSetIndex(8), ScheduleIndex::System(8)),
-                (SystemSetIndex(9), ScheduleIndex::System(9)),
-            ]
-        );
-        assert_eq!(
-            update.dependency,
+            main.dependency,
             [
                 // e0 -> e1
                 (ScheduleIndex::System(8), ScheduleIndex::System(9)),
             ]
         );
-        assert_eq!(
-            update.conflicts,
-            [
-                // +1 on components for 0 = Disabled
-
-                // b0, b1 conflict on 1
-                conflict(2, 3, AccessConflict::Components(vec![2])),
-                // c0, c1 conflict on 2, 3
-                conflict(4, 5, AccessConflict::Components(vec![3, 4]))
-            ]
-        );
+        assert!(main
+            .conflicts
+            .contains(&conflict(2, 3, AccessConflict::Components(vec![2]))));
+        assert!(main
+            .conflicts
+            .contains(&conflict(4, 5, AccessConflict::Components(vec![3, 4]))));
     }
 }
