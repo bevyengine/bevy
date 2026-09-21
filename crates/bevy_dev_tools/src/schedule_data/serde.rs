@@ -49,13 +49,22 @@ impl AppData {
 }
 
 /// Describes the kind of dependency.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default,
+)]
 pub enum DependencyKind {
-    /// Weak dependency.
-    Weak,
-    /// Strict dependency.
+    /// Strict dependency, the right hand side must wait for the left hand side to complete
+    /// Typically added with [`IntoScheduleConfigs::before`](`bevy_ecs`) or [`IntoScheduleConfigs::after`](`bevy_ecs`).
+    #[default]
     Strict,
-    /// Added during a build pass (always strict).
+    /// Weak dependency, the right hand side only has to wait if it conflicts with the left hand side
+    /// Typically added with [`IntoScheduleConfigs::chain_weak`](`bevy_ecs`).
+    Weak,
+    /// Dependencies added during a build pass.
+    /// [`ScheduleBuildPass`](`bevy_ecs`)'s run after the initial [`ScheduleGraph`](`bevy_ecs`) is formed.
+    /// Most commonly the [`AutoInsertApplyDeferredPass`](`bevy_ecs`) adds sync points for [`Deferred`](`bevy_ecs`) parameters
+    /// (such as [`Commands`](`bevy_ecs`) ) to occur before the end of the [`Schedule`].
+    /// These edges are always strict.
     BuildPass,
 }
 
