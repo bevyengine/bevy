@@ -372,7 +372,7 @@ pub fn propagate_output<C: Component + Clone + PartialEq, F: QueryFilter>(
 mod tests {
     use bevy_ecs::schedule::Schedule;
 
-    use crate::{App, Main};
+    use crate::{App, Main, Update};
 
     use super::*;
 
@@ -411,7 +411,7 @@ mod tests {
     fn test_remove_propagate() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Main));
-        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Main));
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
         let mut query = app.world_mut().query::<&TestValue>();
 
@@ -430,6 +430,7 @@ mod tests {
             .commands()
             .entity(propagator)
             .remove::<Propagate<TestValue>>();
+        app.world_mut().flush();
         app.update();
 
         assert!(query.get(app.world(), propagator).is_err());
@@ -690,6 +691,7 @@ mod tests {
             .commands()
             .entity(propagator)
             .remove::<Propagate<TestValue>>();
+        app.world_mut().flush();
         app.update();
 
         assert!(query.get(app.world(), propagator).is_err(),);
@@ -921,6 +923,7 @@ mod tests {
             .commands()
             .entity(propagatee)
             .remove::<Propagate<TestValue>>();
+        app.world_mut().flush();
         app.update();
 
         assert_eq!(
