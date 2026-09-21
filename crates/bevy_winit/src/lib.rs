@@ -44,7 +44,7 @@ use crate::{
 pub mod accessibility;
 pub mod converters;
 mod cursor;
-#[cfg(all(target_os = "linux", feature = "game_mode"))]
+#[cfg(all(target_os = "linux", feature = "linux_game_mode"))]
 mod game_mode;
 mod state;
 mod system;
@@ -170,7 +170,7 @@ impl Plugin for WinitPlugin {
         app.add_plugins(AccessKitPlugin);
         app.add_plugins(cursor::WinitCursorPlugin);
 
-        #[cfg(all(target_os = "linux", feature = "game_mode"))]
+        #[cfg(all(target_os = "linux", feature = "linux_game_mode"))]
         app.add_plugins(game_mode::GameModePlugin);
 
         app.add_observer(
