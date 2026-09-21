@@ -2,13 +2,12 @@ use crate::{
     resource::Resource,
     schedule::{
         InternedScheduleLabel, InternedSystemSet, NodeId, Schedule, ScheduleLabel, SystemKey,
-        SystemSet,
+        SystemLocation, SystemSet,
     },
     system::{IntoSystem, ResMut},
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_utils::TypeIdHashMap;
 use core::any::TypeId;
 use fixedbitset::FixedBitSet;
 use log::{info, warn};
@@ -94,6 +93,8 @@ enum Update {
     SetBehavior(InternedScheduleLabel, SystemIdentifier, SystemBehavior),
     /// Clear any system-specific behavior for this schedule & system
     ClearBehavior(InternedScheduleLabel, SystemIdentifier),
+    /// Clear any system-specific behavior for this system set
+    ClearSetBehavior(InternedScheduleLabel, InternedSystemSet),
 }
 
 #[derive(Error, Debug)]
@@ -186,8 +187,13 @@ impl Stepping {
     }
 
     /// Enable stepping for the provided schedule
-    pub fn add_schedule(&mut self, schedule: impl ScheduleLabel) -> &mut Self {
-        self.updates.push(Update::AddSchedule(schedule.intern()));
+    pub fn add_schedule(&mut self, schedule: impl SystemLocation) -> &mut Self {
+        let (schedule_label, set_label) = schedule.get_system_location();
+        self.updates.push(Update::AddSchedule(schedule_label));
+        if let Some(set_label) = set_label {
+            self.updates
+                .push(Update::AddSystemSet(schedule_label, set_label));
+        }
         self
     }
 
@@ -195,14 +201,26 @@ impl Stepping {
     ///
     /// NOTE: This function will also clear any system-specific behaviors that
     /// may have been configured.
-    pub fn remove_schedule(&mut self, schedule: impl ScheduleLabel) -> &mut Self {
-        self.updates.push(Update::RemoveSchedule(schedule.intern()));
+    pub fn remove_schedule(&mut self, schedule: impl SystemLocation) -> &mut Self {
+        let (schedule_label, set_label) = schedule.get_system_location();
+        if let Some(set_label) = set_label {
+            self.updates
+                .push(Update::RemoveSystemSet(schedule_label, set_label));
+        } else {
+            self.updates.push(Update::RemoveSchedule(schedule_label));
+        }
         self
     }
 
     /// Clear behavior set for all systems in the provided [`Schedule`]
-    pub fn clear_schedule(&mut self, schedule: impl ScheduleLabel) -> &mut Self {
-        self.updates.push(Update::ClearSchedule(schedule.intern()));
+    pub fn clear_schedule(&mut self, schedule: impl SystemLocation) -> &mut Self {
+        let (schedule_label, set_label) = schedule.get_system_location();
+        if let Some(set_label) = set_label {
+            self.updates
+                .push(Update::ClearSetBehavior(schedule_label, set_label))
+        } else {
+            self.updates.push(Update::ClearSchedule(schedule_label));
+        }
         self
     }
 
@@ -213,11 +231,13 @@ impl Stepping {
     /// If the [`SystemSet`] is not contained within the [`Schedule`], this method does nothing.
     pub fn add_system_set(
         &mut self,
-        schedule: impl ScheduleLabel,
+        schedule: impl SystemLocation,
         system_set: impl SystemSet,
     ) -> &mut Self {
-        self.updates
-            .push(Update::AddSystemSet(schedule.intern(), system_set.intern()));
+        self.updates.push(Update::AddSystemSet(
+            schedule.get_system_location().0,
+            system_set.intern(),
+        ));
         self
     }
 
@@ -226,11 +246,11 @@ impl Stepping {
     /// If the [`SystemSet`] is not contained within the [`Schedule`], this method does nothing.
     pub fn remove_system_set(
         &mut self,
-        schedule: impl ScheduleLabel,
+        schedule: impl SystemLocation,
         system_set: impl SystemSet,
     ) -> &mut Self {
         self.updates.push(Update::RemoveSystemSet(
-            schedule.intern(),
+            schedule.get_system_location().0,
             system_set.intern(),
         ));
         self
@@ -292,12 +312,12 @@ impl Stepping {
     /// will apply for all instances of the system.
     pub fn always_run<Marker>(
         &mut self,
-        schedule: impl ScheduleLabel,
+        schedule: impl SystemLocation,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
         let type_id = system.system_type_id();
         self.updates.push(Update::SetBehavior(
-            schedule.intern(),
+            schedule.get_system_location().0,
             SystemIdentifier::Type(type_id),
             SystemBehavior::AlwaysRun,
         ));
@@ -306,9 +326,9 @@ impl Stepping {
     }
 
     /// Ensure this system instance always runs when stepping is enabled
-    pub fn always_run_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
+    pub fn always_run_node(&mut self, schedule: impl SystemLocation, node: NodeId) -> &mut Self {
         self.updates.push(Update::SetBehavior(
-            schedule.intern(),
+            schedule.get_system_location().0,
             SystemIdentifier::Node(node),
             SystemBehavior::AlwaysRun,
         ));
@@ -318,12 +338,12 @@ impl Stepping {
     /// Ensure this system never runs when stepping is enabled
     pub fn never_run<Marker>(
         &mut self,
-        schedule: impl ScheduleLabel,
+        schedule: impl SystemLocation,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
         let type_id = system.system_type_id();
         self.updates.push(Update::SetBehavior(
-            schedule.intern(),
+            schedule.get_system_location().0,
             SystemIdentifier::Type(type_id),
             SystemBehavior::NeverRun,
         ));
@@ -332,9 +352,9 @@ impl Stepping {
     }
 
     /// Ensure this system instance never runs when stepping is enabled
-    pub fn never_run_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
+    pub fn never_run_node(&mut self, schedule: impl SystemLocation, node: NodeId) -> &mut Self {
         self.updates.push(Update::SetBehavior(
-            schedule.intern(),
+            schedule.get_system_location().0,
             SystemIdentifier::Node(node),
             SystemBehavior::NeverRun,
         ));
@@ -344,12 +364,12 @@ impl Stepping {
     /// Add a breakpoint for system
     pub fn set_breakpoint<Marker>(
         &mut self,
-        schedule: impl ScheduleLabel,
+        schedule: impl SystemLocation,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
         let type_id = system.system_type_id();
         self.updates.push(Update::SetBehavior(
-            schedule.intern(),
+            schedule.get_system_location().0,
             SystemIdentifier::Type(type_id),
             SystemBehavior::Break,
         ));
@@ -358,9 +378,13 @@ impl Stepping {
     }
 
     /// Add a breakpoint for system instance
-    pub fn set_breakpoint_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
+    pub fn set_breakpoint_node(
+        &mut self,
+        schedule: impl SystemLocation,
+        node: NodeId,
+    ) -> &mut Self {
         self.updates.push(Update::SetBehavior(
-            schedule.intern(),
+            schedule.get_system_location().0,
             SystemIdentifier::Node(node),
             SystemBehavior::Break,
         ));
@@ -370,7 +394,7 @@ impl Stepping {
     /// Clear a breakpoint for the system
     pub fn clear_breakpoint<Marker>(
         &mut self,
-        schedule: impl ScheduleLabel,
+        schedule: impl SystemLocation,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
         self.clear_system(schedule, system);
@@ -381,7 +405,7 @@ impl Stepping {
     /// clear a breakpoint for system instance
     pub fn clear_breakpoint_node(
         &mut self,
-        schedule: impl ScheduleLabel,
+        schedule: impl SystemLocation,
         node: NodeId,
     ) -> &mut Self {
         self.clear_node(schedule, node);
@@ -391,12 +415,12 @@ impl Stepping {
     /// Clear any behavior set for the system
     pub fn clear_system<Marker>(
         &mut self,
-        schedule: impl ScheduleLabel,
+        schedule: impl SystemLocation,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
         let type_id = system.system_type_id();
         self.updates.push(Update::ClearBehavior(
-            schedule.intern(),
+            schedule.get_system_location().0,
             SystemIdentifier::Type(type_id),
         ));
 
@@ -404,9 +428,9 @@ impl Stepping {
     }
 
     /// clear a breakpoint for system instance
-    pub fn clear_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
+    pub fn clear_node(&mut self, schedule: impl SystemLocation, node: NodeId) -> &mut Self {
         self.updates.push(Update::ClearBehavior(
-            schedule.intern(),
+            schedule.get_system_location().0,
             SystemIdentifier::Node(node),
         ));
         self
@@ -527,6 +551,19 @@ impl Stepping {
                         );
                     }
                 },
+                Update::ClearSetBehavior(label, set) => {
+                    match self.schedule_states.get_mut(&label) {
+                        Some(state) => {
+                            state.clear_set_behavior(set);
+                        }
+                        None => {
+                            warn!(
+                                "stepping is not enabled for schedule {label:?}; \
+                            use `.add_stepping({label:?})` to enable stepping"
+                            );
+                        }
+                    }
+                }
                 Update::AddSystemSet(label, set) => match self.schedule_states.get_mut(&label) {
                     Some(state) => {
                         // we don't check if the set is contained within the schedule, we do this during skipped_systems().
@@ -677,6 +714,12 @@ impl Stepping {
     }
 }
 
+#[derive(Copy, Clone)]
+enum SystemOrSet {
+    System(TypeId),
+    Set(InternedSystemSet),
+}
+
 #[derive(Default)]
 struct ScheduleState {
     /// per-system [`SystemBehavior`]
@@ -695,7 +738,7 @@ struct ScheduleState {
 
     /// changes to system behavior that should be applied the next time
     /// [`ScheduleState::skipped_systems()`] is called
-    behavior_updates: TypeIdHashMap<Option<SystemBehavior>>,
+    behavior_updates: Vec<(SystemOrSet, Option<SystemBehavior>)>,
 
     /// This field contains the first steppable system in the schedule.
     first: Option<usize>,
@@ -713,7 +756,8 @@ impl ScheduleState {
             // TypeId to a NodeId without the `Schedule`.  So queue this update
             // to be processed the next time `skipped_systems()` is called.
             SystemIdentifier::Type(type_id) => {
-                self.behavior_updates.insert(type_id, Some(behavior));
+                self.behavior_updates
+                    .push((SystemOrSet::System(type_id), Some(behavior)));
             }
         }
     }
@@ -727,7 +771,8 @@ impl ScheduleState {
             }
             // queue TypeId updates to be processed later when we have Schedule
             SystemIdentifier::Type(type_id) => {
-                self.behavior_updates.insert(type_id, None);
+                self.behavior_updates
+                    .push((SystemOrSet::System(type_id), None));
             }
         }
     }
@@ -739,26 +784,55 @@ impl ScheduleState {
         self.first = None;
     }
 
+    fn clear_set_behavior(&mut self, set: InternedSystemSet) {
+        self.behavior_updates.push((SystemOrSet::Set(set), None));
+    }
+
     // apply system behavior updates by looking up the node id of the system in
     // the schedule, and updating `systems`
     fn apply_behavior_updates(&mut self, schedule: &Schedule) {
-        // Systems may be present multiple times within a schedule, so we
-        // iterate through all systems in the schedule, and check our behavior
-        // updates for the system TypeId.
-        // PERF: If we add a way to efficiently query schedule systems by their TypeId, we could remove the full
-        // system scan here
-        for (key, system) in schedule.systems().unwrap() {
-            let behavior = self.behavior_updates.get(&system.system_type());
-            match behavior {
-                None => continue,
-                Some(None) => {
-                    self.behaviors.remove(&NodeId::System(key));
+        for (system_or_set, behavior) in &self.behavior_updates {
+            match system_or_set {
+                SystemOrSet::System(type_id) => {
+                    // Systems may be present multiple times within a schedule, so we
+                    // iterate through all systems in the schedule, and check our behavior
+                    // updates for the system TypeId.
+                    // PERF: If we add a way to efficiently query schedule systems by their TypeId, we could remove the full
+                    // system scan here
+                    for (key, system) in schedule.systems().unwrap() {
+                        if *type_id == system.system_type() {
+                            match behavior {
+                                None => {
+                                    self.behaviors.remove(&NodeId::System(key));
+                                }
+                                Some(behavior) => {
+                                    self.behaviors.insert(NodeId::System(key), *behavior);
+                                }
+                            }
+                        }
+                    }
                 }
-                Some(Some(behavior)) => {
-                    self.behaviors.insert(NodeId::System(key), *behavior);
+                SystemOrSet::Set(set_label) => {
+                    let systems_in_set = schedule.graph().systems_in_set(*set_label).unwrap();
+                    // See the previous comment, this would be way quicker if the systems were indexed better.
+                    // This code makes it possible to make every system in a set `AlwaysRun`, but currently
+                    // it's only used to remove system behavior; the case where `behavior == None`.
+                    for (key, _) in schedule.systems().unwrap() {
+                        if systems_in_set.contains(&key) {
+                            match behavior {
+                                None => {
+                                    self.behaviors.remove(&NodeId::System(key));
+                                }
+                                Some(behavior) => {
+                                    self.behaviors.insert(NodeId::System(key), *behavior);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
+
         self.behavior_updates.clear();
 
         #[cfg(test)]
@@ -962,19 +1036,27 @@ mod tests {
     use slotmap::SlotMap;
     use std::println;
 
-    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    struct TestMain;
+
+    #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    #[default_schedule(TestMain)]
     struct TestSchedule;
 
-    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    #[default_schedule(TestMain)]
     struct TestScheduleA;
 
-    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    #[default_schedule(TestMain)]
     struct TestScheduleB;
 
-    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    #[default_schedule(TestMain)]
     struct TestScheduleC;
 
-    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    #[default_schedule(TestMain)]
     struct TestScheduleD;
 
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
@@ -990,8 +1072,8 @@ mod tests {
 
     fn setup() -> (Schedule, World) {
         let mut world = World::new();
-        let mut schedule = Schedule::new(TestSchedule);
-        schedule.add_systems((first_system, second_system).chain());
+        let mut schedule = Schedule::new(TestMain);
+        schedule.add_systems((first_system, second_system).chain().in_set(TestSchedule));
         schedule.initialize(&mut world).unwrap();
         (schedule, world)
     }
@@ -1289,8 +1371,12 @@ mod tests {
     #[test]
     fn continue_step_continue_with_breakpoint() {
         let mut world = World::new();
-        let mut schedule = Schedule::new(TestSchedule);
-        schedule.add_systems((first_system, second_system, third_system).chain());
+        let mut schedule = Schedule::new(TestMain);
+        schedule.add_systems(
+            (first_system, second_system, third_system)
+                .chain()
+                .in_set(TestSchedule),
+        );
         schedule.initialize(&mut world).unwrap();
 
         let mut stepping = Stepping::new();
@@ -1448,8 +1534,12 @@ mod tests {
     #[test]
     fn step_duplicate_systems() {
         let mut world = World::new();
-        let mut schedule = Schedule::new(TestSchedule);
-        schedule.add_systems((first_system, first_system, second_system).chain());
+        let mut schedule = Schedule::new(TestMain);
+        schedule.add_systems(
+            (first_system, first_system, second_system)
+                .chain()
+                .in_set(TestSchedule),
+        );
         schedule.initialize(&mut world).unwrap();
 
         let mut stepping = Stepping::new();
@@ -1480,7 +1570,7 @@ mod tests {
     #[test]
     fn step_run_if_false() {
         let mut world = World::new();
-        let mut schedule = Schedule::new(TestSchedule);
+        let mut schedule = Schedule::new(TestMain);
 
         // This needs to be a system test to confirm the interaction between
         // the skip list and system conditions in Schedule::run().  That means
@@ -1505,7 +1595,11 @@ mod tests {
 
         // build our schedule; first_system should never run, followed by
         // second_system.
-        schedule.add_systems((first_system.run_if(|| false), second_system).chain());
+        schedule.add_systems(
+            (first_system.run_if(|| false), second_system)
+                .chain()
+                .in_set(TestSchedule),
+        );
         schedule.initialize(&mut world).unwrap();
 
         // set up stepping
@@ -1542,14 +1636,14 @@ mod tests {
     fn remove_schedule() {
         let (schedule, _world) = setup();
         let mut stepping = Stepping::new();
-        stepping.add_schedule(TestSchedule).enable();
+        stepping.add_schedule(TestMain).enable();
 
         // run the schedule once and verify all systems are skipped
         assert_schedule_runs!(&schedule, &mut stepping,);
         assert!(!stepping.schedules().unwrap().is_empty());
 
         // remove the test schedule
-        stepping.remove_schedule(TestSchedule);
+        stepping.remove_schedule(TestMain);
         assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
         assert!(stepping.schedules().unwrap().is_empty());
     }
@@ -1557,25 +1651,22 @@ mod tests {
     // verify that Stepping can construct an ordered list of schedules
     #[test]
     fn schedules() {
+        #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+        struct TestMainB;
+
         let mut world = World::new();
 
         // build & initialize a few schedules
-        let mut schedule_a = Schedule::new(TestScheduleA);
+        let mut schedule_a = Schedule::new(TestMain);
         schedule_a.initialize(&mut world).unwrap();
-        let mut schedule_b = Schedule::new(TestScheduleB);
+        let mut schedule_b = Schedule::new(TestMainB);
         schedule_b.initialize(&mut world).unwrap();
-        let mut schedule_c = Schedule::new(TestScheduleC);
-        schedule_c.initialize(&mut world).unwrap();
-        let mut schedule_d = Schedule::new(TestScheduleD);
-        schedule_d.initialize(&mut world).unwrap();
 
         // setup stepping and add all the schedules
         let mut stepping = Stepping::new();
         stepping
-            .add_schedule(TestScheduleA)
-            .add_schedule(TestScheduleB)
-            .add_schedule(TestScheduleC)
-            .add_schedule(TestScheduleD)
+            .add_schedule(TestMain)
+            .add_schedule(TestMainB)
             .enable()
             .next_frame();
 
@@ -1583,24 +1674,15 @@ mod tests {
 
         stepping.skipped_systems(&schedule_b);
         assert!(stepping.schedules().is_err());
-        stepping.skipped_systems(&schedule_a);
-        assert!(stepping.schedules().is_err());
-        stepping.skipped_systems(&schedule_c);
-        assert!(stepping.schedules().is_err());
 
         // when we call the last schedule, Stepping should have enough data to
         // return an ordered list of schedules
-        stepping.skipped_systems(&schedule_d);
+        stepping.skipped_systems(&schedule_a);
         assert!(stepping.schedules().is_ok());
 
         assert_eq!(
             *stepping.schedules().unwrap(),
-            vec![
-                TestScheduleB.intern(),
-                TestScheduleA.intern(),
-                TestScheduleC.intern(),
-                TestScheduleD.intern(),
-            ]
+            vec![TestMainB.intern(), TestMain.intern(),]
         );
     }
 
@@ -1616,12 +1698,11 @@ mod tests {
         let mut slotmap = SlotMap::<SystemKey, ()>::with_key();
 
         // create two schedules with a number of systems in them
-        let mut schedule_a = Schedule::new(TestScheduleA);
-        schedule_a.add_systems((|| {}, || {}, || {}, || {}).chain());
-        schedule_a.initialize(&mut world).unwrap();
-        let mut schedule_b = Schedule::new(TestScheduleB);
-        schedule_b.add_systems((|| {}, || {}, || {}, || {}).chain());
-        schedule_b.initialize(&mut world).unwrap();
+        let mut schedule = Schedule::new(TestMain);
+        schedule.add_systems((|| {}, || {}, || {}, || {}).chain().in_set(TestScheduleA));
+        schedule.add_systems((|| {}, || {}, || {}, || {}).chain().in_set(TestScheduleB));
+        schedule.configure_sets(TestScheduleB.after(TestScheduleA));
+        schedule.initialize(&mut world).unwrap();
 
         // setup stepping and add all schedules
         let mut stepping = Stepping::new();
@@ -1638,8 +1719,7 @@ mod tests {
         for _ in 0..9 {
             stepping.step_frame().next_frame();
             cursors.push(stepping.cursor());
-            stepping.skipped_systems(&schedule_a);
-            stepping.skipped_systems(&schedule_b);
+            stepping.skipped_systems(&schedule);
             cursors.push(stepping.cursor());
         }
 
@@ -1647,16 +1727,16 @@ mod tests {
         assert_eq!(
             cursors,
             vec![
-                // before render frame        // after render frame
-                None,                         Some(cursor(&schedule_a, 1)),
-                Some(cursor(&schedule_a, 1)), Some(cursor(&schedule_a, 2)),
-                Some(cursor(&schedule_a, 2)), Some(cursor(&schedule_a, 3)),
-                Some(cursor(&schedule_a, 3)), Some(cursor(&schedule_b, 0)),
-                Some(cursor(&schedule_b, 0)), Some(cursor(&schedule_b, 1)),
-                Some(cursor(&schedule_b, 1)), Some(cursor(&schedule_b, 2)),
-                Some(cursor(&schedule_b, 2)), Some(cursor(&schedule_b, 3)),
-                Some(cursor(&schedule_b, 3)), None,
-                Some(cursor(&schedule_a, 0)), Some(cursor(&schedule_a, 1)),
+                // before render frame      // after render frame
+                None,                       Some(cursor(&schedule, 5)),
+                Some(cursor(&schedule, 5)), Some(cursor(&schedule, 6)),
+                Some(cursor(&schedule, 6)), Some(cursor(&schedule, 7)),
+                Some(cursor(&schedule, 7)), None, // <- This is None, not System(SystemKey(5v1))
+                Some(cursor(&schedule, 4)), Some(cursor(&schedule, 5)),
+                Some(cursor(&schedule, 5)), Some(cursor(&schedule, 6)),
+                Some(cursor(&schedule, 6)), Some(cursor(&schedule, 7)),
+                Some(cursor(&schedule, 7)), None,
+                Some(cursor(&schedule, 4)), Some(cursor(&schedule, 5)),
             ]
         );
 
@@ -1680,8 +1760,7 @@ mod tests {
         for _ in 0..9 {
             stepping.step_frame().next_frame();
             cursors.push(stepping.cursor());
-            stepping.skipped_systems(&schedule_a);
-            stepping.skipped_systems(&schedule_b);
+            stepping.skipped_systems(&schedule);
             cursors.push(stepping.cursor());
         }
 
@@ -1689,16 +1768,16 @@ mod tests {
         assert_eq!(
             cursors,
             vec![
-                // before render frame        // after render frame
-                Some(cursor(&schedule_a, 0)), Some(cursor(&schedule_a, 1)),
-                Some(cursor(&schedule_a, 1)), Some(cursor(&schedule_a, 2)),
-                Some(cursor(&schedule_a, 2)), Some(cursor(&schedule_b, 1)),
-                Some(cursor(&schedule_b, 1)), Some(cursor(&schedule_b, 2)),
-                Some(cursor(&schedule_b, 2)), Some(cursor(&schedule_b, 3)),
-                Some(cursor(&schedule_b, 3)), None,
-                Some(cursor(&schedule_a, 0)), Some(cursor(&schedule_a, 1)),
-                Some(cursor(&schedule_a, 1)), Some(cursor(&schedule_a, 2)),
-                Some(cursor(&schedule_a, 2)), Some(cursor(&schedule_b, 1)),
+                // before render frame      // after render frame
+                Some(cursor(&schedule, 0)), Some(cursor(&schedule, 5)),
+                Some(cursor(&schedule, 5)), Some(cursor(&schedule, 6)),
+                Some(cursor(&schedule, 6)), Some(cursor(&schedule, 7)),
+                Some(cursor(&schedule, 7)), None,
+                Some(cursor(&schedule, 4)), Some(cursor(&schedule, 5)),
+                Some(cursor(&schedule, 5)), Some(cursor(&schedule, 6)),
+                Some(cursor(&schedule, 6)), Some(cursor(&schedule, 7)),
+                Some(cursor(&schedule, 7)), None,
+                Some(cursor(&schedule, 4)), Some(cursor(&schedule, 5)),
             ]
         );
     }
@@ -1706,7 +1785,7 @@ mod tests {
     #[test]
     fn enable_system_set() {
         let mut world = World::default();
-        let mut schedule = Schedule::new(TestScheduleA);
+        let mut schedule = Schedule::new(TestMain);
         // 1 -> (2 -> 3) -> 4
         schedule.add_systems(
             (
@@ -1714,13 +1793,14 @@ mod tests {
                 (second_system, third_system).chain().in_set(SetA),
                 fourth_system,
             )
-                .chain(),
+                .chain()
+                .in_set(TestScheduleA),
         );
         schedule.initialize(&mut world).unwrap();
 
         let mut stepping = Stepping::default();
         stepping
-            .add_schedule(TestScheduleA)
+            .add_schedule(TestMain)
             .enable()
             .add_system_set(TestScheduleA, SetA);
 
@@ -1761,7 +1841,7 @@ mod tests {
     #[test]
     fn two_system_sets() {
         let mut world = World::default();
-        let mut schedule = Schedule::new(TestScheduleA);
+        let mut schedule = Schedule::new(TestMain);
         // (1) -> 2 -> (3 -> 4)
         schedule.add_systems(
             (
@@ -1816,7 +1896,7 @@ mod tests {
             third_system
         );
 
-        stepping.reset_system_sets(TestScheduleA).step_frame();
+        stepping.reset_system_sets(TestMain).step_frame();
         // we step through all systems and the cursor is at the fourth system, so we only run that
         assert_schedule_runs!(&schedule, &mut stepping, fourth_system);
     }
