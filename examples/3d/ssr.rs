@@ -8,7 +8,7 @@ use bevy::{
     camera::Hdr,
     color::palettes::css::{BLACK, WHITE},
     feathers::{
-        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision},
         display::{label, label_small},
         theme::UiTheme,
         FeathersPlugins,
@@ -27,7 +27,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderType},
     shader::ShaderRef,
-    ui_widgets::{radio_self_update, ValueChange},
+    ui_widgets::{radio_self_update, NumericValue, ValueChange},
 };
 
 #[path = "../helpers/radio.rs"]
@@ -562,7 +562,7 @@ fn range_row(
 fn range_controls(value: f32, app_number_input: AppNumberInput) -> impl Scene {
     bsn! {
         @FeathersNumberInput
-        NumberInputValue::F32(value)
+        NumericValue::F32(value)
         app_number_input
         NumberInputPrecision(3)
         HardLimit::f32(0.0..=1.0)
@@ -779,7 +779,7 @@ fn handle_value_change_number_input(
 
         commands
             .entity(value_change.source)
-            .insert(NumberInputValue::F32(value_change.value));
+            .insert(NumericValue::F32(value_change.value));
 
         update_views(commands, app_settings, cameras);
     }
