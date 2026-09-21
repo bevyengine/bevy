@@ -217,7 +217,7 @@ impl Stepping {
         let (schedule_label, set_label) = schedule.get_system_location();
         if let Some(set_label) = set_label {
             self.updates
-                .push(Update::ClearSetBehavior(schedule_label, set_label))
+                .push(Update::ClearSetBehavior(schedule_label, set_label));
         } else {
             self.updates.push(Update::ClearSchedule(schedule_label));
         }
