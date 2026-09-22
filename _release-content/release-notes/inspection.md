@@ -16,4 +16,4 @@ This note will be completed once the rest of the series lands.
 - Added a native BRP client behind the `client` feature (#25837)
 - Added entity and resource inspection to `bevy_dev_tools` (#25845)
 - Added serde support and structured values to the inspection types (#25866)
-- Added the `bevy_inspector` crate with a local entity tree and details panel (#25884, #25885)
+- Added the `bevy_inspector` crate with a local entity tree and an editable details panel (#25884, #25885, #25923)

@@ -30,14 +30,20 @@ fn main() {
 struct Showcase {
     enabled: bool,
     health: f32,
+    ratio: f64,
+    level: u8,
     count: u32,
     offset: i16,
-    ratio: f64,
+    score: i64,
+    seed: u64,
+    initial: char,
     label: String,
     tint: Color,
     mode: Mode,
     bounds: Bounds,
+    size: Size,
     tags: Vec<u32>,
+    weights: [f32; 3],
 }
 
 #[derive(Reflect, Default, Clone, Copy, PartialEq)]
@@ -47,6 +53,9 @@ enum Mode {
     Walking,
     Running,
 }
+
+#[derive(Reflect, Default, Clone, Copy)]
+struct Size(f32, f32);
 
 #[derive(Reflect, Default, Clone, Copy)]
 struct Bounds {
@@ -94,9 +103,13 @@ fn demo_scene() -> impl SceneList {
             Showcase {
                 enabled: true,
                 health: 72.5,
+                ratio: 0.25,
+                level: 7,
                 count: 3,
                 offset: -4,
-                ratio: 0.25,
+                score: -1200,
+                seed: 9001,
+                initial: 'j',
                 label: "hello",
                 tint: Color::srgb(0.95, 0.55, 0.2),
                 mode: Mode::Walking,
@@ -104,7 +117,9 @@ fn demo_scene() -> impl SceneList {
                     min: Vec2::new(-1.0, -1.0),
                     max: Vec2::new(2.0, 3.0),
                 },
+                size: { Size(1.5, 0.75) },
                 tags: { vec![1, 2, 3] },
+                weights: { [0.2, 0.3, 0.5] },
             }
         ]
         --

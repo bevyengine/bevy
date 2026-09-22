@@ -27,7 +27,9 @@ use bevy_ecs::{
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::UiSystems;
 
-use crate::details_panel::{sync_details_panel, DetailsCollapsed, DetailsIndex, DetailsPanelSync};
+use crate::details_panel::{
+    apply_field_edit, sync_details_panel, DetailsCollapsed, DetailsIndex, DetailsPanelSync,
+};
 use crate::entity_tree::{sync_entity_tree, EntityTreeSync, TreeRowIndex};
 
 /// Where the inspector reads its data from.
@@ -86,6 +88,7 @@ impl Plugin for InspectorPlugin {
             .init_resource::<DetailsIndex>()
             .init_resource::<DetailsCollapsed>()
             .init_resource::<DetailsPanelSync>()
+            .add_observer(apply_field_edit)
             .add_systems(
                 PostUpdate,
                 (sync_entity_tree, sync_details_panel).before(UiSystems::Prepare),
