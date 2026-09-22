@@ -62,6 +62,8 @@ const INDENT: f32 = 12.0;
 /// same x position regardless of nesting, since the row's own left padding already grows by
 /// `depth * INDENT`.
 const FIELD_LABEL_WIDTH: f32 = 96.0;
+/// The width of the widget editing a field value, in logical pixels.
+const FIELD_WIDGET_WIDTH: f32 = 160.0;
 
 /// Marker for the scrollable column holding the component groups of the details panel.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
@@ -573,7 +575,7 @@ fn spawn_widget(world: &mut World, row: Entity, value: &FieldValue) -> Option<Fi
                     @FeathersNumberInput
                     InteractionDisabled
                     Node {
-                        width: px(120),
+                        width: px(FIELD_WIDGET_WIDTH),
                         flex_grow: 0.0,
                     }
                 },
@@ -592,7 +594,7 @@ fn spawn_widget(world: &mut World, row: Entity, value: &FieldValue) -> Option<Fi
                     InspectorUi
                     @FeathersTextInputContainer
                     Node {
-                        width: px(160),
+                        width: px(FIELD_WIDGET_WIDTH),
                         flex_grow: 0.0,
                     }
                     Children [
@@ -609,9 +611,23 @@ fn spawn_widget(world: &mut World, row: Entity, value: &FieldValue) -> Option<Fi
             }
         }
         FieldValue::Color(_) => {
+            let cell = world
+                .spawn((
+                    InspectorUi,
+                    Node {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: px(6),
+                        width: px(FIELD_WIDGET_WIDTH),
+                        ..Default::default()
+                    },
+                    ChildOf(row),
+                ))
+                .id();
             let entity = spawn_child_scene(
                 world,
-                row,
+                cell,
                 bsn! {
                     InspectorUi
                     @FeathersColorSwatch
@@ -622,7 +638,7 @@ fn spawn_widget(world: &mut World, row: Entity, value: &FieldValue) -> Option<Fi
                     }
                 },
             )?;
-            let text = spawn_value_caption(world, row, String::new())?;
+            let text = spawn_value_caption(world, cell, String::new())?;
             FieldWidget {
                 entity,
                 text: Some(text),
@@ -644,7 +660,7 @@ fn spawn_widget(world: &mut World, row: Entity, value: &FieldValue) -> Option<Fi
                     }
                     InteractionDisabled
                     Node {
-                        width: px(160),
+                        width: px(FIELD_WIDGET_WIDTH),
                         flex_grow: 0.0,
                     }
                 },
