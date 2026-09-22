@@ -45,7 +45,11 @@ struct Showcase {
     initial: char,
     label: String,
     tint: Color,
+    glow: LinearRgba,
     mode: Mode,
+    shape: Shape,
+    speed: Option<f32>,
+    limit: Option<u32>,
     bounds: Bounds,
     size: Size,
     tags: Vec<u32>,
@@ -58,6 +62,16 @@ enum Mode {
     Idle,
     Walking,
     Running,
+}
+
+#[derive(Reflect, Default, Clone, Copy, PartialEq)]
+enum Shape {
+    #[default]
+    Point,
+    Circle {
+        radius: f32,
+    },
+    Rect(f32, f32),
 }
 
 #[derive(Reflect, Default, Clone, Copy)]
@@ -118,7 +132,11 @@ fn demo_scene() -> impl SceneList {
                 initial: 'j',
                 label: "hello",
                 tint: Color::srgb(0.95, 0.55, 0.2),
+                glow: { LinearRgba::rgb(0.2, 0.6, 1.0) },
                 mode: Mode::Walking,
+                shape: { Shape::Circle { radius: 1.5 } },
+                speed: { Some(3.5) },
+                limit: { None },
                 bounds: Bounds {
                     min: Vec2::new(-1.0, -1.0),
                     max: Vec2::new(2.0, 3.0),
