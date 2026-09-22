@@ -38,7 +38,7 @@ pub struct FeathersDisclosureToggle;
 
 impl FeathersDisclosureToggle {
     fn scene() -> impl Scene {
-        bsn!(
+        bsn! {
             Node {
                 width: px(12),
                 height: px(12),
@@ -53,7 +53,7 @@ impl FeathersDisclosureToggle {
             Children [
                 @icon(icons::CHEVRON_RIGHT)
             ]
-        )
+        }
     }
 }
 

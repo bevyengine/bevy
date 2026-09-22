@@ -478,6 +478,28 @@
 //! This contains schema information about that type, including field definitions, type information, reflect type information, and other metadata
 //! helpful for understanding the structure of the type.
 //!
+//! ### `app.info`
+//!
+//! Retrieve the name of the running application and the Bevy version it was built against. This method has no parameters.
+//!
+//! `result`: An object with `app_name`, `bevy_version`, and `sub_app` string fields. `sub_app` is either
+//! `"main"` or `"render"`, depending on which `SubApp` handled the request.
+//!
+//! ### `diagnostics.list`
+//!
+//! List the paths of all diagnostics registered in the app. This method has no parameters.
+//!
+//! `result`: An object with a `diagnostics` field containing a sorted array of diagnostic paths.
+//!
+//! ### `diagnostics.get`
+//!
+//! Retrieve the current values of diagnostics, skipping any path that is not registered.
+//!
+//! `params` (optional):
+//! - `paths`: An array of diagnostic paths to retrieve. When omitted, all diagnostics are returned.
+//!
+//! `result`: An object with a `diagnostics` field containing an array of objects with `path`, `value`, `average`, `smoothed`, `suffix` and `history_len` fields.
+//!
 //! ### `rpc.discover`
 //!
 //! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
@@ -560,6 +582,8 @@ pub mod builtin_methods;
 #[cfg(feature = "http")]
 pub mod http;
 pub mod schemas;
+#[cfg(feature = "bevy_debug_stepping")]
+pub mod stepping_methods;
 
 const CHANNEL_SIZE: usize = 16;
 
@@ -781,10 +805,68 @@ impl RemotePlugin {
             to_main,
         )
         .with_method(
+            builtin_methods::BRP_APP_INFO_METHOD,
+            if to_main {
+                builtin_methods::process_remote_app_info_request_main
+                    as fn(In<Option<Value>>, &World) -> BrpResult
+            } else {
+                builtin_methods::process_remote_app_info_request_render
+                    as fn(In<Option<Value>>, &World) -> BrpResult
+            },
+            to_main,
+        )
+        .with_method(
             builtin_methods::BRP_SCHEDULE_GRAPH,
             builtin_methods::schedule_graph,
             to_main,
         )
+        .with_method(
+            builtin_methods::BRP_DIAGNOSTICS_LIST_METHOD,
+            builtin_methods::process_remote_diagnostics_list_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_DIAGNOSTICS_GET_METHOD,
+            builtin_methods::process_remote_diagnostics_get_request,
+            to_main,
+        )
+        .add_stepping_methods(to_main)
+    }
+
+    /// Add the `stepping.*` BRP methods.
+    #[cfg(feature = "bevy_debug_stepping")]
+    fn add_stepping_methods(self, to_main: bool) -> Self {
+        self.with_method(
+            stepping_methods::BRP_STEPPING_STATUS,
+            stepping_methods::stepping_status,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_ENABLE,
+            stepping_methods::stepping_enable,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_DISABLE,
+            stepping_methods::stepping_disable,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_STEP_FRAME,
+            stepping_methods::stepping_step_frame,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_CONTINUE_FRAME,
+            stepping_methods::stepping_continue_frame,
+            to_main,
+        )
+    }
+
+    /// Leaves the method list untouched without the `bevy_debug_stepping` feature.
+    #[cfg(not(feature = "bevy_debug_stepping"))]
+    fn add_stepping_methods(self, _to_main: bool) -> Self {
+        self
     }
 }
 

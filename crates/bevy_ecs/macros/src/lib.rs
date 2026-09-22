@@ -455,9 +455,9 @@ fn derive_system_param_impl(
                     state: &Self::State,
                     system_meta: &mut #path::system::SystemMeta,
                     system_access: &mut #path::system::SystemAccess,
-                    world: &mut #path::world::World
-                ) {
-                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access, world);
+                ) -> Result<(), #path::system::SystemParamAccessConflict> {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access)?;
+                    Ok(())
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
@@ -633,6 +633,12 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// [my_group]
 /// test = true
 /// ```
+///
+/// Note that it's possible to make multiple different settings types share the same file,
+/// group, and even key. When loading, all fields sharing the same key will load from that
+/// same key. If the value is not valid for the type of a field, that field will be reset to
+/// the default value in that settings type. If two or more types are contending for a single
+/// key, which type ultimately saves in that key is not specified.
 ///
 /// ## File Override
 /// ```ignore
