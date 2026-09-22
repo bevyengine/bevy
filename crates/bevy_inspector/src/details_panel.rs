@@ -56,6 +56,12 @@ const MAX_DEPTH: usize = 4;
 const MAX_ITEMS: usize = 16;
 /// The horizontal indent of a field row per nesting level, in logical pixels.
 const INDENT: f32 = 12.0;
+/// The width of a field row's label column, in logical pixels, at zero depth.
+///
+/// Deeper rows shrink their label column by `depth * INDENT` so that widgets line up at the
+/// same x position regardless of nesting, since the row's own left padding already grows by
+/// `depth * INDENT`.
+const FIELD_LABEL_WIDTH: f32 = 96.0;
 
 /// Marker for the scrollable column holding the component groups of the details panel.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
@@ -523,7 +529,15 @@ fn spawn_field_row(
         ))
         .id();
 
-    spawn_child_scene(world, row, caption(entry.label.clone()))?;
+    let label = spawn_child_scene(world, row, caption(entry.label.clone()))?;
+    let label_width = (FIELD_LABEL_WIDTH - entry.depth as f32 * INDENT).max(0.0);
+    world.entity_mut(label).insert(Node {
+        min_width: px(label_width),
+        width: px(label_width),
+        flex_shrink: 0.0,
+        overflow: Overflow::clip_x(),
+        ..Default::default()
+    });
 
     let widget = spawn_widget(world, row, &entry.value)?;
     if !matches!(entry.value, FieldValue::Variant { .. }) {
