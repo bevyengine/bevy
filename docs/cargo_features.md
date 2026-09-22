@@ -164,6 +164,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |pan_camera|Enables the pan camera from bevy_camera_controller|
 |pan_orbit_camera|Enables the pan orbit camera from bevy_camera_controller|
+|pan_orbit_gizmo|Enables the pan orbit camera anchor indicator gizmo|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_clustered_decals|Enable support for Clustered Decals|
 |pbr_light_textures|Enable support for Light Textures|
