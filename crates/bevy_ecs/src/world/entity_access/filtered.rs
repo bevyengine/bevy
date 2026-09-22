@@ -629,9 +629,9 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     pub fn into_mut_by_id(self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
         self.access
             .has_write(component_id)
-            // SAFETY: We have permission to access the component mutable
-            // and we consume this instance, so no more references can be created (so it's
-            // impossible to alias this component).
+            // SAFETY: We have permission to access the component mutably and we consume this
+            // instance, so no more references can be created (so it's impossible to alias this
+            // component).
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
     }
