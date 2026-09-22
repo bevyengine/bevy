@@ -579,6 +579,8 @@ use serde_json::Value;
 use std::sync::RwLock;
 
 pub mod builtin_methods;
+#[cfg(all(feature = "client", not(target_family = "wasm")))]
+pub mod client;
 #[cfg(feature = "http")]
 pub mod http;
 pub mod schemas;

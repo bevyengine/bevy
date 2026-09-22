@@ -17,6 +17,14 @@ http = [
   "dep:http-body-util",
   "bevy_tasks/async-io",
 ]
+client = [
+  "dep:async-io",
+  "dep:hyper",
+  "dep:smol-hyper",
+  "dep:http-body-util",
+  "hyper/client",
+  "bevy_tasks/async-io",
+]
 bevy_asset = ["dep:bevy_asset"]
 bevy_debug_stepping = ["bevy_ecs/bevy_debug_stepping"]
 bevy_render = ["dep:bevy_render", "bevy_dev_tools/render"]
@@ -58,6 +66,11 @@ async-io = { version = "2", optional = true }
 hyper = { version = "1", optional = true, features = ["server", "http1"] }
 smol-hyper = { version = "0.1", optional = true }
 http-body-util = { version = "0.1", optional = true }
+
+[dev-dependencies]
+bevy_tasks = { path = "../bevy_tasks", version = "0.20.0-dev", features = [
+  "multi_threaded",
+] }
 
 [lints]
 workspace = true
