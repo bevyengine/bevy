@@ -63,11 +63,11 @@ use core::fmt::Debug;
 use bevy_reflect::{prelude::*, Reflect};
 
 /// Marks an entity as able to receive input focus.
-#[derive(Component, Default, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Component, Default, Debug, Clone, Copy)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Default, Debug, Clone, PartialEq)
+    reflect(Component, Default, Debug, Clone)
 )]
 pub struct Focusable;
 
