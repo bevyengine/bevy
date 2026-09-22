@@ -1,6 +1,6 @@
 ---
 title: "Input focus is now represented by `Focusable`"
-pull_requests: []
+pull_requests: [25675]
 ---
 
 The new `Focusable` component indicates that an entity may receive input focus, independently of
