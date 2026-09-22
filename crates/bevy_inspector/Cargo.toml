@@ -23,6 +23,7 @@ bevy_text = { path = "../bevy_text", version = "0.20.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.20.0-dev" }
 bevy_ui = { path = "../bevy_ui", version = "0.20.0-dev" }
 bevy_ui_widgets = { path = "../bevy_ui_widgets", version = "0.20.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev" }
 
 [dev-dependencies]
 bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev" }
