@@ -19,9 +19,42 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FeathersPlugins, InspectorPlugin))
         .insert_resource(UiTheme(create_dark_theme()))
+        .register_type::<Showcase>()
+        .register_type::<Mode>()
+        .register_type::<Bounds>()
         .add_systems(Startup, (demo_scene.spawn(), inspector_ui.spawn()))
         .add_systems(Update, log_selection)
         .run();
+}
+
+/// A component exercising every widget kind the details panel renders.
+#[derive(Component, Reflect, Default, Clone)]
+#[reflect(Component, Default)]
+struct Showcase {
+    enabled: bool,
+    health: f32,
+    count: u32,
+    offset: i16,
+    ratio: f64,
+    label: String,
+    tint: Color,
+    mode: Mode,
+    bounds: Bounds,
+    tags: Vec<u32>,
+}
+
+#[derive(Reflect, Default, Clone, Copy, PartialEq)]
+enum Mode {
+    #[default]
+    Idle,
+    Walking,
+    Running,
+}
+
+#[derive(Reflect, Default, Clone, Copy)]
+struct Bounds {
+    min: Vec2,
+    max: Vec2,
 }
 
 fn demo_scene() -> impl SceneList {
@@ -59,6 +92,23 @@ fn demo_scene() -> impl SceneList {
                 Transform::from_xyz(0.0, 1.2, 0.0)
                 Visibility::default()
             ]
+            --
+            Name("Showcase")
+            Showcase {
+                enabled: true,
+                health: 72.5,
+                count: 3,
+                offset: -4,
+                ratio: 0.25,
+                label: "hello",
+                tint: Color::srgb(0.95, 0.55, 0.2),
+                mode: Mode::Walking,
+                bounds: Bounds {
+                    min: Vec2::new(-1.0, -1.0),
+                    max: Vec2::new(2.0, 3.0),
+                },
+                tags: { vec![1, 2, 3] },
+            }
         ]
         --
         Mesh3d(asset_value(Sphere::new(0.5)))
