@@ -76,15 +76,15 @@ pub struct DependencyData {
 }
 
 impl DependencyData {
-    /// Build dependency data from `is_weak`.
-    pub fn from_is_weak(is_weak: bool) -> Self {
-        if is_weak {
+    /// Build dependency data from `is_strict`.
+    pub fn from_is_strict(is_strict: bool) -> Self {
+        if is_strict {
             DependencyData {
-                kind: DependencyKind::Weak,
+                kind: DependencyKind::Strict,
             }
         } else {
             DependencyData {
-                kind: DependencyKind::Strict,
+                kind: DependencyKind::Weak,
             }
         }
     }
@@ -461,7 +461,7 @@ impl ScheduleData {
                 (
                     node_id_to_schedule_index(a),
                     node_id_to_schedule_index(b),
-                    DependencyData::from_is_weak(graph.dependency_is_weak(a, b)),
+                    DependencyData::from_is_strict(graph.dependency_is_strict(a, b)),
                 )
             })
             .collect::<Vec<_>>();
@@ -920,12 +920,12 @@ pub mod tests {
                 (
                     ScheduleIndex::System(0),
                     ScheduleIndex::System(1),
-                    DependencyData::from_is_weak(false)
+                    DependencyData::from_is_strict(true)
                 ),
                 (
                     ScheduleIndex::System(1),
                     ScheduleIndex::System(2),
-                    DependencyData::from_is_weak(false)
+                    DependencyData::from_is_strict(true)
                 ),
             ]
         );
@@ -962,12 +962,12 @@ pub mod tests {
                 (
                     ScheduleIndex::SystemSet(0),
                     ScheduleIndex::SystemSet(1),
-                    DependencyData::from_is_weak(false)
+                    DependencyData::from_is_strict(true)
                 ),
                 (
                     ScheduleIndex::SystemSet(1),
                     ScheduleIndex::SystemSet(2),
-                    DependencyData::from_is_weak(false)
+                    DependencyData::from_is_strict(true)
                 ),
             ]
         );
@@ -1111,12 +1111,12 @@ pub mod tests {
                 (
                     ScheduleIndex::System(0),
                     ScheduleIndex::System(3),
-                    DependencyData::from_is_weak(false)
+                    DependencyData::from_is_strict(true)
                 ),
                 (
                     ScheduleIndex::System(0),
                     ScheduleIndex::System(4),
-                    DependencyData::from_is_weak(false)
+                    DependencyData::from_is_strict(true)
                 ),
                 (
                     ScheduleIndex::System(1),
@@ -1126,12 +1126,12 @@ pub mod tests {
                 (
                     ScheduleIndex::System(1),
                     ScheduleIndex::System(3),
-                    DependencyData::from_is_weak(false)
+                    DependencyData::from_is_strict(true)
                 ),
                 (
                     ScheduleIndex::System(1),
                     ScheduleIndex::System(4),
-                    DependencyData::from_is_weak(false)
+                    DependencyData::from_is_strict(true)
                 ),
                 // sync->b
                 (
@@ -1148,7 +1148,7 @@ pub mod tests {
                 (
                     ScheduleIndex::System(5),
                     ScheduleIndex::System(6),
-                    DependencyData::from_is_weak(false)
+                    DependencyData::from_is_strict(true)
                 ),
             ]
         );
@@ -1274,7 +1274,7 @@ pub mod tests {
                 (
                     ScheduleIndex::System(8),
                     ScheduleIndex::System(9),
-                    DependencyData::from_is_weak(false)
+                    DependencyData::from_is_strict(true)
                 ),
             ]
         );

@@ -1246,9 +1246,9 @@ impl ScheduleGraph {
         }
     }
 
-    /// If there is a weak dependency from `lhs` to `rhs`.
-    pub fn dependency_is_weak(&self, lhs: NodeId, rhs: NodeId) -> bool {
-        self.weak_node_edges.contains(&(lhs, rhs))
+    /// If there is a strict dependency from `lhs` to `rhs`.
+    pub fn dependency_is_strict(&self, lhs: NodeId, rhs: NodeId) -> bool {
+        self.strict_node_edges.contains(&(lhs, rhs))
     }
 
     /// Initializes any newly-added systems and conditions by calling
