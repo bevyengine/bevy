@@ -209,18 +209,15 @@ pub fn mark_dirty_trees(
                                     let word = idx / 64;
                                     let bit = 1u64 << (idx % 64);
 
-                                    #[expect(
-                                        clippy::redundant_else,
-                                        reason = "Without the else, fails to compile due to async"
-                                    )]
-                                    if word < shared_bitset.len()
-                                        && shared_bitset[word].fetch_or(bit, Ordering::Relaxed)
-                                            & bit
-                                            != 0
-                                    {
+                                    if word < shared_bitset.len() {
                                         // Common path: atomic OR into the shared bitset.
                                         // If the entity was already visited, we can stop climbing.
-                                        break 'traverse_hierarchy;
+                                        if shared_bitset[word].fetch_or(bit, Ordering::Relaxed)
+                                            & bit
+                                            != 0
+                                        {
+                                            break 'traverse_hierarchy;
+                                        }
                                     } else {
                                         // Overflow: entity index exceeds shared bitset capacity.
                                         // Use a per-task local bitset for intra-task early exit.

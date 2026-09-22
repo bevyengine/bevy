@@ -6,6 +6,7 @@ use core::{
     time::Duration,
 };
 
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
 use crate::Time;
