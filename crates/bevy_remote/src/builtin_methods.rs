@@ -2632,7 +2632,7 @@ mod tests {
         let f1_index = system_index(&response, "f1").unwrap();
         let f2_index = system_index(&response, "f2").unwrap();
         let apply_deferred_index = system_index(&response, "apply_deferred").unwrap();
-        let strict = DependencyData::from_is_weak(false);
+        let strict = DependencyData::from_is_strict(true);
         let build_pass = DependencyData::from_build_pass();
         assert_eq!(response.schedule_data.dependency.len(), 3);
         assert!(response
