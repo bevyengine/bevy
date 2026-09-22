@@ -126,6 +126,7 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
+            .init_resource::<DefaultFontSource>()
             .add_systems(
                 PostUpdate,
                 (
