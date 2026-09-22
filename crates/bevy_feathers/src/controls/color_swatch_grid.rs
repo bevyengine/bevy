@@ -93,9 +93,9 @@ impl FeathersColorSwatchGridCell {
                 display: Display::Flex,
             }
             RadioButton
-            Children [(
+            Children [
                 @ColorSwatchGridCellRing
-            )]
+            ]
         }
     }
 }

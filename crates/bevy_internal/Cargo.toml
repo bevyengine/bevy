@@ -220,6 +220,8 @@ webgpu = [
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
+render_dev_tools = ["bevy_dev_tools/render"]
+
 # Enable glTF animation loading
 gltf_animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
@@ -302,6 +304,9 @@ default_font = ["bevy_text?/default_font"]
 # Allows for discovery of preloaded system fonts
 system_font_discovery = ["bevy_text?/system_font_discovery"]
 
+# Enables dictionary-based segmentation for complex scripts (CJK, Thai, Khmer, Lao, Myanmar), at the cost of a larger binary
+complex_script_segmentation = ["bevy_text?/complex_script_segmentation"]
+
 # Enables downloading assets from HTTP sources
 http = ["bevy_asset?/http"]
 
@@ -324,6 +329,7 @@ embedded_watcher = ["bevy_asset?/embedded_watcher"]
 bevy_debug_stepping = [
   "bevy_ecs/bevy_debug_stepping",
   "bevy_app/bevy_debug_stepping",
+  "bevy_remote?/bevy_debug_stepping",
 ]
 
 # Enables the meshlet renderer for dense high-poly scenes (experimental)

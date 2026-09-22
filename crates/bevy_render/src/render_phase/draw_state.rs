@@ -278,6 +278,119 @@ impl<'a> TrackedRenderPass<'a> {
         self.pass.draw(vertices, instances);
     }
 
+    /// Draws using a mesh pipeline.
+    ///
+    /// Note that the current pipeline must be a mesh pipeline.
+    ///
+    /// If the mesh pipeline has a task shader, this runs the task shader with every workgroup specified
+    ///
+    /// If the mesh pipeline has *no* task shader, this runs the mesh shader with every workgroup specified
+    pub fn draw_mesh_tasks(&mut self, group_count_x: u32, group_count_y: u32, group_count_z: u32) {
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "draw_mesh_tasks: x:{:?} y:{:?} z:{:?}",
+            group_count_x,
+            group_count_y,
+            group_count_z
+        );
+        self.pass
+            .draw_mesh_tasks(group_count_x, group_count_y, group_count_z);
+    }
+
+    /// Draws using a mesh pipeline, based on the contents of the `indirect_buffer`
+    ///
+    /// This is like calling `draw_mesh_tasks` but the contents of the call are specified in the `indirect_buffer`
+    ///
+    /// The structure expected in `indirect_buffer` is the following:
+    ///
+    /// ```
+    /// #[repr(C)]
+    /// pub struct DispatchIndirectArgs {
+    ///     pub x: u32,
+    ///     pub y: u32,
+    ///     pub z: u32,
+    /// }
+    /// ```
+    pub fn draw_mesh_tasks_indirect(&mut self, indirect_buffer: &Buffer, indirect_offset: u64) {
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "draw_mesh_tasks indirect: {:?} {}",
+            indirect_buffer,
+            indirect_offset
+        );
+        self.pass
+            .draw_mesh_tasks_indirect(indirect_buffer, indirect_offset);
+    }
+
+    /// Dispatches multiple draw calls based on the contents of the `indirect_buffer`. `count` draw calls are issued.
+    ///
+    /// The structure expected in `indirect_buffer` is the following:
+    ///
+    /// ```
+    /// #[repr(C)]
+    /// pub struct DispatchIndirectArgs {
+    ///     pub x: u32,
+    ///     pub y: u32,
+    ///     pub z: u32,
+    /// }
+    /// ```
+    pub fn multi_draw_mesh_tasks_indirect(
+        &mut self,
+        indirect_buffer: &'a Buffer,
+        indirect_offset: u64,
+        count: u32,
+    ) {
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "multi draw mesh tasks indirect: {:?} {}, {}x",
+            indirect_buffer,
+            indirect_offset,
+            count
+        );
+        self.pass
+            .multi_draw_mesh_tasks_indirect(indirect_buffer, indirect_offset, count);
+    }
+
+    /// Dispatches multiple draw calls based on the contents of the `indirect_buffer`. The count buffer is read to determine how many draws to issue.
+    ///
+    /// The indirect buffer must be long enough to account for `max_count` draws, however only count draws will be read. If count is greater than `max_count`, `max_count` will be used.
+    ///
+    /// The structure expected in `indirect_buffer` is the following:
+    ///
+    /// ```
+    /// #[repr(C)]
+    /// pub struct DispatchIndirectArgs {
+    ///     pub x: u32,
+    ///     pub y: u32,
+    ///     pub z: u32,
+    /// }
+    /// ```
+    pub fn multi_draw_mesh_tasks_indirect_count(
+        &mut self,
+        indirect_buffer: &'a Buffer,
+        indirect_offset: u64,
+        count_buffer: &'a Buffer,
+        count_offset: u64,
+        max_count: u32,
+    ) {
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "multi draw mesh tasks indirect count: {:?} {}, ({:?} {})x, max {}x",
+            indirect_buffer,
+            indirect_offset,
+            count_buffer,
+            count_offset,
+            max_count
+        );
+        self.pass.multi_draw_mesh_tasks_indirect_count(
+            indirect_buffer,
+            indirect_offset,
+            count_buffer,
+            count_offset,
+            max_count,
+        );
+    }
+
     /// Draws indexed primitives using the active index buffer and the active vertex buffer(s).
     ///
     /// The active index buffer can be set with [`TrackedRenderPass::set_index_buffer`], while the

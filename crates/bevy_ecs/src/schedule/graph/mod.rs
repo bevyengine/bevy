@@ -1,10 +1,5 @@
-use alloc::{boxed::Box, vec::Vec};
-use core::{
-    any::{Any, TypeId},
-    fmt::Debug,
-};
-
-use bevy_utils::TypeIdHashMap;
+use alloc::vec::Vec;
+use core::fmt::Debug;
 
 use crate::schedule::InternedSystemSet;
 
@@ -28,7 +23,8 @@ pub(crate) enum DependencyKind {
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
     pub(crate) set: InternedSystemSet,
-    pub(crate) options: TypeIdHashMap<Box<dyn Any>>,
+    pub(crate) is_weak: bool,
+    pub(crate) ignore_deferred: bool,
 }
 
 impl Dependency {
@@ -36,11 +32,24 @@ impl Dependency {
         Self {
             kind,
             set,
-            options: Default::default(),
+            is_weak: false,
+            ignore_deferred: false,
         }
     }
-    pub fn add_config<T: 'static>(mut self, option: T) -> Self {
-        self.options.insert(TypeId::of::<T>(), Box::new(option));
+
+    /// Marks the dependency as weak.
+    /// A weak dependency allows systems to run in parallel if they do not conflict.
+    pub fn set_weak(mut self) -> Self {
+        self.is_weak = true;
+        self
+    }
+
+    /// Marks the dependency to ignore deferred commands between systems.
+    /// This tells the [`AutoInsertApplyDeferredPass`] to ignore this dependency when considering sync points.
+    ///
+    /// [`AutoInsertApplyDeferredPass`]: crate::schedule::passes::AutoInsertApplyDeferredPass
+    pub fn ignore_deferred(mut self) -> Self {
+        self.ignore_deferred = true;
         self
     }
 }

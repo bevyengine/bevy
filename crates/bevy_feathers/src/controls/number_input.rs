@@ -14,7 +14,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query, Res},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_input::{
     keyboard::{Key, KeyCode, KeyboardInput},
@@ -28,7 +28,7 @@ use bevy_picking::{
     events::{
         PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
     },
-    hover::Hovered,
+    hover::{Hovered, PointerCaptureMap},
     pointer::PointerButton,
     PickingSystems,
 };
@@ -151,7 +151,7 @@ impl FeathersNumberInput {
                 {
                     // Label section
                     props.label_text.map(|text| {
-                        bsn_list!(
+                        bsn! {
                             Node {
                                 display: Display::Flex,
                                 align_items: AlignItems::Center,
@@ -169,99 +169,93 @@ impl FeathersNumberInput {
                                 PropagateOver<TextFont>
                                 ThemeTextColor(tokens::TEXT_INPUT_TEXT)
                             ]
-                        )
+                        }
                     })
-                },
-
-                (
-                    // The editable text entity
-                    @FeathersTextInput {
-                        @max_characters: 30usize, // 20 digits + units
-                    }
-                    DragState
+                }
+                --
+                // The editable text entity
+                @FeathersTextInput {
+                    @max_characters: 30usize, // 20 digits + units
+                }
+                DragState
+                Node {
+                    flex_grow: 1.0,
+                    align_items: AlignItems::Center,
+                    align_self: AlignSelf::Stretch,
+                    border_radius: {
+                        if props.label_text.is_some() {
+                            RoundedCorners::Right.to_border_radius(4.0)
+                        } else {
+                            RoundedCorners::All.to_border_radius(4.0)
+                        }
+                    },
+                }
+                Hovered
+                LineHeight::Px(24.0) // TODO: Make const for this
+                TextLayout {
+                    justify: Justify::Center,
+                }
+                ThemeTextColor(tokens::TEXT_INPUT_TEXT)
+                // Use a gradient to draw the moving bar, this lets us round corners
+                BackgroundGradient(vec![Gradient::Linear(LinearGradient {
+                    angle: PI * 0.5,
+                    stops: vec![
+                        ColorStop::new(Color::NONE, percent(0)),
+                        ColorStop::new(Color::NONE, percent(50)),
+                        ColorStop::new(Color::NONE, percent(50)),
+                        ColorStop::new(Color::NONE, percent(100)),
+                    ],
+                    color_space: InterpolationColorSpace::Srgba,
+                })])
+                EntityCursor::System(bevy_window::SystemCursorIcon::ColResize)
+                on(number_input_init)
+                on(number_input_on_enter_key)
+                on(number_input_on_focus_gained)
+                on(number_input_on_focus_lost)
+                on(number_input_hovered)
+                on(update_chevron_visibility)
+                Children [
+                    // Invisible child on top of input field which intercepts drag
+                    // events (conditionally) and handles scrubbing gestures.
                     Node {
-                        flex_grow: 1.0,
-                        align_items: AlignItems::Center,
-                        align_self: AlignSelf::Stretch,
-                        border_radius: {
-                            if props.label_text.is_some() {
-                                RoundedCorners::Right.to_border_radius(4.0)
-                            } else {
-                                RoundedCorners::All.to_border_radius(4.0)
-                            }
-                        },
+                        position_type: PositionType::Absolute,
+                        left: px(0),
+                        top: px(0),
+                        bottom: px(0),
+                        right: px(0),
                     }
-                    Hovered
-                    LineHeight::Px(24.0) // TODO: Make const for this
-                    TextLayout {
-                        justify: Justify::Center,
+                    on(scrubber_on_press)
+                    on(scrubber_on_release)
+                    on(scrubber_on_drag_start)
+                    on(scrubber_on_drag)
+                    on(scrubber_on_drag_end)
+                    on(scrubber_on_drag_cancel)
+                    --
+                    // The decrement chevron of a number input
+                    Node {
+                        position_type: PositionType::Absolute,
+                        display: Display::None,
+                        left: px(4),
                     }
-                    ThemeTextColor(tokens::TEXT_INPUT_TEXT)
-                    // Use a gradient to draw the moving bar, this lets us round corners
-                    BackgroundGradient(vec![Gradient::Linear(LinearGradient {
-                        angle: PI * 0.5,
-                        stops: vec![
-                            ColorStop::new(Color::NONE, percent(0)),
-                            ColorStop::new(Color::NONE, percent(50)),
-                            ColorStop::new(Color::NONE, percent(50)),
-                            ColorStop::new(Color::NONE, percent(100)),
-                        ],
-                        color_space: InterpolationColorSpace::Srgba,
-                    })])
-                    EntityCursor::System(bevy_window::SystemCursorIcon::ColResize)
-                    on(number_input_init)
-                    on(number_input_on_enter_key)
-                    on(number_input_on_focus_gained)
-                    on(number_input_on_focus_lost)
-                    on(number_input_hovered)
-                    on(update_chevron_visibility)
+                    NumberInputDecrement
                     Children [
-                        (
-                            // Invisible child on top of input field which intercepts drag
-                            // events (conditionally) and handles scrubbing gestures.
-                            Node {
-                                position_type: PositionType::Absolute,
-                                left: px(0),
-                                top: px(0),
-                                bottom: px(0),
-                                right: px(0),
-                            }
-                            on(scrubber_on_press)
-                            on(scrubber_on_release)
-                            on(scrubber_on_drag_start)
-                            on(scrubber_on_drag)
-                            on(scrubber_on_drag_end)
-                            on(scrubber_on_drag_cancel)
-                        ),
-                        (
-                            // The decrement chevron of a number input
-                            Node {
-                                position_type: PositionType::Absolute,
-                                display: Display::None,
-                                left: px(4),
-                            }
-                            NumberInputDecrement
-                            Children [
-                                @icon(icons::CHEVRON_DOWN)
-                                UiTransform {
-                                    rotation: Rot2::radians(std::f32::consts::FRAC_PI_2)
-                                }
-                            ]
-                        ),
-                        (
-                            // The increment chevron of a number input
-                            Node {
-                                position_type: PositionType::Absolute,
-                                display: Display::None,
-                                right: px(4),
-                            }
-                            NumberInputIncrement
-                            Children [
-                                @icon(icons::CHEVRON_RIGHT),
-                            ]
-                        ),
+                        @icon(icons::CHEVRON_DOWN)
+                        UiTransform {
+                            rotation: Rot2::radians(std::f32::consts::FRAC_PI_2)
+                        }
                     ]
-                ),
+                    --
+                    // The increment chevron of a number input
+                    Node {
+                        position_type: PositionType::Absolute,
+                        display: Display::None,
+                        right: px(4),
+                    }
+                    NumberInputIncrement
+                    Children [
+                        @icon(icons::CHEVRON_RIGHT)
+                    ]
+                ]
             ]
         }
     }
@@ -617,8 +611,8 @@ pub enum NumberInputWrap {
 /// The enclosed string should be the id of a [`UnitsFormat`] that has previously been registered,
 /// such as ``length_meters`` or ``angle_degrees``.
 ///
-/// Note on serialization: it intended that this component, like most feathers-related
-/// component be serializable via reflection, so that it can be edited in the planned Bevy scene
+/// Note on serialization: it is intended that this component, like most feathers-related
+/// components be serializable via reflection, so that it can be edited in the planned Bevy scene
 /// editor. The objects pointed to by this id, however, are static and not meant to be serialized.
 #[derive(Component, Default, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -763,7 +757,9 @@ fn number_input_on_insert_disabled(
             &mut gradient,
             &mut commands,
         );
-        commands.entity(text_id).insert(TextReadWriteMode::ReadOnly);
+        commands
+            .entity(text_id)
+            .try_insert(TextReadWriteMode::ReadOnly);
     }
 }
 
@@ -799,7 +795,9 @@ fn number_input_on_remove_disabled(
             &mut gradient,
             &mut commands,
         );
-        commands.entity(text_id).insert(TextReadWriteMode::Editable);
+        commands
+            .entity(text_id)
+            .try_insert(TextReadWriteMode::Editable);
     }
 }
 
@@ -1081,7 +1079,7 @@ fn scrubber_on_release(
                 .insert(TextReadWriteMode::Editable)
                 .insert(EntityCursor::System(bevy_window::SystemCursorIcon::Text));
 
-            // Replace the text before editing; this let's us change the degree symbol (°), which
+            // Replace the text before editing; this lets us change the degree symbol (°), which
             // is hard to type, into `d`, which is easier.
             let editable_digits = units_registry.resolve(units).format(*value, true);
             let old_digits = editable_text.value().to_string();
@@ -1096,6 +1094,7 @@ fn scrubber_on_release(
 
 fn scrubber_on_drag_start(
     mut drag_start: On<PointerDragStart>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     q_root: Query<(
         &NumberInputValue,
         Option<&SoftLimit>,
@@ -1123,6 +1122,11 @@ fn scrubber_on_drag_start(
         let slider_size = (node.size().x * node.inverse_scale_factor).max(1.0) as f64;
         drag_start.propagate(false);
         drag.base_value = *input_value;
+        capture_map.capture(
+            drag_start.pointer.id,
+            drag_start.event_target(),
+            drag_start.hit.clone(),
+        );
         drag.max_distance = 0.0;
         drag.value_offset = 0.0f64;
         // Use various heuristics to determine drag speed based on which components are present.
@@ -1211,6 +1215,7 @@ fn scrubber_on_drag(
 
 fn scrubber_on_drag_end(
     mut drag_end: On<PointerDragEnd>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     q_root: Query<(
         Option<&SoftLimit>,
         Option<&HardLimit>,
@@ -1255,6 +1260,7 @@ fn scrubber_on_drag_end(
             &mut gradient,
             &mut commands,
         );
+        capture_map.release(drag_end.pointer.id);
     }
 }
 
@@ -1367,8 +1373,8 @@ fn set_slidebar_styles(
     // Change cursor shape and text color
     commands
         .entity(slidebar_id)
-        .insert(EntityCursor::System(cursor_shape))
-        .insert(ThemeTextColor(font_color_token));
+        .try_insert(EntityCursor::System(cursor_shape))
+        .try_insert(ThemeTextColor(font_color_token));
 }
 
 fn emit_drag_value_change(
@@ -1976,6 +1982,7 @@ impl Plugin for NumberInputPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_ecs::world::World;
 
     #[test]
     fn test_length_meters_format() {
@@ -2071,5 +2078,41 @@ mod tests {
             NumberInputValue::F64(val) => assert!((val - (-0.505)).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
+    }
+
+    #[test]
+    fn despawn_disabled_number_input_does_not_panic() {
+        let mut world = World::new();
+        world.init_resource::<UiTheme>();
+        world.init_resource::<InputFocus>();
+
+        let text_id = world
+            .spawn((
+                Hovered::default(),
+                BackgroundGradient(vec![Gradient::Linear(LinearGradient {
+                    angle: 0.0,
+                    stops: vec![
+                        ColorStop::new(Color::NONE, percent(0)),
+                        ColorStop::new(Color::NONE, percent(50)),
+                        ColorStop::new(Color::NONE, percent(50)),
+                        ColorStop::new(Color::NONE, percent(100)),
+                    ],
+                    color_space: InterpolationColorSpace::Srgba,
+                })]),
+            ))
+            .id();
+
+        let number_input = world
+            .spawn((FeathersNumberInput, InteractionDisabled))
+            .add_child(text_id)
+            .id();
+
+        world
+            .entity_mut(number_input)
+            .observe(number_input_on_insert_disabled)
+            .observe(number_input_on_remove_disabled);
+
+        world.despawn(number_input);
+        world.flush();
     }
 }

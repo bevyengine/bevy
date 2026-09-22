@@ -309,9 +309,9 @@ fn setup_node_rects(commands: &mut Commands) {
                     @base_node_scene(node_rect)
                     Children [
                         ZIndex(1)
-                            @number_input_f32(clip.text, Some(clip.clone()),
-                            ExampleAnimationWeights::default().weights[clip.index], NumberInputPrecision(2), 0. ..=1.),
-
+                        @number_input_f32(clip.text, Some(clip.clone()),
+                            ExampleAnimationWeights::default().weights[clip.index], NumberInputPrecision(2), 0. ..=1.)
+                        --
                         // The background node that fills up based on the number input value.
                         WeightBackground
                         clip.clone()
@@ -322,7 +322,7 @@ fn setup_node_rects(commands: &mut Commands) {
                             height: px(node_rect.height),
                             width: px(node_rect.width),
                         }
-                        BackgroundColor({DARK_GREEN.with_alpha(0.5)}),
+                        BackgroundColor({DARK_GREEN.with_alpha(0.5)})
                     ]
                 });
             }
