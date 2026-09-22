@@ -1,11 +1,12 @@
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
-use crate::{component::ComponentId, resource::IS_RESOURCE};
+use crate::{
+    component::{ComponentId, ComponentIdSet},
+    resource::IS_RESOURCE,
+};
 use alloc::{format, string::String, vec, vec::Vec};
-use core::iter::FusedIterator;
+use core::fmt::Debug;
 use core::mem;
-use core::{fmt, fmt::Debug};
 use derive_more::From;
-use fixedbitset::{Difference, FixedBitSet, Intersection, IntoOnes, Ones, Union};
 use thiserror::Error;
 
 /// A set of bits that is either a finite set, or the set complement of a finite set.
@@ -40,8 +41,12 @@ impl InvertibleComponentIdSet {
     #[inline]
     pub fn insert(&mut self, index: ComponentId) {
         match self {
-            Self::Included(included) => included.insert(index),
-            Self::Excluded(excluded) => excluded.remove(index),
+            Self::Included(included) => {
+                included.insert(index);
+            }
+            Self::Excluded(excluded) => {
+                excluded.remove(&index);
+            }
         }
     }
 
@@ -49,8 +54,12 @@ impl InvertibleComponentIdSet {
     #[inline]
     pub fn remove(&mut self, index: ComponentId) {
         match self {
-            Self::Included(included) => included.remove(index),
-            Self::Excluded(excluded) => excluded.insert(index),
+            Self::Included(included) => {
+                included.remove(&index);
+            }
+            Self::Excluded(excluded) => {
+                excluded.insert(index);
+            }
         }
     }
 
@@ -70,8 +79,8 @@ impl InvertibleComponentIdSet {
     #[inline]
     pub fn contains(&self, index: ComponentId) -> bool {
         match self {
-            Self::Included(included) => included.contains(index),
-            Self::Excluded(excluded) => !excluded.contains(index),
+            Self::Included(included) => included.contains(&index),
+            Self::Excluded(excluded) => !excluded.contains(&index),
         }
     }
 
@@ -80,7 +89,7 @@ impl InvertibleComponentIdSet {
     #[inline]
     pub fn is_clear(&self) -> bool {
         match self {
-            Self::Included(included) => included.is_clear(),
+            Self::Included(included) => included.is_empty(),
             Self::Excluded(_) => false,
         }
     }
@@ -91,7 +100,7 @@ impl InvertibleComponentIdSet {
     pub fn is_all(&self) -> bool {
         match self {
             Self::Included(_) => false,
-            Self::Excluded(excluded) => excluded.is_clear(),
+            Self::Excluded(excluded) => excluded.is_empty(),
         }
     }
 
@@ -140,7 +149,7 @@ impl InvertibleComponentIdSet {
         match (&mut *self, other) {
             (Self::Included(this), Self::Included(other)) => this.union_with(other),
             (Self::Included(this), Self::Excluded(other)) => {
-                this.difference_from(other);
+                *this = other - this;
                 *self = Self::Excluded(mem::take(this));
             }
             (Self::Excluded(this), Self::Included(other)) => this.difference_with(other),
@@ -162,7 +171,7 @@ impl InvertibleComponentIdSet {
             (Self::Included(this), Self::Excluded(other)) => this.intersect_with(other),
             (Self::Excluded(this), Self::Included(other)) => this.union_with(other),
             (Self::Excluded(this), Self::Excluded(other)) => {
-                this.difference_from(other);
+                *this = other - this;
                 *self = Self::Included(mem::take(this));
             }
         }
@@ -181,7 +190,7 @@ impl InvertibleComponentIdSet {
             (Self::Included(this), Self::Included(other)) => this.intersect_with(other),
             (Self::Included(this), Self::Excluded(other)) => this.difference_with(other),
             (Self::Excluded(this), Self::Included(other)) => {
-                this.difference_from(other);
+                *this = other - this;
                 *self = Self::Included(mem::take(this));
             }
             (Self::Excluded(this), Self::Excluded(other)) => this.union_with(other),
@@ -369,7 +378,7 @@ impl Access {
     ///
     /// [`Has<T>`]: crate::query::Has
     pub fn has_archetypal(&self, index: ComponentId) -> bool {
-        self.archetypal.contains(index)
+        self.archetypal.contains(&index)
     }
 
     /// Sets this as having access to all components (i.e. `EntityRef` and `&World`).
@@ -512,9 +521,9 @@ impl Access {
     /// # use bevy_ecs::component::ComponentId;
     /// let mut access = Access::default();
     ///
-    /// access.add_read(ComponentId::new(1));
-    /// access.add_write(ComponentId::new(2));
-    /// access.add_archetypal(ComponentId::new(3));
+    /// access.add_read(ComponentId::from_u32(1));
+    /// access.add_write(ComponentId::from_u32(2));
+    /// access.add_archetypal(ComponentId::from_u32(3));
     ///
     /// let result = access
     ///     .try_iter_access()
@@ -523,9 +532,9 @@ impl Access {
     /// assert_eq!(
     ///     result,
     ///     Ok(vec![
-    ///         ComponentAccessKind::Shared(ComponentId::new(1)),
-    ///         ComponentAccessKind::Exclusive(ComponentId::new(2)),
-    ///         ComponentAccessKind::Archetypal(ComponentId::new(3)),
+    ///         ComponentAccessKind::Exclusive(ComponentId::from_u32(2)),
+    ///         ComponentAccessKind::Shared(ComponentId::from_u32(1)),
+    ///         ComponentAccessKind::Archetypal(ComponentId::from_u32(3)),
     ///     ]),
     /// );
     /// ```
@@ -537,16 +546,17 @@ impl Access {
             reads_inverted: self.reads.is_unbounded(),
         })?;
         let accesses = reads.iter().map(|index| {
-            if self.writes.contains(index) {
-                ComponentAccessKind::Exclusive(index)
+            if self.writes.contains(*index) {
+                ComponentAccessKind::Exclusive(*index)
             } else {
-                ComponentAccessKind::Shared(index)
+                ComponentAccessKind::Shared(*index)
             }
         });
 
         let archetypal = self
             .archetypal
             .difference(reads)
+            .copied()
             .map(ComponentAccessKind::Archetypal);
 
         Ok(accesses.chain(archetypal))
@@ -671,7 +681,7 @@ impl AccessConflicts {
     pub fn is_empty(&self) -> bool {
         match self {
             Self::All => false,
-            Self::Individual(set) => set.is_clear(),
+            Self::Individual(set) => set.is_empty(),
         }
     }
 
@@ -683,7 +693,7 @@ impl AccessConflicts {
                 .map(|index| {
                     format!(
                         "{}",
-                        world.components().get_name(index).unwrap().shortname()
+                        world.components().get_name(*index).unwrap().shortname()
                     )
                 })
                 .collect::<Vec<_>>()
@@ -889,12 +899,14 @@ impl FilteredAccess {
 
     /// Returns the indices of the elements that this access filters for.
     pub fn with_filters(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.filter_sets.iter().flat_map(|f| f.with.iter())
+        self.filter_sets.iter().flat_map(|f| f.with.iter().copied())
     }
 
     /// Returns the indices of the elements that this access filters out.
     pub fn without_filters(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.filter_sets.iter().flat_map(|f| f.without.iter())
+        self.filter_sets
+            .iter()
+            .flat_map(|f| f.without.iter().copied())
     }
 
     /// Returns true if the index is used by this `FilteredAccess` in filters or archetypal access.
@@ -905,7 +917,7 @@ impl FilteredAccess {
             || self
                 .filter_sets
                 .iter()
-                .any(|f| f.with.contains(index) || f.without.contains(index))
+                .any(|f| f.with.contains(&index) || f.without.contains(&index))
     }
 }
 
@@ -1161,246 +1173,28 @@ impl FilteredAccessSet {
     }
 }
 
-/// A set of [`ComponentId`]s.
-#[derive(Default, Eq)]
-#[repr(transparent)]
-pub struct ComponentIdSet(FixedBitSet);
-
-impl PartialEq for ComponentIdSet {
-    fn eq(&self, other: &Self) -> bool {
-        // `FixedBitSet` requires equal lengths for equality,
-        // but we consider two sets equal if they have the same bits set
-        self.0.symmetric_difference(&other.0).next().is_none()
-    }
-}
-
-impl ComponentIdSet {
-    /// Create a new empty `ComponentIdSet`.
-    #[inline]
-    pub const fn new() -> Self {
-        Self(FixedBitSet::new())
-    }
-
-    #[cfg(test)]
-    pub(crate) fn from_bits(bits: FixedBitSet) -> Self {
-        Self(bits)
-    }
-
-    /// Adds a [`ComponentId`] to the set.
-    #[inline]
-    pub fn insert(&mut self, index: ComponentId) {
-        self.0.grow_and_insert(index.index());
-    }
-
-    /// Removes a [`ComponentId`] from the set.
-    #[inline]
-    pub fn remove(&mut self, index: ComponentId) {
-        if index.index() < self.0.len() {
-            self.0.remove(index.index());
-        }
-    }
-
-    /// Removes all [`ComponentId`]s from the set.
-    #[inline]
-    pub fn clear(&mut self) {
-        self.0.clear();
-    }
-
-    /// Returns `true` if the [`ComponentId`] is in the set.
-    #[inline]
-    pub fn contains(&self, index: ComponentId) -> bool {
-        self.0.contains(index.index())
-    }
-
-    /// Returns `true` if `self` has no elements in common with `other`. This
-    /// is equivalent to checking for an empty intersection.
-    #[inline]
-    pub fn is_disjoint(&self, other: &ComponentIdSet) -> bool {
-        self.0.is_disjoint(&other.0)
-    }
-
-    /// Returns `true` if the set is a subset of another, i.e. `other` contains
-    /// at least all the values in `self`.
-    #[inline]
-    pub fn is_subset(&self, other: &ComponentIdSet) -> bool {
-        self.0.is_subset(&other.0)
-    }
-
-    /// Returns `true` if the set is empty.
-    #[inline]
-    pub fn is_clear(&self) -> bool {
-        self.0.is_clear()
-    }
-
-    /// Iterates the [`ComponentId`]s in the set.
-    #[inline]
-    pub fn iter(&self) -> ComponentIdIter<Ones<'_>> {
-        ComponentIdIter(self.0.ones())
-    }
-
-    /// Returns a lazy iterator over the union of two [`ComponentIdSet`]s.
-    #[inline]
-    pub fn union<'a>(&'a self, other: &'a ComponentIdSet) -> ComponentIdIter<Union<'a>> {
-        ComponentIdIter(self.0.union(&other.0))
-    }
-
-    /// Returns a lazy iterator over the intersection of two [`ComponentIdSet`]s.
-    #[inline]
-    pub fn intersection<'a>(
-        &'a self,
-        other: &'a ComponentIdSet,
-    ) -> ComponentIdIter<Intersection<'a>> {
-        ComponentIdIter(self.0.intersection(&other.0))
-    }
-
-    /// Returns a lazy iterator over the difference of two [`ComponentIdSet`]s.
-    #[inline]
-    pub fn difference<'a>(&'a self, other: &'a ComponentIdSet) -> ComponentIdIter<Difference<'a>> {
-        ComponentIdIter(self.0.difference(&other.0))
-    }
-
-    /// In-place union of two [`ComponentIdSet`]s.
-    #[inline]
-    pub fn union_with(&mut self, other: &ComponentIdSet) {
-        self.0.union_with(&other.0);
-    }
-
-    /// In-place intersection of two [`ComponentIdSet`]s.
-    #[inline]
-    pub fn intersect_with(&mut self, other: &ComponentIdSet) {
-        self.0.intersect_with(&other.0);
-    }
-
-    /// In-place difference of two [`ComponentIdSet`]s.
-    #[inline]
-    pub fn difference_with(&mut self, other: &ComponentIdSet) {
-        self.0.difference_with(&other.0);
-    }
-
-    /// In-place reversed difference of two [`ComponentIdSet`]s.
-    /// This sets `self` to be `other.difference(self)`.
-    #[inline]
-    pub fn difference_from(&mut self, other: &ComponentIdSet) {
-        // Calculate `other - self` as `!self & other`
-        // We have to grow here because the new bits are going to get flipped to 1.
-        self.0.grow(other.0.len());
-        self.0.toggle_range(..);
-        self.0.intersect_with(&other.0);
-    }
-}
-
-impl Debug for ComponentIdSet {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // `FixedBitSet` normally has a `Debug` output like:
-        // FixedBitSet { data: [ 160 ], length: 8 }
-        // Instead, print the list of set values, like:
-        // [ 5, 7 ]
-        // Don't wrap in `ComponentId`, since that would just output:
-        // [ ComponentId(5), ComponentId(7) ]
-        f.debug_list().entries(self.0.ones()).finish()
-    }
-}
-
-impl Clone for ComponentIdSet {
-    #[inline]
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-
-    #[inline]
-    fn clone_from(&mut self, source: &Self) {
-        self.0.clone_from(&source.0);
-    }
-}
-
-impl IntoIterator for ComponentIdSet {
-    type Item = ComponentId;
-
-    type IntoIter = ComponentIdIter<IntoOnes>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        ComponentIdIter(self.0.into_ones())
-    }
-}
-
-impl<'a> IntoIterator for &'a ComponentIdSet {
-    type Item = ComponentId;
-
-    type IntoIter = ComponentIdIter<Ones<'a>>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl FromIterator<ComponentId> for ComponentIdSet {
-    #[inline]
-    fn from_iter<T: IntoIterator<Item = ComponentId>>(iter: T) -> Self {
-        Self(FixedBitSet::from_iter(
-            iter.into_iter().map(ComponentId::index),
-        ))
-    }
-}
-
-impl Extend<ComponentId> for ComponentIdSet {
-    #[inline]
-    fn extend<T: IntoIterator<Item = ComponentId>>(&mut self, iter: T) {
-        self.0.extend(iter.into_iter().map(ComponentId::index));
-    }
-}
-
-/// An iterator of [`ComponentId`]s.
-///
-/// This is equivalent to `map(ComponentId::new)`,
-/// but is a named type to allow it to be used in associated types.
-#[repr(transparent)]
-pub struct ComponentIdIter<I>(I);
-
-impl<I: Iterator<Item = usize>> Iterator for ComponentIdIter<I> {
-    type Item = ComponentId;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(ComponentId::new)
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.0.size_hint()
-    }
-}
-
-impl<I: DoubleEndedIterator<Item = usize>> DoubleEndedIterator for ComponentIdIter<I> {
-    #[inline]
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.0.next_back().map(ComponentId::new)
-    }
-}
-
-impl<I: FusedIterator<Item = usize>> FusedIterator for ComponentIdIter<I> {}
-
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::ComponentIds,
+        component::{ComponentId, ComponentIdSet},
+        entity::EntityAllocator,
         query::{
             access::{AccessFilters, InvertibleComponentIdSet},
-            Access, AccessConflicts, ComponentAccessKind, ComponentIdSet, FilteredAccess,
-            FilteredAccessSet, UnboundedAccessError,
+            Access, AccessConflicts, ComponentAccessKind, FilteredAccess, FilteredAccessSet,
+            UnboundedAccessError,
         },
     };
     use alloc::{vec, vec::Vec};
-    use fixedbitset::FixedBitSet;
+
+    fn generate_ids(count: u32) -> Vec<ComponentId> {
+        let ids = EntityAllocator::default();
+        ids.alloc_many(count).map(ComponentId::new).collect()
+    }
 
     #[test]
     fn test_access_clone() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_3 = ids.next_mut();
-        let id_5 = ids.next_mut();
+        let ids = generate_ids(4);
+        let (id_1, id_2, id_3, id_5) = (ids[0], ids[1], ids[2], ids[3]);
 
         let mut original = Access::default();
         original.add_read(id_1);
@@ -1416,14 +1210,9 @@ mod tests {
 
     #[test]
     fn test_access_clone_from() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_3 = ids.next_mut();
-        let id_4 = ids.next_mut();
-        let id_5 = ids.next_mut();
-        let id_7 = ids.next_mut();
-        let id_8 = ids.next_mut();
+        let ids = generate_ids(7);
+        let (id_1, id_2, id_3, id_4, id_5, id_7, id_8) =
+            (ids[0], ids[1], ids[2], ids[3], ids[4], ids[5], ids[6]);
 
         let mut original = Access::default();
         original.add_read(id_1);
@@ -1446,11 +1235,8 @@ mod tests {
 
     #[test]
     fn test_filtered_access_clone() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_3 = ids.next_mut();
-        let id_4 = ids.next_mut();
+        let ids = generate_ids(4);
+        let (id_1, id_2, id_3, id_4) = (ids[0], ids[1], ids[2], ids[3]);
 
         let mut original = FilteredAccess::default();
         original.add_write(id_1);
@@ -1465,12 +1251,8 @@ mod tests {
 
     #[test]
     fn test_filtered_access_clone_from() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_3 = ids.next_mut();
-        let id_4 = ids.next_mut();
-        let id_7 = ids.next_mut();
+        let ids = generate_ids(5);
+        let (id_1, id_2, id_3, id_4, id_7) = (ids[0], ids[1], ids[2], ids[3], ids[4]);
 
         let mut original = FilteredAccess::default();
         original.add_write(id_1);
@@ -1491,9 +1273,8 @@ mod tests {
 
     #[test]
     fn test_access_filters_clone() {
-        let mut ids = ComponentIds::default();
-        let id_3 = ids.next_mut();
-        let id_5 = ids.next_mut();
+        let ids = generate_ids(5);
+        let (id_3, id_5) = (ids[0], ids[1]);
 
         let mut original = AccessFilters::default();
         original.with.insert(id_3);
@@ -1506,11 +1287,8 @@ mod tests {
 
     #[test]
     fn test_access_filters_clone_from() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_3 = ids.next_mut();
-        let id_5 = ids.next_mut();
+        let ids = generate_ids(4);
+        let (id_1, id_2, id_3, id_5) = (ids[0], ids[1], ids[2], ids[3]);
 
         let mut original = AccessFilters::default();
         original.with.insert(id_3);
@@ -1528,9 +1306,8 @@ mod tests {
 
     #[test]
     fn test_filtered_access_set_clone() {
-        let mut ids = ComponentIds::default();
-        let id_2 = ids.next_mut();
-        let id_4 = ids.next_mut();
+        let ids = generate_ids(5);
+        let (id_2, id_4) = (ids[0], ids[1]);
 
         let mut original = FilteredAccessSet::default();
         original.add_unfiltered_component_read(id_2);
@@ -1544,11 +1321,8 @@ mod tests {
 
     #[test]
     fn test_filtered_access_set_from() {
-        let mut ids = ComponentIds::default();
-        let id_2 = ids.next_mut();
-        let id_4 = ids.next_mut();
-        let id_7 = ids.next_mut();
-        let id_9 = ids.next_mut();
+        let ids = generate_ids(4);
+        let (id_2, id_4, id_7, id_9) = (ids[0], ids[1], ids[2], ids[3]);
 
         let mut original = FilteredAccessSet::default();
         original.add_unfiltered_component_read(id_2);
@@ -1568,8 +1342,8 @@ mod tests {
 
     #[test]
     fn read_all_access_conflicts() {
-        let mut ids = ComponentIds::default();
-        let id_0 = ids.next_mut();
+        let ids = generate_ids(1);
+        let id_0 = ids[0];
 
         // read_all / single write
         let mut access_a = Access::default();
@@ -1592,9 +1366,8 @@ mod tests {
 
     #[test]
     fn access_get_conflicts() {
-        let mut ids = ComponentIds::default();
-        let id_0 = ids.next_mut();
-        let id_1 = ids.next_mut();
+        let ids = generate_ids(2);
+        let (id_0, id_1) = (ids[0], ids[1]);
 
         let mut access_a = Access::default();
         access_a.add_read(id_0);
@@ -1623,8 +1396,8 @@ mod tests {
 
     #[test]
     fn filtered_combined_access() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
+        let ids = generate_ids(1);
+        let id_1 = ids[0];
 
         let mut access_a = FilteredAccessSet::default();
         access_a.add_unfiltered_component_read(id_1);
@@ -1642,12 +1415,8 @@ mod tests {
 
     #[test]
     fn filtered_access_extend() {
-        let mut ids = ComponentIds::default();
-        let id_0 = ids.next_mut();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_3 = ids.next_mut();
-        let id_4 = ids.next_mut();
+        let ids = generate_ids(5);
+        let (id_0, id_1, id_2, id_3, id_4) = (ids[0], ids[1], ids[2], ids[3], ids[4]);
 
         let mut access_a = FilteredAccess::default();
         access_a.add_read(id_0);
@@ -1671,14 +1440,14 @@ mod tests {
         assert!(access_a.eq(&expected));
     }
 
+    fn set_from_u32s(iter: Vec<u32>) -> ComponentIdSet {
+        ComponentIdSet::from_iter(iter.into_iter().map(ComponentId::from_u32))
+    }
+
     #[test]
     fn filtered_access_extend_or() {
-        let mut ids = ComponentIds::default();
-        let id_0 = ids.next_mut();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_3 = ids.next_mut();
-        let id_4 = ids.next_mut();
+        let ids = generate_ids(5);
+        let (id_0, id_1, id_2, id_3, id_4) = (ids[0], ids[1], ids[2], ids[3], ids[4]);
 
         let mut access_a = FilteredAccess::default();
         // Exclusive access to `(&mut A, &mut B)`.
@@ -1709,15 +1478,12 @@ mod tests {
         // The resulted access is expected to represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>, Without<E>))>`.
         expected.filter_sets = vec![
             AccessFilters {
-                with: ComponentIdSet::from_bits(FixedBitSet::with_capacity_and_blocks(3, [0b111])),
+                with: set_from_u32s(vec![0, 1, 2]),
                 without: ComponentIdSet::default(),
             },
             AccessFilters {
-                with: ComponentIdSet::from_bits(FixedBitSet::with_capacity_and_blocks(4, [0b1011])),
-                without: ComponentIdSet::from_bits(FixedBitSet::with_capacity_and_blocks(
-                    5,
-                    [0b10000],
-                )),
+                with: set_from_u32s(vec![0, 1, 3]),
+                without: set_from_u32s(vec![4]),
             },
         ];
 
@@ -1726,11 +1492,10 @@ mod tests {
 
     #[test]
     fn try_iter_component_access_simple() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_3 = ids.next_mut();
-        let id_5 = ids.next_mut();
+        use bevy_platform::collections::HashSet;
+
+        let ids = generate_ids(4);
+        let (id_1, id_2, id_3, id_5) = (ids[0], ids[1], ids[2], ids[3]);
 
         let mut access = Access::default();
 
@@ -1739,24 +1504,25 @@ mod tests {
         access.add_write(id_3);
         access.add_archetypal(id_5);
 
-        let result = access.try_iter_access().map(Iterator::collect::<Vec<_>>);
+        let result = access
+            .try_iter_access()
+            .map(Iterator::collect::<HashSet<ComponentAccessKind>>);
 
         assert_eq!(
             result,
-            Ok(vec![
+            Ok(HashSet::from_iter([
                 ComponentAccessKind::Shared(id_1),
                 ComponentAccessKind::Shared(id_2),
                 ComponentAccessKind::Exclusive(id_3),
                 ComponentAccessKind::Archetypal(id_5),
-            ]),
+            ])),
         );
     }
 
     #[test]
     fn try_iter_component_access_unbounded_write_all() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
+        let ids = generate_ids(2);
+        let (id_1, id_2) = (ids[0], ids[1]);
 
         let mut access = Access::default();
 
@@ -1777,9 +1543,8 @@ mod tests {
 
     #[test]
     fn try_iter_component_access_unbounded_read_all() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
+        let ids = generate_ids(2);
+        let (id_1, id_2) = (ids[0], ids[1]);
 
         let mut access = Access::default();
 
@@ -1798,20 +1563,10 @@ mod tests {
         );
     }
 
-    /// Create a `ComponentIdSet` with a given number of total bits and a given list of bits to set.
-    /// Setting the number of bits is important in tests since the `PartialEq` impl checks that the length matches.
-    fn bit_set(bits: usize, iter: impl IntoIterator<Item = usize>) -> ComponentIdSet {
-        let mut result = FixedBitSet::with_capacity(bits);
-        result.extend(iter);
-        ComponentIdSet::from_bits(result)
-    }
-
     #[test]
     fn invertible_union_tests() {
-        let mut ids = ComponentIds::default();
-        let id_0 = ids.next_mut();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
+        let ids = generate_ids(3);
+        let (id_0, id_1, id_2) = (ids[0], ids[1], ids[2]);
 
         let set0 = ComponentIdSet::from_iter([id_0]);
         let set1 = ComponentIdSet::from_iter([id_1]);
@@ -1850,28 +1605,9 @@ mod tests {
     }
 
     #[test]
-    fn invertible_union_with_different_lengths() {
-        // When adding a large inverted set to a small normal set,
-        // make sure we invert the bits beyond the original length.
-        // Failing to call `grow` before `toggle_range` would cause bit 1 to be zero,
-        // which would incorrectly treat it as included in the output set.
-        let mut self_set = InvertibleComponentIdSet::Included(bit_set(1, [0]));
-        let other_set = InvertibleComponentIdSet::Excluded(bit_set(3, [0, 1]));
-        self_set.union_with(&other_set);
-
-        // [0] | [2, ...] = [0, 2, ...]
-        assert_eq!(
-            self_set,
-            InvertibleComponentIdSet::Excluded(bit_set(3, [1]))
-        );
-    }
-
-    #[test]
     fn invertible_difference_tests() {
-        let mut ids = ComponentIds::default();
-        let id_0 = ids.next_mut();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
+        let ids = generate_ids(3);
+        let (id_0, id_1, id_2) = (ids[0], ids[1], ids[2]);
 
         let set0 = ComponentIdSet::from_iter([id_0]);
         let set1 = ComponentIdSet::from_iter([id_1]);
@@ -1911,10 +1647,8 @@ mod tests {
 
     #[test]
     fn invertible_intersection_tests() {
-        let mut ids = ComponentIds::default();
-        let id_0 = ids.next_mut();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
+        let ids = generate_ids(3);
+        let (id_0, id_1, id_2) = (ids[0], ids[1], ids[2]);
 
         let set0 = ComponentIdSet::from_iter([id_0]);
         let set1 = ComponentIdSet::from_iter([id_1]);
@@ -1950,136 +1684,5 @@ mod tests {
                 .intersection(&InvertibleComponentIdSet::Excluded(set02.clone())),
             InvertibleComponentIdSet::Excluded(set012.clone())
         );
-    }
-
-    #[test]
-    fn component_id_set_insert_remove_clear() {
-        let mut ids = ComponentIds::default();
-        let id_0 = ids.next_mut();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-
-        let mut set = ComponentIdSet::new();
-        assert!(!set.contains(id_0));
-        assert!(!set.contains(id_1));
-        assert!(!set.contains(id_2));
-        assert!(set.is_clear());
-        set.insert(id_2);
-        set.insert(id_1);
-        assert!(!set.contains(id_0));
-        assert!(set.contains(id_1));
-        assert!(set.contains(id_2));
-        assert!(!set.is_clear());
-        set.remove(id_1);
-        assert!(!set.contains(id_0));
-        assert!(!set.contains(id_1));
-        assert!(set.contains(id_2));
-        assert!(!set.is_clear());
-        set.insert(id_2);
-        set.insert(id_1);
-        assert!(!set.contains(id_0));
-        assert!(set.contains(id_1));
-        assert!(set.contains(id_2));
-        assert!(!set.is_clear());
-        set.clear();
-        assert!(!set.contains(id_0));
-        assert!(!set.contains(id_1));
-        assert!(!set.contains(id_2));
-        assert!(set.is_clear());
-    }
-
-    #[test]
-    fn component_id_set_remove_out_of_range() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_3 = ids.next_mut();
-        let id_4 = ids.next_mut();
-
-        let mut set = ComponentIdSet::new();
-        set.remove(id_3);
-        set.insert(id_1);
-        set.remove(id_4);
-        assert!(set.iter().eq([id_1]));
-    }
-
-    #[test]
-    fn component_id_set_is_subset_is_disjoint() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_3 = ids.next_mut();
-        let id_4 = ids.next_mut();
-        let id_5 = ids.next_mut();
-
-        let set_1234 = ComponentIdSet::from_iter([id_1, id_2, id_3, id_4]);
-        let set_23 = ComponentIdSet::from_iter([id_2, id_3]);
-        let set_45 = ComponentIdSet::from_iter([id_4, id_5]);
-        assert!(set_23.is_subset(&set_1234));
-        assert!(!set_1234.is_subset(&set_23));
-        assert!(set_23.is_disjoint(&set_45));
-        assert!(set_45.is_disjoint(&set_23));
-        assert!(!set_1234.is_disjoint(&set_23));
-        assert!(!set_23.is_disjoint(&set_1234));
-    }
-
-    #[test]
-    fn component_id_set_union_intersection_difference() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_3 = ids.next_mut();
-
-        let set_13 = ComponentIdSet::from_iter([id_1, id_3]);
-        let set_23 = ComponentIdSet::from_iter([id_2, id_3]);
-
-        assert!(set_13.union(&set_23).eq([id_1, id_3, id_2]));
-        assert!(set_23.union(&set_13).eq([id_2, id_3, id_1]));
-        assert!(set_13.intersection(&set_23).eq([id_3]));
-        assert!(set_23.intersection(&set_13).eq([id_3]));
-        assert!(set_13.difference(&set_23).eq([id_1]));
-        assert!(set_23.difference(&set_13).eq([id_2]));
-    }
-
-    #[test]
-    fn component_id_set_union_intersection_difference_with() {
-        let mut ids = ComponentIds::default();
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
-        let id_3 = ids.next_mut();
-
-        let set_13 = ComponentIdSet::from_iter([id_1, id_3]);
-        let set_23 = ComponentIdSet::from_iter([id_2, id_3]);
-
-        let mut s = set_13.clone();
-        s.union_with(&set_23);
-        assert!(s.iter().eq([id_1, id_2, id_3]));
-
-        let mut s = set_23.clone();
-        s.union_with(&set_13);
-        assert!(s.iter().eq([id_1, id_2, id_3]));
-
-        let mut s = set_13.clone();
-        s.intersect_with(&set_23);
-        assert!(s.iter().eq([id_3]));
-
-        let mut s = set_23.clone();
-        s.intersect_with(&set_13);
-        assert!(s.iter().eq([id_3]));
-
-        let mut s = set_13.clone();
-        s.difference_with(&set_23);
-        assert!(s.iter().eq([id_1]));
-
-        let mut s = set_23.clone();
-        s.difference_with(&set_13);
-        assert!(s.iter().eq([id_2]));
-
-        let mut s = set_13.clone();
-        s.difference_from(&set_23);
-        assert!(s.iter().eq([id_2]));
-
-        let mut s = set_23.clone();
-        s.difference_from(&set_13);
-        assert!(s.iter().eq([id_1]));
     }
 }

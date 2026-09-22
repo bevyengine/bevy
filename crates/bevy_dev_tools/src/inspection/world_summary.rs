@@ -2,7 +2,10 @@
 //!
 //! See [`WorldSummary`] for the output, and [`WorldSummaryExt`] to generate.
 
-use bevy_ecs::{archetype::ArchetypeId, component::ComponentId, system::Commands, world::World};
+use bevy_ecs::{
+    archetype::ArchetypeId, component::ComponentId, storage::SparseSetIndex, system::Commands,
+    world::World,
+};
 use bevy_log::info;
 use bevy_utils::{memory_size::MemorySize, prelude::DebugName};
 use core::{cmp::Reverse, fmt};
@@ -143,7 +146,7 @@ pub trait WorldSummaryExt {
 impl WorldSummaryExt for World {
     fn summarize(&self, settings: SummarySettings) -> WorldSummary {
         let total_entities = self.entities().count_spawned();
-        let total_send_resources = self.resource_entities().iter().count();
+        let total_send_resources = self.iter_resources().count();
         let total_non_send_resources = self.storages().non_sends.len();
         let total_archetypes = self.archetypes().len();
         let mut archetype_summaries: Vec<ArchetypeSummary> = self
@@ -161,7 +164,7 @@ impl WorldSummaryExt for World {
                             self.components()
                                 .get_name(*component_id)
                                 .unwrap_or_else(|| {
-                                    let component_index = component_id.index();
+                                    let component_index = component_id.sparse_set_index();
                                     DebugName::owned(format!("Component #{component_index}"))
                                 })
                         })

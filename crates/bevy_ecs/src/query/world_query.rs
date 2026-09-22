@@ -128,6 +128,10 @@ pub unsafe trait WorldQuery {
     ///
     /// This is used for queries to request access to entities other than the current one,
     /// such as to read resources or to follow relations.
+    #[expect(
+        clippy::result_large_err,
+        reason = "Boxing `FilteredAccessSet` adds unnecessary noise for implementors of this trait"
+    )]
     fn init_nested_access(
         state: &Self::State,
         component_access_set: &mut FilteredAccessSet,

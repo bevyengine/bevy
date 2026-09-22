@@ -9,12 +9,12 @@ use crate::{
     bundle::Bundles,
     change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
     component::{ComponentId, Components, Mutable},
-    entity::{Entities, EntityAllocator},
+    entity::{ContainsEntity, Entities, EntityAllocator},
     query::{
         Access, FilteredAccess, IterQueryData, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
     },
-    resource::{Resource, ResourceEntities, IS_RESOURCE},
+    resource::{Resource, IS_RESOURCE},
     system::{Query, Single, SystemAccess, SystemMeta, SystemState},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
@@ -33,6 +33,7 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use log::warn;
 use smallvec::SmallVec;
 use thiserror::Error;
 
@@ -397,6 +398,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         unsafe { QueryState::new_unchecked(world) }
     }
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "Boxing `FilteredAccessSet` adds unnecessary noise."
+    )]
     fn init_access(
         state: &Self::State,
         _system_meta: &mut SystemMeta,
@@ -788,7 +793,21 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        world.components_registrator().register_component::<T>()
+        let component_id = world.components_registrator().register_component::<T>();
+        if world
+            .get_required_components_by_id(component_id)
+            .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE))
+        {
+            let name = world
+                .components()
+                .get_name(component_id)
+                .expect("resource is registered");
+            warn!(
+                "Resource {} does not have IsResource as a required component, hence it cannot be queried through Res.",
+                name
+            );
+        }
+        component_id
     }
 
     fn init_access(
@@ -814,9 +833,20 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        let (ptr, ticks) = world.get_resource_with_ticks(component_id).ok_or_else(|| {
-            SystemParamValidationError::invalid::<Self>("Resource does not exist")
-        })?;
+        let entity = component_id.entity();
+        let entity_cell = world
+            .get_entity(entity)
+            .map_err(|_| SystemParamValidationError::invalid::<Self>("Resource does not exist"))?;
+        if !entity_cell.contains_id(IS_RESOURCE) {
+            return Err(SystemParamValidationError::invalid::<Self>(
+                "Resource does not have IsResource",
+            ));
+        }
+        // SAFETY: Through the scheduler we have unique access to this resource
+        let (ptr, ticks) =
+            unsafe { entity_cell.get_by_id_with_ticks(component_id) }.ok_or_else(|| {
+                SystemParamValidationError::invalid::<Self>("Resource does not exist")
+            })?;
         Ok(Res {
             value: ptr.deref(),
             ticks: ComponentTicksRef {
@@ -837,7 +867,21 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        world.components_registrator().register_component::<T>()
+        let component_id = world.components_registrator().register_component::<T>();
+        if world
+            .get_required_components_by_id(component_id)
+            .is_some_and(|required| required.direct.contains_key(&IS_RESOURCE))
+        {
+            let name = world
+                .components()
+                .get_name(component_id)
+                .expect("resource is registered");
+            warn!(
+                "Resource {} does not have IsResource as a required component, hence it cannot be queried through ResMut.",
+                name
+            );
+        }
+        component_id
     }
 
     fn init_access(
@@ -863,9 +907,20 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        let value = world.get_resource_mut_by_id(component_id).ok_or_else(|| {
+        let entity = component_id.entity();
+        let entity_cell = world
+            .get_entity(entity)
+            .map_err(|_| SystemParamValidationError::invalid::<Self>("Resource does not exist"))?;
+        if !entity_cell.contains_id(IS_RESOURCE) {
+            return Err(SystemParamValidationError::invalid::<Self>(
+                "Resource does not have IsResource",
+            ));
+        }
+        // SAFETY: Through the scheduler we have unique access to this resource
+        let value = unsafe { entity_cell.get_mut_by_id(component_id).ok() }.ok_or_else(|| {
             SystemParamValidationError::invalid::<Self>("Resource does not exist")
         })?;
+
         Ok(ResMut {
             value: value.value.deref_mut::<T>(),
             ticks: ComponentTicksMut {
@@ -1535,38 +1590,6 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
         _change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(world.archetypes())
-    }
-}
-
-// SAFETY: Only reads World resource entities
-unsafe impl<'a> ReadOnlySystemParam for &'a ResourceEntities {}
-
-// SAFETY: no component value access
-unsafe impl<'a> SystemParam for &'a ResourceEntities {
-    type State = ();
-    type Item<'w, 's> = &'w ResourceEntities;
-
-    fn init_state(_world: &mut World) -> Self::State {}
-
-    fn init_access(
-        _state: &Self::State,
-        _system_meta: &mut SystemMeta,
-        system_access: &mut SystemAccess,
-    ) -> Result<(), SystemParamAccessConflict> {
-        system_access.try_extend_metadata().map_err(|access| {
-            SystemParamAccessConflict::new::<Self>(access)
-                .with_suggestion_if_exclusive(system_access, "Calling `World::resource_entities()`")
-        })
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        _state: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'w>,
-        _change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        Ok(world.resource_entities())
     }
 }
 
@@ -2952,7 +2975,7 @@ mod tests {
     use crate::query::Without;
     use crate::resource::IsResource;
     use crate::schedule::Schedule;
-    use crate::system::{assert_is_system, Commands, IntoSystem, System};
+    use crate::system::{assert_is_system, Commands, IntoSystem, RegisteredSystemError, System};
     use crate::world::EntityMut;
     use core::cell::RefCell;
 
@@ -3266,6 +3289,23 @@ mod tests {
         schedule.run(&mut world);
 
         fn message_system(_: MessageReader<MissingEvent>) {}
+    }
+
+    #[test]
+    fn missing_resource_marker() {
+        #[derive(Component, Default)]
+        struct R;
+        // In order for Res and ResMut queries to work, there should always be `IsResource`
+        // on the resource entity for every type `R` that implements Resource.
+        impl Resource for R {}
+
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        assert!(matches!(
+            world.run_system_cached(|_: Res<R>, _: Option<Single<&mut R, Without<IsResource>>>| {}),
+            Err(RegisteredSystemError::Failed(_))
+        ),);
     }
 
     #[test]

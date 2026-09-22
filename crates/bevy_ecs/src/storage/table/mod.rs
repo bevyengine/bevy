@@ -4,10 +4,10 @@ pub use column::Column;
 
 use crate::{
     change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
-    component::{ComponentId, ComponentInfo, Components},
+    component::{ComponentId, ComponentIdMap, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
+    storage::AbortOnPanic,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
@@ -139,7 +139,7 @@ impl TableRow {
 // it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
 // means the safety invariant must be enforced even in `TableBuilder`.
 pub(crate) struct TableBuilder {
-    columns: SparseSet<ComponentId, Column>,
+    columns: ComponentIdMap<Column>,
     entities: Vec<Entity>,
 }
 
@@ -148,7 +148,7 @@ impl TableBuilder {
     /// `column_capacity` (How many columns?) and `capacity` (How many entities per column?).
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
-            columns: SparseSet::with_capacity(column_capacity),
+            columns: ComponentIdMap::with_capacity(column_capacity),
             entities: Vec::with_capacity(capacity),
         }
     }
@@ -176,9 +176,8 @@ impl TableBuilder {
     /// - If the table's columns were not added in order, sorted by [`ComponentId`].
     #[must_use]
     pub fn build(self) -> Table {
-        assert!(self.columns.indices().is_sorted());
         Table {
-            columns: self.columns.into_immutable(),
+            columns: self.columns,
             entities: self.entities,
         }
     }
@@ -202,7 +201,7 @@ impl TableBuilder {
 // it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
 // means the safety invariant must be enforced even in `TableBuilder`.
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, Column>,
+    columns: ComponentIdMap<Column>,
     entities: Vec<Entity>,
 }
 
@@ -373,7 +372,7 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
-        self.columns.get(component_id)
+        self.columns.get(&component_id)
     }
 
     /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
@@ -384,7 +383,7 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
-        self.columns.get_mut(component_id)
+        self.columns.get_mut(&component_id)
     }
 
     /// Checks if the table contains a [`Column`] for a given [`Component`].
@@ -394,7 +393,7 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub fn has_column(&self, component_id: ComponentId) -> bool {
-        self.columns.contains(component_id)
+        self.columns.contains_key(&component_id)
     }
 
     /// Reserves `additional` elements worth of capacity within the table.
@@ -764,21 +763,10 @@ impl Tables {
         // - The caller ensures that all new columns will be written to immediately.
         let dst_row = unsafe { dst_table.allocate(src_table.entities.swap_remove(row.index())) };
 
-        let mut dst_iter = dst_table.columns.iter_mut().peekable();
-
         for (src_component_id, src_column) in src_table.columns.iter_mut() {
-            // Skip past any destination columns that don't exist in the source table.
-            // The caller is responsible for initializing those columns.
-            while dst_iter
-                .next_if(|(dst_component_id, _)| *dst_component_id < src_component_id)
-                .is_some()
-            {}
-
-            // Then move the value in the source column if it exists in the destination table,
+            // Move the value in the source column if it exists in the destination table,
             // or remove it if it does not.
-            if let Some((_, dst_column)) =
-                dst_iter.next_if(|(dst_component_id, _)| *dst_component_id == src_component_id)
-            {
+            if let Some(dst_column) = dst_table.columns.get_mut(src_component_id) {
                 // SAFETY:
                 // - `src_column` and `dst_column` correspond to the same `ComponentId`.
                 // - The caller ensures `row` is in-bounds for `src_column`.
@@ -806,9 +794,6 @@ impl Tables {
                 }
             }
         }
-
-        // Need to end the mutable borrow so we can return `dst_table`.
-        drop(dst_iter);
 
         TableMoveResult {
             new_table: dst_table,
@@ -857,8 +842,8 @@ impl Drop for Table {
 mod tests {
     use crate::{
         change_detection::{MaybeLocation, Tick},
-        component::{Component, ComponentIds, Components, ComponentsRegistrator},
-        entity::{Entity, EntityIndex},
+        component::{Component, Components, ComponentsRegistrator},
+        entity::{Entity, EntityAllocator, EntityIndex},
         ptr::OwningPtr,
         storage::{TableBuilder, TableId, TableRow, Tables},
     };
@@ -882,10 +867,9 @@ mod tests {
     #[test]
     fn table() {
         let mut components = Components::default();
-        let mut componentids = ComponentIds::default();
+        let allocator = EntityAllocator::default();
         // SAFETY: They are both new.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut components, &mut componentids) };
+        let mut registrator = unsafe { ComponentsRegistrator::new(&mut components, &allocator) };
         let component_id = registrator.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())

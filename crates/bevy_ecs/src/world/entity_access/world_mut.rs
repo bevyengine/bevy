@@ -14,7 +14,7 @@ use crate::{
         ReleaseStateQueryData, SingleEntityQueryData,
     },
     relationship::RelationshipHookMode,
-    resource::{Resource, ResourceEntities},
+    resource::Resource,
     storage::{SparseSets, Table},
     system::EntityCommands,
     template::{SceneEntityReferences, Template, TemplateContext},
@@ -733,13 +733,6 @@ impl<'w> EntityWorldMut<'w> {
                 f(&mut this, res)
             })
         })
-    }
-
-    /// Retrieves this world's [`ResourceEntities`].
-    #[inline]
-    #[track_caller]
-    pub fn resource_entities(&self) -> &ResourceEntities {
-        self.world.resource_entities()
     }
 
     /// Retrieves the [`Entity`] associated with the resource of type `R`, if it exists.
@@ -1822,7 +1815,13 @@ impl<'w> EntityWorldMut<'w> {
             }
             table_row = remove_result.table_row;
 
-            for component_id in archetype.sparse_set_components() {
+            let sparse_set_components = archetype.iter_components().filter(|&id| {
+                // SAFETY: Every archetype component is registered in this world.
+                unsafe { self.world.components.get_info_unchecked(id) }.storage_type()
+                    == StorageType::SparseSet
+            });
+
+            for component_id in sparse_set_components {
                 // set must have existed for the component to be added.
                 let sparse_set = self
                     .world

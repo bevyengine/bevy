@@ -40,7 +40,10 @@ pub(crate) struct SparseArray<I, V = I> {
 ///
 /// However, it may use a lot of excess memory if the
 /// values are large or the set is sparsely populated.
-
+#[expect(
+    dead_code,
+    reason = "ImmutableSparseArray may be used again in the future."
+)]
 #[derive(Debug)]
 pub(crate) struct ImmutableSparseArray<I, V = I> {
     values: Box<[Option<V>]>,
@@ -86,7 +89,8 @@ macro_rules! impl_sparse_array {
 }
 
 impl_sparse_array!(SparseArray);
-impl_sparse_array!(ImmutableSparseArray);
+// ImmutableSparseArray may be used again in the future.
+// impl_sparse_array!(ImmutableSparseArray);
 
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
     /// Inserts `value` at `index` in the array.
@@ -134,19 +138,6 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
             values: self.values.into_boxed_slice(),
             marker: PhantomData,
         }
-    }
-
-    /// Returns an iterator over the non-empty values in the array.
-    ///
-    /// This must scan the entire array to find non-empty values,
-    /// which may be slow even if the array is sparsely populated.
-    #[inline]
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (I, &V)> {
-        self.values.iter().enumerate().filter_map(|(index, value)| {
-            value
-                .as_ref()
-                .map(|value| (SparseSetIndex::get_sparse_set_index(index), value))
-        })
     }
 }
 
@@ -538,6 +529,10 @@ pub struct SparseSet<I, V: 'static> {
 /// the dense storage of values takes less memory when `V` is large,
 /// although the overhead of tracking which entries have values
 /// may make it larger when `V` is small or the set is densely populated.
+#[expect(
+    dead_code,
+    reason = "ImmutableSparseSet may be used again in the future."
+)]
 #[derive(Debug)]
 pub(crate) struct ImmutableSparseSet<I, V: 'static> {
     /// The mapping from dense index to value.
@@ -619,7 +614,8 @@ macro_rules! impl_sparse_set {
 }
 
 impl_sparse_set!(SparseSet);
-impl_sparse_set!(ImmutableSparseSet);
+// ImmutableSparseSet may be used again in the future.
+// impl_sparse_set!(ImmutableSparseSet);
 
 impl<I: SparseSetIndex, V> Default for SparseSet<I, V> {
     fn default() -> Self {
@@ -735,6 +731,10 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     }
 
     /// Converts the sparse set into its immutable variant.
+    #[expect(
+        dead_code,
+        reason = "ImmutableSparseArray may be used again in the future."
+    )]
     pub(crate) fn into_immutable(self) -> ImmutableSparseSet<I, V> {
         ImmutableSparseSet {
             dense: self.dense.into_boxed_slice(),
@@ -852,8 +852,8 @@ impl SparseSets {
 mod tests {
     use super::SparseSets;
     use crate::{
-        component::{Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo},
-        entity::{Entity, EntityIndex},
+        component::{Component, ComponentDescriptor, ComponentId, ComponentInfo},
+        entity::{Entity, EntityAllocator, EntityIndex},
         storage::SparseSet,
     };
     use alloc::{vec, vec::Vec};
@@ -912,7 +912,7 @@ mod tests {
 
     #[test]
     fn sparse_sets() {
-        let mut ids = ComponentIds::default();
+        let ids = EntityAllocator::default();
         let mut sets = SparseSets::default();
 
         #[derive(Component, Default, Debug)]
@@ -921,8 +921,8 @@ mod tests {
         #[derive(Component, Default, Debug)]
         struct TestComponent2;
 
-        let id_1 = ids.next_mut();
-        let id_2 = ids.next_mut();
+        let id_1 = ComponentId::new(ids.alloc());
+        let id_2 = ComponentId::new(ids.alloc());
 
         assert_eq!(sets.len(), 0);
         assert!(sets.is_empty());
@@ -939,7 +939,7 @@ mod tests {
             .map(|(id, set)| (id, set.len()))
             .collect::<Vec<_>>();
         collected_sets.sort();
-        assert_eq!(collected_sets, vec![(id_1, 0), (id_2, 0),]);
+        assert_eq!(collected_sets, vec![(id_2, 0), (id_1, 0),]);
 
         fn register_component<T: Component>(sets: &mut SparseSets, id: ComponentId) {
             let descriptor = ComponentDescriptor::new::<T>();
