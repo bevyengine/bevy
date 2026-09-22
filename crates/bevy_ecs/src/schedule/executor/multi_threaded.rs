@@ -5,6 +5,7 @@ use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
+use smallvec::SmallVec;
 use std::sync::{Mutex, MutexGuard};
 
 #[cfg(feature = "trace")]
@@ -294,7 +295,12 @@ impl SystemExecutor for MultiThreadedExecutor {
         if self.apply_final_deferred {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
-            let res = apply_deferred(&state.unapplied_systems, systems, world, error_handler);
+            let res = apply_deferred(
+                state.unapplied_systems.ones(),
+                systems,
+                world,
+                error_handler,
+            );
             if let Err(payload) = res {
                 let panic_payload = self.panic_payload.get_mut().unwrap();
                 *panic_payload = Some(payload);
@@ -681,15 +687,16 @@ impl ExecutorState {
 
         // SAFETY: this system is not running, no other reference exists
         if is_apply_deferred(unsafe { &*(*system.get()).system }) {
-            // TODO: avoid allocation
-            let unapplied_systems = self.unapplied_systems.clone();
+            // Gather the systems whose buffers need applying into an inline buffer, so the
+            // common case of a handful of systems per sync point does not allocate.
+            let unapplied_systems: SmallVec<[usize; 16]> = self.unapplied_systems.ones().collect();
             self.unapplied_systems.clear();
             let task = async move {
                 // SAFETY: `can_run` returned true for this system, which means
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = apply_deferred(
-                    &unapplied_systems,
+                    unapplied_systems,
                     context.environment.systems,
                     world,
                     context.error_handler,
@@ -762,12 +769,12 @@ impl ExecutorState {
 }
 
 fn apply_deferred(
-    unapplied_systems: &FixedBitSet,
+    unapplied_systems: impl IntoIterator<Item = usize>,
     systems: &[SyncUnsafeCell<SystemWithAccess>],
     world: &mut World,
     error_handler: ErrorHandler,
 ) -> Result<(), Box<dyn Any + Send>> {
-    for system_index in unapplied_systems.ones() {
+    for system_index in unapplied_systems {
         // SAFETY: none of these systems are running, no other references exist
         let system = &mut unsafe { &mut *systems[system_index].get() }.system;
         handle_errors(

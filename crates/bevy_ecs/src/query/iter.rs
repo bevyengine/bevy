@@ -258,6 +258,11 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             &self.query_state.filter_state,
             table,
         );
+        // Filters such as `Changed` can tell from the table's summary tick that no row in it
+        // can match; skip the whole table in that case.
+        if !F::table_may_match(&self.cursor.filter) {
+            return accum;
+        }
 
         let entities = table.entities();
         for row in rows {
@@ -3163,6 +3168,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     unsafe {
                         D::set_table(&mut self.fetch, &query_state.fetch_state, table);
                         F::set_table(&mut self.filter, &query_state.filter_state, table);
+                    }
+                    // Filters such as `Changed` can tell from the table's summary tick that no
+                    // row in it can match; move on to the next table in that case.
+                    if !F::table_may_match(&self.filter) {
+                        continue;
                     }
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();

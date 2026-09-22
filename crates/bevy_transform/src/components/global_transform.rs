@@ -47,7 +47,8 @@ use {
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy-support", derive(Component))]
+// The summary tick lets `Added<GlobalTransform>` queries skip whole tables with nothing new.
+#[cfg_attr(feature = "bevy-support", derive(Component), component(summary_tick))]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -324,6 +325,7 @@ impl Default for GlobalTransform {
 }
 
 impl From<Transform> for GlobalTransform {
+    #[inline]
     fn from(transform: Transform) -> Self {
         Self(transform.compute_affine())
     }

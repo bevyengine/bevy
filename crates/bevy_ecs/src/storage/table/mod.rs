@@ -307,6 +307,7 @@ impl Table {
     }
 
     /// Get the specific [`change tick`](Tick) of the component matching `component_id` in `row`.
+    #[inline]
     pub fn get_changed_tick(
         &self,
         component_id: ComponentId,
@@ -322,6 +323,7 @@ impl Table {
     }
 
     /// Get the specific [`added tick`](Tick) of the component matching `component_id` in `row`.
+    #[inline]
     pub fn get_added_tick(
         &self,
         component_id: ComponentId,
@@ -337,6 +339,7 @@ impl Table {
     }
 
     /// Get the specific calling location that changed the component matching `component_id` in `row`
+    #[inline]
     pub fn get_changed_by(
         &self,
         component_id: ComponentId,
@@ -357,6 +360,7 @@ impl Table {
     ///
     /// # Safety
     /// - `row.as_usize()` < `self.len()`
+    #[inline]
     pub unsafe fn get_ticks_unchecked(
         &self,
         component_id: ComponentId,
@@ -585,6 +589,7 @@ impl Table {
     ///
     /// # Safety
     /// `row.as_usize()` < `self.len()`
+    #[inline]
     pub unsafe fn get_component(
         &self,
         component_id: ComponentId,

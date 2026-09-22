@@ -72,7 +72,9 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component),
-    require(GlobalTransform, TransformTreeChanged)
+    require(GlobalTransform, TransformTreeChanged),
+    // Lets `Changed<Transform>` queries skip whole tables that hold no changed transforms.
+    component(summary_tick)
 )]
 #[cfg_attr(
     feature = "bevy_reflect",

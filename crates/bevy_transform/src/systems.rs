@@ -484,15 +484,12 @@ mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use crate::systems::StaticTransformOptimizations;
-    use alloc::{sync::Arc, vec::Vec};
+    use alloc::vec::Vec;
     use bevy_ecs::{entity::UniqueEntitySlice, prelude::*, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
-    use core::sync::atomic::{AtomicI32, Ordering};
-    use std::sync::{
-        mpsc::{Receiver, Sender},
-        Mutex,
-    };
+    use concurrent_queue::ConcurrentQueue;
+    use core::sync::atomic::{AtomicUsize, Ordering};
 
     /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
     /// component.
@@ -554,16 +551,8 @@ mod parallel {
         // number of channel sends by avoiding sending partial batches.
         queue.send_batches();
 
-        if let Ok(rx) = queue.receiver.try_lock() {
-            if let Some(task) = rx.try_iter().next() {
-                // This is a bit silly, but the only way to see if there is any work is to grab a
-                // task. Peeking will remove the task even if you don't call `next`, resulting in
-                // dropping a task. What we do here is grab the first task if there is one, then
-                // immediately send it to the back of the queue.
-                queue.sender.send(task).ok();
-            } else {
-                return; // No work, don't bother spawning any tasks
-            }
+        if queue.shared.queue.is_empty() {
+            return; // No work, don't bother spawning any tasks
         }
 
         // Spawn workers on the task pool to recursively propagate the hierarchy in parallel.
@@ -588,42 +577,31 @@ mod parallel {
         #[cfg(feature = "trace")]
         let _span = tracing::info_span!("transform propagation worker").entered();
 
+        let shared = &queue.shared;
         let mut outbox = queue.local_queue.borrow_local_mut();
         loop {
-            // Try to acquire a lock on the work queue in a tight loop. Profiling shows this is much
-            // more efficient than relying on `.lock()`, which causes gaps to form between tasks.
-            let Ok(rx) = queue.receiver.try_lock() else {
-                core::hint::spin_loop(); // No apparent impact on profiles, but best practice.
-                continue;
-            };
-            // If the queue is empty and no other threads are busy processing work, we can conclude
-            // there is no more work to do, and end the task by exiting the loop.
-            let Some(mut tasks) = rx.try_iter().next() else {
-                if queue.busy_threads.load(Ordering::Relaxed) == 0 {
+            let Ok(mut tasks) = shared.queue.pop() else {
+                // Nothing is queued. If no chunk is being processed either, none can appear.
+                if shared.pending_chunks.load(Ordering::SeqCst) == 0 {
                     break; // All work is complete, kill the worker
                 }
-                continue; // No work to do now, but another thread is busy creating more work.
+                // Another thread is busy creating more work.
+                core::hint::spin_loop();
+                continue;
             };
-            if tasks.is_empty() {
-                continue; // This shouldn't happen, but if it does, we might as well stop early.
-            }
+            let mut chunks_taken = 1;
 
             // If the task queue is extremely short, it's worthwhile to gather a few more tasks to
             // reduce the amount of thread synchronization needed once this very short task is
             // complete.
             while tasks.len() < WorkQueue::CHUNK_SIZE / 2 {
-                let Some(mut extra_task) = rx.try_iter().next() else {
+                let Ok(mut extra_task) = shared.queue.pop() else {
                     break;
                 };
                 tasks.append(&mut extra_task);
+                shared.recycle(extra_task);
+                chunks_taken += 1;
             }
-
-            // At this point, we know there is work to do, so we increment the busy thread counter,
-            // and drop the mutex guard *after* we have incremented the counter. This ensures that
-            // if another thread is able to acquire a lock, the busy thread counter will already be
-            // incremented.
-            queue.busy_threads.fetch_add(1, Ordering::Relaxed);
-            drop(rx); // Important: drop after atomic and before work starts.
 
             for parent in tasks.drain(..) {
                 // SAFETY: each task pushed to the worker queue represents an unprocessed subtree of
@@ -648,8 +626,13 @@ mod parallel {
                     );
                 }
             }
-            WorkQueue::send_batches_with(&queue.sender, &mut outbox);
-            queue.busy_threads.fetch_add(-1, Ordering::Relaxed);
+            shared.send_batches_with(&mut outbox);
+            shared.recycle(tasks);
+            // These chunks only count as done now that the chunks of their children are queued,
+            // so the count never reaches zero while work is still to come.
+            shared
+                .pending_chunks
+                .fetch_sub(chunks_taken, Ordering::SeqCst);
         }
     }
 
@@ -738,7 +721,7 @@ mod parallel {
                 // Send chunks during traversal. This allows sharing tasks with other threads before
                 // fully completing the traversal.
                 if outbox.len() >= WorkQueue::CHUNK_SIZE {
-                    WorkQueue::send_batches_with(&queue.sender, outbox);
+                    queue.shared.send_batches_with(outbox);
                 }
             }
         }
@@ -762,20 +745,17 @@ mod parallel {
 
     /// A queue shared between threads for transform propagation.
     pub struct WorkQueue {
-        /// A semaphore that tracks how many threads are busy doing work. Used to determine when
-        /// there is no more work to do.
-        busy_threads: AtomicI32,
-        sender: Sender<Vec<Entity>>,
-        receiver: Arc<Mutex<Receiver<Vec<Entity>>>>,
+        shared: SharedQueue,
         local_queue: Parallel<Vec<Entity>>,
     }
     impl Default for WorkQueue {
         fn default() -> Self {
-            let (tx, rx) = std::sync::mpsc::channel();
             Self {
-                busy_threads: AtomicI32::default(),
-                sender: tx,
-                receiver: Arc::new(Mutex::new(rx)),
+                shared: SharedQueue {
+                    pending_chunks: AtomicUsize::new(0),
+                    queue: ConcurrentQueue::unbounded(),
+                    spare_chunks: ConcurrentQueue::bounded(SharedQueue::MAX_SPARE_CHUNKS),
+                },
                 local_queue: Default::default(),
             }
         }
@@ -784,28 +764,61 @@ mod parallel {
         const CHUNK_SIZE: usize = 512;
 
         #[inline]
-        fn send_batches_with(sender: &Sender<Vec<Entity>>, outbox: &mut Vec<Entity>) {
-            for chunk in outbox
-                .chunks(WorkQueue::CHUNK_SIZE)
-                .filter(|c| !c.is_empty())
-            {
-                sender.send(chunk.to_vec()).ok();
-            }
-            outbox.clear();
-        }
-
-        #[inline]
         fn send_batches(&mut self) {
             let Self {
-                sender,
+                shared,
                 local_queue,
-                ..
             } = self;
             // Iterate over the locals to send batched tasks, avoiding the need to drain the locals
             // into a larger allocation.
             local_queue
                 .iter_mut()
-                .for_each(|outbox| Self::send_batches_with(sender, outbox));
+                .for_each(|outbox| shared.send_batches_with(outbox));
+        }
+    }
+
+    /// The part of a [`WorkQueue`] the worker threads share: a lock-free queue of chunks of
+    /// entities whose children are yet to be propagated, and the bookkeeping to know when the
+    /// work is done.
+    struct SharedQueue {
+        /// The number of chunks pushed to `queue` that have not been fully processed yet, where
+        /// processing a chunk includes pushing the chunks of children it produces. Workers may
+        /// stop once this reaches zero and the queue is empty.
+        pending_chunks: AtomicUsize,
+        queue: ConcurrentQueue<Vec<Entity>>,
+        /// Emptied chunk allocations, reused for the next chunks sent instead of allocating.
+        spare_chunks: ConcurrentQueue<Vec<Entity>>,
+    }
+    impl SharedQueue {
+        /// The most emptied chunks kept around between frames; the rest are freed.
+        const MAX_SPARE_CHUNKS: usize = 256;
+
+        #[inline]
+        fn send_batches_with(&self, outbox: &mut Vec<Entity>) {
+            for chunk in outbox
+                .chunks(WorkQueue::CHUNK_SIZE)
+                .filter(|c| !c.is_empty())
+            {
+                let mut task = self
+                    .spare_chunks
+                    .pop()
+                    .unwrap_or_else(|_| Vec::with_capacity(WorkQueue::CHUNK_SIZE));
+                task.extend_from_slice(chunk);
+                // Count the chunk before it can be popped, so a worker never sees an empty queue
+                // and a zero count while work is in flight.
+                self.pending_chunks.fetch_add(1, Ordering::SeqCst);
+                // The queue is unbounded and never closed, so this cannot fail.
+                self.queue.push(task).ok();
+            }
+            outbox.clear();
+        }
+
+        /// Keeps an emptied chunk's allocation for reuse, up to [`Self::MAX_SPARE_CHUNKS`].
+        #[inline]
+        fn recycle(&self, mut chunk: Vec<Entity>) {
+            chunk.clear();
+            // Failing means the spare queue is full, in which case the chunk is simply freed.
+            self.spare_chunks.push(chunk).ok();
         }
     }
 }

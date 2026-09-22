@@ -132,27 +132,28 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> u32 {
-        let max_items = || {
+        // The batch size is derived from the total number of matched entities, so that the
+        // work is split into roughly one batch per thread. Using the largest storage instead
+        // would produce far more batches than threads for queries spread over many storages.
+        let total_items = || {
             let id_iter = self.state.matched_storage_ids.iter();
             if self.state.is_dense {
                 // SAFETY: We only access table metadata.
                 let tables = unsafe { &self.world.world_metadata().storages().tables };
                 id_iter
                     // SAFETY: The if check ensures that matched_storage_ids stores TableIds
-                    .map(|id| unsafe { tables[id.table_id].entity_count() })
-                    .max()
+                    .map(|id| unsafe { tables[id.table_id].entity_count() } as usize)
+                    .sum()
             } else {
                 let archetypes = &self.world.archetypes();
                 id_iter
                     // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
-                    .map(|id| unsafe { archetypes[id.archetype_id].len() })
-                    .max()
+                    .map(|id| unsafe { archetypes[id.archetype_id].len() } as usize)
+                    .sum()
             }
-            .map(|v| v as usize)
-            .unwrap_or(0)
         };
         self.batching_strategy
-            .calc_batch_size(max_items, thread_count) as u32
+            .calc_batch_size(total_items, thread_count) as u32
     }
 }
 
@@ -319,7 +320,8 @@ where
     /// current batching strategy.
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> u32 {
-        let max_items = || {
+        // See `QueryParIter::get_batch_size` for why this sums rather than taking the maximum.
+        let total_items = || {
             let id_iter = self.state.matched_storage_ids.iter();
             // SAFETY: We only access table metadata.
             let tables = unsafe { &self.world.storages().tables };
@@ -328,14 +330,12 @@ where
                     // SAFETY: Contiguous iteration can only process tables, so
                     // we must have a table here.
                     let table_id = unsafe { id.table_id };
-                    tables[table_id].entity_count()
+                    tables[table_id].entity_count() as usize
                 })
-                .max()
-                .map(|v| v as usize)
-                .unwrap_or(0)
+                .sum()
         };
         self.batching_strategy
-            .calc_batch_size(max_items, thread_count) as u32
+            .calc_batch_size(total_items, thread_count) as u32
     }
 }
 

@@ -978,6 +978,80 @@ mod tests {
         assert_eq!(ticks.summary_tick_is_changed(), Some(true));
     }
 
+    /// `Changed` and `Added` filters on components with a summary tick skip tables whose
+    /// summary tick shows no change, and must still find changes made through every write
+    /// path, including on entities that move to another table after being changed.
+    #[test]
+    fn changed_filter_uses_summary_tick_to_skip_tables() {
+        use crate::{change_detection::DetectChangesMut, prelude::Added, query::WorldQuery};
+
+        let mut world = World::new();
+        // Two tables: `(SA, SB)` and `(SA, SB, A)`.
+        let e1 = world.spawn((SA(1), SB(1))).id();
+        let e2 = world.spawn((SA(2), SB(2))).id();
+        let e3 = world.spawn((SA(3), SB(3), A(0))).id();
+        let sb_id = world.register_component::<SB>();
+
+        // Returns whether `Changed<SB>` considers the table holding `entity` worth scanning.
+        let table_may_match = |world: &World, entity: Entity| {
+            let table_id = world.entity(entity).location().table_id;
+            let table = world.storages().tables.get(table_id).unwrap();
+            // SAFETY: `SB` is registered in this world, the table is from it, and only the
+            // ticks of `SB` are read.
+            unsafe {
+                let mut fetch = <Changed<SB> as WorldQuery>::init_fetch(
+                    world.as_unsafe_world_cell_readonly(),
+                    &sb_id,
+                    world.last_change_tick(),
+                    world.read_change_tick(),
+                );
+                <Changed<SB> as WorldQuery>::set_table(&mut fetch, &sb_id, table);
+                <Changed<SB> as QueryFilter>::table_may_match(&fetch)
+            }
+        };
+
+        let mut changed = world.query_filtered::<Entity, Changed<SB>>();
+        let mut added = world.query_filtered::<Entity, Added<SB>>();
+        assert_eq!(changed.iter(&world).count(), 3);
+        assert_eq!(added.iter(&world).count(), 3);
+
+        // Nothing changed since the trackers were cleared: both tables are skipped.
+        world.clear_trackers();
+        assert!(!table_may_match(&world, e1));
+        assert!(!table_may_match(&world, e3));
+        assert_eq!(changed.iter(&world).count(), 0);
+        assert_eq!(added.iter(&world).count(), 0);
+
+        // A typed mutation is found, and only its table is scanned.
+        world.get_mut::<SB>(e2).unwrap().0 = 20;
+        assert!(table_may_match(&world, e1));
+        assert!(!table_may_match(&world, e3));
+        assert_eq!(changed.iter(&world).collect::<Vec<_>>(), vec![e2]);
+        let mut found = Vec::new();
+        changed.iter(&world).for_each(|entity| found.push(entity));
+        assert_eq!(found, vec![e2]);
+
+        // An untyped mutation is found too.
+        world.clear_trackers();
+        world.get_mut_by_id(e3, sb_id).unwrap().set_changed();
+        assert!(!table_may_match(&world, e1));
+        assert!(table_may_match(&world, e3));
+        assert_eq!(changed.iter(&world).collect::<Vec<_>>(), vec![e3]);
+
+        // A change made before an entity moves to another table is found in the new table.
+        world.clear_trackers();
+        world.get_mut::<SB>(e1).unwrap().0 = 10;
+        world.entity_mut(e1).insert(A(1));
+        assert!(table_may_match(&world, e1));
+        assert_eq!(changed.iter(&world).collect::<Vec<_>>(), vec![e1]);
+
+        // A newly inserted component is found by `Added`.
+        world.clear_trackers();
+        let e4 = world.spawn((SA(4), SB(4))).id();
+        assert_eq!(added.iter(&world).collect::<Vec<_>>(), vec![e4]);
+        assert_eq!(changed.iter(&world).collect::<Vec<_>>(), vec![e4]);
+    }
+
     // regression test for https://github.com/bevyengine/bevy/pull/23394
     #[test]
     fn query_data_derive_contiguous_tuple() {

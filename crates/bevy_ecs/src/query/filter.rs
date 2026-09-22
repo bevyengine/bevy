@@ -110,6 +110,38 @@ pub unsafe trait QueryFilter: WorldQuery {
         entity: Entity,
         table_row: TableRow,
     ) -> bool;
+
+    /// Returns `false` if it is known that no entity in the table most recently passed to
+    /// [`WorldQuery::set_table`] can pass [`filter_fetch`](Self::filter_fetch), which lets dense
+    /// iteration skip the whole table without visiting its rows.
+    ///
+    /// Returning `true` is always correct, so this is purely an optimization and the default
+    /// implementation returns `true`. It is only consulted by dense iteration; see
+    /// [`Column::get_summary_tick`](crate::storage::Column::get_summary_tick) for why the
+    /// summary-tick based implementations of [`Changed`] and [`Added`] rely on that.
+    #[inline(always)]
+    fn table_may_match(fetch: &Self::Fetch<'_>) -> bool {
+        let _ = fetch;
+        true
+    }
+}
+
+/// Whether some row of `table` may have a tick for `component_id` newer than `last_run`, judged
+/// by the column's summary tick: if the summary is not newer than `last_run`, no tick written to
+/// the column since then is either, so no row can pass an [`Added`] or [`Changed`] filter.
+///
+/// Columns without a summary tick always may match. This is only sound for dense iteration; see
+/// [`Column::get_summary_tick`](crate::storage::Column::get_summary_tick).
+#[inline]
+fn table_may_match_by_summary_tick(
+    table: &Table,
+    component_id: ComponentId,
+    last_run: Tick,
+    this_run: Tick,
+) -> bool {
+    table
+        .get_summary_tick(component_id)
+        .is_none_or(|summary_tick| summary_tick.get().is_newer_than(last_run, this_run))
 }
 
 /// Filter that selects entities with a component `T`.
@@ -559,6 +591,16 @@ macro_rules! impl_or_query_filter {
                     // so we treat them as matching for non-archetypal queries, as well.
                     || !(false $(|| $filter.matches)*))
             }
+
+            #[inline(always)]
+            fn table_may_match(fetch: &Self::Fetch<'_>) -> bool {
+                let ($($filter,)*) = fetch;
+                // Mirrors `filter_fetch`: archetypal filters and tables no subquery matched
+                // always match, otherwise some matching subquery must be able to match.
+                Self::IS_ARCHETYPAL
+                    $(|| ($filter.matches && $filter::table_may_match(&$filter.fetch)))*
+                    || !(false $(|| $filter.matches)*)
+            }
         }
     };
 }
@@ -593,6 +635,12 @@ macro_rules! impl_tuple_query_filter {
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
                 true $(&& unsafe { $name::filter_fetch($state, $name, entity, table_row) })*
+            }
+
+            #[inline(always)]
+            fn table_may_match(fetch: &Self::Fetch<'_>) -> bool {
+                let ($($name,)*) = fetch;
+                true $(&& $name::table_may_match($name))*
             }
         }
     };
@@ -764,6 +812,9 @@ pub struct AddedFetch<'w, T: Component> {
     >,
     last_run: Tick,
     this_run: Tick,
+    /// Whether some row of the current table may pass the filter; see
+    /// [`QueryFilter::table_may_match`].
+    table_may_match: bool,
 }
 
 impl<T: Component> Clone for AddedFetch<'_, T> {
@@ -772,6 +823,7 @@ impl<T: Component> Clone for AddedFetch<'_, T> {
             ticks: self.ticks,
             last_run: self.last_run,
             this_run: self.this_run,
+            table_may_match: self.table_may_match,
         }
     }
 }
@@ -809,6 +861,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             ),
             last_run,
             this_run,
+            table_may_match: true,
         }
     }
 
@@ -848,6 +901,10 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         );
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.ticks.set_table(table_ticks) };
+        // A component's added tick never exceeds its changed tick, so if the column's summary
+        // of changed ticks is not newer than `last_run`, no row in it was added since either.
+        fetch.table_may_match =
+            table_may_match_by_summary_tick(table, component_id, fetch.last_run, fetch.this_run);
     }
 
     #[inline]
@@ -886,6 +943,12 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    fn table_may_match(fetch: &Self::Fetch<'_>) -> bool {
+        fetch.table_may_match
+    }
+
     #[inline(always)]
     unsafe fn filter_fetch(
         _state: &Self::State,
@@ -1000,6 +1063,9 @@ pub struct ChangedFetch<'w, T: Component> {
     >,
     last_run: Tick,
     this_run: Tick,
+    /// Whether some row of the current table may pass the filter; see
+    /// [`QueryFilter::table_may_match`].
+    table_may_match: bool,
 }
 
 impl<T: Component> Clone for ChangedFetch<'_, T> {
@@ -1008,6 +1074,7 @@ impl<T: Component> Clone for ChangedFetch<'_, T> {
             ticks: self.ticks,
             last_run: self.last_run,
             this_run: self.this_run,
+            table_may_match: self.table_may_match,
         }
     }
 }
@@ -1045,6 +1112,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             ),
             last_run,
             this_run,
+            table_may_match: true,
         }
     }
 
@@ -1084,6 +1152,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         );
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.ticks.set_table(table_ticks) };
+        fetch.table_may_match =
+            table_may_match_by_summary_tick(table, component_id, fetch.last_run, fetch.this_run);
     }
 
     #[inline]
@@ -1122,6 +1192,11 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Changed<T> {
     const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    fn table_may_match(fetch: &Self::Fetch<'_>) -> bool {
+        fetch.table_may_match
+    }
 
     #[inline(always)]
     unsafe fn filter_fetch(

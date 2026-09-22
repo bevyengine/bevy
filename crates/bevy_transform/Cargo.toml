@@ -22,6 +22,9 @@ serde = { version = "1", default-features = false, features = [
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 derive_more = { version = "2", default-features = false, features = ["from"] }
+concurrent-queue = { version = "2.5.0", default-features = false, features = [
+  "std",
+], optional = true }
 
 [dev-dependencies]
 bevy_tasks = { path = "../bevy_tasks", version = "0.20.0-dev" }
@@ -40,7 +43,7 @@ default = ["std", "bevy-support", "bevy_reflect", "async_executor"]
 
 ## Enables multithreading support. Schedules will attempt to run systems on
 ## multiple threads whenever possible.
-multi_threaded = ["bevy_tasks/multi_threaded"]
+multi_threaded = ["bevy_tasks/multi_threaded", "dep:concurrent-queue"]
 
 ## Adds normal Bevy impls like deriving components, bundles, reflection, as well as adding
 ## systems for transform propagation and more.

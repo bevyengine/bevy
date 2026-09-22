@@ -579,11 +579,13 @@ impl EntityCloner {
         // If this fails, it either didn't need to be constructed (ok) or doesn't exist (caught better later).
         let _ = world.spawn_empty_at(target);
 
-        // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
-        let bundle_scratch_allocator = Bump::new();
+        // The scratch allocations live on the state so they are reused from clone to clone;
+        // they are taken out here (the state is borrowed mutably below) and handed back at the end.
+        let mut bundle_scratch_allocator = core::mem::take(&mut state.bundle_scratch_allocator);
         let mut bundle_scratch: BundleScratchSpace;
-        let mut moved_components: Vec<ComponentId> = Vec::new();
-        let mut deferred_cloned_component_ids: Vec<ComponentId> = Vec::new();
+        let mut moved_components = core::mem::take(&mut state.moved_components);
+        let mut deferred_cloned_component_ids =
+            core::mem::take(&mut state.deferred_cloned_component_ids);
         {
             let world = world.as_unsafe_world_cell();
             let source_entity = world
@@ -761,6 +763,15 @@ impl EntityCloner {
         // - All `component_ids` are from the same world as `target` entity
         // - All `component_data_ptrs` are valid types represented by `component_ids`
         unsafe { bundle_scratch.write(world, target, relationship_hook_insert_mode) };
+
+        // Hand the emptied scratch allocations back for the next clone.
+        bundle_scratch_allocator.reset();
+        state.bundle_scratch_allocator = bundle_scratch_allocator;
+        moved_components.clear();
+        state.moved_components = moved_components;
+        deferred_cloned_component_ids.clear();
+        state.deferred_cloned_component_ids = deferred_cloned_component_ids;
+
         target
     }
 }
@@ -773,6 +784,10 @@ struct EntityClonerState {
     default_clone_fn: ComponentCloneFn,
     clone_queue: VecDeque<Entity>,
     deferred_commands: VecDeque<Box<dyn FnOnce(&mut World, &mut dyn EntityMapper)>>,
+    /// Scratch space reused across clones; see `EntityCloner::clone_entity_internal`.
+    bundle_scratch_allocator: Bump,
+    moved_components: Vec<ComponentId>,
+    deferred_cloned_component_ids: Vec<ComponentId>,
 }
 
 impl Default for EntityClonerState {
@@ -784,6 +799,9 @@ impl Default for EntityClonerState {
             clone_behavior_overrides: Default::default(),
             clone_queue: Default::default(),
             deferred_commands: Default::default(),
+            bundle_scratch_allocator: Default::default(),
+            moved_components: Default::default(),
+            deferred_cloned_component_ids: Default::default(),
         }
     }
 }

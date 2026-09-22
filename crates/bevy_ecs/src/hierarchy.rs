@@ -103,6 +103,8 @@ use core::slice;
     reflect(Serialize, Deserialize)
 )]
 #[relationship(relationship_target = Children)]
+// The summary tick lets `Changed<ChildOf>` queries skip whole tables with no reparented entities.
+#[component(summary_tick)]
 #[doc(alias = "IsChild", alias = "Parent")]
 pub struct ChildOf(#[entities] pub Entity);
 

@@ -86,6 +86,12 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
             ) -> bool {
                 true #(&& <#field_types>::filter_fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row))*
             }
+
+            #[allow(unused_variables)]
+            #[inline(always)]
+            fn table_may_match<'__w>(_fetch: &<Self as #path::query::WorldQuery>::Fetch<'__w>) -> bool {
+                true #(&& <#field_types as #path::query::QueryFilter>::table_may_match(&_fetch.#field_aliases))*
+            }
         }
     };
 

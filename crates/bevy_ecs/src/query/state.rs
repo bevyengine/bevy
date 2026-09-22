@@ -1808,6 +1808,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
             use smallvec::SmallVec;
 
+            /// The row ranges making up one batch, inline up to `MAX_TABLES_PER_BATCH` so
+            /// that submitting a batch does not allocate.
+            type BatchQueue = SmallVec<[(TableId, Range<u32>); MAX_TABLES_PER_BATCH]>;
+
             // SAFETY: We only access table data that has been registered in
             // `self.component_access`.
             let tables = unsafe { &world.storages().tables };
@@ -1817,11 +1821,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             // multiple tables, not tables as a whole. This allows individual
             // jobs to include any combination of entire tables and portions of
             // tables.
-            let mut batch_queue: SmallVec<[(TableId, Range<u32>); 4]> = SmallVec::new();
+            let mut batch_queue = BatchQueue::new();
             let mut queue_entity_count = 0;
 
             // Submits a full batch.
-            let submit_batch_queue = |queue: SmallVec<[(TableId, Range<u32>); 4]>| {
+            let submit_batch_queue = |queue: BatchQueue| {
                 let (func, init_accum) = (func.clone(), init_accum.clone());
                 scope.spawn(async move {
                     #[cfg(feature = "trace")]

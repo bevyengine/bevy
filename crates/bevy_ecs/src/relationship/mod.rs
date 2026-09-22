@@ -191,6 +191,17 @@ pub trait Relationship: Component + Sized {
             world.commands().entity(current_source).try_remove::<Self>();
         }
 
+        // If the target already has a `RelationshipTarget`, register with it right away: that
+        // is a plain component mutation, which is allowed here. Only inserting a new
+        // `RelationshipTarget` is a structural change that must be deferred.
+        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity)
+            && let Some(mut relationship_target) =
+                target_entity_mut.get_mut::<Self::RelationshipTarget>()
+        {
+            relationship_target.collection_mut_risky().add(entity);
+            return;
+        }
+
         if let Ok(mut entity_commands) = world.commands().get_entity(target_entity) {
             // Deferring is necessary for batch mode
             entity_commands

@@ -1353,22 +1353,21 @@ unsafe fn get_component_and_ticks(
         StorageType::Table => {
             // SAFETY: caller upholds aliasing rules
             let table = unsafe { world.fetch_table(location)? };
+            // Look the column up once and read everything from it, rather than
+            // repeating the lookup (and the bounds check) for each field.
+            let column = table.get_column(component_id)?;
+            let row = location.table_row;
+            debug_assert!(row.index_u32() < table.entity_count());
 
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some(unsafe {
                 (
-                    table.get_component(component_id, location.table_row)?,
+                    column.get_data_unchecked(row),
                     ComponentTickCells {
-                        added: table
-                            .get_added_tick(component_id, location.table_row)
-                            .debug_checked_unwrap(),
-                        changed: table
-                            .get_changed_tick(component_id, location.table_row)
-                            .debug_checked_unwrap(),
-                        changed_by: table
-                            .get_changed_by(component_id, location.table_row)
-                            .map(|changed_by| changed_by.debug_checked_unwrap()),
-                        summary_tick: table.get_summary_tick(component_id),
+                        added: column.get_added_tick_unchecked(row),
+                        changed: column.get_changed_tick_unchecked(row),
+                        changed_by: column.get_changed_by_unchecked(row),
+                        summary_tick: column.get_summary_tick(),
                     },
                 )
             })
