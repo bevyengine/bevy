@@ -16,6 +16,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
+    name::Name,
     observer::On,
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
@@ -38,13 +39,14 @@ use bevy_reflect::{
     enums::VariantType, prelude::ReflectDefault, PartialReflect, Reflect, ReflectRef, TypeInfo,
 };
 use bevy_scene::{bsn, on, Scene, WorldSceneExt};
-use bevy_text::{EditableText, TextEdit};
+use bevy_text::{EditableText, LineBreak, TextEdit, TextLayout};
 use bevy_time::{Time, Timer, TimerMode};
 use bevy_ui::{
     percent, px, widget::Text, AlignItems, Checked, Display, FlexDirection, InteractionDisabled,
     Node, Overflow, PositionType, UiRect,
 };
 use bevy_ui_widgets::{ControlOrientation, ScrollArea, ValueChange};
+use bevy_utils::prelude::ShortName;
 
 use crate::{entity_tree::InspectorUi, InspectorSelection};
 
@@ -512,6 +514,9 @@ fn spawn_field_row(
                 align_items: AlignItems::Center,
                 column_gap: px(6),
                 padding: UiRect::left(px(entry.depth as f32 * INDENT)),
+                min_width: px(0),
+                flex_shrink: 1.0,
+                overflow: Overflow::clip_x(),
                 ..Default::default()
             },
             ChildOf(container),
@@ -603,7 +608,7 @@ fn spawn_widget(world: &mut World, row: Entity, value: &FieldValue) -> Option<Fi
                     }
                 },
             )?;
-            let text = spawn_child_scene(world, row, caption(String::new()))?;
+            let text = spawn_value_caption(world, row, String::new())?;
             FieldWidget {
                 entity,
                 text: Some(text),
@@ -637,7 +642,7 @@ fn spawn_widget(world: &mut World, row: Entity, value: &FieldValue) -> Option<Fi
             }
         }
         FieldValue::Label(text) => {
-            let entity = spawn_child_scene(world, row, caption(text.clone()))?;
+            let entity = spawn_value_caption(world, row, text.clone())?;
             FieldWidget {
                 entity,
                 text: None,
@@ -646,6 +651,26 @@ fn spawn_widget(world: &mut World, row: Entity, value: &FieldValue) -> Option<Fi
         }
     };
     Some(widget)
+}
+
+/// Spawns the caption showing a field value, wrapped so that long values stay inside the panel.
+fn spawn_value_caption(world: &mut World, row: Entity, text: String) -> Option<Entity> {
+    let entity = spawn_child_scene(world, row, caption(text))?;
+    world.entity_mut(entity).insert((
+        TextLayout {
+            linebreak: LineBreak::AnyCharacter,
+            ..Default::default()
+        },
+        Node {
+            min_width: px(0),
+            max_width: percent(100),
+            flex_basis: px(0),
+            flex_grow: 1.0,
+            flex_shrink: 1.0,
+            ..Default::default()
+        },
+    ));
+    Some(entity)
 }
 
 fn apply_value(world: &mut World, widget: &FieldWidget, value: &FieldValue) {
@@ -755,6 +780,15 @@ fn descendant_with<C: Component>(world: &World, root: Entity) -> Option<Entity> 
 /// Flattens a reflected component value into the rows the details panel renders.
 pub fn field_entries(value: &dyn PartialReflect) -> Vec<FieldEntry> {
     let mut entries = Vec::new();
+    if let Some(name) = value.try_downcast_ref::<Name>() {
+        entries.push(FieldEntry {
+            path: String::new(),
+            label: "value".to_string(),
+            depth: 0,
+            value: FieldValue::Label(name.as_str().to_string()),
+        });
+        return entries;
+    }
     let (value, path) = unwrap_newtype(value, String::new());
     if let Some(scalar) = scalar_value(value) {
         entries.push(FieldEntry {
@@ -964,14 +998,21 @@ fn summary(value: &dyn PartialReflect) -> Option<String> {
 
 /// Formats a value that has no dedicated widget, preferring the reflected [`Display`] output.
 ///
+/// Opaque types without a [`Display`] implementation fall back to their shortened type path.
+///
 /// [`Display`]: core::fmt::Display
 fn format_fallback(value: &dyn PartialReflect) -> String {
     let displayed = format!("{value}");
-    if displayed.trim().is_empty() {
+    let displayed = if displayed.trim().is_empty() {
         format!("{value:?}")
     } else {
         displayed
+    };
+    let type_path = value.reflect_type_path();
+    if displayed.trim() == format!("Reflect({type_path})") {
+        return ShortName(type_path).to_string();
     }
+    displayed
 }
 
 fn join(prefix: &str, name: &str) -> String {
@@ -1081,6 +1122,7 @@ mod tests {
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{AssetApp, AssetPlugin};
     use bevy_ecs::component::Component;
+    use bevy_platform::sync::Arc;
 
     #[derive(Reflect, Debug, Default)]
     struct Nested {
@@ -1094,8 +1136,15 @@ mod tests {
     #[derive(Component, Reflect, Debug, Default)]
     #[reflect(Component, Default)]
     struct Tagged {
-        label: bevy_ecs::name::Name,
+        label: Name,
     }
+
+    #[derive(Reflect, Debug, Default)]
+    struct StrongHandle;
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default)]
+    struct Holder(Arc<StrongHandle>);
 
     #[derive(Component, Reflect, Debug, Default)]
     #[reflect(Component, Default)]
@@ -1183,7 +1232,7 @@ mod tests {
         let subject = app
             .world_mut()
             .spawn(Tagged {
-                label: bevy_ecs::name::Name::new("hello"),
+                label: Name::new("hello"),
             })
             .id();
 
@@ -1306,5 +1355,55 @@ mod tests {
             app.world().get::<NumberInputValue>(scale),
             Some(&NumberInputValue::F32(4.0))
         );
+    }
+
+    #[test]
+    fn renders_a_name_as_a_single_caption() {
+        let entries = field_entries(&Name::new("Left Cube"));
+
+        assert_eq!(
+            entries.len(),
+            1,
+            "expected one caption row, got {entries:?}"
+        );
+        assert_eq!(entries[0].value, FieldValue::Label("Left Cube".to_string()));
+    }
+
+    #[test]
+    fn shortens_opaque_type_paths() {
+        let entries = field_entries(&Holder(Arc::new(StrongHandle)));
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(
+            entries[0].value,
+            FieldValue::Label("Arc<StrongHandle>".to_string())
+        );
+    }
+
+    #[test]
+    fn wraps_long_value_captions() {
+        let mut app = test_app();
+        app.register_type::<Holder>();
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        let subject = app.world_mut().spawn(Holder(Arc::new(StrongHandle))).id();
+
+        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(subject);
+        app.update();
+
+        let index = app.world().resource::<DetailsIndex>();
+        let captions: Vec<Entity> = index
+            .fields
+            .values()
+            .filter(|widget| matches!(widget.value, FieldValue::Label(_)))
+            .map(|widget| widget.entity)
+            .collect();
+        assert!(!captions.is_empty());
+        for caption in captions {
+            let layout = app.world().get::<TextLayout>(caption).unwrap();
+            assert_eq!(layout.linebreak, LineBreak::AnyCharacter);
+            let node = app.world().get::<Node>(caption).unwrap();
+            assert_eq!(node.min_width, px(0));
+            assert_eq!(node.flex_shrink, 1.0);
+        }
     }
 }
