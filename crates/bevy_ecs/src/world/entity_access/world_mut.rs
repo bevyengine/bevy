@@ -1698,6 +1698,11 @@ impl<'w> EntityWorldMut<'w> {
 
     /// This despawns this entity if it is currently spawned, storing the new [`EntityGeneration`](crate::entity::EntityGeneration) in [`Self::entity`] but not freeing it.
     pub(crate) fn despawn_no_free_with_caller(&mut self, caller: MaybeLocation) {
+        self.despawn_no_free_no_flush_with_caller(caller);
+        self.world.flush();
+    }
+
+    pub(crate) fn despawn_no_free_no_flush_with_caller(&mut self, caller: MaybeLocation) {
         // setup
         let Some(location) = self.location else {
             // If there is no location, we are already despawned
@@ -1861,7 +1866,6 @@ impl<'w> EntityWorldMut<'w> {
         // finish
         // SAFETY: We just despawned it.
         self.entity = unsafe { self.world.entities.mark_free(self.entity.index(), 1) };
-        self.world.flush();
     }
 
     /// Despawns the current entity.

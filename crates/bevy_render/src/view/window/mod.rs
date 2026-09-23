@@ -190,14 +190,29 @@ fn extract_windows(
         }
     }
 
+    // Remove the components instead of despawn the synced render entity here:
+    // `RawHandleWrapper` removal is not necessarily
+    // terminal. On Android the native window is destroyed (and its handle removed) when the app
+    // suspends, but the window entity survives and is given a new handle on resume. Despawning
+    // would leave the `SubEntity` on the main world entity pointing at a dead entity, and the
+    // next round of extraction would panic when reusing it.
+    //
+    // The render entity is only ever despawned by the entity sync system once the main world
+    // window entity is actually destroyed. Here we only tear down the surface and drop the
+    // extracted window data; extraction and `create_surfaces` will recreate them whenever the
+    // window has a (new) `RawHandleWrapper` again.
     for closing_window in closing.read() {
         if let Ok(render_entity) = mapper.get(closing_window.window) {
-            commands.entity(render_entity.entity()).despawn();
+            commands
+                .entity(render_entity.entity())
+                .remove::<(ExtractedWindow, RawHandleWrapper, SurfaceData)>();
         }
     }
     for removed_window in removed.read() {
         if let Ok(render_entity) = mapper.get(removed_window) {
-            commands.entity(render_entity.entity()).despawn();
+            commands
+                .entity(render_entity.entity())
+                .remove::<(ExtractedWindow, RawHandleWrapper, SurfaceData)>();
         }
     }
     for removed_window in removed_primary.read() {

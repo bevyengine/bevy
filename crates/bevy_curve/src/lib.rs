@@ -343,7 +343,6 @@ pub use {
 mod base {
     use super::*;
     use crate::interval::InvalidIntervalError;
-    #[cfg(feature = "alloc")]
     use bevy_math::VectorSpace;
     use core::{marker::PhantomData, ops::Deref};
     use thiserror::Error;
@@ -1412,6 +1411,7 @@ pub mod prelude {
     pub use crate::interval::{interval, Interval};
 
     #[doc(hidden)]
+    #[cfg(feature = "alloc")]
     pub use crate::sample_curves::*;
 
     #[doc(hidden)]

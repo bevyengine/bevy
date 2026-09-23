@@ -34,6 +34,7 @@ members = [
   "examples/large_scenes/bistro",
   "examples/large_scenes/caldera_hotel",
   "examples/large_scenes/bevy_city",
+  "examples/large_scenes/zero_day",
   # Mipmap generator for testing large bevy scenes with mips and texture compression.
   "examples/large_scenes/mipmap_generator",
   # Benchmarks
@@ -154,8 +155,9 @@ ui = [
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
 dev = [
-  "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
+  "debug",            # TODO: rename this to something more specific ... this is a "debug ECS names" feature
   "bevy_dev_tools",
+  "render_dev_tools",
   "file_watcher",
 ]
 
@@ -399,8 +401,14 @@ pan_camera = ["bevy_internal/pan_camera"]
 # Enables the pan orbit camera from bevy_camera_controller
 pan_orbit_camera = ["bevy_internal/pan_orbit_camera"]
 
+# Enables the pan orbit camera anchor indicator gizmo
+pan_orbit_gizmo = ["bevy_internal/pan_orbit_gizmo"]
+
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
+
+# Enable a native client for calling a running app over the Bevy Remote Protocol, used by in-engine tools like the inspector and by the remote examples
+bevy_remote_client = ["bevy_remote", "bevy_internal/bevy_remote_client"]
 
 # Enable integration with `tracing` and `log`
 bevy_log = ["bevy_internal/bevy_log"]
@@ -570,6 +578,9 @@ android-game-activity = ["bevy_internal/android-game-activity"]
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
+# Enable systems that allow for renderable dev tools
+render_dev_tools = ["bevy_internal/render_dev_tools"]
+
 # Enable glTF animation loading
 gltf_animation = ["bevy_internal/gltf_animation"]
 
@@ -606,6 +617,9 @@ force_disable_dlss = ["bevy_internal/force_disable_dlss"]
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
 
+# Enable Feral Interactive's `GameMode` integration on Linux
+linux_game_mode = ["bevy_internal/linux_game_mode"]
+
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_internal/glam_assert"]
 
@@ -617,6 +631,9 @@ default_font = ["bevy_internal/default_font"]
 
 # Allows for discovery of preloaded system fonts
 system_font_discovery = ["bevy_internal/system_font_discovery"]
+
+# Enables dictionary-based segmentation for complex scripts (CJK, Thai, Khmer, Lao, Myanmar), at the cost of a larger binary
+complex_script_segmentation = ["bevy_internal/complex_script_segmentation"]
 
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
@@ -779,7 +796,7 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.24"
+accesskit = "0.25"
 nonmax = "0.5"
 gltf = "1.4"
 indexmap = "2"
@@ -1044,6 +1061,17 @@ required-features = ["system_font_discovery"]
 [package.metadata.example.ime_support]
 name = "IME Support"
 description = "Demonstrates IME (Input Method Editor) support for text input"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "inline_image"
+path = "examples/ui/text/inline_image.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.inline_image]
+name = "Inline Images"
+description = "Demonstrates how to display images inline with text"
 category = "UI (User Interface)"
 wasm = true
 
@@ -2135,6 +2163,17 @@ doc-scrape-examples = true
 
 [package.metadata.example.custom_asset]
 name = "Custom Asset"
+description = "Implements a custom asset, with a default loader"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "custom_asset_loader"
+path = "examples/asset/custom_asset_loader.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_asset_loader]
+name = "Custom Asset Loader"
 description = "Implements a custom asset loader"
 category = "Assets"
 wasm = true
@@ -3233,6 +3272,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "sprite_material"
+path = "examples/shader/sprite_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_material]
+name = "Sprite Material"
+description = "A custom shader for sprites"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "shader_prepass"
 path = "examples/shader/shader_prepass.rs"
 doc-scrape-examples = true
@@ -3440,6 +3490,17 @@ description = "Demonstrates how to write a fullscreen material"
 category = "Shaders Advanced"
 wasm = true
 
+[[example]]
+name = "mesh_shader_intro"
+path = "examples/shader_advanced/mesh_shader_intro.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh_shader_intro]
+name = "Mesh Shader Introduction"
+description = "Demonstrates how to use Task/Amplification/Mesh Shaders"
+category = "Shaders Advanced"
+wasm = false
+
 # Stress tests
 [[package.metadata.example_category]]
 name = "Stress Tests"
@@ -3485,17 +3546,6 @@ name = "Many Animated Sprites"
 description = "Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
 category = "Stress Tests"
 wasm = true
-
-[[example]]
-name = "many_animated_sprite_meshes"
-path = "examples/stress_tests/many_animated_sprite_meshes.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.many_animated_sprite_meshes]
-name = "Many Animated Sprite Meshes"
-description = "Displays many animated sprite meshes in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
-category = "Stress Tests"
-wasm = false
 
 [[example]]
 name = "many_buttons"
@@ -3617,17 +3667,6 @@ name = "Many Sprites"
 description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
-
-[[example]]
-name = "many_sprite_meshes"
-path = "examples/stress_tests/many_sprite_meshes.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.many_sprite_meshes]
-name = "Many Sprite Meshes"
-description = "Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
-category = "Stress Tests"
-wasm = false
 
 [[example]]
 name = "many_text2d"
@@ -5023,7 +5062,7 @@ wasm = false
 name = "integration_test"
 path = "examples/remote/integration_test.rs"
 doc-scrape-examples = true
-required-features = ["bevy_remote", "bevy_feathers"]
+required-features = ["bevy_remote_client", "bevy_feathers"]
 
 [package.metadata.example.integration_test]
 name = "Integration Test"
@@ -5183,6 +5222,17 @@ category = "Picking"
 wasm = true
 
 [[example]]
+name = "draggable_slider"
+path = "examples/picking/draggable_slider.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.draggable_slider]
+name = "Draggable Slider"
+description = "Demonstrates pointer capture using a draggable slider"
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
 doc-scrape-examples = true
@@ -5267,6 +5317,17 @@ doc-scrape-examples = true
 
 [package.metadata.example.test_skinned_mesh_bounds]
 hidden = true
+
+[[example]]
+name = "test_meshlet"
+path = "tests/3d/test_meshlet.rs"
+doc-scrape-examples = true
+required-features = ["meshlet", "meshlet_processor", "free_camera"]
+
+[package.metadata.example.test_meshlet]
+hidden = true
+# Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
+wasm = false
 
 [profile.wasm-release]
 inherits = "release"
@@ -5496,6 +5557,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "headless_tree"
+path = "examples/ui/widgets/headless_tree.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_tree]
+name = "Headless Tree"
+description = "Demonstrates the headless tree view with lazy population and keyboard navigation"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "standard_widgets_observers"
 path = "examples/ui/widgets/standard_widgets_observers.rs"
 doc-scrape-examples = true
@@ -5616,7 +5688,13 @@ wasm = true
 name = "pan_orbit_camera_cad"
 path = "examples/camera/pan_orbit_camera_cad.rs"
 doc-scrape-examples = true
-required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+required-features = [
+  "pan_orbit_camera",
+  "pan_orbit_gizmo",
+  "https",
+  "3d_api",
+  "jpeg",
+]
 
 [package.metadata.example.pan_orbit_camera_cad]
 name = "Pan Orbit Camera"
@@ -5628,7 +5706,13 @@ wasm = true
 name = "pan_orbit_camera_minimal"
 path = "examples/camera/pan_orbit_camera_minimal.rs"
 doc-scrape-examples = true
-required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+required-features = [
+  "pan_orbit_camera",
+  "pan_orbit_gizmo",
+  "https",
+  "3d_api",
+  "jpeg",
+]
 
 [package.metadata.example.pan_orbit_camera_minimal]
 name = "Minimal Pan Orbit Camera"
@@ -5640,7 +5724,13 @@ wasm = true
 name = "pan_orbit_camera_ortho"
 path = "examples/camera/pan_orbit_camera_ortho.rs"
 doc-scrape-examples = true
-required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+required-features = [
+  "pan_orbit_camera",
+  "pan_orbit_gizmo",
+  "https",
+  "3d_api",
+  "jpeg",
+]
 
 [package.metadata.example.pan_orbit_camera_ortho]
 name = "Orthographic Pan Orbit Camera"

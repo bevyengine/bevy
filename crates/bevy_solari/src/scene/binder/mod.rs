@@ -8,7 +8,7 @@ mod tlas_build;
 
 use self::assets::{AssetState, MAX_TEXTURE_COUNT};
 pub use self::bind_group::prepare_raytracing_scene_bind_group;
-use self::bind_group::BindGroupCacheState;
+use self::bind_group::{BindGroupCacheState, GpuEnvironmentMapLight};
 use self::instances::{
     ChangedInstanceFilter, InstanceInputs, InstanceQueryData, InstanceState, MAX_MESH_SLAB_COUNT,
 };
@@ -16,11 +16,9 @@ use self::lights::LightState;
 use self::tlas::TlasState;
 pub use self::tlas::{build_raytracing_tlas, TlasInstanceSetupPipeline};
 use super::{blas::BlasManager, extract::StandardMaterialAssets, RaytracingMesh3d};
-use crate::realtime::SolariLighting;
 use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
-    query::With,
     resource::Resource,
     system::{Query, Res, ResMut},
     world::{FromWorld, World},
@@ -35,6 +33,14 @@ use bevy_render::{
 };
 use tracing::info_span;
 
+/// Insert this resource into the render world to make the raytracing scene retain the previous
+/// frame's TLAS and the light id translation table that maps into it.
+///
+/// This is useful for temporal techniques that need last frame's data. Retaining it costs a second
+/// TLAS allocation and rebuild, so the scene only does so while something asks for it.
+#[derive(Resource, Default)]
+pub struct RaytracingSceneNeedsPreviousFrameData;
+
 #[derive(Resource)]
 pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
@@ -44,6 +50,8 @@ pub struct RaytracingSceneBindings {
     lights: LightState,
     tlas: TlasState,
     bind_groups: BindGroupCacheState,
+    environment_map_light_sampler: Sampler,
+    environment_map_light_buffer: StorageBuffer<GpuEnvironmentMapLight>,
 }
 
 impl RaytracingSceneBindings {
@@ -80,9 +88,26 @@ impl FromWorld for RaytracingSceneBindings {
                     storage_buffer_read_only_sized(false, None),
                     texture_2d(TextureSampleType::Float { filterable: true }),
                     sampler(SamplerBindingType::Filtering),
+                    texture_cube(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
+                    storage_buffer_read_only_sized(false, None),
                 ),
             ),
         );
+
+        let environment_map_light_sampler = render_device.create_sampler(&SamplerDescriptor {
+            label: Some("solari_environment_map_light_sampler"),
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            address_mode_w: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: MipmapFilterMode::Linear,
+            ..Default::default()
+        });
+
+        let mut environment_map_light_buffer = StorageBuffer::<GpuEnvironmentMapLight>::default();
+        environment_map_light_buffer.set_label(Some("solari_environment_map_light"));
 
         Self {
             bind_group: None,
@@ -92,6 +117,8 @@ impl FromWorld for RaytracingSceneBindings {
             lights: LightState::new(),
             tlas: TlasState::new(render_device),
             bind_groups: BindGroupCacheState::new(render_device),
+            environment_map_light_sampler,
+            environment_map_light_buffer,
         }
     }
 }
@@ -102,7 +129,7 @@ pub fn prepare_raytracing_scene_resources(
     changed_instances: Query<Entity, ChangedInstanceFilter>,
     mut removed_instances: RemovedComponents<RaytracingMesh3d>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
-    lighting_views: Query<(), With<SolariLighting>>,
+    needs_previous_frame_data: Option<Res<RaytracingSceneNeedsPreviousFrameData>>,
     mesh_allocator: Res<MeshAllocator>,
     blas_manager: Res<BlasManager>,
     material_assets: Res<StandardMaterialAssets>,
@@ -115,9 +142,10 @@ pub fn prepare_raytracing_scene_resources(
     mut bindings: ResMut<RaytracingSceneBindings>,
 ) {
     let bindings = &mut *bindings;
+    let needs_previous_frame_data = needs_previous_frame_data.is_some();
 
     // Roll light ids over before any removal or compaction writes this frame's translations
-    bindings.lights.begin_frame(!lighting_views.is_empty());
+    bindings.lights.begin_frame(needs_previous_frame_data);
 
     // Update material and texture assets
     bindings
@@ -163,6 +191,7 @@ pub fn prepare_raytracing_scene_resources(
         &mut bindings.bind_groups,
         &render_device,
         build_ready,
+        needs_previous_frame_data,
     );
 }
 

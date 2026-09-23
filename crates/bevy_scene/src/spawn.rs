@@ -129,14 +129,11 @@ pub trait WorldSceneExt {
     /// }
     ///
     /// world.spawn_scene_list(bsn_list! {
-    ///     (
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
+    ///     #Player1
+    ///     Team::Red
+    ///     --
+    ///     #Player2
+    ///     Team::Blue
     /// }).unwrap();
     /// ```
     // PERF: ideally this is an iterator
@@ -168,18 +165,15 @@ pub trait WorldSceneExt {
     /// }
     /// // This scene list includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is loaded.
-    /// world.queue_spawn_scene_list(bsn_list! [
-    ///     (
-    ///         :"player.bsn"
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         :"player.bsn"
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
-    /// ]);
+    /// world.queue_spawn_scene_list(bsn_list! {
+    ///     :"player.bsn"
+    ///     #Player1
+    ///     Team::Red
+    ///     --
+    ///     :"player.bsn"
+    ///     #Player2
+    ///     Team::Blue
+    /// });
     /// ```
     fn queue_spawn_scene_list<L: SceneList>(&mut self, scenes: L);
 }
@@ -320,16 +314,13 @@ pub trait CommandsSceneExt {
     ///
     /// // Note that the .bsn file format is not yet released.
     /// commands.spawn_scene_list(bsn_list! {
-    ///     (
-    ///         :"player.bsn"
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         :"player.bsn"
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
+    ///     :"player.bsn"
+    ///     #Player1
+    ///     Team::Red
+    ///     --
+    ///     :"player.bsn"
+    ///     #Player2
+    ///     Team::Blue
     /// });
     /// ```
     fn spawn_scene_list<L: SceneList>(&mut self, scenes: L);
@@ -353,18 +344,15 @@ pub trait CommandsSceneExt {
     ///
     /// // This scene list includes the "player.bsn" asset (note that the `.bsn` file format is not yet released). It will be spawned on the frame that "player.bsn"
     /// // is loaded.
-    /// commands.queue_spawn_scene_list(bsn_list! [
-    ///     (
-    ///         :"player.bsn"
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         :"player.bsn"
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
-    /// ]);
+    /// commands.queue_spawn_scene_list(bsn_list! {
+    ///     :"player.bsn"
+    ///     #Player1
+    ///     Team::Red
+    ///     --
+    ///     :"player.bsn"
+    ///     #Player2
+    ///     Team::Blue
+    /// });
     /// ```
     fn queue_spawn_scene_list<L: SceneList>(&mut self, scenes: L);
 }
@@ -439,14 +427,11 @@ pub trait EntityWorldMutSceneExt {
     /// }
     ///
     /// world.spawn_empty().queue_spawn_related_scenes::<Children>(bsn_list! {
-    ///     (
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
+    ///     #Player1
+    ///     Team::Red
+    ///     --
+    ///     #Player2
+    ///     Team::Blue
     /// });
     /// ```
     fn queue_spawn_related_scenes<T: RelationshipTarget>(self, scenes: impl SceneList) -> Self;
@@ -543,14 +528,11 @@ pub trait EntityCommandsSceneExt {
     /// }
     ///
     /// commands.spawn_empty().queue_spawn_related_scenes::<Children>(bsn_list! {
-    ///     (
-    ///         #Player1
-    ///         Team::Red
-    ///     ),
-    ///     (
-    ///         #Player2
-    ///         Team::Blue
-    ///     )
+    ///     #Player1
+    ///     Team::Red
+    ///     --
+    ///     #Player2
+    ///     Team::Blue
     /// });
     /// ```
     fn queue_spawn_related_scenes<T: RelationshipTarget>(
