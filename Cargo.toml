@@ -401,8 +401,14 @@ pan_camera = ["bevy_internal/pan_camera"]
 # Enables the pan orbit camera from bevy_camera_controller
 pan_orbit_camera = ["bevy_internal/pan_orbit_camera"]
 
+# Enables the pan orbit camera anchor indicator gizmo
+pan_orbit_gizmo = ["bevy_internal/pan_orbit_gizmo"]
+
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
+
+# Enable a native client for calling a running app over the Bevy Remote Protocol, used by in-engine tools like the inspector and by the remote examples
+bevy_remote_client = ["bevy_remote", "bevy_internal/bevy_remote_client"]
 
 # Enable integration with `tracing` and `log`
 bevy_log = ["bevy_internal/bevy_log"]
@@ -610,6 +616,9 @@ force_disable_dlss = ["bevy_internal/force_disable_dlss"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
+
+# Enable Feral Interactive's `GameMode` integration on Linux
+linux_game_mode = ["bevy_internal/linux_game_mode"]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_internal/glam_assert"]
@@ -5053,7 +5062,7 @@ wasm = false
 name = "integration_test"
 path = "examples/remote/integration_test.rs"
 doc-scrape-examples = true
-required-features = ["bevy_remote", "bevy_feathers"]
+required-features = ["bevy_remote_client", "bevy_feathers"]
 
 [package.metadata.example.integration_test]
 name = "Integration Test"
@@ -5679,7 +5688,13 @@ wasm = true
 name = "pan_orbit_camera_cad"
 path = "examples/camera/pan_orbit_camera_cad.rs"
 doc-scrape-examples = true
-required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+required-features = [
+  "pan_orbit_camera",
+  "pan_orbit_gizmo",
+  "https",
+  "3d_api",
+  "jpeg",
+]
 
 [package.metadata.example.pan_orbit_camera_cad]
 name = "Pan Orbit Camera"
@@ -5691,7 +5706,13 @@ wasm = true
 name = "pan_orbit_camera_minimal"
 path = "examples/camera/pan_orbit_camera_minimal.rs"
 doc-scrape-examples = true
-required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+required-features = [
+  "pan_orbit_camera",
+  "pan_orbit_gizmo",
+  "https",
+  "3d_api",
+  "jpeg",
+]
 
 [package.metadata.example.pan_orbit_camera_minimal]
 name = "Minimal Pan Orbit Camera"
@@ -5703,7 +5724,13 @@ wasm = true
 name = "pan_orbit_camera_ortho"
 path = "examples/camera/pan_orbit_camera_ortho.rs"
 doc-scrape-examples = true
-required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+required-features = [
+  "pan_orbit_camera",
+  "pan_orbit_gizmo",
+  "https",
+  "3d_api",
+  "jpeg",
+]
 
 [package.metadata.example.pan_orbit_camera_ortho]
 name = "Orthographic Pan Orbit Camera"
