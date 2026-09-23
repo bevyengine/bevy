@@ -392,7 +392,7 @@ pub fn compute_layout<'w, 's>(
         };
 
         compute_root_layout(&mut tree, VIEWPORT_NODE_ID, available_space);
-        if tree.layout_changed {
+        if tree.layout_changed || needs_full_walk {
             round_layout(&mut tree, VIEWPORT_NODE_ID);
         }
     };
