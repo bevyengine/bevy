@@ -3146,6 +3146,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// - If `D` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
     /// - If `D` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
     #[inline(always)]
+    #[expect(
+        clippy::redundant_else,
+        reason = "The dense branch is a loop that only exits by returning, so Clippy reads the else as redundant, but the two branches are parallel alternatives and belong side by side."
+    )]
     unsafe fn next(
         &mut self,
         tables: &'w Tables,

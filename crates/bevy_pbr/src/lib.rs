@@ -1,3 +1,7 @@
+// System parameters holding `wgpu`-backed types (such as the cached
+// `BindGroupEntry` buffers in `render::mesh_view_bindings`) form deep chains
+// when the compiler proves them well-formed, exceeding the default limit of 128.
+#![recursion_limit = "256"]
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]

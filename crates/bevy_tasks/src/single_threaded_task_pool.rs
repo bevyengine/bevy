@@ -359,12 +359,15 @@ mod test {
         let thread = thread::spawn(move || {
             let duration = time::Duration::from_millis(50);
             thread::sleep(duration);
-            let _ = sender.send(0);
+            // `send` is async, and this is a plain thread with nothing to
+            // await it, so dropping its future would send nothing at all.
+            sender.send_blocking(0).unwrap();
         });
         task_pool.scope(|scope| {
             scope.spawn(async {
                 receiver.recv().await
             });
         });
+        thread.join().unwrap();
     }
 }

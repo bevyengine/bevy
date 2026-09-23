@@ -1,3 +1,6 @@
+// System parameters holding `wgpu`-backed types form deep chains when the
+// compiler proves them well-formed, exceeding the default limit of 128.
+#![recursion_limit = "256"]
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 
 //! Provides raytraced lighting.

@@ -578,12 +578,11 @@ fn init_param_or_panic<P: SystemParam>(
             let mut access = err2.access.clone();
             let err1 = P::init_access(state, system_meta, &mut access).err();
             panic_for_param_conflict(system_meta.name(), world, err1, err2);
-        } else {
-            // The ordinary panic message includes multiple `DebugName`s,
-            // each of which would be replaced with an "Enable the debug feature" message.
-            // Don't even bother calling `init_access` again if we can't use the parameter name.
-            panic_for_param_conflict_no_debug(err2);
         }
+        // The ordinary panic message includes multiple `DebugName`s,
+        // each of which would be replaced with an "Enable the debug feature" message.
+        // Don't even bother calling `init_access` again if we can't use the parameter name.
+        panic_for_param_conflict_no_debug(err2);
     });
     access
 }
