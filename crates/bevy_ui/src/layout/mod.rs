@@ -17,6 +17,7 @@ use bevy_ecs::{
     world::Ref,
 };
 
+use bevy_log::warn_once;
 use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
 use layout_tree::ComputedLayout;
@@ -350,7 +351,7 @@ pub fn ui_layout_system(
             continue;
         };
 
-        let _ = compute_layout(
+        if let Err(_) = compute_layout(
             ui_root_entity,
             target.physical_size(),
             &ui_children,
@@ -363,7 +364,9 @@ pub fn ui_layout_system(
             &mut child_stack,
             needs_full_walk,
             &mut ghost_stack,
-        );
+        ) {
+            warn_once!("Invalid UI root entity: {ui_root_entity}.")
+        }
         child_stack.clear();
     }
 
