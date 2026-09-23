@@ -3568,8 +3568,8 @@ impl ComputedUiRenderTargetInfo {
 ///
 /// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
 /// `FixedNode` is ignored on a `GhostNode`.
-/// `FixedNode` on a root node is redundant.
-/// All of a `FixedNode`'s ancestors must be `Node` entities, and at least one must be be non-`GhostNode`.
+/// `FixedNode` on a parentless node is redundant.
+/// All of a `FixedNode`'s ancestors must be `Node` entities.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 #[require(Node)]

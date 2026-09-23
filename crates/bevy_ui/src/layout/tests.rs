@@ -2341,7 +2341,15 @@ fn unghost_ghost_node_with_fixed_and_normal_children() {
     let mut app = setup_ui_test_app();
     let world = app.world_mut();
 
-    let fixed = world.spawn((Node::default(), FixedNode)).id();
+    let fixed = world
+        .spawn((
+            Node {
+                width: px(10.),
+                ..default()
+            },
+            FixedNode,
+        ))
+        .id();
     let child = world.spawn(Node::default()).id();
     let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
 
@@ -2358,6 +2366,18 @@ fn unghost_ghost_node_with_fixed_and_normal_children() {
     let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
     assert!(computed_child.has_layout());
     assert!(computed_child.is_layout_root());
+    assert_eq!(
+        app.world().get::<ComputedNode>(fixed).unwrap().size().x,
+        10.
+    );
+    app.world_mut().get_mut::<Node>(fixed).unwrap().width = px(20.);
+
+    app.update();
+
+    assert_eq!(
+        app.world().get::<ComputedNode>(fixed).unwrap().size().x,
+        20.
+    );
 
     app.world_mut().entity_mut(ghost).remove::<GhostNode>();
     app.update();

@@ -147,7 +147,7 @@ pub fn update_ui_roots(
     all_roots_query: Query<Entity, (With<Node>, Without<ChildOf>)>,
     roots_query: Query<Entity, (With<Node>, Without<ChildOf>, Without<GhostNode>)>,
     fixed_nodes_query: Query<(Entity, &ChildOf), (With<FixedNode>, Without<GhostNode>)>,
-    fixed_nodes_ancestor_query: Query<(Has<GhostNode>, Option<&ChildOf>), With<Node>>,
+    fixed_nodes_ancestor_query: Query<Option<&ChildOf>, With<Node>>,
     ghost_roots_query: Query<(Entity, Option<&Children>), (With<GhostNode>, Without<ChildOf>)>,
     flattening_query: Query<(Entity, Has<GhostNode>, Option<&Children>), With<Node>>,
 ) {
@@ -177,14 +177,12 @@ pub fn update_ui_roots(
 
     for (entity, child_of) in &fixed_nodes_query {
         let mut ancestor = Some(child_of.parent());
-        let mut is_valid_fixed_node = false;
+        let mut is_valid_fixed_node = true;
         while let Some(ancestor_entity) = ancestor {
-            let Ok((is_ghost, maybe_child_of)) = fixed_nodes_ancestor_query.get(ancestor_entity)
-            else {
+            let Ok(maybe_child_of) = fixed_nodes_ancestor_query.get(ancestor_entity) else {
                 is_valid_fixed_node = false;
                 break;
             };
-            is_valid_fixed_node |= !is_ghost;
             ancestor = maybe_child_of.map(ChildOf::parent);
         }
 
