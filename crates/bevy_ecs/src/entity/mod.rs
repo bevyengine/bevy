@@ -211,6 +211,18 @@ impl EntityIndex {
     }
 }
 
+/// Parses the [`Display`](fmt::Display) form of an [`EntityIndex`].
+impl core::str::FromStr for EntityIndex {
+    type Err = ParseEntityError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.parse::<u32>()
+            .ok()
+            .and_then(EntityIndex::from_raw_u32)
+            .ok_or(ParseEntityError)
+    }
+}
+
 impl SparseSetIndex for EntityIndex {
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -331,6 +343,17 @@ impl EntityGeneration {
             1..Self::DIFF_MAX => Ordering::Greater,
             _ => Ordering::Less,
         }
+    }
+}
+
+/// Parses the [`Display`](fmt::Display) form of an [`EntityGeneration`].
+impl core::str::FromStr for EntityGeneration {
+    type Err = ParseEntityError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.parse::<u32>()
+            .map(EntityGeneration::from_bits)
+            .map_err(|_| ParseEntityError)
     }
 }
 
@@ -691,15 +714,9 @@ impl core::str::FromStr for Entity {
             return Ok(Self::PLACEHOLDER);
         }
         let (index, generation) = s.split_once('v').ok_or(ParseEntityError)?;
-        let index = index
-            .parse()
-            .ok()
-            .and_then(EntityIndex::from_raw_u32)
-            .ok_or(ParseEntityError)?;
-        let generation = generation.parse().map_err(|_| ParseEntityError)?;
         Ok(Self::from_index_and_generation(
-            index,
-            EntityGeneration::from_bits(generation),
+            index.parse::<EntityIndex>()?,
+            generation.parse::<EntityGeneration>()?,
         ))
     }
 }
@@ -1530,6 +1547,30 @@ mod tests {
         let entity = Entity::PLACEHOLDER;
         let string = format!("{entity:?}");
         assert_eq!(string, "PLACEHOLDER");
+    }
+
+    #[test]
+    fn entity_index_from_str() {
+        use alloc::string::ToString;
+
+        let index = EntityIndex::from_raw_u32(42).unwrap();
+        assert_eq!(index.to_string().parse::<EntityIndex>(), Ok(index));
+        assert_eq!("42".parse::<EntityIndex>(), Ok(index));
+        assert_eq!("4294967295".parse::<EntityIndex>(), Err(ParseEntityError));
+        assert_eq!("abc".parse::<EntityIndex>(), Err(ParseEntityError));
+    }
+
+    #[test]
+    fn entity_generation_from_str() {
+        use alloc::string::ToString;
+
+        let generation = EntityGeneration::FIRST.after_versions(3);
+        assert_eq!(
+            generation.to_string().parse::<EntityGeneration>(),
+            Ok(generation)
+        );
+        assert_eq!("3".parse::<EntityGeneration>(), Ok(generation));
+        assert_eq!("abc".parse::<EntityGeneration>(), Err(ParseEntityError));
     }
 
     #[test]
