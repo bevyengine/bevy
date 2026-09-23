@@ -53,7 +53,7 @@ impl Plugin for Core2dPlugin {
             .register_required_components_with::<Camera2d, CameraRenderGraph>(|| {
                 CameraRenderGraph::new(Core2d)
             })
-            .register_required_components_with::<Camera2d, Tonemapping>(|| Tonemapping::None)
+            .register_required_components_with::<Camera2d, Tonemapping>(|| Tonemapping::Linear)
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -441,7 +441,7 @@ pub fn prepare_core_2d_depth_textures(
         };
 
         let cached_texture = textures
-            .entry(camera.target.clone())
+            .entry((camera.target.clone(), msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),

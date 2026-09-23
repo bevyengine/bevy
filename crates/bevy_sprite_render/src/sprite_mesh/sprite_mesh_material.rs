@@ -226,12 +226,12 @@ impl AsBindGroupShaderType<SpriteMeshMaterialUniform> for SpriteMeshMaterial {
                         }
                         SpriteScalingMode::FitStart => {
                             let fit_size = fit_size();
-                            quad_offset -= (custom_size - fit_size) * 0.5;
+                            quad_offset += (custom_size - fit_size) * vec2(-0.5, 0.5);
                             quad_size = fit_size;
                         }
                         SpriteScalingMode::FitEnd => {
                             let fit_size = fit_size();
-                            quad_offset += (custom_size - fit_size) * 0.5;
+                            quad_offset += (custom_size - fit_size) * vec2(0.5, -0.5);
                             quad_size = fit_size;
                         }
                     }

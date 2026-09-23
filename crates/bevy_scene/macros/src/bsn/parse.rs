@@ -10,7 +10,7 @@ use quote::{quote, ToTokens};
 use syn::{
     braced, bracketed,
     buffer::Cursor,
-    parenthesized,
+    custom_punctuation, parenthesized,
     parse::{discouraged::Speculative, Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
     token::{At, Brace, Bracket, Colon, Comma, Dot, Paren, Tilde},
@@ -47,7 +47,7 @@ macro_rules! parse_punctuated_vec_autocomplete_friendly {
 
 impl Parse for BsnRoot {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(BsnRoot(input.parse::<Bsn<true>>()?))
+        Ok(BsnRoot(input.parse::<Bsn>()?))
     }
 }
 
@@ -57,10 +57,12 @@ impl Parse for BsnListRoot {
     }
 }
 
-impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
+impl Parse for Bsn {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut entries = Vec::new();
+        let mut used_parens = None;
         if input.peek(Paren) {
+            used_parens = Some(input.span());
             let content;
             parenthesized![content in input];
             while !content.is_empty() {
@@ -73,7 +75,7 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
                 }
                 entries.push(entry);
             }
-        } else if ALLOW_FLAT {
+        } else {
             while !input.is_empty() {
                 let entry = BsnEntry::parse(input)?;
                 if matches!(entry, BsnEntry::CachedScene(_)) && !entries.is_empty() {
@@ -83,17 +85,18 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
                     ));
                 }
                 entries.push(entry);
-                if input.peek(Comma) {
+                if input.peek(Comma) || input.peek(TwoMinus) {
                     // Not ideal, but this anticipatory break allows us to parse non-parenthesized
                     // flat Bsn entries in SceneLists
                     break;
                 }
             }
-        } else {
-            entries.push(BsnEntry::parse(input)?);
         }
 
-        Ok(Self { entries })
+        Ok(Self {
+            entries,
+            used_parens,
+        })
     }
 }
 
@@ -222,10 +225,51 @@ impl Parse for BsnSceneList {
 impl Parse for BsnSceneListItems {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut scenes = Vec::new();
-        parse_punctuated_vec_autocomplete_friendly!(scenes, input, BsnSceneListItem, Comma);
-        Ok(BsnSceneListItems(scenes))
+        let mut commas = Vec::new();
+        loop {
+            if input.is_empty() {
+                break;
+            }
+            let value = input.parse::<BsnSceneListItem>()?;
+            scenes.push(value);
+            if input.is_empty() {
+                break;
+            }
+
+            // Try parsing without a comma or -- separator first. This makes autocomplete
+            // work in more places
+            if !(input.peek(Comma) || input.peek(TwoMinus)) {
+                let value = input.parse::<BsnSceneListItem>()?;
+                scenes.push(value);
+            }
+
+            if input.peek(Comma) {
+                commas.push(input.span());
+            }
+            input.parse::<CommaOrTwoMinus>()?;
+        }
+
+        Ok(BsnSceneListItems(scenes, commas))
     }
 }
+
+struct CommaOrTwoMinus;
+
+impl Parse for CommaOrTwoMinus {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(Comma) {
+            let _ = input.parse::<Comma>()?;
+            Ok(CommaOrTwoMinus)
+        } else if input.peek(TwoMinus) {
+            let _ = input.parse::<TwoMinus>()?;
+            Ok(CommaOrTwoMinus)
+        } else {
+            Err(input.error("Expected ',' or '--'"))
+        }
+    }
+}
+
+custom_punctuation!(TwoMinus, --);
 
 impl Parse for BsnSceneListItem {
     fn parse(input: ParseStream) -> Result<Self> {
@@ -233,7 +277,7 @@ impl Parse for BsnSceneListItem {
             let tokens = braced_tokens(input)?;
             BsnSceneListItem::Expression(tokens)
         } else {
-            BsnSceneListItem::Scene(input.parse::<Bsn<true>>()?)
+            BsnSceneListItem::Scene(input.parse::<Bsn>()?)
         })
     }
 }
@@ -434,7 +478,7 @@ impl Parse for BsnNamedField {
 /// fully parsing Rust expressions, which makes this less strict and cheaper to parse.
 /// This also allows autocomplete to work, even if the tokens aren't a valid rust expression.
 ///
-/// This will accept anything "tuple-like" in the form (X1, ..., XY), where XY is a TokenStream.
+/// This will accept anything "tuple-like" in the form (X1, ..., XY), where XY is a `TokenStream`.
 fn parse_tuple_loose(input: &ParseBuffer) -> Result<Vec<TokenStream>> {
     let content;
     parenthesized!(content in input);
@@ -643,7 +687,7 @@ impl Parse for BsnFnArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut fn_args = Vec::new();
         for tokens in parse_tuple_loose(input)? {
-            fn_args.push(syn::parse2::<BsnFnArg>(tokens)?)
+            fn_args.push(syn::parse2::<BsnFnArg>(tokens)?);
         }
         Ok(BsnFnArgs(fn_args))
     }

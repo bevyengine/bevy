@@ -9,7 +9,10 @@ enable wgpu_ray_query;
 @group(1) @binding(2) var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
 @group(1) @binding(3) var gbuffer: texture_2d<u32>;
 @group(1) @binding(4) var depth_buffer: texture_depth_2d;
+@if(MOTION_VECTORS_READ_WRITE)
 @group(1) @binding(5) var motion_vectors: texture_storage_2d<rg16float, read_write>;
+@if(!MOTION_VECTORS_READ_WRITE)
+@group(1) @binding(5) var motion_vectors: texture_2d<f32>;
 @group(1) @binding(6) var<uniform> view: View;
 @group(1) @binding(7) var<uniform> previous_view: PreviousViewUniforms;
 @group(1) @binding(8) var<storage, read_write> world_cache: WorldCache;
@@ -30,8 +33,15 @@ enable wgpu_ray_query;
 @group(2) @binding(4) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
 }
 
-// User-configurable settings from the `SolariLighting` component, plus per-frame
-// state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.
+fn load_motion_vector(pixel_id: vec2<u32>) -> vec2<f32> {
+    @if(MOTION_VECTORS_READ_WRITE)
+    return textureLoad(motion_vectors, pixel_id).xy;
+    @if(!MOTION_VECTORS_READ_WRITE)
+    return textureLoad(motion_vectors, pixel_id, 0).xy;
+}
+
+/// User-configurable settings from the `SolariLighting` component, plus per-frame
+/// state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.
 struct SolariLightingSettings {
     confidence_weight_cap: f32,
     primary_di_samples: u32,
@@ -47,7 +57,7 @@ struct SolariLightingSettings {
     reset: u32,
 }
 
-// Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
+/// Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
 struct ResolvedLightSamplePacked {
     world_position_x: f32,
     world_position_y: f32,
@@ -57,7 +67,7 @@ struct ResolvedLightSamplePacked {
     inverse_pdf: f32,
 }
 
-// Don't adjust the size of this struct without also adjusting `prepare::RESERVOIR_STRUCT_SIZE`.
+/// Don't adjust the size of this struct without also adjusting `prepare::RESERVOIR_STRUCT_SIZE`.
 struct Reservoir {
     sample_point_world_position: vec3<f32>,
     unbiased_contribution_weight: f32,
@@ -85,7 +95,7 @@ struct WorldCacheGeometryData {
     padding_b: u32,
 }
 
-// Keep in sync with the packed world-cache layout constants in `prepare.rs`.
+/// Keep in sync with the packed world-cache layout constants in `prepare.rs`.
 struct WorldCache {
     checksums: array<atomic<u32>, constants::WORLD_CACHE_SIZE>,
     @if(WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)

@@ -27,7 +27,7 @@ pub struct PerspectiveSettings {
     pub near_clip_limits: std::ops::Range<f32>,
     /// When computing the near plane position, the anchor depth is multiplied by this value to
     /// determine the new near clip position. This should be smaller than one, to ensure that the
-    /// object you are looking at, which will be located at the anchor position, is bot being
+    /// object you are looking at, which will be located at the anchor position, is not being
     /// clipped. Some parts of the object may protrude toward the camera, which is what necessitates
     /// this.
     pub near_clip_multiplier: f32,

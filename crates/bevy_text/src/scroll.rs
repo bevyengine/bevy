@@ -4,7 +4,7 @@
 //!   the user's view of the text layout.
 //! - Coordinates are in text layout space, increasing right and downwards.
 //! - If the text layout is smaller than the viewport on an axis, the viewport is
-//!   given an offset of zero on that the axis.
+//!   given an offset of zero on that axis.
 //! - An origin-size representation is used because the size is generally fixed.
 //!   This avoids floating point error accumulation that might happen with min-max coords.
 //!

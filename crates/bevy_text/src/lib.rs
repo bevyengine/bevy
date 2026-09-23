@@ -40,6 +40,7 @@ mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
 mod glyph;
+mod inline_box;
 mod parley_context;
 mod pipeline;
 mod scroll;
@@ -56,6 +57,7 @@ pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
+pub use inline_box::*;
 pub use parley_context::*;
 pub use pipeline::*;
 pub use scroll::*;
@@ -124,6 +126,7 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
+            .init_resource::<DefaultFontSource>()
             .add_systems(
                 PostUpdate,
                 (
