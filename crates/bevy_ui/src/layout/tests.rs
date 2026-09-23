@@ -3595,3 +3595,48 @@ fn rounding_is_updated_on_hierarchy_changes_even_if_unrounded_layout_not_changed
     assert_eq!(world.get::<ComputedNode>(c).unwrap().size().x, 10.);
     assert_eq!(world.get::<ComputedNode>(d).unwrap().size().x, 11.);
 }
+
+#[test]
+fn display_none_on_a_ghost_node_is_ignored() {
+    let mut app = setup_ui_test_app();
+
+    let world = app.world_mut();
+    let root = world.spawn(Node::default()).id();
+    let child = world
+        .spawn((
+            Node {
+                width: px(10.),
+                height: px(10.),
+                ..default()
+            },
+            ChildOf(root),
+        ))
+        .id();
+
+    app.update();
+
+    let world = app.world_mut();
+    assert_eq!(
+        world.get::<ComputedNode>(child).unwrap().size,
+        Vec2::splat(10.)
+    );
+    world.get_mut::<Node>(root).unwrap().display = Display::None;
+
+    app.update();
+
+    let world = app.world_mut();
+    assert_eq!(world.get::<ComputedNode>(child).unwrap().size, Vec2::ZERO);
+    world.entity_mut(root).insert(GhostNode);
+
+    app.update();
+
+    let world = app.world_mut();
+    assert_eq!(
+        world.get::<ComputedNode>(child).unwrap().size,
+        Vec2::splat(10.)
+    );
+    assert_eq!(
+        world.get::<ComputedNode>(root).unwrap().size,
+        Vec2::splat(0.)
+    );
+}
