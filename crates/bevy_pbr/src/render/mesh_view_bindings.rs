@@ -712,6 +712,9 @@ pub fn prepare_mesh_view_bind_groups(
     mut entries_cache: bevy_ecs::system::Local<Vec<BindGroupEntry>>,
     #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
     mut entries_binding_array_cache: bevy_ecs::system::Local<Vec<BindGroupEntry>>,
+    // The empty bind group has no inputs and the same layout for every view,
+    // so it is created once and shared rather than once per view per frame.
+    mut empty_bind_group: bevy_ecs::system::Local<Option<BindGroup>>,
 ) {
     if let (
         Some(view_binding),
@@ -1030,6 +1033,15 @@ pub fn prepare_mesh_view_bind_groups(
             }
 
             let layout = mesh_pipeline.get_view_layout(layout_key);
+            let empty = empty_bind_group
+                .get_or_insert_with(|| {
+                    render_device.create_bind_group(
+                        "mesh_view_bind_group_empty",
+                        &pipeline_cache.get_bind_group_layout(&layout.empty_layout),
+                        &[],
+                    )
+                })
+                .clone();
             commands.entity(entity).insert((MeshViewBindGroup {
                 main_offsets: offsets,
                 main: render_device.create_bind_group(
@@ -1042,11 +1054,7 @@ pub fn prepare_mesh_view_bind_groups(
                     &pipeline_cache.get_bind_group_layout(&layout.binding_array_layout),
                     &entries_binding_array,
                 ),
-                empty: render_device.create_bind_group(
-                    "mesh_view_bind_group_empty",
-                    &pipeline_cache.get_bind_group_layout(&layout.empty_layout),
-                    &[],
-                ),
+                empty,
             },));
 
             #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]

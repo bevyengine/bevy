@@ -12,6 +12,7 @@ use bevy_ecs::{
 };
 use bevy_log::warn;
 use bevy_mesh::Indices;
+use bevy_platform::collections::HashMap;
 use bevy_shape::{Aabb2d, BoundingVolume};
 use glam::Vec4;
 use wgpu::{BufferUsages, DownlevelFlags, COPY_BUFFER_ALIGNMENT};
@@ -56,6 +57,14 @@ pub struct MeshAllocator {
     /// WebGL 2. On this platform, we must give each vertex array its own
     /// buffer, because we can't adjust the first vertex when we perform a draw.
     general_vertex_slabs_supported: bool,
+
+    /// The slabs of every allocated mesh, so that [`Self::mesh_slabs`], which
+    /// rendering asks for once per mesh per phase per frame, is one lookup
+    /// rather than one per element class.
+    ///
+    /// Rebuilt for the meshes touched by [`allocate_and_free_meshes`] each
+    /// frame; a mesh is present exactly when its vertex data is allocated.
+    mesh_id_to_slabs: HashMap<AssetId<Mesh>, MeshSlabs>,
 }
 
 /// Tunable parameters that customize the behavior of the allocator.
@@ -240,6 +249,7 @@ impl FromWorld for MeshAllocator {
         Self {
             slab_allocator,
             general_vertex_slabs_supported,
+            mesh_id_to_slabs: HashMap::default(),
         }
     }
 }
@@ -343,6 +353,12 @@ impl MeshAllocator {
     /// index buffer, the corresponding element in the returned tuple will be
     /// None.
     pub fn mesh_slabs(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshSlabs> {
+        self.mesh_id_to_slabs.get(mesh_id).copied()
+    }
+
+    /// Looks the slabs of a mesh up in the underlying allocator, one lookup
+    /// per element class; [`Self::mesh_slabs`] serves the cached result.
+    fn compute_mesh_slabs(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshSlabs> {
         Some(MeshSlabs {
             vertex_slab_id: self.mesh_id_to_vertex_slab(mesh_id).cloned()?,
             index_slab_id: self.mesh_id_to_index_slab(mesh_id).cloned(),
@@ -350,6 +366,19 @@ impl MeshAllocator {
             #[cfg(feature = "morph")]
             morph_target_slab_id: self.mesh_id_to_morph_target_slab(mesh_id).cloned(),
         })
+    }
+
+    /// Brings the entry of `mesh_id` in [`Self::mesh_id_to_slabs`] up to date
+    /// with the underlying allocator.
+    fn update_mesh_slab_cache(&mut self, mesh_id: &AssetId<Mesh>) {
+        match self.compute_mesh_slabs(mesh_id) {
+            Some(mesh_slabs) => {
+                self.mesh_id_to_slabs.insert(*mesh_id, mesh_slabs);
+            }
+            None => {
+                self.mesh_id_to_slabs.remove(mesh_id);
+            }
+        }
     }
 
     /// Returns the number of index allocations that this mesh allocator
@@ -509,6 +538,12 @@ impl MeshAllocator {
             #[cfg(feature = "morph")]
             self.copy_mesh_morph_target_data(mesh_id, mesh, render_device, render_queue);
         }
+
+        // Record where every extracted mesh ended up. A mesh with no vertices
+        // was skipped above and so drops out of the cache here.
+        for (mesh_id, _) in &extracted_meshes.extracted {
+            self.update_mesh_slab_cache(mesh_id);
+        }
     }
 
     /// Copies vertex array data from a mesh into the appropriate spot in the
@@ -652,6 +687,17 @@ impl MeshAllocator {
         }
 
         deallocation_stage.commit();
+
+        // Everything freed is gone from the cache; `allocate_meshes` re-adds
+        // whatever it reallocates.
+        for mesh_id in extracted_meshes
+            .removed
+            .iter()
+            .chain(extracted_meshes.modified.iter())
+            .chain(extracted_meshes.added.iter())
+        {
+            self.mesh_id_to_slabs.remove(mesh_id);
+        }
     }
 }
 
@@ -792,6 +838,7 @@ mod tests {
         MeshAllocator {
             slab_allocator: SlabAllocator::new(),
             general_vertex_slabs_supported,
+            mesh_id_to_slabs: HashMap::default(),
         }
     }
 
@@ -1174,6 +1221,66 @@ mod tests {
             },
             32,
         );
+    }
+
+    /// [`MeshAllocator::mesh_slabs`] is served from a cache, which must follow
+    /// every allocation and free exactly.
+    #[test]
+    fn mesh_slabs_cache_tracks_allocations_and_frees() {
+        let (render_device, render_queue) = create_dummy_device();
+        let settings = MeshAllocatorSettings::default();
+        let mut mesh_vertex_buffer_layouts = MeshVertexBufferLayouts::default();
+        let mut mesh_allocator = mesh_allocator(true);
+
+        let mesh_id = mesh_id(1);
+        assert!(mesh_allocator.mesh_slabs(&mesh_id).is_none());
+
+        // A plain mesh has vertex data only.
+        let extracted_meshes = extracted_mesh(mesh_id, test_mesh());
+        mesh_allocator.allocate_meshes(
+            &settings,
+            &extracted_meshes,
+            &mut mesh_vertex_buffer_layouts,
+            &render_device,
+            &render_queue,
+        );
+        let mesh_slabs = mesh_allocator
+            .mesh_slabs(&mesh_id)
+            .expect("an allocated mesh has slabs");
+        assert_eq!(
+            mesh_slabs,
+            mesh_allocator.compute_mesh_slabs(&mesh_id).unwrap()
+        );
+        assert!(mesh_slabs.index_slab_id.is_none());
+        assert!(mesh_slabs.metadata_slab_id.is_none());
+
+        // Reallocating it with every element class refreshes the entry.
+        let extracted_meshes = extracted_mesh(mesh_id, full_mesh());
+        mesh_allocator.free_meshes(&extracted_meshes);
+        assert!(mesh_allocator.mesh_slabs(&mesh_id).is_none());
+        mesh_allocator.allocate_meshes(
+            &settings,
+            &extracted_meshes,
+            &mut mesh_vertex_buffer_layouts,
+            &render_device,
+            &render_queue,
+        );
+        let mesh_slabs = mesh_allocator
+            .mesh_slabs(&mesh_id)
+            .expect("a reallocated mesh has slabs");
+        assert_eq!(
+            mesh_slabs,
+            mesh_allocator.compute_mesh_slabs(&mesh_id).unwrap()
+        );
+        assert!(mesh_slabs.index_slab_id.is_some());
+        assert!(mesh_slabs.metadata_slab_id.is_some());
+
+        // A removed mesh leaves the cache.
+        let mut removed = ExtractedAssets::<RenderMesh>::default();
+        removed.removed.insert(mesh_id);
+        mesh_allocator.free_meshes(&removed);
+        assert!(mesh_allocator.mesh_slabs(&mesh_id).is_none());
+        assert!(mesh_allocator.key_to_slab.is_empty());
     }
 
     /// The other route to a dedicated slab, taken when the platform cannot

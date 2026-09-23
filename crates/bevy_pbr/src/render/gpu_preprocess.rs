@@ -60,7 +60,7 @@ use bevy_render::{
         SpecializedComputePipeline, SpecializedComputePipelines, TextureSampleType,
         UninitBufferVec,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
+    renderer::{render_system, RenderContext, RenderDevice, RenderQueue, ViewQuery},
     settings::WgpuFeatures,
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
@@ -515,6 +515,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
             .init_gpu_resource::<BinUnpackingBindGroups>()
             .init_gpu_resource::<UniformAllocationBindGroups>()
             .init_gpu_resource::<PreprocessPipelines>()
+            .init_resource::<PreprocessPipelinesLoaded>()
             .init_gpu_resource::<SpecializedComputePipelines<PreprocessPipeline>>()
             .init_gpu_resource::<SpecializedComputePipelines<ResetIndirectBatchSetsPipeline>>()
             .init_gpu_resource::<SpecializedComputePipelines<BuildIndirectParametersPipeline>>()
@@ -535,6 +536,13 @@ impl Plugin for GpuMeshPreprocessPlugin {
                         .in_set(RenderSystems::PrepareBindGroups)
                         .after(prepare_preprocess_pipelines),
                     write_mesh_culling_data_buffer.in_set(RenderSystems::PrepareResourcesFlush),
+                    // Runs once the pipeline cache has processed this frame's queue, so
+                    // the draw commands read a flag rather than re-checking every pipeline
+                    // for every draw.
+                    update_preprocess_pipelines_loaded
+                        .in_set(RenderSystems::Render)
+                        .after(PipelineCache::process_pipeline_queue_system)
+                        .before(render_system),
                 ),
             )
             .add_systems(
@@ -1367,6 +1375,33 @@ pub(crate) fn run_build_indirect_parameters(
                 }
             }
         }
+    }
+}
+
+/// Whether [`PreprocessPipelines::pipelines_are_loaded`] held when this frame's
+/// pipeline queue was processed.
+///
+/// The mesh draw commands consult this for every draw, so it is computed once
+/// per frame by [`update_preprocess_pipelines_loaded`] instead of walking every
+/// preprocessing pipeline per item.
+#[derive(Resource, Default, Clone, Copy, Debug)]
+pub struct PreprocessPipelinesLoaded(pub bool);
+
+/// Records whether the preprocessing pipelines are loaded this frame.
+///
+/// This runs after the pipeline cache processes its queue and before the
+/// render graph runs, so the value is exact for this frame's draws.
+pub fn update_preprocess_pipelines_loaded(
+    mut loaded: ResMut<PreprocessPipelinesLoaded>,
+    preprocess_pipelines: Res<PreprocessPipelines>,
+    pipeline_cache: Res<PipelineCache>,
+    preprocessing_support: Res<GpuPreprocessingSupport>,
+) {
+    let now_loaded =
+        preprocess_pipelines.pipelines_are_loaded(&pipeline_cache, &preprocessing_support);
+    // Only write when the value changes, so change detection stays quiet.
+    if loaded.0 != now_loaded {
+        loaded.0 = now_loaded;
     }
 }
 

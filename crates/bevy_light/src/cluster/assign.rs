@@ -179,6 +179,9 @@ pub(crate) fn assign_objects_to_clusters(
     mut clusterable_objects: Local<Vec<ClusterableObjectAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_clusterable_objects_warning_emitted: Local<bool>,
+    // Scratch space for the cluster frustum planes, kept between frames so
+    // that computing them for each view does not allocate.
+    mut cluster_planes: Local<(Vec<HalfSpace>, Vec<HalfSpace>, Vec<HalfSpace>)>,
     global_cluster_settings: Option<Res<GlobalClusterSettings>>,
 ) {
     let Some(global_cluster_settings) = global_cluster_settings else {
@@ -429,9 +432,10 @@ pub(crate) fn assign_objects_to_clusters(
             cluster_aabb_spheres.extend(core::iter::repeat_n(None, cluster_count));
 
             // Calculate the x/y/z cluster frustum planes in view space
-            let mut x_planes = Vec::with_capacity(clusters.dimensions.x as usize + 1);
-            let mut y_planes = Vec::with_capacity(clusters.dimensions.y as usize + 1);
-            let mut z_planes = Vec::with_capacity(clusters.dimensions.z as usize + 1);
+            let (x_planes, y_planes, z_planes) = &mut *cluster_planes;
+            x_planes.clear();
+            y_planes.clear();
+            z_planes.clear();
 
             if is_orthographic {
                 let x_slices = clusters.dimensions.x as f32;

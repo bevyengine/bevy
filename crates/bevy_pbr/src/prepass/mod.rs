@@ -252,7 +252,7 @@ pub fn update_mesh_previous_global_transforms(
 pub struct PrepassPipeline {
     pub view_layout_motion_vectors: BindGroupLayoutDescriptor,
     pub view_layout_no_motion_vectors: BindGroupLayoutDescriptor,
-    pub mesh_layouts: MeshLayouts,
+    pub mesh_layouts: Arc<MeshLayouts>,
     pub empty_layout: BindGroupLayoutDescriptor,
     pub default_prepass_shader: Handle<Shader>,
 

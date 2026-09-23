@@ -1,6 +1,7 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
 use bevy_camera::{CameraOutputMode, ClearColor, ClearColorConfig};
 use bevy_ecs::prelude::*;
+use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -9,10 +10,19 @@ use bevy_render::{
     view::ViewTarget,
 };
 
+/// Cached upscaling bind groups.
+///
+/// The system runs once per view with a single shared cache, so entries are
+/// keyed by the view's main texture: one slot would be evicted every pass as
+/// soon as there were two views.
 #[derive(Default)]
 pub struct UpscalingBindGroupCache {
-    cached: Option<(TextureViewId, BindGroup)>,
+    cached: HashMap<TextureViewId, (BindGroup, bool)>,
 }
+
+/// Views a cache can hold before unused entries are swept, so that stale
+/// entries from resized or removed views do not pile up.
+const CACHE_SWEEP_THRESHOLD: usize = 16;
 
 pub fn upscaling(
     view: ViewQuery<(
@@ -46,19 +56,23 @@ pub fn upscaling(
     // texture to be upscaled to the output texture
     let main_texture_view = target.main_texture_view();
 
-    let bind_group = match &mut cache.cached {
-        Some((id, bind_group)) if main_texture_view.id() == *id => bind_group,
-        cached => {
+    if cache.cached.len() >= CACHE_SWEEP_THRESHOLD {
+        cache.cached.retain(|_, (_, used)| core::mem::take(used));
+    }
+
+    let (bind_group, used) = cache
+        .cached
+        .entry(main_texture_view.id())
+        .or_insert_with(|| {
             let bind_group = blit_pipeline.create_bind_group(
                 ctx.render_device(),
                 main_texture_view,
                 &pipeline_cache,
             );
-
-            let (_, bind_group) = cached.insert((main_texture_view.id(), bind_group));
-            bind_group
-        }
-    };
+            (bind_group, false)
+        });
+    *used = true;
+    let bind_group = &*bind_group;
 
     let Some(out_attachment) = target.out_texture_color_attachment(converted_clear_color) else {
         return;

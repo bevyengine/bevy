@@ -60,6 +60,7 @@ use bevy_render::{
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
 use bevy_utils::default;
+use core::sync::atomic::{AtomicU64, Ordering};
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
 use tracing::error;
@@ -163,6 +164,19 @@ pub struct LightmapSlab {
     /// The GPU images in this slab.
     lightmaps: Vec<AllocatedLightmap>,
     free_slots_bitmask: u32,
+    /// A value unique to the current contents of the slab, taken from a
+    /// global counter whenever a lightmap is allocated, inserted or removed,
+    /// so that bind groups built from the slab know when to be rebuilt.
+    generation: u64,
+}
+
+/// The source of [`LightmapSlab::generation`] values, shared by every slab so
+/// that a value is never reused, even by a slab recreated at the same index.
+static LIGHTMAP_SLAB_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+/// Returns a lightmap slab generation that no slab has had before.
+fn next_lightmap_slab_generation() -> u64 {
+    LIGHTMAP_SLAB_GENERATION.fetch_add(1, Ordering::Relaxed)
 }
 
 struct AllocatedLightmap {
@@ -407,7 +421,14 @@ impl LightmapSlab {
                 })
                 .collect(),
             free_slots_bitmask: (1 << count) - 1,
+            generation: next_lightmap_slab_generation(),
         }
+    }
+
+    /// A value that changes whenever the contents of this slab do; see
+    /// [`Self::generation`](field@Self::generation).
+    pub(crate) fn generation(&self) -> u64 {
+        self.generation
     }
 
     fn is_full(&self) -> bool {
@@ -422,6 +443,7 @@ impl LightmapSlab {
         let index = LightmapSlotIndex::from(self.free_slots_bitmask.trailing_zeros());
         self.free_slots_bitmask &= !(1 << u32::from(index));
         self.lightmaps[usize::from(index)].asset_id = Some(image_id);
+        self.generation = next_lightmap_slab_generation();
         index
     }
 
@@ -429,7 +451,8 @@ impl LightmapSlab {
         self.lightmaps[usize::from(index)] = AllocatedLightmap {
             gpu_image,
             asset_id: None,
-        }
+        };
+        self.generation = next_lightmap_slab_generation();
     }
 
     fn remove(&mut self, fallback_images: &FallbackImage, index: LightmapSlotIndex) {
@@ -438,6 +461,7 @@ impl LightmapSlab {
             asset_id: None,
         };
         self.free_slots_bitmask |= 1 << u32::from(index);
+        self.generation = next_lightmap_slab_generation();
     }
 
     /// Returns the texture views and samplers for the lightmaps in this slab,

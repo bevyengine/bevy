@@ -1,6 +1,7 @@
 use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPipeline};
 
 use bevy_ecs::prelude::*;
+use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -17,11 +18,27 @@ use bevy_render::{
 use super::{get_lut_bindings, Tonemapping};
 
 /// Cached bind group state for tonemapping.
+///
+/// The system runs once per view with a single shared cache, so entries are
+/// keyed by the view's source texture: one slot would be evicted every pass as
+/// soon as there were two views.
 #[derive(Default)]
 pub struct TonemappingBindGroupCache {
-    cached: Option<(BufferId, TextureViewId, TextureViewId, BindGroup)>,
-    last_tonemapping: Option<Tonemapping>,
+    cached: HashMap<TextureViewId, CachedTonemappingBindGroup>,
 }
+
+struct CachedTonemappingBindGroup {
+    view_uniforms_id: BufferId,
+    lut_id: TextureViewId,
+    tonemapping: Tonemapping,
+    bind_group: BindGroup,
+    /// Set when the entry was used this frame; entries that go unused are dropped.
+    used: bool,
+}
+
+/// Views a cache can hold before unused entries are swept, so that stale
+/// entries from resized or removed views do not pile up.
+const CACHE_SWEEP_THRESHOLD: usize = 16;
 
 pub fn tonemapping(
     view: ViewQuery<(
@@ -62,21 +79,25 @@ pub fn tonemapping(
     let source = post_process.source;
     let destination = post_process.destination;
 
-    let tonemapping_changed = cache.last_tonemapping != Some(*tonemapping);
-    if tonemapping_changed {
-        cache.last_tonemapping = Some(*tonemapping);
+    if cache.cached.len() >= CACHE_SWEEP_THRESHOLD {
+        cache
+            .cached
+            .retain(|_, entry| core::mem::take(&mut entry.used));
     }
 
-    let bind_group = match &mut cache.cached {
-        Some((buffer_id, texture_id, lut_id, bind_group))
-            if view_uniforms_id == *buffer_id
-                && source.id() == *texture_id
-                && *lut_id != fallback_image.d3.texture_view.id()
-                && !tonemapping_changed =>
-        {
-            bind_group
+    let cached = cache.cached.get(&source.id()).filter(|cached| {
+        cached.view_uniforms_id == view_uniforms_id
+            // A fallback LUT means the real one had not loaded yet, so try again.
+            && cached.lut_id != fallback_image.d3.texture_view.id()
+            && cached.tonemapping == *tonemapping
+    });
+    let bind_group = match cached {
+        Some(_) => {
+            let cached = cache.cached.get_mut(&source.id()).unwrap();
+            cached.used = true;
+            &cached.bind_group
         }
-        cached => {
+        None => {
             let lut_bindings =
                 get_lut_bindings(&gpu_images, &tonemapping_luts, tonemapping, &fallback_image);
 
@@ -92,13 +113,17 @@ pub fn tonemapping(
                 )),
             );
 
-            let (_, _, _, bind_group) = cached.insert((
-                view_uniforms_id,
-                source.id(),
-                lut_bindings.0.id(),
-                bind_group,
-            ));
-            bind_group
+            let cached = cache
+                .cached
+                .entry(source.id())
+                .insert(CachedTonemappingBindGroup {
+                    view_uniforms_id,
+                    lut_id: lut_bindings.0.id(),
+                    tonemapping: *tonemapping,
+                    bind_group,
+                    used: true,
+                });
+            &cached.into_mut().bind_group
         }
     };
 

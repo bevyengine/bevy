@@ -237,22 +237,64 @@ pub struct MeshLayouts {
     /// previous frame's joint matrices and morph weights, so that we can
     /// compute motion vectors.
     pub morphed_skinned_motion: BindGroupLayoutDescriptor,
+
+    /// The descriptors above resolved to GPU bind group layouts once, so that
+    /// creating a bind group each frame does not look its layout up in the
+    /// pipeline cache (a hash of the whole descriptor under a lock) again.
+    bind_group_layouts: MeshBindGroupLayouts,
+}
+
+/// The [`BindGroupLayout`]s of a [`MeshLayouts`]; see
+/// [`MeshLayouts::bind_group_layouts`].
+#[derive(Clone)]
+struct MeshBindGroupLayouts {
+    model_only: BindGroupLayout,
+    lightmapped: BindGroupLayout,
+    skinned: BindGroupLayout,
+    skinned_motion: BindGroupLayout,
+    morphed: BindGroupLayout,
+    morphed_motion: BindGroupLayout,
+    morphed_skinned: BindGroupLayout,
+    morphed_skinned_motion: BindGroupLayout,
 }
 
 impl MeshLayouts {
     /// Prepare the layouts used by the default bevy [`Mesh`].
     ///
     /// [`Mesh`]: bevy_mesh::Mesh
-    pub fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
+    pub fn new(
+        render_device: &RenderDevice,
+        render_adapter: &RenderAdapter,
+        pipeline_cache: &PipelineCache,
+    ) -> Self {
+        let model_only = Self::model_only_layout(render_device);
+        let lightmapped = Self::lightmapped_layout(render_device, render_adapter);
+        let skinned = Self::skinned_layout(render_device);
+        let skinned_motion = Self::skinned_motion_layout(render_device);
+        let morphed = Self::morphed_layout(render_device);
+        let morphed_motion = Self::morphed_motion_layout(render_device);
+        let morphed_skinned = Self::morphed_skinned_layout(render_device);
+        let morphed_skinned_motion = Self::morphed_skinned_motion_layout(render_device);
+        let bind_group_layouts = MeshBindGroupLayouts {
+            model_only: pipeline_cache.get_bind_group_layout(&model_only),
+            lightmapped: pipeline_cache.get_bind_group_layout(&lightmapped),
+            skinned: pipeline_cache.get_bind_group_layout(&skinned),
+            skinned_motion: pipeline_cache.get_bind_group_layout(&skinned_motion),
+            morphed: pipeline_cache.get_bind_group_layout(&morphed),
+            morphed_motion: pipeline_cache.get_bind_group_layout(&morphed_motion),
+            morphed_skinned: pipeline_cache.get_bind_group_layout(&morphed_skinned),
+            morphed_skinned_motion: pipeline_cache.get_bind_group_layout(&morphed_skinned_motion),
+        };
         MeshLayouts {
-            model_only: Self::model_only_layout(render_device),
-            lightmapped: Self::lightmapped_layout(render_device, render_adapter),
-            skinned: Self::skinned_layout(render_device),
-            skinned_motion: Self::skinned_motion_layout(render_device),
-            morphed: Self::morphed_layout(render_device),
-            morphed_motion: Self::morphed_motion_layout(render_device),
-            morphed_skinned: Self::morphed_skinned_layout(render_device),
-            morphed_skinned_motion: Self::morphed_skinned_motion_layout(render_device),
+            model_only,
+            lightmapped,
+            skinned,
+            skinned_motion,
+            morphed,
+            morphed_motion,
+            morphed_skinned,
+            morphed_skinned_motion,
+            bind_group_layouts,
         }
     }
 
@@ -459,13 +501,12 @@ impl MeshLayouts {
     pub fn model_only(
         &self,
         render_device: &RenderDevice,
-        pipeline_cache: &PipelineCache,
         model: &BindingResource,
         metadata: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
             "model_only_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.model_only),
+            &self.bind_group_layouts.model_only,
             &[entry::model(0, model.clone()), entry::metadata(9, metadata)],
         )
     }
@@ -473,7 +514,6 @@ impl MeshLayouts {
     pub fn lightmapped(
         &self,
         render_device: &RenderDevice,
-        pipeline_cache: &PipelineCache,
         model: &BindingResource,
         metadata: &Buffer,
         lightmap_slab: &LightmapSlab,
@@ -483,7 +523,7 @@ impl MeshLayouts {
             let (texture_views, samplers) = lightmap_slab.build_binding_arrays();
             render_device.create_bind_group(
                 "lightmapped_mesh_bind_group",
-                &pipeline_cache.get_bind_group_layout(&self.lightmapped),
+                &self.bind_group_layouts.lightmapped,
                 &[
                     entry::model(0, model.clone()),
                     entry::metadata(9, metadata),
@@ -495,7 +535,7 @@ impl MeshLayouts {
             let (texture_view, sampler) = lightmap_slab.bindings_for_first_lightmap();
             render_device.create_bind_group(
                 "lightmapped_mesh_bind_group",
-                &pipeline_cache.get_bind_group_layout(&self.lightmapped),
+                &self.bind_group_layouts.lightmapped,
                 &[
                     entry::model(0, model.clone()),
                     entry::metadata(9, metadata),
@@ -510,14 +550,13 @@ impl MeshLayouts {
     pub fn skinned(
         &self,
         render_device: &RenderDevice,
-        pipeline_cache: &PipelineCache,
         model: &BindingResource,
         metadata: &Buffer,
         current_skin: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
             "skinned_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.skinned),
+            &self.bind_group_layouts.skinned,
             &[
                 entry::model(0, model.clone()),
                 entry::metadata(9, metadata),
@@ -536,7 +575,6 @@ impl MeshLayouts {
     pub fn skinned_motion(
         &self,
         render_device: &RenderDevice,
-        pipeline_cache: &PipelineCache,
         model: &BindingResource,
         metadata: &Buffer,
         current_skin: &Buffer,
@@ -544,7 +582,7 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(
             "skinned_motion_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.skinned_motion),
+            &self.bind_group_layouts.skinned_motion,
             &[
                 entry::model(0, model.clone()),
                 entry::metadata(9, metadata),
@@ -558,7 +596,6 @@ impl MeshLayouts {
     pub fn morphed(
         &self,
         render_device: &RenderDevice,
-        pipeline_cache: &PipelineCache,
         model: &BindingResource,
         metadata: &Buffer,
         current_weights: &Buffer,
@@ -580,7 +617,7 @@ impl MeshLayouts {
 
         render_device.create_bind_group(
             "morphed_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.morphed),
+            &self.bind_group_layouts.morphed,
             &entries,
         )
     }
@@ -595,7 +632,6 @@ impl MeshLayouts {
     pub fn morphed_motion(
         &self,
         render_device: &RenderDevice,
-        pipeline_cache: &PipelineCache,
         model: &BindingResource,
         metadata: &Buffer,
         current_weights: &Buffer,
@@ -619,7 +655,7 @@ impl MeshLayouts {
 
         render_device.create_bind_group(
             "morphed_motion_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.morphed_motion),
+            &self.bind_group_layouts.morphed_motion,
             &entries,
         )
     }
@@ -628,7 +664,6 @@ impl MeshLayouts {
     pub fn morphed_skinned(
         &self,
         render_device: &RenderDevice,
-        pipeline_cache: &PipelineCache,
         model: &BindingResource,
         metadata: &Buffer,
         current_skin: &Buffer,
@@ -652,7 +687,7 @@ impl MeshLayouts {
 
         render_device.create_bind_group(
             "morphed_skinned_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.morphed_skinned),
+            &self.bind_group_layouts.morphed_skinned,
             &entries,
         )
     }
@@ -667,7 +702,6 @@ impl MeshLayouts {
     pub fn morphed_skinned_motion(
         &self,
         render_device: &RenderDevice,
-        pipeline_cache: &PipelineCache,
         model: &BindingResource,
         metadata: &Buffer,
         current_skin: &Buffer,
@@ -695,7 +729,7 @@ impl MeshLayouts {
 
         render_device.create_bind_group(
             "morphed_skinned_motion_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.morphed_skinned_motion),
+            &self.bind_group_layouts.morphed_skinned_motion,
             &entries,
         )
     }

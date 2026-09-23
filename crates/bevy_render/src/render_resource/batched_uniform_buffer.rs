@@ -1,6 +1,6 @@
 use super::{GpuArrayBufferIndex, GpuArrayBufferable};
 use crate::{
-    render_resource::DynamicUniformBuffer,
+    render_resource::{Buffer, DynamicUniformBuffer},
     renderer::{RenderDevice, RenderQueue},
 };
 use core::{marker::PhantomData, num::NonZero};
@@ -109,6 +109,11 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     }
 
     #[inline]
+    /// Returns the underlying GPU buffer, if it has been written.
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.uniforms.buffer()
+    }
+
     pub fn binding(&self) -> Option<BindingResource<'_>> {
         let mut binding = self.uniforms.binding();
         if let Some(BindingResource::Buffer(binding)) = &mut binding {

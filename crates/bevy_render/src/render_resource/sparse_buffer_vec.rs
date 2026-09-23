@@ -167,10 +167,19 @@ impl SparseBufferUpdateJob {
         self.updated_element_count * self.element_word_size
     }
 
-    /// Calculates the number of workgroups that need to be dispatched.
-    fn workgroup_count(&self) -> u32 {
-        self.words_to_update()
-            .div_ceil(SPARSE_BUFFER_UPDATE_WORKGROUP_SIZE)
+    /// Calculates the number of workgroups that need to be dispatched, as an
+    /// `(x, y)` grid.
+    ///
+    /// A single dispatch dimension is capped at [`MAX_WORKGROUPS`], so larger
+    /// updates spill into the `y` dimension; the shader linearizes the two.
+    fn workgroup_counts(&self) -> (u32, u32) {
+        let workgroup_count = self
+            .words_to_update()
+            .div_ceil(SPARSE_BUFFER_UPDATE_WORKGROUP_SIZE);
+        (
+            workgroup_count.min(MAX_WORKGROUPS),
+            workgroup_count.div_ceil(MAX_WORKGROUPS).max(1),
+        )
     }
 }
 
@@ -235,11 +244,8 @@ pub fn update_sparse_buffers(
             &sparse_buffer_update_bind_group.bind_group,
             &[],
         );
-        sparse_buffer_update_pass.dispatch_workgroups(
-            sparse_buffer_update_job.workgroup_count(),
-            1,
-            1,
-        );
+        let (workgroups_x, workgroups_y) = sparse_buffer_update_job.workgroup_counts();
+        sparse_buffer_update_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1);
     }
 
     time_span.end(&mut sparse_buffer_update_pass);
@@ -374,15 +380,17 @@ impl SparseBufferStagingBuffers {
         changed_element_count: u32,
         buffer_length: usize,
     ) -> bool {
-        // Calculate the number of changed words. If it's greater than the
-        // maximum number of workgroups as defined by `wgpu`, we must perform a
-        // full reupload.
-        //
-        // FIXME: This degrades performance in the exact scenarios we need it
-        // the most. We should fall back to doing multiple rounds of uploads in
-        // this case.
+        // Updates larger than one dispatch dimension allows spill into a
+        // second dimension (see `SparseBufferUpdateJob::workgroup_counts`), so
+        // the size of the update alone never forces a full reupload. Only the
+        // second dimension is bounded, at `MAX_WORKGROUPS` rows of
+        // `MAX_WORKGROUPS` workgroups, which is far past the point where the
+        // fraction check below chooses a full reupload anyway.
         let total_changed_word_count = changed_element_count * self.element_word_size;
-        if total_changed_word_count > MAX_WORKGROUPS * SPARSE_BUFFER_UPDATE_WORKGROUP_SIZE {
+        let max_words_per_dispatch = MAX_WORKGROUPS as u64
+            * MAX_WORKGROUPS as u64
+            * SPARSE_BUFFER_UPDATE_WORKGROUP_SIZE as u64;
+        if total_changed_word_count as u64 > max_words_per_dispatch {
             return true;
         }
 
@@ -1114,12 +1122,41 @@ fn calculate_allocation_size(length: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{BitIter, BITS_PER_WORD};
+    use super::{
+        BitIter, SparseBufferUpdateJob, BITS_PER_WORD, MAX_WORKGROUPS,
+        SPARSE_BUFFER_UPDATE_WORKGROUP_SIZE,
+    };
     use core::{
         iter,
         sync::atomic::{AtomicU64, Ordering},
     };
     use proptest::prelude::proptest;
+
+    /// Updates too large for one dispatch dimension spill into a second one,
+    /// and the grid always covers every word to update.
+    #[test]
+    fn workgroup_counts_cover_every_word() {
+        let job = |updated_element_count| SparseBufferUpdateJob {
+            sparse_buffer_handle: super::SparseBufferHandle::new(super::SparseBufferId(0)),
+            updated_element_count,
+            element_word_size: 4,
+        };
+        assert_eq!(job(0).workgroup_counts(), (0, 1));
+        assert_eq!(job(1).workgroup_counts(), (1, 1));
+        assert_eq!(
+            job(SPARSE_BUFFER_UPDATE_WORKGROUP_SIZE).workgroup_counts(),
+            (4, 1)
+        );
+
+        let huge = job(MAX_WORKGROUPS * SPARSE_BUFFER_UPDATE_WORKGROUP_SIZE / 4 * 3);
+        let (x, y) = huge.workgroup_counts();
+        assert_eq!(x, MAX_WORKGROUPS);
+        assert_eq!(y, 3);
+        assert!(
+            (x as u64) * (y as u64) * SPARSE_BUFFER_UPDATE_WORKGROUP_SIZE as u64
+                >= huge.words_to_update() as u64
+        );
+    }
 
     proptest! {
         // Ensures that the `BitIter` is correct.

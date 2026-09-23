@@ -1,4 +1,7 @@
-use core::mem::{self, size_of};
+use core::{
+    mem::{self, size_of},
+    ops::Range,
+};
 
 use bevy_asset::{prelude::AssetChanged, Assets};
 use bevy_camera::visibility::ViewVisibility;
@@ -93,6 +96,15 @@ pub struct SkinUniforms {
     /// We use this as part of our heuristic to decide whether to use
     /// fine-grained change detection.
     total_joints: usize,
+    /// The ranges of joints in [`Self::current_staging_buffer`] written this
+    /// frame, so that only they need uploading rather than the whole buffer.
+    dirty_joint_ranges: Vec<Range<usize>>,
+    /// The ranges written last frame. The GPU buffers alternate between
+    /// frames, so this frame's buffer last saw the staging data two frames
+    /// ago and needs last frame's changes as well as this frame's.
+    previous_dirty_joint_ranges: Vec<Range<usize>>,
+    /// Scratch space for merging the two lists above.
+    merged_dirty_joint_ranges: Vec<Range<usize>>,
 }
 
 pub fn skin_uniforms_from_world(device: Res<RenderDevice>, mut commands: Commands) {
@@ -125,6 +137,9 @@ pub fn skin_uniforms_from_world(device: Res<RenderDevice>, mut commands: Command
         allocator: Allocator::new(MAX_TOTAL_JOINTS),
         skin_uniform_info: MainEntityHashMap::default(),
         total_joints: 0,
+        dirty_joint_ranges: Vec::new(),
+        previous_dirty_joint_ranges: Vec::new(),
+        merged_dirty_joint_ranges: Vec::new(),
     };
 
     commands.insert_resource(res);
@@ -149,6 +164,73 @@ impl SkinUniforms {
     pub fn all_skins(&self) -> impl Iterator<Item = &MainEntity> {
         self.skin_uniform_info.keys()
     }
+
+    /// Records that the joints in `range` of the staging buffer were written
+    /// this frame and must be uploaded.
+    fn mark_joints_dirty(&mut self, range: Range<usize>) {
+        if !range.is_empty() {
+            self.dirty_joint_ranges.push(range);
+        }
+    }
+
+    /// Merges this frame's and last frame's dirty ranges into
+    /// [`Self::merged_dirty_joint_ranges`], sorted, non-overlapping and
+    /// clamped to the staging buffer, coalescing ranges closer than
+    /// [`DIRTY_RANGE_MERGE_GAP`] joints so that a scene of many small skins
+    /// does not turn into many small uploads.
+    fn merge_dirty_joint_ranges(&mut self) {
+        merge_dirty_ranges(
+            &self.previous_dirty_joint_ranges,
+            &self.dirty_joint_ranges,
+            self.current_staging_buffer.len(),
+            &mut self.merged_dirty_joint_ranges,
+        );
+    }
+
+    /// Moves this frame's dirty ranges to last frame's, ready for the next
+    /// frame.
+    fn rotate_dirty_joint_ranges(&mut self) {
+        mem::swap(
+            &mut self.dirty_joint_ranges,
+            &mut self.previous_dirty_joint_ranges,
+        );
+        self.dirty_joint_ranges.clear();
+    }
+}
+
+/// Dirty joint ranges closer than this many joints are uploaded as one write.
+const DIRTY_RANGE_MERGE_GAP: usize = 64;
+
+/// Merges `previous` and `current` into `merged`: sorted, non-overlapping,
+/// clamped to `len`, with ranges closer than [`DIRTY_RANGE_MERGE_GAP`]
+/// coalesced. See [`SkinUniforms::merge_dirty_joint_ranges`].
+fn merge_dirty_ranges(
+    previous: &[Range<usize>],
+    current: &[Range<usize>],
+    len: usize,
+    merged: &mut Vec<Range<usize>>,
+) {
+    merged.clear();
+    merged.extend(
+        previous
+            .iter()
+            .chain(current.iter())
+            .map(|range| range.start.min(len)..range.end.min(len))
+            .filter(|range| !range.is_empty()),
+    );
+    merged.sort_unstable_by_key(|range| range.start);
+    let mut write = 0;
+    for read in 1..merged.len() {
+        let next = merged[read].clone();
+        let current = &mut merged[write];
+        if next.start <= current.end + DIRTY_RANGE_MERGE_GAP {
+            current.end = current.end.max(next.end);
+        } else {
+            write += 1;
+            merged[write] = next;
+        }
+    }
+    merged.truncate(if merged.is_empty() { 0 } else { write + 1 });
 }
 
 /// Allocation information about each skin.
@@ -192,7 +274,8 @@ pub fn prepare_skins(
     // if skins use uniform buffers on this platform.
     let needed_size = (uniform.current_staging_buffer.len() as u64 + MAX_JOINTS as u64)
         * size_of::<Mat4>() as u64;
-    if uniform.current_buffer.size() < needed_size {
+    let resized = uniform.current_buffer.size() < needed_size;
+    if resized {
         let mut new_size = uniform.current_buffer.size();
         while new_size < needed_size {
             // 1.5× growth factor.
@@ -232,12 +315,27 @@ pub fn prepare_skins(
     }
 
     // Write the data from `uniform.current_staging_buffer` into
-    // `uniform.current_buffer`.
-    render_queue.write_buffer(
-        &uniform.current_buffer,
-        0,
-        bytemuck::must_cast_slice(&uniform.current_staging_buffer[..]),
-    );
+    // `uniform.current_buffer`. A fresh buffer needs all of it; otherwise only
+    // the joints that changed since this buffer was last written, which is
+    // the union of this frame's and last frame's changes because the two
+    // buffers alternate.
+    if resized {
+        render_queue.write_buffer(
+            &uniform.current_buffer,
+            0,
+            bytemuck::must_cast_slice(&uniform.current_staging_buffer[..]),
+        );
+    } else {
+        uniform.merge_dirty_joint_ranges();
+        for range in &uniform.merged_dirty_joint_ranges {
+            render_queue.write_buffer(
+                &uniform.current_buffer,
+                (range.start * size_of::<Mat4>()) as u64,
+                bytemuck::must_cast_slice(&uniform.current_staging_buffer[range.clone()]),
+            );
+        }
+    }
+    uniform.rotate_dirty_joint_ranges();
 
     // We don't need to write `uniform.prev_buffer` because we already wrote it
     // last frame, and the data should still be on the GPU.
@@ -396,6 +494,8 @@ fn extract_joints_for_skin(
     };
 
     // Calculate and write in the new joint matrices, if they changed this frame.
+    let skin_offset = skin_uniform_info.offset() as usize;
+    let mut changed_joints: Option<Range<usize>> = None;
     for (joint_index, (&joint, skinned_mesh_inverse_bindpose)) in skin
         .joints
         .iter()
@@ -408,8 +508,15 @@ fn extract_joints_for_skin(
         };
 
         let joint_matrix = joint_transform.affine() * *skinned_mesh_inverse_bindpose;
-        skin_uniforms.current_staging_buffer[skin_uniform_info.offset() as usize + joint_index] =
-            joint_matrix;
+        let buffer_index = skin_offset + joint_index;
+        skin_uniforms.current_staging_buffer[buffer_index] = joint_matrix;
+        changed_joints = Some(match changed_joints {
+            None => buffer_index..buffer_index + 1,
+            Some(range) => range.start..buffer_index + 1,
+        });
+    }
+    if let Some(changed_joints) = changed_joints {
+        skin_uniforms.mark_joints_dirty(changed_joints);
     }
 }
 
@@ -476,6 +583,10 @@ fn add_skin(
     // Record the number of joints.
     skin_uniforms.total_joints += skinned_mesh.joints.len();
 
+    // Every joint of a new skin needs uploading.
+    let skin_offset = skin_uniform_info.offset() as usize;
+    skin_uniforms.mark_joints_dirty(skin_offset..skin_offset + skinned_mesh.joints.len());
+
     skin_uniforms
         .skin_uniform_info
         .insert(skinned_mesh_entity, skin_uniform_info);
@@ -510,5 +621,34 @@ pub fn no_automatic_skin_batching(
 
     for entity in &query {
         commands.entity(entity).try_insert(NoAutomaticBatching);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The ranges to upload are this frame's and last frame's changes, merged,
+    /// sorted, clamped to the staging buffer, and coalesced across small gaps.
+    #[test]
+    fn dirty_joint_ranges_merge_across_frames() {
+        let mut merged = Vec::new();
+
+        // Empty ranges drop out and the rest are sorted.
+        merge_dirty_ranges(&[], &[900..950, 10..20, 0..0], 1000, &mut merged);
+        assert_eq!(merged, vec![10..20, 900..950]);
+
+        // Last frame's ranges still count, nearby ranges coalesce, and ranges
+        // past the end of the buffer are clamped.
+        merge_dirty_ranges(&[900..950, 10..20], &[25..30, 995..2000], 1000, &mut merged);
+        assert_eq!(merged, vec![10..30, 900..1000]);
+
+        // Ranges further apart than the merge gap stay separate.
+        let far_apart = [0..1, 1 + DIRTY_RANGE_MERGE_GAP + 1..70];
+        merge_dirty_ranges(&far_apart[..1], &far_apart[1..], 1000, &mut merged);
+        assert_eq!(merged, vec![0..1, 66..70]);
+
+        merge_dirty_ranges(&[], &[], 1000, &mut merged);
+        assert!(merged.is_empty());
     }
 }

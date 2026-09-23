@@ -106,6 +106,11 @@ pub struct RenderVisibleEntitiesClass {
     /// A sorted list of all entities that were visible last frame and became
     /// invisible this frame, including those that were despawned this frame.
     pub removed_entities: Vec<(Entity, MainEntity)>,
+
+    /// Last frame's [`Self::entities_cpu_culling`], kept so that its
+    /// allocation can be reused for the next frame's list.
+    #[reflect(ignore, clone)]
+    previous_entities_cpu_culling: Vec<(Entity, MainEntity)>,
 }
 
 /// The entities that the CPU has determined are visible from a single view or
@@ -199,7 +204,14 @@ impl RenderVisibleEntitiesClass {
         #[cfg(feature = "trace")]
         let _update_from = info_span!("update_from", name = "update_from").entered();
 
-        let old_entities_cpu_culling = mem::take(&mut self.entities_cpu_culling);
+        // Swap last frame's list out and reuse its (already cleared) allocation for this
+        // frame's list, rather than growing a fresh vector from nothing every frame.
+        mem::swap(
+            &mut self.entities_cpu_culling,
+            &mut self.previous_entities_cpu_culling,
+        );
+        self.entities_cpu_culling.clear();
+        let old_entities_cpu_culling = &self.previous_entities_cpu_culling;
 
         // March over the old and new visible CPU culling entity lists in
         // lockstep, diffing as we go to determine the added and removed
@@ -413,10 +425,17 @@ fn collect_visible_cpu_culled_entities_for_subview(
         };
 
         // Make sure the entity list is sorted, as this is a requirement for
-        // [`RenderVisibleEntitiesClass::update_from_cpu`].
-        render_view_entities
+        // [`RenderVisibleEntitiesClass::update_cpu_culled_entities`]. Extraction copies
+        // the main world's lists, which are already sorted, so this is normally just a
+        // linear check rather than a sort.
+        if !render_view_entities
             .entities
-            .sort_unstable_by_key(|(_, main_entity)| *main_entity);
+            .is_sorted_by_key(|(_, main_entity)| *main_entity)
+        {
+            render_view_entities
+                .entities
+                .sort_unstable_by_key(|(_, main_entity)| *main_entity);
+        }
 
         entities.update_cpu_culled_entities(&render_view_entities.entities);
     }

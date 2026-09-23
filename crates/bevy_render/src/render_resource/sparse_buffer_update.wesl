@@ -28,10 +28,15 @@ struct SparseBufferUpdateMetadata {
 
 @workgroup_size(256, 1, 1)
 @compute
-fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn main(
+    @builtin(global_invocation_id) global_id: vec3<u32>,
+    @builtin(num_workgroups) num_workgroups: vec3<u32>,
+) {
     // Calculate which word we are. Remember that this shader executes with one
-    // thread per word.
-    let invocation_index = global_id.x;
+    // thread per word. Large updates are dispatched as a two-dimensional grid
+    // of workgroups, because a single dimension is capped, so linearize it:
+    // each row of workgroups covers `num_workgroups.x * 256` words.
+    let invocation_index = global_id.y * num_workgroups.x * 256u + global_id.x;
     let total_word_count = metadata.updated_element_count * metadata.element_size;
     if (invocation_index >= total_word_count) {
         return;
