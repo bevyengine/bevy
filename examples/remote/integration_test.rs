@@ -122,7 +122,7 @@ fn main() -> AnyhowResult<()> {
     let phys_y = transform_arr[5].as_f64().unwrap();
     println!("Found button at physical ({phys_x}, {phys_y})");
 
-    // Step 3: Find the window entity and scale factor
+    // Step 3: Find the window entity
     println!("Querying for window entity...");
     let window_query = brp_request(
         &client,
@@ -141,17 +141,10 @@ fn main() -> AnyhowResult<()> {
     let window_result = window_query.as_array().expect("Expected result array");
     let window = &window_result[0];
     let window_entity = &window["entity"];
-    let window_data = &window["components"][type_name::<Window>()];
-    let scale_factor = window_data["resolution"]["scale_factor"].as_f64().unwrap();
-    println!("Found window entity: {window_entity}, scale_factor: {scale_factor}");
+    println!("Found window entity: {window_entity}");
 
-    // Step 4: Convert button center from physical to logical pixels
-    let logical_x = phys_x / scale_factor;
-    let logical_y = phys_y / scale_factor;
-    println!("Clicking at logical position: ({logical_x}, {logical_y})");
-
-    // Step 5: Send CursorMoved via WindowEvent message
-    // This lets the picking system know where the pointer is.
+    // Step 4: Send CursorMoved via WindowEvent message, in physical pixels like the button
+    // position. This lets the picking system know where the pointer is.
     println!("Sending CursorMoved message...");
     brp_request(
         &client,
@@ -161,14 +154,13 @@ fn main() -> AnyhowResult<()> {
             value: Some(serde_json::json!({
                 "CursorMoved": {
                     "window": window_entity,
-                    "position": [logical_x, logical_y],
-                    "delta": null
+                    "physical_position": [phys_x, phys_y]
                 }
             })),
         },
     )?;
 
-    // Step 6: Send MouseButtonInput Pressed + Released via WindowEvent messages.
+    // Step 5: Send MouseButtonInput Pressed + Released via WindowEvent messages.
     // The picking system needs both press and release to generate a PointerClick.
     println!("Sending mouse press...");
     brp_request(

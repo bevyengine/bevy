@@ -413,14 +413,17 @@ pub(crate) fn changed_windows(
                 }
             }
 
-            if window.physical_cursor_position() != cache.physical_cursor_position()
-                && let Some(physical_position) = window.physical_cursor_position() {
-                    let position = PhysicalPosition::new(physical_position.x, physical_position.y);
+            if let Some(requested_position) = window
+                .bypass_change_detection()
+                .internal
+                .take_cursor_position_request()
+            {
+                let position = PhysicalPosition::new(requested_position.x, requested_position.y);
 
-                    if let Err(err) = winit_window.set_cursor_position(position) {
-                        error!("could not set cursor position: {}", err);
-                    }
+                if let Err(err) = winit_window.set_cursor_position(position) {
+                    error!("could not set cursor position: {}", err);
                 }
+            }
 
             if window.decorations != cache.decorations
                 && window.decorations != winit_window.is_decorated()
