@@ -564,15 +564,14 @@ use bevy_ecs::{
     observer::On,
     resource::Resource,
     schedule::{
-        InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt,
-        ScheduleLabel, SystemSet,
+        InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt, SystemSet,
     },
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_render")]
-use bevy_render::{Render, RenderApp, RenderRecovery, RenderStartup};
+use bevy_render::{RenderApp, RenderRecovery, RenderStartup};
 use bevy_utils::prelude::default;
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
@@ -935,7 +934,6 @@ impl Plugin for RemotePlugin {
         #[cfg(feature = "bevy_render")]
         {
             use bevy_ecs::schedule::common_conditions::run_once;
-            use bevy_render::RenderSystems;
 
             let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
                 return;
