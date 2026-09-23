@@ -572,7 +572,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_render")]
-use bevy_render::{RenderApp, RenderStartup};
+use bevy_render::{Render, RenderApp, RenderRecovery, RenderStartup};
 use bevy_utils::prelude::default;
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
@@ -922,13 +922,14 @@ impl Plugin for RemotePlugin {
                 (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
             )
             .add_systems(
-                RemoteLast,
+                EntryPoint,
                 (
                     (process_remote_requests, process_ongoing_watching_requests)
                         .chain()
                         .in_set(RemoteSystems::ProcessRequests),
                     remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
-                ),
+                )
+                    .in_set(RemoteLast),
             );
 
         #[cfg(feature = "bevy_render")]
@@ -963,19 +964,20 @@ impl Plugin for RemotePlugin {
                 .init_resource::<RemoteWatchingRequests>()
                 .add_systems(RenderStartup, setup_mailbox_channel.run_if(run_once))
                 // Run RemoteSystems stuff after all the rendering stuff.
-                .configure_sets(EntryPoint, RemoteLast.after(RenderSystems::PostCleanup))
+                .configure_sets(RenderRecovery, RemoteLast.after(bevy_render::send_time))
                 .configure_sets(
-                    EntryPoint,
+                    RenderRecovery,
                     (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
                 )
                 .add_systems(
-                    RemoteLast,
+                    RenderRecovery,
                     (
                         (process_remote_requests, process_ongoing_watching_requests)
                             .chain()
                             .in_set(RemoteSystems::ProcessRequests),
                         remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
-                    ),
+                    )
+                        .in_set(RemoteLast),
                 );
         }
     }
@@ -983,7 +985,6 @@ impl Plugin for RemotePlugin {
 
 /// Schedule that contains all systems to process Bevy Remote Protocol requests
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
-#[default_schedule(EntryPoint)]
 pub struct RemoteLast;
 
 /// The systems sets of the [`RemoteLast`] schedule.

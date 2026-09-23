@@ -270,7 +270,7 @@ impl GpuResourceAppExt for SubApp {
 /// The render recovery schedule. This schedule runs the [`Render`] schedule if we are in
 /// [`RenderState::Ready`], and is otherwise hidden from users.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-struct RenderRecovery;
+pub struct RenderRecovery;
 
 /// The main render schedule.
 ///
@@ -474,7 +474,7 @@ pub fn run_render_schedule(world: &mut World) {
     let _ = world.try_run_schedule(Render);
 }
 
-fn send_time(time_sender: Res<TimeSender>) {
+pub fn send_time(time_sender: Res<TimeSender>) {
     // update the time and send it to the app world regardless of whether we render
     if let Err(error) = time_sender.0.try_send(Instant::now()) {
         match error {
