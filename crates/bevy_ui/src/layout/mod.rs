@@ -256,7 +256,7 @@ pub fn ui_layout_system(
         ),
         With<Node>,
     >,
-    style_query: Query<&TaffyStyle>,
+    style_query: Query<&'static TaffyStyle>,
     mut node_queries: ParamSet<(
         Query<&mut ComputedLayout>,
         Query<(

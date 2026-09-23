@@ -292,7 +292,7 @@ impl ComputedLayout {
 }
 
 /// Compute and store layout results for one UI root entity.
-pub fn compute_layout(
+pub fn compute_layout<'w, 's>(
     ui_root_entity: Entity,
     render_target_resolution: UVec2,
     ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
@@ -311,8 +311,8 @@ pub fn compute_layout(
         ),
         With<Node>,
     >,
-    style_query: &Query<&TaffyStyle>,
-    computed_layout_query: &mut Query<&mut ComputedLayout>,
+    style_query: &Query<'w, 's, &'static TaffyStyle>,
+    computed_layout_query: &mut Query<'w, 's, &'static mut ComputedLayout>,
     fixed_node_changes: &[Entity],
     buffer_query: &mut Query<&mut ComputedTextBlock>,
     font_system: &mut FontCx,
@@ -580,9 +580,9 @@ struct ViewportLayoutState {
     unrounded: Layout,
 }
 
-struct UiLayoutTree<'a, 'w, 's, 'u, 't, 'style, 'layout> {
-    style_query: &'a Query<'w, 's, &'style TaffyStyle>,
-    computed_layout_query: &'a mut Query<'u, 't, &'layout mut ComputedLayout>,
+struct UiLayoutTree<'a, 'w, 's> {
+    style_query: &'a Query<'w, 's, &'static TaffyStyle>,
+    computed_layout_query: &'a mut Query<'w, 's, &'static mut ComputedLayout>,
     viewport_layout: ViewportLayoutState,
     viewport_children: [NodeId; 1],
     measure_function: &'a mut dyn FnMut(
@@ -594,7 +594,7 @@ struct UiLayoutTree<'a, 'w, 's, 'u, 't, 'style, 'layout> {
     layout_changed: bool,
 }
 
-impl UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
+impl UiLayoutTree<'_, '_, '_> {
     fn children(&self, node_id: NodeId) -> &[NodeId] {
         if node_id == VIEWPORT_NODE_ID {
             return &self.viewport_children;
@@ -653,7 +653,7 @@ impl UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
     }
 }
 
-impl TraversePartialTree for UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
+impl TraversePartialTree for UiLayoutTree<'_, '_, '_> {
     type ChildIter<'a>
         = core::iter::Copied<core::slice::Iter<'a, NodeId>>
     where
@@ -672,11 +672,9 @@ impl TraversePartialTree for UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
     }
 }
 
-impl TraverseTree for UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {}
+impl TraverseTree for UiLayoutTree<'_, '_, '_> {}
 
-impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutPartialTree
-    for UiLayoutTree<'tree, 'w, 's, 'u, 't, 'style, 'layout>
-{
+impl<'tree, 'w, 's> LayoutPartialTree for UiLayoutTree<'tree, 'w, 's> {
     type CoreContainerStyle<'a>
         = &'a Style
     where
@@ -718,7 +716,7 @@ impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutPartialTree
     }
 }
 
-impl CacheTree for UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
+impl CacheTree for UiLayoutTree<'_, '_, '_> {
     fn cache_get(&mut self, node_id: NodeId, input: &LayoutInput) -> Option<LayoutOutput> {
         if node_id == VIEWPORT_NODE_ID {
             return self.viewport_layout.cache.get(input);
@@ -764,9 +762,7 @@ impl CacheTree for UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
     }
 }
 
-impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutBlockContainer
-    for UiLayoutTree<'tree, 'w, 's, 'u, 't, 'style, 'layout>
-{
+impl<'tree, 'w, 's> LayoutBlockContainer for UiLayoutTree<'tree, 'w, 's> {
     type BlockContainerStyle<'a>
         = &'a Style
     where
@@ -796,9 +792,7 @@ impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutBlockContainer
     }
 }
 
-impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutFlexboxContainer
-    for UiLayoutTree<'tree, 'w, 's, 'u, 't, 'style, 'layout>
-{
+impl<'tree, 'w, 's> LayoutFlexboxContainer for UiLayoutTree<'tree, 'w, 's> {
     type FlexboxContainerStyle<'a>
         = &'a Style
     where
@@ -818,9 +812,7 @@ impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutFlexboxContainer
     }
 }
 
-impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutGridContainer
-    for UiLayoutTree<'tree, 'w, 's, 'u, 't, 'style, 'layout>
-{
+impl<'tree, 'w, 's> LayoutGridContainer for UiLayoutTree<'tree, 'w, 's> {
     type GridContainerStyle<'a>
         = &'a Style
     where
@@ -840,7 +832,7 @@ impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutGridContainer
     }
 }
 
-impl RoundTree for UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
+impl RoundTree for UiLayoutTree<'_, '_, '_> {
     fn get_unrounded_layout(&self, node_id: NodeId) -> Layout {
         if node_id == VIEWPORT_NODE_ID {
             return self.viewport_layout.unrounded;

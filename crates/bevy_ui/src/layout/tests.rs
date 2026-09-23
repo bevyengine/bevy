@@ -501,7 +501,7 @@ fn compute_layout_uses_camera_viewport() {
             ),
             With<Node>,
         >,
-        style_query: Query<&TaffyStyle>,
+        style_query: Query<&'static TaffyStyle>,
         mut node_queries: ParamSet<(Query<&mut ComputedLayout>,)>,
         mut buffer_query: Query<&mut bevy_text::ComputedTextBlock>,
         mut font_system: ResMut<bevy_text::FontCx>,
