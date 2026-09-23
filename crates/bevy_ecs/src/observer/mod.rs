@@ -1948,7 +1948,7 @@ mod tests {
         #[expect(unused, reason = "This will only trigger UB if it has nonzero size")]
         struct DespawnObserversOnInit(usize);
         impl System for DespawnObserversOnInit {
-            type In = On<'static, 'static, Add<()>>;
+            type In = On<'static, Add<()>>;
 
             type Out = ();
 
