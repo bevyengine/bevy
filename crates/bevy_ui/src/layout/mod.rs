@@ -50,7 +50,7 @@ pub struct UiRoots {
     unparented_non_ghost: Vec<Entity>,
     /// All non-ghost nodes with no non-ghost ancestors.
     roots_under_ghosts: Vec<Entity>,
-    /// All ghost nodes with no non-ghost ancestors.
+    /// All ghost nodes with all ghost ancestors.
     root_ghosts: Vec<Entity>,
     /// All valid fixed nodes (parented, non-ghost, all ancestors are UI nodes).
     fixed_nodes: Vec<Entity>,
