@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev" }
+bevy_curve = { path = "../bevy_curve", version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.20.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.20.0-dev" }

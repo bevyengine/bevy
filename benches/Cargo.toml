@@ -15,6 +15,7 @@ seq-macro = "0.3.6"
 
 # Bevy crates
 bevy_app = { path = "../crates/bevy_app", optional = true }
+bevy_curve = { path = "../crates/bevy_curve", optional = true }
 bevy_ecs = { path = "../crates/bevy_ecs", optional = true, features = [
   "multi_threaded",
 ] }
@@ -81,7 +82,7 @@ bench_ecs = [
   "bevy_math/bevy_reflect",
 ]
 
-bench_math = ["dep:bevy_math", "dep:bevy_shape"]
+bench_math = ["dep:bevy_math", "dep:bevy_curve", "dep:bevy_shape"]
 
 bench_picking = ["dep:bevy_picking", "dep:bevy_math", "dep:bevy_shape"]
 

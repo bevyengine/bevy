@@ -697,12 +697,12 @@ impl WinitAppRunnerState {
                         target_os = "android",
                         target_os = "ios",
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    )) =>
-                    {
+                    )) => {
                         let visible = WINIT_WINDOWS.with_borrow(|winit_windows| {
-                            winit_windows.windows.iter().any(|(_, w)| {
-                                w.is_visible().unwrap_or(false)
-                            })
+                            winit_windows
+                                .windows
+                                .iter()
+                                .any(|(_, w)| w.is_visible().unwrap_or(false))
                         });
 
                         event_loop.set_control_flow(if visible {
@@ -928,92 +928,6 @@ impl WinitAppRunnerState {
             world
                 .resource_mut::<Messages<RawWinitWindowEvent>>()
                 .write_batch(raw_winit_events);
-        }
-
-        for window_event in window_events.iter() {
-            match window_event.clone() {
-                BevyWindowEvent::AppLifecycle(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::CursorEntered(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::CursorLeft(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::CursorMoved(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::FileDragAndDrop(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::Ime(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::RequestRedraw(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowBackendScaleFactorChanged(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowCloseRequested(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowCreated(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowDestroyed(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowFocused(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowMoved(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowOccluded(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowResized(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowScaleFactorChanged(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowThemeChanged(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::MouseButtonInput(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::MouseMotion(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::MouseWheel(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::PinchGesture(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::RotationGesture(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::DoubleTapGesture(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::PanGesture(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::TouchInput(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::KeyboardInput(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::KeyboardFocusLost(e) => {
-                    world.write_message(e);
-                }
-            }
         }
 
         if !window_events.is_empty() {

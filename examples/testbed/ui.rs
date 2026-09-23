@@ -63,6 +63,7 @@ fn main() {
     .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
     .add_systems(OnEnter(Scene::NodeMaterial), node_material::setup)
     .add_systems(OnEnter(Scene::Block), block::setup)
+    .add_systems(OnEnter(Scene::InlineImage), inline_image::setup)
     .add_systems(
         OnEnter(Scene::FontRelativeUnits),
         font_relative_units::setup,
@@ -92,7 +93,6 @@ fn main() {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
-#[states(scoped_entities)]
 enum Scene {
     #[default]
     Image,
@@ -122,6 +122,7 @@ enum Scene {
     FontRelativeUnits,
     ChangeDetection,
     Block,
+    InlineImage,
 }
 
 impl Scene {
@@ -153,6 +154,7 @@ impl Scene {
         Scene::FontRelativeUnits,
         Scene::ChangeDetection,
         Scene::Block,
+        Scene::InlineImage,
     ];
 }
 
@@ -4147,6 +4149,29 @@ mod block {
                     },
                     BackgroundColor(YELLOW.into()),
                 ),
+            ],
+        ));
+    }
+}
+
+mod inline_image {
+    use bevy::prelude::*;
+
+    pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::InlineImage)));
+        commands.spawn((
+            Text::new("head "),
+            DespawnOnExit(super::Scene::InlineImage),
+            children![
+                (TextSpan::new("before image "),),
+                (InlineImage {
+                    color: Color::WHITE,
+                    image: asset_server.load("branding/bevy_logo_dark.png"),
+                    height: Some(20.),
+                    flip_x: true,
+                    ..default()
+                },),
+                (TextSpan::new(" after image"),),
             ],
         ));
     }

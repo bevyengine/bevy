@@ -24,6 +24,7 @@ use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_RE
 
 use bevy_log::warn;
 
+pub(crate) mod clipping;
 mod convert;
 pub mod debug;
 pub mod ui_surface;
@@ -461,6 +462,9 @@ pub fn ui_layout_system(
                 if node.outline_offset != new_outline_offset {
                     node.outline_offset = new_outline_offset;
                 }
+            } else if node.outline_width != 0. || node.outline_offset != 0. {
+                node.outline_width = 0.;
+                node.outline_offset = 0.;
             }
 
             let new_scrollbar_size =
@@ -486,9 +490,10 @@ pub fn ui_layout_system(
                 })
                 .unwrap_or_default();
 
-            let max_possible_offset =
-                (content_size - layout_size + node.scrollbar_size).max(Vec2::ZERO);
-            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
+            let clamped_scroll_position = scroll_position.clamp(
+                Vec2::ZERO,
+                Vec2::new(layout.scroll_width(), layout.scroll_height()),
+            );
 
             let physical_scroll_position = clamped_scroll_position.floor();
 
@@ -518,15 +523,20 @@ pub fn ui_layout_system(
 
 #[cfg(test)]
 mod tests {
+    use crate::sync_font_size_to_em_size;
     use crate::{
-        layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::propagate_ui_target_cameras, ContentSize, LayoutContext,
+        layout::{clipping::update_clipping_system, ui_surface::UiSurface},
+        prelude::*,
+        ui_layout_system,
+        update::propagate_ui_target_cameras,
+        ContentSize, LayoutContext,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
-    use bevy_math::{Rect, UVec2, Vec2};
+    use bevy_math::{BVec2, Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
+    use bevy_text::TextFont;
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
@@ -558,10 +568,12 @@ mod tests {
             (
                 ApplyDeferred,
                 propagate_ui_target_cameras,
+                sync_font_size_to_em_size,
                 ui_layout_system,
                 mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
+                update_clipping_system,
             )
                 .chain(),
         );
@@ -1774,6 +1786,39 @@ mod tests {
     }
 
     #[test]
+    fn removing_node_from_ui_child_should_relayout_parent() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+        let ui_root = world.spawn(Node::default()).id();
+        let ui_child = world
+            .spawn((
+                Node {
+                    width: px(50.),
+                    height: px(30.),
+                    ..default()
+                },
+                ChildOf(ui_root),
+            ))
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+        world.entity_mut(ui_child).remove::<Node>();
+
+        app.update();
+
+        let world = app.world_mut();
+        assert!(world
+            .entity(ui_root)
+            .get::<ComputedNode>()
+            .unwrap()
+            .size()
+            .abs_diff_eq(Vec2::ZERO, 1e-5));
+    }
+
+    #[test]
     fn block_layouts_margins_collapse() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
@@ -1857,6 +1902,239 @@ mod tests {
         let a_bottom = 0.5 * computed_a.size.y + transform_a.affine().translation.y;
         let b_top = -0.5 * computed_b.size.y + transform_b.affine().translation.y;
         assert!((b_top - a_bottom - 40.).abs() <= 1e-5);
+    }
+
+    #[test]
+    fn move_child_by_parent_scroll_position() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((Node {
+                width: px(100),
+                height: px(100),
+                overflow: Overflow::scroll(),
+                ..default()
+            },))
+            .id();
+
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    min_width: px(200.),
+                    min_height: px(200.),
+                    ..default()
+                },
+                ChildOf(parent),
+            ))
+            .id();
+
+        app.update();
+
+        app.world_mut().get_mut::<ScrollPosition>(parent).unwrap().0 = Vec2::new(50., 100.);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(50., 0.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+    }
+
+    #[test]
+    fn move_node_with_uitransform() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((Node {
+                width: px(100),
+                height: px(100),
+                ..default()
+            },))
+            .id();
+
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100),
+                    ..default()
+                },
+                ChildOf(parent),
+            ))
+            .id();
+
+        let grand_child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100.),
+                    ..default()
+                },
+                ChildOf(child),
+            ))
+            .id();
+
+        app.update();
+
+        app.world_mut()
+            .get_mut::<UiTransform>(parent)
+            .unwrap()
+            .translation = Val2::px(60., 40.);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(110., 90.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+
+        app.world_mut()
+            .get_mut::<UiTransform>(grand_child)
+            .unwrap()
+            .translation = Val2::px(20., 30.);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(130., 120.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+    }
+
+    #[test]
+    fn fixed_node_doesnt_propagate_parents_uitransform() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100),
+                    ..default()
+                },
+                UiTransform::from_translation(px(50.).into()),
+            ))
+            .id();
+
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    min_width: px(100),
+                    min_height: px(100),
+                    ..default()
+                },
+                ChildOf(parent),
+            ))
+            .id();
+
+        let grand_child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100.),
+                    ..default()
+                },
+                ChildOf(child),
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(100., 100.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(100., 100.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+
+        app.world_mut().entity_mut(child).insert(FixedNode);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(50., 50.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(50., 50.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+
+        app.world_mut()
+            .get_mut::<UiTransform>(parent)
+            .unwrap()
+            .translation = Val2::px(10., 10.);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(50., 50.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(50., 50.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+
+        app.world_mut().entity_mut(child).remove::<FixedNode>();
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(60., 60.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(60., 60.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
     }
 
     #[test]
@@ -2006,6 +2284,373 @@ mod tests {
                 .top_left,
             Vec2::splat(15.)
         );
+    }
+
+    #[test]
+    fn clipping_updates_on_layout_changes() {
+        let mut app = setup_ui_test_app();
+
+        let child = app.world_mut().spawn(Node::default()).id();
+        let parent = app
+            .world_mut()
+            .spawn((Node {
+                width: Val::Px(60.),
+                height: Val::Px(20.),
+                overflow: Overflow::clip(),
+                ..default()
+            },))
+            .add_child(child)
+            .id();
+
+        app.update();
+
+        let initial_clip = app.world().get::<CalculatedClip>(child).unwrap().clone();
+
+        app.world_mut().get_mut::<Node>(parent).unwrap().width = Val::Px(80.);
+        app.update();
+
+        assert_ne!(
+            &initial_clip,
+            app.world().get::<CalculatedClip>(child).unwrap()
+        );
+    }
+
+    #[test]
+    fn fixed_node_opens_new_clipping_context() {
+        let mut app = App::new();
+        app.add_systems(bevy_app::Update, update_clipping_system);
+
+        let grandchild = app.world_mut().spawn(Node::default()).id();
+        let child = app
+            .world_mut()
+            .spawn(Node::default())
+            .add_child(grandchild)
+            .id();
+        app.world_mut()
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<CalculatedClip>(grandchild)
+                .unwrap()
+                .rects()
+                .unwrap()
+                .len(),
+            1
+        );
+
+        app.world_mut().entity_mut(child).insert(FixedNode);
+        app.update();
+        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
+
+        app.world_mut().entity_mut(child).remove::<FixedNode>();
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<CalculatedClip>(grandchild)
+                .unwrap()
+                .rects()
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn override_clip_opens_new_clipping_context() {
+        let mut app = App::new();
+        app.add_systems(bevy_app::Update, update_clipping_system);
+
+        let grandchild = app.world_mut().spawn(Node::default()).id();
+        let child = app
+            .world_mut()
+            .spawn((Node::default(), OverrideClip))
+            .add_child(grandchild)
+            .id();
+        app.world_mut()
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
+    }
+
+    #[test]
+    fn scrolling_with_borders_should_clamp_to_padding_box() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100.),
+                    height: px(100.),
+                    border: px(10.).all(),
+                    overflow: Overflow::scroll_x(),
+                    ..default()
+                },
+                ScrollPosition(Vec2::new(1000., 0.)),
+                children![Node {
+                    min_width: px(200.),
+                    height: px(100.),
+                    ..default()
+                },],
+            ))
+            .id();
+
+        app.update();
+
+        // The 10px borders leave a visible space of 80px, so the 200px child can scroll by max 200px - 80px = 120px.
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(parent)
+                .unwrap()
+                .scroll_position,
+            Vec2::new(120., 0.)
+        );
+    }
+
+    #[test]
+    fn outlines_relayout_on_outline_remove_and_insert() {
+        let mut app = setup_ui_test_app();
+
+        let entity = app
+            .world_mut()
+            .spawn((
+                Node::default(),
+                Outline {
+                    width: px(10.),
+                    offset: px(5.),
+                    ..default()
+                },
+            ))
+            .id();
+
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 10.);
+        assert_eq!(computed_node.outline_offset(), 5.);
+
+        app.world_mut().entity_mut(entity).remove::<Outline>();
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 0.);
+        assert_eq!(computed_node.outline_offset(), 0.);
+
+        app.world_mut().entity_mut(entity).insert(Outline {
+            width: px(20.),
+            offset: px(10.),
+            ..default()
+        });
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 20.);
+        assert_eq!(computed_node.outline_offset(), 10.);
+    }
+
+    #[test]
+    fn ignore_scroll_relayouts_on_remove_and_insert() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100.),
+                    height: px(100.),
+                    overflow: Overflow::scroll_x(),
+                    ..default()
+                },
+                ScrollPosition(Vec2::new(20., 0.)),
+            ))
+            .id();
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(200.),
+                    height: px(100.),
+                    flex_shrink: 0.,
+                    ..default()
+                },
+                IgnoreScroll(BVec2::new(true, false)),
+                ChildOf(parent),
+            ))
+            .id();
+
+        app.update();
+
+        let initial_x = app
+            .world()
+            .get::<UiGlobalTransform>(child)
+            .unwrap()
+            .translation
+            .x;
+
+        app.world_mut().entity_mut(child).remove::<IgnoreScroll>();
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+                .x,
+            initial_x - 20.
+        );
+
+        app.world_mut()
+            .entity_mut(child)
+            .insert(IgnoreScroll(BVec2::new(true, false)));
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+                .x,
+            initial_x
+        );
+    }
+
+    #[test]
+    fn layout_config_relayouts_on_remove_and_insert() {
+        let mut app = setup_ui_test_app();
+
+        let entity = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(10.5),
+                    height: px(10.5),
+                    ..default()
+                },
+                LayoutConfig {
+                    use_rounding: false,
+                },
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(entity).unwrap().size(),
+            Vec2::splat(10.5)
+        );
+
+        app.world_mut().entity_mut(entity).remove::<LayoutConfig>();
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(entity).unwrap().size(),
+            Vec2::splat(11.)
+        );
+
+        app.world_mut().entity_mut(entity).insert(LayoutConfig {
+            use_rounding: false,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(entity).unwrap().size(),
+            Vec2::splat(10.5)
+        );
+    }
+
+    #[test]
+    fn rem_sized_node_is_rem_sized() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+        let ui_root = world
+            .spawn(Node {
+                width: Val::Rem(3.),
+                height: Val::Rem(2.),
+                ..default()
+            })
+            .id();
+        world.insert_resource(UiScale(5.));
+
+        app.update();
+
+        let world = app.world_mut();
+        let c = world.entity(ui_root).get::<ComputedNode>().unwrap();
+        assert!(c.size().abs_diff_eq(
+            world.resource::<RemSize>().0 * world.resource::<UiScale>().0 * Vec2::new(3., 2.),
+            1e-5
+        ));
+
+        world.insert_resource(RemSize(100.));
+
+        app.update();
+
+        let world = app.world_mut();
+        let c = world.entity(ui_root).get::<ComputedNode>().unwrap();
+        assert!(c.size().abs_diff_eq(
+            world.resource::<RemSize>().0 * world.resource::<UiScale>().0 * Vec2::new(3., 2.),
+            1e-5
+        ));
+    }
+
+    #[test]
+    fn em_and_rem_sized_nodes_are_updated_on_changes_to_em_and_rem_sizes() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+        let ui_root = world
+            .spawn((
+                Node {
+                    width: Val::Rem(20.),
+                    height: Val::Em(30.),
+                    ..default()
+                },
+                TextFont::default().with_font_size(5.),
+            ))
+            .id();
+        let child = world
+            .spawn((
+                Node {
+                    width: Val::Em(5.),
+                    height: Val::Rem(4.),
+                    ..default()
+                },
+                TextFont::default().with_font_size(15.),
+                ChildOf(ui_root),
+            ))
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+        world.resource_mut::<RemSize>().0 = 10.;
+
+        app.update();
+
+        let world = app.world_mut();
+        assert!(world
+            .entity(ui_root)
+            .get::<ComputedNode>()
+            .unwrap()
+            .size()
+            .abs_diff_eq(Vec2::new(200., 150.), 1e-5));
+        assert!(world
+            .entity(child)
+            .get::<ComputedNode>()
+            .unwrap()
+            .size()
+            .abs_diff_eq(Vec2::new(75., 40.), 1e-5));
     }
 
     #[cfg(feature = "ghost_nodes")]
@@ -2247,6 +2892,46 @@ mod tests {
 
             assert!(ui_surface.is_root(fixed));
             assert!(!ui_surface.is_root(child));
+        }
+
+        #[test]
+        fn removing_and_replacing_intermediate_ghost_should_relayout_parent() {
+            let mut app = setup_ui_test_app();
+
+            let world = app.world_mut();
+            let child = world
+                .spawn(Node {
+                    width: px(50.),
+                    height: px(30.),
+                    ..default()
+                })
+                .id();
+            let ghost = world.spawn(GhostNode).add_child(child).id();
+            let root = world.spawn(Node::default()).add_child(ghost).id();
+            app.update();
+
+            app.world_mut().entity_mut(ghost).remove::<GhostNode>();
+
+            app.update();
+
+            assert!(app
+                .world()
+                .entity(root)
+                .get::<ComputedNode>()
+                .unwrap()
+                .size()
+                .abs_diff_eq(Vec2::ZERO, 1e-5));
+            app.world_mut().entity_mut(ghost).insert(GhostNode);
+
+            app.update();
+
+            assert!(app
+                .world()
+                .entity(root)
+                .get::<ComputedNode>()
+                .unwrap()
+                .size()
+                .abs_diff_eq(Vec2::new(50., 30.), 1e-5));
         }
     }
 }

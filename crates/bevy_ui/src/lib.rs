@@ -43,7 +43,7 @@ pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
 pub use interaction_states::{
-    Checkable, Checked, InteractionDisabled, Pressed, Selectable, Selected,
+    Checkable, Checked, Expandable, Expanded, InteractionDisabled, Pressed, Selectable, Selected,
 };
 pub use layout::*;
 pub use measurement::*;
@@ -74,7 +74,7 @@ pub mod prelude {
             gradients::*,
             ui_node::*,
             ui_transform::*,
-            widget::{ImageNode, Label, NodeImageMode, ViewportNode},
+            widget::{ImageNode, InlineImage, Label, NodeImageMode, ViewportNode},
             UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
@@ -150,6 +150,10 @@ impl Plugin for UiPlugin {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .register_required_components::<
+                bevy_text::EditableText,
+                widget::EditableTextContentSizeState,
+            >()
             .configure_sets(
                 PostUpdate,
                 (
@@ -225,6 +229,10 @@ impl Plugin for UiPlugin {
             .add_observer(interaction_states::on_remove_checkable)
             .add_observer(interaction_states::on_add_checked)
             .add_observer(interaction_states::on_remove_checked)
+            .add_observer(interaction_states::on_add_expandable)
+            .add_observer(interaction_states::on_remove_expandable)
+            .add_observer(interaction_states::on_add_expanded)
+            .add_observer(interaction_states::on_remove_expanded)
             .add_observer(interaction_states::on_add_selectable)
             .add_observer(interaction_states::on_remove_selectable)
             .add_observer(interaction_states::on_add_selected)
@@ -238,6 +246,9 @@ fn build_text_interop(app: &mut App) {
     app.add_systems(
         PostUpdate,
         (
+            widget::update_inline_image_boxes
+                .before(detect_text_needs_rerender)
+                .in_set(UiSystems::Content),
             widget::measure_text_system
                 .after(detect_text_needs_rerender)
                 .after(bevy_text::load_font_assets_into_font_collection)
