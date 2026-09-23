@@ -13,6 +13,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With, Without},
+    resource::Resource,
     system::{Local, ParamSet, Query, Res, ResMut},
     world::Ref,
 };
@@ -40,6 +41,29 @@ mod tests;
 /// Optimization copied from `bevy_transform`'s `TransformTreeChanged`.
 #[derive(Component, Default, Debug, Clone)]
 pub struct UiTreeDirty;
+
+/// List of all UI root nodes.
+/// Updated at start of UI schedule in `PostLayout` by `update_ui_roots`.
+#[derive(Resource)]
+pub struct UiRoots {
+    /// List of unparented, non-ghost root UI nodes.    
+    roots: Vec<Entity>,
+    /// List of UI nodes with only ghost node ancestors.
+    ghost_roots: Vec<Entity>,
+    /// List of parent-less ghost nodes.
+    ghost_node_roots: Vec<Entity>,
+    /// List of valid fixed nodes.
+    fixed_nodes: Vec<Entity>,
+}
+
+impl UiRoots {
+    fn clear(&mut self) {
+        self.roots.clear();
+        self.ghost_roots.clear();
+        self.ghost_node_roots.clear();
+        self.fixed_nodes.clear();
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct LayoutContext {
@@ -91,6 +115,40 @@ impl Default for LayoutContext {
 pub enum LayoutError {
     #[error("UI root entity is missing or doesn't have the components needed for layout.")]
     InvalidUiRoot,
+}
+
+/// Update the list of root nodes
+pub fn update_ui_roots(
+    mut navigation_stack: Local<Vec<Entity>>,
+    mut ui_roots: ResMut<UiRoots>,
+    roots_query: Query<Entity, (With<Node>, Without<ChildOf>, Without<GhostNode>)>,
+    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>, Without<GhostNode>)>,
+    ghost_roots_query: Query<(Entity, Option<&Children>), (With<GhostNode>, Without<ChildOf>)>,
+    flattening_query: Query<(Entity, Has<GhostNode>, Option<&Children>), With<Node>>,
+) {
+    ui_roots.clear();
+
+    ui_roots.roots.extend(roots_query.iter());
+    ui_roots.fixed_nodes.extend(fixed_nodes_query.iter());
+
+    for (ghost_root, maybe_children) in &ghost_roots_query {
+        ui_roots.ghost_node_roots.push(ghost_root);
+        if let Some(children) = maybe_children {
+            navigation_stack.extend(children);
+            while let Some(entity) = navigation_stack.pop() {
+                let Ok((entity, is_ghost, maybe_children)) = flattening_query.get(entity) else {
+                    continue;
+                };
+                if is_ghost {
+                    if let Some(children) = maybe_children {
+                        navigation_stack.extend(children);
+                    }
+                } else if !fixed_nodes_query.contains(entity) {
+                    ui_roots.ghost_roots.push(entity);
+                }
+            }
+        }
+    }
 }
 
 /// For any entity with a [`TextFont`], set [`EmSize`] to the font size resolved
