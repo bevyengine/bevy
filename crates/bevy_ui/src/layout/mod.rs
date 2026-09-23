@@ -367,6 +367,7 @@ pub fn ui_layout_system(
         ) {
             warn_once!("Invalid UI root entity: {ui_root_entity}.")
         }
+
         child_stack.clear();
     }
 
