@@ -3534,3 +3534,64 @@ fn changing_ghost_nodes_ui_transform_updates_descendant_clipping() {
 
     assert!(clip != *app.world().get::<CalculatedClip>(descendant).unwrap());
 }
+
+#[test]
+fn rounding_is_updated_on_hierarchy_changes_even_if_unrounded_layout_not_changed() {
+    let mut app = setup_ui_test_app();
+
+    let world = app.world_mut();
+    let a = world
+        .spawn(Node {
+            width: px(20.),
+            height: px(20.),
+            left: px(0.1),
+            ..default()
+        })
+        .id();
+    let b = world
+        .spawn(Node {
+            width: px(20.),
+            height: px(20.),
+            left: px(0.6),
+            ..default()
+        })
+        .id();
+    let c = world
+        .spawn((
+            Node {
+                width: px(10.6),
+                height: px(10.6),
+                ..default()
+            },
+            ChildOf(a),
+        ))
+        .id();
+    let d = world
+        .spawn((
+            Node {
+                width: px(10.6),
+                height: px(10.6),
+                ..default()
+            },
+            ChildOf(b),
+        ))
+        .id();
+
+    app.update();
+
+    let world = app.world_mut();
+
+    // (0.1 + 10.6).round() - 0.1.round() = 11 - 0 = 11
+    assert_eq!(world.get::<ComputedNode>(c).unwrap().size().x, 11.);
+    // (0.6 + 10.6).round() - 0.6.round() = 11 - 1 = 10
+    assert_eq!(world.get::<ComputedNode>(d).unwrap().size().x, 10.);
+    world.entity_mut(c).insert(ChildOf(b));
+    world.entity_mut(d).insert(ChildOf(a));
+
+    app.update();
+
+    let world = app.world_mut();
+
+    assert_eq!(world.get::<ComputedNode>(c).unwrap().size().x, 10.);
+    assert_eq!(world.get::<ComputedNode>(d).unwrap().size().x, 11.);
+}
