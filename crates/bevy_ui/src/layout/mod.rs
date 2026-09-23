@@ -44,7 +44,12 @@ pub struct UiTreeDirty;
 
 /// List of all UI root nodes.
 /// Updated at start of UI schedule in `PostLayout` by `update_ui_roots`.
-#[derive(Resource)]
+///
+/// types of roots:
+/// - layout roots: roots of UI layouts
+/// - ui roots: any parentless Node or GhostNode
+/// - stack roots: roots that are the base of a new UI stack context
+#[derive(Resource, Default)]
 pub struct UiRoots {
     /// List of unparented, non-ghost root UI nodes.    
     roots: Vec<Entity>,
@@ -54,6 +59,12 @@ pub struct UiRoots {
     ghost_node_roots: Vec<Entity>,
     /// List of valid fixed nodes.
     fixed_nodes: Vec<Entity>,
+}
+
+impl UiRoots {
+    pub fn layout_roots(&self) -> impl Iterator<Item = Entity> {
+        self.roots.iter().chain(self.fixed_nodes.iter()).copied()
+    }
 }
 
 impl UiRoots {
@@ -314,8 +325,7 @@ pub fn mark_dirty_ui_trees(
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
-    ui_root_node_query: Query<Entity, (With<Node>, Without<ChildOf>)>,
-    fixed_nodes_query: Query<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>,
+    ui_roots: Res<UiRoots>,
     ui_children: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
     target_query: Query<Ref<ComputedUiRenderTargetInfo>>,
     node_query: Query<
@@ -360,7 +370,6 @@ pub fn ui_layout_system(
         Query<Entity, Added<GhostNode>>,
         RemovedComponents<GhostNode>,
     ),
-    parent_query: Query<&ChildOf>,
     (mut child_stack, mut root_stack, mut fixed_node_changes, mut ghost_stack): (
         Local<Vec<taffy::NodeId>>,
         Local<Vec<taffy::NodeId>>,
@@ -395,34 +404,8 @@ pub fn ui_layout_system(
     root_stack.clear();
     ghost_stack.clear();
 
-    for ui_root_entity in ui_root_node_query.iter() {
-        if ui_children
-            .get(ui_root_entity)
-            .is_ok_and(|(_, is_ghost, _)| is_ghost)
-        {
-            ghost_stack.push(ui_root_entity);
-            collect_ui_children(
-                ui_root_entity,
-                &ui_children,
-                &mut root_stack,
-                &mut ghost_stack,
-            );
-        } else {
-            root_stack.push(entity_node_id(ui_root_entity));
-        }
-    }
-    root_stack.retain(|node_id| !fixed_nodes_query.contains(node_id_entity(*node_id)));
-    root_stack.extend(fixed_nodes_query.iter().filter_map(|(entity, is_ghost)| {
-        (!is_ghost
-            && parent_query
-                .iter_ancestors::<ChildOf>(entity)
-                .all(|ancestor| ui_children.contains(ancestor)))
-        .then_some(entity_node_id(entity))
-    }));
-
     let mut computed_layout_query = node_queries.p0();
-    for root_node in root_stack.iter().copied() {
-        let ui_root_entity = node_id_entity(root_node);
+    for ui_root_entity in ui_roots.layout_roots() {
         let Ok(target) = target_query.get(ui_root_entity) else {
             continue;
         };
@@ -487,9 +470,8 @@ pub fn ui_layout_system(
 }
 
 pub fn update_computed_nodes(
+    ui_roots: Res<UiRoots>,
     rem_size: Res<RemSize>,
-    ui_root_node_query: Query<Entity, (With<Node>, Without<ChildOf>)>,
-    fixed_nodes_query: Query<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>,
     targets_query: Query<Ref<ComputedUiRenderTargetInfo>>,
     mut computed_nodes_query: Query<(
         &mut ComputedNode,
@@ -509,11 +491,7 @@ pub fn update_computed_nodes(
     )>,
     mut child_stack: Local<Vec<Entity>>,
 ) {
-    for ui_root_entity in ui_root_node_query.iter().chain(
-        fixed_nodes_query
-            .iter()
-            .filter_map(|(entity, is_ghost)| (!is_ghost).then_some(entity)),
-    ) {
+    for ui_root_entity in ui_roots.layout_roots() {
         let Ok(target_info) = targets_query.get(ui_root_entity) else {
             continue;
         };
