@@ -72,6 +72,7 @@ http-body-util = { version = "0.1", optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.20.0-dev", features = [
   "multi_threaded",
 ] }
+bevy_remote = { path = ".", features = ["client"] }
 
 [lints]
 workspace = true
