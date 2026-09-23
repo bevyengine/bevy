@@ -93,13 +93,13 @@ mod tests {
     fn dynamic_enum_should_set_variant_fields() {
         // === Unit === //
         let mut value = MyEnum::A;
-        let dyn_enum = DynamicEnum::from(MyEnum::A);
+        let dyn_enum = DynamicEnum::try_from(MyEnum::A).unwrap();
         value.apply(&dyn_enum);
         assert_eq!(MyEnum::A, value);
 
         // === Tuple === //
         let mut value = MyEnum::B(0, 0);
-        let dyn_enum = DynamicEnum::from(MyEnum::B(123, 321));
+        let dyn_enum = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
         value.apply(&dyn_enum);
         assert_eq!(MyEnum::B(123, 321), value);
 
@@ -108,10 +108,11 @@ mod tests {
             foo: 0.0,
             bar: false,
         };
-        let dyn_enum = DynamicEnum::from(MyEnum::C {
+        let dyn_enum = DynamicEnum::try_from(MyEnum::C {
             foo: 1.23,
             bar: true,
-        });
+        })
+        .unwrap();
         value.apply(&dyn_enum);
         assert_eq!(
             MyEnum::C {
@@ -158,8 +159,8 @@ mod tests {
 
     #[test]
     fn dynamic_enum_should_apply_dynamic_enum() {
-        let mut a = DynamicEnum::from(MyEnum::B(123, 321));
-        let b = DynamicEnum::from(MyEnum::B(123, 321));
+        let mut a = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
+        let b = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
 
         // Sanity check that equality check works
         assert!(
@@ -182,7 +183,7 @@ mod tests {
         let mut value = MyEnum::A;
 
         // === MyEnum::A -> MyEnum::B === //
-        let mut dyn_enum = DynamicEnum::from(MyEnum::B(123, 321));
+        let mut dyn_enum = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
         value.apply(&dyn_enum);
         assert_eq!(MyEnum::B(123, 321), value);
 
@@ -216,7 +217,7 @@ mod tests {
 
     #[test]
     fn dynamic_enum_should_return_is_dynamic() {
-        let dyn_enum = DynamicEnum::from(MyEnum::B(123, 321));
+        let dyn_enum = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
         assert!(dyn_enum.is_dynamic());
     }
 

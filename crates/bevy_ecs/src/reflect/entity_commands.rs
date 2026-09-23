@@ -470,7 +470,7 @@ mod tests {
 
         let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn PartialReflect>;
         let boxed_reflect_component_a_clone = boxed_reflect_component_a.reflect_clone().unwrap();
-        let boxed_reflect_component_a_dynamic = boxed_reflect_component_a.to_dynamic();
+        let boxed_reflect_component_a_dynamic = boxed_reflect_component_a.to_dynamic().unwrap();
 
         commands
             .entity(entity)

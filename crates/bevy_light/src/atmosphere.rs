@@ -3,6 +3,8 @@
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{Asset, AssetEvent, AssetId, Handle};
 use bevy_color::{ColorToComponents, Gray, LinearRgba};
+use bevy_curve::Curve;
+use bevy_curve::{FunctionCurve, Interval, SampleAutoCurve};
 use bevy_ecs::{
     component::Component,
     lifecycle::HookContext,
@@ -12,8 +14,7 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::curve::{FunctionCurve, Interval, SampleAutoCurve};
-use bevy_math::{ops, Curve, FloatPow, Vec3};
+use bevy_math::{ops, FloatPow, Vec3};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
 use bevy_transform::components::GlobalTransform;
@@ -29,6 +30,7 @@ use wgpu_types::TextureFormat;
 ///
 /// The scale on [`GlobalTransform`] rescales the planet in world space. Tune it with the radius offset
 /// when your scene uses other units, like kilometer-sized scenes.
+/// The rotation is ignored because the atmosphere is spherically symmetric.
 #[derive(Clone, Component, FromTemplate)]
 #[require(GlobalTransform)]
 #[component(on_add = set_default_transform)]

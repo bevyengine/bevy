@@ -1,6 +1,18 @@
 //! Framework for saving and loading user settings files in Bevy
 //! applications.
 //!
+//! The core of the framework is [`SettingsPlugin`], which
+//! loads and synchronizes settings with the filesystem or browser
+//! local storage, depending on platform.
+//!
+//! Settings are loaded into resources that implement [`SettingsGroup`](trait@SettingsGroup),
+//! which is best implemented using the derive macro [`SettingsGroup`](derive@SettingsGroup).
+//! In addition, the resource must have the `#[reflect(SettingsGroup, Default)]` annotation in
+//! order to be saved and loaded by the plugin.
+//!
+//! Once all these conditions are met, and when [`SettingsPlugin`] is added, systems can query
+//! for settings using [`Res`] and [`ResMut`] like any other resource.
+//!
 //! Refer to [`SettingsPlugin`] for detailed usage information.
 
 use core::any::TypeId;
@@ -20,8 +32,8 @@ use bevy_log::warn;
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{TypedReflectDeserializer, TypedReflectSerializer},
-    CreateTypeData, FromReflect, PartialReflect, ReflectMut, TypeInfo, TypePath, TypeRegistration,
-    TypeRegistry,
+    CreateTypeData, FromReflect, PartialReflect, Reflect, ReflectMut, TypeInfo, TypePath,
+    TypeRegistration, TypeRegistry,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -30,7 +42,7 @@ mod store_fs;
 #[cfg(target_arch = "wasm32")]
 mod store_wasm;
 
-use bevy_time::{Time, Timer, TimerMode};
+use bevy_time::{Real, Time, Timer, TimerMode};
 use serde::de::DeserializeSeed;
 #[cfg(not(target_arch = "wasm32"))]
 use store_fs::SettingsStore;
@@ -40,6 +52,13 @@ use store_wasm::SettingsStore;
 
 /// Plugin to orchestrate loading and saving settings.
 ///
+/// When added to an app, `SettingsPlugin` will load settings from storage (either the filesystem
+/// or browser local storage) into resources that implement the [`SettingsGroup`](trait@SettingsGroup),
+/// [`Default`], and [`Reflect`] traits, and, in
+/// addition, are also annotated with `#[reflect(Default, SettingsGroup)]`. The plugin can also be used
+/// to write these settings back to storage after they are changed by sending the [`SaveSettingsDeferred`]
+/// or [`SaveSettingsSync`] commands.
+///
 /// You are required to provide a unique application name, so that your settings don't overwrite
 /// those of other apps. To ensure global uniqueness, it is recommended to use a
 /// [reverse domain name](https://en.wikipedia.org/wiki/Reverse_domain_name_notation),
@@ -47,9 +66,37 @@ use store_wasm::SettingsStore;
 /// appropriate filesystem location (depending on platform) for app settings. For platforms
 /// without filesystems, other storage mechanisms will be used.
 ///
-/// If you are do not have a domain name and cannot
+/// If you do not have a domain name and cannot
 /// afford one, use a reverse domain based on the URL of your repo (GitHub, GitLab, Codeberg
 /// and so on).
+///
+/// # Storage location and format
+///
+/// Settings are stored as **TOML** files. Each [`SettingsGroup`] type becomes a top-level section
+/// in the file. The default filename is `settings`, which produces `settings.toml`.
+///
+/// On desktop platforms, files are written to `{preferences_dir()}/{app_name}/{filename}.toml`,
+/// where [`preferences_dir()`](bevy_platform::dirs::preferences_dir) is provided by
+/// [`bevy_platform::dirs::preferences_dir`]. With `app_name = "com.example.myapp"` and the default
+/// filename, typical paths are:
+///
+/// - Linux: `~/.config/com.example.myapp/settings.toml` (or under `$XDG_CONFIG_HOME` when set)
+/// - macOS: `~/Library/Preferences/com.example.myapp/settings.toml`
+/// - Windows: `%LocalAppData%\com.example.myapp\settings.toml`
+///
+/// On `wasm32`, settings are stored in browser `localStorage` under the key
+/// `{app_name}-{filename}` as a TOML string.
+///
+/// A file with one [`SettingsGroup`] named `counter` might look like:
+///
+/// ```toml
+/// [counter]
+/// count = 5
+/// enabled = true
+/// ```
+///
+/// Use `settings_group(file = "...")` on a [`SettingsGroup`] to write to a different file in the
+/// same app directory (see [`SettingsGroup`] for details).
 ///
 /// Adding this plugin causes an immediate load of settings (from either the filesystem or
 /// browser local storage, depending on platform).
@@ -126,6 +173,9 @@ impl Plugin for SettingsPlugin {
 
 /// Trait which identifies a type as corresponding to a section with a settings file.
 ///
+/// In order for [`SettingsPlugin`] to do anything with types that implement this trait, the type must also
+/// be annotated with `#[reflect(SettingsGroup, Default)]`.
+///
 /// You can override the name of the section with `settings_group(group = "<name>")`.
 /// For enum `SettingGroup`s, you can also override the name of its key with `settings_group(key = "<name>")`
 /// The name should be in ``snake_case`` to be consistent with TOML style.
@@ -136,7 +186,11 @@ impl Plugin for SettingsPlugin {
 /// `settings_group(file = "<filename>")`. This should be the base name of the file without the
 /// extension. The default name is `settings`, which will cause the settings to be written out
 /// to `settings.toml` in the app's settings directory.
-pub trait SettingsGroup: Resource {
+///
+/// Since these resources are loaded from storage, it is possible for them to be modified by hand by users,
+/// so it's important to not rely on the validity of the data. In particular, it is important to ensure you do not
+/// rely on any invariants of the input data to ensure safety elsewhere in your code.
+pub trait SettingsGroup: Resource + Reflect + Default {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
 
@@ -160,6 +214,23 @@ pub struct ReflectSettingsGroup {
     settings_key_name: Option<&'static str>,
     /// The name of the settings file, defaults to "settings".
     settings_source: Option<&'static str>,
+}
+
+impl ReflectSettingsGroup {
+    /// Returns the groups's name.
+    pub fn settings_group_name(&self) -> &'static str {
+        self.settings_group_name
+    }
+
+    /// Returns the key name within the settings file of this group. Should only be `Some` for enums.
+    pub fn settings_key_name(&self) -> Option<&'static str> {
+        self.settings_key_name
+    }
+
+    /// Returns the name of this group's settings file.
+    pub fn settings_source(&self) -> Option<&'static str> {
+        self.settings_source
+    }
 }
 
 impl<T: SettingsGroup + FromReflect + TypePath> CreateTypeData<T> for ReflectSettingsGroup {
@@ -392,14 +463,22 @@ fn build_settings_registry(
     };
     file_index.save_timer.pause(); // Ensure timer is initially paused
 
+    let mut errors = Vec::new();
     // Scan through types looking for resources that have the necessary traits and
     // annotations.
     for ty in types.iter() {
-        if !ty.contains::<ReflectDefault>() {
+        // All types that are relevant
+        let Some(reflect_group) = ty.data::<ReflectSettingsGroup>() else {
             continue;
         };
 
-        let Some(reflect_group) = ty.data::<ReflectSettingsGroup>() else {
+        if !ty.contains::<ReflectDefault>() {
+            // Collect all the errors into a single list so that a user can see all of them at once rather than chasing them
+            // down one by one as they fix the errors.
+            errors.push(format!(
+                "Type {} has #[reflect(SettingsGroup)], which requires #[reflect(Default)] in order to save or load.",
+                ty.type_info().type_path()
+            ));
             continue;
         };
 
@@ -414,6 +493,9 @@ fn build_settings_registry(
             });
         pending_file.last_save = last_save;
         pending_file.resource_types.push(ty.type_id());
+    }
+    if !errors.is_empty() {
+        panic!("{}", errors.join("\n"));
     }
 
     file_index
@@ -584,7 +666,7 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
 
 fn handle_delayed_save(
     mut settings: ResMut<SettingsFileRegistry>,
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     mut commands: Commands,
 ) {
     settings.save_timer.tick(time.delta());
@@ -596,8 +678,9 @@ fn handle_delayed_save(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_ecs::change_detection::Tick;
+    use bevy_ecs::{change_detection::Tick, schedule::Schedule};
     use bevy_reflect::Reflect;
+    use bevy_time::Virtual;
     // Required to make proc macros work in bevy itself.
     extern crate self as bevy_settings;
 
@@ -1049,5 +1132,37 @@ mod tests {
         // Verify refresh_rate was preserved
         let refresh_rate = world.get_resource::<CounterRefreshRateSettings>().unwrap();
         assert_eq!(*refresh_rate, CounterRefreshRateSettings::Fast);
+    }
+
+    #[test]
+    fn test_handle_delayed_save_ticks_with_real_time_while_paused() {
+        let mut world = World::new();
+        world.insert_resource(Time::<Real>::default());
+        world.insert_resource(Time::<Virtual>::default());
+        // Virtual time is paused, so the delayed save timer must use real time.
+        world.resource_mut::<Time<Virtual>>().pause();
+
+        // SettingsFileRegistry with a delayed save timer
+        world.insert_resource(SettingsFileRegistry {
+            app_name: "test_app".to_string(),
+            files: HashMap::new(),
+            save_timer: {
+                let mut timer = Timer::new(Duration::from_millis(500), TimerMode::Once);
+                timer.unpause();
+                timer
+            },
+        });
+
+        // Simulate real time advancing
+        world
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_millis(600));
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(handle_delayed_save);
+        schedule.run(&mut world);
+
+        let registry = world.resource::<SettingsFileRegistry>();
+        assert!(registry.save_timer.just_finished());
     }
 }

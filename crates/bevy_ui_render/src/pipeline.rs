@@ -41,7 +41,7 @@ pub fn init_ui_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
     commands.insert_resource(UiPipeline {
         view_layout,
         image_layout,
-        shader: load_embedded_asset!(asset_server.as_ref(), "ui.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "ui.wesl"),
     });
 }
 
@@ -66,7 +66,9 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x4,
                 // mode
                 VertexFormat::Uint32,
-                // border radius
+                // border radius x values (top left, top right, bottom right, bottom left)
+                VertexFormat::Float32x4,
+                // border radius y values (top left, top right, bottom right, bottom left)
                 VertexFormat::Float32x4,
                 // border thickness
                 VertexFormat::Float32x4,

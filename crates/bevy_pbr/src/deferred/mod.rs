@@ -1,7 +1,6 @@
 use crate::{
-    DistanceFog, ExtractedAtmosphere, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
-    MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
-    ScreenSpaceReflectionsUniform, ScreenSpaceTransmission, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
+    irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE, MeshPipeline, MeshPipelineKey,
+    MeshPipelineSystems, MeshViewBindGroup, ViewKeyCache, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
     TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use bevy_app::prelude::*;
@@ -11,15 +10,13 @@ use bevy_core_pipeline::{
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
-    oit::OrderIndependentTransparencySettingsOffset,
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    prepass::DeferredPrepass,
     schedule::{Core3d, Core3dSystems},
-    tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
-use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
@@ -40,6 +37,7 @@ pub const DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID: u8 = 1;
 ///
 /// Will be automatically added to entities with the [`DeferredPrepass`] component that don't already have a [`PbrDeferredLightingDepthId`].
 #[derive(Component, Clone, Copy, ExtractComponent, ShaderType)]
+#[extract_app(RenderApp)]
 pub struct PbrDeferredLightingDepthId {
     depth_id: u32,
 
@@ -97,7 +95,7 @@ impl Plugin for DeferredPbrLightingPlugin {
         ))
         .add_systems(PostUpdate, insert_deferred_lighting_pass_id_component);
 
-        embedded_asset!(app, "deferred_lighting.wgsl");
+        embedded_asset!(app, "deferred_lighting.wesl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -151,6 +149,9 @@ pub fn deferred_lighting(
         return;
     };
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
     let bind_group_2 = ctx.render_device().create_bind_group(
         "deferred_lighting_layout_group_2",
         &pipeline_cache.get_bind_group_layout(&deferred_lighting_layout.bind_group_layout_2),
@@ -172,6 +173,7 @@ pub fn deferred_lighting(
         occlusion_query_set: None,
         multiview_mask: None,
     });
+    let pass_span = diagnostics.pass_span(&mut render_pass, "deferred_lighting");
 
     render_pass.set_render_pipeline(pipeline);
 
@@ -183,6 +185,7 @@ pub fn deferred_lighting(
     render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
     render_pass.set_bind_group(2, &bind_group_2, &[]);
     render_pass.draw(0..3, 0..1);
+    pass_span.end(&mut render_pass);
 }
 
 #[derive(Resource)]
@@ -222,8 +225,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            if method == MeshPipelineKey::TONEMAP_METHOD_LINEAR {
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
@@ -256,7 +259,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
+        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) && IRRADIANCE_VOLUMES_ARE_USABLE {
             shader_defs.push("IRRADIANCE_VOLUME".into());
         }
 
@@ -274,6 +277,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
         if key.contains(MeshPipelineKey::SCREEN_SPACE_REFLECTIONS) {
             shader_defs.push("SCREEN_SPACE_REFLECTIONS".into());
+        }
+
+        if key.contains(MeshPipelineKey::CONTACT_SHADOWS) {
+            shader_defs.push("CONTACT_SHADOWS".into());
         }
 
         if key.contains(MeshPipelineKey::HAS_PREVIOUS_SKIN) {
@@ -309,8 +316,32 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
         }
 
+        if IRRADIANCE_VOLUMES_ARE_USABLE {
+            shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
+        }
+
+        if self.mesh_pipeline.clustered_decals_are_usable {
+            shader_defs.push("CLUSTERED_DECALS_ARE_USABLE".into());
+            if cfg!(feature = "pbr_light_textures") {
+                shader_defs.push("LIGHT_TEXTURES".into());
+            }
+        }
+
+        #[cfg(feature = "experimental_pbr_pcss")]
+        shader_defs.push("PCSS_SAMPLERS_AVAILABLE".into());
+
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+
+        if cfg!(feature = "bluenoise_texture") {
+            shader_defs.push("BLUE_NOISE_TEXTURE".into());
+        }
+        if cfg!(feature = "dfg_lut") {
+            shader_defs.push("DFG_LUT".into());
+        }
+        if cfg!(feature = "area_light_luts") {
+            shader_defs.push("AREA_LIGHT_LUTS".into());
+        }
 
         let layout = self.mesh_pipeline.get_view_layout(key.into());
         RenderPipelineDescriptor {
@@ -373,7 +404,7 @@ pub fn init_deferred_lighting_layout(
         bind_group_layout_2: layout,
         deferred_lighting_shader: load_embedded_asset!(
             asset_server.as_ref(),
-            "deferred_lighting.wgsl"
+            "deferred_lighting.wesl"
         ),
     });
 }
@@ -392,51 +423,20 @@ pub fn insert_deferred_lighting_pass_id_component(
 pub fn prepare_deferred_lighting_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
+    view_key_cache: Res<ViewKeyCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     deferred_lighting_layout: Res<DeferredLightingLayout>,
-    cameras: Query<(
-        Entity,
-        &ExtractedCamera,
-        &ExtractedView,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-        Option<&ShadowFilteringMethod>,
+    cameras: Query<
         (
-            Has<ScreenSpaceAmbientOcclusion>,
-            Has<ScreenSpaceReflectionsUniform>,
-            Has<DistanceFog>,
-        ),
-        (
-            Has<NormalPrepass>,
-            Has<DepthPrepass>,
-            Has<MotionVectorPrepass>,
+            Entity,
+            &ExtractedView,
             Has<DeferredPrepass>,
+            Has<SkipDeferredLighting>,
         ),
-        Has<RenderViewLightProbes<EnvironmentMapLight>>,
-        Has<RenderViewLightProbes<IrradianceVolume>>,
-        Option<&ScreenSpaceTransmission>,
-        Has<OrderIndependentTransparencySettingsOffset>,
-        Has<SkipDeferredLighting>,
-        Has<ExtractedAtmosphere>,
-    )>,
+        With<ExtractedCamera>,
+    >,
 ) {
-    for (
-        entity,
-        camera,
-        view,
-        tonemapping,
-        dither,
-        shadow_filter_method,
-        (ssao, ssr, distance_fog),
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-        has_environment_maps,
-        has_irradiance_volumes,
-        transmission,
-        has_oit,
-        skip_deferred_lighting,
-        has_atmosphere,
-    ) in &cameras
-    {
+    for (entity, view, deferred_prepass, skip_deferred_lighting) in &cameras {
         // If there is no deferred prepass or we want to skip the deferred lighting pass,
         // remove the old pipeline if there was one. This handles the case in which a
         // view using deferred stops using it.
@@ -445,98 +445,15 @@ pub fn prepare_deferred_lighting_pipelines(
             continue;
         }
 
-        let mut view_key = MeshPipelineKey::from_target_format(view.target_format);
-
-        if normal_prepass {
-            view_key |= MeshPipelineKey::NORMAL_PREPASS;
-        }
-
-        if depth_prepass {
-            view_key |= MeshPipelineKey::DEPTH_PREPASS;
-        }
-
-        if motion_vector_prepass {
-            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
-        }
-
-        if has_atmosphere {
-            view_key |= MeshPipelineKey::ATMOSPHERE;
-        }
-
-        if let Some(transmission) = transmission {
-            view_key |= transmission.quality.pipeline_key();
-        }
-
-        if has_oit {
-            view_key |= MeshPipelineKey::OIT_ENABLED;
-        }
-
-        if view.invert_culling {
-            view_key |= MeshPipelineKey::INVERT_CULLING;
-        }
-
-        // Always true, since we're in the deferred lighting pipeline
-        view_key |= MeshPipelineKey::DEFERRED_PREPASS;
-
-        if !camera.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= match tonemapping {
-                    Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
-                    Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
-                    Tonemapping::ReinhardLuminance => {
-                        MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
-                    }
-                    Tonemapping::AcesFitted => MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
-                    Tonemapping::AgX => MeshPipelineKey::TONEMAP_METHOD_AGX,
-                    Tonemapping::SomewhatBoringDisplayTransform => {
-                        MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-                    }
-                    Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-                    Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-                    Tonemapping::KhronosPbrNeutral => MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
-                };
-            }
-            if let Some(DebandDither::Enabled) = dither {
-                view_key |= MeshPipelineKey::DEBAND_DITHER;
-            }
-        }
-
-        if ssao {
-            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
-        }
-        if ssr {
-            view_key |= MeshPipelineKey::SCREEN_SPACE_REFLECTIONS;
-        }
-        if distance_fog {
-            view_key |= MeshPipelineKey::DISTANCE_FOG;
-        }
-
-        // We don't need to check to see whether the environment map is loaded
-        // because [`gather_light_probes`] already checked that for us before
-        // adding the [`RenderViewEnvironmentMaps`] component.
-        if has_environment_maps {
-            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
-        }
-
-        if has_irradiance_volumes {
-            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
-        }
-
-        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
-            ShadowFilteringMethod::Hardware2x2 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
-            }
-            ShadowFilteringMethod::Gaussian => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
-            }
-            ShadowFilteringMethod::Temporal => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
-            }
-        }
+        // The deferred lighting pass runs the same lighting code as the forward
+        // pass, so it must be specialized with the same view key. Reusing
+        // [`ViewKeyCache`] keeps the two in sync automatically.
+        let Some(view_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
 
         let pipeline_id =
-            pipelines.specialize(&pipeline_cache, &deferred_lighting_layout, view_key);
+            pipelines.specialize(&pipeline_cache, &deferred_lighting_layout, *view_key);
 
         commands
             .entity(entity)

@@ -15,6 +15,7 @@ use bevy_core_pipeline::prepass::{
 use bevy_ecs::{prelude::*, query::Has};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
         StoreOp,
@@ -60,6 +61,9 @@ pub fn meshlet_main_opaque_pass(
         return;
     };
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
     let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
         label: Some("meshlet_material_opaque_3d_pass"),
         color_attachments: &[Some(target.get_color_attachment())],
@@ -75,6 +79,7 @@ pub fn meshlet_main_opaque_pass(
         occlusion_query_set: None,
         multiview_mask: None,
     });
+    let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_opaque_3d_pass");
 
     if let Some(viewport) =
         Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
@@ -102,6 +107,7 @@ pub fn meshlet_main_opaque_pass(
             render_pass.draw(x..(x + 3), 0..1);
         }
     }
+    pass_span.end(&mut render_pass);
 }
 
 ///
@@ -160,6 +166,9 @@ pub fn meshlet_prepass(
         None,
     ];
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
     let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
         label: Some("meshlet_material_prepass"),
         color_attachments: &color_attachments,
@@ -175,6 +184,7 @@ pub fn meshlet_prepass(
         occlusion_query_set: None,
         multiview_mask: None,
     });
+    let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_prepass");
 
     if let Some(viewport) =
         Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
@@ -214,6 +224,8 @@ pub fn meshlet_prepass(
             render_pass.draw(x..(x + 3), 0..1);
         }
     }
+
+    pass_span.end(&mut render_pass);
 }
 
 /// Fullscreen pass to generate a gbuffer based on the visibility buffer generated from rasterizing meshlets.
@@ -276,6 +288,9 @@ pub fn meshlet_deferred_gbuffer_prepass(
             .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
     ];
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
     let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
         label: Some("meshlet_material_deferred_prepass"),
         color_attachments: &color_attachments,
@@ -291,6 +306,7 @@ pub fn meshlet_deferred_gbuffer_prepass(
         occlusion_query_set: None,
         multiview_mask: None,
     });
+    let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_deferred_prepass");
 
     if let Some(viewport) =
         Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
@@ -330,4 +346,6 @@ pub fn meshlet_deferred_gbuffer_prepass(
             render_pass.draw(x..(x + 3), 0..1);
         }
     }
+
+    pass_span.end(&mut render_pass);
 }

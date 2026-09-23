@@ -19,6 +19,9 @@
 //! - [`Lcha`] (lightness, chroma, hue, alpha)
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
 //! - [`Oklcha`] (lightness, chroma, hue, alpha)
+//! - [`Okhsla`] (hue, saturation, lightness, alpha)
+//! - [`Okhsva`] (hue, saturation, value, alpha)
+//! - [`Okhwba`] (hue, whiteness, blackness, alpha)
 //! - [`Xyza`] (x-axis, y-axis, z-axis, alpha)
 //!
 //! Each of these color spaces is represented as a distinct Rust type.
@@ -52,6 +55,10 @@
 //! as image processing. They are not as widely used as the other color spaces, but are useful
 //! for tasks such as color correction and image analysis, where it is important to be able
 //! to do things like change color saturation without causing hue shifts.
+//!
+//! Okhsl, Okhsv and Okhwb are perceptually near-uniform color spaces that have a gamut matching
+//! that of standard RGB, making them convenient spaces for color picking. They can also be useful
+//! for creating perceptually uniform gradients or color palettes, like LCH but more user-friendly.
 //!
 //! XYZ is a foundational space commonly used in the definition of other more modern color
 //! spaces. The space is more formally known as CIE 1931, where the `x` and `z` axes represent
@@ -112,9 +119,11 @@ mod linear_rgba;
 mod okcolor_convert;
 mod okhsla;
 mod okhsva;
+mod okhwba;
 mod oklaba;
 mod oklcha;
 pub mod palettes;
+mod primaries;
 mod srgba;
 #[cfg(test)]
 mod test_colors;
@@ -128,7 +137,7 @@ mod xyza;
 pub mod prelude {
     pub use crate::{
         color::*, color_ops::*, hsla::*, hsva::*, hwba::*, laba::*, lcha::*, linear_rgba::*,
-        oklaba::*, oklcha::*, srgba::*, xyza::*,
+        okhsla::*, okhsva::*, okhwba::*, oklaba::*, oklcha::*, srgba::*, xyza::*,
     };
 }
 
@@ -145,8 +154,10 @@ pub use lcha::*;
 pub use linear_rgba::*;
 pub use okhsla::*;
 pub use okhsva::*;
+pub use okhwba::*;
 pub use oklaba::*;
 pub use oklcha::*;
+pub use primaries::*;
 pub use srgba::*;
 pub use xyza::*;
 
@@ -178,6 +189,7 @@ where
     Self: From<Xyza> + Into<Xyza>,
     Self: From<Okhsla> + Into<Okhsla>,
     Self: From<Okhsva> + Into<Okhsva>,
+    Self: From<Okhwba> + Into<Okhwba>,
     Self: Alpha,
 {
 }

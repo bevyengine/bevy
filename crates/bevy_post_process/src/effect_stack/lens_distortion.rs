@@ -6,7 +6,8 @@ use bevy_ecs::{
 use bevy_math::{ops::abs, Vec2};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    extract_component::ExtractComponent, render_resource::ShaderType, sync_component::SyncComponent,
+    extract_component::ExtractComponent, render_resource::ShaderType,
+    sync_component::SyncComponent, RenderApp,
 };
 
 /// Simulates the warping of the image caused by real-world camera lenses.
@@ -78,11 +79,11 @@ impl Default for LensDistortion {
     }
 }
 
-impl SyncComponent for LensDistortion {
+impl SyncComponent<RenderApp> for LensDistortion {
     type Target = Self;
 }
 
-impl ExtractComponent for LensDistortion {
+impl ExtractComponent<RenderApp> for LensDistortion {
     type QueryData = Read<LensDistortion>;
     type QueryFilter = With<LensDistortion>;
     type Out = Self;

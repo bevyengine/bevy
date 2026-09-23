@@ -15,3 +15,6 @@ pub use mesh_bindings::MeshLayouts;
 pub use mesh_view_bindings::*;
 pub use morph::*;
 pub use skin::{extract_skins, prepare_skins, skins_use_uniform_buffers, SkinUniforms, MAX_JOINTS};
+
+pub const CORE_3D_SHADOW_MAP_FORMAT: wgpu_types::TextureFormat =
+    wgpu_types::TextureFormat::Depth32Float;

@@ -4,7 +4,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use bevy_utils::{TypeIdMap, TypeIdMapEntry as Entry};
+use bevy_utils::{TypeIdHashMap, TypeIdHashMapEntry as Entry};
 use core::any::TypeId;
 use log::{debug, warn};
 
@@ -281,7 +281,7 @@ impl PluginGroup for PluginGroupBuilder {
 /// can be disabled, enabled or reordered.
 pub struct PluginGroupBuilder {
     group_name: String,
-    plugins: TypeIdMap<PluginEntry>,
+    plugins: TypeIdHashMap<PluginEntry>,
     order: Vec<TypeId>,
 }
 
@@ -417,7 +417,7 @@ impl PluginGroupBuilder {
         for plugin_id in order {
             self.upsert_plugin_entry_state(
                 plugin_id,
-                plugins.shift_remove(&plugin_id).unwrap(),
+                plugins.remove(&plugin_id).unwrap(),
                 self.order.len(),
             );
 
@@ -566,7 +566,7 @@ impl PluginGroupBuilder {
     #[track_caller]
     pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
-            if let Some(entry) = self.plugins.shift_remove(ty)
+            if let Some(entry) = self.plugins.remove(ty)
                 && entry.enabled
             {
                 debug!("added plugin: {}", entry.plugin.name());

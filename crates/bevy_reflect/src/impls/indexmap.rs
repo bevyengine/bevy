@@ -58,7 +58,7 @@ where
         self.retain(move |key, value| f(key, value));
     }
 
-    fn to_dynamic_map(&self) -> DynamicMap {
+    fn to_dynamic_map(&self) -> Result<DynamicMap, ReflectCloneError> {
         let mut dynamic_map = DynamicMap::default();
         dynamic_map.set_represented_type(PartialReflect::get_represented_type_info(self));
         for (k, v) in self {
@@ -68,9 +68,9 @@ where
                     k.reflect_type_path()
                 )
             });
-            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic());
+            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic()?);
         }
-        dynamic_map
+        Ok(dynamic_map)
     }
 
     fn insert_boxed(

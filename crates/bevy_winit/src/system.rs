@@ -11,9 +11,9 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
-    ClosingWindow, CursorOptions, Monitor, OnMonitor, PrimaryMonitor, RawHandleWrapper, VideoMode,
-    Window, WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
-    WindowResized, WindowWrapper,
+    ClosingWindow, CursorOptions, HasWindows, Monitor, OnMonitor, PrimaryMonitor, RawHandleWrapper,
+    VideoMode, Window, WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused,
+    WindowMode, WindowScaleFactorChanged, WindowWrapper,
 };
 use tracing::{error, info, warn};
 
@@ -122,6 +122,14 @@ pub fn create_windows(
                     }
                 }
 
+                #[cfg(target_os = "macos")]
+                {
+                    // Request app activation via `focus_window()` if the window should start focused.
+                    if window.focused {
+                        winit_window.focus_window();
+                    }
+                }
+
                 window_created_events.write(WindowCreated { window: entity });
             }
         });
@@ -132,8 +140,6 @@ pub fn create_windows(
 /// focus in that swapping between Bevy windows keeps window focus.
 pub(crate) fn check_keyboard_focus_lost(
     mut window_focused_reader: MessageReader<WindowFocused>,
-    mut keyboard_focus_lost_writer: MessageWriter<KeyboardFocusLost>,
-    mut keyboard_input_writer: MessageWriter<KeyboardInput>,
     mut window_event_writer: MessageWriter<WindowEvent>,
     mut q_windows: Query<&mut WinitWindowPressedKeys>,
 ) {
@@ -150,7 +156,6 @@ pub(crate) fn check_keyboard_focus_lost(
     if !focus_gained {
         if !focus_lost.is_empty() {
             window_event_writer.write(WindowEvent::KeyboardFocusLost(KeyboardFocusLost));
-            keyboard_focus_lost_writer.write(KeyboardFocusLost);
         }
 
         for window in focus_lost {
@@ -166,8 +171,7 @@ pub(crate) fn check_keyboard_focus_lost(
                     window,
                     text: None,
                 };
-                window_event_writer.write(WindowEvent::KeyboardInput(event.clone()));
-                keyboard_input_writer.write(event);
+                window_event_writer.write(WindowEvent::KeyboardInput(event));
             }
         }
     }
@@ -229,7 +233,14 @@ pub fn create_monitors(
             true
         } else {
             info!("Monitor removed {}", entity);
-            commands.entity(*entity).despawn();
+
+            commands
+                .entity(*entity)
+                // Remove the monitor's linked windows before despawning
+                //  it to prevent those windows from being despawned too.
+                .remove::<HasWindows>()
+                .despawn();
+
             idx += 1;
             false
         }
@@ -309,7 +320,6 @@ pub(crate) fn changed_windows(
         Changed<Window>,
     >,
     monitors: Res<WinitMonitors>,
-    mut window_resized: MessageWriter<WindowResized>,
     mut window_event: MessageWriter<WindowEvent>,
     _non_send_marker: NonSendMarker,
 ) {
@@ -376,59 +386,44 @@ pub(crate) fn changed_windows(
                 }
 
             if window.resolution != cache.resolution {
-                let mut physical_size = PhysicalSize::new(
+                let cache_physical_size = PhysicalSize::new(
+                    cache.resolution.physical_width(),
+                    cache.resolution.physical_height(),
+                );
+                let requested_physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
                     window.resolution.physical_height(),
                 );
 
-                let cached_physical_size = PhysicalSize::new(
-                    cache.physical_width(),
-                    cache.physical_height(),
-                );
-
-                let base_scale_factor = window.resolution.base_scale_factor();
-
-                // Note: this may be different from `winit`'s base scale factor if
-                // `scale_factor_override` is set to Some(f32)
-                let scale_factor = window.scale_factor();
-                let cached_scale_factor = cache.scale_factor();
-
-                // Check and update `winit`'s physical size only if the window is not maximized
-                if scale_factor != cached_scale_factor && !winit_window.is_maximized() {
-                    let logical_size =
-                        if let Some(cached_factor) = cache.resolution.scale_factor_override() {
-                            physical_size.to_logical::<f32>(cached_factor as f64)
-                        } else {
-                            physical_size.to_logical::<f32>(base_scale_factor as f64)
-                        };
-
-                    // Scale factor changed, updating physical and logical size
-                    if let Some(forced_factor) = window.resolution.scale_factor_override() {
-                        // This window is overriding the OS-suggested DPI, so its physical size
-                        // should be set based on the overriding value. Its logical size already
-                        // incorporates any resize constraints.
-                        physical_size = logical_size.to_physical::<u32>(forced_factor as f64);
-                    } else {
-                        physical_size = logical_size.to_physical::<u32>(base_scale_factor as f64);
+                if cache_physical_size != requested_physical_size {
+                    // In `None` case, the request will be handled by winit::event::WindowEvent::Resized
+                    if let Some(new_physical_size) = winit_window.request_inner_size(requested_physical_size) {
+                        let event = react_to_resize(entity, &mut window, new_physical_size);
+                        window_event.write(event.into());
                     }
                 }
 
-                if physical_size != cached_physical_size
-                    && let Some(new_physical_size) = winit_window.request_inner_size(physical_size) {
-                        let event = react_to_resize(entity, &mut window, new_physical_size);
-                        window_resized.write(event.clone());
-                        window_event.write(WindowEvent::WindowResized(event));
-                    }
+                let cache_scale_factor = cache.scale_factor();
+                let requested_scale_factor = window.scale_factor();
+
+                if cache_scale_factor != requested_scale_factor {
+                    // If the scale factor has changed we don't query anything from winit, but send events for camera system to handle.
+                    let event = WindowScaleFactorChanged { scale_factor: requested_scale_factor as f64, window: entity};
+                    window_event.write(event.into());
+                }
             }
 
-            if window.physical_cursor_position() != cache.physical_cursor_position()
-                && let Some(physical_position) = window.physical_cursor_position() {
-                    let position = PhysicalPosition::new(physical_position.x, physical_position.y);
+            if let Some(requested_position) = window
+                .bypass_change_detection()
+                .internal
+                .take_cursor_position_request()
+            {
+                let position = PhysicalPosition::new(requested_position.x, requested_position.y);
 
-                    if let Err(err) = winit_window.set_cursor_position(position) {
-                        error!("could not set cursor position: {}", err);
-                    }
+                if let Err(err) = winit_window.set_cursor_position(position) {
+                    error!("could not set cursor position: {}", err);
                 }
+            }
 
             if window.decorations != cache.decorations
                 && window.decorations != winit_window.is_decorated()

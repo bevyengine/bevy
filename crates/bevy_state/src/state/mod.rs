@@ -581,7 +581,7 @@ mod tests {
             .is_empty());
 
         world.insert_resource(TransitionCounter::default());
-        world.insert_resource(NextState::PendingIfNeq(SimpleState::A));
+        world.insert_resource(NextState::PendingIfDifferent(SimpleState::A));
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert_eq!(

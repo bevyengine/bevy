@@ -1,4 +1,5 @@
 use benches::bench;
+use bevy_curve::prelude::*;
 use bevy_math::{prelude::*, VectorSpace};
 use core::hint::black_box;
 use criterion::{

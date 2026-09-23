@@ -9,14 +9,18 @@ use bevy_reflect::Reflect;
 
 /// A wrapper for floats that implements [`Ord`], [`Eq`], and [`Hash`] traits.
 ///
-/// This is a work around for the fact that the IEEE 754-2008 standard,
-/// implemented by Rust's [`f32`] type,
-/// doesn't define an ordering for [`NaN`](f32::NAN),
-/// and `NaN` is not considered equal to any other `NaN`.
+/// Particularly useful if you want to sort floats or use them as part of map keys.
 ///
-/// Wrapping a float with `FloatOrd` breaks conformance with the standard
-/// by sorting `NaN` as less than all other numbers and equal to any other `NaN`.
-#[derive(Debug, Copy, Clone)]
+/// Floats in Rust follow the IEEE 754-2008 standard, the comparison operators
+/// of which are not defined when at least one of the operands are [`NaN`](f32::NAN).
+///
+/// `FloatOrd` defines an ordering for those cases by sorting all `NaN`s as less than all
+/// numbers and as equal to any other `NaN`.
+///
+/// `FloatOrd` is incompatible with the `totalOrder` predicate defined by IEEE 754,
+/// but stays consistent with normal float comparison: If a `a.partial_cmp(b)` is `Some`,
+/// the result is the same for `FloatOrd(a).cmp(FloatOrd(b))`.
+#[derive(Debug, Copy, Clone, Default)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

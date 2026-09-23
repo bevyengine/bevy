@@ -26,7 +26,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wesl";
 
 // Rotation speed in radians per frame.
 const ROTATION_SPEED: f32 = 0.2;
@@ -530,15 +530,11 @@ fn create_cubes(
     mut commands: Commands,
     irradiance_volumes: Query<(&IrradianceVolume, &GlobalTransform)>,
     voxel_cube_parents: Query<Entity, With<VoxelCubeParent>>,
-    voxel_cubes: Query<Entity, With<VoxelCube>>,
+    // If voxel cubes have already been spawned, don't do anything.
+    _skip_existing: SkipIfAny<With<VoxelCube>>,
     example_assets: Res<ExampleAssets>,
     mut voxel_visualization_material_assets: ResMut<Assets<VoxelVisualizationMaterial>>,
 ) {
-    // If voxel cubes have already been spawned, don't do anything.
-    if !voxel_cubes.is_empty() {
-        return;
-    }
-
     let Some(voxel_cube_parent) = voxel_cube_parents.iter().next() else {
         return;
     };

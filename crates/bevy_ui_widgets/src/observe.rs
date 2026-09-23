@@ -6,28 +6,31 @@ use core::{marker::PhantomData, mem};
 
 use bevy_ecs::{
     bundle::{Bundle, DynamicBundle},
-    event::EntityEvent,
+    event::{EntityEvent, EventPattern},
     system::IntoObserverSystem,
 };
 
 /// Helper struct that adds an observer when inserted as a [`Bundle`].
-pub struct AddObserver<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> {
+pub struct AddObserver<E, M, I>
+where
+    E: EventPattern<Event: EntityEvent>,
+    I: IntoObserverSystem<E, M>,
+{
     observer: I,
-    marker: PhantomData<(E, B, M)>,
+    marker: PhantomData<(E, M)>,
 }
 
 // SAFETY: Empty method bodies.
-unsafe impl<
-        E: EntityEvent,
-        B: Bundle,
-        M: Send + Sync + 'static,
-        I: IntoObserverSystem<E, B, M> + Send + Sync,
-    > Bundle for AddObserver<E, B, M, I>
+unsafe impl<E, M, I> Bundle for AddObserver<E, M, I>
+where
+    E: EventPattern<Event: EntityEvent>,
+    M: Send + Sync + 'static,
+    I: IntoObserverSystem<E, M> + Send + Sync,
 {
     #[inline]
     fn component_ids(
         _components: &mut bevy_ecs::component::ComponentsRegistrator,
-    ) -> impl Iterator<Item = bevy_ecs::component::ComponentId> + use<E, B, M, I> {
+    ) -> impl Iterator<Item = bevy_ecs::component::ComponentId> + use<E, M, I> {
         // SAFETY: Empty iterator
         core::iter::empty()
     }
@@ -41,8 +44,10 @@ unsafe impl<
     }
 }
 
-impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
-    for AddObserver<E, B, M, I>
+impl<E, M, I> DynamicBundle for AddObserver<E, M, I>
+where
+    E: EventPattern<Event: EntityEvent>,
+    I: IntoObserverSystem<E, M>,
 {
     type Effect = Self;
 
@@ -74,9 +79,11 @@ impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
 }
 
 /// Adds an observer as a bundle effect.
-pub fn observe<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(
-    observer: I,
-) -> AddObserver<E, B, M, I> {
+pub fn observe<E, M, I>(observer: I) -> AddObserver<E, M, I>
+where
+    E: EventPattern<Event: EntityEvent>,
+    I: IntoObserverSystem<E, M>,
+{
     AddObserver {
         observer,
         marker: PhantomData,

@@ -17,7 +17,11 @@ use bevy_ecs::error::BevyError;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use core::{any::TypeId, borrow::Borrow, ops::Deref};
+use core::{
+    any::{Any, TypeId},
+    borrow::Borrow,
+    ops::Deref,
+};
 use futures_lite::AsyncWriteExt;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -316,6 +320,13 @@ impl<'a> ErasedSavedAsset<'a, '_> {
             &self.asset_id_to_asset_index,
         ))
     }
+
+    /// Returns the inner value as an [`Any`].
+    ///
+    /// For a statically-known type, use [`Self::downcast`] instead.
+    pub fn get(&self) -> &'a dyn Any {
+        self.value
+    }
 }
 
 /// Container for a single labeled asset (which also includes its labeled assets, for nested
@@ -400,7 +411,6 @@ impl<'a> SavedAssetBuilder<'a> {
                 .reserve_handle_internal(
                     false,
                     Some(self.asset_path.clone().with_label(label.to_string())),
-                    None,
                 ),
         );
         self.add_labeled_asset_with_existing_handle(label, asset, handle.clone());
@@ -447,7 +457,6 @@ impl<'a> SavedAssetBuilder<'a> {
                 .reserve_handle_internal(
                     false,
                     Some(self.asset_path.clone().with_label(label.to_string())),
-                    None,
                 ),
         );
         self.add_labeled_asset_with_existing_handle_erased(label, asset, handle.clone());

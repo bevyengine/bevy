@@ -1,6 +1,5 @@
 use crate::{
-    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
-    SubApps,
+    Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp, SubApps,
 };
 use alloc::{
     boxed::Box,
@@ -12,7 +11,7 @@ use bevy_ecs::{
     component::RequiredComponentsError,
     error::{ErrorHandler, FallbackErrorHandler},
     intern::Interned,
-    message::{message_update_system, MessageCursor},
+    message::MessageCursor,
     observer::IntoObserver,
     prelude::*,
     schedule::{
@@ -37,7 +36,8 @@ use std::{
 };
 
 bevy_ecs::define_label!(
-    /// A strongly-typed class of labels used to identify an [`App`].
+    /// A strongly-typed class of labels used to uniquely identify an [`App`].
+    /// An [`AppLabel`] should not be an enum.
     #[diagnostic::on_unimplemented(
         note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
     )]
@@ -123,12 +123,6 @@ impl Default for App {
         app.init_resource::<AppFunctionRegistry>();
 
         app.add_plugins(MainSchedulePlugin);
-        app.add_systems(
-            First,
-            message_update_system
-                .in_set(bevy_ecs::message::MessageUpdateSystems)
-                .run_if(bevy_ecs::message::message_update_condition),
-        );
         app.add_systems(
             crate::Last,
             bevy_ecs::system::despawn_unused_registered_systems,
@@ -414,8 +408,7 @@ impl App {
         self
     }
 
-    /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`])
-    /// and scheduling an [`message_update_system`] in [`First`].
+    /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`]).
     ///
     /// See [`Messages`] for information on how to define messages.
     ///
@@ -494,13 +487,6 @@ impl App {
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing data
-    /// of the same type.
-    #[deprecated(since = "0.19.0", note = "use App::insert_non_send")]
-    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.insert_non_send(resource)
-    }
-
     /// Inserts the [`!Send`](Send) data into the app, overwriting any existing data
     /// of the same type.
     ///
@@ -523,12 +509,6 @@ impl App {
     pub fn insert_non_send<R: 'static>(&mut self, resource: R) -> &mut Self {
         self.world_mut().insert_non_send(resource);
         self
-    }
-
-    /// Inserts the [`!Send`](Send) resource into the app if there is no existing instance of `R`.
-    #[deprecated(since = "0.19.0", note = "use App::init_non_send")]
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
-        self.init_non_send::<R>()
     }
 
     /// Inserts the [`!Send`](Send) data into the app if there is no existing instance of `R`.
@@ -1034,7 +1014,7 @@ impl App {
     /// ```
     pub fn register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: impl Fn() -> R + 'static,
     ) -> &mut Self {
         self.world_mut()
             .register_required_components_with::<T, R>(constructor);
@@ -1164,7 +1144,7 @@ impl App {
     /// ```
     pub fn try_register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: impl Fn() -> R + 'static,
     ) -> Result<(), RequiredComponentsError> {
         self.world_mut()
             .try_register_required_components_with::<T, R>(constructor)
@@ -1954,7 +1934,7 @@ mod tests {
     fn test_extract_sees_changes() {
         use super::AppLabel;
 
-        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug, Default)]
         struct MySubApp;
 
         #[derive(Resource)]

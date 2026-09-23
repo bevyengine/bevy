@@ -19,9 +19,10 @@ use bevy_log::warn_once;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LetterSpacing, LineBreak,
-    LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
-    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection, TextWriter,
+    ComputedTextBlock, DefaultFontSource, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx,
+    LetterSpacing, LineBreak, LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError,
+    TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection,
+    TextWriter,
 };
 use taffy::{style::AvailableSpace, MaybeMath, ResolveOrZero};
 use tracing::error;
@@ -36,6 +37,11 @@ pub struct TextNodeFlags {
     needs_measure_fn: bool,
     /// If set then the text will be recomputed.
     needs_recompute: bool,
+    /// The most recently installed fixed measure for non-wrapping text.
+    ///
+    /// This is cached separately from [`ContentSize`] because the UI layout system moves the
+    /// measure from [`ContentSize`] into Taffy's node context.
+    no_wrap_measure: Option<Vec2>,
 }
 
 impl Default for TextNodeFlags {
@@ -43,7 +49,21 @@ impl Default for TextNodeFlags {
         Self {
             needs_measure_fn: true,
             needs_recompute: true,
+            no_wrap_measure: None,
         }
+    }
+}
+
+impl TextNodeFlags {
+    /// Caches `size`, returning whether it differs from the previously cached measure.
+    fn cache_no_wrap_measure(&mut self, size: Vec2) -> bool {
+        let changed = self.no_wrap_measure != Some(size);
+        self.no_wrap_measure = Some(size);
+        changed
+    }
+
+    fn clear_no_wrap_measure(&mut self) {
+        self.no_wrap_measure = None;
     }
 }
 
@@ -53,8 +73,6 @@ impl Default for TextNodeFlags {
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
 /// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
-///
-/// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
 ///
 ///
 /// ```
@@ -174,8 +192,13 @@ pub struct TextMeasure {
 impl TextMeasure {
     /// Checks if the Parley text layout is needed for measuring the text.
     #[inline]
-    pub const fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
-        height.is_none() && matches!(available_width, AvailableSpace::Definite(_))
+    pub const fn needs_buffer(
+        width: Option<f32>,
+        height: Option<f32>,
+        available_width: AvailableSpace,
+    ) -> bool {
+        height.is_none()
+            && (width.is_some() || matches!(available_width, AvailableSpace::Definite(_)))
     }
 }
 
@@ -225,8 +248,8 @@ impl Measure for TextMeasure {
             .maybe_clamp(width.min, width.max);
 
         let size = height.effective.map_or_else(
-            || match available_width {
-                AvailableSpace::Definite(_) => {
+            || {
+                if width.effective.is_some() || available_width.is_definite() {
                     if let Some(buffer) = buffer {
                         self.info
                             .compute_size(TextBounds::new_horizontal(x), buffer, font_system)
@@ -234,9 +257,13 @@ impl Measure for TextMeasure {
                         error!("text measure failed, buffer is missing");
                         Vec2::default()
                     }
+                } else {
+                    match available_width {
+                        AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
+                        AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
+                        _ => unreachable!(),
+                    }
                 }
-                AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
-                AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
             },
             |y| Vec2::new(x, y),
         );
@@ -279,6 +306,7 @@ pub fn measure_text_system(
     mut font_system: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
     rem_size: Res<RemSize>,
+    default_font_source: Res<DefaultFontSource>,
 ) {
     for (
         entity,
@@ -313,12 +341,18 @@ pub fn measure_text_system(
             &mut font_system,
             &mut layout_cx,
             computed_target.logical_size(),
-            rem_size.0,
+            *rem_size,
+            &default_font_source.0,
         ) {
             Ok(measure) => {
                 if block.linebreak == LineBreak::NoWrap {
-                    content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
+                    let size = measure.max;
+                    let measure_changed = text_flags.cache_no_wrap_measure(size);
+                    if content_size.is_added() || measure_changed {
+                        content_size.set(NodeMeasure::Fixed(FixedMeasure { size }));
+                    }
                 } else {
+                    text_flags.clear_no_wrap_measure();
                     content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
                 }
 
@@ -422,5 +456,20 @@ pub fn text_system(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unchanged_no_wrap_measure_is_reused() {
+        let mut flags = TextNodeFlags::default();
+        let size = Vec2::new(100.0, 20.0);
+
+        assert!(flags.cache_no_wrap_measure(size));
+        assert!(!flags.cache_no_wrap_measure(size));
+        assert!(flags.cache_no_wrap_measure(Vec2::new(101.0, 20.0)));
     }
 }

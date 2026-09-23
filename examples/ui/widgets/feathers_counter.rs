@@ -6,7 +6,8 @@ use bevy::{
     feathers::{
         controls::FeathersButton,
         dark_theme::create_dark_theme,
-        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
+        display::caption,
+        theme::{ThemeBackgroundColor, UiTheme},
         tokens, FeathersPlugins,
     },
     prelude::*,
@@ -39,7 +40,11 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, demo_root()]
+    bsn_list! {
+        Camera2d
+        --
+        @demo_root()
+    }
 }
 
 fn demo_root() -> impl Scene {
@@ -51,34 +56,30 @@ fn demo_root() -> impl Scene {
             justify_content: JustifyContent::Center,
         }
         ThemeBackgroundColor(tokens::WINDOW_BG)
-        Children[(
+        Children[
             Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
             }
             Children [
-                (
-                    @FeathersButton
-                    on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
-                        counter.0 -= 1;
-                    })
-                    Children [ (Text("-1") ThemedText) ]
-                ),
-                (
-                    Node {
-                        margin: UiRect::horizontal(px(10.0)),
-                    }
-                    Text("0") ThemedText CounterText
-                ),
-                (
-                    @FeathersButton
-                    on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
-                        counter.0 += 1;
-                    })
-                    Children [ (Text("+1") ThemedText) ]
-                )
+                @FeathersButton
+                on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
+                    counter.0 -= 1;
+                })
+                Children [ @caption("-1") ]
+                --
+                Node {
+                    margin: UiRect::horizontal(px(10.0)),
+                }
+                @caption("0") CounterText
+                --
+                @FeathersButton
+                on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
+                    counter.0 += 1;
+                })
+                Children [ @caption("+1") ]
             ]
-        )]
+        ]
     }
 }
 

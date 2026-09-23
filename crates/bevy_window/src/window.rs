@@ -649,8 +649,9 @@ impl Window {
     ///
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     pub fn set_cursor_position(&mut self, position: Option<Vec2>) {
-        self.internal.physical_cursor_position =
-            position.map(|p| p.as_dvec2() * self.scale_factor() as f64);
+        self.set_physical_cursor_position(
+            position.map(|p| p.as_dvec2() * self.scale_factor() as f64),
+        );
     }
 
     /// Set the cursor position in this window in physical pixels.
@@ -658,6 +659,7 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     pub fn set_physical_cursor_position(&mut self, position: Option<DVec2>) {
         self.internal.physical_cursor_position = position;
+        self.internal.cursor_position_request = position;
     }
 }
 
@@ -764,11 +766,9 @@ pub struct CursorOptions {
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
-    /// - **`X11`** doesn't support [`CursorGrabMode::Locked`]
+    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`] and falls back to [`CursorGrabMode::None`].
+    /// - **`X11`** doesn't support [`CursorGrabMode::Locked`] and falls back to [`CursorGrabMode::Confined`].
     /// - **`iOS/Android`** don't have cursors.
-    ///
-    /// Since `macOS` and `X11` don't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub grab_mode: CursorGrabMode,
 
     /// Set whether or not mouse events within *this* window are captured or fall through to the Window below.
@@ -1065,11 +1065,9 @@ impl From<UVec2> for WindowResolution {
 ///
 /// ## Platform-specific
 ///
-/// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
-/// - **`X11`** doesn't support [`CursorGrabMode::Locked`]
+/// - **`macOS`** doesn't support [`CursorGrabMode::Confined`] and falls back to [`CursorGrabMode::None`].
+/// - **`X11`** doesn't support [`CursorGrabMode::Locked`] and falls back to [`CursorGrabMode::Confined`].
 /// - **`iOS/Android`** don't have cursors.
-///
-/// Since `macOS` and `X11` don't have full [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -1112,8 +1110,11 @@ pub struct InternalWindowState {
     drag_move_request: bool,
     /// If this is `Some` then the next frame we will ask to drag-resize the window.
     drag_resize_request: Option<CompassOctant>,
-    /// Unscaled cursor position.
-    physical_cursor_position: Option<DVec2>,
+    /// Unscaled cursor position, as last reported by the window backend or by
+    /// [`Window::set_physical_cursor_position`].
+    pub(crate) physical_cursor_position: Option<DVec2>,
+    /// If this is `Some` then next frame we will ask to move the cursor to this position.
+    cursor_position_request: Option<DVec2>,
 }
 
 impl InternalWindowState {
@@ -1125,6 +1126,11 @@ impl InternalWindowState {
     /// Consumes the current minimize request, if it exists. This should only be called by window backends.
     pub fn take_minimize_request(&mut self) -> Option<bool> {
         self.minimize_request.take()
+    }
+
+    /// Consumes the current cursor position request, if it exists. This should only be called by window backends.
+    pub fn take_cursor_position_request(&mut self) -> Option<DVec2> {
+        self.cursor_position_request.take()
     }
 
     /// Consumes the current move request, if it exists. This should only be called by window backends.

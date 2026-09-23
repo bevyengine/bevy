@@ -6,7 +6,17 @@ use bevy_platform::{
 };
 use indexmap::map::IndexMap;
 
-/// The [`Entry`][indexmap::map::Entry] type for [`TypeIdMap`].
+/// The [`hash_map::Entry`][bevy_platform::collections::hash_map::Entry] type for [`TypeIdHashMap`].
+pub use bevy_platform::collections::hash_map::Entry as TypeIdHashMapEntry;
+
+/// The [`Entry`][indexmap::map::Entry] type for [`TypeIdIndexMap`].
+pub use indexmap::map::Entry as TypeIdIndexMapEntry;
+
+/// Deprecated compatibility alias for [`TypeIdIndexMapEntry`].
+#[deprecated(
+    since = "0.20.0",
+    note = "use `TypeIdHashMapEntry` or `TypeIdIndexMapEntry` instead"
+)]
 pub use indexmap::map::Entry as TypeIdMapEntry;
 
 /// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.
@@ -38,27 +48,36 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
     }
 }
 
-/// A specialized map type with Key of [`TypeId`]
-/// Iteration order only depends on the order of insertions and deletions.
-pub type TypeIdMap<V> = IndexMap<TypeId, V, NoOpHash>;
+/// A specialized hash map type with a key of [`TypeId`].
+pub type TypeIdHashMap<V> = HashMap<TypeId, V, NoOpHash>;
 
-/// Extension trait to make use of [`TypeIdMap`] more ergonomic.
+/// A specialized index map type with a key of [`TypeId`].
+/// Iteration order only depends on the order of insertions and deletions.
+pub type TypeIdIndexMap<V> = IndexMap<TypeId, V, NoOpHash>;
+
+/// Deprecated compatibility alias for [`TypeIdIndexMap`].
+#[deprecated(
+    since = "0.20.0",
+    note = "use `TypeIdHashMap` or `TypeIdIndexMap` instead"
+)]
+pub type TypeIdMap<V> = TypeIdIndexMap<V>;
+
+/// Extension trait to make use of [`TypeIdIndexMap`] more ergonomic.
 ///
-/// Each function on this trait is a trivial wrapper for a function
-/// on [`IndexMap`], replacing a `TypeId` key with a
-/// generic parameter `T`.
+/// Each function on this trait is a trivial wrapper for a map function,
+/// replacing a `TypeId` key with a generic parameter `T`.
 ///
 /// # Examples
 ///
 /// ```rust
 /// # use std::any::TypeId;
-/// # use bevy_utils::TypeIdMap;
+/// # use bevy_utils::TypeIdIndexMap;
 /// use bevy_utils::TypeIdMapExt;
 ///
 /// struct MyType;
 ///
-/// // Using the built-in `HashMap` functions requires manually looking up `TypeId`s.
-/// let mut map = TypeIdMap::default();
+/// // Using the built-in map functions requires manually looking up `TypeId`s.
+/// let mut map = TypeIdIndexMap::default();
 /// map.insert(TypeId::of::<MyType>(), 7);
 /// assert_eq!(map.get(&TypeId::of::<MyType>()), Some(&7));
 ///
@@ -84,10 +103,10 @@ pub trait TypeIdMapExt<V> {
     fn remove_type<T: ?Sized + 'static>(&mut self) -> Option<V>;
 
     /// Gets the type `T`'s entry in the map for in-place manipulation.
-    fn entry_type<T: ?Sized + 'static>(&mut self) -> TypeIdMapEntry<'_, TypeId, V>;
+    fn entry_type<T: ?Sized + 'static>(&mut self) -> TypeIdIndexMapEntry<'_, TypeId, V>;
 }
 
-impl<V> TypeIdMapExt<V> for TypeIdMap<V> {
+impl<V> TypeIdMapExt<V> for TypeIdIndexMap<V> {
     #[inline]
     fn insert_type<T: ?Sized + 'static>(&mut self, v: V) -> Option<V> {
         self.insert(TypeId::of::<T>(), v)
@@ -109,7 +128,60 @@ impl<V> TypeIdMapExt<V> for TypeIdMap<V> {
     }
 
     #[inline]
-    fn entry_type<T: ?Sized + 'static>(&mut self) -> TypeIdMapEntry<'_, TypeId, V> {
+    fn entry_type<T: ?Sized + 'static>(&mut self) -> TypeIdIndexMapEntry<'_, TypeId, V> {
+        self.entry(TypeId::of::<T>())
+    }
+}
+
+/// Extension trait to make use of [`TypeIdHashMap`] more ergonomic.
+pub trait TypeIdHashMapExt<V> {
+    /// Inserts a value for the type `T`.
+    ///
+    /// If the map did not previously contain this key then [`None`] is returned,
+    /// otherwise the value for this key is updated and the old value returned.
+    fn insert_type<T: ?Sized + 'static>(&mut self, v: V) -> Option<V>;
+
+    /// Returns a reference to the value for type `T`, if one exists.
+    fn get_type<T: ?Sized + 'static>(&self) -> Option<&V>;
+
+    /// Returns a mutable reference to the value for type `T`, if one exists.
+    fn get_type_mut<T: ?Sized + 'static>(&mut self) -> Option<&mut V>;
+
+    /// Removes type `T` from the map, returning the value for this
+    /// key if it was previously present.
+    fn remove_type<T: ?Sized + 'static>(&mut self) -> Option<V>;
+
+    /// Gets the type `T`'s entry in the map for in-place manipulation.
+    fn entry_type<T: ?Sized + 'static>(
+        &mut self,
+    ) -> TypeIdHashMapEntry<'_, TypeId, V, NoOpHash>;
+}
+
+impl<V> TypeIdHashMapExt<V> for TypeIdHashMap<V> {
+    #[inline]
+    fn insert_type<T: ?Sized + 'static>(&mut self, v: V) -> Option<V> {
+        self.insert(TypeId::of::<T>(), v)
+    }
+
+    #[inline]
+    fn get_type<T: ?Sized + 'static>(&self) -> Option<&V> {
+        self.get(&TypeId::of::<T>())
+    }
+
+    #[inline]
+    fn get_type_mut<T: ?Sized + 'static>(&mut self) -> Option<&mut V> {
+        self.get_mut(&TypeId::of::<T>())
+    }
+
+    #[inline]
+    fn remove_type<T: ?Sized + 'static>(&mut self) -> Option<V> {
+        self.remove(&TypeId::of::<T>())
+    }
+
+    #[inline]
+    fn entry_type<T: ?Sized + 'static>(
+        &mut self,
+    ) -> TypeIdHashMapEntry<'_, TypeId, V, NoOpHash> {
         self.entry(TypeId::of::<T>())
     }
 }

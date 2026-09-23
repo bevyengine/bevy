@@ -235,13 +235,13 @@ fn setup(
                     },
                     Pickable::IGNORE,
                     MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
-                        values: buffers.add(ShaderBuffer {
-                            // Initialize with dummy data because the default (`data: None`) will
+                        values: buffers.add(ShaderBuffer::new(
+                            // Initialize with dummy data because the default (buffer is zero-sized) will
                             // cause a panic in the shader if the frame time graph is constructed
                             // with `enabled: false`.
-                            data: Some(vec![0, 0, 0, 0]),
-                            ..Default::default()
-                        }),
+                             vec![0.0f32],
+                             Default::default()
+                        )),
                         config: FrameTimeGraphConfigUniform::new(
                             overlay_config.frame_time_graph_config.target_fps,
                             overlay_config.frame_time_graph_config.min_fps,
@@ -300,7 +300,7 @@ fn toggle_display(
         let font_size = overlay_config
             .text_config
             .font_size
-            .eval(text_node.1.logical_size(), rem_size.0);
+            .eval(text_node.1.logical_size(), *rem_size);
         graph_node.width = Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE);
         graph_node.height = Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE);
 
