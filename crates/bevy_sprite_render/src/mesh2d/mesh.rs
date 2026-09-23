@@ -324,7 +324,7 @@ pub fn extract_2d_meshes(
     mem::swap(&mut *reextract_entities, &mut *reextract_entities_temp);
 
     // First, process meshes that we recorded as potentially needing to be
-    // reextracted on the previous frame frame.
+    // reextracted on the previous frame.
 
     for reextract_entity in reextract_entities_temp.drain().chain(
         removed_no_automatic_batching_components
@@ -416,11 +416,14 @@ fn extract_2d_mesh(
         reextract_entities.insert(main_entity);
         return;
     };
-    let Some(mesh_material_binding_id) = render_material_bindings.get(mesh_material).copied()
-    else {
-        reextract_entities.insert(main_entity);
-        return;
-    };
+    // The material may not be prepared yet (it was created this frame). Extract
+    // the instance anyway with a placeholder binding; `specialize_material2d_meshes`
+    // writes the real binding once the material is prepared, which happens
+    // before batching reads it.
+    let mesh_material_binding_id = render_material_bindings
+        .get(mesh_material)
+        .copied()
+        .unwrap_or_default();
 
     // Go ahead and extract the mesh instance.
     render_mesh_instances.insert(

@@ -36,7 +36,7 @@ pub const VISIBILITY_RANGES_STORAGE_BUFFER_COUNT: u32 = 4;
 /// The size of the visibility ranges buffer in elements (not bytes) when fewer
 /// than 6 storage buffers are available and we're forced to use a uniform
 /// buffer instead (most notably, on WebGL 2).
-const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: usize = 64;
+pub const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: usize = 64;
 
 /// A plugin that enables [`RenderVisibilityRanges`]s, which allow entities to be
 /// hidden or shown based on distance to the camera.

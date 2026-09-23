@@ -1732,16 +1732,17 @@ where
             OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
             OpaqueRendererMethod::Auto => default_opaque_render_method.0,
         };
+        let alpha_mode = material.alpha_mode();
         let reads_view_transmission_texture = material.reads_view_transmission_texture();
 
         let mesh_pipeline_key_bits = MeshPipelineKey::empty();
         let mesh_pipeline_key_bits = ErasedMeshPipelineKey::new(mesh_pipeline_key_bits);
 
-        let render_phase_type = match material.alpha_mode() {
+        let render_phase_type = match alpha_mode {
+            _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
             AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
                 RenderPhaseType::Transparent
             }
-            _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
             AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
             AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
         };
@@ -1755,7 +1756,7 @@ where
         Ok(PreparedMaterial {
             binding,
             properties: Arc::new(MaterialProperties {
-                alpha_mode: material.alpha_mode(),
+                alpha_mode,
                 depth_bias: material.depth_bias(),
                 reads_view_transmission_texture,
                 render_phase_type,
@@ -1826,9 +1827,9 @@ pub(crate) trait MaterialPropertiesExt {
 
 impl MaterialPropertiesExt for MaterialProperties {
     fn prepass_reads_material(&self) -> bool {
-        // The default prepass shaders doesn't need material's bind group,
-        // but for user provided prepass shaders currently we don't have a way to known this
-        // because material's bind group is used for both prepass and the other passes.
+        // The default prepass shaders don't need the material's bind group,
+        // but for user provided prepass shaders currently we don't have a way to know this
+        // because the material's bind group is used for both prepass and the other passes.
         //
         // So we have to disable the optimization for depth only prepass and always bind the material's bind group.
         self.get_shader(PrepassVertexShader).is_some()

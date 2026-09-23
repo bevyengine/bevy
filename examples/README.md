@@ -262,8 +262,9 @@ Example | Description
 [Asset Saving with Subassets](../examples/asset/asset_saving_with_subassets.rs) | Demonstrates how to save an asset with subassets
 [Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset
 [Compressed Image Saver](../examples/asset/compressed_image_saver.rs) | Demonstrates compressing textures and generating mipmaps using CompressedImageSaver
-[Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
+[Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset, with a default loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
+[Custom Asset Loader](../examples/asset/custom_asset_loader.rs) | Implements a custom asset loader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Extra Asset Source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Generated Assets](../examples/asset/generated_assets.rs) | Shows how to generate and store assets at runtime
@@ -438,6 +439,7 @@ Example | Description
 --- | ---
 [Custom Hit Data](../examples/picking/custom_hit_data.rs) | Demonstrates a custom picking backend with custom hit data.
 [Drag and Drop](../examples/picking/dragdrop_picking.rs) | Demonstrates drag and drop using picking events
+[Draggable Slider](../examples/picking/draggable_slider.rs) | Demonstrates pointer capture using a draggable slider
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
 [Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
@@ -508,6 +510,7 @@ Example | Description
 [Render Depth to Texture](../examples/shader_advanced/render_depth_to_texture.rs) | Demonstrates how to use depth-only cameras
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 [Specialized Mesh Pipeline](../examples/shader_advanced/specialized_mesh_pipeline.rs) | Demonstrates how to write a specialized mesh pipeline
+[Sprite Material](../examples/shader/sprite_material.rs) | A custom shader for sprites
 [Storage Buffer](../examples/shader/storage_buffer.rs) | A shader that shows how to bind a storage buffer using a custom material.
 [Texture Binding Array (Bindless Textures)](../examples/shader_advanced/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
 
@@ -518,6 +521,7 @@ Example | Description
 [Deferred Gbuffer Raymarching](../examples/shader_advanced/deferred_raymarch.rs) | Writes a raymarched SDF into the deferred gbuffer so it is lit by the standard PBR deferred lighting pass
 [Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
 [Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
+[Mesh Shader Introduction](../examples/shader_advanced/mesh_shader_intro.rs) | Demonstrates how to use Task/Amplification/Mesh Shaders
 
 ### State
 
@@ -543,7 +547,6 @@ Example | Description
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
 [Bevymark 3D](../examples/stress_tests/bevymark_3d.rs) | A heavy 3D cube rendering workload to benchmark your system with Bevy
 [Many Animated Materials](../examples/stress_tests/many_materials.rs) | Benchmark to test rendering many animated materials
-[Many Animated Sprite Meshes](../examples/stress_tests/many_animated_sprite_meshes.rs) | Displays many animated sprite meshes in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
 [Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
 [Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
 [Many Cameras & Lights](../examples/stress_tests/many_cameras_lights.rs) | Test rendering of many cameras and lights
@@ -556,7 +559,6 @@ Example | Description
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
 [Many Meshlet Materials](../examples/stress_tests/many_meshlet_materials.rs) | Benchmark to test rendering many meshlet materials (experimental)
 [Many Morph Targets](../examples/stress_tests/many_morph_targets.rs) | Simple benchmark to test rendering many meshes with animated morph targets.
-[Many Sprite Meshes](../examples/stress_tests/many_sprite_meshes.rs) | Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Many Text](../examples/stress_tests/many_text.rs) | Displays many UI Text nodes. Used for performance testing.
 [Many Text2d](../examples/stress_tests/many_text2d.rs) | Displays many Text2d! Used for performance testing.
@@ -615,9 +617,11 @@ Example | Description
 [Ghost Nodes](../examples/ui/layout/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/styling/gradients.rs) | An example demonstrating gradients
 [Headless Tabs](../examples/ui/widgets/headless_tabs.rs) | Demonstrates controlled and self-updating headless tab lists
+[Headless Tree](../examples/ui/widgets/headless_tree.rs) | Demonstrates the headless tree view with lazy population and keyboard navigation
 [IME Support](../examples/ui/text/ime_support.rs) | Demonstrates IME (Input Method Editor) support for text input
 [Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
 [Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node
+[Inline Images](../examples/ui/text/inline_image.rs) | Demonstrates how to display images inline with text
 [Letter Spacing](../examples/ui/text/letter_spacing.rs) | Demonstrates the letter spacing feature
 [Multiline Text Input](../examples/ui/text/multiline_text_input.rs) | Demonstrates a single multiline EditableText widget
 [Multiple Text Inputs](../examples/ui/text/multiple_text_inputs.rs) | Demonstrates multiple text inputs

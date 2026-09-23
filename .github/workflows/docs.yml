@@ -10,8 +10,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUSTDOCFLAGS: --html-in-header header.html
-  # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: nightly
 
 # Sets the permissions to allow deploying to Github pages.
 permissions:
@@ -35,13 +33,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+      - uses: ./.github/actions/install-rust
         with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+          channel: nightly
 
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
@@ -97,4 +95,4 @@ jobs:
 
       - name: Deploy to Github Pages
         id: deployment
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

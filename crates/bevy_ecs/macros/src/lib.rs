@@ -10,7 +10,6 @@ mod query_data;
 mod query_filter;
 mod resource;
 mod template;
-mod variant_defaults;
 mod world_query;
 
 use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
@@ -456,9 +455,9 @@ fn derive_system_param_impl(
                     state: &Self::State,
                     system_meta: &mut #path::system::SystemMeta,
                     system_access: &mut #path::system::SystemAccess,
-                    world: &mut #path::world::World
-                ) {
-                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access, world);
+                ) -> Result<(), #path::system::SystemParamAccessConflict> {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access)?;
+                    Ok(())
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
@@ -634,6 +633,12 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// [my_group]
 /// test = true
 /// ```
+///
+/// Note that it's possible to make multiple different settings types share the same file,
+/// group, and even key. When loading, all fields sharing the same key will load from that
+/// same key. If the value is not valid for the type of a field, that field will be reset to
+/// the default value in that settings type. If two or more types are contending for a single
+/// key, which type ultimately saves in that key is not specified.
 ///
 /// ## File Override
 /// ```ignore
@@ -950,13 +955,4 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(FromTemplate, attributes(template, default))]
 pub fn derive_from_template(input: TokenStream) -> TokenStream {
     template::derive_from_template(input)
-}
-
-/// Derives a `default_<name>` for each branch of an `enum`
-/// for use with [`Template`].
-///
-/// [`Template`]: template/trait.Template.html
-#[proc_macro_derive(VariantDefaults)]
-pub fn derive_variant_defaults(input: TokenStream) -> TokenStream {
-    variant_defaults::derive_variant_defaults(input)
 }

@@ -1,11 +1,13 @@
-use crate::{CachedSceneError, ErasedComponentTemplate, ResolvedScene, SceneList, ScenePatch};
+use crate::{
+    CachedSceneError, EmptySceneEffect, ErasedTemplate, ResolvedScene, SceneList, ScenePatch,
+};
 use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
     component::Component,
     error::Result,
     event::{EntityEvent, EventPattern},
     name::Name,
-    relationship::Relationship,
+    relationship::RelationshipTarget,
     system::IntoObserverSystem,
     template::{FnTemplate, FromTemplate, SceneEntityReference, Template, TemplateContext},
 };
@@ -28,7 +30,7 @@ use variadics_please::all_tuples;
 /// A [`Scene`] generally does one or more of the following to a [`ResolvedScene`]:
 /// - Adding a new [`Template`]
 /// - Editing an existing [`Template`] (ex: "patching" [`Template`] fields)
-/// - Adding one or more "related" [`ResolvedScene`]s, which will be spawned alongside the root [`ResolvedScene`] and "related" back to it with a [`Relationship`].
+/// - Adding one or more "related" [`ResolvedScene`]s, which will be spawned alongside the root [`ResolvedScene`] and "related" to it via a [`RelationshipTarget`].
 /// - Editing an existing "related" [`ResolvedScene`].
 /// - Setting a [`ScenePatch`] containing a cached [`ResolvedScene`] to apply first.
 ///
@@ -284,6 +286,10 @@ pub struct TemplatePatch<F: FnOnce(&mut T, &mut ResolveContext), T>(pub F, pub P
 
 /// Returns a [`Scene`] that completely overwrites the current value of a [`Template`] `T` with the given `value`.
 /// The `value` is cloned each time the [`Template`] is built.
+#[deprecated(
+    since = "0.20.0",
+    note = "You can generally just remove the template_value wrapper function now. If that doesn't work, wrap it in `~{}`"
+)]
 pub fn template_value<T: Template<Output: Component> + Send + Sync + 'static>(
     value: T,
 ) -> InsertTemplate {
@@ -350,7 +356,7 @@ pub struct InsertTemplate {
     /// The type id of the [`Template`] in `template`.
     pub type_id: TypeId,
     /// The template to insert.
-    pub template: Box<dyn ErasedComponentTemplate>,
+    pub template: Box<dyn ErasedTemplate>,
 }
 impl Scene for InsertTemplate {
     fn resolve(
@@ -363,33 +369,33 @@ impl Scene for InsertTemplate {
     }
 }
 
-/// A [`Scene`] that adds an `L` [`SceneList`] as "related scenes", using the `R` [`Relationship`]
-pub struct RelatedScenes<R: Relationship, L: SceneList> {
-    /// The related [`SceneList`]. Each entity described in the list will be spawned with the given [`Relationship`] to the
-    /// entity described in the current [`Scene`].
-    pub related_template_list: L,
+/// A [`Scene`] that adds a [`SceneList`] as "related scenes", using the `R` [`RelationshipTarget`]
+pub struct RelatedScenes<R: RelationshipTarget> {
+    /// The related [`SceneList`]. Each entity described in the list will be spawned and added to the [`RelationshipTarget`],
+    /// which will be added to the current scene.
+    pub related_template_list: Box<dyn SceneList>,
 
     /// Marker holding the `R` type.
     pub marker: PhantomData<R>,
 }
 
-impl<R: Relationship, L: SceneList> RelatedScenes<R, L> {
+impl<R: RelationshipTarget> RelatedScenes<R> {
     /// Creates a new [`RelatedScenes`] with the given `list`.
-    pub fn new(list: L) -> Self {
+    pub fn new<L: SceneList>(list: L) -> Self {
         Self {
-            related_template_list: list,
+            related_template_list: Box::new(list),
             marker: PhantomData,
         }
     }
 }
 
-impl<R: Relationship, L: SceneList> Scene for RelatedScenes<R, L> {
+impl<R: RelationshipTarget> Scene for RelatedScenes<R> {
     fn resolve(
         self,
         context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        let related = scene.get_or_insert_related_resolved_scenes::<R>();
+        let related = scene.get_or_insert_related_resolved_scenes::<R::Relationship>();
         self.related_template_list
             .resolve_list(context, &mut related.scenes)
     }
@@ -537,11 +543,11 @@ where
     E: EventPattern<Event: EntityEvent>,
     M: 'static,
 {
-    type Output = ();
+    type Output = EmptySceneEffect;
 
     fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output> {
         context.entity.observe(self.0.clone());
-        Ok(())
+        Ok(EmptySceneEffect)
     }
 
     fn clone_template(&self) -> Self {
@@ -560,7 +566,7 @@ where
         _context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        scene.push_bundle_template(OnTemplate(self.0, PhantomData));
+        scene.push_template(OnTemplate(self.0, PhantomData));
         Ok(())
     }
 }

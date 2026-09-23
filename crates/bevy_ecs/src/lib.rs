@@ -96,15 +96,15 @@ pub mod prelude {
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, If, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
-            Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            Res, ResMut, Single, SkipIfAny, System, SystemIn, SystemInput, SystemParamBuilder,
             SystemParamFunction,
         },
         template::{template, FromTemplate, Template},
-        world::{
-            EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
-            FromWorld, World,
-        },
+        world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
+
+    #[expect(deprecated, reason = "`FilteredResources` will be removed.")]
+    pub use crate::world::{FilteredResources, FilteredResourcesMut};
 
     #[doc(hidden)]
     #[cfg(feature = "std")]
@@ -121,8 +121,6 @@ pub mod prelude {
     #[cfg(feature = "reflect_functions")]
     pub use crate::reflect::AppFunctionRegistry;
 }
-
-pub use bevy_ecs_macros::VariantDefaults;
 
 /// Exports used by macros.
 ///
