@@ -117,14 +117,11 @@ impl FeathersTextInput {
             TextLayout {
                 linebreak: LineBreak::NoWrap,
             }
-            template(|ctx| {
-                Ok(TextFont {
-                    font: FontSource::Handle(ctx.resource::<AssetServer>().load(fonts::REGULAR)),
-                    font_size: size::COMPACT_FONT,
-                    weight: FontWeight::NORMAL,
-                    ..Default::default()
-                })
-            })
+            TextFont {
+                font: FontSourceTemplate::Handle(fonts::REGULAR),
+                font_size: size::COMPACT_FONT,
+                weight: FontWeight::NORMAL,
+            }
             PropagateOver<TextFont>
             EntityCursor::System(bevy_window::SystemCursorIcon::Text)
             TextCursorStyle
