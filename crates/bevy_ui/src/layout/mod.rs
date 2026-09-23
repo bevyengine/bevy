@@ -49,6 +49,7 @@ pub struct UiTreeDirty;
 /// - stack roots: roots that are the base of a new UI stack context
 #[derive(Resource, Default)]
 pub struct UiRoots {
+    /// all unparented nodes
     all_roots: Vec<Entity>,
     /// List of unparented, non-ghost root UI nodes.    
     roots: Vec<Entity>,
@@ -62,7 +63,11 @@ pub struct UiRoots {
 
 impl UiRoots {
     pub fn layout_roots(&self) -> impl Iterator<Item = Entity> {
-        self.roots.iter().chain(self.fixed_nodes.iter()).copied()
+        self.roots
+            .iter()
+            .chain(self.ghost_roots.iter())
+            .chain(self.fixed_nodes.iter())
+            .copied()
     }
 
     pub fn geometry_roots(&self) -> impl Iterator<Item = Entity> {
@@ -75,6 +80,7 @@ impl UiRoots {
 
 impl UiRoots {
     fn clear(&mut self) {
+        self.all_roots.clear();
         self.roots.clear();
         self.ghost_roots.clear();
         self.ghost_node_roots.clear();
