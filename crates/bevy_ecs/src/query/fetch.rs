@@ -3,7 +3,8 @@ use crate::{
     bundle::Bundle,
     change_detection::{
         AtomicTick, ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
-        ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, MaybeLocation, Tick,
+        ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, DetectChangesMut, MaybeLocation,
+        Shrinkable, Tick,
     },
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -21,7 +22,13 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, iter, marker::PhantomData, ops::Range, panic::Location};
+use core::{
+    cell::UnsafeCell,
+    iter,
+    marker::PhantomData,
+    ops::{Range, ShrAssign},
+    panic::Location,
+};
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -2506,12 +2513,12 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = &'__w T;
-    type Item<'w, 's> = Mut<'w, T>;
+    type Item<'w, 's> = <T as Component>::ChangeDetection<'w>;
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
-        item
+        <T::ChangeDetection<'wlong> as Shrinkable>::shrink(item)
     }
 
     #[inline(always)]
@@ -2544,17 +2551,15 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     None
                 };
 
-                Mut {
-                    value: component.deref_mut(),
-                    ticks: ComponentTicksMut {
-                        added: added.deref_mut(),
-                        changed: changed.deref_mut(),
-                        changed_by: caller.map(|caller| caller.deref_mut()),
-                        this_run: fetch.this_run,
-                        last_run: fetch.last_run,
-                        summary_tick,
-                    },
-                }
+                Mut::new(
+                    component.deref_mut(),
+                    added.deref_mut(),
+                    changed.deref_mut(),
+                    summary_tick,
+                    fetch.last_run,
+                    fetch.this_run,
+                    caller,
+                )
             },
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range and has the component.
