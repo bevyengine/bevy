@@ -557,7 +557,7 @@
 extern crate alloc;
 
 use async_channel::{Receiver, Sender};
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, EntryPoint};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
@@ -916,9 +916,9 @@ impl Plugin for RemotePlugin {
             .init_resource::<RemoteWatchingRequests>()
             .init_resource::<builtin_methods::BrpEventObservers>()
             .add_systems(PreStartup, setup_mailbox_channel)
-            .configure_sets(Main, RemoteLast.after(Last))
+            .configure_sets(EntryPoint, RemoteLast.after(Last))
             .configure_sets(
-                Main,
+                EntryPoint,
                 (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
             )
             .add_systems(
@@ -962,15 +962,11 @@ impl Plugin for RemotePlugin {
                 .init_resource::<schemas::SchemaTypesMetadata>()
                 .init_resource::<RemoteWatchingRequests>()
                 .add_systems(RenderStartup, setup_mailbox_channel.run_if(run_once))
+                // Run RemoteSystems stuff after all the rendering stuff.
+                .configure_sets(EntryPoint, RemoteLast.after(RenderSystems::PostCleanup))
                 .configure_sets(
-                    Render,
-                    (
-                        RenderSystems::PostCleanup,
-                        // Run RemoteSystems stuff after all the rendering stuff.
-                        RemoteSystems::ProcessRequests,
-                        RemoteSystems::Cleanup,
-                    )
-                        .chain(),
+                    EntryPoint,
+                    (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
                 )
                 .add_systems(
                     RemoteLast,
@@ -987,7 +983,7 @@ impl Plugin for RemotePlugin {
 
 /// Schedule that contains all systems to process Bevy Remote Protocol requests
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
-#[default_schedule(Main)]
+#[default_schedule(EntryPoint)]
 pub struct RemoteLast;
 
 /// The systems sets of the [`RemoteLast`] schedule.
