@@ -1,7 +1,5 @@
 use crate::{
-    layout_tree::{
-        collect_ui_children, compute_layout, entity_node_id, node_id_entity, TaffyStyle,
-    },
+    layout_tree::{compute_layout, TaffyStyle},
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, GhostNode,
     IgnoreScroll, LayoutConfig, Node, Outline, OverflowAxis, OverrideClip, ScrollPosition,
@@ -44,20 +42,45 @@ pub struct UiTreeDirty;
 
 /// List of all UI root nodes.
 /// Updated at start of UI schedule in `PostLayout` by `update_ui_roots`.
-#[derive(Resource)]
+///
+/// types of roots:
+/// - layout roots: roots of UI layouts
+/// - ui roots: any parentless Node or GhostNode
+/// - stack roots: roots that are the base of a new UI stack context
+#[derive(Resource, Default)]
 pub struct UiRoots {
+    /// all unparented nodes
+    all_roots: Vec<Entity>,
     /// List of unparented, non-ghost root UI nodes.    
     roots: Vec<Entity>,
     /// List of UI nodes with only ghost node ancestors.
     ghost_roots: Vec<Entity>,
-    /// List of parent-less ghost nodes.
+    /// List of nodes with no non-ghost ancestors.
     ghost_node_roots: Vec<Entity>,
     /// List of valid fixed nodes.
     fixed_nodes: Vec<Entity>,
 }
 
 impl UiRoots {
+    pub fn layout_roots(&self) -> impl Iterator<Item = Entity> {
+        self.roots
+            .iter()
+            .chain(self.ghost_roots.iter())
+            .chain(self.fixed_nodes.iter())
+            .copied()
+    }
+
+    pub fn geometry_roots(&self) -> impl Iterator<Item = Entity> {
+        self.all_roots
+            .iter()
+            .chain(self.fixed_nodes.iter())
+            .copied()
+    }
+}
+
+impl UiRoots {
     fn clear(&mut self) {
+        self.all_roots.clear();
         self.roots.clear();
         self.ghost_roots.clear();
         self.ghost_node_roots.clear();
@@ -121,15 +144,16 @@ pub enum LayoutError {
 pub fn update_ui_roots(
     mut navigation_stack: Local<Vec<Entity>>,
     mut ui_roots: ResMut<UiRoots>,
+    all_roots_query: Query<Entity, (With<Node>, Without<ChildOf>)>,
     roots_query: Query<Entity, (With<Node>, Without<ChildOf>, Without<GhostNode>)>,
-    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>, Without<GhostNode>)>,
+    fixed_nodes_query: Query<(Entity, &ChildOf), (With<FixedNode>, Without<GhostNode>)>,
+    fixed_nodes_ancestor_query: Query<Option<&ChildOf>, With<Node>>,
     ghost_roots_query: Query<(Entity, Option<&Children>), (With<GhostNode>, Without<ChildOf>)>,
     flattening_query: Query<(Entity, Has<GhostNode>, Option<&Children>), With<Node>>,
 ) {
     ui_roots.clear();
-
+    ui_roots.all_roots.extend(all_roots_query.iter());
     ui_roots.roots.extend(roots_query.iter());
-    ui_roots.fixed_nodes.extend(fixed_nodes_query.iter());
 
     for (ghost_root, maybe_children) in &ghost_roots_query {
         ui_roots.ghost_node_roots.push(ghost_root);
@@ -140,6 +164,7 @@ pub fn update_ui_roots(
                     continue;
                 };
                 if is_ghost {
+                    ui_roots.ghost_node_roots.push(entity);
                     if let Some(children) = maybe_children {
                         navigation_stack.extend(children);
                     }
@@ -147,6 +172,22 @@ pub fn update_ui_roots(
                     ui_roots.ghost_roots.push(entity);
                 }
             }
+        }
+    }
+
+    for (entity, child_of) in &fixed_nodes_query {
+        let mut ancestor = Some(child_of.parent());
+        let mut is_valid_fixed_node = true;
+        while let Some(ancestor_entity) = ancestor {
+            let Ok(maybe_child_of) = fixed_nodes_ancestor_query.get(ancestor_entity) else {
+                is_valid_fixed_node = false;
+                break;
+            };
+            ancestor = maybe_child_of.map(ChildOf::parent);
+        }
+
+        if is_valid_fixed_node {
+            ui_roots.fixed_nodes.push(entity);
         }
     }
 }
@@ -296,8 +337,7 @@ pub fn mark_dirty_ui_trees(
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
-    ui_root_node_query: Query<Entity, (With<Node>, Without<ChildOf>)>,
-    fixed_nodes_query: Query<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>,
+    ui_roots: Res<UiRoots>,
     ui_children: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
     target_query: Query<Ref<ComputedUiRenderTargetInfo>>,
     node_query: Query<
@@ -342,7 +382,6 @@ pub fn ui_layout_system(
         Query<Entity, Added<GhostNode>>,
         RemovedComponents<GhostNode>,
     ),
-    parent_query: Query<&ChildOf>,
     (mut child_stack, mut root_stack, mut fixed_node_changes, mut ghost_stack): (
         Local<Vec<taffy::NodeId>>,
         Local<Vec<taffy::NodeId>>,
@@ -377,34 +416,8 @@ pub fn ui_layout_system(
     root_stack.clear();
     ghost_stack.clear();
 
-    for ui_root_entity in ui_root_node_query.iter() {
-        if ui_children
-            .get(ui_root_entity)
-            .is_ok_and(|(_, is_ghost, _)| is_ghost)
-        {
-            ghost_stack.push(ui_root_entity);
-            collect_ui_children(
-                ui_root_entity,
-                &ui_children,
-                &mut root_stack,
-                &mut ghost_stack,
-            );
-        } else {
-            root_stack.push(entity_node_id(ui_root_entity));
-        }
-    }
-    root_stack.retain(|node_id| !fixed_nodes_query.contains(node_id_entity(*node_id)));
-    root_stack.extend(fixed_nodes_query.iter().filter_map(|(entity, is_ghost)| {
-        (!is_ghost
-            && parent_query
-                .iter_ancestors::<ChildOf>(entity)
-                .all(|ancestor| ui_children.contains(ancestor)))
-        .then_some(entity_node_id(entity))
-    }));
-
     let mut computed_layout_query = node_queries.p0();
-    for root_node in root_stack.iter().copied() {
-        let ui_root_entity = node_id_entity(root_node);
+    for ui_root_entity in ui_roots.layout_roots() {
         let Ok(target) = target_query.get(ui_root_entity) else {
             continue;
         };
@@ -436,7 +449,7 @@ pub fn ui_layout_system(
 
     // `GhostNode`s are stepped over during layout, so need to mark them separately as live UI nodes
     // so they aren't cleared below.
-    for ghost_node in ghost_stack.iter() {
+    for ghost_node in ghost_stack.iter().chain(ui_roots.ghost_node_roots.iter()) {
         if let Ok(mut computed_layout) = computed_layout_query.get_mut(*ghost_node) {
             let computed_layout = computed_layout.bypass_change_detection();
             computed_layout.clear();
@@ -469,9 +482,8 @@ pub fn ui_layout_system(
 }
 
 pub fn update_computed_nodes(
+    ui_roots: Res<UiRoots>,
     rem_size: Res<RemSize>,
-    ui_root_node_query: Query<Entity, (With<Node>, Without<ChildOf>)>,
-    fixed_nodes_query: Query<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>,
     targets_query: Query<Ref<ComputedUiRenderTargetInfo>>,
     mut computed_nodes_query: Query<(
         &mut ComputedNode,
@@ -491,11 +503,7 @@ pub fn update_computed_nodes(
     )>,
     mut child_stack: Local<Vec<Entity>>,
 ) {
-    for ui_root_entity in ui_root_node_query.iter().chain(
-        fixed_nodes_query
-            .iter()
-            .filter_map(|(entity, is_ghost)| (!is_ghost).then_some(entity)),
-    ) {
+    for ui_root_entity in ui_roots.geometry_roots() {
         let Ok(target_info) = targets_query.get(ui_root_entity) else {
             continue;
         };
