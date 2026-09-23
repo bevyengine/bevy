@@ -1,4 +1,4 @@
-use crate::layout::{mark_dirty_ui_trees, UiTreeDirty};
+use crate::layout::{mark_dirty_ui_trees, update_ui_roots, UiRoots, UiTreeDirty};
 use crate::layout_tree::compute_layout;
 use crate::layout_tree::TaffyStyle;
 use crate::update_computed_nodes;
@@ -30,6 +30,7 @@ fn setup_ui_test_app() -> App {
         PostUpdate,
     ));
     app.init_resource::<UiScale>();
+    app.init_resource::<UiRoots>();
     app.init_resource::<bevy_text::TextPipeline>();
     app.init_resource::<bevy_text::FontCx>();
     app.init_resource::<RemSize>();
@@ -42,6 +43,7 @@ fn setup_ui_test_app() -> App {
             ApplyDeferred,
             propagate_ui_target_cameras,
             clear_transient_dirty_flags,
+            update_ui_roots,
             sync_font_size_to_em_size,
             sync_taffy_styles_with_nodes,
             mark_dirty_ui_trees,
