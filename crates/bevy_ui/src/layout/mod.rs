@@ -88,8 +88,8 @@ impl Default for LayoutContext {
 
 #[derive(Debug, Error)]
 pub enum LayoutError {
-    #[error("Invalid hierarchy")]
-    InvalidHierarchy,
+    #[error("UI root entity is missing or doesn't have the components needed for layout.")]
+    InvalidUiRoot,
 }
 
 /// For any entity with a [`TextFont`], set [`EmSize`] to the font size resolved

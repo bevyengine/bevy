@@ -331,7 +331,7 @@ pub fn compute_layout<'w, 's>(
         needs_full_walk,
         ghost_stack,
     ) else {
-        return Err(LayoutError::InvalidHierarchy);
+        return Err(LayoutError::InvalidUiRoot);
     };
 
     if subtree_state != SubtreeState::LayoutDirty {
