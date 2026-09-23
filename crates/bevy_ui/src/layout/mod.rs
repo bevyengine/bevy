@@ -122,14 +122,14 @@ pub fn update_ui_roots(
     mut navigation_stack: Local<Vec<Entity>>,
     mut ui_roots: ResMut<UiRoots>,
     roots_query: Query<Entity, (With<Node>, Without<ChildOf>, Without<GhostNode>)>,
-    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>, Without<GhostNode>)>,
+    fixed_nodes_query: Query<(Entity, &ChildOf), (With<FixedNode>, Without<GhostNode>)>,
+    fixed_nodes_ancestor_query: Query<(Has<GhostNode>, Option<&ChildOf>), With<Node>>,
     ghost_roots_query: Query<(Entity, Option<&Children>), (With<GhostNode>, Without<ChildOf>)>,
     flattening_query: Query<(Entity, Has<GhostNode>, Option<&Children>), With<Node>>,
 ) {
     ui_roots.clear();
 
     ui_roots.roots.extend(roots_query.iter());
-    ui_roots.fixed_nodes.extend(fixed_nodes_query.iter());
 
     for (ghost_root, maybe_children) in &ghost_roots_query {
         ui_roots.ghost_node_roots.push(ghost_root);
@@ -147,6 +147,24 @@ pub fn update_ui_roots(
                     ui_roots.ghost_roots.push(entity);
                 }
             }
+        }
+    }
+
+    for (entity, child_of) in &fixed_nodes_query {
+        let mut ancestor = Some(child_of.parent());
+        let mut is_valid_fixed_node = false;
+        while let Some(ancestor_entity) = ancestor {
+            let Ok((is_ghost, maybe_child_of)) = fixed_nodes_ancestor_query.get(ancestor_entity)
+            else {
+                is_valid_fixed_node = false;
+                break;
+            };
+            is_valid_fixed_node |= !is_ghost;
+            ancestor = maybe_child_of.map(ChildOf::parent);
+        }
+
+        if is_valid_fixed_node {
+            ui_roots.fixed_nodes.push(entity);
         }
     }
 }
