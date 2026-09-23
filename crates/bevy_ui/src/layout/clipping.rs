@@ -1,23 +1,22 @@
 use crate::{
     layout_tree::ComputedLayout, ui_transform::UiGlobalTransform, CalculatedClip, Display,
-    FixedNode, GhostNode, Node, OverrideClip, UiTreeDirty,
+    FixedNode, GhostNode, Node, OverrideClip, UiRoots, UiTreeDirty,
 };
 
 use super::ComputedNode;
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
-    hierarchy::{ChildOf, Children},
-    query::{Has, With, Without},
-    system::{Commands, Query},
+    hierarchy::Children,
+    query::{Has, With},
+    system::{Commands, Query, Res},
     world::Ref,
 };
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
     mut commands: Commands,
-    root_nodes: Query<Entity, (With<Node>, Without<ChildOf>)>,
-    fixed_nodes_query: Query<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>,
+    ui_roots: Res<UiRoots>,
     mut node_query: Query<(
         &Node,
         &ComputedNode,
@@ -31,11 +30,7 @@ pub fn update_clipping_system(
     )>,
     ui_children: Query<&Children, With<Node>>,
 ) {
-    for root_node in root_nodes.iter().chain(
-        fixed_nodes_query
-            .iter()
-            .filter_map(|(entity, is_ghost)| (!is_ghost).then_some(entity)),
-    ) {
+    for root_node in ui_roots.geometry_roots() {
         update_clipping(
             &mut commands,
             &ui_children,
