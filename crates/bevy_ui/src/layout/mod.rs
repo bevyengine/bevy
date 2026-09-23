@@ -418,7 +418,7 @@ pub fn ui_layout_system(
             continue;
         };
 
-        if let Err(_) = compute_layout(
+        if compute_layout(
             ui_root_entity,
             target.physical_size(),
             &ui_children,
@@ -431,8 +431,10 @@ pub fn ui_layout_system(
             &mut child_stack,
             needs_full_walk,
             &mut ghost_stack,
-        ) {
-            warn_once!("Invalid UI root entity: {ui_root_entity}.")
+        )
+        .is_err()
+        {
+            warn_once!("Invalid UI root entity: {ui_root_entity}.");
         }
 
         child_stack.clear();
