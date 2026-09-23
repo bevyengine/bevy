@@ -42,36 +42,32 @@ pub struct UiTreeDirty;
 
 /// List of all UI root nodes.
 /// Updated at start of UI schedule in `PostLayout` by `update_ui_roots`.
-///
-/// types of roots:
-/// - layout roots: roots of UI layouts
-/// - ui roots: any parentless Node or GhostNode
-/// - stack roots: roots that are the base of a new UI stack context
 #[derive(Resource, Default)]
 pub struct UiRoots {
-    /// all unparented nodes
-    all_roots: Vec<Entity>,
-    /// List of unparented, non-ghost root UI nodes.    
-    roots: Vec<Entity>,
-    /// List of UI nodes with only ghost node ancestors.
-    ghost_roots: Vec<Entity>,
-    /// List of nodes with no non-ghost ancestors.
-    ghost_node_roots: Vec<Entity>,
-    /// List of valid fixed nodes.
+    /// All unparented UI nodes.
+    unparented: Vec<Entity>,
+    /// All unparented, non-ghost root UI nodes.    
+    unparented_non_ghost: Vec<Entity>,
+    /// All non-ghost nodes with no non-ghost ancestors.
+    roots_under_ghosts: Vec<Entity>,
+    /// All ghost nodes with no non-ghost ancestors.
+    root_ghosts: Vec<Entity>,
+    /// All valid fixed nodes (parented, non-ghost, all ancestors are UI nodes).
     fixed_nodes: Vec<Entity>,
 }
 
 impl UiRoots {
+    /// Roots of a UI layout tree.
     pub fn layout_roots(&self) -> impl Iterator<Item = Entity> {
-        self.roots
+        self.unparented_non_ghost
             .iter()
-            .chain(self.ghost_roots.iter())
+            .chain(self.roots_under_ghosts.iter())
             .chain(self.fixed_nodes.iter())
             .copied()
     }
 
     pub fn geometry_roots(&self) -> impl Iterator<Item = Entity> {
-        self.all_roots
+        self.unparented
             .iter()
             .chain(self.fixed_nodes.iter())
             .copied()
@@ -80,10 +76,10 @@ impl UiRoots {
 
 impl UiRoots {
     fn clear(&mut self) {
-        self.all_roots.clear();
-        self.roots.clear();
-        self.ghost_roots.clear();
-        self.ghost_node_roots.clear();
+        self.unparented.clear();
+        self.unparented_non_ghost.clear();
+        self.roots_under_ghosts.clear();
+        self.root_ghosts.clear();
         self.fixed_nodes.clear();
     }
 }
@@ -152,11 +148,11 @@ pub fn update_ui_roots(
     flattening_query: Query<(Entity, Has<GhostNode>, Option<&Children>), With<Node>>,
 ) {
     ui_roots.clear();
-    ui_roots.all_roots.extend(all_roots_query.iter());
-    ui_roots.roots.extend(roots_query.iter());
+    ui_roots.unparented.extend(all_roots_query.iter());
+    ui_roots.unparented_non_ghost.extend(roots_query.iter());
 
     for (ghost_root, maybe_children) in &ghost_roots_query {
-        ui_roots.ghost_node_roots.push(ghost_root);
+        ui_roots.root_ghosts.push(ghost_root);
         if let Some(children) = maybe_children {
             navigation_stack.extend(children);
             while let Some(entity) = navigation_stack.pop() {
@@ -164,12 +160,12 @@ pub fn update_ui_roots(
                     continue;
                 };
                 if is_ghost {
-                    ui_roots.ghost_node_roots.push(entity);
+                    ui_roots.root_ghosts.push(entity);
                     if let Some(children) = maybe_children {
                         navigation_stack.extend(children);
                     }
                 } else if !fixed_nodes_query.contains(entity) {
-                    ui_roots.ghost_roots.push(entity);
+                    ui_roots.roots_under_ghosts.push(entity);
                 }
             }
         }
@@ -449,7 +445,7 @@ pub fn ui_layout_system(
 
     // `GhostNode`s are stepped over during layout, so need to mark them separately as live UI nodes
     // so they aren't cleared below.
-    for ghost_node in ghost_stack.iter().chain(ui_roots.ghost_node_roots.iter()) {
+    for ghost_node in ghost_stack.iter().chain(ui_roots.root_ghosts.iter()) {
         if let Ok(mut computed_layout) = computed_layout_query.get_mut(*ghost_node) {
             let computed_layout = computed_layout.bypass_change_detection();
             computed_layout.clear();
