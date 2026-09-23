@@ -39,6 +39,7 @@ pub fn preferences_dir() -> Option<PathBuf> {
 /// [XDG Base Directory Specification] requires that the path specified in environment variables must be absolute. If it's not, we should ignore it and fallback to the default path.
 ///
 /// [XDG Base Directory Specification]: https://specifications.freedesktop.org/basedir/latest/
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 fn is_absolute_path(path: impl Into<PathBuf>) -> Option<PathBuf> {
     let path = path.into();
     if path.is_absolute() {
