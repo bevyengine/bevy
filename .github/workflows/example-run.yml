@@ -188,7 +188,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         with:
@@ -207,7 +207,7 @@ jobs:
             sudo add-apt-repository ppa:kisak/turtle -y
             sudo apt-get install --no-install-recommends libgl1-mesa-dri mesa-vulkan-drivers
           fi
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
