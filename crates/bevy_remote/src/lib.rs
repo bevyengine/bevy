@@ -17,7 +17,7 @@
 //!     "method": "world.get_components",
 //!     "id": 0,
 //!     "params": {
-//!         "entity": 4294967298,
+//!         "entity": "5v0",
 //!         "components": [
 //!             "bevy_transform::components::transform::Transform"
 //!         ]
@@ -242,7 +242,7 @@
 //!       }
 //!     },
 //!     "bevy_camera::primitives::Frustum": {},
-//!  "bevy_render::sync_world::RenderEntity": 4294967291,
+//!  "bevy_render::sync_world::RenderEntity": "4v0",
 //!     "bevy_render::sync_world::SyncToRenderWorld": {},
 //!     "bevy_render::view::Msaa": "Sample4",
 //!     "bevy_camera::visibility::InheritedVisibility": true,
@@ -283,7 +283,7 @@
 //!     },
 //!     "bevy_transform::components::transform::TransformTreeChanged": null
 //!   },
-//!   "entity": 4294967261
+//!   "entity": "34v0"
 //!},
 //! ```
 //!
@@ -1091,7 +1091,7 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///     "method": "world.get_components",
 ///     "id": 0,
 ///     "params": {
-///         "entity": 4294967298,
+///         "entity": "5v0",
 ///         "components": [
 ///             "bevy_transform::components::transform::Transform"
 ///         ]

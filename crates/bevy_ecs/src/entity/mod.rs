@@ -629,16 +629,22 @@ impl Entity {
     }
 }
 
+/// Human-readable formats use the [`Display`](fmt::Display) form, binary formats use [`Entity::to_bits`].
 #[cfg(feature = "serialize")]
 impl Serialize for Entity {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        serializer.serialize_u64(self.to_bits())
+        if serializer.is_human_readable() {
+            serializer.collect_str(self)
+        } else {
+            serializer.serialize_u64(self.to_bits())
+        }
     }
 }
 
+/// Human-readable formats expect the [`Display`](fmt::Display) form, binary formats expect [`Entity::to_bits`].
 #[cfg(feature = "serialize")]
 impl<'de> Deserialize<'de> for Entity {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -646,9 +652,55 @@ impl<'de> Deserialize<'de> for Entity {
         D: serde::Deserializer<'de>,
     {
         use serde::de::Error;
-        let id: u64 = Deserialize::deserialize(deserializer)?;
-        Entity::try_from_bits(id)
-            .ok_or_else(|| D::Error::custom("Attempting to deserialize an invalid entity."))
+
+        struct EntityVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for EntityVisitor {
+            type Value = Entity;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("an entity in the form `{index}v{generation}` or `PLACEHOLDER`")
+            }
+
+            fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+                v.parse().map_err(E::custom)
+            }
+        }
+
+        if deserializer.is_human_readable() {
+            deserializer.deserialize_str(EntityVisitor)
+        } else {
+            let id: u64 = Deserialize::deserialize(deserializer)?;
+            Entity::try_from_bits(id)
+                .ok_or_else(|| D::Error::custom("Attempting to deserialize an invalid entity."))
+        }
+    }
+}
+
+/// An error returned when parsing an [`Entity`] from a string fails.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+#[error("expected an entity in the form `{{index}}v{{generation}}` or `PLACEHOLDER`")]
+pub struct ParseEntityError;
+
+/// Parses the [`Display`](fmt::Display) form of an [`Entity`].
+impl core::str::FromStr for Entity {
+    type Err = ParseEntityError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "PLACEHOLDER" {
+            return Ok(Self::PLACEHOLDER);
+        }
+        let (index, generation) = s.split_once('v').ok_or(ParseEntityError)?;
+        let index = index
+            .parse()
+            .ok()
+            .and_then(EntityIndex::from_raw_u32)
+            .ok_or(ParseEntityError)?;
+        let generation = generation.parse().map_err(|_| ParseEntityError)?;
+        Ok(Self::from_index_and_generation(
+            index,
+            EntityGeneration::from_bits(generation),
+        ))
     }
 }
 
@@ -1478,6 +1530,54 @@ mod tests {
         let entity = Entity::PLACEHOLDER;
         let string = format!("{entity:?}");
         assert_eq!(string, "PLACEHOLDER");
+    }
+
+    #[test]
+    fn entity_from_str() {
+        use alloc::string::ToString;
+
+        let entity = Entity::from_index_and_generation(
+            EntityIndex::from_raw_u32(42).unwrap(),
+            EntityGeneration::FIRST.after_versions(3),
+        );
+        assert_eq!(entity.to_string().parse::<Entity>(), Ok(entity));
+        assert_eq!("42v3".parse::<Entity>(), Ok(entity));
+        assert_eq!("PLACEHOLDER".parse::<Entity>(), Ok(Entity::PLACEHOLDER));
+
+        for invalid in [
+            "",
+            "42",
+            "v3",
+            "42v",
+            "-1v0",
+            "42v-1",
+            "4294967295v0",
+            "42v3 ",
+            "4294967298",
+        ] {
+            assert_eq!(invalid.parse::<Entity>(), Err(ParseEntityError));
+        }
+    }
+
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn entity_serde() {
+        use serde_test::{assert_de_tokens_error, assert_tokens, Configure, Token};
+
+        let entity = Entity::from_index_and_generation(
+            EntityIndex::from_raw_u32(2).unwrap(),
+            EntityGeneration::FIRST.after_versions(1),
+        );
+        assert_tokens(&entity.readable(), &[Token::Str("2v1")]);
+        assert_tokens(&entity.compact(), &[Token::U64(entity.to_bits())]);
+        assert_tokens(
+            &Entity::PLACEHOLDER.readable(),
+            &[Token::Str("PLACEHOLDER")],
+        );
+        assert_de_tokens_error::<serde_test::Readable<Entity>>(
+            &[Token::U64(4294967290)],
+            "invalid type: integer `4294967290`, expected an entity in the form `{index}v{generation}` or `PLACEHOLDER`",
+        );
     }
 
     #[test]
