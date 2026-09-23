@@ -91,7 +91,7 @@ fn update_clipping(
     // If `OverrideClip` or `Node::override` was changed, `tree_changed.is_changed` should be `true``
     if !force_update
         && !tree_changed.is_changed()
-        && !computed_layout.layout_changed()
+        && !computed_layout.layout_dirty()
         && !computed_layout.subtree_dirty()
     {
         return;
@@ -146,7 +146,7 @@ fn update_clipping(
 
     let propagated_force_update = force_update
         || (has_ghost_node && tree_changed.is_changed())
-        || computed_layout.layout_changed()
+        || computed_layout.layout_dirty()
         || computed_layout.self_dirty();
     for &child in ui_children.get(entity).into_iter().flatten() {
         update_clipping(

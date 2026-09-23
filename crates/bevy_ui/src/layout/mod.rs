@@ -509,7 +509,7 @@ fn update_uinode_geometry_recursive(
 
         if !force_update
             && !tree_changed.is_changed()
-            && !computed_layout.layout_changed()
+            && !computed_layout.layout_dirty()
             && !computed_layout.subtree_dirty()
         {
             return;
@@ -728,7 +728,7 @@ fn update_uinode_geometry_recursive(
             let end = child_stack.len();
 
             let inherited_force_update =
-                force_update || computed_layout.layout_changed() || computed_layout.self_dirty();
+                force_update || computed_layout.layout_dirty() || computed_layout.self_dirty();
             for child_index in start..end {
                 update_uinode_geometry_recursive(
                     root,

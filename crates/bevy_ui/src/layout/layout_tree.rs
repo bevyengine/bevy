@@ -158,7 +158,7 @@ pub struct ComputedLayout {
     ui_children: Vec<NodeId>,
     /// If true, the layout returned from `Taffy` changed since the last frame.
     /// Set to `false` each frame in `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
-    layout_changed: bool,
+    layout_dirty: bool,
     /// If `true` local inputs have changed since the last frame.
     /// Set to `false` each frame in `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
     self_dirty: bool,
@@ -184,7 +184,7 @@ impl ComputedLayout {
         self.ui_children.clear();
         self.reached_in_full_walk = false;
         self.is_layout_root = false;
-        self.layout_changed = false;
+        self.layout_dirty = false;
         self.subtree_dirty = false;
         self.self_dirty = false;
     }
@@ -195,10 +195,10 @@ impl ComputedLayout {
         self.unrounded.is_some() && self.rounded.is_some()
     }
 
-    /// True if the layout output by taffy was changed in the last update.
+    /// True if the layout output by taffy was changed and the derived components, like `ComputedNode` and `CalculatedClip`, need to be updated.
     #[inline]
-    pub const fn layout_changed(&self) -> bool {
-        self.layout_changed
+    pub const fn layout_dirty(&self) -> bool {
+        self.layout_dirty
     }
 
     /// True if the subtree is dirty
@@ -218,7 +218,7 @@ impl ComputedLayout {
         if self.rounded == Some(layout) {
             return;
         }
-        self.layout_changed = true;
+        self.layout_dirty = true;
         self.rounded = Some(layout);
     }
 
@@ -227,7 +227,7 @@ impl ComputedLayout {
         if self.unrounded == Some(layout) {
             return false;
         }
-        self.layout_changed = true;
+        self.layout_dirty = true;
         self.unrounded = Some(layout);
         true
     }
@@ -285,7 +285,7 @@ impl ComputedLayout {
     /// Clear dirty flags that are only valid for the current frame.
     #[inline]
     pub(super) const fn clear_transient_dirty_flags(&mut self) {
-        self.layout_changed = false;
+        self.layout_dirty = false;
         self.self_dirty = false;
         self.subtree_dirty = false;
     }
@@ -542,7 +542,7 @@ fn sync_layout_tree(
     }
 
     computed_layout.reached_in_full_walk |= needs_full_walk;
-    computed_layout.layout_changed = false;
+    computed_layout.layout_dirty = false;
 
     let outline_changed = (computed_layout.has_outline != outline.is_some())
         || outline.is_some_and(|outline| outline.is_changed());

@@ -3491,7 +3491,7 @@ fn computed_layout_for_unreachable_node_should_be_clean() {
         .unwrap();
     assert!(!c.self_dirty());
     assert!(!c.subtree_dirty());
-    assert!(!c.layout_changed());
+    assert!(!c.layout_dirty());
 }
 
 #[test]
