@@ -473,9 +473,12 @@ fn sync_layout_tree(
         tree_changed,
     )) = node_query.get(entity)
     else {
+        // `entity` is not a UI node.
         return None;
     };
 
+    // Nested `FixedNode`s are laid out separately as roots.
+    // `GhostNode`s are already flattened, an entity with both `FixedNode` and `GhostNode` can't be reached here.
     if has_fixed_node && entity != root {
         return None;
     }
