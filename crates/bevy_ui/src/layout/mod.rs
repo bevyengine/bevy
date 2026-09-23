@@ -44,10 +44,10 @@ pub struct UiTreeDirty;
 /// Updated at start of UI schedule in `PostLayout` by `update_ui_roots`.
 #[derive(Resource, Default)]
 pub struct UiRoots {
-    /// All unparented UI nodes.
-    unparented: Vec<Entity>,
-    /// All unparented, non-ghost root UI nodes.    
-    unparented_non_ghost: Vec<Entity>,
+    /// All parentless UI nodes.
+    parentless: Vec<Entity>,
+    /// All parentless, non-ghost root UI nodes.    
+    parentless_non_ghosts: Vec<Entity>,
     /// All non-ghost nodes with no non-ghost ancestors.
     roots_under_ghosts: Vec<Entity>,
     /// All ghost nodes with all ghost ancestors.
@@ -59,7 +59,7 @@ pub struct UiRoots {
 impl UiRoots {
     /// Roots of a UI layout tree.
     pub fn layout_roots(&self) -> impl Iterator<Item = Entity> {
-        self.unparented_non_ghost
+        self.parentless_non_ghosts
             .iter()
             .chain(self.roots_under_ghosts.iter())
             .chain(self.fixed_nodes.iter())
@@ -67,7 +67,7 @@ impl UiRoots {
     }
 
     pub fn geometry_roots(&self) -> impl Iterator<Item = Entity> {
-        self.unparented
+        self.parentless
             .iter()
             .chain(self.fixed_nodes.iter())
             .copied()
@@ -76,8 +76,8 @@ impl UiRoots {
 
 impl UiRoots {
     fn clear(&mut self) {
-        self.unparented.clear();
-        self.unparented_non_ghost.clear();
+        self.parentless.clear();
+        self.parentless_non_ghosts.clear();
         self.roots_under_ghosts.clear();
         self.root_ghosts.clear();
         self.fixed_nodes.clear();
@@ -148,8 +148,8 @@ pub fn update_ui_roots(
     flattening_query: Query<(Entity, Has<GhostNode>, Option<&Children>), With<Node>>,
 ) {
     ui_roots.clear();
-    ui_roots.unparented.extend(all_roots_query.iter());
-    ui_roots.unparented_non_ghost.extend(roots_query.iter());
+    ui_roots.parentless.extend(all_roots_query.iter());
+    ui_roots.parentless_non_ghosts.extend(roots_query.iter());
 
     for (ghost_root, maybe_children) in &ghost_roots_query {
         ui_roots.root_ghosts.push(ghost_root);
