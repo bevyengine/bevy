@@ -121,7 +121,14 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use core::{
+    fmt,
+    hash::Hash,
+    mem,
+    num::{NonZero, ParseIntError},
+    panic::Location,
+    str::FromStr,
+};
 use derive_more::derive::Display;
 use log::warn;
 use nonmax::NonMaxU32;
@@ -635,7 +642,7 @@ impl Serialize for Entity {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_u64(self.to_bits())
+        serializer.collect_str(self)
     }
 }
 
@@ -646,9 +653,9 @@ impl<'de> Deserialize<'de> for Entity {
         D: serde::Deserializer<'de>,
     {
         use serde::de::Error;
-        let id: u64 = Deserialize::deserialize(deserializer)?;
-        Entity::try_from_bits(id)
-            .ok_or_else(|| D::Error::custom("Attempting to deserialize an invalid entity."))
+        let value: &str = Deserialize::deserialize(deserializer)?;
+
+        value.parse::<Entity>().map_err(D::Error::custom)
     }
 }
 
@@ -681,6 +688,51 @@ impl fmt::Display for Entity {
                 self.generation()
             )))
         }
+    }
+}
+
+/// An error that occurs when parsing an [`Entity`] from a string.
+#[derive(thiserror::Error, Debug)]
+pub enum ParseEntityError {
+    /// The string has an invalid format.
+    #[error("Invalid entity format: expected `<index>v<generation>`")]
+    InvalidFormat,
+    /// The index is not a valid integer.
+    #[error("Invalid entity index: {0}")]
+    InvalidIndex(#[source] ParseIntError),
+    /// The index is not a valid [`EntityIndex`].
+    #[error("Invalid entity index value: {0}")]
+    InvalidIndexValue(u32),
+    /// The generation is not a valid integer.
+    #[error("Invalid entity generation: {0}")]
+    InvalidGeneration(#[source] ParseIntError),
+}
+
+impl FromStr for Entity {
+    type Err = ParseEntityError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "PLACEHOLDER" {
+            return Ok(Self::PLACEHOLDER);
+        }
+
+        let (index, generation) = s.split_once('v').ok_or(ParseEntityError::InvalidFormat)?;
+
+        let index = index
+            .parse::<u32>()
+            .map_err(ParseEntityError::InvalidIndex)?;
+
+        let index =
+            EntityIndex::from_raw_u32(index).ok_or(ParseEntityError::InvalidIndexValue(index))?;
+
+        let generation = generation
+            .parse::<u32>()
+            .map_err(ParseEntityError::InvalidGeneration)?;
+
+        Ok(Entity::from_index_and_generation(
+            index,
+            EntityGeneration(generation),
+        ))
     }
 }
 
@@ -1495,6 +1547,15 @@ mod tests {
         let entity = Entity::PLACEHOLDER;
         let string = format!("{entity}");
         assert_eq!(string, "PLACEHOLDER");
+    }
+
+    #[test]
+    fn parse_entity() {
+        let entity = Entity::from_index(EntityIndex::from_raw_u32(42).unwrap());
+        assert_eq!(entity, "42v0".parse().unwrap());
+
+        let entity = Entity::PLACEHOLDER;
+        assert_eq!(entity, "PLACEHOLDER".parse().unwrap());
     }
 
     #[test]
