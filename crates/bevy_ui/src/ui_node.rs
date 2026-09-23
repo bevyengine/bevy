@@ -3573,15 +3573,15 @@ impl ComputedUiRenderTargetInfo {
 #[require(Node)]
 pub struct FixedNode;
 
-/// Marker component for `Node` entities that should be replaced by its children during UI layout.
+/// Marker component for `Node` entities that should be replaced by their children during UI layout.
 ///
-/// - A `GhostNode` is `Node`.
+/// - A `GhostNode` is a UI node entity, it requires `Node` but all the field's on its `Node` component are ignored.
 /// - A `GhostNode` is given zero size during layout.
-/// - Its position is the same as its parent.
+/// - Its position is the same as its parent (before `UiTransform`, is present, is applied).
 /// - Its `UiTransform` will be resolved and applied normally, except that instead of its own size, percentage
 ///   values are based on the size of the `GhostNode`'s parent.
 /// - Events pass through normally.
-/// - `FixedNode` is ignored on a `GhostNode`. This could be allowed eventually maybe, but it's a little tricky how to handle the implicit roots.
+/// - `FixedNode` is ignored on a `GhostNode`.
 /// - `OverrideClip` is not ignored on a `GhostNode`.
 /// - Clipping propagates through `GhostNode`'s but their `Node::override` setting is ignored.
 /// - `GhostNode`'s children's `Val::Percent` coords are resolved based on the the size of their grandparent, skipping the `GhostNode`.
