@@ -1147,6 +1147,85 @@ change_detection_mut_impl!(Mut<'w, T>, T,);
 impl_methods!(Mut<'w, T>, T,);
 impl_debug!(Mut<'w, T>,);
 
+impl<T> DetectChanges for &mut T {
+    fn is_added(&self) -> bool {
+        false
+    }
+
+    fn is_changed(&self) -> bool {
+        false
+    }
+
+    fn is_added_after(&self, other: Tick) -> bool {
+        false
+    }
+
+    fn is_changed_after(&self, other: Tick) -> bool {
+        false
+    }
+
+    fn last_changed(&self) -> Tick {
+        Tick::default()
+    }
+
+    fn added(&self) -> Tick {
+        Tick::default()
+    }
+
+    fn this_run(&self) -> Tick {
+        Tick::default()
+    }
+
+    fn last_run(&self) -> Tick {
+        Tick::default()
+    }
+
+    fn changed_by(&self) -> MaybeLocation {
+        MaybeLocation::new(Location::caller())
+    }
+}
+
+impl<T> DetectChangesMut for &mut T {
+    type Inner = T;
+
+    fn set_changed(&mut self) {}
+
+    fn set_added(&mut self) {}
+
+    fn set_last_changed(&mut self, last_changed: Tick) {}
+
+    fn set_last_added(&mut self, last_added: Tick) {}
+
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        *self
+    }
+}
+
+impl<T> DetectChangesConstruct for &mut T {
+    type Construct<'a> = &'a mut T;
+    type Val = T;
+
+    #[inline(always)]
+    fn new<'a>(
+        value: &'a mut Self::Val,
+        added: &'a mut Tick,
+        last_changed: &'a mut Tick,
+        summary_tick: Option<&'a AtomicTick>,
+        last_run: Tick,
+        this_run: Tick,
+        caller: MaybeLocation<&'a mut &'static Location<'static>>,
+    ) -> Self::Construct<'a> {
+        value
+    }
+
+    fn new_from_ticks<'a>(
+        value: &'a mut Self::Val,
+        ticks: ComponentTicksMut<'a>,
+    ) -> Self::Construct<'a> {
+        value
+    }
+}
+
 /// Data type returned by [`ContiguousQueryData::fetch_contiguous`](crate::query::ContiguousQueryData::fetch_contiguous)
 /// for [`Mut<T>`] and `&mut T`
 ///
