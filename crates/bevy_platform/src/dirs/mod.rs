@@ -50,6 +50,10 @@ fn is_absolute_path(path: impl Into<PathBuf>) -> Option<PathBuf> {
 }
 
 #[cfg(test)]
+#[expect(
+    unsafe_code,
+    reason = "Unsafe code is needed to test environment variables"
+)]
 mod tests {
     use super::*;
 
@@ -63,64 +67,48 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "windows")]
-    #[allow(
-        clippy::allow_attributes,
-        clippy::allow_attributes_without_reason,
-        clippy::undocumented_unsafe_blocks,
-        unsafe_code
-    )]
     fn env_override_windows() {
         let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: ENV_LOCK prevents concurrent environment access.
         unsafe { std::env::set_var("BEVY_SETTINGS_DIR", r"C:\\Users\data") };
         assert_eq!(preferences_dir(), Some(PathBuf::from(r"C:\\Users\data")));
+        // SAFETY: ENV_LOCK is still held.
         unsafe { std::env::remove_var("BEVY_SETTINGS_DIR") };
     }
 
     #[test]
     #[cfg(target_os = "windows")]
-    #[allow(
-        clippy::allow_attributes,
-        clippy::allow_attributes_without_reason,
-        clippy::undocumented_unsafe_blocks,
-        unsafe_code
-    )]
     fn env_override_windows_relative() {
         let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: ENV_LOCK prevents concurrent environment access.
         unsafe { std::env::set_var("BEVY_SETTINGS_DIR", r".\Users\data") };
         assert_eq!(preferences_dir(), platform_preferences_dir());
+        // SAFETY: ENV_LOCK is still held.
         unsafe { std::env::remove_var("BEVY_SETTINGS_DIR") };
     }
 
     #[test]
     #[cfg(any(target_os = "linux", target_os = "macos"))]
-    #[allow(
-        clippy::allow_attributes,
-        clippy::allow_attributes_without_reason,
-        clippy::undocumented_unsafe_blocks,
-        unsafe_code
-    )]
     fn env_override_unix() {
         let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: ENV_LOCK prevents concurrent environment access.
         unsafe { std::env::set_var("BEVY_SETTINGS_DIR", "/tmp/my_test_settings") };
         assert_eq!(
             preferences_dir(),
             Some(PathBuf::from("/tmp/my_test_settings"))
         );
+        // SAFETY: ENV_LOCK is still held.
         unsafe { std::env::remove_var("BEVY_SETTINGS_DIR") };
     }
 
     #[test]
     #[cfg(any(target_os = "linux", target_os = "macos"))]
-    #[allow(
-        clippy::allow_attributes,
-        clippy::allow_attributes_without_reason,
-        clippy::undocumented_unsafe_blocks,
-        unsafe_code
-    )]
     fn env_override_unix_relative() {
         let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: ENV_LOCK prevents concurrent environment access.
         unsafe { std::env::set_var("BEVY_SETTINGS_DIR", "relative/path") };
         assert_eq!(preferences_dir(), platform_preferences_dir());
+        // SAFETY: ENV_LOCK is still held.
         unsafe { std::env::remove_var("BEVY_SETTINGS_DIR") };
     }
 }
