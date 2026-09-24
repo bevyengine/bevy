@@ -2840,7 +2840,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::query::{NestedQuery, QueryData, QueryFilter, ReadOnlyQueryData};
+/// # use bevy_ecs::query::{NestedQuery, QueryData, QueryFilter, ReadOnlyQueryData, ROQueryItem, QueryItem};
 /// #
 /// # #[derive(Component)]
 /// # struct Data(usize);
@@ -2853,13 +2853,17 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 /// let root = world.spawn(Data(3)).id();
 /// let child = world.spawn(ChildOf(root)).id();
 ///
-/// let mut query = world.query::<Parent<&Data>>();
-/// let &Data(data) = query.query(&mut world).get(child).unwrap().data().unwrap();
-/// assert_eq!(data, 3);
+/// let mut query = world.query::<Parent<&mut Data>>();
+/// let mut query = query.query_mut(&mut world);
+/// let data: Mut<Data> = query.get_mut(child).unwrap().data().unwrap();
+/// assert_eq!(data.0, 3);
+/// let data: &Data = query.get(child).unwrap().data().unwrap();
+/// assert_eq!(data.0, 3);
 ///
 /// // We derive a query data struct that contains the relation plus a `NestedQuery`
 /// #[derive(QueryData)]
-/// struct Parent<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static = ()> {
+/// #[query_data(mutable)]
+/// struct Parent<D: QueryData + 'static, F: QueryFilter + 'static = ()> {
 ///     // This will query `ChildOf` on the entity itself,
 ///     // so we can find the parent entity
 ///     parent: &'static ChildOf,
@@ -2869,9 +2873,19 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 /// }
 ///
 /// // And add a method on the generated item struct to invoke the nested query.
-/// impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ParentItem<'w, 's, D, F> {
-///     fn data(&self) -> Option<D::Item<'w, 's>> {
+/// impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> ParentItem<'w, 's, D, F> {
+///     fn data(self) -> Option<QueryItem<'w, 's, D>> {
 ///         // We need to use `_inner` methods to return the full `'w` lifetime.
+///         self.nested_query.get_inner(self.parent.parent()).ok()
+///     }
+/// }
+///
+/// // Along with a method on the generated read-only item struct.
+/// impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> ParentReadOnlyItem<'w, 's, D, F>
+/// {
+///     fn data(&self) -> Option<ROQueryItem<'w, 's, D>> {
+///         // We still need to use `_inner` methods, but we can
+///         // use `&self` since read-only queries are `Copy`.
 ///         self.nested_query.get_inner(self.parent.parent()).ok()
 ///     }
 /// }
@@ -2906,9 +2920,12 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 /// let root = world.spawn(Data(3)).id();
 /// let child = world.spawn(ChildOf(root)).id();
 ///
-/// let mut query = world.query::<Parent<&Data>>();
-/// let &Data(data) = query.query(&mut world).get(child).unwrap();
-/// assert_eq!(data, 3);
+/// let mut query = world.query::<Parent<&mut Data>>();
+/// let mut query = query.query_mut(&mut world);
+/// let data: Mut<Data> = query.get_mut(child).unwrap();
+/// assert_eq!(data.0, 3);
+/// let data: &Data = query.get(child).unwrap();
+/// assert_eq!(data.0, 3);
 ///
 /// // This is the relational query data.
 /// // This will never actually be constructed,
@@ -2917,7 +2934,6 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///
 /// // A type alias to delegate the `QueryData` impls to.
 /// // We need to refer to this type a lot, so the alias will help.
-/// // This could also be a `#[derive(QueryData)]` type.
 /// type ParentInner<D, F> = (
 ///     // This will query `ChildOf` on the entity itself,
 ///     // so we can find the parent entity
@@ -2945,8 +2961,14 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///         D::shrink(item)
 ///     }
 ///
-///     // Set `ReadOnly` to `Self`,
-///     // as `NestedQuery` does not yet support mutable queries.
+///     // Set the appropriate `ReadOnly` type.
+///     // For this to be sound, `Self::ReadOnly` must delegate
+///     // to the `ReadOnly` version of the type `Self` delegates to!
+///     // Here, `Self` delegates to `(&ChildOf, NestedQuery<D, F>)`.
+///     // The `ReadOnly` version of that is `(&ChildOf, NestedQuery<D::ReadOnly, F>)`,
+///     // which is what `Self::ReadOnly` delegates to.
+///     //
+///     // If `Self: ReadOnlyQueryData`, then `type ReadOnly = Self;` is valid and always sound.
 ///     type ReadOnly = Parent<D::ReadOnly, F>;
 ///
 ///     // Delegate everything else on `QueryData` and `WorldQuery` to the type alias.
