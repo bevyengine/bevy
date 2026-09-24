@@ -10,19 +10,33 @@ use core::{
 
 /// The result of inspecting a resource, summarized by its [`Display`] implementation.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ResourceInspection {
     /// The [`ComponentId`] of the resource.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::component_id")
+    )]
     pub component_id: ComponentId,
     /// The type name of the resource.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::debug_name")
+    )]
     pub name: DebugName,
     /// The value of the resource as a string, gathered via reflection.
     pub value: String,
     /// The [`TypeId`] of the resource, or `None` for dynamic types.
+    #[cfg_attr(feature = "serialize", serde(skip))]
     pub type_id: Option<TypeId>,
     /// The shallow size of the resource in memory, excluding heap allocations.
     pub memory_size: MemorySize,
     /// The registered type information of the resource, if it is reflected and registered.
+    #[cfg_attr(feature = "serialize", serde(skip))]
     pub type_registration: Option<TypeRegistration>,
+    /// The value of the resource as structured JSON, gathered via reflection.
+    #[cfg(feature = "serialize")]
+    pub serialized_value: Option<serde_json::Value>,
 }
 
 impl Display for ResourceInspection {
@@ -39,11 +53,18 @@ impl Display for ResourceInspection {
 
 /// An error that can occur when attempting to inspect a resource.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum ResourceInspectionError {
     /// The resource type was not registered in the world.
     ResourceNotRegistered(&'static str),
     /// The resource ID provided was not registered in the world.
-    ResourceIdNotRegistered(ComponentId),
+    ResourceIdNotRegistered(
+        #[cfg_attr(
+            feature = "serialize",
+            serde(with = "crate::inspection::serde_conversions::component_id")
+        )]
+        ComponentId,
+    ),
 }
 
 impl Display for ResourceInspectionError {
@@ -68,12 +89,17 @@ pub struct ResourceInspectionSettings {
     /// Whether type paths in the value string are kept in full.
     /// When false, every `::` in the formatted value is collapsed, including inside string values.
     pub full_type_names: bool,
+    /// Whether the structured JSON value should be stored in [`ResourceInspection`].
+    #[cfg(feature = "serialize")]
+    pub include_serialized_value: bool,
 }
 
 impl Default for ResourceInspectionSettings {
     fn default() -> Self {
         Self {
             full_type_names: true,
+            #[cfg(feature = "serialize")]
+            include_serialized_value: false,
         }
     }
 }

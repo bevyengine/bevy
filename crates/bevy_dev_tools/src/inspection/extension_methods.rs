@@ -27,6 +27,9 @@ use crate::inspection::{
     },
 };
 
+#[cfg(feature = "serialize")]
+use crate::inspection::serde_conversions::reflect_to_json_value;
+
 /// Inspection methods for [`World`], provided as an extension trait.
 pub trait WorldInspectionExtensionTrait {
     /// Inspects the given entity, computing component type metadata on the fly.
@@ -199,6 +202,16 @@ impl WorldInspectionExtensionTrait for World {
             None
         };
 
+        #[cfg(feature = "serialize")]
+        let serialized_value = if settings.include_serialized_value {
+            metadata
+                .type_id
+                .and_then(|type_id| self.get_reflect(entity, type_id).ok())
+                .and_then(|reflected| reflect_to_json_value(self, reflected.as_partial_reflect()))
+        } else {
+            None
+        };
+
         Ok(ComponentInspection {
             entity,
             component_id,
@@ -206,6 +219,8 @@ impl WorldInspectionExtensionTrait for World {
             memory_size,
             value,
             reflected_value,
+            #[cfg(feature = "serialize")]
+            serialized_value,
         })
     }
 
@@ -280,11 +295,25 @@ impl WorldInspectionExtensionTrait for World {
                 .and_then(|type_registry| type_registry.read().get(type_id).cloned())
         });
 
-        let value = match self.resource_entities().get(component_id) {
+        let resource_entity = self.resource_entities().get(component_id);
+
+        let value = match resource_entity {
             Some(resource_entity) => {
                 component_value_to_string(self, resource_entity, type_id, settings.full_type_names)
             }
             None => "<Resource not present>".to_string(),
+        };
+
+        #[cfg(feature = "serialize")]
+        let serialized_value = if settings.include_serialized_value {
+            resource_entity
+                .zip(type_id)
+                .and_then(|(resource_entity, type_id)| {
+                    self.get_reflect(resource_entity, type_id).ok()
+                })
+                .and_then(|reflected| reflect_to_json_value(self, reflected.as_partial_reflect()))
+        } else {
+            None
         };
 
         Ok(ResourceInspection {
@@ -294,6 +323,8 @@ impl WorldInspectionExtensionTrait for World {
             type_id,
             memory_size,
             type_registration,
+            #[cfg(feature = "serialize")]
+            serialized_value,
         })
     }
 
