@@ -483,10 +483,7 @@ impl Plugin for ScrollbarPlugin {
             .add_observer(scrollbar_on_drag)
             .add_systems(
                 PostUpdate,
-                update_scrollbar_thumb
-                    .in_set(UiSystems::Layout)
-                    .after(update_computed_nodes)
-                    .after(update_border_radius),
+                update_scrollbar_thumb.in_set(UiSystems::Adjustment),
             );
     }
 }
