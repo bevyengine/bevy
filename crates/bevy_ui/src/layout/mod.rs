@@ -383,8 +383,7 @@ pub fn ui_layout_system(
         Query<Entity, Added<GhostNode>>,
         RemovedComponents<GhostNode>,
     ),
-    (mut child_stack, mut root_stack, mut fixed_node_changes, mut ghost_stack): (
-        Local<Vec<taffy::NodeId>>,
+    (mut child_stack, mut fixed_node_changes, mut ghost_stack): (
         Local<Vec<taffy::NodeId>>,
         Local<Vec<Entity>>,
         Local<Vec<Entity>>,
@@ -414,7 +413,6 @@ pub fn ui_layout_system(
     removed_ghost_nodes.clear();
     removed_fixed_nodes.clear();
 
-    root_stack.clear();
     ghost_stack.clear();
 
     let mut computed_layout_query = node_queries.p0();
