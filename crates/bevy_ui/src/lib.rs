@@ -110,7 +110,11 @@ pub enum UiSystems {
     ///
     /// Runs in [`PostUpdate`].
     Layout,
-    /// UI systems ordered after [`UiSystems::Layout`].
+    /// After this, UI clipping has been updated.
+    ///
+    /// Runs in [`PostUpdate`]
+    Clipping,
+    /// UI systems ordered after [`UiSystems::Layout`] and [`UiSystems::Clipping`].
     ///
     /// Runs in [`PostUpdate`].
     PostLayout,
@@ -207,7 +211,7 @@ impl Plugin for UiPlugin {
                     .chain()
                     .in_set(UiSystems::Layout),
                 ui_stack_system.in_set(UiSystems::Stack),
-                update_clipping_system.in_set(UiSystems::PostLayout),
+                update_clipping_system.in_set(UiSystems::Clipping),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
