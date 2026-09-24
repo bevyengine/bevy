@@ -41,7 +41,7 @@ mod tests;
 pub struct UiTreeDirty;
 
 /// List of all UI root nodes.
-/// Updated at start of UI schedule in `PostLayout` by `update_ui_roots`.
+/// Updated by `update_ui_roots`.
 #[derive(Resource, Default)]
 pub struct UiRoots {
     /// All parentless UI nodes.

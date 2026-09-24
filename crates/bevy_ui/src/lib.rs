@@ -206,8 +206,8 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystems::Prepare)
                     .before(bevy_app::TransformGizmoRenderStep),
                 clear_transient_dirty_flags.in_set(UiSystems::Prepare),
-                update_ui_roots.in_set(UiSystems::Prepare),
                 (
+                    update_ui_roots,
                     sync_taffy_styles_with_nodes,
                     mark_dirty_ui_trees,
                     ui_layout_system.ambiguous_with(bevy_sprite::update_text2d_layout),
