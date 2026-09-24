@@ -1,7 +1,7 @@
 //! Checks the tracing spans the multi-threaded executor enters on worker threads.
 //!
-//! This is its own test binary because it installs a global subscriber, the only kind that
-//! the executor's worker threads can see.
+//! This is its own test binary because it installs a global subscriber, because executor's
+//! worker threads can only see this kind
 
 #![cfg(all(feature = "trace", feature = "multi_threaded"))]
 
@@ -30,7 +30,6 @@ struct Recorded {
 
 static RECORDED: LazyLock<Mutex<Recorded>> = LazyLock::new(Default::default);
 
-/// A minimal subscriber that tracks entered spans per thread, like `tracing_subscriber::Registry`.
 struct Recorder;
 
 impl Subscriber for Recorder {
