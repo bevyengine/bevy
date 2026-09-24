@@ -13,8 +13,8 @@ use bevy_ecs::{
 use bevy_math::{Affine2, Rect, Vec2};
 use bevy_reflect::Reflect;
 use bevy_ui::{
-    update_border_radius, update_computed_nodes, ComputedNode, ComputedUiRenderTargetInfo, Node,
-    PositionType, UiGlobalTransform, UiSystems, UiTransform, Val2,
+    ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType, UiGlobalTransform, UiSystems,
+    UiTransform, Val2,
 };
 
 use crate::update_scrollbar_thumb;
