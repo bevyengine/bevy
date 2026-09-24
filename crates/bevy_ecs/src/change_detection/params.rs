@@ -1202,8 +1202,11 @@ impl<T> DetectChangesMut for &mut T {
 }
 
 impl<T> DetectChangesConstruct for &mut T {
-    type Construct<'a> = &'a mut T;
     type Val = T;
+    type Construct<'a>
+        = &'a mut T
+    where
+        T: 'a;
 
     #[inline(always)]
     fn new<'a>(

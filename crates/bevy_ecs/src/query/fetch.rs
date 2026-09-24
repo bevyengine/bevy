@@ -4,7 +4,7 @@ use crate::{
     change_detection::{
         AtomicTick, ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
         ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, DetectChangesConstruct,
-        DetectChangesMut, MaybeLocation, Tick,
+        MaybeLocation, Tick,
     },
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -22,13 +22,7 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{
-    cell::UnsafeCell,
-    iter,
-    marker::PhantomData,
-    ops::{Range, ShrAssign},
-    panic::Location,
-};
+use core::{cell::UnsafeCell, iter, marker::PhantomData, ops::Range, panic::Location};
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -2509,12 +2503,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 }
 
 // SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T
-where
-    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
-    for<'a, 'b> T::ChangeDetection<'a>:
-        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
-{
+unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = &'__w T;
@@ -2589,48 +2578,20 @@ where
 }
 
 // SAFETY: access is only on the current entity
-unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for &mut T
-where
-    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
-    for<'a, 'b> T::ChangeDetection<'a>:
-        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
-{
-}
+unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for &mut T {}
 
 // SAFETY: access is only on the current entity
-unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for &mut T
-where
-    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
-    for<'a, 'b> T::ChangeDetection<'a>:
-        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
-{
-}
+unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for &mut T {}
 
-impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T
-where
-    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
-    for<'a, 'b> T::ChangeDetection<'a>:
-        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
-{
+impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
         item
     }
 }
 
-impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T
-where
-    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
-    for<'a, 'b> T::ChangeDetection<'a>:
-        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
-{
-}
+impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T {}
 
-impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T
-where
-    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
-    for<'a, 'b> T::ChangeDetection<'a>:
-        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
-{
+impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
     type Contiguous<'w, 's> = ContiguousMut<'w, T>;
 
     unsafe fn fetch_contiguous<'w, 's>(

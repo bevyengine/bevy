@@ -126,7 +126,11 @@ fn all_added_detection(criterion: &mut Criterion) {
     }
 }
 
-fn all_changed_detection_generic<T: Component<Mutability = Mutable> + Default + BenchModify>(
+fn all_changed_detection_generic<
+    T: for<'a> Component<Mutability = Mutable, ChangeDetection<'a> = Mut<'a, T>>
+        + Default
+        + BenchModify,
+>(
     group: &mut BenchGroup,
     entity_count: u32,
 ) {
@@ -174,7 +178,11 @@ fn all_changed_detection(criterion: &mut Criterion) {
     }
 }
 
-fn few_changed_detection_generic<T: Component<Mutability = Mutable> + Default + BenchModify>(
+fn few_changed_detection_generic<
+    T: for<'a> Component<Mutability = Mutable, ChangeDetection<'a> = Mut<'a, T>>
+        + Default
+        + BenchModify,
+>(
     group: &mut BenchGroup,
     entity_count: u32,
 ) {

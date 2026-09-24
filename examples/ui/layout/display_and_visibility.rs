@@ -358,7 +358,9 @@ fn feathers_select_visibility(target: EntityTemplate) -> impl Scene {
 
 /// Observer that reacts to value changes of a `FeathersSelect` for the `T` setting,
 /// and updates the target entity accordingly.
-fn on_value_change<T: Component + Default + Clone + PartialEq + Send + Sync>(
+fn on_value_change<
+    T: for<'a> Component<ChangeDetection<'a> = Mut<'a, T>> + Default + Clone + PartialEq + Send + Sync,
+>(
     event: On<ValueChange<Entity>>,
     setting_value_q: Query<&T>,
     select_q: Query<(&Children, &Target<T>), With<FeathersSelect>>,
