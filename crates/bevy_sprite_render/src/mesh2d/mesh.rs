@@ -324,7 +324,7 @@ pub fn extract_2d_meshes(
     mem::swap(&mut *reextract_entities, &mut *reextract_entities_temp);
 
     // First, process meshes that we recorded as potentially needing to be
-    // reextracted on the previous frame frame.
+    // reextracted on the previous frame.
 
     for reextract_entity in reextract_entities_temp.drain().chain(
         removed_no_automatic_batching_components

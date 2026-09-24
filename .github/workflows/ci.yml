@@ -48,9 +48,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
       - name: Build & run tests
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- test
@@ -76,11 +76,11 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           components: clippy,rustfmt
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
         with:
           wayland: true
           xkb: true
@@ -111,7 +111,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           channel: nightly
           components: miri
@@ -148,9 +148,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
       - name: Check Compile
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- compile
@@ -177,11 +177,11 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           target: x86_64-unknown-none
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
       - name: Check Compile
         run: cargo check -p bevy --no-default-features --features default_no_std --target x86_64-unknown-none
       # Check for regression in "web" feature breaking no_std builds.
@@ -212,11 +212,11 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           target: thumbv6m-none-eabi
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
       - name: Check Compile
         run: cargo check -p bevy --no-default-features --features default_no_std --target thumbv6m-none-eabi
 
@@ -242,11 +242,11 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           target: x86_64-unknown-none
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
       - name: Check Compile
         run: cd examples/no_std/library && cargo check --no-default-features --features libm,critical-section --target x86_64-unknown-none
 
@@ -272,7 +272,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           target: wasm32-unknown-unknown
       - name: Check wasm
@@ -302,7 +302,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           channel: nightly
           components: rust-src
@@ -392,9 +392,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
         with:
           wayland: true
           xkb: true
@@ -418,7 +418,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - name: check for missing metadata
         id: missing-metadata
         run: cargo run -p build-templated-pages -- check-missing examples
@@ -455,7 +455,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - name: check for missing features
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
@@ -492,13 +492,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - name: get MSRV
         id: msrv
         run: |
           msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
           echo "msrv=$msrv" >> $GITHUB_OUTPUT
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           channel: ${{ steps.msrv.outputs.msrv }}
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -516,7 +516,7 @@ jobs:
             ~/.cargo/git/db/
             target/
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
       - name: Run cargo check
         id: check
         run: cargo check
@@ -562,7 +562,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - name: Check Release Content
         shell: bash
         run: |

@@ -99,10 +99,10 @@ bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
-encase = "0.12"
-glam = { version = "0.33.2", default-features = false, features = [
+encase = "0.13"
+glam = { version = "0.33.9", default-features = false, features = [
   "std",
-  "encase",
+  "encase-013",
 ] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = [

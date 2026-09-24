@@ -47,6 +47,7 @@ pub mod prelude {
 use alloc::sync::Arc;
 use bevy_app::{prelude::*, OnAppExitSystems};
 use bevy_ecs::schedule::IntoScheduleConfigs;
+use bevy_input::InputSystems;
 use bevy_platform::sync::Mutex;
 
 impl Default for WindowPlugin {
@@ -150,6 +151,12 @@ impl Plugin for WindowPlugin {
             // Need to run before `exit_on_*` systems
             app.add_systems(Last, close_when_requested.before(ExitSystems));
         }
+
+        app.add_systems(
+            PreUpdate,
+            send_typed_window_events.in_set(WindowEventSystems),
+        )
+        .configure_sets(PreUpdate, WindowEventSystems.before(InputSystems));
 
         app.configure_sets(Last, OnAppExitSystems.after(ExitSystems));
     }

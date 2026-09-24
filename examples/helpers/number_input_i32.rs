@@ -2,10 +2,11 @@
 /// Using these helpers requires the `bevy_feathers` feature to be enabled.
 use bevy::{
     feathers::{
-        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision},
         display::label,
     },
     prelude::*,
+    ui_widgets::NumericValue,
 };
 
 /// Creates an i32 number input.
@@ -44,7 +45,7 @@ where
                 --
                 identifier
                 @FeathersNumberInput
-                NumberInputValue::I32(value)
+                NumericValue::I32(value)
                 precision
                 HardLimit::i32(limits)
                 Node {
@@ -70,7 +71,7 @@ where
                 ]
                 --
                @FeathersNumberInput
-                NumberInputValue::I32(value)
+                NumericValue::I32(value)
                 precision
                 HardLimit::i32(limits)
                 Node {

@@ -280,7 +280,7 @@ fn tab_on_key_input(
 ///
 /// - [`Selected`] markers mirror a validated `SelectedTab` (the referenced entity must be an
 ///   enabled direct child; anything else counts as no selection).
-/// - [`TabIndex`] follows the roving-tabindex pattern: one tab per list is focusable (the
+/// - [`TabIndex`] follows the roving-tabindex pattern: one tab per list is sequentially reachable (the
 ///   focused tab, else the selected tab, else the first enabled tab), so Tab/Shift+Tab skip
 ///   the strip while arrow keys move within it.
 ///
