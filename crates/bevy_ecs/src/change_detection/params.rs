@@ -1071,6 +1071,45 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     }
 }
 
+impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
+    fn from(mut_ref: Mut<'w, T>) -> Self {
+        Self {
+            value: mut_ref.value,
+            ticks: mut_ref.ticks.into(),
+        }
+    }
+}
+
+impl<'w, 'a, T> IntoIterator for &'a Mut<'w, T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
+    }
+}
+
+impl<'w, 'a, T> IntoIterator for &'a mut Mut<'w, T>
+where
+    &'a mut T: IntoIterator,
+{
+    type Item = <&'a mut T as IntoIterator>::Item;
+    type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.set_changed();
+        self.value.into_iter()
+    }
+}
+
+change_detection_impl!(Mut<'w, T>, T,);
+change_detection_mut_impl!(Mut<'w, T>, T,);
+impl_methods!(Mut<'w, T>, T,);
+impl_debug!(Mut<'w, T>,);
+
 /// Data type returned by [`ContiguousQueryData::fetch_contiguous`](crate::query::ContiguousQueryData::fetch_contiguous)
 /// for [`Mut<T>`] and `&mut T`
 ///
@@ -1316,45 +1355,6 @@ impl<'w, T> From<ContiguousMut<'w, T>> for ContiguousRef<'w, T> {
         }
     }
 }
-
-impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
-    fn from(mut_ref: Mut<'w, T>) -> Self {
-        Self {
-            value: mut_ref.value,
-            ticks: mut_ref.ticks.into(),
-        }
-    }
-}
-
-impl<'w, 'a, T> IntoIterator for &'a Mut<'w, T>
-where
-    &'a T: IntoIterator,
-{
-    type Item = <&'a T as IntoIterator>::Item;
-    type IntoIter = <&'a T as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.value.into_iter()
-    }
-}
-
-impl<'w, 'a, T> IntoIterator for &'a mut Mut<'w, T>
-where
-    &'a mut T: IntoIterator,
-{
-    type Item = <&'a mut T as IntoIterator>::Item;
-    type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.set_changed();
-        self.value.into_iter()
-    }
-}
-
-change_detection_impl!(Mut<'w, T>, T,);
-change_detection_mut_impl!(Mut<'w, T>, T,);
-impl_methods!(Mut<'w, T>, T,);
-impl_debug!(Mut<'w, T>,);
 
 /// Unique mutable borrow of resources or an entity's component.
 ///

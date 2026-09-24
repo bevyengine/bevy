@@ -4,7 +4,7 @@ use crate::{
     change_detection::{
         AtomicTick, ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
         ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, DetectChangesMut, MaybeLocation,
-        Shrinkable, Tick,
+        Tick,
     },
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -2509,7 +2509,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 }
 
 // SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
+unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T
+where
+    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
+{
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = &'__w T;
@@ -2518,7 +2521,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
-        <T::ChangeDetection<'wlong> as Shrinkable>::shrink(item)
+        item
     }
 
     #[inline(always)]
@@ -2551,14 +2554,14 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     None
                 };
 
-                Mut::new(
+                <<T as Component>::ChangeDetection<'w> as DetectChangesMut>::new(
                     component.deref_mut(),
                     added.deref_mut(),
                     changed.deref_mut(),
                     summary_tick,
                     fetch.last_run,
                     fetch.this_run,
-                    caller,
+                    caller.map(|caller| caller.deref_mut()),
                 )
             },
             |sparse_set| {
@@ -2570,14 +2573,10 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                         .debug_checked_unwrap()
                 };
 
-                Mut {
-                    value: component.assert_unique().deref_mut(),
-                    ticks: ComponentTicksMut::from_tick_cells(
-                        ticks,
-                        fetch.last_run,
-                        fetch.this_run,
-                    ),
-                }
+                <<T as Component>::ChangeDetection<'w> as DetectChangesMut>::new_from_ticks(
+                    component.assert_unique().deref_mut(),
+                    ComponentTicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
+                )
             },
         ))
     }
@@ -2588,20 +2587,35 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
 }
 
 // SAFETY: access is only on the current entity
-unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for &mut T {}
+unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for &mut T where
+    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>
+{
+}
 
 // SAFETY: access is only on the current entity
-unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for &mut T {}
+unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for &mut T where
+    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>
+{
+}
 
-impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
+impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T
+where
+    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
+{
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
         item
     }
 }
 
-impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T {}
+impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T where
+    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>
+{
+}
 
-impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
+impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T
+where
+    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
+{
     type Contiguous<'w, 's> = ContiguousMut<'w, T>;
 
     unsafe fn fetch_contiguous<'w, 's>(
@@ -2748,7 +2762,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
-        <&mut T as QueryData>::shrink(item)
+        item
     }
 
     #[inline(always)]

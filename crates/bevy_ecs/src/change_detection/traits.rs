@@ -1,6 +1,6 @@
-use crate::{change_detection::MaybeLocation, change_detection::Tick};
+use crate::change_detection::{AtomicTick, ComponentTicksMut, MaybeLocation, Tick};
 use alloc::borrow::ToOwned;
-use core::mem;
+use core::{mem, panic::Location};
 
 /// Types that can read change detection information.
 /// This change detection is controlled by [`DetectChangesMut`] types such as [`ResMut`].
@@ -129,6 +129,18 @@ pub trait DetectChangesMut: DetectChanges {
     ///
     /// For example, for `ResMut<T>` this would be `T`.
     type Inner: ?Sized;
+
+    fn new(
+        value: &mut Self::Inner,
+        added: &mut Tick,
+        last_changed: &mut Tick,
+        summary_tick: Option<&AtomicTick>,
+        last_run: Tick,
+        this_run: Tick,
+        caller: MaybeLocation<&mut &'static Location<'static>>,
+    ) -> Self;
+
+    fn new_from_ticks(value: &mut Self::Inner, ticks: ComponentTicksMut) -> Self;
 
     /// Flags this value as having been changed.
     ///
