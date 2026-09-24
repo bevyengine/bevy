@@ -158,7 +158,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let dynamic_bundle_impl = quote! {
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
-            type Effect = ();
+            type Effect = Self;
             #[allow(unused_variables)]
             #[allow(non_snake_case, reason = "deconstruct_moving_ptr uses #active_field_locals as a local binding name")]
             #[inline]
@@ -179,14 +179,41 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 )*
             }
 
-            #[allow(unused_variables)]
+            #[allow(unused_variables, unused_unsafe)]
+            #[allow(non_snake_case, reason = "deconstruct_moving_ptr uses #active_field_locals as a local binding name")]
             #[inline]
             unsafe fn apply_effect(
                 ptr: #ecs_path::ptr::MovingPtr<'_, ::core::mem::MaybeUninit<Self>>,
-                func: &mut #ecs_path::world::EntityWorldMut<'_>,
+                entity: &mut #ecs_path::world::EntityWorldMut<'_>,
             ) {
+                #ecs_path::ptr::deconstruct_moving_ptr!({
+                    let MaybeUninit::<Self> { #(#active_field_members: #active_field_locals,)* #(#inactive_field_members: _,)* } = ptr;
+                });
+                // SAFETY: Ensured by caller.
+                unsafe {
+                    #(
+                        <#active_field_types as #ecs_path::bundle::DynamicBundle>::apply_effect(
+                            #active_field_locals,
+                            entity
+                        );
+                    )*
+                }
             }
         }
+    };
+
+    let mut no_bundle_effect_where_clause =
+        where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
+            where_token: Default::default(),
+            predicates: Default::default(),
+        });
+    no_bundle_effect_where_clause
+        .predicates
+        .extend(active_field_types.iter().map(|t| -> syn::WherePredicate {
+            parse_quote! { for<'__a> <#t as #ecs_path::bundle::DynamicBundle>::Effect: #ecs_path::bundle::NoBundleEffect }
+        }));
+    let no_bundle_effect_impl = quote! {
+        impl #impl_generics #ecs_path::bundle::NoBundleEffect for #struct_name #ty_generics #no_bundle_effect_where_clause {}
     };
 
     let fqdefault = FQDefault.into_token_stream();
@@ -210,6 +237,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         #bundle_impl
         #from_components_impl
         #dynamic_bundle_impl
+        #no_bundle_effect_impl
     })
 }
 
