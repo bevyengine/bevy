@@ -2521,7 +2521,7 @@ where
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         item: Self::Item<'wlong, 's>,
     ) -> Self::Item<'wshort, 's> {
-        item
+        <T as Component>::shrink(item)
     }
 
     #[inline(always)]

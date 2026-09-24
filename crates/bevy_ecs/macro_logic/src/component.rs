@@ -362,6 +362,10 @@ impl DeriveComponent {
                 const STORAGE_TYPE: #bevy_ecs::component::StorageType = #storage;
                 type Mutability = #mutable_type;
                 type ChangeDetection<'w> = #bevy_ecs::change_detection::Mut<'w, Self>;
+
+                fn shrink<'wlong: 'wshort, 'wshort>(item: Self::ChangeDetection<'wlong>) -> Self::ChangeDetection<'wshort> {
+                    item
+                }
                 fn register_required_components(
                     _requiree: #bevy_ecs::component::ComponentId,
                     required_components: &mut #bevy_ecs::component::RequiredComponentsRegistrator,

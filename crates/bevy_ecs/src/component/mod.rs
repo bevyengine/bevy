@@ -543,6 +543,10 @@ pub trait Component: Send + Sync + 'static {
     /// Type to return which enables change detection for this [`Component`].
     type ChangeDetection<'w>: DetectChangesMut;
 
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: Self::ChangeDetection<'wlong>,
+    ) -> Self::ChangeDetection<'wshort>;
+
     /// Gets the `on_add` [`ComponentHook`] for this [`Component`] if one is defined.
     fn on_add() -> Option<ComponentHook> {
         None

@@ -362,6 +362,11 @@ impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
     type ChangeDetection<'w> = Mut<'w, Self>;
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: Self::ChangeDetection<'wlong>,
+    ) -> Self::ChangeDetection<'wshort> {
+        item
+    }
     fn on_add() -> Option<ComponentHook> {
         Some(|world, context| {
             let Some(observe) = world.get::<Self>(context.entity) else {
@@ -512,6 +517,11 @@ impl Component for ObservedBy {
     type Mutability = Mutable;
     type ChangeDetection<'w> = Mut<'w, Self>;
 
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: Self::ChangeDetection<'wlong>,
+    ) -> Self::ChangeDetection<'wshort> {
+        item
+    }
     fn on_remove() -> Option<ComponentHook> {
         Some(|mut world, HookContext { entity, .. }| {
             let observed_by = {

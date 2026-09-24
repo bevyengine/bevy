@@ -13,6 +13,7 @@
 //! - Enforcing structural rules: When you have systems that depend on specific relationships
 //!   between components (like hierarchies or parent-child links) and need to maintain correctness.
 
+use accesskit::ScrollUnit::Item;
 use bevy::{
     ecs::component::{Mutable, StorageType},
     ecs::lifecycle::{ComponentHook, HookContext},
@@ -33,6 +34,12 @@ impl Component for MyComponent {
     const STORAGE_TYPE: StorageType = StorageType::Table;
     type Mutability = Mutable;
     type ChangeDetection<'w> = Mut<'w, Self>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: Self::ChangeDetection<'wlong>,
+    ) -> Self::ChangeDetection<'wshort> {
+        item
+    }
 
     /// Hooks can also be registered during component initialization by
     /// implementing the associated method
