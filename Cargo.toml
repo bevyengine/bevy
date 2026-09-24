@@ -3741,7 +3741,7 @@ wasm = false
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
 doc-scrape-examples = true
-required-features = ["free_camera", "bevy_dev_tools"]
+required-features = ["free_camera", "bevy_dev_tools", "render_dev_tools"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -4490,7 +4490,7 @@ hidden = true
 name = "desktop_request_redraw"
 path = "tests/window/desktop_request_redraw.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
+required-features = ["bevy_dev_tools", "render_dev_tools"]
 
 [package.metadata.example.desktop_request_redraw]
 hidden = true
