@@ -7,7 +7,9 @@ use bevy_ecs::{
 use crate::{InlineBox, LetterSpacing, LineHeight, TextColor, TextElement, TextFont, TextSpan};
 
 /// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
-pub trait TextSection: Component<Mutability = Mutable> + From<String> {
+pub trait TextSection:
+    for<'a> Component<Mutability = Mutable, ChangeDetection<'a> = Mut<'a, Self>> + From<String>
+{
     /// Returns the text for this section.
     fn get_text(&self) -> &str;
     /// Returns a mutable reference to the text for this section.

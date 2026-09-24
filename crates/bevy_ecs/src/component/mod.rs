@@ -541,7 +541,9 @@ pub trait Component: Send + Sync + 'static {
     type Mutability: ComponentMutability;
 
     /// Type to return which enables change detection for this [`Component`].
-    type ChangeDetection<'w>: DetectChangesMut + DetectChangesConstruct;
+    type ChangeDetection<'w>: DetectChangesMut + DetectChangesConstruct
+    where
+        for<'a> Self::ChangeDetection<'a>: DetectChangesMut<Inner = Self>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: Self::ChangeDetection<'wlong>,
