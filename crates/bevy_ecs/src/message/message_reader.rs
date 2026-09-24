@@ -3,7 +3,7 @@ use crate::message::MessageParIter;
 use crate::{
     message::{Message, MessageCursor, MessageIterator, MessageIteratorWithId, Messages},
     system::{
-        Local, ReadOnlySystemParam, Res, SystemParam, SystemParamAccessConflict,
+        Local, ReadOnlySystemParam, Res, SystemAccess, SystemParam, SystemParamAccessConflict,
         SystemParamValidationError,
     },
 };
@@ -34,6 +34,7 @@ use crate::{
 ///
 /// [`MessageWriter<T>`]: super::MessageWriter
 #[derive(SystemParam, Debug)]
+#[system_param(map_access_conflict)]
 pub struct MessageReader<'w, 's, M: Message> {
     pub(super) reader: Local<'s, MessageCursor<M>>,
     #[system_param(validation_message = "Message not initialized")]
@@ -41,6 +42,14 @@ pub struct MessageReader<'w, 's, M: Message> {
 }
 
 impl<'w, 's, M: Message> MessageReader<'w, 's, M> {
+    /// Modifies the [`SystemParamAccessConflict`] returned by [`SystemParam::init_access`].
+    fn map_access_conflict(
+        _access: &SystemAccess,
+        err: SystemParamAccessConflict,
+    ) -> SystemParamAccessConflict {
+        SystemParamAccessConflict::new::<Self>(err.access).with_code("B0009")
+    }
+
     /// Iterates over the messages this [`MessageReader`] has not seen yet. This updates the
     /// [`MessageReader`]'s message counter, which means subsequent message reads will not include messages
     /// that happened before now.
@@ -169,7 +178,7 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
     fn init_access(
         state: &Self::State,
         system_meta: &mut crate::system::SystemMeta,
-        system_access: &mut crate::system::SystemAccess,
+        system_access: &mut SystemAccess,
     ) -> Result<(), SystemParamAccessConflict> {
         MessageReader::<M>::init_access(state, system_meta, system_access)
             .map_err(SystemParamAccessConflict::with_param::<Self>)
