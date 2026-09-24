@@ -57,7 +57,9 @@ pub struct UiRoots {
 }
 
 impl UiRoots {
-    /// Roots of a UI layout tree.
+    /// Returns the root node where layout updates start from, with [`GhostNode`]s flattened.
+    /// Includes parentless non-ghost nodes, non-ghost nodes with only ghost ancestors,
+    /// and valid [`FixedNode`]s.
     pub fn layout_roots(&self) -> impl Iterator<Item = Entity> {
         self.parentless_non_ghosts
             .iter()
@@ -66,6 +68,9 @@ impl UiRoots {
             .copied()
     }
 
+    /// Returns the nodes where geometry updates start from.
+    /// Includes all parentless UI nodes, including [`GhostNode`]s, and valid [`FixedNode`]s.
+    /// Starting at root ghosts allows their transforms to propagate to descendants.
     pub fn geometry_roots(&self) -> impl Iterator<Item = Entity> {
         self.parentless
             .iter()
