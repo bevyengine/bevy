@@ -13,7 +13,7 @@ pub use register::*;
 pub use required::*;
 
 use crate::{
-    change_detection::DetectChangesMut,
+    change_detection::{DetectChangesConstruct, DetectChangesMut},
     entity::EntityMapper,
     lifecycle::ComponentHook,
     relationship::ComponentRelationshipAccessor,
@@ -541,7 +541,7 @@ pub trait Component: Send + Sync + 'static {
     type Mutability: ComponentMutability;
 
     /// Type to return which enables change detection for this [`Component`].
-    type ChangeDetection<'w>: DetectChangesMut;
+    type ChangeDetection<'w>: DetectChangesMut + DetectChangesConstruct;
 
     fn shrink<'wlong: 'wshort, 'wshort>(
         item: Self::ChangeDetection<'wlong>,

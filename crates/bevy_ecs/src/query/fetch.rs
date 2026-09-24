@@ -3,8 +3,8 @@ use crate::{
     bundle::Bundle,
     change_detection::{
         AtomicTick, ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
-        ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, DetectChangesMut, MaybeLocation,
-        Tick,
+        ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, DetectChangesConstruct,
+        DetectChangesMut, MaybeLocation, Tick,
     },
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -2512,6 +2512,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T
 where
     for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
+    for<'a, 'b> T::ChangeDetection<'a>:
+        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
 {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
@@ -2554,7 +2556,7 @@ where
                     None
                 };
 
-                <<T as Component>::ChangeDetection<'w> as DetectChangesMut>::new(
+                <<T as Component>::ChangeDetection<'w> as DetectChangesConstruct>::new(
                     component.deref_mut(),
                     added.deref_mut(),
                     changed.deref_mut(),
@@ -2573,7 +2575,7 @@ where
                         .debug_checked_unwrap()
                 };
 
-                <<T as Component>::ChangeDetection<'w> as DetectChangesMut>::new_from_ticks(
+                <<T as Component>::ChangeDetection<'w> as DetectChangesConstruct>::new_from_ticks(
                     component.assert_unique().deref_mut(),
                     ComponentTicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
                 )
@@ -2587,34 +2589,47 @@ where
 }
 
 // SAFETY: access is only on the current entity
-unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for &mut T where
-    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>
+unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for &mut T
+where
+    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
+    for<'a, 'b> T::ChangeDetection<'a>:
+        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
 {
 }
 
 // SAFETY: access is only on the current entity
-unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for &mut T where
-    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>
+unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for &mut T
+where
+    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
+    for<'a, 'b> T::ChangeDetection<'a>:
+        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
 {
 }
 
 impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T
 where
     for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
+    for<'a, 'b> T::ChangeDetection<'a>:
+        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
 {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
         item
     }
 }
 
-impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T where
-    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>
+impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T
+where
+    for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
+    for<'a, 'b> T::ChangeDetection<'a>:
+        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
 {
 }
 
 impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T
 where
     for<'a> T::ChangeDetection<'a>: DetectChangesMut<Inner = T>,
+    for<'a, 'b> T::ChangeDetection<'a>:
+        DetectChangesConstruct<Val = T, Construct<'b> = T::ChangeDetection<'b>>,
 {
     type Contiguous<'w, 's> = ContiguousMut<'w, T>;
 
@@ -2752,7 +2767,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 }
 
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
-unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T> {
+unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
+where
+    T: for<'w> Component<ChangeDetection<'w> = Mut<'w, T>>,
+{
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Ref<'__w, T>;
@@ -2784,20 +2802,35 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
 }
 
 // SAFETY: access is only on the current entity
-unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for Mut<'_, T> {}
+unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for Mut<'_, T> where
+    T: for<'w> Component<ChangeDetection<'w> = Mut<'w, T>>
+{
+}
 
 // SAFETY: access is only on the current entity
-unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for Mut<'_, T> {}
+unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for Mut<'_, T> where
+    T: for<'w> Component<ChangeDetection<'w> = Mut<'w, T>>
+{
+}
 
-impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T> {
+impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T>
+where
+    T: for<'w> Component<ChangeDetection<'w> = Mut<'w, T>>,
+{
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
         item
     }
 }
 
-impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for Mut<'_, T> {}
+impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for Mut<'_, T> where
+    T: for<'w> Component<ChangeDetection<'w> = Mut<'w, T>>
+{
+}
 
-impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w, T> {
+impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w, T>
+where
+    T: for<'w> Component<ChangeDetection<'w> = Mut<'w, T>>,
+{
     type Contiguous<'w, 's> = ContiguousMut<'w, T>;
 
     unsafe fn fetch_contiguous<'w, 's>(

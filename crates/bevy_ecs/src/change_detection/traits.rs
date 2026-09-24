@@ -130,18 +130,6 @@ pub trait DetectChangesMut: DetectChanges {
     /// For example, for `ResMut<T>` this would be `T`.
     type Inner: ?Sized;
 
-    fn new(
-        value: &mut Self::Inner,
-        added: &mut Tick,
-        last_changed: &mut Tick,
-        summary_tick: Option<&AtomicTick>,
-        last_run: Tick,
-        this_run: Tick,
-        caller: MaybeLocation<&mut &'static Location<'static>>,
-    ) -> Self;
-
-    fn new_from_ticks(value: &mut Self::Inner, ticks: ComponentTicksMut) -> Self;
-
     /// Flags this value as having been changed.
     ///
     /// Mutably accessing this smart pointer will automatically flag this value as having been changed.
@@ -374,6 +362,28 @@ pub trait DetectChangesMut: DetectChanges {
             false
         }
     }
+}
+
+pub trait DetectChangesConstruct {
+    type Val: ?Sized;
+    type Construct<'a>
+    where
+        Self::Val: 'a;
+
+    fn new<'a>(
+        value: &'a mut Self::Val,
+        added: &'a mut Tick,
+        last_changed: &'a mut Tick,
+        summary_tick: Option<&'a AtomicTick>,
+        last_run: Tick,
+        this_run: Tick,
+        caller: MaybeLocation<&'a mut &'static Location<'static>>,
+    ) -> Self::Construct<'a>;
+
+    fn new_from_ticks<'a>(
+        value: &'a mut Self::Val,
+        ticks: ComponentTicksMut<'a>,
+    ) -> Self::Construct<'a>;
 }
 
 macro_rules! change_detection_impl {

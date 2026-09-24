@@ -1071,6 +1071,43 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     }
 }
 
+impl<'w, T: ?Sized> DetectChangesConstruct for Mut<'w, T> {
+    type Val = T;
+    type Construct<'a>
+        = Mut<'a, T>
+    where
+        T: 'a;
+
+    fn new<'a>(
+        value: &'a mut Self::Val,
+        added: &'a mut Tick,
+        last_changed: &'a mut Tick,
+        summary_tick: Option<&'a AtomicTick>,
+        last_run: Tick,
+        this_run: Tick,
+        caller: MaybeLocation<&'a mut &'static Location<'static>>,
+    ) -> Self::Construct<'a> {
+        Mut {
+            value,
+            ticks: ComponentTicksMut {
+                added,
+                changed: last_changed,
+                changed_by: caller,
+                last_run,
+                this_run,
+                summary_tick,
+            },
+        }
+    }
+
+    fn new_from_ticks<'a>(
+        value: &'a mut Self::Val,
+        ticks: ComponentTicksMut<'a>,
+    ) -> Self::Construct<'a> {
+        Mut { value, ticks }
+    }
+}
+
 impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
     fn from(mut_ref: Mut<'w, T>) -> Self {
         Self {

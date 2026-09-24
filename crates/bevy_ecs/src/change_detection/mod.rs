@@ -8,7 +8,7 @@ mod traits;
 pub use maybe_location::MaybeLocation;
 pub use params::*;
 pub use tick::*;
-pub use traits::{DetectChanges, DetectChangesMut};
+pub use traits::{DetectChanges, DetectChangesConstruct, DetectChangesMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
