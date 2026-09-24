@@ -28,7 +28,7 @@ use bevy_feathers::{
     controls::{
         list_rows_from_strings, ColorSwatchValue, FeathersCheckbox, FeathersColorSwatch,
         FeathersDisclosureToggle, FeathersNumberInput, FeathersScrollbar, FeathersSelect,
-        FeathersTextInput, FeathersTextInputContainer, NumberInputValue, ScrollbarGutter,
+        FeathersTextInput, FeathersTextInputContainer, ScrollbarGutter,
     },
     display::caption,
     theme::ThemedText,
@@ -45,7 +45,7 @@ use bevy_ui::{
     percent, px, widget::Text, AlignItems, Checked, Display, FlexDirection, InteractionDisabled,
     Node, Overflow, PositionType, UiRect,
 };
-use bevy_ui_widgets::{ControlOrientation, ScrollArea, ValueChange};
+use bevy_ui_widgets::{ControlOrientation, NumericValue, ScrollArea, ValueChange};
 use bevy_utils::prelude::ShortName;
 
 use crate::{entity_tree::InspectorUi, InspectorSelection};
@@ -105,7 +105,7 @@ pub enum FieldValue {
     /// A boolean value.
     Bool(bool),
     /// A numeric value, in the format of the widget that displays it.
-    Number(NumberInputValue),
+    Number(NumericValue),
     /// A string value.
     Text(String),
     /// A color value.
@@ -1062,10 +1062,10 @@ fn scalar_value(value: &dyn PartialReflect) -> Option<FieldValue> {
         return Some(FieldValue::Bool(*value));
     }
     if let Some(value) = value.try_downcast_ref::<f32>() {
-        return Some(FieldValue::Number(NumberInputValue::F32(*value)));
+        return Some(FieldValue::Number(NumericValue::F32(*value)));
     }
     if let Some(value) = value.try_downcast_ref::<f64>() {
-        return Some(FieldValue::Number(NumberInputValue::F64(*value)));
+        return Some(FieldValue::Number(NumericValue::F64(*value)));
     }
     if let Some(value) = integer_value(value) {
         return Some(value);
@@ -1099,7 +1099,7 @@ fn integer_value(value: &dyn PartialReflect) -> Option<FieldValue> {
         ($($type:ty),*) => {
             $(
                 if let Some(value) = value.try_downcast_ref::<$type>() {
-                    return Some(FieldValue::Number(NumberInputValue::I32(*value as i32)));
+                    return Some(FieldValue::Number(NumericValue::I32(*value as i32)));
                 }
             )*
         };
@@ -1109,7 +1109,7 @@ fn integer_value(value: &dyn PartialReflect) -> Option<FieldValue> {
             $(
                 if let Some(value) = value.try_downcast_ref::<$type>() {
                     let value = i64::try_from(*value).unwrap_or(i64::MAX);
-                    return Some(FieldValue::Number(NumberInputValue::I64(value)));
+                    return Some(FieldValue::Number(NumericValue::I64(value)));
                 }
             )*
         };
@@ -1370,8 +1370,8 @@ mod tests {
         let scale = index.widget(&component, "scale").unwrap();
         let enabled = index.widget(&component, "enabled").unwrap();
         assert_eq!(
-            app.world().get::<NumberInputValue>(scale),
-            Some(&NumberInputValue::F32(1.0))
+            app.world().get::<NumericValue>(scale),
+            Some(&NumericValue::F32(1.0))
         );
 
         app.world_mut().get_mut::<Subject>(subject).unwrap().scale = 4.0;
@@ -1382,8 +1382,8 @@ mod tests {
         assert_eq!(index.widget(&component, "scale"), Some(scale));
         assert_eq!(index.widget(&component, "enabled"), Some(enabled));
         assert_eq!(
-            app.world().get::<NumberInputValue>(scale),
-            Some(&NumberInputValue::F32(4.0))
+            app.world().get::<NumericValue>(scale),
+            Some(&NumericValue::F32(4.0))
         );
     }
 
