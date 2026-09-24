@@ -110,11 +110,15 @@ pub enum UiSystems {
     ///
     /// Runs in [`PostUpdate`].
     Layout,
+    /// Systems that need to adjust the layout after it's been updated but before clipping.
+    ///
+    /// Runs in [`PostUpdate`].
+    Adjustment,
     /// After this, UI clipping has been updated.
     ///
     /// Runs in [`PostUpdate`]
     Clipping,
-    /// UI systems ordered after [`UiSystems::Layout`] and [`UiSystems::Clipping`].
+    /// UI systems ordered after the layout has been been updated.
     ///
     /// Runs in [`PostUpdate`].
     PostLayout,
@@ -163,6 +167,8 @@ impl Plugin for UiPlugin {
                     UiSystems::Propagate,
                     UiSystems::Content,
                     UiSystems::Layout,
+                    UiSystems::Adjustment,
+                    UiSystems::Clipping,
                     UiSystems::PostLayout,
                 )
                     .chain_weak(),
