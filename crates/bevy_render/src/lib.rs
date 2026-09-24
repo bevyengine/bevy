@@ -272,6 +272,17 @@ impl GpuResourceAppExt for SubApp {
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct RenderRecovery;
 
+/// The systems sets of the [`RenderRecovery`] schedule.
+///
+/// These can be useful for ordering.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum RenderRecoverySystems {
+    ///
+    RunRender,
+    ///
+    RenderTime,
+}
+
 /// The main render schedule.
 ///
 /// See also [`RenderGraph`] for more details.
@@ -417,9 +428,22 @@ impl Plugin for RenderPlugin {
                 .unwrap()
                 .set_executor(bevy_ecs::schedule::SingleThreadedExecutor::new());
             render_app.update_schedule = Some(RenderRecovery.intern());
+            render_app.configure_sets(
+                RenderRecovery,
+                (
+                    RenderRecoverySystems::RunRender,
+                    RenderRecoverySystems::RenderTime,
+                )
+                    .chain(),
+            );
             render_app.add_systems(
                 RenderRecovery,
-                (run_render_schedule.run_if(renderer_is_ready), send_time).chain(),
+                (
+                    run_render_schedule
+                        .run_if(renderer_is_ready)
+                        .in_set(RenderRecoverySystems::RunRender),
+                    send_time.in_set(RenderRecoverySystems::RenderTime),
+                ),
             );
             render_app.add_systems(
                 Render,
@@ -474,7 +498,7 @@ pub fn run_render_schedule(world: &mut World) {
     let _ = world.try_run_schedule(Render);
 }
 
-pub fn send_time(time_sender: Res<TimeSender>) {
+fn send_time(time_sender: Res<TimeSender>) {
     // update the time and send it to the app world regardless of whether we render
     if let Err(error) = time_sender.0.try_send(Instant::now()) {
         match error {
