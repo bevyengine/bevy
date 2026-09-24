@@ -33,7 +33,8 @@ impl ColorAttachment {
             is_first_call: Arc::new(AtomicBool::new(true)),
         }
     }
-/// Get this texture view as an attachment. The attachment will be cleared with a value of
+
+    /// Get this texture view as an attachment. The attachment will be cleared with a value of
     /// `clear_color` if this is the first time calling this function, otherwise it will be loaded.
     ///
     /// The returned attachment will always have writing enabled (`store: StoreOp::Load`).
@@ -48,8 +49,8 @@ impl ColorAttachment {
                 ops: Operations {
                     load: match (self.clear_color, first_call) {
                         (Some(clear_color), true) => LoadOp::Clear(clear_color),
-                        // If ClearColorConfig::None, clear with transparent black on the first call
-                        // to prevent loading uninitialized/garbage data that corrupts the MSAA alpha channel.
+                        // Clear with transparent black on the first call when clear_color is None
+                        // to prevent uninitialized data from corrupting the MSAA alpha channel.
                         (None, true) => LoadOp::Clear(wgpu::Color::TRANSPARENT),
                         (None, false) | (Some(_), false) => LoadOp::Load,
                     },
@@ -60,6 +61,7 @@ impl ColorAttachment {
             self.get_unsampled_attachment()
         }
     }
+
     /// Get this texture view as an attachment, without the resolve target. The attachment will be cleared with
     /// a value of `clear_color` if this is the first time calling this function, otherwise it will be loaded.
     ///
