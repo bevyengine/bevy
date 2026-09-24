@@ -27,7 +27,7 @@ use bevy_input_focus::{
         AutoNavigationConfig, DirectionalNavigation, DirectionalNavigationError, FocusableArea,
     },
     navigator::find_best_candidate,
-    FocusCause,
+    FocusCause, Focusable,
 };
 
 use bevy_reflect::{prelude::*, Reflect};
@@ -92,6 +92,7 @@ use bevy_reflect::{prelude::*, Reflect};
 /// # Additional Requirements
 ///
 /// Entities must also have:
+/// - [`Focusable`] - automatically added as a required component
 /// - [`ComputedNode`] - for size information
 /// - [`UiGlobalTransform`] - for position information
 ///
@@ -103,6 +104,7 @@ use bevy_reflect::{prelude::*, Reflect};
 /// [`auto_generate_navigation_edges`](bevy_input_focus::directional_navigation::auto_generate_navigation_edges)
 /// directly in your own system instead of using this component.
 #[derive(Component, Default, Debug, Clone, Copy, PartialEq, Reflect)]
+#[require(Focusable)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct AutoDirectionalNavigation {
     /// Whether to also consider `TabIndex` for navigation order hints.
@@ -118,7 +120,7 @@ pub struct AutoDirectionalNavigation {
 #[derive(SystemParam, Debug)]
 pub struct AutoDirectionalNavigator<'w, 's> {
     /// A system parameter for the manual directional navigation system provided by `bevy_input_focus`
-    pub manual_directional_navigation: DirectionalNavigation<'w>,
+    pub manual_directional_navigation: DirectionalNavigation<'w, 's>,
     /// Configuration for the automated portion of the navigation algorithm.
     pub config: Res<'w, AutoNavigationConfig>,
     /// The entities which can possibly be navigated to automatically.
@@ -132,7 +134,7 @@ pub struct AutoDirectionalNavigator<'w, 's> {
             &'static UiGlobalTransform,
             &'static InheritedVisibility,
         ),
-        With<AutoDirectionalNavigation>,
+        (With<AutoDirectionalNavigation>, With<Focusable>),
     >,
     /// A query used to get the target camera and the [`FocusableArea`] for a given entity to be used in automatic navigation.
     camera_and_focusable_area_query: Query<
@@ -277,4 +279,34 @@ fn get_rotated_bounds(size: Vec2, rotation: f32) -> Vec2 {
         size.x * cos_r + size.y * sin_r,
         size.x * sin_r + size.y * cos_r,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::App;
+    use bevy_input_focus::{AcquireFocus, InputFocus, InputFocusPlugin};
+    use bevy_window::Window;
+
+    #[test]
+    fn auto_directional_navigation_is_focusable_without_tab_index() {
+        let mut app = App::new();
+        app.add_plugins(InputFocusPlugin);
+        let window = app.world_mut().spawn(Window::default()).id();
+        let directional = app
+            .world_mut()
+            .spawn(AutoDirectionalNavigation::default())
+            .id();
+
+        assert!(app.world().entity(directional).contains::<Focusable>());
+        app.world_mut().trigger(AcquireFocus {
+            focused_entity: directional,
+            window,
+        });
+
+        assert_eq!(
+            app.world().resource::<InputFocus>().get(),
+            Some(directional)
+        );
+    }
 }

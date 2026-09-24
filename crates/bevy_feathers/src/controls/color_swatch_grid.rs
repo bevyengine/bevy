@@ -9,7 +9,6 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, SystemParam},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::UVec2;
 use bevy_picking::{cursor::EntityCursor, Pickable};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -67,7 +66,6 @@ impl FeathersColorSwatchGrid {
                 align_items: AlignItems::Stretch,
             }
             RadioGroup
-            TabIndex
             FocusIndicator
             on(swatch_grid_ready)
             on(swatch_grid_on_value_change)

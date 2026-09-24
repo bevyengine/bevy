@@ -4817,7 +4817,7 @@ wasm = true
 name = "fps_overlay"
 path = "examples/dev_tools/fps_overlay.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
+required-features = ["bevy_dev_tools", "render_dev_tools"]
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
@@ -4841,7 +4841,7 @@ wasm = false
 name = "infinite_grid"
 path = "examples/dev_tools/infinite_grid.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools", "free_camera"]
+required-features = ["bevy_dev_tools", "free_camera", "render_dev_tools"]
 
 [package.metadata.example.infinite_grid]
 name = "Infinite grid"

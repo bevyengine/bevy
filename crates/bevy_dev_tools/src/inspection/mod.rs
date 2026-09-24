@@ -10,4 +10,6 @@ pub mod extension_methods;
 pub mod label_resolution;
 pub mod reflection_tools;
 pub mod resource_inspection;
+#[cfg(feature = "serialize")]
+pub mod serde_conversions;
 pub mod world_summary;
