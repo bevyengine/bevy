@@ -620,12 +620,7 @@ impl Plugin for ColorWheelPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins(UiMaterialPlugin::<ColorWheelMaterial>::default());
         // Ensure thumbs stay inside ring/triangle on next frame when scale and/or layout change
-        app.add_systems(
-            PostUpdate,
-            update_wheel_color
-                .after(UiSystems::Propagate)
-                .before(UiSystems::Layout),
-        );
+        app.add_systems(PostUpdate, update_wheel_color.in_set(UiSystems::Content));
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)
             .add_observer(on_drag)
