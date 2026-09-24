@@ -922,3 +922,99 @@ mod validation_tests {
         );
     }
 }
+
+#[cfg(all(test, feature = "trace"))]
+mod trace_tests {
+    use alloc::{sync::Arc, vec::Vec};
+    use std::sync::Mutex;
+
+    use tracing::{span, Event, Metadata, Subscriber};
+
+    use crate::{
+        prelude::{IntoScheduleConfigs, Schedule},
+        schedule::{ApplyDeferred, MultiThreadedExecutor, SingleThreadedExecutor},
+        system::Commands,
+        world::World,
+    };
+
+    #[derive(Default)]
+    struct RecordedSpans {
+        names: Vec<&'static str>,
+        stack: Vec<&'static str>,
+        entered: Vec<Vec<&'static str>>,
+    }
+
+    /// Records the stack of entered span names each time a span is entered.
+    #[derive(Clone, Default)]
+    struct SpanRecorder(Arc<Mutex<RecordedSpans>>);
+
+    impl Subscriber for SpanRecorder {
+        fn enabled(&self, _metadata: &Metadata<'_>) -> bool {
+            true
+        }
+
+        fn new_span(&self, span: &span::Attributes<'_>) -> span::Id {
+            let mut spans = self.0.lock().unwrap();
+            spans.names.push(span.metadata().name());
+            span::Id::from_u64(spans.names.len() as u64)
+        }
+
+        fn record(&self, _span: &span::Id, _values: &span::Record<'_>) {}
+
+        fn record_follows_from(&self, _span: &span::Id, _follows: &span::Id) {}
+
+        fn event(&self, _event: &Event<'_>) {}
+
+        fn enter(&self, span: &span::Id) {
+            let mut spans = self.0.lock().unwrap();
+            let name = spans.names[span.into_u64() as usize - 1];
+            spans.stack.push(name);
+            let entered = spans.stack.clone();
+            spans.entered.push(entered);
+        }
+
+        fn exit(&self, _span: &span::Id) {
+            self.0.lock().unwrap().stack.pop();
+        }
+    }
+
+    fn queue_command(mut commands: Commands) {
+        commands.spawn_empty();
+    }
+
+    fn entered_spans(set_executor: impl FnOnce(&mut Schedule)) -> Vec<Vec<&'static str>> {
+        let recorder = SpanRecorder::default();
+        // Spans are bound to the subscriber that was current when they were created,
+        // so the schedule has to be built inside `with_default` too.
+        tracing::subscriber::with_default(recorder.clone(), || {
+            let mut schedule = Schedule::default();
+            set_executor(&mut schedule);
+            schedule.add_systems((queue_command, ApplyDeferred).chain());
+            schedule.run(&mut World::new());
+        });
+        core::mem::take(&mut recorder.0.lock().unwrap().entered)
+    }
+
+    fn assert_commands_applied_in_span(entered: &[Vec<&'static str>]) {
+        assert!(
+            entered
+                .iter()
+                .any(|stack| stack.ends_with(&["apply_deferred", "system_commands"])),
+            "expected `system_commands` inside an `apply_deferred` span, got {entered:?}"
+        );
+    }
+
+    #[test]
+    fn apply_deferred_is_traced_singlethreaded() {
+        assert_commands_applied_in_span(&entered_spans(|schedule| {
+            schedule.set_executor(SingleThreadedExecutor::new());
+        }));
+    }
+
+    #[test]
+    fn apply_deferred_is_traced_multithreaded() {
+        assert_commands_applied_in_span(&entered_spans(|schedule| {
+            schedule.set_executor(MultiThreadedExecutor::new());
+        }));
+    }
+}

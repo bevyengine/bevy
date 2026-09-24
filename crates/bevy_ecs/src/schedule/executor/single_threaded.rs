@@ -193,6 +193,9 @@ impl SingleThreadedExecutor {
         world: &mut World,
         error_handler: ErrorHandler,
     ) {
+        #[cfg(feature = "trace")]
+        let _span = info_span!("apply_deferred").entered();
+
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index].system;
             #[cfg(not(feature = "std"))]
