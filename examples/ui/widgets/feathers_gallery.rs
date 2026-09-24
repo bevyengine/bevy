@@ -2,6 +2,7 @@
 
 use bevy::{
     color::palettes,
+    ecs::template::OptionTemplate,
     feathers::{
         constants::{fonts, icons},
         containers::*,
@@ -18,12 +19,13 @@ use bevy::{
     picking::cursor::{EntityCursor, OverrideCursor},
     prelude::*,
     text::{EditableText, TextEdit, TextEditChange},
-    ui::{Checked, InteractionDisabled, Selected},
+    ui::{Checked, Expanded, InteractionDisabled, Selected},
     ui_widgets::{
         checkbox_self_update, listbox_update_selection,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-        radio_self_update, slider_self_update, Activate, ActivateOnPress, RadioGroup, RequestClose,
-        SliderPrecision, SliderStep, SliderValue, ValueChange,
+        radio_self_update, slider_self_update, tree_view_expand_self_update, tree_view_self_update,
+        Activate, ActivateOnPress, NumericRange, NumericValue, RadioGroup, RequestClose,
+        SliderPrecision, SliderStep, SliderValue, TreeItemExpandChange, ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -58,6 +60,12 @@ struct DemoDialogToggle;
 
 #[derive(Component, Clone, Copy, Default)]
 struct DemoScalarField;
+
+#[derive(Component, Clone, Copy, Default)]
+struct DemoLazyBranch;
+
+#[derive(Component, Clone, Copy, Default)]
+struct DemoPopulated;
 
 #[derive(Component, Clone, Copy, Default)]
 enum DemoVec3Field {
@@ -909,7 +917,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -921,7 +929,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -932,7 +940,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -943,7 +951,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -1038,7 +1046,84 @@ fn demo_column_3() -> impl Scene {
                 ColorInputValue(palettes::tailwind::BLUE_800)
                 on(color_input_self_update)
             ]
+            --
+            @subpane() Children [
+                @subpane_header() Children [
+                    @caption("Tree")
+                ]
+                --
+                @subpane_body() Children [
+                    @FeathersTreeView {
+                        @selected: OptionTemplate::Some(#camera_row),
+                        @rows: bsn_list! {
+                            #camera_row
+                            @FeathersTreeItem {
+                                @label: bsn_list! { @caption("Camera") },
+                            }
+                            --
+                            @FeathersTreeItem {
+                                @expandable: true,
+                                @label: bsn_list! { @caption("Scene") },
+                                @children: bsn_list! {
+                                    @FeathersTreeItem {
+                                        @label: bsn_list! { @caption("Ground") },
+                                    }
+                                    --
+                                    @FeathersTreeItem {
+                                        @label: bsn_list! { @caption("Player") },
+                                    }
+                                },
+                            }
+                            Expanded
+                            --
+                            @FeathersTreeItem {
+                                @expandable: true,
+                                @label: bsn_list! { @caption("Assets") },
+                            }
+                            DemoLazyBranch
+                        }
+                    }
+                    Node {
+                        max_height: px(110)
+                    }
+                    on(tree_view_self_update)
+                    on(tree_view_expand_self_update)
+                    on(populate_demo_branch)
+                ]
+            ]
         ]
+    }
+}
+
+/// Spawns the child rows of the "Assets" row the first time it is expanded.
+fn populate_demo_branch(
+    change: On<TreeItemExpandChange>,
+    lazy: Query<&Children, (With<DemoLazyBranch>, Without<DemoPopulated>)>,
+    containers: Query<(), With<FeathersTreeItemChildren>>,
+    mut commands: Commands,
+) {
+    if !change.expanded {
+        return;
+    }
+    let Ok(row_children) = lazy.get(change.item) else {
+        return;
+    };
+    let Some(container) = row_children
+        .iter()
+        .find(|child| containers.contains(*child))
+    else {
+        return;
+    };
+    commands.entity(change.item).insert(DemoPopulated);
+    for index in 1..=12 {
+        let name = format!("Asset {index}");
+        commands
+            .spawn_scene(bsn! {
+                @FeathersTreeItem {
+                    @label: bsn_list! { @caption({name}) },
+                }
+            })
+            .insert(ChildOf(container));
     }
 }
 
@@ -1180,7 +1265,7 @@ fn update_colors(
         for scalar_input_ent in q_scalar_input.iter() {
             commands
                 .entity(scalar_input_ent)
-                .insert(NumberInputValue::F32(states.scalar_prop));
+                .insert(NumericValue::F32(states.scalar_prop));
         }
 
         for (vec3_input_ent, axis) in q_vec3_input.iter() {
@@ -1192,7 +1277,7 @@ fn update_colors(
 
             commands
                 .entity(vec3_input_ent)
-                .insert(NumberInputValue::F32(new_value));
+                .insert(NumericValue::F32(new_value));
         }
     }
 }

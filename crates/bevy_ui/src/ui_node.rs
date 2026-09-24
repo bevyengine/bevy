@@ -3298,6 +3298,33 @@ impl From<ResolvedBorderRadius> for [[f32; 4]; 2] {
     }
 }
 
+/// The border style of the UI node.
+#[derive(Component, Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum BorderStyle {
+    Solid,
+    Double,
+    Inset,
+    Outset,
+    Groove,
+    Ridge,
+}
+
+impl BorderStyle {
+    pub const DEFAULT: Self = Self::Solid;
+}
+
+impl Default for BorderStyle {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 #[derive(Component, Clone, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
 #[reflect(Component, PartialEq, Default, Clone)]
 #[cfg_attr(

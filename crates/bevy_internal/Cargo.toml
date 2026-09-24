@@ -292,6 +292,9 @@ dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
 # screen readers and forks.)
 accesskit_unix = ["bevy_winit/accesskit_unix"]
 
+# Enable Feral Interactive's `GameMode` integration on Linux
+linux_game_mode = ["bevy_winit/linux_game_mode"]
+
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
 
@@ -347,12 +350,17 @@ free_camera = ["bevy_camera_controller/free_camera"]
 pan_camera = ["bevy_camera_controller/pan_camera"]
 pan_orbit_camera = [
   "bevy_camera_controller/pan_orbit_camera",
-  "bevy_camera_controller/extension_anchor_indicator",
   "bevy_camera_controller/extension_independent_skybox",
+]
+
+pan_orbit_gizmo = [
+  "bevy_gizmos",
+  "bevy_camera_controller/extension_anchor_indicator",
 ]
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
+bevy_remote_client = ["bevy_remote", "bevy_remote/client"]
 
 # Provides picking functionality without any backend
 bevy_picking = ["dep:bevy_picking"]

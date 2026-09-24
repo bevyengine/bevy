@@ -1,4 +1,7 @@
-use crate::{ClosingWindow, PrimaryWindow, Window, WindowCloseRequested, WindowEvent};
+use crate::{
+    ClosingWindow, CursorMoved, PrimaryWindow, RawCursorMoved, Window, WindowCloseRequested,
+    WindowEvent,
+};
 
 use alloc::vec::Vec;
 use bevy_app::AppExit;
@@ -34,10 +37,28 @@ pub fn send_typed_window_events(
                     world.write_message(e);
                 }
                 WindowEvent::CursorLeft(e) => {
+                    if let Some(mut window) = world.get_mut::<Window>(e.window) {
+                        window.internal.physical_cursor_position = None;
+                    }
                     world.write_message(e);
                 }
-                WindowEvent::CursorMoved(e) => {
-                    world.write_message(e);
+                WindowEvent::CursorMoved(RawCursorMoved {
+                    window,
+                    physical_position,
+                }) => {
+                    let Some(mut window_component) = world.get_mut::<Window>(window) else {
+                        continue;
+                    };
+                    let scale_factor = window_component.scale_factor();
+                    let last_position = window_component.physical_cursor_position();
+                    window_component.internal.physical_cursor_position = Some(physical_position);
+                    world.write_message(CursorMoved {
+                        window,
+                        position: (physical_position / scale_factor as f64).as_vec2(),
+                        delta: last_position.map(|last_position| {
+                            (physical_position.as_vec2() - last_position) / scale_factor
+                        }),
+                    });
                 }
                 WindowEvent::FileDragAndDrop(e) => {
                     world.write_message(e);
