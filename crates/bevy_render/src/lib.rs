@@ -267,19 +267,19 @@ impl GpuResourceAppExt for SubApp {
     }
 }
 
-/// The render recovery schedule. This schedule runs the [`Render`] schedule if we are in
+/// The render entry schedule. This schedule runs the [`Render`] schedule if we are in
 /// [`RenderState::Ready`], and is otherwise hidden from users.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct RenderRecovery;
+pub struct RenderEntryPoint;
 
-/// The systems sets of the [`RenderRecovery`] schedule.
+/// The systems sets of the [`RenderEntryPoint`] schedule.
 ///
 /// These can be useful for ordering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RenderRecoverySystems {
-    ///
+pub enum RenderEntryPointSystems {
+    /// Runs the render recovery and render
     RunRender,
-    ///
+    /// Updates the main world with the render time
     RenderTime,
 }
 
@@ -427,22 +427,22 @@ impl Plugin for RenderPlugin {
                 .get_schedule_mut(RenderStartup)
                 .unwrap()
                 .set_executor(bevy_ecs::schedule::SingleThreadedExecutor::new());
-            render_app.update_schedule = Some(RenderRecovery.intern());
+            render_app.update_schedule = Some(RenderEntryPoint.intern());
             render_app.configure_sets(
-                RenderRecovery,
+                RenderEntryPoint,
                 (
-                    RenderRecoverySystems::RunRender,
-                    RenderRecoverySystems::RenderTime,
+                    RenderEntryPointSystems::RunRender,
+                    RenderEntryPointSystems::RenderTime,
                 )
                     .chain(),
             );
             render_app.add_systems(
-                RenderRecovery,
+                RenderEntryPoint,
                 (
                     run_render_schedule
                         .run_if(renderer_is_ready)
-                        .in_set(RenderRecoverySystems::RunRender),
-                    send_time.in_set(RenderRecoverySystems::RenderTime),
+                        .in_set(RenderEntryPointSystems::RunRender),
+                    send_time.in_set(RenderEntryPointSystems::RenderTime),
                 ),
             );
             render_app.add_systems(
