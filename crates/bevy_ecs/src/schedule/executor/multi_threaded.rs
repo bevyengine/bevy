@@ -30,6 +30,12 @@ struct Environment<'env, 'sys> {
     systems: &'sys [SyncUnsafeCell<SystemWithAccess>],
     conditions: SyncUnsafeCell<Conditions<'sys>>,
     world_cell: UnsafeWorldCell<'env>,
+    /// The span of the schedule being run, re-entered on worker threads so systems are traced inside it.
+    #[cfg(feature = "trace")]
+    schedule_span: Span,
+    /// The thread running the schedule, which already has `schedule_span` entered.
+    #[cfg(feature = "trace")]
+    schedule_thread: std::thread::ThreadId,
 }
 
 struct Conditions<'a> {
@@ -55,6 +61,10 @@ impl<'env, 'sys> Environment<'env, 'sys> {
                 systems_in_sets_with_conditions: &schedule.systems_in_sets_with_conditions,
             }),
             world_cell: world.as_unsafe_world_cell(),
+            #[cfg(feature = "trace")]
+            schedule_span: Span::current(),
+            #[cfg(feature = "trace")]
+            schedule_thread: std::thread::current().id(),
         }
     }
 }
@@ -643,6 +653,10 @@ impl ExecutorState {
         let system_meta = &self.system_task_metadata[system_index];
 
         let task = async move {
+            #[cfg(feature = "trace")]
+            let _schedule_span = (std::thread::current().id()
+                != context.environment.schedule_thread)
+                .then(|| context.environment.schedule_span.enter());
             let res = handle_errors(
                 |system| {
                     // SAFETY:

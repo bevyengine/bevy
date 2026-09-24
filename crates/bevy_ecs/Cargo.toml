@@ -138,6 +138,7 @@ concurrent-queue = { version = "2.5.0", default-features = false, features = [
 rand = "0.10"
 static_assertions = "1.1.0"
 serde_test = "1.0"
+tracing-core = { version = "0.1", default-features = false }
 
 [[example]]
 name = "events"
