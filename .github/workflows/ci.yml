@@ -581,7 +581,7 @@ jobs:
     outputs:
       targets: ${{ steps.list.outputs.targets }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: List fuzz targets
@@ -599,16 +599,16 @@ jobs:
       matrix:
         target: ${{ fromJson(needs.bevy_ecs-fuzz-prepare.outputs.targets) }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+      - uses: ./.github/actions/install-rust
         with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+          channel: nightly
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz
       - name: Run fuzz target
         working-directory: crates/bevy_ecs/fuzz
         env:
           FUZZ_TARGET: ${{ matrix.target }}
-        run: cargo +nightly fuzz run "$FUZZ_TARGET" -- -runs=200000
+        run: cargo fuzz run "$FUZZ_TARGET" -- -runs=200000
