@@ -19,6 +19,7 @@ mod select;
 mod slider;
 mod text_input;
 mod toggle_switch;
+mod tree_view;
 mod virtual_keyboard;
 
 pub use button::*;
@@ -40,6 +41,7 @@ pub use select::*;
 pub use slider::*;
 pub use text_input::*;
 pub use toggle_switch::*;
+pub use tree_view::*;
 pub use virtual_keyboard::*;
 
 use crate::alpha_pattern::AlphaPatternPlugin;
@@ -70,5 +72,6 @@ impl PluginGroup for ControlsPlugin {
             .add(SliderPlugin)
             .add(TextInputPlugin)
             .add(ToggleSwitchPlugin)
+            .add(TreeViewPlugin)
     }
 }

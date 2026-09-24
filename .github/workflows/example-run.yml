@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - name: Disable audio
         # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
         run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
@@ -85,7 +85,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' }}
     name: Compare Macos screenshots
     needs: [run-examples-macos-metal]
-    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    uses: $/.github/workflows/send-screenshots-to-pixeleagle.yml
     with:
       commit: ${{ github.sha }}
       branch: ${{ github.ref_name }}
@@ -103,7 +103,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         with:
@@ -122,7 +122,7 @@ jobs:
             sudo add-apt-repository ppa:kisak/turtle -y
             sudo apt-get install --no-install-recommends libgl1-mesa-dri mesa-vulkan-drivers
           fi
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
@@ -171,7 +171,7 @@ jobs:
   compare-linux-screenshots:
     name: Compare Linux screenshots
     needs: [run-examples-linux-vulkan]
-    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    uses: $/.github/workflows/send-screenshots-to-pixeleagle.yml
     with:
       commit: ${{ github.sha }}
       branch: ${{ github.ref_name }}
@@ -189,7 +189,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
@@ -239,7 +239,7 @@ jobs:
   compare-windows-screenshots:
     name: Compare Windows screenshots
     needs: [run-examples-on-windows-dx12]
-    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    uses: $/.github/workflows/send-screenshots-to-pixeleagle.yml
     with:
       commit: ${{ github.sha }}
       branch: ${{ github.ref_name }}

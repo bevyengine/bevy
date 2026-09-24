@@ -378,6 +378,7 @@ fn derive_system_param_impl(
     let state_struct_name = ensure_no_collision(format_ident!("FetchState"), token_stream);
 
     let mut builder_name = None;
+    let mut map_access_conflict = None;
     for meta in ast
         .attrs
         .iter()
@@ -387,11 +388,38 @@ fn derive_system_param_impl(
             if nested.path.is_ident("builder") {
                 builder_name = Some(format_ident!("{struct_name}Builder"));
                 Ok(())
+            } else if nested.path.is_ident("map_access_conflict") {
+                if nested.input.is_empty() {
+                    map_access_conflict = Some(quote! { Self::map_access_conflict });
+                    Ok(())
+                } else if nested.input.peek(syn::token::Paren) {
+                    map_access_conflict = Some(nested.input.parse()?);
+                    Ok(())
+                } else {
+                    Err(nested.error("Invalid `map_access_conflict` attribute"))
+                }
             } else {
                 Err(nested.error("Unsupported attribute"))
             }
         })?;
     }
+
+    let map_access_conflict = map_access_conflict.map_or_else(
+        || {
+            // If a type is `pub` and has no `pub` fields, then users will not know
+            // the inner types and we should hide them by default.
+            if matches!(ast.vis, syn::Visibility::Public { .. })
+                && !fields
+                    .iter()
+                    .any(|field| matches!(field.vis, syn::Visibility::Public { .. }))
+            {
+                quote! { .map_err(|err| #path::system::SystemParamAccessConflict::new::<Self>(err.access)) }
+            } else {
+                quote! {}
+            }
+        },
+        |map_access_conflict| quote! { .map_err(|err| #map_access_conflict (system_access, err) ) },
+    );
 
     let builder = builder_name.map(|builder_name| {
         let builder_type_parameters: Vec<Ident> = field_members.iter().map(|m| format_ident!("B{}", m)).collect();
@@ -456,8 +484,8 @@ fn derive_system_param_impl(
                     system_meta: &mut #path::system::SystemMeta,
                     system_access: &mut #path::system::SystemAccess,
                 ) -> Result<(), #path::system::SystemParamAccessConflict> {
-                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access)?;
-                    Ok(())
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access)
+                        #map_access_conflict
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
