@@ -297,6 +297,7 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(bevy_sprite::update_text2d_layout),
             widget::sync_editable_text_viewports
                 .after(UiSystems::Layout)
+                .after(UiSystems::Adjustment)
                 .before(EditableTextSystems),
             widget::update_editable_text_layout
                 .in_set(UiSystems::PostLayout)
