@@ -703,7 +703,7 @@ fn popover_boundary(
         target_rect
     } else {
         inherited_clip
-            .map(|clip| calculated_clip_to_world_rect(clip))
+            .map(calculated_clip_to_world_rect)
             .unwrap_or(Some(target_rect))
             .map(|clip| target_rect.intersect(scale_rect(clip, inverse_scale_factor)))
             .unwrap_or(Rect::from_corners(Vec2::ZERO, Vec2::ZERO))
