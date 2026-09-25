@@ -2,7 +2,8 @@ use crate::{
     prelude::GlobalTransform,
     systems::{
         mark_dirty_trees, propagate_parent_transforms, sync_simple_transforms,
-        StaticTransformOptimizations,
+        MarkDirtyTreesSharedState, PropagateParentTransformsSharedState,
+        StaticTransformOptimizations, SyncSimpleTransformsSharedState,
     },
 };
 use bevy_app::{App, Plugin, PostStartup, PostUpdate, ValidateParentHasComponentPlugin};
@@ -23,6 +24,9 @@ impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ValidateParentHasComponentPlugin::<GlobalTransform>::default())
             .init_resource::<StaticTransformOptimizations>()
+            .insert_resource(MarkDirtyTreesSharedState::new())
+            .insert_resource(PropagateParentTransformsSharedState::new())
+            .insert_resource(SyncSimpleTransformsSharedState::new())
             // add transform systems to startup so the first update is "correct"
             .add_systems(
                 PostStartup,
