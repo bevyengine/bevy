@@ -101,9 +101,8 @@ impl Plugin for TonemappingPlugin {
             .add_systems(RenderStartup, init_tonemapping_pipeline)
             .add_systems(
                 Render,
-                // `block_on_render_pipeline` mutates `PipelineCache`. Ignore
-                // ambiguities against other pipeline-cache users, like the upscaling
-                // system does.
+                // `block_on_render_pipeline` mutates `PipelineCache`, which conflicts
+                // with every other system that uses the cache. Their order doesn't matter.
                 prepare_view_tonemapping_pipelines
                     .in_set(RenderSystems::Prepare)
                     .ambiguous_with_all(),
@@ -416,9 +415,9 @@ pub fn prepare_view_tonemapping_pipelines(
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
-        // Without a ready pipeline the pass is skipped, and the upscaling blit writes the
-        // untonemapped main texture to the output. Block like the upscaling pipeline
-        // does. This returns at once when the pipeline is already compiled.
+        // Without a ready pipeline the pass is skipped, and the camera shows untonemapped
+        // output. Block until the pipeline compiles. This returns at once when it's
+        // already compiled.
         pipeline_cache.block_on_render_pipeline(pipeline);
 
         commands.entity(entity).insert(ViewTonemappingPipeline {

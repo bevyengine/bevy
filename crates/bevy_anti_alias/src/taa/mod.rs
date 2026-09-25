@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
-use bevy_camera::{Camera, Camera3d, TonemappingPass};
+use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
     schedule::{Core3d, Core3dSystems},
@@ -111,13 +111,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 /// 2. Render particles after TAA
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(
-    TemporalJitter,
-    MipBias,
-    DepthPrepass,
-    MotionVectorPrepass,
-    TonemappingPass
-)]
+#[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {
     /// Set to true to delete the saved temporal history (past frames).
@@ -456,9 +450,9 @@ fn prepare_taa_pipelines(
     for (entity, camera, view, taa_settings, tonemapping) in &cameras {
         let mut pipeline_key = TaaPipelineKey {
             target_format: view.target_format,
-            // `TONEMAP` makes TAA tonemap its input and invert that on its output, so it
-            // can blend values above 1.0. This is true exactly when the main texture is
-            // `Rgba16Float`, for `Hdr` cameras and cameras that run the tonemapping pass.
+            // TAA blends in tonemapped space because that gives better quality. `TONEMAP`
+            // tonemaps TAA's input and reverses it on the output. Cameras that tonemap in
+            // their material shaders give TAA values that are already tonemapped.
             tonemap: camera.hdr
                 || (tonemapping.is_some_and(Tonemapping::is_enabled) && !camera.tonemap_in_shader),
             reset: taa_settings.reset,

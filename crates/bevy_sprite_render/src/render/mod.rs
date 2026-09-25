@@ -166,7 +166,6 @@ impl SpritePipelineKey {
     }
 
     /// The `TONEMAP_METHOD_*` bits for a tonemapping method.
-    #[inline]
     const fn from_tonemapping(tonemapping: Tonemapping) -> Self {
         match tonemapping {
             Tonemapping::None | Tonemapping::Linear => Self::TONEMAP_METHOD_LINEAR,
