@@ -82,12 +82,22 @@ fn copysign(a: f32, b: f32) -> f32 {
 /// the construction of the orthonormal basis up and right vectors here needs to precisely match the rust
 /// implementation in bevy_light/spot_light.rs:spot_light_world_from_view
 fn orthonormalize(z_basis: vec3<f32>) -> mat3x3<f32> {
-    let sign = copysign(1.0, z_basis.z);
+    let sign = select(-1.0, 1.0, z_basis.z >= 0.0);
     let a = -1.0 / (sign + z_basis.z);
     let b = z_basis.x * z_basis.y * a;
     let x_basis = vec3(1.0 + sign * z_basis.x * z_basis.x * a, sign * b, -sign * z_basis.x);
     let y_basis = vec3(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
     return mat3x3(x_basis, y_basis, z_basis);
+}
+
+/// Like `orthonormalize`, but only returns the orthonormal y axis.
+fn orthonormal_y_axis(z_basis: vec3f) -> vec3f {
+    let sign = select(-1.0, 1.0, z_basis.z >= 0.0);
+    let a = -1.0 / (sign + z_basis.z);
+    let b = z_basis.x * z_basis.y * a;
+    // let x_basis = vec3f(1.0 + sign * z_basis.x * z_basis.x * a, sign * b, -sign * z_basis.x);
+    let y_basis = vec3f(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
+    return y_basis;
 }
 
 /// Rotates a direction by a rotation quaternion q.
