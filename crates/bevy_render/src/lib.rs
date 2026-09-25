@@ -267,8 +267,8 @@ impl GpuResourceAppExt for SubApp {
     }
 }
 
-/// The render entry schedule. This schedule runs the [`Render`] schedule if we are in
-/// [`RenderState::Ready`], and is otherwise hidden from users.
+/// The render entry schedule. This schedule runs the [`Render`] schedule if the
+/// renderer is ready, and is otherwise hidden from users.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct RenderEntryPoint;
 
