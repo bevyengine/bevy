@@ -25,10 +25,12 @@ pub struct ResolvedSceneRoot {
 impl ResolvedSceneRoot {
     /// Resolves the current `scene` (using [`Scene::resolve`]). This should only be called after every dependency has loaded from the `scene`'s
     /// [`Scene::register_dependencies`].
+    ///
+    /// If the scene contains no asset or patch dependencies, `assets` and `patches` may be `None`.
     pub fn resolve(
         scene: Box<dyn Scene>,
-        assets: &AssetServer,
-        patches: &Assets<ScenePatch>,
+        assets: Option<&AssetServer>,
+        patches: Option<&Assets<ScenePatch>>,
     ) -> Result<Self, ResolveSceneError> {
         let mut resolved_scene = ResolvedScene::default();
         scene.resolve_box(
@@ -92,10 +94,12 @@ pub struct ResolvedSceneListRoot {
 impl ResolvedSceneListRoot {
     /// Resolves the current `scene_list` (using [`SceneList::resolve_list`]). This should only be
     /// called after every dependency has loaded from the `scene_list`'s [`SceneList::register_dependencies`].
+    ///
+    /// If the scene list contains no asset or patch dependencies, `assets` and `patches` may be `None`.
     pub fn resolve(
         scene_list: Box<dyn SceneList>,
-        assets: &AssetServer,
-        patches: &Assets<ScenePatch>,
+        assets: Option<&AssetServer>,
+        patches: Option<&Assets<ScenePatch>>,
     ) -> Result<Self, ResolveSceneError> {
         let mut resolved_scenes = Vec::new();
         scene_list.resolve_list_box(
