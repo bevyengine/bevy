@@ -131,6 +131,7 @@ impl SystemMeta {
 /// allowing you to fetch data from the [`World`] as if you were running a [`System`].
 /// However, simply calling `world::run_system(my_system)` using a [`World::run_system`](World::run_system)
 /// can be significantly simpler and ensures that change detection and command flushing work as expected.
+/// Additionally, commands must automatically be applied through `[SystemState::apply]`.
 ///
 /// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
 /// and arbitrary system parameters (like [`MessageWriter`](crate::message::MessageWriter)) can be conveniently fetched.
@@ -179,8 +180,7 @@ impl SystemMeta {
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
 /// let (message_writer, maybe_resource, query) = system_state.get_mut(&mut world).unwrap();
 ///
-/// // If you are using `Commands`, you can choose when you want to apply them to the world.
-/// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
+/// // When using `Commands`, you must manually call `.apply(world)` on the `SystemState` to apply them.
 /// ```
 /// Caching:
 /// ```
