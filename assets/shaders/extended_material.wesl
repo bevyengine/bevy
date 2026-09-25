@@ -57,7 +57,7 @@ fn fragment(
     // we can optionally modify the lit color before post-processing is applied
     out.color = vec4<f32>(vec4<u32>(out.color * f32(my_extended_material.quantize_steps))) / f32(my_extended_material.quantize_steps);
 
-    // apply in-shader post processing (fog, alpha-premultiply, and also tonemapping, debanding if the camera is non-hdr)
+    // apply in-shader post processing (fog, alpha-premultiply, plus tonemapping and debanding when TONEMAP_IN_SHADER is set)
     // note this does not include fullscreen postprocessing effects like bloom.
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);
 
