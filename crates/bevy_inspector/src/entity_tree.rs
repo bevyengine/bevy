@@ -39,8 +39,8 @@ use bevy_ui_widgets::{
 
 use crate::InspectorSelection;
 
-/// Marker for entities spawned by the inspector. Entities carrying it, and their descendants, are
-/// hidden from the entity tree.
+/// Marker for entities spawned by the inspector. An `InspectorUi` entity's descendants are hidden
+/// from the entity tree, but the marked entity itself still shows as a single, non-expandable row.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct InspectorUi;
@@ -206,6 +206,14 @@ struct RowSpawn {
     expandable: bool,
 }
 
+/// The set of changes a single synchronization pass needs to apply.
+///
+/// [`plan_sync`] reads the world without mutating it, diffing the root container against the
+/// current root entities and each populated row's children container against that row's entity's
+/// current children (see [`diff_container`]). Rows that were never expanded, and so have no
+/// children container, are not diffed. The result records which rows to despawn, which to spawn,
+/// which labels to update and which `expandable` flags to flip. [`apply_sync`] then applies those
+/// changes in that order and rebuilds [`TreeRowIndex`].
 #[derive(Default)]
 struct SyncPlan {
     despawn: Vec<Entity>,
@@ -214,6 +222,7 @@ struct SyncPlan {
     expandable: Vec<(Entity, bool)>,
 }
 
+/// Builds the [`SyncPlan`] for one synchronization pass.
 fn plan_sync(world: &World) -> SyncPlan {
     let mut plan = SyncPlan::default();
     let mut tree_view = None;
@@ -257,6 +266,7 @@ fn plan_sync(world: &World) -> SyncPlan {
     plan
 }
 
+/// Diffs one container's rows against `expected`, recording the changes into `plan`. See [`SyncPlan`].
 fn diff_container(world: &World, container: Entity, expected: &[Entity], plan: &mut SyncPlan) {
     let mut existing: HashMap<Entity, Entity> = HashMap::new();
     if let Some(children) = world.get::<Children>(container) {
@@ -375,8 +385,7 @@ fn is_excluded(world: &World, entity: Entity) -> bool {
     let Ok(entity_ref) = world.get_entity(entity) else {
         return true;
     };
-    if entity_ref.contains::<InspectorUi>()
-        || entity_ref.contains::<IsResource>()
+    if entity_ref.contains::<IsResource>()
         || entity_ref.contains::<SystemIdMarker>()
         || entity_ref.contains::<Observer>()
     {
@@ -492,21 +501,37 @@ mod tests {
     }
 
     #[test]
-    fn excludes_inspector_ui_and_its_descendants() {
+    fn excludes_inspector_ui_descendants_but_shows_the_root() {
         let mut world = World::new();
         let panel = world.spawn(InspectorUi).id();
         let inner = world.spawn(ChildOf(panel)).id();
         let subject = world.spawn_empty().id();
 
-        assert!(is_excluded(&world, panel));
+        assert!(!is_excluded(&world, panel));
         assert!(is_excluded(&world, inner));
         assert!(!is_excluded(&world, subject));
     }
 
     #[test]
+    fn nested_inspector_ui_entities_stay_hidden() {
+        let mut world = World::new();
+        let panel = world.spawn(InspectorUi).id();
+        let nested = world.spawn((InspectorUi, ChildOf(panel))).id();
+        let nested_inner = world.spawn(ChildOf(nested)).id();
+
+        assert!(!is_excluded(&world, panel));
+        assert!(is_excluded(&world, nested));
+        assert!(is_excluded(&world, nested_inner));
+    }
+
+    #[test]
     fn syncs_root_rows_with_the_world() {
         let mut app = test_app();
-        let tree = app.world_mut().spawn((InspectorUi, InspectorTreeView)).id();
+        let panel = app.world_mut().spawn(InspectorUi).id();
+        let tree = app
+            .world_mut()
+            .spawn((InspectorTreeView, ChildOf(panel)))
+            .id();
         let parent = app.world_mut().spawn(Name::new("Parent")).id();
         app.world_mut().spawn((Name::new("Child"), ChildOf(parent)));
         let sibling = app.world_mut().spawn(Name::new("Sibling")).id();
@@ -514,10 +539,13 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), tree);
-        assert_eq!(sources.len(), 2);
+        assert_eq!(sources.len(), 3);
+        assert!(sources.contains(&panel));
         assert!(sources.contains(&parent));
         assert!(sources.contains(&sibling));
 
+        let panel_row = app.world().resource::<TreeRowIndex>().row(panel).unwrap();
+        assert!(!app.world().get::<TreeItem>(panel_row).unwrap().expandable);
         let parent_row = app.world().resource::<TreeRowIndex>().row(parent).unwrap();
         assert!(app.world().get::<TreeItem>(parent_row).unwrap().expandable);
         let sibling_row = app.world().resource::<TreeRowIndex>().row(sibling).unwrap();
@@ -528,7 +556,9 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), tree);
-        assert_eq!(sources, [parent]);
+        assert_eq!(sources.len(), 2);
+        assert!(sources.contains(&panel));
+        assert!(sources.contains(&parent));
         assert!(app
             .world()
             .resource::<TreeRowIndex>()

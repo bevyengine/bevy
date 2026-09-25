@@ -15,10 +15,7 @@ use bevy_dev_tools::inspection::label_resolution::LabelResolutionPlugin;
 use bevy_ecs::{entity::Entity, reflect::ReflectResource, resource::Resource};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 
-use crate::entity_tree::{
-    sync_entity_tree, EntityTreeSync, InspectorRow, InspectorRowLabel, InspectorTreeView,
-    InspectorUi, TreeRowIndex,
-};
+use crate::entity_tree::{sync_entity_tree, EntityTreeSync, TreeRowIndex};
 
 /// Where the inspector reads its data from.
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
@@ -50,12 +47,6 @@ impl Plugin for InspectorPlugin {
             .init_resource::<InspectorSelection>()
             .init_resource::<TreeRowIndex>()
             .init_resource::<EntityTreeSync>()
-            .register_type::<InspectorSource>()
-            .register_type::<InspectorSelection>()
-            .register_type::<InspectorUi>()
-            .register_type::<InspectorTreeView>()
-            .register_type::<InspectorRow>()
-            .register_type::<InspectorRowLabel>()
             .add_systems(Update, sync_entity_tree);
     }
 }
