@@ -61,17 +61,21 @@ impl<'a, M: Message> MessageIteratorWithId<'a, M> {
         let a = messages.messages_a.get(a_index..).unwrap_or_default();
         let b = messages.messages_b.get(b_index..).unwrap_or_default();
 
-        let unread_count = a.len() + b.len();
+        let unread_positional = a.len() + b.len();
         // Ensure `len` is implemented correctly
-        debug_assert_eq!(unread_count, reader.len(messages));
-        reader.last_message_count = messages.message_count - unread_count;
+        debug_assert_eq!(unread_positional, reader.len(messages));
+        reader.last_message_count = messages.message_count - unread_positional;
+
+        let unread_live =
+            a.iter().filter(|i| !i.deleted).count() + b.iter().filter(|i| !i.deleted).count();
+
         // Iterate the oldest first, then the newer messages
         let chain = a.iter().chain(b.iter());
 
         Self {
             reader,
             chain,
-            unread: unread_count,
+            unread: unread_live,
         }
     }
 
@@ -84,57 +88,21 @@ impl<'a, M: Message> MessageIteratorWithId<'a, M> {
 impl<'a, M: Message> Iterator for MessageIteratorWithId<'a, M> {
     type Item = (&'a M, MessageId<M>);
     fn next(&mut self) -> Option<Self::Item> {
-        match self
-            .chain
-            .next()
-            .map(|instance| (&instance.message, instance.message_id))
-        {
-            Some(item) => {
-                #[cfg(feature = "detailed_trace")]
-                tracing::trace!("MessageReader::iter() -> {}", item.1);
-                self.reader.last_message_count += 1;
-                self.unread -= 1;
-                Some(item)
+        loop {
+            let instance = self.chain.next()?;
+            self.reader.last_message_count += 1;
+            if instance.deleted {
+                continue;
             }
-            None => None,
+            self.unread -= 1;
+            #[cfg(feature = "detailed_trace")]
+            tracing::trace!("MessageReader::iter() -> {}", instance.message_id);
+            return Some((&instance.message, instance.message_id));
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.chain.size_hint()
-    }
-
-    fn count(self) -> usize {
-        self.reader.last_message_count += self.unread;
-        self.unread
-    }
-
-    fn last(self) -> Option<Self::Item>
-    where
-        Self: Sized,
-    {
-        let MessageInstance {
-            message_id,
-            message,
-        } = self.chain.last()?;
-        self.reader.last_message_count += self.unread;
-        Some((message, *message_id))
-    }
-
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        if let Some(MessageInstance {
-            message_id,
-            message,
-        }) = self.chain.nth(n)
-        {
-            self.reader.last_message_count += n + 1;
-            self.unread -= n + 1;
-            Some((message, *message_id))
-        } else {
-            self.reader.last_message_count += self.unread;
-            self.unread = 0;
-            None
-        }
+        (self.unread, Some(self.unread))
     }
 }
 
@@ -243,6 +211,9 @@ impl<'a, M: Message> MessageParIter<'a, M> {
                     let func = func.clone();
                     scope.spawn(async move {
                         for message_instance in batch {
+                            if message_instance.deleted {
+                                continue;
+                            }
                             func(&message_instance.message, message_instance.message_id);
                         }
                     });
@@ -277,7 +248,8 @@ impl<'a, M: Message> IntoIterator for MessageParIter<'a, M> {
             slices: [a, b],
             ..
         } = self;
-        let unread = a.len() + b.len();
+        let unread =
+            a.iter().filter(|i| !i.deleted).count() + b.iter().filter(|i| !i.deleted).count();
         let chain = a.iter().chain(b);
         MessageIteratorWithId {
             reader,
