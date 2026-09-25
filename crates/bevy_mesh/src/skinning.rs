@@ -16,6 +16,7 @@ use thiserror::Error;
 pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     #[entities]
+    #[template(built_in)]
     pub joints: Vec<Entity>,
 }
 
@@ -722,5 +723,17 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_template() {
+        use bevy_ecs::template::EntityTemplate;
+        // This exists mostly as a build test to make sure SkinnedMeshTemplate works with
+        // EntityTemplate.
+        let mut template = SkinnedMeshTemplate::default();
+        template
+            .joints
+            .0
+            .push(EntityTemplate::from_reference(("some file", 0, 0), 0, 0));
     }
 }
