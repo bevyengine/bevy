@@ -421,14 +421,10 @@ pub fn prepare_view_tonemapping_pipelines(
         // does. This returns at once when the pipeline is already compiled.
         pipeline_cache.block_on_render_pipeline(pipeline);
 
-        // The key determines the pipeline id, so an unchanged id means an
-        // unchanged component.
-        if existing_pipeline.is_none_or(|existing| existing.pipeline_id != pipeline) {
-            commands.entity(entity).insert(ViewTonemappingPipeline {
-                pipeline_id: pipeline,
-                method,
-            });
-        }
+        commands.entity(entity).insert(ViewTonemappingPipeline {
+            pipeline_id: pipeline,
+            method,
+        });
     }
 }
 
