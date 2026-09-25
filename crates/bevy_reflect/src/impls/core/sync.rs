@@ -1,3 +1,4 @@
+#[cfg(target_has_atomic = "8")]
 use crate::{
     error::ReflectCloneError,
     info::{OpaqueInfo, TypeInfo, Typed},
@@ -8,10 +9,14 @@ use crate::{
     type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::NonGenericTypeInfoCell,
 };
+#[cfg(target_has_atomic = "8")]
 use bevy_platform::prelude::*;
+#[cfg(target_has_atomic = "8")]
 use bevy_reflect_derive::impl_type_path;
+#[cfg(target_has_atomic = "8")]
 use core::fmt;
 
+#[cfg(target_has_atomic = "8")]
 macro_rules! impl_reflect_for_atomic {
     ($ty:ty, $ordering:expr) => {
         impl_type_path!($ty);
@@ -131,10 +136,12 @@ macro_rules! impl_reflect_for_atomic {
     };
 }
 
+#[cfg(target_has_atomic = "ptr")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicIsize,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "ptr")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicUsize,
     ::core::sync::atomic::Ordering::SeqCst
@@ -149,30 +156,37 @@ impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicU64,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "32")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicI32,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "32")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicU32,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "16")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicI16,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "16")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicU16,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "8")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicI8,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "8")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicU8,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "8")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicBool,
     ::core::sync::atomic::Ordering::SeqCst
