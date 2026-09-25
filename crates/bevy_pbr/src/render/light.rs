@@ -48,8 +48,8 @@ use bevy_render::occlusion_culling::{
 };
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity};
 use bevy_render::view::{
-    RenderExtractedShadowMapVisibleEntities, RenderShadowLodOrigin, RenderShadowMapVisibleEntities,
-    RenderVisibleEntities, VisibilityExtractionSystemParam,
+    ExtractedRenderLayersMeta, RenderExtractedShadowMapVisibleEntities, RenderShadowLodOrigin,
+    RenderShadowMapVisibleEntities, RenderVisibleEntities, VisibilityExtractionSystemParam,
 };
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -948,6 +948,37 @@ pub fn extract_lights(
             RenderExtractedShadowMapVisibleEntities,
             RenderShadowMapVisibleEntities,
         )>();
+    }
+}
+
+pub fn extract_lights_render_layers_meta(
+    mut commands: Commands,
+    all_light_query: Extract<
+        Query<
+            (RenderEntity, Ref<RenderLayers>),
+            Or<(
+                With<PointLight>,
+                With<SpotLight>,
+                With<DirectionalLight>,
+                With<RectLight>,
+            )>,
+        >,
+    >,
+    mut extracted_render_layer_meta_query: Query<&mut ExtractedRenderLayersMeta>,
+) {
+    for (render_entity, render_layers) in all_light_query.iter() {
+        match extracted_render_layer_meta_query.get_mut(render_entity) {
+            Ok(mut meta) => {
+                meta.changed = render_layers.is_changed();
+            }
+            Err(_) => {
+                commands
+                    .entity(render_entity)
+                    .insert(ExtractedRenderLayersMeta {
+                        changed: render_layers.is_changed(),
+                    });
+            }
+        }
     }
 }
 
