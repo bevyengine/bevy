@@ -4,7 +4,7 @@
 )]
 
 use alloc::sync::Arc;
-use bevy_ecs::prelude::Component;
+use bevy_ecs::prelude::{Component, Resource};
 use bevy_platform::sync::Mutex;
 use core::{any::Any, marker::PhantomData, ops::Deref};
 use raw_window_handle::{
@@ -127,6 +127,48 @@ impl RawHandleWrapper {
 unsafe impl Send for RawHandleWrapper {}
 // SAFETY: This is safe for the same reasons as the Send impl above.
 unsafe impl Sync for RawHandleWrapper {}
+
+/// A wrapper around a [`RawDisplayHandle`] that can safely be passed between threads.
+///
+/// This is used to provide the display handle to the renderer independently of
+/// any particular window.
+#[derive(Debug, Clone, Resource)]
+pub struct RawDisplayHandleWrapper {
+    display_handle: RawDisplayHandle,
+}
+
+impl RawDisplayHandleWrapper {
+    /// Creates a [`RawDisplayHandleWrapper`] from a type implementing
+    /// [`HasDisplayHandle`].
+    pub fn new<W: HasDisplayHandle + 'static>(display: &W) -> Result<Self, HandleError> {
+        Ok(Self {
+            display_handle: display.display_handle()?.as_raw(),
+        })
+    }
+
+    /// Gets the stored display handle.
+    pub fn get_display_handle(&self) -> RawDisplayHandle {
+        self.display_handle
+    }
+}
+
+// SAFETY: `RawDisplayHandleWrapper` is only exposed through an immutable,
+// safe `HasDisplayHandle` implementation. The raw handle itself is copied
+// and the caller is responsible for ensuring platform-specific usage rules.
+unsafe impl Send for RawDisplayHandleWrapper {}
+
+// SAFETY: `RawDisplayHandleWrapper` is only exposed through an immutable,
+// safe `HasDisplayHandle` implementation. The raw handle itself is copied
+// and the caller is responsible for ensuring platform-specific usage rules.
+unsafe impl Sync for RawDisplayHandleWrapper {}
+
+impl HasDisplayHandle for RawDisplayHandleWrapper {
+    fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
+        // SAFETY: The handle was obtained from a valid `HasDisplayHandle`
+        // implementation when this wrapper was constructed.
+        Ok(unsafe { DisplayHandle::borrow_raw(self.display_handle) })
+    }
+}
 
 /// A [`RawHandleWrapper`] that cannot be sent across threads.
 ///
