@@ -18,15 +18,16 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.20.0-dev" }
 
 # other
-rodio = { version = "0.22", default-features = false, features = [
+rodio = { version = "0.22", git = "https://github.com/RustAudio/rodio", rev = "c5f1e94290922fe4ee963ce6f85754ea6ba36243", default-features = false, features = [
   "playback",
+  "realtime",
   "tracing",
 ] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
-rodio = { version = "0.22", default-features = false, features = [
+rodio = { version = "0.22", git = "https://github.com/RustAudio/rodio", rev = "c5f1e94290922fe4ee963ce6f85754ea6ba36243", default-features = false, features = [
   "wasm-bindgen",
   "playback",
 ] }
