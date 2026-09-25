@@ -56,6 +56,7 @@ fn calculate_environment_map_lod(pdf: f32, width: f32, samples: f32) -> f32 {
 @workgroup_size(8, 8, 1)
 fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     let size = textureDimensions(output_texture).xy;
+    let source_width = f32(textureDimensions(input_texture, 0).x);
     let invSize = 1.0 / vec2f(size);
 
     let coords = vec2u(global_id.xy);
@@ -117,8 +118,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
 
             // Calculate LOD using filtered importance sampling
             // This is crucial to avoid fireflies and improve quality
-            let width = f32(size.x);
-            let lod = calculate_environment_map_lod(pdf, width, f32(sample_count));
+            let lod = calculate_environment_map_lod(pdf, source_width, f32(sample_count));
 
             // Get source mip level - ensure we don't go negative
             let source_mip = max(0.0, lod);
