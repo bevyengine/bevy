@@ -45,9 +45,9 @@ pub struct BrpInspectParams {
     /// The entity to inspect.
     pub entity: Entity,
 
-    /// The settings used for the inspection, defaulted when omitted.
+    /// The settings used for the inspection.
     #[serde(default)]
-    pub settings: Option<EntityInspectionSettings>,
+    pub settings: EntityInspectionSettings,
 }
 
 /// The parameters of a `world.inspect_component` request.
@@ -59,9 +59,9 @@ pub struct BrpInspectComponentParams {
     /// The fully-qualified type name of the component to inspect.
     pub component: String,
 
-    /// The settings used for the inspection, defaulted when omitted.
+    /// The settings used for the inspection.
     #[serde(default)]
-    pub settings: Option<ComponentInspectionSettings>,
+    pub settings: ComponentInspectionSettings,
 }
 
 /// The parameters of a `world.inspect_component_type` request.
@@ -77,32 +77,34 @@ pub struct BrpInspectResourceParams {
     /// The fully-qualified type name of the resource to inspect.
     pub resource: String,
 
-    /// The settings used for the inspection, defaulted when omitted.
+    /// The settings used for the inspection.
     #[serde(default)]
-    pub settings: Option<ResourceInspectionSettings>,
+    pub settings: ResourceInspectionSettings,
 }
 
 /// The parameters of a `world.inspect_all_resources` request.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct BrpInspectAllResourcesParams {
-    /// The settings used for the inspections, defaulted when omitted.
+    /// The settings used for the inspections.
     #[serde(default)]
-    pub settings: Option<ResourceInspectionSettings>,
+    pub settings: ResourceInspectionSettings,
 }
 
 /// The parameters of a `world.summarize` request.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct BrpSummarizeParams {
-    /// The settings used for the summary, defaulted when omitted.
+    /// The settings used for the summary.
     #[serde(default)]
-    pub settings: Option<SummarySettings>,
+    pub settings: SummarySettings,
 }
 
 /// Handles a `world.inspect` request coming from a client.
 pub fn process_remote_inspect_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
-    let BrpInspectParams { entity, settings } = parse_some(params)?;
+    let BrpInspectParams {
+        entity,
+        mut settings,
+    } = parse_some(params)?;
 
-    let mut settings = settings.unwrap_or_default();
     settings.component_settings.include_serialized_value = true;
 
     match world.inspect(entity, settings) {
@@ -119,10 +121,9 @@ pub fn process_remote_inspect_component_request(
     let BrpInspectComponentParams {
         entity,
         component,
-        settings,
+        mut settings,
     } = parse_some(params)?;
 
-    let mut settings = settings.unwrap_or_default();
     settings.include_serialized_value = true;
 
     let metadata_map = ComponentMetadataMap::generate(world);
@@ -160,9 +161,11 @@ pub fn process_remote_inspect_resource_request(
     In(params): In<Option<Value>>,
     world: &World,
 ) -> BrpResult {
-    let BrpInspectResourceParams { resource, settings } = parse_some(params)?;
+    let BrpInspectResourceParams {
+        resource,
+        mut settings,
+    } = parse_some(params)?;
 
-    let mut settings = settings.unwrap_or_default();
     settings.include_serialized_value = true;
 
     let metadata_map = ComponentMetadataMap::generate(world);
@@ -181,9 +184,8 @@ pub fn process_remote_inspect_all_resources_request(
     In(params): In<Option<Value>>,
     world: &World,
 ) -> BrpResult {
-    let BrpInspectAllResourcesParams { settings } = parse_optional(params)?;
+    let BrpInspectAllResourcesParams { mut settings } = parse_optional(params)?;
 
-    let mut settings = settings.unwrap_or_default();
     settings.include_serialized_value = true;
 
     serde_json::to_value(world.inspect_all_resources(settings)).map_err(BrpError::internal)
@@ -193,7 +195,7 @@ pub fn process_remote_inspect_all_resources_request(
 pub fn process_remote_summarize_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let BrpSummarizeParams { settings } = parse_optional(params)?;
 
-    serde_json::to_value(world.summarize(settings.unwrap_or_default())).map_err(BrpError::internal)
+    serde_json::to_value(world.summarize(settings)).map_err(BrpError::internal)
 }
 
 /// Handles a `registry.component_metadata` request coming from a client.
@@ -314,6 +316,33 @@ mod tests {
             .find(|component| component["name"] == json!(health_type_path()))
             .expect("the `Health` component should be inspected");
         assert_eq!(health["serialized_value"], json!(7));
+    }
+
+    #[test]
+    fn inspect_with_partial_settings_omits_components() {
+        let mut world = test_world();
+        let entity = world.spawn((Name::new("Player"), Health(7))).id();
+
+        let result = process_remote_inspect_request(
+            In(Some(
+                json!({ "entity": entity, "settings": { "include_components": false } }),
+            )),
+            &world,
+        )
+        .expect("the entity should be inspectable");
+
+        assert_eq!(result["components"], Value::Null);
+    }
+
+    #[test]
+    fn inspect_without_settings_uses_defaults() {
+        let mut world = test_world();
+        let entity = world.spawn((Name::new("Player"), Health(7))).id();
+
+        let result = process_remote_inspect_request(In(Some(json!({ "entity": entity }))), &world)
+            .expect("the entity should be inspectable");
+
+        assert!(result["components"].as_array().is_some());
     }
 
     #[test]

@@ -10,6 +10,7 @@ use core::{cmp::Reverse, fmt};
 /// Settings for [`WorldSummary`].
 #[derive(Clone, Debug, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default))]
 pub struct SummarySettings {
     /// Whether to use component names for formatting archetype signatures.
     pub include_component_names: bool,
