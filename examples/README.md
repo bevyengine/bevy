@@ -607,6 +607,7 @@ Example | Description
 [Feathers Counter](../examples/ui/widgets/feathers_counter.rs) | Simple counter using feathers
 [Feathers Number Input](../examples/ui/widgets/feathers_number_input.rs) | Feathers Number Input Options
 [Feathers Widgets](../examples/ui/widgets/feathers_gallery.rs) | Gallery of Feathers Widgets
+[Feathers Popover](../examples/ui/widgets/feathers_popover.rs) | Demonstrates popover arrow placement and scrolling
 [Fixed Node](../examples/ui/layout/fixed_node.rs) | Demonstrates how to use FixedNode to lay out a UI node as a root node
 [Flex Layout](../examples/ui/layout/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/text/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
