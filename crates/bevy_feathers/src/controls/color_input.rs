@@ -35,7 +35,7 @@ use bevy_ui::{
 };
 use bevy_ui_widgets::{
     popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-    Activate, ActivateOnPress, SliderValue, ValueChange,
+    Activate, ActivateOnPress, NumericRange, NumericValue, SliderValue, ValueChange,
 };
 
 use crate::{
@@ -45,8 +45,8 @@ use crate::{
         ColorSwatchValue, ColorWheelValue, FeathersButton, FeathersColorPlane, FeathersColorSlider,
         FeathersColorSwatch, FeathersColorSwatchGrid, FeathersColorWheel, FeathersLazyMenu,
         FeathersMenuPopup, FeathersMenuToolButton, FeathersNumberInput, FeathersTextInput,
-        FeathersTextInputContainer, HardLimit, NumberInputPrecision, NumberInputRange,
-        NumberInputStep, NumberInputValue, SliderBaseColor,
+        FeathersTextInputContainer, HardLimit, NumberInputPrecision, NumberInputStep,
+        SliderBaseColor,
     },
     display::{caption, label},
     font_styles::InheritableFont,
@@ -529,8 +529,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #r_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=255.0))
                 NumberInputPrecision(1)
                 NumberInputStep(20.0)
                 NumberInputChannel(ColorChannel::Red)
@@ -548,8 +548,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #g_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=255.0))
                 NumberInputPrecision(1)
                 NumberInputStep(20.0)
                 NumberInputChannel(ColorChannel::Green)
@@ -567,8 +567,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #b_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=255.0))
                 NumberInputPrecision(1)
                 NumberInputStep(20.0)
                 NumberInputChannel(ColorChannel::Blue)
@@ -601,8 +601,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #h_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=360.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=360.0))
                 NumberInputPrecision(1)
                 NumberInputStep(30.0)
                 NumberInputChannel(ColorChannel::HslHue)
@@ -623,8 +623,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #s_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=100.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=100.0))
                 NumberInputPrecision(1)
                 NumberInputStep(10.0)
                 NumberInputChannel(ColorChannel::HslSaturation)
@@ -645,8 +645,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #l_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=100.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=100.0))
                 NumberInputPrecision(1)
                 NumberInputStep(10.0)
                 NumberInputChannel(ColorChannel::HslLightness)
@@ -681,8 +681,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #a_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=255.0))
                 NumberInputPrecision(1)
                 NumberInputStep(10.0)
                 NumberInputChannel(ColorChannel::Alpha)
@@ -1248,8 +1248,8 @@ fn update_controls(
 
     // Round to nearest tenth, so that the string of digits
     // won't be too long to display in the limited space.
-    fn scaled_number_input_value(channel: ColorChannel, native: f32) -> NumberInputValue {
-        NumberInputValue::F32((native * display_scale(channel) * 10.0).round() / 10.0)
+    fn scaled_number_input_value(channel: ColorChannel, native: f32) -> NumericValue {
+        NumericValue::F32((native * display_scale(channel) * 10.0).round() / 10.0)
     }
 
     commands

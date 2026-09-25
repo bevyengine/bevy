@@ -1194,7 +1194,7 @@ pub mod common_conditions {
     /// ```
     ///
     /// Alternatively, when using this with the [`not`] condition you may instead use
-    /// [`SkipIfAny<With<C: Component>>`](crate::prelude::SkipIfAny) to enforce the the
+    /// [`SkipIfAny<With<C: Component>>`](crate::prelude::SkipIfAny) to enforce the
     /// absence of a component at the system level
     pub fn any_with_component<T: Component>(query: Query<(), With<T>>) -> bool {
         !query.is_empty()

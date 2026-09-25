@@ -19,10 +19,10 @@
 //! - [`Lcha`] (lightness, chroma, hue, alpha)
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
 //! - [`Oklcha`] (lightness, chroma, hue, alpha)
-//! - [`Xyza`] (x-axis, y-axis, z-axis, alpha)
 //! - [`Okhsla`] (hue, saturation, lightness, alpha)
 //! - [`Okhsva`] (hue, saturation, value, alpha)
 //! - [`Okhwba`] (hue, whiteness, blackness, alpha)
+//! - [`Xyza`] (x-axis, y-axis, z-axis, alpha)
 //!
 //! Each of these color spaces is represented as a distinct Rust type.
 //!
@@ -55,6 +55,10 @@
 //! as image processing. They are not as widely used as the other color spaces, but are useful
 //! for tasks such as color correction and image analysis, where it is important to be able
 //! to do things like change color saturation without causing hue shifts.
+//!
+//! Okhsl, Okhsv and Okhwb are perceptually near-uniform color spaces that have a gamut matching
+//! that of standard RGB, making them convenient spaces for color picking. They can also be useful
+//! for creating perceptually uniform gradients or color palettes, like LCH but more user-friendly.
 //!
 //! XYZ is a foundational space commonly used in the definition of other more modern color
 //! spaces. The space is more formally known as CIE 1931, where the `x` and `z` axes represent

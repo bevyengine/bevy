@@ -31,7 +31,10 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::Resource,
     schedule::ScheduleLabel,
-    system::{BoxedSystem, Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput},
+    system::{
+        BoxedSystem, Deferred, IntoSystem, RegisteredSystem, SystemAccess, SystemId, SystemInput,
+        SystemParamAccessConflict,
+    },
     world::{CommandQueue, EntityWorldMut, FromWorld, World},
 };
 
@@ -99,6 +102,7 @@ use crate::{
 ///
 /// [`ApplyDeferred`]: crate::schedule::ApplyDeferred
 #[derive(SystemParam)]
+#[system_param(map_access_conflict)]
 pub struct Commands<'w, 's> {
     /// The command queue that commands will be pushed to.
     ///
@@ -116,6 +120,17 @@ unsafe impl Send for Commands<'_, '_> {}
 unsafe impl Sync for Commands<'_, '_> {}
 
 impl<'w, 's> Commands<'w, 's> {
+    /// Modifies the [`SystemParamAccessConflict`] returned by [`SystemParam::init_access`](crate::system::SystemParam::init_access).
+    fn map_access_conflict(
+        access: &SystemAccess,
+        err: SystemParamAccessConflict,
+    ) -> SystemParamAccessConflict {
+        SystemParamAccessConflict::new::<Self>(err.access).with_suggestion_if_exclusive(
+            access,
+            "Modifying the `World` directly without using `Commands`",
+        )
+    }
+
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
         Self::new_from_entities(queue, &world.entity_allocator, &world.entities)

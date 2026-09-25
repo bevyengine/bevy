@@ -63,7 +63,7 @@ pub struct SelectedTreeItem(#[template(built_in)] pub Option<Entity>);
 
 /// A headless tree row. Rows are focusable through a roving [`TabIndex`], and derive [`Selected`]
 /// from the containing tree's valid [`SelectedTreeItem`] value and [`Expandable`] from
-/// `has_children`. A row is expanded while it holds the [`Expanded`] marker.
+/// `expandable`. A row is expanded while it holds the [`Expanded`] marker.
 #[derive(Component, Debug, Default, Clone, Copy, PartialEq, Reflect)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::TreeItem)),
@@ -72,8 +72,8 @@ pub struct SelectedTreeItem(#[template(built_in)] pub Option<Entity>);
 )]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct TreeItem {
-    /// Whether this row can be expanded. Rows without children never expand.
-    pub has_children: bool,
+    /// Whether this row can be expanded. Child rows may be populated after the first expansion.
+    pub expandable: bool,
     /// Nesting depth of this row, where top-level rows are zero. Derived in `PostUpdate`.
     pub level: u32,
 }
@@ -329,7 +329,7 @@ fn tree_view_on_click(
 
     click.propagate(false);
     if toggle {
-        if item.has_children {
+        if item.expandable {
             commands.trigger(TreeItemExpandChange {
                 tree: click.entity,
                 item: row,
@@ -402,7 +402,7 @@ fn tree_item_on_key_input(
             commands.trigger(TreeItemActivate { tree, item: row });
             return;
         }
-        Navigation::In if item.has_children && !expanded => {
+        Navigation::In if item.expandable && !expanded => {
             commands.trigger(TreeItemExpandChange {
                 tree,
                 item: row,
@@ -410,7 +410,7 @@ fn tree_item_on_key_input(
             });
             return;
         }
-        Navigation::Out if item.has_children && expanded => {
+        Navigation::Out if item.expandable && expanded => {
             commands.trigger(TreeItemExpandChange {
                 tree,
                 item: row,
@@ -562,7 +562,7 @@ fn update_visible_rows(
 }
 
 /// Derives [`Selected`], [`Expandable`] and the roving [`TabIndex`] from each tree's validated
-/// [`SelectedTreeItem`], row `has_children` and the current focus, in `PostUpdate`, only when
+/// [`SelectedTreeItem`], row `expandable` and the current focus, in `PostUpdate`, only when
 /// relevant state changed.
 fn update_tree_view_derived_state(
     trees: Query<(
@@ -649,9 +649,9 @@ fn update_tree_view_derived_state(
             let Ok((item, is_selected, is_expandable, tab_index)) = row_state.get(row) else {
                 continue;
             };
-            if item.has_children && !is_expandable {
+            if item.expandable && !is_expandable {
                 commands.entity(row).insert(Expandable);
-            } else if !item.has_children && is_expandable {
+            } else if !item.expandable && is_expandable {
                 commands
                     .entity(row)
                     .remove::<Expanded>()
@@ -797,7 +797,7 @@ mod tests {
             .id();
         let mut parent_entity = app.world_mut().spawn((
             TreeItem {
-                has_children: true,
+                expandable: true,
                 level: 0,
             },
             ChildOf(tree),
@@ -1286,7 +1286,7 @@ mod tests {
             .world_mut()
             .spawn((
                 TreeItem {
-                    has_children: true,
+                    expandable: true,
                     level: 0,
                 },
                 Expanded,
@@ -1328,7 +1328,7 @@ mod tests {
             .world_mut()
             .spawn((
                 TreeItem {
-                    has_children: true,
+                    expandable: true,
                     level: 0,
                 },
                 Expanded,
@@ -1353,7 +1353,7 @@ mod tests {
             .world_mut()
             .spawn((
                 TreeItem {
-                    has_children: true,
+                    expandable: true,
                     level: 0,
                 },
                 ChildOf(tree),
@@ -1382,7 +1382,7 @@ mod tests {
     }
 
     #[test]
-    fn expandable_is_derived_from_has_children() {
+    fn expandable_is_derived_from_field() {
         let (mut app, window) = tree_app();
         let fixture = spawn_tree(&mut app, window, true);
 
@@ -1390,7 +1390,7 @@ mod tests {
         assert!(!app.world().entity(fixture.first).contains::<Expandable>());
 
         app.world_mut().entity_mut(fixture.parent).insert(TreeItem {
-            has_children: false,
+            expandable: false,
             level: 0,
         });
         app.update();
@@ -1411,7 +1411,7 @@ mod tests {
             .world_mut()
             .spawn((
                 TreeItem {
-                    has_children: true,
+                    expandable: true,
                     level: 0,
                 },
                 Expanded,

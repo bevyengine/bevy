@@ -46,7 +46,7 @@ use bevy_ui::{
     JustifyContent, LinearGradient, Node, PositionType, UiGlobalTransform, UiRect, UiScale,
     UiTransform,
 };
-use bevy_ui_widgets::ValueChange;
+use bevy_ui_widgets::{NumericFormat, NumericRange, NumericValue, ValueChange};
 use smol_str::SmolStr;
 
 use crate::{
@@ -70,8 +70,8 @@ const BASE_DRAG_SPEED: f64 = 0.01f64;
 /// synchronization:
 /// * it emits values (via a [`ValueChange<T>`]) event as the user types or drags.
 ///   The type of ``T`` will be ``f32``, ``f64``, ``i32``, or ``i64`` depending on the
-///   [`NumberInputValue`] component variant.
-/// * it listens for the insertion of the [`NumberInputValue`] component, and replaces
+///   [`NumericValue`] component variant.
+/// * it listens for the insertion of the [`NumericValue`] component, and replaces
 ///   the contents of the text buffer based on the value in that event.
 ///
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersNumberInputProps`].
@@ -84,7 +84,7 @@ const BASE_DRAG_SPEED: f64 = 0.01f64;
 /// synchronize this value with the [`FeathersNumberInput`] widget in both directions:
 /// * When a [`ValueChange`] event is received, update the app-specific property.
 /// * When the app-specific property changes - either in response to a [`ValueChange`] event, or
-///   because of some other action, insert a [`NumberInputValue`] component to update the
+///   because of some other action, insert a [`NumericValue`] component to update the
 ///   displayed value.
 ///
 /// The `is_final` boolean in [`ValueChange`] is set to false while dragging, however you should
@@ -96,7 +96,7 @@ const BASE_DRAG_SPEED: f64 = 0.01f64;
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersNumberInputProps)]
 #[reflect(Component, Default, Clone)]
-#[require(NumberInputValue)]
+#[require(NumericValue)]
 pub struct FeathersNumberInput;
 
 /// Props used to construct a [`FeathersNumberInput`] scene.
@@ -261,253 +261,30 @@ impl FeathersNumberInput {
     }
 }
 
-/// Used to indicate what format of numbers we are editing. This affects the type
-/// of [`ValueChange`] event that is emitted.
-#[derive(Default, Clone, Copy, Reflect)]
-pub enum NumberFormat {
-    /// A 32-bit float
-    #[default]
-    F32,
-    /// A 64-bit float
-    F64,
-    /// A 32-bit integer
-    I32,
-    /// A 64-bit integer
-    I64,
-}
-
-/// Represents numbers in different formats.
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
-#[component(immutable)]
-pub enum NumberInputValue {
-    /// An `f32` value
-    F32(f32),
-    /// An `f64` value
-    F64(f64),
-    /// An `i32` value
-    I32(i32),
-    /// An `i64` value
-    I64(i64),
-}
-
-impl core::fmt::Display for NumberInputValue {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            NumberInputValue::F32(v) => write!(f, "{}", v),
-            NumberInputValue::F64(v) => write!(f, "{}", v),
-            NumberInputValue::I32(v) => write!(f, "{}", v),
-            NumberInputValue::I64(v) => write!(f, "{}", v),
-        }
-    }
-}
-
-impl NumberInputValue {
-    fn format(&self) -> NumberFormat {
-        match self {
-            Self::F32(_) => NumberFormat::F32,
-            Self::F64(_) => NumberFormat::F64,
-            Self::I32(_) => NumberFormat::I32,
-            Self::I64(_) => NumberFormat::I64,
-        }
-    }
-
-    fn parse_from(value: &str, fmt: NumberFormat) -> Result<Self, String> {
-        match fmt {
-            NumberFormat::F32 => value
-                .parse::<f32>()
-                .map(NumberInputValue::F32)
-                .map_err(|_| format!("Could not parse '{}' as f32", value)),
-            NumberFormat::F64 => value
-                .parse::<f64>()
-                .map(NumberInputValue::F64)
-                .map_err(|_| format!("Could not parse '{}' as f64", value)),
-            NumberFormat::I32 => value
-                .parse::<i32>()
-                .map(NumberInputValue::I32)
-                .map_err(|_| format!("Could not parse '{}' as i32", value)),
-            NumberFormat::I64 => value
-                .parse::<i64>()
-                .map(NumberInputValue::I64)
-                .map_err(|_| format!("Could not parse '{}' as i64", value)),
-        }
-    }
-
-    /// Offset this value by `delta` (in value units), preserving the variant.
-    fn offset_by(self, delta: f64) -> Self {
-        match self {
-            NumberInputValue::F32(v) => NumberInputValue::F32(v + delta as f32),
-            NumberInputValue::F64(v) => NumberInputValue::F64(v + delta),
-            NumberInputValue::I32(v) => {
-                NumberInputValue::I32(v.saturating_add(delta.round() as i32))
-            }
-            NumberInputValue::I64(v) => {
-                NumberInputValue::I64(v.saturating_add(delta.round() as i64))
-            }
-        }
-    }
-
-    /// Scale this value by `scale` (in value units), preserving the variant.
-    fn scale_by(self, scale: f64) -> Self {
-        match self {
-            NumberInputValue::F32(v) => NumberInputValue::F32((v as f64 * scale) as f32),
-            NumberInputValue::F64(v) => NumberInputValue::F64(v * scale),
-            NumberInputValue::I32(v) => NumberInputValue::I32((v as f64 * scale).round() as i32),
-            NumberInputValue::I64(v) => NumberInputValue::I64((v as f64 * scale).round() as i64),
-        }
-    }
-
-    fn as_f64(&self) -> f64 {
-        match *self {
-            NumberInputValue::F32(v) => v as f64,
-            NumberInputValue::F64(v) => v,
-            NumberInputValue::I32(v) => v as f64,
-            NumberInputValue::I64(v) => v as f64,
-        }
-    }
-}
-
-impl Default for NumberInputValue {
-    fn default() -> Self {
-        Self::F32(0.0)
-    }
-}
-
-/// Represents numeric limits in different number formats.
-#[derive(Debug, PartialEq, Clone, Reflect)]
-pub enum NumberInputRange {
-    /// An 'f32' range.
-    F32(RangeInclusive<f32>),
-    /// An 'f64' range.
-    F64(RangeInclusive<f64>),
-    /// An 'i32' range.
-    I32(RangeInclusive<i32>),
-    /// An 'i64' range.
-    I64(RangeInclusive<i64>),
-}
-
-impl NumberInputRange {
-    /// Clamp a numeric value of varying type to be within this range.
-    pub fn clamp(&self, n: NumberInputValue) -> NumberInputValue {
-        match (self, n) {
-            (Self::F32(r), NumberInputValue::F32(v)) => {
-                NumberInputValue::F32(v.clamp(*r.start(), *r.end()))
-            }
-            (Self::F64(r), NumberInputValue::F64(v)) => {
-                NumberInputValue::F64(v.clamp(*r.start(), *r.end()))
-            }
-            (Self::I32(r), NumberInputValue::I32(v)) => {
-                NumberInputValue::I32(v.clamp(*r.start(), *r.end()))
-            }
-            (Self::I64(r), NumberInputValue::I64(v)) => {
-                NumberInputValue::I64(v.clamp(*r.start(), *r.end()))
-            }
-            (range, value) => {
-                warn_once!("Number input range type mismatch: {range:?} {value:?}");
-                n
-            }
-        }
-    }
-
-    /// Wrap a numeric value of varying type to be within this range.
-    pub fn wrap(&self, n: NumberInputValue) -> NumberInputValue {
-        match (self, n) {
-            (Self::F32(r), NumberInputValue::F32(v)) => {
-                let range = r.end() - r.start();
-                NumberInputValue::F32(r.start() + (v - r.start()).rem_euclid(range))
-            }
-            (Self::F64(r), NumberInputValue::F64(v)) => {
-                let range = r.end() - r.start();
-                NumberInputValue::F64(r.start() + (v - r.start()).rem_euclid(range))
-            }
-            (Self::I32(r), NumberInputValue::I32(v)) => {
-                let range = r.end() - r.start();
-                NumberInputValue::I32(r.start() + (v - r.start()).rem_euclid(range))
-            }
-            (Self::I64(r), NumberInputValue::I64(v)) => {
-                let range = r.end() - r.start();
-                NumberInputValue::I64(r.start() + (v - r.start()).rem_euclid(range))
-            }
-            (range, value) => {
-                warn_once!("Number input range type mismatch: {range:?} {value:?}");
-                n
-            }
-        }
-    }
-
-    /// Compute the position of the thumb on the slide bar, as a value between 0 and 1, taking
-    /// into account the proportion of the value between the minimum and maximum limits.
-    pub fn thumb_position(&self, value: NumberInputValue) -> f32 {
-        match (self, value) {
-            (Self::F32(range), NumberInputValue::F32(n)) => {
-                if range.end() > range.start() {
-                    (n - range.start()) / (range.end() - range.start())
-                } else {
-                    0.5
-                }
-            }
-
-            (Self::F64(range), NumberInputValue::F64(n)) => {
-                if range.end() > range.start() {
-                    ((n - range.start()) / (range.end() - range.start())) as f32
-                } else {
-                    0.5
-                }
-            }
-
-            (Self::I32(range), NumberInputValue::I32(n)) => {
-                if range.end() > range.start() {
-                    (n - range.start()) as f32 / (range.end() - range.start()) as f32
-                } else {
-                    0.5
-                }
-            }
-
-            (Self::I64(range), NumberInputValue::I64(n)) => {
-                if range.end() > range.start() {
-                    (n - range.start()) as f32 / (range.end() - range.start()) as f32
-                } else {
-                    0.5
-                }
-            }
-
-            (range, value) => {
-                warn_once!("Number input range type mismatch: {range:?} {value:?}");
-                0.5
-            }
-        }
-    }
-}
-
-impl Default for NumberInputRange {
-    fn default() -> Self {
-        Self::F32(0.0..=0.0)
-    }
-}
-
 /// A soft limit represents the range of values that can be reached via dragging. Values outside
 /// this range can still be entered by typing.
 #[derive(Component, Default, Clone, Reflect)]
-pub struct SoftLimit(pub NumberInputRange);
+pub struct SoftLimit(pub NumericRange);
 
 impl SoftLimit {
     /// Create a [`SoftLimit`] for `f32` values.
     pub fn f32(range: RangeInclusive<f32>) -> Self {
-        Self(NumberInputRange::F32(range))
+        Self(NumericRange::F32(range))
     }
 
     /// Create a [`SoftLimit`] for `f64` values.
     pub fn f64(range: RangeInclusive<f64>) -> Self {
-        Self(NumberInputRange::F64(range))
+        Self(NumericRange::F64(range))
     }
 
     /// Create a [`SoftLimit`] for `i32` values.
     pub fn i32(range: RangeInclusive<i32>) -> Self {
-        Self(NumberInputRange::I32(range))
+        Self(NumericRange::I32(range))
     }
 
     /// Create a [`SoftLimit`] for `i64` values.
     pub fn i64(range: RangeInclusive<i64>) -> Self {
-        Self(NumberInputRange::I64(range))
+        Self(NumericRange::I64(range))
     }
 }
 
@@ -515,27 +292,27 @@ impl SoftLimit {
 /// be clamped within the range.
 // Note: Similar in concept to `SliderRange`, but the latter only handles f32s.
 #[derive(Component, Default, Clone, Reflect)]
-pub struct HardLimit(pub NumberInputRange);
+pub struct HardLimit(pub NumericRange);
 
 impl HardLimit {
     /// Create a [`HardLimit`] for `f32` values.
     pub fn f32(range: RangeInclusive<f32>) -> Self {
-        Self(NumberInputRange::F32(range))
+        Self(NumericRange::F32(range))
     }
 
     /// Create a [`HardLimit`] for `f64` values.
     pub fn f64(range: RangeInclusive<f64>) -> Self {
-        Self(NumberInputRange::F64(range))
+        Self(NumericRange::F64(range))
     }
 
     /// Create a [`HardLimit`] for `i32` values.
     pub fn i32(range: RangeInclusive<i32>) -> Self {
-        Self(NumberInputRange::I32(range))
+        Self(NumericRange::I32(range))
     }
 
     /// Create a [`HardLimit`] for `i64` values.
     pub fn i64(range: RangeInclusive<i64>) -> Self {
-        Self(NumberInputRange::I64(range))
+        Self(NumericRange::I64(range))
     }
 }
 
@@ -564,10 +341,10 @@ impl NumberInputPrecision {
         (value * factor).round() / factor
     }
 
-    fn round(&self, value: NumberInputValue) -> NumberInputValue {
+    fn round(&self, value: NumericValue) -> NumericValue {
         match value {
-            NumberInputValue::F32(v) => NumberInputValue::F32(self.round_f32(v)),
-            NumberInputValue::F64(v) => NumberInputValue::F64(self.round_f64(v)),
+            NumericValue::F32(v) => NumericValue::F32(self.round_f32(v)),
+            NumericValue::F64(v) => NumericValue::F64(self.round_f64(v)),
             // Decimal-place rounding only affects integers at negative precision
             // (round to 10/100/...); left as identity for now.
             other => other,
@@ -681,16 +458,16 @@ struct DragState {
     max_distance: f32,
 
     /// The value of the input when dragging started.
-    base_value: NumberInputValue,
+    base_value: NumericValue,
 }
 
 /// Observer which sets the text content of the field when the number value component changes.
 fn number_input_on_insert_value(
-    update: On<Insert<NumberInputValue>>,
+    update: On<Insert<NumericValue>>,
     q_children: Query<&Children>,
     q_number_input: Query<
         (
-            &NumberInputValue,
+            &NumericValue,
             Option<&SoftLimit>,
             Option<&HardLimit>,
             Option<&NumberInputUnits>,
@@ -807,7 +584,7 @@ fn number_input_init(
     q_parent: Query<&ChildOf>,
     q_number_input: Query<
         (
-            &NumberInputValue,
+            &NumericValue,
             Option<&SoftLimit>,
             Has<InteractionDisabled>,
             Option<&ThemeContext>,
@@ -897,7 +674,7 @@ fn number_input_on_enter_key(
     q_parent: Query<&ChildOf>,
     q_number_input: Query<
         (
-            &NumberInputValue,
+            &NumericValue,
             Option<&HardLimit>,
             Option<&NumberInputWrap>,
             Option<&NumberInputUnits>,
@@ -951,7 +728,7 @@ fn number_input_on_focus_lost(
     q_parent: Query<&ChildOf>,
     q_number_input: Query<
         (
-            &NumberInputValue,
+            &NumericValue,
             Has<InteractionDisabled>,
             Option<&HardLimit>,
             Option<&NumberInputWrap>,
@@ -1035,7 +812,7 @@ fn scrubber_on_release(
         &UiGlobalTransform,
     )>,
     q_parent: Query<&ChildOf>,
-    q_units: Query<(&NumberInputValue, Option<&NumberInputUnits>), Without<InteractionDisabled>>,
+    q_units: Query<(&NumericValue, Option<&NumberInputUnits>), Without<InteractionDisabled>>,
     ui_scale: Res<UiScale>,
     units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
@@ -1096,7 +873,7 @@ fn scrubber_on_drag_start(
     mut drag_start: On<PointerDragStart>,
     mut capture_map: ResMut<PointerCaptureMap>,
     q_root: Query<(
-        &NumberInputValue,
+        &NumericValue,
         Option<&SoftLimit>,
         Option<&NumberInputPrecision>,
         Option<&NumberInputStep>,
@@ -1132,14 +909,17 @@ fn scrubber_on_drag_start(
         // Use various heuristics to determine drag speed based on which components are present.
         drag.drag_speed = if let Some(SoftLimit(nrange)) = soft_limit {
             match nrange {
-                NumberInputRange::F32(range) => (range.end() - range.start()) as f64 / slider_size,
-                NumberInputRange::F64(range) => (range.end() - range.start()) / slider_size,
-                NumberInputRange::I32(range) => (range.end() - range.start()) as f64 / slider_size,
-                NumberInputRange::I64(range) => (range.end() - range.start()) as f64 / slider_size,
+                NumericRange::F32(range) => (range.end() - range.start()) as f64 / slider_size,
+                NumericRange::F64(range) => (range.end() - range.start()) / slider_size,
+                NumericRange::I32(range) => (range.end() - range.start()) as f64 / slider_size,
+                NumericRange::I64(range) => (range.end() - range.start()) as f64 / slider_size,
             }
         } else if let Some(NumberInputStep(step)) = step {
             *step * BASE_DRAG_SPEED
-        } else if matches!(input_value.format(), NumberFormat::I32 | NumberFormat::I64) {
+        } else if matches!(
+            input_value.format(),
+            NumericFormat::I32 | NumericFormat::I64
+        ) {
             // Treat integers as having a step size of 1
             BASE_DRAG_SPEED
         } else if let Some(prec) = precision {
@@ -1298,7 +1078,7 @@ fn scrubber_on_drag_cancel(
 }
 
 fn update_slider_pos(
-    input_value: &NumberInputValue,
+    input_value: &NumericValue,
     limit: Option<&SoftLimit>,
     gradient: &mut BackgroundGradient,
 ) {
@@ -1413,7 +1193,7 @@ fn emit_drag_value_change(
 
 fn emit_value_change(
     text_value: String,
-    format: NumberFormat,
+    format: NumericFormat,
     units: &'static dyn UnitsFormat,
     source: Entity,
     hard_limit: Option<&HardLimit>,
@@ -1449,27 +1229,27 @@ fn emit_value_change(
 /// parameter type based on the enum variant.
 fn trigger_value_change(
     commands: &mut Commands,
-    value: NumberInputValue,
+    value: NumericValue,
     source: Entity,
     is_final: bool,
 ) {
     match value {
-        NumberInputValue::F32(value) => commands.trigger(ValueChange {
+        NumericValue::F32(value) => commands.trigger(ValueChange {
             source,
             value,
             is_final,
         }),
-        NumberInputValue::F64(value) => commands.trigger(ValueChange {
+        NumericValue::F64(value) => commands.trigger(ValueChange {
             source,
             value,
             is_final,
         }),
-        NumberInputValue::I32(value) => commands.trigger(ValueChange {
+        NumericValue::I32(value) => commands.trigger(ValueChange {
             source,
             value,
             is_final,
         }),
-        NumberInputValue::I64(value) => commands.trigger(ValueChange {
+        NumericValue::I64(value) => commands.trigger(ValueChange {
             source,
             value,
             is_final,
@@ -1564,7 +1344,7 @@ fn update_chevron_visibility(
     q_hovered: Query<&Hovered>,
     q_parent: Query<&ChildOf>,
     q_number_input: Query<
-        (&NumberInputValue, Option<&HardLimit>, Has<SoftLimit>),
+        (&NumericValue, Option<&HardLimit>, Has<SoftLimit>),
         With<FeathersNumberInput>,
     >,
     q_children: Query<&Children>,
@@ -1608,23 +1388,23 @@ fn update_chevron_visibility(
 }
 
 // Checks if the value is at the minimum limit of the range.
-fn is_at_limit_min(value: &NumberInputValue, range: &NumberInputRange) -> bool {
+fn is_at_limit_min(value: &NumericValue, range: &NumericRange) -> bool {
     match (range, value) {
-        (NumberInputRange::F32(r), NumberInputValue::F32(v)) => v <= r.start(),
-        (NumberInputRange::F64(r), NumberInputValue::F64(v)) => v <= r.start(),
-        (NumberInputRange::I32(r), NumberInputValue::I32(v)) => v <= r.start(),
-        (NumberInputRange::I64(r), NumberInputValue::I64(v)) => v <= r.start(),
+        (NumericRange::F32(r), NumericValue::F32(v)) => v <= r.start(),
+        (NumericRange::F64(r), NumericValue::F64(v)) => v <= r.start(),
+        (NumericRange::I32(r), NumericValue::I32(v)) => v <= r.start(),
+        (NumericRange::I64(r), NumericValue::I64(v)) => v <= r.start(),
         _ => false,
     }
 }
 
 // Checks if the value is at the maximum limit of the range.
-fn is_at_limit_max(value: &NumberInputValue, range: &NumberInputRange) -> bool {
+fn is_at_limit_max(value: &NumericValue, range: &NumericRange) -> bool {
     match (range, value) {
-        (NumberInputRange::F32(r), NumberInputValue::F32(v)) => v >= r.end(),
-        (NumberInputRange::F64(r), NumberInputValue::F64(v)) => v >= r.end(),
-        (NumberInputRange::I32(r), NumberInputValue::I32(v)) => v >= r.end(),
-        (NumberInputRange::I64(r), NumberInputValue::I64(v)) => v >= r.end(),
+        (NumericRange::F32(r), NumericValue::F32(v)) => v >= r.end(),
+        (NumericRange::F64(r), NumericValue::F64(v)) => v >= r.end(),
+        (NumericRange::I32(r), NumericValue::I32(v)) => v >= r.end(),
+        (NumericRange::I64(r), NumericValue::I64(v)) => v >= r.end(),
         _ => false,
     }
 }
@@ -1649,11 +1429,11 @@ pub trait UnitsFormat: Send + Sync {
     /// to format the string differently when the user is editing than when displaying or scrubbing.
     /// This can be used, for example, to transform the unicode degree symbol, (°), which is hard
     /// to type, into something easier.
-    fn format(&self, value: NumberInputValue, editing: bool) -> String;
+    fn format(&self, value: NumericValue, editing: bool) -> String;
 
     /// Parse the input value into a numerical quantity. If the string includes a units signifier,
     /// convert the value into the canonical units.
-    fn parse(&self, value: String, fmt: NumberFormat) -> Result<NumberInputValue, String>;
+    fn parse(&self, value: String, fmt: NumericFormat) -> Result<NumericValue, String>;
 }
 
 /// A [`UnitsFormat`] meaning "no units", which is the default units. This just does straight-up
@@ -1665,12 +1445,12 @@ impl UnitsFormat for Dimensionless {
         "none"
     }
 
-    fn format(&self, value: NumberInputValue, _editing: bool) -> String {
+    fn format(&self, value: NumericValue, _editing: bool) -> String {
         value.to_string()
     }
 
-    fn parse(&self, value: String, fmt: NumberFormat) -> Result<NumberInputValue, String> {
-        NumberInputValue::parse_from(value.as_str(), fmt)
+    fn parse(&self, value: String, fmt: NumericFormat) -> Result<NumericValue, String> {
+        NumericValue::parse_from(value.as_str(), fmt)
     }
 }
 
@@ -1734,7 +1514,7 @@ impl<S: StandardUnitKind> UnitsFormat for S {
         Self::ID
     }
 
-    fn format(&self, value: NumberInputValue, editing: bool) -> String {
+    fn format(&self, value: NumericValue, editing: bool) -> String {
         let units_table = self.units();
         let display_unit = &units_table[if editing {
             self.editing_index()
@@ -1749,17 +1529,17 @@ impl<S: StandardUnitKind> UnitsFormat for S {
 
         // Format at the value's native precision.
         let display_value = match value {
-            NumberInputValue::F32(v) => format!("{}", (v as f64 * scale) as f32),
-            NumberInputValue::F64(v) => format!("{}", v * scale),
-            NumberInputValue::I32(v) => format!("{}", v as f64 * scale),
-            NumberInputValue::I64(v) => format!("{}", v as f64 * scale),
+            NumericValue::F32(v) => format!("{}", (v as f64 * scale) as f32),
+            NumericValue::F64(v) => format!("{}", v * scale),
+            NumericValue::I32(v) => format!("{}", v as f64 * scale),
+            NumericValue::I64(v) => format!("{}", v as f64 * scale),
         };
 
         // Append the display suffix
         format!("{}{}", display_value, display_unit.suffixes[0])
     }
 
-    fn parse(&self, value: String, fmt: NumberFormat) -> Result<NumberInputValue, String> {
+    fn parse(&self, value: String, fmt: NumericFormat) -> Result<NumericValue, String> {
         // Parse the input string, isolate the units token, find matching unit in table.
         // This will eventually be a parser to support complex exprs.
         let trimmed = value.trim();
@@ -1797,7 +1577,7 @@ impl<S: StandardUnitKind> UnitsFormat for S {
         let suffix_str = trimmed[magnitude_end..].trim();
 
         // Parse the magnitude
-        let magnitude = NumberInputValue::parse_from(magnitude_str, fmt)?;
+        let magnitude = NumericValue::parse_from(magnitude_str, fmt)?;
 
         // Find matching unit suffix
         let units_table = self.units();
@@ -1987,7 +1767,7 @@ mod tests {
     #[test]
     fn test_length_meters_format() {
         let length = LengthMeters;
-        let value = NumberInputValue::F64(100.0);
+        let value = NumericValue::F64(100.0);
         let formatted = length.format(value, false);
         assert_eq!(formatted, "100m");
     }
@@ -1995,9 +1775,9 @@ mod tests {
     #[test]
     fn test_length_meters_parse() {
         let length = LengthMeters;
-        let result = length.parse("100m".to_string(), NumberFormat::F64);
+        let result = length.parse("100m".to_string(), NumericFormat::F64);
         match result.unwrap() {
-            NumberInputValue::F64(val) => assert!((val - 100.0).abs() < 1e-6),
+            NumericValue::F64(val) => assert!((val - 100.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
     }
@@ -2005,10 +1785,10 @@ mod tests {
     #[test]
     fn test_length_meters_convert_km_to_m() {
         let length = LengthMeters;
-        let result = length.parse("1km".to_string(), NumberFormat::F64);
+        let result = length.parse("1km".to_string(), NumericFormat::F64);
         assert!(result.is_ok());
         match result.unwrap() {
-            NumberInputValue::F64(val) => assert!((val - 1000.0).abs() < 1e-6),
+            NumericValue::F64(val) => assert!((val - 1000.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
     }
@@ -2016,9 +1796,9 @@ mod tests {
     #[test]
     fn test_length_meters_convert_mm_to_m() {
         let length = LengthMeters;
-        let result = length.parse("1mm".to_string(), NumberFormat::F64);
+        let result = length.parse("1mm".to_string(), NumericFormat::F64);
         match result.unwrap() {
-            NumberInputValue::F64(val) => assert!((val - 0.001).abs() < 1e-6),
+            NumericValue::F64(val) => assert!((val - 0.001).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
     }
@@ -2026,7 +1806,7 @@ mod tests {
     #[test]
     fn test_angle_degrees_format() {
         let angle = AngleDegrees;
-        let value = NumberInputValue::F64(std::f64::consts::PI / 4.0); // 45 degrees in radians
+        let value = NumericValue::F64(std::f64::consts::PI / 4.0); // 45 degrees in radians
         let formatted = angle.format(value, false);
         assert_eq!(formatted, "45°");
 
@@ -2037,9 +1817,9 @@ mod tests {
     #[test]
     fn test_angle_degrees_parse() {
         let angle = AngleDegrees;
-        let result = angle.parse("45d".to_string(), NumberFormat::F64);
+        let result = angle.parse("45d".to_string(), NumericFormat::F64);
         match result.unwrap() {
-            NumberInputValue::F64(val) => assert!((val - std::f64::consts::PI / 4.0).abs() < 1e-6),
+            NumericValue::F64(val) => assert!((val - std::f64::consts::PI / 4.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
     }
@@ -2047,9 +1827,9 @@ mod tests {
     #[test]
     fn test_angle_degrees_convert_rad_to_deg() {
         let angle = AngleDegrees;
-        let result = angle.parse("1rad".to_string(), NumberFormat::F64);
+        let result = angle.parse("1rad".to_string(), NumericFormat::F64);
         match result.unwrap() {
-            NumberInputValue::F64(val) => assert!((val - 1.0).abs() < 1e-6),
+            NumericValue::F64(val) => assert!((val - 1.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
     }
@@ -2057,9 +1837,9 @@ mod tests {
     #[test]
     fn test_angle_degrees_parse_deg_suffix() {
         let angle = AngleDegrees;
-        let result = angle.parse("90deg".to_string(), NumberFormat::F64);
+        let result = angle.parse("90deg".to_string(), NumericFormat::F64);
         match result.unwrap() {
-            NumberInputValue::F64(val) => assert!((val - std::f64::consts::PI / 2.0).abs() < 1e-6),
+            NumericValue::F64(val) => assert!((val - std::f64::consts::PI / 2.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
     }
@@ -2067,15 +1847,15 @@ mod tests {
     #[test]
     fn test_parse_negative_numbers() {
         let length = LengthMeters;
-        let result = length.parse("-100".to_string(), NumberFormat::F64);
+        let result = length.parse("-100".to_string(), NumericFormat::F64);
         match result.unwrap() {
-            NumberInputValue::F64(val) => assert!((val - (-100.0)).abs() < 1e-6),
+            NumericValue::F64(val) => assert!((val - (-100.0)).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
 
-        let result = length.parse("-50.5cm".to_string(), NumberFormat::F64);
+        let result = length.parse("-50.5cm".to_string(), NumericFormat::F64);
         match result.unwrap() {
-            NumberInputValue::F64(val) => assert!((val - (-0.505)).abs() < 1e-6),
+            NumericValue::F64(val) => assert!((val - (-0.505)).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
     }

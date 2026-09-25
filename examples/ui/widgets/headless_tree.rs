@@ -81,7 +81,7 @@ fn showcase() -> impl SceneList {
                 --
                 @row()
                 TreeItem {
-                    has_children: true,
+                    expandable: true,
                 }
                 Expanded
                 Children [
@@ -108,7 +108,7 @@ fn showcase() -> impl SceneList {
                 LazyBranch
                 @row()
                 TreeItem {
-                    has_children: true,
+                    expandable: true,
                 }
                 Children [
                     @row_header("Assets", true)
@@ -249,7 +249,7 @@ fn update_row_styles(
         let Ok((_, expanded, item)) = rows.get(row) else {
             continue;
         };
-        let glyph = match (item.has_children, expanded) {
+        let glyph = match (item.expandable, expanded) {
             (false, _) => " ",
             (true, false) => "+",
             (true, true) => "-",

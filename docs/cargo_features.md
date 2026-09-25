@@ -154,6 +154,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |keyboard|Keyboard support. Automatically enabled by `bevy_window`.|
 |ktx2|KTX2 compressed texture support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
+|linux_game_mode|Enable Feral Interactive's `GameMode` integration on Linux|
 |mesh_picking|Provides an implementation for picking meshes|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
 |meshlet_processor|Enables processing meshes into meshlet meshes for `bevy_pbr`|
@@ -165,6 +166,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |pan_camera|Enables the pan camera from bevy_camera_controller|
 |pan_orbit_camera|Enables the pan orbit camera from bevy_camera_controller|
+|pan_orbit_gizmo|Enables the pan orbit camera anchor indicator gizmo|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_clustered_decals|Enable support for Clustered Decals|
 |pbr_light_textures|Enable support for Light Textures|

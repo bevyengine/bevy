@@ -160,6 +160,52 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// assert!(err.to_string().contains(expected));
 /// ```
 ///
+/// ## Custom Access Conflict Errors
+///
+/// When using the derive macro, any [`SystemParamAccessConflict`]s will be propagated from the sub-parameters.
+///
+/// If the derived [`SystemParam`] is `pub` and does not have any `pub` fields,
+/// the macro will assume it fully encapsulates the inner system parameters,
+/// and will report the conflict using the name of the derived [`SystemParam`].
+///
+/// If the derived [`SystemParam`] is non-`pub` or does have `pub` fields,
+/// the macro will assume it is a parameter bundle and report the conflict using
+/// the name and suggestions from the inner [`SystemParam`].
+///
+/// To customize this behavior, add a `#[system_param(map_access_conflict)]` attribute.
+/// This may optionally take a function to call, like `#[system_param(map_access_conflict(custom_fn))]`,
+/// but will default to `Self::map_access_conflict` if not specified.
+/// That function will be called with the [`&mut SystemAccess`](crate::system::SystemAccess)
+/// and inner [`SystemParamAccessConflict`], and should return a [`SystemParamAccessConflict`].
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
+/// # use bevy_ecs::system::{SystemAccess, SystemParamAccessConflict, SystemParam};
+/// #
+/// #[derive(SystemParam)]
+/// #[system_param(map_access_conflict)]
+/// // Is short for:
+/// // #[system_param(map_access_conflict(Self::map_access_conflict))]
+/// pub struct MyParam {
+///     // ...
+/// }
+///
+/// impl MyParam {
+///     fn map_access_conflict(
+///         access: &SystemAccess,
+///         err: SystemParamAccessConflict,
+///     ) -> SystemParamAccessConflict {
+///         // To hide the type of the inner parameter,
+///         // wrap the access in a new `SystemParamAccessConflict`
+///         SystemParamAccessConflict::new::<Self>(err.access)
+///             .with_suggestion("...")
+///             .with_suggestion_if_exclusive(access, "...")
+///     }
+/// }
+/// ```
+///
 /// ## Builders
 ///
 /// If you want to use a [`SystemParamBuilder`](crate::system::SystemParamBuilder) with a derived [`SystemParam`] implementation,
@@ -3230,6 +3276,70 @@ mod tests {
         assert_is_system(my_system);
     }
 
+    #[test]
+    fn system_param_map_access_conflict() {
+        let mut world = World::new();
+        let mut system_meta = SystemMeta::new::<()>();
+
+        #[derive(SystemParam)]
+        pub struct Opaque<'w, 's> {
+            _query: Query<'w, 's, ()>,
+        }
+
+        let state = Opaque::init_state(&mut world);
+        let access = Opaque::init_access(&state, &mut system_meta, &mut SystemAccess::Exclusive)
+            .unwrap_err();
+        assert_eq!(access.code, None);
+        assert_eq!(access.param, DebugName::type_name::<Opaque>());
+
+        #[derive(SystemParam)]
+        pub struct Transparent<'w, 's> {
+            pub _query: Query<'w, 's, ()>,
+        }
+
+        let state = Transparent::init_state(&mut world);
+        let access =
+            Transparent::init_access(&state, &mut system_meta, &mut SystemAccess::Exclusive)
+                .unwrap_err();
+        assert_eq!(access.code, Some("B0001"));
+        assert_eq!(access.param, DebugName::type_name::<Query<()>>());
+
+        #[derive(SystemParam)]
+        #[system_param(map_access_conflict)]
+        struct AutoMapped<'w, 's> {
+            _query: Query<'w, 's, ()>,
+        }
+
+        impl AutoMapped<'_, '_> {
+            fn map_access_conflict(
+                _access: &SystemAccess,
+                err: SystemParamAccessConflict,
+            ) -> SystemParamAccessConflict {
+                err.with_param::<u8>().with_code("auto")
+            }
+        }
+
+        let state = AutoMapped::init_state(&mut world);
+        let access =
+            AutoMapped::init_access(&state, &mut system_meta, &mut SystemAccess::Exclusive)
+                .unwrap_err();
+        assert_eq!(access.code, Some("auto"));
+        assert_eq!(access.param, DebugName::type_name::<u8>());
+
+        #[derive(SystemParam)]
+        #[system_param(map_access_conflict(|_, err: SystemParamAccessConflict| err.with_param::<u16>().with_code("manual")))]
+        struct ManualMapped<'w, 's> {
+            _query: Query<'w, 's, ()>,
+        }
+
+        let state = ManualMapped::init_state(&mut world);
+        let access =
+            ManualMapped::init_access(&state, &mut system_meta, &mut SystemAccess::Exclusive)
+                .unwrap_err();
+        assert_eq!(access.code, Some("manual"));
+        assert_eq!(access.param, DebugName::type_name::<u16>());
+    }
+
     // Compile test for https://github.com/bevyengine/bevy/pull/9589.
     #[test]
     fn non_sync_local() {
@@ -3344,7 +3454,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Entities")]
+    #[should_panic(expected = "Commands")]
     fn mutable_world_conflicts_with_commands_second() {
         fn system(_: &mut World, _: Commands) {}
         assert_is_system(system);
