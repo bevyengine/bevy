@@ -7,10 +7,7 @@ import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d
 
 @if(TONEMAP_IN_SHADER)
 import bevy_core_pipeline::tonemapping;
-@if(SRGB_OUTPUT)
-import bevy_render::color_operations::linear_to_srgb;
-@if(OKLAB_OUTPUT)
-import bevy_render::color_operations::linear_rgb_to_oklab;
+import bevy_render::writer_encode::writer_encode;
 
 struct ColorMaterial {
     color: vec4<f32>,
@@ -88,11 +85,8 @@ fn fragment(
 
 @if(TONEMAP_IN_SHADER)
     output_color = tonemapping::tone_mapping(output_color, view.color_grading);
-@if(SRGB_OUTPUT)
-    output_color = vec4(linear_to_srgb(output_color.rgb), output_color.a);
-@if(OKLAB_OUTPUT)
-    output_color = vec4(linear_rgb_to_oklab(output_color.rgb), output_color.a);
-    return output_color;
+
+    return writer_encode(output_color);
 }
 
 fn alpha_discard(flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) -> vec4<f32> {
