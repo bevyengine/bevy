@@ -10,10 +10,13 @@ extern crate alloc;
 
 pub mod entity_tree;
 
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionPlugin;
-use bevy_ecs::{entity::Entity, reflect::ReflectResource, resource::Resource};
+use bevy_ecs::{
+    entity::Entity, reflect::ReflectResource, resource::Resource, schedule::IntoScheduleConfigs,
+};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_ui::UiSystems;
 
 use crate::entity_tree::{sync_entity_tree, EntityTreeSync, TreeRowIndex};
 
@@ -47,6 +50,6 @@ impl Plugin for InspectorPlugin {
             .init_resource::<InspectorSelection>()
             .init_resource::<TreeRowIndex>()
             .init_resource::<EntityTreeSync>()
-            .add_systems(Update, sync_entity_tree);
+            .add_systems(PostUpdate, sync_entity_tree.before(UiSystems::Prepare));
     }
 }
