@@ -511,6 +511,30 @@ impl<K: EntityEquivalent + Hash> PartialEq for Slice<K> {
 
 impl<K: EntityEquivalent + Hash> Eq for Slice<K> {}
 
+impl<K: EntityEquivalent + Hash + PartialEq> PartialEq<[K]> for Slice<K> {
+    fn eq(&self, other: &[K]) -> bool {
+        self.1 == *other
+    }
+}
+
+impl<K: EntityEquivalent + Hash + PartialEq> PartialEq<Slice<K>> for [K] {
+    fn eq(&self, other: &Slice<K>) -> bool {
+        *self == other.1
+    }
+}
+
+impl<K: EntityEquivalent + Hash + PartialEq, const N: usize> PartialEq<[K; N]> for Slice<K> {
+    fn eq(&self, other: &[K; N]) -> bool {
+        self.1 == other[..]
+    }
+}
+
+impl<K: EntityEquivalent + Hash + PartialEq, const N: usize> PartialEq<Slice<K>> for [K; N] {
+    fn eq(&self, other: &Slice<K>) -> bool {
+        self[..] == other.1
+    }
+}
+
 impl<K: EntityEquivalent + Hash> Index<(Bound<usize>, Bound<usize>)> for Slice<K> {
     type Output = Self;
 

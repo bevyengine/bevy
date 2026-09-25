@@ -6,6 +6,7 @@
 //! [`Relationship`]: crate::relationship::Relationship
 //! [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 
+use crate::entity::EntityIndexSet;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::{ReflectComponent, ReflectFromWorld};
 use crate::{
@@ -17,13 +18,11 @@ use crate::{
     template::FromTemplate,
     world::{EntityWorldMut, FromWorld, World},
 };
-use alloc::vec::Vec;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use core::ops::Deref;
-use core::slice;
 
 /// Stores the parent entity of this child entity with this component.
 ///
@@ -59,11 +58,11 @@ use core::slice;
 /// let child2 = world.spawn(ChildOf(root)).id();
 /// let grandchild = world.spawn(ChildOf(child1)).id();
 ///
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
-/// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
+/// assert_eq!(world.entity(root).get::<Children>().unwrap().as_slice(), &[child1, child2]);
+/// assert_eq!(world.entity(child1).get::<Children>().unwrap().as_slice(), &[grandchild]);
 ///
 /// world.entity_mut(child2).remove::<ChildOf>();
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1]);
+/// assert_eq!(world.entity(root).get::<Children>().unwrap().as_slice(), &[child1]);
 ///
 /// world.entity_mut(root).despawn();
 /// assert!(world.get_entity(root).is_err());
@@ -86,8 +85,8 @@ use core::slice;
 ///     child2 = Some(p.spawn_empty().id());
 /// }).id();
 ///
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1.unwrap(), child2.unwrap()]);
-/// assert_eq!(&**world.entity(child1.unwrap()).get::<Children>().unwrap(), &[grandchild.unwrap()]);
+/// assert_eq!(world.entity(root).get::<Children>().unwrap().as_slice(), &[child1.unwrap(), child2.unwrap()]);
+/// assert_eq!(world.entity(child1.unwrap()).get::<Children>().unwrap().as_slice(), &[grandchild.unwrap()]);
 /// ```
 ///
 /// [`Relationship`]: crate::relationship::Relationship
@@ -142,6 +141,11 @@ impl FromWorld for ChildOf {
 /// using the [`IntoIterator`] trait.
 /// For more complex access patterns, see the [`RelationshipTarget`] trait.
 ///
+/// # Ordering
+///
+/// This method does not guarantee any specific ordering unless methods that guarantee sorting or the stability
+/// of the existing order are used.
+///
 /// [`Relationship`]: crate::relationship::Relationship
 /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 #[derive(Component, Default, Debug, PartialEq, Eq)]
@@ -149,13 +153,13 @@ impl FromWorld for ChildOf {
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld, Default))]
 #[doc(alias = "IsParent")]
-pub struct Children(Vec<Entity>);
+pub struct Children(EntityIndexSet);
 
 impl Children {
     /// Swaps the child at `a_index` with the child at `b_index`.
     #[inline]
     pub fn swap(&mut self, a_index: usize, b_index: usize) {
-        self.0.swap(a_index, b_index);
+        self.0.swap_indices(a_index, b_index);
     }
 
     /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
@@ -244,7 +248,7 @@ impl Children {
 impl<'a> IntoIterator for &'a Children {
     type Item = <Self::IntoIter as Iterator>::Item;
 
-    type IntoIter = slice::Iter<'a, Entity>;
+    type IntoIter = crate::entity::index_set::Iter<'a, Entity>;
 
     #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
@@ -253,7 +257,7 @@ impl<'a> IntoIterator for &'a Children {
 }
 
 impl Deref for Children {
-    type Target = [Entity];
+    type Target = EntityIndexSet;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -494,6 +498,15 @@ mod tests {
         world::World,
     };
     use alloc::{vec, vec::Vec};
+
+    /// Helper to collect children into a Vec for test comparisons.
+    fn children_vec(world: &World, entity: Entity) -> Vec<Entity> {
+        world
+            .entity(entity)
+            .get::<Children>()
+            .map(|c| c.iter().collect())
+            .unwrap_or_default()
+    }
 
     #[derive(PartialEq, Eq, Debug)]
     struct Node {
@@ -822,7 +835,8 @@ mod tests {
     fn replace_children() {
         let mut world = World::new();
         let parent = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
-        let &[child_a, child_b] = &world.entity(parent).get::<Children>().unwrap().0[..] else {
+        let children_v = children_vec(&world, parent);
+        let &[child_a, child_b] = children_v.as_slice() else {
             panic!("Tried to spawn 2 children on an entity and didn't get 2 children");
         };
 
@@ -876,8 +890,7 @@ mod tests {
         world.entity_mut(parent).add_child(child);
         world.entity_mut(parent).add_child(child);
 
-        let children = world.get::<Children>(parent).unwrap();
-        assert_eq!(children.0, [child]);
+        assert_eq!(children_vec(&world, parent), vec![child]);
         assert_eq!(
             world.entity(child).get::<ChildOf>().unwrap(),
             &ChildOf(parent)
@@ -909,10 +922,7 @@ mod tests {
             world.entity(child_b).get::<ChildOf>().unwrap(),
             &ChildOf(parent)
         );
-        assert_eq!(
-            world.entity(parent).get::<Children>().unwrap().0,
-            [child_a, child_b]
-        );
+        assert_eq!(children_vec(&world, parent), vec![child_a, child_b]);
 
         // Test replacing relations and changing order
         world.entity_mut(parent).replace_children_with_difference(
@@ -933,8 +943,8 @@ mod tests {
             &ChildOf(parent)
         );
         assert_eq!(
-            world.entity(parent).get::<Children>().unwrap().0,
-            [child_d, child_c, child_a]
+            children_vec(&world, parent),
+            vec![child_d, child_c, child_a]
         );
         assert!(!world.entity(child_b).contains::<ChildOf>());
 
@@ -991,10 +1001,7 @@ mod tests {
             world.entity(child_b).get::<ChildOf>().unwrap(),
             &ChildOf(parent)
         );
-        assert_eq!(
-            world.entity(parent).get::<Children>().unwrap().0,
-            [child_a, child_b]
-        );
+        assert_eq!(children_vec(&world, parent), vec![child_a, child_b]);
 
         // Test replacing relations and changing order
         world.entity_mut(parent).replace_children_with_difference(
@@ -1010,10 +1017,7 @@ mod tests {
             world.entity(child_d).get::<ChildOf>().unwrap(),
             &ChildOf(parent)
         );
-        assert_eq!(
-            world.entity(parent).get::<Children>().unwrap().0,
-            [child_d, child_c]
-        );
+        assert_eq!(children_vec(&world, parent), vec![child_d, child_c]);
         assert!(!world.entity(child_a).contains::<ChildOf>());
         assert!(!world.entity(child_b).contains::<ChildOf>());
     }
@@ -1031,15 +1035,12 @@ mod tests {
         let initial_order = [child_a, child_b, child_c, child_d];
         world.entity_mut(parent).add_children(&initial_order);
 
-        assert_eq!(
-            world.entity_mut(parent).get::<Children>().unwrap().0,
-            initial_order
-        );
+        assert_eq!(children_vec(&world, parent), initial_order.to_vec());
 
         let new_order = [child_d, child_b, child_a, child_c];
         world.entity_mut(parent).replace_children(&new_order);
 
-        assert_eq!(world.entity(parent).get::<Children>().unwrap().0, new_order);
+        assert_eq!(children_vec(&world, parent), new_order.to_vec());
     }
 
     #[test]
@@ -1120,8 +1121,8 @@ mod tests {
             .entity_mut(child)
             .insert_with_relationship_hook_mode(ChildOf(other), RelationshipHookMode::Skip);
         assert_eq!(
-            &**world.entity(parent).get::<Children>().unwrap(),
-            &[child],
+            children_vec(&world, parent),
+            vec![child],
             "Children should still have the old value, as on_insert/on_discard didn't run"
         );
     }
