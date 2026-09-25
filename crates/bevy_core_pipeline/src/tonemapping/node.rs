@@ -16,7 +16,7 @@ use bevy_render::{
 use super::{get_lut_bindings, Tonemapping};
 
 /// A view's cached tonemapping bind group and the inputs it was created from.
-pub struct CachedBindGroup {
+pub struct CachedTonemappingBindGroup {
     view_uniforms: BufferId,
     source: TextureViewId,
     lut: TextureViewId,
@@ -38,7 +38,7 @@ pub fn tonemapping(
     view_uniforms: Res<ViewUniforms>,
     tonemapping_luts: Res<TonemappingLuts>,
     pass_views: Query<(), With<ViewTonemappingPipeline>>,
-    mut cache: Local<EntityHashMap<CachedBindGroup>>,
+    mut cache: Local<EntityHashMap<CachedTonemappingBindGroup>>,
     mut ctx: RenderContext,
 ) {
     let (view_entity, view_uniform_offset, target, view_tonemapping_pipeline) = view.into_inner();
@@ -91,7 +91,7 @@ pub fn tonemapping(
 
         cache.insert(
             view_entity,
-            CachedBindGroup {
+            CachedTonemappingBindGroup {
                 view_uniforms: view_uniforms_id,
                 source: source.id(),
                 lut: lut_bindings.0.id(),
