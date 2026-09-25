@@ -1,0 +1,8 @@
+//! Dummy values for static analysis tools
+
+const SORTED_FRAGMENT_MAX_COUNT: u32 = 128;
+const SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS: u32 = 128;
+const MAX_DIRECTIONAL_LIGHTS: u32 = 128;
+const MAX_CASCADES_PER_LIGHT: u32 = 128;
+const WORLD_CACHE_SIZE: u32 = 128;
+const SHADOW_SAMPLES: u32 = 128;

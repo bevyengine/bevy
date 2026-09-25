@@ -105,3 +105,12 @@ rustdoc-args = [
 ]
 all-features = true
 features = ["bevy_image/zstd_rust"]
+
+[package.metadata.wgsl-analyzer]
+edition = "2026_pre"
+root = "src"
+
+[package.metadata.wgsl-analyzer.dependencies]
+constants = { path = "../../constants" }
+bevy_render = { path = "../bevy_render" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline" }
