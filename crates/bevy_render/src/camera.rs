@@ -929,15 +929,17 @@ impl DirtySpecializations {
                     })),
             )
         })
-        .chain(last_frame_view_pending_queues.iter().filter_map(
-            |(entity, main_entity)| {
-                if render_view_visible_mesh_entities.entity_pair_is_visible(*entity, *main_entity) {
-                    Some((entity, main_entity))
-                } else {
-                    None
-                }
-            },
-        ))
+        .chain(
+            last_frame_view_pending_queues
+                .iter()
+                .filter_map(|(_, main_entity)| {
+                    // Resolve pending entries against the current visible entities.
+                    self.entity_pair_from_visible_main_entity(
+                        render_view_visible_mesh_entities,
+                        main_entity,
+                    )
+                }),
+        )
     }
 
     /// Iterates over all renderables that should be removed from the phase.
@@ -1019,7 +1021,13 @@ impl DirtySpecializations {
         .chain(
             last_frame_view_pending_queues
                 .iter()
-                .map(|(entity, main_entity)| (entity, main_entity)),
+                .filter_map(|(_, main_entity)| {
+                    // Resolve pending entries against the current visible entities.
+                    self.entity_pair_from_visible_main_entity(
+                        render_visible_mesh_entities,
+                        main_entity,
+                    )
+                }),
         )
         .filter(|(_, main_entity)| {
             mesh_instances_queued_this_iteration_scratch_space.insert(**main_entity)
