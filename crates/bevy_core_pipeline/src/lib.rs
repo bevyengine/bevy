@@ -7,6 +7,7 @@
 )]
 
 pub mod blit;
+pub mod camera_stack;
 pub mod core_2d;
 pub mod core_3d;
 pub mod deferred;
@@ -30,10 +31,10 @@ use crate::schedule::{
     camera_driver, handle_uncovered_swap_chains, submit_pending_command_buffers,
 };
 use crate::{
-    blit::BlitPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
-    deferred::copy_lighting_id::CopyDeferredLightingIdPlugin, mip_generation::MipGenerationPlugin,
-    prepass::BackgroundMotionVectorsPlugin, tonemapping::TonemappingPlugin,
-    upscaling::UpscalingPlugin,
+    blit::BlitPlugin, camera_stack::CameraStackPlugin, core_2d::Core2dPlugin,
+    core_3d::Core3dPlugin, deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
+    mip_generation::MipGenerationPlugin, prepass::BackgroundMotionVectorsPlugin,
+    tonemapping::TonemappingPlugin, upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
 use bevy_render::renderer::{RenderGraph, RenderGraphSystems};
@@ -52,6 +53,7 @@ impl Plugin for CorePipelinePlugin {
         app.add_plugins((Core2dPlugin, Core3dPlugin, CopyDeferredLightingIdPlugin))
             .add_plugins((
                 BlitPlugin,
+                CameraStackPlugin,
                 TonemappingPlugin,
                 UpscalingPlugin,
                 OrderIndependentTransparencyPlugin,
