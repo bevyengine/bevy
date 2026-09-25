@@ -165,6 +165,20 @@ macro_rules! impl_pointer_event {
         }
     };
 }
+/// An [`EntityEvent`] that contains a [`HitData`].
+pub trait HitDataEvent: EntityEvent {
+    /// Returns the [`HitData`] stored on this [`EntityEvent`].
+    fn hit(&self) -> &HitData;
+}
+macro_rules! impl_hit_event {
+    ($event:ident) => {
+        impl HitDataEvent for $event {
+            fn hit(&self) -> &HitData {
+                &self.hit
+            }
+        }
+    };
+}
 
 /// Fires when a pointer is canceled, and its current interaction state is dropped.
 #[derive(EntityEvent, Message, Clone, PartialEq, Debug, Reflect)]
@@ -180,6 +194,7 @@ pub struct PointerCancel {
 }
 
 impl_pointer_event!(PointerCancel);
+impl_hit_event!(PointerCancel);
 
 /// Fires when a pointer crosses into the bounds of a [target entity](EntityEvent::event_target).
 /// Unlike [`PointerEnter`], this event bubbles up to all of the
@@ -199,6 +214,7 @@ pub struct PointerOver {
 }
 
 impl_pointer_event!(PointerOver);
+impl_hit_event!(PointerOver);
 
 /// Fires when a pointer crosses into the bounds of a [target entity](EntityEvent::event_target).
 /// Unlike [`PointerOver`], this event bubbles up through a subset of the
@@ -244,6 +260,7 @@ pub struct PointerEnter {
 }
 
 impl_pointer_event!(PointerEnter);
+impl_hit_event!(PointerEnter);
 
 /// Fires when a pointer crosses out of the bounds of a [target entity](EntityEvent::event_target).
 /// Unlike [`PointerLeave`], this event bubbles up to all of the
@@ -263,6 +280,7 @@ pub struct PointerOut {
 }
 
 impl_pointer_event!(PointerOut);
+impl_hit_event!(PointerOut);
 
 /// Fires when a pointer crosses out of the bounds of a [target entity](EntityEvent::event_target).
 /// Unlike [`PointerOut`], this event bubbles up through a subset of the
@@ -308,6 +326,7 @@ pub struct PointerLeave {
 }
 
 impl_pointer_event!(PointerLeave);
+impl_hit_event!(PointerLeave);
 
 /// Fires when a pointer button is pressed over the [target entity](EntityEvent::event_target).
 #[derive(EntityEvent, Message, Clone, PartialEq, Debug, Reflect)]
@@ -327,6 +346,7 @@ pub struct PointerPress {
 }
 
 impl_pointer_event!(PointerPress);
+impl_hit_event!(PointerPress);
 
 /// Fires when a pointer button is released over the [target entity](EntityEvent::event_target).
 #[derive(EntityEvent, Message, Clone, PartialEq, Debug, Reflect)]
@@ -344,6 +364,7 @@ pub struct PointerRelease {
 }
 
 impl_pointer_event!(PointerRelease);
+impl_hit_event!(PointerRelease);
 
 /// Fires when a pointer sends a pointer pressed event followed by a pointer released event, with the same
 /// [target entity](EntityEvent::event_target) for both events.
@@ -366,6 +387,7 @@ pub struct PointerClick {
 }
 
 impl_pointer_event!(PointerClick);
+impl_hit_event!(PointerClick);
 
 /// Fires while a pointer is moving over the [target entity](EntityEvent::event_target).
 #[derive(EntityEvent, Message, Clone, PartialEq, Debug, Reflect)]
@@ -388,6 +410,7 @@ pub struct PointerMove {
 }
 
 impl_pointer_event!(PointerMove);
+impl_hit_event!(PointerMove);
 
 /// Fires when the [target entity](EntityEvent::event_target) receives a pointer pressed event followed by a pointer move event.
 #[derive(EntityEvent, Message, Clone, PartialEq, Debug, Reflect)]
@@ -405,6 +428,7 @@ pub struct PointerDragStart {
 }
 
 impl_pointer_event!(PointerDragStart);
+impl_hit_event!(PointerDragStart);
 
 /// Fires while the [target entity](EntityEvent::event_target) is being dragged.
 #[derive(EntityEvent, Message, Clone, PartialEq, Debug, Reflect)]
@@ -475,6 +499,7 @@ pub struct PointerDragEnter {
 }
 
 impl_pointer_event!(PointerDragEnter);
+impl_hit_event!(PointerDragEnter);
 
 /// Fires while the `dragged` entity is being dragged over the [target entity](EntityEvent::event_target).
 #[derive(EntityEvent, Message, Clone, PartialEq, Debug, Reflect)]
@@ -494,6 +519,7 @@ pub struct PointerDragOver {
 }
 
 impl_pointer_event!(PointerDragOver);
+impl_hit_event!(PointerDragOver);
 
 /// Fires when a pointer dragging the `dragged` entity leaves the [target entity](EntityEvent::event_target).
 #[derive(EntityEvent, Message, Clone, PartialEq, Debug, Reflect)]
@@ -513,6 +539,7 @@ pub struct PointerDragLeave {
 }
 
 impl_pointer_event!(PointerDragLeave);
+impl_hit_event!(PointerDragLeave);
 
 /// Fires when a pointer drops the `dropped` entity onto the [target entity](EntityEvent::event_target).
 #[derive(EntityEvent, Message, Clone, PartialEq, Debug, Reflect)]
@@ -532,6 +559,7 @@ pub struct PointerDragDrop {
 }
 
 impl_pointer_event!(PointerDragDrop);
+impl_hit_event!(PointerDragDrop);
 
 /// Fires while a pointer is scrolling over the [target entity](EntityEvent::event_target).
 #[derive(EntityEvent, Message, Clone, PartialEq, Debug, Reflect)]
@@ -557,6 +585,7 @@ pub struct PointerScroll {
 }
 
 impl_pointer_event!(PointerScroll);
+impl_hit_event!(PointerScroll);
 
 impl PointerScroll {
     /// Converts the units to [`MouseScrollUnit::Line`]
