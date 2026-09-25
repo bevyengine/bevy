@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::FocusedInput;
+use bevy_input_focus::{Focusable, FocusedInput};
 use bevy_picking::events::{
     PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
 };
@@ -42,7 +42,7 @@ use crate::{ActivateOnPress, ValueChange};
 /// and how to respond to state changes, see the [crate-level documentation].
 /// [crate-level documentation]: crate
 #[derive(Component, Debug, Clone, Default)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::RadioGroup)))]
+#[require(AccessibilityNode(accesskit::Node::new(Role::RadioGroup)), Focusable)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct RadioGroup;

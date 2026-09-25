@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{
-    asset_changed::AssetChanged, AsAssetId, Asset, AssetApp, AssetEvent, AssetEventSystems,
-    AssetId, Assets, Handle,
+    asset_changed::AssetChanged, AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, Assets,
+    Handle,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -32,8 +32,9 @@ use bevy_sprite::{Anchor, Sprite};
 use core::hash::Hash;
 
 use crate::{
-    check_entities_needing_specialization, AlphaMode2d, ExtendedMaterial2d, Material2dKey,
-    Material2dPlugin, MaterialExtension2d, MeshMaterial2d, SpriteMeshMaterial,
+    check_entities_needing_specialization, mark_2d_meshes_as_changed_if_their_materials_changed,
+    AlphaMode2d, ExtendedMaterial2d, Material2dKey, Material2dPlugin, MaterialExtension2d,
+    MeshMaterial2d, SpriteMeshMaterial,
 };
 
 /// Adds the necessary systems and resources for a [`SpriteMaterial`] of type `M`.
@@ -62,15 +63,12 @@ where
                 PostUpdate,
                 add_material::<M>
                     .before(check_entities_needing_specialization::<SpriteExt<M>>)
+                    .before(mark_2d_meshes_as_changed_if_their_materials_changed::<SpriteExt<M>>)
                     .before(AssetEventSystems),
             )
             .add_systems(
                 PostUpdate,
-                (
-                    update_changed_material_extensions::<M>,
-                    clean_sprite_material_cache::<M>,
-                )
-                    .after(AssetEventSystems),
+                update_changed_material_extensions::<M>.after(AssetEventSystems),
             );
     }
 }
@@ -106,20 +104,26 @@ fn add_material<M>(
     M: Asset + MaterialExtension2d,
     M::Data: Clone,
 {
+    cache.retain(|_, inner| {
+        super::evict_unused_materials(inner);
+        !inner.is_empty()
+    });
+
     for (entity, sprite, anchor, sprite_material) in sprites {
         let Some(instance) = sprite_materials.get(&sprite_material.0) else {
             continue;
         };
 
         let sprite_cache = cache.entry(sprite_material.id()).or_default();
-        let handle = sprite_cache.get_or_insert_with(sprite, *anchor, &mut materials, || {
-            let material =
-                super::make_sprite_mesh_material(&texture_atlas_layouts, sprite, *anchor);
-            ExtendedMaterial2d {
-                base: material,
-                extension: SpriteMaterialExtension::new(sprite_material.id(), instance),
-            }
-        });
+        let handle =
+            super::get_or_insert_material(sprite_cache, sprite, *anchor, &mut materials, || {
+                let material =
+                    super::make_sprite_mesh_material(&texture_atlas_layouts, sprite, *anchor);
+                ExtendedMaterial2d {
+                    base: material,
+                    extension: SpriteMaterialExtension::new(sprite_material.id(), instance),
+                }
+            });
 
         commands
             .entity(entity)
@@ -431,7 +435,7 @@ where
 
 /// Keeps an index of cached `SpriteExt` handles based on the [`Sprite`], [`Anchor`], and the asset id of the material
 #[derive(Resource, Deref, DerefMut)]
-struct SpriteMaterialCache<M>(HashMap<AssetId<M>, super::SpriteMaterialCache<SpriteExt<M>>>)
+struct SpriteMaterialCache<M>(HashMap<AssetId<M>, super::SpriteMaterialCache>)
 where
     M::Data: Clone,
     M: Asset + MaterialExtension2d;
@@ -443,31 +447,6 @@ where
 {
     fn default() -> Self {
         Self(Default::default())
-    }
-}
-
-fn clean_sprite_material_cache<M>(
-    mut cache: ResMut<SpriteMaterialCache<M>>,
-    mut asset_events: MessageReader<AssetEvent<M>>,
-    mut ext_events: MessageReader<AssetEvent<SpriteExt<M>>>,
-) where
-    M::Data: Clone,
-    M: Asset + MaterialExtension2d,
-{
-    for message in asset_events.read() {
-        if let AssetEvent::Removed { id } = *message {
-            cache.remove(&id);
-        }
-    }
-
-    for event in ext_events.read() {
-        let AssetEvent::Removed { id } = *event else {
-            continue;
-        };
-
-        for el in cache.values_mut() {
-            el.clean(id);
-        }
     }
 }
 

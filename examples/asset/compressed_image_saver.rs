@@ -62,7 +62,7 @@ fn spawn_scene(
             .unwrap(),
     );
 
-    commands.spawn_scene_list(bsn! {
+    commands.spawn_scene_list(bsn_list! {
         Mesh3d(floor_mesh)
         MeshMaterial3d::<StandardMaterial>(asset_value(Color::WHITE))
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))

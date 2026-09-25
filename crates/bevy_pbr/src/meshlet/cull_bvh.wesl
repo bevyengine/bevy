@@ -55,7 +55,7 @@ fn cull_bvh(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     var value = InstancedOffset(instance_id, child_offset);
 
     // If we pass, try occlusion culling
-    // If this node was occluded, push it's children to the second pass to check against this frame's HZB
+    // If this node was occluded, push its children to the second pass to check against this frame's HZB
     if should_occlusion_cull_aabb(aabb, instance_id) {
         @if(MESHLET_FIRST_CULLING_PASS)
         if child_count == 255u {

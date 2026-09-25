@@ -111,8 +111,13 @@ pub fn dlss_ray_reconstruction(
                 .specular_motion_vectors
                 .default_view,
         ),
+        transparency_overlay: None,
+        color_before_transparency: None,
         screen_space_subsurface_scattering_guide: None, // TODO
-        bias: None,                                     // TODO
+        depth_of_field_guide: None,
+        responsivity_mask: None,
+        alpha: None,
+        dlss_output_alpha: None,
         dlss_output: &view_target.destination,
         reset: dlss.reset,
         jitter_offset: (-temporal_jitter.offset).to_array(),

@@ -17,3 +17,6 @@ bevy = { path = "../../../", features = [
 argh = "0.1"
 noise = "0.9.0"
 rand = "0.10.0"
+
+[lints]
+workspace = true

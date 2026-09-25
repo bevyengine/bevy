@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::{FocusCause, FocusedInput, InputFocus, InputFocusVisible};
+use bevy_input_focus::{FocusCause, Focusable, FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{
     PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
 };
@@ -38,7 +38,11 @@ use bevy_ecs::entity::Entity;
 /// and how to respond to state changes, see the [crate-level documentation].
 /// [crate-level documentation]: crate
 #[derive(Component, Debug, Default, Clone)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
+#[require(
+    AccessibilityNode(accesskit::Node::new(Role::CheckBox)),
+    Checkable,
+    Focusable
+)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct Checkbox;

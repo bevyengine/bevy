@@ -31,7 +31,7 @@ fn main() {
 }
 
 fn showcase() -> impl SceneList {
-    bsn! {
+    bsn_list! {
         Camera2d
         --
         Node {
@@ -70,7 +70,7 @@ fn showcase() -> impl SceneList {
             @section_label("Horizontal manual - focus and selection are separate")
             --
             @tab_strip(ControlOrientation::Horizontal)
-            TabList::default()
+            TabList
             @selected_tab(#manual_scene)
             on(tablist_self_update)
             Children [
@@ -101,7 +101,7 @@ fn showcase() -> impl SceneList {
             @section_label("Controlled - observer updates external state")
             --
             @tab_strip(ControlOrientation::Horizontal)
-            TabList::default()
+            TabList
             @selected_tab(#controlled_a)
             on(controlled_selection)
             Children [

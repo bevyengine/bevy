@@ -54,7 +54,7 @@ impl Default for FeathersScrollbarProps {
 struct FeathersScrollbarThumb;
 
 /// Padding at right (vertical) and bottom (horizontal) reserved on a scrollbar's
-/// parent while the scrollbar is visible. reclaimed when the content fits.
+/// parent while the scrollbar is visible, reclaimed when the content fits.
 /// Do not use if scrollbars are not embedded in their parents padding on right & bottom
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
@@ -173,7 +173,7 @@ impl Plugin for ScrollbarPlugin {
             PostUpdate,
             update_scrollbar_visibility
                 .after(UiSystems::Layout)
-                .before(bevy_ui::update::update_clipping_system)
+                .before(UiSystems::Clipping)
                 .ambiguous_with(TransformGizmoRenderStep),
         );
     }

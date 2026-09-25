@@ -12,7 +12,7 @@ proc-macro = true
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.20.0-dev" }
 bevy_ecs_macro_logic = { path = "../macro_logic", version = "0.20.0-dev" }
 
-syn = { version = "2.0.108", features = ["full", "extra-traits"] }
+syn = { version = "3", features = ["full", "extra-traits"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 [lints]

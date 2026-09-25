@@ -439,7 +439,7 @@ fn grid_page_text_entities_scene_list(page_num: usize) -> impl SceneList {
         ),
         _ => Text::default()
     };
-    bsn! {
+    bsn_list! {
         // Text describing current page
         @helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 10, Justify::Center)
         --
@@ -502,7 +502,7 @@ fn setup_buttons_for_triangle_page(commands: &mut Commands, page_num: usize) -> 
 /// Scene list containing all the text entities regarding button/page navigation for the triangle page.
 fn triangle_page_text_entities_scene_list(page_num: usize) -> impl SceneList {
     let previous_page = if page_num == 0 { 3 } else { page_num };
-    bsn! {
+    bsn_list! {
         // Text describing current page
         @helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 20, Justify::Center)
         --

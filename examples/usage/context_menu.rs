@@ -2,7 +2,7 @@
 
 use bevy::{
     color::palettes::basic,
-    ecs::event::PropagateEntityTrigger,
+    ecs::event::{PropagateEntityTrigger, SetEntityEventTarget},
     prelude::*,
     ui_widgets::{ListBox, ListItem, ValueChange},
 };
@@ -41,11 +41,13 @@ fn main() {
 }
 
 /// helper function to reduce code duplication when generating almost identical observers for the hover text color change effect
-fn text_color_on_hover<
-    E: PointerEvent + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<true, E, PointerTraversal>>,
->(
+fn text_color_on_hover<E>(
     color: Color,
-) -> impl FnMut(On<E>, Query<&mut TextColor, With<ContextMenuItemText>>, Query<&Children>) {
+) -> impl FnMut(On<E>, Query<&mut TextColor, With<ContextMenuItemText>>, Query<&Children>)
+where
+    E: PointerEvent<Trigger = PropagateEntityTrigger<true, E, PointerTraversal>>
+        + SetEntityEventTarget,
+{
     move |mut event: On<E>,
           mut text_color: Query<&mut TextColor, With<ContextMenuItemText>>,
           children: Query<&Children>| {

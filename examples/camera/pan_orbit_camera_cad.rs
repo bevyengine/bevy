@@ -227,7 +227,7 @@ fn setup_ui(mut commands: Commands, camera: Entity) {
 Left Mouse  - Pan
 Right Mouse - Orbit
 Scroll      - Zoom
-Z           - Toggle passing thought surface on minimal zoom
+Z           - Toggle passing through surface on minimal zoom
 P           - Toggle projection
 C           - Toggle orbit constraint
 E           - Toggle explode

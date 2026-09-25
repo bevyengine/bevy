@@ -369,7 +369,7 @@ pub fn log_components() -> impl EntityCommand {
             .world()
             .inspect_entity(id)
             .expect("Entity existence is verified before an EntityCommand is executed")
-            .map(|info| info.name().to_string())
+            .map(|(_, info)| info.name().to_string())
             .collect();
         components.sort();
 

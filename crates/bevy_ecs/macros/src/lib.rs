@@ -158,7 +158,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let dynamic_bundle_impl = quote! {
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
-            type Effect = ();
+            type Effect = Self;
             #[allow(unused_variables)]
             #[allow(non_snake_case, reason = "deconstruct_moving_ptr uses #active_field_locals as a local binding name")]
             #[inline]
@@ -179,14 +179,41 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 )*
             }
 
-            #[allow(unused_variables)]
+            #[allow(unused_variables, unused_unsafe)]
+            #[allow(non_snake_case, reason = "deconstruct_moving_ptr uses #active_field_locals as a local binding name")]
             #[inline]
             unsafe fn apply_effect(
                 ptr: #ecs_path::ptr::MovingPtr<'_, ::core::mem::MaybeUninit<Self>>,
-                func: &mut #ecs_path::world::EntityWorldMut<'_>,
+                entity: &mut #ecs_path::world::EntityWorldMut<'_>,
             ) {
+                #ecs_path::ptr::deconstruct_moving_ptr!({
+                    let MaybeUninit::<Self> { #(#active_field_members: #active_field_locals,)* #(#inactive_field_members: _,)* } = ptr;
+                });
+                // SAFETY: Ensured by caller.
+                unsafe {
+                    #(
+                        <#active_field_types as #ecs_path::bundle::DynamicBundle>::apply_effect(
+                            #active_field_locals,
+                            entity
+                        );
+                    )*
+                }
             }
         }
+    };
+
+    let mut no_bundle_effect_where_clause =
+        where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
+            where_token: Default::default(),
+            predicates: Default::default(),
+        });
+    no_bundle_effect_where_clause
+        .predicates
+        .extend(active_field_types.iter().map(|t| -> syn::WherePredicate {
+            parse_quote! { for<'__a> <#t as #ecs_path::bundle::DynamicBundle>::Effect: #ecs_path::bundle::NoBundleEffect }
+        }));
+    let no_bundle_effect_impl = quote! {
+        impl #impl_generics #ecs_path::bundle::NoBundleEffect for #struct_name #ty_generics #no_bundle_effect_where_clause {}
     };
 
     let fqdefault = FQDefault.into_token_stream();
@@ -210,6 +237,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         #bundle_impl
         #from_components_impl
         #dynamic_bundle_impl
+        #no_bundle_effect_impl
     })
 }
 
@@ -378,6 +406,7 @@ fn derive_system_param_impl(
     let state_struct_name = ensure_no_collision(format_ident!("FetchState"), token_stream);
 
     let mut builder_name = None;
+    let mut map_access_conflict = None;
     for meta in ast
         .attrs
         .iter()
@@ -387,11 +416,38 @@ fn derive_system_param_impl(
             if nested.path.is_ident("builder") {
                 builder_name = Some(format_ident!("{struct_name}Builder"));
                 Ok(())
+            } else if nested.path.is_ident("map_access_conflict") {
+                if nested.input.is_empty() {
+                    map_access_conflict = Some(quote! { Self::map_access_conflict });
+                    Ok(())
+                } else if nested.input.peek(syn::token::Paren) {
+                    map_access_conflict = Some(nested.input.parse()?);
+                    Ok(())
+                } else {
+                    Err(nested.error("Invalid `map_access_conflict` attribute"))
+                }
             } else {
                 Err(nested.error("Unsupported attribute"))
             }
         })?;
     }
+
+    let map_access_conflict = map_access_conflict.map_or_else(
+        || {
+            // If a type is `pub` and has no `pub` fields, then users will not know
+            // the inner types and we should hide them by default.
+            if matches!(ast.vis, syn::Visibility::Public { .. })
+                && !fields
+                    .iter()
+                    .any(|field| matches!(field.vis, syn::Visibility::Public { .. }))
+            {
+                quote! { .map_err(|err| #path::system::SystemParamAccessConflict::new::<Self>(err.access)) }
+            } else {
+                quote! {}
+            }
+        },
+        |map_access_conflict| quote! { .map_err(|err| #map_access_conflict (system_access, err) ) },
+    );
 
     let builder = builder_name.map(|builder_name| {
         let builder_type_parameters: Vec<Ident> = field_members.iter().map(|m| format_ident!("B{}", m)).collect();
@@ -455,9 +511,9 @@ fn derive_system_param_impl(
                     state: &Self::State,
                     system_meta: &mut #path::system::SystemMeta,
                     system_access: &mut #path::system::SystemAccess,
-                    world: &mut #path::world::World
-                ) {
-                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access, world);
+                ) -> Result<(), #path::system::SystemParamAccessConflict> {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access)
+                        #map_access_conflict
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
@@ -633,6 +689,12 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// [my_group]
 /// test = true
 /// ```
+///
+/// Note that it's possible to make multiple different settings types share the same file,
+/// group, and even key. When loading, all fields sharing the same key will load from that
+/// same key. If the value is not valid for the type of a field, that field will be reset to
+/// the default value in that settings type. If two or more types are contending for a single
+/// key, which type ultimately saves in that key is not specified.
 ///
 /// ## File Override
 /// ```ignore

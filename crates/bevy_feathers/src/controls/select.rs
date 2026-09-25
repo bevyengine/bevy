@@ -83,7 +83,7 @@ pub struct FeathersSelectProps {
 impl Default for FeathersSelectProps {
     fn default() -> Self {
         Self {
-            options: Box::new(bsn! {}),
+            options: Box::new(bsn_list! {}),
             corners: Default::default(),
             max_visible: 8,
         }
