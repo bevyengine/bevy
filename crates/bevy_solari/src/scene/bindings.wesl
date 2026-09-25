@@ -57,18 +57,52 @@ const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
 const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
 
 struct LightSource {
-    kind: u32, // 1 bit for kind, 31 bits for extra data
+    kind: u32, // 3 bits for kind, 29 bits for extra data
     id: u32,
 }
 
+const LIGHT_SOURCE_KIND_BITS = 3u;
+
 const LIGHT_SOURCE_KIND_EMISSIVE_MESH = 0u;
 const LIGHT_SOURCE_KIND_DIRECTIONAL = 1u;
+const LIGHT_SOURCE_KIND_POINT = 2u;
+const LIGHT_SOURCE_KIND_RECT = 3u;
+
+fn light_source_kind(light_source: LightSource) -> u32 {
+    return light_source.kind & ((1u << LIGHT_SOURCE_KIND_BITS) - 1u);
+}
+
+fn emissive_mesh_triangle_count(light_source: LightSource) -> u32 {
+    return light_source.kind >> LIGHT_SOURCE_KIND_BITS;
+}
 
 struct DirectionalLight {
     direction_to_light: vec3<f32>,
     cos_theta_max: f32,
     luminance: vec3<f32>,
     inverse_pdf: f32,
+}
+
+/// A point or spot light. Point lights have no cone, e.g. `cos_outer <= -1`.
+struct PointLight {
+    position: vec3<f32>,
+    radius: f32,
+    intensity: vec3<f32>,
+    cos_inner: f32,
+    axis: vec3<f32>,
+    cos_outer: f32,
+}
+
+/// A one-sided rectangular light facing `cross(edge_y, edge_x)`.
+struct RectLight {
+    center: vec3<f32>,
+    area: f32,
+    edge_x: vec3<f32>,
+    _padding0: f32,
+    edge_y: vec3<f32>,
+    _padding1: f32,
+    radiance: vec3<f32>,
+    _padding2: f32,
 }
 
 struct EnvironmentMapLight {
@@ -89,14 +123,16 @@ const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 @group(0) @binding(8) var<storage> previous_frame_transforms: array<mat3x4<f32>>;
 @group(0) @binding(9) var<storage> geometry_ids: array<InstanceGeometryIds>;
 @group(0) @binding(10) var<storage> material_ids: array<u32>;
-@group(0) @binding(11) var<storage> light_sources: array<LightSource>;
-@group(0) @binding(12) var<storage> directional_lights: array<DirectionalLight>;
-@group(0) @binding(13) var<storage> previous_frame_light_id_translations: array<u32>;
-@group(0) @binding(14) var brdf_dfg_lut: texture_2d<f32>;
-@group(0) @binding(15) var brdf_dfg_lut_sampler: sampler;
-@group(0) @binding(16) var environment_map: texture_cube<f32>;
-@group(0) @binding(17) var environment_map_sampler: sampler;
-@group(0) @binding(18) var<storage> environment_map_light: EnvironmentMapLight;
+@group(0) @binding(11) var brdf_dfg_lut: texture_2d<f32>;
+@group(0) @binding(12) var brdf_dfg_lut_sampler: sampler;
+@group(0) @binding(13) var<storage> light_sources: array<LightSource>;
+@group(0) @binding(14) var<storage> directional_lights: array<DirectionalLight>;
+@group(0) @binding(15) var<storage> point_lights: array<PointLight>;
+@group(0) @binding(16) var<storage> rect_lights: array<RectLight>;
+@group(0) @binding(17) var environment_map: texture_cube<f32>;
+@group(0) @binding(18) var environment_map_sampler: sampler;
+@group(0) @binding(19) var<storage> environment_map_light: EnvironmentMapLight;
+@group(0) @binding(20) var<storage> previous_frame_light_id_translations: array<u32>;
 
 const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;

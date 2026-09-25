@@ -4,7 +4,7 @@ import bevy_render::maths::PI;
 import bevy_render::utils::octahedral_encode;
 import package::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf, EvaluateAndSampleBrdfResult, F_AB};
 import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
-import package::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
+import package::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, packed_light_is_hittable, Reservoir, constants, view};
 import package::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
 import package::scene::bindings::{light_sources, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
 import package::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
@@ -280,7 +280,8 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
     let mis_weight = 1.0 / f32(di_samples);
     for (var i = 0u; i < di_samples; i++) {
         let tile_sample = light_tile_start + rand_range_u(1024u, rng);
-        let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
+        let packed_light_sample = light_tile_resolved_samples[tile_sample];
+        let resolved_light_sample = unpack_resolved_light_sample(packed_light_sample, view.exposure);
         let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, ray_origin, normal);
         let brdf_current = evaluate_brdf(wo, light_contribution.wi, normal, material, F_ab);
         let brdf_radiance = brdf_current * light_contribution.radiance;
@@ -296,7 +297,7 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
             selected_world_position = resolved_light_sample.world_position;
             selected_wi = light_contribution.wi;
             selected_inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf;
-            selected_brdf_rays_can_hit = light_contribution.brdf_rays_can_hit;
+            selected_brdf_rays_can_hit = packed_light_is_hittable(packed_light_sample);
             selected_brdf_radiance = brdf_radiance;
         }
     }

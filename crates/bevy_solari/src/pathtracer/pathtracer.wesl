@@ -2,7 +2,7 @@ import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_vec2f};
 import bevy_render::view::View;
 import package::scene::brdf::{evaluate_brdf, evaluate_and_sample_brdf, brdf_pdf, F_AB};
-import package::scene::sampling::{sample_random_light, random_emissive_light_pdf, power_heuristic, sample_environment_map_light};
+import package::scene::sampling::{calculate_resolved_light_contribution, generate_random_light_sample, light_is_hittable, random_emissive_light_pdf, power_heuristic, sample_environment_map_light, trace_visibility};
 import package::scene::bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD};
 
 enable wgpu_ray_query;
@@ -59,10 +59,12 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             // Sample direct lighting, but only if the surface is not mirror-like
             let is_perfectly_specular = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
             if !is_perfectly_specular {
-                let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
+                let light_sample = generate_random_light_sample(&rng);
+                var direct_lighting = calculate_resolved_light_contribution(light_sample.resolved_light_sample, ray_hit.world_position, ray_hit.world_normal);
+                direct_lighting.radiance *= trace_visibility(ray_hit.world_position, light_sample.resolved_light_sample.world_position);
 
                 mis_weight = 1.0;
-                if direct_lighting.brdf_rays_can_hit {
+                if light_is_hittable(light_sample.light_source) {
                     let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material, F_ab);
                     mis_weight = power_heuristic(1.0 / direct_lighting.inverse_solid_angle_pdf, pdf_of_bounce);
                 }

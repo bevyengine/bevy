@@ -59,12 +59,12 @@ struct SolariLightingSettings {
 
 /// Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
 struct ResolvedLightSamplePacked {
-    world_position_x: f32,
-    world_position_y: f32,
-    world_position_z: f32,
-    world_normal: u32,
-    radiance: u32,
-    inverse_pdf: f32,
+    a: vec4<u32>,
+    b: vec4<u32>,
+}
+
+fn packed_light_is_hittable(packed: ResolvedLightSamplePacked) -> bool {
+    return (packed.b.w >> 31u) != 0u;
 }
 
 /// Don't adjust the size of this struct without also adjusting `prepare::RESERVOIR_STRUCT_SIZE`.
