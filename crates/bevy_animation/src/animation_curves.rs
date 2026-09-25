@@ -306,6 +306,18 @@ pub struct AnimatableCurveEvaluator<A: Animatable> {
     property: Box<dyn AnimatableProperty<Property = A>>,
 }
 
+impl<A: Animatable> AnimatableCurveEvaluator<A> {
+    pub(super) fn push_value(&mut self, value: A, weight: f32, graph_node: AnimationNodeIndex) {
+        self.evaluator
+            .stack
+            .push(BasicAnimationCurveEvaluatorStackElement {
+                value,
+                weight,
+                graph_node,
+            });
+    }
+}
+
 impl<P, C> AnimatableCurve<P, C>
 where
     P: AnimatableProperty,
@@ -413,8 +425,8 @@ impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
         self.evaluator.push_blend_register(weight, graph_node)
     }
 
-    fn commit(&mut self, mut entity: AnimationEntityMut) -> Result<(), AnimationEvaluationError> {
-        let property = self.property.get_mut(&mut entity)?;
+    fn commit(&mut self, entity: &mut AnimationEntityMut) -> Result<(), AnimationEvaluationError> {
+        let property = self.property.get_mut(entity)?;
         *property = self
             .evaluator
             .stack
@@ -708,7 +720,7 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     ///
     /// The property on the component must be overwritten with the value from
     /// the stack, not blended with it.
-    fn commit(&mut self, entity: AnimationEntityMut) -> Result<(), AnimationEvaluationError>;
+    fn commit(&mut self, entity: &mut AnimationEntityMut) -> Result<(), AnimationEvaluationError>;
 }
 
 impl_downcast!(AnimationCurveEvaluator);
