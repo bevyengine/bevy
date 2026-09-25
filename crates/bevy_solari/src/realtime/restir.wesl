@@ -7,7 +7,7 @@ import package::scene::brdf::{brdf_pdf, evaluate_brdf, F_AB};
 import package::realtime::gbuffer_utils::{gpixel_resolve, permute_pixel, pixel_dissimilar};
 import package::realtime::initial_path::{generate_initial_path, InitialSamplingResult};
 import package::realtime::bindings::{depth_buffer, empty_reservoir, gbuffer, load_motion_vector, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, constants, view, view_output};
-import package::scene::sampling::{balance_heuristic, calculate_resolved_light_contribution, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
+import package::scene::sampling::{balance_heuristic, calculate_resolved_light_contribution, isinf, isnan, light_is_hittable, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
 import package::scene::bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MAX, RAY_T_MIN, ResolvedMaterial};
 import package::realtime::world_cache_query::{query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
@@ -189,14 +189,17 @@ fn merge_reservoirs(
     rng: ptr<function, u32>,
 ) -> ReservoirMergeResult {
     var canonical_resolved: ResolvedLightSample;
+    var canonical_is_hittable = false;
     if canonical_reservoir.light_sample.light_id != NULL_LIGHT_ID {
-        canonical_resolved = resolve_light_sample(canonical_reservoir.light_sample, light_sources[canonical_reservoir.light_sample.light_id >> 16u]);
+        let light_source = light_sources[canonical_reservoir.light_sample.light_id >> 16u];
+        canonical_resolved = resolve_light_sample(canonical_reservoir.light_sample, light_source);
+        canonical_is_hittable = light_is_hittable(light_source);
     }
 
     let canonical_wo = normalize(view.world_position - canonical_world_position);
     let canonical_NdotV = max(dot(canonical_world_normal, canonical_wo), 0.0001);
     let canonical_F_ab = F_AB(canonical_material.perceptual_roughness, canonical_NdotV);
-    let canonical_sample_at_canonical = reservoir_contribution(canonical_reservoir, canonical_resolved, canonical_world_position, canonical_world_normal, canonical_wo, canonical_material, canonical_F_ab);
+    let canonical_sample_at_canonical = reservoir_contribution(canonical_reservoir, canonical_resolved, canonical_is_hittable, canonical_world_position, canonical_world_normal, canonical_wo, canonical_material, canonical_F_ab);
 
     // Skip resampling empty reservoirs
     if other_reservoir.confidence_weight == 0.0 {
@@ -204,17 +207,20 @@ fn merge_reservoirs(
     }
 
     var other_resolved: ResolvedLightSample;
+    var other_is_hittable = false;
     if other_reservoir.light_sample.light_id != NULL_LIGHT_ID {
-        other_resolved = resolve_light_sample(other_reservoir.light_sample, light_sources[other_reservoir.light_sample.light_id >> 16u]);
+        let light_source = light_sources[other_reservoir.light_sample.light_id >> 16u];
+        other_resolved = resolve_light_sample(other_reservoir.light_sample, light_source);
+        other_is_hittable = light_is_hittable(light_source);
     }
     let other_wo = normalize(other_view_position - other_world_position);
     let other_NdotV = max(dot(other_world_normal, other_wo), 0.0001);
     let other_F_ab = F_AB(other_material.perceptual_roughness, other_NdotV);
 
     // Contributions for resampling and MIS
-    var other_sample_at_canonical = reservoir_contribution(other_reservoir, other_resolved, canonical_world_position, canonical_world_normal, canonical_wo, canonical_material, canonical_F_ab);
-    var canonical_sample_at_other = reservoir_contribution(canonical_reservoir, canonical_resolved, other_world_position, other_world_normal, other_wo, other_material, other_F_ab);
-    let other_sample_at_other = reservoir_contribution(other_reservoir, other_resolved, other_world_position, other_world_normal, other_wo, other_material, other_F_ab);
+    var other_sample_at_canonical = reservoir_contribution(other_reservoir, other_resolved, other_is_hittable, canonical_world_position, canonical_world_normal, canonical_wo, canonical_material, canonical_F_ab);
+    var canonical_sample_at_other = reservoir_contribution(canonical_reservoir, canonical_resolved, canonical_is_hittable, other_world_position, other_world_normal, other_wo, other_material, other_F_ab);
+    let other_sample_at_other = reservoir_contribution(other_reservoir, other_resolved, other_is_hittable, other_world_position, other_world_normal, other_wo, other_material, other_F_ab);
 
     // Jacobians for resampling and MIS. Light samples don't need a reprojection jacobian,
     // since calculate_resolved_light_contribution already accounts for the shading point's geometry.
@@ -314,7 +320,7 @@ struct ReservoirContribution {
     sample_world_position: vec4<f32>,
 }
 
-fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, world_position: vec3<f32>, world_normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> ReservoirContribution {
+fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, is_hittable: bool, world_position: vec3<f32>, world_normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> ReservoirContribution {
     if reservoir.light_sample.light_id != NULL_LIGHT_ID {
         let light_contribution = calculate_resolved_light_contribution(resolved, world_position, world_normal);
 
@@ -322,7 +328,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
         // brdf and material rather than baked into the unbiased contribution weight at generation. Mirrors the bounce-0
         // nee_mis_weight in generate_nee_candidate and generate_emissive_candidate, which puts the same factor in the target.
         var nee_mis_weight = 1.0;
-        if light_contribution.brdf_rays_can_hit && light_contribution.inverse_solid_angle_pdf > 0.0 {
+        if is_hittable && light_contribution.inverse_solid_angle_pdf > 0.0 {
             let light_count = arrayLength(&light_sources);
             let inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf * f32(light_count);
             let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);

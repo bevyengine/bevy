@@ -23,9 +23,9 @@ use tracing::info_span;
 pub struct BindGroupCacheState {
     cached: [Option<BindGroup>; 2],
     pub invalid: bool,
-    last_buffer_ids: [Option<BufferId>; 10],
-    last_light_count: u32,
+    last_buffer_ids: Option<[BufferId; 11]>,
     last_dfg_ids: Option<(TextureViewId, SamplerId)>,
+    last_light_count: u32,
     last_environment_map_light_id: Option<TextureViewId>,
     pub dummy_buffer: Buffer,
 }
@@ -43,9 +43,9 @@ impl BindGroupCacheState {
         Self {
             cached: [None, None],
             invalid: true,
-            last_buffer_ids: [None; 10],
-            last_light_count: 0,
+            last_buffer_ids: None,
             last_dfg_ids: None,
+            last_light_count: 0,
             last_environment_map_light_id: None,
             dummy_buffer,
         }
@@ -63,26 +63,26 @@ fn buffer_bindings<'a>(
 }
 
 impl RaytracingSceneBindings {
-    /// Each sparse buffer's GPU buffer id, or `None` where it has not been created yet.
-    fn buffer_ids(&self) -> [Option<BufferId>; 10] {
+    /// The id of each buffer in the bind group.
+    fn buffer_ids(&self) -> [BufferId; 11] {
         [
-            self.assets.materials.buffer().map(Buffer::id),
-            self.instances.transforms.buffer().map(Buffer::id),
-            self.instances
-                .previous_frame_transforms
-                .buffer()
-                .map(Buffer::id),
-            self.instances.geometry_ids.buffer().map(Buffer::id),
-            self.instances.material_ids.buffer().map(Buffer::id),
-            self.instances.blas_refs.buffer().map(Buffer::id),
-            self.lights.sources.buffer().map(Buffer::id),
-            self.lights.directional_lights.buffer().map(Buffer::id),
-            self.lights
-                .previous_frame_id_translations
-                .buffer()
-                .map(Buffer::id),
-            self.environment_map_light_buffer.buffer().map(Buffer::id),
+            self.assets.materials.buffer(),
+            self.instances.transforms.buffer(),
+            self.instances.previous_frame_transforms.buffer(),
+            self.instances.geometry_ids.buffer(),
+            self.instances.material_ids.buffer(),
+            self.lights.sources.buffer(),
+            self.lights.directional_lights.buffer(),
+            self.lights.point_lights.buffer(),
+            self.lights.rect_lights.buffer(),
+            self.environment_map_light_buffer.buffer(),
+            self.lights.previous_frame_id_translations.buffer(),
         ]
+        .map(|buffer| {
+            buffer
+                .expect("scene buffers should have been written before the bind group is prepared")
+                .id()
+        })
     }
 
     fn take_bind_group_invalidation(
@@ -102,21 +102,21 @@ impl RaytracingSceneBindings {
             invalid |= core::mem::replace(dirty, false);
         }
 
-        let buffer_ids = self.buffer_ids();
+        let buffer_ids = Some(self.buffer_ids());
         if self.bind_groups.last_buffer_ids != buffer_ids {
             self.bind_groups.last_buffer_ids = buffer_ids;
-            invalid = true;
-        }
-
-        let light_count = self.lights.index.len() as u32;
-        if self.bind_groups.last_light_count != light_count {
-            self.bind_groups.last_light_count = light_count;
             invalid = true;
         }
 
         let dfg_ids = Some((dfg_view.id(), dfg_sampler.id()));
         if self.bind_groups.last_dfg_ids != dfg_ids {
             self.bind_groups.last_dfg_ids = dfg_ids;
+            invalid = true;
+        }
+
+        let light_count = self.lights.index.len() as u32;
+        if self.bind_groups.last_light_count != light_count {
+            self.bind_groups.last_light_count = light_count;
             invalid = true;
         }
 
@@ -169,49 +169,6 @@ impl RaytracingSceneBindings {
             ),
         };
 
-        let materials = self
-            .assets
-            .materials
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let transforms = self
-            .instances
-            .transforms
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let previous_frame_transforms = self
-            .instances
-            .previous_frame_transforms
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let geometry_ids = self
-            .instances
-            .geometry_ids
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let material_ids = self
-            .instances
-            .material_ids
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let directional_lights = self
-            .lights
-            .directional_lights
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let translations = self
-            .lights
-            .previous_frame_id_translations
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-
         let current = self.tlas.structures[current_index].as_ref().unwrap();
         let previous = self.tlas.structures[current_index ^ 1]
             .as_ref()
@@ -226,21 +183,26 @@ impl RaytracingSceneBindings {
                 index_buffers.as_slice(),
                 textures.as_slice(),
                 samplers.as_slice(),
-                materials,
+                self.assets.materials.binding().unwrap(),
                 current.as_binding(),
                 previous.as_binding(),
-                transforms,
-                previous_frame_transforms,
-                geometry_ids,
-                material_ids,
-                light_sources,
-                directional_lights,
-                translations,
+                self.instances.transforms.binding().unwrap(),
+                self.instances.previous_frame_transforms.binding().unwrap(),
+                self.instances.geometry_ids.binding().unwrap(),
+                self.instances.material_ids.binding().unwrap(),
                 dfg_view,
                 dfg_sampler,
+                light_sources,
+                self.lights.directional_lights.binding().unwrap(),
+                self.lights.point_lights.binding().unwrap(),
+                self.lights.rect_lights.binding().unwrap(),
                 environment_map_light,
                 &self.environment_map_light_sampler,
                 &self.environment_map_light_buffer,
+                self.lights
+                    .previous_frame_id_translations
+                    .binding()
+                    .unwrap(),
             )),
         )
     }
@@ -432,6 +394,12 @@ fn prepare_sparse_uploads(
         .prepare_to_populate_buffers(device, cache, jobs, groups, pipelines);
     lights
         .directional_lights
+        .prepare_to_populate_buffers(device, cache, jobs, groups, pipelines);
+    lights
+        .point_lights
+        .prepare_to_populate_buffers(device, cache, jobs, groups, pipelines);
+    lights
+        .rect_lights
         .prepare_to_populate_buffers(device, cache, jobs, groups, pipelines);
     lights
         .previous_frame_id_translations

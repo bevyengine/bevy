@@ -901,7 +901,7 @@ pub fn extract_lights(
     {
         if !cfg!(feature = "area_light_luts") && !*rect_light_missing_luts_warning_emitted {
             warn!(
-                "RectLight will not work properly because the `area_light_luts` cargo feature is not enabled."
+                "RectLight will not work properly because the `area_light_luts` cargo feature is not enabled. Ignore this warning if you are using bevy_solari."
             );
             *rect_light_missing_luts_warning_emitted = true;
         }

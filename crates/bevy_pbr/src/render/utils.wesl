@@ -93,6 +93,19 @@ fn uniform_hemisphere_inverse_pdf() -> f32 {
     return PI_2;
 }
 
+/// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec26%3A301
+fn sample_uniform_sphere(rng: ptr<function, u32>) -> vec3<f32> {
+    let u = 2.0 * rand_vec2f(rng) - 1.0;
+    let d = 1.0 - (abs(u.x) + abs(u.y));
+    let r = 1.0 - abs(d);
+    let phi = select((PI / 4.0) * ((abs(u.y) - abs(u.x)) / r + 1.0), 0.0, r == 0.0);
+    let f = r * sqrt(2.0 - r * r);
+    let x = f * sign(u.x) * cos(phi);
+    let y = f * sign(u.y) * sin(phi);
+    let z = sign(d) * (1.0 - r * r);
+    return vec3(x, y, z);
+}
+
 /// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec19%3A294
 fn sample_disk(disk_radius: f32, rng: ptr<function, u32>) -> vec2<f32> {
     let ab = 2.0 * rand_vec2f(rng) - 1.0;
