@@ -557,6 +557,69 @@ impl PluginGroupBuilder {
         self
     }
 
+    /// Attempts to replace the plugin `Old` with `New`.
+    /// if `New` is already in the group it is replaced.
+    ///
+    /// if successful `New` is inserted after `Old` and `Old` is disabled,
+    /// if this function errors the group is left unchanged.
+    ///
+    /// **NOTE:** any plugins that where after `Old` are also after `New`,
+    ///     but any plugins added after `Old` after this function is called will be before `New`.
+    ///
+    /// # Errors
+    /// Returns an error containing `New` if `Old` is not in the group.
+    pub fn try_replace_overwrite<Old: Plugin, New: Plugin>(
+        mut self,
+        new: New,
+    ) -> Result<Self, (Self, New)> {
+        if !self.contains::<Old>() {
+            return Err((self, new));
+        }
+
+        self = self.disable::<Old>().add_after::<Old>(new);
+
+        Ok(self)
+    }
+
+    /// Attempts to replace the plugin `Old` with `New`.
+    ///
+    /// if successful `New` is inserted after `Old` and `Old` is disabled,
+    /// if this function errors the group is left unchanged.
+    ///
+    /// **NOTE:** any plugins that where after `Old` are also after `New`,
+    ///     but any plugins added after `Old` after this function is called will be before `New`.
+    ///
+    /// # Errors
+    /// Returns an error containing `New` if `Old` is not in the group,
+    /// or `New` is already in the group.
+    pub fn try_replace<Old: Plugin, New: Plugin>(self, new: New) -> Result<Self, (Self, New)> {
+        if self.contains::<New>() {
+            return Err((self, new));
+        }
+
+        self.try_replace_overwrite::<Old, _>(new)
+    }
+
+    /// Attempts to replace the plugin `Old` with `New`.
+    /// if `new` is already in the group it is replaced.
+    ///
+    /// if successful `New` is inserted after `Old` and `Old` is disabled.
+    ///
+    /// **NOTE:** any plugins that where after `Old` are also after `new`,
+    ///     but any plugins added after `Old` after this function is called will be before `new`.
+    ///
+    /// # Panics
+    /// panics if `Old` is not in the group.
+    pub fn replace<Old: Plugin>(self, new: impl Plugin) -> Self {
+        self.try_replace_overwrite::<Old, _>(new)
+            .unwrap_or_else(|_| {
+                panic!(
+                    "cannot replace plugin `{}` because it does not exist",
+                    ::core::any::type_name::<Old>()
+                );
+            })
+    }
+
     /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
     /// in the order specified.
     ///
@@ -998,5 +1061,58 @@ mod tests {
                 type_id_of(plugin_e),
             ]
         );
+    }
+
+    plugin_group! {
+        struct PluginGroupG {
+            :PluginA,
+            :PluginC,
+        }
+    }
+
+    struct PluginD;
+
+    impl Plugin for PluginD {
+        fn build(&self, _app: &mut App) {}
+    }
+
+    #[test]
+    fn replace_successful() {
+        let group = PluginGroupG
+            .build()
+            .add_after::<PluginA>(PluginB)
+            .try_replace::<PluginA, _>(PluginD)
+            .ok()
+            .unwrap();
+
+        assert_eq!(
+            group.order,
+            vec![
+                TypeId::of::<PluginA>(),
+                TypeId::of::<PluginD>(),
+                TypeId::of::<PluginB>(),
+                TypeId::of::<PluginC>(),
+            ],
+        );
+
+        assert!(!group.plugins.get(&TypeId::of::<PluginA>()).unwrap().enabled);
+    }
+
+    #[test]
+    fn try_replace_doesnt_overwrite() {
+        let result = PluginGroupG.build().try_replace::<PluginA, _>(PluginC);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn replace_overwrites() {
+        PluginGroupG.build().replace::<PluginA>(PluginC);
+    }
+
+    #[test]
+    #[should_panic = "cannot replace plugin `bevy_app::plugin_group::tests::PluginB` because it does not exist"]
+    fn replace_doesnt_exist() {
+        PluginGroupG.build().replace::<PluginB>(PluginD);
     }
 }
