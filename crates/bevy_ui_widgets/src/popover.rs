@@ -315,7 +315,8 @@ impl Plugin for PopoverPlugin {
         app.add_systems(
             PostUpdate,
             position_popover
-                .in_set(UiSystems::Adjustment)
+                .after(UiSystems::Layout)
+                .before(UiSystems::Clipping)
                 .before(update_scrollbar_thumb),
         );
     }

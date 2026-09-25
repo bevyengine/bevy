@@ -110,10 +110,6 @@ pub enum UiSystems {
     ///
     /// Runs in [`PostUpdate`].
     Layout,
-    /// Systems that need to adjust the layout after it's been updated but before clipping.
-    ///
-    /// Runs in [`PostUpdate`].
-    Adjustment,
     /// After this, UI clipping has been updated.
     ///
     /// Runs in [`PostUpdate`]
@@ -166,8 +162,7 @@ impl Plugin for UiPlugin {
                     UiSystems::Prepare.after(AnimationSystems),
                     UiSystems::Propagate,
                     UiSystems::Content,
-                    UiSystems::Layout,
-                    UiSystems::Adjustment,
+                    UiSystems::Layout,                    
                     UiSystems::Clipping,
                     UiSystems::PostLayout,
                 )
@@ -295,11 +290,9 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::update_image_content_size_system)
                 .ambiguous_with(widget::measure_text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout),
-            widget::sync_editable_text_viewports
-                .after(UiSystems::Layout)
-                .after(UiSystems::Adjustment)
-                .before(EditableTextSystems),
-            widget::update_editable_text_layout
+            (widget::sync_editable_text_viewports.before(EditableTextSystems),
+            widget::update_editable_text_layout)
+            .chain()
                 .in_set(UiSystems::PostLayout)
                 // This is unlikely to result in real conflicts,
                 // as FocusChangeEvents only mutates internal state of InputFocus,
