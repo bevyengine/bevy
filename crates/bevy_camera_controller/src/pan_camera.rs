@@ -5,7 +5,7 @@
 //!
 //! To configure the settings of this controller, modify the fields of the [`PanCamera`] component.
 
-use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
+use bevy_app::{App, Plugin, RunFixedMainLoop};
 use bevy_camera::{Camera, RenderTarget};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyCode;
@@ -16,7 +16,7 @@ use bevy_picking::{
     events::{PointerDrag, PointerDragEnd, PointerDragStart},
     pointer::PointerButton,
 };
-use bevy_time::{Real, Time};
+use bevy_time::{run_fixed_main_schedule, Real, Time};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::prelude::Transform;
 use bevy_window::{PrimaryWindow, Window, WindowRef};
@@ -33,7 +33,7 @@ impl Plugin for PanCameraPlugin {
         app.add_systems(
             RunFixedMainLoop,
             (
-                run_pancamera_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+                run_pancamera_controller.before(run_fixed_main_schedule),
                 run_pan_to_cursor_on_zoom.after(run_pancamera_controller),
             ),
         )

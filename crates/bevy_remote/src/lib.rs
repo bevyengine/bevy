@@ -633,22 +633,21 @@
 extern crate alloc;
 
 use async_channel::{Receiver, Sender};
-use bevy_app::{prelude::*, MainScheduleOrder};
+use bevy_app::{prelude::*, EntryPoint};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     observer::On,
     resource::Resource,
     schedule::{
-        InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt,
-        ScheduleLabel, SystemSet,
+        InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt, SystemSet,
     },
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_render")]
-use bevy_render::{Render, RenderApp, RenderScheduleOrder, RenderStartup};
+use bevy_render::{RenderApp, RenderEntryPoint, RenderEntryPointSystems, RenderStartup};
 use bevy_utils::prelude::default;
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
@@ -1030,28 +1029,25 @@ impl Plugin for RemotePlugin {
                 .add_observer(cache_schedule_build_metadata);
         }
 
-        app.init_schedule(RemoteLast)
-            .world_mut()
-            .resource_mut::<MainScheduleOrder>()
-            .insert_after(Last, RemoteLast);
-
         app.insert_resource(remote_methods)
             .init_resource::<schemas::SchemaTypesMetadata>()
             .init_resource::<RemoteWatchingRequests>()
             .init_resource::<builtin_methods::BrpEventObservers>()
             .add_systems(PreStartup, setup_mailbox_channel)
+            .configure_sets(EntryPoint, RemoteLast.after(Last))
             .configure_sets(
-                RemoteLast,
+                EntryPoint,
                 (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
             )
             .add_systems(
-                RemoteLast,
+                EntryPoint,
                 (
                     (process_remote_requests, process_ongoing_watching_requests)
                         .chain()
                         .in_set(RemoteSystems::ProcessRequests),
                     remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
-                ),
+                )
+                    .in_set(RemoteLast),
             );
 
         #[cfg(feature = "bevy_render")]
@@ -1080,22 +1076,23 @@ impl Plugin for RemotePlugin {
             }
 
             render_app
-                .init_schedule(RemoteLast)
-                .world_mut()
-                .resource_mut::<RenderScheduleOrder>()
-                .insert_after(Render, RemoteLast);
-
-            render_app
                 .insert_resource(render_remote_methods)
                 .init_resource::<schemas::SchemaTypesMetadata>()
                 .init_resource::<RemoteWatchingRequests>()
                 .add_systems(RenderStartup, setup_mailbox_channel.run_if(run_once))
+                // Run RemoteSystems stuff after all the rendering stuff.
                 .configure_sets(
-                    RemoteLast,
-                    (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
+                    RenderEntryPoint,
+                    RemoteLast.after(RenderEntryPointSystems::RenderTime),
+                )
+                .configure_sets(
+                    RenderEntryPoint,
+                    (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup)
+                        .chain()
+                        .in_set(RemoteLast),
                 )
                 .add_systems(
-                    RemoteLast,
+                    RenderEntryPoint,
                     (
                         (process_remote_requests, process_ongoing_watching_requests)
                             .chain()
@@ -1108,7 +1105,7 @@ impl Plugin for RemotePlugin {
 }
 
 /// Schedule that contains all systems to process Bevy Remote Protocol requests
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct RemoteLast;
 
 /// The systems sets of the [`RemoteLast`] schedule.

@@ -328,7 +328,7 @@ fn main() {
         // "round": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
         .configure_sets(
-            Update,
+            Main,
             // chain() will ensure sets run in the order they are listed
             (
                 MySystems::BeforeRound,

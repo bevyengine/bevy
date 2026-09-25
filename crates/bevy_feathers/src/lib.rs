@@ -22,7 +22,8 @@
 extern crate alloc;
 
 use bevy_app::{
-    HierarchyPropagatePlugin, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate, PropagateSet,
+    HierarchyPropagatePlugin, Main, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate,
+    PropagateSet,
 };
 use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
@@ -89,11 +90,11 @@ impl Plugin for FeathersCorePlugin {
         // This needs to run in UiSystems::Propagate so the fonts are up-to-date for `measure_text_system`
         // and `detect_text_needs_rerender` in UiSystems::Content
         app.configure_sets(
-            PostUpdate,
+            Main,
             PropagateSet::<TextFont>::default().in_set(UiSystems::Propagate),
         );
         app.configure_sets(
-            PostUpdate,
+            Main,
             PropagateSet::<TextColor>::default().in_set(UiSystems::Propagate),
         );
 

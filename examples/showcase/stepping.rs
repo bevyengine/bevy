@@ -1,4 +1,4 @@
-use bevy::{app::MainScheduleOrder, ecs::schedule::*, prelude::*};
+use bevy::{app::EntryPoint, ecs::schedule::*, prelude::*};
 
 /// Independent [`Schedule`] for stepping systems.
 ///
@@ -41,8 +41,10 @@ impl Plugin for SteppingPlugin {
         // We need an independent schedule so we have access to all other
         // schedules through the `Stepping` resource
         app.init_schedule(DebugSchedule);
-        let mut order = app.world_mut().resource_mut::<MainScheduleOrder>();
-        order.insert_after(Update, DebugSchedule);
+        fn run_debug_schedule(world: &mut World) {
+            world.run_schedule(DebugSchedule);
+        }
+        app.add_systems(EntryPoint, run_debug_schedule.after(EntryPoint::run_main));
 
         // create our stepping resource
         let mut stepping = Stepping::new();

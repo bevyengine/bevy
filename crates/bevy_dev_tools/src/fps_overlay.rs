@@ -1,6 +1,6 @@
 //! Module containing logic for FPS overlay.
 
-use bevy_app::{Plugin, Startup, Update};
+use bevy_app::{Main, Plugin, Startup, Update};
 use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
@@ -86,7 +86,7 @@ impl Plugin for FpsOverlayPlugin {
 
         app.insert_resource(self.config.clone())
             .configure_sets(
-                Update,
+                Main,
                 FpsOverlaySystems::Customize.before(FpsOverlaySystems::UpdateText),
             )
             .add_systems(Startup, setup)

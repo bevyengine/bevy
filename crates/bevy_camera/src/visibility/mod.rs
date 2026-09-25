@@ -42,7 +42,7 @@ use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
 pub use render_layers::*;
 
-use bevy_app::{Plugin, PostUpdate, ValidateParentHasComponentPlugin};
+use bevy_app::{Main, Plugin, PostUpdate, ValidateParentHasComponentPlugin};
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{AssetEventSystems, Assets};
 use bevy_ecs::prelude::*;
@@ -502,17 +502,17 @@ impl Plugin for VisibilityPlugin {
             .register_required_components::<Mesh2d, Visibility>()
             .register_required_components::<Mesh2d, VisibilityClass>()
             .configure_sets(
-                PostUpdate,
+                Main,
                 (UpdateFrusta, VisibilityPropagate)
                     .before(CheckVisibility)
                     .after(TransformSystems::Propagate),
             )
             .configure_sets(
-                PostUpdate,
+                Main,
                 MarkNewlyHiddenEntitiesInvisible.after(CheckVisibility),
             )
             .configure_sets(
-                PostUpdate,
+                Main,
                 (CalculateBounds)
                     .before(CheckVisibility)
                     .after(TransformSystems::Propagate)

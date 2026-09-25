@@ -22,7 +22,9 @@ fn main() {
         // We can modify the reporting strategy for system execution order ambiguities on a per-schedule basis.
         // You must do this for each schedule you want to inspect; child schedules executed within an inspected
         // schedule do not inherit this modification.
-        .edit_schedule(Update, |schedule| {
+        // Note: `Update` is a system-set, not a schedule. Adding systems to `Update` adds the
+        // system to the `Main` schedule, and in the `Update` system-set.
+        .edit_schedule(Main, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {
                 ambiguity_detection: LogLevel::Warn,
                 ..default()

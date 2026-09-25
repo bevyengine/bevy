@@ -156,9 +156,9 @@ impl Plugin for WindowPlugin {
             PreUpdate,
             send_typed_window_events.in_set(WindowEventSystems),
         )
-        .configure_sets(PreUpdate, WindowEventSystems.before(InputSystems));
+        .configure_sets(Main, WindowEventSystems.before(InputSystems));
 
-        app.configure_sets(Last, OnAppExitSystems.after(ExitSystems));
+        app.configure_sets(Main, OnAppExitSystems.after(ExitSystems));
     }
 }
 

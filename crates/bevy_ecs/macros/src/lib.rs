@@ -26,8 +26,8 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, ConstParam, Data,
-    DeriveInput, Fields, GenericParam, TypeParam,
+    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
+    ConstParam, Data, DeriveInput, Fields, GenericParam, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -38,6 +38,8 @@ enum BundleFieldKind {
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
 const BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS: &str = "ignore_from_components";
+
+const SYSTEM_SET_DEFAULT_SCHEDULE: &str = "default_schedule";
 
 #[derive(Debug)]
 struct BundleAttributes {
@@ -590,13 +592,47 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
 /// This does not work for unions.
 ///
 /// [`SystemSet`]: trait.SystemSet.html
-#[proc_macro_derive(SystemSet)]
+#[proc_macro_derive(SystemSet, attributes(default_schedule))]
 pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
+    let bevy_ecs = bevy_ecs_path();
+    let mut trait_path = bevy_ecs.clone();
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path.segments.push(format_ident!("SystemSet").into());
-    derive_label(input, "SystemSet", &trait_path)
+
+    let mut default_schedule = None;
+    for attr in input.attrs.iter() {
+        if attr.path().is_ident(SYSTEM_SET_DEFAULT_SCHEDULE) {
+            let path = match attr.parse_args::<syn::Path>() {
+                Ok(value) => value,
+                Err(e) => return e.into_compile_error().into(),
+            };
+            if default_schedule.is_some() {
+                return syn::Error::new(attr.span(), "duplicate default_schedule attribute")
+                    .into_compile_error()
+                    .into();
+            }
+            default_schedule = Some(path);
+        }
+    }
+
+    let mut label_impl = derive_label(input.clone(), "SystemSet", &trait_path);
+
+    if let Some(default_schedule) = default_schedule {
+        let ident = input.ident.clone();
+        let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+        label_impl.extend(TokenStream::from(quote! {
+            impl #impl_generics #bevy_ecs::schedule::SystemLocation for #ident #ty_generics #where_clause {
+                fn get_system_location(&self) -> (
+                    #bevy_ecs::intern::Interned<dyn #bevy_ecs::schedule::ScheduleLabel>,
+                    ::core::option::Option<#bevy_ecs::intern::Interned<dyn #bevy_ecs::schedule::SystemSet>>,
+                ) {
+                    (#default_schedule.intern(), Some(self.intern()))
+                }
+            }
+        }));
+    }
+    label_impl
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {

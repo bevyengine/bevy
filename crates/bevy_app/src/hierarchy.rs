@@ -11,7 +11,10 @@ use bevy_ecs::{
     name::Name,
     observer::On,
     query::{With, Without},
-    schedule::{common_conditions::on_message, IntoScheduleConfigs, ScheduleLabel, SystemSet},
+    schedule::{
+        common_conditions::on_message, IntoScheduleConfigs, ScheduleLabel, SystemLocation,
+        SystemSet,
+    },
     system::Query,
 };
 use bevy_platform::prelude::format;
@@ -22,21 +25,21 @@ use crate::{Last, Plugin};
 
 /// A plugin that verifies that [`Component`] `C` has parents that also have that component.
 pub struct ValidateParentHasComponentPlugin<C: Component> {
-    schedule: Interned<dyn ScheduleLabel>,
+    location: (Interned<dyn ScheduleLabel>, Option<Interned<dyn SystemSet>>),
     marker: PhantomData<fn() -> C>,
 }
 
 impl<C: Component> Default for ValidateParentHasComponentPlugin<C> {
     fn default() -> Self {
-        Self::in_schedule(Last)
+        Self::in_location(Last)
     }
 }
 
 impl<C: Component> ValidateParentHasComponentPlugin<C> {
     /// Creates an instance of this plugin that inserts systems in the provided schedule.
-    pub fn in_schedule(label: impl ScheduleLabel) -> Self {
+    pub fn in_location(location: impl SystemLocation) -> Self {
         Self {
-            schedule: label.intern(),
+            location: location.get_system_location(),
             marker: PhantomData,
         }
     }
@@ -47,7 +50,7 @@ impl<C: Component> Plugin for ValidateParentHasComponentPlugin<C> {
         app.add_message::<CheckParentHasComponent<C>>()
             .add_observer(validate_parent_has_component::<C>)
             .add_systems(
-                self.schedule,
+                self.location,
                 check_parent_has_component::<C>
                     .run_if(on_message::<CheckParentHasComponent<C>>)
                     .in_set(ValidateParentHasComponentSystems),

@@ -88,6 +88,7 @@ mod tests {
     use crate::UiTargetCamera;
     use bevy_app::App;
     use bevy_app::HierarchyPropagatePlugin;
+    use bevy_app::Main;
     use bevy_app::PostUpdate;
     use bevy_app::PropagateSet;
     use bevy_camera::Camera;
@@ -106,18 +107,12 @@ mod tests {
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
-        app.configure_sets(
-            PostUpdate,
-            PropagateSet::<ComputedUiTargetCamera>::default(),
-        );
+        app.configure_sets(Main, PropagateSet::<ComputedUiTargetCamera>::default());
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
             PostUpdate,
         ));
-        app.configure_sets(
-            PostUpdate,
-            PropagateSet::<ComputedUiRenderTargetInfo>::default(),
-        );
+        app.configure_sets(Main, PropagateSet::<ComputedUiRenderTargetInfo>::default());
 
         app.add_systems(bevy_app::Update, propagate_ui_target_cameras);
 

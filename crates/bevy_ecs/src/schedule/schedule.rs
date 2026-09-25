@@ -224,10 +224,15 @@ impl Schedules {
     /// Adds one or more systems to the [`Schedule`] matching the provided [`ScheduleLabel`].
     pub fn add_systems<M>(
         &mut self,
-        schedule: impl ScheduleLabel,
+        location: impl SystemLocation,
         systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
-        self.entry(schedule).add_systems(systems);
+        let (schedule, system_set) = location.get_system_location();
+        if let Some(system_set) = system_set {
+            self.entry(schedule).add_systems(systems.in_set(system_set));
+        } else {
+            self.entry(schedule).add_systems(systems);
+        }
 
         self
     }

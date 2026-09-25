@@ -133,7 +133,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
             // update_ime_position reads Window to reposition the IME cursor, while
             // update_text2d_layout writes Window bounds for text wrapping.
             app.ignore_ambiguity(
-                bevy_app::PostUpdate,
+                bevy_app::Main,
                 bevy_ui_widgets::ImeSystems::UpdatePosition,
                 bevy_sprite::update_text2d_layout,
             );
@@ -145,12 +145,12 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
             && app.is_plugin_added::<bevy_ui::UiPlugin>()
         {
             app.ignore_ambiguity(
-                bevy_app::PostUpdate,
+                bevy_app::Main,
                 bevy_animation::advance_animations,
                 bevy_ui::ui_layout_system,
             );
             app.ignore_ambiguity(
-                bevy_app::PostUpdate,
+                bevy_app::Main,
                 bevy_animation::animate_targets,
                 bevy_ui::ui_layout_system,
             );
