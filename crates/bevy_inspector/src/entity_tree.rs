@@ -39,8 +39,9 @@ use bevy_ui_widgets::{
 
 use crate::InspectorSelection;
 
-/// Marker for entities spawned by the inspector. An `InspectorUi` entity's descendants are hidden
-/// from the entity tree, but the marked entity itself still shows as a single, non-expandable row.
+/// Marker for root entities spawned by the inspector. An `InspectorUi` entity's descendants are
+/// hidden from the entity tree, but the marked entity itself still shows as a single,
+/// non-expandable row.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct InspectorUi;
@@ -103,16 +104,20 @@ impl TreeRowIndex {
 pub struct EntityTreeSync {
     /// Time between synchronization passes.
     pub timer: Timer,
-    /// Forces a synchronization pass on the next update.
-    pub dirty: bool,
 }
 
 impl Default for EntityTreeSync {
     fn default() -> Self {
-        Self {
-            timer: Timer::from_seconds(0.25, TimerMode::Repeating),
-            dirty: true,
-        }
+        let mut timer = Timer::from_seconds(0.25, TimerMode::Repeating);
+        timer.set_elapsed(timer.duration());
+        Self { timer }
+    }
+}
+
+impl EntityTreeSync {
+    /// Forces a synchronization pass on the next tick.
+    pub fn set_dirty(&mut self) {
+        self.timer.almost_finish();
     }
 }
 
@@ -173,7 +178,7 @@ pub fn inspector_tree_expanded(
         return;
     }
     commands.entity(change.item).insert(InspectorRowPopulated);
-    sync.dirty = true;
+    sync.set_dirty();
 }
 
 /// Adds, removes and relabels tree rows so that they match the inspected world.
@@ -186,9 +191,7 @@ pub fn sync_entity_tree(world: &mut World) {
     let run = {
         let mut sync = world.resource_mut::<EntityTreeSync>();
         sync.timer.tick(delta);
-        let run = sync.dirty || sync.timer.just_finished();
-        sync.dirty = false;
-        run
+        sync.timer.just_finished()
     };
     if !run {
         return;
@@ -353,11 +356,9 @@ fn apply_sync(world: &mut World, plan: SyncPlan) {
 fn rebuild_index(world: &mut World) {
     let mut source_to_row = HashMap::new();
     let mut row_to_source = HashMap::new();
-    for entity_ref in world.iter_entities() {
-        if let Some(row) = entity_ref.get::<InspectorRow>() {
-            source_to_row.insert(row.source, entity_ref.id());
-            row_to_source.insert(entity_ref.id(), row.source);
-        }
+    for (entity, row) in world.query::<(Entity, &InspectorRow)>().iter(world) {
+        source_to_row.insert(row.source, entity);
+        row_to_source.insert(entity, row.source);
     }
 
     let mut index = world.resource_mut::<TreeRowIndex>();
@@ -478,6 +479,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins((
             TaskPoolPlugin::default(),
+            bevy_time::TimePlugin,
             AssetPlugin::default(),
             bevy_scene::ScenePlugin,
             InspectorPlugin,
@@ -552,7 +554,7 @@ mod tests {
         assert!(!app.world().get::<TreeItem>(sibling_row).unwrap().expandable);
 
         app.world_mut().entity_mut(sibling).despawn();
-        app.world_mut().resource_mut::<EntityTreeSync>().dirty = true;
+        app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
         app.update();
 
         let sources = row_sources(app.world(), tree);
