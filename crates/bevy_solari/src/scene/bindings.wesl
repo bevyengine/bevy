@@ -43,16 +43,18 @@ struct Material {
     base_color_texture_id: u32,
     emissive_texture_id: u32,
     metallic_roughness_texture_id: u32,
-
     base_color: vec3<f32>,
     perceptual_roughness: f32,
     emissive: vec3<f32>,
     metallic: f32,
-    _padding: vec3<f32>,
     reflectance: f32,
+    flags: u32,
+    _padding: vec2<f32>,
 }
 
 const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
+
+const MATERIAL_FLAG_DOUBLE_SIDED = 1u << 0u;
 
 const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
 
@@ -142,6 +144,7 @@ struct ResolvedRayHitFull {
     triangle_area: f32,
     triangle_count: u32,
     material: ResolvedMaterial,
+    double_sided: bool,
 }
 
 fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
@@ -174,7 +177,18 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
 
 fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
     let barycentrics = vec3(1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y, ray_hit.barycentrics);
-    return resolve_triangle_data_full(ray_hit.instance_custom_data, ray_hit.primitive_index, barycentrics);
+    var resolved = resolve_triangle_data_full(ray_hit.instance_custom_data, ray_hit.primitive_index, barycentrics);
+
+    // Flip normals for backfacing hits of double sided materials
+    if !ray_hit.front_face && resolved.double_sided {
+        resolved.world_normal = -resolved.world_normal;
+        resolved.geometric_world_normal = -resolved.geometric_world_normal;
+
+        // Emissive surfaces only emit from their front side
+        resolved.material.emissive = vec3(0.0);
+    }
+
+    return resolved;
 }
 
 fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -> array<Vertex, 3> {
@@ -256,5 +270,6 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         triangle_area,
         instance_geometry_ids.triangle_count,
         resolved_material,
+        (material.flags & MATERIAL_FLAG_DOUBLE_SIDED) != 0u,
     );
 }
