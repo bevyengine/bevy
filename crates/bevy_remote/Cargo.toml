@@ -36,6 +36,7 @@ bevy_color = { path = "../bevy_color", version = "0.20.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.20.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", version = "0.20.0-dev", features = [
   "schedule_data",
+  "serialize",
 ] }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev", features = [
@@ -71,6 +72,7 @@ http-body-util = { version = "0.1", optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.20.0-dev", features = [
   "multi_threaded",
 ] }
+bevy_remote = { path = ".", features = ["client"] }
 
 [lints]
 workspace = true

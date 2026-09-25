@@ -85,6 +85,7 @@ impl core::error::Error for ResourceInspectionError {}
 /// Settings for inspecting a resource.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default))]
 pub struct ResourceInspectionSettings {
     /// Whether type paths in the value string are kept in full.
     /// When false, every `::` in the formatted value is collapsed, including inside string values.
