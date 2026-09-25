@@ -7,6 +7,7 @@
 use bevy_app::{App, TaskPoolPlugin};
 use bevy_ecs::{
     component::Component,
+    entity::Entity,
     name::Name,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     resource::Resource,
@@ -47,8 +48,8 @@ fn free_port() -> u16 {
 
 struct TestServer {
     client: BrpClient,
-    entity_bits: u64,
-    despawned_entity_bits: u64,
+    entity: Entity,
+    despawned_entity: Entity,
     stop: Arc<AtomicBool>,
     handle: Option<std::thread::JoinHandle<()>>,
 }
@@ -76,19 +77,14 @@ impl TestServer {
             }
             app.world_mut().insert_resource(Score(11));
 
-            let entity_bits = app
-                .world_mut()
-                .spawn((Name::new("Player"), Health(7)))
-                .id()
-                .to_bits();
+            let entity = app.world_mut().spawn((Name::new("Player"), Health(7))).id();
             let despawned_entity = app.world_mut().spawn(Health(1)).id();
-            let despawned_entity_bits = despawned_entity.to_bits();
             app.world_mut().despawn(despawned_entity);
 
             app.finish();
             app.cleanup();
 
-            let _ = sender.send((entity_bits, despawned_entity_bits));
+            let _ = sender.send((entity, despawned_entity));
 
             while !thread_stop.load(Ordering::Relaxed) {
                 app.update();
@@ -96,14 +92,14 @@ impl TestServer {
             }
         });
 
-        let (entity_bits, despawned_entity_bits) = receiver
+        let (entity, despawned_entity) = receiver
             .recv_timeout(Duration::from_secs(5))
             .expect("the server thread should report the spawned entities");
 
         Self {
             client: BrpClient::localhost(port),
-            entity_bits,
-            despawned_entity_bits,
+            entity,
+            despawned_entity,
             stop,
             handle: Some(handle),
         }
@@ -138,10 +134,7 @@ fn inspect_returns_label_and_component() {
     let server = TestServer::spawn();
 
     let result = server
-        .call(
-            "world.inspect",
-            Some(json!({ "entity": server.entity_bits })),
-        )
+        .call("world.inspect", Some(json!({ "entity": server.entity })))
         .expect("world.inspect should succeed");
 
     assert_eq!(result["label"]["label"], json!("Player"));
@@ -160,7 +153,7 @@ fn inspect_missing_entity_returns_not_found() {
     let error = server
         .call(
             "world.inspect",
-            Some(json!({ "entity": server.despawned_entity_bits })),
+            Some(json!({ "entity": server.despawned_entity })),
         )
         .expect_err("a despawned entity should not be inspectable");
 
@@ -177,7 +170,7 @@ fn inspect_component_by_type_path() {
     let result = server
         .call(
             "world.inspect_component",
-            Some(json!({ "entity": server.entity_bits, "component": health_type_path() })),
+            Some(json!({ "entity": server.entity, "component": health_type_path() })),
         )
         .expect("world.inspect_component should succeed");
 
