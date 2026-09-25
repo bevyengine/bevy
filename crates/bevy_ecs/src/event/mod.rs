@@ -88,7 +88,7 @@ use core::marker::PhantomData;
 )]
 pub trait Event: Send + Sync + Sized + 'static {
     /// Defines which observers will run, what data will be passed to them, and the order they will be run in. See [`Trigger`] for more info.
-    type Trigger<'a>: Trigger<Self>;
+    type Trigger: Trigger<Self>;
 }
 
 /// Trait for types that can be 'matched' on by [`Observer`]s to register additional
