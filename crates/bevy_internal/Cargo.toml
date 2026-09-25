@@ -280,6 +280,7 @@ bevy_sprite_render = [
 bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
 # Feathers ships its built-in icons as PNGs, so enable the PNG feature
 bevy_feathers = ["dep:bevy_feathers", "png"]
+bevy_inspector = ["dep:bevy_inspector", "bevy_feathers"]
 bevy_solari = ["dep:bevy_solari", "bevy_pbr"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera", "bevy_light?/bevy_gizmos"]
 bevy_gizmos_render = ["dep:bevy_gizmos_render", "bevy_gizmos"]
@@ -577,6 +578,7 @@ bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.20.0-dev"
 bevy_gizmos_render = { path = "../bevy_gizmos_render", optional = true, version = "0.20.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.20.0-dev" }
 bevy_feathers = { path = "../bevy_feathers", optional = true, version = "0.20.0-dev" }
+bevy_inspector = { path = "../bevy_inspector", optional = true, version = "0.20.0-dev" }
 bevy_image = { path = "../bevy_image", optional = true, version = "0.20.0-dev" }
 bevy_shader = { path = "../bevy_shader", optional = true, version = "0.20.0-dev" }
 bevy_material = { path = "../bevy_material", optional = true, version = "0.20.0-dev" }
