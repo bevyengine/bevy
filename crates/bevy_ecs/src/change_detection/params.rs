@@ -242,7 +242,66 @@ impl<'w> ContiguousComponentTicksRef<'w> {
 
 /// Used by mutable query parameters (such as [`Mut`] and [`ResMut`])
 /// to store mutable access to the [`Tick`]s of a single component or resource.
-pub(crate) struct ComponentTicksMut<'w> {
+pub struct ComponentTicksMut<'w> {
+    pub(crate) added: &'w mut Tick,
+    pub(crate) changed: &'w mut Tick,
+    pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
+    pub(crate) last_run: Tick,
+    pub(crate) this_run: Tick,
+}
+
+impl<'w> ComponentTicksMut<'w> {
+    /// # Safety
+    /// This should never alias the underlying ticks. All access must be unique.
+    #[inline]
+    pub(crate) unsafe fn from_tick_cells(
+        cells: ComponentTickCells<'w>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self {
+        Self {
+            // SAFETY: Caller ensures there is no alias to the cell.
+            added: unsafe { cells.added.deref_mut() },
+            // SAFETY: Caller ensures there is no alias to the cell.
+            changed: unsafe { cells.changed.deref_mut() },
+            // SAFETY: Caller ensures there is no alias to the cell.
+            changed_by: unsafe { cells.changed_by.map(|changed_by| changed_by.deref_mut()) },
+            last_run,
+            this_run,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn with_summary_tick(
+        self,
+        summary_tick: Option<&'w AtomicTick>,
+    ) -> ComponentTicksMutSumm<'w> {
+        ComponentTicksMutSumm {
+            added: self.added,
+            changed: self.changed,
+            changed_by: self.changed_by,
+            last_run: self.last_run,
+            this_run: self.this_run,
+            summary_tick,
+        }
+    }
+}
+
+impl<'w> From<ComponentTicksMut<'w>> for ComponentTicksRef<'w> {
+    fn from(ticks: ComponentTicksMut<'w>) -> Self {
+        ComponentTicksRef {
+            added: ticks.added,
+            changed: ticks.changed,
+            changed_by: ticks.changed_by.map(|changed_by| &*changed_by),
+            last_run: ticks.last_run,
+            this_run: ticks.this_run,
+        }
+    }
+}
+
+/// Used by mutable query parameters (such as [`MutSumm`])
+/// to store mutable access to the [`Tick`]s of a single component or resource.
+pub(crate) struct ComponentTicksMutSumm<'w> {
     pub(crate) added: &'w mut Tick,
     pub(crate) changed: &'w mut Tick,
     pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
@@ -253,7 +312,7 @@ pub(crate) struct ComponentTicksMut<'w> {
     pub(crate) summary_tick: Option<&'w AtomicTick>,
 }
 
-impl<'w> ComponentTicksMut<'w> {
+impl<'w> ComponentTicksMutSumm<'w> {
     /// # Safety
     /// This should never alias the underlying ticks. All access must be unique.
     #[inline]
@@ -276,8 +335,8 @@ impl<'w> ComponentTicksMut<'w> {
     }
 }
 
-impl<'w> From<ComponentTicksMut<'w>> for ComponentTicksRef<'w> {
-    fn from(ticks: ComponentTicksMut<'w>) -> Self {
+impl<'w> From<ComponentTicksMutSumm<'w>> for ComponentTicksRef<'w> {
+    fn from(ticks: ComponentTicksMutSumm<'w>) -> Self {
         ComponentTicksRef {
             added: ticks.added,
             changed: ticks.changed,
@@ -1043,7 +1102,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         value: &'w mut T,
         added: &'w mut Tick,
         last_changed: &'w mut Tick,
-        summary_tick: Option<&'w AtomicTick>,
+        _summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w mut &'static Location<'static>>,
@@ -1056,7 +1115,6 @@ impl<'w, T: ?Sized> Mut<'w, T> {
                 changed_by: caller,
                 last_run,
                 this_run,
-                summary_tick,
             },
         }
     }
@@ -1082,7 +1140,7 @@ impl<'w, T: ?Sized> DetectChangesConstruct for Mut<'w, T> {
         value: &'a mut Self::Val,
         added: &'a mut Tick,
         last_changed: &'a mut Tick,
-        summary_tick: Option<&'a AtomicTick>,
+        _summary_tick: Option<&'a AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'a mut &'static Location<'static>>,
@@ -1095,7 +1153,6 @@ impl<'w, T: ?Sized> DetectChangesConstruct for Mut<'w, T> {
                 changed_by: caller,
                 last_run,
                 this_run,
-                summary_tick,
             },
         }
     }
@@ -1103,6 +1160,7 @@ impl<'w, T: ?Sized> DetectChangesConstruct for Mut<'w, T> {
     fn new_from_ticks<'a>(
         value: &'a mut Self::Val,
         ticks: ComponentTicksMut<'a>,
+        _summary_tick: Option<&'a AtomicTick>,
     ) -> Self::Construct<'a> {
         Mut { value, ticks }
     }
@@ -1146,6 +1204,151 @@ change_detection_impl!(Mut<'w, T>, T,);
 change_detection_mut_impl!(Mut<'w, T>, T,);
 impl_methods!(Mut<'w, T>, T,);
 impl_debug!(Mut<'w, T>,);
+
+/// Unique mutable borrow of an entity's component or of a resource with summary ticks.
+pub struct MutSumm<'w, T: ?Sized> {
+    pub(crate) value: &'w mut T,
+    pub(crate) ticks: ComponentTicksMutSumm<'w>,
+}
+
+impl<'w, T: ?Sized> DetectChangesConstruct for MutSumm<'w, T> {
+    type Val = T;
+    type Construct<'a>
+        = MutSumm<'a, T>
+    where
+        T: 'a;
+
+    fn new<'a>(
+        value: &'a mut Self::Val,
+        added: &'a mut Tick,
+        last_changed: &'a mut Tick,
+        summary_tick: Option<&'a AtomicTick>,
+        last_run: Tick,
+        this_run: Tick,
+        caller: MaybeLocation<&'a mut &'static Location<'static>>,
+    ) -> Self::Construct<'a> {
+        MutSumm {
+            value,
+            ticks: ComponentTicksMutSumm {
+                added,
+                changed: last_changed,
+                changed_by: caller,
+                last_run,
+                this_run,
+                summary_tick,
+            },
+        }
+    }
+
+    fn new_from_ticks<'a>(
+        value: &'a mut Self::Val,
+        ticks: ComponentTicksMut<'a>,
+        summary_tick: Option<&'a AtomicTick>,
+    ) -> Self::Construct<'a> {
+        MutSumm {
+            value,
+            ticks: ticks.with_summary_tick(summary_tick),
+        }
+    }
+}
+
+impl<'w, T: ?Sized> From<MutSumm<'w, T>> for Ref<'w, T> {
+    fn from(mut_ref: MutSumm<'w, T>) -> Self {
+        Self {
+            value: mut_ref.value,
+            ticks: mut_ref.ticks.into(),
+        }
+    }
+}
+
+impl<'w, 'a, T> IntoIterator for &'a MutSumm<'w, T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
+    }
+}
+
+impl<'w, 'a, T> IntoIterator for &'a mut MutSumm<'w, T>
+where
+    &'a mut T: IntoIterator,
+{
+    type Item = <&'a mut T as IntoIterator>::Item;
+    type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.set_changed();
+        self.value.into_iter()
+    }
+}
+
+change_detection_impl!(MutSumm<'w, T>, T,);
+impl<'w, T: ?Sized> DetectChangesMut for MutSumm<'w, T> {
+    type Inner = T;
+    #[inline]
+    #[track_caller]
+    fn set_changed(&mut self) {
+        *self.ticks.changed = self.ticks.this_run;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[inline]
+    #[track_caller]
+    fn set_added(&mut self) {
+        *self.ticks.changed = self.ticks.this_run;
+        *self.ticks.added = self.ticks.this_run;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[inline]
+    #[track_caller]
+    fn set_last_changed(&mut self, last_changed: Tick) {
+        *self.ticks.changed = last_changed;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[inline]
+    #[track_caller]
+    fn set_last_added(&mut self, last_added: Tick) {
+        *self.ticks.added = last_added;
+        *self.ticks.changed = last_added;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[inline]
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        self.value
+    }
+}
+impl<'w, T: ?Sized> DerefMut for MutSumm<'w, T> {
+    #[inline]
+    #[track_caller]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.set_changed();
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        self.value
+    }
+}
+impl<'w, T> AsMut<T> for MutSumm<'w, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut T {
+        self.deref_mut()
+    }
+}
+// impl_methods!(MutSumm<'w, T>, T,);
+impl_debug!(MutSumm<'w, T>,);
 
 impl<T> DetectChanges for &mut T {
     fn is_added(&self) -> bool {
@@ -1192,9 +1395,9 @@ impl<T> DetectChangesMut for &mut T {
 
     fn set_added(&mut self) {}
 
-    fn set_last_changed(&mut self, last_changed: Tick) {}
+    fn set_last_changed(&mut self, _last_changed: Tick) {}
 
-    fn set_last_added(&mut self, last_added: Tick) {}
+    fn set_last_added(&mut self, _last_added: Tick) {}
 
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         *self
@@ -1211,19 +1414,20 @@ impl<T> DetectChangesConstruct for &mut T {
     #[inline(always)]
     fn new<'a>(
         value: &'a mut Self::Val,
-        added: &'a mut Tick,
-        last_changed: &'a mut Tick,
-        summary_tick: Option<&'a AtomicTick>,
-        last_run: Tick,
-        this_run: Tick,
-        caller: MaybeLocation<&'a mut &'static Location<'static>>,
+        _added: &'a mut Tick,
+        _last_changed: &'a mut Tick,
+        _summary_tick: Option<&'a AtomicTick>,
+        _last_run: Tick,
+        _this_run: Tick,
+        _caller: MaybeLocation<&'a mut &'static Location<'static>>,
     ) -> Self::Construct<'a> {
         value
     }
 
     fn new_from_ticks<'a>(
         value: &'a mut Self::Val,
-        ticks: ComponentTicksMut<'a>,
+        _ticks: ComponentTicksMut<'a>,
+        _summary_tick: Option<&'a AtomicTick>,
     ) -> Self::Construct<'a> {
         value
     }
@@ -1510,7 +1714,6 @@ impl<'w> MutUntyped<'w> {
                 changed_by: self.ticks.changed_by.as_deref_mut(),
                 last_run: self.ticks.last_run,
                 this_run: self.ticks.this_run,
-                summary_tick: self.ticks.summary_tick,
             },
         }
     }

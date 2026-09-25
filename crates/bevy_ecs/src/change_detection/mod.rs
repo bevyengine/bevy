@@ -162,7 +162,6 @@ mod tests {
             changed_by: caller.as_mut(),
             last_run: Tick::new(3),
             this_run: Tick::new(4),
-            summary_tick: Some(&summary_tick),
         };
         let mut res = R {};
 
@@ -216,7 +215,6 @@ mod tests {
             changed_by: caller.as_mut(),
             last_run: Tick::new(3),
             this_run: Tick::new(4),
-            summary_tick: Some(&summary_tick),
         };
         let mut res = R {};
 
@@ -251,7 +249,6 @@ mod tests {
             changed_by: caller.as_mut(),
             last_run,
             this_run,
-            summary_tick: Some(&summary_tick),
         };
 
         let mut outer = Outer(0);
@@ -341,7 +338,6 @@ mod tests {
             changed_by: caller.as_mut(),
             last_run,
             this_run,
-            summary_tick: Some(&summary_tick),
         };
 
         let mut value: i32 = 5;
@@ -379,7 +375,6 @@ mod tests {
             changed_by: caller.as_mut(),
             last_run: Tick::new(3),
             this_run: Tick::new(4),
-            summary_tick: Some(&summary_tick),
         };
         let mut c = C {};
 

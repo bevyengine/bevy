@@ -2567,6 +2567,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 <<T as Component>::ChangeDetection<'w> as DetectChangesConstruct>::new_from_ticks(
                     component.assert_unique().deref_mut(),
                     ComponentTicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
+                    ticks.summary_tick,
                 )
             },
         ))
