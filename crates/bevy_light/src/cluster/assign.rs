@@ -216,7 +216,7 @@ pub(crate) fn assign_objects_to_clusters(
                         transform: *transform,
                         range: spot_light.range,
                         object_type: ClusterableObjectType::SpotLight {
-                            outer_angle: spot_light.outer_angle,
+                            outer_angle: spot_light.clamped_angles().1,
                             shadow_maps_enabled: spot_light.shadow_maps_enabled,
                             volumetric: volumetric.is_some(),
                         },
