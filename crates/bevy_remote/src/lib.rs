@@ -571,7 +571,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_render")]
-use bevy_render::{RenderApp, RenderRecovery, RenderStartup};
+use bevy_render::{RenderApp, RenderEntryPoint, RenderEntryPointSystems, RenderStartup};
 use bevy_utils::prelude::default;
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
@@ -962,20 +962,24 @@ impl Plugin for RemotePlugin {
                 .init_resource::<RemoteWatchingRequests>()
                 .add_systems(RenderStartup, setup_mailbox_channel.run_if(run_once))
                 // Run RemoteSystems stuff after all the rendering stuff.
-                .configure_sets(RenderRecovery, RemoteLast.after(bevy_render::send_time))
                 .configure_sets(
-                    RenderRecovery,
-                    (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
+                    RenderEntryPoint,
+                    RemoteLast.after(RenderEntryPointSystems::RenderTime),
+                )
+                .configure_sets(
+                    RenderEntryPoint,
+                    (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup)
+                        .chain()
+                        .in_set(RemoteLast),
                 )
                 .add_systems(
-                    RenderRecovery,
+                    RenderEntryPoint,
                     (
                         (process_remote_requests, process_ongoing_watching_requests)
                             .chain()
                             .in_set(RemoteSystems::ProcessRequests),
                         remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
-                    )
-                        .in_set(RemoteLast),
+                    ),
                 );
         }
     }

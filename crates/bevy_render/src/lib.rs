@@ -267,10 +267,21 @@ impl GpuResourceAppExt for SubApp {
     }
 }
 
-/// The render recovery schedule. This schedule runs the [`Render`] schedule if we are in
+/// The render entry schedule. This schedule runs the [`Render`] schedule if we are in
 /// [`RenderState::Ready`], and is otherwise hidden from users.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct RenderRecovery;
+pub struct RenderEntryPoint;
+
+/// The systems sets of the [`RenderEntryPoint`] schedule.
+///
+/// These can be useful for ordering.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum RenderEntryPointSystems {
+    /// Runs the render recovery and render
+    RunRender,
+    /// Updates the main world with the render time
+    RenderTime,
+}
 
 /// The main render schedule.
 ///
@@ -416,10 +427,23 @@ impl Plugin for RenderPlugin {
                 .get_schedule_mut(RenderStartup)
                 .unwrap()
                 .set_executor(bevy_ecs::schedule::SingleThreadedExecutor::new());
-            render_app.update_schedule = Some(RenderRecovery.intern());
+            render_app.update_schedule = Some(RenderEntryPoint.intern());
+            render_app.configure_sets(
+                RenderEntryPoint,
+                (
+                    RenderEntryPointSystems::RunRender,
+                    RenderEntryPointSystems::RenderTime,
+                )
+                    .chain(),
+            );
             render_app.add_systems(
-                RenderRecovery,
-                (run_render_schedule.run_if(renderer_is_ready), send_time).chain(),
+                RenderEntryPoint,
+                (
+                    run_render_schedule
+                        .run_if(renderer_is_ready)
+                        .in_set(RenderEntryPointSystems::RunRender),
+                    send_time.in_set(RenderEntryPointSystems::RenderTime),
+                ),
             );
             render_app.add_systems(
                 Render,
@@ -474,7 +498,7 @@ pub fn run_render_schedule(world: &mut World) {
     let _ = world.try_run_schedule(Render);
 }
 
-pub fn send_time(time_sender: Res<TimeSender>) {
+fn send_time(time_sender: Res<TimeSender>) {
     // update the time and send it to the app world regardless of whether we render
     if let Err(error) = time_sender.0.try_send(Instant::now()) {
         match error {
