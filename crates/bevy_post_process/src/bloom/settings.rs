@@ -1,5 +1,5 @@
 use super::downsampling_pipeline::BloomUniforms;
-use bevy_camera::{Camera, Hdr, TonemappingPass};
+use bevy_camera::{Camera, Hdr};
 use bevy_ecs::{
     prelude::Component,
     query::{QueryItem, With},
@@ -29,7 +29,7 @@ use bevy_render::{extract_component::ExtractComponent, sync_component::SyncCompo
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(Hdr, TonemappingPass)]
+#[require(Hdr)]
 pub struct Bloom {
     /// Controls the baseline of how much the image is scattered (default: 0.15).
     ///

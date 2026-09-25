@@ -21,7 +21,7 @@ mod prepare;
 pub use dlss_wgpu::DlssPerfQualityMode;
 
 use bevy_app::{App, Plugin};
-use bevy_camera::{Hdr, TonemappingPass};
+use bevy_camera::Hdr;
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass},
     schedule::{Core3d, Core3dSystems},
@@ -201,14 +201,7 @@ impl Plugin for DlssPlugin {
 /// Camera component to enable DLSS.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
-#[require(
-    TemporalJitter,
-    MipBias,
-    DepthPrepass,
-    MotionVectorPrepass,
-    Hdr,
-    TonemappingPass
-)]
+#[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass, Hdr)]
 pub struct Dlss<F: DlssFeature = DlssSuperResolutionFeature> {
     /// How much upscaling should be applied.
     #[reflect(remote = DlssPerfQualityModeRemoteReflect)]

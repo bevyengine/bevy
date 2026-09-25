@@ -2,7 +2,7 @@ use core::ops::RangeInclusive;
 
 use super::compensation_curve::AutoExposureCompensationCurve;
 use bevy_asset::Handle;
-use bevy_camera::{Hdr, TonemappingPass};
+use bevy_camera::Hdr;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -26,7 +26,7 @@ use bevy_utils::default;
 /// **Auto Exposure requires compute shaders and is not compatible with WebGL2.**
 #[derive(Component, Clone, Reflect, ExtractComponent)]
 #[reflect(Component, Default, Clone)]
-#[require(Hdr, TonemappingPass)]
+#[require(Hdr)]
 #[extract_app(RenderApp)]
 pub struct AutoExposure {
     /// The range of exposure values for the histogram.

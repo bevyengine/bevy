@@ -22,12 +22,13 @@ import bevy_render::color_operations::{oklab_to_linear_rgb, linear_rgb_to_oklab}
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let hdr_color = textureSample(hdr_texture, hdr_sampler, in.uv);
 
+    var scene_color = hdr_color;
 @if(COMPOSITING_SPACE_SRGB)
-    var output_rgb = tone_mapping(vec4(srgb_to_linear(hdr_color.rgb), hdr_color.a), view.color_grading).rgb;
-@elif(COMPOSITING_SPACE_OKLAB)
-    var output_rgb = tone_mapping(vec4(oklab_to_linear_rgb(hdr_color.rgb), hdr_color.a), view.color_grading).rgb;
-@else
-    var output_rgb = tone_mapping(hdr_color, view.color_grading).rgb;
+    scene_color = vec4(srgb_to_linear(scene_color.rgb), scene_color.a);
+@if(COMPOSITING_SPACE_OKLAB)
+    scene_color = vec4(oklab_to_linear_rgb(scene_color.rgb), scene_color.a);
+
+    var output_rgb = tone_mapping(scene_color, view.color_grading).rgb;
 
 @if(DEBAND_DITHER) {
     output_rgb = powsafe(output_rgb.rgb, 1.0 / 2.2);

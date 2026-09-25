@@ -37,16 +37,18 @@ pub fn tonemapping(
     fallback_image: Res<FallbackImage>,
     view_uniforms: Res<ViewUniforms>,
     tonemapping_luts: Res<TonemappingLuts>,
+    pass_views: Query<(), With<ViewTonemappingPipeline>>,
     mut cache: Local<EntityHashMap<CachedBindGroup>>,
     mut ctx: RenderContext,
 ) {
     let (view_entity, view_uniform_offset, target, view_tonemapping_pipeline) = view.into_inner();
 
     // Views that run this pass always have an `Rgba16Float` main texture.
-    debug_assert!(!matches!(
-        target.main_texture_format(),
-        TextureFormat::Rgba8UnormSrgb | TextureFormat::Rgba8Unorm
-    ));
+    debug_assert_eq!(target.main_texture_format(), TextureFormat::Rgba16Float);
+
+    // Drop the bind groups of views that no longer run the pass, so their main
+    // textures can be freed.
+    cache.retain(|entity, _| pass_views.contains(*entity));
 
     let Some(pipeline) = pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.pipeline_id)
     else {
@@ -98,7 +100,7 @@ pub fn tonemapping(
             },
         );
     }
-    let bind_group = &cache.get(&view_entity).unwrap().bind_group;
+    let bind_group = &cache[&view_entity].bind_group;
 
     let pass_descriptor = RenderPassDescriptor {
         label: Some("tonemapping"),
