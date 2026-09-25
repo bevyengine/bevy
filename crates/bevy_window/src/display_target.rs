@@ -17,8 +17,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// and the output it gets can differ from the request. The wgpu [color space
 /// and HDR primer] explains what each backend can present.
 ///
-/// A luminance field is `None` unless the app has calibrated it. Bevy then
-/// uses what the display reports, or a default for the color space.
+/// A luminance field is `None` unless the app has calibrated it. The renderer
+/// then uses what the display reports, or a default for the color space.
 ///
 /// A required component of [`Window`](crate::Window). The default requests
 /// SDR sRGB. Bevy never writes this component.
