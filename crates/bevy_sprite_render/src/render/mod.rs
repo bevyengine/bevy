@@ -21,7 +21,7 @@ use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    camera::{ExtractedCamera, TonemapInShader},
+    camera::ExtractedCamera,
     view::{RenderVisibleEntities, ResolvedCompositingSpace, RetainedViewEntity},
 };
 use bevy_render::{
@@ -444,23 +444,19 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     extracted_sprites: Res<ExtractedSprites>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut cameras: Query<
-        (
-            &RenderVisibleEntities,
-            &ExtractedView,
-            &Msaa,
-            Option<&Tonemapping>,
-            Option<&DebandDither>,
-            Option<&ResolvedCompositingSpace>,
-            Has<TonemapInShader>,
-        ),
-        With<ExtractedCamera>,
-    >,
+    mut cameras: Query<(
+        &RenderVisibleEntities,
+        &ExtractedCamera,
+        &ExtractedView,
+        &Msaa,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+        Option<&ResolvedCompositingSpace>,
+    )>,
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (visible_entities, view, msaa, tonemapping, dither, resolved_space, tonemap_in_shader) in
-        &mut cameras
+    for (visible_entities, camera, view, msaa, tonemapping, dither, resolved_space) in &mut cameras
     {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
@@ -473,7 +469,9 @@ pub fn queue_sprites(
                 resolved_space,
             ));
 
-        if tonemap_in_shader && let Some(tonemapping) = tonemapping {
+        if camera.tonemap_in_shader
+            && let Some(tonemapping) = tonemapping
+        {
             view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
             view_key |= SpritePipelineKey::from_tonemapping(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {

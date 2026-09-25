@@ -20,11 +20,9 @@ use bevy_mesh::{
     MeshVertexBufferLayouts,
 };
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_render::erased_render_asset::ErasedRenderAssets;
+use bevy_render::{camera::ExtractedCamera, erased_render_asset::ErasedRenderAssets};
 use bevy_render::{
-    camera::{TemporalJitter, TonemapInShader},
-    material_bind_groups::MaterialBindGroupAllocators,
-    render_resource::*,
+    camera::TemporalJitter, material_bind_groups::MaterialBindGroupAllocators, render_resource::*,
     view::ExtractedView,
 };
 use bevy_utils::default;
@@ -51,10 +49,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     mut views: Query<
         (
             &mut MeshletViewMaterialsMainOpaquePass,
+            &ExtractedCamera,
             &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
-            Has<TonemapInShader>,
             Option<&ShadowFilteringMethod>,
             (Has<ScreenSpaceAmbientOcclusion>, Has<DistanceFog>),
             (
@@ -75,10 +73,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
 
     for (
         mut materials,
+        camera,
         view,
         tonemapping,
         dither,
-        tonemap_in_shader,
         shadow_filter_method,
         (ssao, distance_fog),
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
@@ -136,7 +134,9 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
         }
 
-        if tonemap_in_shader && let Some(tonemapping) = tonemapping {
+        if camera.tonemap_in_shader
+            && let Some(tonemapping) = tonemapping
+        {
             view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
             view_key |= tonemapping_pipeline_key(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {

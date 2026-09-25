@@ -9,7 +9,7 @@ use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_log::error;
 use bevy_log::warn;
 use bevy_render::{
-    camera::TonemapInShader,
+    camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
@@ -383,20 +383,20 @@ pub fn prepare_view_tonemapping_pipelines(
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ViewTonemappingPipeline>,
-            Has<TonemapInShader>,
+            Option<&ExtractedCamera>,
         ),
         With<ViewTarget>,
     >,
 ) {
-    for (entity, view, resolved_space, tonemapping, dither, existing_pipeline, tonemap_in_shader) in
+    for (entity, view, resolved_space, tonemapping, dither, existing_pipeline, camera) in
         view_targets.iter()
     {
         let method = *tonemapping.unwrap_or(&Tonemapping::None);
 
-        // `Tonemapping::None` and `TonemapInShader` views don't run the pass. Render
-        // world entities persist across frames, so remove a pipeline left from an
-        // earlier frame.
-        if !method.is_enabled() || tonemap_in_shader {
+        // `Tonemapping::None` views and views that tonemap in their material shaders
+        // don't run the pass. Render world entities persist across frames, so remove a
+        // pipeline left from an earlier frame.
+        if !method.is_enabled() || camera.is_some_and(|camera| camera.tonemap_in_shader) {
             if existing_pipeline.is_some() {
                 commands.entity(entity).remove::<ViewTonemappingPipeline>();
             }

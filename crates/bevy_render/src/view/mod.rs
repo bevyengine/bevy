@@ -354,18 +354,6 @@ pub enum DebandDither {
     Enabled,
 }
 
-/// Marks a camera whose effects read the main texture before tonemapping.
-///
-/// An SDR camera tonemaps in its material shaders by default, so its main texture holds
-/// tonemapped colors. With this component, an SDR camera with tonemapping enabled renders
-/// to an `Rgba16Float` main texture instead and tonemaps in the
-/// [tonemapping pass](Tonemapping). Cameras that share a render target ignore it.
-///
-/// Effects such as depth of field and TAA require this component.
-#[derive(Component, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash, Debug)]
-#[reflect(Component, Default, PartialEq, Hash, Debug)]
-pub struct NeedsSceneLinearTarget;
-
 /// An identifier for a view that is stable across frames.
 ///
 /// We can't use [`Entity`] for this because render world entities aren't

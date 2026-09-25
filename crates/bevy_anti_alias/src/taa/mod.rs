@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
-use bevy_camera::{Camera, Camera3d};
+use bevy_camera::{Camera, Camera3d, TonemappingPass};
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
     schedule::{Core3d, Core3dSystems},
@@ -11,7 +11,7 @@ use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     error::BevyError,
     prelude::{Component, Entity, ReflectComponent},
-    query::{Has, With},
+    query::With,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -20,7 +20,7 @@ use bevy_image::ToExtents;
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{ExtractedCamera, MipBias, TemporalJitter, TonemapInShader},
+    camera::{ExtractedCamera, MipBias, TemporalJitter},
     diagnostic::RecordDiagnostics,
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
@@ -35,7 +35,7 @@ use bevy_render::{
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, NeedsSceneLinearTarget, ViewTarget},
+    view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::default;
@@ -116,7 +116,7 @@ impl Plugin for TemporalAntiAliasPlugin {
     MipBias,
     DepthPrepass,
     MotionVectorPrepass,
-    NeedsSceneLinearTarget
+    TonemappingPass
 )]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {
@@ -451,17 +451,16 @@ fn prepare_taa_pipelines(
         &ExtractedView,
         &TemporalAntiAliasing,
         Option<&Tonemapping>,
-        Has<TonemapInShader>,
     )>,
 ) -> Result<(), BevyError> {
-    for (entity, camera, view, taa_settings, tonemapping, tonemap_in_shader) in &cameras {
+    for (entity, camera, view, taa_settings, tonemapping) in &cameras {
         let mut pipeline_key = TaaPipelineKey {
             target_format: view.target_format,
             // `TONEMAP` makes TAA tonemap its input and invert that on its output, so it
             // can blend values above 1.0. This is true exactly when the main texture is
             // `Rgba16Float`, for `Hdr` cameras and cameras that run the tonemapping pass.
             tonemap: camera.hdr
-                || (tonemapping.is_some_and(Tonemapping::is_enabled) && !tonemap_in_shader),
+                || (tonemapping.is_some_and(Tonemapping::is_enabled) && !camera.tonemap_in_shader),
             reset: taa_settings.reset,
         };
         let pipeline_id = pipeline

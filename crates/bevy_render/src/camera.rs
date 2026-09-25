@@ -10,10 +10,10 @@ use crate::{
     sync_world::{MainEntity, MainEntityHashSet, RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindow, Msaa, NeedsSceneLinearTarget,
-        NoIndirectDrawing, RenderExtractedVisibleEntities, RenderVisibleEntities,
-        RenderVisibleEntitiesClass, ResolvedCompositingSpace, RetainedViewEntity, Tonemapping,
-        ViewUniformOffset, VisibilityExtractionSystemParam,
+        ColorGrading, ExtractedView, ExtractedWindow, Msaa, NoIndirectDrawing,
+        RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
+        ResolvedCompositingSpace, RetainedViewEntity, Tonemapping, ViewUniformOffset,
+        VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -469,6 +469,14 @@ pub struct ExtractedCamera {
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
     pub hdr: bool,
+    /// Whether the camera tonemaps in its material shaders instead of in the
+    /// tonemapping pass.
+    ///
+    /// This is true for SDR cameras with tonemapping enabled, unless the camera has
+    /// [`TonemappingPass`], a non-linear [`CompositingSpace`], or a non-window render
+    /// target. Those exceptions don't apply when the render target is shared by
+    /// multiple cameras.
+    pub tonemap_in_shader: bool,
 }
 
 pub fn extract_cameras(
@@ -495,7 +503,6 @@ pub fn extract_cameras(
                 Option<&RenderLayers>,
                 Option<&Projection>,
                 Has<NoIndirectDrawing>,
-                Has<NeedsSceneLinearTarget>,
                 Has<TonemappingPass>,
             ),
         )>,
@@ -535,7 +542,6 @@ pub fn extract_cameras(
         RenderLayers,
         Projection,
         NoIndirectDrawing,
-        TonemapInShader,
         ViewUniformOffset,
     );
 
@@ -559,8 +565,7 @@ pub fn extract_cameras(
             render_layers,
             projection,
             no_indirect_drawing,
-            needs_scene_linear_target,
-            needs_node_tonemapping,
+            tonemapping_pass,
         ),
     ) in query.iter()
     {
@@ -640,8 +645,7 @@ pub fn extract_cameras(
             let policy = main_texture_policy(MainTextureCamera {
                 hdr,
                 tonemapping_enabled: tonemapping.is_some_and(Tonemapping::is_enabled),
-                needs_scene_linear_target,
-                needs_node_tonemapping,
+                tonemapping_pass,
                 compositing_space: compositing_space.copied(),
                 target: target.as_ref(),
                 cameras_on_target: target
@@ -670,6 +674,7 @@ pub fn extract_cameras(
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr,
+                    tonemap_in_shader: policy.in_shader_tonemap,
                 },
                 ResolvedCompositingSpace(compositing_space.copied()),
                 ExtractedView {
@@ -725,12 +730,6 @@ pub fn extract_cameras(
             } else {
                 commands.remove::<NoIndirectDrawing>();
             }
-
-            if policy.in_shader_tonemap {
-                commands.insert(TonemapInShader);
-            } else {
-                commands.remove::<TonemapInShader>();
-            }
         };
     }
 }
@@ -780,17 +779,9 @@ impl MainTextureMode {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct MainTexturePolicy {
     mode: MainTextureMode,
-    /// Extracted to the render world as [`TonemapInShader`].
+    /// Extracted as [`ExtractedCamera::tonemap_in_shader`].
     in_shader_tonemap: bool,
 }
-
-/// Marks a render world camera view as tonemapping in-shader rather than in a separate pass.
-///
-/// Added automatically for SDR cameras with tonemapping enabled, and removed for cameras
-/// with [`NeedsSceneLinearTarget`], [`TonemappingPass`], a non-linear [`CompositingSpace`],
-/// or a non-window render target, unless the render target is shared by multiple cameras.
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct TonemapInShader;
 
 /// The camera state that selects a [`MainTexturePolicy`].
 #[derive(Clone, Copy)]
@@ -798,8 +789,7 @@ struct MainTextureCamera<'a> {
     hdr: bool,
     /// [`Tonemapping::is_enabled`], or `false` with no [`Tonemapping`] component.
     tonemapping_enabled: bool,
-    needs_scene_linear_target: bool,
-    needs_node_tonemapping: bool,
+    tonemapping_pass: bool,
     compositing_space: Option<CompositingSpace>,
     target: Option<&'a NormalizedRenderTarget>,
     /// Active cameras rendering to `target`, this one included. `None` when the
@@ -811,8 +801,7 @@ fn main_texture_policy(camera: MainTextureCamera) -> MainTexturePolicy {
     let MainTextureCamera {
         hdr,
         tonemapping_enabled,
-        needs_scene_linear_target,
-        needs_node_tonemapping,
+        tonemapping_pass,
         compositing_space,
         target,
         cameras_on_target,
@@ -823,8 +812,7 @@ fn main_texture_policy(camera: MainTextureCamera) -> MainTexturePolicy {
     let eligible_in_shader_tonemap = tonemapping_enabled
         && !hdr
         && (shares_target
-            || (!needs_scene_linear_target
-                && !needs_node_tonemapping
+            || (!tonemapping_pass
                 && compositing_space.is_none_or(|s| s == CompositingSpace::Linear)
                 && matches!(target, Some(NormalizedRenderTarget::Window(_)))));
 
@@ -1329,8 +1317,7 @@ mod tests {
         MainTextureCamera {
             hdr: false,
             tonemapping_enabled: true,
-            needs_scene_linear_target: false,
-            needs_node_tonemapping: false,
+            tonemapping_pass: false,
             compositing_space: None,
             target: Some(target),
             cameras_on_target: Some(1),
@@ -1377,18 +1364,9 @@ mod tests {
                 false,
             ),
             (
-                "NeedsSceneLinearTarget camera",
-                MainTextureCamera {
-                    needs_scene_linear_target: true,
-                    ..base
-                },
-                MainTextureMode::SceneLinear,
-                false,
-            ),
-            (
                 "TonemappingPass camera",
                 MainTextureCamera {
-                    needs_node_tonemapping: true,
+                    tonemapping_pass: true,
                     ..base
                 },
                 MainTextureMode::SceneLinear,
@@ -1466,7 +1444,7 @@ mod tests {
     }
 
     /// Stacked and split screen cameras keep the in-shader path. Only solo
-    /// cameras move to the tonemapping pass; see [`TonemapInShader`].
+    /// cameras move to the tonemapping pass; see [`ExtractedCamera::tonemap_in_shader`].
     #[test]
     fn shared_target_cameras_keep_the_in_shader_path() {
         let window = window_target();
@@ -1493,18 +1471,9 @@ mod tests {
                 true,
             ),
             (
-                "shared target with NeedsSceneLinearTarget",
-                MainTextureCamera {
-                    needs_scene_linear_target: true,
-                    ..shared
-                },
-                MainTextureMode::InShaderTonemapSdr,
-                true,
-            ),
-            (
                 "shared target with TonemappingPass",
                 MainTextureCamera {
-                    needs_node_tonemapping: true,
+                    tonemapping_pass: true,
                     ..shared
                 },
                 MainTextureMode::InShaderTonemapSdr,
@@ -1587,6 +1556,7 @@ mod tests {
             sorted_camera_index_for_target: 0,
             exposure: 1.0,
             hdr,
+            tonemap_in_shader: false,
         }
     }
 

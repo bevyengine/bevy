@@ -88,11 +88,11 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
 #[reflect(Component, Default, PartialEq, Hash, Debug)]
 pub struct Hdr;
 
-/// Marker that moves a camera's tonemapping from the material shaders to the
-/// tonemapping pass.
+/// Moves a camera's tonemapping from its material shaders to the tonemapping pass.
 ///
-/// This costs an `Rgba16Float` intermediate and one fullscreen pass. Cameras sharing a
-/// render target always tonemap in the material shaders and ignore this marker.
+/// This costs an `Rgba16Float` main texture and one fullscreen pass. Effects that read
+/// the main texture before tonemapping, such as depth of field and TAA, require this
+/// component. Cameras that share a render target ignore it.
 #[derive(Component, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash, Debug)]
 #[reflect(Component, Default, PartialEq, Hash, Debug)]
 pub struct TonemappingPass;

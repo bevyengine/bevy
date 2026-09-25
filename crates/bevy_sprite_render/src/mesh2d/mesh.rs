@@ -5,7 +5,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Hand
 use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    camera::{DirtySpecializations, ExtractedCamera, TonemapInShader},
+    camera::{DirtySpecializations, ExtractedCamera},
     material_bind_groups::{
         MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
     },
@@ -137,29 +137,26 @@ pub struct ViewKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
 pub fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,
     mut dirty_specializations: ResMut<DirtySpecializations>,
-    cameras: Query<
-        (
-            &MainEntity,
-            &ExtractedView,
-            &Msaa,
-            Option<&Tonemapping>,
-            Option<&DebandDither>,
-            Option<&ResolvedCompositingSpace>,
-            Has<TonemapInShader>,
-        ),
-        With<ExtractedCamera>,
-    >,
+    cameras: Query<(
+        &MainEntity,
+        &ExtractedView,
+        &ExtractedCamera,
+        &Msaa,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+        Option<&ResolvedCompositingSpace>,
+    )>,
 ) {
-    for (view_entity, view, msaa, tonemapping, dither, resolved_space, tonemap_in_shader) in
-        &cameras
-    {
+    for (view_entity, view, camera, msaa, tonemapping, dither, resolved_space) in &cameras {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_target_format(view.target_format)
             | Mesh2dPipelineKey::from_compositing_space(ResolvedCompositingSpace::space(
                 resolved_space,
             ));
 
-        if tonemap_in_shader && let Some(tonemapping) = tonemapping {
+        if camera.tonemap_in_shader
+            && let Some(tonemapping) = tonemapping
+        {
             view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
             view_key |= tonemapping_pipeline_key(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {

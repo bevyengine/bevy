@@ -16,7 +16,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::{Camera3d, PhysicalCameraParameters, Projection};
+use bevy_camera::{Camera3d, PhysicalCameraParameters, Projection, TonemappingPass};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -49,8 +49,8 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ExtractedView, Msaa, NeedsSceneLinearTarget, ViewDepthStencilTexture,
-        ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
+        prepare_view_targets, ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget,
+        ViewUniform, ViewUniformOffset, ViewUniforms,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -75,7 +75,7 @@ pub struct DepthOfFieldPlugin;
 /// [depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(Component, Clone, Default)]
-#[require(NeedsSceneLinearTarget)]
+#[require(TonemappingPass)]
 pub struct DepthOfField {
     /// The appearance of the effect.
     pub mode: DepthOfFieldMode,
