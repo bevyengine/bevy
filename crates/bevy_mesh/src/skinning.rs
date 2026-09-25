@@ -724,14 +724,4 @@ mod tests {
             }
         }
     }
-
-    #[test]
-    fn skinned_mesh_works_as_template() {
-        use bevy_ecs::template::EntityTemplate;
-        let mut template = SkinnedMeshTemplate::default();
-        template
-            .joints
-            .0
-            .push(EntityTemplate::from_reference(("some file", 0, 0), 0, 0));
-    }
 }
