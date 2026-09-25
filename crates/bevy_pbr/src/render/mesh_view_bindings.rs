@@ -69,9 +69,9 @@ use bevy_render::render_resource::binding_types::texture_cube;
 #[cfg(debug_assertions)]
 use {crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES, bevy_utils::once, tracing::warn};
 
-pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 18;
-pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 19;
-pub const LINEAR_SAMPLER_BINDING_INDEX: u32 = 25;
+pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 15;
+pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 16;
+pub const LINEAR_SAMPLER_BINDING_INDEX: u32 = 22;
 
 /// A `Linear/ClampToEdge` sampler shared across multiple view bindings
 #[derive(Resource)]
@@ -313,7 +313,7 @@ fn layout_entries(
             (3, sampler(SamplerBindingType::Comparison)),
             // Directional Shadow Texture Array
             (
-                5,
+                4,
                 #[cfg(any(
                     not(feature = "webgl"),
                     not(target_arch = "wasm32"),
@@ -325,7 +325,7 @@ fn layout_entries(
             ),
             // PointLights
             (
-                8,
+                5,
                 buffer_layout(
                     clustered_forward_buffer_binding_type,
                     false,
@@ -336,7 +336,7 @@ fn layout_entries(
             ),
             // ClusteredLightIndexLists
             (
-                9,
+                6,
                 buffer_layout(
                     clustered_forward_buffer_binding_type,
                     false,
@@ -349,7 +349,7 @@ fn layout_entries(
             ),
             // ClusterOffsetsAndCounts
             (
-                10,
+                7,
                 buffer_layout(
                     clustered_forward_buffer_binding_type,
                     false,
@@ -360,14 +360,14 @@ fn layout_entries(
             ),
             // Globals
             (
-                11,
+                8,
                 uniform_buffer::<GlobalsUniform>(false).visibility(ShaderStages::VERTEX_FRAGMENT),
             ),
             // Light probes
-            (12, uniform_buffer::<LightProbesUniform>(true)),
+            (9, uniform_buffer::<LightProbesUniform>(true)),
             // Visibility ranges
             (
-                14,
+                11,
                 buffer_layout(
                     visibility_ranges_buffer_binding_type,
                     false,
@@ -383,26 +383,26 @@ fn layout_entries(
     if layout_key.contains(MeshPipelineViewLayoutKey::DISTANCE_FOG) {
         entries = entries.extend_with_indices((
             // Fog
-            (13, uniform_buffer::<GpuFog>(true)),
+            (10, uniform_buffer::<GpuFog>(true)),
         ));
     }
     if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_REFLECTIONS) {
         entries = entries.extend_with_indices((
             // Screen space reflection settings
-            (15, uniform_buffer::<ScreenSpaceReflectionsUniform>(true)),
+            (12, uniform_buffer::<ScreenSpaceReflectionsUniform>(true)),
         ));
     }
     if layout_key.contains(MeshPipelineViewLayoutKey::CONTACT_SHADOWS) {
         entries = entries.extend_with_indices((
             // Contact shadows settings
-            (16, uniform_buffer::<ContactShadowsUniform>(true)),
+            (13, uniform_buffer::<ContactShadowsUniform>(true)),
         ));
     }
     if layout_key.contains(MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
         entries = entries.extend_with_indices((
             // Screen space ambient occlusion texture
             (
-                17,
+                14,
                 texture_2d(TextureSampleType::Float { filterable: false }),
             ),
         ));
@@ -429,7 +429,7 @@ fn layout_entries(
     {
         for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
             .iter()
-            .zip([20, 21, 22, 23])
+            .zip([17, 18, 19, 20])
         {
             if let Some(entry) = entry {
                 entries = entries.extend_with_indices(((binding as u32, *entry),));
@@ -437,16 +437,16 @@ fn layout_entries(
         }
     }
 
-    // Common linear sampler (shared by transmission, atmosphere, area-light LUTs, DFG LUT)
-    entries = entries.extend_with_indices(((25, sampler(SamplerBindingType::Filtering)),));
-
     // View Transmission Texture
     if layout_key.contains(MeshPipelineViewLayoutKey::VIEW_TRANSMISSION_TEXTURE) {
         entries = entries.extend_with_indices(((
-            24,
+            21,
             texture_2d(TextureSampleType::Float { filterable: true }),
         ),));
     }
+
+    // Common linear sampler (shared by transmission, atmosphere, area-light LUTs, DFG LUT, and PCSS shadows)
+    entries = entries.extend_with_indices(((LINEAR_SAMPLER_BINDING_INDEX, sampler(SamplerBindingType::Filtering)),));
 
     // OIT
     if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
@@ -456,18 +456,18 @@ fn layout_entries(
         if is_oit_supported {
             entries = entries.extend_with_indices((
                 (
-                    26,
+                    23,
                     uniform_buffer::<OrderIndependentTransparencySettings>(true),
                 ),
                 // oit_nodes_capacity
-                (27, uniform_buffer::<u32>(false)),
+                (24, uniform_buffer::<u32>(false)),
                 // oit_nodes
-                (28, storage_buffer_sized(false, None)),
+                (25, storage_buffer_sized(false, None)),
                 // oit_heads,
-                (29, storage_buffer_sized(false, None)),
+                (26, storage_buffer_sized(false, None)),
                 // oit_atomic_counter
                 (
-                    30,
+                    27,
                     storage_buffer_sized(false, NonZero::<u64>::new(size_of::<u32>() as u64)),
                 ),
             ));
@@ -479,32 +479,32 @@ fn layout_entries(
         entries = entries.extend_with_indices((
             // transmittance LUT
             (
-                31,
+                28,
                 texture_2d(TextureSampleType::Float { filterable: true }),
             ),
             // atmosphere data buffer
-            (33, storage_buffer_read_only::<GpuAtmosphere>(false)),
+            (29, storage_buffer_read_only::<GpuAtmosphere>(false)),
         ));
     }
 
     // Blue noise
     if layout_key.contains(MeshPipelineViewLayoutKey::STBN) {
         entries = entries.extend_with_indices(((
-            34,
+            30,
             texture_2d_array(TextureSampleType::Float { filterable: false }),
         ),));
     }
     // LTC LUTs for area lights
     if cfg!(feature = "area_light_luts") {
         entries = entries.extend_with_indices(((
-            35,
+            31,
             texture_2d_array(TextureSampleType::Float { filterable: true }),
         ),));
     }
     // DFG LUT
     if cfg!(feature = "dfg_lut") {
         entries = entries.extend_with_indices(((
-            37,
+            32,
             texture_2d(TextureSampleType::Float { filterable: true }),
         ),));
     }
@@ -790,18 +790,18 @@ pub fn prepare_mesh_view_bind_groups(
                 (1, light_binding.clone()),
                 (2, &shadow_bindings.point_light_depth_texture_view),
                 (3, &shadow_samplers.shadow_comparison_sampler),
-                (5, &shadow_bindings.directional_light_depth_texture_view),
-                (8, clusterable_objects_binding.clone()),
+                (4, &shadow_bindings.directional_light_depth_texture_view),
+                (5, clusterable_objects_binding.clone()),
                 (
-                    9,
+                    6,
                     cluster_bindings
                         .clusterable_object_index_lists_binding()
                         .unwrap(),
                 ),
-                (10, cluster_bindings.offsets_and_counts_binding().unwrap()),
-                (11, globals.clone()),
-                (12, light_probes_binding.clone()),
-                (14, visibility_ranges_buffer.as_entire_binding()),
+                (7, cluster_bindings.offsets_and_counts_binding().unwrap()),
+                (8, globals.clone()),
+                (9, light_probes_binding.clone()),
+                (11, visibility_ranges_buffer.as_entire_binding()),
                 (LINEAR_SAMPLER_BINDING_INDEX, &linear_sampler.0),
             ));
 
@@ -809,31 +809,31 @@ pub fn prepare_mesh_view_bind_groups(
                 layout_key |= MeshPipelineViewLayoutKey::DISTANCE_FOG;
                 offsets.push(view_fog_offset.offset);
                 entries =
-                    entries.extend_with_indices(((13, fog_meta.gpu_fogs.binding().unwrap()),));
+                    entries.extend_with_indices(((10, fog_meta.gpu_fogs.binding().unwrap()),));
             }
 
             if let Some(view_ssr_offset) = view_ssr_offset {
                 layout_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_REFLECTIONS;
                 offsets.push(**view_ssr_offset);
-                entries = entries.extend_with_indices(((15, ssr_buffer.binding().unwrap()),));
+                entries = entries.extend_with_indices(((12, ssr_buffer.binding().unwrap()),));
             }
 
             if let Some(view_contact_shadows_offset) = view_contact_shadows_offset {
                 layout_key |= MeshPipelineViewLayoutKey::CONTACT_SHADOWS;
                 offsets.push(**view_contact_shadows_offset);
                 entries = entries
-                    .extend_with_indices(((16, contact_shadows_buffer.0.binding().unwrap()),));
+                    .extend_with_indices(((13, contact_shadows_buffer.0.binding().unwrap()),));
             }
 
             if let Some(view_oit_settings_offset) = view_oit_settings_offset {
                 layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
                 offsets.push(view_oit_settings_offset.offset);
                 entries = entries.extend_with_indices((
-                    (26, oit_buffers.settings.binding().unwrap()),
-                    (27, oit_buffers.nodes_capacity.binding().unwrap()),
-                    (28, oit_buffers.nodes.binding().unwrap()),
-                    (29, oit_buffers.heads.binding().unwrap()),
-                    (30, oit_buffers.atomic_counter.binding().unwrap()),
+                    (23, oit_buffers.settings.binding().unwrap()),
+                    (24, oit_buffers.nodes_capacity.binding().unwrap()),
+                    (25, oit_buffers.nodes.binding().unwrap()),
+                    (26, oit_buffers.heads.binding().unwrap()),
+                    (27, oit_buffers.atomic_counter.binding().unwrap()),
                 ));
             }
 
@@ -844,8 +844,8 @@ pub fn prepare_mesh_view_bind_groups(
             {
                 layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
                 entries = entries.extend_with_indices((
-                    (31, &atmosphere_textures.transmittance_lut.default_view),
-                    (33, atmosphere_buffer_binding),
+                    (28, &atmosphere_textures.transmittance_lut.default_view),
+                    (29, atmosphere_buffer_binding),
                 ));
             }
 
@@ -855,7 +855,7 @@ pub fn prepare_mesh_view_bind_groups(
                     .get(&blue_noise.texture)
                     .expect("STBN texture is added unconditionally with at least a placeholder")
                     .texture_view;
-                entries = entries.extend_with_indices(((34, stbn_view),));
+                entries = entries.extend_with_indices(((30, stbn_view),));
             }
 
             if tonemap_in_shader {
@@ -873,7 +873,7 @@ pub fn prepare_mesh_view_bind_groups(
                 let ssao_view = &ssao_resources
                     .screen_space_ambient_occlusion_texture
                     .default_view;
-                entries = entries.extend_with_indices(((17, ssao_view),));
+                entries = entries.extend_with_indices(((14, ssao_view),));
             }
 
             if has_transmission {
@@ -881,7 +881,7 @@ pub fn prepare_mesh_view_bind_groups(
                 let transmission_view = transmission_texture
                     .map(|transmission| &transmission.view)
                     .unwrap_or(&fallback_image_zero.texture_view);
-                entries = entries.extend_with_indices(((24, transmission_view),));
+                entries = entries.extend_with_indices(((21, transmission_view),));
             }
 
             // When using WebGL, we can't have a multisampled texture with `TEXTURE_BINDING`
@@ -892,7 +892,7 @@ pub fn prepare_mesh_view_bind_groups(
                 for (binding, index) in prepass_bindings
                     .iter()
                     .map(Option::as_ref)
-                    .zip([20, 21, 22, 23])
+                    .zip([17, 18, 19, 20])
                     .flat_map(|(b, i)| b.map(|b| (b, i)))
                 {
                     entries = entries.extend_with_indices(((index, binding),));
@@ -905,7 +905,7 @@ pub fn prepare_mesh_view_bind_groups(
                     .get(&area_light_luts.image)
                     .map(|img| &img.texture_view)
                     .unwrap_or(&fallback_image.d2_array.texture_view);
-                entries = entries.extend_with_indices(((35, ltc_view),));
+                entries = entries.extend_with_indices(((31, ltc_view),));
             }
 
             // DFG LUT
@@ -914,7 +914,7 @@ pub fn prepare_mesh_view_bind_groups(
                     .get(&dfg_lut.texture)
                     .map(|img| &img.texture_view)
                     .unwrap_or(&fallback_image.d2.texture_view);
-                entries = entries.extend_with_indices(((37, dfg_view),));
+                entries = entries.extend_with_indices(((32, dfg_view),));
             }
 
             let environment_map_bind_group_entries =
