@@ -1,4 +1,4 @@
-#[cfg(target_has_atomic)]
+#[cfg(target_has_atomic = "8")]
 use crate::{
     error::ReflectCloneError,
     info::{OpaqueInfo, TypeInfo, Typed},
@@ -9,14 +9,14 @@ use crate::{
     type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::NonGenericTypeInfoCell,
 };
-#[cfg(target_has_atomic)]
+#[cfg(target_has_atomic = "8")]
 use bevy_platform::prelude::*;
-#[cfg(target_has_atomic)]
+#[cfg(target_has_atomic = "8")]
 use bevy_reflect_derive::impl_type_path;
-#[cfg(target_has_atomic)]
+#[cfg(target_has_atomic = "8")]
 use core::fmt;
 
-#[cfg(target_has_atomic)]
+#[cfg(target_has_atomic = "8")]
 macro_rules! impl_reflect_for_atomic {
     ($ty:ty, $ordering:expr) => {
         impl_type_path!($ty);
