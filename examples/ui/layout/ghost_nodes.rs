@@ -1,18 +1,11 @@
 //! This example demonstrates the use of Ghost Nodes.
 //!
-//! UI layout will ignore ghost nodes, and treat their children as if they were direct descendants of the first non-ghost ancestor.
+//! UI layout replaces ghost nodes with their children.
 //!
-//! # Warning
-//!
-//! This is an experimental feature, and should be used with caution,
-//! especially in concert with 3rd party plugins or systems that may not be aware of ghost nodes.
-//!
-//! In order to use [`GhostNode`]s you must enable the `ghost_nodes` feature flag.
 
 use bevy::{
     prelude::*,
     text::FontSourceTemplate,
-    ui::experimental::GhostNode,
     ui_widgets::{Activate, Button},
 };
 

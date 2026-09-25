@@ -29,9 +29,6 @@ use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
 pub use accessibility::AccessibilityUiSystems;
-// This module is not re-exported, but is instead made public.
-// This is intended to discourage accidental use of the experimental API.
-pub mod experimental;
 mod focus;
 mod geometry;
 mod layout;
@@ -87,10 +84,10 @@ use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, Propagate
 use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
-use layout::ui_surface::UiSurface;
+use layout::clipping::update_clipping_system;
 use stack::ui_stack_system;
 pub use stack::{ComputedStackIndex, UiStack};
-use update::{propagate_ui_target_cameras, update_clipping_system};
+use update::propagate_ui_target_cameras;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -117,7 +114,7 @@ pub enum UiSystems {
     ///
     /// Runs in [`PostUpdate`]
     Clipping,
-    /// UI systems ordered after [`UiSystems::Layout`] and [`UiSystems::Clipping`].
+    /// UI systems ordered after the layout has been been updated.
     ///
     /// Runs in [`PostUpdate`].
     PostLayout,
@@ -151,9 +148,9 @@ struct AmbiguousWithUpdateText2dLayout;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<UiSurface>()
-            .init_resource::<UiScale>()
+        app.init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .init_resource::<UiRoots>()
             .register_required_components::<
                 bevy_text::EditableText,
                 widget::EditableTextContentSizeState,
@@ -165,7 +162,7 @@ impl Plugin for UiPlugin {
                     UiSystems::Prepare.after(AnimationSystems),
                     UiSystems::Propagate,
                     UiSystems::Content,
-                    UiSystems::Layout,
+                    UiSystems::Layout,                    
                     UiSystems::Clipping,
                     UiSystems::PostLayout,
                 )
@@ -203,9 +200,17 @@ impl Plugin for UiPlugin {
                 propagate_ui_target_cameras
                     .in_set(UiSystems::Prepare)
                     .before(bevy_app::TransformGizmoRenderStep),
-                ui_layout_system
-                    .in_set(UiSystems::Layout)
-                    .ambiguous_with(bevy_sprite::update_text2d_layout),
+                clear_transient_dirty_flags.in_set(UiSystems::Prepare),
+                (
+                    update_ui_roots,
+                    sync_taffy_styles_with_nodes,
+                    mark_dirty_ui_trees,
+                    ui_layout_system.ambiguous_with(bevy_sprite::update_text2d_layout),
+                    update_computed_nodes,
+                    update_border_radius,
+                )
+                    .chain()
+                    .in_set(UiSystems::Layout),
                 ui_stack_system.in_set(UiSystems::Stack),
                 update_clipping_system.in_set(UiSystems::Clipping),
                 // Potential conflicts: `Assets<Image>`
@@ -285,10 +290,9 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::update_image_content_size_system)
                 .ambiguous_with(widget::measure_text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout),
-            widget::sync_editable_text_viewports
-                .after(UiSystems::Layout)
-                .before(EditableTextSystems),
-            widget::update_editable_text_layout
+            (widget::sync_editable_text_viewports.before(EditableTextSystems),
+            widget::update_editable_text_layout)
+            .chain()
                 .in_set(UiSystems::PostLayout)
                 // This is unlikely to result in real conflicts,
                 // as FocusChangeEvents only mutates internal state of InputFocus,

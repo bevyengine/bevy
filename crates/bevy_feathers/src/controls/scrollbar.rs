@@ -172,8 +172,7 @@ impl Plugin for ScrollbarPlugin {
         app.add_systems(
             PostUpdate,
             update_scrollbar_visibility
-                .after(UiSystems::Layout)
-                .before(UiSystems::Clipping)
+                .in_set(UiSystems::PostLayout)
                 .ambiguous_with(TransformGizmoRenderStep),
         );
     }
