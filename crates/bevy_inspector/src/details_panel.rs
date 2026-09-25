@@ -51,8 +51,12 @@ use bevy_utils::prelude::ShortName;
 use crate::{entity_tree::InspectorUi, InspectorSelection};
 
 /// The deepest nesting level whose fields are rendered.
+/// This bounds how many widgets one selection spawns: without a limit, deeply nested values
+/// would build thousands of rows on every rebuild.
 const MAX_DEPTH: usize = 4;
 /// The number of items rendered for a list, array, map or set.
+/// This bounds how many widgets one selection spawns: without a limit, a large collection such
+/// as a mesh's vertex data would build thousands of rows on every rebuild.
 const MAX_ITEMS: usize = 16;
 /// The horizontal indent of a field row per nesting level, in logical pixels.
 const INDENT: f32 = 12.0;
@@ -203,16 +207,20 @@ pub struct DetailsCollapsed(pub HashSet<String>);
 pub struct DetailsPanelSync {
     /// Time between synchronization passes.
     pub timer: Timer,
-    /// Forces a synchronization pass on the next update.
-    pub dirty: bool,
 }
 
 impl Default for DetailsPanelSync {
     fn default() -> Self {
-        Self {
-            timer: Timer::from_seconds(0.25, TimerMode::Repeating),
-            dirty: true,
-        }
+        let mut timer = Timer::from_seconds(0.25, TimerMode::Repeating);
+        timer.set_elapsed(timer.duration());
+        Self { timer }
+    }
+}
+
+impl DetailsPanelSync {
+    /// Forces a synchronization pass on the next tick.
+    pub fn set_dirty(&mut self) {
+        self.timer.almost_finish();
     }
 }
 
@@ -286,7 +294,7 @@ pub fn inspector_details_toggled(
     } else {
         collapsed.0.insert(component.0.clone());
     }
-    sync.dirty = true;
+    sync.set_dirty();
 }
 
 /// Rebuilds or refreshes the details panel so that it matches the selected entity.
@@ -296,13 +304,11 @@ pub fn sync_details_panel(world: &mut World) {
         .map(Time::delta)
         .unwrap_or_default();
 
-    let run = {
-        let mut sync = world.resource_mut::<DetailsPanelSync>();
-        sync.timer.tick(delta);
-        let run = sync.dirty || sync.timer.just_finished();
-        sync.dirty = false;
-        run
-    };
+    let run = world
+        .resource_mut::<DetailsPanelSync>()
+        .timer
+        .tick(delta)
+        .just_finished();
 
     let selection = world.resource::<InspectorSelection>().0;
     let selection_changed = world.resource::<DetailsIndex>().selection != selection;
@@ -1190,6 +1196,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins((
             TaskPoolPlugin::default(),
+            bevy_time::TimePlugin,
             AssetPlugin::default(),
             bevy_scene::ScenePlugin,
             InspectorPlugin,
@@ -1293,7 +1300,9 @@ mod tests {
         assert!(first.iter().all(|(_, text)| !text.is_empty()));
 
         for _ in 0..3 {
-            app.world_mut().resource_mut::<DetailsPanelSync>().dirty = true;
+            app.world_mut()
+                .resource_mut::<DetailsPanelSync>()
+                .set_dirty();
             app.update();
         }
 
@@ -1340,10 +1349,11 @@ mod tests {
     #[test]
     fn rebuilds_on_selection_and_updates_values_in_place() {
         let mut app = test_app();
-        app.world_mut().spawn((InspectorUi, InspectorTreeView));
+        let ui_root = app.world_mut().spawn(InspectorUi).id();
+        app.world_mut().spawn((InspectorTreeView, ChildOf(ui_root)));
         let panel = app
             .world_mut()
-            .spawn((InspectorUi, InspectorDetailsBody))
+            .spawn((InspectorDetailsBody, ChildOf(ui_root)))
             .id();
         let subject = app
             .world_mut()
@@ -1375,7 +1385,9 @@ mod tests {
         );
 
         app.world_mut().get_mut::<Subject>(subject).unwrap().scale = 4.0;
-        app.world_mut().resource_mut::<DetailsPanelSync>().dirty = true;
+        app.world_mut()
+            .resource_mut::<DetailsPanelSync>()
+            .set_dirty();
         app.update();
 
         let index = app.world().resource::<DetailsIndex>();

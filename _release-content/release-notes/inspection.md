@@ -17,5 +17,4 @@ This note will be completed once the rest of the series lands.
 - Added entity and resource inspection to `bevy_dev_tools` (#25845)
 - Added serde support and structured values to the inspection types (#25866)
 - Added `world.inspect*`, `world.summarize` and `registry.component_metadata` to the Bevy Remote Protocol (#25883)
-- Added the `bevy_inspector` crate with a local entity tree panel (#25884)
 - Added the `bevy_inspector` crate with a local entity tree and details panel (#25884, #25885)

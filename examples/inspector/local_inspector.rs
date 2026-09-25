@@ -19,9 +19,6 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FeathersPlugins, InspectorPlugin))
         .insert_resource(UiTheme(create_dark_theme()))
-        .register_type::<Showcase>()
-        .register_type::<Mode>()
-        .register_type::<Bounds>()
         .add_systems(Startup, (demo_scene.spawn(), inspector_ui.spawn()))
         .add_systems(Update, log_selection)
         .run();
