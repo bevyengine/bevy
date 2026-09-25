@@ -17,3 +17,6 @@ struct Mesh2d {
     /// The index of the mesh metadata buffer.
     metadata_index: u32,
 };
+
+// if the flag is set, the sign is positive, else it is negative
+const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32 = 1u << 31u;
