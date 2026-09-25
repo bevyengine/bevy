@@ -131,13 +131,13 @@ impl RenderDevice {
         self.device.poll(maintain)
     }
 
-    /// Creates an empty [`CommandEncoder`](wgpu::CommandEncoder).
+    /// Creates an empty [`WgpuCommandEncoder`](super::WgpuCommandEncoder).
     #[inline]
     pub fn create_command_encoder(
         &self,
         desc: &wgpu::CommandEncoderDescriptor,
-    ) -> wgpu::CommandEncoder {
-        self.device.create_command_encoder(desc)
+    ) -> super::WgpuCommandEncoder {
+        super::WgpuCommandEncoder::new(self.device.create_command_encoder(desc))
     }
 
     /// Creates an empty [`RenderBundleEncoder`](wgpu::RenderBundleEncoder).
