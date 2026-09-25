@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "cannot serialize dynamic value without represented type: `bevy_reflect::DynamicStruct`"
+        expected = "cannot serialize dynamic value without runtime type: `bevy_reflect::DynamicStruct`"
     )]
     fn should_not_serialize_unproxied_dynamic() {
         let registry = TypeRegistry::default();
@@ -300,9 +300,7 @@ mod tests {
                         {
                             let registration = self
                                 .registry
-                                .get_with_type_path(
-                                    enemy.get_represented_type_info().unwrap().type_path(),
-                                )
+                                .get_with_type_path(enemy.runtime_type_info().unwrap().type_path())
                                 .unwrap();
 
                             // 1. Convert any possible dynamic values to concrete ones

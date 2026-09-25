@@ -63,7 +63,7 @@ pub trait TupleStruct: PartialReflect {
     /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
     fn to_dynamic_tuple_struct(&self) -> Result<DynamicTupleStruct, ReflectCloneError> {
         Ok(DynamicTupleStruct {
-            represented_type: self.get_represented_type_info(),
+            runtime_type: self.runtime_type_info(),
             fields: self
                 .iter_fields()
                 .map(PartialReflect::to_dynamic)
@@ -71,9 +71,20 @@ pub trait TupleStruct: PartialReflect {
         })
     }
 
+    /// Returns the [runtime] [`TupleStructInfo`], if available.
+    ///
+    /// [runtime]: crate#comptime-vs-runtime-types
+    fn runtime_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
+        self.runtime_type_info()?.as_tuple_struct().ok()
+    }
+
     /// Will return `None` if [`TypeInfo`] is not available.
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use [`TupleStruct::runtime_tuple_struct_info`] instead"
+    )]
     fn get_represented_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
-        self.get_represented_type_info()?.as_tuple_struct().ok()
+        self.runtime_tuple_struct_info()
     }
 }
 
@@ -242,11 +253,29 @@ impl GetTupleStructField for dyn TupleStruct {
 /// A tuple struct which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicTupleStruct {
-    represented_type: Option<&'static TypeInfo>,
+    runtime_type: Option<&'static TypeInfo>,
     fields: Vec<Box<dyn PartialReflect>>,
 }
 
 impl DynamicTupleStruct {
+    /// Sets the [runtime type] to be represented by this `DynamicTupleStruct`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [`TypeInfo`] is not a [`TypeInfo::TupleStruct`].
+    ///
+    /// [runtime type]: crate#comptime-vs-runtime-types
+    pub fn set_runtime_type(&mut self, runtime_type: Option<&'static TypeInfo>) {
+        if let Some(runtime_type) = runtime_type {
+            assert!(
+                matches!(runtime_type, TypeInfo::TupleStruct(_)),
+                "expected TypeInfo::TupleStruct but received: {runtime_type:?}"
+            );
+        }
+
+        self.runtime_type = runtime_type;
+    }
+
     /// Sets the [type] to be represented by this `DynamicTupleStruct`.
     ///
     /// # Panics
@@ -254,15 +283,12 @@ impl DynamicTupleStruct {
     /// Panics if the given [type] is not a [`TypeInfo::TupleStruct`].
     ///
     /// [type]: TypeInfo
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use [`DynamicTupleStruct::set_runtime_type`] instead"
+    )]
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::TupleStruct(_)),
-                "expected TypeInfo::TupleStruct but received: {represented_type:?}"
-            );
-        }
-
-        self.represented_type = represented_type;
+        self.set_runtime_type(represented_type);
     }
 
     /// Appends an element with value `value` to the tuple struct.
@@ -303,8 +329,13 @@ impl TupleStruct for DynamicTupleStruct {
 
 impl PartialReflect for DynamicTupleStruct {
     #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
+        self.runtime_type
+    }
+
+    #[inline]
+    fn runtime_type(&self) -> Option<Type> {
+        self.runtime_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]
@@ -398,7 +429,7 @@ impl Debug for DynamicTupleStruct {
 impl From<DynamicTuple> for DynamicTupleStruct {
     fn from(value: DynamicTuple) -> Self {
         Self {
-            represented_type: None,
+            runtime_type: None,
             fields: Box::new(value).drain(),
         }
     }
@@ -407,7 +438,7 @@ impl From<DynamicTuple> for DynamicTupleStruct {
 impl FromIterator<Box<dyn PartialReflect>> for DynamicTupleStruct {
     fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(fields: I) -> Self {
         Self {
-            represented_type: None,
+            runtime_type: None,
             fields: fields.into_iter().collect(),
         }
     }
@@ -517,7 +548,7 @@ pub fn tuple_struct_debug(
 ) -> core::fmt::Result {
     let mut debug = f.debug_tuple(
         dyn_tuple_struct
-            .get_represented_type_info()
+            .runtime_type_info()
             .map(TypeInfo::type_path)
             .unwrap_or("_"),
     );

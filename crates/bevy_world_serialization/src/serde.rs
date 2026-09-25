@@ -178,7 +178,7 @@ impl<'a> Serialize for WorldMapSerializer<'a> {
                 .iter()
                 .map(|entry| {
                     (
-                        entry.get_represented_type_info().unwrap().type_path(),
+                        entry.runtime_type().unwrap().path(),
                         entry.as_partial_reflect(),
                     )
                 })
@@ -1009,13 +1009,13 @@ mod tests {
                     .components
                     .iter()
                     .find(|component| {
-                        component.get_represented_type_info().unwrap().type_path()
-                            == expected.get_represented_type_info().unwrap().type_path()
+                        component.runtime_type().unwrap().path()
+                            == expected.runtime_type().unwrap().path()
                     })
                     .unwrap_or_else(|| {
                         panic!(
                             "missing component (expected: `{}`)",
-                            expected.get_represented_type_info().unwrap().type_path()
+                            expected.runtime_type().unwrap().path()
                         )
                     });
 

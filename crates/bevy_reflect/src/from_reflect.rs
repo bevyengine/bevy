@@ -90,7 +90,7 @@ pub trait FromReflect: Reflect + Sized {
 /// # registry.register::<Foo>();
 ///
 /// let mut reflected = DynamicTupleStruct::default();
-/// reflected.set_represented_type(Some(<Foo as Typed>::type_info()));
+/// reflected.set_runtime_type(Some(<Foo as Typed>::type_info()));
 ///
 /// let registration = registry.get_with_type_path(<Foo as TypePath>::type_path()).unwrap();
 /// let rfr = registration.data::<ReflectFromReflect>().unwrap();

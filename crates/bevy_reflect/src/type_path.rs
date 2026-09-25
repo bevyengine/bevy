@@ -152,6 +152,9 @@ pub trait DynamicTypePath {
 
     /// See [`TypePath::module_path`].
     fn reflect_module_path(&self) -> Option<&str>;
+
+    /// Returns a new instance of [`TypePathTable`] for this value.
+    fn reflect_type_path_table(&self) -> TypePathTable;
 }
 
 impl<T: TypePath> DynamicTypePath for T {
@@ -178,6 +181,11 @@ impl<T: TypePath> DynamicTypePath for T {
     #[inline]
     fn reflect_module_path(&self) -> Option<&str> {
         Self::module_path()
+    }
+
+    #[inline]
+    fn reflect_type_path_table(&self) -> TypePathTable {
+        TypePathTable::of::<T>()
     }
 }
 

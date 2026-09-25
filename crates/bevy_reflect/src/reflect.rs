@@ -13,9 +13,9 @@ use core::{
     fmt::Debug,
 };
 
-use thiserror::Error;
-
 use crate::utility::NonGenericTypeInfoCell;
+use bevy_reflect::Type;
+use thiserror::Error;
 
 /// A enumeration of all error outcomes that might happen when running [`try_apply`](PartialReflect::try_apply).
 #[derive(Error, Debug)]
@@ -108,6 +108,34 @@ where
     // NB: we don't use `Self: Any` since for downcasting, `Reflect` should be used.
     Self: 'static,
 {
+    /// Returns the [`Type`] of this reflected value as known at compile-time.
+    ///
+    /// Unlike [`Self::runtime_type`], this method should behave the same for concrete and dynamic types,
+    /// with no special-casing for proxies.
+    /// This means that a [`DynamicStruct`] will always return the [`Type`] for [`DynamicStruct`],
+    /// regardless of proxy status.
+    ///
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
+    fn comptime_type(&self) -> Type {
+        Type::of_value(self)
+    }
+
+    /// Returns the [`TypeInfo`] of this reflected value as known at runtime.
+    ///
+    /// For dynamic types, such as [`DynamicStruct`] or [`DynamicList`],
+    /// this will return the [`TypeInfo`] of the type that they are proxying,
+    /// or `None` if they are not proxying any type.
+    ///
+    /// This method is great if you have an instance of a type or a `dyn Reflect`,
+    /// and want to access its [`TypeInfo`].
+    /// However, if this method is to be called frequently,
+    /// consider using [`TypeRegistry::get_type_info`] as it can often be more performant for such use cases.
+    ///
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
+    /// [`DynamicList`]: crate::list::DynamicList
+    /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
+    fn runtime_type_info(&self) -> Option<&'static TypeInfo>;
+
     /// Returns the [`TypeInfo`] of the type _represented_ by this value.
     ///
     /// For most types, this will simply return their own `TypeInfo`.
@@ -123,7 +151,26 @@ where
     /// [`DynamicStruct`]: crate::structs::DynamicStruct
     /// [`DynamicList`]: crate::list::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use [`PartialReflect::runtime_type_info`] instead"
+    )]
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.runtime_type_info()
+    }
+
+    /// Returns the [`Type`] of this reflected value as known at runtime.
+    ///
+    /// For dynamic types, such as [`DynamicStruct`] or [`DynamicList`],
+    /// this will return the [`Type`] of the type that they are proxying,
+    /// or `None` if they are not proxying any type.
+    ///
+    /// In all other cases, this method should return the same [`Type`]
+    /// as returned by [`Self::comptime_type`].
+    ///
+    /// [`DynamicStruct`]: crate::structs::DynamicStruct
+    /// [`DynamicList`]: crate::list::DynamicList
+    fn runtime_type(&self) -> Option<Type>;
 
     /// Casts this type to a boxed, reflected value.
     ///
@@ -459,22 +506,29 @@ pub trait Reflect: PartialReflect + DynamicTyped + Any {
 }
 
 impl dyn PartialReflect {
-    /// Returns `true` if the underlying value represents a value of type `T`, or `false`
-    /// otherwise.
+    /// Returns `true` if the underlying value _represents_ a value of type `T`, or `false` otherwise.
     ///
-    /// Read `is` for more information on underlying values and represented types.
+    /// This method only considers the dynamic, runtime type of the underlying value.
+    /// To consider the compile-time type instead, use [`<dyn Reflect>::is`](trait.Reflect.html#method.is).
+    ///
+    /// Note that for [remote types], `T` should be the remote type itself rather than the remote wrapper type.
+    ///
+    /// [remote types]: crate::ReflectRemote
     #[inline]
     pub fn represents<T: Reflect + TypePath>(&self) -> bool {
-        self.get_represented_type_info()
+        self.runtime_type_info()
             .is_some_and(|t| t.type_path() == T::type_path())
     }
 
     /// Downcasts the value to type `T`, consuming the trait object.
     ///
     /// If the underlying value does not implement [`Reflect`]
-    /// or is not of type `T`, returns `Err(self)`.
+    /// or its compile-time type is not of type `T`,
+    /// returns `Err(self)`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wrapper type.
+    /// Note that for [remote types], `T` should be the remote type itself rather than the remote wrapper type.
+    ///
+    /// [remote types]: crate::ReflectRemote
     pub fn try_downcast<T: Any>(
         self: Box<dyn PartialReflect>,
     ) -> Result<Box<T>, Box<dyn PartialReflect>> {
@@ -486,9 +540,12 @@ impl dyn PartialReflect {
     /// Downcasts the value to type `T`, unboxing and consuming the trait object.
     ///
     /// If the underlying value does not implement [`Reflect`]
-    /// or is not of type `T`, returns `Err(self)`.
+    /// or its compile-time type is not of type `T`,
+    /// returns `Err(self)`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wrapper type.
+    /// Note that for [remote types], `T` should be the remote type itself rather than the remote wrapper type.
+    ///
+    /// [remote types]: crate::ReflectRemote
     pub fn try_take<T: Any>(self: Box<dyn PartialReflect>) -> Result<T, Box<dyn PartialReflect>> {
         self.try_downcast().map(|value| *value)
     }
@@ -496,9 +553,12 @@ impl dyn PartialReflect {
     /// Downcasts the value to type `T` by reference.
     ///
     /// If the underlying value does not implement [`Reflect`]
-    /// or is not of type `T`, returns [`None`].
+    /// or its compile-time type is not of type `T`,
+    /// returns `None`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wrapper type.
+    /// Note that for [remote types], `T` should be the remote type itself rather than the remote wrapper type.
+    ///
+    /// [remote types]: crate::ReflectRemote
     pub fn try_downcast_ref<T: Any>(&self) -> Option<&T> {
         self.try_as_reflect()?.downcast_ref()
     }
@@ -506,9 +566,12 @@ impl dyn PartialReflect {
     /// Downcasts the value to type `T` by mutable reference.
     ///
     /// If the underlying value does not implement [`Reflect`]
-    /// or is not of type `T`, returns [`None`].
+    /// or its compile-time type is not of type `T`,
+    /// returns `None`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wrapper type.
+    /// Note that for [remote types], `T` should be the remote type itself rather than the remote wrapper type.
+    ///
+    /// [remote types]: crate::ReflectRemote
     pub fn try_downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
         self.try_as_reflect_mut()?.downcast_mut()
     }
@@ -538,7 +601,9 @@ impl dyn Reflect {
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wrapper type.
+    /// Note that for [remote types], `T` should be the remote type itself rather than the remote wrapper type.
+    ///
+    /// [remote types]: crate::ReflectRemote
     pub fn downcast<T: Any>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
         if self.is::<T>() {
             Ok(self.into_any().downcast().unwrap())
@@ -551,23 +616,21 @@ impl dyn Reflect {
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wrapper type.
+    /// Note that for [remote types], `T` should be the remote type itself rather than the remote wrapper type.
+    ///
+    /// [remote types]: crate::ReflectRemote
     pub fn take<T: Any>(self: Box<dyn Reflect>) -> Result<T, Box<dyn Reflect>> {
         self.downcast::<T>().map(|value| *value)
     }
 
-    /// Returns `true` if the underlying value is of type `T`, or `false`
-    /// otherwise.
+    /// Returns `true` if the underlying value is of type `T`, or `false` otherwise.
     ///
-    /// The underlying value is the concrete type that is stored in this `dyn` object;
-    /// it can be downcast to. In the case that this underlying value "represents"
-    /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
-    /// to determine what type they represent. Represented types cannot be downcast
-    /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
+    /// This method only considers the concrete, compile-time type of the underlying value.
+    /// To consider the runtime type instead, use [`<dyn PartialReflect>::represents`](trait.PartialReflect.html#method.represents).
     ///
-    /// For remote types, `T` should be the type itself rather than the wrapper type.
+    /// Note that for [remote types], `T` should be the remote type itself rather than the remote wrapper type.
     ///
-    /// [`FromReflect`]: crate::FromReflect
+    /// [remote types]: crate::ReflectRemote
     #[inline]
     pub fn is<T: Any>(&self) -> bool {
         self.as_any().type_id() == TypeId::of::<T>()
@@ -577,7 +640,9 @@ impl dyn Reflect {
     ///
     /// If the underlying value is not of type `T`, returns `None`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wrapper type.
+    /// Note that for [remote types], `T` should be the remote type itself rather than the remote wrapper type.
+    ///
+    /// [remote types]: crate::ReflectRemote
     #[inline]
     pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
         self.as_any().downcast_ref::<T>()
@@ -587,7 +652,9 @@ impl dyn Reflect {
     ///
     /// If the underlying value is not of type `T`, returns `None`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wrapper type.
+    /// Note that for [remote types], `T` should be the remote type itself rather than the remote wrapper type.
+    ///
+    /// [remote types]: crate::ReflectRemote
     #[inline]
     pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
         self.as_any_mut().downcast_mut::<T>()
