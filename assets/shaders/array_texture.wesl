@@ -58,7 +58,6 @@ fn fragment(
     pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
     var out = fns::apply_pbr_lighting(pbr_input);
-    // `TONEMAP_IN_SHADER` views have no tonemapping pass, so tonemap here.
 @if(TONEMAP_IN_SHADER) {
     out = tone_mapping(out, view.color_grading);
 }

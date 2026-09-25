@@ -330,9 +330,6 @@ pub fn init_tonemapping_pipeline(
 }
 
 /// A view's specialized tonemapping pipeline and the method it runs.
-///
-/// Only views that run the tonemapping pass carry this component, so the pass's
-/// `ViewQuery` skips the views that opt out.
 #[derive(Component)]
 pub struct ViewTonemappingPipeline {
     pipeline_id: CachedRenderPipelineId,
@@ -340,10 +337,7 @@ pub struct ViewTonemappingPipeline {
     method: Tonemapping,
 }
 
-/// Picks the pipeline flags for a view's color grading and compositing space. The sprite
-/// and 2D mesh pipelines derive their encode shader defs from the same
-/// `CompositingSpace`, so the pass decodes and re-encodes in the space the main texture
-/// actually holds.
+/// Picks the pipeline flags for a view's color grading and compositing space.
 fn tonemapping_key_flags(
     color_grading: &ColorGrading,
     compositing_space: Option<CompositingSpace>,
@@ -365,8 +359,6 @@ fn tonemapping_key_flags(
             .any(|section| *section != default()),
     );
 
-    // `CompositingSpace::Linear` and no component both set neither flag, so
-    // scene-linear views share one key.
     flags.set(
         TonemappingPipelineKeyFlags::SRGB_COMPOSITING,
         compositing_space == Some(CompositingSpace::Srgb),
@@ -401,10 +393,9 @@ pub fn prepare_view_tonemapping_pipelines(
     {
         let method = *tonemapping.unwrap_or(&Tonemapping::None);
 
-        // `Tonemapping::None` views opt out of the pass and `TonemapInShader` views
-        // tonemap in their material shaders, so neither runs the pass and neither
-        // needs a pipeline. Render world entities are retained, so remove a stale
-        // component.
+        // `Tonemapping::None` and `TonemapInShader` views don't run the pass. Render
+        // world entities persist across frames, so remove a pipeline left from an
+        // earlier frame.
         if !method.is_enabled() || tonemap_in_shader {
             if existing_pipeline.is_some() {
                 commands.entity(entity).remove::<ViewTonemappingPipeline>();
@@ -425,9 +416,9 @@ pub fn prepare_view_tonemapping_pipelines(
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
-        // The upscaling blit blocks on its own pipeline and presents whatever is in the
-        // main texture, so an unready tonemapping pipeline would present raw scene-linear
-        // frames. Block here too. This is O(1) once the pipeline is compiled.
+        // Without a ready pipeline the pass is skipped, and the upscaling blit writes the
+        // untonemapped main texture to the output. Block like the upscaling pipeline
+        // does. This returns at once when the pipeline is already compiled.
         pipeline_cache.block_on_render_pipeline(pipeline);
 
         // The key determines the pipeline id, so an unchanged id means an

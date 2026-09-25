@@ -515,8 +515,7 @@ pub fn extract_cameras(
     main_pass_formats.clear();
     let primary_window = primary_window.iter().next();
 
-    // Cameras that share a render target keep the in-shader tonemapping path, so the
-    // main texture policy needs to know how many active cameras draw to each target.
+    // Count cameras per render target to make sure tonemapping isn't duplicated
     active_cameras_per_target.clear();
     for (_, _, camera, render_target, ..) in query.iter() {
         if !camera.is_active {
@@ -753,13 +752,12 @@ fn normalize_bgra8(target: &NormalizedRenderTarget, format: TextureFormat) -> Te
 /// Which main texture format a camera view gets.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum MainTextureMode {
-    /// The high-precision `Rgba16Float` intermediate the tonemapping pass reads.
+    /// `Rgba16Float`, which the tonemapping pass reads.
     SceneLinear,
     /// The output texture's view format, with tonemapping running in the camera's
     /// material shaders.
     InShaderTonemapSdr,
-    /// The linear-storage `Rgba8Unorm` main texture an explicit
-    /// `CompositingSpace::Srgb` camera keeps.
+    /// `Rgba8Unorm`, for a camera with `CompositingSpace::Srgb`.
     CompositingSrgb8,
     /// The output texture's view format, for everything else.
     FollowOutput,
@@ -786,16 +784,11 @@ struct MainTexturePolicy {
     in_shader_tonemap: bool,
 }
 
-/// Marks a render world camera view as being on the SDR in-shader tonemapping path.
+/// Marks a render world camera view as tonemapping in-shader rather than in a separate pass.
 ///
-/// [`extract_cameras`] adds and removes it each frame. Pipeline specialization reads it
-/// to set the `TONEMAP_IN_SHADER` shader def, and the tonemapping pass skips these views.
-///
-/// SDR cameras with tonemapping enabled carry it by default. [`NeedsSceneLinearTarget`],
-/// [`TonemappingPass`], an encoded compositing space, or a target that isn't a window
-/// each take a camera off the path. Cameras that share a render target are the exception
-/// and stay on it, because the tonemapping pass would rewrite the whole shared texture
-/// and process the other cameras' output again.
+/// Added automatically for SDR cameras with tonemapping enabled, and removed for cameras
+/// with [`NeedsSceneLinearTarget`], [`TonemappingPass`], a non-linear [`CompositingSpace`],
+/// or a non-window render target, unless the render target is shared by multiple cameras.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct TonemapInShader;
 
@@ -827,8 +820,6 @@ fn main_texture_policy(camera: MainTextureCamera) -> MainTexturePolicy {
 
     let shares_target = cameras_on_target.is_some_and(|count| count > 1);
 
-    // See `TonemapInShader` for why a shared target always takes this path, and what
-    // takes every other camera off it.
     let eligible_in_shader_tonemap = tonemapping_enabled
         && !hdr
         && (shares_target
@@ -840,19 +831,15 @@ fn main_texture_policy(camera: MainTextureCamera) -> MainTexturePolicy {
     let mode = if hdr {
         MainTextureMode::SceneLinear
     } else if eligible_in_shader_tonemap {
-        // The `Srgb` arm is only reachable for a shared target, since solo eligibility
-        // excludes `Srgb`. `Oklab` requires `Hdr` per its own doc, so a shared SDR
-        // camera with it is misconfigured and stays on the in-shader path like any
-        // other SDR camera.
+        // Only a shared target gets here with an encoded compositing space. `Oklab`
+        // requires `Hdr`, so only `Srgb` needs its own format.
         if compositing_space.is_some_and(|s| s == CompositingSpace::Srgb) {
             MainTextureMode::CompositingSrgb8
         } else {
             MainTextureMode::InShaderTonemapSdr
         }
     } else if tonemapping_enabled {
-        // The tonemapping pass needs an unclipped buffer. An 8-bit intermediate would
-        // clamp scene-referred values above 1.0 before tonemapping sees them, and fp16
-        // keeps them intact under an explicit compositing space too.
+        // The tonemapping pass needs values above 1.0, which an 8-bit texture clamps.
         MainTextureMode::SceneLinear
     } else if compositing_space.is_some_and(|s| s == CompositingSpace::Srgb) {
         MainTextureMode::CompositingSrgb8

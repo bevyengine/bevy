@@ -165,8 +165,7 @@ impl SpritePipelineKey {
         }
     }
 
-    /// The `TONEMAP_METHOD_*` bits for a tonemapping method. Specialization
-    /// reads them only when [`Self::TONEMAP_IN_SHADER`] is also set.
+    /// The `TONEMAP_METHOD_*` bits for a tonemapping method.
     #[inline]
     const fn from_tonemapping(tonemapping: Tonemapping) -> Self {
         match tonemapping {

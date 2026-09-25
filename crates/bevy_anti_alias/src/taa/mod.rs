@@ -457,9 +457,9 @@ fn prepare_taa_pipelines(
     for (entity, camera, view, taa_settings, tonemapping, tonemap_in_shader) in &cameras {
         let mut pipeline_key = TaaPipelineKey {
             target_format: view.target_format,
-            // TAA runs before the tonemapping pass, so the main texture still holds the
-            // scene-referred values the reversible tonemapper needs. A `TonemapInShader`
-            // view is already tonemapped and needs no reversible pass.
+            // `TONEMAP` makes TAA tonemap its input and invert that on its output, so it
+            // can blend values above 1.0. This is true exactly when the main texture is
+            // `Rgba16Float`, for `Hdr` cameras and cameras that run the tonemapping pass.
             tonemap: camera.hdr
                 || (tonemapping.is_some_and(Tonemapping::is_enabled) && !tonemap_in_shader),
             reset: taa_settings.reset,

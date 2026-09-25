@@ -15,9 +15,7 @@ use bevy_render::{
 
 use super::{get_lut_bindings, Tonemapping};
 
-/// The inputs a view's cached tonemapping bind group was created from. The
-/// `camera_driver` system runs the pass once per view and each view has its
-/// own post-process source, so the cache keys by view.
+/// A view's cached tonemapping bind group and the inputs it was created from.
 pub struct CachedBindGroup {
     view_uniforms: BufferId,
     source: TextureViewId,
@@ -44,7 +42,7 @@ pub fn tonemapping(
 ) {
     let (view_entity, view_uniform_offset, target, view_tonemapping_pipeline) = view.into_inner();
 
-    // Views that run this pass always have an fp16 main texture.
+    // Views that run this pass always have an `Rgba16Float` main texture.
     debug_assert!(!matches!(
         target.main_texture_format(),
         TextureFormat::Rgba8UnormSrgb | TextureFormat::Rgba8Unorm
