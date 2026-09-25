@@ -211,9 +211,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     //
     // [2]: https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law
 
-    // Use Beer's law again to accumulate the ambient light all along the path.
-    var accumulated_color = exp(-ray_length_view * (absorption + scattering)) * ambient_color *
-        ambient_intensity;
+    var accumulated_color = vec3(0.0);
 
     // This is the amount of the background that shows through. We're actually
     // going to recompute this over and over again for each directional light,
@@ -336,7 +334,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         }
     }
 
-    // Point lights and Spot lights
+    // Point lights, Spot lights, and ambient light
     let is_orthographic = view.clip_from_view[3].w == 1.0;
 
     // Reset `background_alpha` for a new raymarch.
@@ -436,6 +434,12 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         // Process absorption and out-scattering.
         background_alpha *= sample_attenuation;
         accumulated_color += sample_color * background_alpha;
+
+    }
+    let extinction = absorption + scattering;
+    if (extinction > 0.0) {
+      // Use Beer's law again to accumulate the ambient light all along the path.
+      accumulated_color += ambient_color * ambient_intensity * fog_color * (scattering / extinction) * (1.0 - background_alpha);
     }
 
     // We're done! Return the color with alpha so it can be blended onto the
