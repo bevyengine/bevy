@@ -33,7 +33,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
 
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -65,7 +65,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
 
       - name: Set up JDK 17
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -109,7 +109,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           target: wasm32-unknown-unknown
 
@@ -170,9 +170,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
       - name: Build
         run: cargo build -p ${{ matrix.crate }} --no-default-features
 
@@ -198,7 +198,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           channel: nightly
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -218,7 +218,7 @@ jobs:
       - name: Installs cargo-udeps
         run: cargo install --force cargo-udeps
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
       - name: Run cargo udeps
         run: cargo udeps
 
@@ -230,7 +230,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # key won't match, will rely on restore-keys
@@ -246,7 +246,7 @@ jobs:
             ~/.cargo/git/db/
             target/
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
       - name: Apply patches
         run: |
           CODE=0

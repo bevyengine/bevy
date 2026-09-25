@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
       - name: get MSRV
         id: msrv
         run: |
@@ -119,7 +119,7 @@ jobs:
           ref: "main"
           persist-credentials: false
 
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           channel: ${{ matrix.toolchain }}
           target: ${{ matrix.target }}
@@ -148,7 +148,7 @@ jobs:
 
       - name: Install Linux dependencies
         if: steps.cache.outputs.cache-hit != 'true'
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
         with:
           wayland: true
           xkb: true

@@ -6,14 +6,14 @@
 use bevy::{
     color::palettes::{basic::WHITE, css::DARK_GREEN},
     feathers::{
-        controls::{FeathersNumberInput, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersNumberInput, NumberInputPrecision},
         dark_theme::create_dark_theme,
         display::caption,
         theme::UiTheme,
         FeathersPlugins,
     },
     prelude::*,
-    ui_widgets::ValueChange,
+    ui_widgets::{NumericValue, ValueChange},
 };
 
 use argh::FromArgs;
@@ -417,7 +417,7 @@ fn handle_weight_value_change(
 
     commands
         .entity(value_change.source)
-        .insert(NumberInputValue::F32(value_change.value));
+        .insert(NumericValue::F32(value_change.value));
 
     // Draw the green background color to visually indicate the weight.
     for (mut node, weight_clip_node) in weight_background_q.iter_mut() {

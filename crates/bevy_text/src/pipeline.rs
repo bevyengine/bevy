@@ -82,6 +82,7 @@ impl TextPipeline {
         layout_cx: &mut LayoutCx,
         logical_viewport_size: Vec2,
         base_rem_size: RemSize,
+        default_font_source: &FontSource,
     ) -> Result<(), TextError> {
         computed.entities.clear();
         computed.needs_rerender = false;
@@ -126,7 +127,10 @@ impl TextPipeline {
                         }
 
                         if matches!(text_font.font, FontSource::Handle(_))
-                            && text_font.font.resolve_font_family(fonts).is_err()
+                            && text_font
+                                .font
+                                .resolve_font_family(fonts, default_font_source)
+                                .is_err()
                         {
                             return Err(TextError::NoSuchFont);
                         }
@@ -227,7 +231,9 @@ impl TextPipeline {
                             continue;
                         }
 
-                        let resolved_family = text_font.font.resolve_font_family(fonts)?;
+                        let resolved_family = text_font
+                            .font
+                            .resolve_font_family(fonts, default_font_source)?;
 
                         builder.push(StyleProperty::FontFamily(resolved_family), range.clone());
                         builder.push(
@@ -307,6 +313,7 @@ impl TextPipeline {
         layout_cx: &mut LayoutCx,
         logical_viewport_size: Vec2,
         base_rem_size: RemSize,
+        default_font_source: &FontSource,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
@@ -324,6 +331,7 @@ impl TextPipeline {
             layout_cx,
             logical_viewport_size,
             base_rem_size,
+            default_font_source,
         )?;
 
         let layout_buffer = &mut computed.layout;

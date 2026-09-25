@@ -1,9 +1,8 @@
-use crate::event::{EventPattern, SetEntityEventTarget};
 use crate::{
     archetype::Archetype,
     component::ComponentId,
     entity::Entity,
-    event::{EntityEvent, Event},
+    event::{EntityEvent, Event, SetEntityEventTarget},
     observer::{CachedObservers, TriggerContext},
     traversal::Traversal,
     world::DeferredWorld,
@@ -23,19 +22,24 @@ use core::{fmt, marker::PhantomData};
 /// - [`EntityTrigger`]: The [`EntityEvent`] derive defaults to using this
 /// - [`PropagateEntityTrigger`]: The [`EntityEvent`] derive uses this when propagation is enabled.
 /// - [`EntityComponentsTrigger`]: Used by Bevy's [component lifecycle events](crate::lifecycle).
-///
-/// # Safety
-///
-/// Implementing this properly is _advanced_ soundness territory! Implementers must abide by the following:
-///
-/// - The `E`' [`Event::Trigger`] must be constrained to the implemented [`Trigger`] type, as part of the implementation.
-///   This prevents other [`Trigger`] implementations from directly deferring to your implementation, which is a very easy
-///   soundness misstep, as most [`Trigger`] implementations will invoke observers that are developed _for their specific [`Trigger`] type_.
-///   Without this constraint, something like [`GlobalTrigger`] could be called for _any_ [`Event`] type, even one that expects a different
-///   [`Trigger`] type. This would result in an unsound cast of [`GlobalTrigger`] reference.
-///   This is not expressed as an explicit type constraint,, as the `for<'a> Event::Trigger<'a>` lifetime can mismatch explicit lifetimes in
-///   some impls.
-pub unsafe trait Trigger<E: Event> {
+pub trait Trigger<E: Event<Trigger = Self>>: Sized + 'static {
+    /// The type that gets passed to [`World::trigger`] and [`Commands::trigger`]
+    /// that holds the state for an observer trigger.
+    ///
+    /// [`World::trigger`]: crate::world::World::trigger
+    /// [`Commands::trigger`]: crate::system::Commands::trigger
+    type State<'input>;
+
+    /// The type that gets passed to [`On`] which holds a mutable view of the
+    /// [`Trigger::State`] for the current observer trigger.
+    ///
+    /// [`On`]: crate::observer::On
+    type View<'input>;
+
+    /// Reborrows the [`Trigger::State`] into a [`Trigger::View`] for the current
+    /// observer trigger.
+    fn reborrow<'input>(state: &'input mut Self::State<'_>) -> Self::View<'input>;
+
     /// Trigger the given `event`, running every [`Observer`](crate::observer::Observer) that matches the `event`, as defined by this
     /// [`Trigger`] and the state stored on `self`.
     ///
@@ -47,7 +51,7 @@ pub unsafe trait Trigger<E: Event> {
     ///   unintuitively risky. _Do not use it directly unless you know what you are doing_. Importantly, this should only
     ///   be called for an `event` whose [`Event::Trigger`] matches this trigger.
     unsafe fn trigger(
-        &mut self,
+        state: &mut Self::State<'_>,
         world: DeferredWorld,
         observers: &CachedObservers,
         trigger_context: &TriggerContext,
@@ -55,8 +59,11 @@ pub unsafe trait Trigger<E: Event> {
     );
 }
 
-/// Shorthand for accessing an [`EventPattern`]s [`Trigger`] via its [`Event`].
-pub type EventPatternTrigger<'a, E> = <<E as EventPattern>::Event as Event>::Trigger<'a>;
+/// Shorthand for accessing an [`Event`]s [`Trigger::State`].
+pub type EventTriggerState<'a, E> = <<E as Event>::Trigger as Trigger<E>>::State<'a>;
+
+/// Shorthand for accessing an [`Event`]s [`Trigger::View`].
+pub type EventTriggerView<'a, E> = <<E as Event>::Trigger as Trigger<E>>::View<'a>;
 
 /// A [`Trigger`] that runs _every_ "global" [`Observer`](crate::observer::Observer) (ex: registered via [`World::add_observer`](crate::world::World::add_observer))
 /// that matches the given [`Event`].
@@ -65,12 +72,16 @@ pub type EventPatternTrigger<'a, E> = <<E as EventPattern>::Event as Event>::Tri
 #[derive(Default, Debug)]
 pub struct GlobalTrigger;
 
-// SAFETY:
-// - `E`'s [`Event::Trigger`] is constrained to [`GlobalTrigger`]
-// - The implementation abides by the other safety constraints defined in [`Trigger`]
-unsafe impl<E: for<'a> Event<Trigger<'a> = Self>> Trigger<E> for GlobalTrigger {
+impl<E: Event<Trigger = Self>> Trigger<E> for GlobalTrigger {
+    type State<'input> = GlobalTrigger;
+    type View<'input> = GlobalTrigger;
+
+    fn reborrow<'input>(_: &'input mut Self::State<'_>) -> Self::View<'input> {
+        GlobalTrigger
+    }
+
     unsafe fn trigger(
-        &mut self,
+        state: &mut Self::State<'_>,
         world: DeferredWorld,
         observers: &CachedObservers,
         trigger_context: &TriggerContext,
@@ -82,7 +93,7 @@ unsafe impl<E: for<'a> Event<Trigger<'a> = Self>> Trigger<E> for GlobalTrigger {
         // - E: Event::Trigger is constrained to GlobalTrigger
         // - The caller of `trigger` ensures that `TriggerContext::event_key` matches `event`
         unsafe {
-            self.trigger_internal(world, observers, trigger_context, event.into());
+            state.trigger_internal(world, observers, trigger_context, event.into());
         }
     }
 }
@@ -135,12 +146,16 @@ impl GlobalTrigger {
 #[derive(Default, Debug)]
 pub struct EntityTrigger;
 
-// SAFETY:
-// - `E`'s [`Event::Trigger`] is constrained to [`EntityTrigger`]
-// - The implementation abides by the other safety constraints defined in [`Trigger`]
-unsafe impl<E: EntityEvent + for<'a> Event<Trigger<'a> = Self>> Trigger<E> for EntityTrigger {
+impl<E: EntityEvent<Trigger = Self>> Trigger<E> for EntityTrigger {
+    type State<'input> = EntityTrigger;
+    type View<'input> = EntityTrigger;
+
+    fn reborrow<'input>(_: &'input mut Self::State<'_>) -> Self::View<'input> {
+        EntityTrigger
+    }
+
     unsafe fn trigger(
-        &mut self,
+        state: &mut Self::State<'_>,
         world: DeferredWorld,
         observers: &CachedObservers,
         trigger_context: &TriggerContext,
@@ -157,7 +172,7 @@ unsafe impl<E: EntityEvent + for<'a> Event<Trigger<'a> = Self>> Trigger<E> for E
                 world,
                 observers,
                 event.into(),
-                self.into(),
+                state.into(),
                 entity,
                 trigger_context,
             );
@@ -268,23 +283,27 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> fmt::Debug
     }
 }
 
-// SAFETY:
-// - `E`'s [`Event::Trigger`] is constrained to [`PropagateEntityTrigger<E>`]
-unsafe impl<
-        const AUTO_PROPAGATE: bool,
-        E: EntityEvent + SetEntityEventTarget + for<'a> Event<Trigger<'a> = Self>,
-        T: Traversal<E>,
-    > Trigger<E> for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
+impl<const AUTO_PROPAGATE: bool, E, T> Trigger<E> for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
+where
+    E: EntityEvent<Trigger = Self> + SetEntityEventTarget,
+    T: Traversal<E>,
 {
+    type State<'input> = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>;
+    type View<'input> = &'input mut PropagateEntityTrigger<AUTO_PROPAGATE, E, T>;
+
+    fn reborrow<'input>(state: &'input mut Self::State<'_>) -> Self::View<'input> {
+        state
+    }
+
     unsafe fn trigger(
-        &mut self,
+        state: &mut Self::State<'_>,
         mut world: DeferredWorld,
         observers: &CachedObservers,
         trigger_context: &TriggerContext,
         event: &mut E,
     ) {
         let mut current_entity = event.event_target();
-        self.original_event_target = current_entity;
+        state.original_event_target = current_entity;
         // SAFETY:
         // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
         // - the passed in event pointer comes from `event`, which is an `Event`
@@ -295,14 +314,14 @@ unsafe impl<
                 world.reborrow(),
                 observers,
                 event.into(),
-                self.into(),
+                state.into(),
                 current_entity,
                 trigger_context,
             );
         }
 
         loop {
-            if !self.propagate {
+            if !state.propagate {
                 return;
             }
             if let Ok(entity) = world.get_entity(current_entity)
@@ -325,7 +344,7 @@ unsafe impl<
                     world.reborrow(),
                     observers,
                     event.into(),
-                    self.into(),
+                    state.into(),
                     current_entity,
                     trigger_context,
                 );
@@ -425,13 +444,20 @@ pub struct EntityComponentsTrigger<'a> {
     pub new_archetype: Option<&'a Archetype>,
 }
 
-// SAFETY:
-// - `E`'s [`Event::Trigger`] is constrained to [`EntityComponentsTrigger`]
-unsafe impl<'a, E: EntityEvent + Event<Trigger<'a> = EntityComponentsTrigger<'a>>> Trigger<E>
-    for EntityComponentsTrigger<'a>
-{
+impl<E: EntityEvent<Trigger = Self>> Trigger<E> for EntityComponentsTrigger<'static> {
+    type State<'input> = EntityComponentsTrigger<'input>;
+    type View<'input> = EntityComponentsTrigger<'input>;
+
+    fn reborrow<'input>(state: &'input mut Self::State<'_>) -> Self::View<'input> {
+        EntityComponentsTrigger {
+            components: state.components,
+            old_archetype: state.old_archetype,
+            new_archetype: state.new_archetype,
+        }
+    }
+
     unsafe fn trigger(
-        &mut self,
+        state: &mut Self::State<'_>,
         world: DeferredWorld,
         observers: &CachedObservers,
         trigger_context: &TriggerContext,
@@ -443,7 +469,7 @@ unsafe impl<'a, E: EntityEvent + Event<Trigger<'a> = EntityComponentsTrigger<'a>
         // - the passed in event pointer comes from `event`, which is an `Event`
         // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger`
         unsafe {
-            self.trigger_internal(world, observers, event.into(), entity, trigger_context);
+            state.trigger_internal(world, observers, event.into(), entity, trigger_context);
         }
     }
 }

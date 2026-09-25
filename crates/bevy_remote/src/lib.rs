@@ -17,7 +17,7 @@
 //!     "method": "world.get_components",
 //!     "id": 0,
 //!     "params": {
-//!         "entity": 4294967298,
+//!         "entity": "5v0",
 //!         "components": [
 //!             "bevy_transform::components::transform::Transform"
 //!         ]
@@ -242,7 +242,7 @@
 //!       }
 //!     },
 //!     "bevy_camera::primitives::Frustum": {},
-//!  "bevy_render::sync_world::RenderEntity": 4294967291,
+//!  "bevy_render::sync_world::RenderEntity": "4v0",
 //!     "bevy_render::sync_world::SyncToRenderWorld": {},
 //!     "bevy_render::view::Msaa": "Sample4",
 //!     "bevy_camera::visibility::InheritedVisibility": true,
@@ -283,7 +283,7 @@
 //!     },
 //!     "bevy_transform::components::transform::TransformTreeChanged": null
 //!   },
-//!   "entity": 4294967261
+//!   "entity": "34v0"
 //!},
 //! ```
 //!
@@ -579,9 +579,13 @@ use serde_json::Value;
 use std::sync::RwLock;
 
 pub mod builtin_methods;
+#[cfg(all(feature = "client", not(target_family = "wasm")))]
+pub mod client;
 #[cfg(feature = "http")]
 pub mod http;
 pub mod schemas;
+#[cfg(feature = "bevy_debug_stepping")]
+pub mod stepping_methods;
 
 const CHANNEL_SIZE: usize = 16;
 
@@ -828,6 +832,43 @@ impl RemotePlugin {
             builtin_methods::process_remote_diagnostics_get_request,
             to_main,
         )
+        .add_stepping_methods(to_main)
+    }
+
+    /// Add the `stepping.*` BRP methods.
+    #[cfg(feature = "bevy_debug_stepping")]
+    fn add_stepping_methods(self, to_main: bool) -> Self {
+        self.with_method(
+            stepping_methods::BRP_STEPPING_STATUS,
+            stepping_methods::stepping_status,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_ENABLE,
+            stepping_methods::stepping_enable,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_DISABLE,
+            stepping_methods::stepping_disable,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_STEP_FRAME,
+            stepping_methods::stepping_step_frame,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_CONTINUE_FRAME,
+            stepping_methods::stepping_continue_frame,
+            to_main,
+        )
+    }
+
+    /// Leaves the method list untouched without the `bevy_debug_stepping` feature.
+    #[cfg(not(feature = "bevy_debug_stepping"))]
+    fn add_stepping_methods(self, _to_main: bool) -> Self {
+        self
     }
 }
 
@@ -1050,7 +1091,7 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///     "method": "world.get_components",
 ///     "id": 0,
 ///     "params": {
-///         "entity": 4294967298,
+///         "entity": "5v0",
 ///         "components": [
 ///             "bevy_transform::components::transform::Transform"
 ///         ]

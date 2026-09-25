@@ -9,7 +9,7 @@ use bevy::{
     camera::Hdr,
     feathers::{
         containers::{pane, pane_body, pane_header},
-        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision},
         dark_theme::create_dark_theme,
         display::label,
         theme::{ThemeProps, UiTheme},
@@ -19,7 +19,7 @@ use bevy::{
     light::CascadeShadowConfigBuilder,
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
-    ui_widgets::ValueChange,
+    ui_widgets::{NumericValue, ValueChange},
 };
 use std::fmt::Display;
 
@@ -230,7 +230,7 @@ fn number_input_for_value(
                 width: px(50),
             }
             @FeathersNumberInput
-            NumberInputValue::F32({setting.get(color_grading)})
+            NumericValue::F32({setting.get(color_grading)})
             setting
             NumberInputPrecision(2)
             HardLimit::f32(0. ..=10.)
@@ -305,7 +305,7 @@ fn handle_value_change_number_input(
 
         commands
             .entity(value_change.source)
-            .insert(NumberInputValue::F32(value_change.value));
+            .insert(NumericValue::F32(value_change.value));
     }
 }
 

@@ -6,8 +6,9 @@
 //!   The order of tabbing is determined by the index, with lower indices being tabbed first.
 //!   If two entities have the same index, then the order is determined by the order of
 //!   the entities in the ECS hierarchy (as determined by Parent/Child).
-//! * An index < 0 means that the entity is not focusable via sequential navigation, but
+//! * An index < 0 means that the entity is not reachable via sequential navigation, but
 //!   can still be focused via direct selection.
+//! * A [`Focusable`] entity without a [`TabIndex`] has an implicit index of zero.
 //!
 //! Tabbable entities must be descendants of a [`TabGroup`] entity, which is a component that
 //! marks a tree of entities as containing tabbable elements. The order of tab groups
@@ -32,18 +33,18 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::{ChildOf, Children},
     observer::On,
-    query::{With, Without},
+    query::{Has, With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
 };
-use bevy_window::{PrimaryWindow, Window};
+use bevy_window::PrimaryWindow;
 use log::warn;
 use thiserror::Error;
 
-use crate::{AcquireFocus, FocusCause, FocusedInput, InputFocus, InputFocusVisible};
+use crate::{FocusCause, Focusable, FocusedInput, InputFocus, InputFocusVisible};
 
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -51,11 +52,12 @@ use {
     bevy_reflect::{prelude::*, Reflect},
 };
 
-/// A component which indicates that an entity wants to participate in tab navigation.
+/// A component which controls an entity's sequential-navigation order.
 ///
 /// Note that you must also add the [`TabGroup`] component to the entity's ancestor in order
 /// for this component to have any effect.
 #[derive(Debug, Default, Component, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[require(Focusable)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -167,6 +169,7 @@ pub struct TabNavigation<'w, 's> {
         's,
         (
             Entity,
+            Has<Focusable>,
             Option<&'static TabIndex>,
             Option<&'static Children>,
             Option<&'static InheritedVisibility>,
@@ -181,7 +184,7 @@ impl TabNavigation<'_, '_> {
     /// Navigate to the desired focusable entity, relative to the current focused entity.
     ///
     /// Change the [`NavAction`] to navigate in a different direction.
-    /// Focusable entities are determined by the presence of the [`TabIndex`] component.
+    /// Focusable entities are determined by the presence of the [`Focusable`] component.
     ///
     /// If there is no currently focused entity, then this function will return either the first
     /// or last focusable entity, depending on the direction of navigation. For example, if
@@ -217,7 +220,7 @@ impl TabNavigation<'_, '_> {
     /// depending on [`NavAction`]. This assumes that the parent entity has a [`TabGroup`]
     /// component.
     ///
-    /// Focusable entities are determined by the presence of the [`TabIndex`] component.
+    /// Focusable entities are determined by the presence of the [`Focusable`] component.
     pub fn initialize(
         &self,
         parent: Entity,
@@ -334,16 +337,17 @@ impl TabNavigation<'_, '_> {
         parent: Entity,
         tab_group_idx: usize,
     ) {
-        if let Ok((entity, tabindex, children, inherited_visibility)) =
+        if let Ok((entity, focusable, tabindex, children, inherited_visibility)) =
             self.tabindex_query.get(parent)
         {
             // Skip hidden entities and their entire subtree. An entity without an
             // `InheritedVisibility` component (e.g. a non-UI entity) is treated as visible.
             if inherited_visibility.is_none_or(|v| v.get()) {
-                if let Some(tabindex) = tabindex
-                    && tabindex.0 >= 0
-                {
-                    out.push((entity, *tabindex, tab_group_idx));
+                if focusable {
+                    let tabindex = tabindex.copied().unwrap_or_default();
+                    if tabindex.0 >= 0 {
+                        out.push((entity, tabindex, tab_group_idx));
+                    }
                 }
                 if let Some(children) = children {
                     for child in children.iter() {
@@ -364,51 +368,12 @@ impl TabNavigation<'_, '_> {
     }
 }
 
-/// Observer which focuses the target of an [`AcquireFocus`] request when it has a [`TabIndex`].
-///
-/// This is the tab-navigation-specific half of focus acquisition: only entities that opt into tab
-/// navigation via [`TabIndex`] are treated as focus targets here. When the target is focusable, this
-/// stops the request (so it never reaches the window) and focuses it; otherwise the request keeps
-/// bubbling and is eventually handled by the generalized
-/// [`on_window_acquire_focus_clear`](crate::on_window_acquire_focus_clear) observer at the window.
-///
-/// The [`Without<Window>`] bound is a defensive guard — a window would never carry a [`TabIndex`] in
-/// practice, but excluding it keeps this observer's responsibility (focus a focusable child) cleanly
-/// separate from the window-clearing fallback in [`on_window_acquire_focus_clear`](crate::on_window_acquire_focus_clear).
-///
-/// The `focus.get()` guard avoids spurious mutations so change detection only fires on real changes.
-///
-#[cfg_attr(
-    feature = "bevy_picking",
-    doc = "This observer is also registered by
-[`PointerFocusPlugin`](crate::pointer_focus::PointerFocusPlugin) as a temporary bridge so pointer
-clicks can acquire focus without [`TabNavigationPlugin`]. Because `add_observer` does not
-deduplicate, it may therefore run twice per request when both plugins are present; keep it
-idempotent (stop propagation, only mutate focus on a real change) so the second run is a no-op."
-)]
-pub fn acquire_focus_tab_index(
-    mut acquire_focus: On<AcquireFocus>,
-    focusable: Query<(), (With<TabIndex>, Without<Window>)>,
-    mut focus: ResMut<InputFocus>,
-) {
-    // If the entity has a TabIndex
-    if focusable.contains(acquire_focus.focused_entity) {
-        // Stop and focus it
-        acquire_focus.propagate(false);
-        // Don't mutate unless we need to, for change detection
-        if focus.get() != Some(acquire_focus.focused_entity) {
-            focus.set(acquire_focus.focused_entity, FocusCause::Navigated);
-        }
-    }
-}
-
 /// Plugin for navigating between focusable entities using keyboard input.
 pub struct TabNavigationPlugin;
 
 impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_tab_navigation);
-        app.add_observer(acquire_focus_tab_index);
     }
 }
 
@@ -467,9 +432,11 @@ pub fn handle_tab_navigation(
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::system::SystemState;
+    use bevy_ecs::{system::SystemState, world::World};
+    use bevy_window::Window;
 
     use super::*;
+    use crate::AcquireFocus;
 
     #[test]
     fn test_tab_navigation() {
@@ -498,6 +465,59 @@ mod tests {
 
         let last_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::Last);
         assert_eq!(last_entity, Ok(tab_entity_2));
+    }
+
+    #[test]
+    fn focusable_has_implicit_zero_tab_index() {
+        let mut world = World::new();
+        let tab_group = world.spawn(TabGroup::default()).id();
+        let first = world.spawn((TabIndex(-1), ChildOf(tab_group))).id();
+        let explicit_zero = world.spawn((TabIndex(0), ChildOf(tab_group))).id();
+        let implicit = world.spawn((Focusable, ChildOf(tab_group))).id();
+        let explicit = world.spawn((TabIndex(1), ChildOf(tab_group))).id();
+        let plain = world.spawn(ChildOf(tab_group)).id();
+
+        let mut system_state: SystemState<TabNavigation> = SystemState::new(&mut world);
+        let nav = system_state.get(&world).unwrap();
+        assert_eq!(
+            nav.navigate(&InputFocus::default(), NavAction::First),
+            Ok(explicit_zero)
+        );
+        assert_eq!(
+            nav.navigate(&InputFocus::from_entity(explicit_zero), NavAction::Next),
+            Ok(implicit)
+        );
+        assert_eq!(
+            nav.navigate(&InputFocus::from_entity(implicit), NavAction::Next),
+            Ok(explicit)
+        );
+        assert_ne!(
+            nav.navigate(&InputFocus::default(), NavAction::First),
+            Ok(first)
+        );
+        assert_ne!(
+            nav.navigate(&InputFocus::default(), NavAction::First),
+            Ok(plain)
+        );
+    }
+
+    #[test]
+    fn removing_focusable_disables_tab_navigation_without_removing_tab_index() {
+        let mut world = World::new();
+        let tab_group = world.spawn(TabGroup::default()).id();
+        let disabled = world.spawn((TabIndex(0), ChildOf(tab_group))).id();
+        let enabled = world.spawn((Focusable, ChildOf(tab_group))).id();
+        assert!(world.entity(disabled).contains::<Focusable>());
+
+        world.entity_mut(disabled).remove::<Focusable>();
+        assert!(world.entity(disabled).contains::<TabIndex>());
+
+        let mut system_state: SystemState<TabNavigation> = SystemState::new(&mut world);
+        let nav = system_state.get(&world).unwrap();
+        assert_eq!(
+            nav.navigate(&InputFocus::default(), NavAction::First),
+            Ok(enabled)
+        );
     }
 
     #[test]
@@ -541,9 +561,7 @@ mod tests {
         assert_eq!(prev_entity_from_start_of_group, Ok(tab_entity_2));
     }
 
-    /// Sets up an app with a primary window and both the input-focus and tab-navigation plugins,
-    /// so both `AcquireFocus` observers (window-clearing in `bevy_input_focus`, and
-    /// `acquire_focus_tab_index` here) are registered, with initial focus resolved.
+    /// Sets up an app with a primary window and both the input-focus and tab-navigation plugins.
     fn acquire_focus_app() -> (App, Entity) {
         use crate::InputFocusPlugin;
         use bevy_input::InputPlugin;
@@ -563,7 +581,8 @@ mod tests {
     fn acquire_focus_focuses_entity_with_tab_index() {
         let (mut app, window) = acquire_focus_app();
 
-        let focusable = app.world_mut().spawn(TabIndex(0)).id();
+        // A negative index excludes sequential navigation, but remains directly focusable.
+        let focusable = app.world_mut().spawn(TabIndex(-1)).id();
 
         app.world_mut().trigger(AcquireFocus {
             focused_entity: focusable,
@@ -578,10 +597,8 @@ mod tests {
     fn acquire_focus_does_not_focus_entity_without_tab_index() {
         let (mut app, window) = acquire_focus_app();
 
-        // A non-focusable entity must never become focused just because it was the request target:
-        // only `TabIndex` entities are valid focus targets for `acquire_focus_tab_index`. The
-        // request instead bubbles up to the window, where the generalized
-        // `on_window_acquire_focus_clear` observer clears focus.
+        // A non-focusable entity must never become focused just because it was the request target.
+        // The request instead bubbles up to the window, where focus is cleared.
         let non_focusable = app.world_mut().spawn(ChildOf(window)).id();
         app.world_mut().trigger(AcquireFocus {
             focused_entity: non_focusable,
