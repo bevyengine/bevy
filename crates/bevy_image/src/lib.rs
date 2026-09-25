@@ -32,6 +32,7 @@ mod compressed_image_saver;
 #[cfg(feature = "dds")]
 mod dds;
 mod dynamic_texture_atlas_builder;
+mod equirectangular;
 #[cfg(feature = "exr")]
 mod exr_texture_loader;
 #[cfg(feature = "hdr")]
@@ -51,6 +52,7 @@ pub use compressed_image_saver::*;
 #[cfg(feature = "dds")]
 pub use dds::*;
 pub use dynamic_texture_atlas_builder::*;
+pub use equirectangular::*;
 #[cfg(feature = "exr")]
 pub use exr_texture_loader::*;
 #[cfg(feature = "hdr")]
