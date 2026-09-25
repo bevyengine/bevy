@@ -126,7 +126,7 @@ impl GpuDirectionalLight {
             (directional_light.color.to_vec3() * directional_light.illuminance) / solid_angle;
 
         Self {
-            direction_to_light: directional_light.transform.back().into(),
+            direction_to_light: directional_light.dir_to_light.into(),
             cos_theta_max,
             luminance,
             inverse_pdf: solid_angle,
