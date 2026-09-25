@@ -188,12 +188,12 @@ pub fn sync_entity_tree(world: &mut World) {
         .map(Time::delta)
         .unwrap_or_default();
 
-    let run = {
-        let mut sync = world.resource_mut::<EntityTreeSync>();
-        sync.timer.tick(delta);
-        sync.timer.just_finished()
-    };
-    if !run {
+    if !world
+        .resource_mut::<EntityTreeSync>()
+        .timer
+        .tick(delta)
+        .just_finished()
+    {
         return;
     }
 
