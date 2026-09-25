@@ -36,7 +36,7 @@ use bevy_ecs::{
     lifecycle::HookContext,
     message::MessageReader,
     prelude::With,
-    query::{Has, QueryItem},
+    query::{Changed, Has, QueryItem},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::{InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel, SystemSet},
@@ -89,8 +89,10 @@ impl Plugin for CameraPlugin {
                 .init_resource::<SortedCameras>()
                 .init_resource::<DirtySpecializations>()
                 .init_resource::<DirtyWireframeSpecializations>()
+                .init_resource::<DirtySortKeys>()
                 .allow_ambiguous_resource::<DirtySpecializations>()
                 .allow_ambiguous_resource::<DirtyWireframeSpecializations>()
+                .allow_ambiguous_resource::<DirtySortKeys>()
                 .configure_sets(
                     ExtractSchedule,
                     (
@@ -112,7 +114,13 @@ impl Plugin for CameraPlugin {
                         expire_wireframe_specializations_for_views.in_set(RenderSystems::Cleanup),
                     ),
                 )
-                .add_systems(Render, sort_cameras.in_set(RenderSystems::CreateViews));
+                .add_systems(
+                    Render,
+                    (
+                        sort_cameras.in_set(RenderSystems::CreateViews),
+                        clear_dirty_sort_keys.in_set(RenderSystems::Cleanup),
+                    ),
+                );
         }
     }
 }
@@ -1054,6 +1062,25 @@ pub fn clear_dirty_wireframe_specializations(
     dirty_wireframe_specializations.changed_renderables.clear();
     dirty_wireframe_specializations.removed_renderables.clear();
     dirty_wireframe_specializations.views.clear();
+}
+
+/// Main-world entities whose retained sorted phase items must be re-sorted this
+/// frame.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct DirtySortKeys(pub MainEntityHashSet);
+
+/// Adds every entity with a component whose [`GlobalTransform`] changed to the
+/// [`DirtySortKeys`].
+pub fn extract_dirty_sort_keys<C: Component>(
+    mut dirty_sort_keys: ResMut<DirtySortKeys>,
+    moved: Extract<Query<Entity, (With<C>, Changed<GlobalTransform>)>>,
+) {
+    dirty_sort_keys.extend(moved.iter().map(MainEntity::from));
+}
+
+/// Empties [`DirtySortKeys`] at the end of the frame.
+pub fn clear_dirty_sort_keys(mut dirty_sort_keys: ResMut<DirtySortKeys>) {
+    dirty_sort_keys.clear();
 }
 
 /// A system that removes views that don't exist any longer from
