@@ -1387,6 +1387,10 @@ pub fn queue_material_meshes(
                 }
                 // Alpha mask
                 RenderPhaseType::AlphaMask => {
+                    if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                        alpha_mask_phase.update_cache(*visible_entity, None);
+                        continue;
+                    }
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassAlphaMaskDrawFunction)
