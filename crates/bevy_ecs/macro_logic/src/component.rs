@@ -241,7 +241,9 @@ impl DeriveComponent {
             quote! {}
         };
 
-        let change_detection_type = if self.no_change_detection {
+        let change_detection_type = if self.summary_tick {
+            quote! { #bevy_ecs::change_detection::MutSumm<'w, Self> }
+        } else if self.no_change_detection {
             quote! { &'w mut Self }
         } else {
             quote! { #bevy_ecs::change_detection::Mut<'w, Self> }
