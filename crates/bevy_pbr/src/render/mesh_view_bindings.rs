@@ -446,7 +446,10 @@ fn layout_entries(
     }
 
     // Common linear sampler (shared by transmission, atmosphere, area-light LUTs, DFG LUT, and PCSS shadows)
-    entries = entries.extend_with_indices(((LINEAR_SAMPLER_BINDING_INDEX, sampler(SamplerBindingType::Filtering)),));
+    entries = entries.extend_with_indices(((
+        LINEAR_SAMPLER_BINDING_INDEX,
+        sampler(SamplerBindingType::Filtering),
+    ),));
 
     // OIT
     if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
