@@ -69,6 +69,7 @@ fn demo_scene() -> impl SceneList {
 fn inspector_ui() -> impl Scene {
     bsn! {
         InspectorUi
+        Name::new("Inspector")
         Node {
             position_type: PositionType::Absolute,
             left: px(12),
