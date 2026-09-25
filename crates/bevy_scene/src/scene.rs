@@ -169,10 +169,10 @@ pub enum ResolveSceneError {
 
 /// Context used by [`Scene`] implementations during [`Scene::resolve`].
 pub struct ResolveContext<'a> {
-    /// The current asset server
-    pub assets: &'a AssetServer,
-    /// The current [`ScenePatch`] asset collection
-    pub patches: &'a Assets<ScenePatch>,
+    /// The current asset server, if one is available.
+    pub assets: Option<&'a AssetServer>,
+    /// The current [`ScenePatch`] asset collection, if one is available.
+    pub patches: Option<&'a Assets<ScenePatch>>,
     /// The currently cached [`ScenePatch`], if there is one.
     pub cached: Option<&'a ScenePatch>,
 }
@@ -430,8 +430,10 @@ impl Scene for CachedSceneAsset {
         context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        if let Some(handle) = context.assets.get_handle::<ScenePatch>(&self.0)
-            && let Some(scene_patch) = context.patches.get(&handle)
+        if let Some(assets) = context.assets
+            && let Some(patches) = context.patches
+            && let Some(handle) = assets.get_handle::<ScenePatch>(&self.0)
+            && let Some(scene_patch) = patches.get(&handle)
         {
             scene.include_cached(handle)?;
             context.cached = Some(scene_patch);

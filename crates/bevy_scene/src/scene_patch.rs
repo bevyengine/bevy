@@ -32,8 +32,16 @@ pub struct ScenePatch {
 impl ScenePatch {
     /// Kicks off a load of the `scene`. This enumerates the scene's dependencies using [`Scene::register_dependencies`], loads
     /// them using the given [`AssetServer`], and assigns the resulting asset handles to [`ScenePatch::dependencies`].
-    pub fn load<P: Scene>(mut assets: &AssetServer, scene: P) -> Self {
-        Self::load_with(&mut assets, scene)
+    pub fn load<P: Scene>(assets: Option<&AssetServer>, scene: P) -> Self {
+        if let Some(mut assets) = assets {
+            Self::load_with(&mut assets, scene)
+        } else {
+            ScenePatch {
+                scene: Some(Box::new(scene)),
+                dependencies: Vec::new(),
+                resolved: None,
+            }
+        }
     }
 
     /// Same as [`Self::load`], but allows passing in any [`LoadFromPath`] impl for more general
@@ -56,8 +64,8 @@ impl ScenePatch {
     /// [`Scene::register_dependencies`]. If successful, it will store the resolved result in [`ScenePatch::resolved`].
     pub fn resolve(
         &mut self,
-        assets: &AssetServer,
-        patches: &Assets<ScenePatch>,
+        assets: Option<&AssetServer>,
+        patches: Option<&Assets<ScenePatch>>,
     ) -> Result<(), ResolveSceneError> {
         let scene = self.scene.take().ok_or(ResolveSceneError::MissingScene)?;
         self.resolved = Some(Arc::new(ResolvedSceneRoot::resolve(
@@ -127,13 +135,17 @@ pub struct SceneListPatch {
 impl SceneListPatch {
     /// Kicks off a load of the `scene_list`. This enumerates the scene list's dependencies using [`SceneList::register_dependencies`], loads
     /// them using the given [`AssetServer`], and assigns the resulting asset handles to [`SceneListPatch::dependencies`].
-    pub fn load<L: SceneList>(assets: &AssetServer, scene_list: L) -> Self {
-        let mut dependencies = SceneDependencies::default();
-        scene_list.register_dependencies(&mut dependencies);
-        let dependencies = dependencies
-            .iter()
-            .map(|dep| assets.load_builder().load_erased(dep.type_id, &dep.path))
-            .collect::<Vec<_>>();
+    pub fn load<L: SceneList>(assets: Option<&AssetServer>, scene_list: L) -> Self {
+        let dependencies = if let Some(assets) = assets {
+            let mut dependencies = SceneDependencies::default();
+            scene_list.register_dependencies(&mut dependencies);
+            dependencies
+                .iter()
+                .map(|dep| assets.load_builder().load_erased(dep.type_id, &dep.path))
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
         SceneListPatch {
             scene_list: Some(Box::new(scene_list)),
             dependencies,
@@ -145,8 +157,8 @@ impl SceneListPatch {
     /// [`SceneList::register_dependencies`].
     pub fn resolve(
         &mut self,
-        assets: &AssetServer,
-        patches: &Assets<ScenePatch>,
+        assets: Option<&AssetServer>,
+        patches: Option<&Assets<ScenePatch>>,
     ) -> Result<(), ResolveSceneError> {
         let scene_list = self
             .scene_list

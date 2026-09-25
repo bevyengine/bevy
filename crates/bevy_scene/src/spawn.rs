@@ -23,18 +23,9 @@ pub trait WorldSceneExt {
     /// Note that the `.bsn` file format is not yet released.
     ///
     /// ```
-    /// # use bevy_app::App;
-    /// # use bevy_scene::{prelude::*, ScenePlugin};
+    /// # use bevy_scene::prelude::*;
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_asset::AssetPlugin;
-    /// # use bevy_app::TaskPoolPlugin;
-    /// # let mut app = App::new();
-    /// # app.add_plugins((
-    /// #     TaskPoolPlugin::default(),
-    /// #     AssetPlugin::default(),
-    /// #     ScenePlugin::default(),
-    /// # ));
-    /// # let world = app.world_mut();
+    /// # let mut world = World::new();
     /// #[derive(Component, Default, Clone)]
     /// struct Score(usize);
     ///
@@ -109,18 +100,9 @@ pub trait WorldSceneExt {
     /// Note that the `.bsn` file format is not yet released.
     ///
     /// ```
-    /// # use bevy_app::App;
-    /// # use bevy_scene::{prelude::*, ScenePlugin};
+    /// # use bevy_scene::prelude::*;
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_asset::AssetPlugin;
-    /// # use bevy_app::TaskPoolPlugin;
-    /// # let mut app = App::new();
-    /// # app.add_plugins((
-    /// #     TaskPoolPlugin::default(),
-    /// #     AssetPlugin::default(),
-    /// #     ScenePlugin::default(),
-    /// # ));
-    /// # let world = app.world_mut();
+    /// # let mut world = World::new();
     /// #[derive(Component, Default, Clone)]
     /// enum Team {
     ///     #[default]
@@ -180,15 +162,15 @@ pub trait WorldSceneExt {
 
 impl WorldSceneExt for World {
     fn spawn_scene<S: Scene>(&mut self, scene: S) -> Result<EntityWorldMut<'_>, SpawnSceneError> {
-        let assets = self.resource::<AssetServer>();
+        let assets = self.get_resource::<AssetServer>();
         let mut patch = ScenePatch::load(assets, scene);
-        patch.resolve(assets, self.resource::<Assets<ScenePatch>>())?;
+        patch.resolve(assets, self.get_resource::<Assets<ScenePatch>>())?;
         patch.spawn(self)
     }
 
     fn queue_spawn_scene<S: Scene>(&mut self, scene: S) -> EntityWorldMut<'_> {
         let assets = self.resource::<AssetServer>();
-        let patch = ScenePatch::load(assets, scene);
+        let patch = ScenePatch::load(Some(assets), scene);
         let handle = assets.add(patch);
         let mut entity = self.spawn_empty();
         let id = entity.id();
@@ -203,15 +185,15 @@ impl WorldSceneExt for World {
         &mut self,
         scenes: L,
     ) -> Result<Vec<Entity>, SpawnSceneError> {
-        let assets = self.resource::<AssetServer>();
+        let assets = self.get_resource::<AssetServer>();
         let mut patch = SceneListPatch::load(assets, scenes);
-        patch.resolve(assets, self.resource::<Assets<ScenePatch>>())?;
+        patch.resolve(assets, self.get_resource::<Assets<ScenePatch>>())?;
         patch.spawn(self)
     }
 
     fn queue_spawn_scene_list<L: SceneList>(&mut self, scenes: L) {
         let assets = self.resource::<AssetServer>();
-        let patch = SceneListPatch::load(assets, scenes);
+        let patch = SceneListPatch::load(Some(assets), scenes);
         let handle = assets.add(patch);
         self.resource_mut::<QueuedScenes>()
             .scene_list_spawns
@@ -466,7 +448,7 @@ pub trait EntityWorldMutSceneExt {
 impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
     fn queue_spawn_related_scenes<T: RelationshipTarget>(mut self, scenes: impl SceneList) -> Self {
         let assets = self.resource::<AssetServer>();
-        let patch = SceneListPatch::load(assets, scenes);
+        let patch = SceneListPatch::load(Some(assets), scenes);
         let handle = assets.add(patch);
         let entity = self.id();
         self.resource_mut::<QueuedScenes>()
@@ -486,15 +468,15 @@ impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
     }
 
     fn apply_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError> {
-        let assets = self.resource::<AssetServer>();
+        let assets = self.get_resource::<AssetServer>();
         let mut patch = ScenePatch::load(assets, scene);
-        patch.resolve(assets, self.resource::<Assets<ScenePatch>>())?;
+        patch.resolve(assets, self.get_resource::<Assets<ScenePatch>>())?;
         patch.apply(self)
     }
 
     fn queue_apply_scene<S: Scene>(&mut self, scene: S) {
         let assets = self.resource::<AssetServer>();
-        let patch = ScenePatch::load(assets, scene);
+        let patch = ScenePatch::load(Some(assets), scene);
         let handle = assets.add(patch);
         let id = self.id();
         self.resource_mut::<QueuedScenes>()
@@ -598,7 +580,7 @@ pub fn resolve_scene_patches(
         match *event {
             AssetEvent::LoadedWithDependencies { id } => {
                 if let Some(scene) = patches.get_mut(id).and_then(|mut p| p.scene.take()) {
-                    match ResolvedSceneRoot::resolve(scene, &assets, &patches) {
+                    match ResolvedSceneRoot::resolve(scene, Some(&assets), Some(&patches)) {
                         Ok(resolved) => {
                             let mut patch = patches.get_mut(id).unwrap();
                             patch.resolved = Some(Arc::new(resolved));
@@ -623,7 +605,7 @@ pub fn resolve_scene_patches(
         match *event {
             AssetEvent::LoadedWithDependencies { id } => {
                 if let Some(mut list_patch) = list_patches.get_mut(id)
-                    && let Err(err) = list_patch.resolve(&assets, &patches)
+                    && let Err(err) = list_patch.resolve(Some(&assets), Some(&patches))
                 {
                     error!("Failed to resolve scene list {id}: {err}");
                 }
@@ -905,5 +887,62 @@ mod tests {
         // Pre-existing child entity still exists, but is no longer listed under root.
         assert!(world.get_entity(pre_existing).is_ok());
         assert!(!children.contains(&pre_existing));
+    }
+
+    #[test]
+    fn spawn_scene_without_asset_server() {
+        use super::WorldSceneExt;
+
+        let mut world = World::new();
+        let entity = world
+            .spawn_scene(bsn! {
+                Children [ #SceneChild SceneChild ]
+            })
+            .unwrap();
+
+        let id = entity.id();
+        let children: Vec<Entity> = world
+            .entity(id)
+            .get::<Children>()
+            .map(|c| c.iter().collect())
+            .unwrap_or_default();
+
+        assert_eq!(children.len(), 1);
+        assert!(world.entity(children[0]).contains::<SceneChild>());
+    }
+
+    #[test]
+    fn spawn_scene_list_without_asset_server() {
+        use super::WorldSceneExt;
+        use crate::bsn_list;
+
+        let mut world = World::new();
+        let entities = world
+            .spawn_scene_list(bsn_list! {
+                #Child1
+                SceneChild
+                --
+                #Child2
+                SceneChild
+            })
+            .unwrap();
+
+        assert_eq!(entities.len(), 2);
+        assert!(world.entity(entities[0]).contains::<SceneChild>());
+        assert!(world.entity(entities[1]).contains::<SceneChild>());
+    }
+
+    #[test]
+    fn apply_scene_without_asset_server() {
+        let mut world = World::new();
+        let mut entity = world.spawn_empty();
+        entity
+            .apply_scene(bsn! {
+                SceneChild
+            })
+            .unwrap();
+
+        let id = entity.id();
+        assert!(world.entity(id).contains::<SceneChild>());
     }
 }
