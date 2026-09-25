@@ -49,6 +49,8 @@ use super::{
 #[derive(Debug, Clone, Component)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct PanOrbitCamera {
+    /// Enables this [`PanOrbitCamera`] when `true`.
+    pub enabled: bool,
     /// What input motions are currently allowed?
     pub enabled_motion: EnabledMotion,
     /// The type of camera orbit to use.
@@ -96,6 +98,7 @@ impl Default for PanOrbitCamera {
             enabled_motion: Default::default(),
             current_motion: Default::default(),
             last_anchor_depth: -2.0,
+            enabled: true,
         }
     }
 }
@@ -129,6 +132,10 @@ impl PanOrbitCamera {
 
     /// Gets the [`MotionInputs`], if the camera is being actively moved..
     pub fn motion_inputs(&self) -> Option<&MotionInputs> {
+        if !self.enabled {
+            return None;
+        }
+
         match &self.current_motion {
             CurrentMotion::Stationary | CurrentMotion::Momentum { .. } => None,
             CurrentMotion::UserControlled { motion_inputs, .. } => Some(motion_inputs),
@@ -205,7 +212,7 @@ impl PanOrbitCamera {
     /// Call this to start an orbiting motion with the optionally supplied anchor position in view
     /// space. See [`PanOrbitCamera`] for usage.
     pub fn start_orbit(&mut self, anchor: Option<DVec3>) {
-        if !self.enabled_motion.orbit {
+        if !self.enabled || !self.enabled_motion.orbit {
             return;
         }
         self.current_motion = CurrentMotion::UserControlled {
@@ -220,7 +227,7 @@ impl PanOrbitCamera {
     /// Call this to start a panning motion with the optionally supplied anchor position in view
     /// space. See [`PanOrbitCamera`] for usage.
     pub fn start_pan(&mut self, anchor: Option<DVec3>) {
-        if !self.enabled_motion.pan {
+        if !self.enabled || !self.enabled_motion.pan {
             return;
         }
         self.current_motion = CurrentMotion::UserControlled {
@@ -235,7 +242,7 @@ impl PanOrbitCamera {
     /// Call this to start a zooming motion with the optionally supplied anchor position in view
     /// space. See [`PanOrbitCamera`] for usage.
     pub fn start_zoom(&mut self, anchor: Option<DVec3>) {
-        if !self.enabled_motion.zoom {
+        if !self.enabled || !self.enabled_motion.zoom {
             return;
         }
         let anchor = self.maybe_update_anchor(anchor);
@@ -257,6 +264,10 @@ impl PanOrbitCamera {
     /// Send screen space camera inputs. This will be interpreted as panning or orbiting depending
     /// on the current motion. See [`PanOrbitCamera`] for usage.
     pub fn send_screenspace_input(&mut self, screenspace_input: Vec2) {
+        if !self.enabled {
+            return;
+        }
+
         if let CurrentMotion::UserControlled {
             ref mut motion_inputs,
             ..
@@ -278,6 +289,10 @@ impl PanOrbitCamera {
 
     /// Send zoom inputs. See [`PanOrbitCamera`] for usage.
     pub fn send_zoom_input(&mut self, zoom_amount: f32) {
+        if !self.enabled {
+            return;
+        }
+
         if let CurrentMotion::UserControlled { motion_inputs, .. } = &mut self.current_motion {
             motion_inputs
                 .zoom_inputs_mut()
@@ -288,6 +303,10 @@ impl PanOrbitCamera {
     /// End the current camera motion, allowing other motions on this camera to begin. See
     /// [`PanOrbitCamera`] for usage.
     pub fn end_move(&mut self) {
+        if !self.enabled {
+            return;
+        }
+
         let velocity = match self.current_motion {
             CurrentMotion::Stationary | CurrentMotion::Momentum { .. } => return,
             CurrentMotion::UserControlled {
@@ -368,6 +387,10 @@ impl PanOrbitCamera {
         redraw: &mut MessageWriter<RequestRedraw>,
         delta_time: Duration,
     ) -> Option<(DVec3, DQuat)> {
+        if !self.enabled {
+            return None;
+        }
+
         let mut new_translation = *original_translation;
         let mut new_rotation = *original_rotation;
         let (anchor, orbit, pan, zoom) = match &mut self.current_motion {
