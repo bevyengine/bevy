@@ -191,7 +191,7 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
     ///
     /// Equivalent to [`IndexSet::move_index`].
     pub fn move_index(&mut self, from: usize, to: usize) {
-        self.0.move_index(from, to)
+        self.0.move_index(from, to);
     }
 
     /// Remove the last value
@@ -202,7 +202,7 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
     }
 
     /// Removes and returns the last value from a set if the predicate returns `true`,
-    /// or [`None`]` if the predicate returns `false` or the set is empty
+    /// or [`None`] if the predicate returns `false` or the set is empty
     /// (the predicate will not be called in that case).
     ///
     /// Equivalent to [`IndexSet::pop_if`].
@@ -383,7 +383,7 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
     where
         F: FnMut(&K, &K) -> Ordering,
     {
-        self.0.sort_unstable_by(cmp)
+        self.0.sort_unstable_by(cmp);
     }
 
     /// Sort the set’s values in place using a key extraction function.
