@@ -203,8 +203,8 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
 }
 
 /// Probability of running NEE for lights that BRDF rays can also hit, proportional to how diffuse the
-/// vertex is. On mirror-like metals BRDF samples find those lights well, so mostly skip NEE there to
-/// increase performance. Perfect mirrors skip it entirely, since NEE can't sample their delta lobe.
+/// vertex is. On smooth metals BRDF samples find those lights well, so mostly skip NEE there to
+/// increase performance. Perfect mirrors skip NEE entirely, since NEE can't sample their delta lobe.
 /// Pure dielectrics always run NEE.
 fn nee_probability(material: ResolvedMaterial) -> f32 {
     if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && material.metallic > 0.9999 { return 0.0; }
