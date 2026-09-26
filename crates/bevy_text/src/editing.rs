@@ -289,7 +289,6 @@ impl EditableText {
         self.editor.set_text("");
         self.pending_edits.clear();
         self.pending_paste = None;
-        // `set_text` keeps the old selection; reset it before any later edit uses it.
         self.queue_edit(TextEdit::TextStart(false));
     }
 
