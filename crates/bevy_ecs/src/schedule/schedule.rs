@@ -28,7 +28,7 @@ use pass::ScheduleBuildPassObj;
 use rand::{seq::SliceRandom, SeedableRng};
 use thiserror::Error;
 #[cfg(feature = "trace")]
-use tracing::info_span;
+use tracing::{info_span, Span};
 
 use crate::{
     change_detection::CheckChangeTicks,
@@ -416,6 +416,8 @@ pub struct Schedule {
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
+    #[cfg(feature = "trace")]
+    span: Span,
 }
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
@@ -434,12 +436,15 @@ impl Default for Schedule {
 impl Schedule {
     /// Constructs an empty `Schedule`.
     pub fn new(label: impl ScheduleLabel) -> Self {
+        let label = label.intern();
         let mut this = Self {
-            label: label.intern(),
+            label,
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: default_executor(),
             executor_initialized: false,
+            #[cfg(feature = "trace")]
+            span: info_span!(parent: None, "schedule", name = ?label),
         };
         // Call `set_build_settings` to add any default build passes
         this.set_build_settings(Default::default());
@@ -590,7 +595,7 @@ impl Schedule {
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _span = info_span!("schedule", name = ?self.label).entered();
+        let _span = self.span.clone().entered();
 
         world.check_change_ticks();
         self.initialize(world).unwrap_or_else(|e| {
@@ -635,6 +640,8 @@ impl Schedule {
     ) -> Result<Option<ScheduleBuildMetadata>, ScheduleBuildError> {
         let mut build_metadata = None;
         if self.graph.changed {
+            #[cfg(feature = "trace")]
+            let _span = self.span.clone().entered();
             self.graph.initialize(world);
             let ignored_ambiguities = world
                 .get_resource_or_init::<Schedules>()
