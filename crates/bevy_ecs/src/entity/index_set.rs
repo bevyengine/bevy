@@ -10,8 +10,8 @@ use core::{
     iter::FusedIterator,
     marker::PhantomData,
     ops::{
-        BitAnd, BitOr, BitXor, Bound, Deref, DerefMut, Index, Range, RangeBounds, RangeFrom,
-        RangeFull, RangeInclusive, RangeTo, RangeToInclusive, Sub,
+        BitAnd, BitOr, BitXor, Bound, Deref, Index, Range, RangeBounds, RangeFrom, RangeFull,
+        RangeInclusive, RangeTo, RangeToInclusive, Sub,
     },
     ptr,
 };
@@ -54,8 +54,21 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
     }
 
     /// Constructs an `EntityIndexSet` from an [`IndexSet`].
-    pub const fn from_index_set(set: IndexSet<K, EntityHash>) -> Self {
+    ///
+    /// # Safety
+    ///
+    /// The given set cannot contain duplicates.
+    pub const unsafe fn from_index_set_unchecked(set: IndexSet<K, EntityHash>) -> Self {
         Self(set)
+    }
+
+    /// Returns a mutable reference to the inner [`IndexSet`].
+    ///
+    /// # Safety
+    ///
+    /// The returned reference cannot be used to introduce duplicates in the set.
+    pub const unsafe fn as_index_set_unchecked(&mut self) -> &mut IndexSet<K, EntityHash> {
+        &mut self.0
     }
 
     /// Returns the inner [`IndexSet`].
@@ -102,6 +115,355 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
         // SAFETY: Slice is a transparent wrapper around indexmap::set::Slice.
         unsafe { Slice::from_boxed_slice_unchecked(self.0.into_boxed_slice()) }
     }
+
+    /// Remove all elements in the set, while preserving its capacity.
+    ///
+    /// Equivalent to [`IndexSet::clear`].
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    /// Creates an iterator which uses a closure to determine if a value should be removed,
+    /// for all values in the given range.
+    ///
+    /// Equivalent to [`IndexSet::extract_if`].
+    pub fn extract_if<F, R>(&mut self, range: R, pred: F) -> set::ExtractIf<'_, K, F>
+    where
+        F: FnMut(&K) -> bool,
+        R: RangeBounds<usize>,
+    {
+        self.0.extract_if(range, pred)
+    }
+
+    /// Insert the value into the set.
+    ///
+    /// Equivalent to [`IndexSet::insert`].
+    pub fn insert(&mut self, value: K) -> bool {
+        self.0.insert(value)
+    }
+
+    /// Insert the value into the set before the value at the given index, or at the end.
+    ///
+    /// Equivalent to [`IndexSet::insert_before`].
+    pub fn insert_before(&mut self, index: usize, value: K) -> (usize, bool) {
+        self.0.insert_before(index, value)
+    }
+
+    /// Insert the value into the set, and get its index.
+    ///
+    /// Equivalent to [`IndexSet::insert_full`].
+    pub fn insert_full(&mut self, value: K) -> (usize, bool) {
+        self.0.insert_full(value)
+    }
+
+    /// Insert the value into the set at its ordered position among sorted values.
+    ///
+    /// Equivalent to [`IndexSet::insert_sorted`].
+    pub fn insert_sorted(&mut self, value: K) -> (usize, bool)
+    where
+        K: Ord,
+    {
+        self.0.insert_sorted(value)
+    }
+
+    /// Insert the value into the set at its ordered position among values sorted by `cmp`.
+    ///
+    /// Equivalent to [`IndexSet::insert_sorted_by`].
+    pub fn insert_sorted_by<F>(&mut self, value: K, cmp: F) -> (usize, bool)
+    where
+        F: FnMut(&K, &K) -> Ordering,
+    {
+        self.0.insert_sorted_by(value, cmp)
+    }
+
+    /// Insert the value into the set at its ordered position among values using a sort-key extraction function.
+    ///
+    /// Equivalent to [`IndexSet::insert_sorted_by_key`].
+    pub fn insert_sorted_by_key<B, F>(&mut self, value: K, sort_key: F) -> (usize, bool)
+    where
+        B: Ord,
+        F: FnMut(&K) -> B,
+    {
+        self.0.insert_sorted_by_key(value, sort_key)
+    }
+
+    /// Moves the position of a value from one index to another by shifting all other values in-between.
+    ///
+    /// Equivalent to [`IndexSet::move_index`].
+    pub fn move_index(&mut self, from: usize, to: usize) {
+        self.0.move_index(from, to)
+    }
+
+    /// Remove the last value
+    ///
+    /// Equivalent to [`IndexSet::pop`].
+    pub fn pop(&mut self) -> Option<K> {
+        self.0.pop()
+    }
+
+    /// Removes and returns the last value from a set if the predicate returns `true`,
+    /// or [`None`]` if the predicate returns `false` or the set is empty
+    /// (the predicate will not be called in that case).
+    ///
+    /// Equivalent to [`IndexSet::pop_if`].
+    pub fn pop_if(&mut self, predicate: impl FnOnce(&K) -> bool) -> Option<K> {
+        self.0.pop_if(predicate)
+    }
+
+    /// Adds a value to the set, replacing the existing value, if any, that is equal to
+    /// the given one, without altering its insertion order. Returns the replaced value.
+    ///
+    /// Equivalent to [`IndexSet::replace`].
+    pub fn replace(&mut self, value: K) -> Option<K> {
+        self.0.replace(value)
+    }
+
+    /// Adds a value to the set, replacing the existing value, if any, that is equal to
+    /// the given one, without altering its insertion order. Returns the index of the item
+    /// and its replaced value.
+    ///
+    /// Equivalent to [`IndexSet::replace_full`].
+    pub fn replace_full(&mut self, value: K) -> (usize, Option<K>) {
+        self.0.replace_full(value)
+    }
+
+    /// Replaces the value at the given index. The new value does not need to be equivalent
+    /// to the one it is replacing, but it must be unique to the rest of the set.
+    ///
+    /// Equivalent to [`IndexSet::replace_index`].
+    pub fn replace_index(&mut self, index: usize, value: K) -> Result<K, (usize, K)> {
+        self.0.replace_index(index, value)
+    }
+
+    /// Reserve capacity for `additional` more values.
+    ///
+    /// Equivalent to [`IndexSet::reserve`].
+    pub fn reserve(&mut self, additional: usize) {
+        self.0.reserve(additional);
+    }
+
+    /// Reserve capacity for `additional` more values, without over-allocating.
+    ///
+    /// Equivalent to [`IndexSet::reserve_exact`].
+    pub fn reserve_exact(&mut self, additional: usize) {
+        self.0.reserve_exact(additional);
+    }
+
+    /// Scan through each value in the set and keep those where the closure `keep` returns `true`.
+    ///
+    /// Equivalent to [`IndexSet::retain`].
+    pub fn retain<F>(&mut self, keep: F)
+    where
+        F: FnMut(&K) -> bool,
+    {
+        self.0.retain(keep);
+    }
+
+    /// Reverses the order of the set’s values in place.
+    ///
+    /// Equivalent to [`IndexSet::reverse`].
+    pub fn reverse(&mut self) {
+        self.0.reverse();
+    }
+
+    /// Insert the value into the set at the given index.
+    ///
+    /// Equivalent to [`IndexSet::shift_insert`].
+    pub fn shift_insert(&mut self, index: usize, value: K) -> bool {
+        self.0.shift_insert(index, value)
+    }
+
+    /// Remove the value from the set, and return `true` if it was present.
+    ///
+    /// Equivalent to [`IndexSet::shift_remove`].
+    pub fn shift_remove<Q>(&mut self, value: &Q) -> bool
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.shift_remove(value)
+    }
+
+    /// Remove the value from the set return it and the index it had.
+    ///
+    /// Equivalent to [`IndexSet::shift_remove_full`].
+    pub fn shift_remove_full<Q>(&mut self, value: &Q) -> Option<(usize, K)>
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.shift_remove_full(value)
+    }
+
+    /// Remove the value by index
+    ///
+    /// Equivalent to [`IndexSet::shift_remove_index`].
+    pub fn shift_remove_index(&mut self, index: usize) -> Option<K> {
+        self.0.shift_remove_index(index)
+    }
+
+    /// Removes and returns the value in the set, if any, that is equal to the given one.
+    ///
+    /// Equivalent to [`IndexSet::shift_take`].
+    pub fn shift_take<Q>(&mut self, value: &Q) -> Option<K>
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.shift_take(value)
+    }
+
+    /// Shrink the capacity of the set with a lower limit.
+    ///
+    /// Equivalent to [`IndexSet::shrink_to`].
+    pub fn shrink_to(&mut self, min_capacity: usize) {
+        self.0.shrink_to(min_capacity);
+    }
+
+    /// Shrink the capacity of the set as much as possible.
+    ///
+    /// Equivalent to [`IndexSet::shrink_to_fit`].
+    pub fn shrink_to_fit(&mut self) {
+        self.0.shrink_to_fit();
+    }
+
+    /// Sort the set’s values by their default ordering.
+    ///
+    /// Equivalent to [`IndexSet::sort`].
+    pub fn sort(&mut self)
+    where
+        K: Ord,
+    {
+        self.0.sort();
+    }
+
+    /// Sort the set’s values in place using the comparison function `cmp`.
+    ///
+    /// Equivalent to [`IndexSet::sort_by`].
+    pub fn sort_by<F>(&mut self, cmp: F)
+    where
+        F: FnMut(&K, &K) -> Ordering,
+    {
+        self.0.sort_by(cmp);
+    }
+
+    /// Sort the set’s values in place using a key extraction function.
+    ///
+    /// Equivalent to [`IndexSet::sort_by_cached_key`].
+    pub fn sort_by_cached_key<Q, F>(&mut self, sort_key: F)
+    where
+        Q: Ord,
+        F: FnMut(&K) -> Q,
+    {
+        self.0.sort_by_cached_key(sort_key);
+    }
+
+    /// Sort the set’s values in place using a key extraction function.
+    ///
+    /// Equivalent to [`IndexSet::sort_by_key`].
+    pub fn sort_by_key<Q, F>(&mut self, sort_key: F)
+    where
+        Q: Ord,
+        F: FnMut(&K) -> Q,
+    {
+        self.0.sort_by_key(sort_key);
+    }
+
+    /// Sort the set’s values by their default ordering.
+    ///
+    /// Equivalent to [`IndexSet::sort_unstable`].
+    pub fn sort_unstable(&mut self)
+    where
+        K: Ord,
+    {
+        self.0.sort_unstable();
+    }
+
+    /// Sort the set’s values in place using the comparison function `cmp`.
+    ///
+    /// Equivalent to [`IndexSet::sort_unstable_by`].
+    pub fn sort_unstable_by<F>(&mut self, cmp: F)
+    where
+        F: FnMut(&K, &K) -> Ordering,
+    {
+        self.0.sort_unstable_by(cmp)
+    }
+
+    /// Sort the set’s values in place using a key extraction function.
+    ///
+    /// Equivalent to [`IndexSet::sort_unstable_by_key`].
+    pub fn sort_unstable_by_key<Q, F>(&mut self, sort_key: F)
+    where
+        Q: Ord,
+        F: FnMut(&K) -> Q,
+    {
+        self.0.sort_unstable_by_key(sort_key);
+    }
+
+    /// Swaps the position of two values in the set.
+    ///
+    /// Equivalent to [`IndexSet::swap_indices`].
+    pub fn swap_indices(&mut self, a: usize, b: usize) {
+        self.0.swap_indices(a, b);
+    }
+
+    /// Remove the value from the set, and return `true` if it was present.
+    ///
+    /// Equivalent to [`IndexSet::swap_remove`].
+    pub fn swap_remove<Q>(&mut self, value: &Q) -> bool
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.swap_remove(value)
+    }
+
+    /// Remove the value from the set return it and the index it had.
+    ///
+    /// Equivalent to [`IndexSet::swap_remove_full`].
+    pub fn swap_remove_full<Q>(&mut self, value: &Q) -> Option<(usize, K)>
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.swap_remove_full(value)
+    }
+
+    /// Remove the value by index
+    ///
+    /// Equivalent to [`IndexSet::swap_remove_index`].
+    pub fn swap_remove_index(&mut self, index: usize) -> Option<K> {
+        self.0.swap_remove_index(index)
+    }
+
+    /// Removes and returns the value in the set, if any, that is equal to the given one.
+    ///
+    /// Equivalent to [`IndexSet::swap_take`].
+    pub fn swap_take<Q>(&mut self, value: &Q) -> Option<K>
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.swap_take(value)
+    }
+
+    /// Shortens the set, keeping the first `len` elements and dropping the rest.
+    ///
+    /// Equivalent to [`IndexSet::truncate`].
+    pub fn truncate(&mut self, len: usize) {
+        self.0.truncate(len);
+    }
+
+    /// Try to reserve capacity for `additional` more values.
+    ///
+    /// Equivalent to [`IndexSet::try_reserve`].
+    pub fn try_reserve(&mut self, additional: usize) -> Result<(), indexmap::TryReserveError> {
+        self.0.try_reserve(additional)
+    }
+
+    /// Try to reserve capacity for `additional` more values, without over-allocating.
+    ///
+    /// Equivalent to [`IndexSet::try_reserve`].
+    pub fn try_reserve_exact(
+        &mut self,
+        additional: usize,
+    ) -> Result<(), indexmap::TryReserveError> {
+        self.0.try_reserve_exact(additional)
+    }
 }
 
 impl<K: EntityEquivalent + Hash> Default for EntityEquivalentIndexSet<K> {
@@ -115,12 +477,6 @@ impl<K: EntityEquivalent + Hash> Deref for EntityEquivalentIndexSet<K> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl<K: EntityEquivalent + Hash> DerefMut for EntityEquivalentIndexSet<K> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
