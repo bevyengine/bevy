@@ -57,6 +57,8 @@ pub struct Main;
 /// * [`Startup`]
 /// * [`PostStartup`]
 ///
+/// [^1]: [`StateTransition`] is inserted only if you have `bevy_state` feature enabled. It is enabled in `default` features.
+///
 /// [`StateTransition`]: https://docs.rs/bevy/latest/bevy/prelude/struct.StateTransition.html
 /// [`OnEnter(MyState::Foo)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
 /// [`OnEnter(MyComputedState)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
