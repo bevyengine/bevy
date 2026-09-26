@@ -906,7 +906,7 @@ where
     /// ```rust
     /// # use bevy_platform::collections::HashMap;
     /// let mut map = HashMap::new();
-    /// # let mut map: HashMap<&'static str, usize> = map;
+    /// # let mut map: HashMap<String, usize> = map;
     ///
     /// let value = map.entry_ref("foo").or_insert(0);
     /// #

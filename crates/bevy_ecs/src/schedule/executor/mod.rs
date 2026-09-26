@@ -587,7 +587,7 @@ mod validation_tests {
         system::{
             DynParamBuilder, DynSystemParam, Local, ParamBuilder, ParamSet, Query, Res, ResMut,
             RunSystemError, RunSystemOnce, Single, SystemAccess, SystemMeta, SystemParam,
-            SystemParamBuilder, SystemParamValidationError,
+            SystemParamAccessConflict, SystemParamBuilder, SystemParamValidationError,
         },
         world::World,
     };
@@ -616,8 +616,8 @@ mod validation_tests {
             _state: &Self::State,
             _system_meta: &mut SystemMeta,
             _system_access: &mut SystemAccess,
-            _world: &mut World,
-        ) {
+        ) -> Result<(), SystemParamAccessConflict> {
+            Ok(())
         }
 
         unsafe fn get_param<'world, 'state>(

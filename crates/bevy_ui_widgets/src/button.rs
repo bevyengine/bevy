@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::FocusedInput;
+use bevy_input_focus::{Focusable, FocusedInput};
 use bevy_picking::events::{
     PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
 };
@@ -25,7 +25,7 @@ use crate::Activate;
 /// indicate whether the button is currently being pressed by the user. It emits an [`Activate`]
 /// event when the button is un-pressed.
 #[derive(Component, Default, Debug, Clone)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
+#[require(AccessibilityNode(accesskit::Node::new(Role::Button)), Focusable)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct Button;

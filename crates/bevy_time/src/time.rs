@@ -1,5 +1,7 @@
+use crate::moment::Moment;
 use bevy_ecs::resource::Resource;
 use core::time::Duration;
+
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectResource,
@@ -365,6 +367,32 @@ impl<T: Default> Time<T> {
             elapsed_secs_wrapped: self.elapsed_secs_wrapped,
             elapsed_secs_wrapped_f64: self.elapsed_secs_wrapped_f64,
         }
+    }
+
+    /// Captures this moment for later comparison.
+    ///
+    /// ```rust
+    /// # use bevy_time::Time;
+    /// # use core::time::Duration;
+    ///
+    /// let mut time: Time<()> = Time::default();
+    ///
+    /// // capture a moment
+    /// let a = time.capture();
+    ///
+    /// // time passes
+    /// time.advance_by(Duration::from_secs(1));
+    ///
+    /// // capture a second moment
+    /// let b = time.capture();
+    ///
+    /// // we can now determine the ordering of events ...
+    /// assert!(a < b);
+    /// // ... and calculate how much time has passed between them
+    /// assert_eq!(b - a, Duration::from_secs(1));
+    /// ```
+    pub fn capture(&self) -> Moment<T> {
+        Moment::new(self)
     }
 }
 

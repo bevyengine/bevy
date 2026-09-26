@@ -18,7 +18,7 @@ pub fn derive_animation_event(input: TokenStream) -> TokenStream {
 
     quote! {
         impl #impl_generics #bevy_ecs::event::Event for #struct_name #type_generics #where_clause {
-            type Trigger<'a> = #bevy_animation::AnimationEventTrigger;
+            type Trigger = #bevy_animation::AnimationEventTrigger;
         }
 
         impl #impl_generics #bevy_animation::AnimationEvent for #struct_name #type_generics #where_clause {

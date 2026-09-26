@@ -478,7 +478,7 @@ impl Parse for BsnNamedField {
 /// fully parsing Rust expressions, which makes this less strict and cheaper to parse.
 /// This also allows autocomplete to work, even if the tokens aren't a valid rust expression.
 ///
-/// This will accept anything "tuple-like" in the form (X1, ..., XY), where XY is a TokenStream.
+/// This will accept anything "tuple-like" in the form (X1, ..., XY), where XY is a `TokenStream`.
 fn parse_tuple_loose(input: &ParseBuffer) -> Result<Vec<TokenStream>> {
     let content;
     parenthesized!(content in input);
@@ -687,7 +687,7 @@ impl Parse for BsnFnArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut fn_args = Vec::new();
         for tokens in parse_tuple_loose(input)? {
-            fn_args.push(syn::parse2::<BsnFnArg>(tokens)?)
+            fn_args.push(syn::parse2::<BsnFnArg>(tokens)?);
         }
         Ok(BsnFnArgs(fn_args))
     }
@@ -719,7 +719,7 @@ impl Parse for EntityNameIdent {
 }
 
 fn take_last_path_ident(path: &mut Path) -> Option<Ident> {
-    let ident = path.segments.pop().map(|s| s.into_value().ident);
+    let ident = path.segments.pop().map(|s| s.ident);
     path.segments.pop_punct();
     ident
 }

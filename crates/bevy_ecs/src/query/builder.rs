@@ -183,7 +183,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
     /// Takes a function over mutable access to a [`QueryBuilder`], calls that function
     /// on an empty builder and then adds all accesses from that builder to self as optional.
-    pub fn optional(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
+    pub fn optional(&mut self, f: impl FnOnce(&mut QueryBuilder)) -> &mut Self {
         let mut builder = QueryBuilder::new(self.world);
         f(&mut builder);
         self.access.extend_access(builder.access());
@@ -194,7 +194,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     /// on an empty builder and then adds all accesses from that builder to self.
     ///
     /// Primarily used when inside a [`Self::or`] closure to group several terms.
-    pub fn and(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
+    pub fn and(&mut self, f: impl FnOnce(&mut QueryBuilder)) -> &mut Self {
         let mut builder = QueryBuilder::new(self.world);
         f(&mut builder);
         let access = builder.access().clone();
@@ -223,7 +223,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     /// // is equivalent to
     /// QueryBuilder::<Entity>::new(&mut world).filter::<Or<(With<A>, With<B>)>>();
     /// ```
-    pub fn or(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
+    pub fn or(&mut self, f: impl FnOnce(&mut QueryBuilder)) -> &mut Self {
         let mut builder = QueryBuilder::new(self.world);
         builder.or = true;
         builder.first = true;

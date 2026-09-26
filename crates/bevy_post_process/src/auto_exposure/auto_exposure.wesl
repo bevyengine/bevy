@@ -32,6 +32,8 @@ struct AutoExposure {
     speed_up: f32,
     speed_down: f32,
     exponential_transition_distance: f32,
+    correction_min: f32,
+    correction_max: f32,
 }
 
 struct CompensationCurve {
@@ -145,12 +147,15 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
 
     var count = 0u;
     var sum = 0.0;
-    for (var i=1u; i<64u; i+=1u) {
+    // Include the lowest bin at the minimum luminance when averaging.
+    // The cumulative histogram before this bin is zero, clamped to first_index.
+    var previous = first_index;
+    for (var i=0u; i<64u; i+=1u) {
         // The number of pixels in the bin. The histogram values are clamped to
         // first_index and last_index to exclude the lowest and highest samples.
-        let bin_count =
-            clamp(atomicLoad(&histogram_shared[i]), first_index, last_index) -
-            clamp(atomicLoad(&histogram_shared[i - 1u]), first_index, last_index);
+        let cumulative = clamp(atomicLoad(&histogram_shared[i]), first_index, last_index);
+        let bin_count = cumulative - previous;
+        previous = cumulative;
 
         sum += f32(bin_count) * f32(i);
         count += bin_count;
@@ -187,6 +192,9 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
         let exp_up = speed_up / settings.exponential_transition_distance;
         exposure = exposure + max(-speed_up, delta * exp_up);
     }
+
+    // Clamp the correction after smoothing to keep it within the configured range.
+    exposure = clamp(exposure, settings.correction_min, settings.correction_max);
 
     // Apply the exposure to the color grading settings, from where it will be used for the color
     // grading pass.

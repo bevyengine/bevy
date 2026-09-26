@@ -32,7 +32,7 @@ use bevy_render::{
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
         Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
-        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT, VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE,
     },
 };
 use core::fmt::Write;
@@ -49,9 +49,7 @@ use crate::{
         },
     },
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
-    irradiance_volume::{
-        self, RenderViewIrradianceVolumeBindGroupEntries, IRRADIANCE_VOLUMES_ARE_USABLE,
-    },
+    irradiance_volume::{self, RenderViewIrradianceVolumeBindGroupEntries},
     prepass,
     resources::{AtmosphereBuffer, AtmosphereSampler, AtmosphereTextures, GpuAtmosphere},
     Bluenoise, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta, GpuClusteredLights,
@@ -240,6 +238,17 @@ pub(crate) fn buffer_layout(
     }
 }
 
+/// The minimum size of the visibility ranges binding: one element of the
+/// runtime-sized storage array, or the whole fixed-size uniform array.
+pub(crate) fn visibility_ranges_min_binding_size(
+    buffer_binding_type: BufferBindingType,
+) -> NonZero<u64> {
+    match buffer_binding_type {
+        BufferBindingType::Uniform => <[Vec4; VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE]>::min_size(),
+        BufferBindingType::Storage { .. } => Vec4::min_size(),
+    }
+}
+
 /// Returns the appropriate bind group layout vec based on the parameters
 fn layout_entries(
     layout_key: MeshPipelineViewLayoutKey,
@@ -350,7 +359,9 @@ fn layout_entries(
                 buffer_layout(
                     visibility_ranges_buffer_binding_type,
                     false,
-                    Some(Vec4::min_size()),
+                    Some(visibility_ranges_min_binding_size(
+                        visibility_ranges_buffer_binding_type,
+                    )),
                 )
                 .visibility(ShaderStages::VERTEX),
             ),
@@ -504,12 +515,10 @@ fn layout_entries(
 
     if layout_key.contains(MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME) {
         // Irradiance volumes
-        if IRRADIANCE_VOLUMES_ARE_USABLE {
-            binding_array_entries = binding_array_entries.extend_with_indices((
-                (3, irradiance_volume_entries[0]),
-                (4, irradiance_volume_entries[1]),
-            ));
-        }
+        binding_array_entries = binding_array_entries.extend_with_indices((
+            (3, irradiance_volume_entries[0]),
+            (4, irradiance_volume_entries[1]),
+        ));
     }
 
     // Clustered decals
@@ -952,20 +961,19 @@ pub fn prepare_mesh_view_bind_groups(
                 None => {}
             }
 
-            let irradiance_volume_bind_group_entries =
-                if render_view_irradiance_volumes.is_some() && IRRADIANCE_VOLUMES_ARE_USABLE {
-                    layout_key |= MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME;
+            let irradiance_volume_bind_group_entries = if render_view_irradiance_volumes.is_some() {
+                layout_key |= MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME;
 
-                    Some(RenderViewIrradianceVolumeBindGroupEntries::get(
-                        render_view_irradiance_volumes,
-                        &images,
-                        &fallback_image,
-                        &render_device,
-                        &render_adapter,
-                    ))
-                } else {
-                    None
-                };
+                Some(RenderViewIrradianceVolumeBindGroupEntries::get(
+                    render_view_irradiance_volumes,
+                    &images,
+                    &fallback_image,
+                    &render_device,
+                    &render_adapter,
+                ))
+            } else {
+                None
+            };
 
             match irradiance_volume_bind_group_entries {
                 Some(RenderViewIrradianceVolumeBindGroupEntries::Single {

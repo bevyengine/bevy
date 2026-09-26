@@ -8,14 +8,14 @@ use bevy::{
     color::palettes::css::*,
     feathers::{
         containers::{pane, pane_body},
-        controls::{FeathersButton, FeathersNumberInput, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersButton, FeathersNumberInput, NumberInputPrecision},
         dark_theme::create_dark_theme,
         display::caption,
         theme::{ThemeProps, UiTheme},
         FeathersPlugins,
     },
     prelude::*,
-    ui_widgets::{radio_self_update, Activate, ValueChange},
+    ui_widgets::{radio_self_update, Activate, NumericValue, ValueChange},
 };
 
 #[path = "../../helpers/number_input_f32.rs"]
@@ -340,7 +340,7 @@ fn on_value_change_i32_update_shadow(
 
     commands
         .entity(value_change.source)
-        .insert(NumberInputValue::I32(value_change.value));
+        .insert(NumericValue::I32(value_change.value));
 }
 
 /// Update the shadow node's `BoxShadow` on any change to the f32 number inputs.
@@ -373,7 +373,7 @@ fn on_value_change_f32_update_shadow(
 
     commands
         .entity(value_change.source)
-        .insert(NumberInputValue::F32(value_change.value));
+        .insert(NumericValue::F32(value_change.value));
 }
 
 /// Update shape of `ShadowNode` if shape selection has changed

@@ -3,13 +3,13 @@ mod prepass_bindings;
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
-    setup_morph_and_skinning_defs, skin, DeferredAlphaMaskDrawFunction, DeferredFragmentShader,
-    DeferredOpaqueDrawFunction, DeferredVertexShader, DrawMesh, MaterialPipeline,
-    MaterialPropertiesExt, MeshLayouts, MeshPipeline, MeshPipelineKey, PreparedMaterial,
-    PrepassAlphaMaskDrawFunction, PrepassFragmentShader, PrepassOpaqueDepthOnlyDrawFunction,
-    PrepassOpaqueDrawFunction, PrepassVertexShader, RenderLightmaps, RenderMaterialInstances,
-    RenderMeshInstanceFlags, RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup,
-    ShadowView,
+    setup_morph_and_skinning_defs, skin, visibility_ranges_min_binding_size,
+    DeferredAlphaMaskDrawFunction, DeferredFragmentShader, DeferredOpaqueDrawFunction,
+    DeferredVertexShader, DrawMesh, MaterialPipeline, MaterialPropertiesExt, MeshLayouts,
+    MeshPipeline, MeshPipelineKey, PreparedMaterial, PrepassAlphaMaskDrawFunction,
+    PrepassFragmentShader, PrepassOpaqueDepthOnlyDrawFunction, PrepassOpaqueDrawFunction,
+    PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
+    RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -26,7 +26,7 @@ use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     AlphaMode, MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
-use bevy_math::{Affine3A, Mat4, Vec2, Vec4};
+use bevy_math::{Affine3A, Mat4, Vec2};
 use bevy_mesh::{Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -300,7 +300,9 @@ pub fn init_prepass_pipeline(
                     buffer_layout(
                         visibility_ranges_buffer_binding_type,
                         false,
-                        Some(Vec4::min_size()),
+                        Some(visibility_ranges_min_binding_size(
+                            visibility_ranges_buffer_binding_type,
+                        )),
                     )
                     .visibility(ShaderStages::VERTEX),
                 ),
@@ -323,7 +325,9 @@ pub fn init_prepass_pipeline(
                     buffer_layout(
                         visibility_ranges_buffer_binding_type,
                         false,
-                        Some(Vec4::min_size()),
+                        Some(visibility_ranges_min_binding_size(
+                            visibility_ranges_buffer_binding_type,
+                        )),
                     )
                     .visibility(ShaderStages::VERTEX),
                 ),
