@@ -154,6 +154,11 @@ impl<'w> ContiguousComponentTicksRef<'w> {
         self.this_run
     }
 
+    /// Returns the summary tick, if any.
+    pub fn summary_tick(&self) -> Option<Tick> {
+        self.summary_tick.map(|summary_tick| summary_tick.get())
+    }
+
     /// Returns an iterator where the i-th item corresponds to whether the i-th component was
     /// marked as changed. If the value equals [`prim@true`], then the component was changed.
     ///
@@ -866,6 +871,12 @@ impl<'w, T> ContiguousRef<'w, T> {
     #[inline]
     pub fn this_run_tick(&self) -> Tick {
         self.ticks.this_run
+    }
+
+    /// Returns the summary tick, if any.
+    #[inline]
+    pub fn summary_tick(&self) -> Option<Tick> {
+        self.ticks.summary_tick()
     }
 
     /// Creates a new `ContiguousRef` using provided values or returns [`None`] if lengths of

@@ -252,12 +252,19 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             return accum;
         }
 
-        D::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, table);
         F::set_table(
             &mut self.cursor.filter,
             &self.query_state.filter_state,
             table,
         );
+        // SAFETY: set_table was called prior.
+        let fetched_table =
+            unsafe { F::filter_table(&self.query_state.filter_state, &mut self.cursor.filter) };
+        if !fetched_table {
+            return accum;
+        }
+
+        D::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, table);
 
         let entities = table.entities();
         for row in rows {
@@ -319,15 +326,23 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             return accum;
         }
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
-        D::set_archetype(
-            &mut self.cursor.fetch,
-            &self.query_state.fetch_state,
-            archetype,
-            table,
-        );
         F::set_archetype(
             &mut self.cursor.filter,
             &self.query_state.filter_state,
+            archetype,
+            table,
+        );
+
+        // SAFETY: set_archetype was called prior.
+        let fetched_table =
+            unsafe { F::filter_table(&self.query_state.filter_state, &mut self.cursor.filter) };
+        if !fetched_table {
+            return accum;
+        }
+
+        D::set_archetype(
+            &mut self.cursor.fetch,
+            &self.query_state.fetch_state,
             archetype,
             table,
         );
@@ -398,18 +413,26 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             "archetype and its table must have the same length. "
         );
 
-        D::set_archetype(
-            &mut self.cursor.fetch,
-            &self.query_state.fetch_state,
-            archetype,
-            table,
-        );
         F::set_archetype(
             &mut self.cursor.filter,
             &self.query_state.filter_state,
             archetype,
             table,
         );
+        // SAFETY: set_archetype was called prior.
+        let fetched_table =
+            unsafe { F::filter_table(&self.query_state.filter_state, &mut self.cursor.filter) };
+        if !fetched_table {
+            return accum;
+        }
+
+        D::set_archetype(
+            &mut self.cursor.fetch,
+            &self.query_state.fetch_state,
+            archetype,
+            table,
+        );
+
         let entities = table.entities();
         for row in rows {
             // SAFETY: Caller assures `row` in range of the current archetype.
@@ -3158,12 +3181,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     if table.is_empty() {
                         continue;
                     }
-                    // SAFETY: `table` is from the world that `fetch/filter` were created for,
-                    // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    unsafe {
-                        D::set_table(&mut self.fetch, &query_state.fetch_state, table);
-                        F::set_table(&mut self.filter, &query_state.filter_state, table);
+                    // SAFETY: `table` is from the world that `filter` was created for,
+                    // `filter_state` is the state that `filter` was initialized with.
+                    unsafe { F::set_table(&mut self.filter, &query_state.filter_state, table) }
+
+                    // SAFETY: set_archetype was called prior.
+                    let fetched_table =
+                        unsafe { F::filter_table(&query_state.filter_state, &mut self.filter) };
+                    if !fetched_table {
+                        continue;
                     }
+
+                    // SAFETY: `table` is from the world that `fetch` was created for,
+                    // `fetch_state` is the state that `fetch` was initialized with.
+                    unsafe { D::set_table(&mut self.fetch, &query_state.fetch_state, table) }
+
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();
                     self.current_row = 0;
@@ -3202,15 +3234,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         continue;
                     }
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-                    // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
-                    // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+
+                    // SAFETY: `archetype` and `tables` are from the world that `filter` was created for.
+                    // `filter_state` is the state that `filter` was initialized with.
                     unsafe {
-                        D::set_archetype(
-                            &mut self.fetch,
-                            &query_state.fetch_state,
-                            archetype,
-                            table,
-                        );
                         F::set_archetype(
                             &mut self.filter,
                             &query_state.filter_state,
@@ -3218,6 +3245,25 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                             table,
                         );
                     }
+
+                    // SAFETY: set_archetype was called prior.
+                    let fetched_table =
+                        unsafe { F::filter_table(&query_state.filter_state, &mut self.filter) };
+                    if !fetched_table {
+                        continue;
+                    }
+
+                    // SAFETY: `archetype` and `tables` are from the world that `fetch` was created for,
+                    // `fetch_state` is the state that `fetch` was initialized with.
+                    unsafe {
+                        D::set_archetype(
+                            &mut self.fetch,
+                            &query_state.fetch_state,
+                            archetype,
+                            table,
+                        );
+                    }
+
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_row = 0;

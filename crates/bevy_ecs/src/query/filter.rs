@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    change_detection::Tick,
+    change_detection::{AtomicTick, Tick},
     component::{Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity},
     query::{DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, StorageSwitch, WorldQuery},
@@ -90,6 +90,22 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
     const IS_ARCHETYPAL: bool;
+
+    /// Returns true if _any_ entity of the provided [`Table`] should be included in the query results.
+    /// If false, the table and all its entities will be skipped.
+    ///
+    /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
+    /// ones that are compatible with the Filter's access.
+    ///
+    /// Implementors of this method will generally either have a trivial `true` body or access the summary tick
+    /// to short circuit checking the ticks on every entity.
+    ///
+    /// # Safety
+    ///
+    /// Must be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`].
+    unsafe fn filter_table(state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+        true
+    }
 
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
     /// If false, the entity will be skipped.
@@ -762,6 +778,7 @@ pub struct AddedFetch<'w, T: Component> {
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
     >,
+    summary_tick: StorageSwitch<T, Option<&'w AtomicTick>, ()>,
     last_run: Tick,
     this_run: Tick,
 }
@@ -770,6 +787,7 @@ impl<T: Component> Clone for AddedFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
             ticks: self.ticks,
+            summary_tick: self.summary_tick,
             last_run: self.last_run,
             this_run: self.this_run,
         }
@@ -807,6 +825,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
+            summary_tick: StorageSwitch::new(|| None, || ()),
             last_run,
             this_run,
         }
@@ -886,6 +905,28 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+        if !T::HAS_SUMMARY_TICK {
+            return true;
+        }
+
+        // SAFETY: The invariants are upheld by the caller.
+        fetch.summary_tick.extract(
+            |summary_tick| {
+                // Note: the summary tick is for changed ticks. However changed ticks are always newer than
+                // added ticks, so if are no new changed ticks there must be no new added ticks either.
+                summary_tick.is_none_or(|summary_tick| {
+                    summary_tick
+                        .get()
+                        .is_newer_than(fetch.last_run, fetch.this_run)
+                })
+            },
+            |_| true,
+        )
+    }
+
     #[inline(always)]
     unsafe fn filter_fetch(
         _state: &Self::State,
@@ -998,6 +1039,7 @@ pub struct ChangedFetch<'w, T: Component> {
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
     >,
+    summary_tick: StorageSwitch<T, Option<&'w AtomicTick>, ()>,
     last_run: Tick,
     this_run: Tick,
 }
@@ -1006,6 +1048,7 @@ impl<T: Component> Clone for ChangedFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
             ticks: self.ticks,
+            summary_tick: self.summary_tick,
             last_run: self.last_run,
             this_run: self.this_run,
         }
@@ -1043,6 +1086,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
+            summary_tick: StorageSwitch::new(|| None, || ()),
             last_run,
             this_run,
         }
@@ -1084,6 +1128,13 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         );
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.ticks.set_table(table_ticks) };
+
+        if T::HAS_SUMMARY_TICK {
+            let summary_tick = table.get_summary_tick(component_id);
+
+            // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
+            unsafe { fetch.summary_tick.set_table(summary_tick) };
+        }
     }
 
     #[inline]
@@ -1122,6 +1173,25 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Changed<T> {
     const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+        if !T::HAS_SUMMARY_TICK {
+            return true;
+        }
+
+        // SAFETY: The invariants are upheld by the caller.
+        fetch.summary_tick.extract(
+            |summary_tick| {
+                summary_tick.is_none_or(|summary_tick| {
+                    summary_tick
+                        .get()
+                        .is_newer_than(fetch.last_run, fetch.this_run)
+                })
+            },
+            |_| true,
+        )
+    }
 
     #[inline(always)]
     unsafe fn filter_fetch(
