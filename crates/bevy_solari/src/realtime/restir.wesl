@@ -5,7 +5,7 @@ import bevy_pbr::render::utils::{rand_f, rand_u, sample_disk};
 import bevy_render::utils::octahedral_decode;
 import package::scene::brdf::{brdf_pdf, evaluate_brdf, F_AB};
 import package::realtime::gbuffer_utils::{gpixel_resolve, permute_pixel, pixel_dissimilar};
-import package::realtime::initial_path::{generate_initial_path, InitialSamplingResult};
+import package::realtime::initial_path::{generate_initial_path, InitialSamplingResult, nee_probability};
 import package::realtime::bindings::{depth_buffer, empty_reservoir, gbuffer, load_motion_vector, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, constants, view, view_output};
 import package::scene::sampling::{balance_heuristic, calculate_resolved_light_contribution, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
 import package::scene::bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MAX, RAY_T_MIN, ResolvedMaterial};
@@ -325,7 +325,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
         if light_contribution.brdf_rays_can_hit && light_contribution.inverse_solid_angle_pdf > 0.0 {
             let light_count = arrayLength(&light_sources);
             let inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf * f32(light_count);
-            let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
+            let p_nee = nee_probability(material);
             let p_nee_strategy = f32(constants.primary_di_samples) * (1.0 / inverse_solid_angle_pdf) * p_nee;
             let p_brdf_at_nee = brdf_pdf(wo, light_contribution.wi, world_normal, material, F_ab);
             nee_mis_weight = power_heuristic(p_nee_strategy, p_brdf_at_nee);
@@ -351,7 +351,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
                 brdf_radiance = vec3(0.0);
             } else {
                 let p_light = area_pdf * sample_distance * sample_distance / cos_theta_light;
-                let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
+                let p_nee = nee_probability(material);
                 let p_brdf = brdf_pdf(wo, wi, world_normal, material, F_ab);
                 brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(constants.primary_di_samples));
             }
