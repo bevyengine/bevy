@@ -840,6 +840,17 @@ where
             param: F::Param::init_state(world),
             world_id: world.id(),
         });
+        #[cfg(feature = "trace")]
+        {
+            // Only a schedule's own span becomes the parent, never e.g. the "plugin build" span.
+            let parent = Span::current();
+            if parent.metadata().is_some_and(|m| m.name() == "schedule") {
+                let name = self.system_meta.name.clone().to_string();
+                self.system_meta.system_span = info_span!(parent: &parent, "system", name = name);
+                self.system_meta.commands_span =
+                    info_span!(parent: &parent, "system_commands", name = name);
+            }
+        }
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         init_param_or_panic::<F::Param>(&state.param, &mut self.system_meta, world.into())
     }
