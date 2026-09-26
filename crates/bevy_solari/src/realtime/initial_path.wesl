@@ -6,7 +6,7 @@ import package::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf,
 import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
 import package::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
 import package::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
-import package::scene::bindings::{light_sources, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
+import package::scene::bindings::{light_sources, MIRROR_ROUGHNESS_THRESHOLD, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
 import package::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
 @if(DLSS_RR_GUIDE_BUFFERS)
@@ -211,6 +211,9 @@ fn generate_nee_candidate(
     bounce: u32,
     rng: ptr<function, u32>,
 ) -> f32 {
+    // Skip NEE for mirror-like materials
+    if (*path).material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && (*path).material.metallic > 0.9999 { return 0.0; }
+
     // Probability of running NEE for lights that BRDF rays can also hit, proportional to how
     // diffuse the vertex is. On mirror-like metals BRDF samples find those lights well, so mostly
     // skip NEE there to increase performance. Pure dielectrics always run NEE.
