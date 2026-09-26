@@ -1,9 +1,7 @@
 use super::{RaytracingMesh3d, RaytracingSceneBindings};
-use crate::{pathtracer::Pathtracer, realtime::SolariLighting};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_camera::Camera;
 use bevy_ecs::{
-    entity::Entity,
     lifecycle::RemovedComponents,
     message::MessageReader,
     query::{Added, Changed, Or, With},
@@ -11,7 +9,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::Image;
-use bevy_light::{AtmosphereEnvironmentMapLight, EnvironmentMapLight};
+use bevy_light::EnvironmentMapLight;
 use bevy_math::Quat;
 use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
 use bevy_platform::collections::HashMap;
@@ -197,26 +195,4 @@ pub fn extract_raytracing_environment_map_light(
     }
 
     *environment_map_light = extracted_env_map_light;
-}
-
-/// Turn off atmosphere cubemap filtering for Solari cameras to save performance, since Solari does not require it.
-pub fn disable_atmosphere_env_map_filtering(
-    mut commands: Commands,
-    lights: Query<
-        (Entity, &AtmosphereEnvironmentMapLight),
-        Or<(With<SolariLighting>, With<Pathtracer>)>,
-    >,
-) {
-    for (entity, light) in &lights {
-        if !light.filtered {
-            continue;
-        }
-
-        commands
-            .entity(entity)
-            .insert(AtmosphereEnvironmentMapLight {
-                filtered: false,
-                ..light.clone()
-            });
-    }
 }
