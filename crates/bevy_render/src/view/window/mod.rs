@@ -369,7 +369,8 @@ pub fn create_surfaces(
     mut commands: Commands,
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS's
-    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: bevy_ecs::system::NonSendMarker,
+    #[cfg(any(target_os = "macos", target_os = "ios", target_os = "tvos"))]
+    _marker: bevy_ecs::system::NonSendMarker,
     mut windows: Query<(
         Entity,
         &mut ExtractedWindow,
