@@ -1114,7 +1114,7 @@ impl Default for Image {
     }
 }
 
-/// Quantizes a normalized channel to the nearest `u8`, matching [`Srgba::to_u8_array`].
+/// Quantizes a normalized channel to the nearest `u8`, matching [`ColorToPacked::to_u8_array`](bevy_color::ColorToPacked::to_u8_array).
 fn unorm_u8(value: f32) -> u8 {
     ops::round(value.clamp(0.0, 1.0) * u8::MAX as f32) as u8
 }
@@ -2592,8 +2592,10 @@ mod test {
             .data
             .as_deref()
             .unwrap()
-            .chunks_exact(2)
-            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_le_bytes(*pair))
             .collect();
         assert_eq!(channels, [32768, 32768, 32768, 65535]);
     }
