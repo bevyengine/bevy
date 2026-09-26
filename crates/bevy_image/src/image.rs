@@ -2341,7 +2341,9 @@ impl<'a> ImageType<'a> {
 
 /// Calculates the total number of pixels in the item.
 fn pixel_count(item: Extent3d) -> usize {
-    (item.width * item.height * item.depth_or_array_layers) as usize
+    (item.width as usize)
+        .saturating_mul(item.height as usize)
+        .saturating_mul(item.depth_or_array_layers as usize)
 }
 
 /// Extends the wgpu [`TextureFormat`] with information about the pixel.
@@ -2550,6 +2552,30 @@ mod test {
                 TextureFormat::Bc1RgbaUnorm
             ))
         ));
+    }
+
+    #[test]
+    #[cfg(target_pointer_width = "64")]
+    fn pixel_count_does_not_wrap_at_u32() {
+        let size = Extent3d {
+            width: 65536,
+            height: 65536,
+            depth_or_array_layers: 1,
+        };
+        assert_eq!(pixel_count(size), 1 << 32);
+
+        let mut image = Image::new_uninit(
+            size,
+            TextureDimension::D2,
+            TextureFormat::R8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+        let empty = Extent3d {
+            width: 0,
+            height: 1,
+            depth_or_array_layers: 1,
+        };
+        assert!(image.reinterpret_size(empty).is_err());
     }
 
     #[test]
