@@ -5,11 +5,47 @@ use bevy_ecs::{
     world::World,
 };
 
-/// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
+/// The top-level schedule that runs every bootstraps the `Main` schedule.
 ///
-/// By default, it will run the following schedules in the given order:
+/// In normal operation, the [`EntryPoint`] schedule contains a single `run_main` system.
+/// This system is called from [`App:update()`] and when it is first run it runs [`StartUpMain`].
+/// When it's `run_main` is called afterwards it keeps running [`Main`]. Check out the respective
+/// schedules for more information.
 ///
-/// On the first run of the schedule (and only on the first run), it will run:
+/// # Rendering
+///
+/// Note rendering is not executed in the main schedule by default.
+/// Instead, rendering is performed in a separate [`SubApp`]
+/// which exchanges data with the main app in between the main schedule runs.
+///
+/// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
+///
+/// [`SubApp`]: crate::SubApp
+/// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
+/// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct EntryPoint;
+
+/// The schedule that contains the app logic that runs each frame.
+///
+/// In order, it runs:
+/// * [`First`]
+/// * [`PreUpdate`]
+/// * `run_state_transition_schedule`, which runs the [`StateTransition`] [^1] schedule.
+/// * [`RunFixedMainLoop`]
+///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
+/// * [`Update`]
+/// * [`SpawnScene`]
+/// * [`PostUpdate`]
+/// * [`Last`]
+///
+/// [^1]: [`StateTransition`] is inserted only if you have `bevy_state` feature enabled. It is enabled in `default` features.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct Main;
+
+/// The schedule that runs once when the app starts.
+///
+/// This runs:
 /// * [`StateTransition`] [^1]
 ///      * This means that [`OnEnter(MyState::Foo)`] will be called *before* [`PreStartup`]
 ///        if `MyState` was added to the app with `MyState::Foo` as the initial state,
@@ -21,63 +57,29 @@ use bevy_ecs::{
 /// * [`Startup`]
 /// * [`PostStartup`]
 ///
-/// Then it will run:
-/// * [`First`]
-/// * [`PreUpdate`]
-/// * `run_state_transition_schedule`, which runs the [`StateTransition`] [^1] schedule.
-/// * [`RunFixedMainLoop`]
-///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
-/// * [`Update`]
-/// * [`SpawnScene`]
-/// * [`PostUpdate`]
-/// * [`Last`]
-///
-/// # Rendering
-///
-/// Note rendering is not executed in the main schedule by default.
-/// Instead, rendering is performed in a separate [`SubApp`]
-/// which exchanges data with the main app in between the main schedule runs.
-///
-/// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
-///
-/// [^1]: [`StateTransition`] is inserted only if you have `bevy_state` feature enabled. It is enabled in `default` features.
-///
 /// [`StateTransition`]: https://docs.rs/bevy/latest/bevy/prelude/struct.StateTransition.html
 /// [`OnEnter(MyState::Foo)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
 /// [`OnEnter(MyComputedState)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
-/// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
-/// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
-/// [`SubApp`]: crate::SubApp
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct EntryPoint;
-
-/// TODO: Write Docs
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct Main;
-
-/// The schedule that runs once when the app starts.
-///
-/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct StartupMain;
 
-/// The schedule that runs before [`Startup`].
+/// The schedule that runs once before [`Startup`].
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`StartupMain`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(StartupMain)]
 pub struct PreStartup;
 
 /// The schedule that runs once when the app starts.
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`StartupMain`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(StartupMain)]
 pub struct Startup;
 
 /// The schedule that runs once after [`Startup`].
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`StartupMain`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(StartupMain)]
 pub struct PostStartup;
@@ -226,11 +228,11 @@ impl EntryPoint {
     /// A system that runs the "main schedule"
     pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
-            world.run_schedule(StartupMain);
+            let _ = world.try_run_schedule(StartupMain);
             *run_at_least_once = true;
         }
 
-        world.run_schedule(Main);
+        let _ = world.try_run_schedule(Main);
     }
 }
 

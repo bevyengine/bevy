@@ -91,11 +91,15 @@ impl Plugin for FeathersCorePlugin {
         // and `detect_text_needs_rerender` in UiSystems::Content
         app.configure_sets(
             Main,
-            PropagateSet::<TextFont>::default().in_set(UiSystems::Propagate),
+            PropagateSet::<TextFont>::default()
+                .in_set(UiSystems::Propagate)
+                .in_set(PostUpdate),
         );
         app.configure_sets(
             Main,
-            PropagateSet::<TextColor>::default().in_set(UiSystems::Propagate),
+            PropagateSet::<TextColor>::default()
+                .in_set(UiSystems::Propagate)
+                .in_set(PostUpdate),
         );
 
         app.insert_resource(DefaultCursor(EntityCursor::System(
