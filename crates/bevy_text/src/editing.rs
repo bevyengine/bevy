@@ -281,7 +281,7 @@ impl EditableText {
         }
     }
 
-    /// Clears the input's text buffer and any pending edits.
+    /// Clears the input's text buffer and any pending edits, and moves the cursor to the start.
     ///
     /// Also drops any in-flight paste. The underlying clipboard read task
     /// will still complete, but its result is discarded.
@@ -289,6 +289,8 @@ impl EditableText {
         self.editor.set_text("");
         self.pending_edits.clear();
         self.pending_paste = None;
+        // `set_text` keeps the old selection; reset it before any later edit uses it.
+        self.queue_edit(TextEdit::TextStart(false));
     }
 
     /// Is the IME currently composing text for this input?
@@ -373,4 +375,53 @@ pub fn apply_text_edits(
 #[derive(EntityEvent)]
 pub struct TextEditChange {
     entity: Entity,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::borrow::Cow;
+    use parley::FontFamilyName;
+
+    fn edit_after_clear(setup: TextEdit, edit: TextEdit) -> String {
+        let mut font_context = FontContext::new();
+        let font = crate::Font::from_bytes(include_bytes!("FiraMono-subset.ttf").to_vec());
+        font_context.collection.register_fonts(font.data, None);
+        let mut layout_context = LayoutContext::new();
+        let mut clipboard = bevy_clipboard::Clipboard::default();
+
+        let mut text = EditableText::new("hello world");
+        text.editor
+            .edit_styles()
+            .insert(FontFamilyName::Named(Cow::Borrowed("Fira Mono")).into());
+        text.queue_edit(setup);
+        text.apply_pending_edits(
+            &mut font_context,
+            &mut layout_context,
+            &mut clipboard,
+            |_| true,
+        );
+
+        text.clear();
+        text.queue_edit(edit);
+        text.apply_pending_edits(
+            &mut font_context,
+            &mut layout_context,
+            &mut clipboard,
+            |_| true,
+        );
+        text.value().to_string()
+    }
+
+    #[test]
+    fn insert_after_clear_uses_a_fresh_cursor() {
+        let value = edit_after_clear(TextEdit::TextEnd(false), TextEdit::Insert("x".into()));
+        assert_eq!(value, "x");
+    }
+
+    #[test]
+    fn delete_after_clear_ignores_the_old_selection() {
+        let value = edit_after_clear(TextEdit::SelectAll, TextEdit::Backspace);
+        assert_eq!(value, "");
+    }
 }
