@@ -10,21 +10,24 @@ use {
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// The display output a [`Window`](crate::Window) requests: a dynamic range
-/// or color space, and the luminance values the app has calibrated.
+/// Requests the color space and luminance for a [`Window`](crate::Window)'s
+/// output.
 ///
-/// This is a request. The surface the window presents to may not support it,
-/// and the output it gets can differ from the request. The wgpu [color space
-/// and HDR primer] explains what each backend can present.
+/// The default is SDR sRGB. Set [`hdr`](Self::hdr) to get HDR output where
+/// the display supports it, or
+/// [`color_space_override`](Self::color_space_override) to choose the color
+/// space yourself. The surface may not support the request, so the output
+/// can differ from it. The wgpu [color space and HDR primer] explains what
+/// each backend can present.
 ///
-/// A luminance field is `None` unless the app has calibrated it. The renderer
+/// Leave a luminance field `None` unless your app calibrates it. The renderer
 /// then uses what the display reports, or a default for the color space.
 ///
-/// A required component of [`Window`](crate::Window). The default requests
-/// SDR sRGB. Bevy never writes this component.
+/// A required component of [`Window`](crate::Window). Bevy never writes this
+/// component.
 ///
-/// This is independent of the `Hdr` component on a camera, which selects the
-/// format of the texture the camera renders to.
+/// Adding the `Hdr` component to a camera does not give HDR display output.
+/// It only changes the format of the texture the camera renders to.
 ///
 /// # Example
 ///
@@ -57,24 +60,23 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Serialize, Deserialize)
 )]
 pub struct DisplayTarget {
-    /// Request HDR output. Bevy picks the best HDR color space the surface
-    /// supports. When the surface supports none, the output is SDR.
+    /// Requests HDR output. Bevy picks the best HDR color space the surface
+    /// supports, or SDR when it supports none. Most apps should use this.
     pub hdr: bool,
-    /// Request one color space instead. When `Some`, [`hdr`](Self::hdr) is
-    /// ignored. When the surface does not support it, the output is SDR.
+    /// A color space to use instead of the one Bevy picks, for example to
+    /// prefer scRGB over PQ. When `Some`, [`hdr`](Self::hdr) is ignored. When
+    /// the surface does not support it, the output is SDR.
     pub color_space_override: Option<SurfaceColorSpace>,
-    /// The luminance of paper white, in nits.
+    /// The luminance of a plain white UI element, called paper white, in nits.
+    /// A tonemapped value of `1.0` maps to it. On an HDR display, raise it to
+    /// make the image brighter.
     ///
-    /// Paper white is the luminance of a plain white UI element. A tonemapped
-    /// value of `1.0` maps to it. SDR uses 100 nits. [ITU-R BT.2408]
-    /// recommends 203 nits for HDR television.
+    /// SDR uses 100 nits. [ITU-R BT.2408] recommends 203 nits for HDR
+    /// television.
     ///
     /// [ITU-R BT.2408]: https://www.itu.int/pub/R-REP-BT.2408
     pub paper_white_nits: Option<f32>,
-    /// The highest luminance the display can show, in nits.
-    ///
-    /// On SDR displays this equals paper white. On HDR displays it is higher,
-    /// so highlights can exceed paper white.
+    /// The highest luminance a highlight can reach, in nits.
     pub peak_luminance_nits: Option<f32>,
     /// The lowest luminance the display can show, in nits.
     pub min_luminance_nits: Option<f32>,
