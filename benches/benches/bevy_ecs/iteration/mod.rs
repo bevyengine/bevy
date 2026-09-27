@@ -204,12 +204,12 @@ fn iter_changed(c: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    group.bench_function(format!("simple_unchanged"), |b| {
+    group.bench_function("simple_unchanged".to_string(), |b| {
         let mut bench = iter_changed_simple::Benchmark::new(false);
         b.iter(move || bench.run());
     });
 
-    group.bench_function(format!("simple_changed"), |b| {
+    group.bench_function("simple_changed".to_string(), |b| {
         let mut bench = iter_changed_simple::Benchmark::new(true);
         b.iter(move || bench.run());
     });
