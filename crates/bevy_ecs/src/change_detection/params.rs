@@ -156,7 +156,7 @@ impl<'w> ContiguousComponentTicksRef<'w> {
 
     /// Returns the summary tick, if any.
     pub fn summary_tick(&self) -> Option<Tick> {
-        self.summary_tick.map(|summary_tick| summary_tick.get())
+        self.summary_tick.map(AtomicTick::get)
     }
 
     /// Returns an iterator where the i-th item corresponds to whether the i-th component was
