@@ -1,6 +1,6 @@
 ---
 title: "Solari `Mesh::enable_raytracing` is now `Mesh::raytracing`"
-pull_requests: []
+pull_requests: [25951]
 ---
 
 `Mesh::enable_raytracing: bool` has been replaced by `Mesh::raytracing: MeshRaytracingFlags`, which declares which BLAS (if any) `bevy_solari` builds for the mesh.
