@@ -500,6 +500,82 @@
 //!
 //! `result`: An object with a `diagnostics` field containing an array of objects with `path`, `value`, `average`, `smoothed`, `suffix` and `history_len` fields.
 //!
+//! ### `world.inspect`
+//!
+//! Inspect an entity, returning its label, memory size, spawn details and the inspection of every
+//! component on it.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity to inspect.
+//! - `settings` (optional): Entity inspection settings. Defaults are used when omitted, and
+//!   structured component values are always included.
+//!
+//! `result`: An entity inspection object with `entity`, `label`, `total_memory_size`, `components`
+//! and `spawn_details` fields.
+//!
+//! ### `world.inspect_component`
+//!
+//! Inspect a single component on an entity.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity that owns the component.
+//! - `component`: The [fully-qualified type name] of the component.
+//! - `settings` (optional): Component inspection settings. Defaults are used when omitted, and the
+//!   structured value is always included.
+//!
+//! `result`: A component inspection object with `entity`, `component_id`, `name`, `memory_size`,
+//! `value` and `serialized_value` fields.
+//!
+//! ### `world.inspect_component_type`
+//!
+//! Inspect a component type itself, rather than a component on a specific entity.
+//!
+//! `params`:
+//! - `component`: The [fully-qualified type name] of the component type.
+//!
+//! `result`: An object with an `entity_count` field and a `metadata` field describing the type.
+//!
+//! ### `world.inspect_resource`
+//!
+//! Inspect a resource.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource.
+//! - `settings` (optional): Resource inspection settings. Defaults are used when omitted, and the
+//!   structured value is always included.
+//!
+//! `result`: A resource inspection object with `component_id`, `name`, `value`, `memory_size` and
+//! `serialized_value` fields.
+//!
+//! ### `world.inspect_all_resources`
+//!
+//! Inspect every resource present in the world.
+//!
+//! `params` (optional):
+//! - `settings`: Resource inspection settings, applied to every resource.
+//!
+//! `result`: An array of resource inspection objects.
+//!
+//! ### `world.summarize`
+//!
+//! Summarize the world, reporting entity, archetype and resource counts along with per-archetype
+//! data.
+//!
+//! `params` (optional):
+//! - `settings`: Summary settings controlling component names, empty archetypes and row limits.
+//!
+//! `result`: An object with `total_entities`, `total_archetypes`, `empty_archetypes`,
+//! `total_send_resources`, `total_non_send_resources` and `archetype_summaries` fields.
+//!
+//! ### `registry.component_metadata`
+//!
+//! Retrieve metadata for every component type registered in the world. This method has no
+//! parameters.
+//!
+//! `result`: An object with a `map` field associating component IDs with their type metadata.
+//! Clients are expected to fetch this map once and cache it, which is why the server-side
+//! `inspect_cached` method has no remote counterpart.
+//!
 //! ### `rpc.discover`
 //!
 //! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
@@ -583,6 +659,7 @@ pub mod builtin_methods;
 pub mod client;
 #[cfg(feature = "http")]
 pub mod http;
+pub mod inspection_methods;
 pub mod schemas;
 #[cfg(feature = "bevy_debug_stepping")]
 pub mod stepping_methods;
@@ -833,6 +910,46 @@ impl RemotePlugin {
             to_main,
         )
         .add_stepping_methods(to_main)
+        .add_inspection_methods(to_main)
+    }
+
+    /// Add the inspection BRP methods.
+    fn add_inspection_methods(self, to_main: bool) -> Self {
+        self.with_method(
+            inspection_methods::BRP_INSPECT_METHOD,
+            inspection_methods::process_remote_inspect_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_COMPONENT_METHOD,
+            inspection_methods::process_remote_inspect_component_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_COMPONENT_TYPE_METHOD,
+            inspection_methods::process_remote_inspect_component_type_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_RESOURCE_METHOD,
+            inspection_methods::process_remote_inspect_resource_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_ALL_RESOURCES_METHOD,
+            inspection_methods::process_remote_inspect_all_resources_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_SUMMARIZE_METHOD,
+            inspection_methods::process_remote_summarize_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_COMPONENT_METADATA_METHOD,
+            inspection_methods::process_remote_component_metadata_request,
+            to_main,
+        )
     }
 
     /// Add the `stepping.*` BRP methods.
@@ -1506,6 +1623,9 @@ pub mod error_codes {
 
     /// Could not find resource in the world.
     pub const RESOURCE_NOT_PRESENT: i16 = -23502;
+
+    /// The component metadata map does not contain the requested type name.
+    pub const COMPONENT_NAME_NOT_IN_METADATA: i16 = -23405;
 }
 
 /// The result of a request.

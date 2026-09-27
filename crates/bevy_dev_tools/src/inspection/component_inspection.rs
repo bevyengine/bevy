@@ -337,6 +337,7 @@ impl core::error::Error for ComponentInspectionError {}
 /// Settings for inspecting a component.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default))]
 pub struct ComponentInspectionSettings {
     /// How much detail to include when inspecting component values.
     pub detail_level: ComponentDetailLevel,
