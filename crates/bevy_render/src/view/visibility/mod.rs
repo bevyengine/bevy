@@ -27,6 +27,18 @@ mod range;
 use bevy_camera::visibility::*;
 pub use range::*;
 
+/// Extracted metadata about [`RenderLayers`].
+///
+/// Presented on every [`ExtractedView`](crate::view::ExtractedView) with [`RenderLayers`]. E.g. extracted camera, extracted light shadow map views.
+///
+/// Currently this is used for detecting render layers changes on the view for gpu culling entities.
+/// Since cpu culling entities is not retained, thus does not care about render layers metadata
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Component, Default)]
+pub struct ExtractedRenderLayersMeta {
+    /// Did render layers change in this extracted frame
+    pub changed: bool,
+}
+
 /// Stores a list of all entities that are visible from a single view or
 /// subview, as well as the change lists.
 ///
