@@ -5,47 +5,12 @@ use bevy_ecs::{
     world::World,
 };
 
-/// The top-level schedule that runs every bootstraps the `Main` schedule.
+/// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
 ///
-/// In normal operation, the [`EntryPoint`] schedule contains a single `run_main` system.
-/// This system is called from [`App:update()`] and when it is first run it runs [`StartUpMain`].
-/// When it's `run_main` is called afterwards it keeps running [`Main`]. Check out the respective
-/// schedules for more information.
+/// Whenever [`App::update()`] is called, `EntryPoint::run_main` is called, which does the following:
 ///
-/// # Rendering
-///
-/// Note rendering is not executed in the main schedule by default.
-/// Instead, rendering is performed in a separate [`SubApp`]
-/// which exchanges data with the main app in between the main schedule runs.
-///
-/// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
-///
-/// [`SubApp`]: crate::SubApp
-/// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
-/// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct EntryPoint;
-
-/// The schedule that contains the app logic that runs each frame.
-///
-/// In order, it runs:
-/// * [`First`]
-/// * [`PreUpdate`]
-/// * `run_state_transition_schedule`, which runs the [`StateTransition`] [^1] schedule.
-/// * [`RunFixedMainLoop`]
-///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
-/// * [`Update`]
-/// * [`SpawnScene`]
-/// * [`PostUpdate`]
-/// * [`Last`]
-///
-/// [^1]: [`StateTransition`] is inserted only if you have `bevy_state` feature enabled. It is enabled in `default` features.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct Main;
-
-/// The schedule that runs once when the app starts.
-///
-/// This runs:
+/// On the first run (and only on the first run), it will run the [`StartupMain`] schedule.
+/// This runs the following system sets, in order:
 /// * [`StateTransition`] [^1]
 ///      * This means that [`OnEnter(MyState::Foo)`] will be called *before* [`PreStartup`]
 ///        if `MyState` was added to the app with `MyState::Foo` as the initial state,
@@ -57,38 +22,72 @@ pub struct Main;
 /// * [`Startup`]
 /// * [`PostStartup`]
 ///
+/// Every subsequent call runs the [`Main`] schedule, with the following system sets, in order:
+/// * [`First`]
+/// * [`PreUpdate`]
+/// * `run_state_transition_schedule`, which runs the [`StateTransition`] [^1] schedule.
+/// * [`RunFixedMainLoop`]
+///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
+/// * [`Update`]
+/// * [`SpawnScene`]
+/// * [`PostUpdate`]
+/// * [`Last`]
+///
+/// # Rendering
+///
+/// Note that rendering is not executed in the main schedule by default.
+/// Instead, rendering is performed in a separate [`SubApp`]
+/// which exchanges data with the main app in between the main schedule runs.
+///
+/// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
+///
 /// [^1]: [`StateTransition`] is inserted only if you have `bevy_state` feature enabled. It is enabled in `default` features.
 ///
 /// [`StateTransition`]: https://docs.rs/bevy/latest/bevy/prelude/struct.StateTransition.html
 /// [`OnEnter(MyState::Foo)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
 /// [`OnEnter(MyComputedState)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
+/// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
+/// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
+/// [`SubApp`]: crate::SubApp
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct EntryPoint;
+
+/// The schedule that contains the app logic that runs each frame.
+///
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct Main;
+
+/// The schedule that runs once when the app starts.
+///
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct StartupMain;
 
 /// The schedule that runs once before [`Startup`].
 ///
-/// See the [`StartupMain`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(StartupMain)]
 pub struct PreStartup;
 
 /// The schedule that runs once when the app starts.
 ///
-/// See the [`StartupMain`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(StartupMain)]
 pub struct Startup;
 
 /// The schedule that runs once after [`Startup`].
 ///
-/// See the [`StartupMain`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(StartupMain)]
 pub struct PostStartup;
 
 /// Runs first in the schedule.
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(Main)]
 pub struct First;
@@ -100,14 +99,14 @@ pub struct First;
 /// [`PreUpdate`] exists to do "engine/plugin preparation work" that ensures the APIs consumed in [`Update`] are "ready".
 /// [`PreUpdate`] abstracts out "pre work implementation details".
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(Main)]
 pub struct PreUpdate;
 
 /// Runs the [`FixedMain`] schedule in a loop according until all relevant elapsed time has been "consumed".
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(Main)]
 pub struct RunFixedMainLoop;
@@ -115,7 +114,7 @@ pub struct RunFixedMainLoop;
 /// Runs first in the [`FixedMain`] schedule.
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(FixedMain)]
 pub struct FixedFirst;
@@ -123,7 +122,7 @@ pub struct FixedFirst;
 /// The schedule that contains logic that must run before [`FixedUpdate`].
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(FixedMain)]
 pub struct FixedPreUpdate;
@@ -139,7 +138,7 @@ pub struct FixedPreUpdate;
 ///
 /// See the [`Update`] schedule for examples of systems that *should not* use this schedule.
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(FixedMain)]
 pub struct FixedUpdate;
@@ -148,7 +147,7 @@ pub struct FixedUpdate;
 /// to changes made in the main update logic.
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(FixedMain)]
 pub struct FixedPostUpdate;
@@ -156,7 +155,7 @@ pub struct FixedPostUpdate;
 /// The schedule that runs last in [`FixedMain`]
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(FixedMain)]
 pub struct FixedLast;
@@ -170,7 +169,7 @@ pub struct FixedLast;
 /// Frequency of execution is configured by inserting `Time<Fixed>` resource, 64 Hz by default.
 /// See [this example](https://github.com/bevyengine/bevy/blob/latest/examples/time/time.rs).
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedMain;
 
@@ -183,14 +182,15 @@ pub struct FixedMain;
 /// - Audio control
 ///
 /// See the [`FixedUpdate`] schedule for examples of systems that *should not* use this schedule.
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(Main)]
 pub struct Update;
 
 /// The schedule that contains scene spawning.
 ///
-/// This runs after [`Update`] and before [`PostUpdate`]. See the [`Main`] schedule for more details about how schedules are run.
+/// This runs after [`Update`] and before [`PostUpdate`].
+/// See the [`EntryPoint`] schedule for more details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct SpawnScene;
 
@@ -201,14 +201,14 @@ pub struct SpawnScene;
 /// [`PostUpdate`] exists to do "engine/plugin response work" to things that happened in [`Update`].
 /// [`PostUpdate`] abstracts out "implementation details" from users defining systems in [`Update`].
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(Main)]
 pub struct PostUpdate;
 
 /// Runs last in the schedule.
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`EntryPoint`] schedule for some details about how schedules are run.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[default_schedule(Main)]
 pub struct Last;
