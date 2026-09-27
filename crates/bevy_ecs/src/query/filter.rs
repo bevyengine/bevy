@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    change_detection::{AtomicTick, Tick},
+    change_detection::Tick,
     component::{Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity},
     query::{DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, StorageSwitch, WorldQuery},
@@ -819,7 +819,7 @@ pub struct AddedFetch<'w, T: Component> {
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
     >,
-    summary_tick: StorageSwitch<T, Option<&'w AtomicTick>, ()>,
+    summary_tick: Tick,
     last_run: Tick,
     this_run: Tick,
 }
@@ -866,7 +866,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
-            summary_tick: StorageSwitch::new(|| None, || ()),
+            summary_tick: last_run,
             last_run,
             this_run,
         }
@@ -908,6 +908,13 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         );
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.ticks.set_table(table_ticks) };
+
+        if T::HAS_SUMMARY_TICK {
+            fetch.summary_tick = table
+                .get_summary_tick(component_id)
+                .debug_checked_unwrap()
+                .get();
+        }
     }
 
     #[inline]
@@ -949,23 +956,10 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
 
     #[inline(always)]
     unsafe fn filter_table(_state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
-        if !T::HAS_SUMMARY_TICK {
-            return true;
-        }
-
-        // SAFETY: The invariants are upheld by the caller.
-        fetch.summary_tick.extract(
-            |summary_tick| {
-                // Note: the summary tick is for changed ticks. However changed ticks are always newer than
-                // added ticks, so if are no new changed ticks there must be no new added ticks either.
-                summary_tick.is_none_or(|summary_tick| {
-                    summary_tick
-                        .get()
-                        .is_newer_than(fetch.last_run, fetch.this_run)
-                })
-            },
-            |_| true,
-        )
+        !T::HAS_SUMMARY_TICK
+            || fetch
+                .summary_tick
+                .is_newer_than(fetch.last_run, fetch.this_run)
     }
 
     #[inline(always)]
@@ -1080,7 +1074,7 @@ pub struct ChangedFetch<'w, T: Component> {
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
     >,
-    summary_tick: StorageSwitch<T, Option<&'w AtomicTick>, ()>,
+    summary_tick: Tick,
     last_run: Tick,
     this_run: Tick,
 }
@@ -1127,7 +1121,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
-            summary_tick: StorageSwitch::new(|| None, || ()),
+            summary_tick: last_run,
             last_run,
             this_run,
         }
@@ -1171,10 +1165,10 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         unsafe { fetch.ticks.set_table(table_ticks) };
 
         if T::HAS_SUMMARY_TICK {
-            let summary_tick = table.get_summary_tick(component_id);
-
-            // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-            unsafe { fetch.summary_tick.set_table(summary_tick) };
+            fetch.summary_tick = table
+                .get_summary_tick(component_id)
+                .debug_checked_unwrap()
+                .get();
         }
     }
 
@@ -1217,21 +1211,10 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 
     #[inline(always)]
     unsafe fn filter_table(_state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
-        if !T::HAS_SUMMARY_TICK {
-            return true;
-        }
-
-        // SAFETY: The invariants are upheld by the caller.
-        fetch.summary_tick.extract(
-            |summary_tick| {
-                summary_tick.is_none_or(|summary_tick| {
-                    summary_tick
-                        .get()
-                        .is_newer_than(fetch.last_run, fetch.this_run)
-                })
-            },
-            |_| true,
-        )
+        !T::HAS_SUMMARY_TICK
+            || fetch
+                .summary_tick
+                .is_newer_than(fetch.last_run, fetch.this_run)
     }
 
     #[inline(always)]
