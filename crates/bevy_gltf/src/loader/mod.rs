@@ -41,7 +41,7 @@ use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 use bevy_world_serialization::WorldAsset;
 use gltf::{
-    accessor::Iter,
+    accessor::{DataType, Iter},
     image::Source,
     mesh::{util::ReadIndices, Mode},
     Material, Node, Semantic,
@@ -55,9 +55,11 @@ use tracing::{error, info_span, warn};
 use wgpu_types::Face;
 
 use crate::{
-    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
-    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
-    GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
+    convert_coordinates::ConvertCoordinates as _,
+    vertex_attributes::{convert_attribute, position_bounds},
+    Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
+    GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin,
+    GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -137,6 +139,33 @@ pub enum GltfError {
     /// Failed to load a file.
     #[error("failed to load file: {0}")]
     Io(#[from] Error),
+}
+
+const KHR_MESH_QUANTIZATION: &str = "KHR_mesh_quantization";
+
+/// Runs the `gltf` crate's validation, minus its rejection of a required
+/// `KHR_mesh_quantization`, which the loader dequantizes.
+///
+/// Mirrors the crate-private `gltf::Document::validate` (gltf 1.4.1).
+fn validate_document(document: &gltf::Document) -> Result<(), GltfError> {
+    use gltf::json::validation::{Error as ValidationError, Validate};
+
+    let root = document.as_json();
+    let mut errors = Vec::new();
+    root.validate(root, gltf::json::Path::new, &mut |path, error| {
+        errors.push((path(), error));
+    });
+    let quantization_value = format!(" = \"{KHR_MESH_QUANTIZATION}\"");
+    errors.retain(|(path, error)| {
+        !(*error == ValidationError::Unsupported
+            && path.as_str().starts_with("extensionsRequired[")
+            && path.as_str().ends_with(&quantization_value))
+    });
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(gltf::Error::Validation(errors).into())
+    }
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -250,11 +279,10 @@ impl GltfLoader {
         load_context: &'b mut LoadContext<'c>,
         settings: &'b GltfLoaderSettings,
     ) -> Result<Gltf, GltfError> {
-        let gltf = if settings.validate {
-            gltf::Gltf::from_slice(bytes)?
-        } else {
-            gltf::Gltf::from_slice_without_validation(bytes)?
-        };
+        let gltf = gltf::Gltf::from_slice_without_validation(bytes)?;
+        if settings.validate {
+            validate_document(&gltf.document)?;
+        }
 
         // clone extensions to start with a fresh processing state
         let mut extensions = loader.extensions.read().await.clone();
@@ -796,7 +824,18 @@ impl GltfLoader {
                         });
                     };
 
-                    {
+                    // `read_morph_targets` only reads floats.
+                    let quantized_morph_targets = primitive.morph_targets().any(|target| {
+                        [target.positions(), target.normals(), target.tangents()]
+                            .into_iter()
+                            .flatten()
+                            .any(|accessor| accessor.data_type() != DataType::F32)
+                    });
+                    if quantized_morph_targets {
+                        warn!(
+                            "Ignoring morph targets of {primitive_label}: KHR_mesh_quantization morph targets are not supported"
+                        );
+                    } else {
                         let morph_target_reader = reader.read_morph_targets();
                         if morph_target_reader.len() != 0 {
                             mesh.set_morph_targets(
@@ -1669,7 +1708,6 @@ fn load_node(
                     mesh: mesh.index(),
                     primitive: primitive.index(),
                 };
-                let bounds = primitive.bounding_box();
                 let parent_entity = parent.target_entity();
 
                 // Apply the inverse of the conversion transform that's been
@@ -1702,8 +1740,7 @@ fn load_node(
                     mesh_entity.insert(MeshMorphWeights::Reference(parent_entity));
                 }
 
-                let mut bounds_min = Vec3::from_slice(&bounds.min);
-                let mut bounds_max = Vec3::from_slice(&bounds.max);
+                let (mut bounds_min, mut bounds_max) = position_bounds(&primitive);
 
                 if convert_coordinates.rotate_meshes {
                     let converted_min = bounds_min.convert_coordinates();
@@ -2790,5 +2827,126 @@ mod test {
         assert_eq!(settings.default_sampler, default.default_sampler);
         assert_eq!(settings.override_sampler, default.override_sampler);
         assert_eq!(settings.validate, default.validate);
+    }
+
+    #[test]
+    fn dequantizes_khr_mesh_quantization() {
+        use bevy_mesh::{Mesh, VertexAttributeValues};
+
+        let mut bin = Vec::new();
+        // POSITION: i16 VEC3, padded to a 4-byte stride.
+        for p in [[0i16, 0, 0], [2, 0, 0], [0, 3, 0]] {
+            p.iter().for_each(|c| bin.extend(c.to_le_bytes()));
+            bin.extend([0; 2]);
+        }
+        // NORMAL: normalized i8 VEC3, padded.
+        for _ in 0..3 {
+            bin.extend([0, 0, 127, 0]);
+        }
+        // TANGENT: normalized i16 VEC4; -32768 clamps to -1.
+        for _ in 0..3 {
+            [i16::MAX, 0, 0, i16::MIN]
+                .iter()
+                .for_each(|c| bin.extend(c.to_le_bytes()));
+        }
+        // TEXCOORD_0: normalized i8 VEC2, padded.
+        for uv in [[0i8, 0], [127, 0], [0, 127]] {
+            bin.extend([uv[0] as u8, uv[1] as u8, 0, 0]);
+        }
+        [0u16, 1, 2]
+            .iter()
+            .for_each(|i| bin.extend(i.to_le_bytes()));
+
+        let uri = format!(
+            "data:application/octet-stream;base64,{}",
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bin)
+        );
+        let gltf = r#"
+{
+    "asset": { "version": "2.0" },
+    "extensionsUsed": ["KHR_mesh_quantization"],
+    "extensionsRequired": ["KHR_mesh_quantization"],
+    "buffers": [{ "uri": "BIN_URI", "byteLength": 78 }],
+    "bufferViews": [
+        { "buffer": 0, "byteOffset": 0, "byteLength": 24, "byteStride": 8, "target": 34962 },
+        { "buffer": 0, "byteOffset": 24, "byteLength": 12, "byteStride": 4, "target": 34962 },
+        { "buffer": 0, "byteOffset": 36, "byteLength": 24, "target": 34962 },
+        { "buffer": 0, "byteOffset": 60, "byteLength": 12, "byteStride": 4, "target": 34962 },
+        { "buffer": 0, "byteOffset": 72, "byteLength": 6, "target": 34963 }
+    ],
+    "accessors": [
+        { "bufferView": 0, "componentType": 5122, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [2, 3, 0] },
+        { "bufferView": 1, "componentType": 5120, "normalized": true, "count": 3, "type": "VEC3" },
+        { "bufferView": 2, "componentType": 5122, "normalized": true, "count": 3, "type": "VEC4" },
+        { "bufferView": 3, "componentType": 5120, "normalized": true, "count": 3, "type": "VEC2" },
+        { "bufferView": 4, "componentType": 5123, "count": 3, "type": "SCALAR" }
+    ],
+    "meshes": [{ "primitives": [{
+        "attributes": { "POSITION": 0, "NORMAL": 1, "TANGENT": 2, "TEXCOORD_0": 3 },
+        "indices": 4
+    }] }],
+    "nodes": [{ "mesh": 0 }],
+    "scenes": [{ "nodes": [0] }]
+}
+"#
+        .replace("BIN_URI", &uri);
+
+        let app = load_gltf_into_app("quantized.gltf", &gltf);
+        let (_, mesh) = app
+            .world()
+            .resource::<Assets<Mesh>>()
+            .iter()
+            .next()
+            .unwrap();
+        let attribute = |id| mesh.attribute(id).cloned();
+        assert_eq!(
+            attribute(Mesh::ATTRIBUTE_POSITION),
+            Some(VertexAttributeValues::Float32x3(vec![
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [0.0, 3.0, 0.0]
+            ]))
+        );
+        assert_eq!(
+            attribute(Mesh::ATTRIBUTE_NORMAL),
+            Some(VertexAttributeValues::Float32x3(vec![[0.0, 0.0, 1.0]; 3]))
+        );
+        assert_eq!(
+            attribute(Mesh::ATTRIBUTE_TANGENT),
+            Some(VertexAttributeValues::Float32x4(vec![
+                [1.0, 0.0, 0.0, -1.0];
+                3
+            ]))
+        );
+        assert_eq!(
+            attribute(Mesh::ATTRIBUTE_UV_0),
+            Some(VertexAttributeValues::Float32x2(vec![
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [0.0, 1.0]
+            ]))
+        );
+    }
+
+    #[test]
+    fn dequantizes_normalized_position_bounds() {
+        let gltf = gltf::Gltf::from_slice_without_validation(
+            br#"
+{
+    "asset": { "version": "2.0" },
+    "accessors": [{
+        "componentType": 5123, "normalized": true, "count": 1, "type": "VEC3",
+        "min": [0, 0, 0], "max": [65535, 0, 0]
+    }],
+    "meshes": [{ "primitives": [{ "attributes": { "POSITION": 0 } }] }]
+}
+"#,
+        )
+        .unwrap();
+        let primitive = gltf.meshes().next().unwrap().primitives().next().unwrap();
+        assert_eq!(
+            super::position_bounds(&primitive),
+            (bevy_math::Vec3::ZERO, bevy_math::Vec3::X)
+        );
     }
 }

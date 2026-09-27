@@ -1,8 +1,9 @@
+use bevy_math::Vec3;
 use bevy_mesh::{Mesh, MeshVertexAttribute, VertexAttributeValues as Values, VertexFormat};
 use bevy_platform::collections::HashMap;
 use gltf::{
     accessor::{DataType, Dimensions},
-    mesh::util::{ReadColors, ReadJoints, ReadTexCoords, ReadWeights},
+    mesh::util::{ReadColors, ReadJoints, ReadWeights},
 };
 use thiserror::Error;
 
@@ -95,9 +96,51 @@ enum VertexAttributeIter<'a> {
     U8x2(gltf::accessor::Iter<'a, [u8; 2]>, Normalization),
     S8x4(gltf::accessor::Iter<'a, [i8; 4]>, Normalization),
     U8x4(gltf::accessor::Iter<'a, [u8; 4]>, Normalization),
-    // Additional on-disk formats used for RGB colors
+    // Additional on-disk formats used for RGB colors and quantized vectors
     U16x3(gltf::accessor::Iter<'a, [u16; 3]>, Normalization),
     U8x3(gltf::accessor::Iter<'a, [u8; 3]>, Normalization),
+    S16x3(gltf::accessor::Iter<'a, [i16; 3]>, Normalization),
+    S8x3(gltf::accessor::Iter<'a, [i8; 3]>, Normalization),
+}
+
+/// An integer vertex attribute component.
+trait Dequantize: Copy {
+    /// The component as a float, scaled into [-1, 1] or [0, 1] when normalized.
+    fn dequantize(self, normalized: bool) -> f32;
+}
+
+macro_rules! impl_dequantize {
+    ($($ty:ty),*) => {$(
+        impl Dequantize for $ty {
+            fn dequantize(self, normalized: bool) -> f32 {
+                if normalized {
+                    (self as f32 * (<$ty>::MAX as f32).recip()).max(-1.0)
+                } else {
+                    self as f32
+                }
+            }
+        }
+    )*};
+}
+
+impl_dequantize!(i8, u8, i16, u16);
+
+fn dequantize<T: Dequantize, const N: usize>(
+    it: impl Iterator<Item = [T; N]>,
+    Normalization(normalized): Normalization,
+) -> impl Iterator<Item = [f32; N]> {
+    it.map(move |v| v.map(|c| c.dequantize(normalized)))
+}
+
+/// Collects `it`, converted from glTF's coordinate system when `convert` is set.
+///
+/// See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview>
+fn converted<T: ConvertCoordinates>(it: impl Iterator<Item = T>, convert: bool) -> Vec<T> {
+    if convert {
+        it.map(ConvertCoordinates::convert_coordinates).collect()
+    } else {
+        it.collect()
+    }
 }
 
 impl<'a> VertexAttributeIter<'a> {
@@ -132,8 +175,29 @@ impl<'a> VertexAttributeIter<'a> {
             (DataType::U8, Dimensions::Vec4) => acc.with_norm(VertexAttributeIter::U8x4),
             (DataType::U16, Dimensions::Vec3) => acc.with_norm(VertexAttributeIter::U16x3),
             (DataType::U8, Dimensions::Vec3) => acc.with_norm(VertexAttributeIter::U8x3),
+            (DataType::I16, Dimensions::Vec3) => acc.with_norm(VertexAttributeIter::S16x3),
+            (DataType::I8, Dimensions::Vec3) => acc.with_norm(VertexAttributeIter::S8x3),
             _ => Err(AccessFailed::UnsupportedFormat),
         }
+    }
+
+    /// Materializes float values, converting integer formats to Float32x2, Float32x3 or Float32x4
+    fn into_float_values(self, convert: bool) -> Result<Values, AccessFailed> {
+        Ok(match self {
+            Self::S8x2(it, n) => Values::Float32x2(dequantize(it, n).collect()),
+            Self::U8x2(it, n) => Values::Float32x2(dequantize(it, n).collect()),
+            Self::S16x2(it, n) => Values::Float32x2(dequantize(it, n).collect()),
+            Self::U16x2(it, n) => Values::Float32x2(dequantize(it, n).collect()),
+            Self::S8x3(it, n) => Values::Float32x3(converted(dequantize(it, n), convert)),
+            Self::U8x3(it, n) => Values::Float32x3(converted(dequantize(it, n), convert)),
+            Self::S16x3(it, n) => Values::Float32x3(converted(dequantize(it, n), convert)),
+            Self::U16x3(it, n) => Values::Float32x3(converted(dequantize(it, n), convert)),
+            Self::S8x4(it, n) => Values::Float32x4(converted(dequantize(it, n), convert)),
+            Self::U8x4(it, n) => Values::Float32x4(converted(dequantize(it, n), convert)),
+            Self::S16x4(it, n) => Values::Float32x4(converted(dequantize(it, n), convert)),
+            Self::U16x4(it, n) => Values::Float32x4(converted(dequantize(it, n), convert)),
+            s => return s.into_any_values(convert),
+        })
     }
 
     /// Materializes values for any supported format of vertex attribute
@@ -143,26 +207,13 @@ impl<'a> VertexAttributeIter<'a> {
             VertexAttributeIter::U32(it) => Ok(Values::Uint32(it.collect())),
             VertexAttributeIter::F32x2(it) => Ok(Values::Float32x2(it.collect())),
             VertexAttributeIter::U32x2(it) => Ok(Values::Uint32x2(it.collect())),
-            VertexAttributeIter::F32x3(it) => Ok(if convert_coordinates {
-                // The following f32x3 values need to be converted to the correct coordinate system
-                // - Positions
-                // - Normals
-                //
-                // See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview>
-                Values::Float32x3(it.map(ConvertCoordinates::convert_coordinates).collect())
-            } else {
-                Values::Float32x3(it.collect())
-            }),
+            VertexAttributeIter::F32x3(it) => {
+                Ok(Values::Float32x3(converted(it, convert_coordinates)))
+            }
             VertexAttributeIter::U32x3(it) => Ok(Values::Uint32x3(it.collect())),
-            VertexAttributeIter::F32x4(it) => Ok(if convert_coordinates {
-                // The following f32x4 values need to be converted to the correct coordinate system
-                // - Tangents
-                //
-                // See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview>
-                Values::Float32x4(it.map(ConvertCoordinates::convert_coordinates).collect())
-            } else {
-                Values::Float32x4(it.collect())
-            }),
+            VertexAttributeIter::F32x4(it) => {
+                Ok(Values::Float32x4(converted(it, convert_coordinates)))
+            }
             VertexAttributeIter::U32x4(it) => Ok(Values::Uint32x4(it.collect())),
             VertexAttributeIter::S16x2(it, n) => {
                 Ok(n.apply_either(it.collect(), Values::Snorm16x2, Values::Sint16x2))
@@ -236,27 +287,14 @@ impl<'a> VertexAttributeIter<'a> {
             s => s.into_any_values(false),
         }
     }
-
-    /// Materializes texture coordinate values, converting compatible formats to Float32x2
-    fn into_tex_coord_values(self) -> Result<Values, AccessFailed> {
-        match self {
-            VertexAttributeIter::U8x2(it, Normalization(true)) => Ok(Values::Float32x2(
-                ReadTexCoords::U8(it).into_f32().collect(),
-            )),
-            VertexAttributeIter::U16x2(it, Normalization(true)) => Ok(Values::Float32x2(
-                ReadTexCoords::U16(it).into_f32().collect(),
-            )),
-            s => s.into_any_values(false),
-        }
-    }
 }
 
 enum ConversionMode {
     Any,
+    Float,
     Rgba,
     JointIndex,
     JointWeight,
-    TexCoord,
 }
 
 /// Errors that can occur during the `convert_attribute` function.
@@ -287,26 +325,22 @@ pub fn convert_attribute(
     if let Some((attribute, conversion, convert_coordinates)) = match &semantic {
         gltf::Semantic::Positions => Some((
             Mesh::ATTRIBUTE_POSITION,
-            ConversionMode::Any,
+            ConversionMode::Float,
             convert_coordinates,
         )),
         gltf::Semantic::Normals => Some((
             Mesh::ATTRIBUTE_NORMAL,
-            ConversionMode::Any,
+            ConversionMode::Float,
             convert_coordinates,
         )),
         gltf::Semantic::Tangents => Some((
             Mesh::ATTRIBUTE_TANGENT,
-            ConversionMode::Any,
+            ConversionMode::Float,
             convert_coordinates,
         )),
         gltf::Semantic::Colors(0) => Some((Mesh::ATTRIBUTE_COLOR, ConversionMode::Rgba, false)),
-        gltf::Semantic::TexCoords(0) => {
-            Some((Mesh::ATTRIBUTE_UV_0, ConversionMode::TexCoord, false))
-        }
-        gltf::Semantic::TexCoords(1) => {
-            Some((Mesh::ATTRIBUTE_UV_1, ConversionMode::TexCoord, false))
-        }
+        gltf::Semantic::TexCoords(0) => Some((Mesh::ATTRIBUTE_UV_0, ConversionMode::Float, false)),
+        gltf::Semantic::TexCoords(1) => Some((Mesh::ATTRIBUTE_UV_1, ConversionMode::Float, false)),
         gltf::Semantic::Joints(0) => Some((
             Mesh::ATTRIBUTE_JOINT_INDEX,
             ConversionMode::JointIndex,
@@ -325,8 +359,8 @@ pub fn convert_attribute(
         let raw_iter = VertexAttributeIter::from_accessor(accessor.clone(), buffer_data);
         let converted_values = raw_iter.and_then(|iter| match conversion {
             ConversionMode::Any => iter.into_any_values(convert_coordinates),
+            ConversionMode::Float => iter.into_float_values(convert_coordinates),
             ConversionMode::Rgba => iter.into_rgba_values(),
-            ConversionMode::TexCoord => iter.into_tex_coord_values(),
             ConversionMode::JointIndex => iter.into_joint_index_values(),
             ConversionMode::JointWeight => iter.into_joint_weight_values(),
         });
@@ -349,4 +383,25 @@ pub fn convert_attribute(
     } else {
         Err(ConvertAttributeError::UnknownName(semantic.to_string()))
     }
+}
+
+/// The primitive's `POSITION` bounds in the units of its loaded positions.
+///
+/// glTF stores the bounds of an integer accessor as integers, before
+/// normalization.
+pub(crate) fn position_bounds(primitive: &gltf::Primitive) -> (Vec3, Vec3) {
+    let bounds = primitive.bounding_box();
+    // `bounding_box` already requires the accessor.
+    let positions = primitive.get(&gltf::Semantic::Positions).unwrap();
+    let normalized = positions.normalized();
+    let dequantize = |bound: [f32; 3]| {
+        Vec3::from(bound.map(|c| match positions.data_type() {
+            DataType::I8 => (c as i8).dequantize(normalized),
+            DataType::U8 => (c as u8).dequantize(normalized),
+            DataType::I16 => (c as i16).dequantize(normalized),
+            DataType::U16 => (c as u16).dequantize(normalized),
+            _ => c,
+        }))
+    };
+    (dequantize(bounds.min), dequantize(bounds.max))
 }

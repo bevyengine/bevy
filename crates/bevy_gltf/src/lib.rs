@@ -115,7 +115,7 @@
 //! | `KHR_materials_unlit`             | ✅        |                                     |
 //! | `KHR_materials_variants`          | ❌        |                                     |
 //! | `KHR_materials_volume`            | ✅        |                                     |
-//! | `KHR_mesh_quantization`           | ❌        |                                     |
+//! | `KHR_mesh_quantization`           | ✅\***    |                                     |
 //! | `KHR_node_hoverability`           | ❌        |                                     |
 //! | `KHR_node_selectability`          | ❌        |                                     |
 //! | `KHR_node_visibility`             | ❌        |                                     |
@@ -129,6 +129,8 @@
 //! \*Bevy supports ktx2 and webp formats but doesn't support the extension's syntax, see [#19104](https://github.com/bevyengine/bevy/issues/19104).
 //!
 //! \**`KHR_texture_transform` is only supported on `base_color_texture`, see [#15310](https://github.com/bevyengine/bevy/issues/15310).
+//!
+//! \***`KHR_mesh_quantization` morph targets are not supported and are skipped with a warning.
 //!
 //! See the [glTF Extension Registry](https://github.com/KhronosGroup/glTF/blob/main/extensions/README.md) for more information on extensions.
 
