@@ -286,6 +286,11 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
 
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, _fetch: &mut Self::Fetch<'_>) -> bool {
+        true
+    }
+
     #[inline]
     unsafe fn filter_fetch(
         state: &Self::State,

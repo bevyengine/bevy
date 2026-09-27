@@ -103,9 +103,7 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// # Safety
     ///
     /// Must be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`].
-    unsafe fn filter_table(state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
-        true
-    }
+    unsafe fn filter_table(state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool;
 
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
     /// If false, the entity will be skipped.
@@ -231,6 +229,11 @@ unsafe impl<T: Component> QueryFilter for With<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, _fetch: &mut Self::Fetch<'_>) -> bool {
+        true
+    }
+
+    #[inline(always)]
     unsafe fn filter_fetch(
         _state: &Self::State,
         _fetch: &mut Self::Fetch<'_>,
@@ -339,6 +342,11 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for Without<T> {
     const IS_ARCHETYPAL: bool = true;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, _fetch: &mut Self::Fetch<'_>) -> bool {
+        true
+    }
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -557,6 +565,21 @@ macro_rules! impl_or_query_filter {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline(always)]
+            unsafe fn filter_table(state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+                let ($($state,)*) = state;
+                let ($($filter,)*) = fetch;
+
+                // If this is an archetypal query, then it is guaranteed to return true,
+                (Self::IS_ARCHETYPAL
+                    // SAFETY: The invariants are upheld by the caller.
+                    $(|| ($filter.matches && unsafe { $filter::filter_table($state, &mut $filter.fetch) }))*
+                    // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                    // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                    // so we treat them as matching for non-archetypal queries, as well.
+                    || !(false $(|| $filter.matches)*))
+            }
+
+            #[inline(always)]
             unsafe fn filter_fetch(
                 state: &Self::State,
                 fetch: &mut Self::Fetch<'_>,
@@ -597,6 +620,16 @@ macro_rules! impl_tuple_query_filter {
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
+
+
+            #[inline(always)]
+            unsafe fn filter_table(state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+                let ($($state,)*) = state;
+                let ($($name,)*) = fetch;
+
+                // SAFETY: The invariants are upheld by the caller.
+                true $(&& unsafe { $name::filter_table($state, $name) })*
+            }
 
             #[inline(always)]
             unsafe fn filter_fetch(
@@ -690,6 +723,11 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for Allow<T> {
     const IS_ARCHETYPAL: bool = true;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, _fetch: &mut Self::Fetch<'_>) -> bool {
+        true
+    }
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -1356,6 +1394,11 @@ unsafe impl WorldQuery for Spawned {
 // SAFETY: WorldQuery impl accesses no components or component ticks
 unsafe impl QueryFilter for Spawned {
     const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, _fetch: &mut Self::Fetch<'_>) -> bool {
+        true
+    }
 
     #[inline(always)]
     unsafe fn filter_fetch(
