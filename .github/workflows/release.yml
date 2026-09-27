@@ -69,7 +69,7 @@ jobs:
         env:
           PACKAGES: ${{ steps.crates.outputs.packages }}
         run: |
-          cargo publish --dry-run $PACKAGES
+          cargo publish --dry-run $PACKAGES --features bevy_image/zstd_rust
 
   publish:
     name: Publish to crates.io
