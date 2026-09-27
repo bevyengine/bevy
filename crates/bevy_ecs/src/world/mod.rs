@@ -4,7 +4,6 @@ pub(crate) mod command_queue;
 mod deferred_world;
 mod entity_access;
 mod entity_fetch;
-mod filtered_resource;
 mod identifier;
 mod spawn_batch;
 
@@ -25,7 +24,6 @@ pub use entity_access::{
     TryFromFilteredError, UnsafeFilteredEntityMut, VacantComponentEntry,
 };
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
-pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
 
