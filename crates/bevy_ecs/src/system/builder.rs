@@ -101,10 +101,6 @@ use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
 ///
 /// [`LocalBuilder`] can build a [`Local`] to supply the initial value for the `Local`.
 ///
-/// [`FilteredResourcesParamBuilder`] can build a [`FilteredResources`],
-/// and [`FilteredResourcesMutParamBuilder`] can build a [`FilteredResourcesMut`],
-/// to configure the resources that can be accessed.
-///
 /// [`DynParamBuilder`] can build a [`DynSystemParam`] to determine the type of the inner parameter,
 /// and to supply any `SystemParamBuilder` it needs.
 ///
@@ -494,8 +490,7 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 
 /// A [`SystemParamBuilder`] for a [`Query`].
 /// This takes a closure accepting an `&mut` [`QueryBuilder`] and uses the builder to construct the query's state.
-/// This can be used to add additional filters,
-/// or to configure the components available to [`FilteredEntityRef`](crate::world::FilteredEntityRef) or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
+/// This can be used to add additional filters.
 ///
 /// ## Example
 ///
@@ -842,11 +837,9 @@ mod tests {
         entity::Entities,
         error::Result,
         prelude::{Component, Query},
-        reflect::ReflectResource,
         system::{Local, RunSystemOnce},
     };
     use alloc::vec;
-    use bevy_reflect::Reflect;
 
     use super::*;
 
@@ -858,12 +851,6 @@ mod tests {
 
     #[derive(Component)]
     struct C;
-
-    #[derive(Resource, Default, Reflect)]
-    #[reflect(Resource)]
-    struct R {
-        foo: usize,
-    }
 
     fn local_system(local: Local<u64>) -> u64 {
         *local
