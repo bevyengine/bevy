@@ -72,7 +72,7 @@ impl<A: AsAssetId> Copy for AssetChangeCheck<'_, A> {}
 impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
     fn new(changes: &'w AssetChanges<A::Asset>, last_run: Tick, this_run: Tick) -> Self {
         Self {
-            changes: Some(&changes),
+            changes: Some(changes),
             last_run,
             this_run,
         }
