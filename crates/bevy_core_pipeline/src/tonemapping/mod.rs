@@ -31,6 +31,7 @@ use bevy_utils::default;
 pub use node::tonemapping;
 
 use crate::FullscreenShader;
+use bevy_render::view::{StackRole, ViewStackContract};
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
@@ -318,26 +319,50 @@ pub fn prepare_view_tonemapping_pipelines(
         (
             Entity,
             &ExtractedView,
+            Option<&ViewStackContract>,
             Option<&Tonemapping>,
             Option<&DebandDither>,
+            Has<ViewTonemappingPipeline>,
         ),
+        // `ViewTarget` filters out stale contracts.
         With<ViewTarget>,
     >,
+    settings_views: Query<(&ExtractedView, Option<&Tonemapping>, Option<&DebandDither>)>,
 ) {
-    for (entity, view, tonemapping, dither) in view_targets.iter() {
+    for (entity, view, contract, tonemapping, dither, has_pipeline) in view_targets.iter() {
+        let (graded_view, tonemapping, dither) = match contract.map(|contract| contract.tonemap) {
+            // Without the pipeline this view's pass doesn't run. The
+            // finalizer covers it.
+            Some(StackRole::HandledByFinalizer) => {
+                if has_pipeline {
+                    commands.entity(entity).remove::<ViewTonemappingPipeline>();
+                }
+                continue;
+            }
+            // Key the pipeline on the settings member's settings.
+            Some(StackRole::Finalizer { settings }) => {
+                let Ok(settings) = settings_views.get(settings) else {
+                    continue;
+                };
+                settings
+            }
+            _ => (view, tonemapping, dither),
+        };
+
         // As an optimization, we omit parts of the shader that are unneeded.
+        let color_grading = &graded_view.color_grading;
         let mut flags = TonemappingPipelineKeyFlags::empty();
         flags.set(
             TonemappingPipelineKeyFlags::HUE_ROTATE,
-            view.color_grading.global.hue != 0.0,
+            color_grading.global.hue != 0.0,
         );
         flags.set(
             TonemappingPipelineKeyFlags::WHITE_BALANCE,
-            view.color_grading.global.temperature != 0.0 || view.color_grading.global.tint != 0.0,
+            color_grading.global.temperature != 0.0 || color_grading.global.tint != 0.0,
         );
         flags.set(
             TonemappingPipelineKeyFlags::SECTIONAL_COLOR_GRADING,
-            view.color_grading
+            color_grading
                 .all_sections()
                 .any(|section| *section != default()),
         );

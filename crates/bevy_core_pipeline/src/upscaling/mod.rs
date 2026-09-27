@@ -5,7 +5,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     render_resource::*,
-    view::{ResolvedCompositingSpace, ViewTarget},
+    view::{ResolvedCompositingSpace, StackBlit, ViewStackContract, ViewTarget},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -57,29 +57,36 @@ fn prepare_view_upscaling_pipelines(
         &ViewTarget,
         Option<&ExtractedCamera>,
         Option<&ViewUpscalingPipeline>,
+        Option<&ViewStackContract>,
         Option<&ResolvedCompositingSpace>,
     )>,
 ) {
-    for (entity, view_target, camera, maybe_pipeline, resolved_space) in view_targets.iter() {
+    for (entity, view_target, camera, maybe_pipeline, contract, resolved_space) in
+        view_targets.iter()
+    {
+        let replaces = match contract.map(|contract| contract.blit) {
+            Some(StackBlit::Skip) => {
+                // The upscaling pass requires this pipeline, so removing it
+                // skips the blit.
+                if maybe_pipeline.is_some() {
+                    commands.entity(entity).remove::<ViewUpscalingPipeline>();
+                }
+                continue;
+            }
+            Some(StackBlit::Replace) => true,
+            Some(StackBlit::Blend) => false,
+            // Without a contract, only the target's first camera replaces.
+            None => camera.is_some_and(|camera| camera.sorted_camera_index_for_target == 0),
+        };
+
         let blend_state = if let Some(extracted_camera) = camera {
             match extracted_camera.output_mode {
                 CameraOutputMode::Skip => None,
-                CameraOutputMode::Write { blend_state, .. } => {
-                    match blend_state {
-                        None => {
-                            // Auto-detect: the first camera to render to this output
-                            // (sorted_camera_index_for_target == 0) uses replace mode;
-                            // subsequent cameras default to alpha blending so they don't
-                            // accidentally overwrite earlier cameras' output.
-                            if extracted_camera.sorted_camera_index_for_target > 0 {
-                                Some(BlendState::ALPHA_BLENDING)
-                            } else {
-                                None
-                            }
-                        }
-                        _ => blend_state,
-                    }
-                }
+                CameraOutputMode::Write { blend_state, .. } => match blend_state {
+                    // Later cameras blend so they don't overwrite earlier output.
+                    None if !replaces => Some(BlendState::ALPHA_BLENDING),
+                    _ => blend_state,
+                },
             }
         } else {
             None

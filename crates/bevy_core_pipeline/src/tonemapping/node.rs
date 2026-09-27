@@ -15,6 +15,7 @@ use bevy_render::{
 };
 
 use super::{get_lut_bindings, Tonemapping};
+use bevy_render::view::{tonemap_pass_runs, StackRole, ViewStackContract};
 
 /// Cached bind group state for tonemapping.
 #[derive(Default)]
@@ -30,7 +31,9 @@ pub fn tonemapping(
         &ViewTarget,
         &ViewTonemappingPipeline,
         &Tonemapping,
+        Option<&ViewStackContract>,
     )>,
+    settings_views: Query<(&ViewUniformOffset, &Tonemapping)>,
     pipeline_cache: Res<PipelineCache>,
     tonemapping_pipeline: Res<TonemappingPipeline>,
     gpu_images: Res<RenderAssets<GpuImage>>,
@@ -40,16 +43,24 @@ pub fn tonemapping(
     mut cache: Local<TonemappingBindGroupCache>,
     mut ctx: RenderContext,
 ) {
-    let (camera, view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) =
+    let (camera, view_uniform_offset, target, view_tonemapping_pipeline, tonemapping, contract) =
         view.into_inner();
 
-    if !tonemapping.is_enabled() {
+    if !tonemap_pass_runs(camera, tonemapping) {
         return;
     }
 
-    if !camera.hdr {
-        return;
-    }
+    // A finalizer reads its settings member's view uniform, which holds the
+    // color grading, and its method, which picks the LUT.
+    let (view_uniform_offset, tonemapping) = match contract.map(|contract| contract.tonemap) {
+        Some(StackRole::Finalizer { settings }) => {
+            let Ok(settings) = settings_views.get(settings) else {
+                return;
+            };
+            settings
+        }
+        _ => (view_uniform_offset, tonemapping),
+    };
 
     let Some(pipeline) = pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0) else {
         return;

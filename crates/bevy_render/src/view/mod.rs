@@ -1,4 +1,4 @@
-pub mod composition;
+pub mod camera_stacks;
 pub mod visibility;
 pub mod window;
 
@@ -7,7 +7,7 @@ use bevy_camera::{
     CompositingSpace, Exposure, MainPassResolutionOverride, NormalizedRenderTarget,
 };
 use bevy_diagnostic::FrameCount;
-pub use composition::*;
+pub use camera_stacks::*;
 pub use visibility::*;
 pub use window::*;
 
@@ -189,7 +189,7 @@ impl Plugin for ViewPlugin {
             render_app.add_systems(
                 Render,
                 (
-                    resolve_composition_spaces.in_set(ResolveCompositingSpaces),
+                    resolve_camera_stacks.in_set(ResolveCompositingSpaces),
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
                         .in_set(RenderSystems::PrepareViews)
@@ -1365,7 +1365,7 @@ pub fn cleanup_view_targets_for_resize(
 
 /// The settings that decide which cameras share main textures. Cameras with
 /// equal keys share one allocation in [`prepare_view_targets`], and
-/// [`resolve_composition_spaces`] groups them the same way.
+/// [`resolve_camera_stacks`] groups them into stacks the same way.
 type MainTextureKey = (
     Option<NormalizedRenderTarget>,
     TextureUsages,
