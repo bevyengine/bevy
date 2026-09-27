@@ -91,8 +91,11 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
     const IS_ARCHETYPAL: bool;
 
-    /// Returns true if _any_ entity of the provided [`Table`] should be included in the query results.
+    /// Returns true if _any_ entity of the current table should be included in the query results.
     /// If false, the table and all its entities will be skipped.
+    ///
+    /// The table is provided through an earlier call to either [`WorldQuery::set_table`] or
+    /// [`WorldQuery::set_archetype`].
     ///
     /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
     /// ones that are compatible with the Filter's access.
