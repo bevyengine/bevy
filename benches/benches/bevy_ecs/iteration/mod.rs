@@ -214,7 +214,7 @@ fn iter_changed(c: &mut Criterion) {
         b.iter(move || bench.run());
     });
 
-    for f in [0, 10, 100, 1000] {
+    for f in [10, 100, 1000] {
         group.bench_function(format!("with_{f}_fragment"), |b| {
             let mut bench = iter_changed_frag::Benchmark::new(f);
             b.iter(move || bench.run());
