@@ -58,6 +58,7 @@ use bevy_render::{
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
+    erased_render_asset::ErasedRenderAssets,
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
@@ -1455,20 +1456,21 @@ impl RenderMeshInstanceGpuBuilder {
         entity: MainEntity,
         mesh_allocator: &MeshAllocator,
         mesh_material_ids: &RenderMaterialInstances,
-        render_material_bindings: &RenderMaterialBindings,
+        render_materials: &ErasedRenderAssets<PreparedMaterial>,
         render_lightmaps: &RenderLightmaps,
         skin_uniforms: &SkinUniforms,
         morph_indices: &MorphIndices,
         timestamp: FrameCount,
     ) -> Option<RenderMeshInstanceGpuPrepared> {
-        // Look up the material index. If we couldn't fetch the material index,
-        // then the material hasn't been prepared yet, perhaps because it hasn't
-        // yet loaded. In that case, we return None so that
+        // Read the binding from the prepared material. The binding allocator can
+        // still contain an old binding while a modified material waits for its
+        // textures to load, and that binding may move when preparation succeeds.
+        // If the material isn't ready, return None so that
         // `collect_meshes_for_gpu_building` will add the mesh to
         // `meshes_to_reextract_next_frame` and bail.
         let mesh_material = mesh_material_ids.mesh_material(entity);
         let mesh_material_binding_id = if let Some(mesh_material) = mesh_material {
-            render_material_bindings.get(&mesh_material).copied()?
+            render_materials.get(mesh_material)?.binding
         } else {
             // Use a dummy material binding ID.
             MaterialBindingId::default()
@@ -2125,9 +2127,7 @@ pub fn extract_meshes_for_gpu_building(
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
         let entity = MainEntity::from(entity);
-        if !changed_meshes_query.contains(*entity)
-            && !meshes_to_reextract_next_frame.contains(&entity)
-        {
+        if !all_meshes_query.contains(*entity) {
             queue.remove(entity, any_gpu_culling);
         }
     }
@@ -2500,7 +2500,7 @@ pub fn collect_meshes_for_gpu_building(
     mut render_gpu_culled_entities: ResMut<RenderGpuCulledEntities>,
     mesh_allocator: Res<MeshAllocator>,
     mesh_material_ids: Res<RenderMaterialInstances>,
-    render_material_bindings: Res<RenderMaterialBindings>,
+    render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_lightmaps: Res<RenderLightmaps>,
     skin_uniforms: Res<SkinUniforms>,
     morph_indices: Res<MorphIndices>,
@@ -2544,7 +2544,7 @@ pub fn collect_meshes_for_gpu_building(
         // Reference data shared between tasks
         let mesh_allocator = &mesh_allocator;
         let mesh_material_ids = &mesh_material_ids;
-        let render_material_bindings = &render_material_bindings;
+        let render_materials = &render_materials;
         let render_lightmaps = &render_lightmaps;
         let skin_uniforms = &skin_uniforms;
         let frame_count = *frame_count;
@@ -2581,7 +2581,7 @@ pub fn collect_meshes_for_gpu_building(
                                         entity,
                                         mesh_allocator,
                                         mesh_material_ids,
-                                        render_material_bindings,
+                                        render_materials,
                                         render_lightmaps,
                                         skin_uniforms,
                                         morph_indices,
@@ -2622,7 +2622,7 @@ pub fn collect_meshes_for_gpu_building(
                                     entity,
                                     mesh_allocator,
                                     mesh_material_ids,
-                                    render_material_bindings,
+                                    render_materials,
                                     render_lightmaps,
                                     skin_uniforms,
                                     morph_indices,
