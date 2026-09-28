@@ -462,6 +462,9 @@ pub fn ui_layout_system(
                 if node.outline_offset != new_outline_offset {
                     node.outline_offset = new_outline_offset;
                 }
+            } else if node.outline_width != 0. || node.outline_offset != 0. {
+                node.outline_width = 0.;
+                node.outline_offset = 0.;
             }
 
             let new_scrollbar_size =
@@ -531,7 +534,7 @@ mod tests {
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
-    use bevy_math::{Rect, UVec2, Vec2};
+    use bevy_math::{BVec2, Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
     use bevy_text::TextFont;
     use bevy_transform::systems::mark_dirty_trees;
@@ -2412,6 +2415,157 @@ mod tests {
                 .unwrap()
                 .scroll_position,
             Vec2::new(120., 0.)
+        );
+    }
+
+    #[test]
+    fn outlines_relayout_on_outline_remove_and_insert() {
+        let mut app = setup_ui_test_app();
+
+        let entity = app
+            .world_mut()
+            .spawn((
+                Node::default(),
+                Outline {
+                    width: px(10.),
+                    offset: px(5.),
+                    ..default()
+                },
+            ))
+            .id();
+
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 10.);
+        assert_eq!(computed_node.outline_offset(), 5.);
+
+        app.world_mut().entity_mut(entity).remove::<Outline>();
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 0.);
+        assert_eq!(computed_node.outline_offset(), 0.);
+
+        app.world_mut().entity_mut(entity).insert(Outline {
+            width: px(20.),
+            offset: px(10.),
+            ..default()
+        });
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 20.);
+        assert_eq!(computed_node.outline_offset(), 10.);
+    }
+
+    #[test]
+    fn ignore_scroll_relayouts_on_remove_and_insert() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100.),
+                    height: px(100.),
+                    overflow: Overflow::scroll_x(),
+                    ..default()
+                },
+                ScrollPosition(Vec2::new(20., 0.)),
+            ))
+            .id();
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(200.),
+                    height: px(100.),
+                    flex_shrink: 0.,
+                    ..default()
+                },
+                IgnoreScroll(BVec2::new(true, false)),
+                ChildOf(parent),
+            ))
+            .id();
+
+        app.update();
+
+        let initial_x = app
+            .world()
+            .get::<UiGlobalTransform>(child)
+            .unwrap()
+            .translation
+            .x;
+
+        app.world_mut().entity_mut(child).remove::<IgnoreScroll>();
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+                .x,
+            initial_x - 20.
+        );
+
+        app.world_mut()
+            .entity_mut(child)
+            .insert(IgnoreScroll(BVec2::new(true, false)));
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+                .x,
+            initial_x
+        );
+    }
+
+    #[test]
+    fn layout_config_relayouts_on_remove_and_insert() {
+        let mut app = setup_ui_test_app();
+
+        let entity = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(10.5),
+                    height: px(10.5),
+                    ..default()
+                },
+                LayoutConfig {
+                    use_rounding: false,
+                },
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(entity).unwrap().size(),
+            Vec2::splat(10.5)
+        );
+
+        app.world_mut().entity_mut(entity).remove::<LayoutConfig>();
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(entity).unwrap().size(),
+            Vec2::splat(11.)
+        );
+
+        app.world_mut().entity_mut(entity).insert(LayoutConfig {
+            use_rounding: false,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(entity).unwrap().size(),
+            Vec2::splat(10.5)
         );
     }
 

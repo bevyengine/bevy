@@ -1,5 +1,5 @@
 //! A pan-orbit camera controller operates in reference to a selected point (or object) in 3D space:
-//! allowing the user to move the camera around the selected object (orbitting it), moving the perspective
+//! allowing the user to move the camera around the selected object (orbiting it), moving the perspective
 //! of the camera from side to side (panning), and zooming in and out.
 //!
 //! This can be contrasted to a [free camera controller](crate::free_camera),
@@ -96,7 +96,7 @@
 //!
 //! #### 1. Add `bevy_picking`
 //!
-//! The camera controller uses [`bevy_picking`] for pointer interactions. If you already it along
+//! The camera controller uses [`bevy_picking`] for pointer interactions. If you already use it along
 //! with a picking backend, then using this camera controller is essentially free because it can
 //! reuse those same hit tests you are already running.
 //!

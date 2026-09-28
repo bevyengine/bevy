@@ -24,3 +24,6 @@ harness = false
 [[test]]
 name = "remote"
 harness = false
+
+[lints]
+workspace = true

@@ -172,7 +172,10 @@ pub struct SolariLighting {
     ///
     /// Higher values capture indirect light from farther away for more accurate
     /// GI at the cost of longer (more expensive) ray traversal and increased noise.
-    /// Lower values are faster and less noisy but may miss distant lighting.
+    /// Lower values are faster and less noisy but may miss distant lighting or leak sky lighting.
+    ///
+    /// Rays that miss within this distance are treated as reaching the environment
+    /// map light, and leak sky lighting into the cache.
     pub world_cache_max_gi_ray_distance: f32,
 
     /// Soft upper limit on the number of world cache cells to update each frame.
