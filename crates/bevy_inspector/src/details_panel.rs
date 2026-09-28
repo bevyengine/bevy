@@ -1157,8 +1157,9 @@ mod tests {
     use crate::{entity_tree::InspectorTreeView, InspectorPlugin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{AssetApp, AssetPlugin};
-    use bevy_ecs::component::Component;
+    use bevy_ecs::{component::Component, query::With};
     use bevy_platform::sync::Arc;
+    use bevy_reflect::GetPath;
 
     #[derive(Reflect, Debug, Default)]
     struct Nested {
@@ -1447,5 +1448,332 @@ mod tests {
             assert_eq!(node.min_width, px(0));
             assert_eq!(node.flex_shrink, 1.0);
         }
+    }
+
+    #[derive(Reflect, Debug, Clone, PartialEq)]
+    enum Payload {
+        Number(f32),
+        Text(String),
+    }
+
+    impl Default for Payload {
+        fn default() -> Self {
+            Payload::Number(1.0)
+        }
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default)]
+    struct Changing {
+        items: Vec<u32>,
+        maybe: Option<f32>,
+        payload: Payload,
+        lookup: HashMap<String, u32>,
+    }
+
+    #[derive(Component, Reflect, Debug)]
+    #[reflect(Component)]
+    enum Mode {
+        A(f32),
+        B(f32),
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default)]
+    struct Items(Vec<u32>);
+
+    #[derive(Reflect, Debug, Default)]
+    struct Large {
+        unsigned: u64,
+        size: usize,
+    }
+
+    #[derive(Reflect, Debug, Default)]
+    struct Pair(u8, u8);
+
+    #[derive(Reflect, Debug)]
+    enum Shape {
+        Circle { radius: f32 },
+    }
+
+    #[derive(Reflect, Debug)]
+    struct Everything {
+        nested: Nested,
+        wrapper: Wrapper,
+        pair: Pair,
+        tuple: (bool, f32),
+        list: Vec<u32>,
+        array: [u8; 2],
+        map: HashMap<String, u32>,
+        set: HashSet<u32>,
+        option: Option<f32>,
+        shape: Shape,
+    }
+
+    fn inspect<B: bevy_ecs::bundle::Bundle>(app: &mut App, bundle: B) -> Entity {
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        let entity = app.world_mut().spawn(bundle).id();
+        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.update();
+        entity
+    }
+
+    fn refresh(app: &mut App) {
+        app.world_mut()
+            .resource_mut::<DetailsPanelSync>()
+            .set_dirty();
+        app.update();
+    }
+
+    fn tracked_paths(app: &App) -> Vec<String> {
+        let mut paths: Vec<String> = app
+            .world()
+            .resource::<DetailsIndex>()
+            .fields
+            .keys()
+            .map(|(_, path)| path.clone())
+            .collect();
+        paths.sort();
+        paths
+    }
+
+    fn widget_at(app: &App, path: &str) -> Option<Entity> {
+        app.world()
+            .resource::<DetailsIndex>()
+            .fields
+            .iter()
+            .find(|((_, key), _)| key == path)
+            .map(|(_, widget)| widget.entity)
+    }
+
+    /// The label text of every tracked row, read from the row's first child.
+    fn row_labels(app: &App) -> Vec<String> {
+        let world = app.world();
+        world
+            .resource::<DetailsIndex>()
+            .fields
+            .values()
+            .filter_map(|widget| {
+                let mut row = widget.entity;
+                loop {
+                    let parent = world.get::<ChildOf>(row)?.parent();
+                    if world.entity(parent).contains::<InspectorDetailsFields>() {
+                        break;
+                    }
+                    row = parent;
+                }
+                let label = *world.get::<Children>(row)?.first()?;
+                Some(world.get::<Text>(label)?.0.clone())
+            })
+            .collect()
+    }
+
+    fn displayed(value: &FieldValue) -> String {
+        match value {
+            FieldValue::Number(number) => number.to_string(),
+            FieldValue::Text(text) | FieldValue::Label(text) => text.clone(),
+            other => panic!("unexpected value {other:?}"),
+        }
+    }
+
+    #[test]
+    fn removes_rows_that_no_longer_exist() {
+        let mut app = test_app();
+        app.register_type::<Changing>();
+        let subject = inspect(
+            &mut app,
+            Changing {
+                items: alloc::vec![1, 2, 3],
+                maybe: Some(2.0),
+                ..Default::default()
+            },
+        );
+
+        {
+            let mut changing = app.world_mut().get_mut::<Changing>(subject).unwrap();
+            changing.items.truncate(1);
+            changing.maybe = None;
+        }
+        refresh(&mut app);
+
+        let changing = app.world().get::<Changing>(subject).unwrap();
+        let mut expected: Vec<String> = field_entries(changing)
+            .into_iter()
+            .map(|entry| entry.path)
+            .collect();
+        expected.sort();
+        assert_eq!(tracked_paths(&app), expected);
+
+        let rows: usize = app
+            .world_mut()
+            .query_filtered::<&Children, With<InspectorDetailsFields>>()
+            .iter(app.world())
+            .map(|rows| rows.len())
+            .sum();
+        assert_eq!(rows, expected.len());
+    }
+
+    #[test]
+    fn replaces_widgets_when_a_field_changes_kind() {
+        let mut app = test_app();
+        app.register_type::<Changing>();
+        let subject = inspect(&mut app, Changing::default());
+        let before = widget_at(&app, "payload.0").unwrap();
+        assert!(app.world().get::<NumericValue>(before).is_some());
+
+        app.world_mut()
+            .get_mut::<Changing>(subject)
+            .unwrap()
+            .payload = Payload::Text("hello".to_string());
+        refresh(&mut app);
+
+        let after = widget_at(&app, "payload.0").unwrap();
+        assert!(app.world().get::<EditableText>(after).is_some());
+        assert!(app.world().get::<NumericValue>(after).is_none());
+    }
+
+    #[test]
+    fn relabels_rows_when_map_keys_change() {
+        let mut app = test_app();
+        app.register_type::<Changing>();
+        let mut lookup = HashMap::default();
+        lookup.insert("old".to_string(), 1);
+        let subject = inspect(
+            &mut app,
+            Changing {
+                lookup,
+                ..Default::default()
+            },
+        );
+        assert!(row_labels(&app).iter().any(|label| label.contains("old")));
+
+        {
+            let mut changing = app.world_mut().get_mut::<Changing>(subject).unwrap();
+            changing.lookup.clear();
+            changing.lookup.insert("new".to_string(), 1);
+        }
+        refresh(&mut app);
+
+        let labels = row_labels(&app);
+        assert!(
+            labels.iter().any(|label| label.contains("new")),
+            "{labels:?}"
+        );
+        assert!(
+            !labels.iter().any(|label| label.contains("old")),
+            "{labels:?}"
+        );
+    }
+
+    #[test]
+    fn distinguishes_variants_of_an_enum_component() {
+        assert_ne!(field_entries(&Mode::A(1.0)), field_entries(&Mode::B(1.0)));
+    }
+
+    #[test]
+    fn summarizes_a_list_component() {
+        let entries = field_entries(&Items((0..20).collect()));
+
+        assert!(
+            entries.iter().any(
+                |entry| matches!(&entry.value, FieldValue::Label(text) if text.contains("20"))
+            ),
+            "{entries:?}"
+        );
+    }
+
+    #[test]
+    fn does_not_clamp_large_integers() {
+        let entries = field_entries(&Large {
+            unsigned: u64::MAX,
+            size: usize::MAX,
+        });
+
+        assert_eq!(displayed(&entries[0].value), u64::MAX.to_string());
+        assert_eq!(displayed(&entries[1].value), usize::MAX.to_string());
+    }
+
+    #[test]
+    fn field_paths_resolve_to_their_values() {
+        let mut map = HashMap::default();
+        map.insert("key".to_string(), 7);
+        let everything = Everything {
+            nested: Nested { depth: 1 },
+            wrapper: Wrapper(Nested { depth: 2 }),
+            pair: Pair(3, 4),
+            tuple: (true, 5.0),
+            list: alloc::vec![6],
+            array: [8, 9],
+            map,
+            set: [10].into_iter().collect(),
+            option: Some(11.0),
+            shape: Shape::Circle { radius: 12.0 },
+        };
+
+        let mismatches: Vec<String> = field_entries(&everything)
+            .into_iter()
+            .filter_map(|entry| match everything.reflect_path(entry.path.as_str()) {
+                Err(error) => Some(format!("{:?}: {error}", entry.path)),
+                Ok(resolved) => match scalar_value(resolved) {
+                    Some(scalar) if scalar != entry.value => {
+                        Some(format!("{:?}: {scalar:?} != {:?}", entry.path, entry.value))
+                    }
+                    _ => None,
+                },
+            })
+            .collect();
+        assert!(mismatches.is_empty(), "{mismatches:#?}");
+    }
+
+    mod first {
+        use bevy_ecs::{component::Component, reflect::ReflectComponent};
+        use bevy_reflect::Reflect;
+
+        #[derive(Component, Reflect, Debug, Default)]
+        #[reflect(Component)]
+        pub struct Same {
+            pub value: f32,
+        }
+    }
+
+    mod second {
+        use bevy_ecs::{component::Component, reflect::ReflectComponent};
+        use bevy_reflect::Reflect;
+
+        #[derive(Component, Reflect, Debug, Default)]
+        #[reflect(Component)]
+        pub struct Same {
+            pub value: f32,
+        }
+    }
+
+    #[test]
+    fn tracks_components_sharing_a_short_name() {
+        let mut app = test_app();
+        app.register_type::<first::Same>();
+        app.register_type::<second::Same>();
+        inspect(
+            &mut app,
+            (first::Same { value: 1.0 }, second::Same { value: 2.0 }),
+        );
+
+        let values = tracked_paths(&app)
+            .into_iter()
+            .filter(|path| path == "value")
+            .count();
+        assert_eq!(values, 2);
+    }
+
+    #[test]
+    fn clears_a_label_that_becomes_empty() {
+        let mut app = test_app();
+        app.register_type::<Name>();
+        let subject = inspect(&mut app, Name::new("hello"));
+
+        *app.world_mut().get_mut::<Name>(subject).unwrap() = Name::new("");
+        refresh(&mut app);
+
+        let caption = widget_at(&app, "").unwrap();
+        assert_eq!(app.world().get::<Text>(caption).unwrap().0, "");
     }
 }
