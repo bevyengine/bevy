@@ -13,6 +13,11 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      skip_verify:
+        description: "Publish without the dry run. Faster, but nothing checks that the crates build"
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -60,12 +65,14 @@ jobs:
 
       - name: List crates to publish
         id: crates
+        env:
+          SKIP_VERIFY: ${{ inputs.skip_verify }}
         run: |
           crates=$(.github/scripts/unpublished-crates.sh)
           echo "packages=$(echo "$crates" | sed '/^$/d' | sed 's/^/-p /' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
       - name: Package and build (dry run)
-        if: steps.crates.outputs.packages != ''
+        if: steps.crates.outputs.packages != '' && !inputs.skip_verify
         env:
           PACKAGES: ${{ steps.crates.outputs.packages }}
           CARGO_INCREMENTAL: 0
