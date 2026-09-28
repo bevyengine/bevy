@@ -23,7 +23,7 @@ use core::cmp::Ordering;
 /// 1. Their position in the parent-child hierarchy, and then
 /// 2. Their archetype similarity, and then
 /// 3. Their [`Name`] component (if present), and then
-/// 4. Their [`Entity`] value, in [`Entity`]'s [`Ord`](Ord) order
+/// 4. Their [`Entity`] value, in [`Entity`]'s [`Ord'] order
 ///    (ascending generation, then descending index).
 ///
 /// This ensures that children of the same parent are grouped together,
@@ -142,7 +142,7 @@ pub enum GroupingStrategy {
     /// Entities with no [`Name`] component are sorted after named entities,
     /// in [`GroupingStrategy::EntityValue`] order.
     Alphabetical,
-    /// Group by the [`Entity`] value, in [`Entity`]'s [`Ord`](Ord) order:
+    /// Group by the [`Entity`] value, in [`Entity`]'s [`Ord'] order:
     /// first by ascending generation, then by descending index (highest index first).
     ///
     /// This is not strictly creation order.
@@ -313,7 +313,7 @@ impl Ord for NameKey {
 /// A human-friendly ordering over an [`Entity`]: primarily by [`Name`], then by entity value.
 ///
 /// Named entities sort before unnamed ones, and named entities are compared case-insensitively;
-/// ties fall through to the entity, in [`Entity`]'s [`Ord`](Ord) order
+/// ties fall through to the entity, in [`Entity`]'s [`Ord'] order
 /// (ascending generation, then descending index; see [`GroupingStrategy::EntityValue`]).
 ///
 /// This is the ordering used by [`GroupingStrategy::Alphabetical`], which is then used to resolve ties
@@ -342,7 +342,7 @@ impl NameEntityKey {
 /// and each entity's sub-tree stays contiguous.
 /// Within each set of siblings (the roots, or the children of the same parent),
 /// entities are clustered by archetype similarity.
-/// Within an archetype, entities are ordered by [`Name`], then by [`Entity`]'s [`Ord`](Ord) order.
+/// Within an archetype, entities are ordered by [`Name`], then by [`Entity`]'s [`Ord'] order.
 ///
 /// As with [`hierarchy_group`], cycles or malformed hierarchies are guarded against;
 /// entities involved in cycles may be omitted if no acyclic root exists.
@@ -432,7 +432,7 @@ fn build_compound_subtree(
 }
 
 /// Sorts the entities of a single archetype by their [`NameEntityKey`]:
-/// first by name (alphabetically, case-insensitive), then by [`Entity`]'s [`Ord`](Ord) order.
+/// first by name (alphabetically, case-insensitive), then by [`Entity`]'s [`Ord'] order.
 ///
 /// This is the standard tie-breaker sort for this module;
 /// see [`NameEntityKey`] for details and [`sorted_alive_by`] for deduplication and alive filtering
