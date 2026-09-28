@@ -12,6 +12,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_platform::collections::{HashMap, HashSet};
+use core::cmp::Ordering;
 
 /// A tree-like grouping of entities based on their components.
 ///
@@ -267,30 +268,44 @@ fn generate_grouping_tree(
     Some(tree)
 }
 
-/// A [`Name`]-based portion of a [`NameEntityKey`]: named entities sort before unnamed ones,
+/// The [`Name`]-based portion of a [`NameEntityKey`]: named entities sort before unnamed ones,
 /// and named entities are compared case-insensitively.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+///
+/// Note that the derived [`Ord`] impl for [`Option`] would place unnamed entities
+/// ([`None`]) first, so the manual [`Ord`] impl here deliberately reverses it:
+/// named entities are sorted before unnamed ones.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NameKey {
-    /// Whether the entity has no [`Name`]. `false` (named) sorts before `true` (unnamed).
-    pub is_unnamed: bool,
-    /// The lowercased [`Name`], or an empty string when the entity is unnamed.
+    /// The lowercased [`Name`], or [`None`] when the entity is unnamed.
     // PERF: we could probably make this faster by avoiding allocations here,
     // using something like `atomicow`.
-    pub name: String,
+    pub name: Option<String>,
 }
 
 impl NameKey {
     /// Generate a [`NameKey`] from an [`Entity`].
     pub fn new(world: &World, entity: Entity) -> Self {
-        match world.get::<Name>(entity) {
-            Some(name) => NameKey {
-                is_unnamed: false,
-                name: name.as_str().to_lowercase(),
-            },
-            None => NameKey {
-                is_unnamed: true,
-                name: String::new(),
-            },
+        NameKey {
+            name: world
+                .get::<Name>(entity)
+                .map(|name| name.as_str().to_lowercase()),
+        }
+    }
+}
+
+impl PartialOrd for NameKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for NameKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (&self.name, &other.name) {
+            (Some(name), Some(other_name)) => name.cmp(other_name),
+            (Some(_), None) => Ordering::Less,
+            (None, Some(_)) => Ordering::Greater,
+            (None, None) => Ordering::Equal,
         }
     }
 }
@@ -301,8 +316,8 @@ impl NameKey {
 /// ties fall through to the entity, in [`Entity`]'s [`Ord`](Ord) order
 /// (ascending generation, then descending index; see [`GroupingStrategy::EntityValue`]).
 ///
-/// This is the ordering used by [`GroupingStrategy::Alphabetical`], and it underpins the sibling
-/// ordering of both [`GroupingStrategy::Hierarchy`] and [`GroupingStrategy::Compound`].
+/// This is the ordering used by [`GroupingStrategy::Alphabetical`], which is then used to resolve ties
+/// in both [`GroupingStrategy::Hierarchy`] and [`GroupingStrategy::Compound`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NameEntityKey {
     /// The [`Name`]-based component.
