@@ -3149,6 +3149,95 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         remaining_matched + self.current_len - self.current_row
     }
 
+    /// # Safety
+    ///
+    /// - `self` must use dense iteration
+    /// - `tables` must belong to the same world that the [`QueryIterationCursor`] was initialized for.
+    /// - `query_state` must be the same [`QueryState`] that was passed to `init` or `init_empty`.
+    /// - If `D` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
+    /// - If `D` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
+    #[inline(always)]
+    unsafe fn fetch_next_table(
+        &mut self,
+        tables: &'w Tables,
+        query_state: &'s QueryState<D, F>,
+    ) -> Option<()> {
+        loop {
+            let table_id = self.storage_id_iter.next()?.table_id;
+            let table = tables.get(table_id).debug_checked_unwrap();
+            if table.is_empty() {
+                continue;
+            }
+            // SAFETY: `table` is from the world that `filter` was created for,
+            // `filter_state` is the state that `filter` was initialized with.
+            unsafe { F::set_table(&mut self.filter, &query_state.filter_state, table) }
+
+            // SAFETY: set_table was called prior.
+            let fetched_table =
+                unsafe { F::filter_table(&query_state.filter_state, &mut self.filter) };
+            if !fetched_table {
+                continue;
+            }
+
+            // SAFETY: `table` is from the world that `fetch` was created for,
+            // `fetch_state` is the state that `fetch` was initialized with.
+            unsafe { D::set_table(&mut self.fetch, &query_state.fetch_state, table) }
+
+            self.table_entities = table.entities();
+            self.current_len = table.entity_count();
+            self.current_row = 0;
+
+            return Some(());
+        }
+    }
+
+    /// # Safety
+    ///
+    /// - `self` must use archetype/sparse iteration
+    /// - `archetypes` must belong to the same world that the [`QueryIterationCursor`] was initialized for.
+    /// - `query_state` must be the same [`QueryState`] that was passed to `init` or `init_empty`.
+    /// - If `D` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
+    /// - If `D` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
+    #[inline(always)]
+    unsafe fn fetch_next_archetype(
+        &mut self,
+        tables: &'w Tables,
+        archetypes: &'w Archetypes,
+        query_state: &'s QueryState<D, F>,
+    ) -> Option<()> {
+        loop {
+            let archetype_id = self.storage_id_iter.next()?.archetype_id;
+            let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
+            if archetype.is_empty() {
+                continue;
+            }
+            let table = tables.get(archetype.table_id()).debug_checked_unwrap();
+
+            // SAFETY: `archetype` and `tables` are from the world that `fetch` was created for,
+            // `fetch_state` is the state that `fetch` was initialized with.
+            unsafe {
+                D::set_archetype(&mut self.fetch, &query_state.fetch_state, archetype, table);
+            }
+
+            // SAFETY: `archetype` and `tables` are from the world that `filter` was created for.
+            // `filter_state` is the state that `filter` was initialized with.
+            unsafe {
+                F::set_archetype(
+                    &mut self.filter,
+                    &query_state.filter_state,
+                    archetype,
+                    table,
+                );
+            }
+
+            self.archetype_entities = archetype.entities();
+            self.current_len = archetype.len();
+            self.current_row = 0;
+
+            return Some(());
+        }
+    }
+
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
     // QueryIter, QueryIterationCursor, QuerySortedIter, QueryManyIter, QuerySortedManyIter, QueryCombinationIter,
     // QueryState::par_fold_init_unchecked_manual, QueryState::par_many_fold_init_unchecked_manual,
@@ -3173,34 +3262,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {
                     core::hint::cold_path();
-
-                    'next_table: loop {
-                        let table_id = self.storage_id_iter.next()?.table_id;
-                        let table = tables.get(table_id).debug_checked_unwrap();
-                        if table.is_empty() {
-                            continue 'next_table;
-                        }
-                        // SAFETY: `table` is from the world that `filter` was created for,
-                        // `filter_state` is the state that `filter` was initialized with.
-                        unsafe { F::set_table(&mut self.filter, &query_state.filter_state, table) }
-
-                        // SAFETY: set_table was called prior.
-                        let fetched_table =
-                            unsafe { F::filter_table(&query_state.filter_state, &mut self.filter) };
-                        if !fetched_table {
-                            continue 'next_table;
-                        }
-
-                        // SAFETY: `table` is from the world that `fetch` was created for,
-                        // `fetch_state` is the state that `fetch` was initialized with.
-                        unsafe { D::set_table(&mut self.fetch, &query_state.fetch_state, table) }
-
-                        self.table_entities = table.entities();
-                        self.current_len = table.entity_count();
-                        self.current_row = 0;
-
-                        break 'next_table;
-                    }
+                    self.fetch_next_table(tables, query_state)?;
                 }
 
                 // SAFETY: set_table was called prior.
@@ -3231,43 +3293,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             loop {
                 if self.current_row == self.current_len {
                     core::hint::cold_path();
-
-                    'next_archetype: loop {
-                        let archetype_id = self.storage_id_iter.next()?.archetype_id;
-                        let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
-                        if archetype.is_empty() {
-                            continue 'next_archetype;
-                        }
-                        let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-
-                        // SAFETY: `archetype` and `tables` are from the world that `fetch` was created for,
-                        // `fetch_state` is the state that `fetch` was initialized with.
-                        unsafe {
-                            D::set_archetype(
-                                &mut self.fetch,
-                                &query_state.fetch_state,
-                                archetype,
-                                table,
-                            );
-                        }
-
-                        // SAFETY: `archetype` and `tables` are from the world that `filter` was created for.
-                        // `filter_state` is the state that `filter` was initialized with.
-                        unsafe {
-                            F::set_archetype(
-                                &mut self.filter,
-                                &query_state.filter_state,
-                                archetype,
-                                table,
-                            );
-                        }
-
-                        self.archetype_entities = archetype.entities();
-                        self.current_len = archetype.len();
-                        self.current_row = 0;
-
-                        break 'next_archetype;
-                    }
+                    self.fetch_next_archetype(tables, archetypes, query_state)?;
                 }
 
                 // SAFETY: set_archetype was called prior.
