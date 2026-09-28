@@ -44,10 +44,13 @@ pub enum InspectorSource {
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
 pub struct InspectorSelection(pub Option<Entity>);
 
-/// The short name of a component type, taken from the type registry where possible.
+/// The [`ShortName`] of a component type, taken from the type registry where possible.
 ///
-/// `ComponentInfo::name` is only populated when the `debug` feature of `bevy_utils` is enabled,
-/// so the registered type path is preferred.
+/// [`ComponentInfo::name`] is only populated when the `debug` feature of `bevy_utils` is enabled,
+/// so the registered type path is preferred. Different components can share a short name, so it
+/// is only used for display.
+///
+/// [`ShortName`]: bevy_utils::prelude::ShortName
 pub(crate) fn component_short_name(world: &World, component_id: ComponentId) -> String {
     let Some(info) = world.components().get_info(component_id) else {
         return component_id.index().to_string();

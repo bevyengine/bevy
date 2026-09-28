@@ -13,11 +13,12 @@ use bevy_dev_tools::inspection::{
     extension_methods::WorldInspectionExtensionTrait,
 };
 use bevy_ecs::{
-    component::Component,
+    component::{Component, ComponentId},
     entity::Entity,
     hierarchy::{ChildOf, Children},
     name::Name,
     observer::On,
+    query::With,
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Query, ResMut},
@@ -79,12 +80,12 @@ pub struct InspectorDetailsBody;
 #[reflect(Component, Debug, Default, Clone)]
 pub struct InspectorDetailsFields;
 
-/// The short name of the component a group header belongs to.
-#[derive(Component, Debug, Default, Clone, Reflect)]
-#[reflect(Component, Debug, Default, Clone)]
-pub struct InspectorDetailsComponent(pub String);
+/// The [`ComponentId`] of the component a group header belongs to.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component, Debug, Clone)]
+pub struct InspectorDetailsComponent(pub ComponentId);
 
-/// The kind of widget a field value is rendered with.
+/// The kind of widget a field value is rendered with, as returned by [`FieldValue::kind`].
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, Default, Clone, PartialEq)]
 pub enum FieldKind {
@@ -104,6 +105,8 @@ pub enum FieldKind {
 }
 
 /// The value of a field, in the form the panel renders it.
+///
+/// [`FieldValue::kind`] gives the matching [`FieldKind`].
 #[derive(Debug, Clone, PartialEq)]
 pub enum FieldValue {
     /// A boolean value.
@@ -126,7 +129,7 @@ pub enum FieldValue {
 }
 
 impl FieldValue {
-    /// The kind of widget this value is rendered with.
+    /// The [`FieldKind`] of widget this value is rendered with.
     pub fn kind(&self) -> FieldKind {
         match self {
             FieldValue::Bool(_) => FieldKind::Bool,
@@ -163,27 +166,88 @@ struct FieldWidget {
 /// A component of the inspected entity, with its fields flattened into rows.
 #[derive(Debug, Clone)]
 struct ComponentDetails {
+    id: ComponentId,
+    /// The name shown in the group header, a [`ShortName`] of the component type.
     name: String,
     memory: String,
     fields: Vec<FieldEntry>,
 }
 
-/// Maps the fields shown by the details panel to the widgets displaying them.
+/// The group spawned for one component, whether its fields were spawned, and the rows they were
+/// spawned for.
+#[derive(Debug, Clone)]
+struct GroupWidget {
+    entity: Entity,
+    expanded: bool,
+    layout: Vec<RowLayout>,
+}
+
+/// The parts of a field row that decide which widgets it is spawned with.
+#[derive(Debug, Clone, PartialEq)]
+struct RowLayout {
+    path: String,
+    label: String,
+    depth: usize,
+    kind: FieldKind,
+}
+
+impl RowLayout {
+    fn new(entry: &FieldEntry) -> Self {
+        Self {
+            path: entry.path.clone(),
+            label: entry.label.clone(),
+            depth: entry.depth,
+            kind: entry.value.kind(),
+        }
+    }
+
+    fn matches(&self, entry: &FieldEntry) -> bool {
+        self.path == entry.path
+            && self.label == entry.label
+            && self.depth == entry.depth
+            && self.kind == entry.value.kind()
+    }
+}
+
+/// Why the details panel shows a message instead of component groups.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EmptyState {
+    NoSelection,
+    Despawned,
+    NoComponents,
+}
+
+impl EmptyState {
+    fn message(self) -> &'static str {
+        match self {
+            EmptyState::NoSelection => "No entity selected",
+            EmptyState::Despawned => "The selected entity no longer exists",
+            EmptyState::NoComponents => "The selected entity has no components",
+        }
+    }
+}
+
+/// Maps the components and fields shown by the details panel to the widgets displaying them.
 #[derive(Resource, Debug, Default)]
 pub struct DetailsIndex {
-    fields: HashMap<(String, String), FieldWidget>,
+    fields: HashMap<(ComponentId, String), FieldWidget>,
+    groups: HashMap<ComponentId, GroupWidget>,
     body: Option<Entity>,
     selection: Option<Entity>,
-    signature: Vec<String>,
-    collapsed: Vec<String>,
+    empty: Option<EmptyState>,
 }
 
 impl DetailsIndex {
     /// The widget displaying the field at `path` of `component`, if one exists.
-    pub fn widget(&self, component: &str, path: &str) -> Option<Entity> {
+    pub fn widget(&self, component: ComponentId, path: &str) -> Option<Entity> {
         self.fields
-            .get(&(component.to_string(), path.to_string()))
+            .get(&(component, path.to_string()))
             .map(|widget| widget.entity)
+    }
+
+    /// The group entity of `component`, if one is shown.
+    pub(crate) fn group(&self, component: ComponentId) -> Option<Entity> {
+        self.groups.get(&component).map(|group| group.entity)
     }
 
     /// The number of fields currently tracked.
@@ -197,10 +261,10 @@ impl DetailsIndex {
     }
 }
 
-/// The components whose field lists are collapsed, by short name.
+/// The components whose field lists are collapsed.
 #[derive(Resource, Debug, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
-pub struct DetailsCollapsed(pub HashSet<String>);
+pub struct DetailsCollapsed(pub HashSet<ComponentId>);
 
 /// Pacing of the details panel synchronization pass.
 #[derive(Resource, Debug)]
@@ -231,7 +295,7 @@ pub fn details_panel() -> impl Scene {
         @subpane()
         Node {
             width: px(320),
-            height: percent(100),
+            max_height: percent(100),
         }
         Children [
             @subpane_header() Children [
@@ -246,7 +310,6 @@ pub fn details_panel() -> impl Scene {
                     right: px(14),
                     bottom: px(6),
                 },
-                flex_grow: 1.0,
                 min_height: px(0),
             }
             ScrollbarGutter(px(14))
@@ -292,12 +355,15 @@ pub fn inspector_details_toggled(
     if change.value {
         collapsed.0.remove(&component.0);
     } else {
-        collapsed.0.insert(component.0.clone());
+        collapsed.0.insert(component.0);
     }
     sync.set_dirty();
 }
 
 /// Rebuilds or refreshes the details panel so that it matches the selected entity.
+///
+/// Only the groups of components that were added, removed, collapsed or expanded are respawned.
+/// The whole panel is rebuilt when the selection changes.
 pub fn sync_details_panel(world: &mut World) {
     let delta = world
         .get_resource::<Time>()
@@ -321,36 +387,23 @@ pub fn sync_details_panel(world: &mut World) {
     };
 
     let components = inspect_components(world, selection);
-    let signature: Vec<String> = components
-        .iter()
-        .map(|component| component.name.clone())
-        .collect();
-    let mut collapsed: Vec<String> = world
-        .resource::<DetailsCollapsed>()
-        .0
-        .iter()
-        .cloned()
-        .collect();
-    collapsed.sort_unstable();
+    let empty = empty_state(world, selection, &components);
 
     let index = world.resource::<DetailsIndex>();
-    let rebuild = selection_changed
-        || index.body != Some(body)
-        || index.signature != signature
-        || index.collapsed != collapsed;
-
-    if !rebuild && update_in_place(world, &components) {
-        return;
+    if selection_changed || index.body != Some(body) || index.empty != empty {
+        reset_body(world, body, selection, empty);
     }
-
-    rebuild_body(world, body, selection, &components, signature, collapsed);
+    if empty.is_none() {
+        sync_groups(world, body, &components);
+    }
 }
 
+/// The body of the details panel, found through its [`InspectorDetailsBody`] marker.
 fn find_body(world: &mut World) -> Option<Entity> {
     world
-        .iter_entities()
-        .find(bevy_ecs::world::EntityRef::contains::<InspectorDetailsBody>)
-        .map(|entity| entity.id())
+        .query_filtered::<Entity, With<InspectorDetailsBody>>()
+        .iter(world)
+        .next()
 }
 
 fn inspect_components(world: &World, selection: Option<Entity>) -> Vec<ComponentDetails> {
@@ -375,6 +428,7 @@ fn inspect_components(world: &World, selection: Option<Entity>) -> Vec<Component
         .unwrap_or_default()
         .iter()
         .map(|component| ComponentDetails {
+            id: component.component_id,
             name: crate::component_short_name(world, component.component_id),
             memory: component.memory_size.to_string(),
             fields: component
@@ -384,31 +438,129 @@ fn inspect_components(world: &World, selection: Option<Entity>) -> Vec<Component
                 .unwrap_or_default(),
         })
         .collect();
-    components.sort_by(|left, right| left.name.cmp(&right.name));
+    components.sort_by(|left, right| (&left.name, left.id).cmp(&(&right.name, right.id)));
     components
 }
 
-fn update_in_place(world: &mut World, components: &[ComponentDetails]) -> bool {
+/// The message to show instead of component groups, or `None` if there are groups to show.
+fn empty_state(
+    world: &World,
+    selection: Option<Entity>,
+    components: &[ComponentDetails],
+) -> Option<EmptyState> {
+    match selection {
+        None => Some(EmptyState::NoSelection),
+        Some(entity) if world.get_entity(entity).is_err() => Some(EmptyState::Despawned),
+        Some(_) if components.is_empty() => Some(EmptyState::NoComponents),
+        Some(_) => None,
+    }
+}
+
+/// Clears the panel body, showing the message for `empty` if there is one.
+fn reset_body(
+    world: &mut World,
+    body: Entity,
+    selection: Option<Entity>,
+    empty: Option<EmptyState>,
+) {
+    let children: Vec<Entity> = world
+        .get::<Children>(body)
+        .map(|children| children.iter().copied().collect())
+        .unwrap_or_default();
+    for child in children {
+        if let Ok(child) = world.get_entity_mut(child) {
+            child.despawn();
+        }
+    }
+
+    if let Some(empty) = empty {
+        spawn_child_scene(world, body, caption(empty.message()));
+    }
+
+    *world.resource_mut::<DetailsIndex>() = DetailsIndex {
+        body: Some(body),
+        selection,
+        empty,
+        ..Default::default()
+    };
+}
+
+/// Brings the component groups in line with `components`, which is sorted in display order.
+///
+/// Groups of removed components, and groups whose collapsed state or field layout changed, are
+/// respawned or despawned. The remaining groups have their widget values updated in place.
+fn sync_groups(world: &mut World, body: Entity, components: &[ComponentDetails]) {
+    let collapsed = world.resource::<DetailsCollapsed>().0.clone();
+    let present: HashSet<ComponentId> = components.iter().map(|component| component.id).collect();
+    let stale: Vec<ComponentId> = world
+        .resource::<DetailsIndex>()
+        .groups
+        .iter()
+        .filter(|(id, group)| !present.contains(*id) || group.expanded == collapsed.contains(*id))
+        .map(|(id, _)| *id)
+        .collect();
+
+    let mut reordered = !stale.is_empty();
+    for id in stale {
+        despawn_group(world, id);
+    }
+
+    for component in components {
+        if world
+            .resource::<DetailsIndex>()
+            .groups
+            .contains_key(&component.id)
+        {
+            if update_in_place(world, component) {
+                continue;
+            }
+            despawn_group(world, component.id);
+        }
+        let expanded = !collapsed.contains(&component.id);
+        spawn_group(world, body, component, expanded);
+        reordered = true;
+    }
+
+    if reordered {
+        order_groups(world, body, components);
+    }
+}
+
+/// Writes the current field values of `component` into its existing widgets.
+///
+/// Returns `false`, leaving every widget untouched, if rows were added, removed, relabeled or
+/// changed kind, and the group must be respawned instead.
+fn update_in_place(world: &mut World, component: &ComponentDetails) -> bool {
     let mut updates = Vec::new();
     {
         let index = world.resource::<DetailsIndex>();
-        for component in components {
-            if index.collapsed.contains(&component.name) {
+        let Some(group) = index.groups.get(&component.id) else {
+            return false;
+        };
+        if !group.expanded {
+            return true;
+        }
+        if group.layout.len() != component.fields.len()
+            || !group
+                .layout
+                .iter()
+                .zip(&component.fields)
+                .all(|(row, entry)| row.matches(entry))
+        {
+            return false;
+        }
+        for entry in &component.fields {
+            let key = (component.id, entry.path.clone());
+            let Some(widget) = index.fields.get(&key) else {
+                return false;
+            };
+            if widget.value == entry.value {
                 continue;
             }
-            for entry in &component.fields {
-                let key = (component.name.clone(), entry.path.clone());
-                let Some(widget) = index.fields.get(&key) else {
-                    return false;
-                };
-                if widget.value == entry.value {
-                    continue;
-                }
-                if matches!(entry.value, FieldValue::Variant { .. }) {
-                    return false;
-                }
-                updates.push((key, widget.clone(), entry.value.clone()));
+            if matches!(entry.value, FieldValue::Variant { .. }) {
+                return false;
             }
+            updates.push((key, widget.clone(), entry.value.clone()));
         }
     }
 
@@ -421,47 +573,34 @@ fn update_in_place(world: &mut World, components: &[ComponentDetails]) -> bool {
     true
 }
 
-fn rebuild_body(
-    world: &mut World,
-    body: Entity,
-    selection: Option<Entity>,
-    components: &[ComponentDetails],
-    signature: Vec<String>,
-    collapsed: Vec<String>,
-) {
-    let children: Vec<Entity> = world
-        .get::<Children>(body)
-        .map(|children| children.iter().copied().collect())
-        .unwrap_or_default();
-    for child in children {
-        despawn_leaves_first(world, child);
-    }
-
-    let mut fields = HashMap::new();
-    if components.is_empty() {
-        spawn_child_scene(world, body, caption("No entity selected"));
-    } else {
-        for component in components {
-            let expanded = !collapsed.contains(&component.name);
-            spawn_group(world, body, component, expanded, &mut fields);
-        }
-    }
-
+/// Despawns the group of `component` and forgets its field widgets.
+fn despawn_group(world: &mut World, component: ComponentId) {
     let mut index = world.resource_mut::<DetailsIndex>();
-    index.fields = fields;
-    index.body = Some(body);
-    index.selection = selection;
-    index.signature = signature;
-    index.collapsed = collapsed;
+    let group = index.groups.remove(&component);
+    index.fields.retain(|(id, _), _| *id != component);
+    if let Some(group) = group
+        && let Ok(entity) = world.get_entity_mut(group.entity)
+    {
+        entity.despawn();
+    }
 }
 
-fn spawn_group(
-    world: &mut World,
-    body: Entity,
-    component: &ComponentDetails,
-    expanded: bool,
-    fields: &mut HashMap<(String, String), FieldWidget>,
-) {
+/// Sorts the children of the panel body so that the groups follow the order of `components`.
+fn order_groups(world: &mut World, body: Entity, components: &[ComponentDetails]) {
+    let index = world.resource::<DetailsIndex>();
+    let order: HashMap<Entity, usize> = components
+        .iter()
+        .enumerate()
+        .filter_map(|(position, component)| Some((index.group(component.id)?, position)))
+        .collect();
+    if let Some(mut children) = world.get_mut::<Children>(body) {
+        children.sort_by_key(|child| order.get(child).copied().unwrap_or(usize::MAX));
+    }
+}
+
+/// Spawns the group of `component` at the end of the panel body, with its field rows if
+/// `expanded` is set.
+fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, expanded: bool) {
     let Some(group) = spawn_child_scene(
         world,
         body,
@@ -469,10 +608,18 @@ fn spawn_group(
     ) else {
         return;
     };
+    world.resource_mut::<DetailsIndex>().groups.insert(
+        component.id,
+        GroupWidget {
+            entity: group,
+            expanded,
+            layout: component.fields.iter().map(RowLayout::new).collect(),
+        },
+    );
 
     if let Some(toggle) = descendant_with::<FeathersDisclosureToggle>(world, group) {
         let mut toggle = world.entity_mut(toggle);
-        toggle.insert(InspectorDetailsComponent(component.name.clone()));
+        toggle.insert(InspectorDetailsComponent(component.id));
         if expanded {
             toggle.insert(Checked);
         }
@@ -488,7 +635,10 @@ fn spawn_group(
 
     for entry in &component.fields {
         if let Some(widget) = spawn_field_row(world, container, entry) {
-            fields.insert((component.name.clone(), entry.path.clone()), widget);
+            world
+                .resource_mut::<DetailsIndex>()
+                .fields
+                .insert((component.id, entry.path.clone()), widget);
         }
     }
 }
@@ -709,6 +859,9 @@ fn spawn_value_caption(world: &mut World, row: Entity, text: String) -> Option<E
     Some(entity)
 }
 
+/// Shows `value` in the widgets of `widget`.
+///
+/// Variant selects are left untouched, since a changed variant respawns its group instead.
 fn apply_value(world: &mut World, widget: &FieldWidget, value: &FieldValue) {
     match value {
         FieldValue::Bool(checked) => {
@@ -736,29 +889,30 @@ fn apply_value(world: &mut World, widget: &FieldWidget, value: &FieldValue) {
             if let Ok(mut entity) = world.get_entity_mut(widget.entity) {
                 entity.insert(ColorSwatchValue(*color));
             }
-            set_text(world, widget.text, color_text(*color));
+            set_text(world, widget.text, color_to_hex(*color));
         }
         FieldValue::Variant { .. } => {}
-        FieldValue::Label(text) if text.is_empty() => {}
         FieldValue::Label(text) => set_text(world, Some(widget.entity), text.clone()),
     }
 }
 
+/// Replaces the [`Text`] of `entity` with `value`, unless it already shows `value`.
 fn set_text(world: &mut World, entity: Option<Entity>, value: String) {
-    let Some(entity) = entity else {
+    let Some(mut text) = entity.and_then(|entity| world.get_mut::<Text>(entity)) else {
         return;
     };
-    if let Some(mut text) = world.get_mut::<Text>(entity)
-        && text.0 != value
-    {
-        text.0 = value;
+    if text.0 == value {
+        return;
     }
+    text.0 = value;
 }
 
-fn color_text(color: Color) -> String {
+/// The sRGB hexadecimal code of `color`, such as `#FF8000`.
+fn color_to_hex(color: Color) -> String {
     Srgba::from(color).to_hex()
 }
 
+/// Spawns `scene` as the last child of `parent`, logging a warning if it fails to spawn.
 fn spawn_child_scene(world: &mut World, parent: Entity, scene: impl Scene) -> Option<Entity> {
     match world.spawn_scene(scene) {
         Ok(mut entity) => {
@@ -772,31 +926,10 @@ fn spawn_child_scene(world: &mut World, parent: Entity, scene: impl Scene) -> Op
     }
 }
 
-/// Despawns a subtree from its leaves upwards.
+/// The first strict descendant of `root` that has a `C` component.
 ///
-/// Widgets whose removal observers reach for a descendant, such as the feathers number input,
-/// queue commands for entities the recursive despawn is about to remove; despawning the leaves
-/// first leaves those observers with nothing to find.
-fn despawn_leaves_first(world: &mut World, root: Entity) {
-    let mut order = Vec::new();
-    let mut stack = alloc::vec![root];
-    while let Some(entity) = stack.pop() {
-        let Ok(entity_ref) = world.get_entity(entity) else {
-            continue;
-        };
-        if let Some(children) = entity_ref.get::<Children>() {
-            stack.extend(children.iter().copied());
-        }
-        order.push(entity);
-    }
-
-    for entity in order.into_iter().rev() {
-        if let Ok(entity) = world.get_entity_mut(entity) {
-            entity.despawn();
-        }
-    }
-}
-
+/// Descendants are visited depth first in child order, so a child and its own descendants are
+/// searched before the next sibling. `root` itself is never returned.
 fn descendant_with<C: Component>(world: &World, root: Entity) -> Option<Entity> {
     let mut stack = alloc::vec![root];
     while let Some(entity) = stack.pop() {
@@ -807,7 +940,7 @@ fn descendant_with<C: Component>(world: &World, root: Entity) -> Option<Entity> 
             return Some(entity);
         }
         if let Some(children) = entity_ref.get::<Children>() {
-            stack.extend(children.iter().copied());
+            stack.extend(children.iter().rev().copied());
         }
     }
     None
@@ -825,7 +958,7 @@ pub fn field_entries(value: &dyn PartialReflect) -> Vec<FieldEntry> {
         });
         return entries;
     }
-    let (value, path) = unwrap_newtype(value, String::new());
+    let (value, path) = flatten_newtypes(value, String::new());
     if let Some(scalar) = scalar_value(value) {
         entries.push(FieldEntry {
             path,
@@ -833,7 +966,15 @@ pub fn field_entries(value: &dyn PartialReflect) -> Vec<FieldEntry> {
             depth: 0,
             value: scalar,
         });
-    } else if summary(value).is_some() {
+    } else if let Some(summary) = summary(value) {
+        if !summary.is_empty() {
+            entries.push(FieldEntry {
+                path: path.clone(),
+                label: "value".to_string(),
+                depth: 0,
+                value: FieldValue::Label(summary),
+            });
+        }
         walk_children(value, &path, 0, &mut entries);
     } else {
         entries.push(FieldEntry {
@@ -853,7 +994,7 @@ fn walk(
     depth: usize,
     out: &mut Vec<FieldEntry>,
 ) {
-    let (value, path) = unwrap_newtype(value, path);
+    let (value, path) = flatten_newtypes(value, path);
 
     if depth >= MAX_DEPTH {
         out.push(FieldEntry {
@@ -894,8 +1035,10 @@ fn walk(
     walk_children(value, &path, depth + 1, out);
 }
 
-/// Unwraps single-field tuple structs so that newtypes do not add a nesting level of their own.
-fn unwrap_newtype(value: &dyn PartialReflect, mut path: String) -> (&dyn PartialReflect, String) {
+/// Follows single-field tuple structs down to their inner value, returning it and its path.
+///
+/// This keeps newtypes from adding a nesting level of their own.
+fn flatten_newtypes(value: &dyn PartialReflect, mut path: String) -> (&dyn PartialReflect, String) {
     let mut value = value;
     while let ReflectRef::TupleStruct(tuple) = value.reflect_ref() {
         if tuple.field_len() != 1 {
@@ -1114,8 +1257,10 @@ fn integer_value(value: &dyn PartialReflect) -> Option<FieldValue> {
         ($($type:ty),*) => {
             $(
                 if let Some(value) = value.try_downcast_ref::<$type>() {
-                    let value = i64::try_from(*value).unwrap_or(i64::MAX);
-                    return Some(FieldValue::Number(NumericValue::I64(value)));
+                    return Some(match i64::try_from(*value) {
+                        Ok(value) => FieldValue::Number(NumericValue::I64(value)),
+                        Err(_) => FieldValue::Label(value.to_string()),
+                    });
                 }
             )*
         };
@@ -1192,6 +1337,43 @@ mod tests {
         nested: Nested,
         values: Vec<u32>,
     }
+
+    mod first {
+        use bevy_ecs::{component::Component, reflect::ReflectComponent};
+        use bevy_reflect::{prelude::ReflectDefault, Reflect};
+
+        #[derive(Component, Reflect, Debug, Default)]
+        #[reflect(Component, Default)]
+        pub struct Duplicate {
+            pub first: f32,
+        }
+
+        #[derive(Component, Reflect, Debug, Default)]
+        #[reflect(Component)]
+        pub struct Same {
+            pub value: f32,
+        }
+    }
+
+    mod second {
+        use bevy_ecs::{component::Component, reflect::ReflectComponent};
+        use bevy_reflect::{prelude::ReflectDefault, Reflect};
+
+        #[derive(Component, Reflect, Debug, Default)]
+        #[reflect(Component, Default)]
+        pub struct Duplicate {
+            pub second: bool,
+        }
+
+        #[derive(Component, Reflect, Debug, Default)]
+        #[reflect(Component)]
+        pub struct Same {
+            pub value: f32,
+        }
+    }
+
+    #[derive(Component)]
+    struct Marker;
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -1376,10 +1558,10 @@ mod tests {
         app.world_mut().resource_mut::<InspectorSelection>().0 = Some(subject);
         app.update();
 
+        let component = app.world().component_id::<Subject>().unwrap();
         let index = app.world().resource::<DetailsIndex>();
-        let component = index.fields.keys().next().unwrap().0.clone();
-        let scale = index.widget(&component, "scale").unwrap();
-        let enabled = index.widget(&component, "enabled").unwrap();
+        let scale = index.widget(component, "scale").unwrap();
+        let enabled = index.widget(component, "enabled").unwrap();
         assert_eq!(
             app.world().get::<NumericValue>(scale),
             Some(&NumericValue::F32(1.0))
@@ -1392,8 +1574,8 @@ mod tests {
         app.update();
 
         let index = app.world().resource::<DetailsIndex>();
-        assert_eq!(index.widget(&component, "scale"), Some(scale));
-        assert_eq!(index.widget(&component, "enabled"), Some(enabled));
+        assert_eq!(index.widget(component, "scale"), Some(scale));
+        assert_eq!(index.widget(component, "enabled"), Some(enabled));
         assert_eq!(
             app.world().get::<NumericValue>(scale),
             Some(&NumericValue::F32(4.0))
@@ -1504,10 +1686,14 @@ mod tests {
         tuple: (bool, f32),
         list: Vec<u32>,
         array: [u8; 2],
-        map: HashMap<String, u32>,
-        set: HashSet<u32>,
         option: Option<f32>,
         shape: Shape,
+    }
+
+    #[derive(Reflect, Debug)]
+    struct Keyed {
+        map: HashMap<String, u32>,
+        set: HashSet<u32>,
     }
 
     fn inspect<B: bevy_ecs::bundle::Bundle>(app: &mut App, bundle: B) -> Entity {
@@ -1516,6 +1702,11 @@ mod tests {
         app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
         app.update();
         entity
+    }
+
+    fn select(app: &mut App, entity: Option<Entity>) {
+        app.world_mut().resource_mut::<InspectorSelection>().0 = entity;
+        app.update();
     }
 
     fn refresh(app: &mut App) {
@@ -1693,26 +1884,10 @@ mod tests {
         assert_eq!(displayed(&entries[1].value), usize::MAX.to_string());
     }
 
-    #[test]
-    fn field_paths_resolve_to_their_values() {
-        let mut map = HashMap::default();
-        map.insert("key".to_string(), 7);
-        let everything = Everything {
-            nested: Nested { depth: 1 },
-            wrapper: Wrapper(Nested { depth: 2 }),
-            pair: Pair(3, 4),
-            tuple: (true, 5.0),
-            list: alloc::vec![6],
-            array: [8, 9],
-            map,
-            set: [10].into_iter().collect(),
-            option: Some(11.0),
-            shape: Shape::Circle { radius: 12.0 },
-        };
-
-        let mismatches: Vec<String> = field_entries(&everything)
+    fn unresolved_paths<T: Reflect>(value: &T) -> Vec<String> {
+        field_entries(value)
             .into_iter()
-            .filter_map(|entry| match everything.reflect_path(entry.path.as_str()) {
+            .filter_map(|entry| match value.reflect_path(entry.path.as_str()) {
                 Err(error) => Some(format!("{:?}: {error}", entry.path)),
                 Ok(resolved) => match scalar_value(resolved) {
                     Some(scalar) if scalar != entry.value => {
@@ -1721,30 +1896,38 @@ mod tests {
                     _ => None,
                 },
             })
-            .collect();
+            .collect()
+    }
+
+    #[test]
+    fn field_paths_resolve_to_their_values() {
+        let everything = Everything {
+            nested: Nested { depth: 1 },
+            wrapper: Wrapper(Nested { depth: 2 }),
+            pair: Pair(3, 4),
+            tuple: (true, 5.0),
+            list: alloc::vec![6],
+            array: [8, 9],
+            option: Some(11.0),
+            shape: Shape::Circle { radius: 12.0 },
+        };
+
+        let mismatches = unresolved_paths(&everything);
         assert!(mismatches.is_empty(), "{mismatches:#?}");
     }
 
-    mod first {
-        use bevy_ecs::{component::Component, reflect::ReflectComponent};
-        use bevy_reflect::Reflect;
+    #[test]
+    #[ignore = "GetPath does not support maps or sets yet"]
+    fn map_and_set_paths_resolve_to_their_values() {
+        let mut map = HashMap::default();
+        map.insert("key".to_string(), 7);
+        let keyed = Keyed {
+            map,
+            set: [10].into_iter().collect(),
+        };
 
-        #[derive(Component, Reflect, Debug, Default)]
-        #[reflect(Component)]
-        pub struct Same {
-            pub value: f32,
-        }
-    }
-
-    mod second {
-        use bevy_ecs::{component::Component, reflect::ReflectComponent};
-        use bevy_reflect::Reflect;
-
-        #[derive(Component, Reflect, Debug, Default)]
-        #[reflect(Component)]
-        pub struct Same {
-            pub value: f32,
-        }
+        let mismatches = unresolved_paths(&keyed);
+        assert!(mismatches.is_empty(), "{mismatches:#?}");
     }
 
     #[test]
@@ -1775,5 +1958,173 @@ mod tests {
 
         let caption = widget_at(&app, "").unwrap();
         assert_eq!(app.world().get::<Text>(caption).unwrap().0, "");
+    }
+
+    fn body_children(app: &mut App) -> Vec<Entity> {
+        let body = find_body(app.world_mut()).unwrap();
+        app.world()
+            .get::<Children>(body)
+            .map(|children| children.to_vec())
+            .unwrap_or_default()
+    }
+
+    fn body_message(app: &mut App) -> Option<String> {
+        let children = body_children(app);
+        let [caption] = children.as_slice() else {
+            return None;
+        };
+        app.world().get::<Text>(*caption).map(|text| text.0.clone())
+    }
+
+    #[test]
+    fn separates_components_sharing_a_short_name() {
+        let mut app = test_app();
+        app.register_type::<first::Duplicate>();
+        app.register_type::<second::Duplicate>();
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        let subject = app
+            .world_mut()
+            .spawn((first::Duplicate::default(), second::Duplicate::default()))
+            .id();
+        let first = app.world().component_id::<first::Duplicate>().unwrap();
+        let second = app.world().component_id::<second::Duplicate>().unwrap();
+        assert_eq!(
+            crate::component_short_name(app.world(), first),
+            crate::component_short_name(app.world(), second)
+        );
+
+        select(&mut app, Some(subject));
+
+        let index = app.world().resource::<DetailsIndex>();
+        assert!(index.widget(first, "first").is_some());
+        assert!(index.widget(second, "second").is_some());
+        assert_ne!(index.group(first), index.group(second));
+        assert_eq!(body_children(&mut app).len(), 2);
+
+        app.world_mut()
+            .resource_mut::<DetailsCollapsed>()
+            .0
+            .insert(first);
+        refresh(&mut app);
+
+        let index = app.world().resource::<DetailsIndex>();
+        assert!(index.widget(first, "first").is_none());
+        assert!(index.widget(second, "second").is_some());
+        assert_eq!(body_children(&mut app).len(), 2);
+    }
+
+    #[test]
+    fn shows_a_message_when_nothing_is_selected() {
+        let mut app = test_app();
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+
+        app.update();
+
+        assert_eq!(
+            body_message(&mut app).as_deref(),
+            Some("No entity selected")
+        );
+    }
+
+    #[test]
+    fn shows_a_message_for_an_entity_without_components() {
+        let mut app = test_app();
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        let subject = app.world_mut().spawn_empty().id();
+
+        select(&mut app, Some(subject));
+
+        assert_eq!(
+            body_message(&mut app).as_deref(),
+            Some("The selected entity has no components")
+        );
+    }
+
+    #[test]
+    fn shows_a_message_when_the_selection_is_despawned() {
+        let mut app = test_app();
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        let subject = app.world_mut().spawn(Subject::default()).id();
+        select(&mut app, Some(subject));
+        assert_eq!(body_message(&mut app), None);
+
+        app.world_mut().entity_mut(subject).despawn();
+        refresh(&mut app);
+
+        assert_eq!(
+            body_message(&mut app).as_deref(),
+            Some("The selected entity no longer exists")
+        );
+        assert!(app.world().resource::<DetailsIndex>().is_empty());
+    }
+
+    #[test]
+    fn keeps_unchanged_groups_when_components_change() {
+        let mut app = test_app();
+        app.register_type::<Holder>();
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        let subject = app.world_mut().spawn(Subject::default()).id();
+        let subject_id = app.world().component_id::<Subject>().unwrap();
+        select(&mut app, Some(subject));
+        let group = app
+            .world()
+            .resource::<DetailsIndex>()
+            .group(subject_id)
+            .unwrap();
+        let scale = app
+            .world()
+            .resource::<DetailsIndex>()
+            .widget(subject_id, "scale")
+            .unwrap();
+
+        app.world_mut()
+            .entity_mut(subject)
+            .insert(Holder(Arc::new(StrongHandle)));
+        refresh(&mut app);
+
+        let holder_id = app.world().component_id::<Holder>().unwrap();
+        let index = app.world().resource::<DetailsIndex>();
+        let holder = index.group(holder_id).unwrap();
+        assert_eq!(index.group(subject_id), Some(group));
+        assert_eq!(index.widget(subject_id, "scale"), Some(scale));
+        assert_eq!(body_children(&mut app), alloc::vec![holder, group]);
+
+        app.world_mut().entity_mut(subject).remove::<Holder>();
+        refresh(&mut app);
+
+        let index = app.world().resource::<DetailsIndex>();
+        assert_eq!(index.group(holder_id), None);
+        assert_eq!(index.group(subject_id), Some(group));
+        assert!(app.world().get_entity(holder).is_err());
+        assert_eq!(body_children(&mut app), alloc::vec![group]);
+    }
+
+    #[test]
+    fn finds_the_first_descendant_in_child_order() {
+        let mut world = World::new();
+        let root = world.spawn(Marker).id();
+        let first = world.spawn(ChildOf(root)).id();
+        let nested = world.spawn((Marker, ChildOf(first))).id();
+        world.spawn((Marker, ChildOf(root)));
+
+        assert_eq!(descendant_with::<Marker>(&world, root), Some(nested));
+    }
+
+    #[test]
+    fn never_returns_the_root_itself() {
+        let mut world = World::new();
+        let root = world.spawn(Marker).id();
+        world.spawn(ChildOf(root));
+
+        assert_eq!(descendant_with::<Marker>(&world, root), None);
+    }
+
+    #[test]
+    fn finds_nothing_under_a_missing_root() {
+        let mut world = World::new();
+        let root = world.spawn_empty().id();
+        world.despawn(root);
+
+        assert_eq!(descendant_with::<Marker>(&world, root), None);
     }
 }

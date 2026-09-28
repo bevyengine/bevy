@@ -1,6 +1,6 @@
 ---
 title: Entity inspection tools
-authors: ["@jbuehler23", "@alice-i-cecile"]
+authors: ["@jbuehler23", "@alice-i-cecile", "@Nilirad", "@Zeophlite"]
 pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885]
 ---
 

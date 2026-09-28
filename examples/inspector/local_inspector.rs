@@ -1,6 +1,6 @@
 //! Shows the `bevy_inspector` entity tree and details panels inspecting the app's own world.
 //!
-//! Run with the `bevy_inspector` and `debug` features enabled:
+//! Run with the `bevy_inspector` feature enabled, and `debug` for readable names of unregistered types:
 //! ```bash
 //! cargo run --example local_inspector --features="bevy_inspector,debug"
 //! ```
@@ -124,7 +124,7 @@ fn inspector_ui() -> impl Scene {
             top: px(12),
             bottom: px(12),
             flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Stretch,
+            align_items: AlignItems::FlexStart,
             column_gap: px(12),
         }
         Children [
