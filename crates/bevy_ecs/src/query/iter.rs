@@ -3188,7 +3188,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         // `filter_state` is the state that `filter` was initialized with.
                         unsafe { F::set_table(&mut self.filter, &query_state.filter_state, table) }
 
-                        // SAFETY: set_archetype was called prior.
+                        // SAFETY: set_table was called prior.
                         let fetched_table =
                             unsafe { F::filter_table(&query_state.filter_state, &mut self.filter) };
                         if !fetched_table {
