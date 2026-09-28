@@ -1,5 +1,8 @@
 use bevy_math::Vec3;
-use bevy_mesh::{Mesh, MeshVertexAttribute, VertexAttributeValues as Values, VertexFormat};
+use bevy_mesh::{
+    morph::MorphAttributes, Mesh, MeshVertexAttribute, VertexAttributeValues as Values,
+    VertexFormat,
+};
 use bevy_platform::collections::HashMap;
 use gltf::{
     accessor::{DataType, Dimensions},
@@ -200,6 +203,37 @@ impl<'a> VertexAttributeIter<'a> {
         })
     }
 
+    /// Materializes normal or tangent values, converting signed normalized formats to Float32x3 or Float32x4
+    fn into_direction_values(self, convert: bool) -> Result<Values, AccessFailed> {
+        match self {
+            s @ (Self::S8x3(_, Normalization(true))
+            | Self::S16x3(_, Normalization(true))
+            | Self::S8x4(_, Normalization(true))
+            | Self::S16x4(_, Normalization(true))) => s.into_float_values(convert),
+            s => s.into_any_values(convert),
+        }
+    }
+
+    /// Materializes morph target position displacements, converting signed formats to floats
+    fn into_displacements(self, convert: bool) -> Result<Vec<[f32; 3]>, AccessFailed> {
+        Ok(match self {
+            Self::F32x3(it) => converted(it, convert),
+            Self::S8x3(it, n) => converted(dequantize(it, n), convert),
+            Self::S16x3(it, n) => converted(dequantize(it, n), convert),
+            _ => return Err(AccessFailed::UnsupportedFormat),
+        })
+    }
+
+    /// Materializes morph target normal or tangent displacements, converting signed normalized formats to floats
+    fn into_direction_displacements(self, convert: bool) -> Result<Vec<[f32; 3]>, AccessFailed> {
+        match self {
+            Self::S8x3(_, Normalization(false)) | Self::S16x3(_, Normalization(false)) => {
+                Err(AccessFailed::UnsupportedFormat)
+            }
+            s => s.into_displacements(convert),
+        }
+    }
+
     /// Materializes values for any supported format of vertex attribute
     fn into_any_values(self, convert_coordinates: bool) -> Result<Values, AccessFailed> {
         match self {
@@ -292,6 +326,7 @@ impl<'a> VertexAttributeIter<'a> {
 enum ConversionMode {
     Any,
     Float,
+    Direction,
     Rgba,
     JointIndex,
     JointWeight,
@@ -330,12 +365,12 @@ pub fn convert_attribute(
         )),
         gltf::Semantic::Normals => Some((
             Mesh::ATTRIBUTE_NORMAL,
-            ConversionMode::Float,
+            ConversionMode::Direction,
             convert_coordinates,
         )),
         gltf::Semantic::Tangents => Some((
             Mesh::ATTRIBUTE_TANGENT,
-            ConversionMode::Float,
+            ConversionMode::Direction,
             convert_coordinates,
         )),
         gltf::Semantic::Colors(0) => Some((Mesh::ATTRIBUTE_COLOR, ConversionMode::Rgba, false)),
@@ -360,6 +395,7 @@ pub fn convert_attribute(
         let converted_values = raw_iter.and_then(|iter| match conversion {
             ConversionMode::Any => iter.into_any_values(convert_coordinates),
             ConversionMode::Float => iter.into_float_values(convert_coordinates),
+            ConversionMode::Direction => iter.into_direction_values(convert_coordinates),
             ConversionMode::Rgba => iter.into_rgba_values(),
             ConversionMode::JointIndex => iter.into_joint_index_values(),
             ConversionMode::JointWeight => iter.into_joint_weight_values(),
@@ -404,4 +440,132 @@ pub(crate) fn position_bounds(primitive: &gltf::Primitive) -> (Vec3, Vec3) {
         }))
     };
     (dequantize(bounds.min), dequantize(bounds.max))
+}
+
+/// The per-vertex displacements of each of the primitive's morph targets, in order.
+pub(crate) fn morph_targets(
+    primitive: &gltf::Primitive,
+    buffer_data: &Vec<Vec<u8>>,
+    convert_coordinates: bool,
+) -> Result<Vec<MorphAttributes>, ConvertAttributeError> {
+    fn read<'a>(
+        accessor: Option<gltf::Accessor<'a>>,
+        buffer_data: &'a Vec<Vec<u8>>,
+        into: impl FnOnce(VertexAttributeIter<'a>) -> Result<Vec<[f32; 3]>, AccessFailed>,
+    ) -> Result<Vec<[f32; 3]>, ConvertAttributeError> {
+        let Some(accessor) = accessor else {
+            return Ok(Vec::new());
+        };
+        // An accessor without a buffer view or sparse values is all zeros.
+        if accessor.view().is_none() && accessor.sparse().is_none() {
+            return Ok(vec![[0.0; 3]; accessor.count()]);
+        }
+        let index = accessor.index();
+        VertexAttributeIter::from_accessor(accessor, buffer_data)
+            .and_then(into)
+            .map_err(|err| ConvertAttributeError::AccessFailed(err, index))
+    }
+
+    let mut attributes = Vec::new();
+    for target in primitive.morph_targets() {
+        let positions = read(target.positions(), buffer_data, |iter| {
+            iter.into_displacements(convert_coordinates)
+        })?;
+        let normals = read(target.normals(), buffer_data, |iter| {
+            iter.into_direction_displacements(convert_coordinates)
+        })?;
+        let tangents = read(target.tangents(), buffer_data, |iter| {
+            iter.into_direction_displacements(convert_coordinates)
+        })?;
+
+        let count = positions.len().max(normals.len()).max(tangents.len());
+        let at = |values: &[[f32; 3]], i: usize| values.get(i).map_or(Vec3::ZERO, |&v| v.into());
+        attributes.extend((0..count).map(|i| {
+            MorphAttributes::from([at(&positions, i), at(&normals, i), at(&tangents, i)])
+        }));
+    }
+    Ok(attributes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(json: &[u8]) -> gltf::Gltf {
+        gltf::Gltf::from_slice_without_validation(json).unwrap()
+    }
+
+    #[test]
+    fn rejects_normals_outside_khr_mesh_quantization() {
+        let gltf = parse(
+            br#"
+{
+    "asset": { "version": "2.0" },
+    "buffers": [{ "byteLength": 4 }],
+    "bufferViews": [{ "buffer": 0, "byteLength": 4 }],
+    "accessors": [{
+        "bufferView": 0, "componentType": 5121, "normalized": true, "count": 1, "type": "VEC3"
+    }]
+}
+"#,
+        );
+        let normals = convert_attribute(
+            gltf::Semantic::Normals,
+            gltf.accessors().next().unwrap(),
+            &vec![vec![0; 4]],
+            &HashMap::default(),
+            false,
+        );
+        assert!(normals.is_err());
+    }
+
+    #[test]
+    fn dequantizes_normalized_position_bounds() {
+        let gltf = parse(
+            br#"
+{
+    "asset": { "version": "2.0" },
+    "accessors": [{
+        "componentType": 5123, "normalized": true, "count": 1, "type": "VEC3",
+        "min": [0, 0, 0], "max": [65535, 0, 0]
+    }],
+    "meshes": [{ "primitives": [{ "attributes": { "POSITION": 0 } }] }]
+}
+"#,
+        );
+        let primitive = gltf.meshes().next().unwrap().primitives().next().unwrap();
+        assert_eq!(position_bounds(&primitive), (Vec3::ZERO, Vec3::X));
+    }
+
+    /// An accessor without a buffer view reads as zeros, even when it is a
+    /// target's only attribute.
+    #[test]
+    fn reads_float_and_zero_morph_targets() {
+        let gltf = parse(
+            br#"
+{
+    "asset": { "version": "2.0" },
+    "buffers": [{ "byteLength": 12 }],
+    "bufferViews": [{ "buffer": 0, "byteLength": 12 }],
+    "accessors": [
+        { "bufferView": 0, "componentType": 5126, "count": 1, "type": "VEC3" },
+        { "componentType": 5126, "count": 1, "type": "VEC3" }
+    ],
+    "meshes": [{ "primitives": [{
+        "attributes": {},
+        "targets": [{ "POSITION": 0, "NORMAL": 1 }, { "NORMAL": 1 }]
+    }] }]
+}
+"#,
+        );
+        let buffer = [1.0f32, 2.0, 3.0].map(f32::to_le_bytes).concat();
+        let primitive = gltf.meshes().next().unwrap().primitives().next().unwrap();
+        assert_eq!(
+            morph_targets(&primitive, &vec![buffer], true).unwrap(),
+            vec![
+                MorphAttributes::from([Vec3::new(-1.0, 2.0, -3.0), Vec3::ZERO, Vec3::ZERO]),
+                MorphAttributes::from([Vec3::ZERO; 3]),
+            ]
+        );
+    }
 }

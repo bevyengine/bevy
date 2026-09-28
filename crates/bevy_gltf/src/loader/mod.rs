@@ -41,7 +41,7 @@ use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 use bevy_world_serialization::WorldAsset;
 use gltf::{
-    accessor::{DataType, Iter},
+    accessor::Iter,
     image::Source,
     mesh::{util::ReadIndices, Mode},
     Material, Node, Semantic,
@@ -56,7 +56,7 @@ use wgpu_types::Face;
 
 use crate::{
     convert_coordinates::ConvertCoordinates as _,
-    vertex_attributes::{convert_attribute, position_bounds},
+    vertex_attributes::{convert_attribute, morph_targets, position_bounds},
     Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
     GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin,
     GltfSkinnedMeshBoundsPolicy,
@@ -824,36 +824,24 @@ impl GltfLoader {
                         });
                     };
 
-                    // `read_morph_targets` only reads floats.
-                    let quantized_morph_targets = primitive.morph_targets().any(|target| {
-                        [target.positions(), target.normals(), target.tangents()]
-                            .into_iter()
-                            .flatten()
-                            .any(|accessor| accessor.data_type() != DataType::F32)
-                    });
-                    if quantized_morph_targets {
-                        warn!(
-                            "Ignoring morph targets of {primitive_label}: KHR_mesh_quantization morph targets are not supported"
-                        );
-                    } else {
-                        let morph_target_reader = reader.read_morph_targets();
-                        if morph_target_reader.len() != 0 {
-                            mesh.set_morph_targets(
-                                morph_target_reader
-                                    .flat_map(|i| PrimitiveMorphAttributesIter {
-                                        convert_coordinates: convert_coordinates.rotate_meshes,
-                                        positions: i.0,
-                                        normals: i.1,
-                                        tangents: i.2,
-                                    })
-                                    .collect(),
-                            );
+                    if primitive.morph_targets().len() != 0 {
+                        match morph_targets(
+                            &primitive,
+                            &buffer_data,
+                            convert_coordinates.rotate_meshes,
+                        ) {
+                            Ok(targets) => {
+                                mesh.set_morph_targets(targets);
 
-                            let extras = gltf_mesh.extras().as_ref();
-                            if let Some(names) = extras.and_then(|extras| {
-                                serde_json::from_str::<MorphTargetNames>(extras.get()).ok()
-                            }) {
-                                mesh.set_morph_target_names(names.target_names);
+                                let extras = gltf_mesh.extras().as_ref();
+                                if let Some(names) = extras.and_then(|extras| {
+                                    serde_json::from_str::<MorphTargetNames>(extras.get()).ok()
+                                }) {
+                                    mesh.set_morph_target_names(names.target_names);
+                                }
+                            }
+                            Err(err) => {
+                                warn!("Ignoring morph targets of {primitive_label}: {err}");
                             }
                         }
                     }
@@ -2856,6 +2844,16 @@ mod test {
         [0u16, 1, 2]
             .iter()
             .for_each(|i| bin.extend(i.to_le_bytes()));
+        bin.extend([0; 2]);
+        // Morph POSITION: i16 VEC3, padded.
+        for p in [[1i16, 0, 0], [0, -2, 0], [0, 0, 3]] {
+            p.iter().for_each(|c| bin.extend(c.to_le_bytes()));
+            bin.extend([0; 2]);
+        }
+        // Morph NORMAL: normalized i8 VEC3, padded.
+        for _ in 0..3 {
+            bin.extend([0, (-127i8) as u8, 0, 0]);
+        }
 
         let uri = format!(
             "data:application/octet-stream;base64,{}",
@@ -2866,24 +2864,29 @@ mod test {
     "asset": { "version": "2.0" },
     "extensionsUsed": ["KHR_mesh_quantization"],
     "extensionsRequired": ["KHR_mesh_quantization"],
-    "buffers": [{ "uri": "BIN_URI", "byteLength": 78 }],
+    "buffers": [{ "uri": "BIN_URI", "byteLength": 116 }],
     "bufferViews": [
         { "buffer": 0, "byteOffset": 0, "byteLength": 24, "byteStride": 8, "target": 34962 },
         { "buffer": 0, "byteOffset": 24, "byteLength": 12, "byteStride": 4, "target": 34962 },
         { "buffer": 0, "byteOffset": 36, "byteLength": 24, "target": 34962 },
         { "buffer": 0, "byteOffset": 60, "byteLength": 12, "byteStride": 4, "target": 34962 },
-        { "buffer": 0, "byteOffset": 72, "byteLength": 6, "target": 34963 }
+        { "buffer": 0, "byteOffset": 72, "byteLength": 6, "target": 34963 },
+        { "buffer": 0, "byteOffset": 80, "byteLength": 24, "byteStride": 8, "target": 34962 },
+        { "buffer": 0, "byteOffset": 104, "byteLength": 12, "byteStride": 4, "target": 34962 }
     ],
     "accessors": [
         { "bufferView": 0, "componentType": 5122, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [2, 3, 0] },
         { "bufferView": 1, "componentType": 5120, "normalized": true, "count": 3, "type": "VEC3" },
         { "bufferView": 2, "componentType": 5122, "normalized": true, "count": 3, "type": "VEC4" },
         { "bufferView": 3, "componentType": 5120, "normalized": true, "count": 3, "type": "VEC2" },
-        { "bufferView": 4, "componentType": 5123, "count": 3, "type": "SCALAR" }
+        { "bufferView": 4, "componentType": 5123, "count": 3, "type": "SCALAR" },
+        { "bufferView": 5, "componentType": 5122, "count": 3, "type": "VEC3", "min": [0, -2, 0], "max": [1, 0, 3] },
+        { "bufferView": 6, "componentType": 5120, "normalized": true, "count": 3, "type": "VEC3" }
     ],
     "meshes": [{ "primitives": [{
         "attributes": { "POSITION": 0, "NORMAL": 1, "TANGENT": 2, "TEXCOORD_0": 3 },
-        "indices": 4
+        "indices": 4,
+        "targets": [{ "POSITION": 5, "NORMAL": 6 }]
     }] }],
     "nodes": [{ "mesh": 0 }],
     "scenes": [{ "nodes": [0] }]
@@ -2926,27 +2929,20 @@ mod test {
                 [0.0, 1.0]
             ]))
         );
-    }
-
-    #[test]
-    fn dequantizes_normalized_position_bounds() {
-        let gltf = gltf::Gltf::from_slice_without_validation(
-            br#"
-{
-    "asset": { "version": "2.0" },
-    "accessors": [{
-        "componentType": 5123, "normalized": true, "count": 1, "type": "VEC3",
-        "min": [0, 0, 0], "max": [65535, 0, 0]
-    }],
-    "meshes": [{ "primitives": [{ "attributes": { "POSITION": 0 } }] }]
-}
-"#,
-        )
-        .unwrap();
-        let primitive = gltf.meshes().next().unwrap().primitives().next().unwrap();
+        let morph = |position: [f32; 3]| {
+            bevy_mesh::morph::MorphAttributes::from([
+                position.into(),
+                bevy_math::Vec3::NEG_Y,
+                bevy_math::Vec3::ZERO,
+            ])
+        };
         assert_eq!(
-            super::position_bounds(&primitive),
-            (bevy_math::Vec3::ZERO, bevy_math::Vec3::X)
+            mesh.morph_targets(),
+            Some(&vec![
+                morph([1.0, 0.0, 0.0]),
+                morph([0.0, -2.0, 0.0]),
+                morph([0.0, 0.0, 3.0])
+            ])
         );
     }
 }
