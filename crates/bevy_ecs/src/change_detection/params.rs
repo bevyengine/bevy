@@ -1547,7 +1547,7 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
         *self.ticks.changed = last_changed;
         self.ticks.changed_by.assign(MaybeLocation::caller());
         if let Some(summary_tick) = self.ticks.summary_tick
-            && last_changed.is_newer_than(self.ticks.last_run, summary_tick.get())
+            && last_changed.is_newer_than(summary_tick.get(), self.ticks.this_run)
         {
             summary_tick.set(self.ticks.this_run);
         }
@@ -1560,7 +1560,7 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
         *self.ticks.changed = last_added;
         self.ticks.changed_by.assign(MaybeLocation::caller());
         if let Some(summary_tick) = self.ticks.summary_tick
-            && last_added.is_newer_than(self.ticks.last_run, summary_tick.get())
+            && last_added.is_newer_than(summary_tick.get(), self.ticks.this_run)
         {
             summary_tick.set(self.ticks.this_run);
         }
