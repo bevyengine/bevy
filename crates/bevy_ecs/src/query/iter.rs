@@ -327,7 +327,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
 
-        // Note: we cannot use `filter_table` here because the table might have been accessed by another systme.
+        // Note: we cannot use `filter_table` here because the table might have been accessed by another system.
         // If that happens the summary_tick might have traveled backwards, and that would hide some updates from
         // this system.
 
@@ -410,7 +410,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             "archetype and its table must have the same length. "
         );
 
-        // Note: we cannot use `filter_table` here because the table might have been accessed by another systme.
+        // Note: we cannot use `filter_table` here because the table might have been accessed by another system.
         // If that happens the summary_tick might have traveled backwards, and that would hide some updates from
         // this system.
         // This can happen even if this archetype is the only one currently having entities in the table,
