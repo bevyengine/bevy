@@ -1,6 +1,6 @@
 //! Shows the `bevy_inspector` entity tree and details panels inspecting the app's own world.
 //!
-//! Run with the `bevy_inspector` feature enabled:
+//! Run with the `bevy_inspector` and `debug` features enabled:
 //! ```bash
 //! cargo run --example local_inspector --features="bevy_inspector,debug"
 //! ```
