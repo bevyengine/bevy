@@ -326,23 +326,20 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             return accum;
         }
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
-        F::set_archetype(
-            &mut self.cursor.filter,
-            &self.query_state.filter_state,
-            archetype,
-            table,
-        );
 
-        // SAFETY: set_archetype was called prior.
-        let fetched_table =
-            unsafe { F::filter_table(&self.query_state.filter_state, &mut self.cursor.filter) };
-        if !fetched_table {
-            return accum;
-        }
+        // Note: we cannot use `filter_table` here because the table might have been accessed by another systme.
+        // If that happens the summary_tick might have traveled backwards, and that would hide some updates from
+        // this system.
 
         D::set_archetype(
             &mut self.cursor.fetch,
             &self.query_state.fetch_state,
+            archetype,
+            table,
+        );
+        F::set_archetype(
+            &mut self.cursor.filter,
+            &self.query_state.filter_state,
             archetype,
             table,
         );
@@ -413,22 +410,21 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             "archetype and its table must have the same length. "
         );
 
-        F::set_archetype(
-            &mut self.cursor.filter,
-            &self.query_state.filter_state,
-            archetype,
-            table,
-        );
-        // SAFETY: set_archetype was called prior.
-        let fetched_table =
-            unsafe { F::filter_table(&self.query_state.filter_state, &mut self.cursor.filter) };
-        if !fetched_table {
-            return accum;
-        }
+        // Note: we cannot use `filter_table` here because the table might have been accessed by another systme.
+        // If that happens the summary_tick might have traveled backwards, and that would hide some updates from
+        // this system.
+        // This can happen even if this archetype is the only one currently having entities in the table,
+        // because there might previously have been another entity in the table that was in a different archetype.
 
         D::set_archetype(
             &mut self.cursor.fetch,
             &self.query_state.fetch_state,
+            archetype,
+            table,
+        );
+        F::set_archetype(
+            &mut self.cursor.filter,
+            &self.query_state.filter_state,
             archetype,
             table,
         );
@@ -3244,36 +3240,23 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         }
                         let table = tables.get(archetype.table_id()).debug_checked_unwrap();
 
-                        // SAFETY: `archetype` and `tables` are from the world that `filter` was created for.
-                        // `filter_state` is the state that `filter` was initialized with.
-                        unsafe {
-                            F::set_archetype(
-                                &mut self.filter,
-                                &query_state.filter_state,
-                                archetype,
-                                table,
-                            );
-                        }
-
-                        // SAFETY: set_archetype was called prior.
-                        // Note: it's fine to filter the table while doing dense iteration here because
-                        // an archetype is a subset of the entities of the table it maps to. Hence if no entity on
-                        // the table matches the filter then no entity of the archetype matches it either.
-                        // The converse might not be true but it doesn't matter: if this method returns true when
-                        // no entity on the archetype matches the filter then we just lose the optimization
-                        // but the code remains correct.
-                        let fetched_table =
-                            unsafe { F::filter_table(&query_state.filter_state, &mut self.filter) };
-                        if !fetched_table {
-                            continue 'next_archetype;
-                        }
-
                         // SAFETY: `archetype` and `tables` are from the world that `fetch` was created for,
                         // `fetch_state` is the state that `fetch` was initialized with.
                         unsafe {
                             D::set_archetype(
                                 &mut self.fetch,
                                 &query_state.fetch_state,
+                                archetype,
+                                table,
+                            );
+                        }
+
+                        // SAFETY: `archetype` and `tables` are from the world that `filter` was created for.
+                        // `filter_state` is the state that `filter` was initialized with.
+                        unsafe {
+                            F::set_archetype(
+                                &mut self.filter,
+                                &query_state.filter_state,
                                 archetype,
                                 table,
                             );
