@@ -72,8 +72,7 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component),
-    require(GlobalTransform, TransformTreeChanged),
-    component(summary_tick)
+    require(GlobalTransform, TransformTreeChanged)
 )]
 #[cfg_attr(
     feature = "bevy_reflect",
