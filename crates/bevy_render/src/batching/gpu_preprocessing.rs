@@ -1938,7 +1938,10 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                         &Some((ref batch_set_key, ref bin_key)),
                     ) => {
                         if *current_batch_set_key == *batch_set_key {
-                            if *current_bin_key == *bin_key {
+                            // Indirect preprocessing compacts instances with atomic
+                            // counters, which does not preserve their sorted order.
+                            // Keep each sorted instance in its own indirect draw.
+                            if no_indirect_drawing && *current_bin_key == *bin_key {
                                 SortedPhaseItemBatchability::BatchOk
                             } else if no_indirect_drawing {
                                 // Without indirect drawing, different meshes need separate batch sets
