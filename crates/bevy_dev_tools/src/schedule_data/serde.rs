@@ -48,6 +48,55 @@ impl AppData {
     }
 }
 
+/// Describes the kind of dependency.
+#[derive(
+    Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default,
+)]
+pub enum DependencyKind {
+    /// Strict dependency, the right hand side must wait for the left hand side to complete
+    /// Typically added with [`IntoScheduleConfigs::before`](`bevy_ecs`) or [`IntoScheduleConfigs::after`](`bevy_ecs`).
+    #[default]
+    Strict,
+    /// Weak dependency, the right hand side only has to wait if it conflicts with the left hand side
+    /// Typically added with [`IntoScheduleConfigs::chain_weak`](`bevy_ecs`).
+    Weak,
+    /// Dependencies added during a build pass.
+    /// [`ScheduleBuildPass`](`bevy_ecs`)'s run after the initial [`ScheduleGraph`](`bevy_ecs`) is formed.
+    /// Most commonly the [`AutoInsertApplyDeferredPass`](`bevy_ecs`) adds sync points for [`Deferred`](`bevy_ecs`) parameters
+    /// (such as [`Commands`](`bevy_ecs`) ) to occur before the end of the [`Schedule`].
+    /// These edges are always strict.
+    BuildPass,
+}
+
+/// Data about a particular dependency.
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct DependencyData {
+    /// The kind of dependency.
+    pub kind: DependencyKind,
+}
+
+impl DependencyData {
+    /// Build dependency data from `is_strict`.
+    pub fn from_is_strict(is_strict: bool) -> Self {
+        if is_strict {
+            DependencyData {
+                kind: DependencyKind::Strict,
+            }
+        } else {
+            DependencyData {
+                kind: DependencyKind::Weak,
+            }
+        }
+    }
+
+    /// Build dependency data from build pass.
+    pub fn from_build_pass() -> Self {
+        DependencyData {
+            kind: DependencyKind::BuildPass,
+        }
+    }
+}
+
 /// Data about a particular schedule.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ScheduleData {
@@ -63,8 +112,8 @@ pub struct ScheduleData {
     pub hierarchy: Vec<(SystemSetIndex, ScheduleIndex)>,
     /// A list of ordering constraints, ensuring that one system/system set runs before another.
     ///
-    /// The order is (first, second).
-    pub dependency: Vec<(ScheduleIndex, ScheduleIndex)>,
+    /// The order is (first, second, data).
+    pub dependency: Vec<(ScheduleIndex, ScheduleIndex, DependencyData)>,
     /// The components that these systems access.
     pub components: Vec<ComponentData>,
     /// A list of conflicts between systems.
@@ -125,16 +174,16 @@ impl AccessData {
         // Similarly for `try_writes` and `writes_inverted=false`
         // We return empty vectors when inverted=true, however this should not be used by consumers.
 
-        let reads = value.try_reads();
-        let writes = value.try_writes();
+        let reads = value.reads().as_finite_set();
+        let writes = value.writes().as_finite_set();
 
         let (reads_inverted, reads) = match reads {
-            Ok(reads) => (false, trace.get_indexes(reads.iter())),
-            Err(_) => (true, vec![]),
+            Some(reads) => (false, trace.get_indexes(reads.iter())),
+            None => (true, vec![]),
         };
         let (writes_inverted, writes) = match writes {
-            Ok(writes) => (false, trace.get_indexes(writes.iter())),
-            Err(_) => (true, vec![]),
+            Some(writes) => (false, trace.get_indexes(writes.iter())),
+            None => (true, vec![]),
         };
 
         Self {
@@ -338,7 +387,7 @@ impl ScheduleData {
 
                 let system = system_with_access.system();
                 let access = system_with_access.access();
-                let filtered_accesses = access.filtered_accesses();
+                let filtered_accesses = access.to_filtered_access_set();
 
                 let flags = system.flags();
 
@@ -346,9 +395,10 @@ impl ScheduleData {
                     name: format!("{}", system.name()),
                     apply_deferred: system.system_type()
                         == core::any::TypeId::of::<ApplyDeferred>(),
-                    exclusive: flags.contains(SystemStateFlags::EXCLUSIVE),
+                    exclusive: access.is_exclusive(),
                     deferred: flags.contains(SystemStateFlags::DEFERRED),
                     filtered_accesses: filtered_accesses
+                        .filtered_accesses()
                         .iter()
                         .map(|fa| FilteredAccessData::new(fa, &mut component_trace))
                         .collect(),
@@ -407,7 +457,13 @@ impl ScheduleData {
             .dependency()
             .graph()
             .all_edges()
-            .map(|(a, b)| (node_id_to_schedule_index(a), node_id_to_schedule_index(b)))
+            .map(|(a, b)| {
+                (
+                    node_id_to_schedule_index(a),
+                    node_id_to_schedule_index(b),
+                    DependencyData::from_is_strict(graph.dependency_is_strict(a, b)),
+                )
+            })
             .collect::<Vec<_>>();
 
         if let Some(build_metadata) = build_metadata {
@@ -420,6 +476,7 @@ impl ScheduleData {
                         (
                             node_id_to_schedule_index(NodeId::System(*a)),
                             node_id_to_schedule_index(NodeId::System(*b)),
+                            DependencyData::from_build_pass(),
                         )
                     }),
             );
@@ -488,9 +545,9 @@ pub mod tests {
     use bevy_platform::collections::HashMap;
 
     use crate::schedule_data::serde::{
-        AccessConflict, AccessData, AccessFiltersData, AppData, ComponentData, ExtractAppDataError,
-        FilteredAccessData, ScheduleData, ScheduleIndex, SystemConflict, SystemData, SystemSetData,
-        SystemSetIndex,
+        AccessConflict, AccessData, AccessFiltersData, AppData, ComponentData, DependencyData,
+        ExtractAppDataError, FilteredAccessData, ScheduleData, ScheduleIndex, SystemConflict,
+        SystemData, SystemSetData, SystemSetIndex,
     };
 
     fn app_data_from_app(app: &mut App) -> Result<AppData, ExtractAppDataError> {
@@ -642,7 +699,7 @@ pub mod tests {
             schedule.hierarchy.sort();
 
             // Reindex the dependencies, and sort it.
-            for (parent, child) in schedule.dependency.iter_mut() {
+            for (parent, child, _kind) in schedule.dependency.iter_mut() {
                 reindex_schedule_index(parent);
                 reindex_schedule_index(child);
             }
@@ -779,7 +836,19 @@ pub mod tests {
                 apply_deferred: false,
                 exclusive: true,
                 deferred: false,
-                filtered_accesses: vec![],
+                filtered_accesses: vec![FilteredAccessData {
+                    access: AccessData {
+                        reads: vec![],
+                        writes: vec![],
+                        reads_inverted: true,
+                        writes_inverted: true,
+                        archetypal: vec![]
+                    },
+                    filter_sets: vec![AccessFiltersData {
+                        with: vec![],
+                        without: vec![],
+                    }]
+                }],
             }]
         );
         assert_eq!(
@@ -848,8 +917,16 @@ pub mod tests {
         assert_eq!(
             update.dependency,
             [
-                (ScheduleIndex::System(0), ScheduleIndex::System(1)),
-                (ScheduleIndex::System(1), ScheduleIndex::System(2)),
+                (
+                    ScheduleIndex::System(0),
+                    ScheduleIndex::System(1),
+                    DependencyData::from_is_strict(true)
+                ),
+                (
+                    ScheduleIndex::System(1),
+                    ScheduleIndex::System(2),
+                    DependencyData::from_is_strict(true)
+                ),
             ]
         );
         assert_eq!(update.components.len(), 0);
@@ -882,8 +959,16 @@ pub mod tests {
         assert_eq!(
             update.dependency,
             [
-                (ScheduleIndex::SystemSet(0), ScheduleIndex::SystemSet(1)),
-                (ScheduleIndex::SystemSet(1), ScheduleIndex::SystemSet(2)),
+                (
+                    ScheduleIndex::SystemSet(0),
+                    ScheduleIndex::SystemSet(1),
+                    DependencyData::from_is_strict(true)
+                ),
+                (
+                    ScheduleIndex::SystemSet(1),
+                    ScheduleIndex::SystemSet(2),
+                    DependencyData::from_is_strict(true)
+                ),
             ]
         );
         assert_eq!(update.components.len(), 0);
@@ -972,7 +1057,19 @@ pub mod tests {
                     apply_deferred: true,
                     exclusive: true,
                     deferred: false,
-                    filtered_accesses: vec![],
+                    filtered_accesses: vec![FilteredAccessData {
+                        access: AccessData {
+                            reads: vec![],
+                            writes: vec![],
+                            reads_inverted: true,
+                            writes_inverted: true,
+                            archetypal: vec![]
+                        },
+                        filter_sets: vec![AccessFiltersData {
+                            with: vec![],
+                            without: vec![]
+                        }]
+                    }]
                 },
                 simple_system("b0"),
                 simple_system("b1"),
@@ -1006,17 +1103,53 @@ pub mod tests {
             update.dependency,
             [
                 // a->sync and a->b
-                (ScheduleIndex::System(0), ScheduleIndex::System(2)),
-                (ScheduleIndex::System(0), ScheduleIndex::System(3)),
-                (ScheduleIndex::System(0), ScheduleIndex::System(4)),
-                (ScheduleIndex::System(1), ScheduleIndex::System(2)),
-                (ScheduleIndex::System(1), ScheduleIndex::System(3)),
-                (ScheduleIndex::System(1), ScheduleIndex::System(4)),
+                (
+                    ScheduleIndex::System(0),
+                    ScheduleIndex::System(2),
+                    DependencyData::from_build_pass()
+                ),
+                (
+                    ScheduleIndex::System(0),
+                    ScheduleIndex::System(3),
+                    DependencyData::from_is_strict(true)
+                ),
+                (
+                    ScheduleIndex::System(0),
+                    ScheduleIndex::System(4),
+                    DependencyData::from_is_strict(true)
+                ),
+                (
+                    ScheduleIndex::System(1),
+                    ScheduleIndex::System(2),
+                    DependencyData::from_build_pass()
+                ),
+                (
+                    ScheduleIndex::System(1),
+                    ScheduleIndex::System(3),
+                    DependencyData::from_is_strict(true)
+                ),
+                (
+                    ScheduleIndex::System(1),
+                    ScheduleIndex::System(4),
+                    DependencyData::from_is_strict(true)
+                ),
                 // sync->b
-                (ScheduleIndex::System(2), ScheduleIndex::System(3)),
-                (ScheduleIndex::System(2), ScheduleIndex::System(4)),
+                (
+                    ScheduleIndex::System(2),
+                    ScheduleIndex::System(3),
+                    DependencyData::from_build_pass()
+                ),
+                (
+                    ScheduleIndex::System(2),
+                    ScheduleIndex::System(4),
+                    DependencyData::from_build_pass()
+                ),
                 // c0->c1
-                (ScheduleIndex::System(5), ScheduleIndex::System(6)),
+                (
+                    ScheduleIndex::System(5),
+                    ScheduleIndex::System(6),
+                    DependencyData::from_is_strict(true)
+                ),
             ]
         );
         assert_eq!(update.components.len(), 0);
@@ -1138,7 +1271,11 @@ pub mod tests {
             update.dependency,
             [
                 // e0 -> e1
-                (ScheduleIndex::System(8), ScheduleIndex::System(9)),
+                (
+                    ScheduleIndex::System(8),
+                    ScheduleIndex::System(9),
+                    DependencyData::from_is_strict(true)
+                ),
             ]
         );
         assert_eq!(

@@ -16,6 +16,7 @@ use bevy_ecs::{
     relationship::{Relationship, RelationshipTarget},
     schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, Local, Query},
+    template::{FromTemplate, Template},
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -74,6 +75,34 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>
     reflect(Component, Clone, PartialEq)
 )]
 pub struct Propagate<C: Component + Clone + PartialEq>(pub C);
+
+/// The [`Template`] for [`Propagate`].
+pub struct PropagateTemplate<T>(pub T);
+
+impl<T: Default> Default for PropagateTemplate<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<C: FromTemplate + Component + Clone + PartialEq> FromTemplate for Propagate<C> {
+    type Template = PropagateTemplate<C::Template>;
+}
+
+impl<C: Template<Output: Component + Clone + PartialEq>> Template for PropagateTemplate<C> {
+    type Output = Propagate<C::Output>;
+
+    fn build_template(
+        &self,
+        context: &mut bevy_ecs::template::TemplateContext,
+    ) -> bevy_ecs::error::Result<Self::Output> {
+        Ok(Propagate(self.0.build_template(context)?))
+    }
+
+    fn clone_template(&self) -> Self {
+        PropagateTemplate(self.0.clone_template())
+    }
+}
 
 /// Stops the output component being added to this entity.
 /// Relationship targets will still inherit the component from this entity or its parents.
@@ -205,7 +234,7 @@ pub fn on_r_inserted<
     F: QueryFilter + 'static,
     R: Relationship,
 >(
-    event: On<Insert, R>,
+    event: On<Insert<R>>,
     mut commands: Commands,
     query: Query<(&R, Has<Inherited<C>>), (Without<Propagate<C>>, F)>,
     relations: Query<&Inherited<C>, Without<PropagateStop<C>>>,
@@ -222,7 +251,7 @@ pub fn on_r_inserted<
 
 /// Remove [`Inherited::<C>`] when an entity loses its `R` relationship
 pub fn on_r_removed<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship>(
-    event: On<Remove, R>,
+    event: On<Remove<R>>,
     mut commands: Commands,
     query: Query<(), (With<Inherited<C>>, Without<Propagate<C>>, F)>,
 ) {

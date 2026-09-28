@@ -15,11 +15,17 @@ pub struct WinitCustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::windo
 pub enum CustomCursorCacheKey {
     /// A custom cursor with an image.
     Image {
+        /// The ID of the image.
         id: AssetId<Image>,
+        /// The ID of the texture atlas layout, if any.
         texture_atlas_layout_id: Option<AssetId<TextureAtlasLayout>>,
+        /// The index into the texture atlas, if any.
         texture_atlas_index: Option<usize>,
+        /// Whether the image should be flipped along its x-axis.
         flip_x: bool,
+        /// Whether the image should be flipped along its y-axis.
         flip_y: bool,
+        /// The sub-rectangle of the image to use, if any.
         rect: Option<URect>,
     },
     #[cfg(all(target_family = "wasm", target_os = "unknown"))]

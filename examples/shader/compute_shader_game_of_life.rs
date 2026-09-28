@@ -23,7 +23,7 @@ use bevy::{
 use std::borrow::Cow;
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/game_of_life.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/game_of_life.wesl";
 
 const DISPLAY_FACTOR: u32 = 4;
 const SIZE: UVec2 = UVec2::new(1280 / DISPLAY_FACTOR, 720 / DISPLAY_FACTOR);

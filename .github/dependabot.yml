@@ -22,5 +22,9 @@ updates:
       interval: weekly
     labels:
       - "C-Dependencies"
+    groups:
+      codeql-action:
+        patterns:
+          - "codeql-action/*"
     cooldown:
       default-days: 7

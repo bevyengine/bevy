@@ -37,9 +37,10 @@ use bevy_platform::collections::HashMap;
 use bevy_render::{
     batching::gpu_preprocessing::{
         clear_scene_unpacking_buffers, BatchedInstanceBuffers, BinUnpackingMetadataIndex,
-        GpuBinMetadata, GpuBinUnpackingMetadata, GpuOcclusionCullingWorkItemBuffers,
-        GpuPreprocessingMode, GpuPreprocessingSupport, GpuUniformAllocationMetadata,
-        IndirectBatchSet, IndirectParametersBuffers, IndirectParametersIndexed,
+        BuildIndirectParametersMetadata, GpuBinMetadata, GpuBinUnpackingMetadata,
+        GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode, GpuPreprocessingSupport,
+        GpuUniformAllocationMetadata, IndirectBatchSet, IndirectParametersBuffers,
+        IndirectParametersBuildJob, IndirectParametersBuildJobs, IndirectParametersIndexed,
         IndirectParametersMetadata, IndirectParametersNonIndexed,
         LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem, PreprocessWorkItemBuffers,
         SceneUnpackingBuffers, SceneUnpackingBuffersKey, SceneUnpackingJob,
@@ -68,7 +69,7 @@ use bevy_render::{
     GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{default, TypeIdHashMap};
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
@@ -328,7 +329,7 @@ bitflags! {
 /// (e.g.  [`bevy_core_pipeline::core_3d::Opaque3d`]) to the
 /// [`PhasePreprocessBindGroups`] for that phase.
 #[derive(Component, Clone, Deref, DerefMut)]
-pub struct PreprocessBindGroups(pub TypeIdMap<PhasePreprocessBindGroups>);
+pub struct PreprocessBindGroups(pub TypeIdHashMap<PhasePreprocessBindGroups>);
 
 /// The compute shader bind group for the mesh preprocessing step for a single
 /// render phase on a single view.
@@ -382,7 +383,9 @@ pub enum PhasePreprocessBindGroups {
 /// There's one set of bind group for each phase. Phases are keyed off their
 /// [`core::any::TypeId`].
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct BuildIndirectParametersBindGroups(pub TypeIdMap<PhaseBuildIndirectParametersBindGroups>);
+pub struct BuildIndirectParametersBindGroups(
+    pub TypeIdHashMap<PhaseBuildIndirectParametersBindGroups>,
+);
 
 impl BuildIndirectParametersBindGroups {
     /// Creates a new, empty [`BuildIndirectParametersBindGroups`] table.
@@ -394,16 +397,16 @@ impl BuildIndirectParametersBindGroups {
 /// The per-phase set of bind groups for the compute shaders that reset indirect
 /// draw counts and build indirect parameters.
 pub struct PhaseBuildIndirectParametersBindGroups {
-    /// The bind group for the `reset_indirect_batch_sets.wgsl` shader, for
+    /// The bind group for the `reset_indirect_batch_sets.wesl` shader, for
     /// indexed meshes.
     reset_indexed_indirect_batch_sets: Option<BindGroup>,
-    /// The bind group for the `reset_indirect_batch_sets.wgsl` shader, for
+    /// The bind group for the `reset_indirect_batch_sets.wesl` shader, for
     /// non-indexed meshes.
     reset_non_indexed_indirect_batch_sets: Option<BindGroup>,
-    /// The bind group for the `build_indirect_params.wgsl` shader, for indexed
+    /// The bind group for the `build_indirect_params.wesl` shader, for indexed
     /// meshes.
     build_indexed_indirect: Option<BindGroup>,
-    /// The bind group for the `build_indirect_params.wgsl` shader, for
+    /// The bind group for the `build_indirect_params.wesl` shader, for
     /// non-indexed meshes.
     build_non_indexed_indirect: Option<BindGroup>,
 }
@@ -489,11 +492,11 @@ type WithAnyPrepass = Or<(
 
 impl Plugin for GpuMeshPreprocessPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "mesh_preprocess.wgsl");
-        embedded_asset!(app, "reset_indirect_batch_sets.wgsl");
-        embedded_asset!(app, "build_indirect_params.wgsl");
-        embedded_asset!(app, "unpack_bins.wgsl");
-        embedded_asset!(app, "allocate_uniforms.wgsl");
+        embedded_asset!(app, "mesh_preprocess.wesl");
+        embedded_asset!(app, "reset_indirect_batch_sets.wesl");
+        embedded_asset!(app, "build_indirect_params.wesl");
+        embedded_asset!(app, "unpack_bins.wesl");
+        embedded_asset!(app, "allocate_uniforms.wesl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -1134,75 +1137,104 @@ pub fn late_gpu_preprocess(
     pass_span.end(&mut compute_pass);
 }
 
+/// A render graph system, run for each view, that builds the indirect
+/// parameters for multi-draw indirect calls for the early prepass.
+///
+/// The early prepass is the prepass that draws objects that were visible in the
+/// previous frame.
 pub fn early_prepass_build_indirect_parameters(
+    current_view: ViewQuery<&ExtractedView>,
     preprocess_pipelines: Res<PreprocessPipelines>,
     build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
     pipeline_cache: Res<PipelineCache>,
     indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
+    build_indirect_parameters_uniform_indices: Res<BuildIndirectParametersMetadata>,
     mut ctx: RenderContext,
 ) {
     run_build_indirect_parameters(
         &mut ctx,
+        current_view.into_inner().retained_view_entity,
         build_indirect_params_bind_groups.as_deref(),
         &pipeline_cache,
         indirect_parameters_buffers.as_deref(),
+        &build_indirect_parameters_uniform_indices,
         &preprocess_pipelines.early_phase,
         "early_prepass_indirect_parameters_building",
     );
 }
 
+/// A render graph system, run for each view, that builds the indirect
+/// parameters for multi-draw indirect calls for the late prepass.
+///
+/// The late prepass is the prepass that draws objects that weren't visible in
+/// the previous frame but became visible this frame (disocclusions). It'll be
+/// skipped if occlusion culling is disabled.
 pub fn late_prepass_build_indirect_parameters(
+    current_view: ViewQuery<&ExtractedView>,
     preprocess_pipelines: Res<PreprocessPipelines>,
     build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
     pipeline_cache: Res<PipelineCache>,
     indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
+    build_indirect_parameters_uniform_indices: Res<BuildIndirectParametersMetadata>,
     mut ctx: RenderContext,
 ) {
     run_build_indirect_parameters(
         &mut ctx,
+        current_view.into_inner().retained_view_entity,
         build_indirect_params_bind_groups.as_deref(),
         &pipeline_cache,
         indirect_parameters_buffers.as_deref(),
+        &build_indirect_parameters_uniform_indices,
         &preprocess_pipelines.late_phase,
         "late_prepass_indirect_parameters_building",
     );
 }
 
-/// Builds indirect parameters for the main opaque and transparent passes.
-///
-/// The unused `_current_view` parameter is necessary so that we don't try to
-/// render a main pass for shadow views.
+/// A render graph system, run for each view, that builds the indirect
+/// parameters for multi-draw indirect calls for the main opaque and transparent
+/// passes.
 pub fn main_build_indirect_parameters(
-    _current_view: ViewQuery<Entity, Without<ShadowView>>,
+    current_view: ViewQuery<&ExtractedView, Without<ShadowView>>,
     preprocess_pipelines: Res<PreprocessPipelines>,
     build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
     pipeline_cache: Res<PipelineCache>,
     indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
+    build_indirect_parameters_uniform_indices: Res<BuildIndirectParametersMetadata>,
     mut ctx: RenderContext,
 ) {
     run_build_indirect_parameters(
         &mut ctx,
+        current_view.into_inner().retained_view_entity,
         build_indirect_params_bind_groups.as_deref(),
         &pipeline_cache,
         indirect_parameters_buffers.as_deref(),
+        &build_indirect_parameters_uniform_indices,
         &preprocess_pipelines.main_phase,
         "main_indirect_parameters_building",
     );
 }
 
-fn run_build_indirect_parameters(
+/// Shared logic common to all render graph systems that build indirect
+/// parameters for multi-draw indirect calls.
+pub(crate) fn run_build_indirect_parameters(
     ctx: &mut RenderContext,
+    retained_view_entity: RetainedViewEntity,
     build_indirect_params_bind_groups: Option<&BuildIndirectParametersBindGroups>,
     pipeline_cache: &PipelineCache,
     indirect_parameters_buffers: Option<&IndirectParametersBuffers>,
+    build_indirect_parameters_uniform_indices: &BuildIndirectParametersMetadata,
     preprocess_phase_pipelines: &PreprocessPhasePipelines,
     label: &'static str,
 ) {
     let Some(build_indirect_params_bind_groups) = build_indirect_params_bind_groups else {
         return;
     };
-
     let Some(indirect_parameters_buffers) = indirect_parameters_buffers else {
+        return;
+    };
+    let Some(view_build_indirect_parameters_uniform_indices) =
+        build_indirect_parameters_uniform_indices.get(&retained_view_entity)
+    else {
         return;
     };
 
@@ -1258,6 +1290,11 @@ fn run_build_indirect_parameters(
         else {
             continue;
         };
+        let Some(build_indirect_parameters_uniform_index) =
+            view_build_indirect_parameters_uniform_indices.get(phase_type_id)
+        else {
+            continue;
+        };
 
         // Build indexed indirect parameters.
         if let (
@@ -1277,13 +1314,21 @@ fn run_build_indirect_parameters(
             }
 
             compute_pass.set_pipeline(build_indexed_indirect_params_pipeline);
-            compute_pass.set_bind_group(0, build_indirect_indexed_params_bind_group, &[]);
-            let workgroup_count = phase_indirect_parameters_buffers
-                .indexed
-                .batch_count()
-                .div_ceil(WORKGROUP_SIZE);
-            if workgroup_count > 0 {
-                compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
+
+            for indexed_build_indirect_parameters_metadata in
+                &build_indirect_parameters_uniform_index.indexed
+            {
+                compute_pass.set_bind_group(
+                    0,
+                    build_indirect_indexed_params_bind_group,
+                    &[indexed_build_indirect_parameters_metadata.uniform_offset],
+                );
+                let workgroup_count = indexed_build_indirect_parameters_metadata
+                    .batch_count
+                    .div_ceil(WORKGROUP_SIZE as u32);
+                if workgroup_count > 0 {
+                    compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+                }
             }
         }
 
@@ -1305,13 +1350,21 @@ fn run_build_indirect_parameters(
             }
 
             compute_pass.set_pipeline(build_non_indexed_indirect_params_pipeline);
-            compute_pass.set_bind_group(0, build_indirect_non_indexed_params_bind_group, &[]);
-            let workgroup_count = phase_indirect_parameters_buffers
-                .non_indexed
-                .batch_count()
-                .div_ceil(WORKGROUP_SIZE);
-            if workgroup_count > 0 {
-                compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
+
+            for non_indexed_build_indirect_parameters_metadata in
+                &build_indirect_parameters_uniform_index.non_indexed
+            {
+                compute_pass.set_bind_group(
+                    0,
+                    build_indirect_non_indexed_params_bind_group,
+                    &[non_indexed_build_indirect_parameters_metadata.uniform_offset],
+                );
+                let workgroup_count = non_indexed_build_indirect_parameters_metadata
+                    .batch_count
+                    .div_ceil(WORKGROUP_SIZE as u32);
+                if workgroup_count > 0 {
+                    compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+                }
             }
         }
     }
@@ -1527,13 +1580,13 @@ impl FromWorld for PreprocessPipelines {
             &uniform_allocation_bind_group_layout_entries,
         );
 
-        let preprocess_shader = load_embedded_asset!(world, "mesh_preprocess.wgsl");
+        let preprocess_shader = load_embedded_asset!(world, "mesh_preprocess.wesl");
         let reset_indirect_batch_sets_shader =
-            load_embedded_asset!(world, "reset_indirect_batch_sets.wgsl");
+            load_embedded_asset!(world, "reset_indirect_batch_sets.wesl");
         let build_indirect_params_shader =
-            load_embedded_asset!(world, "build_indirect_params.wgsl");
-        let bin_unpacking_shader = load_embedded_asset!(world, "unpack_bins.wgsl");
-        let uniform_allocation_shader = load_embedded_asset!(world, "allocate_uniforms.wgsl");
+            load_embedded_asset!(world, "build_indirect_params.wesl");
+        let bin_unpacking_shader = load_embedded_asset!(world, "unpack_bins.wesl");
+        let uniform_allocation_shader = load_embedded_asset!(world, "allocate_uniforms.wesl");
 
         let preprocess_phase_pipelines = PreprocessPhasePipelines {
             reset_indirect_batch_sets: ResetIndirectBatchSetsPipeline {
@@ -1639,7 +1692,7 @@ fn preprocess_direct_bind_group_layout_entries() -> DynamicBindGroupLayoutEntrie
     )
 }
 
-// Returns the first 4 bind group layout entries shared between all invocations
+// Returns the first 5 bind group layout entries shared between all invocations
 // of the indirect parameters building shader.
 fn build_indirect_params_bind_group_layout_entries() -> DynamicBindGroupLayoutEntries {
     DynamicBindGroupLayoutEntries::new_with_indices(
@@ -1657,12 +1710,15 @@ fn build_indirect_params_bind_group_layout_entries() -> DynamicBindGroupLayoutEn
             // @group(0) @binding(3) var<storage, read_write>
             // indirect_batch_sets: array<IndirectBatchSet>;
             (3, storage_buffer::<IndirectBatchSet>(false)),
+            // @group(0) @binding(4) var<uniform> indirect_parameters_build_job:
+            // IndirectParametersBuildJob;
+            (4, uniform_buffer::<IndirectParametersBuildJob>(true)),
         ),
     )
 }
 
-/// A system that specializes the `mesh_preprocess.wgsl` and
-/// `build_indirect_params.wgsl` pipelines if necessary.
+/// A system that specializes the `mesh_preprocess.wesl` and
+/// `build_indirect_params.wesl` pipelines if necessary.
 fn gpu_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEntries {
     // GPU culling bind group parameters are a superset of those in the CPU
     // culling (direct) shader.
@@ -2137,6 +2193,7 @@ pub fn prepare_preprocess_bind_groups(
     pipeline_cache: Res<PipelineCache>,
     batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     indirect_parameters_buffers: Res<IndirectParametersBuffers>,
+    indirect_parameters_build_jobs: Res<IndirectParametersBuildJobs>,
     scene_unpacking_buffers: Res<SceneUnpackingBuffers>,
     mesh_culling_data_buffer: Res<MeshCullingDataBuffer>,
     visibility_ranges: Res<RenderVisibilityRanges>,
@@ -2166,7 +2223,7 @@ pub fn prepare_preprocess_bind_groups(
 
     // Loop over each view.
     for (view_entity, view) in &views {
-        let mut bind_groups = TypeIdMap::default();
+        let mut bind_groups = TypeIdHashMap::default();
 
         // Loop over each phase.
         for (phase_type_id, phase_instance_buffers) in phase_instance_buffers {
@@ -2271,6 +2328,7 @@ pub fn prepare_preprocess_bind_groups(
             &pipelines,
             current_input_buffer,
             &indirect_parameters_buffers,
+            &indirect_parameters_build_jobs,
         );
     }
 
@@ -3052,6 +3110,7 @@ fn create_build_indirect_parameters_bind_groups(
     pipelines: &PreprocessPipelines,
     current_input_buffer: &Buffer,
     indirect_parameters_buffers: &IndirectParametersBuffers,
+    indirect_parameters_build_jobs: &IndirectParametersBuildJobs,
 ) {
     let mut build_indirect_parameters_bind_groups = BuildIndirectParametersBindGroups::new();
 
@@ -3103,11 +3162,13 @@ fn create_build_indirect_parameters_bind_groups(
                     phase_indirect_parameters_buffer.indexed.metadata_buffer(),
                     phase_indirect_parameters_buffer.indexed.data_buffer(),
                     phase_indirect_parameters_buffer.indexed.batch_sets_buffer(),
+                    indirect_parameters_build_jobs.buffer(),
                 ) {
                     (
                         Some(indexed_indirect_parameters_metadata_buffer),
                         Some(indexed_indirect_parameters_data_buffer),
                         Some(indexed_batch_sets_buffer),
+                        Some(indirect_parameters_build_job_buffer),
                     ) => Some(
                         render_device.create_bind_group(
                             "build_indexed_indirect_parameters_bind_group",
@@ -3125,30 +3186,32 @@ fn create_build_indirect_parameters_bind_groups(
                                 // @group(0) @binding(1) var<storage>
                                 // indirect_parameters_metadata:
                                 // array<IndirectParametersMetadata>;
-                                //
-                                // Don't use `as_entire_binding` here; the shader reads
-                                // the length and `RawBufferVec` overallocates.
                                 (
                                     1,
-                                    BufferBinding {
-                                        buffer: indexed_indirect_parameters_metadata_buffer,
-                                        offset: 0,
-                                        size: NonZeroU64::new(
-                                            phase_indirect_parameters_buffer.indexed.batch_count()
-                                                as u64
-                                                * size_of::<IndirectParametersMetadata>() as u64,
-                                        ),
-                                    },
+                                    indexed_indirect_parameters_metadata_buffer.as_entire_binding(),
                                 ),
                                 // @group(0) @binding(3) var<storage,
                                 // read_write> indirect_batch_sets:
                                 // array<IndirectBatchSet>;
                                 (3, indexed_batch_sets_buffer.as_entire_binding()),
-                                // @group(0) @binding(4) var<storage,
+                                // @group(0) @binding(4) var<uniform>
+                                // indirect_parameters_build_job:
+                                // IndirectParametersBuildJob;
+                                (
+                                    4,
+                                    BindingResource::Buffer(BufferBinding {
+                                        buffer: indirect_parameters_build_job_buffer,
+                                        offset: 0,
+                                        size: NonZeroU64::new(
+                                            size_of::<IndirectParametersBuildJob>() as u64,
+                                        ),
+                                    }),
+                                ),
+                                // @group(0) @binding(5) var<storage,
                                 // read_write> indirect_parameters:
                                 // array<IndirectParametersIndexed>;
                                 (
-                                    4,
+                                    5,
                                     indexed_indirect_parameters_data_buffer.as_entire_binding(),
                                 ),
                             )),
@@ -3165,11 +3228,13 @@ fn create_build_indirect_parameters_bind_groups(
                     phase_indirect_parameters_buffer
                         .non_indexed
                         .batch_sets_buffer(),
+                    indirect_parameters_build_jobs.buffer(),
                 ) {
                     (
                         Some(non_indexed_indirect_parameters_metadata_buffer),
                         Some(non_indexed_indirect_parameters_data_buffer),
                         Some(non_indexed_batch_sets_buffer),
+                        Some(indirect_parameters_build_job_buffer),
                     ) => Some(
                         render_device.create_bind_group(
                             "build_non_indexed_indirect_parameters_bind_group",
@@ -3208,11 +3273,24 @@ fn create_build_indirect_parameters_bind_groups(
                                 // read_write> indirect_batch_sets:
                                 // array<IndirectBatchSet>;
                                 (3, non_indexed_batch_sets_buffer.as_entire_binding()),
-                                // @group(0) @binding(4) var<storage,
+                                // @group(0) @binding(4) var<uniform>
+                                // indirect_parameters_build_job:
+                                // IndirectParametersBuildJob;
+                                (
+                                    4,
+                                    BindingResource::Buffer(BufferBinding {
+                                        buffer: indirect_parameters_build_job_buffer,
+                                        offset: 0,
+                                        size: NonZeroU64::new(
+                                            size_of::<IndirectParametersBuildJob>() as u64,
+                                        ),
+                                    }),
+                                ),
+                                // @group(0) @binding(5) var<storage,
                                 // read_write> indirect_parameters:
                                 // array<IndirectParametersNonIndexed>;
                                 (
-                                    4,
+                                    5,
                                     non_indexed_indirect_parameters_data_buffer.as_entire_binding(),
                                 ),
                             )),
@@ -3235,7 +3313,7 @@ fn create_bin_unpacking_bind_groups(
     pipeline_cache: &PipelineCache,
     preprocess_pipelines: &PreprocessPipelines,
     indirect_parameters_buffers: &IndirectParametersBuffers,
-    phase_instance_buffers: &TypeIdMap<UntypedPhaseBatchedInstanceBuffers<MeshUniform>>,
+    phase_instance_buffers: &TypeIdHashMap<UntypedPhaseBatchedInstanceBuffers<MeshUniform>>,
     scene_unpacking_buffers: &SceneUnpackingBuffers,
     view_entity: &RetainedViewEntity,
 ) {

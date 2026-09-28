@@ -13,8 +13,8 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocusVisible};
-use bevy_picking::events::{Click, Pointer};
+use bevy_input_focus::{FocusGained, FocusLost, Focusable, FocusedInput, InputFocusVisible};
+use bevy_picking::events::PointerClick;
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Selectable, Selected};
 
@@ -32,7 +32,8 @@ use crate::{ScrollIntoView, ValueChange};
 #[derive(Component, Debug, Clone, Default)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::ListBox)),
-    ActiveDescendant
+    ActiveDescendant,
+    Focusable
 )]
 pub struct ListBox;
 
@@ -58,6 +59,20 @@ pub struct ListItem;
 #[reflect(Component)]
 #[component(immutable)]
 pub struct ActiveDescendant(pub Option<Entity>);
+
+/// Notification sent by a [`ListBox`] when the user commits the already-selected item, either by
+/// clicking it or by pressing Space/Enter while it is the active row. No [`ValueChange`] is
+/// emitted in this case, since the selection did not change. Used in for example a popup
+/// select control to close the popup when reselecting
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent, Reflect)]
+#[reflect(Event)]
+pub struct ReselectListRow {
+    /// The listbox that produced this event.
+    #[event_target]
+    pub source: Entity,
+    /// The row that was reselected
+    pub row: Entity,
+}
 
 fn listbox_on_key_input(
     mut ev: On<FocusedInput<KeyboardInput>>,
@@ -146,12 +161,19 @@ fn listbox_on_key_input(
                     // Toggle selected state of active row
                     if prev_active < list_items.len() {
                         let (active_id, selected, disabled) = list_items[prev_active];
-                        if !selected && !disabled {
-                            commands.trigger(ValueChange::<Entity> {
-                                source: listbox,
-                                value: active_id,
-                                is_final: true,
-                            });
+                        if !disabled {
+                            if !selected {
+                                commands.trigger(ValueChange::<Entity> {
+                                    source: listbox,
+                                    value: active_id,
+                                    is_final: true,
+                                });
+                            } else {
+                                commands.trigger(ReselectListRow {
+                                    source: listbox,
+                                    row: active_id,
+                                });
+                            }
                         }
                     }
                     return;
@@ -180,7 +202,7 @@ fn listbox_on_key_input(
 }
 
 fn listbox_on_row_click(
-    mut ev: On<Pointer<Click>>,
+    mut ev: On<PointerClick>,
     q_listbox: Query<(), With<ListBox>>,
     q_listitems: Query<(Has<Selected>, Has<InteractionDisabled>), With<ListItem>>,
     q_parents: Query<&ChildOf>,
@@ -245,7 +267,11 @@ fn listbox_on_row_click(
             .map(|(id, _)| *id);
 
         if current_row == Some(row_id) {
-            // If they clicked the currently checked list row, do nothing
+            // If click the currently checked list row, send a reselect but no value change
+            commands.trigger(ReselectListRow {
+                source: ev.entity,
+                row: row_id,
+            });
             return;
         }
 
@@ -330,14 +356,21 @@ fn listbox_on_set_selected(
     let Ok((selected, disabled)) = q_listitems.get(ev.row) else {
         return;
     };
-    if disabled || selected {
+    if disabled {
         return;
     }
-    commands.trigger(ValueChange::<Entity> {
-        source: ev.entity,
-        value: ev.row,
-        is_final: true,
-    });
+    if !selected {
+        commands.trigger(ValueChange::<Entity> {
+            source: ev.entity,
+            value: ev.row,
+            is_final: true,
+        });
+    } else {
+        commands.trigger(ReselectListRow {
+            source: ev.entity,
+            row: ev.row,
+        });
+    }
 }
 
 /// Plugin that adds the observers for the [`ListBox`] widget.

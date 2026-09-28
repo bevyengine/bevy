@@ -27,23 +27,6 @@ use wgpu_types::{
     TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
-/// Trait used to provide default values for Bevy-external types that
-/// do not implement [`Default`].
-#[deprecated(
-    note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default TextureFormat anymore. If you really need this, use TextureFormat::Rgba8UnormSrgb"
-)]
-pub trait BevyDefault {
-    /// Returns the default value for a type.
-    fn bevy_default() -> Self;
-}
-
-#[expect(deprecated, reason = "deprecated")]
-impl BevyDefault for TextureFormat {
-    fn bevy_default() -> Self {
-        TextureFormat::Rgba8UnormSrgb
-    }
-}
-
 /// Trait used to provide texture srgb view formats with static lifetime for `TextureDescriptor.view_formats`.
 pub trait TextureSrgbViewFormats {
     /// Returns the srgb view formats for a type.
@@ -180,27 +163,51 @@ pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
 pub struct ImagePlugin {
     /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
     pub default_sampler: ImageSamplerDescriptor,
+    /// The file extensions that will be assigned a default compressed image
+    /// processor. This means they will be automatically compressed unless
+    /// overridden with a `.meta` file.
+    ///
+    /// Defaults to `["png", "jpeg", "jpg"]`.
+    #[cfg(any(
+        feature = "compressed_image_saver",
+        feature = "compressed_image_saver_universal"
+    ))]
+    pub default_compressed_image_processor_extensions: Vec<String>,
 }
 
 impl Default for ImagePlugin {
     fn default() -> Self {
-        ImagePlugin::default_linear()
+        ImagePlugin {
+            default_sampler: ImageSamplerDescriptor::linear(),
+            #[cfg(any(
+                feature = "compressed_image_saver",
+                feature = "compressed_image_saver_universal"
+            ))]
+            default_compressed_image_processor_extensions: [
+                "png".into(),
+                "jpeg".into(),
+                "jpg".into(),
+            ]
+            .into(),
+        }
     }
 }
 
 impl ImagePlugin {
+    /// Sets [`ImagePlugin::default_sampler`].
+    pub fn with_default_sampler(mut self, value: ImageSamplerDescriptor) -> ImagePlugin {
+        self.default_sampler = value;
+        self
+    }
+
     /// Creates image settings with linear sampling by default.
     pub fn default_linear() -> ImagePlugin {
-        ImagePlugin {
-            default_sampler: ImageSamplerDescriptor::linear(),
-        }
+        Default::default()
     }
 
     /// Creates image settings with nearest sampling by default.
     pub fn default_nearest() -> ImagePlugin {
-        ImagePlugin {
-            default_sampler: ImageSamplerDescriptor::nearest(),
-        }
+        ImagePlugin::default().with_default_sampler(ImageSamplerDescriptor::nearest())
     }
 }
 
@@ -239,7 +246,7 @@ impl Plugin for ImagePlugin {
                 crate::CompressedImageSaver,
             >>(crate::CompressedImageSaver::default().into());
 
-            for file_extension in ["png", "jpeg", "jpg"] {
+            for file_extension in &self.default_compressed_image_processor_extensions {
                 processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
                     ImageLoader,
                     bevy_asset::transformer::IdentityAssetTransformer<Image>,
@@ -606,7 +613,15 @@ impl ToExtents for UVec3 {
 ///
 /// ## Remote Inspection
 ///
-/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use [`SerializedImage`](crate::SerializedImage).
+/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use
+#[cfg_attr(
+    feature = "serialize",
+    doc = "[`SerializedImage`](crate::SerializedImage)."
+)]
+#[cfg_attr(
+    not(feature = "serialize"),
+    doc = "`SerializedImage`, which requires the `serialize` feature."
+)]
 /// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
 #[derive(Asset, Debug, Clone, PartialEq)]
 #[cfg_attr(
@@ -1542,6 +1557,15 @@ impl Image {
         self.clone()
             .try_into_dynamic()
             .ok()
+            // `Rgba16Float` and `Rgba32Float` inputs return `None`. `image`
+            // would clamp them to 8 bits with no sRGB encode, and the
+            // `Rgba8UnormSrgb` result would be dark and clipped.
+            .filter(|img| {
+                !matches!(
+                    img,
+                    image::DynamicImage::ImageRgb32F(_) | image::DynamicImage::ImageRgba32F(_)
+                )
+            })
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => {
                     Some((image::DynamicImage::ImageLuma8(img.into_luma8()), false))

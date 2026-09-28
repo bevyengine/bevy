@@ -18,12 +18,9 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
-use bevy_math::{
-    ops,
-    primitives::{Cone, Sphere},
-    Isometry3d, Quat, Vec3,
-};
+use bevy_math::{ops, Isometry3d, Quat, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_shape::{Cone, Sphere};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 
 use bevy_gizmos::{

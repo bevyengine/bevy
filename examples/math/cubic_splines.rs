@@ -3,10 +3,11 @@
 use bevy::{
     app::{App, Startup, Update},
     color::*,
+    curve::cubic_splines::*,
     ecs::system::Commands,
     gizmos::gizmos::Gizmos,
     input::{mouse::MouseButtonInput, ButtonState},
-    math::{cubic_splines::*, vec2},
+    math::vec2,
     prelude::*,
 };
 

@@ -135,7 +135,7 @@ impl FullscreenEffect {
 
 impl FullscreenMaterial for FullscreenEffect {
     fn fragment_shader() -> ShaderRef {
-        "shaders/fullscreen_effect.wgsl".into()
+        "shaders/fullscreen_effect.wesl".into()
     }
 
     // The `FullscreenMaterial` uses 3d schedules by default.

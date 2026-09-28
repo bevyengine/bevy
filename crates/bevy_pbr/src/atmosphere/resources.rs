@@ -223,7 +223,7 @@ impl FromWorld for RenderSkyBindGroupLayouts {
             render_sky,
             render_sky_msaa,
             fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "render_sky.wgsl"),
+            fragment_shader: load_embedded_asset!(world, "render_sky.wesl"),
         }
     }
 }
@@ -262,7 +262,7 @@ impl FromWorld for AtmosphereLutPipelines {
         let transmittance_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("transmittance_lut_pipeline".into()),
             layout: vec![layouts.transmittance_lut.clone()],
-            shader: load_embedded_asset!(world, "transmittance_lut.wgsl"),
+            shader: load_embedded_asset!(world, "transmittance_lut.wesl"),
             ..default()
         });
 
@@ -270,21 +270,21 @@ impl FromWorld for AtmosphereLutPipelines {
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("multi_scattering_lut_pipeline".into()),
                 layout: vec![layouts.multiscattering_lut.clone()],
-                shader: load_embedded_asset!(world, "multiscattering_lut.wgsl"),
+                shader: load_embedded_asset!(world, "multiscattering_lut.wesl"),
                 ..default()
             });
 
         let sky_view_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("sky_view_lut_pipeline".into()),
             layout: vec![layouts.sky_view_lut.clone()],
-            shader: load_embedded_asset!(world, "sky_view_lut.wgsl"),
+            shader: load_embedded_asset!(world, "sky_view_lut.wesl"),
             ..default()
         });
 
         let aerial_view_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("aerial_view_lut_pipeline".into()),
             layout: vec![layouts.aerial_view_lut.clone()],
-            shader: load_embedded_asset!(world, "aerial_view_lut.wgsl"),
+            shader: load_embedded_asset!(world, "aerial_view_lut.wesl"),
             ..default()
         });
 

@@ -4,7 +4,7 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_ptr::{MovingPtr, OwningPtr};
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::{any::TypeId, ptr::NonNull};
 use indexmap::{IndexMap, IndexSet};
 
@@ -129,7 +129,7 @@ impl BundleInfo {
                     .or_insert_with(|| required_component.clone());
             }
 
-            storages.prepare_component(info);
+            storages.prepare_component(component_id, info);
         }
 
         let required_components = depth_first_components
@@ -137,7 +137,9 @@ impl BundleInfo {
             .filter(|&(required_id, _)| !explicit_component_ids.contains(&required_id))
             .inspect(|&(required_id, _)| {
                 // SAFETY: These ids came out of the passed `components`, so they must be valid.
-                storages.prepare_component(unsafe { components.get_info_unchecked(required_id) });
+                storages.prepare_component(required_id, unsafe {
+                    components.get_info_unchecked(required_id)
+                });
                 component_ids.push(required_id);
             })
             .map(|(_, required_component)| required_component.constructor)
@@ -393,9 +395,9 @@ pub(crate) enum ArchetypeMoveType {
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
     /// Cache static [`BundleId`]
-    bundle_ids: TypeIdMap<BundleId>,
+    bundle_ids: TypeIdHashMap<BundleId>,
     /// Cache bundles, which contains both explicit and required components of [`Bundle`]
-    contributed_bundle_ids: TypeIdMap<BundleId>,
+    contributed_bundle_ids: TypeIdHashMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
     dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
     dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,
@@ -432,7 +434,16 @@ impl Bundles {
     /// or if `type_id` does not correspond to a type of bundle.
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<BundleId> {
-        self.bundle_ids.get(&type_id).cloned()
+        self.bundle_ids.get(&type_id).copied()
+    }
+
+    /// Gets the value identifying a specific type of bundle
+    /// that contains both explicit and required components for a statically known type.
+    ///
+    /// Returns `None` if the bundle does not exist in the world,
+    /// or if `type_id` does not correspond to a type of bundle.
+    pub fn get_contributed_bundle_id(&self, type_id: TypeId) -> Option<BundleId> {
+        self.contributed_bundle_ids.get(&type_id).copied()
     }
 
     /// Registers a new [`BundleInfo`] for a statically known type.

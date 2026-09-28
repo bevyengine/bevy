@@ -7,6 +7,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 bevy_math = { path = "../../crates/bevy_math" }
+bevy_curve = { path = "../../crates/bevy_curve" }
 svg = "0.18.0"
 
 [lints]

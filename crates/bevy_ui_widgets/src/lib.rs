@@ -53,13 +53,16 @@ mod dialog;
 mod list;
 mod menu;
 mod modal;
+mod numeric;
 mod observe;
 pub mod popover;
 mod radio;
 mod scrollarea;
 mod scrollbar;
 mod slider;
+mod tabs;
 mod text_input;
+mod tree;
 
 use bevy_input_focus::pointer_focus::PointerFocusPlugin;
 pub use button::*;
@@ -68,12 +71,15 @@ pub use dialog::*;
 pub use list::*;
 pub use menu::*;
 pub use modal::*;
+pub use numeric::*;
 pub use observe::*;
 pub use radio::*;
 pub use scrollarea::*;
 pub use scrollbar::*;
 pub use slider::*;
+pub use tabs::*;
 pub use text_input::*;
+pub use tree::*;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 use bevy_ecs::{entity::Entity, event::EntityEvent, reflect::ReflectEvent};
@@ -91,7 +97,7 @@ impl PluginGroup for UiWidgetsPlugins {
         PluginGroupBuilder::start::<Self>()
             .add(ButtonPlugin)
             .add(CheckboxPlugin)
-            .add(EditableTextInputPlugin)
+            .add(TextInputPlugin)
             .add(ListBoxPlugin)
             .add(MenuPlugin)
             .add(DialogPlugin)
@@ -101,6 +107,8 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(ScrollAreaPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
+            .add(TabPlugin)
+            .add(TreePlugin)
             .add(PointerFocusPlugin)
     }
 }
