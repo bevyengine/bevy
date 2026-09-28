@@ -68,8 +68,10 @@ jobs:
         if: steps.crates.outputs.packages != ''
         env:
           PACKAGES: ${{ steps.crates.outputs.packages }}
+          CARGO_INCREMENTAL: 0
+          CARGO_PROFILE_DEV_DEBUG: 0
         run: |
-          cargo publish --dry-run $PACKAGES
+          cargo publish --dry-run $PACKAGES --features bevy_image/zstd_rust
 
   publish:
     name: Publish to crates.io
