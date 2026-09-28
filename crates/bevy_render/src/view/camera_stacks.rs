@@ -100,11 +100,11 @@ pub struct ViewStackContract {
     pub blit: StackBlit,
 }
 
-/// Whether a camera's tonemapping pass runs. The pass and the stack
-/// resolution both use it, so a stack never counts on a pass that doesn't
-/// run.
-pub fn tonemap_pass_runs(camera: &ExtractedCamera, tonemapping: &Tonemapping) -> bool {
-    camera.hdr && tonemapping.is_enabled()
+/// Whether a camera's tonemapping pass runs. It matches the check in
+/// `prepare_view_tonemapping_pipelines`, so a stack never counts on a pass
+/// that doesn't run.
+fn tonemap_pass_runs(camera: &ExtractedCamera, tonemapping: &Tonemapping) -> bool {
+    tonemapping.is_enabled() && !camera.tonemap_in_shader
 }
 
 /// Whether a main texture format can store negative values, which Oklab
@@ -614,7 +614,8 @@ mod tests {
         member
     }
 
-    /// Marks a member as SDR, which keeps its pass off whatever the method.
+    /// Marks a member that tonemaps in shader, like an SDR camera on a shared
+    /// target. Its pass is off whatever the method.
     fn sdr(mut member: Member) -> Member {
         member.pass_runs = false;
         member
