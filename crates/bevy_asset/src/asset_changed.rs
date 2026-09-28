@@ -54,9 +54,10 @@ impl<A: Asset> Default for AssetChanges<A> {
 }
 
 struct AssetChangeCheck<'w, A: AsAssetId> {
-    // This should never be `None` in practice, but we need to handle the case
-    // where the `AssetChanges` resource was removed.
-    changes: Option<&'w AssetChanges<A::Asset>>,
+    // This will be `None` if:
+    // - the `AssetChanges` resource was removed (should never happen)
+    // - no assets changed since the last run
+    change_ticks: Option<&'w HashMap<AssetId<A::Asset>, Tick>>,
     last_run: Tick,
     this_run: Tick,
 }
@@ -72,18 +73,10 @@ impl<A: AsAssetId> Copy for AssetChangeCheck<'_, A> {}
 impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
     fn new(changes: &'w AssetChanges<A::Asset>, last_run: Tick, this_run: Tick) -> Self {
         Self {
-            changes: Some(changes),
+            change_ticks: Some(&changes.change_ticks),
             last_run,
             this_run,
         }
-    }
-
-    fn has_any_changed(&self) -> bool {
-        self.changes.is_some_and(|changes| {
-            changes
-                .last_change_tick
-                .is_newer_than(self.last_run, self.this_run)
-        })
     }
 
     // TODO(perf): some sort of caching? Each check has two levels of indirection,
@@ -92,8 +85,8 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
         let is_newer = |tick: &Tick| tick.is_newer_than(self.last_run, self.this_run);
         let id = handle.as_asset_id();
 
-        self.changes
-            .is_some_and(|changes| changes.change_ticks.get(&id).is_some_and(is_newer))
+        self.change_ticks
+            .is_some_and(|change_ticks| change_ticks.get(&id).is_some_and(is_newer))
     }
 }
 
@@ -194,22 +187,22 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
             return AssetChangedFetch {
                 inner: None,
                 check: AssetChangeCheck {
-                    changes: None,
+                    change_ticks: None,
                     last_run,
                     this_run,
                 },
             };
         };
 
-        let check = AssetChangeCheck::new(changes, last_run, this_run);
+        let has_updates = changes.last_change_tick.is_newer_than(last_run, this_run);
 
         AssetChangedFetch {
-            inner: check.has_any_changed().then(||
+            inner: has_updates.then(||
                     // SAFETY: We delegate to the inner `init_fetch` for `A`
                     unsafe {
                         <&A>::init_fetch(world, &state.asset_id, last_run, this_run)
                     }),
-            check,
+            check: AssetChangeCheck::new(changes, last_run, this_run),
         }
     }
 
@@ -298,7 +291,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 
     #[inline(always)]
     unsafe fn filter_table(_state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
-        fetch.check.has_any_changed()
+        fetch.inner.is_some()
     }
 
     #[inline]
