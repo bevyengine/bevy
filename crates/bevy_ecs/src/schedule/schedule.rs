@@ -641,7 +641,8 @@ impl Schedule {
         let mut build_metadata = None;
         if self.graph.changed {
             #[cfg(feature = "trace")]
-            let _span = self.span.clone().entered();
+            let _span =
+                (Span::current().id() != self.span.id()).then(|| self.span.clone().entered());
             self.graph.initialize(world);
             let ignored_ambiguities = world
                 .get_resource_or_init::<Schedules>()
