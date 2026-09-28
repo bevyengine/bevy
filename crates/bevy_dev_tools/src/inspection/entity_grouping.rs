@@ -22,11 +22,12 @@ use bevy_platform::collections::{HashMap, HashSet};
 /// 1. Their position in the parent-child hierarchy, and then
 /// 2. Their archetype similarity, and then
 /// 3. Their [`Name`] component (if present), and then
-/// 4. Their [`Entity`] value.
+/// 4. Their [`Entity`] value, in [`Entity`]'s [`Ord`](Ord) order
+///    (ascending generation, then descending index).
 ///
 /// This ensures that children of the same parent are grouped together,
 /// and children with similar components are grouped together within that parent,
-/// while presenting a fairly stable ordering.
+/// while presenting a stable ordering within a session.
 ///
 /// To do this in a single step, you can call [`EntityGrouping::generate`]
 /// with [`GroupingStrategy::Compound`].
@@ -63,7 +64,7 @@ impl EntityGrouping {
     ) -> Self {
         match strategy {
             GroupingStrategy::EntityValue => {
-                let entities = sorted_alive_by(world, entities, |&entity| EntityKey::new(entity));
+                let entities = sorted_alive_by(world, entities, |entity| *entity);
                 EntityGrouping {
                     entities,
                     sub_groups: Vec::new(),
@@ -140,13 +141,12 @@ pub enum GroupingStrategy {
     /// Entities with no [`Name`] component are sorted after named entities,
     /// in [`GroupingStrategy::EntityValue`] order.
     Alphabetical,
-    /// Group by the [`Entity`] value.
+    /// Group by the [`Entity`] value, in [`Entity`]'s [`Ord`](Ord) order:
+    /// first by ascending generation, then by descending index (highest index first).
     ///
-    /// This is done on the basis of the entity's index and generation,
-    /// which is loosely correlated with the order of creation,
-    /// though it is not guaranteed to be strictly chronological.
-    ///
-    /// Such an ordering is stable and unique among alive entities.
+    /// This is not strictly creation order.
+    /// Because Bevy recycles freed indices, a newly spawned entity may receive a low index,
+    /// and a reused slot gets a higher generation.
     EntityValue,
     /// Group using Bevy's standard opinionated combination of the above strategies.
     ///
@@ -267,34 +267,6 @@ fn generate_grouping_tree(
     Some(tree)
 }
 
-/// A stable, unique total ordering over [`Entity`] values,
-/// matching its [`Display`](core::fmt::Display) format (`{index}v{generation}`):
-/// first by index, then by generation, both ascending.
-///
-/// This is the ordering used by [`GroupingStrategy::EntityValue`] and as the final tie-break
-/// inside [`NameEntityKey`]. Because no two currently-alive entities share an index, this is
-/// a total order; the generation participates so reused entity slots order consistently.
-///
-/// Prefer this over [`Entity::to_bits`]: that method's opaque bit encoding is not monotonic
-/// in the index and can therefore produce a reversed ordering.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct EntityKey {
-    /// The entity's index, compared first.
-    pub index: u32,
-    /// The entity's generation, compared second, breaking ties between reused indices.
-    pub generation: u32,
-}
-
-impl EntityKey {
-    /// Generate an [`EntityKey`] from an [`Entity`].
-    pub fn new(entity: Entity) -> Self {
-        EntityKey {
-            index: entity.index_u32(),
-            generation: entity.generation().to_bits(),
-        }
-    }
-}
-
 /// A [`Name`]-based portion of a [`NameEntityKey`]: named entities sort before unnamed ones,
 /// and named entities are compared case-insensitively.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -326,7 +298,8 @@ impl NameKey {
 /// A human-friendly ordering over an [`Entity`]: primarily by [`Name`], then by entity value.
 ///
 /// Named entities sort before unnamed ones, and named entities are compared case-insensitively;
-/// ties fall through to [`EntityKey`].
+/// ties fall through to the entity, in [`Entity`]'s [`Ord`](Ord) order
+/// (ascending generation, then descending index; see [`GroupingStrategy::EntityValue`]).
 ///
 /// This is the ordering used by [`GroupingStrategy::Alphabetical`], and it underpins the sibling
 /// ordering of both [`GroupingStrategy::Hierarchy`] and [`GroupingStrategy::Compound`].
@@ -334,8 +307,8 @@ impl NameKey {
 pub struct NameEntityKey {
     /// The [`Name`]-based component.
     pub name: NameKey,
-    /// The entity-value component (index, then generation).
-    pub entity_value: EntityKey,
+    /// The entity identifier.
+    pub entity: Entity,
 }
 
 impl NameEntityKey {
@@ -343,7 +316,7 @@ impl NameEntityKey {
     pub fn new(world: &World, entity: Entity) -> Self {
         NameEntityKey {
             name: NameKey::new(world, entity),
-            entity_value: EntityKey::new(entity),
+            entity,
         }
     }
 }
@@ -354,7 +327,7 @@ impl NameEntityKey {
 /// and each entity's sub-tree stays contiguous.
 /// Within each set of siblings (the roots, or the children of the same parent),
 /// entities are clustered by archetype similarity.
-/// Within an archetype, entities are ordered by [`Name`], then [`Entity`] value.
+/// Within an archetype, entities are ordered by [`Name`], then by [`Entity`]'s [`Ord`](Ord) order.
 ///
 /// As with [`hierarchy_group`], cycles or malformed hierarchies are guarded against;
 /// entities involved in cycles may be omitted if no acyclic root exists.
@@ -444,7 +417,7 @@ fn build_compound_subtree(
 }
 
 /// Sorts the entities of a single archetype by their [`NameEntityKey`]:
-/// first by name (alphabetically, case-insensitive), then by [`EntityKey`].
+/// first by name (alphabetically, case-insensitive), then by [`Entity`]'s [`Ord`](Ord) order.
 ///
 /// This is the standard tie-breaker sort for this module;
 /// see [`NameEntityKey`] for details and [`sorted_alive_by`] for deduplication and alive filtering
@@ -676,17 +649,8 @@ mod tests {
             entities: Vec::new(),
             sub_groups: vec![
                 EntityGrouping {
-                    entities: vec![a],
-                    sub_groups: vec![
-                        EntityGrouping {
-                            entities: vec![b],
-                            sub_groups: Vec::new(),
-                        },
-                        EntityGrouping {
-                            entities: vec![c],
-                            sub_groups: Vec::new(),
-                        },
-                    ],
+                    entities: vec![g],
+                    sub_groups: Vec::new(),
                 },
                 EntityGrouping {
                     entities: vec![d],
@@ -699,8 +663,17 @@ mod tests {
                     }],
                 },
                 EntityGrouping {
-                    entities: vec![g],
-                    sub_groups: Vec::new(),
+                    entities: vec![a],
+                    sub_groups: vec![
+                        EntityGrouping {
+                            entities: vec![c],
+                            sub_groups: Vec::new(),
+                        },
+                        EntityGrouping {
+                            entities: vec![b],
+                            sub_groups: Vec::new(),
+                        },
+                    ],
                 },
             ],
         };
@@ -738,10 +711,6 @@ mod tests {
                     sub_groups: Vec::new(),
                 },
                 EntityGrouping {
-                    entities: vec![unnamed],
-                    sub_groups: Vec::new(),
-                },
-                EntityGrouping {
                     entities: vec![parent],
                     sub_groups: vec![
                         EntityGrouping {
@@ -753,6 +722,10 @@ mod tests {
                             sub_groups: Vec::new(),
                         },
                     ],
+                },
+                EntityGrouping {
+                    entities: vec![unnamed],
+                    sub_groups: Vec::new(),
                 },
             ],
         };
@@ -783,7 +756,7 @@ mod tests {
     }
 
     #[test]
-    fn hierarchy_sort_by_index() {
+    fn hierarchy_sorts_same_name_by_descending_index() {
         let mut world = World::new();
         let first = world.spawn(Name::new("same")).id();
         let second = world.spawn(Name::new("same")).id();
@@ -793,11 +766,11 @@ mod tests {
             entities: Vec::new(),
             sub_groups: vec![
                 EntityGrouping {
-                    entities: vec![first],
+                    entities: vec![second],
                     sub_groups: Vec::new(),
                 },
                 EntityGrouping {
-                    entities: vec![second],
+                    entities: vec![first],
                     sub_groups: Vec::new(),
                 },
             ],
@@ -1000,12 +973,12 @@ mod tests {
             vec![unnamed, alpha_dup, zeta, alpha],
             GroupingStrategy::Alphabetical,
         );
-        assert_eq!(grouping.entities, vec![alpha, alpha_dup, zeta, unnamed]);
+        assert_eq!(grouping.entities, vec![alpha_dup, alpha, zeta, unnamed]);
         assert!(grouping.sub_groups.is_empty());
     }
 
     #[test]
-    fn entity_value_sorts_by_index() {
+    fn entity_value_sorts_by_descending_index() {
         let mut world = World::new();
         let first = world.spawn_empty().id();
         let second = world.spawn_empty().id();
@@ -1016,7 +989,7 @@ mod tests {
             vec![third, first, second],
             GroupingStrategy::EntityValue,
         );
-        assert_eq!(grouping.entities, vec![first, second, third]);
+        assert_eq!(grouping.entities, vec![third, second, first]);
         assert!(grouping.sub_groups.is_empty());
     }
 
@@ -1037,7 +1010,7 @@ mod tests {
             vec![second, first, first, dead],
             GroupingStrategy::EntityValue,
         );
-        assert_eq!(grouping.entities, vec![first, second]);
+        assert_eq!(grouping.entities, vec![second, first]);
 
         // Alphabetical: same contract.
         let grouping = EntityGrouping::generate(
@@ -1045,37 +1018,30 @@ mod tests {
             vec![second, first, first, dead],
             GroupingStrategy::Alphabetical,
         );
-        assert_eq!(grouping.entities, vec![first, second]);
+        assert_eq!(grouping.entities, vec![second, first]);
     }
 
     #[test]
-    fn entity_key_orders_by_index_then_generation() {
-        // Same-index entities can't be alive simultaneously, so a real group only ever shows
-        // one generation per index. Construct entities directly (no world) to deterministically
-        // prove both fields participate.
+    fn entity_ord_is_generation_then_descending_index() {
+        // Construct entities directly (no world) so the tie-break inside `NameEntityKey`
+        // is exercised without any named component: in an empty world every entity is
+        // unnamed, so the name compares equal and the entity itself decides.
+        let world = World::new();
+        let key = |index: u32, generation: u32| {
+            NameEntityKey::new(
+                &world,
+                Entity::from_index_and_generation(
+                    EntityIndex::from_raw_u32(index).unwrap(),
+                    EntityGeneration::from_bits(generation),
+                ),
+            )
+        };
 
-        // Index is the primary key: an entity with a lower index sorts first,
-        // even when its generation is higher.
-        let low_index_high_gen = Entity::from_index_and_generation(
-            EntityIndex::from_raw_u32(1).unwrap(),
-            EntityGeneration::from_bits(5),
-        );
-        let high_index_low_gen = Entity::from_index_and_generation(
-            EntityIndex::from_raw_u32(10).unwrap(),
-            EntityGeneration::FIRST,
-        );
-        assert!(EntityKey::new(low_index_high_gen) < EntityKey::new(high_index_low_gen));
+        // Same generation: the higher index sorts first (index descending).
+        assert!(key(10, 0) < key(1, 0));
 
-        // Within the same index, generation ascends.
-        let same_index_low_gen = Entity::from_index_and_generation(
-            EntityIndex::from_raw_u32(4).unwrap(),
-            EntityGeneration::FIRST,
-        );
-        let same_index_high_gen = Entity::from_index_and_generation(
-            EntityIndex::from_raw_u32(4).unwrap(),
-            EntityGeneration::from_bits(3),
-        );
-        assert!(EntityKey::new(same_index_low_gen) < EntityKey::new(same_index_high_gen));
+        // Different generation: the lower generation sorts first, regardless of index.
+        assert!(key(1, 0) < key(10, 5));
     }
 
     #[test]
@@ -1104,6 +1070,9 @@ mod tests {
         let flat = grouping.flatten();
 
         // Every entity appears exactly once.
+        // The two unnamed `CompA` roots form one archetype and one name group,
+        // so `root` (the higher index) must come first.
+        assert_eq!(flat.first(), Some(&root));
         let mut sorted = flat.clone();
         sorted.sort_by_key(|entity| entity.index());
         let mut expected = vec![parent, root, child_alpha, child_bravo, child_zulu];
