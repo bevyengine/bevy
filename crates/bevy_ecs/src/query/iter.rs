@@ -3256,6 +3256,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         }
 
                         // SAFETY: set_archetype was called prior.
+                        // Note: it's fine to filter the table while doing dense iteration here because
+                        // an archetype is a subset of the entities of the table it maps to. Hence if no entity on
+                        // the table matches the filter then no entity of the archetype matches it either.
+                        // The converse might not be true but it doesn't matter: if this method returns true when
+                        // no entity on the archetype matches the filter then we just lose the optimization
+                        // but the code remains correct.
                         let fetched_table =
                             unsafe { F::filter_table(&query_state.filter_state, &mut self.filter) };
                         if !fetched_table {
