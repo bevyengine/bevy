@@ -7,6 +7,7 @@ use ctt::{
     split_cubemap, AlphaMode, CubemapInput, EquirectangularFront, EquirectangularOrientation,
     FormatDesc, FormatExt, SurfaceRef,
 };
+use half::slice::{HalfBitsSliceExt, HalfFloatSliceExt};
 use thiserror::Error;
 use wgpu_types::{
     Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
@@ -135,17 +136,26 @@ impl Image {
             error => EquirectangularToCubemapError::ProjectionFailed(error.to_string()),
         })?;
 
-        // ctt returns `Rgba32Float` faces.
+        // ctt returns `Rgba32Float` faces; convert them in chunks for the SIMD bulk conversion.
+        const CHUNK: usize = 1024;
+        let mut floats = [0.0f32; CHUNK];
+        let mut bits = [0u16; CHUNK];
         let mut halves = Vec::with_capacity(6 * face_size as usize * face_size as usize * 8);
         for face in faces.surfaces {
-            for &bytes in face[0].data.as_chunks::<4>().0 {
-                let channel = f32::from_le_bytes(bytes);
-                let channel = if channel.is_finite() {
-                    channel.clamp(-F16_MAX, F16_MAX)
-                } else {
-                    0.0
-                };
-                halves.extend_from_slice(&half::f16::from_f32(channel).to_le_bytes());
+            for chunk in face[0].data.as_chunks::<4>().0.chunks(CHUNK) {
+                let len = chunk.len();
+                for (float, &bytes) in floats.iter_mut().zip(chunk) {
+                    let channel = f32::from_le_bytes(bytes);
+                    *float = if channel.is_finite() {
+                        channel.clamp(-F16_MAX, F16_MAX)
+                    } else {
+                        0.0
+                    };
+                }
+                bits[..len]
+                    .reinterpret_cast_mut::<half::f16>()
+                    .convert_from_f32_slice(&floats[..len]);
+                halves.extend_from_slice(bytemuck::cast_slice(&bits[..len]));
             }
         }
 
