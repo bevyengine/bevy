@@ -865,7 +865,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
-            // This is a dummy valid chosen for safe behaviour.
+            // This is a dummy valid chosen for safe behavior.
             // In case this is never modified it will cause `filter_table` to return `true`, which is always correct.
             summary_tick: last_run,
             last_run,
@@ -1122,7 +1122,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
-            // This is a dummy valid chosen for safe behaviour.
+            // This is a dummy valid chosen for safe behavior.
             // In case this is never modified it will cause `filter_table` to return `true`, which is always correct.
             summary_tick: last_run,
             last_run,
