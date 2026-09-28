@@ -22,6 +22,10 @@ on:
         description: "Space separated crates to publish. Empty: every crate of the workspace not yet published"
         type: string
         default: ""
+      features:
+        description: "Features to enable for the dry run, for crates that don't build with their default features"
+        type: string
+        default: "bevy_image/zstd_rust"
 
 permissions: {}
 
@@ -89,10 +93,11 @@ jobs:
         if: steps.crates.outputs.packages != '' && !inputs.skip_verify
         env:
           PACKAGES: ${{ steps.crates.outputs.packages }}
+          FEATURES: ${{ inputs.features }}
           CARGO_INCREMENTAL: 0
           CARGO_PROFILE_DEV_DEBUG: 0
         run: |
-          cargo publish --dry-run $PACKAGES --features bevy_image/zstd_rust
+          cargo publish --dry-run $PACKAGES ${FEATURES:+--features "$FEATURES"}
 
   publish:
     name: Publish to crates.io
