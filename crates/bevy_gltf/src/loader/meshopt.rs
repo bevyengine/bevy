@@ -264,7 +264,9 @@ pub(super) mod fixture {
     /// rotate a triangle but keeps triangle order and winding.
     pub fn triangles(indices: &[u32]) -> Vec<[u32; 3]> {
         indices
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|t| {
                 let start = (0..3).min_by_key(|&i| t[i]).unwrap();
                 [t[start], t[(start + 1) % 3], t[(start + 2) % 3]]
@@ -432,7 +434,7 @@ mod tests {
 
         decode_buffer_views(&document, &mut buffers).unwrap();
 
-        for (normal, decoded) in normals.iter().zip(buffers[1].chunks_exact(STRIDE)) {
+        for (normal, decoded) in normals.iter().zip(buffers[1].as_chunks::<STRIDE>().0) {
             for axis in 0..3 {
                 let value = i16::from_le_bytes([decoded[axis * 2], decoded[axis * 2 + 1]]);
                 let value = f32::from(value) / f32::from(i16::MAX);
@@ -458,8 +460,10 @@ mod tests {
             &expected_positions[..]
         );
         let decoded_indices: Vec<u32> = buffers[1][expected_positions.len()..]
-            .chunks_exact(2)
-            .map(|b| u32::from(u16::from_le_bytes([b[0], b[1]])))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|&b| u32::from(u16::from_le_bytes(b)))
             .collect();
         assert_eq!(triangles(&decoded_indices), triangles(&indices));
     }
