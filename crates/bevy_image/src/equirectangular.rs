@@ -1,17 +1,20 @@
 //! CPU conversion of an equirectangular (lat-long) panorama into a cubemap [`Image`].
 
-use crate::{Image, TextureFormatPixelInfo};
-use alloc::borrow::Cow;
-use bevy_color::Srgba;
-use bevy_math::{ops, Vec3, Vec4};
+use crate::{ctt_format::wgpu_to_ctt_texture_format, Image, TextureFormatPixelInfo};
+use bevy_math::{ops, Vec3};
 use core::f32::consts::{PI, TAU};
-use half::slice::{HalfBitsSliceExt, HalfFloatSliceExt};
+use ctt::{
+    split_cubemap, AlphaMode, CubemapInput, EquirectangularFront, EquirectangularOrientation,
+    FormatDesc, FormatExt, SurfaceRef,
+};
 use thiserror::Error;
 use wgpu_types::{
     Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
 };
 
 const F16_MAX: f32 = half::f16::MAX.to_f32_const();
+/// The largest face size ctt projects.
+const MAX_FACE_SIZE: u32 = 1 << 15;
 
 /// An error from [`Image::equirectangular_to_cubemap`].
 #[non_exhaustive]
@@ -26,11 +29,14 @@ pub enum EquirectangularToCubemapError {
     #[error("image data is missing or incomplete")]
     Uninitialized,
     /// The source format cannot be decoded by the converter.
-    #[error("unsupported source texture format {0:?}; use Rgba32Float, Rgba16Float, Rgba8Unorm or Rgba8UnormSrgb")]
+    #[error("unsupported source texture format {0:?}; use an uncompressed, non-integer format")]
     UnsupportedSourceFormat(TextureFormat),
-    /// `face_size` was zero.
-    #[error("cubemap face size must be at least 1")]
+    /// `face_size` was zero or above the maximum.
+    #[error("cubemap face size must be between 1 and {MAX_FACE_SIZE}")]
     InvalidFaceSize,
+    /// The projection failed.
+    #[error("cubemap projection failed: {0}")]
+    ProjectionFailed(String),
 }
 
 impl Image {
@@ -41,13 +47,14 @@ impl Image {
     /// sampler and asset usage are preserved. The face size is independent of the
     /// source resolution and does not need to be a power of two.
     ///
-    /// Supported source formats are [`TextureFormat::Rgba32Float`],
-    /// [`TextureFormat::Rgba16Float`], [`TextureFormat::Rgba8Unorm`], and
-    /// [`TextureFormat::Rgba8UnormSrgb`]. sRGB colors are converted to linear
-    /// before filtering; alpha stays linear.
+    /// The source can be any uncompressed, non-integer format. sRGB colors are
+    /// converted to linear before filtering; alpha stays linear. Colors are
+    /// weighted by alpha while filtering, so transparent texels do not bleed
+    /// into their neighbors.
     ///
-    /// Each output texel samples the panorama bilinearly, wrapping horizontally
-    /// and clamping vertically. Output channels are clamped to ±65504; non-finite
+    /// Each output texel is filtered from a mip pyramid of the panorama with
+    /// anisotropic taps, so faces smaller than the panorama and texels near the
+    /// poles do not alias. Output channels are clamped to ±65504; non-finite
     /// results become zero.
     ///
     /// # Orientation
@@ -67,19 +74,24 @@ impl Image {
     ///
     /// # Errors
     ///
-    /// Returns [`EquirectangularToCubemapError`] if `face_size` is zero, the source
-    /// is not a nonempty, single-layer 2D image with one mip level, its format is
-    /// unsupported, or its [`Image::data`] is missing or incomplete.
+    /// Returns [`EquirectangularToCubemapError`] if `face_size` is zero or too
+    /// large, the source is not a nonempty, single-layer 2D image with one mip
+    /// level, its format is unsupported, or its [`Image::data`] is missing or
+    /// incomplete.
     pub fn equirectangular_to_cubemap(
         &self,
         face_size: u32,
     ) -> Result<Image, EquirectangularToCubemapError> {
-        if face_size == 0 {
+        if !(1..=MAX_FACE_SIZE).contains(&face_size) {
             return Err(EquirectangularToCubemapError::InvalidFaceSize);
         }
+        let width = self.width();
+        let height = self.height();
         if self.texture_descriptor.dimension != TextureDimension::D2
             || self.texture_descriptor.size.depth_or_array_layers != 1
             || self.texture_descriptor.mip_level_count != 1
+            || width == 0
+            || height == 0
         {
             return Err(EquirectangularToCubemapError::WrongDimension);
         }
@@ -87,67 +99,55 @@ impl Image {
             return Err(EquirectangularToCubemapError::Uninitialized);
         };
         let source_format = self.texture_descriptor.format;
-        let width = self.width() as usize;
-        let height = self.height() as usize;
-        if width == 0 || height == 0 {
-            return Err(EquirectangularToCubemapError::WrongDimension);
-        }
-        let pixel_size = source_format
-            .pixel_size()
-            .map_err(|_| EquirectangularToCubemapError::UnsupportedSourceFormat(source_format))?;
+        let unsupported = || EquirectangularToCubemapError::UnsupportedSourceFormat(source_format);
+        let pixel_size = source_format.pixel_size().map_err(|_| unsupported())?;
+        let format = wgpu_to_ctt_texture_format(source_format).ok_or_else(unsupported)?;
         let bytes = data
-            .get(..width * height * pixel_size)
+            .get(..width as usize * height as usize * pixel_size)
             .ok_or(EquirectangularToCubemapError::Uninitialized)?;
 
-        let texels: Cow<[[f32; 4]]> = match source_format {
-            TextureFormat::Rgba32Float => bytemuck::try_cast_slice(bytes)
-                .map(Cow::Borrowed)
-                .unwrap_or_else(|_| Cow::Owned(bytemuck::pod_collect_to_vec(bytes))),
-            TextureFormat::Rgba16Float => Cow::Owned(decode(bytes, pixel_size, |texel| {
-                core::array::from_fn(|i| {
-                    half::f16::from_le_bytes([texel[2 * i], texel[2 * i + 1]]).to_f32()
-                })
-            })),
-            TextureFormat::Rgba8Unorm => Cow::Owned(decode(bytes, pixel_size, |texel| {
-                core::array::from_fn(|i| texel[i] as f32 / u8::MAX as f32)
-            })),
-            TextureFormat::Rgba8UnormSrgb => {
-                let lut: [f32; 256] =
-                    core::array::from_fn(|i| Srgba::gamma_function(i as f32 / u8::MAX as f32));
-                Cow::Owned(decode(bytes, pixel_size, |texel| {
-                    [
-                        lut[texel[0] as usize],
-                        lut[texel[1] as usize],
-                        lut[texel[2] as usize],
-                        texel[3] as f32 / u8::MAX as f32,
-                    ]
-                }))
+        let faces = split_cubemap(CubemapInput::Equirectangular {
+            surface: SurfaceRef {
+                data: bytes,
+                width,
+                height,
+                depth: 1,
+                stride: width * pixel_size as u32,
+                slice_stride: 0,
+            },
+            desc: FormatDesc {
+                format,
+                color_space: format.normalize().1,
+                alpha: AlphaMode::Straight,
+            },
+            face_size: Some(face_size),
+            // ctt's lat-long center faces +X in cube space, which with Bevy's Z
+            // flip gives the orientation documented above.
+            orientation: EquirectangularOrientation {
+                front: EquirectangularFront::PosX,
+                mirror: false,
+            },
+        })
+        .map_err(|error| match error {
+            ctt::Error::UnsupportedFormat(_) | ctt::Error::UnsupportedConversion(_) => {
+                unsupported()
             }
-            other => {
-                return Err(EquirectangularToCubemapError::UnsupportedSourceFormat(
-                    other,
-                ))
-            }
-        };
+            error => EquirectangularToCubemapError::ProjectionFailed(error.to_string()),
+        })?;
 
-        let source = Equirect {
-            width,
-            height,
-            texels: &texels,
-        };
-        let mut faces = source.render(face_size);
-        for channel in &mut faces {
-            *channel = if channel.is_finite() {
-                channel.clamp(-F16_MAX, F16_MAX)
-            } else {
-                0.0
-            };
+        // ctt returns `Rgba32Float` faces.
+        let mut halves = Vec::with_capacity(6 * face_size as usize * face_size as usize * 8);
+        for face in faces.surfaces {
+            for &bytes in face[0].data.as_chunks::<4>().0 {
+                let channel = f32::from_le_bytes(bytes);
+                let channel = if channel.is_finite() {
+                    channel.clamp(-F16_MAX, F16_MAX)
+                } else {
+                    0.0
+                };
+                halves.extend_from_slice(&half::f16::from_f32(channel).to_le_bytes());
+            }
         }
-        let mut halves = vec![0u16; faces.len()];
-        halves
-            .reinterpret_cast_mut::<half::f16>()
-            .convert_from_f32_slice(&faces);
-        drop(faces);
 
         let mut cubemap = Image::new(
             Extent3d {
@@ -156,7 +156,7 @@ impl Image {
                 depth_or_array_layers: 6,
             },
             TextureDimension::D2,
-            bytemuck::cast_slice(&halves).to_vec(),
+            halves,
             TextureFormat::Rgba16Float,
             self.asset_usage,
         );
@@ -169,25 +169,6 @@ impl Image {
     }
 }
 
-/// Decodes every `pixel_size`-byte texel of `bytes` to linear RGBA.
-fn decode(bytes: &[u8], pixel_size: usize, texel: impl Fn(&[u8]) -> [f32; 4]) -> Vec<[f32; 4]> {
-    bytes.chunks_exact(pixel_size).map(texel).collect()
-}
-
-/// World direction for a cube face at coordinates in `-1..1`, with `v = -1` at the top.
-pub(crate) fn cubemap_texel_world_direction(face: u32, u: f32, v: f32) -> Vec3 {
-    let cube = match face {
-        0 => Vec3::new(1.0, -v, -u),
-        1 => Vec3::new(-1.0, -v, u),
-        2 => Vec3::new(u, 1.0, v),
-        3 => Vec3::new(u, -1.0, -v),
-        4 => Vec3::new(u, -v, 1.0),
-        _ => Vec3::new(-u, -v, -1.0),
-    };
-    // Bevy flips world Z when sampling cubemaps.
-    Vec3::new(cube.x, cube.y, -cube.z).normalize()
-}
-
 /// Lat-long texture coordinates in `0..1` of a unit world direction.
 pub fn equirectangular_uv(dir: Vec3) -> (f32, f32) {
     let u = 0.5 + ops::atan2(dir.z, dir.x) / TAU;
@@ -195,62 +176,11 @@ pub fn equirectangular_uv(dir: Vec3) -> (f32, f32) {
     (u, v)
 }
 
-/// A decoded lat-long panorama, row-major linear RGBA.
-struct Equirect<'a> {
-    width: usize,
-    height: usize,
-    texels: &'a [[f32; 4]],
-}
-
-impl Equirect<'_> {
-    /// Renders six square faces in layer, row, column order.
-    fn render(&self, face_size: u32) -> Vec<f32> {
-        let fetch = |x: usize, y: usize| Vec4::from(self.texels[y * self.width + x]);
-        let width_f = self.width as f32;
-        let height_f = self.height as f32;
-        let max_y = self.height - 1;
-
-        let face_size = face_size as usize;
-        let mut out = vec![0.0f32; 6 * face_size * face_size * 4];
-        let inv_face_size = 1.0 / face_size as f32;
-        for (i, texel) in out.as_chunks_mut::<4>().0.iter_mut().enumerate() {
-            let x = i % face_size;
-            let y = i / face_size % face_size;
-            let face = (i / (face_size * face_size)) as u32;
-            let u = (x as f32 + 0.5) * inv_face_size * 2.0 - 1.0;
-            let v = (y as f32 + 0.5) * inv_face_size * 2.0 - 1.0;
-            let dir = cubemap_texel_world_direction(face, u, v);
-            let (su, sv) = equirectangular_uv(dir);
-
-            // Wrap across the horizontal seam and clamp at the poles.
-            let px = su * width_f - 0.5;
-            let py = (sv * height_f - 0.5).clamp(0.0, max_y as f32);
-            let x0f = px.floor();
-            let y0f = py.floor();
-            let fx = px - x0f;
-            let fy = py - y0f;
-            let x0 = (x0f as isize).rem_euclid(self.width as isize) as usize;
-            let x1 = if x0 + 1 == self.width { 0 } else { x0 + 1 };
-            let y0 = (y0f as isize).clamp(0, max_y as isize) as usize;
-            let y1 = (y0 + 1).min(max_y);
-
-            let a = fetch(x0, y0);
-            let b = fetch(x1, y0);
-            let c = fetch(x0, y1);
-            let d = fetch(x1, y1);
-            let top = a + (b - a) * fx;
-            let bottom = c + (d - c) * fx;
-            texel.copy_from_slice(&(top + (bottom - top) * fy).to_array());
-        }
-        out
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use bevy_asset::RenderAssetUsages;
-    use bevy_math::UVec3;
+    use bevy_color::{ColorToComponents, Srgba};
 
     fn equirect_rgba32(width: u32, height: u32, texel: impl Fn(u32, u32) -> [f32; 4]) -> Image {
         let mut data = Vec::with_capacity((width * height * 16) as usize);
@@ -275,14 +205,11 @@ mod tests {
     }
 
     fn texel(cubemap: &Image, face: u32, x: u32, y: u32) -> [f32; 4] {
-        assert_eq!(
-            cubemap.texture_descriptor.format,
-            TextureFormat::Rgba16Float
-        );
-        let bytes = cubemap.pixel_bytes(UVec3::new(x, y, face)).unwrap();
-        core::array::from_fn(|i| {
-            half::f16::from_le_bytes([bytes[2 * i], bytes[2 * i + 1]]).to_f32()
-        })
+        cubemap
+            .get_color_at_3d(x, y, face)
+            .unwrap()
+            .to_linear()
+            .to_f32_array()
     }
 
     fn assert_close(actual: [f32; 4], expected: [f32; 4], tolerance: f32) {
@@ -376,99 +303,6 @@ mod tests {
     }
 
     #[test]
-    fn hemispheres_land_on_the_y_faces() {
-        let white = [1.0; 4];
-        let black = [0.0, 0.0, 0.0, 1.0];
-        let size = 16;
-        let cubemap = equirect_rgba32(64, 32, |_, y| if y < 16 { white } else { black })
-            .equirectangular_to_cubemap(size)
-            .unwrap();
-        for y in 0..size {
-            for x in 0..size {
-                assert_close(texel(&cubemap, 2, x, y), white, 1e-3);
-                assert_close(texel(&cubemap, 3, x, y), black, 1e-3);
-            }
-        }
-        // Side faces: top row looks up, bottom row looks down.
-        for face in [0, 1, 4, 5] {
-            for x in 0..size {
-                assert_close(texel(&cubemap, face, x, 0), white, 1e-3);
-                assert_close(texel(&cubemap, face, x, size - 1), black, 1e-3);
-            }
-        }
-    }
-
-    #[test]
-    fn axis_directions_land_on_their_faces() {
-        let width = 256;
-        let height = 128;
-        // World directions in cube layer order, accounting for Bevy's Z flip.
-        let axes = [
-            (Vec3::X, [1.0, 0.0, 0.0, 1.0]),
-            (Vec3::NEG_X, [0.0, 1.0, 0.0, 1.0]),
-            (Vec3::Y, [0.0, 0.0, 1.0, 1.0]),
-            (Vec3::NEG_Y, [1.0, 1.0, 0.0, 1.0]),
-            (Vec3::NEG_Z, [1.0, 0.0, 1.0, 1.0]),
-            (Vec3::Z, [0.0, 1.0, 1.0, 1.0]),
-        ];
-        let panorama = equirect_rgba32(width, height, |x, y| {
-            // Direction of this lat-long texel, inverting the documented mapping.
-            let u = (x as f32 + 0.5) / width as f32;
-            let v = (y as f32 + 0.5) / height as f32;
-            let phi = (u - 0.5) * TAU;
-            let theta = v * PI;
-            let (sin_theta, cos_theta) = ops::sin_cos(theta);
-            let (sin_phi, cos_phi) = ops::sin_cos(phi);
-            let dir = Vec3::new(sin_theta * cos_phi, cos_theta, sin_theta * sin_phi);
-            for (axis, color) in axes {
-                if dir.dot(axis) > 0.97 {
-                    return color;
-                }
-            }
-            [0.0, 0.0, 0.0, 1.0]
-        });
-        let size = 32;
-        let cubemap = panorama.equirectangular_to_cubemap(size).unwrap();
-        let center = size / 2;
-        for (face, (_, color)) in axes.iter().enumerate() {
-            let face = face as u32;
-            assert_close(texel(&cubemap, face, center, center), *color, 1e-3);
-            assert_close(texel(&cubemap, face, center - 1, center - 1), *color, 1e-3);
-            // Corners look 54.7 degrees off-axis and must be black.
-            assert_close(texel(&cubemap, face, 0, 0), [0.0, 0.0, 0.0, 1.0], 1e-3);
-            assert_close(
-                texel(&cubemap, face, size - 1, size - 1),
-                [0.0, 0.0, 0.0, 1.0],
-                1e-3,
-            );
-        }
-    }
-
-    #[test]
-    fn face_edges_are_continuous() {
-        let size = 8;
-        let edge = |face, x, y| cubemap_texel_world_direction(face, x, y);
-        let step = 2.0 / size as f32;
-        for i in 0..size {
-            let t = -1.0 + (i as f32 + 0.5) * step;
-            // +X right edge meets -Z left edge, +X left edge meets +Z right edge, +Y bottom
-            // row meets +Z top row, -Y top row meets +Z bottom row (all in cube space).
-            let a = edge(0, 1.0, t);
-            let b = edge(5, -1.0, t);
-            assert!(a.abs_diff_eq(b, 1e-5), "{a} vs {b}");
-            let a = edge(0, -1.0, t);
-            let b = edge(4, 1.0, t);
-            assert!(a.abs_diff_eq(b, 1e-5), "{a} vs {b}");
-            let a = edge(2, t, 1.0);
-            let b = edge(4, t, -1.0);
-            assert!(a.abs_diff_eq(b, 1e-5), "{a} vs {b}");
-            let a = edge(3, t, -1.0);
-            let b = edge(4, t, 1.0);
-            assert!(a.abs_diff_eq(b, 1e-5), "{a} vs {b}");
-        }
-    }
-
-    #[test]
     fn srgb_source_is_linearized() {
         let mut data = Vec::new();
         for _ in 0..(8 * 4) {
@@ -502,20 +336,24 @@ mod tests {
     }
 
     #[test]
-    fn srgb_filtering_uses_linear_colors_and_alpha() {
-        let image = Image::new(
-            Extent3d {
-                width: 2,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
-            TextureDimension::D2,
-            vec![0, 0, 0, 0, 255, 255, 255, 255],
-            TextureFormat::Rgba8UnormSrgb,
-            RenderAssetUsages::all(),
-        );
-        let cubemap = image.equirectangular_to_cubemap(1).unwrap();
-        assert_close(texel(&cubemap, 0, 0, 0), [0.5; 4], 1e-3);
+    fn srgb_filtering_uses_linear_colors_weighted_by_alpha() {
+        for (transparent_alpha, expected) in
+            [(255, [0.5, 0.5, 0.5, 1.0]), (0, [1.0, 1.0, 1.0, 0.5])]
+        {
+            let image = Image::new(
+                Extent3d {
+                    width: 2,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                TextureDimension::D2,
+                vec![0, 0, 0, transparent_alpha, 255, 255, 255, 255],
+                TextureFormat::Rgba8UnormSrgb,
+                RenderAssetUsages::all(),
+            );
+            let cubemap = image.equirectangular_to_cubemap(1).unwrap();
+            assert_close(texel(&cubemap, 0, 0, 0), expected, 1e-3);
+        }
     }
 
     #[test]
@@ -571,25 +409,33 @@ mod tests {
                 1.0,
             ]
         });
-        let cubemap = panorama.equirectangular_to_cubemap(2).unwrap();
-        // World directions through the top-left texel of each 2×2 face.
-        for (face, direction) in [
-            Vec3::new(1.0, 0.5, -0.5),
-            Vec3::new(-1.0, 0.5, 0.5),
-            Vec3::new(-0.5, 1.0, 0.5),
-            Vec3::new(-0.5, -1.0, -0.5),
-            Vec3::new(-0.5, 0.5, -1.0),
-            Vec3::new(0.5, 0.5, 1.0),
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            let color = direction.normalize() * 0.5 + Vec3::splat(0.5);
-            assert_close(
-                texel(&cubemap, face as u32, 0, 0),
-                color.extend(1.0).to_array(),
-                1e-3,
-            );
+        let size = 8;
+        let cubemap = panorama.equirectangular_to_cubemap(size).unwrap();
+        for face in 0..6 {
+            for y in 0..size {
+                for x in 0..size {
+                    let u = (x as f32 + 0.5) / size as f32 * 2.0 - 1.0;
+                    let v = (y as f32 + 0.5) / size as f32 * 2.0 - 1.0;
+                    // World direction through the texel, with `v = -1` at the top.
+                    let expected = match face {
+                        0 => Vec3::new(1.0, -v, u),
+                        1 => Vec3::new(-1.0, -v, -u),
+                        2 => Vec3::new(u, 1.0, -v),
+                        3 => Vec3::new(u, -1.0, v),
+                        4 => Vec3::new(u, -v, -1.0),
+                        _ => Vec3::new(-u, -v, 1.0),
+                    }
+                    .normalize();
+                    // Filtering averages directions over the texel's footprint,
+                    // which shortens them, so compare only where they point.
+                    let [r, g, b, _] = texel(&cubemap, face, x, y);
+                    let actual = (Vec3::new(r, g, b) * 2.0 - Vec3::ONE).normalize();
+                    assert!(
+                        actual.dot(expected) > 0.999,
+                        "face {face} texel ({x}, {y}): {actual} != {expected}"
+                    );
+                }
+            }
         }
     }
 
@@ -625,13 +471,19 @@ mod tests {
             image.equirectangular_to_cubemap(0),
             Err(EquirectangularToCubemapError::InvalidFaceSize)
         );
-        image.texture_descriptor.format = TextureFormat::Rg32Float;
         assert_eq!(
-            image.equirectangular_to_cubemap(2),
-            Err(EquirectangularToCubemapError::UnsupportedSourceFormat(
-                TextureFormat::Rg32Float
-            ))
+            image.equirectangular_to_cubemap(MAX_FACE_SIZE + 1),
+            Err(EquirectangularToCubemapError::InvalidFaceSize)
         );
+        for format in [TextureFormat::Rgba32Uint, TextureFormat::Bc6hRgbUfloat] {
+            image.texture_descriptor.format = format;
+            assert_eq!(
+                image.equirectangular_to_cubemap(2),
+                Err(EquirectangularToCubemapError::UnsupportedSourceFormat(
+                    format
+                ))
+            );
+        }
         image.texture_descriptor.format = TextureFormat::Rgba32Float;
         image.data = None;
         assert_eq!(

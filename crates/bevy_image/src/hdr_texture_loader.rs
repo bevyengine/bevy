@@ -1,4 +1,4 @@
-use crate::{EquirectangularToCubemapError, Image, TextureFormatPixelInfo};
+use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use bevy_reflect::TypePath;
@@ -19,7 +19,8 @@ pub struct HdrTextureLoaderSettings {
     /// Converts a lat-long panorama to a cubemap with faces of this size.
     ///
     /// `None` keeps the image as a 2D panorama. `Some(size)` uses
-    /// [`Image::equirectangular_to_cubemap`] and returns a cube texture view.
+    /// `Image::equirectangular_to_cubemap` and returns a cube texture view. It
+    /// requires the `equirectangular_cubemap` feature; without it, loading fails.
     #[serde(default)]
     pub cubemap_face_size: Option<u32>,
 }
@@ -35,8 +36,12 @@ pub enum HdrTextureLoaderError {
     #[error("Could not extract image: {0}")]
     Image(#[from] image::ImageError),
     /// Failed to convert the panorama to a cubemap.
+    #[cfg(feature = "equirectangular_cubemap")]
     #[error(transparent)]
-    Cubemap(#[from] EquirectangularToCubemapError),
+    Cubemap(#[from] crate::EquirectangularToCubemapError),
+    /// `cubemap_face_size` was set without the `equirectangular_cubemap` feature.
+    #[error("converting to a cubemap requires the `equirectangular_cubemap` feature")]
+    CubemapUnsupported,
 }
 
 impl AssetLoader for HdrTextureLoader {
@@ -85,7 +90,10 @@ impl AssetLoader for HdrTextureLoader {
             settings.asset_usage,
         );
         match settings.cubemap_face_size {
+            #[cfg(feature = "equirectangular_cubemap")]
             Some(face_size) => Ok(image.equirectangular_to_cubemap(face_size)?),
+            #[cfg(not(feature = "equirectangular_cubemap"))]
+            Some(_) => Err(HdrTextureLoaderError::CubemapUnsupported),
             None => Ok(image),
         }
     }
@@ -110,6 +118,7 @@ mod tests {
         path::Path,
         time::{Duration, Instant},
     };
+    #[cfg(feature = "equirectangular_cubemap")]
     use wgpu_types::TextureViewDimension;
 
     fn hdr_bytes() -> Vec<u8> {
@@ -197,6 +206,7 @@ mod tests {
         assert_eq!(image.texture_view_descriptor, None);
     }
 
+    #[cfg(feature = "equirectangular_cubemap")]
     #[test]
     fn metadata_loads_a_cubemap() {
         let image = load_with_settings(
@@ -224,6 +234,7 @@ mod tests {
         assert_eq!(image.data.unwrap().len(), 6 * 8 * 8 * 8);
     }
 
+    #[cfg(feature = "equirectangular_cubemap")]
     #[test]
     fn invalid_face_size_fails_loading() {
         let error = load_with_settings(
@@ -234,12 +245,31 @@ mod tests {
         )
         .unwrap_err();
         assert!(
-            error.contains("cubemap face size must be at least 1"),
+            error.contains("cubemap face size must be between 1 and"),
             "{error}"
         );
     }
 
-    #[cfg(feature = "compressed_image_saver")]
+    #[cfg(not(feature = "equirectangular_cubemap"))]
+    #[test]
+    fn cubemap_without_the_feature_fails_loading() {
+        let error = load_with_settings(
+            r#"
+            asset_usage: RenderAssetUsages("RENDER_WORLD"),
+            cubemap_face_size: Some(8),
+        "#,
+        )
+        .unwrap_err();
+        assert!(
+            error.contains("requires the `equirectangular_cubemap` feature"),
+            "{error}"
+        );
+    }
+
+    #[cfg(all(
+        feature = "compressed_image_saver",
+        feature = "equirectangular_cubemap"
+    ))]
     #[test]
     fn metadata_processes_and_reloads_a_compressed_cubemap() {
         use crate::{CompressedImageFormats, ImageLoader};
