@@ -199,10 +199,12 @@ fn collect_root_entities(world: &World, entities: &EntityHashSet) -> Vec<Entity>
     entities
         .iter()
         .copied()
-        .filter(|&entity| world.get_entity(entity).is_ok())
         .filter(|&entity| {
-            let has_parent_in_set = world
-                .get::<ChildOf>(entity)
+            let Ok(entity_ref) = world.get_entity(entity) else {
+                return false;
+            };
+            let has_parent_in_set = entity_ref
+                .get::<ChildOf>()
                 .is_some_and(|child_of| entities.contains(&child_of.parent()));
             !has_parent_in_set
         })
