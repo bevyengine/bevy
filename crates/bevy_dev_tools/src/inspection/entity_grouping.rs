@@ -664,7 +664,7 @@ mod tests {
     fn hierarchy_preservation() {
         let mut world = World::new();
         let a = world.spawn_empty().id();
-        let b = world.spawn_empty().set_parent_in_place(a).id();
+        let b = world.spawn(ChildOf(a)).id();
         let c = world.spawn_empty().set_parent_in_place(a).id();
         let d = world.spawn_empty().id();
         let e = world.spawn_empty().set_parent_in_place(d).id();
