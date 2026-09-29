@@ -5,6 +5,7 @@
 //! and presenting that data to the user in a number of convenient, often interactive ways.
 
 pub mod component_inspection;
+pub mod entity_grouping;
 pub mod entity_inspection;
 pub mod extension_methods;
 pub mod fuzzy_name_matching;
