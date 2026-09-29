@@ -7,7 +7,7 @@ use bevy_asset::AssetId;
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_image::Image;
 use bevy_material::AlphaMode;
-use bevy_math::Vec3;
+use bevy_math::{Mat2, Vec2, Vec3};
 use bevy_pbr::StandardMaterial;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
@@ -24,6 +24,9 @@ use tracing::{info_span, warn};
 pub const MAX_TEXTURE_COUNT: NonZeroU32 = NonZeroU32::new(5_000).unwrap();
 const TEXTURE_MAP_NONE: u32 = u32::MAX;
 
+const MATERIAL_FLAG_DOUBLE_SIDED: u32 = 1 << 0;
+const MATERIAL_FLAG_FLIP_NORMAL_MAP_Y: u32 = 1 << 1;
+
 /// The four textures a [`StandardMaterial`] can reference, in [`GpuMaterial`] field order.
 type MaterialTextures = [Option<AssetId<Image>>; 4];
 
@@ -34,13 +37,14 @@ pub struct GpuMaterial {
     base_color_texture_id: u32,
     emissive_texture_id: u32,
     metallic_roughness_texture_id: u32,
-
     base_color: Vec3,
     perceptual_roughness: f32,
     emissive: Vec3,
     metallic: f32,
-    _padding: Vec3,
     reflectance: f32,
+    flags: u32,
+    uv_translation: Vec2,
+    uv_transform: Mat2,
 }
 
 impl_atomic_pod!(GpuMaterial, GpuMaterialBlob);
@@ -190,8 +194,8 @@ impl AssetState {
         self.release_material_textures(material_id);
         self.material_textures.insert(material_id, textures);
         self.unresolved_materials.remove(&material_id);
-
         let slot = self.material_slots.get_or_allocate(material_id);
+
         let emissive = material.emissive.to_vec3();
         let is_emissive = emissive != Vec3::ZERO;
         let is_opaque = match material.alpha_mode {
@@ -203,6 +207,15 @@ impl AssetState {
                 true
             }
         };
+
+        let mut flags = 0;
+        if material.double_sided {
+            flags |= MATERIAL_FLAG_DOUBLE_SIDED;
+        }
+        if material.flip_normal_map_y {
+            flags |= MATERIAL_FLAG_FLIP_NORMAL_MAP_Y;
+        }
+
         self.materials.grow_and_set(
             slot,
             GpuMaterial {
@@ -215,7 +228,9 @@ impl AssetState {
                 emissive,
                 metallic: material.metallic.clamp(0.0, 1.0),
                 reflectance: material.reflectance,
-                _padding: Vec3::ZERO,
+                flags,
+                uv_translation: material.uv_transform.translation,
+                uv_transform: material.uv_transform.matrix2,
             },
         );
 
