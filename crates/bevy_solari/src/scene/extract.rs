@@ -14,8 +14,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_light::{
-    DirectionalLight, EnvironmentMapLight, GeneratedEnvironmentMapLight, PointLight, RectLight,
-    SpotLight, SunDisk,
+    DirectionalLight, EnvironmentMapLight, PointLight, RectLight, SpotLight, SunDisk,
 };
 use bevy_math::{ops::cos, Quat, Vec3};
 use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
