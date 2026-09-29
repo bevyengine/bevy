@@ -57,7 +57,8 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
     ///
     /// # Safety
     ///
-    /// The given set cannot contain duplicates.
+    /// The given set cannot contain duplicates, for example by using
+    /// [`MutableValues`](indexmap::set::MutableValues).
     pub const unsafe fn from_index_set_unchecked(set: IndexSet<K, EntityHash>) -> Self {
         Self(set)
     }
@@ -66,7 +67,8 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
     ///
     /// # Safety
     ///
-    /// The returned reference cannot be used to introduce duplicates in the set.
+    /// The returned reference cannot be used to introduce duplicates in the set, for example
+    /// by using [`MutableValues`](indexmap::set::MutableValues).
     pub const unsafe fn as_index_set_unchecked(&mut self) -> &mut IndexSet<K, EntityHash> {
         &mut self.0
     }
