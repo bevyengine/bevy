@@ -1,7 +1,7 @@
 ---
 title: Feathers split pane
 authors: ["@jbuehler23"]
-pull_requests: []
+pull_requests: [25970]
 ---
 
 `bevy_feathers` now has a styled split pane built on the headless `SplitPane` widget. `FeathersSplitPane` is the container, `FeathersPane` is a resizable child, and `FeathersSplitPaneHandle` is drawn as a thin line that highlights while hovered or dragged and shows a resize cursor matching the split direction.
