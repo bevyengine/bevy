@@ -9,7 +9,8 @@ use alloc::{
 
 use bevy_color::{Color, LinearRgba, Srgba};
 use bevy_dev_tools::inspection::{
-    component_inspection::ComponentInspectionSettings, entity_inspection::EntityInspectionSettings,
+    component_inspection::{ComponentDetailLevel, ComponentInspectionSettings},
+    entity_inspection::EntityInspectionSettings,
     extension_methods::WorldInspectionExtensionTrait,
 };
 use bevy_ecs::{
@@ -56,7 +57,7 @@ use crate::{
 };
 
 /// The deepest nesting level whose fields are rendered.
-/// 
+///
 /// This bounds how many widgets one selection spawns: without a limit, deeply nested values
 /// would build thousands of rows on every rebuild.
 const MAX_DEPTH: usize = 4;
@@ -432,6 +433,7 @@ fn inspect_components(world: &World, selection: Option<Entity>) -> Vec<Component
         include_components: true,
         component_settings: ComponentInspectionSettings {
             store_reflected_value: true,
+            detail_level: ComponentDetailLevel::Names,
             ..Default::default()
         },
     };
