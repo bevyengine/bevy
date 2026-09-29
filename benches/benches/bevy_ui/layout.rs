@@ -65,8 +65,8 @@ const LAYOUTS: [Layout; 5] = [
     },
     Layout {
         roots: 10,
-        nodes: 10,
-        depth: 1,
+        nodes: 1,
+        depth: 100,
     },
 ];
 
