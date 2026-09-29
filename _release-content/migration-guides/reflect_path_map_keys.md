@@ -1,6 +1,6 @@
 ---
 title: "`Access` and `AccessErrorKind` have new variants"
-pull_requests: []
+pull_requests: [25968]
 ---
 
 Reflection paths can now access map and set entries by key, which adds a few enum variants.
