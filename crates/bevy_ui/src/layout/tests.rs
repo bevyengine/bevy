@@ -11,6 +11,7 @@ use crate::{
 };
 use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
 use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{prelude::*, system::RunSystemOnce};
 use bevy_math::{BVec2, Rect, UVec2, Vec2};
 use bevy_text::TextFont;
@@ -517,7 +518,7 @@ fn compute_layout_uses_camera_viewport() {
             &node_query,
             &style_query,
             &mut node_queries.p0(),
-            &[],
+            &EntityHashSet::default(),
             &mut buffer_query,
             &mut font_system,
             &mut child_stack,

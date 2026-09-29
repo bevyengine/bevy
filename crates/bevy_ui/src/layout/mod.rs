@@ -7,7 +7,7 @@ use crate::{
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
-    entity::Entity,
+    entity::{Entity, EntityHashSet},
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With, Without},
@@ -391,11 +391,10 @@ pub fn ui_layout_system(
     ),
     (mut child_stack, mut fixed_node_changes, mut ghost_stack): (
         Local<Vec<taffy::NodeId>>,
-        Local<Vec<Entity>>,
+        Local<EntityHashSet>,
         Local<Vec<Entity>>,
     ),
 ) {
-    // Using a vec to track their changes since `FixedNode`s should be rare, and rarely updated.
     fixed_node_changes.clear();
     fixed_node_changes.extend(
         added_fixed_node_query
