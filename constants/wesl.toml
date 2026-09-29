@@ -1,1 +1,6 @@
+# The WESL manifest
+# https://wesl-lang.dev/spec/WeslToml
+
+# this file is needed where no other file can serve as a manifest (usually Cargo.toml)
+
 edition = "2026_pre"
