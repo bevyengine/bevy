@@ -212,7 +212,7 @@ fn layout(c: &mut Criterion) {
             let leafs: Vec<_> = app
                 .world_mut()
                 .query_filtered::<Entity, (With<Node>, Without<Children>)>()
-                .iter(&app.world())
+                .iter(app.world())
                 .collect();
             app.update();
             app.update();
