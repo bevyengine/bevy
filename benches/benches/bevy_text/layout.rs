@@ -118,4 +118,17 @@ fn layout(c: &mut Criterion) {
         app.update();
         b.iter(|| app.update());
     });
+
+    group.bench_function("text_sections", |b| {
+        let mut app = setup_app();
+        app.world_mut()
+            .spawn(BenchText(TEXTS[0].to_string()))
+            .with_children(|builder| {
+                for text in &TEXTS[1..] {
+                    builder.spawn(BenchText(text.to_string()));
+                }
+            });
+        app.update();
+        b.iter(|| app.update());
+    });
 }
