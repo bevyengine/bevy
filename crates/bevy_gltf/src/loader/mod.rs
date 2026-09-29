@@ -872,8 +872,9 @@ impl GltfLoader {
                 mesh.raytracing = match primitive.material().alpha_mode() {
                     AlphaMode::Opaque => MeshRaytracingFlags::OPAQUE,
                     AlphaMode::Mask => MeshRaytracingFlags::NON_OPAQUE,
-                    // TODO: Solari doesn't support transparency yet
-                    AlphaMode::Blend => MeshRaytracingFlags::empty(),
+                    // TODO: Solari doesn't support transparency yet, so this is treated as opaque for now
+                    #[expect(clippy::match_same_arms, reason = "Transparency not yet supported")]
+                    AlphaMode::Blend => MeshRaytracingFlags::OPAQUE,
                 };
 
                 let mesh_handle = load_context.add_labeled_asset(
