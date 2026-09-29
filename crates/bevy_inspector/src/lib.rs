@@ -9,6 +9,7 @@
 
 extern crate alloc;
 
+pub mod column_split;
 pub mod details_panel;
 pub mod entity_tree;
 
@@ -27,7 +28,11 @@ use bevy_ecs::{
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::UiSystems;
 
-use crate::details_panel::{sync_details_panel, DetailsCollapsed, DetailsIndex, DetailsPanelSync};
+use crate::column_split::ColumnSplitPlugin;
+use crate::details_panel::{
+    store_column_splits, sync_details_panel, DetailsCollapsed, DetailsColumnSplits, DetailsIndex,
+    DetailsPanelSync,
+};
 use crate::entity_tree::{sync_entity_tree, EntityTreeSync, TreeRowIndex};
 
 /// Where the inspector reads its data from.
@@ -81,6 +86,9 @@ impl Plugin for InspectorPlugin {
         if !app.is_plugin_added::<LabelResolutionPlugin>() {
             app.add_plugins(LabelResolutionPlugin);
         }
+        if !app.is_plugin_added::<ColumnSplitPlugin>() {
+            app.add_plugins(ColumnSplitPlugin);
+        }
 
         app.init_resource::<InspectorSource>()
             .init_resource::<InspectorSelection>()
@@ -88,10 +96,15 @@ impl Plugin for InspectorPlugin {
             .init_resource::<EntityTreeSync>()
             .init_resource::<DetailsIndex>()
             .init_resource::<DetailsCollapsed>()
+            .init_resource::<DetailsColumnSplits>()
             .init_resource::<DetailsPanelSync>()
             .add_systems(
                 PostUpdate,
-                (sync_entity_tree, sync_details_panel).before(UiSystems::Prepare),
+                (
+                    sync_entity_tree,
+                    (store_column_splits, sync_details_panel).chain(),
+                )
+                    .before(UiSystems::Prepare),
             );
     }
 }

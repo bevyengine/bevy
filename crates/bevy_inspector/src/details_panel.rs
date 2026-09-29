@@ -18,7 +18,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     name::Name,
     observer::On,
-    query::With,
+    query::{Changed, With},
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Query, ResMut},
@@ -49,7 +49,11 @@ use bevy_ui::{
 use bevy_ui_widgets::{ControlOrientation, NumericValue, ScrollArea, ValueChange};
 use bevy_utils::prelude::ShortName;
 
-use crate::{entity_tree::InspectorUi, InspectorSelection};
+use crate::{
+    column_split::{ColumnSplit, ColumnSplitLeading},
+    entity_tree::InspectorUi,
+    InspectorSelection,
+};
 
 /// The deepest nesting level whose fields are rendered.
 /// This bounds how many widgets one selection spawns: without a limit, deeply nested values
@@ -61,12 +65,6 @@ const MAX_DEPTH: usize = 4;
 const MAX_ITEMS: usize = 16;
 /// The horizontal indent of a field row per nesting level, in logical pixels.
 const INDENT: f32 = 12.0;
-/// The width of a field row's label column, in logical pixels, at zero depth.
-///
-/// Deeper rows shrink their label column by `depth * INDENT` so that widgets line up at the
-/// same x position regardless of nesting, since the row's own left padding already grows by
-/// `depth * INDENT`.
-const FIELD_LABEL_WIDTH: f32 = 96.0;
 /// The width of the widget editing a field value, in logical pixels.
 const FIELD_WIDGET_WIDTH: f32 = 160.0;
 
@@ -80,7 +78,7 @@ pub struct InspectorDetailsBody;
 #[reflect(Component, Debug, Default, Clone)]
 pub struct InspectorDetailsFields;
 
-/// The [`ComponentId`] of the component a group header belongs to.
+/// The [`ComponentId`] of the component a group's toggle or field container belongs to.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Debug, Clone)]
 pub struct InspectorDetailsComponent(pub ComponentId);
@@ -146,6 +144,8 @@ impl FieldValue {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FieldEntry {
     /// The path of the field within its component, in [`bevy_reflect::GetPath`] syntax.
+    ///
+    /// Map and set entries whose keys have no path syntax use an unresolvable `[#n]` placeholder.
     pub path: String,
     /// The name shown at the start of the row.
     pub label: String,
@@ -265,6 +265,21 @@ impl DetailsIndex {
 #[derive(Resource, Debug, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
 pub struct DetailsCollapsed(pub HashSet<ComponentId>);
+
+/// The [`ColumnSplit::fraction`] of each component's field rows, kept while groups respawn.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource, Debug, Default)]
+pub struct DetailsColumnSplits(pub HashMap<ComponentId, f32>);
+
+/// Records the column split of each component group in [`DetailsColumnSplits`].
+pub fn store_column_splits(
+    splits: Query<(&ColumnSplit, &InspectorDetailsComponent), Changed<ColumnSplit>>,
+    mut stored: ResMut<DetailsColumnSplits>,
+) {
+    for (split, component) in &splits {
+        stored.0.insert(component.0, split.fraction);
+    }
+}
 
 /// Pacing of the details panel synchronization pass.
 #[derive(Resource, Debug)]
@@ -632,6 +647,15 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
     let Some(container) = descendant_with::<InspectorDetailsFields>(world, group) else {
         return;
     };
+    if !component.fields.is_empty() {
+        let mut split = ColumnSplit::default();
+        if let Some(&fraction) = world.resource::<DetailsColumnSplits>().0.get(&component.id) {
+            split.fraction = fraction;
+        }
+        world
+            .entity_mut(container)
+            .insert((InspectorDetailsComponent(component.id), split));
+    }
 
     for entry in &component.fields {
         if let Some(widget) = spawn_field_row(world, container, entry) {
@@ -687,13 +711,21 @@ fn spawn_field_row(
         ))
         .id();
 
-    let label = spawn_child_scene(world, row, caption(entry.label.clone()))?;
-    let label_width = (FIELD_LABEL_WIDTH - entry.depth as f32 * INDENT).max(0.0);
-    world.entity_mut(label).insert(Node {
-        min_width: px(label_width),
-        width: px(label_width),
-        flex_shrink: 0.0,
-        overflow: Overflow::clip_x(),
+    let leading = world
+        .spawn((
+            ColumnSplitLeading,
+            ThemedText,
+            Node {
+                flex_shrink: 0.0,
+                overflow: Overflow::clip_x(),
+                ..Default::default()
+            },
+            ChildOf(row),
+        ))
+        .id();
+    let label = spawn_child_scene(world, leading, caption(entry.label.clone()))?;
+    world.entity_mut(label).insert(TextLayout {
+        linebreak: LineBreak::NoWrap,
         ..Default::default()
     });
 
@@ -770,6 +802,7 @@ fn spawn_widget(world: &mut World, row: Entity, value: &FieldValue) -> Option<Fi
             let cell = world
                 .spawn((
                     InspectorUi,
+                    ThemedText,
                     Node {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Row,
@@ -1116,7 +1149,7 @@ fn walk_children(
             for (index, (key, item)) in value.iter().take(MAX_ITEMS).enumerate() {
                 walk(
                     item,
-                    format!("{prefix}[{index}]"),
+                    entry_path(prefix, key, index),
                     display_value(key),
                     depth,
                     out,
@@ -1127,7 +1160,7 @@ fn walk_children(
             for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                 walk(
                     item,
-                    format!("{prefix}[{index}]"),
+                    entry_path(prefix, item, index),
                     index.to_string(),
                     depth,
                     out,
@@ -1200,6 +1233,58 @@ fn join(prefix: &str, name: &str) -> String {
     } else {
         format!("{prefix}.{name}")
     }
+}
+
+/// The path of the map or set entry at `index` with the given key.
+///
+/// Keys that [`key_access`] cannot express get a `[#index]` placeholder, which keeps the row
+/// tracked but never resolves.
+fn entry_path(prefix: &str, key: &dyn PartialReflect, index: usize) -> String {
+    match key_access(key) {
+        Some(access) => format!("{prefix}{access}"),
+        None => format!("{prefix}[#{index}]"),
+    }
+}
+
+/// The [`bevy_reflect::GetPath`] access selecting `key` in a map or set.
+///
+/// Returns `None` for keys other than strings and primitive integers.
+fn key_access(key: &dyn PartialReflect) -> Option<String> {
+    if let Some(key) = key.try_downcast_ref::<String>() {
+        return Some(quoted_key(key));
+    }
+    if let Some(key) = key.try_downcast_ref::<Cow<'static, str>>() {
+        return Some(quoted_key(key));
+    }
+    integer_key(key).map(|integer| quoted_key(&integer))
+}
+
+fn quoted_key(key: &str) -> String {
+    let mut quoted = String::with_capacity(key.len() + 4);
+    quoted.push_str("[\"");
+    for c in key.chars() {
+        if matches!(c, '"' | '\\') {
+            quoted.push('\\');
+        }
+        quoted.push(c);
+    }
+    quoted.push_str("\"]");
+    quoted
+}
+
+fn integer_key(key: &dyn PartialReflect) -> Option<String> {
+    macro_rules! integers {
+        ($($type:ty),*) => {
+            $(
+                if let Some(key) = key.try_downcast_ref::<$type>() {
+                    return Some(key.to_string());
+                }
+            )*
+        };
+    }
+
+    integers!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
+    None
 }
 
 fn display_value(value: &dyn PartialReflect) -> String {
@@ -1299,7 +1384,7 @@ fn unit_enum_value(value: &dyn PartialReflect) -> Option<FieldValue> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{entity_tree::InspectorTreeView, InspectorPlugin};
+    use crate::{column_split::ColumnSplitHandle, entity_tree::InspectorTreeView, InspectorPlugin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{AssetApp, AssetPlugin};
     use bevy_ecs::{component::Component, query::With};
@@ -1632,6 +1717,66 @@ mod tests {
         }
     }
 
+    #[test]
+    fn clips_labels_to_a_single_line() {
+        let mut app = test_app();
+        inspect(&mut app, Subject::default());
+
+        let rows = row_entities(&app);
+        assert!(!rows.is_empty());
+        let world = app.world();
+        for row in rows {
+            let leading = world.get::<Children>(row).unwrap()[0];
+            assert!(world.entity(leading).contains::<ColumnSplitLeading>());
+            assert_eq!(
+                world.get::<Node>(leading).unwrap().overflow,
+                Overflow::clip_x()
+            );
+            let label = world.get::<Children>(leading).unwrap()[0];
+            let layout = world.get::<TextLayout>(label).unwrap();
+            assert_eq!(layout.linebreak, LineBreak::NoWrap);
+        }
+    }
+
+    fn fields_container(app: &App, component: ComponentId) -> Entity {
+        let world = app.world();
+        let group = world.resource::<DetailsIndex>().group(component).unwrap();
+        descendant_with::<InspectorDetailsFields>(world, group).unwrap()
+    }
+
+    #[test]
+    fn keeps_each_group_column_split_across_respawns() {
+        let mut app = test_app();
+        app.register_type::<Wrapper>();
+        inspect(&mut app, (Subject::default(), Wrapper::default()));
+        let subject = app.world().component_id::<Subject>().unwrap();
+        let wrapper = app.world().component_id::<Wrapper>().unwrap();
+
+        let container = fields_container(&app, subject);
+        app.world_mut()
+            .get_mut::<ColumnSplit>(container)
+            .unwrap()
+            .fraction = 0.6;
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<DetailsCollapsed>()
+            .0
+            .insert(subject);
+        refresh(&mut app);
+        app.world_mut()
+            .resource_mut::<DetailsCollapsed>()
+            .0
+            .remove(&subject);
+        refresh(&mut app);
+
+        let respawned = fields_container(&app, subject);
+        assert_ne!(respawned, container);
+        let fraction = |entity| app.world().get::<ColumnSplit>(entity).unwrap().fraction;
+        assert_eq!(fraction(respawned), 0.6);
+        assert_eq!(fraction(fields_container(&app, wrapper)), 0.4);
+    }
+
     #[derive(Reflect, Debug, Clone, PartialEq)]
     enum Payload {
         Number(f32),
@@ -1693,6 +1838,7 @@ mod tests {
     #[derive(Reflect, Debug)]
     struct Keyed {
         map: HashMap<String, u32>,
+        numbers: HashMap<i32, f32>,
         set: HashSet<u32>,
     }
 
@@ -1737,8 +1883,20 @@ mod tests {
             .map(|(_, widget)| widget.entity)
     }
 
-    /// The label text of every tracked row, read from the row's first child.
+    /// The label text of every tracked row, read from the row's leading column.
     fn row_labels(app: &App) -> Vec<String> {
+        let world = app.world();
+        row_entities(app)
+            .into_iter()
+            .filter_map(|row| {
+                let leading = *world.get::<Children>(row)?.first()?;
+                let label = *world.get::<Children>(leading)?.first()?;
+                Some(world.get::<Text>(label)?.0.clone())
+            })
+            .collect()
+    }
+
+    fn row_entities(app: &App) -> Vec<Entity> {
         let world = app.world();
         world
             .resource::<DetailsIndex>()
@@ -1749,12 +1907,10 @@ mod tests {
                 loop {
                     let parent = world.get::<ChildOf>(row)?.parent();
                     if world.entity(parent).contains::<InspectorDetailsFields>() {
-                        break;
+                        return Some(row);
                     }
                     row = parent;
                 }
-                let label = *world.get::<Children>(row)?.first()?;
-                Some(world.get::<Text>(label)?.0.clone())
             })
             .collect()
     }
@@ -1799,8 +1955,9 @@ mod tests {
             .world_mut()
             .query_filtered::<&Children, With<InspectorDetailsFields>>()
             .iter(app.world())
-            .map(|rows| rows.len())
-            .sum();
+            .flat_map(|rows| rows.iter())
+            .filter(|&&row| !app.world().entity(row).contains::<ColumnSplitHandle>())
+            .count();
         assert_eq!(rows, expected.len());
     }
 
@@ -1917,17 +2074,60 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "GetPath does not support maps or sets yet"]
     fn map_and_set_paths_resolve_to_their_values() {
-        let mut map = HashMap::default();
-        map.insert("key".to_string(), 7);
         let keyed = Keyed {
-            map,
-            set: [10].into_iter().collect(),
+            map: [
+                ("key".to_string(), 7),
+                ("a \"quoted\" \\ key".to_string(), 8),
+            ]
+            .into_iter()
+            .collect(),
+            numbers: [(-3, 1.0), (4, 2.0)].into_iter().collect(),
+            set: [10, 11].into_iter().collect(),
         };
 
+        let paths = field_paths(&keyed);
+        for expected in [
+            "map[\"key\"]",
+            "map[\"a \\\"quoted\\\" \\\\ key\"]",
+            "numbers[\"-3\"]",
+            "numbers[\"4\"]",
+            "set[\"10\"]",
+            "set[\"11\"]",
+        ] {
+            assert!(paths.iter().any(|path| path == expected), "{paths:?}");
+        }
         let mismatches = unresolved_paths(&keyed);
         assert!(mismatches.is_empty(), "{mismatches:#?}");
+    }
+
+    fn field_paths<T: Reflect>(value: &T) -> Vec<String> {
+        field_entries(value)
+            .into_iter()
+            .map(|entry| entry.path)
+            .collect()
+    }
+
+    #[test]
+    fn gives_unexpressible_keys_distinct_unresolvable_paths() {
+        #[derive(Reflect, Debug)]
+        struct Flags {
+            flags: HashMap<bool, u32>,
+        }
+
+        let flags = Flags {
+            flags: [(false, 1), (true, 2)].into_iter().collect(),
+        };
+        let paths: Vec<String> = field_paths(&flags)
+            .into_iter()
+            .filter(|path| path.starts_with("flags["))
+            .collect();
+
+        assert_eq!(paths.len(), 2, "{paths:?}");
+        assert_ne!(paths[0], paths[1]);
+        for path in &paths {
+            assert!(flags.reflect_path(path.as_str()).is_err(), "{path}");
+        }
     }
 
     #[test]

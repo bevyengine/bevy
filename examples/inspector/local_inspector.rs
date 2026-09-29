@@ -6,13 +6,19 @@
 //! ```
 
 use bevy::{
-    feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
+    feathers::{
+        controls::{FeathersPane, FeathersSplitPane, FeathersSplitPaneHandle},
+        dark_theme::create_dark_theme,
+        theme::UiTheme,
+        FeathersPlugins,
+    },
     inspector::{
         details_panel::details_panel,
         entity_tree::{entity_tree_panel, InspectorUi},
         InspectorPlugin, InspectorSelection,
     },
     prelude::*,
+    ui_widgets::split_pane_self_update,
 };
 
 fn main() {
@@ -120,17 +126,39 @@ fn inspector_ui() -> impl Scene {
         Name::new("Inspector")
         Node {
             position_type: PositionType::Absolute,
-            left: px(12),
-            top: px(12),
-            bottom: px(12),
-            flex_direction: FlexDirection::Row,
+            width: percent(100),
+            height: percent(100),
+            padding: px(12),
+            flex_direction: FlexDirection::Column,
             align_items: AlignItems::FlexStart,
-            column_gap: px(12),
         }
+        Pickable::IGNORE
         Children [
-            @entity_tree_panel()
-            --
-            @details_panel()
+            @FeathersSplitPane
+            Node {
+                width: px(720),
+                max_height: percent(100),
+            }
+            on(split_pane_self_update)
+            Children [
+                @FeathersPane { @size: 1.0, @min_size: 220.0 }
+                Children [
+                    @entity_tree_panel()
+                    Node {
+                        width: Val::Auto,
+                    }
+                ]
+                --
+                @FeathersSplitPaneHandle
+                --
+                @FeathersPane { @size: 2.0, @min_size: 240.0 }
+                Children [
+                    @details_panel()
+                    Node {
+                        width: Val::Auto,
+                    }
+                ]
+            ]
         ]
     }
 }
