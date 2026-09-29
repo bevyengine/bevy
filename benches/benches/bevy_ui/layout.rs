@@ -217,7 +217,7 @@ fn layout(c: &mut Criterion) {
             app.update();
             app.update();
             b.iter(|| {
-                for &leaf in &leafs {
+                for &leaf in &leaves {
                     let mut node = app.world_mut().get_mut::<Node>(leaf).unwrap();
                     let length = if node.width == px(1) { px(2) } else { px(1) };
                     node.width = length;
