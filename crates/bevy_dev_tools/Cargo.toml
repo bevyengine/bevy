@@ -72,6 +72,7 @@ serde_json = { version = "1.0", default-features = false, features = [
 ], optional = true }
 ron = { version = "0.12", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+strsim = { version = "0.11", default-features = false }
 
 [dev-dependencies]
 # Allow tests to depend on the names of systems.

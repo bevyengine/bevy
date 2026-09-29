@@ -7,6 +7,7 @@
 pub mod component_inspection;
 pub mod entity_inspection;
 pub mod extension_methods;
+pub mod fuzzy_name_matching;
 pub mod label_resolution;
 pub mod reflection_tools;
 pub mod resource_inspection;
