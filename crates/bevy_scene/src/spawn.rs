@@ -695,9 +695,9 @@ pub fn spawn_queued(
     mut reader: Local<MessageCursor<AssetEvent<ScenePatch>>>,
     mut list_reader: Local<MessageCursor<AssetEvent<SceneListPatch>>>,
 ) {
-    world.resource_scope(|world, mut list_patches: MutNoComp<Assets<SceneListPatch>>| {
-        world.resource_scope(|world, mut waiting: MutNoComp<WaitingScenes>| {
-            world.resource_scope(|world, events: MutNoComp<Messages<AssetEvent<ScenePatch>>>| {
+    world.resource_scope(|world, mut list_patches: Mut<Assets<SceneListPatch>>| {
+        world.resource_scope(|world, mut waiting: Mut<WaitingScenes>| {
+            world.resource_scope(|world, events: Mut<Messages<AssetEvent<ScenePatch>>>| {
                 for event in reader.read(&events) {
                     let patches = world.resource::<Assets<ScenePatch>>();
                     if let AssetEvent::LoadedWithDependencies { id } = event
@@ -719,7 +719,7 @@ pub fn spawn_queued(
                 }
             });
             world.resource_scope(
-                |world, list_events: MutNoComp<Messages<AssetEvent<SceneListPatch>>>| {
+                |world, list_events: Mut<Messages<AssetEvent<SceneListPatch>>>| {
                     for event in list_reader.read(&list_events) {
                         if let AssetEvent::LoadedWithDependencies { id } = event
                             && let Some(list_patch) = list_patches.get_mut(*id)

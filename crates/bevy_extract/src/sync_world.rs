@@ -13,7 +13,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     system::{Local, Query, ResMut, SystemState},
-    world::{EntityWorldMut, MutNoComp, World},
+    world::{EntityWorldMut, Mut, World},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -222,7 +222,7 @@ pub(crate) fn entity_sync_system<L: AppLabel + Clone + Copy + Eq>(
     main_world: &mut World,
     sub_world: &mut World,
 ) {
-    main_world.resource_scope(|world, mut pending: MutNoComp<PendingSyncEntity<L>>| {
+    main_world.resource_scope(|world, mut pending: Mut<PendingSyncEntity<L>>| {
         // TODO : batching record
         for record in pending.drain(..) {
             match record {

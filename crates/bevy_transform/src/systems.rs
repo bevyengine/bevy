@@ -678,7 +678,7 @@ mod parallel {
     #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
     unsafe fn propagate_descendants_unchecked(
         parent: Entity,
-        p_global_transform: MutNoComp<GlobalTransform>,
+        p_global_transform: Mut<GlobalTransform>,
         p_children: &Children,
         nodes: &NodeQuery,
         outbox: &mut Vec<Entity>,
@@ -756,7 +756,7 @@ mod parallel {
             Entity,
             (
                 Ref<'static, Transform>,
-                MutNoComp<'static, GlobalTransform>,
+                Mut<'static, GlobalTransform>,
                 Ref<'static, TransformTreeChanged>,
             ),
             (Option<Read<Children>>, Read<ChildOf>),

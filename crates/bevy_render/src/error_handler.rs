@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 use bevy_app::AppExit;
 use bevy_ecs::{
     resource::Resource,
-    world::{MutNoComp, World},
+    world::{Mut, World},
 };
 use std::sync::Mutex;
 use wgpu::ErrorSource;
@@ -203,7 +203,7 @@ pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) {
             // all is well
         }
         RenderState::Errored(error) => {
-            main_world.resource_scope(|main_world, error_handler: MutNoComp<RenderErrorHandler>| {
+            main_world.resource_scope(|main_world, error_handler: Mut<RenderErrorHandler>| {
                 error_handler.handle(error, main_world, render_world);
             });
         }

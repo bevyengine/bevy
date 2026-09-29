@@ -20,7 +20,7 @@ use crate::{
     template::{SceneEntityReferences, Template, TemplateContext},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
-        DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, MutNoComp,
+        DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut,
         OccupiedComponentEntry, Ref, VacantComponentEntry, World,
     },
 };
@@ -520,7 +520,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<MutNoComp<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
         self.as_mutable().into_mut()
     }
 
@@ -616,7 +616,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<MutNoComp<'_, T>> {
+    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         let entity_mut = self.as_mutable();
         // SAFETY: Same preconditions
         unsafe { entity_mut.into_mut_assume_mutable() }
@@ -630,7 +630,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutNoComp<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.into_unsafe_entity_cell().get_mut() }
     }
@@ -647,7 +647,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<MutNoComp<'w, T>> {
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.into_unsafe_entity_cell().get_mut_assume_mutable() }
     }
@@ -675,7 +675,7 @@ impl<'w> EntityWorldMut<'w> {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> MutNoComp<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         self.world.resource_mut::<R>()
     }
 
@@ -687,7 +687,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<MutNoComp<'_, R>> {
+    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, R>> {
         self.world.get_resource_mut()
     }
 
@@ -703,7 +703,7 @@ impl<'w> EntityWorldMut<'w> {
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(
         &mut self,
-        f: impl FnOnce(&mut EntityWorldMut, MutNoComp<R>) -> U,
+        f: impl FnOnce(&mut EntityWorldMut, Mut<R>) -> U,
     ) -> U {
         let id = self.id();
         self.world_scope(|world| {
@@ -722,7 +722,7 @@ impl<'w> EntityWorldMut<'w> {
     /// See [`World::try_resource_scope`] for further details.
     pub fn try_resource_scope<R: Resource, U>(
         &mut self,
-        f: impl FnOnce(&mut EntityWorldMut, MutNoComp<R>) -> U,
+        f: impl FnOnce(&mut EntityWorldMut, Mut<R>) -> U,
     ) -> Option<U> {
         let id = self.id();
         self.world_scope(|world| {

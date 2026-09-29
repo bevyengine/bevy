@@ -7,7 +7,7 @@ use bevy_ecs::{
     message::{MessageCursor, Messages},
     reflect::AppTypeRegistry,
     resource::Resource,
-    world::{MutNoComp, World},
+    world::{Mut, World},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::Reflect;
@@ -299,7 +299,7 @@ impl WorldInstanceSpawner {
         id: AssetId<DynamicWorld>,
         entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), WorldInstanceSpawnError> {
-        world.resource_scope(|world, dynamic_worlds: MutNoComp<Assets<DynamicWorld>>| {
+        world.resource_scope(|world, dynamic_worlds: Mut<Assets<DynamicWorld>>| {
             let dynamic_world = dynamic_worlds
                 .get(id)
                 .ok_or(WorldInstanceSpawnError::NonExistentDynamicWorld { id })?;
@@ -338,7 +338,7 @@ impl WorldInstanceSpawner {
         id: AssetId<WorldAsset>,
         entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), WorldInstanceSpawnError> {
-        world.resource_scope(|world, world_assets: MutNoComp<Assets<WorldAsset>>| {
+        world.resource_scope(|world, world_assets: Mut<Assets<WorldAsset>>| {
             let world_asset = world_assets
                 .get(id)
                 .ok_or(WorldInstanceSpawnError::NonExistentWorldAsset { id })?;
@@ -563,7 +563,7 @@ impl WorldInstanceSpawner {
 
 /// System that handles scheduled world asset instance spawning and despawning through a [`WorldInstanceSpawner`].
 pub fn world_instance_spawner_system(world: &mut World) {
-    world.resource_scope(|world, mut instance_spawner: MutNoComp<WorldInstanceSpawner>| {
+    world.resource_scope(|world, mut instance_spawner: Mut<WorldInstanceSpawner>| {
         // remove any loading instances where parent is deleted
         let is_parent_alive = |parent: &Option<Entity>| {
             parent

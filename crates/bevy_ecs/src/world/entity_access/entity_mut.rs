@@ -9,7 +9,7 @@ use crate::{
     },
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
-        EntityRef, FilteredEntityMut, FilteredEntityRef, MutNoComp, Ref,
+        EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, Ref,
     },
 };
 
@@ -374,7 +374,7 @@ impl<'w> EntityMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<MutNoComp<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
         unsafe { self.cell.get_mut() }
     }
@@ -386,7 +386,7 @@ impl<'w> EntityMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<MutNoComp<'_, T>> {
+    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY:
         // - &mut self implies exclusive access for duration of returned value
         // - Caller ensures `T` is a mutable component
@@ -397,7 +397,7 @@ impl<'w> EntityMut<'w> {
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutNoComp<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.cell.get_mut() }
     }
@@ -409,7 +409,7 @@ impl<'w> EntityMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<MutNoComp<'w, T>> {
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY:
         // - Consuming `self` implies exclusive access
         // - Caller ensures `T` is a mutable component

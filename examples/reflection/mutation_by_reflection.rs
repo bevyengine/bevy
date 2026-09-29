@@ -9,6 +9,7 @@
 //! or when flexibility is the most important consideration.
 
 use bevy::{prelude::*, reflect::ReflectMut};
+use bevy_ecs::change_detection::MutNoComp;
 
 fn main() {
     App::new()

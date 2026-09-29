@@ -16,7 +16,7 @@ use crate::{
     system::Query,
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-        FilteredEntityMut, FilteredEntityRef, MutNoComp, Ref, World,
+        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -2506,7 +2506,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = &'__w T;
-    type Item<'w, 's> = MutNoComp<'w, T>;
+    type Item<'w, 's> = Mut<'w, T>;
 
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
         item: Self::Item<'wlong, 's>,
@@ -2544,7 +2544,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     None
                 };
 
-                MutNoComp {
+                Mut {
                     value: component.deref_mut(),
                     ticks: ComponentTicksMut {
                         added: added.deref_mut(),
@@ -2565,7 +2565,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                         .debug_checked_unwrap()
                 };
 
-                MutNoComp {
+                Mut {
                     value: component.assert_unique().deref_mut(),
                     ticks: ComponentTicksMut::from_tick_cells(
                         ticks,
@@ -2653,7 +2653,7 @@ impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
 // This is sound because `update_component_access` adds write access for that component and panic when appropriate.
 // `update_component_access` adds a `With` filter for a component.
 // This is sound because `matches_component_set` returns whether the set contains that component.
-unsafe impl<'__w, T: Component> WorldQuery for MutNoComp<'__w, T> {
+unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
 
@@ -2733,11 +2733,11 @@ unsafe impl<'__w, T: Component> WorldQuery for MutNoComp<'__w, T> {
 }
 
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
-unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for MutNoComp<'__w, T> {
+unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T> {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Ref<'__w, T>;
-    type Item<'w, 's> = MutNoComp<'w, T>;
+    type Item<'w, 's> = Mut<'w, T>;
 
     // Forwarded to `&mut T`
     fn shrink<'wlong: 'wshort, 'wshort, 's>(
@@ -2765,20 +2765,20 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for MutNoComp<'_
 }
 
 // SAFETY: access is only on the current entity
-unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for MutNoComp<'_, T> {}
+unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for Mut<'_, T> {}
 
 // SAFETY: access is only on the current entity
-unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for MutNoComp<'_, T> {}
+unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for Mut<'_, T> {}
 
-impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for MutNoComp<'_, T> {
+impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
         item
     }
 }
 
-impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for MutNoComp<'_, T> {}
+impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for Mut<'_, T> {}
 
-impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for MutNoComp<'__w, T> {
+impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w, T> {
     type Contiguous<'w, 's> = ContiguousMut<'w, T>;
 
     unsafe fn fetch_contiguous<'w, 's>(

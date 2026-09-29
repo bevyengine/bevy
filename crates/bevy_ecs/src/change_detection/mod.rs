@@ -34,8 +34,8 @@ mod tests {
 
     use crate::{
         change_detection::{
-            AtomicTick, ComponentTicks, ComponentTicksMut, MaybeLocation, MutNoComp, NonSendMut,
-            Ref, ResMut, Tick, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+            AtomicTick, ComponentTicks, ComponentTicksMut, MaybeLocation, Mut, MutNoComp,
+            NonSendMut, Ref, ResMut, Tick, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::Component,
         system::{IntoSystem, Single, System},
@@ -171,7 +171,7 @@ mod tests {
             ticks,
         };
 
-        let into_mut: MutNoComp<R> = res_mut.into();
+        let into_mut: Mut<R> = res_mut.into();
         assert_eq!(1, into_mut.ticks.added.get());
         assert_eq!(2, into_mut.ticks.changed.get());
         assert_eq!(3, into_mut.ticks.last_run.get());

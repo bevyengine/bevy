@@ -4,7 +4,7 @@ use bevy_utils::prelude::DebugName;
 
 use crate::{
     archetype::Archetype,
-    change_detection::{MaybeLocation, MutUntyped, Tick},
+    change_detection::{MaybeLocation, MutNoComp, MutUntyped, Tick},
     component::{ComponentId, Mutable},
     entity::Entity,
     event::{EntityComponentsTrigger, Event, EventKey, EventTriggerState, Trigger},
@@ -19,7 +19,7 @@ use crate::{
     world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, MutNoComp, World};
+use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
@@ -85,7 +85,7 @@ impl<'w> DeferredWorld<'w> {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<MutNoComp<'_, T>> {
+    ) -> Option<Mut<'_, T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
     }
 
@@ -466,7 +466,7 @@ impl<'w> DeferredWorld<'w> {
     /// Use [`get_resource_mut`](DeferredWorld::get_resource_mut) instead if you want to handle this case.
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> MutNoComp<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -481,7 +481,7 @@ impl<'w> DeferredWorld<'w> {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<MutNoComp<'_, R>> {
+    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
         unsafe { self.world.get_resource_mut() }
     }

@@ -1,5 +1,5 @@
 use crate::{
-    change_detection::MutNoComp,
+    change_detection::Mut,
     change_detection::Tick,
     message::{MessageRegistry, ShouldUpdateMessages},
     system::{Local, Res, ResMut},
@@ -25,7 +25,7 @@ pub fn signal_message_update_system(signal: Option<ResMut<MessageRegistry>>) {
 
 /// A system that calls [`Messages::update`](super::Messages::update) on all registered [`Messages`][super::Messages] in the world.
 pub fn message_update_system(world: &mut World, mut last_change_tick: Local<Tick>) {
-    world.try_resource_scope(|world, mut registry: MutNoComp<MessageRegistry>| {
+    world.try_resource_scope(|world, mut registry: Mut<MessageRegistry>| {
         registry.run_updates(world, *last_change_tick);
 
         registry.should_update = match registry.should_update {

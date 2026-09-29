@@ -4,7 +4,7 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
     query::Access,
-    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, MutNoComp, Ref},
+    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref},
 };
 
 use bevy_ptr::Ptr;
@@ -517,7 +517,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// Returns `None` if the entity does not have a component of type `T` or if
     /// the access does not include write access to `T`.
     #[inline]
-    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<MutNoComp<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: we use a mutable reference to self, so we cannot use the `FilteredEntityMut` to access
         // another component
         unsafe { self.get_mut_unchecked() }
@@ -568,7 +568,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     #[inline]
     pub unsafe fn get_mut_unchecked<T: Component<Mutability = Mutable>>(
         &self,
-    ) -> Option<MutNoComp<'_, T>> {
+    ) -> Option<Mut<'_, T>> {
         let id = self
             .entity
             .world()
@@ -586,7 +586,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutNoComp<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY:
         // - We have write access
         // - The bound `T: Component<Mutability = Mutable>` ensures the component is mutable
@@ -601,7 +601,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<MutNoComp<'w, T>> {
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         let id = self
             .entity
             .world()

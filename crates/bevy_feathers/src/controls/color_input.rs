@@ -18,7 +18,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
     template::FromTemplate,
-    world::MutNoComp,
+    world::Mut,
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input_focus::{
@@ -1312,7 +1312,7 @@ fn color_input_state<'a>(
     q_parent: &Query<&ChildOf>,
     q_state: &'a mut Query<&mut ColorInputState>,
     from: Entity,
-) -> Option<(Entity, MutNoComp<'a, ColorInputState>)> {
+) -> Option<(Entity, Mut<'a, ColorInputState>)> {
     let root_id = q_parent
         .iter_ancestors(from)
         .find(|e| q_state.contains(*e))?;

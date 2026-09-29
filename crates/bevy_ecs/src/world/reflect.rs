@@ -8,7 +8,7 @@ use thiserror::Error;
 use bevy_reflect::{PartialReflect, Reflect, ReflectFromPtr};
 use bevy_utils::prelude::DebugName;
 
-use crate::{prelude::*, world::ComponentId};
+use crate::{change_detection::MutNoComp, prelude::*, world::ComponentId};
 
 impl World {
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given `type_id` using

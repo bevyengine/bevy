@@ -70,7 +70,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         change_detection::{
-            ContiguousMut, ContiguousRef, DetectChanges, DetectChangesMut, MutNoComp, Ref,
+            ContiguousMut, ContiguousRef, DetectChanges, DetectChangesMut, Mut, Ref,
         },
         children,
         component::Component,
@@ -162,7 +162,7 @@ mod tests {
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         resource::Resource,
-        world::{error::EntityDespawnError, EntityMut, EntityRef, MutNoComp, World},
+        world::{error::EntityDespawnError, EntityMut, EntityRef, Mut, World},
     };
     use alloc::{string::String, sync::Arc, vec, vec::Vec};
     use bevy_platform::collections::HashSet;
@@ -1574,7 +1574,7 @@ mod tests {
         let mut world = World::default();
         assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
         world.insert_resource(ResA(0));
-        world.resource_scope(|world: &mut World, mut value: MutNoComp<ResA>| {
+        world.resource_scope(|world: &mut World, mut value: Mut<ResA>| {
             value.0 += 1;
             assert!(!world.contains_resource::<ResA>());
         });
@@ -1591,7 +1591,7 @@ mod tests {
         assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
         world.insert_resource(ResA(0));
         let panic = std::panic::catch_unwind(core::panic::AssertUnwindSafe(|| {
-            world.resource_scope(|world: &mut World, _value: MutNoComp<ResA>| {
+            world.resource_scope(|world: &mut World, _value: Mut<ResA>| {
                 assert!(!world.contains_resource::<ResA>());
                 std::panic::panic_any(Panic);
             });
@@ -1606,7 +1606,7 @@ mod tests {
         let mut world = World::default();
         assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
         world.insert_resource(ResA(0));
-        let r = world.try_resource_scope(|world: &mut World, _value: MutNoComp<ResA>| {
+        let r = world.try_resource_scope(|world: &mut World, _value: Mut<ResA>| {
             assert!(!world.contains_resource::<ResA>());
             world.clear_resources();
         });

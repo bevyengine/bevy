@@ -1,12 +1,12 @@
 //! Contains types that allow disjoint mutable access to a [`World`].
 
-use super::{MutNoComp, Ref, World, WorldId};
+use super::{Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{
         ComponentTickCells, ComponentTicks, ComponentTicksMut, ComponentTicksRef, MaybeLocation,
-        MutUntyped, Tick,
+        MutNoComp, MutUntyped, Tick,
     },
     component::{ComponentId, Components, Mutable, StorageType},
     entity::{
@@ -574,7 +574,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
-    pub unsafe fn get_resource_mut<R: Resource<Mutability = Mutable>>(self) -> Option<MutNoComp<'w, R>> {
+    pub unsafe fn get_resource_mut<R: Resource<Mutability = Mutable>>(self) -> Option<Mut<'w, R>> {
         self.assert_allows_mutable_access();
         let component_id = self.components().get_valid_id(TypeId::of::<R>())?;
         // SAFETY:
@@ -583,7 +583,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe {
             self.get_resource_mut_by_id(component_id)
                 // `component_id` was gotten from `TypeId::of::<R>()`
-                .map(|ptr| ptr.with_type::<R>())
+                .map(|ptr| ptr.with_type::<R>().into_mut())
         }
     }
 
@@ -617,7 +617,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - no other references to the resource exist at the same time
     /// - the resource `R` is mutable
     #[inline]
-    pub unsafe fn get_resource_mut_assume_mutable<R: Resource>(self) -> Option<MutNoComp<'w, R>> {
+    pub unsafe fn get_resource_mut_assume_mutable<R: Resource>(self) -> Option<Mut<'w, R>> {
         let component_id = self.components().get_valid_id(TypeId::of::<R>())?;
         // SAFETY:
         // - caller ensures `self` has permission to access the resource mutably
@@ -626,7 +626,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe {
             self.get_resource_mut_by_id(component_id)
                 // `component_id` was gotten from `TypeId::of::<R>()`
-                .map(|ptr| ptr.with_type::<R>())
+                .map(|ptr| ptr.with_type::<R>().into_mut())
         }
     }
 
@@ -1021,7 +1021,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutNoComp<'w, T>> {
+    pub unsafe fn get_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY:
         // - trait bound `T: Component<Mutability = Mutable>` ensures component is mutable
         // - same safety requirements
@@ -1034,7 +1034,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other references to the component exist at the same time
     /// - the component `T` is mutable
     #[inline]
-    pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<MutNoComp<'w, T>> {
+    pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY: same safety requirements
         unsafe { self.get_mut_using_ticks_assume_mutable(self.last_run, self.this_run) }
     }
@@ -1049,7 +1049,7 @@ impl<'w> UnsafeEntityCell<'w> {
         &self,
         last_change_tick: Tick,
         change_tick: Tick,
-    ) -> Option<MutNoComp<'w, T>> {
+    ) -> Option<Mut<'w, T>> {
         self.world.assert_allows_mutable_access();
 
         let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
@@ -1067,7 +1067,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.location,
             )
             .map(|(value, cells)| {
-                MutNoComp {
+                Mut {
                     // SAFETY: returned component is of type T
                     value: value.assert_unique().deref_mut::<T>(),
                     ticks: ComponentTicksMut::from_tick_cells(cells, last_change_tick, change_tick),

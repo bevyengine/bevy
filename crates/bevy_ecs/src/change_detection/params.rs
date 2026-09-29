@@ -655,11 +655,11 @@ change_detection_mut_impl!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
 impl_methods!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
 impl_debug!(ResMut<'w, T>, Resource<Mutability = Mutable>);
 
-impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for MutNoComp<'w, T> {
+impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for Mut<'w, T> {
     /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `ResMut` for resources.
-    fn from(other: ResMut<'w, T>) -> MutNoComp<'w, T> {
-        MutNoComp {
+    fn from(other: ResMut<'w, T>) -> Mut<'w, T> {
+        Mut {
             value: other.value,
             ticks: other.ticks,
         }
@@ -715,7 +715,66 @@ pub struct NonSendMut<'w, T: ?Sized + 'static> {
 }
 
 change_detection_impl!(NonSendMut<'w, T>, T,);
-change_detection_mut_impl!(NonSendMut<'w, T>, T,);
+
+impl<'w, T: ?Sized> DetectChangesMut for NonSendMut<'w, T> {
+    type Inner = T;
+    #[inline]
+    #[track_caller]
+    fn set_changed(&mut self) {
+        *self.ticks.changed = self.ticks.this_run;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[inline]
+    #[track_caller]
+    fn set_added(&mut self) {
+        *self.ticks.changed = self.ticks.this_run;
+        *self.ticks.added = self.ticks.this_run;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[inline]
+    #[track_caller]
+    fn set_last_changed(&mut self, last_changed: Tick) {
+        *self.ticks.changed = last_changed;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[track_caller]
+    fn set_last_added(&mut self, last_added: Tick) {
+        *self.ticks.added = last_added;
+        *self.ticks.changed = last_added;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[inline]
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        self.value
+    }
+}
+impl<'w, T: ?Sized> DerefMut for NonSendMut<'w, T> {
+    #[inline]
+    #[track_caller]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.set_changed();
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        self.value
+    }
+}
+impl<'w, T> AsMut<T> for NonSendMut<'w, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut T {
+        self.deref_mut()
+    }
+}
 impl_methods!(NonSendMut<'w, T>, T,);
 impl_debug!(NonSendMut<'w, T>,);
 
@@ -1072,6 +1131,8 @@ impl<'w, T: ?Sized + Component> Mut<'w, T> {
         }
     }
 
+    /// Converts this [`Mut`] into a [`MutNoComp`]. This allows removing the
+    /// requirement for T to implement [`Component`].
     pub fn into_mut_no_component(self) -> MutNoComp<'w, T> {
         MutNoComp {
             value: self.value,
@@ -1210,6 +1271,18 @@ impl<'w, T: ?Sized> MutNoComp<'w, T> {
         }
     }
 
+    /// Converts this [`MutNoComp`] into a [`Mut`]. This allows adding the
+    /// requirement for `T` to implement [`Component`].
+    pub fn into_mut(self) -> Mut<'w, T>
+    where
+        T: Component,
+    {
+        Mut {
+            value: self.value,
+            ticks: self.ticks,
+        }
+    }
+
     /// Overwrite the `last_run` and `this_run` tick that are used for change detection.
     ///
     /// This is an advanced feature. `Mut`s are usually _created_ by engine-internal code and
@@ -1255,7 +1328,70 @@ where
 }
 
 change_detection_impl!(MutNoComp<'w, T>, T,);
-change_detection_mut_impl!(MutNoComp<'w, T>, T,);
+impl<'w, T: ?Sized> DetectChangesMut for MutNoComp<'w, T> {
+    type Inner = T;
+    #[inline]
+    #[track_caller]
+    fn set_changed(&mut self) {
+        *self.ticks.changed = self.ticks.this_run;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[inline]
+    #[track_caller]
+    fn set_added(&mut self) {
+        *self.ticks.changed = self.ticks.this_run;
+        *self.ticks.added = self.ticks.this_run;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[inline]
+    #[track_caller]
+    fn set_last_changed(&mut self, last_changed: Tick) {
+        *self.ticks.changed = last_changed;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick
+            && self.is_changed_after(summary_tick.get())
+        {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[inline]
+    #[track_caller]
+    fn set_last_added(&mut self, last_added: Tick) {
+        *self.ticks.added = last_added;
+        *self.ticks.changed = last_added;
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick
+            && self.is_changed_after(summary_tick.get())
+        {
+            summary_tick.set(self.ticks.this_run);
+        }
+    }
+    #[inline]
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        self.value
+    }
+}
+impl<'w, T: ?Sized> DerefMut for MutNoComp<'w, T> {
+    #[inline]
+    #[track_caller]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.set_changed();
+        self.ticks.changed_by.assign(MaybeLocation::caller());
+        self.value
+    }
+}
+impl<'w, T> AsMut<T> for MutNoComp<'w, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut T {
+        self.deref_mut()
+    }
+}
 impl_methods!(MutNoComp<'w, T>, T,);
 impl_debug!(MutNoComp<'w, T>,);
 

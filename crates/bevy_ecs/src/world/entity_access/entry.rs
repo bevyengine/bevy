@@ -1,6 +1,6 @@
 use crate::{
     component::{Component, Mutable},
-    world::{EntityWorldMut, MutNoComp},
+    world::{EntityWorldMut, Mut},
 };
 
 use core::marker::PhantomData;
@@ -34,7 +34,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> ComponentEntry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 1);
     /// ```
     #[inline]
-    pub fn and_modify<F: FnOnce(MutNoComp<'_, T>)>(self, f: F) -> Self {
+    pub fn and_modify<F: FnOnce(Mut<'_, T>)>(self, f: F) -> Self {
         match self {
             ComponentEntry::Occupied(mut entry) => {
                 f(entry.get_mut());
@@ -263,7 +263,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 17);
     /// ```
     #[inline]
-    pub fn get_mut(&mut self) -> MutNoComp<'_, T> {
+    pub fn get_mut(&mut self) -> Mut<'_, T> {
         // This shouldn't panic because if we have an OccupiedComponentEntry the component must exist.
         self.entity_world.get_mut::<T>().unwrap()
     }
@@ -292,7 +292,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 15);
     /// ```
     #[inline]
-    pub fn into_mut(self) -> MutNoComp<'a, T> {
+    pub fn into_mut(self) -> Mut<'a, T> {
         // This shouldn't panic because if we have an OccupiedComponentEntry the component must exist.
         self.entity_world.get_mut().unwrap()
     }

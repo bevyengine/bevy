@@ -1,5 +1,5 @@
 use crate::{
-    prelude::MutNoComp,
+    prelude::Mut,
     reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
     resource::Resource,
     system::EntityCommands,
@@ -221,7 +221,7 @@ impl<'w> EntityWorldMut<'w> {
     /// is much slower.
     pub fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
         self.assert_not_despawned();
-        self.resource_scope(|entity, registry: MutNoComp<AppTypeRegistry>| {
+        self.resource_scope(|entity, registry: Mut<AppTypeRegistry>| {
             let type_registry = &registry.as_ref().read();
             insert_reflect_with_registry_ref(entity, type_registry, component);
         });
@@ -245,7 +245,7 @@ impl<'w> EntityWorldMut<'w> {
         component: Box<dyn PartialReflect>,
     ) -> &mut Self {
         self.assert_not_despawned();
-        self.resource_scope(|entity, registry: MutNoComp<T>| {
+        self.resource_scope(|entity, registry: Mut<T>| {
             let type_registry = registry.as_ref().as_ref();
             insert_reflect_with_registry_ref(entity, type_registry, component);
         });
@@ -272,7 +272,7 @@ impl<'w> EntityWorldMut<'w> {
     /// is much slower.
     pub fn remove_reflect(&mut self, component_type_path: Cow<'static, str>) -> &mut Self {
         self.assert_not_despawned();
-        self.resource_scope(|entity, registry: MutNoComp<AppTypeRegistry>| {
+        self.resource_scope(|entity, registry: Mut<AppTypeRegistry>| {
             let type_registry = &registry.as_ref().read();
             remove_reflect_with_registry_ref(entity, type_registry, component_type_path);
         });
@@ -298,7 +298,7 @@ impl<'w> EntityWorldMut<'w> {
         component_type_path: Cow<'static, str>,
     ) -> &mut Self {
         self.assert_not_despawned();
-        self.resource_scope(|entity, registry: MutNoComp<T>| {
+        self.resource_scope(|entity, registry: Mut<T>| {
             let type_registry = registry.as_ref().as_ref();
             remove_reflect_with_registry_ref(entity, type_registry, component_type_path);
         });
@@ -325,7 +325,7 @@ impl<'w> EntityWorldMut<'w> {
         component_type_path: Cow<'static, str>,
     ) -> Option<Box<dyn Reflect>> {
         self.assert_not_despawned();
-        self.resource_scope(|entity, registry: MutNoComp<AppTypeRegistry>| {
+        self.resource_scope(|entity, registry: Mut<AppTypeRegistry>| {
             let type_registry = &registry.as_ref().read();
             take_reflect_with_registry_ref(entity, type_registry, component_type_path)
         })
@@ -347,7 +347,7 @@ impl<'w> EntityWorldMut<'w> {
         component_type_path: Cow<'static, str>,
     ) -> Option<Box<dyn Reflect>> {
         self.assert_not_despawned();
-        self.resource_scope(|entity, registry: MutNoComp<T>| {
+        self.resource_scope(|entity, registry: Mut<T>| {
             let type_registry = registry.as_ref().as_ref();
             take_reflect_with_registry_ref(entity, type_registry, component_type_path)
         })
