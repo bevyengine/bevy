@@ -1,7 +1,7 @@
 ---
 title: Headless split pane widget
 authors: ["@jbuehler23"]
-pull_requests: []
+pull_requests: [25969]
 ---
 
 `bevy_ui_widgets` now has a headless split pane with no built-in visuals. A `SplitPane` container lays out its `Pane` children along a horizontal or vertical axis, with `SplitPaneHandle` entities between them. Each pane has a `size`, used as a flex weight, and an optional `min_size` in logical pixels.
