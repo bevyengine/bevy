@@ -204,12 +204,12 @@ fn layout(c: &mut Criterion) {
             });
         });
 
-        group.bench_function(BenchmarkId::new("update_leafs", layout.label()), |b| {
+        group.bench_function(BenchmarkId::new("update_leaves", layout.label()), |b| {
             let mut app = setup_app();
             for _ in 0..layout.roots {
                 spawn_layout(app.world_mut(), true, layout.nodes, layout.depth);
             }
-            let leafs: Vec<_> = app
+            let leaves: Vec<_> = app
                 .world_mut()
                 .query_filtered::<Entity, (With<Node>, Without<Children>)>()
                 .iter(app.world())
