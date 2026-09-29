@@ -134,9 +134,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
         }
 
-        if !camera.hdr
+        if camera.tonemap_in_shader
             && let Some(tonemapping) = tonemapping
-            && tonemapping.is_enabled()
         {
             view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
             view_key |= tonemapping_pipeline_key(*tonemapping);
