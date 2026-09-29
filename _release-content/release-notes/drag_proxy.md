@@ -1,7 +1,7 @@
 ---
 title: Drag proxies for UI widgets
 authors: ["@jbuehler23"]
-pull_requests: []
+pull_requests: [25972]
 ---
 
 `bevy_ui_widgets` now has a small drag-proxy facility for widgets that show a visual following the pointer during a drag.
