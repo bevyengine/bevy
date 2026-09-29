@@ -144,6 +144,19 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::SCROLLBAR_BG, semantic::FILL_SOLID_DISABLED),
             (tokens::SCROLLBAR_THUMB, semantic::FILL_ACCENT_DEFAULT),
             (tokens::SCROLLBAR_THUMB_HOVER, semantic::FILL_ACCENT_HOVER), // Needed a dim gray here
+            (tokens::SPLIT_PANE_HANDLE, semantic::BORDER_DEFAULT),
+            (
+                tokens::SPLIT_PANE_HANDLE_HOVER,
+                semantic::FILL_ACCENT_DEFAULT,
+            ),
+            (
+                tokens::SPLIT_PANE_HANDLE_PRESSED,
+                semantic::FILL_ACCENT_PRESSED,
+            ),
+            (
+                tokens::SPLIT_PANE_HANDLE_DISABLED,
+                semantic::FILL_SOLID_DISABLED,
+            ),
             // Checkbox
             (tokens::CHECKBOX_BG, semantic::FILL_SOLID_DEFAULT),
             (tokens::CHECKBOX_BG_HOVER, semantic::FILL_SOLID_DEFAULT),
