@@ -56,10 +56,12 @@ use crate::{
 };
 
 /// The deepest nesting level whose fields are rendered.
+/// 
 /// This bounds how many widgets one selection spawns: without a limit, deeply nested values
 /// would build thousands of rows on every rebuild.
 const MAX_DEPTH: usize = 4;
 /// The number of items rendered for a list, array, map or set.
+///
 /// This bounds how many widgets one selection spawns: without a limit, a large collection such
 /// as a mesh's vertex data would build thousands of rows on every rebuild.
 const MAX_ITEMS: usize = 16;
