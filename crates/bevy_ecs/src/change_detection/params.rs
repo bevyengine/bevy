@@ -1,6 +1,6 @@
 use crate::{
     change_detection::{traits::*, AtomicTick, ComponentTickCells, MaybeLocation, Tick},
-    component::Mutable,
+    component::{Component, Mutable},
     ptr::PtrMut,
     resource::Resource,
 };
@@ -989,6 +989,144 @@ where
 }
 change_detection_impl!(Ref<'w, T>, T,);
 impl_debug!(Ref<'w, T>,);
+
+/// Unique mutable borrow of an entity's component or of a resource.
+///
+/// This can be used in queries to access change detection from immutable query methods, as opposed
+/// to `&mut T` which only provides access to change detection from mutable query methods.
+///
+/// ```rust
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// #
+/// #[derive(Component, Clone, Debug)]
+/// struct Name(String);
+///
+/// #[derive(Component, Clone, Copy, Debug)]
+/// struct Health(f32);
+///
+/// fn my_system(mut query: Query<(Mut<Name>, &mut Health)>) {
+///     // Mutable access provides change detection information for both parameters:
+///     // - `name` has type `Mut<Name>`
+///     // - `health` has type `Mut<Health>`
+///     for (name, health) in query.iter_mut() {
+///         println!("Name: {:?} (last changed {:?})", name, name.last_changed());
+///         println!("Health: {:?} (last changed: {:?})", health, health.last_changed());
+/// #        println!("{}{}", name.0, health.0); // Silence dead_code warning
+///     }
+///
+///     // Immutable access only provides change detection for `Name`:
+///     // - `name` has type `Ref<Name>`
+///     // - `health` has type `&Health`
+///     for (name, health) in query.iter() {
+///         println!("Name: {:?} (last changed {:?})", name, name.last_changed());
+///         println!("Health: {:?}", health);
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+pub struct Mut<'w, T: ?Sized + Component> {
+    pub(crate) value: &'w mut T,
+    pub(crate) ticks: ComponentTicksMut<'w>,
+}
+
+impl<'w, T: ?Sized + Component> Mut<'w, T> {
+    /// Creates a new change-detection enabled smart pointer.
+    /// In almost all cases you do not need to call this method manually,
+    /// as instances of `Mut` will be created by engine-internal code.
+    ///
+    /// Many use-cases of this method would be better served by [`Mut::map_unchanged`]
+    /// or [`Mut::reborrow`].
+    ///
+    /// - `value` - The value wrapped by this smart pointer.
+    /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
+    /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
+    ///   This will be updated to the value of `change_tick` if the returned smart pointer
+    ///   is modified.
+    /// - `summary_tick` - A [`Tick`] that stores the most recent changed
+    ///   timestamp that was written to any component instance in the column.
+    ///   "Most recent" refers to the wall clock.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
+    ///   as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
+    pub fn new(
+        value: &'w mut T,
+        added: &'w mut Tick,
+        last_changed: &'w mut Tick,
+        summary_tick: Option<&'w AtomicTick>,
+        last_run: Tick,
+        this_run: Tick,
+        caller: MaybeLocation<&'w mut &'static Location<'static>>,
+    ) -> Self {
+        Self {
+            value,
+            ticks: ComponentTicksMut {
+                added,
+                changed: last_changed,
+                changed_by: caller,
+                last_run,
+                this_run,
+                summary_tick,
+            },
+        }
+    }
+
+    pub fn into_mut_no_component(self) -> MutNoComp<'w, T> {
+        MutNoComp {
+            value: self.value,
+            ticks: self.ticks,
+        }
+    }
+
+    /// Overwrite the `last_run` and `this_run` tick that are used for change detection.
+    ///
+    /// This is an advanced feature. `Mut`s are usually _created_ by engine-internal code and
+    /// _consumed_ by end-user code.
+    pub fn set_ticks(&mut self, last_run: Tick, this_run: Tick) {
+        self.ticks.last_run = last_run;
+        self.ticks.this_run = this_run;
+    }
+}
+
+impl<'w, T: ?Sized + Component> From<Mut<'w, T>> for Ref<'w, T> {
+    fn from(mut_ref: Mut<'w, T>) -> Self {
+        Self {
+            value: mut_ref.value,
+            ticks: mut_ref.ticks.into(),
+        }
+    }
+}
+
+impl<'w, 'a, T: Component> IntoIterator for &'a Mut<'w, T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
+    }
+}
+
+impl<'w, 'a, T: Component> IntoIterator for &'a mut Mut<'w, T>
+where
+    &'a mut T: IntoIterator,
+{
+    type Item = <&'a mut T as IntoIterator>::Item;
+    type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.set_changed();
+        self.value.into_iter()
+    }
+}
+
+change_detection_impl!(Mut<'w, T>, T, Component);
+change_detection_mut_impl!(Mut<'w, T>, T, Component);
+impl_methods!(Mut<'w, T>, T, Component);
+impl_debug!(Mut<'w, T>, Component);
 
 /// Unique mutable borrow of an entity's component or of a resource.
 ///

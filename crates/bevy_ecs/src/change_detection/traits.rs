@@ -530,8 +530,8 @@ macro_rules! impl_methods {
             /// This is useful if you have `&mut
             #[doc = stringify!($name)]
             /// <T>`, but you need a `Mut<T>`.
-            pub fn reborrow(&mut self) -> Mut<'_, $target> {
-                Mut {
+            pub fn reborrow(&mut self) -> MutNoComp<'_, $target> {
+                MutNoComp {
                     value: self.value,
                     ticks: ComponentTicksMut {
                         added: self.ticks.added,
@@ -566,8 +566,8 @@ macro_rules! impl_methods {
             /// }
             /// # bevy_ecs::system::assert_is_system(reset_positions);
             /// ```
-            pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'w, U> {
-                Mut {
+            pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> MutNoComp<'w, U> {
+                MutNoComp {
                     value: f(self.value),
                     ticks: self.ticks,
                 }
@@ -577,9 +577,9 @@ macro_rules! impl_methods {
             /// This is useful in a situation where you need to convert a `Mut<T>` to a `Mut<U>`, but only if `T` contains `U`.
             ///
             /// As with `map_unchanged`, you should never modify the argument passed to the closure.
-            pub fn filter_map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> Option<&mut U>) -> Option<Mut<'w, U>> {
+            pub fn filter_map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> Option<&mut U>) -> Option<MutNoComp<'w, U>> {
                 let value = f(self.value);
-                value.map(|value| Mut {
+                value.map(|value| MutNoComp {
                     value,
                     ticks: self.ticks,
                 })
@@ -589,9 +589,9 @@ macro_rules! impl_methods {
             /// This is useful in a situation where you need to convert a `Mut<T>` to a `Mut<U>`, but only if `T` contains `U`.
             ///
             /// As with `map_unchanged`, you should never modify the argument passed to the closure.
-            pub fn try_map_unchanged<U: ?Sized, E>(self, f: impl FnOnce(&mut $target) -> Result<&mut U, E>) -> Result<Mut<'w, U>, E> {
+            pub fn try_map_unchanged<U: ?Sized, E>(self, f: impl FnOnce(&mut $target) -> Result<&mut U, E>) -> Result<MutNoComp<'w, U>, E> {
                 let value = f(self.value);
-                value.map(|value| Mut {
+                value.map(|value| MutNoComp {
                     value,
                     ticks: self.ticks,
                 })
@@ -599,7 +599,7 @@ macro_rules! impl_methods {
 
             /// Allows you access to the dereferenced value of this pointer without immediately
             /// triggering change detection.
-            pub fn as_deref_mut(&mut self) -> Mut<'_, <$target as Deref>::Target>
+            pub fn as_deref_mut(&mut self) -> MutNoComp<'_, <$target as Deref>::Target>
                 where $target: DerefMut
             {
                 self.reborrow().map_unchanged(|v| v.deref_mut())
