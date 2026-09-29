@@ -9,7 +9,7 @@ use crate::{
     },
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
-        EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, Ref,
+        EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, Ref, WorldId,
     },
 };
 
@@ -18,7 +18,6 @@ use core::{
     cmp::Ordering,
     hash::{Hash, Hasher},
 };
-use bevy_ecs::world::WorldId;
 
 /// Provides mutable access to a single entity and all of its components.
 ///

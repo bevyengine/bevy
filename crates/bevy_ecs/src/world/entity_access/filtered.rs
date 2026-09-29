@@ -4,7 +4,7 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
     query::Access,
-    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref},
+    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref, WorldId},
 };
 
 use bevy_ptr::Ptr;
@@ -14,7 +14,6 @@ use core::{
     hash::{Hash, Hasher},
 };
 use thiserror::Error;
-use bevy_ecs::world::WorldId;
 
 /// Provides read-only access to a single entity and some of its components defined by the contained [`Access`].
 ///

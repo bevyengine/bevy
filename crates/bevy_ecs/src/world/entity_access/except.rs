@@ -6,7 +6,7 @@ use crate::{
     query::Access,
     world::{
         unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch, FilteredEntityMut,
-        FilteredEntityRef, Mut, Ref,
+        FilteredEntityRef, Mut, Ref, WorldId,
     },
 };
 
@@ -17,7 +17,6 @@ use core::{
     hash::{Hash, Hasher},
     marker::PhantomData,
 };
-use bevy_ecs::world::WorldId;
 
 /// Provides read-only access to a single entity and all its components, save
 /// for an explicitly-enumerated set.
