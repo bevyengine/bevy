@@ -768,8 +768,7 @@ pub fn prepare_mesh_view_bind_groups(
                     .collect();
             }
 
-            let tonemap_in_shader =
-                camera.is_none_or(|camera| !camera.hdr) && tonemapping.is_enabled();
+            let tonemap_in_shader = camera.is_some_and(|camera| camera.tonemap_in_shader);
             let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
             let mut offsets = ArrayVec::from_iter([
