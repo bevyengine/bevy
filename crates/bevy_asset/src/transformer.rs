@@ -5,8 +5,8 @@
 //! See [`AssetTransformer`] for details.
 
 use crate::{
-    meta::Settings, Asset, AssetId, ErasedLoadedAsset, Handle, LabeledAsset, UntypedAssetId,
-    UntypedHandle,
+    meta::Settings, Asset, AssetId, ErasedLoadedAsset, Handle, LabeledAsset, LoadedAsset,
+    UntypedAssetId, UntypedHandle,
 };
 use alloc::{boxed::Box, vec::Vec};
 use atomicow::CowArc;
@@ -72,16 +72,13 @@ impl<A: Asset> DerefMut for TransformedAsset<A> {
 
 impl<A: Asset> TransformedAsset<A> {
     /// Creates a new [`TransformedAsset`] from `asset` if its internal value matches `A`.
-    pub fn from_loaded(asset: ErasedLoadedAsset) -> Option<Self> {
-        if let Ok(value) = asset.value.downcast::<A>() {
-            return Some(TransformedAsset {
-                value: *value,
-                labeled_assets: asset.labeled_assets,
-                label_to_asset_index: asset.label_to_asset_index,
-                asset_id_to_asset_index: asset.asset_id_to_asset_index,
-            });
+    pub fn from_loaded(asset: LoadedAsset<A>) -> Self {
+        TransformedAsset {
+            value: asset.value,
+            labeled_assets: asset.labeled_assets,
+            label_to_asset_index: asset.label_to_asset_index,
+            asset_id_to_asset_index: asset.asset_id_to_asset_index,
         }
-        None
     }
 
     /// Creates a new [`TransformedAsset`] from `asset`, transferring the `labeled_assets` from this [`TransformedAsset`] to the new one
