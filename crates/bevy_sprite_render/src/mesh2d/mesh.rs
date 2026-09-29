@@ -83,10 +83,6 @@ impl Plugin for Mesh2dRenderPlugin {
 
         embedded_asset!(app, "mesh2d.wesl");
 
-        // These bindings should be loaded as a shader library, but it depends on runtime
-        // information, so we will load it in a system.
-        embedded_asset!(app, "bindings.wesl");
-
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<Mesh2dBindGroup>()
@@ -96,11 +92,7 @@ impl Plugin for Mesh2dRenderPlugin {
                 .init_gpu_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems(
                     RenderStartup,
-                    (
-                        init_mesh_2d_pipeline,
-                        init_batched_instance_buffer,
-                        load_mesh2d_bindings,
-                    ),
+                    (init_mesh_2d_pipeline, init_batched_instance_buffer),
                 )
                 .allow_ambiguous_resource::<BatchedInstanceBuffer<Mesh2dUniform>>()
                 .add_systems(ExtractSchedule, extract_2d_meshes)
@@ -128,6 +120,36 @@ impl Plugin for Mesh2dRenderPlugin {
                     ),
                 );
         }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
+
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            let render_device = render_app.world().resource::<RenderDevice>();
+            if let Some(per_object_buffer_batch_size) =
+                GpuArrayBuffer::<Mesh2dUniform>::batch_size(&render_device.limits())
+            {
+                mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
+                    "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
+                    per_object_buffer_batch_size,
+                ));
+            }
+
+            if bevy_render::storage_buffers_are_unsupported(&render_device.limits()) {
+                mesh_bindings_shader_defs.push("METADATA_USE_UNIFORM_BUFFERS".into());
+            }
+        }
+
+        // Load the bindings shader module here as it depends on runtime information about
+        // whether storage buffers are supported, or the maximum uniform buffer binding size.
+        // Loading it during plugin setup (rather than in a `RenderStartup` system) makes the
+        // module available before any pipeline can be specialized, which avoids a spurious
+        // "unresolved import" warning on the first frame.
+        load_shader_library!(app, "bindings.wesl", move |settings| *settings =
+            ShaderSettings {
+                shader_defs: mesh_bindings_shader_defs.clone(),
+            });
     }
 }
 
@@ -180,35 +202,6 @@ pub fn init_batched_instance_buffer(mut commands: Commands, render_device: Res<R
     commands.insert_resource(BatchedInstanceBuffer::<Mesh2dUniform>::new(
         &render_device.limits(),
     ));
-}
-
-fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<AssetServer>) {
-    let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
-
-    if let Some(per_object_buffer_batch_size) =
-        GpuArrayBuffer::<Mesh2dUniform>::batch_size(&render_device.limits())
-    {
-        mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
-            "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
-            per_object_buffer_batch_size,
-        ));
-    }
-
-    if bevy_render::storage_buffers_are_unsupported(&render_device.limits()) {
-        mesh_bindings_shader_defs.push("METADATA_USE_UNIFORM_BUFFERS".into());
-    }
-
-    // Load the mesh_bindings shader module here as it depends on runtime information about
-    // whether storage buffers are supported, or the maximum uniform buffer binding size.
-    let handle: Handle<Shader> =
-        load_embedded_asset!(asset_server.as_ref(), "bindings.wesl", move |settings| {
-            *settings = ShaderSettings {
-                shader_defs: mesh_bindings_shader_defs.clone(),
-            };
-        });
-    // Forget the handle so we don't have to store it anywhere, and we keep the embedded asset
-    // loaded. Note: This is what happens in `load_shader_library` internally.
-    mem::forget(handle);
 }
 
 #[derive(Component)]
