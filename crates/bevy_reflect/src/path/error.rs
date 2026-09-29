@@ -28,9 +28,11 @@ pub enum AccessErrorKind {
         actual: VariantType,
     },
 
-    /// An error that occurs when a map or set key can't be converted to the collection's key type.
+    /// An error that occurs when a key in the path can't be converted to the key type of the map or
+    /// set being accessed.
     InvalidKey {
-        /// The type path of the key type, or `None` if the collection has no type info.
+        /// The type path of the map's key type or the set's element type, or `None` if the map or
+        /// set has no type info.
         key_type: Option<&'static str>,
     },
 
@@ -140,11 +142,11 @@ impl fmt::Display for AccessError<'_> {
             ),
             AccessErrorKind::InvalidKey { key_type: Some(key_type) } => write!(
                 f,
-                "The key can't be converted to the key type `{key_type}`."
+                "The key in the path can't be converted to the map or set key type `{key_type}`."
             ),
             AccessErrorKind::InvalidKey { key_type: None } => write!(
                 f,
-                "The key type is unknown, since the collection has no type info."
+                "The key type of the map or set is unknown, since it has no type info."
             ),
             AccessErrorKind::MutableSetAccess => write!(
                 f,

@@ -1039,7 +1039,7 @@ mod tests {
         }
         assert_eq!(
             m.reflect_path(r#"ids["x"]"#).unwrap_err().to_string(),
-            r#"Error accessing element with `["x"]` access(offset 4): The key can't be converted to the key type `u32`."#
+            r#"Error accessing element with `["x"]` access(offset 4): The key in the path can't be converted to the map or set key type `u32`."#
         );
         assert_eq!(
             m.reflect_path_mut(r#"set["x"]"#).unwrap_err(),
