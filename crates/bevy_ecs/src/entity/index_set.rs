@@ -427,9 +427,9 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
     ///
     /// Equivalent to [`IndexSet::split_off`].
     pub fn split_off(&mut self, at: usize) -> Self {
-        let splitted_off = self.0.split_off(at);
-        // SAFETY: `self` didn't contain duplicates, so the splitted off part also doesn't contain duplicated.
-        unsafe { Self::from_index_set_unchecked(splitted_off) }
+        let split_off = self.0.split_off(at);
+        // SAFETY: `self` didn't contain duplicates, so the split off part also doesn't contain duplicated.
+        unsafe { Self::from_index_set_unchecked(split_off) }
     }
 
     /// Swaps the position of two values in the set.
