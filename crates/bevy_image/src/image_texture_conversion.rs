@@ -6,13 +6,32 @@ use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 impl Image {
     /// Converts a [`DynamicImage`] to an [`Image`].
+    ///
+    /// Grayscale images are expanded to RGBA.
     pub fn from_dynamic(
+        dyn_img: DynamicImage,
+        is_srgb: bool,
+        asset_usage: RenderAssetUsages,
+    ) -> Image {
+        Self::from_dynamic_inner(dyn_img, is_srgb, true, asset_usage)
+    }
+
+    pub(crate) fn from_dynamic_inner(
         dyn_img: DynamicImage,
         is_srgb: bool,
         expand_grayscale: bool,
         asset_usage: RenderAssetUsages,
     ) -> Image {
         use bytemuck::cast_slice;
+        let dyn_img = match dyn_img {
+            DynamicImage::ImageLuma8(_) | DynamicImage::ImageLumaA8(_) if expand_grayscale => {
+                DynamicImage::ImageRgba8(dyn_img.into_rgba8())
+            }
+            DynamicImage::ImageLuma16(_) | DynamicImage::ImageLumaA16(_) if expand_grayscale => {
+                DynamicImage::ImageRgba16(dyn_img.into_rgba16())
+            }
+            other => other,
+        };
         let width;
         let height;
 
@@ -23,34 +42,16 @@ impl Image {
             DynamicImage::ImageLuma8(image) => {
                 width = image.width();
                 height = image.height();
+                format = TextureFormat::R8Unorm;
 
-                if expand_grayscale {
-                    format = if is_srgb {
-                        TextureFormat::Rgba8UnormSrgb
-                    } else {
-                        TextureFormat::Rgba8Unorm
-                    };
-                    data = DynamicImage::ImageLuma8(image).into_rgba8().into_raw();
-                } else {
-                    format = TextureFormat::R8Unorm;
-                    data = image.into_raw();
-                }
+                data = image.into_raw();
             }
             DynamicImage::ImageLumaA8(image) => {
                 width = image.width();
                 height = image.height();
+                format = TextureFormat::Rg8Unorm;
 
-                if expand_grayscale {
-                    format = if is_srgb {
-                        TextureFormat::Rgba8UnormSrgb
-                    } else {
-                        TextureFormat::Rgba8Unorm
-                    };
-                    data = DynamicImage::ImageLumaA8(image).into_rgba8().into_raw();
-                } else {
-                    format = TextureFormat::Rg8Unorm;
-                    data = image.into_raw();
-                }
+                data = image.into_raw();
             }
             DynamicImage::ImageRgb8(image) => {
                 let i = DynamicImage::ImageRgb8(image).into_rgba8();
@@ -75,44 +76,23 @@ impl Image {
 
                 data = image.into_raw();
             }
-            // Use `Rgba16Float` for expanded 16-bit grayscale images because `Rgba16Unorm`
-            // requires `Features::TEXTURE_FORMAT_16BIT_NORM`. Converting through RGBA32F
-            // normalizes the u16 channels to the [0, 1] range before encoding them as f16.
             DynamicImage::ImageLuma16(image) => {
                 width = image.width();
                 height = image.height();
+                format = TextureFormat::R16Unorm;
 
-                if expand_grayscale {
-                    format = TextureFormat::Rgba16Float;
-                    data = DynamicImage::ImageLuma16(image)
-                        .into_rgba32f()
-                        .into_raw()
-                        .into_iter()
-                        .flat_map(|value| half::f16::from_f32(value).to_le_bytes())
-                        .collect();
-                } else {
-                    format = TextureFormat::R16Unorm;
-                    let raw_data = image.into_raw();
-                    data = cast_slice(&raw_data).to_owned();
-                }
+                let raw_data = image.into_raw();
+
+                data = cast_slice(&raw_data).to_owned();
             }
             DynamicImage::ImageLumaA16(image) => {
                 width = image.width();
                 height = image.height();
+                format = TextureFormat::Rg16Unorm;
 
-                if expand_grayscale {
-                    format = TextureFormat::Rgba16Float;
-                    data = DynamicImage::ImageLumaA16(image)
-                        .into_rgba32f()
-                        .into_raw()
-                        .into_iter()
-                        .flat_map(|value| half::f16::from_f32(value).to_le_bytes())
-                        .collect();
-                } else {
-                    format = TextureFormat::Rg16Unorm;
-                    let raw_data = image.into_raw();
-                    data = cast_slice(&raw_data).to_owned();
-                }
+                let raw_data = image.into_raw();
+
+                data = cast_slice(&raw_data).to_owned();
             }
             DynamicImage::ImageRgb16(image) => {
                 let i = DynamicImage::ImageRgb16(image).into_rgba16();
@@ -282,8 +262,7 @@ mod test {
         let mut initial = DynamicImage::new_rgba8(1, 1);
         initial.put_pixel(0, 0, Rgba::from([132, 3, 7, 200]));
 
-        let image =
-            Image::from_dynamic(initial.clone(), true, true, RenderAssetUsages::RENDER_WORLD);
+        let image = Image::from_dynamic(initial.clone(), true, RenderAssetUsages::RENDER_WORLD);
 
         // NOTE: Fails if `is_srgb = false` or the dynamic image is of the type rgb8.
         assert_eq!(initial, image.try_into_dynamic().unwrap());
@@ -291,45 +270,6 @@ mod test {
         let luma_a8 = Image::from_dynamic(
             DynamicImage::new_luma_a8(1, 1),
             false,
-            false,
-            RenderAssetUsages::RENDER_WORLD,
-        );
-        assert_eq!(luma_a8.texture_descriptor.format, TextureFormat::Rg8Unorm);
-
-        let luma16 = Image::from_dynamic(
-            DynamicImage::new_luma16(1, 1),
-            false,
-            false,
-            RenderAssetUsages::RENDER_WORLD,
-        );
-        assert_eq!(luma16.texture_descriptor.format, TextureFormat::R16Unorm);
-
-        let luma_a16 = Image::from_dynamic(
-            DynamicImage::new_luma_a16(1, 1),
-            false,
-            false,
-            RenderAssetUsages::RENDER_WORLD,
-        );
-        assert_eq!(luma_a16.texture_descriptor.format, TextureFormat::Rg16Unorm);
-    }
-
-    #[test]
-    fn expand_grayscale_converts_luma_images_to_rgba() {
-        let luma8 = Image::from_dynamic(
-            DynamicImage::new_luma8(1, 1),
-            true,
-            true,
-            RenderAssetUsages::RENDER_WORLD,
-        );
-        assert_eq!(
-            luma8.texture_descriptor.format,
-            TextureFormat::Rgba8UnormSrgb
-        );
-
-        let luma_a8 = Image::from_dynamic(
-            DynamicImage::new_luma_a8(1, 1),
-            false,
-            true,
             RenderAssetUsages::RENDER_WORLD,
         );
         assert_eq!(luma_a8.texture_descriptor.format, TextureFormat::Rgba8Unorm);
@@ -337,21 +277,93 @@ mod test {
         let luma16 = Image::from_dynamic(
             DynamicImage::new_luma16(1, 1),
             false,
-            true,
             RenderAssetUsages::RENDER_WORLD,
         );
-        assert_eq!(luma16.texture_descriptor.format, TextureFormat::Rgba16Float);
+        assert_eq!(luma16.texture_descriptor.format, TextureFormat::Rgba16Unorm);
 
         let luma_a16 = Image::from_dynamic(
             DynamicImage::new_luma_a16(1, 1),
             false,
-            true,
             RenderAssetUsages::RENDER_WORLD,
         );
         assert_eq!(
             luma_a16.texture_descriptor.format,
-            TextureFormat::Rgba16Float
+            TextureFormat::Rgba16Unorm
         );
+    }
+
+    #[test]
+    fn grayscale_expands_to_rgba() {
+        let luma8 = DynamicImage::ImageLuma8(ImageBuffer::from_raw(1, 1, vec![77]).unwrap());
+        let luma_a8 =
+            DynamicImage::ImageLumaA8(ImageBuffer::from_raw(1, 1, vec![100, 50]).unwrap());
+        let usage = RenderAssetUsages::RENDER_WORLD;
+
+        let image = Image::from_dynamic(luma8.clone(), true, usage);
+        assert_eq!(
+            image.texture_descriptor.format,
+            TextureFormat::Rgba8UnormSrgb
+        );
+        assert_eq!(image.data.as_deref(), Some(&[77, 77, 77, 255][..]));
+
+        let image = Image::from_dynamic(luma8, false, usage);
+        assert_eq!(image.texture_descriptor.format, TextureFormat::Rgba8Unorm);
+
+        let image = Image::from_dynamic(luma_a8.clone(), false, usage);
+        assert_eq!(image.texture_descriptor.format, TextureFormat::Rgba8Unorm);
+        assert_eq!(image.data.as_deref(), Some(&[100, 100, 100, 50][..]));
+
+        let image = Image::from_dynamic(luma_a8, true, usage);
+        assert_eq!(
+            image.texture_descriptor.format,
+            TextureFormat::Rgba8UnormSrgb
+        );
+
+        let luma16 = DynamicImage::ImageLuma16(ImageBuffer::from_raw(1, 1, vec![1000u16]).unwrap());
+        let image = Image::from_dynamic(luma16, false, usage);
+        assert_eq!(image.texture_descriptor.format, TextureFormat::Rgba16Unorm);
+        assert_eq!(image.data.as_ref().unwrap().len(), 8);
+
+        let luma_a16 =
+            DynamicImage::ImageLumaA16(ImageBuffer::from_raw(1, 1, vec![1000u16, 2000]).unwrap());
+        let image = Image::from_dynamic(luma_a16, false, usage);
+        assert_eq!(image.texture_descriptor.format, TextureFormat::Rgba16Unorm);
+        let channels: &[u16] = bytemuck::cast_slice(image.data.as_deref().unwrap());
+        assert_eq!(channels, &[1000, 1000, 1000, 2000]);
+    }
+
+    #[test]
+    fn grayscale_unexpanded() {
+        let usage = RenderAssetUsages::RENDER_WORLD;
+        let cases = [
+            (
+                DynamicImage::ImageLuma8(ImageBuffer::from_raw(1, 1, vec![77]).unwrap()),
+                TextureFormat::R8Unorm,
+                vec![77],
+            ),
+            (
+                DynamicImage::ImageLumaA8(ImageBuffer::from_raw(1, 1, vec![100, 50]).unwrap()),
+                TextureFormat::Rg8Unorm,
+                vec![100, 50],
+            ),
+            (
+                DynamicImage::ImageLuma16(ImageBuffer::from_raw(1, 1, vec![0x0102u16]).unwrap()),
+                TextureFormat::R16Unorm,
+                0x0102u16.to_ne_bytes().to_vec(),
+            ),
+            (
+                DynamicImage::ImageLumaA16(
+                    ImageBuffer::from_raw(1, 1, vec![0x0102u16, 0x0304]).unwrap(),
+                ),
+                TextureFormat::Rg16Unorm,
+                [0x0102u16.to_ne_bytes(), 0x0304u16.to_ne_bytes()].concat(),
+            ),
+        ];
+        for (dyn_img, format, data) in cases {
+            let image = Image::from_dynamic_inner(dyn_img, true, false, usage);
+            assert_eq!(image.texture_descriptor.format, format);
+            assert_eq!(image.data, Some(data));
+        }
     }
 
     #[test]

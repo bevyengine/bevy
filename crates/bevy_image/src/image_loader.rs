@@ -139,15 +139,13 @@ pub struct ImageLoaderSettings {
     /// in a shader.
     /// Ex: data that would be `R16Uint` that needs to
     /// be sampled as a float using `R16Snorm`.
+    /// Grayscale images are not expanded to RGBA when this format has one or two channels.
     #[serde(default)]
     pub texture_format: Option<wgpu_types::TextureFormat>,
     /// Specifies whether image data is linear
     /// or in sRGB space when this is not determined by
     /// the image format.
     pub is_srgb: bool,
-    /// Whether to expand grayscale images to RGBA. Defaults to `false`.
-    #[serde(default)]
-    pub expand_grayscale: bool,
     /// [`ImageSampler`] to use when rendering - this does
     /// not affect the loading of the image data.
     pub sampler: ImageSampler,
@@ -159,6 +157,15 @@ pub struct ImageLoaderSettings {
     /// uniform type.
     #[serde(default)]
     pub array_layout: Option<ImageArrayLayout>,
+    /// Whether to expand grayscale images to RGBA.
+    /// When `false`, grayscale images load as `R8Unorm`, `Rg8Unorm`, `R16Unorm` or `Rg16Unorm`
+    /// and `is_srgb` is ignored.
+    #[serde(default = "default_expand_grayscale")]
+    pub expand_grayscale: bool,
+}
+
+fn default_expand_grayscale() -> bool {
+    true
 }
 
 impl Default for ImageLoaderSettings {
@@ -167,10 +174,10 @@ impl Default for ImageLoaderSettings {
             format: ImageFormatSetting::default(),
             texture_format: None,
             is_srgb: true,
-            expand_grayscale: false,
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
             array_layout: None,
+            expand_grayscale: true,
         }
     }
 }
@@ -229,12 +236,14 @@ impl AssetLoader for ImageLoader {
             }
         };
 
-        let mut image = Image::from_buffer(
+        let expand_grayscale = settings.expand_grayscale
+            && !settings.texture_format.is_some_and(|f| f.components() <= 2);
+        let mut image = Image::from_buffer_inner(
             &bytes,
             image_type,
             self.supported_compressed_formats,
             settings.is_srgb,
-            settings.expand_grayscale,
+            expand_grayscale,
             settings.sampler.clone(),
             settings.asset_usage,
         )
@@ -284,4 +293,17 @@ impl AssetLoader for ImageLoader {
 pub struct FileTextureError {
     error: TextureError,
     path: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ImageLoaderSettings;
+
+    #[test]
+    fn missing_expand_grayscale_defaults_to_true() {
+        let mut value = serde_json::to_value(ImageLoaderSettings::default()).unwrap();
+        value.as_object_mut().unwrap().remove("expand_grayscale");
+        let settings: ImageLoaderSettings = serde_json::from_value(value).unwrap();
+        assert!(settings.expand_grayscale);
+    }
 }

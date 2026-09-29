@@ -281,7 +281,6 @@ impl Plugin for PbrPlugin {
                     bevy_image::ImageType::Extension("ktx2"),
                     bevy_image::CompressedImageFormats::NONE,
                     false,
-                    false,
                     ImageSampler::Default,
                     RenderAssetUsages::RENDER_WORLD,
                 )
@@ -313,7 +312,6 @@ impl Plugin for PbrPlugin {
                     bevy_image::ImageType::Extension("ktx2"),
                     bevy_image::CompressedImageFormats::NONE,
                     false,
-                    false,
                     ImageSampler::linear(),
                     RenderAssetUsages::RENDER_WORLD,
                 )
@@ -341,7 +339,6 @@ impl Plugin for PbrPlugin {
                     include_bytes!("environment_map/dfg.ktx2"),
                     bevy_image::ImageType::Extension("ktx2"),
                     bevy_image::CompressedImageFormats::NONE,
-                    false,
                     false,
                     ImageSampler::linear(),
                     RenderAssetUsages::RENDER_WORLD,

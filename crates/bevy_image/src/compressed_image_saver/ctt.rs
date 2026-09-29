@@ -112,11 +112,9 @@ impl CompressedImageSaverCtt {
         Ok(ImageLoaderSettings {
             format: ImageFormatSetting::Format(ImageFormat::Ktx2),
             is_srgb,
-            expand_grayscale: true,
             sampler: image.sampler.clone(),
             asset_usage: image.asset_usage,
-            texture_format: None,
-            array_layout: None,
+            ..Default::default()
         })
     }
 }
