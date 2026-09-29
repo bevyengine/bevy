@@ -1,3 +1,4 @@
+use alloc::{borrow::Cow, string::String};
 use core::{
     fmt::{self, Write},
     num::ParseIntError,
@@ -32,6 +33,12 @@ enum Error<'a> {
 
     #[error("a ']' was found before an opening '['")]
     CloseBeforeOpen,
+
+    #[error("a '\"' wasn't closed, reached end of path string before finding a closing '\"'")]
+    UnclosedQuote,
+
+    #[error("invalid escape in key, only '\\\"' and '\\\\' are supported")]
+    InvalidEscape,
 }
 
 pub(super) struct PathParser<'a> {
@@ -90,14 +97,52 @@ impl<'a> PathParser<'a> {
             Token::Ident(ident) => Ok(ident.field()),
             Token::CloseBracket => Err(Error::CloseBeforeOpen),
             Token::OpenBracket => {
-                let index_ident = self.next_ident()?.list_index()?;
+                let access = match self.remaining.split_first() {
+                    Some((b'"', remaining)) => {
+                        self.remaining = remaining;
+                        self.key()?
+                    }
+                    _ => self.next_ident()?.list_index()?,
+                };
                 match self.next_token() {
-                    Some(Token::CloseBracket) => Ok(index_ident),
+                    Some(Token::CloseBracket) => Ok(access),
                     Some(other) => Err(Error::BadClose(other)),
                     None => Err(Error::Unclosed),
                 }
             }
         }
+    }
+
+    fn key(&mut self) -> Result<Access<'a>, Error<'a>> {
+        let start = self.offset();
+        let mut escaped = false;
+        let len = self
+            .remaining
+            .iter()
+            .position(|&byte| {
+                let end = !escaped && byte == b'"';
+                escaped = !escaped && byte == b'\\';
+                end
+            })
+            .ok_or(Error::UnclosedQuote)?;
+        let raw = &self.path[start..start + len];
+        self.remaining = &self.remaining[len + 1..];
+
+        if !raw.contains('\\') {
+            return Ok(Access::Key(Cow::Borrowed(raw)));
+        }
+        let mut key = String::with_capacity(raw.len());
+        let mut chars = raw.chars();
+        while let Some(c) = chars.next() {
+            key.push(match c {
+                '\\' => match chars.next() {
+                    Some(c @ ('"' | '\\')) => c,
+                    _ => return Err(Error::InvalidEscape),
+                },
+                c => c,
+            });
+        }
+        Ok(Access::Key(Cow::Owned(key)))
     }
 
     fn offset(&self) -> usize {

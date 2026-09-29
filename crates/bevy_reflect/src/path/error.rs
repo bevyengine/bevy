@@ -27,6 +27,15 @@ pub enum AccessErrorKind {
         /// The actual [`VariantType`] that was found.
         actual: VariantType,
     },
+
+    /// An error that occurs when a map or set key can't be converted to the collection's key type.
+    InvalidKey {
+        /// The type path of the key type, or `None` if the collection has no type info.
+        key_type: Option<&'static str>,
+    },
+
+    /// An error that occurs when trying to mutably access an element of a set.
+    MutableSetAccess,
 }
 
 impl AccessErrorKind {
@@ -107,9 +116,14 @@ impl fmt::Display for AccessError<'_> {
                         "The {type_accessed} accessed doesn't have field index `{}`",
                         access.display_value(),
                     ),
-                    Access::TupleIndex(_) | Access::ListIndex(_) => write!(
+                    Access::TupleIndex(_) | Access::ListIndex(_) | Access::Key(_) => write!(
                         f,
-                        "The {type_accessed} accessed doesn't have index `{}`",
+                        "The {type_accessed} accessed doesn't have {} `{}`",
+                        if matches!(type_accessed, ReflectKind::Map | ReflectKind::Set) {
+                            "key"
+                        } else {
+                            "index"
+                        },
                         access.display_value()
                     )
                 }
@@ -123,6 +137,18 @@ impl fmt::Display for AccessError<'_> {
                 f,
                 "Expected variant {} access to access a {expected:?} variant, found a {actual:?} variant instead.",
                 access.kind()
+            ),
+            AccessErrorKind::InvalidKey { key_type: Some(key_type) } => write!(
+                f,
+                "The key can't be converted to the key type `{key_type}`."
+            ),
+            AccessErrorKind::InvalidKey { key_type: None } => write!(
+                f,
+                "The key type is unknown, since the collection has no type info."
+            ),
+            AccessErrorKind::MutableSetAccess => write!(
+                f,
+                "Set elements can't be accessed mutably, since changing them could break the set."
             ),
         }
     }
