@@ -8,8 +8,7 @@
 //! so it should only be used when you have no other choice,
 //! or when flexibility is the most important consideration.
 
-use bevy::{prelude::*, reflect::ReflectMut};
-use bevy_ecs::change_detection::MutNoComp;
+use bevy::{ecs::change_detection::MutNoComp, prelude::*, reflect::ReflectMut};
 
 fn main() {
     App::new()
@@ -135,7 +134,8 @@ fn modify_selected_component(world: &mut World) {
         .expect("Type was not registered, or its full path was ambiguous")
         .type_id();
 
-    let mut reflected_component: MutNoComp<dyn Reflect> = world.get_reflect_mut(entity, type_id).unwrap();
+    let mut reflected_component: MutNoComp<dyn Reflect> =
+        world.get_reflect_mut(entity, type_id).unwrap();
 
     match selected {
         // Downcasting is the easy path:

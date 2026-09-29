@@ -1,6 +1,6 @@
 ---
 title: NonSend and Reflect now return `MutNoComp`
-pull_requests: [TODO]
+pull_requests: [25975]
 ---
 
 TODO

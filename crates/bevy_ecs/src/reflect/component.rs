@@ -130,7 +130,8 @@ pub struct ReflectComponentFns {
     ///
     /// # Safety
     /// The function may only be called with an [`UnsafeEntityCell`] that can be used to mutably access the relevant component on the given entity.
-    pub reflect_unchecked_mut: unsafe fn(UnsafeEntityCell<'_>) -> Option<MutNoComp<'_, dyn Reflect>>,
+    pub reflect_unchecked_mut:
+        unsafe fn(UnsafeEntityCell<'_>) -> Option<MutNoComp<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::register_component()`].
