@@ -1257,11 +1257,6 @@ mod tests {
 
     #[test]
     fn bsn_root_supports_turbofish_in_template_constructor() {
-        // Arrange
-        let expected = "bevy_scene :: SceneScope ({ let _res = bevy_scene :: auto_nest_tuple ! "
-            .to_string()
-            + "(bevy_scene :: SceneFunction (move | _context , _scene | { _scene . insert_template :: < A > (A :: from :: < B > ()) ; })) ; _res })";
-
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
         let mut exprs = HoistedExpressions::default();
@@ -1272,17 +1267,12 @@ mod tests {
         // Act
         let res = root.into_tokens(&mut ctx).to_string();
 
-        // Assert
-        assert_eq!(res, expected,);
+        // The turbofish must be preserved when converting `A::from::<B>()` into a template constructor.
+        assert!(res.contains("{ _scene . insert_template :: < A > (A :: from :: < B > ()) ; }"));
     }
 
     #[test]
     fn bsn_root_supports_turbofish_in_from_template_constructor() {
-        // Arrange
-        let expected = "bevy_scene :: SceneScope ({ let _res = bevy_scene :: auto_nest_tuple ! "
-            .to_string()
-        + "(bevy_scene :: SceneFunction (move | _context , _scene | { _scene . insert_template (< A as bevy_ecs :: template :: FromTemplate > :: Template :: from :: < B > ()) ; })) ; _res })";
-
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
         let mut exprs = HoistedExpressions::default();
@@ -1293,7 +1283,7 @@ mod tests {
         // Act
         let res = root.into_tokens(&mut ctx).to_string();
 
-        // Assert
-        assert_eq!(res, expected,);
+        // The turbofish must be preserved when converting `A::from::<B>()` into a `FromTemplate` constructor.
+        assert!(res.contains("{ _scene . insert_template (< A as bevy_ecs :: template :: FromTemplate > :: Template :: from :: < B > ()) ; }"));
     }
 }

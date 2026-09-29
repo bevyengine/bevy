@@ -727,7 +727,7 @@ impl Parse for EntityNameIdent {
 }
 
 fn take_last_path_segment(path: &mut Path) -> Option<syn::PathSegment> {
-    let segment = path.segments.pop().map(|s| s.into_value());
+    let segment = path.segments.pop();
     path.segments.pop_punct();
     segment
 }
