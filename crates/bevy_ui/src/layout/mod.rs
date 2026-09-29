@@ -377,7 +377,13 @@ pub fn ui_layout_system(
         added_ghost_nodes,
         mut removed_ghost_nodes,
     ): (
-        Query<Entity, Or<(Changed<Children>, Changed<ChildOf>, Added<Node>)>>,
+        Query<
+            Entity,
+            Or<(
+                Or<(Changed<Children>, Changed<ChildOf>, Added<Node>)>,
+                With<Node>,
+            )>,
+        >,
         RemovedComponents<ChildOf>,
         RemovedComponents<Node>,
         Query<Entity, Added<GhostNode>>,
