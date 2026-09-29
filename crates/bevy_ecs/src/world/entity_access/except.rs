@@ -17,6 +17,7 @@ use core::{
     hash::{Hash, Hasher},
     marker::PhantomData,
 };
+use bevy_ecs::world::WorldId;
 
 /// Provides read-only access to a single entity and all its components, save
 /// for an explicitly-enumerated set.
@@ -58,6 +59,12 @@ where
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity.id()
+    }
+
+    /// Returns the [ID](WorldId) of the world that the current entity belongs to.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.entity.world_id()
     }
 
     /// Gets access to the component of type `C` for the current entity. Returns
@@ -294,6 +301,12 @@ where
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity.id()
+    }
+
+    /// Returns the [ID](WorldId) of the world that the current entity belongs to.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.entity.world_id()
     }
 
     /// Returns a new instance with a shorter lifetime.

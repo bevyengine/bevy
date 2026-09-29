@@ -14,6 +14,7 @@ use core::{
     hash::{Hash, Hasher},
 };
 use thiserror::Error;
+use bevy_ecs::world::WorldId;
 
 /// Provides read-only access to a single entity and some of its components defined by the contained [`Access`].
 ///
@@ -77,6 +78,12 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity.id()
+    }
+
+    /// Returns the [ID](WorldId) of the world that the current entity belongs to.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.entity.world_id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
@@ -440,6 +447,12 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity.id()
+    }
+
+    /// Returns the [ID](WorldId) of the world that the current entity belongs to.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.entity.world_id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.

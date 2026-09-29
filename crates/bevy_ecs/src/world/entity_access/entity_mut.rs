@@ -18,6 +18,7 @@ use core::{
     cmp::Ordering,
     hash::{Hash, Hasher},
 };
+use bevy_ecs::world::WorldId;
 
 /// Provides mutable access to a single entity and all of its components.
 ///
@@ -106,6 +107,12 @@ impl<'w> EntityMut<'w> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.cell.id()
+    }
+
+    /// Returns the [ID](WorldId) of the world that the current entity belongs to.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.cell.world_id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
