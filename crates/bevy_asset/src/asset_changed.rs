@@ -54,8 +54,9 @@ impl<A: Asset> Default for AssetChanges<A> {
 }
 
 struct AssetChangeCheck<'w, A: AsAssetId> {
-    // This should never be `None` in practice, but we need to handle the case
-    // where the `AssetChanges` resource was removed.
+    // This will be `None` if:
+    // - the `AssetChanges` resource was removed (should never happen)
+    // - no assets changed since the last run
     change_ticks: Option<&'w HashMap<AssetId<A::Asset>, Tick>>,
     last_run: Tick,
     this_run: Tick,
@@ -77,6 +78,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
             this_run,
         }
     }
+
     // TODO(perf): some sort of caching? Each check has two levels of indirection,
     // which is not optimal.
     fn has_changed(&self, handle: &A) -> bool {
@@ -191,6 +193,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
                 },
             };
         };
+
         let has_updates = changes.last_change_tick.is_newer_than(last_run, this_run);
 
         AssetChangedFetch {
@@ -285,6 +288,11 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 // SAFETY: read-only access
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+        fetch.inner.is_some()
+    }
 
     #[inline]
     unsafe fn filter_fetch(
