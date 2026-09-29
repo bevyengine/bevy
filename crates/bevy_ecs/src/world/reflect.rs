@@ -142,7 +142,7 @@ impl World {
         &mut self,
         entity: Entity,
         type_id: TypeId,
-    ) -> Result<Mut<'_, dyn Reflect>, GetComponentReflectError> {
+    ) -> Result<MutNoComp<'_, dyn Reflect>, GetComponentReflectError> {
         // little clone() + read() dance so we a) don't keep a borrow of `self` and b) don't drop a
         // temporary (from read()) too  early.
         let Some(app_type_registry) = self.get_resource::<AppTypeRegistry>().cloned() else {

@@ -1328,7 +1328,7 @@ pub fn base_specialize(
     properties: &Arc<MaterialProperties>,
 ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
     world.resource_scope(
-        |world, mut pipelines: Mut<SpecializedMeshPipelines<Material2dPipelineSpecializer>>| {
+        |world, mut pipelines: MutNoComp<SpecializedMeshPipelines<Material2dPipelineSpecializer>>| {
             let mesh2d_pipeline = world.resource::<Mesh2dPipeline>().clone();
             let pipeline_cache = world.resource::<PipelineCache>();
 

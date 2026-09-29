@@ -6,7 +6,7 @@ use crate::{
     query::Access,
     world::{
         unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch, FilteredEntityMut,
-        FilteredEntityRef, Mut, Ref,
+        FilteredEntityRef, MutNoComp, Ref,
     },
 };
 
@@ -372,7 +372,7 @@ where
     /// Returns `None` if the component doesn't have a component of that type or
     /// if the type is one of the excluded components.
     #[inline]
-    pub fn get_mut<C>(&mut self) -> Option<Mut<'_, C>>
+    pub fn get_mut<C>(&mut self) -> Option<MutNoComp<'_, C>>
     where
         C: Component<Mutability = Mutable>,
     {

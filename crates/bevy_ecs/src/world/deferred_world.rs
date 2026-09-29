@@ -19,7 +19,7 @@ use crate::{
     world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
+use super::{unsafe_world_cell::UnsafeWorldCell, MutNoComp, World};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
@@ -85,7 +85,7 @@ impl<'w> DeferredWorld<'w> {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<Mut<'_, T>> {
+    ) -> Option<MutNoComp<'_, T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
     }
 
@@ -466,7 +466,7 @@ impl<'w> DeferredWorld<'w> {
     /// Use [`get_resource_mut`](DeferredWorld::get_resource_mut) instead if you want to handle this case.
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> MutNoComp<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -481,7 +481,7 @@ impl<'w> DeferredWorld<'w> {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<MutNoComp<'_, R>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
         unsafe { self.world.get_resource_mut() }
     }
@@ -496,7 +496,7 @@ impl<'w> DeferredWorld<'w> {
     /// This function will panic if it isn't called from the same thread that the data was inserted from.
     #[inline]
     #[track_caller]
-    pub fn non_send_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+    pub fn non_send_mut<R: 'static>(&mut self) -> MutNoComp<'_, R> {
         match self.get_non_send_mut() {
             Some(x) => x,
             None => panic!(
@@ -514,7 +514,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the data was inserted from.
     #[inline]
-    pub fn get_non_send_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_non_send_mut<R: 'static>(&mut self) -> Option<MutNoComp<'_, R>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the data
         unsafe { self.world.get_non_send_mut() }
     }

@@ -252,11 +252,11 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
     ) -> Option<(
         Entity,
         usize,
-        Mut<'_, String>,
-        Mut<'_, TextFont>,
-        Mut<'_, TextColor>,
-        Mut<'_, LineHeight>,
-        Mut<'_, LetterSpacing>,
+        MutNoComp<'_, String>,
+        MutNoComp<'_, TextFont>,
+        MutNoComp<'_, TextColor>,
+        MutNoComp<'_, LineHeight>,
+        MutNoComp<'_, LetterSpacing>,
     )> {
         // Root
         if index == 0 {
@@ -337,17 +337,17 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
     }
 
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_text(&mut self, root_entity: Entity, index: usize) -> Option<Mut<'_, String>> {
+    pub fn get_text(&mut self, root_entity: Entity, index: usize) -> Option<MutNoComp<'_, String>> {
         self.get(root_entity, index).map(|(_, _, text, ..)| text)
     }
 
     /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_font(&mut self, root_entity: Entity, index: usize) -> Option<Mut<'_, TextFont>> {
+    pub fn get_font(&mut self, root_entity: Entity, index: usize) -> Option<MutNoComp<'_, TextFont>> {
         self.get(root_entity, index).map(|(_, _, _, font, ..)| font)
     }
 
     /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_color(&mut self, root_entity: Entity, index: usize) -> Option<Mut<'_, TextColor>> {
+    pub fn get_color(&mut self, root_entity: Entity, index: usize) -> Option<MutNoComp<'_, TextColor>> {
         self.get(root_entity, index)
             .map(|(_, _, _, _, color, ..)| color)
     }
@@ -357,7 +357,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
         &mut self,
         root_entity: Entity,
         index: usize,
-    ) -> Option<Mut<'_, LineHeight>> {
+    ) -> Option<MutNoComp<'_, LineHeight>> {
         self.get(root_entity, index)
             .map(|(_, _, _, _, _, line_height, _)| line_height)
     }
@@ -367,7 +367,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
         &mut self,
         root_entity: Entity,
         index: usize,
-    ) -> Option<Mut<'_, LetterSpacing>> {
+    ) -> Option<MutNoComp<'_, LetterSpacing>> {
         self.get(root_entity, index)
             .map(|(_, _, _, _, _, _, letter_spacing)| letter_spacing)
     }
@@ -375,33 +375,33 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn text(&mut self, root_entity: Entity, index: usize) -> Mut<'_, String> {
+    pub fn text(&mut self, root_entity: Entity, index: usize) -> MutNoComp<'_, String> {
         self.get_text(root_entity, index).unwrap()
     }
 
     /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn font(&mut self, root_entity: Entity, index: usize) -> Mut<'_, TextFont> {
+    pub fn font(&mut self, root_entity: Entity, index: usize) -> MutNoComp<'_, TextFont> {
         self.get_font(root_entity, index).unwrap()
     }
 
     /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn color(&mut self, root_entity: Entity, index: usize) -> Mut<'_, TextColor> {
+    pub fn color(&mut self, root_entity: Entity, index: usize) -> MutNoComp<'_, TextColor> {
         self.get_color(root_entity, index).unwrap()
     }
 
     /// Gets the [`LineHeight`] of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn line_height(&mut self, root_entity: Entity, index: usize) -> Mut<'_, LineHeight> {
+    pub fn line_height(&mut self, root_entity: Entity, index: usize) -> MutNoComp<'_, LineHeight> {
         self.get_line_height(root_entity, index).unwrap()
     }
 
     /// Gets the [`LetterSpacing`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn letter_spacing(&mut self, root_entity: Entity, index: usize) -> Mut<'_, LetterSpacing> {
+    pub fn letter_spacing(&mut self, root_entity: Entity, index: usize) -> MutNoComp<'_, LetterSpacing> {
         self.get_letter_spacing(root_entity, index).unwrap()
     }
 
@@ -412,11 +412,11 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
         mut callback: impl FnMut(
             Entity,
             usize,
-            Mut<String>,
-            Mut<TextFont>,
-            Mut<TextColor>,
-            Mut<LineHeight>,
-            Mut<LetterSpacing>,
+            MutNoComp<String>,
+            MutNoComp<TextFont>,
+            MutNoComp<TextColor>,
+            MutNoComp<LineHeight>,
+            MutNoComp<LetterSpacing>,
         ),
     ) {
         self.for_each_until(root_entity, |a, b, c, d, e, f, g| {
@@ -426,14 +426,14 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
     }
 
     /// Invokes a callback on each span's string value in a text block, starting with the root entity.
-    pub fn for_each_text(&mut self, root_entity: Entity, mut callback: impl FnMut(Mut<String>)) {
+    pub fn for_each_text(&mut self, root_entity: Entity, mut callback: impl FnMut(MutNoComp<String>)) {
         self.for_each(root_entity, |_, _, text, _, _, _, _| {
             (callback)(text);
         });
     }
 
     /// Invokes a callback on each span's [`TextFont`] in a text block, starting with the root entity.
-    pub fn for_each_font(&mut self, root_entity: Entity, mut callback: impl FnMut(Mut<TextFont>)) {
+    pub fn for_each_font(&mut self, root_entity: Entity, mut callback: impl FnMut(MutNoComp<TextFont>)) {
         self.for_each(root_entity, |_, _, _, font, _, _, _| {
             (callback)(font);
         });
@@ -443,7 +443,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
     pub fn for_each_color(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Mut<TextColor>),
+        mut callback: impl FnMut(MutNoComp<TextColor>),
     ) {
         self.for_each(root_entity, |_, _, _, _, color, _, _| {
             (callback)(color);
@@ -454,7 +454,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
     pub fn for_each_line_height(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Mut<LineHeight>),
+        mut callback: impl FnMut(MutNoComp<LineHeight>),
     ) {
         self.for_each(root_entity, |_, _, _, _, _, line_height, _| {
             (callback)(line_height);
@@ -465,7 +465,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
     pub fn for_each_letter_spacing(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Mut<LetterSpacing>),
+        mut callback: impl FnMut(MutNoComp<LetterSpacing>),
     ) {
         self.for_each(root_entity, |_, _, _, _, _, _, letter_spacing| {
             (callback)(letter_spacing);
@@ -482,11 +482,11 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
         mut callback: impl FnMut(
             Entity,
             usize,
-            Mut<String>,
-            Mut<TextFont>,
-            Mut<TextColor>,
-            Mut<LineHeight>,
-            Mut<LetterSpacing>,
+            MutNoComp<String>,
+            MutNoComp<TextFont>,
+            MutNoComp<TextColor>,
+            MutNoComp<LineHeight>,
+            MutNoComp<LetterSpacing>,
         ) -> bool,
     ) {
         // Root

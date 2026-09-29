@@ -8,7 +8,7 @@ use bevy_ecs::{
     prelude::{Commands, IntoScheduleConfigs, Local, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
-    world::{FromWorld, Mut},
+    world::{FromWorld, MutNoComp},
 };
 use bevy_log::{debug, error};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -308,7 +308,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
         .filter(|ids| !ids.is_empty());
 
     main_world.resource_scope(
-        |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
+        |world, mut cached_state: MutNoComp<CachedExtractRenderAssetSystemState<A>>| {
             let (mut events, mut assets, maybe_render_assets) = cached_state.state.get_mut(world).unwrap();
 
             if let Some(reextract_ids) = reextract_ids {

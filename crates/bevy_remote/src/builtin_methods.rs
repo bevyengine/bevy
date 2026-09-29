@@ -18,7 +18,7 @@ use bevy_ecs::{
     resource::Resource,
     schedule::Schedules,
     system::{In, Local},
-    world::{DeferredWorld, EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
+    world::{DeferredWorld, EntityRef, EntityWorldMut, FilteredEntityRef, MutNoComp, World},
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
@@ -1547,7 +1547,7 @@ pub fn process_remote_trigger_event_request(
 ) -> BrpResult {
     let BrpTriggerEventParams { event, value } = parse_some(params)?;
 
-    world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+    world.resource_scope(|world, registry: MutNoComp<AppTypeRegistry>| {
         let registry = registry.read();
 
         let Some(registration) = registry.get_with_type_path(&event) else {
@@ -1585,7 +1585,7 @@ pub fn process_remote_write_message_request(
 ) -> BrpResult {
     let BrpWriteMessageParams { message, value } = parse_some(params)?;
 
-    world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+    world.resource_scope(|world, registry: MutNoComp<AppTypeRegistry>| {
         let registry = registry.read();
 
         let Some(registration) = registry.get_with_type_path(&message) else {

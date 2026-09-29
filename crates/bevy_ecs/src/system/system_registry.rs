@@ -1,7 +1,7 @@
 #[cfg(feature = "hotpatching")]
 use crate::{change_detection::DetectChanges, HotPatchChanges};
 use crate::{
-    change_detection::Mut,
+    change_detection::MutNoComp,
     entity::Entity,
     error::BevyError,
     prelude::{FromTemplate, Template},
@@ -776,7 +776,7 @@ impl World {
             return id;
         }
 
-        self.resource_scope(|world, mut id: Mut<CachedSystemId<S>>| {
+        self.resource_scope(|world, mut id: MutNoComp<CachedSystemId<S>>| {
             if let Ok(mut entity) = world.get_entity_mut(id.entity) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
                     entity.insert(RegisteredSystem::new(Box::new(IntoSystem::into_system(

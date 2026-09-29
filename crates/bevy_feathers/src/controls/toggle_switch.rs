@@ -10,7 +10,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
-    world::Mut,
+    world::MutNoComp,
 };
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -228,7 +228,7 @@ fn set_switch_styles(
     activate_on_press: bool,
     outline_bg: &ThemeBackgroundColor,
     outline_border: &ThemeBorderColor,
-    slide_style: &mut Mut<Node>,
+    slide_style: &mut MutNoComp<Node>,
     slide_bg_color: &ThemeBackgroundColor,
     slide_border_color: &ThemeBorderColor,
     commands: &mut Commands,

@@ -655,11 +655,11 @@ change_detection_mut_impl!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
 impl_methods!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
 impl_debug!(ResMut<'w, T>, Resource<Mutability = Mutable>);
 
-impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for Mut<'w, T> {
+impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for MutNoComp<'w, T> {
     /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `ResMut` for resources.
-    fn from(other: ResMut<'w, T>) -> Mut<'w, T> {
-        Mut {
+    fn from(other: ResMut<'w, T>) -> MutNoComp<'w, T> {
+        MutNoComp {
             value: other.value,
             ticks: other.ticks,
         }
@@ -719,11 +719,11 @@ change_detection_mut_impl!(NonSendMut<'w, T>, T,);
 impl_methods!(NonSendMut<'w, T>, T,);
 impl_debug!(NonSendMut<'w, T>,);
 
-impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
+impl<'w, T: 'static> From<NonSendMut<'w, T>> for MutNoComp<'w, T> {
     /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `NonSendMut`.
-    fn from(other: NonSendMut<'w, T>) -> Mut<'w, T> {
-        Mut {
+    fn from(other: NonSendMut<'w, T>) -> MutNoComp<'w, T> {
+        MutNoComp {
             value: other.value,
             ticks: other.ticks,
         }
@@ -1026,12 +1026,12 @@ impl_debug!(Ref<'w, T>,);
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
-pub struct Mut<'w, T: ?Sized> {
+pub struct MutNoComp<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: ComponentTicksMut<'w>,
 }
 
-impl<'w, T: ?Sized> Mut<'w, T> {
+impl<'w, T: ?Sized> MutNoComp<'w, T> {
     /// Creates a new change-detection enabled smart pointer.
     /// In almost all cases you do not need to call this method manually,
     /// as instances of `Mut` will be created by engine-internal code.
@@ -1082,8 +1082,8 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     }
 }
 
-impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
-    fn from(mut_ref: Mut<'w, T>) -> Self {
+impl<'w, T: ?Sized> From<MutNoComp<'w, T>> for Ref<'w, T> {
+    fn from(mut_ref: MutNoComp<'w, T>) -> Self {
         Self {
             value: mut_ref.value,
             ticks: mut_ref.ticks.into(),
@@ -1091,7 +1091,7 @@ impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
     }
 }
 
-impl<'w, 'a, T> IntoIterator for &'a Mut<'w, T>
+impl<'w, 'a, T> IntoIterator for &'a MutNoComp<'w, T>
 where
     &'a T: IntoIterator,
 {
@@ -1103,7 +1103,7 @@ where
     }
 }
 
-impl<'w, 'a, T> IntoIterator for &'a mut Mut<'w, T>
+impl<'w, 'a, T> IntoIterator for &'a mut MutNoComp<'w, T>
 where
     &'a mut T: IntoIterator,
 {
@@ -1116,10 +1116,10 @@ where
     }
 }
 
-change_detection_impl!(Mut<'w, T>, T,);
-change_detection_mut_impl!(Mut<'w, T>, T,);
-impl_methods!(Mut<'w, T>, T,);
-impl_debug!(Mut<'w, T>,);
+change_detection_impl!(MutNoComp<'w, T>, T,);
+change_detection_mut_impl!(MutNoComp<'w, T>, T,);
+impl_methods!(MutNoComp<'w, T>, T,);
+impl_debug!(MutNoComp<'w, T>,);
 
 /// Data type returned by [`ContiguousQueryData::fetch_contiguous`](crate::query::ContiguousQueryData::fetch_contiguous)
 /// for [`Mut<T>`] and `&mut T`
@@ -1450,8 +1450,11 @@ impl<'w> MutUntyped<'w> {
     /// // SAFETY: from the context it is known that `ReflectFromPtr` was made for the type of the `MutUntyped`
     /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.ptr_as_reflect_mut(ptr) });
     /// ```
-    pub fn map_unchanged<T: ?Sized>(self, f: impl FnOnce(PtrMut<'w>) -> &'w mut T) -> Mut<'w, T> {
-        Mut {
+    pub fn map_unchanged<T: ?Sized>(
+        self,
+        f: impl FnOnce(PtrMut<'w>) -> &'w mut T,
+    ) -> MutNoComp<'w, T> {
+        MutNoComp {
             value: f(self.value),
             ticks: self.ticks,
         }
@@ -1461,8 +1464,8 @@ impl<'w> MutUntyped<'w> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`MutUntyped`].
-    pub unsafe fn with_type<T>(self) -> Mut<'w, T> {
-        Mut {
+    pub unsafe fn with_type<T>(self) -> MutNoComp<'w, T> {
+        MutNoComp {
             // SAFETY: `value` is `Aligned` and caller ensures the pointee type is `T`.
             value: unsafe { self.value.deref_mut() },
             ticks: self.ticks,
@@ -1581,8 +1584,8 @@ impl core::fmt::Debug for MutUntyped<'_> {
     }
 }
 
-impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
-    fn from(value: Mut<'w, T>) -> Self {
+impl<'w, T> From<MutNoComp<'w, T>> for MutUntyped<'w> {
+    fn from(value: MutNoComp<'w, T>) -> Self {
         MutUntyped {
             value: value.value.into(),
             ticks: value.ticks,

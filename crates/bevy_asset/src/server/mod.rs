@@ -1888,7 +1888,7 @@ impl<'a> LoadBuilder<'a> {
 
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
 pub fn handle_internal_asset_events(world: &mut World) {
-    world.resource_scope(|world, server: Mut<AssetServer>| {
+    world.resource_scope(|world, server: MutNoComp<AssetServer>| {
         let mut infos = server.write_infos();
         let var_name = vec![];
         let mut untyped_failures = var_name;

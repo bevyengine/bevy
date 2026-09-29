@@ -13,7 +13,7 @@ pub mod reflect;
 pub mod unsafe_world_cell;
 
 pub use crate::{
-    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
+    change_detection::{MutNoComp, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
 pub use bevy_ecs_macros::FromWorld;
@@ -1363,7 +1363,7 @@ impl World {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<Mut<'_, T>> {
+    ) -> Option<MutNoComp<'_, T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
     }
 
@@ -2325,7 +2325,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> MutNoComp<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -2358,7 +2358,7 @@ impl World {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<MutNoComp<'_, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell` gives permission to access everything mutably
         // - `&mut self` ensures nothing in world is borrowed
@@ -2385,7 +2385,7 @@ impl World {
     pub fn get_resource_or_insert_with<R: Resource<Mutability = Mutable>>(
         &mut self,
         func: impl FnOnce() -> R,
-    ) -> Mut<'_, R> {
+    ) -> MutNoComp<'_, R> {
         let caller = MaybeLocation::caller();
         let (resource_id, entity) =
             self.insert_resource_if_not_exists_with_caller(|_world: &mut World| func(), caller);
@@ -2431,7 +2431,7 @@ impl World {
     #[track_caller]
     pub fn get_resource_or_init<R: Resource<Mutability = Mutable> + FromWorld>(
         &mut self,
-    ) -> Mut<'_, R> {
+    ) -> MutNoComp<'_, R> {
         let caller = MaybeLocation::caller();
         let (resource_id, entity) =
             self.insert_resource_if_not_exists_with_caller(R::from_world, caller);
@@ -2482,7 +2482,7 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     #[track_caller]
-    pub fn non_send_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+    pub fn non_send_mut<R: 'static>(&mut self) -> MutNoComp<'_, R> {
         match self.get_non_send_mut() {
             Some(x) => x,
             None => panic!(
@@ -2513,7 +2513,7 @@ impl World {
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
-    pub fn get_non_send_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_non_send_mut<R: 'static>(&mut self) -> Option<MutNoComp<'_, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell` gives permission to access the entire world mutably
         // - `&mut self` ensures that there are no borrows of world data
@@ -2871,7 +2871,7 @@ impl World {
     /// [`World::clear_resources`] or [`World::clear_all`], the resource will *not* be re-inserted
     /// at the end of the scope.
     #[track_caller]
-    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, MutNoComp<R>) -> U) -> U {
         self.try_resource_scope(f)
             .unwrap_or_else(|| panic!("resource does not exist: {}", DebugName::type_name::<R>()))
     }
@@ -2891,7 +2891,7 @@ impl World {
     /// at the end of the scope.
     pub fn try_resource_scope<R: Resource, U>(
         &mut self,
-        f: impl FnOnce(&mut World, Mut<R>) -> U,
+        f: impl FnOnce(&mut World, MutNoComp<R>) -> U,
     ) -> Option<U> {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
@@ -3015,7 +3015,7 @@ impl World {
             caller: changed_by,
         };
 
-        let value_mut = Mut {
+        let value_mut = MutNoComp {
             value: &mut *guard.value,
             ticks: ComponentTicksMut {
                 added: &mut ticks.added,
@@ -4093,7 +4093,7 @@ mod tests {
         },
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
-        prelude::{DetectChanges, Event, Mut, On, Res},
+        prelude::{DetectChanges, Event, MutNoComp, On, Res},
         ptr::OwningPtr,
         resource::Resource,
         world::{error::EntityMutableFetchError, DeferredWorld},
@@ -4784,7 +4784,7 @@ mod tests {
 
         world.insert_resource(ResourceA);
         world.add_observer(move |_event: On<EventA>, _res: Res<ResourceA>| {});
-        world.resource_scope(|world, _res: Mut<ResourceA>| {
+        world.resource_scope(|world, _res: MutNoComp<ResourceA>| {
             // since we use commands, this should trigger outside of the resource_scope, so the observer should work.
             world.commands().trigger(EventA);
         });
@@ -4818,7 +4818,7 @@ mod tests {
 
         let mut world = World::new();
         world.insert_resource(R);
-        world.resource_scope(|world, r: Mut<R>| {
+        world.resource_scope(|world, r: MutNoComp<R>| {
             assert_eq!(world.change_tick(), r.added());
             assert_eq!(world.change_tick(), r.last_changed());
             world.increment_change_tick();

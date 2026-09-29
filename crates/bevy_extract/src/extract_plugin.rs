@@ -9,7 +9,7 @@ use bevy_ecs::{
         InternedScheduleLabel, InternedSystemSet, IntoScheduleConfigs, Schedule,
         ScheduleBuildSettings, ScheduleLabel, Schedules,
     },
-    world::{Mut, World},
+    world::{MutNoComp, World},
 };
 use bevy_utils::default;
 
@@ -111,7 +111,7 @@ pub struct ExtractSchedule;
 /// the sub schedule rather than during extraction to allow the commands to run in parallel with the
 /// main app when pipelined processing is enabled.
 fn apply_extract_commands(sub_world: &mut World) {
-    sub_world.resource_scope(|sub_world, mut schedules: Mut<Schedules>| {
+    sub_world.resource_scope(|sub_world, mut schedules: MutNoComp<Schedules>| {
         schedules
             .get_mut(ExtractSchedule)
             .unwrap()

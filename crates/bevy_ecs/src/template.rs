@@ -8,7 +8,7 @@ use crate::{
     entity::Entity,
     error::{BevyError, Result},
     resource::Resource,
-    world::{EntityWorldMut, Mut, World},
+    world::{EntityWorldMut, MutNoComp, World},
 };
 use alloc::vec::Vec;
 use bevy_platform::{collections::hash_map::RawEntryMut, hash::Hashed};
@@ -78,7 +78,7 @@ impl<'a, 'w> TemplateContext<'a, 'w> {
 
     /// Retrieves a mutable reference to the given resource `R`.
     #[inline]
-    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> MutNoComp<'_, R> {
         self.entity.resource_mut()
     }
 

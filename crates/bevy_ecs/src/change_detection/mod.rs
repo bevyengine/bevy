@@ -34,7 +34,7 @@ mod tests {
 
     use crate::{
         change_detection::{
-            AtomicTick, ComponentTicks, ComponentTicksMut, MaybeLocation, Mut, NonSendMut, Ref,
+            AtomicTick, ComponentTicks, ComponentTicksMut, MaybeLocation, MutNoComp, NonSendMut, Ref,
             ResMut, Tick, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::Component,
@@ -171,7 +171,7 @@ mod tests {
             ticks,
         };
 
-        let into_mut: Mut<R> = res_mut.into();
+        let into_mut: MutNoComp<R> = res_mut.into();
         assert_eq!(1, into_mut.ticks.added.get());
         assert_eq!(2, into_mut.ticks.changed.get());
         assert_eq!(3, into_mut.ticks.last_run.get());
@@ -188,7 +188,7 @@ mod tests {
         let mut caller = MaybeLocation::caller();
         let summary_tick = AtomicTick::default();
 
-        let val = Mut::new(
+        let val = MutNoComp::new(
             &mut res,
             &mut component_ticks.added,
             &mut component_ticks.changed,
@@ -225,7 +225,7 @@ mod tests {
             ticks,
         };
 
-        let into_mut: Mut<R> = non_send_mut.into();
+        let into_mut: MutNoComp<R> = non_send_mut.into();
         assert_eq!(1, into_mut.ticks.added.get());
         assert_eq!(2, into_mut.ticks.changed.get());
         assert_eq!(3, into_mut.ticks.last_run.get());
@@ -256,7 +256,7 @@ mod tests {
 
         let mut outer = Outer(0);
 
-        let ptr = Mut {
+        let ptr = MutNoComp {
             value: &mut outer,
             ticks,
         };
@@ -383,7 +383,7 @@ mod tests {
         };
         let mut c = C {};
 
-        let mut_typed = Mut {
+        let mut_typed = MutNoComp {
             value: &mut c,
             ticks,
         };

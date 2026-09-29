@@ -287,7 +287,7 @@ pub trait SetViewVisibility {
     fn set_visible(&mut self);
 }
 
-impl<'a> SetViewVisibility for Mut<'a, ViewVisibility> {
+impl<'a> SetViewVisibility for MutNoComp<'a, ViewVisibility> {
     #[inline]
     fn set_visible(&mut self) {
         // Only update if it's not already visible.

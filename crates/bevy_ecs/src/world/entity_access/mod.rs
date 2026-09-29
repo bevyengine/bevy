@@ -126,7 +126,7 @@ mod tests {
 
         assert!(entity.try_resource_scope::<R, _>(|_, _| {}).is_none());
         entity.world_scope(|world| world.insert_resource(R(0)));
-        entity.resource_scope(|entity: &mut EntityWorldMut, mut value: Mut<R>| {
+        entity.resource_scope(|entity: &mut EntityWorldMut, mut value: MutNoComp<R>| {
             value.0 += 1;
             assert!(!entity.world().contains_resource::<R>());
         });
@@ -141,7 +141,7 @@ mod tests {
         let mut entity = world.spawn_empty();
         let old_location = entity.location();
         let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
-            entity.resource_scope(|entity: &mut EntityWorldMut, _: Mut<R>| {
+            entity.resource_scope(|entity: &mut EntityWorldMut, _: MutNoComp<R>| {
                 // Change the entity's `EntityLocation`.
                 entity.insert(TestComponent(0));
 

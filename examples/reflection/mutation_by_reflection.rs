@@ -134,7 +134,7 @@ fn modify_selected_component(world: &mut World) {
         .expect("Type was not registered, or its full path was ambiguous")
         .type_id();
 
-    let mut reflected_component: Mut<dyn Reflect> = world.get_reflect_mut(entity, type_id).unwrap();
+    let mut reflected_component: MutNoComp<dyn Reflect> = world.get_reflect_mut(entity, type_id).unwrap();
 
     match selected {
         // Downcasting is the easy path:
