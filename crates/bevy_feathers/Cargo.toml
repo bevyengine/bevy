@@ -41,7 +41,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.20.0-dev" }
 smol_str = { version = "0.2", default-features = false }
 
 # other
-accesskit = "0.24"
+accesskit = "0.25"
 
 [features]
 default = []

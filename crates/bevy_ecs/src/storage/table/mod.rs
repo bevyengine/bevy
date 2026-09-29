@@ -160,9 +160,9 @@ impl TableBuilder {
     /// Columns must be added in order of increasing [`ComponentId`],
     /// or else [`TableBuilder::build`] will panic.
     #[must_use]
-    pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
+    pub fn add_column(mut self, id: ComponentId, component_info: &ComponentInfo) -> Self {
         self.columns.insert(
-            component_info.id(),
+            id,
             Column::with_capacity(component_info, self.entities.capacity()),
         );
         self
@@ -684,7 +684,8 @@ impl Tables {
             .or_insert_with(|| {
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
                 for component_id in component_ids {
-                    table = table.add_column(components.get_info_unchecked(*component_id));
+                    table = table
+                        .add_column(*component_id, components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());
                 (component_ids.into(), TableId::from_usize(tables.len() - 1))
@@ -888,7 +889,7 @@ mod tests {
         let component_id = registrator.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
-            .add_column(components.get_info(component_id).unwrap())
+            .add_column(component_id, components.get_info(component_id).unwrap())
             .build();
         let entities = (0..200)
             .map(|index| Entity::from_index(EntityIndex::from_raw_u32(index).unwrap()))

@@ -616,6 +616,26 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             .flatten()
     }
 
+    /// Consumes self and gets mutable access to the [`MutUntyped`] of `component_id` from the
+    /// entity, with the world `'w` lifetime for the current entity.
+    ///
+    /// Returns [`None`] if the entity does not have a component with `component_id`, or this
+    /// [`FilteredEntityMut`] does not have access to that component.
+    ///
+    /// **You should prefer to use the typed API [`Self::into_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn into_mut_by_id(self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
+        self.access
+            .has_write(component_id)
+            // SAFETY: We check above that we have permission to access the component mutably and
+            // we consume this instance, so no more references can be created (so it's impossible to
+            // alias this component).
+            .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
+            .flatten()
+    }
+
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]

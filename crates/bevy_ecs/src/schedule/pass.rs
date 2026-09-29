@@ -1,12 +1,7 @@
-use alloc::{boxed::Box, vec::Vec};
-use core::{
-    any::{Any, TypeId},
-    fmt::Debug,
-    ops::Deref,
-};
+use alloc::vec::Vec;
+use core::{fmt::Debug, ops::Deref};
 
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
-use bevy_utils::TypeIdHashMap;
 use indexmap::IndexSet;
 
 use super::{DiGraph, NodeId, ScheduleBuildError, ScheduleGraph};
@@ -20,11 +15,8 @@ use crate::{
 
 /// A pass for modular modification of the dependency graph.
 pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
-    /// Custom options for dependencies between sets or systems.
-    type EdgeOptions: 'static;
-
     /// Called when a dependency between sets or systems was explicitly added to the graph.
-    fn add_dependency(&mut self, from: NodeId, to: NodeId, options: Option<&Self::EdgeOptions>);
+    fn add_dependency(&mut self, from: NodeId, to: NodeId, is_weak: bool, is_deferred: bool);
 
     /// Called while flattening the dependency graph. For each `set`, this method is called
     /// with the `systems` associated with the set as well as an immutable reference to the current graph.
@@ -127,12 +119,7 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
         dependency_flattening: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     );
-    fn add_dependency(
-        &mut self,
-        from: NodeId,
-        to: NodeId,
-        all_options: &TypeIdHashMap<Box<dyn Any>>,
-    );
+    fn add_dependency(&mut self, from: NodeId, to: NodeId, is_weak: bool, ignore_deferred: bool);
 }
 
 impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
@@ -154,15 +141,7 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
         let iter = self.collapse_set(set, systems, dependency_flattening);
         dependencies_to_add.extend(iter);
     }
-    fn add_dependency(
-        &mut self,
-        from: NodeId,
-        to: NodeId,
-        all_options: &TypeIdHashMap<Box<dyn Any>>,
-    ) {
-        let option = all_options
-            .get(&TypeId::of::<T::EdgeOptions>())
-            .and_then(|x| x.downcast_ref::<T::EdgeOptions>());
-        self.add_dependency(from, to, option);
+    fn add_dependency(&mut self, from: NodeId, to: NodeId, is_weak: bool, ignore_deferred: bool) {
+        self.add_dependency(from, to, is_weak, ignore_deferred);
     }
 }

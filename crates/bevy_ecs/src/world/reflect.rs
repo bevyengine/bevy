@@ -110,7 +110,7 @@ impl World {
                 "Mismatch between Ptr's type_id and ReflectFromPtr's type_id",
             );
 
-            Ok(reflect_from_ptr.as_reflect(comp_ptr))
+            Ok(reflect_from_ptr.ptr_as_reflect(comp_ptr))
         }
     }
 
@@ -186,7 +186,7 @@ impl World {
                 "Mismatch between PtrMut's type_id and ReflectFromPtr's type_id",
             );
 
-            reflect_from_ptr.as_reflect_mut(ptr_mut)
+            reflect_from_ptr.ptr_as_reflect_mut(ptr_mut)
         });
 
         Ok(comp_mut_typed)

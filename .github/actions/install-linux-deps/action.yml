@@ -2,7 +2,7 @@
 # alsa and udev, but can be configured depending on which libraries are needed:
 #
 # ```
-# - uses: ./.github/actions/install-linux-deps
+# - uses: $/.github/actions/install-linux-deps
 #   with:
 #     alsa: false
 #     wayland: true

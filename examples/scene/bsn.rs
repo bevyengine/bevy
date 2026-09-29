@@ -9,7 +9,11 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn! { Camera2d -- @ui() }
+    bsn_list! {
+        Camera2d
+        --
+        @ui()
+    }
 }
 
 fn ui() -> impl Scene {

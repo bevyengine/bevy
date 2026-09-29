@@ -134,3 +134,113 @@ pub(crate) fn on_remove_selected(remove: On<Remove<Selected>>, mut world: Deferr
         accessibility.set_selected(false);
     }
 }
+
+/// Component that indicates that a widget can be expanded or collapsed.
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct Expandable;
+
+/// Component that indicates that a widget is currently expanded.
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct Expanded;
+
+pub(crate) fn on_add_expandable(add: On<Add<Expandable>>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(add.entity);
+    let expanded = entity.get::<Expanded>().is_some();
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_expanded(expanded);
+    }
+}
+
+pub(crate) fn on_remove_expandable(remove: On<Remove<Expandable>>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(remove.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.clear_expanded();
+    }
+}
+
+pub(crate) fn on_add_expanded(add: On<Add<Expanded>>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(add.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_expanded(true);
+    }
+}
+
+pub(crate) fn on_remove_expanded(remove: On<Remove<Expanded>>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(remove.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_expanded(false);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::world::World;
+
+    fn accessibility_world() -> World {
+        let mut world = World::new();
+        world.add_observer(on_add_expandable);
+        world.add_observer(on_remove_expandable);
+        world.add_observer(on_add_expanded);
+        world.add_observer(on_remove_expanded);
+        world
+    }
+
+    #[test]
+    fn expanded_marker_drives_the_accessibility_property() {
+        let mut world = accessibility_world();
+        let node = || AccessibilityNode::from(accesskit::Node::new(accesskit::Role::TreeItem));
+
+        let collapsed = world.spawn((node(), Expandable)).id();
+        let expanded = world.spawn((node(), Expandable, Expanded)).id();
+
+        assert_eq!(
+            world
+                .entity(collapsed)
+                .get::<AccessibilityNode>()
+                .unwrap()
+                .is_expanded(),
+            Some(false)
+        );
+        assert_eq!(
+            world
+                .entity(expanded)
+                .get::<AccessibilityNode>()
+                .unwrap()
+                .is_expanded(),
+            Some(true)
+        );
+
+        world.entity_mut(collapsed).insert(Expanded);
+        assert_eq!(
+            world
+                .entity(collapsed)
+                .get::<AccessibilityNode>()
+                .unwrap()
+                .is_expanded(),
+            Some(true)
+        );
+
+        world.entity_mut(expanded).remove::<Expanded>();
+        assert_eq!(
+            world
+                .entity(expanded)
+                .get::<AccessibilityNode>()
+                .unwrap()
+                .is_expanded(),
+            Some(false)
+        );
+
+        world.entity_mut(expanded).remove::<Expandable>();
+        assert_eq!(
+            world
+                .entity(expanded)
+                .get::<AccessibilityNode>()
+                .unwrap()
+                .is_expanded(),
+            None
+        );
+    }
+}
