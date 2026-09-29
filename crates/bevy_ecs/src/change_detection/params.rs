@@ -1189,42 +1189,8 @@ change_detection_mut_impl!(Mut<'w, T>, T, Component);
 impl_methods!(Mut<'w, T>, T, Component);
 impl_debug!(Mut<'w, T>, Component);
 
-/// Unique mutable borrow of an entity's component or of a resource.
-///
-/// This can be used in queries to access change detection from immutable query methods, as opposed
-/// to `&mut T` which only provides access to change detection from mutable query methods.
-///
-/// ```rust
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::query::QueryData;
-/// #
-/// #[derive(Component, Clone, Debug)]
-/// struct Name(String);
-///
-/// #[derive(Component, Clone, Copy, Debug)]
-/// struct Health(f32);
-///
-/// fn my_system(mut query: Query<(Mut<Name>, &mut Health)>) {
-///     // Mutable access provides change detection information for both parameters:
-///     // - `name` has type `Mut<Name>`
-///     // - `health` has type `Mut<Health>`
-///     for (name, health) in query.iter_mut() {
-///         println!("Name: {:?} (last changed {:?})", name, name.last_changed());
-///         println!("Health: {:?} (last changed: {:?})", health, health.last_changed());
-/// #        println!("{}{}", name.0, health.0); // Silence dead_code warning
-///     }
-///
-///     // Immutable access only provides change detection for `Name`:
-///     // - `name` has type `Ref<Name>`
-///     // - `health` has type `&Health`
-///     for (name, health) in query.iter() {
-///         println!("Name: {:?} (last changed {:?})", name, name.last_changed());
-///         println!("Health: {:?}", health);
-///     }
-/// }
-///
-/// # bevy_ecs::system::assert_is_system(my_system);
-/// ```
+/// Unique mutable borrow of a type `T`.
+/// This is the type returned by reflection and non send resources.
 pub struct MutNoComp<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: ComponentTicksMut<'w>,
@@ -1235,8 +1201,8 @@ impl<'w, T: ?Sized> MutNoComp<'w, T> {
     /// In almost all cases you do not need to call this method manually,
     /// as instances of `Mut` will be created by engine-internal code.
     ///
-    /// Many use-cases of this method would be better served by [`Mut::map_unchanged`]
-    /// or [`Mut::reborrow`].
+    /// Many use-cases of this method would be better served by [`MutNoComp::map_unchanged`]
+    /// or [`MutNoComp::reborrow`].
     ///
     /// - `value` - The value wrapped by this smart pointer.
     /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
