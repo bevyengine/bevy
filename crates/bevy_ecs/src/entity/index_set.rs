@@ -118,6 +118,13 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
         unsafe { Slice::from_boxed_slice_unchecked(self.0.into_boxed_slice()) }
     }
 
+    /// Moves all values from `other` into `self`, leaving `other` empty.
+    ///
+    /// Equivalent to [`IndexSet::append`].
+    pub fn append(&mut self, other: &mut EntityEquivalentIndexSet<K>) {
+        self.0.append(&mut other.0);
+    }
+
     /// Remove all elements in the set, while preserving its capacity.
     ///
     /// Equivalent to [`IndexSet::clear`].
@@ -397,6 +404,32 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
         F: FnMut(&K) -> Q,
     {
         self.0.sort_unstable_by_key(sort_key);
+    }
+
+    /// Creates a splicing iterator that replaces the specified range in the set with the given
+    /// `replace_with` iterator and yields the removed items. `replace_with` does not need to be
+    /// the same length as `range`.
+    ///
+    /// Equivalent to [`IndexSet::splice`].
+    pub fn splice<R, I>(
+        &mut self,
+        range: R,
+        replace_with: I,
+    ) -> set::Splice<'_, I::IntoIter, K, EntityHash>
+    where
+        R: RangeBounds<usize>,
+        I: IntoIterator<Item = K>,
+    {
+        self.0.splice(range, replace_with)
+    }
+
+    /// Splits the collection into two at the given index.
+    ///
+    /// Equivalent to [`IndexSet::split_off`].
+    pub fn split_off(&mut self, at: usize) -> Self {
+        let splitted_off = self.0.split_off(at);
+        // SAFETY: `self` didn't contain duplicates, so the splitted off part also doesn't contain duplicated.
+        unsafe { Self::from_index_set_unchecked(splitted_off) }
     }
 
     /// Swaps the position of two values in the set.
