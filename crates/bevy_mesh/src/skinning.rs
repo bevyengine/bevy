@@ -16,6 +16,7 @@ use thiserror::Error;
 pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     #[entities]
+    #[template(built_in)]
     pub joints: Vec<Entity>,
 }
 
