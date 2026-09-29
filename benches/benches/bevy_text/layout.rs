@@ -2,6 +2,7 @@ use bevy_app::{App, Update};
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec2;
+use bevy_text::TextSpan;
 use bevy_text::{
     ComputedTextBlock, DefaultFontSource, Font, FontCx, LayoutCx, LetterSpacing, LineHeight,
     RemSize, TextBounds, TextColor, TextFont, TextLayout, TextPipeline, TextReader, TextSection,
@@ -112,20 +113,44 @@ fn setup_app() -> App {
 fn layout(c: &mut Criterion) {
     let mut group = c.benchmark_group("text_layout");
 
-    group.bench_function("single_text_entity", |b| {
+    group.bench_function("single_text_entity_unwrapped", |b| {
         let mut app = setup_app();
         app.world_mut().spawn(BenchText(TEXTS.concat()));
         app.update();
         b.iter(|| app.update());
     });
 
-    group.bench_function("text_sections", |b| {
+    group.bench_function("text_sections_unwrapped", |b| {
         let mut app = setup_app();
         app.world_mut()
             .spawn(BenchText(TEXTS[0].to_string()))
             .with_children(|builder| {
                 for text in &TEXTS[1..] {
-                    builder.spawn(BenchText(text.to_string()));
+                    builder.spawn(TextSpan(text.to_string()));
+                }
+            });
+        app.update();
+        b.iter(|| app.update());
+    });
+
+    group.bench_function("single_text_entity_wrapped", |b| {
+        let mut app = setup_app();
+        app.world_mut()
+            .spawn((BenchText(TEXTS.concat()), TextBounds::new_horizontal(300.)));
+        app.update();
+        b.iter(|| app.update());
+    });
+
+    group.bench_function("text_sections_wrapped", |b| {
+        let mut app = setup_app();
+        app.world_mut()
+            .spawn((
+                BenchText(TEXTS[0].to_string()),
+                TextBounds::new_horizontal(300.),
+            ))
+            .with_children(|builder| {
+                for text in &TEXTS[1..] {
+                    builder.spawn(TextSpan(text.to_string()));
                 }
             });
         app.update();
