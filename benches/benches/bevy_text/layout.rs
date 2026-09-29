@@ -11,7 +11,7 @@ use criterion::Criterion;
 
 criterion_group!(benches, layout);
 
-const texts: [&str; 5] = [
+const TEXTS: [&str; 5] = [
     "Lorem ipsum dolor sit amet consectetur adipiscing elit veniam. Dolorem lorem irure officia \
     sint irure adipiscing. Consequat voluptas exercitation assumenda eiusmod accusamus. Et quis ex \
     autem magna mollitia voluptate. Soluta culpa amet cupidatat maxime ea elit sint vel nihil.\n",
@@ -80,7 +80,7 @@ fn update_text_buffers(
     }
 }
 
-fn setup_app() -> bevy_app::App {
+fn setup_app() -> App {
     let mut app = App::new();
     app.init_resource::<Assets<Font>>()
         .init_resource::<FontCx>()
@@ -111,4 +111,11 @@ fn setup_app() -> bevy_app::App {
 
 fn layout(c: &mut Criterion) {
     let mut group = c.benchmark_group("text_layout");
+
+    group.bench_function("single_text_entity", |b| {
+        let mut app = setup_app();
+        app.world_mut().spawn(BenchText(TEXTS.concat()));
+        app.update();
+        b.iter(|| app.update());
+    });
 }
