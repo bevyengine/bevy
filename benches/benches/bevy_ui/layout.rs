@@ -190,7 +190,6 @@ fn layout(c: &mut Criterion) {
             }
             app.update();
             app.update();
-
             b.iter(|| {
                 for &root in &roots {
                     let mut node = app.world_mut().get_mut::<Node>(root).unwrap();
