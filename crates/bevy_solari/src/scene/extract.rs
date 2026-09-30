@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
+use bevy_light::EnvironmentMapLight;
 use bevy_math::Quat;
 use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
 use bevy_platform::collections::HashMap;
@@ -161,35 +161,27 @@ pub struct ExtractedEnvironmentMapLight {
 }
 
 /// Finds the environment map light to use for the raytraced scene, if any.
+///
+/// Only mip 0 of the specular cubemap is sampled.
 pub fn extract_raytracing_environment_map_light(
-    cameras: Extract<
-        Query<(
-            &Camera,
-            Option<&GeneratedEnvironmentMapLight>,
-            Option<&EnvironmentMapLight>,
-        )>,
-    >,
+    cameras: Extract<Query<(&Camera, Option<&EnvironmentMapLight>)>>,
     mut environment_map_light: ResMut<ExtractedEnvironmentMapLight>,
 ) {
     let mut extracted_env_map_light = ExtractedEnvironmentMapLight::default();
 
-    for (camera, generated, pregenerated) in &cameras {
+    for (camera, env_map) in &cameras {
         if !camera.is_active {
             continue;
         }
 
-        let env_map_light = match (generated, pregenerated) {
-            (Some(generated), _) => ExtractedEnvironmentMapLight {
-                cubemap: Some(generated.environment_map.clone()),
-                intensity: generated.intensity,
-                rotation: generated.rotation,
-            },
-            (None, Some(pregenerated)) => ExtractedEnvironmentMapLight {
-                cubemap: Some(pregenerated.specular_map.clone()),
-                intensity: pregenerated.intensity,
-                rotation: pregenerated.rotation,
-            },
-            (None, None) => continue,
+        let Some(env_map) = env_map else {
+            continue;
+        };
+
+        let env_map_light = ExtractedEnvironmentMapLight {
+            cubemap: Some(env_map.specular_map.clone()),
+            intensity: env_map.intensity,
+            rotation: env_map.rotation,
         };
 
         if extracted_env_map_light.cubemap.is_none() {
