@@ -60,6 +60,7 @@ mod radio;
 mod scrollarea;
 mod scrollbar;
 mod slider;
+mod split_pane;
 mod tabs;
 mod text_input;
 mod tree;
@@ -77,6 +78,7 @@ pub use radio::*;
 pub use scrollarea::*;
 pub use scrollbar::*;
 pub use slider::*;
+pub use split_pane::*;
 pub use tabs::*;
 pub use text_input::*;
 pub use tree::*;
@@ -107,6 +109,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(ScrollAreaPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
+            .add(SplitPanePlugin)
             .add(TabPlugin)
             .add(TreePlugin)
             .add(PointerFocusPlugin)
