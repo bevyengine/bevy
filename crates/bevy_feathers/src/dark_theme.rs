@@ -157,6 +157,28 @@ pub fn create_dark_theme() -> ThemeProps {
                 tokens::SPLIT_PANE_HANDLE_DISABLED,
                 semantic::FILL_SOLID_DISABLED,
             ),
+            // Tabs
+            (tokens::TAB_STRIP_BG, semantic::SURFACE_PANE_HEADER),
+            (tokens::TAB_STRIP_BORDER, semantic::BORDER_DEFAULT),
+            (
+                tokens::TAB_STRIP_BORDER_PREVIEW,
+                semantic::FILL_ACCENT_DEFAULT,
+            ),
+            (tokens::TAB_BG, semantic::FILL_ITEM_DEFAULT),
+            (tokens::TAB_BG_HOVER, semantic::FILL_ITEM_HOVER),
+            (tokens::TAB_BG_SELECTED, semantic::FILL_FIELD_DEFAULT),
+            (tokens::TAB_BG_DRAGGING, semantic::FILL_ITEM_DEFAULT),
+            (tokens::TAB_TEXT, semantic::TEXT_DIM),
+            (tokens::TAB_TEXT_SELECTED, semantic::TEXT_DEFAULT),
+            (tokens::TAB_TEXT_DRAGGING, semantic::TEXT_DISABLED),
+            (tokens::TAB_TEXT_DISABLED, semantic::TEXT_DISABLED),
+            (
+                tokens::TAB_INSERTION_INDICATOR,
+                semantic::FILL_ACCENT_DEFAULT,
+            ),
+            (tokens::TAB_DRAG_PROXY_BG, semantic::FILL_SOLID_DISABLED),
+            (tokens::TAB_DRAG_PROXY_BORDER, semantic::FILL_ACCENT_DEFAULT),
+            (tokens::TAB_DRAG_PROXY_TEXT, semantic::TEXT_DEFAULT),
             // Checkbox
             (tokens::CHECKBOX_BG, semantic::FILL_SOLID_DEFAULT),
             (tokens::CHECKBOX_BG_HOVER, semantic::FILL_SOLID_DEFAULT),
