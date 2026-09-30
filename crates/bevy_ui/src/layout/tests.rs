@@ -3690,3 +3690,27 @@ fn node_with_unchanged_inputs_is_not_updated() {
         Vec2::ZERO
     );
 }
+
+#[test]
+fn root_ghost_resolve_precentage_translations_based_on_target_size() {
+    let mut app = setup_ui_test_app();
+
+    let world = app.world_mut();
+    let node = world
+        .spawn((
+            Node::default(),
+            GhostNode,
+            UiTransform::from_xy(percent(10), percent(10)),
+        ))
+        .id();
+
+    app.update();
+
+    assert_ne!(
+        app.world()
+            .get::<UiGlobalTransform>(node)
+            .unwrap()
+            .translation,
+        Vec2::ZERO
+    );
+}
