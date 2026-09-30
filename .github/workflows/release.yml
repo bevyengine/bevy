@@ -13,6 +13,19 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      skip_verify:
+        description: "Publish without the dry run. Faster, but nothing checks that the crates build"
+        type: boolean
+        default: false
+      crates:
+        description: "Space separated crates to publish. Empty: every crate of the workspace not yet published"
+        type: string
+        default: ""
+      features:
+        description: "Features to enable for the dry run, for crates that don't build with their default features"
+        type: string
+        default: "bevy_image/zstd_rust"
 
 permissions: {}
 
@@ -60,18 +73,31 @@ jobs:
 
       - name: List crates to publish
         id: crates
+        env:
+          CRATES: ${{ inputs.crates }}
+          SKIP_VERIFY: ${{ inputs.skip_verify }}
         run: |
-          crates=$(.github/scripts/unpublished-crates.sh)
+          set -f # the input is a list of crates, don't expand it as globs
+          crates=$(.github/scripts/unpublished-crates.sh $CRATES)
           echo "packages=$(echo "$crates" | sed '/^$/d' | sed 's/^/-p /' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
+          {
+            echo "### Crates to publish"
+            echo "$crates" | sed '/^$/d' | sed 's/^/- /'
+            if [ "$SKIP_VERIFY" = "true" ]; then
+              echo "### :warning: dry run skipped, these crates are not verified"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Package and build (dry run)
-        if: steps.crates.outputs.packages != ''
+        if: steps.crates.outputs.packages != '' && !inputs.skip_verify
         env:
           PACKAGES: ${{ steps.crates.outputs.packages }}
+          FEATURES: ${{ inputs.features }}
           CARGO_INCREMENTAL: 0
           CARGO_PROFILE_DEV_DEBUG: 0
         run: |
-          cargo publish --dry-run $PACKAGES --features bevy_image/zstd_rust
+          cargo publish --dry-run $PACKAGES ${FEATURES:+--features "$FEATURES"}
 
   publish:
     name: Publish to crates.io
@@ -94,8 +120,11 @@ jobs:
 
       - name: List crates to publish
         id: crates
+        env:
+          CRATES: ${{ inputs.crates }}
         run: |
-          crates=$(.github/scripts/unpublished-crates.sh)
+          set -f # the input is a list of crates, don't expand it as globs
+          crates=$(.github/scripts/unpublished-crates.sh $CRATES)
           echo "packages=$(echo "$crates" | sed '/^$/d' | sed 's/^/-p /' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
       - name: Authenticate with crates.io
