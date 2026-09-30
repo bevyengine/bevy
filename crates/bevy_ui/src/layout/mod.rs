@@ -513,15 +513,16 @@ pub fn update_computed_nodes(
         let Ok(target_info) = targets_query.get(ui_root_entity) else {
             continue;
         };
+        let target_size = target_info.physical_size().as_vec2();
         update_uinode_geometry_recursive(
             ui_root_entity,
             ui_root_entity,
             true,
-            target_info.physical_size().as_vec2(),
-            Affine2::IDENTITY,
+            target_size,
+            Affine2::from_translation(0.5 * target_size),
             &mut computed_nodes_query,
             target_info.scale_factor().recip(),
-            Vec2::ZERO,
+            target_size,
             Vec2::ZERO,
             *rem_size,
             &mut child_stack,

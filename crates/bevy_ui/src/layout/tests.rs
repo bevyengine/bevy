@@ -2877,19 +2877,16 @@ fn root_ghostnode_transform_persists_after_updates() {
     app.update();
 
     let world = app.world_mut();
-    assert_eq!(
-        world
-            .get::<UiGlobalTransform>(ghost_node)
-            .unwrap()
-            .translation,
-        Vec2::new(5., 10.)
-    );
+    let ghost_translation = world
+        .get::<UiGlobalTransform>(ghost_node)
+        .unwrap()
+        .translation;
     assert_eq!(
         world
             .get::<UiGlobalTransform>(child_node)
             .unwrap()
             .translation,
-        Vec2::new(5., 10.)
+        Vec2::new(5., 10.),
     );
 
     world.spawn(Node::default());
@@ -2902,14 +2899,14 @@ fn root_ghostnode_transform_persists_after_updates() {
             .get::<UiGlobalTransform>(ghost_node)
             .unwrap()
             .translation,
-        Vec2::new(5., 10.)
+        ghost_translation
     );
     assert_eq!(
         world
             .get::<UiGlobalTransform>(child_node)
             .unwrap()
             .translation,
-        Vec2::new(5., 10.)
+        Vec2::new(5., 10.),
     );
 }
 
