@@ -1,7 +1,7 @@
 ---
 title: Drag to reorder tabs
 authors: ["@jbuehler23"]
-pull_requests: []
+pull_requests: [25984]
 ---
 
 Headless tabs in `bevy_ui_widgets` can now be reordered by dragging. Set `TabList::drag` to `TabDragMode::Reorder` to opt in; the default is `TabDragMode::Disabled`. Add `TabLocked` to a tab to keep it focusable and selectable but not draggable.
