@@ -94,7 +94,6 @@ impl Plugin for WireframePlugin {
         ))
         .init_asset::<WireframeMaterial>()
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
-        .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
         .init_resource::<WireframeConfig>()
         .register_type::<WireframeLineWidth>()
         .register_type::<WireframeTopology>()
