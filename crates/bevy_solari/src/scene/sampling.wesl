@@ -103,7 +103,7 @@ struct LightSample {
 /// Every kind of light is described by the same data, and shaded by the same formula in
 /// `calculate_resolved_light_contribution`.
 struct ResolvedLightSample {
-    /// If w = 1:, the sample is a point on a light. If w = 0, it's a direction towards a light.
+    /// If w = 1, the sample is a point on a light. If w = 0, it's a direction towards a light.
     world_position: vec4<f32>,
     /// The emitting surface's normal. Unused when `emission_cosine_exponent` is 0.
     world_normal: vec3<f32>,
