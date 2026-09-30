@@ -25,8 +25,7 @@ pub enum Access<'a> {
     FieldIndex(usize),
     /// An index-based access on a tuple.
     TupleIndex(usize),
-    /// An index-based access on a list or array,
-    /// or an integer key access on a map or set.
+    /// An index-based access on a list or array.
     ListIndex(usize),
     /// A key-based access on a map or set.
     ///
@@ -69,40 +68,6 @@ impl<'a> Access<'a> {
             Self::TupleIndex(value) => Access::TupleIndex(value),
             Self::ListIndex(value) => Access::ListIndex(value),
             Self::Key(value) => Access::Key(Cow::Owned(value.into_owned())),
-        }
-    }
-
-    fn key(&self, ty: Option<Type>) -> InnerResult<Box<dyn PartialReflect>> {
-        fn int_key<T>(access: &Access) -> Option<Box<dyn PartialReflect>>
-        where
-            T: PartialReflect + TryFrom<usize> + core::str::FromStr,
-        {
-            match access {
-                &Access::ListIndex(index) => T::try_from(index).ok().map(|k| Box::new(k) as _),
-                Access::Key(key) => key.parse::<T>().ok().map(|k| Box::new(k) as _),
-                _ => None,
-            }
-        }
-
-        let invalid = || AccessErrorKind::InvalidKey {
-            key_type: ty.map(|ty| ty.path()),
-        };
-        let ty = ty.ok_or_else(invalid)?;
-        macro_rules! int_keys {
-            ($($int:ty),*) => {
-                $(if ty.is::<$int>() {
-                    return int_key::<$int>(self).ok_or_else(invalid);
-                })*
-            };
-        }
-        int_keys!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
-
-        match self {
-            Self::Key(key) if ty.is::<String>() => Ok(Box::new(String::from(key.as_ref()))),
-            Self::Key(key) if ty.is::<Cow<'static, str>>() => {
-                Ok(Box::new(Cow::<'static, str>::Owned(key.as_ref().into())))
-            }
-            _ => Err(invalid()),
         }
     }
 
@@ -156,13 +121,14 @@ impl<'a> Access<'a> {
 
             (&Self::ListIndex(index), List(list)) => Ok(list.get(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get(index)),
-            (Self::ListIndex(_) | Self::Key(_), Map(map)) => {
-                let key = self.key(map.get_represented_map_info().map(MapInfo::key_ty))?;
+            (Self::Key(key), Map(map)) => {
+                let key = to_key(key, map.get_represented_map_info().map(MapInfo::key_ty))?;
                 Ok(map.get(key.as_ref()))
             }
-            (Self::ListIndex(_) | Self::Key(_), Set(set)) => {
+            (Self::Key(key), Set(set)) => {
                 let info = set.get_represented_type_info();
-                let key = self.key(
+                let key = to_key(
+                    key,
                     info.and_then(|info| info.as_set().ok())
                         .map(SetInfo::value_ty),
                 )?;
@@ -231,11 +197,11 @@ impl<'a> Access<'a> {
 
             (&Self::ListIndex(index), List(list)) => Ok(list.get_mut(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get_mut(index)),
-            (Self::ListIndex(_) | Self::Key(_), Map(map)) => {
-                let key = self.key(map.get_represented_map_info().map(MapInfo::key_ty))?;
+            (Self::Key(key), Map(map)) => {
+                let key = to_key(key, map.get_represented_map_info().map(MapInfo::key_ty))?;
                 Ok(map.get_mut(key.as_ref()))
             }
-            (Self::ListIndex(_) | Self::Key(_), Set(_)) => Err(AccessErrorKind::MutableSetAccess),
+            (Self::Key(_), Set(_)) => Err(AccessErrorKind::MutableSetAccess),
             (Self::ListIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
                 expected: ReflectKind::List,
                 actual: actual.into(),
@@ -262,5 +228,28 @@ impl<'a> Access<'a> {
             Self::TupleIndex(_) | Self::ListIndex(_) => "index",
             Self::Key(_) => "key",
         }
+    }
+}
+
+fn to_key(key: &str, ty: Option<Type>) -> InnerResult<Box<dyn PartialReflect>> {
+    let invalid = || AccessErrorKind::InvalidKey {
+        key_type: ty.map(|ty| ty.path()),
+    };
+    let ty = ty.ok_or_else(invalid)?;
+    macro_rules! int_keys {
+        ($($int:ty),*) => {
+            $(if ty.is::<$int>() {
+                return key.parse::<$int>().map(|k| Box::new(k) as _).map_err(|_| invalid());
+            })*
+        };
+    }
+    int_keys!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
+
+    if ty.is::<String>() {
+        Ok(Box::new(String::from(key)))
+    } else if ty.is::<Cow<'static, str>>() {
+        Ok(Box::new(Cow::<'static, str>::Owned(key.into())))
+    } else {
+        Err(invalid())
     }
 }

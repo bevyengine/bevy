@@ -116,19 +116,21 @@ impl<'a> PathParser<'a> {
     fn key(&mut self) -> Result<Access<'a>, Error<'a>> {
         let start = self.offset();
         let mut escaped = false;
+        let mut has_escape = false;
         let len = self
             .remaining
             .iter()
             .position(|&byte| {
                 let end = !escaped && byte == b'"';
                 escaped = !escaped && byte == b'\\';
+                has_escape |= escaped;
                 end
             })
             .ok_or(Error::UnclosedQuote)?;
         let raw = &self.path[start..start + len];
         self.remaining = &self.remaining[len + 1..];
 
-        if !raw.contains('\\') {
+        if !has_escape {
             return Ok(Access::Key(Cow::Borrowed(raw)));
         }
         let mut key = String::with_capacity(raw.len());

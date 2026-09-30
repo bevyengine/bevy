@@ -118,16 +118,16 @@ impl fmt::Display for AccessError<'_> {
                         "The {type_accessed} accessed doesn't have field index `{}`",
                         access.display_value(),
                     ),
-                    Access::TupleIndex(_) | Access::ListIndex(_) | Access::Key(_) => write!(
+                    Access::TupleIndex(_) | Access::ListIndex(_) => write!(
                         f,
-                        "The {type_accessed} accessed doesn't have {} `{}`",
-                        if matches!(type_accessed, ReflectKind::Map | ReflectKind::Set) {
-                            "key"
-                        } else {
-                            "index"
-                        },
+                        "The {type_accessed} accessed doesn't have index `{}`",
                         access.display_value()
-                    )
+                    ),
+                    Access::Key(_) => write!(
+                        f,
+                        "The {type_accessed} accessed doesn't have key `{}`",
+                        access.display_value()
+                    ),
                 }
             }
             AccessErrorKind::IncompatibleTypes { expected, actual } => write!(

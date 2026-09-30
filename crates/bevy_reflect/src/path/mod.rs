@@ -179,13 +179,16 @@ impl<'a> ReflectPath<'a> for &'a str {
 ///
 /// ## Maps and Sets
 ///
-/// [`Map`] and [`Set`] elements are accessed by key with brackets.
-/// String keys are quoted, `["key"]`, with `\"` and `\\` as escapes.
-/// Integer keys use the list syntax, `[42]`.
-/// A quoted key can also be used for integer keys, which allows negative keys like `["-1"]`.
+/// [`Map`] and [`Set`] elements are accessed by a quoted key in brackets: `["key"]`.
+/// Integer keys are quoted too, like `["42"]` or `["-1"]`.
 ///
 /// Supported key types are `String`, `Cow<'static, str>` and the primitive integers.
 /// Set elements can't be accessed mutably.
+///
+/// The only escapes in a key are `\"` and `\\`.
+/// Any other character, including unicode and newlines, is written directly,
+/// since the path is an ordinary Rust string.
+/// Any other backslash sequence is an error.
 ///
 /// ### Example
 /// ```
@@ -195,7 +198,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// assert_eq!(names.path::<u32>(r#"["alice"]"#).unwrap(), &1);
 ///
 /// let ids = HashMap::from([(7_u64, 2_u32)]);
-/// assert_eq!(ids.path::<u32>("[7]").unwrap(), &2);
+/// assert_eq!(ids.path::<u32>(r#"["7"]"#).unwrap(), &2);
 /// ```
 ///
 /// ## Enums
@@ -991,25 +994,25 @@ mod tests {
             names: HashMap::from([("a.b".into(), C { mосква: 1.0 })]),
             ids: HashMap::from([(7, 1)]),
             signed: BTreeMap::from([(-3, 2), (5, 3)]),
-            set: HashSet::from(["x".into()]),
+            set: HashSet::from(["x".into(), "\u{e9}t\u{e9}".into()]),
         };
 
         assert_eq!(*m.path::<f32>(r#"names["a.b"].mосква"#).unwrap(), 1.0);
         *m.path_mut::<f32>(r#"names["a.b"].mосква"#).unwrap() = 2.0;
         assert_eq!(m.names["a.b"].mосква, 2.0);
 
-        assert_eq!(*m.path::<u8>("ids[7]").unwrap(), 1);
-        *m.path_mut::<u8>("ids[7]").unwrap() = 4;
+        assert_eq!(*m.path::<u8>(r#"ids["7"]"#).unwrap(), 1);
+        *m.path_mut::<u8>(r#"ids["7"]"#).unwrap() = 4;
         assert_eq!(m.ids[&7], 4);
-        assert_eq!(*m.path::<u8>(r#"ids["7"]"#).unwrap(), 4);
-        assert_eq!(*m.path::<u8>("signed[5]").unwrap(), 3);
+        assert_eq!(*m.path::<u8>(r#"signed["5"]"#).unwrap(), 3);
         assert_eq!(*m.path::<u8>(r#"signed["-3"]"#).unwrap(), 2);
 
         assert_eq!(*m.path::<String>(r#"set["x"]"#).unwrap(), "x");
+        assert_eq!(
+            *m.path::<String>("set[\"\u{e9}t\u{e9}\"]").unwrap(),
+            "\u{e9}t\u{e9}"
+        );
 
-        let string_key = AccessErrorKind::InvalidKey {
-            key_type: Some("alloc::string::String"),
-        };
         let u32_key = AccessErrorKind::InvalidKey {
             key_type: Some("u32"),
         };
@@ -1017,8 +1020,15 @@ mod tests {
             expected: ReflectKind::Struct,
             actual: ReflectKind::Map,
         };
+        let not_list = AccessErrorKind::IncompatibleTypes {
+            expected: ReflectKind::List,
+            actual: ReflectKind::Map,
+        };
         for (path, kind) in [
-            ("ids[8]", AccessErrorKind::MissingField(ReflectKind::Map)),
+            (
+                r#"ids["8"]"#,
+                AccessErrorKind::MissingField(ReflectKind::Map),
+            ),
             (
                 r#"names["b"]"#,
                 AccessErrorKind::MissingField(ReflectKind::Map),
@@ -1027,9 +1037,9 @@ mod tests {
                 r#"set["y"]"#,
                 AccessErrorKind::MissingField(ReflectKind::Set),
             ),
-            ("names[0]", string_key),
+            ("ids[7]", not_list),
             (r#"ids["a"]"#, u32_key.clone()),
-            ("ids[4294967296]", u32_key),
+            (r#"ids["4294967296"]"#, u32_key),
             ("ids.x", not_struct),
         ] {
             let Err(ReflectPathError::InvalidAccess(error)) = m.reflect_path(path) else {
