@@ -97,6 +97,10 @@ pub struct Smaa {
     pub preset: SmaaPreset,
 }
 
+impl crate::PostTonemappingEffect for Smaa {
+    const NAME: &'static str = "Smaa";
+}
+
 /// A preset quality level for SMAA.
 ///
 /// Higher values are slower but result in a higher-quality image.
@@ -369,6 +373,8 @@ impl Plugin for SmaaPlugin {
                 Render,
                 (
                     prepare_smaa_pipelines.in_set(RenderSystems::Prepare),
+                    crate::warn_effect_before_stack_tonemapping::<Smaa>
+                        .in_set(RenderSystems::Prepare),
                     prepare_smaa_uniforms.in_set(RenderSystems::PrepareResources),
                     prepare_smaa_textures.in_set(RenderSystems::PrepareResources),
                     prepare_smaa_bind_groups.in_set(RenderSystems::PrepareBindGroups),

@@ -1043,6 +1043,8 @@ impl Default for RenderTarget {
 }
 
 /// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
+///
+/// When cameras share a main texture, it gets the combined usages of all of them.
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(opaque)]
 #[reflect(Component, Default, Clone)]

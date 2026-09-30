@@ -71,6 +71,14 @@ pub struct Fxaa {
     pub edge_threshold_min: Sensitivity,
 }
 
+impl crate::PostTonemappingEffect for Fxaa {
+    const NAME: &'static str = "Fxaa";
+
+    fn enabled(&self) -> bool {
+        self.enabled
+    }
+}
+
 impl Default for Fxaa {
     fn default() -> Self {
         Fxaa {
@@ -98,7 +106,11 @@ impl Plugin for FxaaPlugin {
             .add_systems(RenderStartup, init_fxaa_pipeline)
             .add_systems(
                 Render,
-                prepare_fxaa_pipelines.in_set(RenderSystems::Prepare),
+                (
+                    prepare_fxaa_pipelines,
+                    crate::warn_effect_before_stack_tonemapping::<Fxaa>,
+                )
+                    .in_set(RenderSystems::Prepare),
             )
             .add_systems(
                 Core3d,

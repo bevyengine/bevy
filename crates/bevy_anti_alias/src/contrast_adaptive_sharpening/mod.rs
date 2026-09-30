@@ -75,6 +75,10 @@ pub struct CasUniform {
     sharpness: f32,
 }
 
+impl crate::PostTonemappingEffect for CasUniform {
+    const NAME: &'static str = "ContrastAdaptiveSharpening";
+}
+
 impl SyncComponent<RenderApp> for ContrastAdaptiveSharpening {
     type Target = (DenoiseCas, CasUniform);
 }
@@ -116,7 +120,14 @@ impl Plugin for CasPlugin {
         };
         render_app
             .add_systems(RenderStartup, init_cas_pipeline)
-            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare))
+            .add_systems(
+                Render,
+                (
+                    prepare_cas_pipelines,
+                    crate::warn_effect_before_stack_tonemapping::<CasUniform>,
+                )
+                    .in_set(RenderSystems::Prepare),
+            )
             .add_systems(
                 Core3d,
                 cas.after(fxaa)

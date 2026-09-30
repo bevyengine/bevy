@@ -12,9 +12,7 @@
 //! frame [`resolve_camera_stacks`] makes both choices and writes them to
 //! every view as [`ResolvedCompositingSpace`] and [`ViewStackContract`].
 
-use bevy_camera::{
-    Camera2d, CameraMainTextureUsages, CameraOutputMode, ClearColorConfig, CompositingSpace,
-};
+use bevy_camera::{Camera2d, CameraOutputMode, ClearColorConfig, CompositingSpace};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
@@ -26,7 +24,9 @@ use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use wgpu::TextureFormat;
 
-use super::{main_texture_key, ExtractedView, MainTextureKey, Msaa, Tonemapping};
+use super::{
+    main_texture_key, ColorGrading, DebandDither, ExtractedView, MainTextureKey, Msaa, Tonemapping,
+};
 use crate::camera::ExtractedCamera;
 
 /// The compositing space a camera view uses this frame. It can differ from
@@ -127,20 +127,18 @@ pub fn resolve_camera_stacks(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
-        &CameraMainTextureUsages,
         &Msaa,
         Has<Camera2d>,
         Option<&Tonemapping>,
+        Option<&DebandDither>,
         &mut ResolvedCompositingSpace,
     )>,
 ) {
     let mut textures: HashMap<MainTextureKey, Vec<Member>> = HashMap::default();
-    for (entity, camera, view, texture_usage, msaa, is_camera_2d, tonemapping, resolved) in
-        views.iter()
-    {
+    for (entity, camera, view, msaa, is_camera_2d, tonemapping, dither, resolved) in views.iter() {
         let tonemapping = tonemapping.copied().unwrap_or(Tonemapping::None);
         textures
-            .entry(main_texture_key(camera, view, texture_usage, *msaa))
+            .entry(main_texture_key(camera, view, *msaa))
             .or_default()
             .push(Member {
                 entity,
@@ -150,6 +148,10 @@ pub fn resolve_camera_stacks(
                 output_writes: !matches!(camera.output_mode, CameraOutputMode::Skip),
                 pass_runs: tonemap_pass_runs(camera, &tonemapping),
                 method: tonemapping,
+                settings: PassSettings {
+                    color_grading: view.color_grading.clone(),
+                    dither: dither.copied().unwrap_or(DebandDither::Disabled),
+                },
                 // Extraction seeds this with the camera's own request.
                 request: resolved.0,
                 is_camera_2d,
@@ -195,11 +197,36 @@ struct Member {
     pass_runs: bool,
     /// [`Tonemapping::None`] when the view has no `Tonemapping` component.
     method: Tonemapping,
+    /// The settings besides the method that the view's pass applies.
+    settings: PassSettings,
     request: Option<CompositingSpace>,
     is_camera_2d: bool,
     /// [`stores_signed_values`] for the main texture. It's the same for every
     /// member of a stack, since the format is part of the texture key.
     signed_storage: bool,
+}
+
+/// The settings besides the method that a view's tonemapping pass applies.
+#[derive(Clone, Default, PartialEq)]
+struct PassSettings {
+    color_grading: ColorGrading,
+    dither: DebandDither,
+}
+
+impl PassSettings {
+    /// Names the settings that differ from `other`, or returns `None` when
+    /// they match.
+    fn differences(&self, other: &Self) -> Option<&'static str> {
+        match (
+            self.color_grading != other.color_grading,
+            self.dither != other.dither,
+        ) {
+            (true, true) => Some("ColorGrading and DebandDither"),
+            (true, false) => Some("ColorGrading"),
+            (false, true) => Some("DebandDither"),
+            (false, false) => None,
+        }
+    }
 }
 
 /// A misconfiguration that [`resolve_camera_stacks`] reports as a warning.
@@ -236,6 +263,19 @@ enum StackResolutionError {
         own: Tonemapping,
         applied: Tonemapping,
     },
+    /// A member uses its stack's tonemapping method, but its color grading or
+    /// dither differ from the ones the stack's pass applies.
+    PassSettingsMismatch {
+        member: Entity,
+        settings_camera: Entity,
+        differences: &'static str,
+    },
+    /// The stack's last tonemapping member uses `CameraOutputMode::Skip`, so
+    /// the stack can't tonemap once and each member tonemaps on its own.
+    SkippedFinalizer { camera: Entity },
+    /// A [`Tonemapping::None`] member's output reaches the target after a pass
+    /// above it tonemapped the whole texture.
+    TonemappingNoneBelowPass { member: Entity, pass_camera: Entity },
 }
 
 /// Sorts one main texture's members and splits them into stacks at every
@@ -398,12 +438,8 @@ fn pass_finalizer(members: &[Member]) -> Option<StackPass> {
         }
         finalizer = Some(index);
     }
-    let finalizer = finalizer?;
-
-    // A `CameraOutputMode::Skip` camera never blits. As the finalizer,
-    // nothing would write the stack's output to the target.
-    members[finalizer].output_writes.then_some(StackPass {
-        finalizer,
+    Some(StackPass {
+        finalizer: finalizer?,
         settings,
     })
 }
@@ -414,7 +450,18 @@ fn resolve_contracts(
     contracts: &mut EntityHashMap<ViewStackContract>,
     errors: &mut Vec<StackResolutionError>,
 ) {
-    let pass = pass_finalizer(members);
+    let pass = match pass_finalizer(members) {
+        // A `CameraOutputMode::Skip` camera never blits. As the finalizer,
+        // nothing would write the stack's output to the target, so each
+        // member runs its own pass.
+        Some(pass) if !members[pass.finalizer].output_writes => {
+            errors.push(StackResolutionError::SkippedFinalizer {
+                camera: members[pass.finalizer].entity,
+            });
+            None
+        }
+        pass => pass,
+    };
 
     // Without a finalizer each camera tonemaps on its own. A fullscreen
     // member that doesn't clear, above a viewport member, then blits the
@@ -435,6 +482,35 @@ fn resolve_contracts(
         if let Some((_, flagged)) = flagged {
             errors.push(StackResolutionError::FullscreenBlitOverPerCameraPasses {
                 fullscreen_camera: flagged.entity,
+            });
+        }
+    }
+
+    // A pass tonemaps the whole texture, including a `Tonemapping::None`
+    // member's output below it. That output reaches the target tonemapped
+    // through the finalizer's blit, or without a finalizer through a blit at
+    // or after the pass that covers it. A viewport blit over a viewport
+    // member is not checked, because members don't carry their viewport
+    // rectangles.
+    for (index, member) in members.iter().enumerate() {
+        if member.method != Tonemapping::None {
+            continue;
+        }
+        let pass_camera = match pass {
+            Some(StackPass { finalizer, .. }) if index < finalizer => Some(finalizer),
+            Some(_) => None,
+            None => (index + 1..members.len())
+                .find(|&above| members[above].pass_runs)
+                .filter(|&first_pass| {
+                    members[first_pass..].iter().any(|writer| {
+                        writer.output_writes && (writer.fullscreen || member.fullscreen)
+                    })
+                }),
+        };
+        if let Some(pass_camera) = pass_camera {
+            errors.push(StackResolutionError::TonemappingNoneBelowPass {
+                member: member.entity,
+                pass_camera: members[pass_camera].entity,
             });
         }
     }
@@ -470,15 +546,23 @@ fn resolve_contracts(
             _ => (StackRole::Solo, blit),
         };
 
-        // The pass applies the settings member's method to every member it
-        // covers.
-        if let Some(StackPass { settings, .. }) = pass {
-            let applied = members[settings].method;
-            if tonemap != StackRole::Solo && member.method != applied {
+        // The pass applies the settings member's method and settings to
+        // every member it covers.
+        if let Some(StackPass { settings, .. }) = pass
+            && tonemap != StackRole::Solo
+        {
+            let applied = &members[settings];
+            if member.method != applied.method {
                 errors.push(StackResolutionError::TonemappingMismatch {
                     member: member.entity,
                     own: member.method,
-                    applied,
+                    applied: applied.method,
+                });
+            } else if let Some(differences) = member.settings.differences(&applied.settings) {
+                errors.push(StackResolutionError::PassSettingsMismatch {
+                    member: member.entity,
+                    settings_camera: applied.entity,
+                    differences,
                 });
             }
         }
@@ -538,7 +622,32 @@ fn warn(error: StackResolutionError) {
             "Camera {member} uses {own:?}, but its camera stack is tonemapped once with \
             {applied:?}. The whole stack uses the Tonemapping, ColorGrading, and \
             DebandDither of its first tonemapping camera. Give every camera in the stack \
-            the same Tonemapping."
+            the same Tonemapping. To keep a camera's output from being tonemapped, give it \
+            Tonemapping::None and render it after the cameras that tonemap."
+        ),
+        StackResolutionError::PassSettingsMismatch {
+            member,
+            settings_camera,
+            differences,
+        } => warn_once!(
+            "Cameras {member} and {settings_camera} are tonemapped together using camera \
+            {settings_camera}'s {differences}, so the values on camera {member} have no \
+            effect. Give them the same {differences}."
+        ),
+        StackResolutionError::SkippedFinalizer { camera } => warn_once!(
+            "Camera {camera} uses CameraOutputMode::Skip and is the last camera on its \
+            render target that tonemaps. It doesn't write its output, so the cameras can't \
+            be tonemapped together. Each one tonemaps separately, and earlier cameras' \
+            output is tonemapped more than once. Remove the Skip, or set Tonemapping::None \
+            on this camera."
+        ),
+        StackResolutionError::TonemappingNoneBelowPass {
+            member,
+            pass_camera,
+        } => warn_once!(
+            "Camera {member} uses Tonemapping::None, but camera {pass_camera} renders \
+            later to the same target and tonemaps this camera's output too. Render this \
+            camera after the cameras that tonemap, or give it its own render target."
         ),
     }
 }
@@ -577,6 +686,7 @@ mod tests {
             output_writes: true,
             pass_runs: true,
             method: Tonemapping::TonyMcMapface,
+            settings: PassSettings::default(),
             request: None,
             is_camera_2d: true,
             signed_storage: true,
@@ -615,7 +725,7 @@ mod tests {
     }
 
     /// Marks a member that tonemaps in shader, like an SDR camera on a shared
-    /// target. Its pass is off whatever the method.
+    /// 8-bit target. Its pass is off whatever the method.
     fn sdr(mut member: Member) -> Member {
         member.pass_runs = false;
         member
@@ -1000,7 +1110,13 @@ mod tests {
         assert_eq!(resolved.contract(2).tonemap, StackRole::HandledByFinalizer);
         assert_eq!(resolved.contract(3).tonemap, finalizer(2));
         assert_eq!(resolved.contract(1).blit, SKIP);
-        assert!(resolved.errors.is_empty());
+        assert_eq!(
+            resolved.errors,
+            vec![StackResolutionError::TonemappingNoneBelowPass {
+                member: entity(1),
+                pass_camera: entity(3),
+            }]
+        );
     }
 
     // The finalizer rule checks every tonemapping member after the first,
@@ -1041,7 +1157,14 @@ mod tests {
         assert_eq!(resolved.contract(1).blit, REPLACE);
         assert_eq!(resolved.contract(2).blit, ALPHA);
         assert_eq!(resolved.contract(3).blit, ALPHA);
-        assert!(resolved.errors.is_empty());
+        // Without a finalizer, member 3's own pass still covers member 2.
+        assert_eq!(
+            resolved.errors,
+            vec![StackResolutionError::TonemappingNoneBelowPass {
+                member: entity(2),
+                pass_camera: entity(3),
+            }]
+        );
     }
 
     // The disabled member is Solo, but the finalizer's blit writes its
@@ -1059,7 +1182,54 @@ mod tests {
         assert_eq!(resolved.contract(1).blit, SKIP);
         assert_eq!(resolved.contract(2).blit, SKIP);
         assert_eq!(resolved.contract(3).blit, REPLACE);
+        assert_eq!(
+            resolved.errors,
+            vec![StackResolutionError::TonemappingNoneBelowPass {
+                member: entity(2),
+                pass_camera: entity(3),
+            }]
+        );
+    }
+
+    // Member 2's viewport blit writes part of member 1's fullscreen output
+    // after member 2's pass tonemapped it.
+    #[test]
+    fn disabled_member_below_a_viewport_pass_is_flagged() {
+        let resolved = resolve(vec![vec![disabled(clearing(1, 0)), viewport(2, 1)]]);
+        assert_eq!(
+            resolved.errors,
+            vec![StackResolutionError::TonemappingNoneBelowPass {
+                member: entity(1),
+                pass_camera: entity(2),
+            }]
+        );
+    }
+
+    // Two viewports may not overlap, and members don't carry their
+    // rectangles.
+    #[test]
+    fn disabled_viewport_member_below_a_viewport_pass_is_silent() {
+        let mut first = disabled(viewport(1, 0));
+        first.loads_previous = false;
+        let resolved = resolve(vec![vec![first, viewport(2, 1)]]);
         assert!(resolved.errors.is_empty());
+    }
+
+    // Member 3's fullscreen blit writes member 1's pixels after member 2's
+    // pass tonemapped them.
+    #[test]
+    fn disabled_member_below_a_viewport_pass_and_a_fullscreen_blit_is_flagged() {
+        let resolved = resolve(vec![vec![
+            disabled(clearing(1, 0)),
+            viewport(2, 1),
+            disabled(compositing(3, 2)),
+        ]]);
+        assert!(resolved
+            .errors
+            .contains(&StackResolutionError::TonemappingNoneBelowPass {
+                member: entity(1),
+                pass_camera: entity(2),
+            }));
     }
 
     // The member above the finalizer blends over the finalizer's blit.
@@ -1076,6 +1246,8 @@ mod tests {
         assert_eq!(resolved.contract(1).blit, SKIP);
         assert_eq!(resolved.contract(2).blit, REPLACE);
         assert_eq!(resolved.contract(3).blit, ALPHA);
+        // It draws over the tonemapped output, so nothing tonemaps it.
+        assert!(resolved.errors.is_empty());
     }
 
     #[test]
@@ -1085,6 +1257,53 @@ mod tests {
         assert_eq!(resolved.contract(2).tonemap, StackRole::Solo);
         assert_eq!(resolved.contract(1).blit, REPLACE);
         assert_eq!(resolved.contract(2).blit, ALPHA);
+        assert_eq!(
+            resolved.errors,
+            vec![StackResolutionError::SkippedFinalizer { camera: entity(2) }]
+        );
+    }
+
+    // The settings member's grading and dither apply to the whole stack.
+    #[test]
+    fn pass_settings_mismatch_is_flagged_when_methods_match() {
+        let mut dithered = compositing(2, 1);
+        dithered.settings.dither = DebandDither::Enabled;
+        let resolved = resolve(vec![vec![clearing(1, 0), dithered]]);
+        assert_eq!(
+            resolved.errors,
+            vec![StackResolutionError::PassSettingsMismatch {
+                member: entity(2),
+                settings_camera: entity(1),
+                differences: "DebandDither",
+            }]
+        );
+    }
+
+    // The method warning already covers the member, so settings aren't also
+    // reported.
+    #[test]
+    fn pass_settings_mismatch_is_not_reported_with_a_method_mismatch() {
+        let mut member = with_method(compositing(2, 1), Tonemapping::AcesFitted);
+        member.settings.dither = DebandDither::Enabled;
+        let resolved = resolve(vec![vec![clearing(1, 0), member]]);
+        assert_eq!(
+            resolved.errors,
+            vec![StackResolutionError::TonemappingMismatch {
+                member: entity(2),
+                own: Tonemapping::AcesFitted,
+                applied: Tonemapping::TonyMcMapface,
+            }]
+        );
+    }
+
+    // A member above the finalizer runs no covered pass, so its settings
+    // are its own.
+    #[test]
+    fn pass_settings_above_the_finalizer_are_not_compared() {
+        let mut above = disabled(compositing(3, 2));
+        above.settings.dither = DebandDither::Enabled;
+        let resolved = resolve(vec![vec![clearing(1, 0), compositing(2, 1), above]]);
+        assert!(resolved.errors.is_empty());
     }
 
     #[test]
@@ -1254,5 +1473,9 @@ mod tests {
         assert_eq!(resolved.contract(4).tonemap, StackRole::Solo);
         assert_eq!(resolved.contract(3).blit, ALPHA);
         assert_eq!(resolved.contract(4).blit, ALPHA);
+        assert_eq!(
+            resolved.errors,
+            vec![StackResolutionError::SkippedFinalizer { camera: entity(4) }]
+        );
     }
 }

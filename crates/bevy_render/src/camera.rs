@@ -474,8 +474,10 @@ pub struct ExtractedCamera {
     ///
     /// This is true for SDR cameras with tonemapping enabled, unless the camera has
     /// [`TonemappingPass`], a non-linear [`CompositingSpace`], or a non-window render
-    /// target. Those exceptions don't apply when the render target is shared by
-    /// multiple cameras.
+    /// target. A camera on a render target shared by multiple cameras ignores those
+    /// exceptions. It tonemaps in its shaders unless an [`Hdr`] camera with
+    /// tonemapping enabled renders later to the same target and could tonemap this
+    /// camera's output a second time.
     pub tonemap_in_shader: bool,
 }
 
@@ -518,21 +520,27 @@ pub fn extract_cameras(
     visibility_extraction_system_param: VisibilityExtractionSystemParam,
     extracted_swap_chains: Query<(MainEntity, &ExtractedWindow)>,
     mut active_cameras_per_target: Local<HashMap<NormalizedRenderTarget, usize>>,
+    mut last_hdr_tonemapping_order: Local<HashMap<NormalizedRenderTarget, isize>>,
 ) {
     main_pass_formats.clear();
     let primary_window = primary_window.iter().next();
 
     // Count cameras per render target to make sure tonemapping isn't duplicated.
-    // The map is a `Local` so it keeps its allocation between frames.
-    active_cameras_per_target.clear();
-    for (_, _, camera, render_target, ..) in query.iter() {
-        if !camera.is_active {
-            continue;
-        }
-        if let Some(target) = render_target.normalize(primary_window) {
-            *active_cameras_per_target.entry(target).or_default() += 1;
-        }
-    }
+    // The maps are `Local`s so they keep their allocations between frames.
+    count_target_cameras(
+        query.iter().map(
+            |(_, _, camera, render_target, .., (hdr, tonemapping, ..))| {
+                (
+                    render_target.normalize(primary_window),
+                    camera.is_active,
+                    camera.order,
+                    hdr && tonemapping.is_some_and(Tonemapping::is_enabled),
+                )
+            },
+        ),
+        &mut active_cameras_per_target,
+        &mut last_hdr_tonemapping_order,
+    );
 
     type ExtractedCameraComponents = (
         ExtractedCamera,
@@ -644,17 +652,25 @@ pub fn extract_cameras(
                 })
                 .unwrap_or(TextureFormat::Rgba8UnormSrgb);
             let tonemapping_enabled = tonemapping.is_some_and(Tonemapping::is_enabled);
-            let shares_target = target
+            let target_cameras = target
                 .as_ref()
-                .and_then(|t| active_cameras_per_target.get(t))
-                .is_some_and(|&count| count > 1);
+                .map(|target| {
+                    TargetCameras::new(
+                        target,
+                        camera.order,
+                        &active_cameras_per_target,
+                        &last_hdr_tonemapping_order,
+                    )
+                })
+                .unwrap_or_default();
             let in_shader = tonemaps_in_shader(
                 hdr,
                 tonemapping_enabled,
                 tonemapping_pass,
                 compositing_space.copied(),
                 target.as_ref(),
-                shares_target,
+                target_cameras,
+                output_texture_format,
             );
             let target_format = main_texture_format(
                 hdr,
@@ -756,6 +772,64 @@ fn normalize_bgra8(target: &NormalizedRenderTarget, format: TextureFormat) -> Te
     format
 }
 
+/// Fills, for each render target, the number of active cameras and the
+/// highest order among its active [`Hdr`] cameras with tonemapping enabled.
+///
+/// Each camera is `(target, is_active, order, hdr_tonemapping)`.
+fn count_target_cameras(
+    cameras: impl Iterator<Item = (Option<NormalizedRenderTarget>, bool, isize, bool)>,
+    active_cameras_per_target: &mut HashMap<NormalizedRenderTarget, usize>,
+    last_hdr_tonemapping_order: &mut HashMap<NormalizedRenderTarget, isize>,
+) {
+    active_cameras_per_target.clear();
+    last_hdr_tonemapping_order.clear();
+    for (target, is_active, order, hdr_tonemapping) in cameras {
+        let (Some(target), true) = (target, is_active) else {
+            continue;
+        };
+        if hdr_tonemapping {
+            last_hdr_tonemapping_order
+                .entry(target.clone())
+                .and_modify(|top| *top = (*top).max(order))
+                .or_insert(order);
+        }
+        *active_cameras_per_target.entry(target).or_default() += 1;
+    }
+}
+
+/// The active cameras on one camera's render target.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct TargetCameras {
+    count: usize,
+    /// Whether one of them is an [`Hdr`] camera with tonemapping enabled that
+    /// renders at the same or a later order. On a shared target, only such a
+    /// camera's pass can tonemap this camera's output again. Extraction doesn't
+    /// know the main textures yet, so this also counts a camera that ends up
+    /// with a different one.
+    hdr_tonemapping_later: bool,
+}
+
+impl TargetCameras {
+    fn new(
+        target: &NormalizedRenderTarget,
+        order: isize,
+        active_cameras_per_target: &HashMap<NormalizedRenderTarget, usize>,
+        last_hdr_tonemapping_order: &HashMap<NormalizedRenderTarget, isize>,
+    ) -> Self {
+        Self {
+            count: active_cameras_per_target
+                .get(target)
+                .copied()
+                .unwrap_or_default(),
+            // `sort_cameras` leaves equal orders unordered, so an equal order
+            // counts as later.
+            hdr_tonemapping_later: last_hdr_tonemapping_order
+                .get(target)
+                .is_some_and(|&top| top >= order),
+        }
+    }
+}
+
 /// Whether a camera tonemaps in its material shaders. See
 /// [`ExtractedCamera::tonemap_in_shader`].
 fn tonemaps_in_shader(
@@ -764,14 +838,22 @@ fn tonemaps_in_shader(
     tonemapping_pass: bool,
     compositing_space: Option<CompositingSpace>,
     target: Option<&NormalizedRenderTarget>,
-    shares_target: bool,
+    target_cameras: TargetCameras,
+    output_texture_format: TextureFormat,
 ) -> bool {
     tonemapping_enabled
         && !hdr
-        && (shares_target
-            || (!tonemapping_pass
+        && if target_cameras.count > 1 {
+            // With the same main texture format, the later camera's pass would
+            // tonemap this camera's output again.
+            !target_cameras.hdr_tonemapping_later
+                || main_texture_format(false, false, compositing_space, output_texture_format)
+                    != main_texture_format(false, true, compositing_space, output_texture_format)
+        } else {
+            !tonemapping_pass
                 && compositing_space.is_none_or(|s| s == CompositingSpace::Linear)
-                && matches!(target, Some(NormalizedRenderTarget::Window(_)))))
+                && matches!(target, Some(NormalizedRenderTarget::Window(_)))
+        }
 }
 
 /// The main texture format for a camera view.
@@ -1270,7 +1352,8 @@ mod tests {
         tonemapping_pass: bool,
         compositing_space: Option<CompositingSpace>,
         target: Option<&'a NormalizedRenderTarget>,
-        shares_target: bool,
+        target_cameras: TargetCameras,
+        output_format: TextureFormat,
     }
 
     /// A solo SDR camera that tonemaps in-shader, used as the baseline for the case
@@ -1282,11 +1365,25 @@ mod tests {
             tonemapping_pass: false,
             compositing_space: None,
             target: Some(target),
-            shares_target: false,
+            target_cameras: SOLO,
+            output_format: OUTPUT_FORMAT,
         }
     }
 
     const OUTPUT_FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
+
+    const SOLO: TargetCameras = TargetCameras {
+        count: 1,
+        hdr_tonemapping_later: false,
+    };
+    const SHARED: TargetCameras = TargetCameras {
+        count: 2,
+        hdr_tonemapping_later: false,
+    };
+    const SHARED_WITH_LATER_HDR_TONEMAPPING: TargetCameras = TargetCameras {
+        count: 2,
+        hdr_tonemapping_later: true,
+    };
 
     fn assert_case_table(table: &[(&str, CameraCase, TextureFormat, bool)]) {
         for (name, case, expected_format, expected_in_shader) in table {
@@ -1296,14 +1393,15 @@ mod tests {
                 case.tonemapping_pass,
                 case.compositing_space,
                 case.target,
-                case.shares_target,
+                case.target_cameras,
+                case.output_format,
             );
             assert_eq!(in_shader, *expected_in_shader, "{name} (in-shader)");
             let format = main_texture_format(
                 case.hdr,
                 case.tonemapping_enabled && !in_shader,
                 case.compositing_space,
-                OUTPUT_FORMAT,
+                case.output_format,
             );
             assert_eq!(format, *expected_format, "{name}");
         }
@@ -1411,14 +1509,14 @@ mod tests {
         assert_case_table(&table);
     }
 
-    /// Stacked and split screen cameras keep the in-shader path. Only solo
-    /// cameras move to the tonemapping pass; see [`ExtractedCamera::tonemap_in_shader`].
+    /// Cameras that share an 8-bit target keep tonemapping in their shaders; see
+    /// [`ExtractedCamera::tonemap_in_shader`].
     #[test]
     fn shared_target_cameras_keep_the_in_shader_path() {
         let window = window_target();
         let texture_view = NormalizedRenderTarget::TextureView(ManualTextureViewHandle(0));
         let shared = CameraCase {
-            shares_target: true,
+            target_cameras: SHARED_WITH_LATER_HDR_TONEMAPPING,
             ..eligible_camera(&window)
         };
 
@@ -1481,6 +1579,112 @@ mod tests {
         ];
 
         assert_case_table(&table);
+    }
+
+    /// Cameras that share a target with a later `Hdr` tonemapping camera, and would
+    /// get its main texture format, run the pass; see
+    /// [`ExtractedCamera::tonemap_in_shader`].
+    #[test]
+    fn shared_rgba16float_target_cameras_run_the_pass() {
+        let window = window_target();
+        let texture_view = NormalizedRenderTarget::TextureView(ManualTextureViewHandle(0));
+        let shared = CameraCase {
+            target_cameras: SHARED_WITH_LATER_HDR_TONEMAPPING,
+            output_format: TextureFormat::Rgba16Float,
+            ..eligible_camera(&texture_view)
+        };
+
+        let table = [
+            (
+                "shared Rgba16Float texture target",
+                shared,
+                TextureFormat::Rgba16Float,
+                false,
+            ),
+            (
+                "shared Rgba16Float window target",
+                CameraCase {
+                    target: Some(&window),
+                    ..shared
+                },
+                TextureFormat::Rgba16Float,
+                false,
+            ),
+            (
+                "sRGB compositing keeps its own format on a shared Rgba16Float target",
+                CameraCase {
+                    compositing_space: Some(CompositingSpace::Srgb),
+                    ..shared
+                },
+                TextureFormat::Rgba8Unorm,
+                true,
+            ),
+            (
+                "Oklab compositing on a shared Rgba16Float target",
+                CameraCase {
+                    compositing_space: Some(CompositingSpace::Oklab),
+                    ..shared
+                },
+                TextureFormat::Rgba16Float,
+                false,
+            ),
+            (
+                "shared Rgba16Float target without a later Hdr tonemapping camera",
+                CameraCase {
+                    target_cameras: SHARED,
+                    ..shared
+                },
+                TextureFormat::Rgba16Float,
+                true,
+            ),
+            (
+                "shared Rgba32Float target",
+                CameraCase {
+                    output_format: TextureFormat::Rgba32Float,
+                    ..shared
+                },
+                TextureFormat::Rgba32Float,
+                true,
+            ),
+        ];
+
+        assert_case_table(&table);
+    }
+
+    #[test]
+    fn target_cameras_track_later_hdr_tonemapping_cameras() {
+        let window = window_target();
+        let texture_view = NormalizedRenderTarget::TextureView(ManualTextureViewHandle(0));
+        let mut counts = HashMap::default();
+        let mut top = HashMap::default();
+        count_target_cameras(
+            [
+                // (target, is_active, order, hdr_tonemapping)
+                (Some(window.clone()), true, 0, false),
+                (Some(window.clone()), true, 2, true),
+                (Some(window.clone()), true, 5, false),
+                // Inactive cameras don't count.
+                (Some(window.clone()), false, 9, true),
+                (Some(texture_view.clone()), true, 1, false),
+                (None, true, 3, true),
+            ]
+            .into_iter(),
+            &mut counts,
+            &mut top,
+        );
+
+        let at = |target: &NormalizedRenderTarget, order| {
+            TargetCameras::new(target, order, &counts, &top)
+        };
+        let expected = |count, hdr_tonemapping_later| TargetCameras {
+            count,
+            hdr_tonemapping_later,
+        };
+        assert_eq!(at(&window, 0), expected(3, true));
+        // An equal order counts as later.
+        assert_eq!(at(&window, 2), expected(3, true));
+        assert_eq!(at(&window, 5), expected(3, false));
+        assert_eq!(at(&texture_view, 1), expected(1, false));
     }
 
     fn extracted_camera(
