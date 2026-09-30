@@ -379,10 +379,10 @@ pub fn ui_layout_system(
     ): (
         Query<
             Entity,
-            Or<(
+            (
                 Or<(Changed<Children>, Changed<ChildOf>, Added<Node>)>,
                 With<Node>,
-            )>,
+            ),
         >,
         RemovedComponents<ChildOf>,
         RemovedComponents<Node>,
