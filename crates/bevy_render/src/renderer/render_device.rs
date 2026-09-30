@@ -5,6 +5,7 @@ use crate::render_resource::{
 };
 use crate::renderer::wgpu_wrapper;
 use bevy_ecs::resource::Resource;
+use std::sync::OnceLock;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, PollError, PollStatus,
@@ -16,9 +17,32 @@ wgpu_wrapper! {
 }
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
-#[derive(Resource, Clone)]
+///
+/// Limits and features are lazily cached, here because though they are cached on the device,
+/// in a Wasm context, they cross the wasm boundary and get serialized each frame which is expensive.
+#[derive(Resource)]
 pub struct RenderDevice {
     device: WgpuDevice,
+    limits: OnceLock<wgpu::Limits>,
+    features: OnceLock<wgpu::Features>,
+}
+
+impl Clone for RenderDevice {
+    fn clone(&self) -> Self {
+        Self {
+            device: self.device.clone(),
+            limits: clone_once_lock(&self.limits),
+            features: clone_once_lock(&self.features),
+        }
+    }
+}
+
+fn clone_once_lock<T: Clone>(lock: &OnceLock<T>) -> OnceLock<T> {
+    let cloned = OnceLock::new();
+    if let Some(value) = lock.get() {
+        cloned.get_or_init(|| value.clone());
+    }
+    cloned
 }
 
 impl From<wgpu::Device> for RenderDevice {
@@ -31,6 +55,8 @@ impl RenderDevice {
     pub fn new(device: wgpu::Device) -> Self {
         Self {
             device: WgpuDevice::new(device),
+            limits: OnceLock::new(),
+            features: OnceLock::new(),
         }
     }
 
@@ -38,16 +64,16 @@ impl RenderDevice {
     ///
     /// Functions may panic if you use unsupported features.
     #[inline]
-    pub fn features(&self) -> wgpu::Features {
-        self.device.features()
+    pub fn features(&self) -> &wgpu::Features {
+        self.features.get_or_init(|| self.device.features())
     }
 
     /// List all [`Limits`](wgpu::Limits) that were requested of this device.
     ///
     /// If any of these limits are exceeded, functions may panic.
     #[inline]
-    pub fn limits(&self) -> wgpu::Limits {
-        self.device.limits()
+    pub fn limits(&self) -> &wgpu::Limits {
+        self.limits.get_or_init(|| self.device.limits())
     }
 
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
