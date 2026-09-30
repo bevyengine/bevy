@@ -142,3 +142,8 @@ harness = false
 name = "ui"
 path = "benches/bevy_ui/main.rs"
 harness = false
+
+[[bench]]
+name = "text"
+path = "benches/bevy_text/main.rs"
+harness = false
