@@ -1,7 +1,7 @@
 ---
 title: Drag tabs between tab lists
 authors: ["@jbuehler23"]
-pull_requests: []
+pull_requests: [25985]
 ---
 
 Headless tabs in `bevy_ui_widgets` can now be dragged from one tab list to another. Set `TabList::drag` to `TabDragMode::External` on each list that should share tabs. An `External` list still supports reordering within itself, while a `Reorder` list never accepts tabs from other lists and its tabs never leave it.
