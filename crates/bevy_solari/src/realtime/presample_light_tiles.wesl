@@ -2,7 +2,7 @@
 
 import bevy_pbr::render::rgb9e5::{vec3_to_rgb9e5_, rgb9e5_to_vec3_};
 import bevy_render::utils::{octahedral_encode, octahedral_decode};
-import package::scene::sampling::{generate_random_light_sample, light_is_hittable, ResolvedLightSample};
+import package::scene::sampling::{generate_random_light_sample, ResolvedLightSample};
 import package::realtime::bindings::{light_tile_samples, light_tile_resolved_samples, view, constants, ResolvedLightSamplePacked};
 
 enable wgpu_ray_query;
@@ -16,10 +16,10 @@ fn presample_light_tiles(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builti
 
     let i = (tile_id * 1024u) + sample_index;
     light_tile_samples[i] = sample.light_sample;
-    light_tile_resolved_samples[i] = pack_resolved_light_sample(sample.resolved_light_sample, light_is_hittable(sample.light_source));
+    light_tile_resolved_samples[i] = pack_resolved_light_sample(sample.resolved_light_sample);
 }
 
-fn pack_resolved_light_sample(sample: ResolvedLightSample, brdf_rays_can_hit: bool) -> ResolvedLightSamplePacked {
+fn pack_resolved_light_sample(sample: ResolvedLightSample) -> ResolvedLightSamplePacked {
     let inverse_pdf = sample.inverse_pdf * select(1.0, -1.0, sample.world_position.w == 0.0);
     return ResolvedLightSamplePacked(
         vec4(
@@ -31,7 +31,7 @@ fn pack_resolved_light_sample(sample: ResolvedLightSample, brdf_rays_can_hit: bo
             bitcast<u32>(inverse_pdf),
             pack2x16unorm(octahedral_encode(sample.emission_axis)),
             pack_emission_cone(sample.cone_cos_inner, sample.cone_cos_outer, sample.emission_cosine_exponent)
-                | (u32(brdf_rays_can_hit) << 31u),
+                | (u32(sample.brdf_rays_can_hit) << 31u),
         ),
     );
 }
@@ -48,6 +48,7 @@ fn unpack_resolved_light_sample(packed: ResolvedLightSamplePacked, exposure: f32
         unpack_cone_cos(cone & CONE_COS_MASK),
         unpack_cone_cos((cone >> 15u) & CONE_COS_MASK),
         f32((cone >> 30u) & 1u),
+        (cone >> 31u) != 0u,
     );
 }
 

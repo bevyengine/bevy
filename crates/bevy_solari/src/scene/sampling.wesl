@@ -118,6 +118,9 @@ struct ResolvedLightSample {
     /// 1 if emission falls off with the cosine of the angle to `world_normal`, e.g. emissive triangles, rect lights, and sphere lights.
     /// 0 if emission is the same in every direction, e.g. point and spot lights with no radius.
     emission_cosine_exponent: f32,
+    /// Whether rays can hit this light, needed for MIS between NEE and BRDF sampling.
+    /// Only emissive meshes can be hit. Analytic lights (directional, point, spot, rect) can only be found via NEE.
+    brdf_rays_can_hit: bool,
 }
 
 struct LightContribution {
@@ -126,21 +129,22 @@ struct LightContribution {
     /// inverse_pdf may not be in solid angle measure (e.g. area measure)
     /// but inverse_solid_angle_pdf is always in solid angle measure
     /// for cases where it's required, e.g. MIS between light sampling techniques.
-    /// Only meaningful for lights that rays can hit, see `light_is_hittable`.
+    /// Only meaningful when `brdf_rays_can_hit` is true.
     inverse_solid_angle_pdf: f32,
     wi: vec3<f32>,
+    brdf_rays_can_hit: bool,
 }
 
 struct GenerateRandomLightSampleResult {
     light_sample: LightSample,
-    light_source: LightSource,
     resolved_light_sample: ResolvedLightSample,
 }
 
-/// Whether a light can be hit by a ray, and needs MIS between NEE and BRDF sampling.
-/// Analytic lights (directional, point, spot, rect) can only be sampled via NEE, and don't need MIS.
-fn light_is_hittable(light_source: LightSource) -> bool {
-    return light_source_kind(light_source) == LIGHT_SOURCE_KIND_EMISSIVE_MESH;
+fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> LightContribution {
+    let sample = generate_random_light_sample(rng);
+    var light_contribution = calculate_resolved_light_contribution(sample.resolved_light_sample, ray_origin, origin_world_normal);
+    light_contribution.radiance *= trace_visibility(ray_origin, sample.resolved_light_sample.world_position);
+    return light_contribution;
 }
 
 fn random_emissive_light_pdf(hit: ResolvedRayHitFull, ray_distance: f32, NdotV: f32) -> f32 {
@@ -176,7 +180,7 @@ fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightS
     var resolved_light_sample = resolve_light_sample(light_sample, light_source);
     resolved_light_sample.inverse_pdf *= f32(light_count);
 
-    return GenerateRandomLightSampleResult(light_sample, light_source, resolved_light_sample);
+    return GenerateRandomLightSampleResult(light_sample, resolved_light_sample);
 }
 
 fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) -> ResolvedLightSample {
@@ -212,6 +216,7 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
             NO_EMISSION_CONE,
             NO_EMISSION_CONE,
             1.0,
+            false,
         );
     } else if kind == LIGHT_SOURCE_KIND_POINT {
         let point_light = point_lights[light_source.id];
@@ -226,6 +231,7 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
                 point_light.cos_inner,
                 point_light.cos_outer,
                 0.0,
+                false,
             );
         }
 
@@ -240,6 +246,7 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
             point_light.cos_inner,
             point_light.cos_outer,
             1.0,
+            false,
         );
     } else if kind == LIGHT_SOURCE_KIND_RECT {
         let rect_light = rect_lights[light_source.id];
@@ -257,6 +264,7 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
             NO_EMISSION_CONE,
             NO_EMISSION_CONE,
             1.0,
+            false,
         );
     } else {
         let triangle_count = emissive_mesh_triangle_count(light_source);
@@ -273,6 +281,7 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
             NO_EMISSION_CONE,
             NO_EMISSION_CONE,
             1.0,
+            true,
         );
     }
 }
@@ -294,7 +303,7 @@ fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSam
     let radiance = resolved_light_sample.radiance * (emission / light_distance_squared);
     let inverse_solid_angle_pdf = resolved_light_sample.inverse_pdf * (cos_theta_light / light_distance_squared);
 
-    return LightContribution(radiance, resolved_light_sample.inverse_pdf, inverse_solid_angle_pdf, wi);
+    return LightContribution(radiance, resolved_light_sample.inverse_pdf, inverse_solid_angle_pdf, wi, resolved_light_sample.brdf_rays_can_hit);
 }
 
 const NO_EMISSION_CONE = -1.0;

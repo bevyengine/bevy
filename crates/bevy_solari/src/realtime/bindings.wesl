@@ -63,10 +63,6 @@ struct ResolvedLightSamplePacked {
     b: vec4<u32>,
 }
 
-fn packed_light_is_hittable(packed: ResolvedLightSamplePacked) -> bool {
-    return (packed.b.w >> 31u) != 0u;
-}
-
 /// Don't adjust the size of this struct without also adjusting `prepare::RESERVOIR_STRUCT_SIZE`.
 struct Reservoir {
     sample_point_world_position: vec3<f32>,
