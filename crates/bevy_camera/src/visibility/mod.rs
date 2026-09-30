@@ -56,7 +56,9 @@ use crate::{
     primitives::{Aabb, Frustum, MeshAabb, Sphere},
     Projection,
 };
-use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d};
+use bevy_mesh::{
+    mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d, Mesh3dVisibility,
+};
 
 /// Use this component to opt-out of the built-in CPU frustum culling, see
 /// [`Frustum`]. This can be attached to a [`Camera`] or to individual entities.
@@ -356,7 +358,7 @@ impl Default for VisibleEntities {
         // instead, but that would complicate what are already some very
         // complicated method signatures. So it's simpler to just do this.
         let mut entities = TypeIdHashMap::default();
-        entities.insert(TypeId::of::<Mesh3d>(), vec![]);
+        entities.insert(TypeId::of::<Mesh3dVisibility>(), vec![]);
         VisibleEntities { entities }
     }
 }
@@ -497,8 +499,8 @@ impl Plugin for VisibilityPlugin {
         use VisibilitySystems::*;
 
         app.add_plugins(ValidateParentHasComponentPlugin::<InheritedVisibility>::default())
-            .register_required_components::<Mesh3d, Visibility>()
-            .register_required_components::<Mesh3d, VisibilityClass>()
+            .register_required_components::<Mesh3dVisibility, Visibility>()
+            .register_required_components::<Mesh3dVisibility, VisibilityClass>()
             .register_required_components::<Mesh2d, Visibility>()
             .register_required_components::<Mesh2d, VisibilityClass>()
             .configure_sets(
@@ -534,8 +536,8 @@ impl Plugin for VisibilityPlugin {
                 ),
             );
         app.world_mut()
-            .register_component_hooks::<Mesh3d>()
-            .on_add(add_visibility_class::<Mesh3d>);
+            .register_component_hooks::<Mesh3dVisibility>()
+            .on_add(add_visibility_class::<Mesh3dVisibility>);
         app.world_mut()
             .register_component_hooks::<Mesh2d>()
             .on_add(add_visibility_class::<Mesh2d>);

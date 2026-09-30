@@ -39,11 +39,11 @@ use bevy_render::{
         clear_scene_unpacking_buffers, BatchedInstanceBuffers, BinUnpackingMetadataIndex,
         BuildIndirectParametersMetadata, GpuBinMetadata, GpuBinUnpackingMetadata,
         GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode, GpuPreprocessingSupport,
-        GpuUniformAllocationMetadata, IndirectBatchSet, IndirectParametersBuffers,
-        IndirectParametersBuildJob, IndirectParametersBuildJobs, IndirectParametersIndexed,
-        IndirectParametersMetadata, IndirectParametersNonIndexed,
+        GpuRangeUnpackingMetadata, GpuUniformAllocationMetadata, IndirectBatchSet,
+        IndirectParametersBuffers, IndirectParametersBuildJob, IndirectParametersBuildJobs,
+        IndirectParametersIndexed, IndirectParametersMetadata, IndirectParametersNonIndexed,
         LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem, PreprocessWorkItemBuffers,
-        SceneUnpackingBuffers, SceneUnpackingBuffersKey, SceneUnpackingJob,
+        RangeWorkItem, SceneUnpackingBuffers, SceneUnpackingBuffersKey, SceneUnpackingJob,
         UniformAllocationMetadataIndex, UntypedPhaseBatchedInstanceBuffers,
         UntypedPhaseIndirectParametersBuffers,
     },
@@ -138,6 +138,9 @@ pub struct PreprocessPipelines {
     pub bin_unpacking: BinUnpackingPipeline,
     /// Compute shader pipelines for the uniform allocation step.
     pub uniform_allocation: UniformAllocationPipelines,
+    /// Compute shader pipeline for expanding GPU instance-batch range
+    /// entries into preprocess work items.
+    pub range_unpacking: RangeUnpackingPipeline,
 }
 
 /// Compute shader pipelines for a specific phase: early, late, or main.
@@ -211,6 +214,14 @@ pub struct BinUnpackingPipeline {
     /// The pipeline ID for the compute shader.
     ///
     /// This gets filled in in the [`prepare_preprocess_pipelines`] system.
+    pub pipeline_id: Option<CachedComputePipelineId>,
+}
+
+/// The pipeline for the `unpack_ranges` compute shader.
+#[derive(Clone)]
+pub struct RangeUnpackingPipeline {
+    pub bind_group_layout: BindGroupLayoutDescriptor,
+    pub shader: Handle<Shader>,
     pub pipeline_id: Option<CachedComputePipelineId>,
 }
 
@@ -497,6 +508,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
         embedded_asset!(app, "build_indirect_params.wesl");
         embedded_asset!(app, "unpack_bins.wesl");
         embedded_asset!(app, "allocate_uniforms.wesl");
+        embedded_asset!(app, "unpack_ranges.wesl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -780,6 +792,138 @@ pub fn unpack_bins(
                         compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
                     }
                 }
+            }
+        }
+    }
+
+    pass_span.end(&mut compute_pass);
+}
+
+pub fn prepare_range_unpacking_bind_groups(
+    pipeline_cache: Res<PipelineCache>,
+    preprocess_pipelines: Res<PreprocessPipelines>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut batched_instance_buffers: ResMut<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+) {
+    if preprocess_pipelines.range_unpacking.pipeline_id.is_none() {
+        return;
+    }
+    let bind_group_layout = pipeline_cache
+        .get_bind_group_layout(&preprocess_pipelines.range_unpacking.bind_group_layout);
+
+    for phase_buffers in batched_instance_buffers.phase_instance_buffers.values_mut() {
+        for work_item_buffers in phase_buffers.work_item_buffers.values_mut() {
+            let PreprocessWorkItemBuffers::Indirect {
+                ref indexed,
+                ref non_indexed,
+                ref mut ranges_indexed,
+                ref mut ranges_non_indexed,
+                ..
+            } = *work_item_buffers
+            else {
+                continue;
+            };
+
+            for (ranges, work_buf) in [
+                (&mut *ranges_indexed, indexed),
+                (&mut *ranges_non_indexed, non_indexed),
+            ] {
+                if ranges.buffer.is_empty() {
+                    ranges.bind_group = None;
+                    continue;
+                }
+                let (Some(work_storage), Some(range_storage)) =
+                    (work_buf.buffer(), ranges.buffer.buffer())
+                else {
+                    ranges.bind_group = None;
+                    continue;
+                };
+
+                ranges.metadata.set(GpuRangeUnpackingMetadata {
+                    range_count: ranges.buffer.len() as u32,
+                    total_instance_count: ranges.total_instance_count,
+                    pad: bevy_math::UVec2::ZERO,
+                });
+                ranges.metadata.write_buffer(&render_device, &render_queue);
+                let metadata_binding = ranges.metadata.binding().unwrap();
+
+                ranges.bind_group = Some(render_device.create_bind_group(
+                    Some("range unpacking bind group"),
+                    &bind_group_layout,
+                    &BindGroupEntries::sequential((
+                        metadata_binding,
+                        range_storage.as_entire_binding(),
+                        work_storage.as_entire_binding(),
+                    )),
+                ));
+            }
+        }
+    }
+}
+
+pub fn unpack_ranges(
+    current_view: ViewQuery<Option<&ViewLightEntities>, Without<SkipGpuPreprocess>>,
+    view_query: Query<&ExtractedView, Without<SkipGpuPreprocess>>,
+    light_query: Query<&LightEntity>,
+    batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    pipeline_cache: Res<PipelineCache>,
+    preprocess_pipelines: Res<PreprocessPipelines>,
+    mut render_context: RenderContext,
+) {
+    let Some(pipeline_id) = preprocess_pipelines.range_unpacking.pipeline_id else {
+        return;
+    };
+    let Some(pipeline) = pipeline_cache.get_compute_pipeline(pipeline_id) else {
+        return;
+    };
+
+    let view_entity = current_view.entity();
+    let shadow_cascade_views = current_view.into_inner();
+    let all_views =
+        gather_shadow_cascades_for_view(view_entity, shadow_cascade_views, &light_query);
+
+    let diagnostics = render_context.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let command_encoder = render_context.command_encoder();
+    let mut compute_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+        label: Some("range unpacking"),
+        timestamp_writes: None,
+    });
+    let pass_span = diagnostics.pass_span(&mut compute_pass, "range_unpacking");
+    compute_pass.set_pipeline(pipeline);
+
+    for view_entity in all_views {
+        let Ok(view) = view_query.get(view_entity) else {
+            continue;
+        };
+        for phase_buffers in batched_instance_buffers.phase_instance_buffers.values() {
+            let Some(work_item_buffers) = phase_buffers
+                .work_item_buffers
+                .get(&view.retained_view_entity)
+            else {
+                continue;
+            };
+            let PreprocessWorkItemBuffers::Indirect {
+                ref ranges_indexed,
+                ref ranges_non_indexed,
+                ..
+            } = *work_item_buffers
+            else {
+                continue;
+            };
+
+            for ranges in [ranges_indexed, ranges_non_indexed] {
+                let Some(bind_group) = &ranges.bind_group else {
+                    continue;
+                };
+                if ranges.total_instance_count == 0 {
+                    continue;
+                }
+                let workgroup_count =
+                    (ranges.total_instance_count as usize).div_ceil(WORKGROUP_SIZE) as u32;
+                compute_pass.set_bind_group(0, bind_group, &[]);
+                compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
             }
         }
     }
@@ -1423,6 +1567,14 @@ impl PreprocessPhasePipelines {
     }
 }
 
+pub fn prepare_range_unpacking_pipeline(
+    cache: Res<PipelineCache>,
+    mut pipelines: ResMut<PreprocessPipelines>,
+    mut specialized: ResMut<SpecializedComputePipelines<RangeUnpackingPipeline>>,
+) {
+    pipelines.range_unpacking.prepare(&cache, &mut specialized);
+}
+
 impl PreprocessPipeline {
     fn is_loaded(&self, pipeline_cache: &PipelineCache) -> bool {
         self.pipeline_id
@@ -1541,6 +1693,7 @@ impl FromWorld for PreprocessPipelines {
         let bin_unpacking_bind_group_layout_entries = bin_unpacking_bind_group_layout_entries();
         let uniform_allocation_bind_group_layout_entries =
             uniform_allocation_bind_group_layout_entries();
+        let range_unpacking_bind_group_layout_entries = range_unpacking_bind_group_layout_entries();
 
         // Create the bind group layouts.
         let direct_bind_group_layout = BindGroupLayoutDescriptor::new(
@@ -1579,6 +1732,10 @@ impl FromWorld for PreprocessPipelines {
             "uniform allocation bind group layout",
             &uniform_allocation_bind_group_layout_entries,
         );
+        let range_unpacking_bind_group_layout = BindGroupLayoutDescriptor::new(
+            "range unpacking bind group layout",
+            &range_unpacking_bind_group_layout_entries,
+        );
 
         let preprocess_shader = load_embedded_asset!(world, "mesh_preprocess.wesl");
         let reset_indirect_batch_sets_shader =
@@ -1587,6 +1744,7 @@ impl FromWorld for PreprocessPipelines {
             load_embedded_asset!(world, "build_indirect_params.wesl");
         let bin_unpacking_shader = load_embedded_asset!(world, "unpack_bins.wesl");
         let uniform_allocation_shader = load_embedded_asset!(world, "allocate_uniforms.wesl");
+        let range_unpacking_shader = load_embedded_asset!(world, "unpack_ranges.wesl");
 
         let preprocess_phase_pipelines = PreprocessPhasePipelines {
             reset_indirect_batch_sets: ResetIndirectBatchSetsPipeline {
@@ -1663,6 +1821,11 @@ impl FromWorld for PreprocessPipelines {
                     shader: uniform_allocation_shader.clone(),
                     pipeline_id_fan: None,
                 },
+            },
+            range_unpacking: RangeUnpackingPipeline {
+                bind_group_layout: range_unpacking_bind_group_layout,
+                shader: range_unpacking_shader,
+                pipeline_id: None,
             },
         }
     }
@@ -1797,6 +1960,22 @@ fn uniform_allocation_bind_group_layout_entries() -> BindGroupLayoutEntries<4> {
             // @group(0) @binding(3) var<storage, read_write> fan_buffer:
             // array<u32>;
             storage_buffer::<u32>(false),
+        ),
+    )
+}
+
+/// Bind group layout for the `unpack_ranges` compute shader.
+fn range_unpacking_bind_group_layout_entries() -> BindGroupLayoutEntries<3> {
+    BindGroupLayoutEntries::sequential(
+        ShaderStages::COMPUTE,
+        (
+            // @group(0) @binding(0) var<uniform> metadata: RangeUnpackingMetadata;
+            uniform_buffer::<GpuRangeUnpackingMetadata>(false),
+            // @group(0) @binding(1) var<storage> ranges: array<RangeWorkItem>;
+            storage_buffer_read_only::<RangeWorkItem>(false),
+            // @group(0) @binding(2) var<storage, read_write>
+            // preprocess_work_items: array<PreprocessWorkItem>;
+            storage_buffer::<PreprocessWorkItem>(false),
         ),
     )
 }
@@ -2179,6 +2358,33 @@ impl UniformAllocationPipelines {
     }
 }
 
+impl SpecializedComputePipeline for RangeUnpackingPipeline {
+    type Key = ();
+
+    fn specialize(&self, _: Self::Key) -> ComputePipelineDescriptor {
+        ComputePipelineDescriptor {
+            label: Some("range unpacking".into()),
+            layout: vec![self.bind_group_layout.clone()],
+            shader: self.shader.clone(),
+            shader_defs: vec![],
+            ..default()
+        }
+    }
+}
+
+impl RangeUnpackingPipeline {
+    fn prepare(
+        &mut self,
+        pipeline_cache: &PipelineCache,
+        pipelines: &mut SpecializedComputePipelines<RangeUnpackingPipeline>,
+    ) {
+        if self.pipeline_id.is_some() {
+            return;
+        }
+        self.pipeline_id = Some(pipelines.specialize(pipeline_cache, self, ()));
+    }
+}
+
 /// A system that attaches buffers to bind groups for the variants of the
 /// compute shaders relating to mesh preprocessing.
 #[expect(
@@ -2280,6 +2486,7 @@ pub fn prepare_preprocess_bind_groups(
                     indexed: ref indexed_work_item_buffer,
                     non_indexed: ref non_indexed_work_item_buffer,
                     gpu_occlusion_culling: Some(ref gpu_occlusion_culling_work_item_buffers),
+                    ..
                 } => (
                     true,
                     preprocess_bind_group_builder
@@ -2295,6 +2502,7 @@ pub fn prepare_preprocess_bind_groups(
                     indexed: ref indexed_work_item_buffer,
                     non_indexed: ref non_indexed_work_item_buffer,
                     gpu_occlusion_culling: None,
+                    ..
                 } => (
                     true,
                     preprocess_bind_group_builder

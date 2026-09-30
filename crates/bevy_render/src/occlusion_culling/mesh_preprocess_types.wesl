@@ -35,6 +35,17 @@ struct PreviousMeshInput {
     world_from_local: mat3x4<f32>,
 };
 
+/// Information about each mesh instance needed to cull it on GPU.
+struct MeshCullingData {
+    /// The 3D center of the AABB in model space.
+    aabb_center: vec3<f32>,
+    _pad: f32,
+    /// The 3D extents of the AABB in model space, divided by two.
+    aabb_half_extents: vec3<f32>,
+    /// Nonzero renders; zero is skipped in preprocessing.
+    is_active: u32,
+}
+
 /// The `wgpu` indirect parameters structure. This is a union of two structures.
 /// For more information, see the corresponding comment in
 /// `gpu_preprocessing.rs`.

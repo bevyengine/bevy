@@ -1714,6 +1714,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "gpu_particles"
+path = "examples/3d/gpu_particles.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gpu_particles]
+name = "GPU Instance Batches (Particles)"
+description = "Renders a GPU-authored batch of mesh instances using the GpuBatchedMesh3d API"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "mesh_ray_cast"
 path = "examples/3d/mesh_ray_cast.rs"
 doc-scrape-examples = true

@@ -591,6 +591,16 @@ where
         );
     }
 
+    /// Reserves at least `min_capacity` elements, rounded up with the growth
+    /// policy that [`Self::write_buffers`] uses, so that repeated small
+    /// increases don't reallocate the buffer every time.
+    pub fn reserve_amortized(&mut self, min_capacity: usize, render_device: &RenderDevice) {
+        if min_capacity == 0 {
+            return;
+        }
+        self.reserve(calculate_allocation_size(min_capacity), render_device);
+    }
+
     /// Grows the buffer by adding default values so that it's at least the
     /// given size.
     ///

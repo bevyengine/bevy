@@ -21,7 +21,7 @@ use bevy_ecs::{
 };
 use bevy_encase_derive::ShaderType;
 use bevy_log::{error, info_once};
-use bevy_math::UVec4;
+use bevy_math::{UVec2, UVec4};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::ComputeTaskPool;
 use bevy_utils::{default, TypeIdHashMap};
@@ -35,15 +35,16 @@ use crate::{
     occlusion_culling::OcclusionCulling,
     render_phase::{
         BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSet,
-        BinnedRenderPhaseBatchSets, CachedRenderPipelinePhaseItem, PhaseItem,
+        BinnedRenderPhaseBatchSets, CachedRenderPipelinePhaseItem, InstanceBatchDraw, PhaseItem,
         PhaseItemBatchSetKey as _, PhaseItemExtraIndex, RenderMultidrawableBatchSet,
         SortedPhaseItem, SortedRenderPhase, UnbatchableBinnedEntityIndices, ViewBinnedRenderPhases,
         ViewSortedRenderPhases,
     },
     render_resource::{
-        AtomicPod, AtomicRawBufferVec, AtomicSparseBufferVec, Buffer, GpuArrayBufferable,
-        PartialBufferVec, PipelineCache, RawBufferVec, SparseBufferUpdateBindGroups,
-        SparseBufferUpdateJobs, SparseBufferUpdatePipelines, UninitBufferVec,
+        AtomicPod, AtomicRawBufferVec, AtomicSparseBufferVec, BindGroup, Buffer,
+        GpuArrayBufferable, PartialBufferVec, PipelineCache, RawBufferVec,
+        SparseBufferUpdateBindGroups, SparseBufferUpdateJobs, SparseBufferUpdatePipelines,
+        UniformBuffer, UninitBufferVec,
     },
     renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue},
     sync_world::{MainEntity, MainEntityHashMap},
@@ -373,6 +374,12 @@ where
         self.free_uniform_indices.push(uniform_index);
     }
 
+    /// Reserves GPU capacity beyond the CPU shadow. The tail is uninitialized
+    /// until written on GPU.
+    pub fn reserve_gpu(&mut self, capacity: u32, device: &RenderDevice) {
+        self.buffer.reserve_amortized(capacity as usize, device);
+    }
+
     /// Returns the piece of buffered data at the given index.
     ///
     /// Returns [`None`] if the index is out of bounds or the data is removed.
@@ -560,6 +567,10 @@ pub enum PreprocessWorkItemBuffers {
         indexed: PartialBufferVec<PreprocessWorkItem>,
         /// The buffer of work items corresponding to non-indexed meshes.
         non_indexed: PartialBufferVec<PreprocessWorkItem>,
+        /// Range entries for indexed GPU-authored instance batches.
+        ranges_indexed: RangeWorkItemBuffer,
+        /// Range entries for non-indexed GPU-authored instance batches.
+        ranges_non_indexed: RangeWorkItemBuffer,
         /// The work item buffers we use when GPU occlusion culling is in use.
         gpu_occlusion_culling: Option<GpuOcclusionCullingWorkItemBuffers>,
     },
@@ -655,6 +666,10 @@ where
                         BufferUsages::STORAGE,
                         "non-indexed preprocess work item buffer".to_owned(),
                     ),
+                    ranges_indexed: RangeWorkItemBuffer::new("indexed instance batch ranges"),
+                    ranges_non_indexed: RangeWorkItemBuffer::new(
+                        "non-indexed instance batch ranges",
+                    ),
                     // We fill this in below if `enable_gpu_occlusion_culling`
                     // is set.
                     gpu_occlusion_culling: None,
@@ -736,6 +751,7 @@ impl PreprocessWorkItemBuffers {
                 indexed: ref mut indexed_buffer,
                 non_indexed: ref mut non_indexed_buffer,
                 ref mut gpu_occlusion_culling,
+                ..
             } => {
                 if indexed {
                     indexed_buffer.push_init(preprocess_work_item);
@@ -754,6 +770,56 @@ impl PreprocessWorkItemBuffers {
         }
     }
 
+    /// Pushes a range entry for a GPU-authored instance batch and reserves
+    /// `count` uninitialized work-item slots for `unpack_ranges` to fill.
+    /// Returns the base index of the reserved slots, or `None` in direct mode.
+    pub fn push_range(
+        &mut self,
+        indexed: bool,
+        base_input_index: u32,
+        base_output_or_indirect_parameters_index: u32,
+        count: u32,
+    ) -> Option<u32> {
+        let PreprocessWorkItemBuffers::Indirect {
+            indexed: ref mut indexed_buffer,
+            non_indexed: ref mut non_indexed_buffer,
+            ref mut ranges_indexed,
+            ref mut ranges_non_indexed,
+            ref mut gpu_occlusion_culling,
+        } = *self
+        else {
+            return None;
+        };
+
+        let (work_buf, ranges) = if indexed {
+            (indexed_buffer, ranges_indexed)
+        } else {
+            (non_indexed_buffer, ranges_non_indexed)
+        };
+
+        let work_item_base = work_buf.push_multiple_uninit(count as usize) as u32;
+        let cumulative_offset = ranges.total_instance_count;
+        ranges.buffer.push(RangeWorkItem {
+            base_input_index,
+            base_output_or_indirect_parameters_index,
+            count,
+            cumulative_offset,
+            work_item_base,
+        });
+        ranges.total_instance_count += count;
+
+        if let Some(occ) = gpu_occlusion_culling {
+            let late = if indexed {
+                &mut occ.late_indexed
+            } else {
+                &mut occ.late_non_indexed
+            };
+            late.add_multiple(count as usize);
+        }
+
+        Some(work_item_base)
+    }
+
     /// Clears out the GPU work item buffers in preparation for a new frame.
     pub fn clear(&mut self) {
         match *self {
@@ -763,10 +829,14 @@ impl PreprocessWorkItemBuffers {
             PreprocessWorkItemBuffers::Indirect {
                 indexed: ref mut indexed_buffer,
                 non_indexed: ref mut non_indexed_buffer,
+                ref mut ranges_indexed,
+                ref mut ranges_non_indexed,
                 ref mut gpu_occlusion_culling,
             } => {
                 indexed_buffer.clear();
                 non_indexed_buffer.clear();
+                ranges_indexed.clear();
+                ranges_non_indexed.clear();
 
                 if let Some(ref mut gpu_occlusion_culling) = *gpu_occlusion_culling {
                     gpu_occlusion_culling.late_indexed.clear();
@@ -796,6 +866,59 @@ pub struct PreprocessWorkItem {
     /// `IndirectParametersBuffers::indexed_metadata` or
     /// `IndirectParametersBuffers::non_indexed_metadata`.
     pub output_or_indirect_parameters_index: u32,
+}
+
+/// Per-dispatch metadata for the `unpack_ranges` shader.
+#[derive(Clone, Copy, Default, Pod, Zeroable, ShaderType)]
+#[repr(C)]
+pub struct GpuRangeUnpackingMetadata {
+    pub range_count: u32,
+    pub total_instance_count: u32,
+    pub pad: UVec2,
+}
+
+/// One GPU-authored instance batch in a [`RangeWorkItemBuffer`]. Expanded
+/// by `unpack_ranges.wesl` into `count` individual [`PreprocessWorkItem`]s.
+#[derive(Clone, Copy, Default, Pod, Zeroable, ShaderType)]
+#[repr(C)]
+pub struct RangeWorkItem {
+    pub base_input_index: u32,
+    pub base_output_or_indirect_parameters_index: u32,
+    pub count: u32,
+    /// Sum of `count` for all earlier ranges in the same buffer.
+    pub cumulative_offset: u32,
+    /// Where this range's reserved work-item slots start. Each range records
+    /// its own base in the GPU-initialized tail, after the ordinary
+    /// CPU-authored work items.
+    pub work_item_base: u32,
+}
+
+/// Per-(view, phase, indexed-ness) range entries plus bookkeeping for the
+/// work items they expand into.
+pub struct RangeWorkItemBuffer {
+    pub buffer: RawBufferVec<RangeWorkItem>,
+    pub metadata: UniformBuffer<GpuRangeUnpackingMetadata>,
+    pub bind_group: Option<BindGroup>,
+    pub total_instance_count: u32,
+}
+
+impl RangeWorkItemBuffer {
+    pub fn new(label: &str) -> Self {
+        let mut buffer = RawBufferVec::new(BufferUsages::STORAGE);
+        buffer.set_label(Some(label));
+        Self {
+            buffer,
+            metadata: UniformBuffer::default(),
+            bind_group: None,
+            total_instance_count: 0,
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.buffer.clear();
+        self.bind_group = None;
+        self.total_instance_count = 0;
+    }
 }
 
 /// The `wgpu` indirect parameters structure that specifies a GPU draw command.
@@ -1891,6 +2014,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
         // Walk through the list of phase items, building up batches as we go.
         let mut batch_set: Option<SortedRenderBatchSet<GFBD>> = None;
+        let mut pending_ranges = Vec::new();
 
         for current_index in 0..phase.items.len() {
             // Get the index of the input data, and comparison metadata, for
@@ -1898,6 +2022,48 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             let item = &phase.items[current_index];
             let entity = item.main_entity();
             let item_is_indexed = item.indexed();
+
+            // A GPU-authored instance batch is one sorted item. It's depth-sorted
+            // as a whole and never merges with neighboring items.
+            if let Some(input_range) = GFBD::get_instance_batch(&system_param_item, entity) {
+                if let Some(batch_set) = batch_set.take() {
+                    batch_set.flush(
+                        data_buffer.len() as u32,
+                        phase,
+                        &mut phase_indirect_parameters_buffers.buffers,
+                    );
+                }
+
+                if no_indirect_drawing || input_range.is_empty() {
+                    *phase.items[current_index].batch_range_mut() = 0..0;
+                    continue;
+                }
+                let base_input_index = input_range.start;
+                let count = input_range.end - input_range.start;
+                let output_base = data_buffer.add_multiple(count as usize) as u32;
+
+                let (indirect_parameters_index, extra_index) =
+                    prepare_instance_batch_indirect::<GFBD>(
+                        &mut phase_indirect_parameters_buffers.buffers,
+                        extracted_view.retained_view_entity,
+                        item_is_indexed,
+                        output_base,
+                    );
+                // CPU work items must precede the GPU-initialized tail.
+                pending_ranges.push((
+                    item_is_indexed,
+                    base_input_index,
+                    indirect_parameters_index,
+                    count,
+                ));
+
+                let (batch_range, batch_extra_index) =
+                    phase.items[current_index].batch_range_and_extra_index_mut();
+                *batch_range = output_base..(output_base + count);
+                *batch_extra_index = extra_index;
+                continue;
+            }
+
             let current_batch_input_index =
                 GFBD::get_index_and_compare_data(&system_param_item, entity);
 
@@ -2031,6 +2197,9 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             // Add a new preprocessing work item so that the preprocessing
             // shader will copy the per-instance data over.
             if let Some(batch_set) = batch_set.as_ref() {
+                if batch_set.phase_item_start_index != current_index as u32 {
+                    *phase.items[current_index].batch_range_mut() = 0..0;
+                }
                 work_item_buffer.push(
                     item_is_indexed,
                     PreprocessWorkItem {
@@ -2050,6 +2219,10 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             }
         }
 
+        for (indexed, input, indirect, count) in pending_ranges {
+            work_item_buffer.push_range(indexed, input, indirect, count);
+        }
+
         // Flush the final batch set if necessary.
         if let Some(batch_set) = batch_set.take() {
             batch_set.flush(
@@ -2059,6 +2232,27 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             );
         }
     }
+}
+
+/// Allocates the single indirect draw command for a GPU-authored instance
+/// batch and registers it as its own batch set.
+fn prepare_instance_batch_indirect<GFBD: GetFullBatchData>(
+    buffers: &mut UntypedPhaseIndirectParametersBuffers,
+    view: RetainedViewEntity,
+    indexed: bool,
+    output_base: u32,
+) -> (u32, PhaseItemExtraIndex) {
+    let index = buffers.allocate(indexed, 1);
+    GFBD::write_batch_indirect_parameters_metadata(indexed, output_base, None, buffers, index);
+    let range = index..index + 1;
+    buffers.add_batch_set(indexed, &view, range.clone());
+    (
+        index,
+        PhaseItemExtraIndex::IndirectParametersIndex {
+            range,
+            batch_set_index: None,
+        },
+    )
 }
 
 /// How a single sorted phase item can be batched with the previous phase item.
@@ -2356,6 +2550,51 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 }
             }
         }
+
+        for (key, bin) in &phase.instance_batches {
+            let indexed = key.0.indexed();
+
+            for &main_entity in bin.iter() {
+                if no_indirect_drawing {
+                    continue;
+                }
+                let Some(input_range) = GFBD::get_instance_batch(&system_param_item, main_entity)
+                else {
+                    continue;
+                };
+                if input_range.is_empty() {
+                    continue;
+                }
+                let input_uniform_index = crate::render_phase::InputUniformIndex(input_range.start);
+                let count_u32 = input_range.end - input_range.start;
+
+                let output_base = data_buffer.add_multiple(count_u32 as usize) as u32;
+
+                let (indirect_parameters_index, extra_index) =
+                    prepare_instance_batch_indirect::<GFBD>(
+                        &mut phase_indirect_parameters_buffers.buffers,
+                        extracted_view.retained_view_entity,
+                        indexed,
+                        output_base,
+                    );
+                work_item_buffer.push_range(
+                    indexed,
+                    input_uniform_index.0,
+                    indirect_parameters_index,
+                    count_u32,
+                );
+
+                phase.instance_batch_draws.push(InstanceBatchDraw {
+                    batch_set_key: key.0.clone(),
+                    bin_key: key.1.clone(),
+                    batch: BinnedRenderPhaseBatch {
+                        representative_entity: (Entity::PLACEHOLDER, main_entity),
+                        instance_range: output_base..(output_base + count_u32),
+                        extra_index,
+                    },
+                });
+            }
+        }
     }
 
     // Prepare multidrawables.
@@ -2378,6 +2617,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 indexed: ref mut indexed_work_item_buffer,
                 non_indexed: ref mut non_indexed_work_item_buffer,
                 gpu_occlusion_culling: ref mut gpu_occlusion_culling_buffers,
+                ..
             },
         ) = (&mut phase.batch_sets, &mut *work_item_buffer)
         else {
@@ -2785,10 +3025,18 @@ pub fn write_batched_instance_buffers<GFBD>(
                         PreprocessWorkItemBuffers::Indirect {
                             ref mut indexed,
                             ref mut non_indexed,
+                            ref mut ranges_indexed,
+                            ref mut ranges_non_indexed,
                             ref mut gpu_occlusion_culling,
                         } => {
                             indexed.write_buffer(render_device, render_queue);
                             non_indexed.write_buffer(render_device, render_queue);
+                            ranges_indexed
+                                .buffer
+                                .write_buffer(render_device, render_queue);
+                            ranges_non_indexed
+                                .buffer
+                                .write_buffer(render_device, render_queue);
 
                             if let Some(GpuOcclusionCullingWorkItemBuffers {
                                 ref mut late_indexed,
