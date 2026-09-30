@@ -10,8 +10,8 @@ use bevy::{
     prelude::*,
     ui::{InteractionDisabled, Selected},
     ui_widgets::{
-        tablist_self_update, ControlOrientation, SelectedTab, Tab, TabActivation, TabList,
-        ValueChange,
+        tablist_self_update, ControlOrientation, SelectedTab, Tab, TabActivation, TabDragMode,
+        TabDragging, TabInsertionPreview, TabList, TabLocked, TabMoved, ValueChange,
     },
 };
 
@@ -26,7 +26,7 @@ fn main() {
         .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .init_resource::<ControlledSelection>()
         .add_systems(Startup, showcase.spawn())
-        .add_systems(Update, update_tab_styles)
+        .add_systems(Update, (update_tab_styles, show_insertion_points).chain())
         .run();
 }
 
@@ -109,6 +109,28 @@ fn showcase() -> impl SceneList {
                 --
                 @tab_header("External B")
             ]
+            --
+            @section_label("Reorder - drag a tab past its neighbor's center")
+            --
+            @tab_strip(ControlOrientation::Horizontal)
+            TabList {
+                orientation: ControlOrientation::Horizontal,
+                activation: TabActivation::Manual,
+                drag: TabDragMode::Reorder,
+            }
+            @selected_tab(#reorder_outline)
+            on(tablist_self_update)
+            on(apply_tab_move)
+            Children [
+                #reorder_outline @tab_header("Outline")
+                --
+                @tab_header("Locked")
+                TabLocked
+                --
+                @tab_header("Timeline")
+                --
+                @tab_header("Console")
+            ]
         ]
     }
 }
@@ -179,6 +201,12 @@ fn controlled_selection(
     commands.entity(change.source).insert(SelectedTab(state.0));
 }
 
+fn apply_tab_move(moved: On<TabMoved>, mut commands: Commands) {
+    commands
+        .entity(moved.to_strip)
+        .insert_child(moved.index, moved.tab);
+}
+
 fn update_tab_styles(
     focus: Res<InputFocus>,
     focus_visible: Res<InputFocusVisible>,
@@ -188,14 +216,15 @@ fn update_tab_styles(
             &Hovered,
             Has<Selected>,
             Has<InteractionDisabled>,
+            Has<TabDragging>,
             &mut BackgroundColor,
             &mut BorderColor,
         ),
         With<ShowcaseTab>,
     >,
 ) {
-    for (entity, hovered, selected, disabled, mut background, mut border) in &mut tabs {
-        background.0 = match (disabled, selected, hovered.get()) {
+    for (entity, hovered, selected, disabled, dragging, mut background, mut border) in &mut tabs {
+        background.0 = match (disabled || dragging, selected, hovered.get()) {
             (true, _, _) => Color::srgb(0.10, 0.10, 0.11),
             (false, true, _) => Color::srgb(0.18, 0.34, 0.52),
             (false, false, true) => Color::srgb(0.20, 0.21, 0.26),
@@ -206,5 +235,30 @@ fn update_tab_styles(
         } else {
             Color::srgb(0.24, 0.25, 0.30)
         });
+    }
+}
+
+fn show_insertion_points(
+    lists: Query<(&TabInsertionPreview, &Children)>,
+    mut borders: Query<&mut BorderColor, With<ShowcaseTab>>,
+) {
+    let color = Color::srgb(1.0, 0.68, 0.22);
+    for (preview, children) in &lists {
+        for entry in &preview.entries {
+            let remaining = children
+                .iter()
+                .filter(|child| *child != entry.tab)
+                .collect::<Vec<_>>();
+            if let Some(mut border) = remaining
+                .get(entry.index)
+                .and_then(|tab| borders.get_mut(*tab).ok())
+            {
+                border.left = color;
+            } else if let Some(mut border) =
+                remaining.last().and_then(|tab| borders.get_mut(*tab).ok())
+            {
+                border.right = color;
+            }
+        }
     }
 }

@@ -2,16 +2,18 @@ use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
+    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     observer::On,
     query::{Added, Changed, Has, Or, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectEvent},
+    resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut, SystemParam},
     template::FromTemplate,
 };
 use bevy_input::{
@@ -22,9 +24,18 @@ use bevy_input_focus::{
     tab_navigation::TabIndex, FocusCause, FocusedInput, InputFocus, InputFocusSystems,
     InputFocusVisible,
 };
-use bevy_picking::{events::PointerClick, pointer::PointerButton};
+use bevy_math::Vec2;
+use bevy_picking::{
+    events::{
+        PointerCancel, PointerClick, PointerDrag, PointerDragEnd, PointerDragStart, PointerState,
+    },
+    hover::HoverMap,
+    pointer::{PointerButton, PointerId},
+};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui::{InteractionDisabled, Selectable, Selected};
+use bevy_ui::{
+    ComputedNode, InteractionDisabled, Selectable, Selected, UiGlobalTransform, UiScale,
+};
 
 use crate::ControlOrientation;
 
@@ -39,6 +50,17 @@ pub enum TabActivation {
     Automatic,
 }
 
+/// Determines which drag gestures a [`TabList`] accepts.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Default, Clone, PartialEq)]
+pub enum TabDragMode {
+    /// Dragging does not start a tab drag.
+    #[default]
+    Disabled,
+    /// Tabs may be reordered within this list.
+    Reorder,
+}
+
 /// Headless tab-strip behavior and policy.
 ///
 /// Selection is stored separately in [`SelectedTab`]. User interaction emits
@@ -49,6 +71,9 @@ pub enum TabActivation {
 /// Only primary-button clicks change selection. [`InteractionDisabled`] on this entity disables
 /// the whole strip; disabled strips and disabled tabs let pointer and keyboard events propagate
 /// instead of consuming them.
+///
+/// When [`TabList::drag`] allows it, dragging a tab emits [`TabMoved`] on release and does not
+/// change the hierarchy itself.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::TabList)), SelectedTab)]
 #[reflect(Component, Default, Clone, PartialEq)]
@@ -57,6 +82,8 @@ pub struct TabList {
     pub orientation: ControlOrientation,
     /// Whether keyboard navigation requests selection immediately.
     pub activation: TabActivation,
+    /// The drag gestures accepted by this list.
+    pub drag: TabDragMode,
 }
 
 impl Default for TabList {
@@ -64,6 +91,7 @@ impl Default for TabList {
         Self {
             orientation: ControlOrientation::Horizontal,
             activation: TabActivation::default(),
+            drag: TabDragMode::default(),
         }
     }
 }
@@ -89,16 +117,116 @@ pub struct SelectedTab(#[template(built_in)] pub Option<Entity>);
 #[reflect(Component, Default, Clone)]
 pub struct Tab;
 
+/// Prevents a [`Tab`] from starting a drag without disabling focus or activation.
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct TabLocked;
+
+/// Marks a tab whose drag has crossed the movement threshold.
+///
+/// Removed when the drag completes or is cancelled.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Component, Clone, PartialEq)]
+pub struct TabDragging {
+    /// The pointer controlling the drag.
+    pub pointer_id: PointerId,
+}
+
+/// One pointer's proposed insertion point within a [`TabList`].
+///
+/// `index` counts the list's tabs after removing `tab`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Clone, PartialEq)]
+pub struct TabInsertionPoint {
+    /// The pointer controlling this preview.
+    pub pointer_id: PointerId,
+    /// The tab being dragged.
+    pub tab: Entity,
+    /// The proposed insertion index.
+    pub index: usize,
+}
+
+/// The insertion points currently proposed on a [`TabList`].
+///
+/// Present only while at least one accepted drag is over the list, with at most one entry per
+/// pointer.
+#[derive(Component, Debug, Default, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Component, Default, Clone, PartialEq)]
+pub struct TabInsertionPreview {
+    /// Proposed insertions, one for each controlling pointer.
+    pub entries: Vec<TabInsertionPoint>,
+}
+
+/// Proposes moving a tab without changing the entity hierarchy.
+///
+/// `index` counts the destination's tabs after removing `tab`, so an observer can apply the move
+/// with [`insert_child`](bevy_ecs::system::EntityCommands::insert_child) when the list contains
+/// only tabs.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, EntityEvent, Reflect)]
+#[reflect(Event, Clone, PartialEq)]
+pub struct TabMoved {
+    /// The list that currently contains the tab and receives this event.
+    #[event_target]
+    pub from_strip: Entity,
+    /// The tab to move.
+    pub tab: Entity,
+    /// The destination list.
+    pub to_strip: Entity,
+    /// The proposed insertion index.
+    pub index: usize,
+}
+
+const TAB_DRAG_THRESHOLD: f32 = 4.0;
+
+#[derive(Resource, Default)]
+struct TabDragGestures(Vec<TabDragGesture>);
+
+struct TabDragGesture {
+    pointer_id: PointerId,
+    tab: Entity,
+    source: Entity,
+    state: TabDragState,
+    preview: Option<(Entity, usize)>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TabDragState {
+    Pending,
+    Accepted,
+    Cancelled,
+}
+
+impl TabDragGestures {
+    fn position(&self, pointer_id: PointerId, tab: Entity) -> Option<usize> {
+        self.0
+            .iter()
+            .position(|gesture| gesture.pointer_id == pointer_id && gesture.tab == tab)
+    }
+}
+
 /// Plugin that registers tab-list observers and derived state.
 pub struct TabPlugin;
 
 impl Plugin for TabPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(tablist_on_click)
+        app.init_resource::<TabDragGestures>()
+            .init_resource::<HoverMap>()
+            .init_resource::<UiScale>()
+            .add_observer(tablist_on_click)
             .add_observer(tab_on_key_input)
+            .add_observer(tab_on_drag_start)
+            .add_observer(tab_on_drag)
+            .add_observer(tab_on_drag_end)
+            .add_observer(tab_on_pointer_cancel)
+            .add_observer(cancel_tab_drags_on_escape)
             .add_systems(
                 PostUpdate,
-                update_tablist_derived_state
+                (
+                    cleanup_tab_drags,
+                    sync_tab_insertion_previews,
+                    update_tablist_derived_state,
+                )
+                    .chain()
                     .after(crate::MenuFocusSystem)
                     .before(InputFocusSystems::FocusChangeEvents),
             );
@@ -123,6 +251,7 @@ fn tablist_on_click(
     tablists: Query<(&SelectedTab, Has<InteractionDisabled>), With<TabList>>,
     tabs: Query<Has<InteractionDisabled>, With<Tab>>,
     parents: Query<&ChildOf>,
+    gestures: Res<TabDragGestures>,
     mut commands: Commands,
 ) {
     if click.button != PointerButton::Primary {
@@ -155,7 +284,10 @@ fn tablist_on_click(
     }
 
     click.propagate(false);
-    if selection.0 != Some(tab) {
+    let dragged = gestures
+        .position(click.pointer.id, tab)
+        .is_some_and(|index| gestures.0[index].state != TabDragState::Pending);
+    if !dragged && selection.0 != Some(tab) {
         commands.trigger(crate::ValueChange::<Option<Entity>> {
             source: click.entity,
             value: Some(tab),
@@ -276,6 +408,290 @@ fn tab_on_key_input(
     }
 }
 
+fn tab_on_drag_start(
+    mut event: On<PointerDragStart>,
+    tabs: Query<(Has<InteractionDisabled>, Has<TabLocked>), With<Tab>>,
+    tablists: Query<(&TabList, Has<InteractionDisabled>)>,
+    parents: Query<&ChildOf>,
+    mut gestures: ResMut<TabDragGestures>,
+) {
+    if event.button != PointerButton::Primary {
+        return;
+    }
+    let Ok((disabled, locked)) = tabs.get(event.entity) else {
+        return;
+    };
+    let Ok(parent) = parents.get(event.entity) else {
+        return;
+    };
+    let Ok((tablist, list_disabled)) = tablists.get(parent.parent()) else {
+        return;
+    };
+    if disabled
+        || locked
+        || list_disabled
+        || tablist.drag == TabDragMode::Disabled
+        || gestures
+            .0
+            .iter()
+            .any(|gesture| gesture.pointer_id == event.pointer.id || gesture.tab == event.entity)
+    {
+        return;
+    }
+
+    event.propagate(false);
+    gestures.0.push(TabDragGesture {
+        pointer_id: event.pointer.id,
+        tab: event.entity,
+        source: parent.parent(),
+        state: TabDragState::Pending,
+        preview: None,
+    });
+}
+
+fn tab_on_drag(
+    mut event: On<PointerDrag>,
+    mut gestures: ResMut<TabDragGestures>,
+    targets: TabDropTargets,
+    mut commands: Commands,
+) {
+    let Some(index) = gestures.position(event.pointer.id, event.entity) else {
+        return;
+    };
+    event.propagate(false);
+    let gesture = &mut gestures.0[index];
+    match gesture.state {
+        TabDragState::Cancelled => return,
+        TabDragState::Pending
+            if event.distance.length_squared() < TAB_DRAG_THRESHOLD * TAB_DRAG_THRESHOLD =>
+        {
+            return;
+        }
+        TabDragState::Pending => {
+            gesture.state = TabDragState::Accepted;
+            commands.entity(gesture.tab).insert(TabDragging {
+                pointer_id: gesture.pointer_id,
+            });
+        }
+        TabDragState::Accepted => {}
+    }
+    gesture.preview = targets.resolve(gesture, event.pointer.position);
+}
+
+fn tab_on_drag_end(
+    mut event: On<PointerDragEnd>,
+    mut gestures: ResMut<TabDragGestures>,
+    targets: TabDropTargets,
+    mut commands: Commands,
+) {
+    let Some(index) = gestures.position(event.pointer.id, event.entity) else {
+        return;
+    };
+    event.propagate(false);
+    let gesture = gestures.0.remove(index);
+    if gesture.state != TabDragState::Accepted {
+        return;
+    }
+    end_tab_drag(&gesture, &mut commands);
+    if let Some((to_strip, index)) = targets.resolve(&gesture, event.pointer.position) {
+        commands.trigger(TabMoved {
+            from_strip: gesture.source,
+            tab: gesture.tab,
+            to_strip,
+            index,
+        });
+    }
+}
+
+fn tab_on_pointer_cancel(
+    event: On<PointerCancel>,
+    mut gestures: ResMut<TabDragGestures>,
+    mut commands: Commands,
+) {
+    let pointer_id = event.pointer.id;
+    if !gestures
+        .0
+        .iter()
+        .any(|gesture| gesture.pointer_id == pointer_id)
+    {
+        return;
+    }
+    gestures.0.retain(|gesture| {
+        if gesture.pointer_id != pointer_id {
+            return true;
+        }
+        end_tab_drag(gesture, &mut commands);
+        false
+    });
+}
+
+fn cancel_tab_drags_on_escape(
+    mut event: On<FocusedInput<KeyboardInput>>,
+    mut gestures: ResMut<TabDragGestures>,
+    mut commands: Commands,
+) {
+    if event.input.state != ButtonState::Pressed
+        || event.input.repeat
+        || event.input.key_code != KeyCode::Escape
+        || !gestures
+            .0
+            .iter()
+            .any(|gesture| gesture.state == TabDragState::Accepted)
+    {
+        return;
+    }
+    event.propagate(false);
+    for gesture in &mut gestures.0 {
+        if gesture.state == TabDragState::Accepted {
+            end_tab_drag(gesture, &mut commands);
+            gesture.state = TabDragState::Cancelled;
+            gesture.preview = None;
+        }
+    }
+}
+
+fn end_tab_drag(gesture: &TabDragGesture, commands: &mut Commands) {
+    if gesture.state == TabDragState::Accepted
+        && let Ok(mut tab) = commands.get_entity(gesture.tab)
+    {
+        tab.try_remove::<TabDragging>();
+    }
+}
+
+/// Drops gestures whose tab is gone or whose pointer is no longer dragging.
+fn cleanup_tab_drags(
+    mut gestures: ResMut<TabDragGestures>,
+    tabs: Query<(), With<Tab>>,
+    pointer_state: Option<Res<PointerState>>,
+    mut commands: Commands,
+) {
+    if gestures.0.is_empty() {
+        return;
+    }
+    gestures.0.retain(|gesture| {
+        let dragging = pointer_state.as_ref().is_none_or(|pointer_state| {
+            pointer_state
+                .get(gesture.pointer_id, PointerButton::Primary)
+                .is_some_and(|state| !state.dragging.is_empty())
+        });
+        if dragging && tabs.contains(gesture.tab) {
+            return true;
+        }
+        end_tab_drag(gesture, &mut commands);
+        false
+    });
+}
+
+fn sync_tab_insertion_previews(
+    gestures: Res<TabDragGestures>,
+    mut tablists: Query<(Entity, Option<&mut TabInsertionPreview>), With<TabList>>,
+    mut commands: Commands,
+) {
+    if !gestures.is_changed() {
+        return;
+    }
+    for (list, preview) in &mut tablists {
+        let entries = gestures
+            .0
+            .iter()
+            .filter_map(|gesture| {
+                let (destination, index) = gesture.preview?;
+                (destination == list).then_some(TabInsertionPoint {
+                    pointer_id: gesture.pointer_id,
+                    tab: gesture.tab,
+                    index,
+                })
+            })
+            .collect::<Vec<_>>();
+        match preview {
+            Some(_) if entries.is_empty() => {
+                commands.entity(list).remove::<TabInsertionPreview>();
+            }
+            Some(mut preview) => {
+                preview.set_if_neq(TabInsertionPreview { entries });
+            }
+            None if !entries.is_empty() => {
+                commands
+                    .entity(list)
+                    .insert(TabInsertionPreview { entries });
+            }
+            None => {}
+        }
+    }
+}
+
+/// Resolves the list and insertion index under a dragging pointer.
+#[derive(SystemParam)]
+struct TabDropTargets<'w, 's> {
+    tablists: Query<'w, 's, &'static TabList>,
+    parents: Query<'w, 's, &'static ChildOf>,
+    children: Query<'w, 's, &'static Children>,
+    tabs: Query<'w, 's, Option<(&'static ComputedNode, &'static UiGlobalTransform)>, With<Tab>>,
+    hover_map: Res<'w, HoverMap>,
+    ui_scale: Res<'w, UiScale>,
+}
+
+impl TabDropTargets<'_, '_> {
+    /// Returns the source list and insertion index when the pointer is over the source list.
+    fn resolve(&self, gesture: &TabDragGesture, position: Vec2) -> Option<(Entity, usize)> {
+        let tablist = self.tablists.get(gesture.source).ok()?;
+        if tablist.drag == TabDragMode::Disabled {
+            return None;
+        }
+        let over_source = self
+            .hover_map
+            .get(&gesture.pointer_id)?
+            .keys()
+            .any(|entity| self.nearest_tablist(*entity) == Some(gesture.source));
+        if !over_source {
+            return None;
+        }
+        let index = self.insertion_index(gesture.source, tablist, gesture.tab, position)?;
+        Some((gesture.source, index))
+    }
+
+    fn nearest_tablist(&self, entity: Entity) -> Option<Entity> {
+        if self.tablists.contains(entity) {
+            return Some(entity);
+        }
+        self.parents
+            .iter_ancestors(entity)
+            .find(|ancestor| self.tablists.contains(*ancestor))
+    }
+
+    /// Counts the tabs, other than `dragged`, whose center lies before `position`.
+    fn insertion_index(
+        &self,
+        list: Entity,
+        tablist: &TabList,
+        dragged: Entity,
+        position: Vec2,
+    ) -> Option<usize> {
+        let axis = |point: Vec2| match tablist.orientation {
+            ControlOrientation::Horizontal => point.x,
+            ControlOrientation::Vertical => point.y,
+        };
+        let position = axis(position / self.ui_scale.0.max(f32::EPSILON));
+        let mut index = 0;
+        if let Ok(children) = self.children.get(list) {
+            for child in children.iter().copied() {
+                if child == dragged {
+                    continue;
+                }
+                let Ok(geometry) = self.tabs.get(child) else {
+                    continue;
+                };
+                let (node, transform) = geometry?;
+                if position < axis(transform.translation * node.inverse_scale_factor) {
+                    return Some(index);
+                }
+                index += 1;
+            }
+        }
+        Some(index)
+    }
+}
+
 /// Derives per-tab state from each [`TabList`]'s [`SelectedTab`] and the current keyboard focus:
 ///
 /// - [`Selected`] markers mirror a validated `SelectedTab` (the referenced entity must be an
@@ -349,13 +765,16 @@ mod tests {
     use bevy_math::Vec2;
     use bevy_picking::{
         backend::HitData,
-        events::Pointer,
+        events::{DragEntry, Pointer},
         pointer::{Location, PointerButton, PointerId},
     };
     use bevy_window::{PrimaryWindow, Window, WindowRef};
 
     #[derive(Resource, Default)]
     struct SelectionRequests(Vec<(Entity, Option<Entity>)>);
+
+    #[derive(Resource, Default)]
+    struct TabMoveLog(Vec<TabMoved>);
 
     fn tab_app() -> (App, Entity) {
         let mut app = App::new();
@@ -366,12 +785,16 @@ mod tests {
             TabPlugin,
         ))
         .init_resource::<SelectionRequests>()
+        .init_resource::<TabMoveLog>()
         .add_observer(
             |change: On<crate::ValueChange<Option<Entity>>>,
              mut requests: ResMut<SelectionRequests>| {
                 requests.0.push((change.source, change.value));
             },
-        );
+        )
+        .add_observer(|event: On<TabMoved>, mut log: ResMut<TabMoveLog>| {
+            log.0.push(*event.event());
+        });
         let window = app
             .world_mut()
             .spawn((Window::default(), PrimaryWindow))
@@ -390,6 +813,7 @@ mod tests {
             KeyCode::End => Key::End,
             KeyCode::Enter => Key::Enter,
             KeyCode::Space => Key::Space,
+            KeyCode::Escape => Key::Escape,
             _ => Key::Unidentified(bevy_input::keyboard::NativeKey::Unidentified),
         };
         app.world_mut().write_message(KeyboardInput {
@@ -407,22 +831,112 @@ mod tests {
         click_with_button(app, target, window, PointerButton::Primary);
     }
 
-    fn click_with_button(app: &mut App, target: Entity, window: Entity, button: PointerButton) {
-        let location = Location {
+    fn window_location(window: Entity, position: Vec2) -> Location {
+        Location {
             target: bevy_camera::NormalizedRenderTarget::Window(
                 WindowRef::Entity(window).normalize(Some(window)).unwrap(),
             ),
-            position: Vec2::ZERO,
-        };
+            position,
+        }
+    }
+
+    fn click_with_button(app: &mut App, target: Entity, window: Entity, button: PointerButton) {
+        trigger_click(app, target, window, button);
+        app.update();
+    }
+
+    fn trigger_click(app: &mut App, target: Entity, window: Entity, button: PointerButton) {
         app.world_mut().trigger(PointerClick {
             entity: target,
-            pointer: Pointer::new(PointerId::Mouse, location),
+            pointer: Pointer::new(PointerId::Mouse, window_location(window, Vec2::ZERO)),
             button,
             hit: HitData::new(window, 0.0, None, None),
             duration: core::time::Duration::from_millis(10),
             count: 1,
         });
+    }
+
+    fn reorder_list(app: &mut App, window: Entity) -> Entity {
+        app.world_mut()
+            .spawn((
+                TabList {
+                    drag: TabDragMode::Reorder,
+                    ..Default::default()
+                },
+                ChildOf(window),
+            ))
+            .id()
+    }
+
+    fn placed_tab(app: &mut App, list: Entity, x: f32) -> Entity {
+        app.world_mut()
+            .spawn((
+                Tab,
+                ComputedNode::default(),
+                UiGlobalTransform::from_xy(x, 20.0),
+                ChildOf(list),
+            ))
+            .id()
+    }
+
+    fn hover(app: &mut App, pointer_id: PointerId, entity: Entity, window: Entity) {
+        app.world_mut()
+            .resource_mut::<HoverMap>()
+            .entry(pointer_id)
+            .or_default()
+            .insert(entity, HitData::new(window, 0.0, None, None));
+    }
+
+    fn start_drag(app: &mut App, target: Entity, window: Entity, pointer_id: PointerId) {
+        app.world_mut().trigger(PointerDragStart {
+            entity: target,
+            pointer: Pointer::new(pointer_id, window_location(window, Vec2::ZERO)),
+            button: PointerButton::Primary,
+            hit: HitData::new(window, 0.0, None, None),
+        });
         app.update();
+    }
+
+    fn drag_to(app: &mut App, target: Entity, window: Entity, pointer_id: PointerId, x: f32) {
+        app.world_mut().trigger(PointerDrag {
+            entity: target,
+            pointer: Pointer::new(pointer_id, window_location(window, Vec2::new(x, 20.0))),
+            button: PointerButton::Primary,
+            distance: Vec2::new(x, 0.0),
+            delta: Vec2::new(x, 0.0),
+        });
+        app.update();
+    }
+
+    fn trigger_drag_end(app: &mut App, target: Entity, window: Entity, x: f32) {
+        app.world_mut().trigger(PointerDragEnd {
+            entity: target,
+            pointer: Pointer::new(
+                PointerId::Mouse,
+                window_location(window, Vec2::new(x, 20.0)),
+            ),
+            button: PointerButton::Primary,
+            distance: Vec2::new(x, 0.0),
+        });
+    }
+
+    fn end_drag(app: &mut App, target: Entity, window: Entity, x: f32) {
+        trigger_drag_end(app, target, window, x);
+        app.update();
+    }
+
+    fn preview(app: &App, list: Entity) -> Option<Vec<TabInsertionPoint>> {
+        app.world()
+            .entity(list)
+            .get::<TabInsertionPreview>()
+            .map(|preview| preview.entries.clone())
+    }
+
+    fn dragging(app: &App, tab: Entity) -> Option<PointerId> {
+        app.world()
+            .entity(tab)
+            .get::<TabDragging>()
+            .map(|dragging| dragging.pointer_id)
     }
 
     #[test]
@@ -809,5 +1323,304 @@ mod tests {
 
         assert!(app.world().resource::<SelectionRequests>().0.is_empty());
         assert_eq!(app.world().resource::<InputFocus>().get(), Some(first));
+    }
+
+    #[test]
+    fn tab_drag_is_accepted_only_after_crossing_movement_threshold() {
+        let (mut app, window) = tab_app();
+        let list = reorder_list(&mut app, window);
+        let tab = app.world_mut().spawn((Tab, ChildOf(list))).id();
+        app.update();
+
+        start_drag(&mut app, tab, window, PointerId::Mouse);
+        drag_to(&mut app, tab, window, PointerId::Mouse, 3.0);
+        assert_eq!(dragging(&app, tab), None);
+
+        drag_to(&mut app, tab, window, PointerId::Mouse, 4.0);
+        assert_eq!(dragging(&app, tab), Some(PointerId::Mouse));
+    }
+
+    #[test]
+    fn disabled_mode_locked_tabs_and_disabled_lists_do_not_drag() {
+        let (mut app, window) = tab_app();
+        let disabled_mode = app
+            .world_mut()
+            .spawn((TabList::default(), ChildOf(window)))
+            .id();
+        let disabled_mode_tab = app.world_mut().spawn((Tab, ChildOf(disabled_mode))).id();
+        let reorder = reorder_list(&mut app, window);
+        let locked_tab = app
+            .world_mut()
+            .spawn((Tab, TabLocked, ChildOf(reorder)))
+            .id();
+        let disabled_list = reorder_list(&mut app, window);
+        app.world_mut()
+            .entity_mut(disabled_list)
+            .insert(InteractionDisabled);
+        let disabled_list_tab = app.world_mut().spawn((Tab, ChildOf(disabled_list))).id();
+        app.update();
+
+        for (pointer_id, tab) in [
+            (PointerId::Mouse, disabled_mode_tab),
+            (PointerId::Touch(1), locked_tab),
+            (PointerId::Touch(2), disabled_list_tab),
+        ] {
+            start_drag(&mut app, tab, window, pointer_id);
+            drag_to(&mut app, tab, window, pointer_id, 20.0);
+            assert_eq!(dragging(&app, tab), None);
+        }
+        assert!(app.world().entity(locked_tab).contains::<Selectable>());
+    }
+
+    #[test]
+    fn drop_proposes_post_removal_index_without_mutating_hierarchy() {
+        let (mut app, window) = tab_app();
+        let list = reorder_list(&mut app, window);
+        let first = placed_tab(&mut app, list, 50.0);
+        let second = placed_tab(&mut app, list, 150.0);
+        let third = placed_tab(&mut app, list, 250.0);
+        app.update();
+        hover(&mut app, PointerId::Mouse, list, window);
+        let order = [first, second, third];
+
+        start_drag(&mut app, first, window, PointerId::Mouse);
+        drag_to(&mut app, first, window, PointerId::Mouse, 200.0);
+        assert_eq!(
+            preview(&app, list),
+            Some(vec![TabInsertionPoint {
+                pointer_id: PointerId::Mouse,
+                tab: first,
+                index: 1,
+            }])
+        );
+
+        drag_to(&mut app, first, window, PointerId::Mouse, 400.0);
+        assert_eq!(preview(&app, list).unwrap()[0].index, 2);
+
+        end_drag(&mut app, first, window, 400.0);
+        assert_eq!(
+            app.world().resource::<TabMoveLog>().0,
+            [TabMoved {
+                from_strip: list,
+                tab: first,
+                to_strip: list,
+                index: 2,
+            }]
+        );
+        assert_eq!(
+            app.world().entity(list).get::<Children>().unwrap().as_ref(),
+            order
+        );
+        assert_eq!(preview(&app, list), None);
+        assert_eq!(dragging(&app, first), None);
+    }
+
+    #[test]
+    fn insertion_index_accounts_for_ui_scale() {
+        let (mut app, window) = tab_app();
+        app.insert_resource(UiScale(2.0));
+        let list = reorder_list(&mut app, window);
+        let first = placed_tab(&mut app, list, 50.0);
+        placed_tab(&mut app, list, 150.0);
+        app.update();
+        hover(&mut app, PointerId::Mouse, list, window);
+
+        start_drag(&mut app, first, window, PointerId::Mouse);
+        drag_to(&mut app, first, window, PointerId::Mouse, 200.0);
+
+        assert_eq!(preview(&app, list).unwrap()[0].index, 0);
+    }
+
+    #[test]
+    fn release_outside_the_source_list_does_not_propose_a_move() {
+        let (mut app, window) = tab_app();
+        let source = reorder_list(&mut app, window);
+        let other = reorder_list(&mut app, window);
+        let dragged = placed_tab(&mut app, source, 50.0);
+        let other_tab = placed_tab(&mut app, other, 150.0);
+        app.update();
+        hover(&mut app, PointerId::Mouse, other_tab, window);
+
+        start_drag(&mut app, dragged, window, PointerId::Mouse);
+        drag_to(&mut app, dragged, window, PointerId::Mouse, 200.0);
+        assert_eq!(preview(&app, source), None);
+        assert_eq!(preview(&app, other), None);
+
+        end_drag(&mut app, dragged, window, 200.0);
+        assert!(app.world().resource::<TabMoveLog>().0.is_empty());
+        assert_eq!(dragging(&app, dragged), None);
+    }
+
+    #[test]
+    fn previews_are_tracked_per_pointer() {
+        let (mut app, window) = tab_app();
+        let list = reorder_list(&mut app, window);
+        let mouse_tab = placed_tab(&mut app, list, 50.0);
+        let touch_tab = placed_tab(&mut app, list, 150.0);
+        app.update();
+        for pointer_id in [PointerId::Mouse, PointerId::Touch(1)] {
+            hover(&mut app, pointer_id, list, window);
+        }
+
+        start_drag(&mut app, mouse_tab, window, PointerId::Mouse);
+        drag_to(&mut app, mouse_tab, window, PointerId::Mouse, 200.0);
+        start_drag(&mut app, touch_tab, window, PointerId::Touch(1));
+        drag_to(&mut app, touch_tab, window, PointerId::Touch(1), 20.0);
+        assert_eq!(preview(&app, list).map(|entries| entries.len()), Some(2));
+
+        app.world_mut().trigger(PointerCancel {
+            entity: list,
+            pointer: Pointer::new(PointerId::Touch(1), window_location(window, Vec2::ZERO)),
+            hit: HitData::new(window, 0.0, None, None),
+        });
+        app.update();
+
+        assert_eq!(
+            preview(&app, list),
+            Some(vec![TabInsertionPoint {
+                pointer_id: PointerId::Mouse,
+                tab: mouse_tab,
+                index: 1,
+            }])
+        );
+        assert_eq!(dragging(&app, touch_tab), None);
+        assert_eq!(dragging(&app, mouse_tab), Some(PointerId::Mouse));
+    }
+
+    #[test]
+    fn the_same_tab_cannot_be_dragged_by_two_pointers() {
+        let (mut app, window) = tab_app();
+        let list = reorder_list(&mut app, window);
+        let tab = app.world_mut().spawn((Tab, ChildOf(list))).id();
+        app.update();
+
+        start_drag(&mut app, tab, window, PointerId::Mouse);
+        start_drag(&mut app, tab, window, PointerId::Touch(1));
+        drag_to(&mut app, tab, window, PointerId::Touch(1), 20.0);
+        assert_eq!(dragging(&app, tab), None);
+
+        drag_to(&mut app, tab, window, PointerId::Mouse, 20.0);
+        assert_eq!(dragging(&app, tab), Some(PointerId::Mouse));
+    }
+
+    #[test]
+    fn escape_cancels_accepted_drags_until_release() {
+        let (mut app, window) = tab_app();
+        let list = reorder_list(&mut app, window);
+        let first = placed_tab(&mut app, list, 50.0);
+        let second = placed_tab(&mut app, list, 150.0);
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(first, FocusCause::Navigated);
+        app.update();
+        hover(&mut app, PointerId::Mouse, list, window);
+
+        start_drag(&mut app, second, window, PointerId::Mouse);
+        drag_to(&mut app, second, window, PointerId::Mouse, 20.0);
+        press_key(&mut app, KeyCode::Escape, window);
+        assert_eq!(dragging(&app, second), None);
+        assert_eq!(preview(&app, list), None);
+
+        drag_to(&mut app, second, window, PointerId::Mouse, 30.0);
+        assert_eq!(dragging(&app, second), None);
+        assert_eq!(preview(&app, list), None);
+
+        trigger_click(&mut app, second, window, PointerButton::Primary);
+        end_drag(&mut app, second, window, 30.0);
+        assert!(app.world().resource::<TabMoveLog>().0.is_empty());
+        assert!(app.world().resource::<SelectionRequests>().0.is_empty());
+    }
+
+    #[test]
+    fn despawning_the_dragged_tab_clears_the_preview() {
+        let (mut app, window) = tab_app();
+        let list = reorder_list(&mut app, window);
+        let tab = placed_tab(&mut app, list, 50.0);
+        app.update();
+        hover(&mut app, PointerId::Mouse, list, window);
+
+        start_drag(&mut app, tab, window, PointerId::Mouse);
+        drag_to(&mut app, tab, window, PointerId::Mouse, 20.0);
+        assert!(preview(&app, list).is_some());
+
+        app.world_mut().despawn(tab);
+        app.update();
+
+        assert_eq!(preview(&app, list), None);
+        let next = placed_tab(&mut app, list, 50.0);
+        start_drag(&mut app, next, window, PointerId::Mouse);
+        drag_to(&mut app, next, window, PointerId::Mouse, 20.0);
+        assert_eq!(dragging(&app, next), Some(PointerId::Mouse));
+    }
+
+    #[test]
+    fn gesture_is_dropped_when_the_pointer_stops_dragging() {
+        let (mut app, window) = tab_app();
+        app.init_resource::<PointerState>();
+        let list = reorder_list(&mut app, window);
+        let tab = app.world_mut().spawn((Tab, ChildOf(list))).id();
+        app.world_mut()
+            .resource_mut::<PointerState>()
+            .get_mut(PointerId::Mouse, PointerButton::Primary)
+            .dragging
+            .insert(
+                tab,
+                DragEntry {
+                    start_pos: Vec2::ZERO,
+                    latest_pos: Vec2::ZERO,
+                },
+            );
+        app.update();
+
+        start_drag(&mut app, tab, window, PointerId::Mouse);
+        drag_to(&mut app, tab, window, PointerId::Mouse, 20.0);
+        assert_eq!(dragging(&app, tab), Some(PointerId::Mouse));
+
+        app.world_mut()
+            .resource_mut::<PointerState>()
+            .clear(PointerId::Mouse);
+        app.update();
+
+        assert_eq!(dragging(&app, tab), None);
+    }
+
+    #[test]
+    fn click_released_on_a_dragged_tab_does_not_request_selection() {
+        let (mut app, window) = tab_app();
+        let list = reorder_list(&mut app, window);
+        let tab = placed_tab(&mut app, list, 50.0);
+        app.update();
+        hover(&mut app, PointerId::Mouse, list, window);
+
+        start_drag(&mut app, tab, window, PointerId::Mouse);
+        drag_to(&mut app, tab, window, PointerId::Mouse, 20.0);
+        trigger_click(&mut app, tab, window, PointerButton::Primary);
+        end_drag(&mut app, tab, window, 20.0);
+        assert!(app.world().resource::<SelectionRequests>().0.is_empty());
+
+        click(&mut app, tab, window);
+        assert_eq!(
+            app.world().resource::<SelectionRequests>().0,
+            [(list, Some(tab))]
+        );
+    }
+
+    #[test]
+    fn click_after_a_drag_below_the_threshold_requests_selection() {
+        let (mut app, window) = tab_app();
+        let list = reorder_list(&mut app, window);
+        let tab = placed_tab(&mut app, list, 50.0);
+        app.update();
+
+        start_drag(&mut app, tab, window, PointerId::Mouse);
+        drag_to(&mut app, tab, window, PointerId::Mouse, 2.0);
+        trigger_click(&mut app, tab, window, PointerButton::Primary);
+        end_drag(&mut app, tab, window, 2.0);
+
+        assert_eq!(
+            app.world().resource::<SelectionRequests>().0,
+            [(list, Some(tab))]
+        );
+        assert!(app.world().resource::<TabMoveLog>().0.is_empty());
     }
 }
