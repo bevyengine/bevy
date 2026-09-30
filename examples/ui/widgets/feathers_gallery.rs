@@ -23,9 +23,10 @@ use bevy::{
     ui_widgets::{
         checkbox_self_update, listbox_update_selection,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-        radio_self_update, slider_self_update, tree_view_expand_self_update, tree_view_self_update,
-        Activate, ActivateOnPress, NumericRange, NumericValue, RadioGroup, RequestClose,
-        SliderPrecision, SliderStep, SliderValue, TreeItemExpandChange, ValueChange,
+        radio_self_update, slider_self_update, split_pane_self_update,
+        tree_view_expand_self_update, tree_view_self_update, Activate, ActivateOnPress,
+        ControlOrientation, NumericRange, NumericValue, RadioGroup, RequestClose, SliderPrecision,
+        SliderStep, SliderValue, TreeItemExpandChange, ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -1000,6 +1001,47 @@ fn demo_column_2() -> impl Scene {
                         max_height: px(130)
                     }
                     on(listbox_update_selection)
+                ]
+            ]
+            --
+            @subpane() Children [
+                @subpane_header() Children [
+                    @caption("Split Pane")
+                ]
+                --
+                @subpane_body() Children [
+                    @FeathersSplitPane
+                    Node {
+                        height: px(140)
+                    }
+                    on(split_pane_self_update)
+                    Children [
+                        @FeathersPane { @min_size: 40.0 }
+                        Node { padding: px(4) }
+                        Children [ @label("Left") ]
+                        --
+                        @FeathersSplitPaneHandle
+                        --
+                        @FeathersPane { @size: 2.0, @min_size: 60.0 }
+                        Children [
+                            @FeathersSplitPane { @orientation: ControlOrientation::Vertical }
+                            Node {
+                                flex_grow: 1.0
+                            }
+                            on(split_pane_self_update)
+                            Children [
+                                @FeathersPane { @min_size: 30.0 }
+                                Node { padding: px(4) }
+                                Children [ @label("Top") ]
+                                --
+                                @FeathersSplitPaneHandle
+                                --
+                                @FeathersPane { @min_size: 30.0 }
+                                Node { padding: px(4) }
+                                Children [ @label("Bottom") ]
+                            ]
+                        ]
+                    ]
                 ]
             ]
         ]

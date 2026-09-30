@@ -5555,6 +5555,17 @@ category = "Usage"
 wasm = true
 
 [[example]]
+name = "headless_split_pane"
+path = "examples/ui/widgets/headless_split_pane.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_split_pane]
+name = "Headless Split Pane"
+description = "Demonstrates nested headless split panes with draggable handles"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "headless_tabs"
 path = "examples/ui/widgets/headless_tabs.rs"
 doc-scrape-examples = true
