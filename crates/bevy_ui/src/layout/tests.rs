@@ -3663,3 +3663,30 @@ fn display_none_on_a_ghost_node_is_ignored() {
         Vec2::splat(0.)
     );
 }
+
+#[test]
+fn node_with_unchanged_inputs_is_not_updated() {
+    let mut app = setup_ui_test_app();
+
+    let world = app.world_mut();
+    let node = world
+        .spawn(Node {
+            width: px(20),
+            height: px(20),
+            ..default()
+        })
+        .id();
+
+    app.update();
+
+    app.world_mut()
+        .entity_mut(node)
+        .insert(ComputedNode::default());
+
+    app.update();
+
+    assert_eq!(
+        app.world().get::<ComputedNode>(node).unwrap().size,
+        Vec2::ZERO
+    );
+}
