@@ -1,7 +1,5 @@
 //! Shows how to use an infinite grid in a 2D scene.
 
-use std::ops::RangeInclusive;
-
 use bevy::{
     dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin, InfiniteGridSettings},
     input::mouse::{AccumulatedMouseScroll, MouseScrollPixelsPerLine},
