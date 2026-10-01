@@ -52,7 +52,7 @@ impl Plugin for RaytracingScenePlugin {
         if !features.contains(SolariPlugins::required_wgpu_features()) {
             warn!(
                 "RaytracingScenePlugin not loaded. GPU lacks support for required features: {:?}.",
-                SolariPlugins::required_wgpu_features().difference(features)
+                SolariPlugins::required_wgpu_features().difference(*features)
             );
             return;
         }
