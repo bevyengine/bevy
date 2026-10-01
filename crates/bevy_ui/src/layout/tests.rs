@@ -3689,7 +3689,7 @@ fn node_with_unchanged_inputs_is_not_updated() {
 }
 
 #[test]
-fn root_ghost_resolve_precentage_translations_based_on_target_size() {
+fn root_ghost_resolve_percentage_translations_based_on_target_size() {
     let mut app = setup_ui_test_app();
 
     let world = app.world_mut();
