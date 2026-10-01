@@ -7,6 +7,12 @@ import package::realtime::bindings::{light_tile_samples, light_tile_resolved_sam
 
 enable wgpu_ray_query;
 
+const CONE_COS_MASK = 0x7FFFu;
+const CONE_COS_MAX = 32767.0;
+const CONE_COS_OUTER_SHIFT = 15u;
+const EMISSION_COSINE_EXPONENT_SHIFT = 30u;
+const BRDF_RAYS_CAN_HIT_SHIFT = 31u;
+
 @compute @workgroup_size(1024, 1, 1)
 fn presample_light_tiles(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(local_invocation_index) sample_index: u32) {
     let tile_id = workgroup_id.x;
@@ -31,7 +37,7 @@ fn pack_resolved_light_sample(sample: ResolvedLightSample) -> ResolvedLightSampl
             bitcast<u32>(inverse_pdf),
             pack2x16unorm(octahedral_encode(sample.emission_axis)),
             pack_emission_cone(sample.cone_cos_inner, sample.cone_cos_outer, sample.emission_cosine_exponent)
-                | (u32(sample.brdf_rays_can_hit) << 31u),
+                | (u32(sample.brdf_rays_can_hit) << BRDF_RAYS_CAN_HIT_SHIFT),
         ),
     );
 }
@@ -46,17 +52,16 @@ fn unpack_resolved_light_sample(packed: ResolvedLightSamplePacked, exposure: f32
         abs(inverse_pdf),
         octahedral_decode(unpack2x16unorm(packed.b.z)),
         unpack_cone_cos(cone & CONE_COS_MASK),
-        unpack_cone_cos((cone >> 15u) & CONE_COS_MASK),
-        f32((cone >> 30u) & 1u),
-        (cone >> 31u) != 0u,
+        unpack_cone_cos((cone >> CONE_COS_OUTER_SHIFT) & CONE_COS_MASK),
+        f32((cone >> EMISSION_COSINE_EXPONENT_SHIFT) & 1u),
+        (cone >> BRDF_RAYS_CAN_HIT_SHIFT) != 0u,
     );
 }
 
-const CONE_COS_MASK = 0x7FFFu;
-const CONE_COS_MAX = 32767.0;
-
 fn pack_emission_cone(cos_inner: f32, cos_outer: f32, emission_cosine_exponent: f32) -> u32 {
-    return pack_cone_cos(cos_inner) | (pack_cone_cos(cos_outer) << 15u) | (u32(emission_cosine_exponent == 1.0) << 30u);
+    return pack_cone_cos(cos_inner)
+        | (pack_cone_cos(cos_outer) << CONE_COS_OUTER_SHIFT)
+        | (u32(emission_cosine_exponent == 1.0) << EMISSION_COSINE_EXPONENT_SHIFT);
 }
 
 fn pack_cone_cos(cos_angle: f32) -> u32 {
