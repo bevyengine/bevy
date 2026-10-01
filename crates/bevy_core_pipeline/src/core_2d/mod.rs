@@ -4,7 +4,7 @@ mod main_transparent_pass_2d_node;
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
-use bevy_camera::{Camera, Camera2d};
+use bevy_camera::{Camera, Camera2d, CameraDepthLoadOp, DepthTextureConfig};
 use bevy_ecs::entity::EntityHash;
 use bevy_image::ToExtents;
 use bevy_platform::collections::{HashMap, HashSet};
@@ -33,9 +33,7 @@ use bevy_render::{
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
         ViewSortedRenderPhases,
     },
-    render_resource::{
-        CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    },
+    render_resource::{CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat},
     renderer::RenderDevice,
     sync_world::MainEntity,
     texture::TextureCache,
@@ -426,10 +424,19 @@ pub fn prepare_core_2d_depth_textures(
     render_device: Res<RenderDevice>,
     transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
-    views_2d: Query<(Entity, &ExtractedCamera, &ExtractedView, &Msaa), (With<Camera2d>,)>,
+    views_2d: Query<
+        (
+            Entity,
+            &ExtractedCamera,
+            &ExtractedView,
+            &Msaa,
+            &DepthTextureConfig,
+        ),
+        (With<Camera2d>,),
+    >,
 ) {
     let mut textures = <HashMap<_, _>>::default();
-    for (view, camera, extracted_view, msaa) in &views_2d {
+    for (view, camera, extracted_view, msaa, depth_texture_config) in &views_2d {
         if !opaque_2d_phases.contains_key(&extracted_view.retained_view_entity)
             || !transparent_2d_phases.contains_key(&extracted_view.retained_view_entity)
         {
@@ -451,7 +458,7 @@ pub fn prepare_core_2d_depth_textures(
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
                     format: CORE_2D_DEPTH_FORMAT,
-                    usage: TextureUsages::RENDER_ATTACHMENT,
+                    usage: depth_texture_config.texture_usages.into(),
                     view_formats: &[],
                 };
 
@@ -461,7 +468,10 @@ pub fn prepare_core_2d_depth_textures(
 
         commands.entity(view).insert(ViewDepthStencilTexture::new(
             cached_texture,
-            Some(0.0),
+            match depth_texture_config.load_op {
+                CameraDepthLoadOp::Clear(v) => Some(v),
+                CameraDepthLoadOp::Load => None,
+            },
             None,
         ));
     }
