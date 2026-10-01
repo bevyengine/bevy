@@ -182,7 +182,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`Map`] and [`Set`] elements are accessed by a quoted key in brackets: `["key"]`.
 /// Integer keys are quoted too, like `["42"]` or `["-1"]`.
 ///
-/// Supported key types are `String`, `Cow<'static, str>` and the primitive integers.
+/// Supported key types are `String`, `Cow<'static, str>`, and the primitive integers.
 /// Set elements can't be accessed mutably.
 ///
 /// The only escapes in a key are `\"` and `\\`.
