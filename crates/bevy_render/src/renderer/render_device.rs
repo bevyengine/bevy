@@ -347,4 +347,46 @@ mod tests {
         assert_eq!(RenderDevice::align_copy_bytes_per_row(align + 1), align * 2);
         assert_eq!(RenderDevice::align_copy_bytes_per_row(align), align);
     }
+
+    #[test]
+    fn limits_and_features_are_cached_per_device() {
+        let (device, _queue) = crate::test_utils::create_dummy_device();
+
+        assert!(device.limits.get().is_none());
+        assert!(device.features.get().is_none());
+
+        let limits = device.limits();
+        let features = device.features();
+
+        assert!(core::ptr::eq(
+            limits,
+            device
+                .limits
+                .get()
+                .expect("limits are stored after the first read"),
+        ));
+        assert!(core::ptr::eq(
+            features,
+            device
+                .features
+                .get()
+                .expect("features are stored after the first read"),
+        ));
+        assert!(core::ptr::eq(device.limits(), limits));
+        assert!(core::ptr::eq(device.features(), features));
+
+        let cloned = device.clone();
+        assert_eq!(cloned.limits(), limits);
+        assert_eq!(cloned.features(), features);
+        assert!(
+            !core::ptr::eq(cloned.limits(), limits),
+            "a cloned device keeps its own cache"
+        );
+
+        let (other, _other_queue) = crate::test_utils::create_dummy_device();
+        assert!(
+            other.limits.get().is_none(),
+            "reading one device does not fill another device's cache"
+        );
+    }
 }
