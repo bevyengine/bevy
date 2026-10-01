@@ -12,6 +12,7 @@ use wgpu_types::{LoadOp, TextureUsages};
     Camera,
     Projection::Orthographic(OrthographicProjection::default_2d()),
     Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default())),
+    DepthTextureConfig
 )]
 pub struct Camera2d;
 
