@@ -8,9 +8,6 @@ use bevy::{
     prelude::*,
 };
 
-const ZOOM_SPEED: f32 = 0.1;
-const ZOOM_RANGE: RangeInclusive<f32> = 0.1..=5.0;
-
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, InfiniteGridPlugin))
@@ -57,23 +54,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Sprite::from_image(
         asset_server.load("branding/bevy_bird_dark.png"),
     ));
-
-    commands.spawn((
-        Sprite::from_color(Color::srgb(1.0, 0.0, 0.0), Vec2::new(100.0, 100.0)),
-        Transform::from_xyz(1.0, 0.0, 0.0),
-    ));
-    commands.spawn((
-        Sprite::from_color(Color::srgb(0.0, 1.0, 0.0), Vec2::new(100.0, 100.0)),
-        Transform::from_xyz(-100.0, 100.0, 0.0),
-    ));
-    commands.spawn((
-        Sprite::from_color(Color::srgb(0.0, 0.0, 1.0), Vec2::new(100.0, 100.0)),
-        Transform::from_xyz(100.0, -100.0, 0.0),
-    ));
-    commands.spawn((
-        Sprite::from_color(Color::srgb(0.0, 0.0, 0.0), Vec2::new(100.0, 100.0)),
-        Transform::from_xyz(-100.0, -100.0, 0.0),
-    ));
 }
 
 fn zoom(
@@ -88,5 +68,6 @@ fn zoom(
     let Projection::Orthographic(orthographic) = &mut **projection else {
         return;
     };
-    orthographic.scale = (orthographic.scale * (1.0 - scroll * ZOOM_SPEED)).clamp(0.1, 5.0);
+    let scroll_speed = 0.1;
+    orthographic.scale = (orthographic.scale * (1.0 - scroll * scroll_speed)).clamp(0.1, 5.0);
 }
