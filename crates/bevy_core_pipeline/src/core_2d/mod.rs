@@ -4,7 +4,7 @@ mod main_transparent_pass_2d_node;
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
-use bevy_camera::{Camera, Camera2d, CameraDepthLoadOp, DepthTextureConfig};
+use bevy_camera::{Camera, Camera2d, CameraDepthLoadOp, CameraDepthTexture};
 use bevy_ecs::entity::EntityHash;
 use bevy_image::ToExtents;
 use bevy_platform::collections::{HashMap, HashSet};
@@ -430,7 +430,7 @@ pub fn prepare_core_2d_depth_textures(
             &ExtractedCamera,
             &ExtractedView,
             &Msaa,
-            &DepthTextureConfig,
+            &CameraDepthTexture,
         ),
         (With<Camera2d>,),
     >,
