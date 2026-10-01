@@ -407,11 +407,11 @@ fn queue_infinite_grids(
             },
         );
 
-        let Some(render_visible_grid_entities) = entities.get::<InfiniteGrid>() else {
+        let Some(render_visible_mesh_entities) = entities.get::<InfiniteGrid>() else {
             continue;
         };
 
-        for (render_entity, main_entity) in &render_visible_grid_entities.removed_entities {
+        for (render_entity, main_entity) in &render_visible_mesh_entities.removed_entities {
             if let Some(phase) = phase_2d.as_deref_mut() {
                 phase.remove(*render_entity, *main_entity);
             }
@@ -420,7 +420,7 @@ fn queue_infinite_grids(
             }
         }
 
-        for (render_entity, main_entity) in render_visible_grid_entities.iter_visible() {
+        for (render_entity, main_entity) in render_visible_mesh_entities.iter_visible() {
             let Ok(transform) = infinite_grids.get(*render_entity) else {
                 continue;
             };
