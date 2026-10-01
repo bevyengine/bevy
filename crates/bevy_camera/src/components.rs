@@ -80,6 +80,57 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
     }
 }
 
+#[derive(Component, Reflect, Clone, Serialize, Deserialize, Debug)]
+#[reflect(Component, Default, Serialize, Deserialize, Clone, Debug)]
+pub struct DepthTextureConfig {
+    /// The depth clear operation to perform for the main pass.
+    pub load_op: CameraDepthLoadOp,
+    /// The texture usages for the depth texture created for the main pass.
+    pub texture_usages: CameraDepthTextureUsage,
+}
+
+impl Default for DepthTextureConfig {
+    fn default() -> Self {
+        Self {
+            load_op: Default::default(),
+            texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Reflect, Serialize, Deserialize, Debug)]
+#[reflect(Serialize, Deserialize, Clone, Debug)]
+pub struct CameraDepthTextureUsage(pub u32);
+
+impl From<TextureUsages> for CameraDepthTextureUsage {
+    fn from(value: TextureUsages) -> Self {
+        Self(value.bits())
+    }
+}
+
+impl From<CameraDepthTextureUsage> for TextureUsages {
+    fn from(value: CameraDepthTextureUsage) -> Self {
+        Self::from_bits_truncate(value.0)
+    }
+}
+
+/// The depth clear operation to perform for the main pass.
+#[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
+#[reflect(Serialize, Deserialize, Clone, Default, Debug)]
+pub enum CameraDepthLoadOp {
+    /// Clear with a specified value.
+    /// Note that 0.0 is the far plane due to bevy's use of reverse-z projections.
+    Clear(f32),
+    /// Load from memory.
+    Load,
+}
+
+impl Default for CameraDepthLoadOp {
+    fn default() -> Self {
+        CameraDepthLoadOp::Clear(0.0)
+    }
+}
+
 /// If this component is added to a camera, the camera will use an intermediate "high dynamic range" render texture.
 /// This allows rendering with a wider range of lighting values. However, this does *not* affect
 /// whether the camera will render with hdr display output (which bevy does not support currently)
