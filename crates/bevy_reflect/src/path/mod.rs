@@ -185,7 +185,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// Supported key types are `String`, `Cow<'static, str>`, and the primitive integers.
 /// Set elements can't be accessed mutably.
 ///
-/// The only escapes in a key are `\"` and `\\`.
+/// The only allowed escapes in a key are `\"` and `\\`.
 /// Any other character, including unicode and newlines, is written directly,
 /// since the path is an ordinary Rust string.
 /// Any other backslash sequence is an error.
