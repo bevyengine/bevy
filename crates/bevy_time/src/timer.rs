@@ -459,7 +459,7 @@ impl Timer {
     /// ```
     #[inline]
     pub fn remaining(&self) -> Duration {
-        self.duration() - self.elapsed()
+        self.duration().saturating_sub(self.elapsed())
     }
 
     /// Returns the number of times a repeating timer
@@ -505,6 +505,46 @@ pub enum TimerMode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn remaining_after_shortening_duration() {
+        for mode in [TimerMode::Once, TimerMode::Repeating] {
+            let mut timer = Timer::new(Duration::from_secs(10), mode);
+            timer.tick(Duration::from_secs(6));
+            timer.set_duration(Duration::from_secs(5));
+
+            assert_eq!(timer.remaining(), Duration::ZERO);
+            assert_eq!(timer.remaining_secs(), 0.0);
+            assert_eq!(timer.elapsed(), Duration::from_secs(6));
+            assert!(!timer.is_finished());
+
+            timer.finish();
+            assert!(timer.just_finished());
+            assert!(timer.is_finished());
+            assert_eq!(timer.times_finished_this_tick(), 1);
+            match mode {
+                TimerMode::Once => assert_eq!(timer.remaining(), Duration::ZERO),
+                TimerMode::Repeating => {
+                    assert_eq!(timer.remaining(), Duration::from_secs(4));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn remaining_after_setting_elapsed_past_duration() {
+        for mode in [TimerMode::Once, TimerMode::Repeating] {
+            let mut timer = Timer::new(Duration::from_secs(5), mode);
+            timer.set_elapsed(Duration::from_secs(6));
+
+            assert_eq!(timer.remaining(), Duration::ZERO);
+            assert_eq!(timer.remaining_secs(), 0.0);
+            assert!(!timer.is_finished());
+
+            timer.almost_finish();
+            assert!(timer.just_finished());
+        }
+    }
 
     #[test]
     fn non_repeating_timer() {
