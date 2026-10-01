@@ -12,7 +12,7 @@ use wgpu_types::TextureUsages;
     Camera,
     Projection::Orthographic(OrthographicProjection::default_2d()),
     Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default())),
-    DepthTextureConfig
+    CameraDepthTexture
 )]
 pub struct Camera2d;
 
@@ -22,19 +22,19 @@ pub struct Camera2d;
 /// This means "forward" is -Z.
 #[derive(Component, Reflect, Clone, Default)]
 #[reflect(Component, Default, Clone)]
-#[require(Camera, Projection, DepthTextureConfig)]
+#[require(Camera, Projection, CameraDepthTexture)]
 pub struct Camera3d;
 
 #[derive(Component, Reflect, Clone, Serialize, Deserialize, Debug)]
 #[reflect(Component, Default, Serialize, Deserialize, Clone, Debug)]
-pub struct DepthTextureConfig {
+pub struct CameraDepthTexture {
     /// The depth clear operation to perform for the main pass.
     pub load_op: CameraDepthLoadOp,
     /// The texture usages for the depth texture created for the main pass.
     pub texture_usages: CameraDepthTextureUsage,
 }
 
-impl Default for DepthTextureConfig {
+impl Default for CameraDepthTexture {
     fn default() -> Self {
         Self {
             load_op: Default::default(),

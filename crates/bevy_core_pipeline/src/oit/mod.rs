@@ -1,7 +1,7 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
-use bevy_camera::{Camera3d, DepthTextureConfig};
+use bevy_camera::{Camera3d, CameraDepthTexture};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_log::trace;
 use bevy_math::UVec2;
@@ -121,9 +121,9 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 
 fn configure_camera_depth_usages(
     mut depth_textures: Query<
-        &mut DepthTextureConfig,
+        &mut CameraDepthTexture,
         (
-            Changed<DepthTextureConfig>,
+            Changed<CameraDepthTexture>,
             With<OrderIndependentTransparencySettings>,
             With<Camera3d>,
         ),

@@ -32,7 +32,7 @@ pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
-use bevy_camera::{Camera, Camera3d, CameraDepthLoadOp, DepthTextureConfig};
+use bevy_camera::{Camera, Camera3d, CameraDepthLoadOp, CameraDepthTexture};
 use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -674,7 +674,7 @@ pub fn prepare_core_3d_depth_textures(
             &ExtractedCamera,
             Option<&DepthPrepass>,
             &Msaa,
-            &DepthTextureConfig,
+            &CameraDepthTexture,
         ),
         With<Camera3d>,
     >,
@@ -739,7 +739,7 @@ pub fn prepare_core_3d_depth_textures(
 /// We need that flag to be set in order to read from the texture.
 fn configure_occlusion_culling_view_targets(
     mut view_targets: Query<
-        &mut DepthTextureConfig,
+        &mut CameraDepthTexture,
         (
             With<OcclusionCulling>,
             Without<NoIndirectDrawing>,
