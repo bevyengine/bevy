@@ -3,7 +3,7 @@
 use core::array;
 
 use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
-use bevy_camera::Camera3d;
+use bevy_camera::{Camera3d, DepthTextureConfig};
 use bevy_color::ColorToComponents as _;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -699,15 +699,15 @@ pub fn prepare_volumetric_fog_uniforms(
 /// The volumetric lighting pass needs to do this, and it doesn't happen by
 /// default.
 pub fn prepare_view_depth_textures_for_volumetric_fog(
-    mut view_targets: Query<&mut Camera3d>,
+    mut view_targets: Query<&mut DepthTextureConfig, With<Camera3d>>,
     fog_volumes: Query<&VolumetricFog>,
 ) {
     if fog_volumes.is_empty() {
         return;
     }
 
-    for mut camera in view_targets.iter_mut() {
-        camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
+    for mut depth_texture in view_targets.iter_mut() {
+        depth_texture.texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
 }
 

@@ -42,7 +42,7 @@ pub mod resources;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, AssetId};
-use bevy_camera::{Camera3d, Hdr};
+use bevy_camera::{Camera3d, DepthTextureConfig, Hdr};
 use bevy_core_pipeline::{
     core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
     schedule::{Core3d, Core3dSystems},
@@ -409,10 +409,17 @@ impl SyncComponent<RenderApp> for AtmosphereSettings {
 }
 
 fn configure_camera_depth_usages(
-    mut cameras: Query<&mut Camera3d, (Changed<Camera3d>, With<ExtractedAtmosphere>)>,
+    mut view_targets: Query<
+        &mut DepthTextureConfig,
+        (
+            Changed<DepthTextureConfig>,
+            With<ExtractedAtmosphere>,
+            With<Camera3d>,
+        ),
+    >,
 ) {
-    for mut camera in &mut cameras {
-        camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
+    for mut depth_texture in &mut view_targets {
+        depth_texture.texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
 }
 
