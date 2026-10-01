@@ -31,7 +31,7 @@ pub fn prepare_dlss<F: DlssFeature>(
             Entity,
             &ExtractedView,
             &Dlss<F>,
-            &mut Camera3d,
+            &mut CameraDepthTexture,
             &mut CameraMainTextureUsages,
             &mut TemporalJitter,
             &mut MipBias,
@@ -54,7 +54,7 @@ pub fn prepare_dlss<F: DlssFeature>(
         entity,
         view,
         dlss,
-        mut camera_3d,
+        mut depth_texture,
         mut camera_main_texture_usages,
         mut temporal_jitter,
         mut mip_bias,
@@ -63,9 +63,9 @@ pub fn prepare_dlss<F: DlssFeature>(
     {
         camera_main_texture_usages.0 |= TextureUsages::STORAGE_BINDING;
 
-        let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
+        let mut depth_texture_usages = TextureUsages::from(depth_texture.texture_usages);
         depth_texture_usages |= TextureUsages::TEXTURE_BINDING;
-        camera_3d.depth_texture_usages = depth_texture_usages.into();
+        depth_texture.texture_usages = depth_texture_usages.into();
 
         let upscaled_resolution = view.viewport.zw();
 
