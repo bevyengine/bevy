@@ -61,7 +61,7 @@ const MATERIAL_FLAG_FLIP_NORMAL_MAP_Y = 1u << 1u;
 const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
 
 struct LightSource {
-    kind: u32, // 3 bits for kind, 29 bits for extra data
+    kind: u32, // LIGHT_SOURCE_KIND_BITS bits for kind, rest of the bits for extra data
     id: u32,
 }
 
