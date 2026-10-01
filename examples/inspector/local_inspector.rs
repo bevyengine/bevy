@@ -1,17 +1,24 @@
-//! Shows the `bevy_inspector` entity tree panel inspecting the app's own world.
+//! Shows the `bevy_inspector` entity tree and details panels inspecting the app's own world.
 //!
-//! Run with the `bevy_inspector` feature enabled:
+//! Run with the `bevy_inspector` feature enabled, and `debug` for readable names of unregistered types:
 //! ```bash
-//! cargo run --example local_inspector --features="bevy_inspector"
+//! cargo run --example local_inspector --features="bevy_inspector,debug"
 //! ```
 
 use bevy::{
-    feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
+    feathers::{
+        controls::{FeathersPane, FeathersSplitPane, FeathersSplitPaneHandle},
+        dark_theme::create_dark_theme,
+        theme::UiTheme,
+        FeathersPlugins,
+    },
     inspector::{
+        details_panel::details_panel,
         entity_tree::{entity_tree_panel, InspectorUi},
         InspectorPlugin, InspectorSelection,
     },
     prelude::*,
+    ui_widgets::split_pane_self_update,
 };
 
 fn main() {
@@ -21,6 +28,36 @@ fn main() {
         .add_systems(Startup, (demo_scene.spawn(), inspector_ui.spawn()))
         .add_systems(Update, log_selection)
         .run();
+}
+
+/// A component exercising every widget kind the details panel renders.
+#[derive(Component, Reflect, Default, Clone)]
+#[reflect(Component, Default)]
+struct Showcase {
+    enabled: bool,
+    health: f32,
+    count: u32,
+    offset: i16,
+    ratio: f64,
+    label: String,
+    tint: Color,
+    mode: Mode,
+    bounds: Bounds,
+    tags: Vec<u32>,
+}
+
+#[derive(Reflect, Default, Clone, Copy, PartialEq)]
+enum Mode {
+    #[default]
+    Idle,
+    Walking,
+    Running,
+}
+
+#[derive(Reflect, Default, Clone, Copy)]
+struct Bounds {
+    min: Vec2,
+    max: Vec2,
 }
 
 fn demo_scene() -> impl SceneList {
@@ -58,6 +95,23 @@ fn demo_scene() -> impl SceneList {
                 Transform::from_xyz(0.0, 1.2, 0.0)
                 Visibility::default()
             ]
+            --
+            Name("Showcase")
+            Showcase {
+                enabled: true,
+                health: 72.5,
+                count: 3,
+                offset: -4,
+                ratio: 0.25,
+                label: "hello",
+                tint: Color::srgb(0.95, 0.55, 0.2),
+                mode: Mode::Walking,
+                bounds: Bounds {
+                    min: Vec2::new(-1.0, -1.0),
+                    max: Vec2::new(2.0, 3.0),
+                },
+                tags: { vec![1, 2, 3] },
+            }
         ]
         --
         Mesh3d(asset_value(Sphere::new(0.5)))
@@ -72,12 +126,39 @@ fn inspector_ui() -> impl Scene {
         Name::new("Inspector")
         Node {
             position_type: PositionType::Absolute,
-            left: px(12),
-            top: px(12),
-            bottom: px(12),
+            width: percent(100),
+            height: percent(100),
+            padding: px(12),
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::FlexStart,
         }
+        Pickable::IGNORE
         Children [
-            @entity_tree_panel()
+            @FeathersSplitPane
+            Node {
+                width: px(720),
+                max_height: percent(100),
+            }
+            on(split_pane_self_update)
+            Children [
+                @FeathersPane { @size: 1.0, @min_size: 220.0 }
+                Children [
+                    @entity_tree_panel()
+                    Node {
+                        width: Val::Auto,
+                    }
+                ]
+                --
+                @FeathersSplitPaneHandle
+                --
+                @FeathersPane { @size: 2.0, @min_size: 240.0 }
+                Children [
+                    @details_panel()
+                    Node {
+                        width: Val::Auto,
+                    }
+                ]
+            ]
         ]
     }
 }
