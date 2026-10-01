@@ -4855,6 +4855,18 @@ category = "Dev tools"
 wasm = true
 
 [[example]]
+name = "infinite_grid_2d"
+path = "examples/dev_tools/infinite_grid_2d.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools", "render_dev_tools"]
+
+[package.metadata.example.infinite_grid_2d]
+name = "Infinite grid 2D"
+description = "Demonstrates Bevy's infinite grid in a 2D scene"
+category = "Dev tools"
+wasm = true
+
+[[example]]
 name = "local_inspector"
 path = "examples/inspector/local_inspector.rs"
 doc-scrape-examples = true
