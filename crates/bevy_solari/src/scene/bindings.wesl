@@ -51,12 +51,16 @@ struct Material {
     flags: u32,
     uv_translation: vec2<f32>,
     uv_transform: mat2x2<f32>,
+    alpha: f32,
+    alpha_cutoff: f32,
+    _padding: vec2<f32>,
 }
 
 const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
 
 const MATERIAL_FLAG_DOUBLE_SIDED = 1u << 0u;
 const MATERIAL_FLAG_FLIP_NORMAL_MAP_Y = 1u << 1u;
+const MATERIAL_FLAG_ALPHA_MASK = 1u << 2u;
 
 const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
 
@@ -108,23 +112,59 @@ const RAY_T_MAX = 100000.0f;
 const RAY_NO_CULL = 0xFFu;
 
 fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ray_t_max: f32, ray_flag: u32) -> RayIntersection {
-    let ray = RayDesc(ray_flag, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
+    let ray = RayDesc(ray_flag | RAY_FLAG_SKIP_AABBS, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
     var rq: ray_query;
     rayQueryInitialize(&rq, tlas, ray);
-    rayQueryProceed(&rq);
+    while rayQueryProceed(&rq) {
+        let candidate = rayQueryGetCandidateIntersection(&rq);
+        if passes_alpha_test(candidate) {
+            rayQueryConfirmIntersection(&rq);
+        }
+    }
     return rayQueryGetCommittedIntersection(&rq);
 }
 
 fn trace_ray_previous_frame(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ray_t_max: f32, ray_flag: u32) -> RayIntersection {
-    let ray = RayDesc(ray_flag, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
+    let ray = RayDesc(ray_flag | RAY_FLAG_SKIP_AABBS, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
     var rq: ray_query;
     rayQueryInitialize(&rq, previous_frame_tlas, ray);
-    rayQueryProceed(&rq);
+    while rayQueryProceed(&rq) {
+        let candidate = rayQueryGetCandidateIntersection(&rq);
+        if passes_alpha_test(candidate) {
+            rayQueryConfirmIntersection(&rq);
+        }
+    }
     return rayQueryGetCommittedIntersection(&rq);
 }
 
-fn sample_texture(id: u32, uv: vec2<f32>) -> vec3<f32> {
-    return textureSampleLevel(textures[id], samplers[id], uv, 0.0).rgb; // TODO: Mipmap
+fn passes_alpha_test(candidate: RayIntersection) -> bool {
+    let instance_id = candidate.instance_custom_data;
+    let material = &materials[material_ids[instance_id]];
+
+    if ((*material).flags & MATERIAL_FLAG_ALPHA_MASK) == 0u { return true; }
+
+    var alpha = (*material).alpha;
+    if (*material).base_color_texture_id != TEXTURE_MAP_NONE {
+        let uvs = load_uvs(geometry_ids[instance_id], candidate.primitive_index);
+        let barycentrics = vec3(1.0 - candidate.barycentrics.x - candidate.barycentrics.y, candidate.barycentrics);
+        let uv = material_uv(uvs, barycentrics, (*material).uv_transform, (*material).uv_translation);
+        alpha *= sample_texture((*material).base_color_texture_id, uv).a;
+    }
+
+    return !is_alpha_masked_out((*material).flags, alpha, (*material).alpha_cutoff);
+}
+
+fn material_uv(uvs: array<vec2<f32>, 3>, barycentrics: vec3<f32>, uv_transform: mat2x2<f32>, uv_translation: vec2<f32>) -> vec2<f32> {
+    let mesh_uv = mat3x2(uvs[0], uvs[1], uvs[2]) * barycentrics;
+    return uv_transform * mesh_uv + uv_translation;
+}
+
+fn is_alpha_masked_out(material_flags: u32, alpha: f32, alpha_cutoff: f32) -> bool {
+    return (material_flags & MATERIAL_FLAG_ALPHA_MASK) != 0u && alpha < alpha_cutoff;
+}
+
+fn sample_texture(id: u32, uv: vec2<f32>) -> vec4<f32> {
+    return textureSampleLevel(textures[id], samplers[id], uv, 0.0); // TODO: Mipmap
 }
 
 struct ResolvedMaterial {
@@ -153,13 +193,19 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     var m: ResolvedMaterial;
 
     m.base_color = material.base_color.rgb;
+    var alpha = material.alpha;
     if material.base_color_texture_id != TEXTURE_MAP_NONE {
-        m.base_color *= sample_texture(material.base_color_texture_id, uv);
+        let base_color = sample_texture(material.base_color_texture_id, uv);
+        m.base_color *= base_color.rgb;
+        alpha *= base_color.a;
     }
 
     m.emissive = material.emissive.rgb;
     if material.emissive_texture_id != TEXTURE_MAP_NONE {
-        m.emissive *= sample_texture(material.emissive_texture_id, uv);
+        m.emissive *= sample_texture(material.emissive_texture_id, uv).rgb;
+    }
+    if is_alpha_masked_out(material.flags, alpha, material.alpha_cutoff) {
+        m.emissive = vec3(0.0);
     }
 
     m.reflectance = material.reflectance;
@@ -167,7 +213,7 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     m.perceptual_roughness = material.perceptual_roughness;
     m.metallic = material.metallic;
     if material.metallic_roughness_texture_id != TEXTURE_MAP_NONE {
-        let metallic_roughness = sample_texture(material.metallic_roughness_texture_id, uv);
+        let metallic_roughness = sample_texture(material.metallic_roughness_texture_id, uv).rgb;
         m.perceptual_roughness *= metallic_roughness.g;
         m.metallic *= metallic_roughness.b;
     }
@@ -207,6 +253,20 @@ fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -
     );
 }
 
+fn load_uvs(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -> array<vec2<f32>, 3> {
+    let index_buffer = &index_buffers[instance_geometry_ids.index_buffer_id].indices;
+    let vertex_buffer = &vertex_buffers[instance_geometry_ids.vertex_buffer_id].vertices;
+
+    let indices_i = (triangle_id * 3u) + vec3(0u, 1u, 2u) + instance_geometry_ids.index_buffer_offset;
+    let indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]) + instance_geometry_ids.vertex_buffer_offset;
+
+    return array<vec2<f32>, 3>(
+        (*vertex_buffer)[indices.x].b.zw,
+        (*vertex_buffer)[indices.y].b.zw,
+        (*vertex_buffer)[indices.z].b.zw
+    );
+}
+
 fn transform_positions(transform: mat4x4<f32>, vertices: array<Vertex, 3>) -> array<vec3<f32>, 3> {
     return array<vec3<f32>, 3>(
         (transform * vec4(vertices[0].position, 1.0)).xyz,
@@ -231,8 +291,8 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let previous_frame_world_vertices = transform_positions(previous_frame_transform, vertices);
     let previous_frame_world_position = mat3x3(previous_frame_world_vertices[0], previous_frame_world_vertices[1], previous_frame_world_vertices[2]) * barycentrics;
 
-    let mesh_uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
-    let uv = material.uv_transform * mesh_uv + material.uv_translation;
+    let uvs = array<vec2<f32>, 3>(vertices[0].uv, vertices[1].uv, vertices[2].uv);
+    let uv = material_uv(uvs, barycentrics, material.uv_transform, material.uv_translation);
 
     let transform_3x3 = mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz);
 
@@ -252,7 +312,7 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         let T = TBN[0];
         let B = TBN[1];
         let N = TBN[2];
-        var Nt = sample_texture(material.normal_map_texture_id, uv) * 2.0 - 1.0;
+        var Nt = sample_texture(material.normal_map_texture_id, uv).rgb * 2.0 - 1.0;
         if (material.flags & MATERIAL_FLAG_FLIP_NORMAL_MAP_Y) != 0u {
             Nt.y = -Nt.y;
         }

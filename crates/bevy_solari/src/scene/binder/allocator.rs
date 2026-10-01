@@ -4,6 +4,8 @@ use core::{hash::Hash, num::NonZeroU32};
 /// A free-list allocator for `u32` array indices meant for GPU allocations.
 pub struct IndexAllocator {
     free: Vec<u32>,
+    /// Released by [`IndexAllocator::retire`], and not reusable until [`IndexAllocator::recycle_retired`].
+    retired: Vec<u32>,
     high_water_mark: u32,
 }
 
@@ -11,6 +13,7 @@ impl IndexAllocator {
     pub fn new() -> Self {
         Self {
             free: Vec::new(),
+            retired: Vec::new(),
             high_water_mark: 0,
         }
     }
@@ -33,6 +36,18 @@ impl IndexAllocator {
 
     pub fn release(&mut self, index: u32) {
         self.free.push(index);
+    }
+
+    /// Releases an index, but holds it back from reuse until the next [`IndexAllocator::recycle_retired`].
+    ///
+    /// For indices that last frame's GPU data can still reference.
+    pub fn retire(&mut self, index: u32) {
+        self.retired.push(index);
+    }
+
+    /// Makes every index retired since the last call reusable.
+    pub fn recycle_retired(&mut self) {
+        self.free.append(&mut self.retired);
     }
 
     /// How many more indices can be handed out before running past `capacity`.
@@ -215,6 +230,19 @@ mod tests {
         assert_eq!(slots.high_water_mark(), 2);
 
         slots.release(0);
+        assert_eq!(slots.allocate(), 0);
+        assert_eq!(slots.high_water_mark(), 2);
+    }
+
+    #[test]
+    fn index_allocator_holds_retired_slots_until_recycled() {
+        let mut slots = IndexAllocator::new();
+
+        assert_eq!(slots.allocate(), 0);
+        slots.retire(0);
+        assert_eq!(slots.allocate(), 1);
+
+        slots.recycle_retired();
         assert_eq!(slots.allocate(), 0);
         assert_eq!(slots.high_water_mark(), 2);
     }

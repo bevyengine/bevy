@@ -26,6 +26,7 @@ const TEXTURE_MAP_NONE: u32 = u32::MAX;
 
 const MATERIAL_FLAG_DOUBLE_SIDED: u32 = 1 << 0;
 const MATERIAL_FLAG_FLIP_NORMAL_MAP_Y: u32 = 1 << 1;
+const MATERIAL_FLAG_ALPHA_MASK: u32 = 1 << 2;
 
 /// The four textures a [`StandardMaterial`] can reference, in [`GpuMaterial`] field order.
 type MaterialTextures = [Option<AssetId<Image>>; 4];
@@ -45,6 +46,9 @@ pub struct GpuMaterial {
     flags: u32,
     uv_translation: Vec2,
     uv_transform: Mat2,
+    alpha: f32,
+    alpha_cutoff: f32,
+    _padding: Vec2,
 }
 
 impl_atomic_pod!(GpuMaterial, GpuMaterialBlob);
@@ -196,8 +200,11 @@ impl AssetState {
         self.unresolved_materials.remove(&material_id);
         let slot = self.material_slots.get_or_allocate(material_id);
 
+        let base_color = LinearRgba::from(material.base_color);
+
         let emissive = material.emissive.to_vec3();
         let is_emissive = emissive != Vec3::ZERO;
+
         let is_opaque = match material.alpha_mode {
             AlphaMode::Opaque => true,
             AlphaMode::Mask(_) | AlphaMode::AlphaToCoverage => false,
@@ -207,6 +214,16 @@ impl AssetState {
                 true
             }
         };
+        let alpha_cutoff = match material.alpha_mode {
+            AlphaMode::Mask(cutoff) => Some(cutoff),
+            // Without MSAA alpha to coverage is treated as a mask with a cutoff of 0.5
+            AlphaMode::AlphaToCoverage => Some(0.5),
+            AlphaMode::Opaque
+            | AlphaMode::Blend
+            | AlphaMode::Premultiplied
+            | AlphaMode::Add
+            | AlphaMode::Multiply => None,
+        };
 
         let mut flags = 0;
         if material.double_sided {
@@ -214,6 +231,9 @@ impl AssetState {
         }
         if material.flip_normal_map_y {
             flags |= MATERIAL_FLAG_FLIP_NORMAL_MAP_Y;
+        }
+        if alpha_cutoff.is_some() {
+            flags |= MATERIAL_FLAG_ALPHA_MASK;
         }
 
         self.materials.grow_and_set(
@@ -223,7 +243,7 @@ impl AssetState {
                 base_color_texture_id: texture_ids[1],
                 emissive_texture_id: texture_ids[2],
                 metallic_roughness_texture_id: texture_ids[3],
-                base_color: LinearRgba::from(material.base_color).to_vec3(),
+                base_color: base_color.to_vec3(),
                 perceptual_roughness: material.perceptual_roughness.clamp(0.0, 1.0),
                 emissive,
                 metallic: material.metallic.clamp(0.0, 1.0),
@@ -231,6 +251,9 @@ impl AssetState {
                 flags,
                 uv_translation: material.uv_transform.translation,
                 uv_transform: material.uv_transform.matrix2,
+                alpha: base_color.alpha,
+                alpha_cutoff: alpha_cutoff.unwrap_or(0.0),
+                _padding: Vec2::ZERO,
             },
         );
 
