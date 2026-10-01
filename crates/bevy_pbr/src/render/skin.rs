@@ -96,7 +96,7 @@ pub struct SkinUniforms {
 }
 
 pub fn skin_uniforms_from_world(device: Res<RenderDevice>, mut commands: Commands) {
-    let buffer_usages = (if skins_use_uniform_buffers(&device.limits()) {
+    let buffer_usages = (if skins_use_uniform_buffers(device.limits()) {
         BufferUsages::UNIFORM
     } else {
         BufferUsages::STORAGE
@@ -200,7 +200,7 @@ pub fn prepare_skins(
         }
 
         // Create the new buffers.
-        let buffer_usages = if skins_use_uniform_buffers(&render_device.limits()) {
+        let buffer_usages = if skins_use_uniform_buffers(render_device.limits()) {
             BufferUsages::UNIFORM
         } else {
             BufferUsages::STORAGE
@@ -504,7 +504,7 @@ pub fn no_automatic_skin_batching(
     query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
     render_device: Res<RenderDevice>,
 ) {
-    if !skins_use_uniform_buffers(&render_device.limits()) {
+    if !skins_use_uniform_buffers(render_device.limits()) {
         return;
     }
 
