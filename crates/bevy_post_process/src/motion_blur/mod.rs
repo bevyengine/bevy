@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
-use bevy_camera::{Camera, Camera3d, TonemappingPass};
+use bevy_camera::{Camera, Camera3d, DepthTextureConfig, TonemappingPass};
 use bevy_core_pipeline::{
     prepass::{MotionVectorPrepass, ViewPrepassTextures},
     schedule::{Core3d, Core3dSystems},
@@ -269,9 +269,9 @@ pub fn motion_blur(
 }
 
 fn prepare_view_depth_texture_usages_for_motion_blur(
-    mut view_targets: Query<&mut Camera3d, With<MotionBlurUniform>>,
+    mut view_targets: Query<&mut DepthTextureConfig, (With<MotionBlurUniform>, With<Camera3d>)>,
 ) {
-    for mut camera in view_targets.iter_mut() {
-        camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
+    for mut depth_texture in view_targets.iter_mut() {
+        depth_texture.texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
 }
