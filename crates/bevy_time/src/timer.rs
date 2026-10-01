@@ -300,7 +300,8 @@ impl Timer {
                     .elapsed()
                     .as_nanos()
                     .checked_div(self.duration().as_nanos())
-                    .map_or(u32::MAX, |x| x as u32);
+                    .and_then(|x| u32::try_from(x).ok())
+                    .unwrap_or(u32::MAX);
                 self.set_elapsed(
                     self.elapsed()
                         .as_nanos()
@@ -648,6 +649,31 @@ mod tests {
         assert_eq!(t.times_finished_this_tick(), 1);
         t.tick(Duration::from_secs_f32(0.5));
         assert_eq!(t.times_finished_this_tick(), 0);
+    }
+
+    #[test]
+    fn times_finished_this_tick_saturates() {
+        let max = u64::from(u32::MAX);
+        for finished in [max - 1, max, max + 1, max + 2] {
+            let mut timer = Timer::new(Duration::from_nanos(2), TimerMode::Repeating);
+            timer.tick(Duration::from_nanos(finished * 2 + 1));
+
+            assert_eq!(timer.times_finished_this_tick(), finished.min(max) as u32);
+            assert!(timer.is_finished());
+            assert!(timer.just_finished());
+            assert_eq!(timer.elapsed(), Duration::from_nanos(1));
+
+            timer.tick(Duration::ZERO);
+            assert_eq!(timer.times_finished_this_tick(), 0);
+            assert!(!timer.just_finished());
+            assert!(!timer.is_finished());
+            assert_eq!(timer.elapsed(), Duration::from_nanos(1));
+
+            timer.tick(Duration::from_nanos(1));
+            assert_eq!(timer.times_finished_this_tick(), 1);
+            assert!(timer.just_finished());
+            assert_eq!(timer.elapsed(), Duration::ZERO);
+        }
     }
 
     #[test]
