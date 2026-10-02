@@ -25,3 +25,4 @@ This note will be completed once the rest of the series lands.
 - Added a connection panel to the `bevy_inspector` remote source
 - `registry.schema` now includes `bevy_annotations` (range, step, unit, read-only, tooltip and display name) on types, fields and enum variants
 - Added `SchemaRegistry` to `bevy_remote`, an index over `registry.schema` schemas that resolves field, item and map types, so local and remote inspectors can read type structure the same way
+- Added stepping controls to the `bevy_inspector` remote source
