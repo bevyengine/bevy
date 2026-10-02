@@ -297,10 +297,17 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
         if let Some(handle) = handle {
             let mut gizmo = gizmo_assets.get_mut(handle.id()).unwrap();
 
-            gizmo.buffer.list_positions = mem::take(&mut storage.list_positions);
-            gizmo.buffer.list_colors = mem::take(&mut storage.list_colors);
-            gizmo.buffer.strip_positions = mem::take(&mut storage.strip_positions);
-            gizmo.buffer.strip_colors = mem::take(&mut storage.strip_colors);
+            mem::swap(
+                &mut gizmo.buffer.list_positions,
+                &mut storage.list_positions,
+            );
+            mem::swap(&mut gizmo.buffer.list_colors, &mut storage.list_colors);
+            mem::swap(
+                &mut gizmo.buffer.strip_positions,
+                &mut storage.strip_positions,
+            );
+            mem::swap(&mut gizmo.buffer.strip_colors, &mut storage.strip_colors);
+            storage.clear();
         } else {
             let gizmo = GizmoAsset {
                 config_ty: TypeId::of::<Config>(),
