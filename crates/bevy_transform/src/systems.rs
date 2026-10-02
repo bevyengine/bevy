@@ -172,7 +172,7 @@ pub fn mark_dirty_trees(
         ComputeTaskPool::get().scope(|scope| {
             traversal_channels.chunk_size = 1024;
             consumer_channels.chunk_size = 1024;
-            let (traversal_rx, mut traversal_tx) = traversal_channels.unbounded();
+            let (traversal_rx, traversal_tx) = traversal_channels.unbounded();
             let (consumer_rx, mut consumer_tx) = consumer_channels.unbounded();
             let shared_bitset: &[core::sync::atomic::AtomicU64] = &shared_bitset;
             let local_bitset = &*local_bitset;
@@ -262,12 +262,11 @@ pub fn mark_dirty_trees(
             // dropped at the end of this closure, closing the channel and allowing the other tasks
             // to exit.
             //
-            // Note that we send the entity directly to the consumer as well, we do this to start
-            // feeding it work as soon as possible. The traversal worker should skip sending these
-            // leaves to the consumer because it has already been sent here.
+            // Note that we send changed entities directly to the consumer as well; we do this to
+            // start feeding it work as soon as possible. The traversal worker should skip sending
+            // these leaves to the consumer because they have already been sent here.
             let mut producer = move || {
                 for entity in orphaned.read() {
-                    let _ = traversal_tx.send_blocking(entity);
                     let _ = consumer_tx.send_blocking(entity);
                 }
                 // Changed<> table scans are slow, so we parallelize them to improve performance.
@@ -1218,5 +1217,70 @@ mod test {
             child_global_transform,
             *world.entity(child).get::<GlobalTransform>().unwrap()
         );
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/25416
+    #[test]
+    fn did_propagate_after_entity_index_reuse() {
+        // Enough same-frame removals to flush full chunks of stale entity IDs through
+        // `mark_dirty_trees` before the live replacements are processed.
+        const ROOT_COUNT: usize = 256;
+        const CHILDREN_PER_ROOT: usize = 8;
+
+        ComputeTaskPool::get_or_init(TaskPool::default);
+        let mut world = World::default();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(
+            (
+                mark_dirty_trees,
+                sync_simple_transforms,
+                propagate_parent_transforms,
+            )
+                .chain(),
+        );
+        world.insert_resource(StaticTransformOptimizations::default());
+
+        let roots: Vec<Entity> = (0..ROOT_COUNT)
+            .map(|i| {
+                world
+                    .spawn(Transform::from_xyz(10.0 + i as f32, 0.0, 0.0))
+                    .id()
+            })
+            .collect();
+        let spawn_children = |world: &mut World| {
+            for &root in &roots {
+                for slot in 0..CHILDREN_PER_ROOT {
+                    world.spawn((
+                        Transform::from_xyz(0.0, 1.0 + slot as f32, 0.0),
+                        ChildOf(root),
+                    ));
+                }
+            }
+        };
+        spawn_children(&mut world);
+        schedule.run(&mut world);
+
+        // Despawn every child and spawn replacements in the same frame, reusing the freed
+        // entity indices.
+        let stale: Vec<Entity> = roots
+            .iter()
+            .flat_map(|&root| world.get::<Children>(root).unwrap().iter())
+            .collect();
+        for child in stale {
+            world.despawn(child);
+        }
+        spawn_children(&mut world);
+        schedule.run(&mut world);
+
+        let mut children = world.query::<(&Transform, &GlobalTransform, &ChildOf)>();
+        for (transform, global_transform, child_of) in children.iter(&world) {
+            let root_transform = world.get::<Transform>(child_of.parent()).unwrap();
+            assert_eq!(
+                global_transform,
+                &(GlobalTransform::from(*root_transform) * *transform),
+                "respawned child kept a stale GlobalTransform",
+            );
+        }
     }
 }
