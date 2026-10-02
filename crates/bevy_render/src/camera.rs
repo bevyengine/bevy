@@ -10,9 +10,10 @@ use crate::{
     sync_world::{MainEntity, MainEntityHashSet, RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindow, Msaa, NoIndirectDrawing,
-        RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
-        ResolvedCompositingSpace, RetainedViewEntity, Tonemapping, ViewUniformOffset,
+        resolve_view_display_target, ColorGrading, ExtractedView, ExtractedWindow,
+        ManualDisplayTargets, Msaa, NoIndirectDrawing, RenderExtractedVisibleEntities,
+        RenderVisibleEntities, RenderVisibleEntitiesClass, ResolvedCompositingSpace,
+        RetainedViewEntity, Tonemapping, ViewDisplayTarget, ViewUniformOffset,
         VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -105,7 +106,8 @@ impl Plugin for CameraPlugin {
                     ExtractSchedule,
                     (
                         extract_cameras
-                            .after(extract_resource::<ManualTextureViews, RenderApp, ()>),
+                            .after(extract_resource::<ManualTextureViews, RenderApp, ()>)
+                            .after(extract_resource::<ManualDisplayTargets, RenderApp, ()>),
                         clear_dirty_specializations.in_set(DirtySpecializationSystems::Clear),
                         clear_dirty_wireframe_specializations
                             .in_set(DirtySpecializationSystems::Clear),
@@ -455,7 +457,7 @@ pub fn camera_system(
 /// view comes from a camera. For example, views can come from lights,
 /// for drawing shadow maps.
 #[derive(Component, Debug)]
-#[require(RenderVisibleEntities)]
+#[require(RenderVisibleEntities, ViewDisplayTarget)]
 pub struct ExtractedCamera {
     pub target: Option<NormalizedRenderTarget>,
     pub physical_viewport_size: Option<UVec2>,
@@ -508,6 +510,7 @@ pub fn extract_cameras(
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    manual_display_targets: Res<ManualDisplayTargets>,
     manual_texture_views: Res<ManualTextureViews>,
     images: Res<RenderAssets<GpuImage>>,
     mut existing_render_visible_entities_cpu_culling: Query<
@@ -643,13 +646,22 @@ pub fn extract_cameras(
                         .map(|format| normalize_bgra8(target, format))
                 })
                 .unwrap_or(TextureFormat::Rgba8UnormSrgb);
+            // Last frame's negotiated color space, like the swap chain format
+            // read above.
+            let view_display_target = resolve_view_display_target(
+                target.as_ref(),
+                extracted_swap_chains.iter(),
+                &manual_display_targets,
+            );
+            // An HDR color space needs values above 1.0, like a camera with `Hdr`.
+            let hdr_output = hdr || view_display_target.is_hdr();
             let tonemapping_enabled = tonemapping.is_some_and(Tonemapping::is_enabled);
             let shares_target = target
                 .as_ref()
                 .and_then(|t| active_cameras_per_target.get(t))
                 .is_some_and(|&count| count > 1);
             let in_shader = tonemaps_in_shader(
-                hdr,
+                hdr_output,
                 tonemapping_enabled,
                 tonemapping_pass,
                 compositing_space.copied(),
@@ -657,7 +669,7 @@ pub fn extract_cameras(
                 shares_target,
             );
             let target_format = main_texture_format(
-                hdr,
+                hdr_output,
                 tonemapping_enabled && !in_shader,
                 compositing_space.copied(),
                 output_texture_format,
@@ -685,6 +697,7 @@ pub fn extract_cameras(
                     tonemap_in_shader: in_shader,
                 },
                 ResolvedCompositingSpace(compositing_space.copied()),
+                view_display_target,
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
