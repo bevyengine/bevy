@@ -151,15 +151,13 @@ fn update_drag_proxies(
                 (transform.translation - node.size() * 0.5) * node.inverse_scale_factor()
             })
             .unwrap_or(Vec2::ZERO);
-        let Some(viewport_rect) = target_cameras
+        let viewport_rect = target_cameras
             .get(overlay_root.unwrap_or(entity))
             .ok()
             .and_then(ComputedUiTargetCamera::get)
             .and_then(|camera| cameras.get(camera).ok())
             .and_then(Camera::logical_viewport_rect)
-        else {
-            continue;
-        };
+            .unwrap_or_default();
         let position =
             (location.position - viewport_rect.min) / scale + proxy.offset - overlay_origin;
         node.position_type = PositionType::Absolute;
