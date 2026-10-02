@@ -1,4 +1,5 @@
-//! Resolution of per-camera [`CompositingSpace`] requests.
+//! Resolution of per-camera [`CompositingSpace`] requests, and a check on
+//! how the cameras in a stack tonemap.
 //!
 //! Cameras that render to the same target share main textures when their
 //! settings match, and composite over each other in that texture. A camera
@@ -6,6 +7,9 @@
 //! texture. Later passes need to know how the texture is encoded, so each
 //! stack has to agree on one compositing space. This module picks that space
 //! each frame and stores it in each view's [`ResolvedCompositingSpace`].
+//!
+//! [`check_stacked_tonemapping`] warns when a camera's tonemapping pass
+//! tonemaps pixels that an earlier camera in the stack already tonemapped.
 
 use bevy_camera::{Camera2d, CameraMainTextureUsages, ClearColorConfig, CompositingSpace};
 use bevy_ecs::{
@@ -19,7 +23,7 @@ use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use wgpu::TextureFormat;
 
-use super::{main_texture_key, ExtractedView, MainTextureKey, Msaa};
+use super::{main_texture_key, ExtractedView, MainTextureKey, Msaa, Tonemapping};
 use crate::camera::ExtractedCamera;
 
 /// The compositing space a camera view actually uses this frame, written by
@@ -164,6 +168,53 @@ struct SpaceInput {
     signed_storage: bool,
 }
 
+/// A view's place in its main texture's camera order, for
+/// [`group_by_texture`] and [`stacks`].
+trait StackMember {
+    fn sorted_index(&self) -> usize;
+    /// True for [`ClearColorConfig::None`]. A view that clears starts a new
+    /// stack.
+    fn loads_previous(&self) -> bool;
+}
+
+impl StackMember for SpaceInput {
+    fn sorted_index(&self) -> usize {
+        self.sorted_index
+    }
+    fn loads_previous(&self) -> bool {
+        self.loads_previous
+    }
+}
+
+/// Groups views by main texture and sorts each group by camera order.
+///
+/// Groups require unique `sorted_index` values and don't handle ties.
+fn group_by_texture<T: StackMember>(
+    views: impl IntoIterator<Item = (MainTextureKey, T)>,
+) -> Vec<Vec<T>> {
+    let mut groups: HashMap<MainTextureKey, Vec<T>> = HashMap::default();
+    for (texture, view) in views {
+        groups.entry(texture).or_default().push(view);
+    }
+    let mut groups: Vec<Vec<T>> = groups.into_values().collect();
+    for group in &mut groups {
+        group.sort_unstable_by_key(StackMember::sorted_index);
+        debug_assert!(
+            group
+                .windows(2)
+                .all(|pair| pair[0].sorted_index() != pair[1].sorted_index()),
+            "sorted camera indices must be unique within a texture group"
+        );
+    }
+    groups
+}
+
+/// Splits one texture's sorted views into stacks. Each clearing view after
+/// the first starts a new stack.
+fn stacks<T: StackMember>(group: &[T]) -> impl Iterator<Item = &[T]> {
+    group.chunk_by(|_, next| next.loads_previous())
+}
+
 /// A misconfiguration found while resolving compositing spaces.
 /// `resolve_composition_spaces` reports each one as a warning.
 /// `resolve_spaces` returns them so tests can check when each fires.
@@ -189,49 +240,30 @@ enum CompositingSpaceResolutionError {
 
 /// Resolves one compositing space per view. Views that share a main texture
 /// split into stacks at every clear, and each stack resolves on its own.
-///
-/// The resolver requires unique `sorted_index` values within a texture
-/// group and doesn't handle ties. `sort_cameras` counts the index per
-/// render target and `prepare_view_targets` keys main textures by target,
-/// so one group holds one target's cameras.
 fn resolve_spaces(
     views: impl IntoIterator<Item = (MainTextureKey, SpaceInput)>,
 ) -> (
     EntityHashMap<Option<CompositingSpace>>,
     Vec<CompositingSpaceResolutionError>,
 ) {
-    let mut groups: HashMap<MainTextureKey, Vec<SpaceInput>> = HashMap::default();
-    for (texture, mut view) in views {
+    let views = views.into_iter().map(|(texture, mut view)| {
         view.request = view.request.filter(|space| !space.is_linear());
-        groups.entry(texture).or_default().push(view);
-    }
+        (texture, view)
+    });
 
     let mut resolved = EntityHashMap::default();
     let mut diagnostics = Vec::new();
-    for group in groups.values_mut() {
-        group.sort_unstable_by_key(|view| view.sorted_index);
-        debug_assert!(
-            group
-                .windows(2)
-                .all(|pair| pair[0].sorted_index != pair[1].sorted_index),
-            "sorted camera indices must be unique within a texture group"
-        );
-
-        // Each clearing member after the first starts a new stack.
-        let mut start = 0;
-        for index in 1..group.len() {
-            if !group[index].loads_previous {
-                resolve_members(&group[start..index], &mut resolved, &mut diagnostics);
-                start = index;
-            }
+    for group in group_by_texture(views) {
+        let stacks: Vec<&[SpaceInput]> = stacks(&group).collect();
+        for stack in &stacks {
+            resolve_members(stack, &mut resolved, &mut diagnostics);
         }
-        resolve_members(&group[start..], &mut resolved, &mut diagnostics);
 
         // The main texture persists across frames. A first member that loads
         // blends over what the last stack left the previous frame, so the
         // two stacks must agree.
         let first = &group[0];
-        if first.loads_previous && start > 0 {
+        if first.loads_previous && stacks.len() > 1 {
             let space_of = |entity| resolved.get(&entity).copied().flatten();
             let first_space = space_of(first.entity);
             let last_space = space_of(group[group.len() - 1].entity);
@@ -312,6 +344,172 @@ fn resolve_members(
     for member in members {
         resolved.insert(member.entity, space);
     }
+}
+
+/// Warns when a camera's tonemapping pass tonemaps pixels that another camera
+/// on the same main texture already tonemapped.
+pub fn check_stacked_tonemapping(
+    views: Query<(
+        &ExtractedCamera,
+        &ExtractedView,
+        &CameraMainTextureUsages,
+        &Msaa,
+        Option<&Tonemapping>,
+    )>,
+) {
+    let flags = || {
+        views
+            .iter()
+            .map(|(camera, view, texture_usage, msaa, tonemapping)| {
+                (
+                    main_texture_key(camera, view, texture_usage, *msaa),
+                    applies_tone_curve(camera, tonemapping),
+                    matches!(camera.clear_color, ClearColorConfig::None),
+                )
+            })
+    };
+    if !may_tonemap_twice(flags) {
+        return;
+    }
+
+    let inputs = views
+        .iter()
+        .map(|(camera, view, texture_usage, msaa, tonemapping)| {
+            (
+                main_texture_key(camera, view, texture_usage, *msaa),
+                tonemap_input(camera, view, tonemapping),
+            )
+        });
+    for error in check_tonemapping(inputs) {
+        match error {
+            StackedTonemappingError::TonemappedTwice { earlier, later } => warn_once!(
+                "Camera {later} renders later than cameras {earlier:?} to the same render \
+                target, and its tonemapping pass tonemaps their pixels a second time. Give \
+                cameras {earlier:?} Tonemapping::Linear so that only camera {later} applies a \
+                tone curve."
+            ),
+            StackedTonemappingError::FrameStartLoadsTonemappedOutput { first } => warn_once!(
+                "Camera {first} uses ClearColorConfig::None and no camera writes its main \
+                texture before it, so it loads the previous frame's tonemapped image. A \
+                tonemapping pass on this render target then tonemaps that image again every \
+                frame. Give camera {first} a clear color, or give every camera on this render \
+                target Tonemapping::Linear."
+            ),
+        }
+    }
+}
+
+/// Per-view input to [`check_tonemapping`].
+struct TonemapInput {
+    /// The camera's main world entity, named in warnings.
+    main_entity: Entity,
+    sorted_index: usize,
+    loads_previous: bool,
+    /// Whether the view's tonemapping pass runs and applies a tone curve.
+    applies_tone_curve: bool,
+    has_viewport: bool,
+}
+
+impl StackMember for TonemapInput {
+    fn sorted_index(&self) -> usize {
+        self.sorted_index
+    }
+    fn loads_previous(&self) -> bool {
+        self.loads_previous
+    }
+}
+
+fn tonemap_input(
+    camera: &ExtractedCamera,
+    view: &ExtractedView,
+    tonemapping: Option<&Tonemapping>,
+) -> TonemapInput {
+    TonemapInput {
+        main_entity: view.retained_view_entity.main_entity.id(),
+        sorted_index: camera.sorted_camera_index_for_target,
+        loads_previous: matches!(camera.clear_color, ClearColorConfig::None),
+        applies_tone_curve: applies_tone_curve(camera, tonemapping),
+        has_viewport: camera.viewport.is_some(),
+    }
+}
+
+/// Whether the view's tonemapping pass runs and applies a tone curve.
+fn applies_tone_curve(camera: &ExtractedCamera, tonemapping: Option<&Tonemapping>) -> bool {
+    camera.runs_tonemapping_pass && tonemapping.is_some_and(Tonemapping::applies_tone_curve)
+}
+
+/// A misconfiguration found by [`check_tonemapping`]. The entities are main
+/// world entities.
+#[derive(Debug, PartialEq, Eq)]
+enum StackedTonemappingError {
+    /// The pass of `later` tonemaps pixels that the `earlier` views already
+    /// tonemapped.
+    TonemappedTwice { earlier: Vec<Entity>, later: Entity },
+    /// The texture's first view loads the previous frame's output, which the
+    /// last stack tonemapped, and the first stack tonemaps it again.
+    FrameStartLoadsTonemappedOutput { first: Entity },
+}
+
+/// Whether [`check_tonemapping`] could report anything. Each item is a view's
+/// main texture key, whether it applies a tone curve, and whether it loads
+/// the previous output. Pixels are tonemapped twice within a frame only when
+/// two cameras apply a tone curve. With one such camera, they are tonemapped
+/// again across frames only when no camera on its main texture clears.
+fn may_tonemap_twice<I: Iterator<Item = (MainTextureKey, bool, bool)>>(
+    views: impl Fn() -> I,
+) -> bool {
+    let mut curves = 0;
+    let mut texture = None;
+    for (key, applies_tone_curve, _) in views() {
+        if applies_tone_curve {
+            curves += 1;
+            texture = Some(key);
+        }
+    }
+    let Some(texture) = texture else {
+        return false;
+    };
+    curves > 1 || views().all(|(key, _, loads_previous)| key != texture || loads_previous)
+}
+
+/// Finds pixels that reach the render target tonemapped more than once.
+fn check_tonemapping(
+    views: impl IntoIterator<Item = (MainTextureKey, TonemapInput)>,
+) -> Vec<StackedTonemappingError> {
+    let mut errors = Vec::new();
+    for group in group_by_texture(views) {
+        let stacks: Vec<&[TonemapInput]> = stacks(&group).collect();
+        errors.extend(stacks.iter().filter_map(|stack| check_stack(stack)));
+
+        let first = &group[0];
+        let curve = |stack: &[TonemapInput]| stack.iter().any(|view| view.applies_tone_curve);
+        if first.loads_previous && curve(stacks[0]) && curve(stacks[stacks.len() - 1]) {
+            errors.push(StackedTonemappingError::FrameStartLoadsTonemappedOutput {
+                first: first.main_entity,
+            });
+        }
+    }
+    errors
+}
+
+/// Reports the latest view in the stack without a viewport whose pass
+/// tonemaps earlier views' pixels again, so `Tonemapping::Linear` on those
+/// earlier views leaves exactly one tone curve. A later view with a viewport
+/// isn't reported, because that fix would leave the earlier pixels outside
+/// its viewport without a tone curve.
+fn check_stack(stack: &[TonemapInput]) -> Option<StackedTonemappingError> {
+    let later = stack
+        .iter()
+        .rposition(|view| view.applies_tone_curve && !view.has_viewport)?;
+    let earlier: Vec<Entity> = stack[..later]
+        .iter()
+        .filter(|view| view.applies_tone_curve)
+        .map(|view| view.main_entity)
+        .collect();
+    (!earlier.is_empty()).then(|| StackedTonemappingError::TonemappedTwice {
+        earlier,
+        later: stack[later].main_entity,
+    })
 }
 
 #[cfg(test)]
@@ -688,5 +886,177 @@ mod tests {
         assert_eq!(resolved_for(&resolved, 1), SRGB);
         assert_eq!(resolved_for(&resolved, 2), SRGB);
         assert!(diagnostics.is_empty());
+    }
+
+    // Tonemapping checks. `curve` is a view whose pass applies a tone curve,
+    // and `no_curve` is one that doesn't. Both load the previous output and
+    // have no viewport.
+    fn member(raw: u32, index: usize, applies_tone_curve: bool) -> (MainTextureKey, TonemapInput) {
+        let (texture, _) = view(raw, 0, index, None);
+        (
+            texture,
+            TonemapInput {
+                main_entity: entity(raw),
+                sorted_index: index,
+                loads_previous: true,
+                applies_tone_curve,
+                has_viewport: false,
+            },
+        )
+    }
+
+    fn curve(raw: u32, index: usize) -> (MainTextureKey, TonemapInput) {
+        member(raw, index, true)
+    }
+
+    fn no_curve(raw: u32, index: usize) -> (MainTextureKey, TonemapInput) {
+        member(raw, index, false)
+    }
+
+    fn clears(mut view: (MainTextureKey, TonemapInput)) -> (MainTextureKey, TonemapInput) {
+        view.1.loads_previous = false;
+        view
+    }
+
+    fn with_viewport(mut view: (MainTextureKey, TonemapInput)) -> (MainTextureKey, TonemapInput) {
+        view.1.has_viewport = true;
+        view
+    }
+
+    fn twice(earlier: &[u32], later: u32) -> StackedTonemappingError {
+        StackedTonemappingError::TonemappedTwice {
+            earlier: earlier.iter().map(|raw| entity(*raw)).collect(),
+            later: entity(later),
+        }
+    }
+
+    fn frame_start(first: u32) -> StackedTonemappingError {
+        StackedTonemappingError::FrameStartLoadsTonemappedOutput {
+            first: entity(first),
+        }
+    }
+
+    /// Fast-path input: `texture` picks one of two texture keys.
+    fn flags(
+        texture: usize,
+        applies_tone_curve: bool,
+        loads_previous: bool,
+    ) -> (MainTextureKey, bool, bool) {
+        (
+            view(0, texture, 0, None).0,
+            applies_tone_curve,
+            loads_previous,
+        )
+    }
+
+    #[test]
+    fn fast_path_runs_the_check_only_when_a_repeat_is_possible() {
+        let may =
+            |views: &[(MainTextureKey, bool, bool)]| may_tonemap_twice(|| views.iter().cloned());
+        assert!(may(&[flags(0, true, true)]));
+        assert!(!may(&[flags(0, true, true), flags(0, false, false)]));
+        assert!(may(&[flags(0, true, true), flags(1, false, false)]));
+        assert!(may(&[flags(0, true, false), flags(1, true, false)]));
+        assert!(!may(&[flags(0, false, true), flags(0, false, true)]));
+    }
+
+    #[test]
+    fn linear_applies_no_tone_curve() {
+        assert!(!Tonemapping::Linear.applies_tone_curve());
+        assert!(Tonemapping::TonyMcMapface.applies_tone_curve());
+    }
+
+    #[test]
+    fn single_tonemapping_camera_is_silent() {
+        assert!(check_tonemapping([clears(curve(1, 0))]).is_empty());
+    }
+
+    #[test]
+    fn later_tonemapping_camera_tonemaps_the_earlier_one_twice() {
+        let errors = check_tonemapping([clears(curve(1, 0)), curve(2, 1)]);
+        assert_eq!(errors, vec![twice(&[1], 2)]);
+    }
+
+    // One error per stack, naming the latest camera with a tone curve, so
+    // the fix leaves exactly one.
+    #[test]
+    fn three_tonemapping_cameras_report_the_last_one_once() {
+        let errors = check_tonemapping([clears(curve(1, 0)), curve(2, 1), curve(3, 2)]);
+        assert_eq!(errors, vec![twice(&[1, 2], 3)]);
+    }
+
+    #[test]
+    fn cameras_without_a_tone_curve_are_never_flagged() {
+        assert!(check_tonemapping([clears(curve(1, 0)), no_curve(2, 1)]).is_empty());
+        assert!(check_tonemapping([clears(no_curve(1, 0)), curve(2, 1)]).is_empty());
+    }
+
+    #[test]
+    fn tonemapping_cameras_around_a_camera_without_a_curve_are_flagged() {
+        let errors = check_tonemapping([clears(curve(1, 0)), no_curve(2, 1), curve(3, 2)]);
+        assert_eq!(errors, vec![twice(&[1], 3)]);
+    }
+
+    #[test]
+    fn two_stacks_report_one_error_each() {
+        let errors = check_tonemapping([
+            clears(curve(1, 0)),
+            curve(2, 1),
+            clears(curve(3, 2)),
+            curve(4, 3),
+        ]);
+        assert_eq!(errors, vec![twice(&[1], 2), twice(&[3], 4)]);
+    }
+
+    #[test]
+    fn separate_textures_are_silent() {
+        let mut other = clears(curve(2, 0));
+        other.0 .3 = Msaa::Sample4;
+        assert!(check_tonemapping([clears(curve(1, 0)), other]).is_empty());
+    }
+
+    #[test]
+    fn viewport_camera_over_a_fullscreen_camera_is_silent() {
+        let errors = check_tonemapping([clears(curve(1, 0)), with_viewport(curve(2, 1))]);
+        assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn fullscreen_camera_over_viewport_cameras_is_flagged() {
+        let errors = check_tonemapping([
+            with_viewport(clears(curve(1, 0))),
+            with_viewport(curve(2, 1)),
+            curve(3, 2),
+        ]);
+        assert_eq!(errors, vec![twice(&[1, 2], 3)]);
+    }
+
+    #[test]
+    fn frame_start_load_of_own_tonemapped_output_is_flagged() {
+        assert_eq!(check_tonemapping([curve(1, 0)]), vec![frame_start(1)]);
+    }
+
+    #[test]
+    fn frame_start_load_is_silent_when_the_last_stack_has_no_tone_curve() {
+        assert!(check_tonemapping([curve(1, 0), clears(no_curve(2, 1))]).is_empty());
+    }
+
+    #[test]
+    fn frame_start_load_is_silent_when_the_first_stack_has_no_tone_curve() {
+        assert!(check_tonemapping([no_curve(1, 0), clears(curve(2, 1))]).is_empty());
+    }
+
+    // Two stacks don't tonemap each other's pixels within a frame, but the
+    // first loads the second's output across frames.
+    #[test]
+    fn frame_start_load_across_stacks_is_flagged_once() {
+        let errors = check_tonemapping([curve(1, 0), clears(curve(2, 1))]);
+        assert_eq!(errors, vec![frame_start(1)]);
+    }
+
+    #[test]
+    fn frame_start_load_and_repeat_within_the_frame_are_both_flagged() {
+        let errors = check_tonemapping([curve(1, 0), curve(2, 1)]);
+        assert_eq!(errors, vec![twice(&[1], 2), frame_start(1)]);
     }
 }
