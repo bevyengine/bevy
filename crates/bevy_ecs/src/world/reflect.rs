@@ -8,7 +8,7 @@ use thiserror::Error;
 use bevy_reflect::{PartialReflect, Reflect, ReflectFromPtr};
 use bevy_utils::prelude::DebugName;
 
-use crate::{prelude::*, world::ComponentId};
+use crate::{change_detection::MutNoComp, prelude::*, world::ComponentId};
 
 impl World {
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given `type_id` using
@@ -142,7 +142,7 @@ impl World {
         &mut self,
         entity: Entity,
         type_id: TypeId,
-    ) -> Result<Mut<'_, dyn Reflect>, GetComponentReflectError> {
+    ) -> Result<MutNoComp<'_, dyn Reflect>, GetComponentReflectError> {
         // little clone() + read() dance so we a) don't keep a borrow of `self` and b) don't drop a
         // temporary (from read()) too  early.
         let Some(app_type_registry) = self.get_resource::<AppTypeRegistry>().cloned() else {
