@@ -79,11 +79,13 @@ pub fn prepare_core_3d_transmission_textures(
 
         // Don't prepare a transmission texture if the number of steps is set to 0
         if transmission.steps == 0 {
+            commands.entity(entity).remove::<ViewTransmissionTexture>();
             continue;
         }
 
         // Don't prepare a transmission texture if there are no transmissive items to render
         if transmissive_3d_phase.items.is_empty() {
+            commands.entity(entity).remove::<ViewTransmissionTexture>();
             continue;
         }
 
