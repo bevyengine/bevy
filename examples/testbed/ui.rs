@@ -2777,10 +2777,7 @@ mod viewport_node {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
     ) {
-        commands.spawn((
-            Camera3d,
-            DespawnOnExit(super::Scene::ViewportNode),
-        ));
+        commands.spawn((Camera3d, DespawnOnExit(super::Scene::ViewportNode)));
 
         let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
         let image_handle = images.add(image);
