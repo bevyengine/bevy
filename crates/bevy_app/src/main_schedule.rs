@@ -39,13 +39,15 @@ use bevy_ecs::{
 /// Instead, rendering is performed in a separate [`SubApp`]
 /// which exchanges data with the main app in between the main schedule runs.
 ///
-/// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
+/// The [`EntryPoint`] analogue for the render world is [`RenderEntryPoint`].
+/// For more information, check out [`RenderPlugin`] and [`PipelinedRenderingPlugin`].
 ///
 /// [^1]: [`StateTransition`] is inserted only if you have `bevy_state` feature enabled. It is enabled in `default` features.
 ///
 /// [`StateTransition`]: https://docs.rs/bevy/latest/bevy/prelude/struct.StateTransition.html
 /// [`OnEnter(MyState::Foo)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
 /// [`OnEnter(MyComputedState)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
+/// [`RenderEntryPoint`]: https://docs.rs/bevy/render/struct.RenderEntryPoint.html
 /// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
 /// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 /// [`SubApp`]: crate::SubApp
