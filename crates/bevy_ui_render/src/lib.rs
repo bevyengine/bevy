@@ -73,7 +73,6 @@ pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
 use gradient::GradientPlugin;
 
-use alloc::sync::Arc;
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, EditableText, InlineBox, PositionedGlyph, Strikethrough, StrikethroughColor,
@@ -2166,12 +2165,12 @@ pub struct UiMeta {
     batches: Vec<UiBatch>,
 }
 
-impl FromWorld for UiMeta {
-    fn from_world(world: &mut World) -> Self {
+impl Default for UiMeta {
+    fn default() -> Self {
         Self {
             vertices: AtomicSparseBufferVec::new(
                 BufferUsages::VERTEX | BufferUsages::STORAGE,
-                Arc::from("ui_vertices"),
+                "ui_vertices".into(),
             ),
             indices: RawBufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
