@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
-use wgpu_types::TextureUsages;
+use wgpu_types::{LoadOp, TextureUsages};
 
 /// A 2D camera component. Enables the 2D render graph for a [`Camera`].
 #[derive(Component, Default, Reflect, Clone)]
@@ -73,6 +73,15 @@ pub enum CameraDepthLoadOp {
 impl Default for CameraDepthLoadOp {
     fn default() -> Self {
         CameraDepthLoadOp::Clear(0.0)
+    }
+}
+
+impl From<CameraDepthLoadOp> for LoadOp<f32> {
+    fn from(config: CameraDepthLoadOp) -> Self {
+        match config {
+            CameraDepthLoadOp::Clear(x) => LoadOp::Clear(x),
+            CameraDepthLoadOp::Load => LoadOp::Load,
+        }
     }
 }
 
