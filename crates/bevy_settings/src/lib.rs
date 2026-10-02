@@ -639,7 +639,7 @@ fn is_option_type(type_info: &TypeInfo) -> bool {
 }
 
 fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types: &TypeRegistry) {
-    let Some(tinfo) = resource.get_represented_type_info() else {
+    let Some(tinfo) = resource.runtime_type_info() else {
         return;
     };
 
