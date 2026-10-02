@@ -81,7 +81,7 @@ fn setup(
         for x in 0..CAMERA_ROWS {
             let angle = i as f32 / (CAMERA_ROWS * CAMERA_COLS) as f32 * PI * 2.0;
             commands.spawn((
-                Camera3d::default(),
+                Camera3d,
                 Camera {
                     viewport: Some(Viewport {
                         physical_position: UVec2::new(

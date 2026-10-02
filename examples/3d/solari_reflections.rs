@@ -231,7 +231,7 @@ fn setup(
     ));
 
     let mut camera = commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Camera {
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()

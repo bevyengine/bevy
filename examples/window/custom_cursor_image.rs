@@ -64,7 +64,7 @@ fn setup_cursor_icon(
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn(Camera3d::default());
+    commands.spawn(Camera3d);
 }
 
 fn setup_instructions(mut commands: Commands) {

@@ -47,7 +47,7 @@ fn setup_environment(
     ));
 
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(0.0, 0.0, 1.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         Projection::Orthographic(OrthographicProjection {
             scaling_mode: ScalingMode::AutoMin {

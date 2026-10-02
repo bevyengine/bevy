@@ -169,7 +169,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawn the camera
-    commands.spawn((Camera3d::default(), TRANSFORM_2D, PROJECTION_2D));
+    commands.spawn((Camera3d, TRANSFORM_2D, PROJECTION_2D));
 
     // Spawn the 2D heart
     commands.spawn((

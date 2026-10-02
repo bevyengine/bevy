@@ -75,7 +75,7 @@ impl Plugin for CameraPlugin {
 
 fn spawn_camera(mut commands: Commands) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(0.0, 1.0, 0.0).looking_to(Vec3::X, Vec3::Y),
         // This component stores all camera settings and state, which is used by the FreeCameraPlugin to
         // control it. These properties can be changed at runtime, but beware the controller system is

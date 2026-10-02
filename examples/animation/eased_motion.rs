@@ -70,7 +70,7 @@ fn setup(
 
     // The camera
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(0., 6., 12.).looking_at(Vec3::new(0., 1.5, 0.), Vec3::Y),
     ));
 }

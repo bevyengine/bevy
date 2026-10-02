@@ -59,7 +59,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
     ));
 

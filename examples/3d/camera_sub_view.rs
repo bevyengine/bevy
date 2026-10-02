@@ -56,7 +56,7 @@ fn setup(
     //
     // The main perspective image to use as a comparison for the sub views.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Camera::default(),
         ExampleViewports::PerspectiveMain,
         transform,
@@ -71,7 +71,7 @@ fn setup(
     // an aspect ratio of 1x2, the image appears stretched along the horizontal
     // axis.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Camera {
             sub_camera_view: Some(SubCameraView {
                 // The values of `full_size` and `size` do not have to be the
@@ -98,7 +98,7 @@ fn setup(
     // full image once every 3.3 seconds. `size` is a fifth of the size of
     // `full_size`, so the image will appear zoomed in.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Camera {
             sub_camera_view: Some(SubCameraView {
                 full_size: UVec2::new(500, 500),
@@ -121,7 +121,7 @@ fn setup(
     // the viewport and should show an unstretched image of the top half of the
     // full perspective image.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Camera {
             sub_camera_view: Some(SubCameraView {
                 full_size: UVec2::new(800, 800),
@@ -139,7 +139,7 @@ fn setup(
     //
     // The main orthographic image to use as a comparison for the sub views.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Projection::from(OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical {
                 viewport_height: 6.0,
@@ -161,7 +161,7 @@ fn setup(
     // Since the viewport has an aspect ratio of 1x1 and the sub view has an
     // aspect ratio of 1x2, the image appears stretched along the horizontal axis.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Projection::from(OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical {
                 viewport_height: 6.0,
@@ -189,7 +189,7 @@ fn setup(
     // the full image once every 3.3 seconds. `size` is a fifth of the size of
     // `full_size`, so the image will appear zoomed in.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Projection::from(OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical {
                 viewport_height: 6.0,
@@ -218,7 +218,7 @@ fn setup(
     // the viewport and should show an unstretched image of the top half of the
     // full orthographic image.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Projection::from(OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical {
                 viewport_height: 6.0,

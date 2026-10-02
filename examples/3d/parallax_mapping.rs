@@ -217,7 +217,7 @@ fn setup(
 
     // Camera
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCameraController,
     ));

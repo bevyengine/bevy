@@ -19,7 +19,7 @@ fn main() {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         // Add the `MotionBlur` component to a camera to enable motion blur.
         // Motion blur requires the depth and motion vector prepass, which this bundle adds.
         // Configure the amount and quality of motion blur per-camera using this component.

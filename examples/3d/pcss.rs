@@ -141,7 +141,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn((
-            Camera3d::default(),
+            Camera3d,
             Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7).with_rotation(
                 Quat::from_euler(EulerRot::YXZ, -134.76 / 180.0 * PI, -0.175, 0.0),
             ),

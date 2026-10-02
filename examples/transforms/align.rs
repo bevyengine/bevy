@@ -54,7 +54,7 @@ fn setup(
 
     // A camera looking at the origin
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 

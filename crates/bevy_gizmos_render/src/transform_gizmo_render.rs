@@ -356,7 +356,7 @@ fn spawn_gizmo_meshes(
     // This camera renders only the gizmo layer, after the main camera (order: 1),
     // without clearing the color buffer — so gizmo meshes appear on top of everything.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Camera {
             order: 1,
             ..Default::default()

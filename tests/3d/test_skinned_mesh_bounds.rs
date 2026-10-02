@@ -49,7 +49,7 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(0.0, 7.5, 18.0).looking_at(Vec3::new(0.0, 5.5, 0.0), Vec3::Y),
     ));
 }

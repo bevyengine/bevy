@@ -212,7 +212,7 @@ fn setup(
             }
 
             // camera
-            let mut camera = commands.spawn(Camera3d::default());
+            let mut camera = commands.spawn(Camera3d);
             if args.no_indirect_drawing {
                 camera.insert(NoIndirectDrawing);
             }
@@ -313,7 +313,7 @@ fn setup(
                     dimensions.y as f32,
                     dimensions.x as f32,
                 );
-            commands.spawn((Camera3d::default(), Transform::from_translation(center)));
+            commands.spawn((Camera3d, Transform::from_translation(center)));
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
                 Mesh3d(mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center))),
@@ -345,7 +345,7 @@ fn setup(
 
             // camera
             commands.spawn((
-                Camera3d::default(),
+                Camera3d,
                 Transform::from_xyz(100.0, 90.0, 100.0)
                     .looking_at(Vec3::new(0.0, -10.0, 0.0), Vec3::Y),
             ));

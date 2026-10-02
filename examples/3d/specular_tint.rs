@@ -109,7 +109,7 @@ fn setup(
     commands.spawn((
         Transform::from_xyz(-2.0, 0.0, 3.5).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
-        Camera3d::default(),
+        Camera3d,
         Skybox {
             image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             brightness: 3000.0,
