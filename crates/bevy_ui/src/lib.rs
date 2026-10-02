@@ -169,7 +169,8 @@ impl Plugin for UiPlugin {
                     UiSystems::Clipping,
                     UiSystems::PostLayout,
                 )
-                    .chain_weak(),
+                    .chain_weak()
+                    .in_set(PostUpdate),
             )
             .configure_sets(
                 Main,

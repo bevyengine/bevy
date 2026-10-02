@@ -396,7 +396,8 @@ impl Plugin for PickingPlugin {
                 (PickingSystems::Input, PickingSystems::PostInput)
                     .after(bevy_time::TimeSystems)
                     .after(bevy_ecs::message::MessageUpdateSystems)
-                    .chain(),
+                    .chain()
+                    .in_set(First),
             )
             .configure_sets(
                 Main,
@@ -407,7 +408,8 @@ impl Plugin for PickingPlugin {
                     PickingSystems::PostHover,
                     PickingSystems::Last,
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(PreUpdate),
             );
     }
 }
