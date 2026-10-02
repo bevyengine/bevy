@@ -36,8 +36,13 @@ fn main() {
         )
         .add_systems(OnEnter(Scene::ColorConsistency), color_consistency::setup)
         .add_systems(OnExit(Scene::ColorConsistency), color_consistency::teardown)
+        .add_systems(OnEnter(Scene::SpriteZOrder), sprite_z_order::setup)
         .add_systems(Update, switch_scene)
-        .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
+        .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)))
+        .add_systems(
+            Update,
+            sprite_z_order::move_sprites_sys.run_if(in_state(Scene::SpriteZOrder)),
+        );
 
     match args.scene {
         None => app.init_state::<Scene>(),
@@ -61,6 +66,7 @@ enum Scene {
     Gizmos,
     TextureAtlasBuilder,
     ColorConsistency,
+    SpriteZOrder,
 }
 
 impl Scene {
@@ -73,6 +79,7 @@ impl Scene {
         Scene::Gizmos,
         Scene::TextureAtlasBuilder,
         Scene::ColorConsistency,
+        Scene::SpriteZOrder,
     ];
 }
 
@@ -629,5 +636,69 @@ mod color_consistency {
     // Tonemapping is per-camera, and is reset when the camera despawns
     pub fn teardown(mut commands: Commands) {
         commands.insert_resource(ClearColor::default());
+    }
+}
+
+mod sprite_z_order {
+    //! Visual regression test that a blended sprite that only moves is
+    //! re-sorted by its new `z`.
+    //!
+    //! Each row has a static blue square and a red square that is moved to the
+    //! other side of it a few frames after the scene starts. In the top row the
+    //! red square ends up in front, in the bottom row it ends up behind.
+
+    use bevy::{color::palettes::css, prelude::*, sprite::SpriteAlphaMode};
+
+    const CURRENT_SCENE: super::Scene = super::Scene::SpriteZOrder;
+    const STATIC_Z: f32 = 5.0;
+    const BEHIND: f32 = STATIC_Z - 1.0;
+    const IN_FRONT: f32 = STATIC_Z + 1.0;
+    const MOVE_AFTER_FRAMES: u32 = 5;
+
+    /// Moves the sprite to `z` once `frames_left` reaches zero.
+    #[derive(Component)]
+    pub struct MoveTo {
+        z: f32,
+        frames_left: u32,
+    }
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(CURRENT_SCENE)));
+
+        let square = |color: Srgba| Sprite {
+            alpha_mode: SpriteAlphaMode::Blend,
+            ..Sprite::from_color(color.with_alpha(0.9), Vec2::splat(140.0))
+        };
+
+        for (row_y, from, to) in [(150.0, BEHIND, IN_FRONT), (-150.0, IN_FRONT, BEHIND)] {
+            commands.spawn((
+                square(css::DODGER_BLUE),
+                Transform::from_xyz(0.0, row_y, STATIC_Z),
+                DespawnOnExit(CURRENT_SCENE),
+            ));
+            commands.spawn((
+                square(css::CRIMSON),
+                Transform::from_xyz(60.0, row_y - 40.0, from),
+                MoveTo {
+                    z: to,
+                    frames_left: MOVE_AFTER_FRAMES,
+                },
+                DespawnOnExit(CURRENT_SCENE),
+            ));
+        }
+    }
+
+    pub fn move_sprites_sys(
+        mut commands: Commands,
+        mut sprites: Query<(Entity, &mut Transform, &mut MoveTo)>,
+    ) {
+        for (entity, mut transform, mut move_to) in &mut sprites {
+            if move_to.frames_left > 0 {
+                move_to.frames_left -= 1;
+                continue;
+            }
+            transform.translation.z = move_to.z;
+            commands.entity(entity).remove::<MoveTo>();
+        }
     }
 }
