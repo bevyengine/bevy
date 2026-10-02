@@ -64,6 +64,9 @@ pub enum TabDragMode {
     Reorder,
     /// Tabs may be reordered within this list or moved between lists whose drag mode is also
     /// `External`.
+    ///
+    /// The target is the nearest such list under the pointer. Over no such list, including this
+    /// one, there is no preview and the drag completes without a [`TabDrop`].
     External,
 }
 
@@ -2012,18 +2015,13 @@ mod tests {
         let external_tab = placed_tab(&mut app, external, 50.0);
         app.update();
 
-        for (dragged, destination) in [
-            (external_tab, reorder),
-            (reorder_tab, external),
-            (external_tab, disabled),
-        ] {
+        for destination in [reorder, disabled] {
             hover_only(&mut app, destination, window);
-            start_drag(&mut app, dragged, window, PointerId::Mouse);
-            drag_to(&mut app, dragged, window, PointerId::Mouse, 20.0);
+            start_drag(&mut app, external_tab, window, PointerId::Mouse);
+            drag_to(&mut app, external_tab, window, PointerId::Mouse, 20.0);
             assert_eq!(preview(&app, destination), None);
-            end_drag(&mut app, dragged, window, 20.0);
+            end_drag(&mut app, external_tab, window, 20.0);
         }
-
         assert!(app.world().resource::<TabMoveLog>().0.is_empty());
         assert_eq!(
             phases(&app),
@@ -2031,7 +2029,51 @@ mod tests {
                 TabDragPhase::Started,
                 TabDragPhase::Completed { drop: None },
             ]
-            .repeat(3)
+            .repeat(2)
+        );
+
+        hover_only(&mut app, external, window);
+        start_drag(&mut app, reorder_tab, window, PointerId::Mouse);
+        drag_to(&mut app, reorder_tab, window, PointerId::Mouse, 20.0);
+        assert_eq!(preview(&app, external), None);
+        assert!(preview(&app, reorder).is_some());
+        end_drag(&mut app, reorder_tab, window, 20.0);
+        assert_eq!(
+            app.world().resource::<TabMoveLog>().0,
+            [TabMoved {
+                from_strip: reorder,
+                tab: reorder_tab,
+                to_strip: reorder,
+                index: 0,
+            }]
+        );
+    }
+
+    #[test]
+    fn external_drag_over_no_compatible_list_has_no_preview() {
+        let (mut app, window) = tab_app();
+        let source = external_list(&mut app, window);
+        let dragged = placed_tab(&mut app, source, 50.0);
+        placed_tab(&mut app, source, 150.0);
+        app.update();
+        hover_only(&mut app, source, window);
+
+        start_drag(&mut app, dragged, window, PointerId::Mouse);
+        drag_to(&mut app, dragged, window, PointerId::Mouse, 200.0);
+        assert_eq!(proposed(&app, source), Some((1, 2)));
+
+        app.world_mut().resource_mut::<HoverMap>().clear();
+        drag_to(&mut app, dragged, window, PointerId::Mouse, 200.0);
+        assert_eq!(preview(&app, source), None);
+
+        end_drag(&mut app, dragged, window, 200.0);
+        assert!(app.world().resource::<TabMoveLog>().0.is_empty());
+        assert_eq!(
+            phases(&app),
+            [
+                TabDragPhase::Started,
+                TabDragPhase::Completed { drop: None },
+            ]
         );
     }
 
