@@ -23,10 +23,11 @@ use bevy::{
     ui_widgets::{
         checkbox_self_update, listbox_update_selection,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-        radio_self_update, slider_self_update, split_pane_self_update,
+        radio_self_update, slider_self_update, split_pane_self_update, tablist_self_update,
         tree_view_expand_self_update, tree_view_self_update, Activate, ActivateOnPress,
-        ControlOrientation, NumericRange, NumericValue, RadioGroup, RequestClose, SliderPrecision,
-        SliderStep, SliderValue, TreeItemExpandChange, ValueChange,
+        ControlOrientation, DragOverlayRoot, NumericRange, NumericValue, RadioGroup, RequestClose,
+        SelectedTab, SliderPrecision, SliderStep, SliderValue, TabDragMode, TabLocked, TabMoved,
+        TreeItemExpandChange, ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -67,6 +68,12 @@ struct DemoLazyBranch;
 
 #[derive(Component, Clone, Copy, Default)]
 struct DemoPopulated;
+
+#[derive(Component, Clone, Copy, Default)]
+struct DemoTabLabel(&'static str);
+
+#[derive(Component, Clone, Copy, Default)]
+struct DemoTabPanel;
 
 #[derive(Component, Clone, Copy, Default)]
 enum DemoVec3Field {
@@ -112,6 +119,7 @@ fn demo_root() -> impl Scene {
             column_gap: px(8),
         }
         TabGroup
+        DragOverlayRoot
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children [
             @demo_column_1()
@@ -1044,6 +1052,53 @@ fn demo_column_2() -> impl Scene {
                     ]
                 ]
             ]
+            --
+            @subpane() Children [
+                @subpane_header() Children [
+                    @caption("Tabs")
+                ]
+                --
+                @subpane_body() Children [
+                    @FeathersTabList {
+                        @drag: TabDragMode::Reorder,
+                        @selected: OptionTemplate::Some(#home_tab),
+                    }
+                    on(tablist_self_update)
+                    on(apply_tab_move)
+                    on(show_tab_panel)
+                    Children [
+                        #home_tab
+                        @demo_tab("Home")
+                        TabLocked
+                        --
+                        @demo_tab("Scene")
+                        --
+                        @demo_tab("Assets")
+                    ]
+                    --
+                    @label_dim("Home panel")
+                    DemoTabPanel
+                    Node { padding: px(4) }
+                    --
+                    Node {
+                        display: Display::Flex,
+                        column_gap: px(8),
+                    }
+                    Children [
+                        @demo_external_tabs()
+                        Children [
+                            @demo_tab("Console")
+                            --
+                            @demo_tab("Output")
+                        ]
+                        --
+                        @demo_external_tabs()
+                        Children [
+                            @demo_tab("Inspector")
+                        ]
+                    ]
+                ]
+            ]
         ]
     }
 }
@@ -1134,6 +1189,45 @@ fn demo_column_3() -> impl Scene {
                 ]
             ]
         ]
+    }
+}
+
+fn demo_tab(text: &'static str) -> impl Scene {
+    bsn! {
+        @FeathersTab {
+            @caption: bsn! { @caption(text) }
+        }
+        DemoTabLabel(text)
+    }
+}
+
+fn demo_external_tabs() -> impl Scene {
+    bsn! {
+        @FeathersTabList { @drag: TabDragMode::External }
+        Node { flex_grow: 1.0 }
+        on(tablist_self_update)
+        on(apply_tab_move)
+    }
+}
+
+fn apply_tab_move(moved: On<TabMoved>, mut commands: Commands) {
+    let mut strip = commands.entity(moved.to_strip);
+    strip.insert_child(moved.index, moved.tab);
+    if moved.to_strip != moved.from_strip {
+        strip.insert(SelectedTab(Some(moved.tab)));
+    }
+}
+
+fn show_tab_panel(
+    change: On<ValueChange<Option<Entity>>>,
+    labels: Query<&DemoTabLabel>,
+    mut panels: Query<&mut Text, With<DemoTabPanel>>,
+) {
+    let Some(label) = change.value.and_then(|tab| labels.get(tab).ok()) else {
+        return;
+    };
+    for mut text in &mut panels {
+        text.0 = format!("{} panel", label.0);
     }
 }
 
