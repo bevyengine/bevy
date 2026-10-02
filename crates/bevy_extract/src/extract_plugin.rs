@@ -233,7 +233,7 @@ mod test {
 
         let sub_app = app.get_sub_app_mut(ExtractApp).unwrap();
 
-        // Normally RenderPlugin sets the RenderRecovery schedule as update, but for
+        // Normally RenderPlugin sets the RenderEntryPoint schedule as update, but for
         // testing we just use the Render schedule directly.
         sub_app.update_schedule = Some(MySchedule.intern());
 

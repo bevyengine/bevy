@@ -1,5 +1,6 @@
 use bevy_app::App;
 use bevy_app::HierarchyPropagatePlugin;
+use bevy_app::Main;
 use bevy_app::PostUpdate;
 use bevy_app::PropagateSet;
 use bevy_app::TaskPoolPlugin;
@@ -94,13 +95,13 @@ fn setup_app() -> App {
                 .chain(),
         )
         .configure_sets(
-            PostUpdate,
+            Main,
             PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         )
         .configure_sets(
-            PostUpdate,
+            Main,
             PropagateSet::<ComputedUiRenderTargetInfo>::default()
                 .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
