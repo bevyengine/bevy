@@ -22,9 +22,12 @@ struct UncompressedVertex {
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
-    @if(VERTEX_POSITIONS && VERTEX_POSITIONS_COMPRESSED)
+
+    @if(VERTEX_PACKED_TANGENT_ANGLE)
+    @location(0) compressed_position_tangent_angle: vec4<f32>,
+    @if(VERTEX_POSITIONS && VERTEX_POSITIONS_COMPRESSED && !VERTEX_PACKED_TANGENT_ANGLE)
     @location(0) compressed_position: vec4<f32>,
-    @if(VERTEX_POSITIONS && !VERTEX_POSITIONS_COMPRESSED)
+    @if(VERTEX_POSITIONS && !VERTEX_POSITIONS_COMPRESSED && !VERTEX_PACKED_TANGENT_ANGLE)
     @location(0) position: vec3<f32>,
     @if(VERTEX_NORMALS && VERTEX_NORMALS_COMPRESSED)
     @location(1) compressed_normal: vec2<f32>,
@@ -38,9 +41,9 @@ struct Vertex {
     @location(3) compressed_uv_b: vec2<f32>,
     @if(VERTEX_UVS_B && !VERTEX_UVS_B_COMPRESSED)
     @location(3) uv_b: vec2<f32>,
-    @if(VERTEX_TANGENTS && VERTEX_TANGENTS_COMPRESSED)
+    @if(VERTEX_TANGENTS && VERTEX_TANGENTS_COMPRESSED && !VERTEX_PACKED_TANGENT_ANGLE)
     @location(4) compressed_tangent: vec2<f32>,
-    @if(VERTEX_TANGENTS && !VERTEX_TANGENTS_COMPRESSED)
+    @if(VERTEX_TANGENTS && !VERTEX_TANGENTS_COMPRESSED && !VERTEX_PACKED_TANGENT_ANGLE)
     @location(4) tangent: vec4<f32>,
     @if(VERTEX_COLORS)
     @location(5) color: vec4<f32>,
@@ -60,14 +63,25 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
     let mesh_metadata = package::render::mesh_functions::get_metadata(instance_index);
     var uncompressed_vertex: UncompressedVertex;
     uncompressed_vertex.instance_index = instance_index;
+
+@if(!VERTEX_PACKED_TANGENT_ANGLE) {
 @if(VERTEX_POSITIONS && VERTEX_POSITIONS_COMPRESSED)
     uncompressed_vertex.position = bevy_render::utils::decompress_vertex_position(vertex_in.compressed_position, mesh_metadata.aabb_center, mesh_metadata.aabb_half_extents);
 @if(VERTEX_POSITIONS && !VERTEX_POSITIONS_COMPRESSED)
     uncompressed_vertex.position = vertex_in.position;
+}
+
 @if(VERTEX_NORMALS && VERTEX_NORMALS_COMPRESSED)
     uncompressed_vertex.normal = bevy_render::utils::decompress_vertex_normal(vertex_in.compressed_normal);
 @if(VERTEX_NORMALS && !VERTEX_NORMALS_COMPRESSED)
     uncompressed_vertex.normal = vertex_in.normal;
+
+@if(VERTEX_PACKED_TANGENT_ANGLE) {
+    uncompressed_vertex.position = bevy_render::utils::decompress_vertex_position(vertex_in.compressed_position_tangent_angle, mesh_metadata.aabb_center, mesh_metadata.aabb_half_extents);
+    // Must decode tangent after decoding normal.
+    uncompressed_vertex.tangent = bevy_render::utils::decode_tangent_angle(vertex_in.compressed_position_tangent_angle.w, uncompressed_vertex.normal);
+}
+
 @if(VERTEX_UVS_A && VERTEX_UVS_A_COMPRESSED) {
     let uv_min_and_extents_a = mesh_metadata.uv_channels_min_and_extents[0];
     uncompressed_vertex.uv = bevy_render::utils::decompress_vertex_uv(vertex_in.compressed_uv, uv_min_and_extents_a);
@@ -80,9 +94,9 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
 }
 @if(VERTEX_UVS_B && !VERTEX_UVS_B_COMPRESSED)
     uncompressed_vertex.uv_b = vertex_in.uv_b;
-@if(VERTEX_TANGENTS && VERTEX_TANGENTS_COMPRESSED)
+@if(VERTEX_TANGENTS && VERTEX_TANGENTS_COMPRESSED && !VERTEX_PACKED_TANGENT_ANGLE)
     uncompressed_vertex.tangent = bevy_render::utils::decompress_vertex_tangent(vertex_in.compressed_tangent);
-@if(VERTEX_TANGENTS && !VERTEX_TANGENTS_COMPRESSED)
+@if(VERTEX_TANGENTS && !VERTEX_TANGENTS_COMPRESSED && !VERTEX_PACKED_TANGENT_ANGLE)
     uncompressed_vertex.tangent = vertex_in.tangent;
 @if(VERTEX_COLORS)
     uncompressed_vertex.color = vertex_in.color;
