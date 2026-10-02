@@ -294,15 +294,15 @@ fn update_insertion_indicators(
         let Some(preview) = preview else {
             continue;
         };
+        let list_tabs = children
+            .into_iter()
+            .flatten()
+            .copied()
+            .filter(|child| tabs.contains(*child))
+            .collect::<Vec<_>>();
         for entry in &preview.entries {
-            let remaining = children
-                .into_iter()
-                .flatten()
-                .copied()
-                .filter(|child| *child != entry.tab && tabs.contains(*child))
-                .collect::<Vec<_>>();
             let (host, node) =
-                indicator_placement(list, tablist.orientation, &remaining, entry.index);
+                indicator_placement(list, tablist.orientation, &list_tabs, entry.slot);
             let existing = indicators
                 .iter_mut()
                 .find(|(_, indicator, _, _)| {
@@ -335,14 +335,14 @@ fn update_insertion_indicators(
     }
 }
 
-/// Returns the entity that hosts an insertion line at `index` among `tabs`, and the line's node.
+/// Returns the entity that hosts an insertion line at `slot` among `tabs`, and the line's node.
 fn indicator_placement(
     list: Entity,
     orientation: ControlOrientation,
     tabs: &[Entity],
-    index: usize,
+    slot: usize,
 ) -> (Entity, Node) {
-    let (host, at_end) = match tabs.get(index) {
+    let (host, at_end) = match tabs.get(slot) {
         Some(tab) => (*tab, false),
         None => match tabs.last() {
             Some(tab) => (*tab, true),
@@ -547,7 +547,7 @@ mod tests {
         (list, tabs)
     }
 
-    fn set_preview(app: &mut App, list: Entity, tab: Entity, index: usize) {
+    fn set_preview(app: &mut App, list: Entity, tab: Entity, index: usize, slot: usize) {
         app.world_mut()
             .entity_mut(list)
             .insert(TabInsertionPreview {
@@ -555,6 +555,7 @@ mod tests {
                     pointer_id: PointerId::Mouse,
                     tab,
                     index,
+                    slot,
                 }],
             });
         app.update();
@@ -666,7 +667,7 @@ mod tests {
         let mut app = tabs_app();
         let (list, tabs) = spawn_list(&mut app, 3);
 
-        set_preview(&mut app, list, tabs[0], 1);
+        set_preview(&mut app, list, tabs[0], 1, 2);
         let placed = indicators(&mut app);
         assert_eq!(placed.len(), 1);
         assert_eq!(placed[0].0, tabs[2]);
@@ -680,7 +681,7 @@ mod tests {
             tokens::TAB_STRIP_BORDER_PREVIEW
         );
 
-        set_preview(&mut app, list, tabs[0], 2);
+        set_preview(&mut app, list, tabs[0], 2, 3);
         let placed = indicators(&mut app);
         assert_eq!(placed.len(), 1);
         assert_eq!(placed[0].0, tabs[2]);
@@ -702,13 +703,43 @@ mod tests {
     }
 
     #[test]
+    fn insertion_indicator_shows_on_the_side_nearest_the_pointer() {
+        let mut app = tabs_app();
+        let (list, tabs) = spawn_list(&mut app, 3);
+
+        set_preview(&mut app, list, tabs[1], 1, 1);
+        let placed = indicators(&mut app);
+        assert_eq!(placed.len(), 1);
+        assert_eq!(placed[0].0, tabs[1]);
+        assert_eq!(placed[0].1.left, px(-INDICATOR_SIZE * 0.5));
+
+        set_preview(&mut app, list, tabs[1], 1, 2);
+        let placed = indicators(&mut app);
+        assert_eq!(placed.len(), 1);
+        assert_eq!(placed[0].0, tabs[2]);
+        assert_eq!(placed[0].1.left, px(-INDICATOR_SIZE * 0.5));
+
+        set_preview(&mut app, list, tabs[2], 2, 2);
+        let placed = indicators(&mut app);
+        assert_eq!(placed.len(), 1);
+        assert_eq!(placed[0].0, tabs[2]);
+        assert_eq!(placed[0].1.left, px(-INDICATOR_SIZE * 0.5));
+
+        set_preview(&mut app, list, tabs[2], 2, 3);
+        let placed = indicators(&mut app);
+        assert_eq!(placed.len(), 1);
+        assert_eq!(placed[0].0, tabs[2]);
+        assert_eq!(placed[0].1.right, px(-INDICATOR_SIZE * 0.5));
+    }
+
+    #[test]
     fn insertion_indicator_shows_on_other_list() {
         let mut app = tabs_app();
         let (_, source_tabs) = spawn_list(&mut app, 1);
         let (list, tabs) = spawn_list(&mut app, 2);
         let (empty, _) = spawn_list(&mut app, 0);
 
-        set_preview(&mut app, list, source_tabs[0], 0);
+        set_preview(&mut app, list, source_tabs[0], 0, 0);
         let placed = indicators(&mut app);
         assert_eq!(placed.len(), 1);
         assert_eq!(placed[0].0, tabs[0]);
@@ -716,7 +747,7 @@ mod tests {
         app.world_mut()
             .entity_mut(list)
             .remove::<TabInsertionPreview>();
-        set_preview(&mut app, empty, source_tabs[0], 0);
+        set_preview(&mut app, empty, source_tabs[0], 0, 0);
         let placed = indicators(&mut app);
         assert_eq!(placed.len(), 1);
         assert_eq!(placed[0].0, empty);
