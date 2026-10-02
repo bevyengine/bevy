@@ -1,11 +1,14 @@
 //! Representation for individual element accesses within a path.
 
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, boxed::Box, string::String};
 use bevy_reflect_derive::Reflect;
-use core::fmt;
+use core::fmt::{self, Write};
 
 use super::error::AccessErrorKind;
-use crate::{enums::VariantType, AccessError, PartialReflect, ReflectKind, ReflectMut, ReflectRef};
+use crate::{
+    enums::VariantType, map::MapInfo, set::SetInfo, AccessError, PartialReflect, ReflectKind,
+    ReflectMut, ReflectRef, Type,
+};
 
 type InnerResult<T> = Result<T, AccessErrorKind>;
 
@@ -22,8 +25,13 @@ pub enum Access<'a> {
     FieldIndex(usize),
     /// An index-based access on a tuple.
     TupleIndex(usize),
-    /// An index-based access on a list.
+    /// An index-based access on a list or array.
     ListIndex(usize),
+    /// A key-based access on a map or set.
+    ///
+    /// The key is converted to the collection's key type,
+    /// which can be a `String`, a `Cow<'static, str>` or any primitive integer.
+    Key(Cow<'a, str>),
 }
 
 impl fmt::Display for Access<'_> {
@@ -33,6 +41,16 @@ impl fmt::Display for Access<'_> {
             Access::FieldIndex(index) => write!(f, "#{index}"),
             Access::TupleIndex(index) => write!(f, ".{index}"),
             Access::ListIndex(index) => write!(f, "[{index}]"),
+            Access::Key(key) => {
+                f.write_str("[\"")?;
+                for c in key.chars() {
+                    if matches!(c, '"' | '\\') {
+                        f.write_char('\\')?;
+                    }
+                    f.write_char(c)?;
+                }
+                f.write_str("\"]")
+            }
         }
     }
 }
@@ -40,8 +58,8 @@ impl fmt::Display for Access<'_> {
 impl<'a> Access<'a> {
     /// Converts this into an "owned" value.
     ///
-    /// If the [`Access`] is of variant [`Field`](Access::Field),
-    /// the field's [`Cow<str>`] will be converted to its owned
+    /// If the [`Access`] is of variant [`Field`](Access::Field) or [`Key`](Access::Key),
+    /// its [`Cow<str>`] will be converted to its owned
     /// counterpart, which doesn't require a reference.
     pub fn into_owned(self) -> Access<'static> {
         match self {
@@ -49,6 +67,7 @@ impl<'a> Access<'a> {
             Self::FieldIndex(value) => Access::FieldIndex(value),
             Self::TupleIndex(value) => Access::TupleIndex(value),
             Self::ListIndex(value) => Access::ListIndex(value),
+            Self::Key(value) => Access::Key(Cow::Owned(value.into_owned())),
         }
     }
 
@@ -102,8 +121,25 @@ impl<'a> Access<'a> {
 
             (&Self::ListIndex(index), List(list)) => Ok(list.get(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get(index)),
+            (Self::Key(key), Map(map)) => {
+                let key = to_key(key, map.get_represented_map_info().map(MapInfo::key_ty))?;
+                Ok(map.get(key.as_ref()))
+            }
+            (Self::Key(key), Set(set)) => {
+                let info = set.get_represented_type_info();
+                let key = to_key(
+                    key,
+                    info.and_then(|info| info.as_set().ok())
+                        .map(SetInfo::value_ty),
+                )?;
+                Ok(set.get(key.as_ref()))
+            }
             (Self::ListIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
                 expected: ReflectKind::List,
+                actual: actual.into(),
+            }),
+            (Self::Key(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
+                expected: ReflectKind::Map,
                 actual: actual.into(),
             }),
         }
@@ -161,8 +197,17 @@ impl<'a> Access<'a> {
 
             (&Self::ListIndex(index), List(list)) => Ok(list.get_mut(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get_mut(index)),
+            (Self::Key(key), Map(map)) => {
+                let key = to_key(key, map.get_represented_map_info().map(MapInfo::key_ty))?;
+                Ok(map.get_mut(key.as_ref()))
+            }
+            (Self::Key(_), Set(_)) => Err(AccessErrorKind::MutableSetAccess),
             (Self::ListIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
                 expected: ReflectKind::List,
+                actual: actual.into(),
+            }),
+            (Self::Key(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
+                expected: ReflectKind::Map,
                 actual: actual.into(),
             }),
         }
@@ -171,7 +216,7 @@ impl<'a> Access<'a> {
     /// Returns a reference to this [`Access`]'s inner value as a [`&dyn Display`](fmt::Display).
     pub fn display_value(&self) -> &dyn fmt::Display {
         match self {
-            Self::Field(value) => value,
+            Self::Field(value) | Self::Key(value) => value,
             Self::FieldIndex(value) | Self::TupleIndex(value) | Self::ListIndex(value) => value,
         }
     }
@@ -181,6 +226,30 @@ impl<'a> Access<'a> {
             Self::Field(_) => "field",
             Self::FieldIndex(_) => "field index",
             Self::TupleIndex(_) | Self::ListIndex(_) => "index",
+            Self::Key(_) => "key",
         }
+    }
+}
+
+fn to_key(key: &str, ty: Option<Type>) -> InnerResult<Box<dyn PartialReflect>> {
+    let invalid = || AccessErrorKind::InvalidKey {
+        key_type: ty.map(|ty| ty.path()),
+    };
+    let ty = ty.ok_or_else(invalid)?;
+    macro_rules! int_keys {
+        ($($int:ty),*) => {
+            $(if ty.is::<$int>() {
+                return key.parse::<$int>().map(|k| Box::new(k) as _).map_err(|_| invalid());
+            })*
+        };
+    }
+    int_keys!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
+
+    if ty.is::<String>() {
+        Ok(Box::new(String::from(key)))
+    } else if ty.is::<Cow<'static, str>>() {
+        Ok(Box::new(Cow::<'static, str>::Owned(key.into())))
+    } else {
+        Err(invalid())
     }
 }

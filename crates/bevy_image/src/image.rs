@@ -1586,12 +1586,33 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb, self.asset_usage))
+            .map(|(dyn_img, is_srgb)| {
+                Self::from_dynamic_inner(dyn_img, is_srgb, false, self.asset_usage)
+            })
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
-    /// crate
+    /// crate. Grayscale images are expanded to RGBA.
     pub fn from_buffer(
+        buffer: &[u8],
+        image_type: ImageType,
+        supported_compressed_formats: CompressedImageFormats,
+        is_srgb: bool,
+        image_sampler: ImageSampler,
+        asset_usage: RenderAssetUsages,
+    ) -> Result<Image, TextureError> {
+        Self::from_buffer_inner(
+            buffer,
+            image_type,
+            supported_compressed_formats,
+            is_srgb,
+            true,
+            image_sampler,
+            asset_usage,
+        )
+    }
+
+    pub(crate) fn from_buffer_inner(
         buffer: &[u8],
         image_type: ImageType,
         #[cfg_attr(
@@ -1600,6 +1621,7 @@ impl Image {
         )]
         supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
+        expand_grayscale: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
     ) -> Result<Image, TextureError> {
@@ -1638,7 +1660,7 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic(dyn_img, is_srgb, asset_usage)
+                Self::from_dynamic_inner(dyn_img, is_srgb, expand_grayscale, asset_usage)
             }
         };
         image.sampler = image_sampler;
@@ -2479,6 +2501,29 @@ pub struct CompressedImageFormatSupport(pub CompressedImageFormats);
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn convert_keeps_single_channel() {
+        let image = Image::new_fill(
+            Extent3d {
+                width: 2,
+                height: 2,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[10, 20, 30, 255],
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+
+        let r8 = image.convert(TextureFormat::R8Unorm).unwrap();
+        assert_eq!(r8.texture_descriptor.format, TextureFormat::R8Unorm);
+        assert_eq!(r8.data.as_ref().unwrap().len(), 4);
+
+        let rg8 = image.convert(TextureFormat::Rg8Unorm).unwrap();
+        assert_eq!(rg8.texture_descriptor.format, TextureFormat::Rg8Unorm);
+        assert_eq!(rg8.data.as_ref().unwrap().len(), 8);
+    }
 
     #[test]
     fn image_size() {
