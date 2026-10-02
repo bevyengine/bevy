@@ -4,6 +4,9 @@
 //! widgets. This crate provides an entity tree panel, see [`entity_tree`], and a details panel
 //! for the selected entity, see [`details_panel`].
 //!
+//! With the `remote` feature the same panels can inspect a separate running app over the Bevy
+//! Remote Protocol, see [`remote`].
+//!
 //! Apps are expected to add `bevy_feathers::FeathersPlugins` themselves, alongside
 //! [`InspectorPlugin`].
 
@@ -12,6 +15,8 @@ extern crate alloc;
 pub mod column_split;
 pub mod details_panel;
 pub mod entity_tree;
+#[cfg(feature = "remote")]
+pub mod remote;
 
 use alloc::string::{String, ToString};
 
@@ -36,12 +41,37 @@ use crate::details_panel::{
 use crate::entity_tree::{sync_entity_tree, EntityTreeSync, TreeRowIndex};
 
 /// Where the inspector reads its data from.
-#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
 pub enum InspectorSource {
     /// The world the inspector itself runs in.
     #[default]
     Local,
+    /// A separate running app, reached over the Bevy Remote Protocol.
+    #[cfg(feature = "remote")]
+    Remote(remote::RemoteSource),
+}
+
+/// Whether the inspector currently reads from a remote app.
+pub(crate) fn is_remote(world: &World) -> bool {
+    #[cfg(feature = "remote")]
+    return remote::is_remote(world);
+    #[cfg(not(feature = "remote"))]
+    {
+        let _ = world;
+        false
+    }
+}
+
+/// The remote entity mirrored by `entity`, if it is a remote proxy.
+pub(crate) fn remote_entity(world: &World, entity: Entity) -> Option<Entity> {
+    #[cfg(feature = "remote")]
+    return remote::remote_entity(world, entity);
+    #[cfg(not(feature = "remote"))]
+    {
+        let _ = (world, entity);
+        None
+    }
 }
 
 /// The entity currently being inspected, as an id in the inspected world.
@@ -106,6 +136,22 @@ impl Plugin for InspectorPlugin {
                     (store_column_splits, sync_details_panel).chain(),
                 )
                     .before(UiSystems::Prepare),
+            );
+
+        #[cfg(feature = "remote")]
+        app.init_resource::<remote::RemoteConnection>()
+            .init_resource::<remote::RemoteSnapshot>()
+            .init_resource::<remote::RemoteProxyIndex>()
+            .add_systems(
+                PostUpdate,
+                (
+                    remote::sync_remote_source,
+                    remote::poll_remote_connection,
+                    remote::apply_remote_snapshot,
+                )
+                    .chain()
+                    .before(sync_entity_tree)
+                    .before(sync_details_panel),
             );
     }
 }

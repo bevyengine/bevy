@@ -231,6 +231,7 @@ fn plan_sync(world: &World) -> SyncPlan {
     let mut tree_view = None;
     let mut roots = Vec::new();
     let mut populated = Vec::new();
+    let remote = crate::is_remote(world);
 
     for entity_ref in world.iter_entities() {
         let entity = entity_ref.id();
@@ -240,7 +241,10 @@ fn plan_sync(world: &World) -> SyncPlan {
         if entity_ref.contains::<InspectorRow>() && entity_ref.contains::<InspectorRowPopulated>() {
             populated.push(entity);
         }
-        if !entity_ref.contains::<ChildOf>() && !is_excluded(world, entity) {
+        if !entity_ref.contains::<ChildOf>()
+            && remote == crate::remote_entity(world, entity).is_some()
+            && !is_excluded(world, entity)
+        {
             roots.push(entity);
         }
     }
@@ -249,7 +253,7 @@ fn plan_sync(world: &World) -> SyncPlan {
         return plan;
     };
 
-    roots.sort_unstable_by_key(|root| root.index());
+    roots.sort_unstable_by_key(|root| crate::remote_entity(world, *root).unwrap_or(*root).index());
     diff_container(world, tree_view, &roots, &mut plan);
 
     for row in populated {
@@ -422,6 +426,10 @@ fn visible_children(world: &World, entity: Entity) -> Vec<Entity> {
 }
 
 fn entity_label(world: &World, entity: Entity) -> String {
+    #[cfg(feature = "remote")]
+    if let Some(label) = crate::remote::proxy_label(world, entity) {
+        return label;
+    }
     let Ok(components) = world.inspect_entity(entity) else {
         return entity.to_string();
     };
@@ -528,6 +536,62 @@ mod tests {
         assert!(!is_excluded(&world, panel));
         assert!(is_excluded(&world, nested));
         assert!(is_excluded(&world, nested_inner));
+    }
+
+    #[cfg(feature = "remote")]
+    #[test]
+    fn shows_only_proxies_while_remote_and_hides_them_while_local() {
+        use crate::remote::{RemoteEntityProxy, RemoteLabel, RemoteSource};
+        use crate::InspectorSource;
+        use bevy_ecs::entity_disabling::Disabled;
+
+        let mut app = test_app();
+        app.insert_resource(InspectorSource::Remote(RemoteSource::localhost(1)));
+        app.update();
+
+        let panel = app.world_mut().spawn(InspectorUi).id();
+        let tree = app
+            .world_mut()
+            .spawn((InspectorTreeView, ChildOf(panel)))
+            .id();
+        let local = app.world_mut().spawn(Name::new("Local")).id();
+        let parent = app
+            .world_mut()
+            .spawn((
+                Disabled,
+                RemoteEntityProxy { remote: local },
+                RemoteLabel("Remote".to_string()),
+            ))
+            .id();
+        app.world_mut().spawn((
+            Disabled,
+            RemoteEntityProxy {
+                remote: Entity::from_raw_u32(900).unwrap(),
+            },
+            ChildOf(parent),
+        ));
+        app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
+        app.update();
+
+        assert_eq!(row_sources(app.world(), tree), [parent]);
+        let row = app.world().resource::<TreeRowIndex>().row(parent).unwrap();
+        let label = row_label_entity(app.world(), row).unwrap();
+        assert_eq!(app.world().get::<Text>(label).unwrap().0, "Remote");
+        assert!(app.world().get::<TreeItem>(row).unwrap().expandable);
+
+        app.insert_resource(InspectorSource::Local);
+        app.update();
+        assert!(app.world().get_entity(parent).is_err());
+
+        let stray = app
+            .world_mut()
+            .spawn((Disabled, RemoteEntityProxy { remote: local }))
+            .id();
+        app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
+        app.update();
+        let sources = row_sources(app.world(), tree);
+        assert!(sources.contains(&local));
+        assert!(!sources.contains(&stray));
     }
 
     #[test]
