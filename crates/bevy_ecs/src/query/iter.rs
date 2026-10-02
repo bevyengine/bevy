@@ -3289,47 +3289,46 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     return Some(item);
                 }
             }
-        } else {
-            loop {
-                if self.current_row == self.current_len {
-                    core::hint::cold_path();
-                    self.fetch_next_archetype(tables, archetypes, query_state)?;
-                }
+        }
+        loop {
+            if self.current_row == self.current_len {
+                core::hint::cold_path();
+                self.fetch_next_archetype(tables, archetypes, query_state)?;
+            }
 
-                // SAFETY: set_archetype was called prior.
-                // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
-                let archetype_entity = unsafe {
-                    self.archetype_entities
-                        .get_unchecked(self.current_row as usize)
-                };
-                self.current_row += 1;
+            // SAFETY: set_archetype was called prior.
+            // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
+            let archetype_entity = unsafe {
+                self.archetype_entities
+                    .get_unchecked(self.current_row as usize)
+            };
+            self.current_row += 1;
 
-                if !F::filter_fetch(
-                    &query_state.filter_state,
-                    &mut self.filter,
+            if !F::filter_fetch(
+                &query_state.filter_state,
+                &mut self.filter,
+                archetype_entity.id(),
+                archetype_entity.table_row(),
+            ) {
+                continue;
+            }
+
+            // SAFETY:
+            // - set_archetype was called prior.
+            // - `current_row` must be an archetype index row in range of the current archetype,
+            //   because if it was not, then the if above would have been executed.
+            // - fetch is only called once for each `archetype_entity`.
+            // - caller ensures no conflicting `Item`s are alive
+            let item = unsafe {
+                D::fetch(
+                    &query_state.fetch_state,
+                    &mut self.fetch,
                     archetype_entity.id(),
                     archetype_entity.table_row(),
-                ) {
-                    continue;
-                }
-
-                // SAFETY:
-                // - set_archetype was called prior.
-                // - `current_row` must be an archetype index row in range of the current archetype,
-                //   because if it was not, then the if above would have been executed.
-                // - fetch is only called once for each `archetype_entity`.
-                // - caller ensures no conflicting `Item`s are alive
-                let item = unsafe {
-                    D::fetch(
-                        &query_state.fetch_state,
-                        &mut self.fetch,
-                        archetype_entity.id(),
-                        archetype_entity.table_row(),
-                    )
-                };
-                if let Some(item) = item {
-                    return Some(item);
-                }
+                )
+            };
+            if let Some(item) = item {
+                return Some(item);
             }
         }
     }
