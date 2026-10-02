@@ -94,13 +94,13 @@ fn setup_app() -> App {
                 .chain(),
         )
         .configure_sets(
-            PostUpdate,
+            Main,
             PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         )
         .configure_sets(
-            PostUpdate,
+            Main,
             PropagateSet::<ComputedUiRenderTargetInfo>::default()
                 .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
