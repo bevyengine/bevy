@@ -12,8 +12,10 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::{FocusCause, FocusedInput, InputFocus, InputFocusVisible};
-use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
+use bevy_input_focus::{FocusCause, Focusable, FocusedInput, InputFocus, InputFocusVisible};
+use bevy_picking::events::{
+    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
+};
 use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
@@ -36,7 +38,11 @@ use bevy_ecs::entity::Entity;
 /// and how to respond to state changes, see the [crate-level documentation].
 /// [crate-level documentation]: crate
 #[derive(Component, Debug, Default, Clone)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
+#[require(
+    AccessibilityNode(accesskit::Node::new(Role::CheckBox)),
+    Checkable,
+    Focusable
+)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct Checkbox;
@@ -63,7 +69,7 @@ fn checkbox_on_key_input(
 }
 
 fn checkbox_on_pointer_click(
-    mut click: On<Pointer<Click>>,
+    mut click: On<PointerClick>,
     q_checkbox: Query<
         (Has<Checked>, Has<InteractionDisabled>),
         (With<Checkbox>, Without<ActivateOnPress>),
@@ -83,7 +89,7 @@ fn checkbox_on_pointer_click(
 }
 
 fn checkbox_on_pointer_down(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     mut q_checkbox: Query<
         (
             Entity,
@@ -125,7 +131,7 @@ fn checkbox_on_pointer_down(
 }
 
 fn checkbox_on_pointer_up(
-    mut release: On<Pointer<Release>>,
+    mut release: On<PointerRelease>,
     mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
     mut commands: Commands,
 ) {
@@ -138,7 +144,7 @@ fn checkbox_on_pointer_up(
 }
 
 fn checkbox_on_pointer_drag_end(
-    mut drag_end: On<Pointer<DragEnd>>,
+    mut drag_end: On<PointerDragEnd>,
     mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
     mut commands: Commands,
 ) {
@@ -151,7 +157,7 @@ fn checkbox_on_pointer_drag_end(
 }
 
 fn checkbox_on_pointer_cancel(
-    mut cancel: On<Pointer<Cancel>>,
+    mut cancel: On<PointerCancel>,
     mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
     mut commands: Commands,
 ) {
@@ -294,8 +300,11 @@ mod tests {
         InputDispatchPlugin, InputFocusPlugin,
     };
     use bevy_math::Vec2;
-    use bevy_picking::backend::HitData;
-    use bevy_picking::pointer::{Location, PointerId};
+    use bevy_picking::{backend::HitData, pointer::PointerButton};
+    use bevy_picking::{
+        events::Pointer,
+        pointer::{Location, PointerId},
+    };
     use bevy_window::{PrimaryWindow, Window, WindowRef};
 
     /// Builds a headless app wired the way the `standard_widgets` example is: focus plugins plus the
@@ -343,38 +352,29 @@ mod tests {
     /// `target`, mirroring what the picking backend would emit. `target` may be a non-focusable
     /// descendant of the widget; the events bubble up via `ChildOf` just like real pointer events.
     fn click_entity(app: &mut App, target: Entity, window: Entity) {
-        let location = window_location(window);
-        let button = bevy_picking::pointer::PointerButton::Primary;
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            location.clone(),
-            Press {
-                button,
-                hit: stub_hit(window),
-                count: 1,
-            },
-            target,
-        ));
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            location.clone(),
-            Release {
-                button,
-                hit: stub_hit(window),
-            },
-            target,
-        ));
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            location,
-            Click {
-                button,
-                hit: stub_hit(window),
-                duration: core::time::Duration::from_millis(10),
-                count: 1,
-            },
-            target,
-        ));
+        let pointer = Pointer::new(PointerId::Mouse, window_location(window));
+        let button = PointerButton::Primary;
+        app.world_mut().trigger(PointerPress {
+            entity: target,
+            pointer: pointer.clone(),
+            button,
+            hit: stub_hit(window),
+            count: 1,
+        });
+        app.world_mut().trigger(PointerRelease {
+            entity: target,
+            pointer: pointer.clone(),
+            button,
+            hit: stub_hit(window),
+        });
+        app.world_mut().trigger(PointerClick {
+            entity: target,
+            pointer: pointer.clone(),
+            button,
+            hit: stub_hit(window),
+            duration: core::time::Duration::from_millis(10),
+            count: 1,
+        });
         app.update();
     }
 

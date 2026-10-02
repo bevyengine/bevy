@@ -21,12 +21,9 @@
 //! let many_random_directions: Vec<Dir3> = rng.sample_iter(StandardUniform).take(5).collect();
 //! ```
 
-use core::f32::consts::TAU;
+use core::f32::consts::{PI, TAU};
 
-use crate::{
-    primitives::{Circle, Sphere},
-    Dir2, Dir3, Dir3A, Quat, Rot2, ShapeSample, Vec3A,
-};
+use crate::{ops, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3};
 use rand::{
     distr::{Distribution, StandardUniform},
     RngExt,
@@ -56,10 +53,23 @@ where
 impl Distribution<Dir2> for StandardUniform {
     #[inline]
     fn sample<R: RngExt + ?Sized>(&self, rng: &mut R) -> Dir2 {
-        let circle = Circle::new(1.0);
-        let vector = circle.sample_boundary(rng);
+        let theta = rng.random_range(0.0..TAU);
+        let (sin, cos) = ops::sin_cos(theta);
+        let vector = Vec2::new(cos, sin);
         Dir2::new_unchecked(vector)
     }
+}
+
+/// Boundary sampling for unit-spheres
+#[inline]
+fn sample_unit_sphere_boundary<R: RngExt + ?Sized>(rng: &mut R) -> Vec3 {
+    let z = rng.random_range(-1f32..=1f32);
+    let (a_sin, a_cos) = ops::sin_cos(rng.random_range(-PI..=PI));
+    let c = ops::sqrt(1f32 - z * z);
+    let x = a_sin * c;
+    let y = a_cos * c;
+
+    Vec3::new(x, y, z)
 }
 
 impl FromRng for Dir2 {}
@@ -67,8 +77,7 @@ impl FromRng for Dir2 {}
 impl Distribution<Dir3> for StandardUniform {
     #[inline]
     fn sample<R: RngExt + ?Sized>(&self, rng: &mut R) -> Dir3 {
-        let sphere = Sphere::new(1.0);
-        let vector = sphere.sample_boundary(rng);
+        let vector = sample_unit_sphere_boundary(rng);
         Dir3::new_unchecked(vector)
     }
 }
@@ -78,9 +87,8 @@ impl FromRng for Dir3 {}
 impl Distribution<Dir3A> for StandardUniform {
     #[inline]
     fn sample<R: RngExt + ?Sized>(&self, rng: &mut R) -> Dir3A {
-        let sphere = Sphere::new(1.0);
-        let vector: Vec3A = sphere.sample_boundary(rng).into();
-        Dir3A::new_unchecked(vector)
+        let vector = sample_unit_sphere_boundary(rng);
+        Dir3A::new_unchecked(vector.to_vec3a())
     }
 }
 

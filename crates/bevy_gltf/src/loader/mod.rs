@@ -32,7 +32,8 @@ use bevy_mesh::UvChannel;
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Indices, Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexAttribute, PrimitiveTopology,
+    Indices, Mesh, Mesh3d, MeshCompressionArgs, MeshRaytracingFlags, MeshVertexAttribute,
+    PrimitiveTopology,
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
@@ -43,6 +44,7 @@ use bevy_world_serialization::WorldAsset;
 use gltf::{
     accessor::Iter,
     image::Source,
+    material::AlphaMode,
     mesh::{util::ReadIndices, Mode},
     Material, Node, Semantic,
 };
@@ -162,10 +164,8 @@ pub struct GltfLoader {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
-    /// Default Mesh attribute compression flags for the loaded meshes.
-    pub default_mesh_attribute_compression: MeshAttributeCompressionFlags,
-    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
-    pub default_mesh_index_compression: bool,
+    /// Default mesh compression arguments for the loaded meshes.
+    pub default_mesh_compression: MeshCompressionArgs,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -220,12 +220,9 @@ pub struct GltfLoaderSettings {
     pub convert_coordinates: Option<GltfConvertCoordinates>,
     /// Optionally overrides [`GltfPlugin::skinned_mesh_bounds_policy`](crate::GltfPlugin).
     pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
-    /// Mesh attribute compression flags for the loaded meshes.
-    /// If `None`, uses the global default set by [`GltfPlugin::mesh_attribute_compression`](crate::GltfPlugin::mesh_attribute_compression).
-    pub mesh_attribute_compression: Option<MeshAttributeCompressionFlags>,
-    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
-    /// If `None`, uses the global default set by [`GltfPlugin::mesh_index_compression`](crate::GltfPlugin::mesh_index_compression).
-    pub mesh_index_compression: Option<bool>,
+    /// Mesh attribute compression arguments for the loaded meshes.
+    /// If `None`, uses the global default set by [`GltfPlugin::mesh_compression`](crate::GltfPlugin::mesh_compression).
+    pub mesh_compression: Option<MeshCompressionArgs>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -242,8 +239,7 @@ impl Default for GltfLoaderSettings {
             validate: true,
             convert_coordinates: None,
             skinned_mesh_bounds_policy: None,
-            mesh_attribute_compression: None,
-            mesh_index_compression: None,
+            mesh_compression: None,
         }
     }
 }
@@ -313,10 +309,8 @@ impl GltfLoader {
             use bevy_animation::{
                 animated_field, animation_curves::*, gltf_curves::*, VariableCurve,
             };
-            use bevy_math::{
-                curve::{ConstantCurve, Interval, UnevenSampleAutoCurve},
-                Quat, Vec4,
-            };
+            use bevy_curve::{ConstantCurve, Interval, UnevenSampleAutoCurve};
+            use bevy_math::{Quat, Vec4};
             use gltf::animation::util::ReadOutputs;
             let mut animations = vec![];
             let mut named_animations = <HashMap<_, _>>::default();
@@ -875,16 +869,26 @@ impl GltfLoader {
                     warn!("Failed to generate skinned mesh bounds: {err}");
                 }
 
+                mesh.raytracing = match primitive.material().alpha_mode() {
+                    AlphaMode::Opaque => MeshRaytracingFlags::OPAQUE,
+                    AlphaMode::Mask => MeshRaytracingFlags::NON_OPAQUE,
+                    // TODO: Solari doesn't support transparency yet, so this is treated as opaque for now
+                    #[expect(clippy::match_same_arms, reason = "Transparency not yet supported")]
+                    AlphaMode::Blend => MeshRaytracingFlags::OPAQUE,
+                };
+
                 let mesh_handle = load_context.add_labeled_asset(
                     primitive_label.to_string(),
                     mesh.compressed_mesh(
                         settings
-                            .mesh_attribute_compression
-                            .unwrap_or(loader.default_mesh_attribute_compression),
-                        settings
-                            .mesh_index_compression
-                            .unwrap_or(loader.default_mesh_index_compression),
-                    ),
+                            .mesh_compression
+                            .as_ref()
+                            .unwrap_or(&loader.default_mesh_compression),
+                    )
+                    .unwrap_or_else(|(mesh, err)| {
+                        tracing::debug!("Failed to compress mesh: {:?}", err);
+                        mesh
+                    }),
                 );
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,

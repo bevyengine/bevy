@@ -1,7 +1,8 @@
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
-use bevy_math::{ops, primitives::Cone, Vec3};
+use bevy_math::{ops, Vec3};
 use bevy_reflect::prelude::*;
+use bevy_shape::Cone;
 
 /// Anchoring options for [`ConeMeshBuilder`]
 #[derive(Debug, Copy, Clone, Default, Reflect)]
@@ -191,7 +192,8 @@ impl From<Cone> for Mesh {
 #[cfg(test)]
 mod tests {
     use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
-    use bevy_math::{primitives::Cone, Vec2};
+    use bevy_math::Vec2;
+    use bevy_shape::Cone;
 
     /// Rounds floats to handle floating point error in tests.
     fn round_floats<const N: usize>(points: &mut [[f32; N]]) {

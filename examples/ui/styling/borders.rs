@@ -174,28 +174,64 @@ fn setup(mut commands: Commands) {
     ];
     let elliptical_border_radii = [
         BorderRadius {
-            top_left: Val2::new(px(25), px(8)),
-            top_right: Val2::new(px(25), px(8)),
-            bottom_right: Val2::new(px(25), px(8)),
-            bottom_left: Val2::new(px(25), px(8)),
+            top_left: CornerRadius {
+                x: px(25),
+                y: px(8),
+            },
+            top_right: CornerRadius {
+                x: px(25),
+                y: px(8),
+            },
+            bottom_right: CornerRadius {
+                x: px(25),
+                y: px(8),
+            },
+            bottom_left: CornerRadius {
+                x: px(25),
+                y: px(8),
+            },
         },
         BorderRadius {
-            top_left: Val2::new(px(8), px(25)),
-            top_right: Val2::new(px(8), px(25)),
-            bottom_right: Val2::new(px(8), px(25)),
-            bottom_left: Val2::new(px(8), px(25)),
+            top_left: (px(8), px(25)).into(),
+            top_right: (px(8), px(25)).into(),
+            bottom_right: [px(8), px(25)].into(),
+            bottom_left: [px(8), px(25)].into(),
         },
         BorderRadius {
-            top_left: Val2::new(px(25), px(12)),
-            top_right: Val2::new(px(12), px(25)),
-            bottom_right: Val2::new(px(25), px(12)),
-            bottom_left: Val2::new(px(12), px(25)),
+            top_left: CornerRadius {
+                x: px(25),
+                y: px(12),
+            },
+            top_right: CornerRadius {
+                x: px(12),
+                y: px(25),
+            },
+            bottom_right: CornerRadius {
+                x: px(25),
+                y: px(12),
+            },
+            bottom_left: CornerRadius {
+                x: px(12),
+                y: px(25),
+            },
         },
         BorderRadius {
-            top_left: Val2::new(percent(50), percent(20)),
-            top_right: Val2::new(percent(20), percent(50)),
-            bottom_right: Val2::new(percent(50), percent(20)),
-            bottom_left: Val2::new(percent(20), percent(50)),
+            top_left: CornerRadius {
+                x: percent(50),
+                y: percent(20),
+            },
+            top_right: CornerRadius {
+                x: percent(20),
+                y: percent(50),
+            },
+            bottom_right: CornerRadius {
+                x: percent(50),
+                y: percent(20),
+            },
+            bottom_left: CornerRadius {
+                x: percent(20),
+                y: percent(50),
+            },
         },
     ];
 
@@ -266,6 +302,64 @@ fn setup(mut commands: Commands) {
         )),
     );
 
+    let style_labels = ["Solid", "Double", "Inset", "Outset", "Groove", "Ridge"];
+    let styles = [
+        BorderStyle::Solid,
+        BorderStyle::Double,
+        BorderStyle::Inset,
+        BorderStyle::Outset,
+        BorderStyle::Groove,
+        BorderStyle::Ridge,
+    ];
+
+    let style_examples = (
+        Node {
+            margin: px(25).all(),
+            flex_wrap: FlexWrap::Wrap,
+            ..default()
+        },
+        Children::spawn(SpawnIter(style_labels.into_iter().zip(styles).flat_map(
+            |(label, style)| {
+                [false, true].into_iter().map(move |rounded| {
+                    (
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        children![
+                            (
+                                Node {
+                                    width: px(80),
+                                    height: px(80),
+                                    border: UiRect::all(px(15)),
+                                    border_radius: if rounded {
+                                        BorderRadius::MAX
+                                    } else {
+                                        BorderRadius::ZERO
+                                    },
+                                    margin: px(20).all(),
+                                    ..default()
+                                },
+                                BackgroundColor(MAROON.into()),
+                                BorderColor::all(SILVER),
+                                style,
+                            ),
+                            (
+                                Text::new(if rounded {
+                                    format!("Rounded {label}")
+                                } else {
+                                    label.to_string()
+                                }),
+                                TextFont::from_font_size(9.0)
+                            )
+                        ],
+                    )
+                })
+            },
+        ))),
+    );
+
     commands.spawn((
         Node {
             margin: px(25).all(),
@@ -279,7 +373,9 @@ fn setup(mut commands: Commands) {
             label("Borders"),
             borders_examples,
             label("Borders Rounded"),
-            borders_examples_rounded
+            borders_examples_rounded,
+            label("Border Styles"),
+            style_examples,
         ],
     ));
 }

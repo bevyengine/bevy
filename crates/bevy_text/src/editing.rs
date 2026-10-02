@@ -103,7 +103,8 @@ use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
     TextColor,
     LineHeight,
     FontHinting,
-    EditableTextGeneration
+    EditableTextGeneration,
+    TextReadWriteMode
 )]
 pub struct EditableText {
     /// A [`parley::PlainEditor`], tracking both the text content and cursor position.
@@ -280,7 +281,7 @@ impl EditableText {
         }
     }
 
-    /// Clears the input's text buffer and any pending edits.
+    /// Clears the input's text buffer and any pending edits, and moves the cursor to the start.
     ///
     /// Also drops any in-flight paste. The underlying clipboard read task
     /// will still complete, but its result is discarded.
@@ -288,6 +289,7 @@ impl EditableText {
         self.editor.set_text("");
         self.pending_edits.clear();
         self.pending_paste = None;
+        self.queue_edit(TextEdit::TextStart(false));
     }
 
     /// Is the IME currently composing text for this input?
@@ -310,6 +312,20 @@ pub struct EditableTextGeneration(parley::Generation);
 /// The filter does not apply to characters already within the `EditableText`'s text buffer.
 #[derive(Component, Clone, Default)]
 pub struct EditableTextFilter(Option<Arc<dyn Fn(char) -> bool + Send + Sync + 'static>>);
+
+/// Indicates whether the text is editable, or is in "readonly" mode. A special "static" mode is
+/// also available, which is used by the feathers number input widget.
+#[derive(Component, Clone, Copy, Default, PartialEq, Debug)]
+pub enum TextReadWriteMode {
+    /// Text input functions normally
+    #[default]
+    Editable,
+    /// Cursor movement, selection, and copy to clipboard is still enabled, but no mutations are allowed
+    ReadOnly,
+    /// Display only, all interactions disabled - this is used by number input widget when dragging.
+    /// This disallows cursor movement and selection as well.
+    Static,
+}
 
 impl EditableTextFilter {
     /// Create a new `EditableTextFilter` from the given filter function.
@@ -358,4 +374,53 @@ pub fn apply_text_edits(
 #[derive(EntityEvent)]
 pub struct TextEditChange {
     entity: Entity,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::borrow::Cow;
+    use parley::FontFamilyName;
+
+    fn edit_after_clear(setup: TextEdit, edit: TextEdit) -> String {
+        let mut font_context = FontContext::new();
+        let font = crate::Font::from_bytes(include_bytes!("FiraMono-subset.ttf").to_vec());
+        font_context.collection.register_fonts(font.data, None);
+        let mut layout_context = LayoutContext::new();
+        let mut clipboard = bevy_clipboard::Clipboard::default();
+
+        let mut text = EditableText::new("hello world");
+        text.editor
+            .edit_styles()
+            .insert(FontFamilyName::Named(Cow::Borrowed("Fira Mono")).into());
+        text.queue_edit(setup);
+        text.apply_pending_edits(
+            &mut font_context,
+            &mut layout_context,
+            &mut clipboard,
+            |_| true,
+        );
+
+        text.clear();
+        text.queue_edit(edit);
+        text.apply_pending_edits(
+            &mut font_context,
+            &mut layout_context,
+            &mut clipboard,
+            |_| true,
+        );
+        text.value().to_string()
+    }
+
+    #[test]
+    fn insert_after_clear_uses_a_fresh_cursor() {
+        let value = edit_after_clear(TextEdit::TextEnd(false), TextEdit::Insert("x".into()));
+        assert_eq!(value, "x");
+    }
+
+    #[test]
+    fn delete_after_clear_ignores_the_old_selection() {
+        let value = edit_after_clear(TextEdit::SelectAll, TextEdit::Backspace);
+        assert_eq!(value, "");
+    }
 }

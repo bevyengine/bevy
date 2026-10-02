@@ -4,10 +4,8 @@
 //! [`GizmoBuffer::curve_3d`] and assorted support items.
 
 use bevy_color::Color;
-use bevy_math::{
-    curve::{Curve, CurveExt},
-    Vec2, Vec3,
-};
+use bevy_curve::{Curve, CurveExt};
+use bevy_math::{Vec2, Vec3};
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 
@@ -31,6 +29,7 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_curve::prelude::*;
     /// # use bevy_color::palettes::basic::{RED};
     /// fn system(mut gizmos: Gizmos) {
     ///     let domain = Interval::UNIT;
@@ -63,6 +62,7 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_curve::prelude::*;
     /// # use bevy_color::palettes::basic::{RED};
     /// fn system(mut gizmos: Gizmos) {
     ///     let domain = Interval::UNIT;
@@ -98,6 +98,7 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_curve::prelude::*;
     /// # use bevy_color::{Mix, palettes::basic::{GREEN, RED}};
     /// fn system(mut gizmos: Gizmos) {
     ///     let domain = Interval::UNIT;
@@ -139,6 +140,7 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_math::prelude::*;
+    /// # use bevy_curve::prelude::*;
     /// # use bevy_color::{Mix, palettes::basic::{GREEN, RED}};
     /// fn system(mut gizmos: Gizmos) {
     ///     let domain = Interval::UNIT;

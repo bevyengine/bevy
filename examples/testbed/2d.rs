@@ -365,7 +365,7 @@ mod sprite_slicing {
                 custom_size: Some(Vec2::new(200.0, 200.0)),
                 ..default()
             },
-            Transform::from_translation(Vec3::new(150.0, 50.0, 0.0)),
+            Transform::from_translation(Vec3::new(150.0, 50.0, 1.0)),
             DespawnOnExit(super::Scene::SpriteSlicing),
         ));
 

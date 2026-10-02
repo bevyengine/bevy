@@ -34,7 +34,7 @@ type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 /// #[derive(Resource, Default)]
 /// struct Val(pub i32);
 ///
-/// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+/// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel, Default)]
 /// struct ExampleApp;
 ///
 /// // Create an app with a certain resource.

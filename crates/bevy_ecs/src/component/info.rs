@@ -29,7 +29,6 @@ use crate::{
 /// Stores metadata for a type of component or resource stored in a specific [`World`](crate::world::World).
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
-    pub(super) id: ComponentId,
     pub(super) descriptor: ComponentDescriptor,
     pub(super) hooks: ComponentHooks,
     pub(super) required_components: RequiredComponents,
@@ -39,12 +38,6 @@ pub struct ComponentInfo {
 }
 
 impl ComponentInfo {
-    /// Returns a value uniquely identifying the current component.
-    #[inline]
-    pub fn id(&self) -> ComponentId {
-        self.id
-    }
-
     /// Returns the name of the current component.
     #[inline]
     pub fn name(&self) -> DebugName {
@@ -55,6 +48,14 @@ impl ComponentInfo {
     #[inline]
     pub fn mutable(&self) -> bool {
         self.descriptor.mutable
+    }
+
+    /// Returns `true` if this component tracks a summary tick.
+    ///
+    /// Summary ticks are only supported for table components.
+    #[inline]
+    pub fn summary_tick(&self) -> bool {
+        self.descriptor.summary_tick
     }
 
     /// Returns [`ComponentCloneBehavior`] of the current component.
@@ -102,9 +103,8 @@ impl ComponentInfo {
     }
 
     /// Create a new [`ComponentInfo`].
-    pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+    pub(crate) fn new(descriptor: ComponentDescriptor) -> Self {
         ComponentInfo {
-            id,
             descriptor,
             hooks: Default::default(),
             required_components: Default::default(),
@@ -177,7 +177,7 @@ impl ComponentInfo {
     derive(Reflect),
     reflect(Debug, Hash, PartialEq, Clone)
 )]
-pub struct ComponentId(pub(super) usize);
+pub struct ComponentId(usize);
 
 impl ComponentId {
     /// Creates a new [`ComponentId`].
@@ -227,6 +227,7 @@ pub struct ComponentDescriptor {
     // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
+    summary_tick: bool,
     clone_behavior: ComponentCloneBehavior,
     relationship_accessor: MaybeRelationshipAccessor,
 }
@@ -241,6 +242,7 @@ impl Debug for ComponentDescriptor {
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
             .field("mutable", &self.mutable)
+            .field("summary_tick", &self.summary_tick)
             .field("clone_behavior", &self.clone_behavior)
             .field("relationship_accessor", &self.relationship_accessor)
             .finish()
@@ -260,6 +262,12 @@ impl ComponentDescriptor {
 
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
+        let summary_tick = T::HAS_SUMMARY_TICK;
+        assert!(
+            !summary_tick || matches!(T::STORAGE_TYPE, StorageType::Table),
+            "Summary ticks are only supported for table components"
+        );
+
         Self {
             name: DebugName::type_name::<T>(),
             storage_type: T::STORAGE_TYPE,
@@ -269,6 +277,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
+            summary_tick,
             clone_behavior: T::clone_behavior(),
             relationship_accessor: T::relationship_accessor().map(|v| v.initializer).into(),
         }
@@ -290,6 +299,7 @@ impl ComponentDescriptor {
         layout: Layout,
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
         mutable: bool,
+        summary_tick: bool,
         clone_behavior: ComponentCloneBehavior,
         relationship_accessor: Option<RelationshipAccessorInitializer>,
     ) -> Self {
@@ -298,6 +308,11 @@ impl ComponentDescriptor {
             layout,
             "Layout size must be a multiple of its alignment.  Consider calling `pad_to_align()`."
         );
+        assert!(
+            !summary_tick || matches!(storage_type, StorageType::Table),
+            "Summary ticks are only supported for table components"
+        );
+
         Self {
             name: name.into().into(),
             storage_type,
@@ -306,6 +321,7 @@ impl ComponentDescriptor {
             layout,
             drop,
             mutable,
+            summary_tick,
             clone_behavior,
             relationship_accessor: relationship_accessor.into(),
         }
@@ -321,6 +337,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
+            summary_tick: false,
             clone_behavior: ComponentCloneBehavior::Default,
             relationship_accessor: None.into(),
         }
@@ -351,6 +368,14 @@ impl ComponentDescriptor {
         self.mutable
     }
 
+    /// Returns whether this component tracks a summary tick.
+    ///
+    /// Summary ticks are only supported for table components.
+    #[inline]
+    pub fn summary_tick(&self) -> bool {
+        self.summary_tick
+    }
+
     fn initialize(&mut self, id: ComponentId, components: &mut Components) {
         self.relationship_accessor.initialize(id, components);
     }
@@ -378,7 +403,7 @@ impl Components {
         mut descriptor: ComponentDescriptor,
     ) {
         descriptor.initialize(id, self);
-        let info = ComponentInfo::new(id, descriptor);
+        let info = ComponentInfo::new(descriptor);
         let least_len = id.0 + 1;
         if self.components.len() < least_len {
             self.components.resize_with(least_len, || None);
@@ -662,8 +687,11 @@ impl Components {
     }
 
     /// Gets an iterator over all components fully registered with this instance.
-    pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.iter().filter_map(Option::as_ref)
+    pub fn iter_registered(&self) -> impl Iterator<Item = (ComponentId, &ComponentInfo)> + '_ {
+        self.components
+            .iter()
+            .enumerate()
+            .filter_map(|(index, info)| info.as_ref().map(|info| (ComponentId::new(index), info)))
     }
 
     pub(crate) fn get_relationship_accessor_mut(

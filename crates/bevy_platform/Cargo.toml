@@ -64,7 +64,7 @@ bytemuck = ["dep:bytemuck"]
 
 [dependencies]
 critical-section = { version = "1.2.0", default-features = false, optional = true }
-spin = { version = "0.10.0", default-features = false, features = [
+spin = { version = "0.12.2", default-features = false, features = [
   "mutex",
   "spin_mutex",
   "rwlock",
@@ -73,7 +73,7 @@ spin = { version = "0.10.0", default-features = false, features = [
   "barrier",
 ] }
 foldhash = { version = "0.2.0", default-features = false }
-hashbrown = { version = "0.16.1", features = [
+hashbrown = { version = "0.17.1", features = [
   "equivalent",
   "raw-entry",
 ], optional = true, default-features = false }
@@ -94,7 +94,7 @@ wasm-bindgen = { version = "0.2", default-features = false, optional = true }
 portable-atomic = { version = "1", default-features = false, features = [
   "fallback",
 ] }
-spin = { version = "0.10.0", default-features = false, features = [
+spin = { version = "0.12.2", default-features = false, features = [
   "portable-atomic",
 ] }
 

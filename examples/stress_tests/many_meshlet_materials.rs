@@ -31,7 +31,6 @@ const ASSET_URL: &str =
 fn main() {
     let args: Args = argh::from_env();
 
-    warn!(include_str!("warning_string.txt"));
     println!("Meshlet Stress Test");
     println!(
         "Grid size: {}x{} ({} instances)",
@@ -76,6 +75,8 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     let meshlet_handle = asset_server.load(ASSET_URL);
 
     let n = args.grid_size;
