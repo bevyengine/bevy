@@ -51,7 +51,7 @@ const POLL_INTERVAL: Duration = Duration::from_millis(500);
 /// The time to wait before reconnecting after a failed request.
 const RETRY_INTERVAL: Duration = Duration::from_secs(2);
 /// The time after which a request without an answer is dropped and the connection marked failed.
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+pub(super) const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 /// The longest time between two full polls.
 ///
 /// Full polls otherwise only run when unseen entities appear, so this bounds how long a change
