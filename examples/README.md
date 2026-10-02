@@ -617,6 +617,7 @@ Example | Description
 [Generic Font Families](../examples/ui/text/generic_font_families.rs) | Demonstrates how to use generic font families
 [Ghost Nodes](../examples/ui/layout/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/styling/gradients.rs) | An example demonstrating gradients
+[Headless Split Pane](../examples/ui/widgets/headless_split_pane.rs) | Demonstrates nested headless split panes with draggable handles
 [Headless Tabs](../examples/ui/widgets/headless_tabs.rs) | Demonstrates controlled and self-updating headless tab lists
 [Headless Tree](../examples/ui/widgets/headless_tree.rs) | Demonstrates the headless tree view with lazy population and keyboard navigation
 [IME Support](../examples/ui/text/ime_support.rs) | Demonstrates IME (Input Method Editor) support for text input
