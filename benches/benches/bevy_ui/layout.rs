@@ -1,5 +1,6 @@
 use bevy_app::App;
 use bevy_app::HierarchyPropagatePlugin;
+use bevy_app::Main;
 use bevy_app::PostUpdate;
 use bevy_app::PropagateSet;
 use bevy_app::TaskPoolPlugin;
