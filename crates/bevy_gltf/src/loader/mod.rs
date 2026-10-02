@@ -139,13 +139,14 @@ pub enum GltfError {
     /// Failed to load a file.
     #[error("failed to load file: {0}")]
     Io(#[from] Error),
-    /// The file requires `EXT_meshopt_compression` but the `meshopt` feature is off.
+    /// The file requires a meshopt compression extension but the `meshopt`
+    /// feature is off.
     #[error(
-        "glTF requires EXT_meshopt_compression; enable the `meshopt` feature of bevy_gltf (`gltf_meshopt` on bevy)"
+        "glTF requires {0}; enable the `meshopt` feature of bevy_gltf (`gltf_meshopt` on bevy)"
     )]
-    MeshoptCompressionUnsupported,
-    /// A buffer view's `EXT_meshopt_compression` data is malformed.
-    #[error("invalid EXT_meshopt_compression data on buffer view {buffer_view}: {message}")]
+    MeshoptCompressionUnsupported(&'static str),
+    /// A buffer view's meshopt compression data is malformed.
+    #[error("invalid meshopt compression data on buffer view {buffer_view}: {message}")]
     InvalidMeshoptCompression {
         /// The buffer view index.
         buffer_view: usize,
@@ -154,10 +155,13 @@ pub enum GltfError {
     },
 }
 
+const KHR_MESHOPT_COMPRESSION: &str = "KHR_meshopt_compression";
 const EXT_MESHOPT_COMPRESSION: &str = "EXT_meshopt_compression";
+const MESHOPT_COMPRESSION_EXTENSIONS: [&str; 2] =
+    [KHR_MESHOPT_COMPRESSION, EXT_MESHOPT_COMPRESSION];
 
 /// Runs the `gltf` crate's validation, minus its rejection of a required
-/// `EXT_meshopt_compression` when the `meshopt` feature decodes it.
+/// meshopt compression extension when the `meshopt` feature decodes it.
 ///
 /// Mirrors the crate-private `gltf::Document::validate` (gltf 1.4.1).
 fn validate_document(document: &gltf::Document) -> Result<(), GltfError> {
@@ -169,11 +173,13 @@ fn validate_document(document: &gltf::Document) -> Result<(), GltfError> {
         errors.push((path(), error));
     });
     if cfg!(feature = "meshopt") {
-        let meshopt_value = format!(" = \"{EXT_MESHOPT_COMPRESSION}\"");
         errors.retain(|(path, error)| {
+            let path = path.as_str();
             !(*error == ValidationError::Unsupported
-                && path.as_str().starts_with("extensionsRequired[")
-                && path.as_str().ends_with(&meshopt_value))
+                && path.starts_with("extensionsRequired[")
+                && path.rsplit_once(" = ").is_some_and(|(_, value)| {
+                    MESHOPT_COMPRESSION_EXTENSIONS.contains(&value.trim_matches('"'))
+                }))
         });
     }
     if errors.is_empty() {
@@ -296,11 +302,11 @@ impl GltfLoader {
     ) -> Result<Gltf, GltfError> {
         let gltf = gltf::Gltf::from_slice_without_validation(bytes)?;
         if !cfg!(feature = "meshopt")
-            && gltf
-                .extensions_required()
-                .any(|name| name == EXT_MESHOPT_COMPRESSION)
+            && let Some(name) = MESHOPT_COMPRESSION_EXTENSIONS
+                .into_iter()
+                .find(|&name| gltf.extensions_required().any(|required| required == name))
         {
-            return Err(GltfError::MeshoptCompressionUnsupported);
+            return Err(GltfError::MeshoptCompressionUnsupported(name));
         }
         if settings.validate {
             validate_document(&gltf.document)?;
@@ -1996,9 +2002,11 @@ async fn load_buffers(
             }
             gltf::buffer::Source::Bin => {
                 if cfg!(feature = "meshopt")
-                    && buffer.extension_value(EXT_MESHOPT_COMPRESSION).is_some()
+                    && MESHOPT_COMPRESSION_EXTENSIONS
+                        .iter()
+                        .any(|name| buffer.extension_value(name).is_some())
                 {
-                    // An `EXT_meshopt_compression` fallback buffer has no URI;
+                    // A meshopt compression fallback buffer has no URI;
                     // `decode_buffer_views` fills it in below.
                     let mut fallback = Vec::new();
                     fallback
@@ -2856,19 +2864,22 @@ mod test {
         assert_eq!(settings.validate, default.validate);
     }
 
-    const REQUIRES_MESHOPT: &str = r#"
-{
-    "asset": { "version": "2.0" },
-    "extensionsRequired": ["EXT_meshopt_compression"],
-    "extensionsUsed": ["EXT_meshopt_compression"]
-}
-"#;
+    fn requires_meshopt(extension: &str) -> String {
+        serde_json::json!({
+            "asset": { "version": "2.0" },
+            "extensionsRequired": [extension],
+            "extensionsUsed": [extension]
+        })
+        .to_string()
+    }
 
     #[cfg(feature = "meshopt")]
     #[test]
     fn required_meshopt_extension_passes_validation() {
-        // Panics on any load error.
-        let _app = load_gltf_into_app("meshopt.gltf", REQUIRES_MESHOPT);
+        for extension in super::MESHOPT_COMPRESSION_EXTENSIONS {
+            // Panics on any load error.
+            let _app = load_gltf_into_app("meshopt.gltf", &requires_meshopt(extension));
+        }
     }
 
     /// Compressed data in the BIN chunk as buffer 0, URI-less fallback buffer
@@ -2876,6 +2887,13 @@ mod test {
     #[cfg(feature = "meshopt")]
     #[test]
     fn loads_meshopt_glb() {
+        for extension in super::MESHOPT_COMPRESSION_EXTENSIONS {
+            load_meshopt_glb(extension);
+        }
+    }
+
+    #[cfg(feature = "meshopt")]
+    fn load_meshopt_glb(extension: &str) {
         use super::meshopt::fixture::{fixture, indices, positions, triangles, Fixture};
         use crate::GltfMesh;
         use bevy_mesh::{Mesh, VertexAttributeValues};
@@ -2886,7 +2904,7 @@ mod test {
             mut json,
             compressed,
             ..
-        } = fixture(&positions, &indices);
+        } = fixture(extension, &positions, &indices);
         json["buffers"][0].as_object_mut().unwrap().remove("uri");
         let glb = gltf::binary::Glb {
             header: gltf::binary::Header {
@@ -2939,22 +2957,26 @@ mod test {
     #[cfg(not(feature = "meshopt"))]
     #[test]
     fn required_meshopt_extension_is_a_clear_error() {
-        let (mut app, dir) = test_app_custom_asset_source();
-        dir.insert_asset_text(Path::new("meshopt.gltf"), REQUIRES_MESHOPT);
+        for extension in super::MESHOPT_COMPRESSION_EXTENSIONS {
+            let (mut app, dir) = test_app_custom_asset_source();
+            dir.insert_asset_text(Path::new("meshopt.gltf"), &requires_meshopt(extension));
 
-        let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle: Handle<Gltf> = asset_server.load("custom://meshopt.gltf");
-        run_app_until(&mut app, |_| match asset_server.load_state(&handle) {
-            LoadState::Failed(err) => {
-                let err = err.to_string();
-                assert!(
-                    err.contains("enable the `meshopt` feature"),
-                    "incorrect error message: {err}"
-                );
-                Some(())
-            }
-            LoadState::Loading => None,
-            state => panic!("Unexpected load state: {state:?}"),
-        });
+            let asset_server = app.world().resource::<AssetServer>().clone();
+            let handle: Handle<Gltf> = asset_server.load("custom://meshopt.gltf");
+            run_app_until(&mut app, |_| match asset_server.load_state(&handle) {
+                LoadState::Failed(err) => {
+                    let err = err.to_string();
+                    assert!(
+                        err.contains(&format!(
+                            "requires {extension}; enable the `meshopt` feature"
+                        )),
+                        "incorrect error message: {err}"
+                    );
+                    Some(())
+                }
+                LoadState::Loading => None,
+                state => panic!("Unexpected load state: {state:?}"),
+            });
+        }
     }
 }

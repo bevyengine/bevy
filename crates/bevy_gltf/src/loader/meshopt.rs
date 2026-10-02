@@ -1,18 +1,21 @@
-//! `EXT_meshopt_compression` decoding.
+//! `KHR_meshopt_compression` and `EXT_meshopt_compression` decoding.
 //!
-//! The extension stores a buffer view's data meshopt-encoded in another
-//! buffer and points the view at a fallback buffer that files usually leave
+//! The extensions store a buffer view's data meshopt-encoded in another
+//! buffer and point the view at a fallback buffer that files usually leave
 //! empty. [`decode_buffer_views`] decodes into the fallback buffer, so
 //! accessors read it like uncompressed data. The loader calls it after
 //! loading buffers; code that reads a glTF with the [`gltf`] crate directly
 //! can call it too.
+//!
+//! KHR adds the v1 vertex codec and the `COLOR` filter. The decoder reads
+//! both vertex codec versions under either extension.
 
 use core::ffi::{c_int, c_void};
 use serde::Deserialize;
 
-use super::{GltfError, EXT_MESHOPT_COMPRESSION};
+use super::{GltfError, KHR_MESHOPT_COMPRESSION, MESHOPT_COMPRESSION_EXTENSIONS};
 
-/// The `EXT_meshopt_compression` block on a buffer view.
+/// The meshopt compression block on a buffer view.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ViewExtension {
@@ -43,10 +46,11 @@ enum Filter {
     Octahedral,
     Quaternion,
     Exponential,
+    Color,
 }
 
-/// Decodes every buffer view that uses `EXT_meshopt_compression` into its
-/// fallback buffer.
+/// Decodes every buffer view that uses `KHR_meshopt_compression` or
+/// `EXT_meshopt_compression` into its fallback buffer.
 ///
 /// `buffer_data` holds one entry per glTF buffer, with URI-less fallback
 /// buffers allocated to their `byteLength`. Malformed extension data returns
@@ -62,10 +66,13 @@ pub fn decode_buffer_views(
     buffer_data: &mut [Vec<u8>],
 ) -> Result<(), GltfError> {
     for view in document.views() {
-        let Some(value) = view.extension_value(EXT_MESHOPT_COMPRESSION) else {
+        let Some((extension, value)) = MESHOPT_COMPRESSION_EXTENSIONS
+            .into_iter()
+            .find_map(|name| Some((name, view.extension_value(name)?)))
+        else {
             continue;
         };
-        decode_view(value, &view, buffer_data).map_err(|message| {
+        decode_view(extension, value, &view, buffer_data).map_err(|message| {
             GltfError::InvalidMeshoptCompression {
                 buffer_view: view.index(),
                 message,
@@ -76,6 +83,7 @@ pub fn decode_buffer_views(
 }
 
 fn decode_view(
+    extension: &str,
     value: &serde_json::Value,
     view: &gltf::buffer::View,
     buffer_data: &mut [Vec<u8>],
@@ -168,6 +176,12 @@ fn decode_view(
         Filter::Quaternion if stride != 8 => {
             return Err(format!("QUATERNION byteStride {stride} is not 8"));
         }
+        Filter::Color if extension != KHR_MESHOPT_COMPRESSION => {
+            return Err(format!("COLOR filter requires {KHR_MESHOPT_COMPRESSION}"));
+        }
+        Filter::Color if stride != 4 && stride != 8 => {
+            return Err(format!("COLOR byteStride {stride} is not 4 or 8"));
+        }
         // EXPONENTIAL only needs the multiple-of-4 stride ATTRIBUTES already has.
         _ => {}
     }
@@ -180,7 +194,7 @@ fn decode_view(
     let align = match (ext.mode, ext.filter) {
         (Mode::Triangles | Mode::Indices, _) => stride,
         (_, Filter::None) => 1,
-        (_, Filter::Octahedral) => stride / 4,
+        (_, Filter::Octahedral | Filter::Color) => stride / 4,
         (_, Filter::Quaternion) => 2,
         (_, Filter::Exponential) => 4,
     };
@@ -222,6 +236,7 @@ fn decode_view(
         Filter::Octahedral => ffi::meshopt_decodeFilterOct,
         Filter::Quaternion => ffi::meshopt_decodeFilterQuat,
         Filter::Exponential => ffi::meshopt_decodeFilterExp,
+        Filter::Color => ffi::meshopt_decodeFilterColor,
     };
     // SAFETY: `dst` is `count * stride` bytes, and the stride and alignment
     // meet the filter's preconditions.
@@ -237,7 +252,9 @@ fn decode_view(
 /// loader tests.
 #[cfg(test)]
 pub(super) mod fixture {
-    use super::EXT_MESHOPT_COMPRESSION;
+    use core::ffi::c_int;
+
+    use super::KHR_MESHOPT_COMPRESSION;
 
     /// Positions whose x coordinate is half the vertex index.
     pub fn positions(count: usize) -> Vec<[f32; 3]> {
@@ -274,6 +291,34 @@ pub(super) mod fixture {
             .collect()
     }
 
+    pub fn encode_vertices<T>(extension: &str, vertices: &[T]) -> Vec<u8> {
+        let version = c_int::from(extension == KHR_MESHOPT_COMPRESSION);
+        let size = size_of::<T>();
+        #[expect(
+            unsafe_code,
+            reason = "meshopt only exposes the versioned encoder over FFI"
+        )]
+        // SAFETY: `encoded` holds the encoder's bound for `vertices`, which
+        // holds `len * size` bytes.
+        let encoded = unsafe {
+            let mut encoded =
+                vec![0; meshopt::ffi::meshopt_encodeVertexBufferBound(vertices.len(), size)];
+            let len = meshopt::ffi::meshopt_encodeVertexBufferLevel(
+                encoded.as_mut_ptr(),
+                encoded.len(),
+                vertices.as_ptr().cast(),
+                vertices.len(),
+                size,
+                2,
+                version,
+            );
+            encoded.truncate(len);
+            encoded
+        };
+        assert!(!encoded.is_empty());
+        encoded
+    }
+
     /// A one-primitive document with positions in `bufferViews[0]` and u16
     /// indices in `bufferViews[1]`, both in URI-less fallback buffer 1.
     /// Buffer 0 (`mesh.bin`) holds `compressed`, with a gap before the
@@ -284,9 +329,9 @@ pub(super) mod fixture {
         pub fallback_len: usize,
     }
 
-    pub fn fixture(positions: &[[f32; 3]], indices: &[u32]) -> Fixture {
+    pub fn fixture(extension: &str, positions: &[[f32; 3]], indices: &[u32]) -> Fixture {
         let encoded_indices = meshopt::encode_index_buffer(indices, positions.len()).unwrap();
-        let encoded_positions = meshopt::encode_vertex_buffer(positions).unwrap();
+        let encoded_positions = encode_vertices(extension, positions);
 
         const PADDING: usize = 13;
         let mut compressed = encoded_indices.clone();
@@ -310,19 +355,19 @@ pub(super) mod fixture {
 
         let json = serde_json::json!({
             "asset": { "version": "2.0" },
-            "extensionsUsed": [EXT_MESHOPT_COMPRESSION],
-            "extensionsRequired": [EXT_MESHOPT_COMPRESSION],
+            "extensionsUsed": [extension],
+            "extensionsRequired": [extension],
             "buffers": [
                 { "byteLength": compressed.len(), "uri": "mesh.bin" },
                 {
                     "byteLength": fallback_len,
-                    "extensions": { EXT_MESHOPT_COMPRESSION: { "fallback": true } }
+                    "extensions": { extension: { "fallback": true } }
                 }
             ],
             "bufferViews": [
                 {
                     "buffer": 1, "byteOffset": 0, "byteLength": positions_len, "byteStride": 12,
-                    "extensions": { EXT_MESHOPT_COMPRESSION: {
+                    "extensions": { extension: {
                         "buffer": 0, "byteOffset": positions_offset,
                         "byteLength": encoded_positions.len(),
                         "byteStride": 12, "count": positions.len(), "mode": "ATTRIBUTES"
@@ -330,7 +375,7 @@ pub(super) mod fixture {
                 },
                 {
                     "buffer": 1, "byteOffset": positions_len, "byteLength": indices_len,
-                    "extensions": { EXT_MESHOPT_COMPRESSION: {
+                    "extensions": { extension: {
                         "buffer": 0,
                         "byteLength": encoded_indices.len(),
                         "byteStride": 2, "count": indices.len(), "mode": "TRIANGLES"
@@ -360,9 +405,11 @@ pub(super) mod fixture {
 mod tests {
     use super::fixture::*;
     use super::*;
+    use crate::loader::EXT_MESHOPT_COMPRESSION;
 
     /// The fixture with `patch` applied to its JSON, and its buffers.
     fn document(
+        extension: &str,
         positions: &[[f32; 3]],
         indices: &[u32],
         patch: impl FnOnce(&mut serde_json::Value),
@@ -371,11 +418,46 @@ mod tests {
             mut json,
             compressed,
             fallback_len,
-        } = fixture(positions, indices);
+        } = fixture(extension, positions, indices);
         patch(&mut json);
         let root: gltf::json::Root = serde_json::from_value(json).unwrap();
         let document = gltf::Document::from_json_without_validation(root);
         (document, vec![compressed, vec![0u8; fallback_len]])
+    }
+
+    /// Compresses `filtered` into one `ATTRIBUTES` view with `filter` and
+    /// returns the decoded vertices.
+    fn decode_filtered<const STRIDE: usize>(
+        extension: &str,
+        filter: &str,
+        filtered: &[[u8; STRIDE]],
+    ) -> Vec<[u8; STRIDE]> {
+        let compressed = encode_vertices(extension, filtered);
+        let fallback_len = filtered.len() * STRIDE;
+
+        let json = serde_json::json!({
+            "asset": { "version": "2.0" },
+            "buffers": [
+                { "byteLength": compressed.len(), "uri": "vertices.bin" },
+                {
+                    "byteLength": fallback_len,
+                    "extensions": { extension: { "fallback": true } }
+                }
+            ],
+            "bufferViews": [{
+                "buffer": 1, "byteLength": fallback_len, "byteStride": STRIDE,
+                "extensions": { extension: {
+                    "buffer": 0, "byteLength": compressed.len(), "byteStride": STRIDE,
+                    "count": filtered.len(), "mode": "ATTRIBUTES", "filter": filter
+                } }
+            }]
+        });
+        let root: gltf::json::Root = serde_json::from_value(json).unwrap();
+        let document = gltf::Document::from_json_without_validation(root);
+        let mut buffers = vec![compressed, vec![0u8; fallback_len]];
+
+        decode_buffer_views(&document, &mut buffers).unwrap();
+        buffers[1].as_chunks::<STRIDE>().0.to_vec()
     }
 
     #[test]
@@ -408,33 +490,10 @@ mod tests {
                 normals.as_ptr().cast(),
             );
         }
-        let compressed = meshopt::encode_vertex_buffer(&filtered).unwrap();
-        let fallback_len = normals.len() * STRIDE;
 
-        let json = serde_json::json!({
-            "asset": { "version": "2.0" },
-            "buffers": [
-                { "byteLength": compressed.len(), "uri": "normals.bin" },
-                {
-                    "byteLength": fallback_len,
-                    "extensions": { EXT_MESHOPT_COMPRESSION: { "fallback": true } }
-                }
-            ],
-            "bufferViews": [{
-                "buffer": 1, "byteLength": fallback_len, "byteStride": STRIDE,
-                "extensions": { EXT_MESHOPT_COMPRESSION: {
-                    "buffer": 0, "byteLength": compressed.len(), "byteStride": STRIDE,
-                    "count": normals.len(), "mode": "ATTRIBUTES", "filter": "OCTAHEDRAL"
-                } }
-            }]
-        });
-        let root: gltf::json::Root = serde_json::from_value(json).unwrap();
-        let document = gltf::Document::from_json_without_validation(root);
-        let mut buffers = vec![compressed, vec![0u8; fallback_len]];
+        let decoded = decode_filtered(EXT_MESHOPT_COMPRESSION, "OCTAHEDRAL", &filtered);
 
-        decode_buffer_views(&document, &mut buffers).unwrap();
-
-        for (normal, decoded) in normals.iter().zip(buffers[1].as_chunks::<STRIDE>().0) {
+        for (normal, decoded) in normals.iter().zip(&decoded) {
             for axis in 0..3 {
                 let value = i16::from_le_bytes([decoded[axis * 2], decoded[axis * 2 + 1]]);
                 let value = f32::from(value) / f32::from(i16::MAX);
@@ -447,45 +506,100 @@ mod tests {
     }
 
     #[test]
+    fn round_trips_color_filter() {
+        let colors: Vec<[f32; 4]> = (0..64)
+            .map(|i| {
+                let channel = |n: usize| ((i * n) % 17) as f32 / 16.0;
+                [channel(3), channel(5), channel(7), channel(11)]
+            })
+            .collect();
+        const STRIDE: usize = 4;
+        let mut filtered = vec![[0u8; STRIDE]; colors.len()];
+        #[expect(
+            unsafe_code,
+            reason = "meshopt only exposes the filter encoders over FFI"
+        )]
+        // SAFETY: `filtered` holds `count * 4` bytes, the stride the 8-bit
+        // encoding requires, and `colors` holds four floats per color.
+        unsafe {
+            meshopt::ffi::meshopt_encodeFilterColor(
+                filtered.as_mut_ptr().cast(),
+                colors.len(),
+                STRIDE,
+                8,
+                colors.as_ptr().cast(),
+            );
+        }
+
+        let decoded = decode_filtered(KHR_MESHOPT_COMPRESSION, "COLOR", &filtered);
+
+        for (color, decoded) in colors.iter().zip(&decoded) {
+            for channel in 0..4 {
+                let value = f32::from(decoded[channel]) / 255.0;
+                assert!(
+                    (value - color[channel]).abs() < 2.0 / 255.0,
+                    "{color:?} decoded to {value} on channel {channel}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_color_filter_without_khr() {
+        let message = view_rejection(0, |json| {
+            json["bufferViews"][0]["extensions"][EXT_MESHOPT_COMPRESSION]["filter"] =
+                "COLOR".into();
+        });
+        assert!(
+            message.contains("requires KHR_meshopt_compression"),
+            "{message}"
+        );
+    }
+
+    #[test]
     fn round_trips_positions_and_indices() {
         let positions = positions(97);
         let indices = indices(3 * 61, positions.len());
-        let (document, mut buffers) = document(&positions, &indices, |_| {});
+        for extension in MESHOPT_COMPRESSION_EXTENSIONS {
+            let (document, mut buffers) = document(extension, &positions, &indices, |_| {});
 
-        decode_buffer_views(&document, &mut buffers).unwrap();
+            decode_buffer_views(&document, &mut buffers).unwrap();
 
-        let expected_positions = position_bytes(&positions);
-        assert_eq!(
-            &buffers[1][..expected_positions.len()],
-            &expected_positions[..]
-        );
-        let decoded_indices: Vec<u32> = buffers[1][expected_positions.len()..]
-            .as_chunks::<2>()
-            .0
-            .iter()
-            .map(|&b| u32::from(u16::from_le_bytes(b)))
-            .collect();
-        assert_eq!(triangles(&decoded_indices), triangles(&indices));
+            let expected_positions = position_bytes(&positions);
+            assert_eq!(
+                &buffers[1][..expected_positions.len()],
+                &expected_positions[..]
+            );
+            let decoded_indices: Vec<u32> = buffers[1][expected_positions.len()..]
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|&b| u32::from(u16::from_le_bytes(b)))
+                .collect();
+            assert_eq!(triangles(&decoded_indices), triangles(&indices));
+        }
     }
 
-    /// The error message for the 24-index view after `patch`.
-    fn index_view_rejection(patch: impl FnOnce(&mut serde_json::Value)) -> String {
+    /// The error message for `buffer_view` of the 16-vertex, 24-index EXT
+    /// fixture after `patch`.
+    fn view_rejection(buffer_view: usize, patch: impl FnOnce(&mut serde_json::Value)) -> String {
         let positions = positions(16);
         let indices = indices(3 * 8, positions.len());
-        let (document, mut buffers) = document(&positions, &indices, patch);
+        let (document, mut buffers) =
+            document(EXT_MESHOPT_COMPRESSION, &positions, &indices, patch);
 
         match decode_buffer_views(&document, &mut buffers).unwrap_err() {
             GltfError::InvalidMeshoptCompression {
-                buffer_view: 1,
+                buffer_view: view,
                 message,
-            } => message,
+            } if view == buffer_view => message,
             err => panic!("unexpected error {err:?}"),
         }
     }
 
     #[test]
     fn rejects_compressed_range_past_buffer_end() {
-        let message = index_view_rejection(|json| {
+        let message = view_rejection(1, |json| {
             json["bufferViews"][1]["extensions"][EXT_MESHOPT_COMPRESSION]["byteLength"] =
                 (usize::MAX / 2).into();
         });
@@ -494,7 +608,7 @@ mod tests {
 
     #[test]
     fn rejects_truncated_compressed_data() {
-        let message = index_view_rejection(|json| {
+        let message = view_rejection(1, |json| {
             json["bufferViews"][1]["extensions"][EXT_MESHOPT_COMPRESSION]["byteLength"] = 1.into();
         });
         assert!(message.contains("decoder returned"), "{message}");
@@ -502,7 +616,7 @@ mod tests {
 
     #[test]
     fn rejects_count_not_matching_view_length() {
-        let message = index_view_rejection(|json| {
+        let message = view_rejection(1, |json| {
             json["bufferViews"][1]["extensions"][EXT_MESHOPT_COMPRESSION]["count"] = 21.into();
         });
         assert!(message.contains("count 21 * byteStride 2"), "{message}");
@@ -511,7 +625,7 @@ mod tests {
     #[test]
     fn rejects_triangle_count_not_multiple_of_three() {
         // Shrink the view alongside the count so only the triangle rule trips.
-        let message = index_view_rejection(|json| {
+        let message = view_rejection(1, |json| {
             json["bufferViews"][1]["byteLength"] = (22 * 2).into();
             json["bufferViews"][1]["extensions"][EXT_MESHOPT_COMPRESSION]["count"] = 22.into();
         });
@@ -524,7 +638,7 @@ mod tests {
     #[test]
     fn rejects_index_stride_other_than_two_or_four() {
         // Keep count * byteStride inside the view's 48-byte fallback region.
-        let message = index_view_rejection(|json| {
+        let message = view_rejection(1, |json| {
             json["bufferViews"][1]["byteLength"] = (15 * 3).into();
             let ext = &mut json["bufferViews"][1]["extensions"][EXT_MESHOPT_COMPRESSION];
             ext["byteStride"] = 3.into();
@@ -535,7 +649,7 @@ mod tests {
 
     #[test]
     fn rejects_filter_outside_attributes_mode() {
-        let message = index_view_rejection(|json| {
+        let message = view_rejection(1, |json| {
             json["bufferViews"][1]["extensions"][EXT_MESHOPT_COMPRESSION]["filter"] =
                 "OCTAHEDRAL".into();
         });
@@ -544,7 +658,7 @@ mod tests {
 
     #[test]
     fn rejects_view_stride_mismatch() {
-        let message = index_view_rejection(|json| {
+        let message = view_rejection(1, |json| {
             json["bufferViews"][1]["byteStride"] = 4.into();
         });
         assert!(message.contains("does not match byteStride 2"), "{message}");
@@ -552,7 +666,7 @@ mod tests {
 
     #[test]
     fn rejects_misaligned_index_view() {
-        let message = index_view_rejection(|json| {
+        let message = view_rejection(1, |json| {
             json["bufferViews"][1]["byteOffset"] = 191.into();
         });
         assert!(message.contains("not aligned to 2 bytes"), "{message}");
