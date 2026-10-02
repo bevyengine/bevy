@@ -883,12 +883,12 @@ impl_atomic_pod!(
     field(
         material_bindings_index: MaterialBindingId,
         material_bindings_index,
-        set_material_bindings_index
+        set_material_bindings_index,
     ),
     field(
         lightmap_slab_index: LightmapSlabIndexFlat,
         lightmap_slab_index_flat,
-        set_lightmap_slab_index_flat
+        set_lightmap_slab_index_flat,
     ),
     field(tag: u32, tag, set_tag),
     field(flags: RenderMeshInstanceFlags, flags, set_flags),
