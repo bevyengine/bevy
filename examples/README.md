@@ -445,6 +445,7 @@ Example | Description
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
 [Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
 [Sprite Picking](../examples/picking/sprite_picking.rs) | Demonstrates picking sprites and sprite atlases
+[UI Image Picking](../examples/picking/ui_image_picking.rs) | Demonstrates alpha-based picking for UI image nodes
 
 ### Reflection
 
