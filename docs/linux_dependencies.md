@@ -135,13 +135,15 @@ Add a `flake.nix` file to the root of your GitHub repository containing:
         devShells.default =
           with pkgs;
           mkShell {
+            nativeBuildInputs = [
+              # Rust toolchain
+              (rust-bin.stable.latest.default.override { extensions = [ "rust-src" ]; })
+              # C/C++
+              pkg-config
+              rustPlatform.bindgenHook
+            ];
             buildInputs =
-              [
-                # Rust dependencies
-                (rust-bin.stable.latest.default.override { extensions = [ "rust-src" ]; })
-                pkg-config
-              ]
-              ++ lib.optionals (lib.strings.hasInfix "linux" system) [
+              lib.optionals (lib.strings.hasInfix "linux" system) [
                 # for Linux
                 # Audio (Linux only)
                 alsa-lib
@@ -157,6 +159,8 @@ Add a `flake.nix` file to the root of your GitHub repository containing:
                 libxrandr
                 libxkbcommon
                 wayland
+                fontconfig
+                x264
               ];
             RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
             LD_LIBRARY_PATH = lib.makeLibraryPath [
@@ -166,6 +170,8 @@ Add a `flake.nix` file to the root of your GitHub repository containing:
               libxcursor
               libxkbcommon
               wayland
+              fontconfig
+              x264
             ];
           };
       }
@@ -188,9 +194,12 @@ with pkgs;
 mkShell rec {
   nativeBuildInputs = [
     pkg-config
+    rustPlatform.bindgenHook
   ];
   buildInputs = [
     udev alsa-lib-with-plugins vulkan-loader
+    fontconfig
+    x264
     libx11 libxcursor libxi libxrandr # To use the x11 feature
     libxkbcommon wayland # To use the wayland feature
   ];
