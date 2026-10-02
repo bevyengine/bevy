@@ -953,8 +953,15 @@ pub fn winit_runner(mut app: App, event_loop: EventLoop<WinitUserEvent>) -> AppE
             }
             // If everything is working correctly then the event loop only exits after it's sent an exit code.
             runner_state.app_exit.unwrap_or_else(|| {
-                bevy_log::error!("Failed to receive an app exit code! This is a bug");
-                AppExit::error()
+                cfg_select! {
+                    // On Android:
+                    // The activity can be recreated, so technically the app doesn't exit.
+                    target_os = "android" => AppExit::Success,
+                    _ => {
+                        bevy_log::error!("Failed to receive an app exit code! This is a bug");
+                        AppExit::error()
+                    }
+                }
             })
         }
     }
