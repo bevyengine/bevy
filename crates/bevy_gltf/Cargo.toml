@@ -13,6 +13,8 @@ pbr_transmission_textures = []
 pbr_multi_layer_material_textures = []
 pbr_anisotropy_texture = []
 pbr_specular_textures = []
+hdr = ["bevy_image/hdr"]
+exr = ["bevy_image/exr"]
 
 [dependencies]
 # bevy
