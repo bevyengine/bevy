@@ -338,7 +338,7 @@ impl BsnEntry {
                     },
                 dot_expression,
             } => EntryResult::CombinedSceneFunction({
-                let args = args.into_tokens(ctx);
+                let args = args.into_tokens(ctx)?;
                 if let Some(dot_expr) = dot_expression {
                     quote! {
                         _scene.insert_template::<#type_path>(#type_path::#function #args #dot_expr);
@@ -358,7 +358,7 @@ impl BsnEntry {
                     },
                 dot_expression,
             } => EntryResult::CombinedSceneFunction({
-                let args = args.into_tokens(ctx);
+                let args = args.into_tokens(ctx)?;
                 if let Some(dot_expr) = dot_expression {
                     quote! {
                         _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args #dot_expr);
@@ -392,7 +392,7 @@ impl BsnEntry {
                 _scene.insert_template(#token_stream);
             }),
             BsnEntry::Function(BsnFnCall { args, path }) => {
-                let args = args.into_tokens(ctx);
+                let args = args.into_tokens(ctx)?;
                 EntryResult::CombinedSceneFunction(quote! {
                     _scene.insert_template(#path #args);
                 })
@@ -408,7 +408,7 @@ impl BsnScene {
             BsnScene::Asset(lit) => Ok(quote! {
                 #bevy_scene::CachedSceneAsset::from(#lit)
             }),
-            BsnScene::Fn(func) => Ok(func.into_tokens(ctx)),
+            BsnScene::Fn(func) => func.into_tokens(ctx),
             BsnScene::SceneComponent(bsn_type) => {
                 let props = format_ident!("__props");
                 let props_ref = format_ident!("__props_ref");
@@ -874,25 +874,38 @@ impl BsnTokenStream for BsnSceneListItems {
 }
 
 impl BsnSceneFn {
-    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let bevy_scene = ctx.bevy_scene;
-        let args = self.args.into_tokens(ctx);
+        let args = self.args.into_tokens(ctx)?;
         let path = &self.path;
-        quote! {#bevy_scene::SceneScope(#path #args)}
+        Ok(quote! {#bevy_scene::SceneScope(#path #args)})
     }
 }
 
-impl BsnTokenStream for BsnFnArgs {
-    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        let args = self.0.into_iter().map(|a| a.into_tokens(ctx));
-        quote! { (#(#args),*) }
+impl BsnFnArgs {
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+        let args = self
+            .0
+            .into_iter()
+            .map(|a| a.into_tokens(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(quote! { (#(#args),*) })
     }
 }
 
-impl BsnTokenStream for BsnFnArg {
-    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+impl BsnFnArg {
+    fn into_tokens(self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let bevy_ecs = ctx.bevy_ecs;
-        match self {
+        Ok(match self {
+            BsnFnArg::Array(values) => {
+                let values = values
+                    .iter()
+                    .map(|value| value.to_tokens(ctx))
+                    .collect::<Result<Vec<_>, _>>()?;
+                quote! {
+                    [#(#values),*]
+                }
+            }
             BsnFnArg::EntityName(ident) => {
                 let index = ctx.entity_refs.get(ident.to_string());
                 let invocation = ctx.invocation_index.clone();
@@ -903,7 +916,7 @@ impl BsnTokenStream for BsnFnArg {
                 }
             }
             BsnFnArg::Tokens(token_stream) => token_stream.clone(),
-        }
+        })
     }
 }
 impl ToTokens for BsnValue {

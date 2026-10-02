@@ -703,6 +703,19 @@ impl Parse for BsnFnArg {
             } else {
                 BsnFnArg::Tokens(input.parse::<TokenStream>()?)
             }
+        } else if input.peek(Bracket) {
+            let forked = input.fork();
+            let Ok(bracketed) = bracketed_tokens(&forked) else {
+                return input.parse().map(BsnFnArg::Tokens);
+            };
+            let Ok(values) = syn::parse::Parser::parse2(
+                <syn::punctuated::Punctuated<BsnValue, Token![,]>>::parse_terminated,
+                bracketed,
+            ) else {
+                return input.parse().map(BsnFnArg::Tokens);
+            };
+            input.advance_to(&forked);
+            BsnFnArg::Array(values.into_iter().collect())
         } else {
             BsnFnArg::Tokens(input.parse::<TokenStream>()?)
         })
