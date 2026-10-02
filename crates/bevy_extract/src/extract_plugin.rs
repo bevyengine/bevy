@@ -15,7 +15,7 @@ use bevy_utils::default;
 
 /// Plugin that sets up the sub app for the [`AppLabel`] and handles extracting data from the
 /// main world to the sub world.
-pub struct ExtractPlugin<L: AppLabel + Default> {
+pub struct ExtractPlugin<L: AppLabel> {
     /// Function that gets run at the beginning of each extraction.
     ///
     /// Gets the main world and sub world as arguments (in that order).
@@ -30,7 +30,7 @@ pub struct ExtractPlugin<L: AppLabel + Default> {
     pub despawn_set: InternedSystemSet,
 }
 
-impl<L: AppLabel + Default> ExtractPlugin<L> {
+impl<L: AppLabel> ExtractPlugin<L> {
     pub fn new(
         pre_extract: fn(&mut World, &mut World),
         base_schedule: fn() -> Schedule,
@@ -49,7 +49,7 @@ impl<L: AppLabel + Default> ExtractPlugin<L> {
     }
 }
 
-impl<L: AppLabel + Default + Copy + Eq> Plugin for ExtractPlugin<L> {
+impl<L: AppLabel> Plugin for ExtractPlugin<L> {
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncWorldPlugin::<L>::default());
         app.init_resource::<ScratchMainWorld>();

@@ -40,11 +40,8 @@ impl<R: ExtractResource<L, F>, L: AppLabel, F> Default for ExtractResourcePlugin
     }
 }
 
-impl<
-        R: ExtractResource<L, F, Mutability = Mutable>,
-        L: AppLabel + Default,
-        F: 'static + Send + Sync,
-    > Plugin for ExtractResourcePlugin<R, L, F>
+impl<R: ExtractResource<L, F, Mutability = Mutable>, L: AppLabel, F: 'static + Send + Sync> Plugin
+    for ExtractResourcePlugin<R, L, F>
 {
     fn build(&self, app: &mut App) {
         if let Some(sub_app) = app.get_sub_app_mut(L::default()) {
