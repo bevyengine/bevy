@@ -29,7 +29,6 @@ use bevy_picking::{
     events::{
         PointerCancel, PointerClick, PointerDrag, PointerDragEnd, PointerDragStart, PointerState,
     },
-    hover::HoverMap,
     pointer::{PointerButton, PointerId},
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -58,6 +57,9 @@ pub enum TabDragMode {
     #[default]
     Disabled,
     /// Tabs may be reordered within this list.
+    ///
+    /// Once a drag starts, the pointer's position along the list's axis picks the insertion
+    /// point, even when the pointer leaves the list.
     Reorder,
 }
 
@@ -134,7 +136,9 @@ pub struct TabDragging {
 
 /// One pointer's proposed insertion point within a [`TabList`].
 ///
-/// `index` counts the list's tabs after removing `tab`.
+/// `index` counts the list's tabs after removing `tab`, while `slot` counts all of its tabs. The
+/// gaps on either side of `tab` share an `index` but not a `slot`, so styling can mark the side
+/// nearest the pointer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct TabInsertionPoint {
@@ -144,11 +148,13 @@ pub struct TabInsertionPoint {
     pub tab: Entity,
     /// The proposed insertion index.
     pub index: usize,
+    /// The gap to mark, counted in the list's current tab order.
+    pub slot: usize,
 }
 
 /// The insertion points currently proposed on a [`TabList`].
 ///
-/// Present only while at least one accepted drag is over the list, with at most one entry per
+/// Present only while at least one accepted drag targets the list, with at most one entry per
 /// pointer.
 #[derive(Component, Debug, Default, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Clone, PartialEq)]
@@ -186,7 +192,14 @@ struct TabDragGesture {
     tab: Entity,
     source: Entity,
     state: TabDragState,
-    preview: Option<(Entity, usize)>,
+    preview: Option<TabDropTarget>,
+}
+
+#[derive(Clone, Copy)]
+struct TabDropTarget {
+    list: Entity,
+    index: usize,
+    slot: usize,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -210,7 +223,6 @@ pub struct TabPlugin;
 impl Plugin for TabPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TabDragGestures>()
-            .init_resource::<HoverMap>()
             .init_resource::<UiScale>()
             .add_observer(tablist_on_click)
             .add_observer(tab_on_key_input)
@@ -493,12 +505,12 @@ fn tab_on_drag_end(
         return;
     }
     end_tab_drag(&gesture, &mut commands);
-    if let Some((to_strip, index)) = targets.resolve(&gesture, event.pointer.position) {
+    if let Some(target) = targets.resolve(&gesture, event.pointer.position) {
         commands.trigger(TabMoved {
             from_strip: gesture.source,
             tab: gesture.tab,
-            to_strip,
-            index,
+            to_strip: target.list,
+            index: target.index,
         });
     }
 }
@@ -595,11 +607,12 @@ fn sync_tab_insertion_previews(
             .0
             .iter()
             .filter_map(|gesture| {
-                let (destination, index) = gesture.preview?;
-                (destination == list).then_some(TabInsertionPoint {
+                let target = gesture.preview?;
+                (target.list == list).then_some(TabInsertionPoint {
                     pointer_id: gesture.pointer_id,
                     tab: gesture.tab,
-                    index,
+                    index: target.index,
+                    slot: target.slot,
                 })
             })
             .collect::<Vec<_>>();
@@ -620,75 +633,60 @@ fn sync_tab_insertion_previews(
     }
 }
 
-/// Resolves the list and insertion index under a dragging pointer.
+/// Resolves where a dragged tab would be inserted.
 #[derive(SystemParam)]
 struct TabDropTargets<'w, 's> {
     tablists: Query<'w, 's, &'static TabList>,
-    parents: Query<'w, 's, &'static ChildOf>,
     children: Query<'w, 's, &'static Children>,
     tabs: Query<'w, 's, Option<(&'static ComputedNode, &'static UiGlobalTransform)>, With<Tab>>,
-    hover_map: Res<'w, HoverMap>,
     ui_scale: Res<'w, UiScale>,
 }
 
 impl TabDropTargets<'_, '_> {
-    /// Returns the source list and insertion index when the pointer is over the source list.
-    fn resolve(&self, gesture: &TabDragGesture, position: Vec2) -> Option<(Entity, usize)> {
+    /// Returns the source list's insertion point, wherever the pointer is.
+    fn resolve(&self, gesture: &TabDragGesture, position: Vec2) -> Option<TabDropTarget> {
         let tablist = self.tablists.get(gesture.source).ok()?;
         if tablist.drag == TabDragMode::Disabled {
             return None;
         }
-        let over_source = self
-            .hover_map
-            .get(&gesture.pointer_id)?
-            .keys()
-            .any(|entity| self.nearest_tablist(*entity) == Some(gesture.source));
-        if !over_source {
-            return None;
-        }
-        let index = self.insertion_index(gesture.source, tablist, gesture.tab, position)?;
-        Some((gesture.source, index))
+        self.insertion_point(gesture.source, tablist, gesture.tab, position)
     }
 
-    fn nearest_tablist(&self, entity: Entity) -> Option<Entity> {
-        if self.tablists.contains(entity) {
-            return Some(entity);
-        }
-        self.parents
-            .iter_ancestors(entity)
-            .find(|ancestor| self.tablists.contains(*ancestor))
-    }
-
-    /// Counts the tabs, other than `dragged`, whose center lies before `position`.
-    fn insertion_index(
+    /// Counts the tabs whose center lies before `position` along the list's axis, with and
+    /// without `dragged`.
+    fn insertion_point(
         &self,
         list: Entity,
         tablist: &TabList,
         dragged: Entity,
         position: Vec2,
-    ) -> Option<usize> {
+    ) -> Option<TabDropTarget> {
         let axis = |point: Vec2| match tablist.orientation {
             ControlOrientation::Horizontal => point.x,
             ControlOrientation::Vertical => point.y,
         };
         let position = axis(position / self.ui_scale.0.max(f32::EPSILON));
-        let mut index = 0;
+        let mut target = TabDropTarget {
+            list,
+            index: 0,
+            slot: 0,
+        };
         if let Ok(children) = self.children.get(list) {
             for child in children.iter().copied() {
-                if child == dragged {
-                    continue;
-                }
                 let Ok(geometry) = self.tabs.get(child) else {
                     continue;
                 };
                 let (node, transform) = geometry?;
                 if position < axis(transform.translation * node.inverse_scale_factor) {
-                    return Some(index);
+                    break;
                 }
-                index += 1;
+                target.slot += 1;
+                if child != dragged {
+                    target.index += 1;
+                }
             }
         }
-        Some(index)
+        Some(target)
     }
 }
 
@@ -879,18 +877,20 @@ mod tests {
             .id()
     }
 
-    fn hover(app: &mut App, pointer_id: PointerId, entity: Entity, window: Entity) {
-        app.world_mut()
-            .resource_mut::<HoverMap>()
-            .entry(pointer_id)
-            .or_default()
-            .insert(entity, HitData::new(window, 0.0, None, None));
+    fn start_drag(app: &mut App, target: Entity, window: Entity, pointer_id: PointerId) {
+        start_drag_at(app, target, window, pointer_id, Vec2::ZERO);
     }
 
-    fn start_drag(app: &mut App, target: Entity, window: Entity, pointer_id: PointerId) {
+    fn start_drag_at(
+        app: &mut App,
+        target: Entity,
+        window: Entity,
+        pointer_id: PointerId,
+        start: Vec2,
+    ) {
         app.world_mut().trigger(PointerDragStart {
             entity: target,
-            pointer: Pointer::new(pointer_id, window_location(window, Vec2::ZERO)),
+            pointer: Pointer::new(pointer_id, window_location(window, start)),
             button: PointerButton::Primary,
             hit: HitData::new(window, 0.0, None, None),
         });
@@ -898,31 +898,63 @@ mod tests {
     }
 
     fn drag_to(app: &mut App, target: Entity, window: Entity, pointer_id: PointerId, x: f32) {
+        drag_between(
+            app,
+            target,
+            window,
+            pointer_id,
+            Vec2::new(0.0, 20.0),
+            Vec2::new(x, 20.0),
+        );
+    }
+
+    fn drag_between(
+        app: &mut App,
+        target: Entity,
+        window: Entity,
+        pointer_id: PointerId,
+        start: Vec2,
+        position: Vec2,
+    ) {
         app.world_mut().trigger(PointerDrag {
             entity: target,
-            pointer: Pointer::new(pointer_id, window_location(window, Vec2::new(x, 20.0))),
+            pointer: Pointer::new(pointer_id, window_location(window, position)),
             button: PointerButton::Primary,
-            distance: Vec2::new(x, 0.0),
-            delta: Vec2::new(x, 0.0),
+            distance: position - start,
+            delta: position - start,
         });
         app.update();
     }
 
-    fn trigger_drag_end(app: &mut App, target: Entity, window: Entity, x: f32) {
+    fn trigger_drag_end(app: &mut App, target: Entity, window: Entity, position: Vec2) {
         app.world_mut().trigger(PointerDragEnd {
             entity: target,
-            pointer: Pointer::new(
-                PointerId::Mouse,
-                window_location(window, Vec2::new(x, 20.0)),
-            ),
+            pointer: Pointer::new(PointerId::Mouse, window_location(window, position)),
             button: PointerButton::Primary,
-            distance: Vec2::new(x, 0.0),
+            distance: position,
         });
     }
 
     fn end_drag(app: &mut App, target: Entity, window: Entity, x: f32) {
-        trigger_drag_end(app, target, window, x);
+        end_drag_at(app, target, window, Vec2::new(x, 20.0));
+    }
+
+    fn end_drag_at(app: &mut App, target: Entity, window: Entity, position: Vec2) {
+        trigger_drag_end(app, target, window, position);
         app.update();
+    }
+
+    fn proposed(app: &App, list: Entity) -> Option<(usize, usize)> {
+        preview(app, list).map(|entries| (entries[0].index, entries[0].slot))
+    }
+
+    fn moved_indices(app: &App) -> Vec<usize> {
+        app.world()
+            .resource::<TabMoveLog>()
+            .0
+            .iter()
+            .map(|moved| moved.index)
+            .collect()
     }
 
     fn preview(app: &App, list: Entity) -> Option<Vec<TabInsertionPoint>> {
@@ -1380,7 +1412,6 @@ mod tests {
         let second = placed_tab(&mut app, list, 150.0);
         let third = placed_tab(&mut app, list, 250.0);
         app.update();
-        hover(&mut app, PointerId::Mouse, list, window);
         let order = [first, second, third];
 
         start_drag(&mut app, first, window, PointerId::Mouse);
@@ -1391,6 +1422,7 @@ mod tests {
                 pointer_id: PointerId::Mouse,
                 tab: first,
                 index: 1,
+                slot: 2,
             }])
         );
 
@@ -1423,7 +1455,6 @@ mod tests {
         let first = placed_tab(&mut app, list, 50.0);
         placed_tab(&mut app, list, 150.0);
         app.update();
-        hover(&mut app, PointerId::Mouse, list, window);
 
         start_drag(&mut app, first, window, PointerId::Mouse);
         drag_to(&mut app, first, window, PointerId::Mouse, 200.0);
@@ -1432,23 +1463,127 @@ mod tests {
     }
 
     #[test]
-    fn release_outside_the_source_list_does_not_propose_a_move() {
+    fn reorder_keeps_tracking_with_the_pointer_above_or_below_the_strip() {
         let (mut app, window) = tab_app();
-        let source = reorder_list(&mut app, window);
+        let list = reorder_list(&mut app, window);
         let other = reorder_list(&mut app, window);
-        let dragged = placed_tab(&mut app, source, 50.0);
-        let other_tab = placed_tab(&mut app, other, 150.0);
+        let first = placed_tab(&mut app, list, 50.0);
+        placed_tab(&mut app, list, 150.0);
+        placed_tab(&mut app, list, 250.0);
+        placed_tab(&mut app, other, 150.0);
         app.update();
-        hover(&mut app, PointerId::Mouse, other_tab, window);
 
-        start_drag(&mut app, dragged, window, PointerId::Mouse);
-        drag_to(&mut app, dragged, window, PointerId::Mouse, 200.0);
-        assert_eq!(preview(&app, source), None);
+        start_drag(&mut app, first, window, PointerId::Mouse);
+        drag_between(
+            &mut app,
+            first,
+            window,
+            PointerId::Mouse,
+            Vec2::ZERO,
+            Vec2::new(200.0, -500.0),
+        );
+        assert_eq!(proposed(&app, list), Some((1, 2)));
+
+        drag_between(
+            &mut app,
+            first,
+            window,
+            PointerId::Mouse,
+            Vec2::ZERO,
+            Vec2::new(400.0, 900.0),
+        );
+        assert_eq!(proposed(&app, list), Some((2, 3)));
         assert_eq!(preview(&app, other), None);
 
-        end_drag(&mut app, dragged, window, 200.0);
-        assert!(app.world().resource::<TabMoveLog>().0.is_empty());
-        assert_eq!(dragging(&app, dragged), None);
+        end_drag_at(&mut app, first, window, Vec2::new(200.0, 900.0));
+        assert_eq!(
+            app.world().resource::<TabMoveLog>().0,
+            [TabMoved {
+                from_strip: list,
+                tab: first,
+                to_strip: list,
+                index: 1,
+            }]
+        );
+        assert_eq!(preview(&app, list), None);
+    }
+
+    #[test]
+    fn reorder_clamps_past_the_ends_of_the_strip() {
+        let (mut app, window) = tab_app();
+        let list = reorder_list(&mut app, window);
+        placed_tab(&mut app, list, 50.0);
+        let middle = placed_tab(&mut app, list, 150.0);
+        placed_tab(&mut app, list, 250.0);
+        app.update();
+
+        start_drag(&mut app, middle, window, PointerId::Mouse);
+        drag_to(&mut app, middle, window, PointerId::Mouse, -1000.0);
+        assert_eq!(proposed(&app, list), Some((0, 0)));
+
+        drag_to(&mut app, middle, window, PointerId::Mouse, 5000.0);
+        assert_eq!(proposed(&app, list), Some((2, 3)));
+
+        end_drag(&mut app, middle, window, -1000.0);
+        assert_eq!(moved_indices(&app), [0]);
+    }
+
+    #[test]
+    fn insertion_slot_follows_the_pointer_either_side_of_the_dragged_tab() {
+        let (mut app, window) = tab_app();
+        let list = reorder_list(&mut app, window);
+        placed_tab(&mut app, list, 50.0);
+        let middle = placed_tab(&mut app, list, 150.0);
+        let last = placed_tab(&mut app, list, 250.0);
+        app.update();
+
+        for (tab, center, index) in [(middle, 150.0, 1), (last, 250.0, 2)] {
+            let start = Vec2::new(center, 20.0);
+            start_drag_at(&mut app, tab, window, PointerId::Mouse, start);
+            let before = start - Vec2::new(10.0, 0.0);
+            drag_between(&mut app, tab, window, PointerId::Mouse, start, before);
+            assert_eq!(proposed(&app, list), Some((index, index)));
+
+            let after = start + Vec2::new(10.0, 0.0);
+            drag_between(&mut app, tab, window, PointerId::Mouse, start, after);
+            assert_eq!(proposed(&app, list), Some((index, index + 1)));
+
+            end_drag(&mut app, tab, window, center + 10.0);
+        }
+        assert_eq!(moved_indices(&app), [1, 2]);
+    }
+
+    #[test]
+    fn grab_offset_does_not_change_the_insertion_point() {
+        let mut results = Vec::new();
+        for grab in [105.0, 195.0] {
+            let (mut app, window) = tab_app();
+            let list = reorder_list(&mut app, window);
+            placed_tab(&mut app, list, 50.0);
+            let middle = placed_tab(&mut app, list, 150.0);
+            placed_tab(&mut app, list, 250.0);
+            app.update();
+
+            let start = Vec2::new(grab, 20.0);
+            start_drag_at(&mut app, middle, window, PointerId::Mouse, start);
+            let mut points = Vec::new();
+            for x in [40.0, 140.0, 160.0, 260.0] {
+                drag_between(
+                    &mut app,
+                    middle,
+                    window,
+                    PointerId::Mouse,
+                    start,
+                    Vec2::new(x, 20.0),
+                );
+                points.push(proposed(&app, list));
+            }
+            end_drag(&mut app, middle, window, 140.0);
+            results.push((points, moved_indices(&app)));
+        }
+
+        let expected = vec![Some((0, 0)), Some((1, 1)), Some((1, 2)), Some((2, 3))];
+        assert_eq!(results, [(expected.clone(), vec![1]), (expected, vec![1])]);
     }
 
     #[test]
@@ -1458,9 +1593,6 @@ mod tests {
         let mouse_tab = placed_tab(&mut app, list, 50.0);
         let touch_tab = placed_tab(&mut app, list, 150.0);
         app.update();
-        for pointer_id in [PointerId::Mouse, PointerId::Touch(1)] {
-            hover(&mut app, pointer_id, list, window);
-        }
 
         start_drag(&mut app, mouse_tab, window, PointerId::Mouse);
         drag_to(&mut app, mouse_tab, window, PointerId::Mouse, 200.0);
@@ -1481,6 +1613,7 @@ mod tests {
                 pointer_id: PointerId::Mouse,
                 tab: mouse_tab,
                 index: 1,
+                slot: 2,
             }])
         );
         assert_eq!(dragging(&app, touch_tab), None);
@@ -1513,7 +1646,6 @@ mod tests {
             .resource_mut::<InputFocus>()
             .set(first, FocusCause::Navigated);
         app.update();
-        hover(&mut app, PointerId::Mouse, list, window);
 
         start_drag(&mut app, second, window, PointerId::Mouse);
         drag_to(&mut app, second, window, PointerId::Mouse, 20.0);
@@ -1537,7 +1669,6 @@ mod tests {
         let list = reorder_list(&mut app, window);
         let tab = placed_tab(&mut app, list, 50.0);
         app.update();
-        hover(&mut app, PointerId::Mouse, list, window);
 
         start_drag(&mut app, tab, window, PointerId::Mouse);
         drag_to(&mut app, tab, window, PointerId::Mouse, 20.0);
@@ -1590,7 +1721,6 @@ mod tests {
         let list = reorder_list(&mut app, window);
         let tab = placed_tab(&mut app, list, 50.0);
         app.update();
-        hover(&mut app, PointerId::Mouse, list, window);
 
         start_drag(&mut app, tab, window, PointerId::Mouse);
         drag_to(&mut app, tab, window, PointerId::Mouse, 20.0);

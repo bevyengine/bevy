@@ -245,17 +245,13 @@ fn show_insertion_points(
     let color = Color::srgb(1.0, 0.68, 0.22);
     for (preview, children) in &lists {
         for entry in &preview.entries {
-            let remaining = children
-                .iter()
-                .filter(|child| *child != entry.tab)
-                .collect::<Vec<_>>();
-            if let Some(mut border) = remaining
-                .get(entry.index)
+            if let Some(mut border) = children
+                .get(entry.slot)
                 .and_then(|tab| borders.get_mut(*tab).ok())
             {
                 border.left = color;
             } else if let Some(mut border) =
-                remaining.last().and_then(|tab| borders.get_mut(*tab).ok())
+                children.last().and_then(|tab| borders.get_mut(*tab).ok())
             {
                 border.right = color;
             }
