@@ -65,7 +65,7 @@ pub mod pipeline;
 /// # use bevy_ecs::prelude::*;
 /// # fn test(mut commands: Commands) {
 /// commands.spawn((
-///     Camera3d::default(),
+///     Camera3d,
 ///     MotionBlur::default(),
 /// ));
 /// # }

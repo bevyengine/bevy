@@ -196,7 +196,7 @@ fn spawn_main_camera(
     .looking_at(CAMERA_TARGET, Vec3::Y);
 
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         camera_transform,
         Projection::Perspective(camera_projection.clone()),
     ));
@@ -259,7 +259,7 @@ fn spawn_mirror_camera(
         );
 
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Camera {
             order: -1,
             // Reflecting the model across the mirror will flip the winding of

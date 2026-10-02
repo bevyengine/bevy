@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
     )));
 
     let mut camera = commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(-278.0, 273.0, 800.0),
     ));
 

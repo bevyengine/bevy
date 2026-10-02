@@ -173,7 +173,7 @@ struct PreviousPhysicalTranslation(Vec3);
 /// but in practice, they are usually spawned separately so that the player's rotation does not
 /// influence the camera's rotation.
 fn spawn_player(mut commands: Commands) {
-    commands.spawn((Camera3d::default(), CameraSensitivity::default()));
+    commands.spawn((Camera3d, CameraSensitivity::default()));
     commands.spawn((
         Name::new("Player"),
         Transform::from_scale(Vec3::splat(0.3)),

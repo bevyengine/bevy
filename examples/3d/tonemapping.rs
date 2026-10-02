@@ -66,7 +66,7 @@ fn setup(
 ) {
     // camera
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Hdr,
         camera_transform.0,
         DistanceFog {

@@ -2778,7 +2778,7 @@ mod viewport_node {
         mut materials: ResMut<Assets<StandardMaterial>>,
     ) {
         commands.spawn((
-            Camera3d::default(),
+            Camera3d,
             DespawnOnExit(super::Scene::ViewportNode),
         ));
 
@@ -2787,7 +2787,7 @@ mod viewport_node {
 
         let camera = commands
             .spawn((
-                Camera3d::default(),
+                Camera3d,
                 Camera {
                     order: -1,
                     ..default()

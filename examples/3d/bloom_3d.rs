@@ -25,7 +25,7 @@ fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Camera {
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()

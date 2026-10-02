@@ -95,7 +95,7 @@ fn setup_scene(
     commands.spawn((PointLight::default(), Transform::from_xyz(0.0, 8.0, 4.0)));
 
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(0.0, 2.5, 6.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
     ));
 }

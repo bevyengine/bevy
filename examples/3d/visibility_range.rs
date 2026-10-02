@@ -161,7 +161,7 @@ fn setup(
     // Spawn a camera.
     commands
         .spawn((
-            Camera3d::default(),
+            Camera3d,
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(CAMERA_FOCAL_POINT, Vec3::Y),
         ))
         .insert(EnvironmentMapLight {

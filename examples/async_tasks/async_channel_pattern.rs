@@ -151,7 +151,7 @@ fn setup_env(
 
     // Spawn a camera looking at the origin
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(-6.5, 5.5, 12.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }

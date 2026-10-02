@@ -50,7 +50,7 @@ fn setup(
 ) {
     commands.spawn((
         Name::new("Camera"),
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 

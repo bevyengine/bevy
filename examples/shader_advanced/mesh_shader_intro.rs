@@ -99,7 +99,7 @@ fn setup(
     ));
     // camera
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(-9.0, 1.0, -9.0).looking_at(Vec3::new(9., 4., 9.), Vec3::Y),
         // disable msaa for simplicity
         Msaa::Off,

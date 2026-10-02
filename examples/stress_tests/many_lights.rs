@@ -88,7 +88,7 @@ fn setup(
     // camera
     match std::env::args().nth(1).as_deref() {
         Some("orthographic") => commands.spawn((
-            Camera3d::default(),
+            Camera3d,
             Projection::from(OrthographicProjection {
                 scaling_mode: ScalingMode::FixedHorizontal {
                     viewport_width: 20.0,
@@ -96,7 +96,7 @@ fn setup(
                 ..OrthographicProjection::default_3d()
             }),
         )),
-        _ => commands.spawn(Camera3d::default()),
+        _ => commands.spawn(Camera3d),
     };
 
     // add one cube, the only one with strong handles

@@ -217,7 +217,7 @@ fn setup(
         radius * 1.5 * zoom,
     );
     let mut camera = commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
     ));
