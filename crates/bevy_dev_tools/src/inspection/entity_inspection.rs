@@ -13,6 +13,7 @@ use crate::inspection::{
 
 /// The result of inspecting an entity, summarized by its [`Display`] implementation.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct EntityInspection {
     /// The entity being inspected.
     pub entity: Entity,
@@ -25,6 +26,13 @@ pub struct EntityInspection {
     /// The components on the entity, in inspection form.
     pub components: Option<Vec<ComponentInspection>>,
     /// Information about how and when this entity was spawned.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(
+            serialize_with = "crate::inspection::serde_conversions::serialize_option_spawn_details",
+            skip_deserializing
+        )
+    )]
     pub spawn_details: Option<SpawnDetails>,
 }
 
@@ -61,6 +69,7 @@ impl Display for EntityInspection {
 
 /// An error that can occur when attempting to inspect an entity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum EntityInspectionError {
     /// The entity does not exist in the world.
     EntityNotFound(Entity),
@@ -81,6 +90,7 @@ impl core::error::Error for EntityInspectionError {}
 /// Settings for inspecting an individual entity.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default))]
 pub struct EntityInspectionSettings {
     /// Whether component information should be included in the inspection. Component-based label
     /// resolution is unavailable when it is not.
