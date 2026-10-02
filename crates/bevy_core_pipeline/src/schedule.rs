@@ -28,7 +28,7 @@ use bevy_render::{
         CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
         RenderPassDescriptor, StoreOp,
     },
-    renderer::{CurrentView, PendingCommandBuffers, RenderDevice, RenderQueue},
+    renderer::{CurrentView, PendingCommandBuffers, RenderDevice, RenderQueue, WgpuCommandBuffer},
     sync_world::MainEntity,
     view::ExtractedWindow,
 };
@@ -279,7 +279,7 @@ pub(crate) fn submit_pending_command_buffers(
     if buffers.peek().is_some() {
         #[cfg(feature = "trace")]
         let _span = info_span!("queue_submit", count = buffer_count).entered();
-        queue.submit(buffers);
+        queue.submit(buffers.map(WgpuCommandBuffer::into_inner));
     }
 }
 
@@ -336,5 +336,5 @@ pub(crate) fn handle_uncovered_swap_chains(world: &mut World) {
         encoder.begin_render_pass(&pass_descriptor);
     }
 
-    render_queue.submit([encoder.finish()]);
+    render_queue.submit([encoder.into_inner().finish()]);
 }
