@@ -81,8 +81,8 @@ impl<'w> EntityWorldMut<'w> {
     /// main_entity.insert_related::<ChildOf>(1, &[e0, e3, e4, e4]);
     /// let main_id = main_entity.id();
     ///
-    /// let relationship_source = main_entity.get::<Children>().unwrap().collection();
-    /// assert_eq!(relationship_source, &[e1, e0, e3, e2, e4]);
+    /// let relationship_source = main_entity.get::<Children>().unwrap();
+    /// assert_eq!(relationship_source.as_slice(), &[e1, e0, e3, e2, e4]);
     /// ```
     pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
     where
@@ -738,14 +738,14 @@ mod tests {
         let some_child = Some(&child_value);
 
         parent.replace_children(&[child2, child3]);
-        let children = parent.get::<Children>().unwrap().collection();
+        let children = parent.get::<Children>().unwrap().as_slice();
         assert_eq!(children, &[child2, child3]);
         assert_eq!(parent.world().get::<ChildOf>(child1), None);
         assert_eq!(parent.world().get::<ChildOf>(child2), some_child);
         assert_eq!(parent.world().get::<ChildOf>(child3), some_child);
 
         parent.replace_children_with_difference(&[child3], &[child1, child2], &[child1]);
-        let children = parent.get::<Children>().unwrap().collection();
+        let children = parent.get::<Children>().unwrap().as_slice();
         assert_eq!(children, &[child1, child2]);
         assert_eq!(parent.world().get::<ChildOf>(child1), some_child);
         assert_eq!(parent.world().get::<ChildOf>(child2), some_child);
