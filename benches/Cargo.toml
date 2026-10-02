@@ -29,6 +29,7 @@ bevy_asset = { path = "../crates/bevy_asset" }
 bevy_render = { path = "../crates/bevy_render" }
 bevy_scene = { path = "../crates/bevy_scene" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
+bevy_text = { path = "../crates/bevy_text" }
 bevy_transform = { path = "../crates/bevy_transform" }
 bevy_ui = { path = "../crates/bevy_ui" }
 bevy_ui_widgets = { path = "../crates/bevy_ui_widgets" }
@@ -135,4 +136,14 @@ harness = false
 [[bench]]
 name = "platform"
 path = "benches/bevy_platform/main.rs"
+harness = false
+
+[[bench]]
+name = "ui"
+path = "benches/bevy_ui/main.rs"
+harness = false
+
+[[bench]]
+name = "text"
+path = "benches/bevy_text/main.rs"
 harness = false
