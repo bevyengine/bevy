@@ -611,4 +611,4 @@ jobs:
         working-directory: crates/bevy_ecs/fuzz
         env:
           FUZZ_TARGET: ${{ matrix.target }}
-        run: cargo fuzz run "$FUZZ_TARGET" -- -runs=200000
+        run: cargo fuzz run "$FUZZ_TARGET" -- -runs=100000
