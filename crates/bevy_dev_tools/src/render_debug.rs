@@ -406,7 +406,7 @@ struct RenderDebugOverlayUniformOffset {
 #[derive(Resource)]
 struct RenderDebugOverlayPipeline {
     shader: Handle<Shader>,
-    mesh_view_layouts: MeshPipelineViewLayouts,
+    mesh_view_layouts: Option<MeshPipelineViewLayouts>, // Optional to support non-PBR / 2D apps
     bind_group_layout: BindGroupLayout,
     bind_group_layout_descriptor: BindGroupLayoutDescriptor,
     sampler: Sampler,
@@ -416,7 +416,7 @@ struct RenderDebugOverlayPipeline {
 fn init_render_debug_overlay_pipeline(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    mesh_view_layouts: Res<MeshPipelineViewLayouts>,
+    mesh_view_layouts: Option<Res<MeshPipelineViewLayouts>>,
     asset_server: Res<AssetServer>,
     fullscreen_shader: Res<FullscreenShader>,
 ) {
@@ -445,7 +445,7 @@ fn init_render_debug_overlay_pipeline(
 
     let res = RenderDebugOverlayPipeline {
         shader: asset_server.load("embedded://bevy_dev_tools/debug_overlay.wesl"),
-        mesh_view_layouts: mesh_view_layouts.clone(),
+        mesh_view_layouts: mesh_view_layouts.map(|r| r.clone()),
         bind_group_layout,
         bind_group_layout_descriptor,
         sampler,
@@ -551,9 +551,10 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
         {
             shader_defs.push("MULTISAMPLED".into());
         }
-
         let mesh_view_layout_descriptor = self
             .mesh_view_layouts
+            .as_ref()
+            .expect("MeshPipelineViewLayouts is required when using RenderDebugOverlay")
             .get_view_layout(key.view_layout_key)
             .main_layout;
 
