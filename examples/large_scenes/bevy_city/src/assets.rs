@@ -255,7 +255,7 @@ pub fn load_assets(
     let base_url = BASE_URL;
 
     let mut untyped_assets = vec![];
-    /// Wraps asset_server.load_asset to automatically track all the assets that are being loaded
+    /// Wraps `asset_server.load_asset` to automatically track all the assets that are being loaded
     macro_rules! load_asset {
         ($path:expr) => {{
             let handle = asset_server.load($path);
@@ -524,7 +524,7 @@ pub fn merge_car_meshes(
 }
 
 /// To get a cube that matches the Aabb we need to load the mesh data but that's not easy to do at
-/// spawn time. So instead we can add the PendingLod component and it will generate a cube that
+/// spawn time. So instead we can add the `PendingLod` component and it will generate a cube that
 /// matches the aabb of the associated mesh.
 ///
 /// The cube has different uvs for the top and the side and can be controlled too.

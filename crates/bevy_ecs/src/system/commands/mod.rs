@@ -24,14 +24,17 @@ use crate::{
         InvalidEntityError, OptIn, OptOut,
     },
     error::{warn, BevyError, ErrorContext},
-    event::{EntityEvent, Event},
+    event::{EntityEvent, Event, EventTriggerState},
     message::Message,
     observer::{IntoEntityObserver, IntoObserver},
     query::{QueryData, QueryFilter},
     relationship::RelationshipHookMode,
     resource::Resource,
     schedule::ScheduleLabel,
-    system::{BoxedSystem, Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput},
+    system::{
+        BoxedSystem, Deferred, IntoSystem, RegisteredSystem, SystemAccess, SystemId, SystemInput,
+        SystemParamAccessConflict,
+    },
     world::{CommandQueue, EntityWorldMut, FromWorld, World},
 };
 
@@ -99,6 +102,7 @@ use crate::{
 ///
 /// [`ApplyDeferred`]: crate::schedule::ApplyDeferred
 #[derive(SystemParam)]
+#[system_param(map_access_conflict)]
 pub struct Commands<'w, 's> {
     /// The command queue that commands will be pushed to.
     ///
@@ -116,6 +120,17 @@ unsafe impl Send for Commands<'_, '_> {}
 unsafe impl Sync for Commands<'_, '_> {}
 
 impl<'w, 's> Commands<'w, 's> {
+    /// Modifies the [`SystemParamAccessConflict`] returned by [`SystemParam::init_access`](crate::system::SystemParam::init_access).
+    fn map_access_conflict(
+        access: &SystemAccess,
+        err: SystemParamAccessConflict,
+    ) -> SystemParamAccessConflict {
+        SystemParamAccessConflict::new::<Self>(err.access).with_suggestion_if_exclusive(
+            access,
+            "Modifying the `World` directly without using `Commands`",
+        )
+    }
+
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
         Self::new_from_entities(queue, &world.entity_allocator, &world.entities)
@@ -1142,7 +1157,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [`Observer`]: crate::observer::Observer
     #[track_caller]
-    pub fn trigger<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
+    pub fn trigger<E: Event>(&mut self, event: E)
+    where
+        EventTriggerState<'static, E>: Default,
+    {
         self.queue(command::trigger(event));
     }
 
@@ -1151,11 +1169,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`Trigger`]: crate::event::Trigger
     /// [`Observer`]: crate::observer::Observer
     #[track_caller]
-    pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
-        &mut self,
-        event: E,
-        trigger: E::Trigger<'static>,
-    ) {
+    pub fn trigger_with<E: Event>(&mut self, event: E, trigger: EventTriggerState<'static, E>)
+    where
+        EventTriggerState<'static, E>: Send + Sync,
+    {
         self.queue(command::trigger_with(event, trigger));
     }
 
@@ -2331,10 +2348,10 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// ```
     #[track_caller]
-    pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
-        &mut self,
-        event_fn: impl FnOnce(Entity) -> E,
-    ) -> &mut Self {
+    pub fn trigger<E: EntityEvent>(&mut self, event_fn: impl FnOnce(Entity) -> E) -> &mut Self
+    where
+        EventTriggerState<'static, E>: Default,
+    {
         let event = (event_fn)(self.entity);
         self.commands.trigger(event);
         self

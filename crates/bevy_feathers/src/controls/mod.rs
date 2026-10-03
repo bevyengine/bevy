@@ -17,8 +17,10 @@ mod radio;
 mod scrollbar;
 mod select;
 mod slider;
+mod split_pane;
 mod text_input;
 mod toggle_switch;
+mod tree_view;
 mod virtual_keyboard;
 
 pub use button::*;
@@ -38,8 +40,10 @@ pub use radio::*;
 pub use scrollbar::*;
 pub use select::*;
 pub use slider::*;
+pub use split_pane::*;
 pub use text_input::*;
 pub use toggle_switch::*;
+pub use tree_view::*;
 pub use virtual_keyboard::*;
 
 use crate::alpha_pattern::AlphaPatternPlugin;
@@ -68,7 +72,9 @@ impl PluginGroup for ControlsPlugin {
             .add(ScrollbarPlugin)
             .add(SelectPlugin)
             .add(SliderPlugin)
+            .add(SplitPanePlugin)
             .add(TextInputPlugin)
             .add(ToggleSwitchPlugin)
+            .add(TreeViewPlugin)
     }
 }

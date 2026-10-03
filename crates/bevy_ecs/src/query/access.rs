@@ -1029,6 +1029,19 @@ impl FilteredAccessSet {
         true
     }
 
+    /// Returns `true` if this and `other` can be active at the same time.
+    pub fn is_compatible_single(&self, other: &FilteredAccess) -> bool {
+        if self.combined_access.is_compatible(other.access()) {
+            return true;
+        }
+        for filtered in &self.filtered_accesses {
+            if !filtered.is_compatible(other) {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Returns a vector of elements that this set and `other` cannot access at the same time.
     pub fn get_conflicts(&self, other: &FilteredAccessSet) -> AccessConflicts {
         // if the unfiltered access is incompatible, must check each pair
@@ -1053,6 +1066,20 @@ impl FilteredAccessSet {
             }
         }
         conflicts
+    }
+
+    /// Adds the filtered access to the set if it does not conflict with any other access.
+    #[expect(
+        clippy::result_large_err,
+        reason = "This returns the input parameter, and we expect it to be inlined."
+    )]
+    pub fn try_add(&mut self, filtered_access: FilteredAccess) -> Result<(), FilteredAccess> {
+        if self.is_compatible_single(&filtered_access) {
+            self.add(filtered_access);
+            Ok(())
+        } else {
+            Err(filtered_access)
+        }
     }
 
     /// Adds the filtered access to the set.

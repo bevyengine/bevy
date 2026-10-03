@@ -240,7 +240,7 @@ where
         let error_resource = world.register_component::<crate::error::FallbackErrorHandler>();
         let mut error_resource_access = FilteredAccess::default();
         error_resource_access.add_read(error_resource);
-        a_access.ensure_filtered_access(error_resource_access);
+        a_access.extend(SystemAccess::Shared(error_resource_access.into()));
 
         a_access
     }

@@ -522,7 +522,7 @@ impl Schedule {
         self
     }
 
-    /// Configures a collection of system sets in this schedule, adding them if they does not exist.
+    /// Configures a collection of system sets in this schedule, adding them if they don't exist.
     #[track_caller]
     pub fn configure_sets<M>(
         &mut self,
@@ -1244,6 +1244,11 @@ impl ScheduleGraph {
                 self.ambiguous_with_all.insert(id);
             }
         }
+    }
+
+    /// If there is a strict dependency from `lhs` to `rhs`.
+    pub fn dependency_is_strict(&self, lhs: NodeId, rhs: NodeId) -> bool {
+        self.strict_node_edges.contains(&(lhs, rhs))
     }
 
     /// Initializes any newly-added systems and conditions by calling

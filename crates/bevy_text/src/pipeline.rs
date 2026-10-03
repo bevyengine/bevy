@@ -2,7 +2,6 @@ use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_ecs::{
     component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
-    system::ResMut,
 };
 use bevy_image::prelude::*;
 use bevy_log::warn_once;
@@ -82,6 +81,7 @@ impl TextPipeline {
         layout_cx: &mut LayoutCx,
         logical_viewport_size: Vec2,
         base_rem_size: RemSize,
+        default_font_source: &FontSource,
     ) -> Result<(), TextError> {
         computed.entities.clear();
         computed.needs_rerender = false;
@@ -126,7 +126,10 @@ impl TextPipeline {
                         }
 
                         if matches!(text_font.font, FontSource::Handle(_))
-                            && text_font.font.resolve_font_family(fonts).is_err()
+                            && text_font
+                                .font
+                                .resolve_font_family(fonts, default_font_source)
+                                .is_err()
                         {
                             return Err(TextError::NoSuchFont);
                         }
@@ -227,7 +230,9 @@ impl TextPipeline {
                             continue;
                         }
 
-                        let resolved_family = text_font.font.resolve_font_family(fonts)?;
+                        let resolved_family = text_font
+                            .font
+                            .resolve_font_family(fonts, default_font_source)?;
 
                         builder.push(StyleProperty::FontFamily(resolved_family), range.clone());
                         builder.push(
@@ -307,6 +312,7 @@ impl TextPipeline {
         layout_cx: &mut LayoutCx,
         logical_viewport_size: Vec2,
         base_rem_size: RemSize,
+        default_font_source: &FontSource,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
@@ -324,6 +330,7 @@ impl TextPipeline {
             layout_cx,
             logical_viewport_size,
             base_rem_size,
+            default_font_source,
         )?;
 
         let layout_buffer = &mut computed.layout;
@@ -625,14 +632,4 @@ fn buffer_dimensions(buffer: &Layout<TextBrush>) -> Vec2 {
     } else {
         Vec2::ZERO
     }
-}
-
-/// Discards stale data cached in the font system.
-pub(crate) fn trim_source_cache(mut font_cx: ResMut<FontCx>) {
-    // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic text.
-    // See https://github.com/bevyengine/bevy/pull/15037
-    //
-    // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
-    // text that is dynamically measured for UI).
-    font_cx.source_cache.prune(2, false);
 }

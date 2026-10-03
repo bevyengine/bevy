@@ -71,7 +71,7 @@ jobs:
   compare-macos-screenshots:
     name: Compare macOS screenshots
     needs: [make-macos-screenshots-available]
-    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    uses: $/.github/workflows/send-screenshots-to-pixeleagle.yml
     with:
       commit: ${{ github.event.workflow_run.head_sha }}
       branch: ${{ needs.make-macos-screenshots-available.outputs.branch-name }}
