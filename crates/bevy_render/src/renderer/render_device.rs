@@ -20,6 +20,8 @@ wgpu_wrapper! {
 ///
 /// Limits and features are lazily cached, here because though they are cached on the device,
 /// in a Wasm context, they cross the wasm boundary and get serialized each frame which is expensive.
+/// Temporary workaround until wgpu caches these values in its WebGPU backend.
+/// Tracked in <https://github.com/gfx-rs/wgpu/pull/10513>.
 #[derive(Resource)]
 pub struct RenderDevice {
     device: WgpuDevice,
