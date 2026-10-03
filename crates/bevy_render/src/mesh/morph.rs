@@ -134,7 +134,7 @@ pub enum RenderMorphTargetAllocator {
 impl FromWorld for RenderMorphTargetAllocator {
     fn from_world(world: &mut World) -> RenderMorphTargetAllocator {
         let render_device = world.resource::<RenderDevice>();
-        if bevy_render::storage_buffers_are_unsupported(&render_device.limits()) {
+        if bevy_render::storage_buffers_are_unsupported(render_device.limits()) {
             RenderMorphTargetAllocator::Image {
                 mesh_id_to_image: HashMap::default(),
             }

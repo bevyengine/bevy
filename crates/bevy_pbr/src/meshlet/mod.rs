@@ -219,7 +219,7 @@ fn check_meshlet_features(render_device: Res<RenderDevice>) {
     if !features.contains(MeshletPlugin::required_wgpu_features()) {
         error!(
             "MeshletPlugin can't be used. GPU lacks support for required features: {:?}.",
-            MeshletPlugin::required_wgpu_features().difference(features)
+            MeshletPlugin::required_wgpu_features().difference(*features)
         );
         std::process::exit(1);
     }

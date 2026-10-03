@@ -310,7 +310,7 @@ impl Plugin for MeshRenderPlugin {
 
             let render_device = render_app.world().resource::<RenderDevice>();
             if let Some(per_object_buffer_batch_size) =
-                GpuArrayBuffer::<MeshUniform>::batch_size(&render_device.limits())
+                GpuArrayBuffer::<MeshUniform>::batch_size(render_device.limits())
             {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
@@ -2807,16 +2807,16 @@ fn init_mesh_pipeline(
         mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
         shader,
         per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(
-            &render_device.limits(),
+            render_device.limits(),
         ),
         binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
         clustered_decals_are_usable: decal::clustered::clustered_decals_are_usable(
             &render_device,
             &render_adapter,
         ),
-        skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device.limits()),
+        skins_use_uniform_buffers: skins_use_uniform_buffers(render_device.limits()),
         metadata_use_uniform_buffers: bevy_render::storage_buffers_are_unsupported(
-            &render_device.limits(),
+            render_device.limits(),
         ),
     };
 
@@ -3882,7 +3882,7 @@ impl MeshPhaseBindGroups {
         MeshPhaseBindGroups {
             model_only: HashMap::default(),
             skinned: HashMap::default(),
-            morph_targets: if skins_use_uniform_buffers(&render_device.limits()) {
+            morph_targets: if skins_use_uniform_buffers(render_device.limits()) {
                 MeshMorphTargetBindGroups::Uniform(HashMap::default())
             } else {
                 MeshMorphTargetBindGroups::Storage(HashMap::default())
@@ -4534,7 +4534,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let metadata_slab_id = mesh_slabs
             .and_then(|slabs| slabs.metadata_slab_id)
             .unwrap_or(metadata_fallback_buffer.slab_id);
-        let skins_use_uniform_buffers = skins_use_uniform_buffers(&render_device.limits());
+        let skins_use_uniform_buffers = skins_use_uniform_buffers(render_device.limits());
 
         let current_skin_byte_offset = skin_uniforms.skin_byte_offset(*entity);
 
