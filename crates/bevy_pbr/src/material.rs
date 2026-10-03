@@ -752,7 +752,11 @@ fn extract_mesh_materials<M: Material>(
     changed_meshes_query: Extract<
         Query<
             (Entity, &ViewVisibility, &MeshMaterial3d<M>),
-            Or<(Changed<ViewVisibility>, Changed<MeshMaterial3d<M>>)>,
+            Or<(
+                Changed<ViewVisibility>,
+                Changed<MeshMaterial3d<M>>,
+                Added<Mesh3d>,
+            )>,
         >,
     >,
 ) {
