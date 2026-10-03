@@ -4,7 +4,7 @@ import bevy_render::writer_encode::writer_encode;
 import package::ui::select_corner_radius;
 
 const PI: f32 = 3.14159265358979323846;
-const SAMPLES: i32 = constants::SHADOW_SAMPLES;
+const SAMPLES: u32 = constants::SHADOW_SAMPLES;
 
 @group(0) @binding(0) var<uniform> view: View;
 
@@ -60,7 +60,7 @@ fn roundedBoxShadow(
     let step = (end - start) / f32(SAMPLES);
     var y = start + step * 0.5;
     var value: f32 = 0.0;
-    for (var i = 0; i < SAMPLES; i++) {
+    for (var i: u32 = 0; i < SAMPLES; i++) {
         let corner = select_corner_radius(p, corners_x, corners_y);
         value += horizontalRoundedBoxShadow(p.x, p.y - y, blur, corner, half_size) * gaussian(y, blur) * step;
         y += step;

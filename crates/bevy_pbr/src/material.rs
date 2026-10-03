@@ -1387,6 +1387,14 @@ pub fn queue_material_meshes(
                 }
                 // Alpha mask
                 RenderPhaseType::AlphaMask => {
+                    if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                        // Even though we aren't going to insert the entity into
+                        // a bin, we still want to update its cache entry. That
+                        // way, we know we don't need to re-examine it in future
+                        // frames.
+                        alpha_mask_phase.update_cache(*visible_entity, None);
+                        continue;
+                    }
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassAlphaMaskDrawFunction)
@@ -1827,9 +1835,9 @@ pub(crate) trait MaterialPropertiesExt {
 
 impl MaterialPropertiesExt for MaterialProperties {
     fn prepass_reads_material(&self) -> bool {
-        // The default prepass shaders doesn't need material's bind group,
-        // but for user provided prepass shaders currently we don't have a way to known this
-        // because material's bind group is used for both prepass and the other passes.
+        // The default prepass shaders don't need the material's bind group,
+        // but for user provided prepass shaders currently we don't have a way to know this
+        // because the material's bind group is used for both prepass and the other passes.
         //
         // So we have to disable the optimization for depth only prepass and always bind the material's bind group.
         self.get_shader(PrepassVertexShader).is_some()

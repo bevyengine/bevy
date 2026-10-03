@@ -43,8 +43,7 @@ use nonmax::NonMaxU32;
 )]
 pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 
-pub(crate) const ARCHETYPE_CREATED: EventKey =
-    EventKey(ComponentId::new(crate::component::ARCHETYPE_CREATED));
+pub(crate) const ARCHETYPE_CREATED: EventKey = EventKey(crate::component::ARCHETYPE_CREATED);
 
 /// An opaque location within a [`Archetype`].
 ///

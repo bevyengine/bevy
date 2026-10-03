@@ -500,7 +500,7 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn reserve(&mut self, additional: usize) {
-        self.deref_mut().reserve(additional);
+        self.reserve(additional);
     }
 
     fn with_capacity(capacity: usize) -> Self {
@@ -512,7 +512,7 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
-        self.deref_mut().shift_remove(&entity)
+        self.shift_remove(&entity)
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
@@ -524,11 +524,11 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn clear(&mut self) {
-        self.deref_mut().clear();
+        self.clear();
     }
 
     fn shrink_to_fit(&mut self) {
-        self.deref_mut().shrink_to_fit();
+        self.shrink_to_fit();
     }
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {

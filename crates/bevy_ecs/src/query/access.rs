@@ -1029,6 +1029,19 @@ impl FilteredAccessSet {
         true
     }
 
+    /// Returns `true` if this and `other` can be active at the same time.
+    pub fn is_compatible_single(&self, other: &FilteredAccess) -> bool {
+        if self.combined_access.is_compatible(other.access()) {
+            return true;
+        }
+        for filtered in &self.filtered_accesses {
+            if !filtered.is_compatible(other) {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Returns a vector of elements that this set and `other` cannot access at the same time.
     pub fn get_conflicts(&self, other: &FilteredAccessSet) -> AccessConflicts {
         // if the unfiltered access is incompatible, must check each pair
@@ -1053,6 +1066,20 @@ impl FilteredAccessSet {
             }
         }
         conflicts
+    }
+
+    /// Adds the filtered access to the set if it does not conflict with any other access.
+    #[expect(
+        clippy::result_large_err,
+        reason = "This returns the input parameter, and we expect it to be inlined."
+    )]
+    pub fn try_add(&mut self, filtered_access: FilteredAccess) -> Result<(), FilteredAccess> {
+        if self.is_compatible_single(&filtered_access) {
+            self.add(filtered_access);
+            Ok(())
+        } else {
+            Err(filtered_access)
+        }
     }
 
     /// Adds the filtered access to the set.
@@ -1357,7 +1384,7 @@ impl<I: FusedIterator<Item = usize>> FusedIterator for ComponentIdIter<I> {}
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::ComponentId,
+        component::ComponentIds,
         query::{
             access::{AccessFilters, InvertibleComponentIdSet},
             Access, AccessConflicts, ComponentAccessKind, ComponentIdSet, FilteredAccess,
@@ -1367,51 +1394,21 @@ mod tests {
     use alloc::{vec, vec::Vec};
     use fixedbitset::FixedBitSet;
 
-    fn create_sample_access() -> Access {
-        let mut access = Access::default();
-
-        access.add_read(ComponentId::new(1));
-        access.add_read(ComponentId::new(2));
-        access.add_write(ComponentId::new(3));
-        access.add_archetypal(ComponentId::new(5));
-        access.read_all();
-
-        access
-    }
-
-    fn create_sample_filtered_access() -> FilteredAccess {
-        let mut filtered_access = FilteredAccess::default();
-
-        filtered_access.add_write(ComponentId::new(1));
-        filtered_access.add_read(ComponentId::new(2));
-        filtered_access.add_required(ComponentId::new(3));
-        filtered_access.and_with(ComponentId::new(4));
-
-        filtered_access
-    }
-
-    fn create_sample_access_filters() -> AccessFilters {
-        let mut access_filters = AccessFilters::default();
-
-        access_filters.with.insert(ComponentId::new(3));
-        access_filters.without.insert(ComponentId::new(5));
-
-        access_filters
-    }
-
-    fn create_sample_filtered_access_set() -> FilteredAccessSet {
-        let mut filtered_access_set = FilteredAccessSet::default();
-
-        filtered_access_set.add_unfiltered_component_read(ComponentId::new(2));
-        filtered_access_set.add_unfiltered_component_write(ComponentId::new(4));
-        filtered_access_set.read_all();
-
-        filtered_access_set
-    }
-
     #[test]
     fn test_access_clone() {
-        let original = create_sample_access();
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_5 = ids.next_mut();
+
+        let mut original = Access::default();
+        original.add_read(id_1);
+        original.add_read(id_2);
+        original.add_write(id_3);
+        original.add_archetypal(id_5);
+        original.read_all();
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1419,12 +1416,27 @@ mod tests {
 
     #[test]
     fn test_access_clone_from() {
-        let original = create_sample_access();
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+        let id_5 = ids.next_mut();
+        let id_7 = ids.next_mut();
+        let id_8 = ids.next_mut();
+
+        let mut original = Access::default();
+        original.add_read(id_1);
+        original.add_read(id_2);
+        original.add_write(id_3);
+        original.add_archetypal(id_5);
+        original.read_all();
+
         let mut cloned = Access::default();
 
-        cloned.add_write(ComponentId::new(7));
-        cloned.add_read(ComponentId::new(4));
-        cloned.add_archetypal(ComponentId::new(8));
+        cloned.add_write(id_7);
+        cloned.add_read(id_4);
+        cloned.add_archetypal(id_8);
         cloned.write_all();
 
         cloned.clone_from(&original);
@@ -1434,7 +1446,18 @@ mod tests {
 
     #[test]
     fn test_filtered_access_clone() {
-        let original = create_sample_filtered_access();
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
+        let mut original = FilteredAccess::default();
+        original.add_write(id_1);
+        original.add_read(id_2);
+        original.add_required(id_3);
+        original.and_with(id_4);
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1442,11 +1465,23 @@ mod tests {
 
     #[test]
     fn test_filtered_access_clone_from() {
-        let original = create_sample_filtered_access();
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+        let id_7 = ids.next_mut();
+
+        let mut original = FilteredAccess::default();
+        original.add_write(id_1);
+        original.add_read(id_2);
+        original.add_required(id_3);
+        original.and_with(id_4);
+
         let mut cloned = FilteredAccess::default();
 
-        cloned.add_write(ComponentId::new(7));
-        cloned.add_read(ComponentId::new(4));
+        cloned.add_write(id_7);
+        cloned.add_read(id_4);
         cloned.append_or(&FilteredAccess::default());
 
         cloned.clone_from(&original);
@@ -1456,7 +1491,14 @@ mod tests {
 
     #[test]
     fn test_access_filters_clone() {
-        let original = create_sample_access_filters();
+        let mut ids = ComponentIds::default();
+        let id_3 = ids.next_mut();
+        let id_5 = ids.next_mut();
+
+        let mut original = AccessFilters::default();
+        original.with.insert(id_3);
+        original.without.insert(id_5);
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1464,11 +1506,20 @@ mod tests {
 
     #[test]
     fn test_access_filters_clone_from() {
-        let original = create_sample_access_filters();
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_5 = ids.next_mut();
+
+        let mut original = AccessFilters::default();
+        original.with.insert(id_3);
+        original.without.insert(id_5);
+
         let mut cloned = AccessFilters::default();
 
-        cloned.with.insert(ComponentId::new(1));
-        cloned.without.insert(ComponentId::new(2));
+        cloned.with.insert(id_1);
+        cloned.without.insert(id_2);
 
         cloned.clone_from(&original);
 
@@ -1477,7 +1528,15 @@ mod tests {
 
     #[test]
     fn test_filtered_access_set_clone() {
-        let original = create_sample_filtered_access_set();
+        let mut ids = ComponentIds::default();
+        let id_2 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
+        let mut original = FilteredAccessSet::default();
+        original.add_unfiltered_component_read(id_2);
+        original.add_unfiltered_component_write(id_4);
+        original.read_all();
+
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1485,11 +1544,21 @@ mod tests {
 
     #[test]
     fn test_filtered_access_set_from() {
-        let original = create_sample_filtered_access_set();
+        let mut ids = ComponentIds::default();
+        let id_2 = ids.next_mut();
+        let id_4 = ids.next_mut();
+        let id_7 = ids.next_mut();
+        let id_9 = ids.next_mut();
+
+        let mut original = FilteredAccessSet::default();
+        original.add_unfiltered_component_read(id_2);
+        original.add_unfiltered_component_write(id_4);
+        original.read_all();
+
         let mut cloned = FilteredAccessSet::default();
 
-        cloned.add_unfiltered_component_read(ComponentId::new(7));
-        cloned.add_unfiltered_component_write(ComponentId::new(9));
+        cloned.add_unfiltered_component_read(id_7);
+        cloned.add_unfiltered_component_write(id_9);
         cloned.write_all();
 
         cloned.clone_from(&original);
@@ -1499,9 +1568,12 @@ mod tests {
 
     #[test]
     fn read_all_access_conflicts() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+
         // read_all / single write
         let mut access_a = Access::default();
-        access_a.add_write(ComponentId::new(0));
+        access_a.add_write(id_0);
 
         let mut access_b = Access::default();
         access_b.read_all();
@@ -1520,98 +1592,107 @@ mod tests {
 
     #[test]
     fn access_get_conflicts() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+
         let mut access_a = Access::default();
-        access_a.add_read(ComponentId::new(0));
-        access_a.add_read(ComponentId::new(1));
+        access_a.add_read(id_0);
+        access_a.add_read(id_1);
 
         let mut access_b = Access::default();
-        access_b.add_read(ComponentId::new(0));
-        access_b.add_write(ComponentId::new(1));
+        access_b.add_read(id_0);
+        access_b.add_write(id_1);
 
-        assert_eq!(
-            access_a.get_conflicts(&access_b),
-            vec![ComponentId::new(1)].into()
-        );
+        assert_eq!(access_a.get_conflicts(&access_b), vec![id_1].into());
 
         let mut access_c = Access::default();
-        access_c.add_write(ComponentId::new(0));
-        access_c.add_write(ComponentId::new(1));
+        access_c.add_write(id_0);
+        access_c.add_write(id_1);
 
-        assert_eq!(
-            access_a.get_conflicts(&access_c),
-            vec![ComponentId::new(0), ComponentId::new(1)].into()
-        );
-        assert_eq!(
-            access_b.get_conflicts(&access_c),
-            vec![ComponentId::new(0), ComponentId::new(1)].into()
-        );
+        assert_eq!(access_a.get_conflicts(&access_c), vec![id_0, id_1].into());
+        assert_eq!(access_b.get_conflicts(&access_c), vec![id_0, id_1].into());
 
         let mut access_d = Access::default();
-        access_d.add_read(ComponentId::new(0));
+        access_d.add_read(id_0);
 
         assert_eq!(access_d.get_conflicts(&access_a), AccessConflicts::empty());
         assert_eq!(access_d.get_conflicts(&access_b), AccessConflicts::empty());
-        assert_eq!(
-            access_d.get_conflicts(&access_c),
-            vec![ComponentId::new(0)].into()
-        );
+        assert_eq!(access_d.get_conflicts(&access_c), vec![id_0].into());
     }
 
     #[test]
     fn filtered_combined_access() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+
         let mut access_a = FilteredAccessSet::default();
-        access_a.add_unfiltered_component_read(ComponentId::new(1));
+        access_a.add_unfiltered_component_read(id_1);
 
         let mut filter_b = FilteredAccess::default();
-        filter_b.add_write(ComponentId::new(1));
+        filter_b.add_write(id_1);
 
         let conflicts = access_a.get_conflicts_single(&filter_b);
         assert_eq!(
             &conflicts,
-            &AccessConflicts::from(vec![ComponentId::new(1)]),
+            &AccessConflicts::from(vec![id_1]),
             "access_a: {access_a:?}, filter_b: {filter_b:?}"
         );
     }
 
     #[test]
     fn filtered_access_extend() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
         let mut access_a = FilteredAccess::default();
-        access_a.add_read(ComponentId::new(0));
-        access_a.add_read(ComponentId::new(1));
-        access_a.and_with(ComponentId::new(2));
+        access_a.add_read(id_0);
+        access_a.add_read(id_1);
+        access_a.and_with(id_2);
 
         let mut access_b = FilteredAccess::default();
-        access_b.add_read(ComponentId::new(0));
-        access_b.add_write(ComponentId::new(3));
-        access_b.and_without(ComponentId::new(4));
+        access_b.add_read(id_0);
+        access_b.add_write(id_3);
+        access_b.and_without(id_4);
 
         access_a.extend(&access_b);
 
         let mut expected = FilteredAccess::default();
-        expected.add_read(ComponentId::new(0));
-        expected.add_read(ComponentId::new(1));
-        expected.and_with(ComponentId::new(2));
-        expected.add_write(ComponentId::new(3));
-        expected.and_without(ComponentId::new(4));
+        expected.add_read(id_0);
+        expected.add_read(id_1);
+        expected.and_with(id_2);
+        expected.add_write(id_3);
+        expected.and_without(id_4);
 
         assert!(access_a.eq(&expected));
     }
 
     #[test]
     fn filtered_access_extend_or() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
         let mut access_a = FilteredAccess::default();
         // Exclusive access to `(&mut A, &mut B)`.
-        access_a.add_write(ComponentId::new(0));
-        access_a.add_write(ComponentId::new(1));
+        access_a.add_write(id_0);
+        access_a.add_write(id_1);
 
         // Filter by `With<C>`.
         let mut access_b = FilteredAccess::default();
-        access_b.and_with(ComponentId::new(2));
+        access_b.and_with(id_2);
 
         // Filter by `(With<D>, Without<E>)`.
         let mut access_c = FilteredAccess::default();
-        access_c.and_with(ComponentId::new(3));
-        access_c.and_without(ComponentId::new(4));
+        access_c.and_with(id_3);
+        access_c.and_without(id_4);
 
         // Turns `access_b` into `Or<(With<C>, (With<D>, Without<D>))>`.
         access_b.append_or(&access_c);
@@ -1623,8 +1704,8 @@ mod tests {
         // The intention here is to test that exclusive access implied by `add_write`
         // forms correct normalized access structs when extended with `Or` filters.
         let mut expected = FilteredAccess::default();
-        expected.add_write(ComponentId::new(0));
-        expected.add_write(ComponentId::new(1));
+        expected.add_write(id_0);
+        expected.add_write(id_1);
         // The resulted access is expected to represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>, Without<E>))>`.
         expected.filter_sets = vec![
             AccessFilters {
@@ -1645,32 +1726,42 @@ mod tests {
 
     #[test]
     fn try_iter_component_access_simple() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_5 = ids.next_mut();
+
         let mut access = Access::default();
 
-        access.add_read(ComponentId::new(1));
-        access.add_read(ComponentId::new(2));
-        access.add_write(ComponentId::new(3));
-        access.add_archetypal(ComponentId::new(5));
+        access.add_read(id_1);
+        access.add_read(id_2);
+        access.add_write(id_3);
+        access.add_archetypal(id_5);
 
         let result = access.try_iter_access().map(Iterator::collect::<Vec<_>>);
 
         assert_eq!(
             result,
             Ok(vec![
-                ComponentAccessKind::Shared(ComponentId::new(1)),
-                ComponentAccessKind::Shared(ComponentId::new(2)),
-                ComponentAccessKind::Exclusive(ComponentId::new(3)),
-                ComponentAccessKind::Archetypal(ComponentId::new(5)),
+                ComponentAccessKind::Shared(id_1),
+                ComponentAccessKind::Shared(id_2),
+                ComponentAccessKind::Exclusive(id_3),
+                ComponentAccessKind::Archetypal(id_5),
             ]),
         );
     }
 
     #[test]
     fn try_iter_component_access_unbounded_write_all() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+
         let mut access = Access::default();
 
-        access.add_read(ComponentId::new(1));
-        access.add_read(ComponentId::new(2));
+        access.add_read(id_1);
+        access.add_read(id_2);
         access.write_all();
 
         let result = access.try_iter_access().map(Iterator::collect::<Vec<_>>);
@@ -1686,10 +1777,14 @@ mod tests {
 
     #[test]
     fn try_iter_component_access_unbounded_read_all() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+
         let mut access = Access::default();
 
-        access.add_read(ComponentId::new(1));
-        access.add_read(ComponentId::new(2));
+        access.add_read(id_1);
+        access.add_read(id_2);
         access.read_all();
 
         let result = access.try_iter_access().map(Iterator::collect::<Vec<_>>);
@@ -1713,16 +1808,17 @@ mod tests {
 
     #[test]
     fn invertible_union_tests() {
-        let set0 = ComponentIdSet::from_iter([ComponentId::new(0)]);
-        let set1 = ComponentIdSet::from_iter([ComponentId::new(1)]);
-        let set2 = ComponentIdSet::from_iter([ComponentId::new(2)]);
-        let set01 = ComponentIdSet::from_iter([ComponentId::new(0), ComponentId::new(1)]);
-        let set02 = ComponentIdSet::from_iter([ComponentId::new(0), ComponentId::new(2)]);
-        let set012 = ComponentIdSet::from_iter([
-            ComponentId::new(0),
-            ComponentId::new(1),
-            ComponentId::new(2),
-        ]);
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+
+        let set0 = ComponentIdSet::from_iter([id_0]);
+        let set1 = ComponentIdSet::from_iter([id_1]);
+        let set2 = ComponentIdSet::from_iter([id_2]);
+        let set01 = ComponentIdSet::from_iter([id_0, id_1]);
+        let set02 = ComponentIdSet::from_iter([id_0, id_2]);
+        let set012 = ComponentIdSet::from_iter([id_0, id_1, id_2]);
 
         // Check each combination of `Included` and `Excluded`
         // [0, 1] | [0, 2] = [0, 1, 2]
@@ -1772,16 +1868,17 @@ mod tests {
 
     #[test]
     fn invertible_difference_tests() {
-        let set0 = ComponentIdSet::from_iter([ComponentId::new(0)]);
-        let set1 = ComponentIdSet::from_iter([ComponentId::new(1)]);
-        let set2 = ComponentIdSet::from_iter([ComponentId::new(2)]);
-        let set01 = ComponentIdSet::from_iter([ComponentId::new(0), ComponentId::new(1)]);
-        let set02 = ComponentIdSet::from_iter([ComponentId::new(0), ComponentId::new(2)]);
-        let set012 = ComponentIdSet::from_iter([
-            ComponentId::new(0),
-            ComponentId::new(1),
-            ComponentId::new(2),
-        ]);
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+
+        let set0 = ComponentIdSet::from_iter([id_0]);
+        let set1 = ComponentIdSet::from_iter([id_1]);
+        let set2 = ComponentIdSet::from_iter([id_2]);
+        let set01 = ComponentIdSet::from_iter([id_0, id_1]);
+        let set02 = ComponentIdSet::from_iter([id_0, id_2]);
+        let set012 = ComponentIdSet::from_iter([id_0, id_1, id_2]);
 
         // Check each combination of `Included` and `Excluded`
         // [0, 1] - [0, 2] = [1]
@@ -1814,16 +1911,17 @@ mod tests {
 
     #[test]
     fn invertible_intersection_tests() {
-        let set0 = ComponentIdSet::from_iter([ComponentId::new(0)]);
-        let set1 = ComponentIdSet::from_iter([ComponentId::new(1)]);
-        let set2 = ComponentIdSet::from_iter([ComponentId::new(2)]);
-        let set01 = ComponentIdSet::from_iter([ComponentId::new(0), ComponentId::new(1)]);
-        let set02 = ComponentIdSet::from_iter([ComponentId::new(0), ComponentId::new(2)]);
-        let set012 = ComponentIdSet::from_iter([
-            ComponentId::new(0),
-            ComponentId::new(1),
-            ComponentId::new(2),
-        ]);
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+
+        let set0 = ComponentIdSet::from_iter([id_0]);
+        let set1 = ComponentIdSet::from_iter([id_1]);
+        let set2 = ComponentIdSet::from_iter([id_2]);
+        let set01 = ComponentIdSet::from_iter([id_0, id_1]);
+        let set02 = ComponentIdSet::from_iter([id_0, id_2]);
+        let set012 = ComponentIdSet::from_iter([id_0, id_1, id_2]);
 
         // Check each combination of `Included` and `Excluded`
         // [0, 1] & [0, 2] = [0]
@@ -1856,49 +1954,66 @@ mod tests {
 
     #[test]
     fn component_id_set_insert_remove_clear() {
+        let mut ids = ComponentIds::default();
+        let id_0 = ids.next_mut();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+
         let mut set = ComponentIdSet::new();
-        assert!(!set.contains(ComponentId::new(0)));
-        assert!(!set.contains(ComponentId::new(1)));
-        assert!(!set.contains(ComponentId::new(2)));
+        assert!(!set.contains(id_0));
+        assert!(!set.contains(id_1));
+        assert!(!set.contains(id_2));
         assert!(set.is_clear());
-        set.insert(ComponentId::new(2));
-        set.insert(ComponentId::new(1));
-        assert!(!set.contains(ComponentId::new(0)));
-        assert!(set.contains(ComponentId::new(1)));
-        assert!(set.contains(ComponentId::new(2)));
+        set.insert(id_2);
+        set.insert(id_1);
+        assert!(!set.contains(id_0));
+        assert!(set.contains(id_1));
+        assert!(set.contains(id_2));
         assert!(!set.is_clear());
-        set.remove(ComponentId::new(1));
-        assert!(!set.contains(ComponentId::new(0)));
-        assert!(!set.contains(ComponentId::new(1)));
-        assert!(set.contains(ComponentId::new(2)));
+        set.remove(id_1);
+        assert!(!set.contains(id_0));
+        assert!(!set.contains(id_1));
+        assert!(set.contains(id_2));
         assert!(!set.is_clear());
-        set.insert(ComponentId::new(2));
-        set.insert(ComponentId::new(1));
-        assert!(!set.contains(ComponentId::new(0)));
-        assert!(set.contains(ComponentId::new(1)));
-        assert!(set.contains(ComponentId::new(2)));
+        set.insert(id_2);
+        set.insert(id_1);
+        assert!(!set.contains(id_0));
+        assert!(set.contains(id_1));
+        assert!(set.contains(id_2));
         assert!(!set.is_clear());
         set.clear();
-        assert!(!set.contains(ComponentId::new(0)));
-        assert!(!set.contains(ComponentId::new(1)));
-        assert!(!set.contains(ComponentId::new(2)));
+        assert!(!set.contains(id_0));
+        assert!(!set.contains(id_1));
+        assert!(!set.contains(id_2));
         assert!(set.is_clear());
     }
 
     #[test]
     fn component_id_set_remove_out_of_range() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
         let mut set = ComponentIdSet::new();
-        set.remove(ComponentId::new(3));
-        set.insert(ComponentId::new(1));
-        set.remove(ComponentId::new(4));
-        assert!(set.iter().eq([1].map(ComponentId::new)));
+        set.remove(id_3);
+        set.insert(id_1);
+        set.remove(id_4);
+        assert!(set.iter().eq([id_1]));
     }
 
     #[test]
     fn component_id_set_is_subset_is_disjoint() {
-        let set_1234 = ComponentIdSet::from_iter([1, 2, 3, 4].map(ComponentId::new));
-        let set_23 = ComponentIdSet::from_iter([2, 3].map(ComponentId::new));
-        let set_45 = ComponentIdSet::from_iter([4, 5].map(ComponentId::new));
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+        let id_4 = ids.next_mut();
+        let id_5 = ids.next_mut();
+
+        let set_1234 = ComponentIdSet::from_iter([id_1, id_2, id_3, id_4]);
+        let set_23 = ComponentIdSet::from_iter([id_2, id_3]);
+        let set_45 = ComponentIdSet::from_iter([id_4, id_5]);
         assert!(set_23.is_subset(&set_1234));
         assert!(!set_1234.is_subset(&set_23));
         assert!(set_23.is_disjoint(&set_45));
@@ -1909,52 +2024,62 @@ mod tests {
 
     #[test]
     fn component_id_set_union_intersection_difference() {
-        let set_13 = ComponentIdSet::from_iter([1, 3].map(ComponentId::new));
-        let set_23 = ComponentIdSet::from_iter([2, 3].map(ComponentId::new));
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
 
-        assert!(set_13.union(&set_23).eq([1, 3, 2].map(ComponentId::new)));
-        assert!(set_23.union(&set_13).eq([2, 3, 1].map(ComponentId::new)));
-        assert!(set_13.intersection(&set_23).eq([3].map(ComponentId::new)));
-        assert!(set_23.intersection(&set_13).eq([3].map(ComponentId::new)));
-        assert!(set_13.difference(&set_23).eq([1].map(ComponentId::new)));
-        assert!(set_23.difference(&set_13).eq([2].map(ComponentId::new)));
+        let set_13 = ComponentIdSet::from_iter([id_1, id_3]);
+        let set_23 = ComponentIdSet::from_iter([id_2, id_3]);
+
+        assert!(set_13.union(&set_23).eq([id_1, id_3, id_2]));
+        assert!(set_23.union(&set_13).eq([id_2, id_3, id_1]));
+        assert!(set_13.intersection(&set_23).eq([id_3]));
+        assert!(set_23.intersection(&set_13).eq([id_3]));
+        assert!(set_13.difference(&set_23).eq([id_1]));
+        assert!(set_23.difference(&set_13).eq([id_2]));
     }
 
     #[test]
     fn component_id_set_union_intersection_difference_with() {
-        let set_13 = ComponentIdSet::from_iter([1, 3].map(ComponentId::new));
-        let set_23 = ComponentIdSet::from_iter([2, 3].map(ComponentId::new));
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_3 = ids.next_mut();
+
+        let set_13 = ComponentIdSet::from_iter([id_1, id_3]);
+        let set_23 = ComponentIdSet::from_iter([id_2, id_3]);
 
         let mut s = set_13.clone();
         s.union_with(&set_23);
-        assert!(s.iter().eq([1, 2, 3].map(ComponentId::new)));
+        assert!(s.iter().eq([id_1, id_2, id_3]));
 
         let mut s = set_23.clone();
         s.union_with(&set_13);
-        assert!(s.iter().eq([1, 2, 3].map(ComponentId::new)));
+        assert!(s.iter().eq([id_1, id_2, id_3]));
 
         let mut s = set_13.clone();
         s.intersect_with(&set_23);
-        assert!(s.iter().eq([3].map(ComponentId::new)));
+        assert!(s.iter().eq([id_3]));
 
         let mut s = set_23.clone();
         s.intersect_with(&set_13);
-        assert!(s.iter().eq([3].map(ComponentId::new)));
+        assert!(s.iter().eq([id_3]));
 
         let mut s = set_13.clone();
         s.difference_with(&set_23);
-        assert!(s.iter().eq([1].map(ComponentId::new)));
+        assert!(s.iter().eq([id_1]));
 
         let mut s = set_23.clone();
         s.difference_with(&set_13);
-        assert!(s.iter().eq([2].map(ComponentId::new)));
+        assert!(s.iter().eq([id_2]));
 
         let mut s = set_13.clone();
         s.difference_from(&set_23);
-        assert!(s.iter().eq([2].map(ComponentId::new)));
+        assert!(s.iter().eq([id_2]));
 
         let mut s = set_23.clone();
         s.difference_from(&set_13);
-        assert!(s.iter().eq([1].map(ComponentId::new)));
+        assert!(s.iter().eq([id_1]));
     }
 }

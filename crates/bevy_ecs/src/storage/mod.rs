@@ -35,7 +35,7 @@ pub use non_send::*;
 pub use sparse_set::*;
 pub use table::*;
 
-use crate::component::{ComponentInfo, StorageType};
+use crate::component::{ComponentId, ComponentInfo, StorageType};
 use alloc::vec::Vec;
 
 /// The raw data stores of a [`World`](crate::world::World)
@@ -52,13 +52,13 @@ pub struct Storages {
 
 impl Storages {
     /// ensures that the component has its necessary storage initialize.
-    pub fn prepare_component(&mut self, component: &ComponentInfo) {
+    pub fn prepare_component(&mut self, id: ComponentId, component: &ComponentInfo) {
         match component.storage_type() {
             StorageType::Table => {
                 // table needs no preparation
             }
             StorageType::SparseSet => {
-                self.sparse_sets.get_or_insert(component);
+                self.sparse_sets.get_or_insert(id, component);
             }
         }
     }

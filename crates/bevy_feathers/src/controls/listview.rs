@@ -12,12 +12,10 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res},
 };
-use bevy_input_focus::{
-    tab_navigation::TabIndex, InputFocus, InputFocusSystems, InputFocusVisible,
-};
+use bevy_input_focus::{InputFocus, InputFocusSystems, InputFocusVisible};
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{bsn, Scene, SceneComponent, SceneList};
+use bevy_scene::{bsn, bsn_list, Scene, SceneComponent, SceneList};
 use bevy_text::{FontSize, FontWeight};
 use bevy_ui::{
     px, AlignItems, BorderRadius, Display, FlexDirection, InteractionDisabled, JustifyContent,
@@ -53,7 +51,7 @@ pub struct FeathersListViewProps {
 impl Default for FeathersListViewProps {
     fn default() -> Self {
         Self {
-            rows: Box::new(bsn! {}),
+            rows: Box::new(bsn_list! {}),
         }
     }
 }
@@ -75,7 +73,6 @@ impl FeathersListView {
             ScrollbarGutter(px(14))
             ListBox
             AccessibilityNode(accesskit::Node::new(Role::ListBox))
-            TabIndex(0)
             Children [
                 // Inner part that scrolls
                 #inner

@@ -2,7 +2,7 @@ use super::{
     allocator::{IndexAllocator, RetainedBindingArray},
     assets::AssetState,
     lights::{GpuLightSource, LightSourceId, LightState},
-    BlasManager, RaytracingMesh3d, RaytracingSceneBindings,
+    BlasKey, BlasManager, BlasOpacity, RaytracingMesh3d, RaytracingSceneBindings,
 };
 use bevy_asset::AssetId;
 use bevy_ecs::{
@@ -74,7 +74,17 @@ struct Instance {
     slot: u32,
     mesh: AssetId<Mesh>,
     material: AssetId<StandardMaterial>,
+    opacity: BlasOpacity,
     buffers: Option<(BufferId, BufferId)>,
+}
+
+impl Instance {
+    fn blas_key(&self) -> BlasKey {
+        BlasKey {
+            mesh: self.mesh,
+            opacity: self.opacity,
+        }
+    }
 }
 
 /// Stable slots, reverse dependency indices and GPU data owned by raytracing instances.
@@ -118,11 +128,11 @@ impl InstanceState {
     /// Only the `wgpu-core` TLAS build path needs this, to fill in the instance descriptors that
     /// the raw path sets up on the GPU. Slots with a null acceleration structure reference are not
     /// currently drawable, and are left out.
-    pub fn drawable(&self) -> impl Iterator<Item = (u32, AssetId<Mesh>, [f32; 12])> + '_ {
+    pub fn drawable(&self) -> impl Iterator<Item = (u32, BlasKey, [f32; 12])> + '_ {
         self.records.values().filter_map(|instance| {
             let slot = instance.slot;
             (self.blas_refs.get(slot) != GpuBlasRef::NONE)
-                .then(|| (slot, instance.mesh, self.transforms.get(slot).rows()))
+                .then(|| (slot, instance.blas_key(), self.transforms.get(slot).rows()))
         })
     }
 
@@ -272,6 +282,7 @@ impl InstanceState {
             slot,
             mesh: mesh_id,
             material: material_id,
+            opacity: BlasOpacity::Opaque,
             buffers: previous.and_then(|instance| instance.buffers),
         };
         let resolved = self.resolve_instance(inputs, lights, entity, &mut instance);
@@ -290,11 +301,38 @@ impl InstanceState {
         instance: &mut Instance,
     ) -> bool {
         let slot = instance.slot;
+        let material_slot = inputs.assets.material_slots.get(&instance.material);
+
+        instance.opacity = if inputs
+            .assets
+            .non_opaque_materials
+            .contains(&instance.material)
+        {
+            BlasOpacity::NonOpaque
+        } else {
+            BlasOpacity::Opaque
+        };
+
+        let blas_key = instance.blas_key();
+        let blas_address = inputs.blas_manager.device_address(&blas_key);
+        if blas_address.is_none()
+            && material_slot.is_some()
+            && inputs.blas_manager.is_undeclared(&blas_key)
+        {
+            once!(warn!(
+                "RaytracingMesh3d entity {entity} uses a material that needs `{flag:?}`, but \
+                 `Mesh::raytracing` of mesh {mesh} lacks it. Entities like it will not be \
+                 raytraced.",
+                flag = instance.opacity.flag(),
+                mesh = instance.mesh,
+            ));
+        }
+
         let (Some(vertex_slice), Some(index_slice), Some(material_slot), Some(blas_address)) = (
             inputs.mesh_allocator.mesh_vertex_slice(&instance.mesh),
             inputs.mesh_allocator.mesh_index_slice(&instance.mesh),
-            inputs.assets.material_slots.get(&instance.material),
-            inputs.blas_manager.device_address(&instance.mesh),
+            material_slot,
+            blas_address,
         ) else {
             self.deactivate_instance(lights, entity, instance);
             return false;
