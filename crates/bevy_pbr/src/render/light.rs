@@ -33,7 +33,7 @@ use bevy_material::{
     MaterialProperties,
 };
 use bevy_math::{ops, proj, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
+use bevy_mesh::{Mesh3dVisibility, MeshVertexBufferLayoutRef};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_render::batching::gpu_preprocessing::{
@@ -525,7 +525,7 @@ pub fn extract_lights(
                     .entry(retained_view_entity)
                     .or_default()
                     .classes
-                    .entry(TypeId::of::<Mesh3d>())
+                    .entry(TypeId::of::<Mesh3dVisibility>())
                     .or_default()
                     .entities;
                 extracted_entities.clear();
@@ -656,7 +656,7 @@ pub fn extract_lights(
                 .entry(retained_view_entity)
                 .or_default()
                 .classes
-                .entry(TypeId::of::<Mesh3d>())
+                .entry(TypeId::of::<Mesh3dVisibility>())
                 .or_default()
                 .entities;
             entities_cpu_culling.clear();
@@ -826,7 +826,7 @@ pub fn extract_lights(
                         .entry(retained_view_entity)
                         .or_default()
                         .classes
-                        .entry(TypeId::of::<Mesh3d>())
+                        .entry(TypeId::of::<Mesh3dVisibility>())
                         .or_default()
                         .entities;
                     extracted_entities.clear();
@@ -2434,7 +2434,7 @@ pub struct PendingShadowQueues(pub PendingQueues);
 #[derive(SystemParam)]
 pub(crate) struct SpecializeShadowsSystemParam<'w, 's> {
     render_meshes: Res<'w, RenderAssets<RenderMesh>>,
-    render_mesh_instances: Res<'w, RenderMeshInstances>,
+    mesh_draws: RenderMeshDraws<'w>,
     render_materials: Res<'w, ErasedRenderAssets<PreparedMaterial>>,
     render_material_instances: Res<'w, RenderMaterialInstances>,
     shadow_render_phases: Res<'w, ViewBinnedRenderPhases<Shadow>>,
@@ -2459,7 +2459,7 @@ pub(crate) fn specialize_shadows(
     {
         let SpecializeShadowsSystemParam {
             render_meshes,
-            render_mesh_instances,
+            mesh_draws,
             render_materials,
             render_material_instances,
             shadow_render_phases,
@@ -2516,7 +2516,7 @@ pub(crate) fn specialize_shadows(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
 
-            let Some(visible_entities) = visible_entities.get::<Mesh3d>() else {
+            let Some(visible_entities) = visible_entities.get::<Mesh3dVisibility>() else {
                 continue;
             };
 
@@ -2547,9 +2547,7 @@ pub(crate) fn specialize_shadows(
                         .insert((*render_entity, *visible_entity));
                     continue;
                 };
-                let Some(mesh_instance) =
-                    render_mesh_instances.render_mesh_queue_data(*visible_entity)
-                else {
+                let Some(draw) = mesh_draws.get(*visible_entity) else {
                     view_pending_shadow_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
@@ -2566,13 +2564,13 @@ pub(crate) fn specialize_shadows(
                     // If the material is not a shadow caster, we don't need to specialize it.
                     continue;
                 }
-                if !mesh_instance
+                if !draw
                     .flags()
                     .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                 {
                     continue;
                 }
-                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
+                let Some(mesh) = render_meshes.get(draw.mesh_asset_id()) else {
                     continue;
                 };
 
@@ -2584,9 +2582,10 @@ pub(crate) fn specialize_shadows(
                 // we need to include the appropriate flag in the mesh pipeline key
                 // to ensure that the necessary bind group layout entries are
                 // present.
-                if render_lightmaps
-                    .render_lightmaps
-                    .contains_key(visible_entity)
+                if matches!(draw, RenderMeshDraw::Extracted(_))
+                    && render_lightmaps
+                        .render_lightmaps
+                        .contains_key(visible_entity)
                 {
                     mesh_key |= MeshPipelineKey::LIGHTMAPPED;
                 }
@@ -2677,7 +2676,7 @@ pub(crate) fn specialize_shadows(
 /// adds them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as
 /// appropriate.
 pub fn queue_shadows(
-    render_mesh_instances: Res<RenderMeshInstances>,
+    mesh_draws: RenderMeshDraws,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_material_instances: Res<RenderMaterialInstances>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
@@ -2714,7 +2713,7 @@ pub fn queue_shadows(
             extracted_view_light,
         );
 
-        let Some(visible_entities) = visible_entities.get::<Mesh3d>() else {
+        let Some(visible_entities) = visible_entities.get::<Mesh3dVisibility>() else {
             continue;
         };
 
@@ -2738,8 +2737,7 @@ pub fn queue_shadows(
                 continue;
             };
 
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*main_entity)
-            else {
+            let Some(draw) = mesh_draws.get(*main_entity) else {
                 // We couldn't fetch the mesh, probably because it hasn't
                 // loaded yet. Add the entity to the list of pending shadows
                 // and bail.
@@ -2748,17 +2746,16 @@ pub fn queue_shadows(
                     .insert((*render_entity, *main_entity));
                 continue;
             };
-            if !mesh_instance
+            if !draw
                 .flags()
                 .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
+                || !draw.matches_layers(view_light_render_layers)
             {
                 continue;
             }
-
-            let mesh_layers = mesh_instance.render_layers.as_ref().unwrap_or_default();
-            if !view_light_render_layers.intersects(mesh_layers) {
-                continue;
-            }
+            let mesh_asset_id = draw.mesh_asset_id();
+            let uniform_index = draw.input_uniform_index();
+            let phase_type = draw.phase_type(&gpu_preprocessing_support);
 
             let material_bind_group_index = if is_depth_only_opaque {
                 None
@@ -2779,7 +2776,7 @@ pub fn queue_shadows(
                 Some(material.binding.group.0)
             };
 
-            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id()) else {
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_asset_id) else {
                 continue;
             };
 
@@ -2793,14 +2790,11 @@ pub fn queue_shadows(
             shadow_phase.add(
                 batch_set_key,
                 ShadowBinKey {
-                    asset_id: mesh_instance.mesh_asset_id().into(),
+                    asset_id: mesh_asset_id.into(),
                 },
                 (*render_entity, *main_entity),
-                mesh_instance.current_uniform_index,
-                BinnedRenderPhaseType::mesh(
-                    mesh_instance.should_batch(),
-                    &gpu_preprocessing_support,
-                ),
+                uniform_index,
+                phase_type,
             );
         }
     }

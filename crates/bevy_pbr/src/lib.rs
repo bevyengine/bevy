@@ -40,6 +40,7 @@ pub mod deferred;
 pub mod diagnostic;
 mod extended_material;
 mod fog;
+pub mod gpu_instance_batch;
 mod light_probe;
 mod lightmap;
 mod material;
