@@ -44,10 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
         GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
     )));
 
-    let mut camera = commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(-278.0, 273.0, 800.0),
-    ));
+    let mut camera = commands.spawn((Camera3d, Transform::from_xyz(-278.0, 273.0, 800.0)));
 
     if args.deferred {
         camera.insert((

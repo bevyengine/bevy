@@ -16,7 +16,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     meshes: Res<Assets<Mesh>>,
 ) {
-    commands.spawn((Camera3d::default(), Transform::from_xyz(0.0, 0.0, 5.0)));
+    commands.spawn((Camera3d, Transform::from_xyz(0.0, 0.0, 5.0)));
 
     commands.spawn((
         DirectionalLight::default(),

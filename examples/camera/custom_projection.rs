@@ -53,7 +53,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         // Use our custom projection:
         Projection::custom(ObliquePerspectiveProjection {
             horizontal_obliqueness: 0.2,

@@ -25,7 +25,7 @@ fn test(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawn a UI camera
-    commands.spawn(Camera3d::default());
+    commands.spawn(Camera3d);
 
     // Set up an texture for the 3D camera to render to.
     // The size of the texture will be based on the viewport's ui size.
@@ -35,7 +35,7 @@ fn test(
     // Spawn the 3D camera
     let camera = commands
         .spawn((
-            Camera3d::default(),
+            Camera3d,
             Camera {
                 // Render this camera before our UI camera
                 order: -1,

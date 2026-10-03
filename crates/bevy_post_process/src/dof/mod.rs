@@ -16,7 +16,9 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::{Camera3d, PhysicalCameraParameters, Projection, TonemappingPass};
+use bevy_camera::{
+    Camera3d, CameraDepthTexture, PhysicalCameraParameters, Projection, TonemappingPass,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -434,12 +436,12 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
 /// need to set the appropriate flag to tell Bevy to make samplable depth
 /// buffers.
 pub fn configure_depth_of_field_view_targets(
-    mut view_targets: Query<&mut Camera3d, With<DepthOfField>>,
+    mut view_targets: Query<&mut CameraDepthTexture, (With<DepthOfField>, With<Camera3d>)>,
 ) {
-    for mut camera_3d in view_targets.iter_mut() {
-        let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
+    for mut depth_texture in view_targets.iter_mut() {
+        let mut depth_texture_usages = TextureUsages::from(depth_texture.texture_usages);
         depth_texture_usages |= TextureUsages::TEXTURE_BINDING;
-        camera_3d.depth_texture_usages = depth_texture_usages.into();
+        depth_texture.texture_usages = depth_texture_usages.into();
     }
 }
 

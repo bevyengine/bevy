@@ -323,7 +323,7 @@ fn setup(
     // `setup_flythrough_camera` later copies the film camera's field of view and near
     // plane.
     let mut cam = commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         // The imported film camera also spawns as an active camera with order 0. The
         // higher order keeps this camera in control until `setup_flythrough_camera`
         // removes the other one.

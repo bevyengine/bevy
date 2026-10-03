@@ -217,7 +217,7 @@ fn spawn_light(commands: &mut Commands) {
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn((
-            Camera3d::default(),
+            Camera3d,
             Hdr,
             Projection::Perspective(PerspectiveProjection {
                 fov: 27.0 / 180.0 * PI,

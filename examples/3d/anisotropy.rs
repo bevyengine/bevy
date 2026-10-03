@@ -100,7 +100,7 @@ fn main() {
 /// Creates the initial scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         ScreenSpaceTransmission::default(),
         Transform::from_translation(CAMERA_INITIAL_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
     ));

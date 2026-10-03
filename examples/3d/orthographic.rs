@@ -17,7 +17,7 @@ fn setup(
 ) {
     // camera
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Projection::from(OrthographicProjection {
             // 6 world units per pixel of window height.
             scaling_mode: ScalingMode::FixedVertical {

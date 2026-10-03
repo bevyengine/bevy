@@ -81,7 +81,7 @@ fn setup(mut commands: Commands) {
     warn!(include_str!("warning_string.txt"));
 
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 

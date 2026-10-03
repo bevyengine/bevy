@@ -142,7 +142,7 @@ impl IndependentSkyboxCamera {
 
             let entity = commands
                 .spawn((
-                    Camera3d::default(),
+                    Camera3d,
                     Hdr,
                     Camera {
                         order: camera.order + editor_without_skybox.skybox_cam_order_offset,
