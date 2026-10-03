@@ -19,14 +19,16 @@ bevy_reflect = ["bevy_math/bevy_reflect"]
 basis-universal = ["dep:basis-universal"]
 bmp = ["image/bmp"]
 dds = ["ddsfile"]
-exr = ["image/exr"]
+# Enables the direct `exr` dependency to read the `chromaticities` header attribute.
+exr = ["image/exr", "dep:exr"]
 ff = ["image/ff"]
 gif = ["image/gif"]
 hdr = ["image/hdr"]
 ktx2 = ["dep:ktx2"]
 ico = ["image/ico"]
 jpeg = ["image/jpeg"]
-png = ["image/png"]
+# Enables the direct `png` dependency to read the `cICP` chunk.
+png = ["image/png", "dep:png"]
 pnm = ["image/pnm"]
 qoi = ["image/qoi"]
 tga = ["image/tga"]
@@ -80,7 +82,9 @@ futures-lite = "2.0.1"
 guillotiere = "0.7.0"
 rectangle-pack = "0.4"
 ddsfile = { version = "0.6.0", optional = true }
+exr = { version = "1.74", optional = true, default-features = false }
 ktx2 = { version = "0.5.0", optional = true }
+png = { version = "0.18.0", optional = true }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
 zstd = { version = "0.13.3", optional = true }
