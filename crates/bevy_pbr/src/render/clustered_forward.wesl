@@ -25,7 +25,7 @@ struct ClusterableObjectIndexRanges {
     /// The offset of the index of the first reflection probe, which also
     /// terminates the list of rect lights.
     first_reflection_probe_index_offset: u32,
-    /// The offset of the index of the first irradiance volumes, which also
+    /// The offset of the index of the first irradiance volume, which also
     /// terminates the list of reflection probes.
     first_irradiance_volume_index_offset: u32,
     first_decal_offset: u32,

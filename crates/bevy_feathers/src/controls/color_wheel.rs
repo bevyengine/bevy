@@ -4,7 +4,7 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Asset, Assets};
 use bevy_color::{Hsla, Hsva, Hwba};
 use bevy_ecs::{
-    change_detection::{DetectChanges, Ref},
+    change_detection::{DetectChanges, DetectChangesMut, Ref},
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
@@ -19,6 +19,7 @@ use bevy_math::Vec2;
 use bevy_picking::{
     cursor::EntityCursor,
     events::{PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress},
+    hover::PointerCaptureMap,
     Pickable,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
@@ -41,6 +42,8 @@ const SPACING: f32 = 4.0;
 const MIN_HEIGHT: f32 = 100.0;
 const PADDING: f32 = 4.0;
 const MIN_DIAMETER: f32 = MIN_HEIGHT - 2.0 * PADDING;
+
+const THUMB_SIZE: f32 = 10.0;
 
 /// A "triangle-in-ring" color wheel widget, which is a 2d picker that allows selecting all three
 /// components of a HWB color space. It consists of a hue ring surrounding a triangle where the
@@ -192,8 +195,8 @@ impl FeathersColorWheel {
                         position_type: PositionType::Absolute,
                         left: percent(0),
                         top: percent(0),
-                        width: px(10),
-                        height: px(10),
+                        width: px(THUMB_SIZE),
+                        height: px(THUMB_SIZE),
                         border: px(1),
                         border_radius: BorderRadius::MAX,
                     }
@@ -205,14 +208,13 @@ impl FeathersColorWheel {
                         color: palette::BLACK
                     }
                     Pickable::IGNORE
-                    UiTransform::from_translation(Val2::percent(-50., -50.),)
                     --
                     Node {
                         position_type: PositionType::Absolute,
                         left: percent(0),
                         top: percent(0),
-                        width: px(10),
-                        height: px(10),
+                        width: px(THUMB_SIZE),
+                        height: px(THUMB_SIZE),
                         border: px(1),
                         border_radius: BorderRadius::MAX,
                     }
@@ -224,7 +226,6 @@ impl FeathersColorWheel {
                         color: palette::BLACK
                     }
                     Pickable::IGNORE
-                    UiTransform::from_translation(Val2::percent(-50., -50.),)
                 ]
             ]
         }
@@ -246,7 +247,7 @@ fn update_wheel_color(
     q_info: Query<Ref<ComputedUiRenderTargetInfo>>,
     q_material_node: Query<&MaterialNode<ColorWheelMaterial>>,
     q_computed_node: Query<Ref<ComputedNode>>,
-    mut q_node: Query<&mut Node>,
+    mut q_transform: Query<&mut UiTransform>,
     mut r_materials: ResMut<Assets<ColorWheelMaterial>>,
     mut commands: Commands,
 ) {
@@ -303,10 +304,6 @@ fn update_wheel_color(
             continue;
         };
 
-        let Ok(mut thumb_node) = q_node.get_mut(*thumb_ent) else {
-            continue;
-        };
-
         // Get size in logical pixels to account for screen scaling.
         let size = inner_node.size() * inner_node.inverse_scale_factor();
 
@@ -325,31 +322,28 @@ fn update_wheel_color(
         let offset = hue_point
             + (white_point - hue_point) * wheel_value.whiteness
             + (black_point - hue_point) * wheel_value.blackness;
-        let left = px(center.x + offset.x);
-        let top = px(center.y + offset.y);
-        if thumb_node.left != left || thumb_node.top != top {
-            thumb_node.left = left;
-            thumb_node.top = top;
-        }
+        position_thumb(&mut q_transform, *thumb_ent, center + offset);
 
         // Find the ring thumb.
         let Some(ring_thumb_ent) = children_inner.get(1) else {
             continue;
         };
 
-        let Ok(mut ring_thumb_node) = q_node.get_mut(*ring_thumb_ent) else {
-            continue;
-        };
-
         // Position ring thumb centered in the ring width and at the hue value.
         let ring_offset = Vec2::from_angle(hue_angle) * (min_side - RING_WIDTH) * 0.5;
-        let ring_left = px(center.x + ring_offset.x);
-        let ring_top = px(center.y + ring_offset.y);
-        if ring_thumb_node.left != ring_left || ring_thumb_node.top != ring_top {
-            ring_thumb_node.left = ring_left;
-            ring_thumb_node.top = ring_top;
-        }
+        position_thumb(&mut q_transform, *ring_thumb_ent, center + ring_offset);
     }
+}
+
+/// Centers a thumb on `position`, in logical pixels relative to the inner node's top-left corner.
+fn position_thumb(q_transform: &mut Query<&mut UiTransform>, thumb_ent: Entity, position: Vec2) {
+    let Ok(mut thumb_transform) = q_transform.get_mut(thumb_ent) else {
+        return;
+    };
+    let mut updated_transform = *thumb_transform;
+    updated_transform.translation =
+        Val2::px(position.x - THUMB_SIZE * 0.5, position.y - THUMB_SIZE * 0.5);
+    thumb_transform.set_if_neq(updated_transform);
 }
 
 /// Determine which segment of the widget a pointer position hits, and the value the widget
@@ -492,6 +486,7 @@ fn on_pointer_press(
 
 fn on_drag_start(
     mut drag_start: On<PointerDragStart>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_color_wheels: Query<
         (&mut ColorWheelDragState, Has<InteractionDisabled>),
         With<FeathersColorWheel>,
@@ -504,6 +499,11 @@ fn on_drag_start(
         drag_start.propagate(false);
         if !disabled {
             state.dragging = true;
+            capture_map.capture(
+                drag_start.pointer.id,
+                drag_start.entity,
+                drag_start.hit.clone(),
+            );
         }
     }
 }
@@ -554,6 +554,7 @@ fn on_drag(
 
 fn on_drag_end(
     mut drag_end: On<PointerDragEnd>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_color_wheels: Query<
         (
             &ColorWheelValue,
@@ -595,6 +596,7 @@ fn on_drag_end(
         }
         state.segment = None;
         state.dragging = false;
+        capture_map.release(drag_end.pointer.id);
     }
 }
 
@@ -618,12 +620,7 @@ impl Plugin for ColorWheelPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins(UiMaterialPlugin::<ColorWheelMaterial>::default());
         // Ensure thumbs stay inside ring/triangle on next frame when scale and/or layout change
-        app.add_systems(
-            PostUpdate,
-            update_wheel_color
-                .after(UiSystems::Propagate)
-                .before(UiSystems::Layout),
-        );
+        app.add_systems(PostUpdate, update_wheel_color.in_set(UiSystems::Content));
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)
             .add_observer(on_drag)

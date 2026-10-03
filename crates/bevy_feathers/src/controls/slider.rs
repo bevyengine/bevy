@@ -13,7 +13,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
@@ -89,7 +88,6 @@ impl FeathersSlider {
             SliderValue({props.min})
             SliderRange::new(props.min, props.max)
             EntityCursor::System(bevy_window::SystemCursorIcon::EwResize)
-            TabIndex(0)
             FocusIndicator
             InheritableThemeTextColor(tokens::SLIDER_TEXT)
             // Use a gradient to draw the moving bar

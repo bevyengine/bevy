@@ -154,7 +154,7 @@ pub fn settings_ui() -> impl Scene {
 
                         let mut rng = rand::rng();
                         let seed = rng.random::<u64>();
-                        println!("new seed: {seed}");
+                        info!("new seed: {seed}");
                         let mut stats = CityStats::default();
                         spawn_city(&mut commands, &assets, seed, 32, 0.1, &mut stats);
                     }
