@@ -26,7 +26,6 @@ const TEXTURE_MAP_NONE: u32 = u32::MAX;
 
 const MATERIAL_FLAG_DOUBLE_SIDED: u32 = 1 << 0;
 const MATERIAL_FLAG_FLIP_NORMAL_MAP_Y: u32 = 1 << 1;
-const MATERIAL_FLAG_ALPHA_MASK: u32 = 1 << 2;
 
 /// The four textures a [`StandardMaterial`] can reference, in [`GpuMaterial`] field order.
 type MaterialTextures = [Option<AssetId<Image>>; 4];
@@ -224,14 +223,14 @@ impl AssetState {
             }
         };
         let alpha_cutoff = match material.alpha_mode {
-            AlphaMode::Mask(cutoff) => Some(cutoff),
+            AlphaMode::Mask(cutoff) => cutoff,
             // Without MSAA alpha to coverage is treated as a mask with a cutoff of 0.5
-            AlphaMode::AlphaToCoverage => Some(0.5),
+            AlphaMode::AlphaToCoverage => 0.5,
             AlphaMode::Opaque
             | AlphaMode::Blend
             | AlphaMode::Premultiplied
             | AlphaMode::Add
-            | AlphaMode::Multiply => None,
+            | AlphaMode::Multiply => 0.0,
         };
 
         let mut flags = 0;
@@ -240,9 +239,6 @@ impl AssetState {
         }
         if material.flip_normal_map_y {
             flags |= MATERIAL_FLAG_FLIP_NORMAL_MAP_Y;
-        }
-        if alpha_cutoff.is_some() {
-            flags |= MATERIAL_FLAG_ALPHA_MASK;
         }
 
         self.materials.grow_and_set(
@@ -261,7 +257,7 @@ impl AssetState {
                 uv_translation: material.uv_transform.translation,
                 uv_transform: material.uv_transform.matrix2,
                 alpha: base_color.alpha,
-                alpha_cutoff: alpha_cutoff.unwrap_or(0.0),
+                alpha_cutoff,
                 _padding: Vec2::ZERO,
             },
         );
