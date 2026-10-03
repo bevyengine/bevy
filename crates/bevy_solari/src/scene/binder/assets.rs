@@ -214,6 +214,15 @@ impl AssetState {
             | AlphaMode::Add
             | AlphaMode::Multiply => 0.0,
         };
+        let is_opaque = match material.alpha_mode {
+            AlphaMode::Opaque => true,
+            AlphaMode::Mask(_) | AlphaMode::AlphaToCoverage => false,
+            // TODO: Solari doesn't support transparency yet, so these are traced as opaque for now
+            #[expect(clippy::match_same_arms, reason = "Transparency not yet supported")]
+            AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
+                true
+            }
+        };
 
         let mut flags = 0;
         if material.double_sided {
