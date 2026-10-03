@@ -319,6 +319,7 @@ Example | Description
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
 [Infinite grid](../examples/dev_tools/infinite_grid.rs) | Demonstrates Bevy's infinite grid, suitable as a ground plane for editors
 [Local Inspector](../examples/inspector/local_inspector.rs) | Inspects the app's own world with the bevy_inspector entity tree panel
+[Remote Inspector](../examples/inspector/remote_inspector.rs) | Inspects a separate running app with the bevy_inspector panels over the Bevy Remote Protocol
 
 ### Diagnostics
 
