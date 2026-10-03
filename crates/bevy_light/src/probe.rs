@@ -101,7 +101,16 @@ impl LightProbe {
 /// A pair of cubemap textures that represent the surroundings of a specific
 /// area in space.
 ///
+/// Raster image-based lighting expects a [split-sum] pair: a blurry
+/// `diffuse_map` for the irradiance, and a mipmapped `specular_map` for the specular.
+/// Material roughness selects which mip is sampled from the specular map.
+///
+/// Path tracers such as `bevy_solari` only sample the first mip level, so both
+/// the `diffuse_map` and `specular_map` can point at the same unfiltered cubemap.
+///
 /// See `bevy_pbr::light_probe::environment_map` for detailed information.
+///
+/// [split-sum]: https://learnopengl.com/PBR/IBL/Specular-IBL
 #[derive(Clone, Component, Reflect, FromTemplate)]
 #[reflect(Component, Default, Clone)]
 pub struct EnvironmentMapLight {
@@ -314,6 +323,11 @@ pub struct AtmosphereEnvironmentMapLight {
     pub affects_lightmapped_mesh_diffuse: bool,
     /// Cubemap resolution in pixels (must be a power-of-two).
     pub size: UVec2,
+    /// Whether to filter this cubemap for raster image-based lighting.
+    ///
+    /// Defaults to `true`. Set this to `false` if you only need the unfiltered cubemap.
+    /// `bevy_solari` cameras disable this automatically.
+    pub filtered: bool,
 }
 
 impl Default for AtmosphereEnvironmentMapLight {
@@ -322,6 +336,7 @@ impl Default for AtmosphereEnvironmentMapLight {
             intensity: 1.0,
             affects_lightmapped_mesh_diffuse: true,
             size: UVec2::new(128, 128),
+            filtered: true,
         }
     }
 }

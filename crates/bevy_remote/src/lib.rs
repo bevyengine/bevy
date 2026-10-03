@@ -17,7 +17,7 @@
 //!     "method": "world.get_components",
 //!     "id": 0,
 //!     "params": {
-//!         "entity": 4294967298,
+//!         "entity": "5v0",
 //!         "components": [
 //!             "bevy_transform::components::transform::Transform"
 //!         ]
@@ -242,7 +242,7 @@
 //!       }
 //!     },
 //!     "bevy_camera::primitives::Frustum": {},
-//!  "bevy_render::sync_world::RenderEntity": 4294967291,
+//!  "bevy_render::sync_world::RenderEntity": "4v0",
 //!     "bevy_render::sync_world::SyncToRenderWorld": {},
 //!     "bevy_render::view::Msaa": "Sample4",
 //!     "bevy_camera::visibility::InheritedVisibility": true,
@@ -283,7 +283,7 @@
 //!     },
 //!     "bevy_transform::components::transform::TransformTreeChanged": null
 //!   },
-//!   "entity": 4294967261
+//!   "entity": "34v0"
 //!},
 //! ```
 //!
@@ -478,6 +478,104 @@
 //! This contains schema information about that type, including field definitions, type information, reflect type information, and other metadata
 //! helpful for understanding the structure of the type.
 //!
+//! ### `app.info`
+//!
+//! Retrieve the name of the running application and the Bevy version it was built against. This method has no parameters.
+//!
+//! `result`: An object with `app_name`, `bevy_version`, and `sub_app` string fields. `sub_app` is either
+//! `"main"` or `"render"`, depending on which `SubApp` handled the request.
+//!
+//! ### `diagnostics.list`
+//!
+//! List the paths of all diagnostics registered in the app. This method has no parameters.
+//!
+//! `result`: An object with a `diagnostics` field containing a sorted array of diagnostic paths.
+//!
+//! ### `diagnostics.get`
+//!
+//! Retrieve the current values of diagnostics, skipping any path that is not registered.
+//!
+//! `params` (optional):
+//! - `paths`: An array of diagnostic paths to retrieve. When omitted, all diagnostics are returned.
+//!
+//! `result`: An object with a `diagnostics` field containing an array of objects with `path`, `value`, `average`, `smoothed`, `suffix` and `history_len` fields.
+//!
+//! ### `world.inspect`
+//!
+//! Inspect an entity, returning its label, memory size, spawn details and the inspection of every
+//! component on it.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity to inspect.
+//! - `settings` (optional): Entity inspection settings. Defaults are used when omitted, and
+//!   structured component values are always included.
+//!
+//! `result`: An entity inspection object with `entity`, `label`, `total_memory_size`, `components`
+//! and `spawn_details` fields.
+//!
+//! ### `world.inspect_component`
+//!
+//! Inspect a single component on an entity.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity that owns the component.
+//! - `component`: The [fully-qualified type name] of the component.
+//! - `settings` (optional): Component inspection settings. Defaults are used when omitted, and the
+//!   structured value is always included.
+//!
+//! `result`: A component inspection object with `entity`, `component_id`, `name`, `memory_size`,
+//! `value` and `serialized_value` fields.
+//!
+//! ### `world.inspect_component_type`
+//!
+//! Inspect a component type itself, rather than a component on a specific entity.
+//!
+//! `params`:
+//! - `component`: The [fully-qualified type name] of the component type.
+//!
+//! `result`: An object with an `entity_count` field and a `metadata` field describing the type.
+//!
+//! ### `world.inspect_resource`
+//!
+//! Inspect a resource.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource.
+//! - `settings` (optional): Resource inspection settings. Defaults are used when omitted, and the
+//!   structured value is always included.
+//!
+//! `result`: A resource inspection object with `component_id`, `name`, `value`, `memory_size` and
+//! `serialized_value` fields.
+//!
+//! ### `world.inspect_all_resources`
+//!
+//! Inspect every resource present in the world.
+//!
+//! `params` (optional):
+//! - `settings`: Resource inspection settings, applied to every resource.
+//!
+//! `result`: An array of resource inspection objects.
+//!
+//! ### `world.summarize`
+//!
+//! Summarize the world, reporting entity, archetype and resource counts along with per-archetype
+//! data.
+//!
+//! `params` (optional):
+//! - `settings`: Summary settings controlling component names, empty archetypes and row limits.
+//!
+//! `result`: An object with `total_entities`, `total_archetypes`, `empty_archetypes`,
+//! `total_send_resources`, `total_non_send_resources` and `archetype_summaries` fields.
+//!
+//! ### `registry.component_metadata`
+//!
+//! Retrieve metadata for every component type registered in the world. This method has no
+//! parameters.
+//!
+//! `result`: An object with a `map` field associating component IDs with their type metadata.
+//! Clients are expected to fetch this map once and cache it, which is why the server-side
+//! `inspect_cached` method has no remote counterpart.
+//!
 //! ### `rpc.discover`
 //!
 //! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
@@ -557,9 +655,14 @@ use serde_json::Value;
 use std::sync::RwLock;
 
 pub mod builtin_methods;
+#[cfg(all(feature = "client", not(target_family = "wasm")))]
+pub mod client;
 #[cfg(feature = "http")]
 pub mod http;
+pub mod inspection_methods;
 pub mod schemas;
+#[cfg(feature = "bevy_debug_stepping")]
+pub mod stepping_methods;
 
 const CHANNEL_SIZE: usize = 16;
 
@@ -781,10 +884,108 @@ impl RemotePlugin {
             to_main,
         )
         .with_method(
+            builtin_methods::BRP_APP_INFO_METHOD,
+            if to_main {
+                builtin_methods::process_remote_app_info_request_main
+                    as fn(In<Option<Value>>, &World) -> BrpResult
+            } else {
+                builtin_methods::process_remote_app_info_request_render
+                    as fn(In<Option<Value>>, &World) -> BrpResult
+            },
+            to_main,
+        )
+        .with_method(
             builtin_methods::BRP_SCHEDULE_GRAPH,
             builtin_methods::schedule_graph,
             to_main,
         )
+        .with_method(
+            builtin_methods::BRP_DIAGNOSTICS_LIST_METHOD,
+            builtin_methods::process_remote_diagnostics_list_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_DIAGNOSTICS_GET_METHOD,
+            builtin_methods::process_remote_diagnostics_get_request,
+            to_main,
+        )
+        .add_stepping_methods(to_main)
+        .add_inspection_methods(to_main)
+    }
+
+    /// Add the inspection BRP methods.
+    fn add_inspection_methods(self, to_main: bool) -> Self {
+        self.with_method(
+            inspection_methods::BRP_INSPECT_METHOD,
+            inspection_methods::process_remote_inspect_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_COMPONENT_METHOD,
+            inspection_methods::process_remote_inspect_component_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_COMPONENT_TYPE_METHOD,
+            inspection_methods::process_remote_inspect_component_type_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_RESOURCE_METHOD,
+            inspection_methods::process_remote_inspect_resource_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_ALL_RESOURCES_METHOD,
+            inspection_methods::process_remote_inspect_all_resources_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_SUMMARIZE_METHOD,
+            inspection_methods::process_remote_summarize_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_COMPONENT_METADATA_METHOD,
+            inspection_methods::process_remote_component_metadata_request,
+            to_main,
+        )
+    }
+
+    /// Add the `stepping.*` BRP methods.
+    #[cfg(feature = "bevy_debug_stepping")]
+    fn add_stepping_methods(self, to_main: bool) -> Self {
+        self.with_method(
+            stepping_methods::BRP_STEPPING_STATUS,
+            stepping_methods::stepping_status,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_ENABLE,
+            stepping_methods::stepping_enable,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_DISABLE,
+            stepping_methods::stepping_disable,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_STEP_FRAME,
+            stepping_methods::stepping_step_frame,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_CONTINUE_FRAME,
+            stepping_methods::stepping_continue_frame,
+            to_main,
+        )
+    }
+
+    /// Leaves the method list untouched without the `bevy_debug_stepping` feature.
+    #[cfg(not(feature = "bevy_debug_stepping"))]
+    fn add_stepping_methods(self, _to_main: bool) -> Self {
+        self
     }
 }
 
@@ -1007,7 +1208,7 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///     "method": "world.get_components",
 ///     "id": 0,
 ///     "params": {
-///         "entity": 4294967298,
+///         "entity": "5v0",
 ///         "components": [
 ///             "bevy_transform::components::transform::Transform"
 ///         ]
@@ -1422,6 +1623,9 @@ pub mod error_codes {
 
     /// Could not find resource in the world.
     pub const RESOURCE_NOT_PRESENT: i16 = -23502;
+
+    /// The component metadata map does not contain the requested type name.
+    pub const COMPONENT_NAME_NOT_IN_METADATA: i16 = -23405;
 }
 
 /// The result of a request.

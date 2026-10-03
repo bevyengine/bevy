@@ -139,6 +139,7 @@ pub struct ImageLoaderSettings {
     /// in a shader.
     /// Ex: data that would be `R16Uint` that needs to
     /// be sampled as a float using `R16Snorm`.
+    /// Grayscale images are not expanded to RGBA when this format has one or two channels.
     #[serde(default)]
     pub texture_format: Option<wgpu_types::TextureFormat>,
     /// Specifies whether image data is linear
@@ -161,6 +162,15 @@ pub struct ImageLoaderSettings {
     /// resolution order.
     #[serde(default)]
     pub source_color_primaries: Option<SourceColorPrimaries>,
+    /// Whether to expand grayscale images to RGBA.
+    /// When `false`, grayscale images load as `R8Unorm`, `Rg8Unorm`, `R16Unorm` or `Rg16Unorm`
+    /// and `is_srgb` is ignored.
+    #[serde(default = "default_expand_grayscale")]
+    pub expand_grayscale: bool,
+}
+
+fn default_expand_grayscale() -> bool {
+    true
 }
 
 impl Default for ImageLoaderSettings {
@@ -173,6 +183,7 @@ impl Default for ImageLoaderSettings {
             asset_usage: RenderAssetUsages::default(),
             array_layout: None,
             source_color_primaries: None,
+            expand_grayscale: true,
         }
     }
 }
@@ -231,11 +242,14 @@ impl AssetLoader for ImageLoader {
             }
         };
 
-        let mut image = Image::from_buffer(
+        let expand_grayscale = settings.expand_grayscale
+            && !settings.texture_format.is_some_and(|f| f.components() <= 2);
+        let mut image = Image::from_buffer_inner(
             &bytes,
             image_type,
             self.supported_compressed_formats,
             settings.is_srgb,
+            expand_grayscale,
             settings.sampler.clone(),
             settings.asset_usage,
             settings.source_color_primaries,
@@ -302,5 +316,13 @@ mod tests {
             .is_some());
         let deserialized: ImageLoaderSettings = serde_json::from_value(serialized).unwrap();
         assert_eq!(deserialized.source_color_primaries, None);
+    }
+
+    #[test]
+    fn missing_expand_grayscale_defaults_to_true() {
+        let mut value = serde_json::to_value(ImageLoaderSettings::default()).unwrap();
+        value.as_object_mut().unwrap().remove("expand_grayscale");
+        let settings: ImageLoaderSettings = serde_json::from_value(value).unwrap();
+        assert!(settings.expand_grayscale);
     }
 }

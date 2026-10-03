@@ -95,14 +95,13 @@ impl AssetSaver for ImageSaver {
 
         Ok(ImageLoaderSettings {
             format: ImageFormatSetting::Format(format),
-            // Passing in the original texture format breaks things. For example, PNG will save R8
-            // data as RGBA8 data: if we later try to load as R8, we get 4 times as many pixels!
             texture_format: None,
             is_srgb,
             sampler: asset.sampler.clone(),
             asset_usage: asset.asset_usage,
             array_layout: None,
             source_color_primaries: Some(asset.source_color_primaries),
+            expand_grayscale: false,
         })
     }
 }
@@ -288,6 +287,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(loaded_image.size(), UVec2::new(WIDTH, WIDTH));
+        assert_eq!(loaded_image.texture_descriptor.format, color_type);
         let compare_images = 'compare_images: {
             for y in 0..WIDTH {
                 for x in 0..WIDTH {
@@ -343,6 +343,43 @@ mod tests {
         #[test]
         fn roundtrip_png_rgba8_unorm() {
             roundtrip_for_type("image.png", TextureFormat::Rgba8Unorm);
+        }
+
+        #[test]
+        fn load_grayscale_png() {
+            let (mut app, dir) = create_app();
+            let asset_server = app.world().resource::<AssetServer>().clone();
+
+            let mut png = Vec::new();
+            image::DynamicImage::ImageLuma8(
+                image::GrayImage::from_raw(2, 2, vec![10, 20, 30, 40]).unwrap(),
+            )
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+            dir.insert_asset(Path::new("gray.png"), png.clone());
+            dir.insert_asset(Path::new("gray_r8.png"), png);
+
+            let expanded = asset_server.load::<Image>("gray.png");
+            let r8 = asset_server
+                .load_builder()
+                .with_settings(|s: &mut crate::ImageLoaderSettings| {
+                    s.texture_format = Some(TextureFormat::R8Unorm);
+                })
+                .load::<Image>("gray_r8.png");
+            run_app_until(&mut app, |_| {
+                (asset_server.is_loaded(&expanded) && asset_server.is_loaded(&r8)).then_some(())
+            });
+
+            let images = app.world().resource::<Assets<Image>>();
+            let expanded = images.get(&expanded).unwrap();
+            assert_eq!(
+                expanded.texture_descriptor.format,
+                TextureFormat::Rgba8UnormSrgb
+            );
+            assert_eq!(expanded.data.as_ref().unwrap().len(), 16);
+            let r8 = images.get(&r8).unwrap();
+            assert_eq!(r8.texture_descriptor.format, TextureFormat::R8Unorm);
+            assert_eq!(r8.data.as_deref(), Some(&[10, 20, 30, 40][..]));
         }
     }
 }

@@ -15,7 +15,11 @@ use self::instances::{
 use self::lights::LightState;
 use self::tlas::TlasState;
 pub use self::tlas::{build_raytracing_tlas, TlasInstanceSetupPipeline};
-use super::{blas::BlasManager, extract::StandardMaterialAssets, RaytracingMesh3d};
+use super::{
+    blas::{BlasKey, BlasManager, BlasOpacity},
+    extract::StandardMaterialAssets,
+    RaytracingMesh3d,
+};
 use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,

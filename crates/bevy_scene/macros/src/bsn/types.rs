@@ -2,10 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use syn::{Ident, Lit, LitStr, Member, Path};
 
 #[derive(Debug)]
-pub enum BsnRoot {
-    Bsn(Bsn),
-    BsnList(BsnSceneListItems),
-}
+pub struct BsnRoot(pub Bsn);
 
 #[derive(Debug)]
 pub struct BsnListRoot(pub BsnSceneListItems);
