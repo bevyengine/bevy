@@ -205,13 +205,13 @@ struct FieldWidget {
 
 /// A component of the inspected entity, with its fields flattened into rows.
 #[derive(Debug, Clone)]
-struct ComponentDetails {
-    id: ComponentId,
+pub(crate) struct ComponentDetails {
+    pub(crate) id: ComponentId,
     /// The name shown in the group header, a [`ShortName`] of the component type.
-    name: String,
-    type_path: String,
-    memory: String,
-    fields: Vec<FieldEntry>,
+    pub(crate) name: String,
+    pub(crate) type_path: String,
+    pub(crate) memory: String,
+    pub(crate) fields: Vec<FieldEntry>,
 }
 
 /// The group spawned for one component, whether its fields were spawned, and the rows they were
@@ -855,10 +855,17 @@ fn find_body(world: &mut World) -> Option<Entity> {
         .next()
 }
 
-fn inspect_components(world: &World, selection: Option<Entity>) -> Vec<ComponentDetails> {
+pub(crate) fn inspect_components(
+    world: &World,
+    selection: Option<Entity>,
+) -> Vec<ComponentDetails> {
     let Some(entity) = selection else {
         return Vec::new();
     };
+    #[cfg(feature = "remote")]
+    if let Some(components) = crate::remote::details::proxy_components(world, entity) {
+        return components;
+    }
 
     let settings = EntityInspectionSettings {
         include_components: true,
@@ -1684,7 +1691,7 @@ impl Walk {
 }
 
 /// The read-only caption form of a field value.
-fn read_only(value: FieldValue) -> FieldValue {
+pub(crate) fn read_only(value: FieldValue) -> FieldValue {
     FieldValue::Label(match value {
         FieldValue::Bool(value) => value.to_string(),
         FieldValue::Number(NumericValue::F32(value)) => value.to_string(),

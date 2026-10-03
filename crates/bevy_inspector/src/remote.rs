@@ -3,13 +3,14 @@
 //! Each remote entity is mirrored by a local proxy entity, spawned [`Disabled`] so that the
 //! systems of the app running the inspector skip it. A proxy only carries what the entity tree
 //! needs: the remote id, a resolved label and its parent proxy. Remote component values are never
-//! inserted into the local world, so no local hook or observer runs for them.
+//! inserted into the local world, so no local hook or observer runs for them. The values of the
+//! selected entity are deserialized into [`RemoteDetails`] for the details panel instead.
 
 use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use core::time::Duration;
+use core::{any::TypeId, time::Duration};
 
 use bevy_dev_tools::inspection::label_resolution::{
     resolve_label, ComponentLabelData, LabelResolutionRegistry,
@@ -21,14 +22,17 @@ use bevy_ecs::{
     entity_disabling::Disabled,
     hierarchy::{ChildOf, Children},
     query::{Allow, With},
-    reflect::{AppTypeRegistry, ReflectComponent},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Res, ResMut},
     world::World,
 };
 use bevy_log::{info, warn};
-use bevy_platform::collections::HashMap;
-use bevy_reflect::{prelude::ReflectDefault, Reflect, TypeRegistry};
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_reflect::{
+    enums::VariantInfo, prelude::ReflectDefault, serde::ReflectSerializeWithRegistry, Reflect,
+    ReflectSerialize, TypeInfo, TypeRegistry,
+};
 use bevy_remote::{
     builtin_methods::{
         BrpAppInfoResponse, BrpQuery, BrpQueryFilter, BrpQueryParams, BrpQueryResponse,
@@ -40,10 +44,13 @@ use bevy_tasks::{block_on, poll_once, Task};
 use bevy_time::{Real, Time};
 use serde_json::{Map, Value};
 
+pub mod details;
+
 use crate::{
     details_panel::DetailsPanelSync, entity_tree::EntityTreeSync, InspectorSelection,
     InspectorSource,
 };
+use details::RemoteDetails;
 
 const NAME: &str = "bevy_ecs::name::Name";
 const CHILD_OF: &str = "bevy_ecs::hierarchy::ChildOf";
@@ -55,6 +62,14 @@ const POLL_INTERVAL: Duration = Duration::from_millis(500);
 const RETRY_INTERVAL: Duration = Duration::from_secs(2);
 /// The time after which a request without an answer is dropped and the connection marked failed.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+/// The longest time between two polls asking for `has`.
+///
+/// `has` is otherwise only asked for when the remote entities change, so this bounds how long a
+/// component inserted into an existing entity goes undetected.
+const HAS_REFRESH_INTERVAL: Duration = Duration::from_secs(10);
+/// The shortest time between two polls asking for `has`, so that a remote app spawning entities
+/// all the time is not asked for `has` on every poll.
+const HAS_MIN_INTERVAL: Duration = Duration::from_secs(2);
 
 /// The address of the remote app the inspector reads from.
 #[derive(Debug, Clone, PartialEq, Eq, Reflect)]
@@ -116,6 +131,7 @@ struct PendingCall {
     kind: RequestKind,
     task: Task<Result<Value, BrpClientError>>,
     started: Duration,
+    asks_has: bool,
 }
 
 /// The connection to the remote app.
@@ -131,6 +147,8 @@ pub struct RemoteConnection {
     pending: Option<PendingCall>,
     next_poll: Duration,
     detected_types: Vec<String>,
+    next_has: Duration,
+    last_has: Duration,
 }
 
 impl RemoteConnection {
@@ -149,6 +167,11 @@ impl RemoteConnection {
         self.pending.is_some()
     }
 
+    /// Whether a poll started at `now` asks for `has`.
+    fn asks_has(&self, now: Duration) -> bool {
+        now >= self.next_has
+    }
+
     fn fail(&mut self, error: String, now: Duration) {
         if !matches!(&self.state, RemoteConnectionState::Failed(previous) if *previous == error) {
             warn!("the remote inspector lost its connection: {error}");
@@ -163,6 +186,7 @@ impl RemoteConnection {
 pub struct RemoteSnapshot {
     rows: HashMap<Entity, Map<String, Value>>,
     detected: HashMap<Entity, Vec<String>>,
+    has_entities: HashSet<Entity>,
     order: Vec<Entity>,
     dirty: bool,
     revision: u64,
@@ -193,24 +217,39 @@ impl RemoteSnapshot {
             .unwrap_or_default()
     }
 
-    /// Replaces the snapshot with `rows`.
+    /// Replaces the snapshot with `rows`, which were queried with `has` if `with_has` is set.
+    ///
+    /// Without `has`, each entity keeps the detected components of the last query with `has`.
+    /// Returns whether the set of entities differs from the one that query returned.
     ///
     /// Entities with neither a serialized nor a detected component are skipped: these are the
     /// observers, systems and other internal entities whose components are not reflected.
-    fn set(&mut self, rows: BrpQueryResponse) {
+    fn set(&mut self, rows: BrpQueryResponse, with_has: bool) -> bool {
+        let entities: HashSet<Entity> = rows.iter().map(|row| row.entity).collect();
+        let changed = entities != self.has_entities;
+        if with_has {
+            self.has_entities = entities;
+        }
+        let mut previous = core::mem::take(&mut self.detected);
         self.rows.clear();
-        self.detected.clear();
         self.order.clear();
         for row in rows {
             let components = row.components;
-            let detected: Vec<String> = row
-                .has
-                .into_iter()
-                .filter(|(path, present)| {
-                    *present == Value::Bool(true) && !components.contains_key(path)
-                })
-                .map(|(path, _)| path)
-                .collect();
+            let detected: Vec<String> = if with_has {
+                row.has
+                    .into_iter()
+                    .filter(|(_, present)| *present == Value::Bool(true))
+                    .map(|(path, _)| path)
+                    .filter(|path| !components.contains_key(path))
+                    .collect()
+            } else {
+                previous
+                    .remove(&row.entity)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|path| !components.contains_key(path))
+                    .collect()
+            };
             if components.contains_key(IS_RESOURCE)
                 || (components.is_empty() && detected.is_empty())
             {
@@ -224,6 +263,7 @@ impl RemoteSnapshot {
             }
         }
         self.dirty = true;
+        changed
     }
 }
 
@@ -301,13 +341,15 @@ pub fn sync_remote_source(world: &mut World) {
     }
 
     clear_proxies(world);
-    world.resource_mut::<RemoteSnapshot>().set(Vec::new());
-    let detected_types = label_type_paths(world);
+    world.resource_mut::<RemoteSnapshot>().set(Vec::new(), true);
+    *world.resource_mut::<RemoteDetails>() = RemoteDetails::default();
+    let detected_types = unserializable_type_paths(world);
 
     let mut connection = world.resource_mut::<RemoteConnection>();
     connection.pending = None;
     connection.state = RemoteConnectionState::Disconnected;
     connection.next_poll = Duration::ZERO;
+    connection.next_has = Duration::ZERO;
     connection.client = source
         .as_ref()
         .map(|source| BrpClient::new(source.host.clone(), source.port));
@@ -359,6 +401,7 @@ pub fn poll_remote_connection(
                     connection,
                     &mut snapshot,
                     pending.kind,
+                    pending.asks_has,
                     result,
                     now,
                     elapsed,
@@ -378,14 +421,19 @@ pub fn poll_remote_connection(
         return;
     }
 
+    let asks_has = connection.asks_has(now);
     let (kind, task) = match connection.state {
-        RemoteConnectionState::Connected { .. } => (
-            RequestKind::Query,
-            client.spawn_call(
-                BRP_QUERY_METHOD,
-                Some(query_params(&connection.detected_types)),
-            ),
-        ),
+        RemoteConnectionState::Connected { .. } => {
+            let has: &[String] = if asks_has {
+                &connection.detected_types
+            } else {
+                &[]
+            };
+            (
+                RequestKind::Query,
+                client.spawn_call(BRP_QUERY_METHOD, Some(query_params(has))),
+            )
+        }
         _ => {
             if connection.state == RemoteConnectionState::Disconnected {
                 connection.state = RemoteConnectionState::Connecting;
@@ -400,18 +448,20 @@ pub fn poll_remote_connection(
         kind,
         task,
         started: now,
+        asks_has,
     });
 }
 
-/// The type paths of the label-defining components registered locally for reflection.
+/// The type paths of the components registered locally for reflection that cannot be
+/// serialized, such as those holding a `Handle`. Resources are left out, since they are not
+/// queried.
 ///
-/// These are asked for with `has`, so that a label-defining component the remote app fails to
-/// serialize, such as one holding a `Handle`, still labels its entity.
-fn label_type_paths(world: &World) -> Vec<String> {
-    let (Some(registry), Some(priorities)) = (
-        world.get_resource::<AppTypeRegistry>(),
-        world.get_resource::<LabelResolutionRegistry>(),
-    ) else {
+/// `world.query` leaves these out of its results, so they are asked for with `has` instead. This
+/// lets them label their entity and appear in the details panel. Since `has` reports every type
+/// for every entity, it is only asked for when the remote entities change, at most every
+/// [`HAS_MIN_INTERVAL`], and otherwise every [`HAS_REFRESH_INTERVAL`].
+fn unserializable_type_paths(world: &World) -> Vec<String> {
+    let Some(registry) = world.get_resource::<AppTypeRegistry>() else {
         return Vec::new();
     };
     let registry = registry.read();
@@ -419,14 +469,76 @@ fn label_type_paths(world: &World) -> Vec<String> {
         .iter()
         .filter(|registration| {
             registration.data::<ReflectComponent>().is_some()
-                && priorities
-                    .get_priority_by_type_id(registration.type_id())
-                    .is_some()
+                && registration.data::<ReflectResource>().is_none()
+                && !serializable(
+                    &registry,
+                    Some(registration.type_info()),
+                    &mut HashSet::new(),
+                )
         })
         .map(|registration| registration.type_info().type_path().to_string())
         .collect();
     paths.sort_unstable();
     paths
+}
+
+/// Whether values of the type described by `info` can be serialized through reflection.
+///
+/// Types the walk cannot see into, such as fields without type information, count as not
+/// serializable.
+fn serializable(
+    registry: &TypeRegistry,
+    info: Option<&TypeInfo>,
+    visiting: &mut HashSet<TypeId>,
+) -> bool {
+    let Some(info) = info else {
+        return false;
+    };
+    let type_id = info.type_id();
+    if registry
+        .get_type_data::<ReflectSerialize>(type_id)
+        .is_some()
+        || registry
+            .get_type_data::<ReflectSerializeWithRegistry>(type_id)
+            .is_some()
+        || !visiting.insert(type_id)
+    {
+        return true;
+    }
+    let result = match info {
+        TypeInfo::Struct(info) => info
+            .iter()
+            .all(|field| serializable(registry, field.type_info(), visiting)),
+        TypeInfo::TupleStruct(info) => info
+            .iter()
+            .all(|field| serializable(registry, field.type_info(), visiting)),
+        TypeInfo::Tuple(info) => info
+            .iter()
+            .all(|field| serializable(registry, field.type_info(), visiting)),
+        TypeInfo::List(info) => serializable(registry, info.item_info(), visiting),
+        TypeInfo::Array(info) => serializable(registry, info.item_info(), visiting),
+        TypeInfo::Map(info) => {
+            serializable(registry, info.key_info(), visiting)
+                && serializable(registry, info.value_info(), visiting)
+        }
+        TypeInfo::Set(info) => serializable(
+            registry,
+            registry.get_type_info(info.value_ty().id()),
+            visiting,
+        ),
+        TypeInfo::Enum(info) => info.iter().all(|variant| match variant {
+            VariantInfo::Struct(variant) => variant
+                .iter()
+                .all(|field| serializable(registry, field.type_info(), visiting)),
+            VariantInfo::Tuple(variant) => variant
+                .iter()
+                .all(|field| serializable(registry, field.type_info(), visiting)),
+            VariantInfo::Unit(_) => true,
+        }),
+        TypeInfo::Opaque(_) => false,
+    };
+    visiting.remove(&type_id);
+    result
 }
 
 fn query_params(has: &[String]) -> Value {
@@ -449,6 +561,7 @@ fn finish_call(
     connection: &mut RemoteConnection,
     snapshot: &mut RemoteSnapshot,
     kind: RequestKind,
+    asked_has: bool,
     result: Result<Value, BrpClientError>,
     now: Duration,
     elapsed: Duration,
@@ -473,12 +586,21 @@ fn finish_call(
                     bevy_version: info.bevy_version,
                 };
                 connection.next_poll = now;
+                connection.next_has = now;
             }
             Err(error) => connection.fail(error.to_string(), now),
         },
         RequestKind::Query => match serde_json::from_value::<BrpQueryResponse>(value) {
             Ok(rows) => {
-                snapshot.set(rows);
+                let changed = snapshot.set(rows, asked_has);
+                if asked_has {
+                    connection.last_has = now;
+                    connection.next_has = now + HAS_REFRESH_INTERVAL;
+                } else if changed {
+                    connection.next_has = connection
+                        .next_has
+                        .min(connection.last_has + HAS_MIN_INTERVAL);
+                }
                 connection.next_poll = now + POLL_INTERVAL.max(elapsed * 2);
             }
             Err(error) => connection.fail(error.to_string(), now),
@@ -665,6 +787,7 @@ mod tests {
         world.init_resource::<RemoteConnection>();
         world.init_resource::<RemoteProxyIndex>();
         world.init_resource::<RemoteSnapshot>();
+        world.init_resource::<RemoteDetails>();
         world.init_resource::<EntityTreeSync>();
         world.init_resource::<DetailsPanelSync>();
         world
@@ -680,8 +803,9 @@ mod tests {
 
     pub(crate) fn apply(world: &mut World, rows: Vec<Value>) {
         let rows: BrpQueryResponse = serde_json::from_value(Value::Array(rows)).unwrap();
-        world.resource_mut::<RemoteSnapshot>().set(rows);
+        world.resource_mut::<RemoteSnapshot>().set(rows, true);
         apply_remote_snapshot(world);
+        details::sync_remote_details(world);
     }
 
     pub(crate) fn proxy(world: &World, remote: Entity) -> Entity {
@@ -755,12 +879,35 @@ mod tests {
         world
     }
 
+    #[derive(Reflect, Clone)]
+    #[reflect(opaque)]
+    struct Opaque;
+
+    #[derive(Component, Reflect)]
+    #[reflect(Component)]
+    struct Holder {
+        inner: Option<Opaque>,
+    }
+
+    #[derive(Component, Reflect)]
+    #[reflect(Component)]
+    struct Plain {
+        value: f32,
+        names: Vec<String>,
+    }
+
     #[test]
-    fn asks_for_the_reflected_label_defining_components() {
+    fn asks_for_the_reflected_components_that_cannot_be_serialized() {
         let world = label_world();
+        {
+            let registry = world.resource::<AppTypeRegistry>();
+            let mut registry = registry.write();
+            registry.register::<Holder>();
+            registry.register::<Plain>();
+        }
         assert_eq!(
-            label_type_paths(&world),
-            alloc::vec![Labelled::type_path().to_string()]
+            unserializable_type_paths(&world),
+            alloc::vec![Holder::type_path().to_string()]
         );
     }
 
@@ -893,6 +1040,7 @@ mod tests {
             &mut connection,
             &mut snapshot,
             RequestKind::Query,
+            true,
             Err(BrpClientError::InvalidResponse("refused".to_string())),
             now,
             Duration::ZERO,
@@ -904,6 +1052,7 @@ mod tests {
             &mut connection,
             &mut snapshot,
             RequestKind::Info,
+            false,
             Ok(json!({ "app_name": "demo", "bevy_version": "0.20.0-dev", "sub_app": "main" })),
             now,
             Duration::ZERO,
@@ -917,6 +1066,115 @@ mod tests {
         );
     }
 
+    fn query(
+        connection: &mut RemoteConnection,
+        snapshot: &mut RemoteSnapshot,
+        rows: Value,
+        now: Duration,
+    ) {
+        let asks_has = connection.asks_has(now);
+        finish_call(
+            connection,
+            snapshot,
+            RequestKind::Query,
+            asks_has,
+            Ok(rows),
+            now,
+            Duration::ZERO,
+        );
+    }
+
+    #[test]
+    fn asks_for_has_only_when_the_remote_entities_change() {
+        let mut connection = RemoteConnection::default();
+        let mut snapshot = RemoteSnapshot::default();
+        let path = "demo::Handled";
+        let start = Duration::from_secs(1);
+        let mut now = start;
+        assert!(connection.asks_has(now));
+        query(
+            &mut connection,
+            &mut snapshot,
+            json!([{ "entity": remote(1), "components": {}, "has": { path: true } }]),
+            now,
+        );
+
+        now += POLL_INTERVAL;
+        assert!(!connection.asks_has(now));
+        query(
+            &mut connection,
+            &mut snapshot,
+            json!([row(remote(1), json!({}))]),
+            now,
+        );
+        assert_eq!(snapshot.detected(remote(1)), [path]);
+        assert_eq!(snapshot.len(), 1);
+
+        now += POLL_INTERVAL;
+        assert!(!connection.asks_has(now));
+        query(
+            &mut connection,
+            &mut snapshot,
+            json!([
+                row(remote(1), json!({})),
+                row(remote(2), json!({ NAME: "New" }))
+            ]),
+            now,
+        );
+        assert_eq!(snapshot.detected(remote(1)), [path]);
+
+        assert!(!connection.asks_has(now + POLL_INTERVAL));
+        now = start + HAS_MIN_INTERVAL;
+        assert!(connection.asks_has(now));
+        query(
+            &mut connection,
+            &mut snapshot,
+            json!([
+                { "entity": remote(1), "components": {}, "has": { path: true } },
+                { "entity": remote(2), "components": { NAME: "New" }, "has": { path: false } },
+            ]),
+            now,
+        );
+        assert!(!connection.asks_has(now + POLL_INTERVAL));
+    }
+
+    #[test]
+    fn asks_for_has_again_after_the_refresh_interval() {
+        let mut connection = RemoteConnection::default();
+        let mut snapshot = RemoteSnapshot::default();
+        let start = Duration::from_secs(1);
+        let rows = json!([row(remote(1), json!({ NAME: "A" }))]);
+        query(&mut connection, &mut snapshot, rows.clone(), start);
+
+        let mut now = start;
+        while now + POLL_INTERVAL < start + HAS_REFRESH_INTERVAL {
+            now += POLL_INTERVAL;
+            assert!(!connection.asks_has(now));
+            query(&mut connection, &mut snapshot, rows.clone(), now);
+        }
+        assert!(connection.asks_has(start + HAS_REFRESH_INTERVAL));
+    }
+
+    #[test]
+    fn a_new_connection_asks_for_has() {
+        let mut connection = RemoteConnection::default();
+        let mut snapshot = RemoteSnapshot::default();
+        let now = Duration::from_secs(1);
+        query(&mut connection, &mut snapshot, json!([]), now);
+        assert!(!connection.asks_has(now));
+
+        finish_call(
+            &mut connection,
+            &mut snapshot,
+            RequestKind::Info,
+            false,
+            Ok(json!({ "app_name": "demo", "bevy_version": "0.20.0-dev", "sub_app": "main" })),
+            now,
+            Duration::ZERO,
+        );
+        assert!(connection.asks_has(now));
+    }
+
     #[test]
     fn slow_answers_stretch_the_poll_interval() {
         let mut connection = RemoteConnection::default();
@@ -926,6 +1184,7 @@ mod tests {
             &mut connection,
             &mut snapshot,
             RequestKind::Query,
+            true,
             Ok(json!([])),
             now,
             Duration::from_secs(1),
