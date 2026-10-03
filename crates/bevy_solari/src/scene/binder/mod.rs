@@ -16,7 +16,7 @@ use self::lights::LightState;
 use self::tlas::TlasState;
 pub use self::tlas::{build_raytracing_tlas, TlasInstanceSetupPipeline};
 use super::{
-    blas::BlasManager,
+    blas::{BlasKey, BlasManager, BlasOpacity},
     extract::{
         ExtractedRaytracingDirectionalLight, ExtractedRaytracingPointLight,
         ExtractedRaytracingRectLight, ExtractedRaytracingSpotLight, StandardMaterialAssets,
