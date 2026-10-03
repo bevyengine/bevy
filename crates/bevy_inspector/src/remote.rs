@@ -130,6 +130,7 @@ pub struct RemoteConnection {
     client: Option<BrpClient>,
     pending: Option<PendingCall>,
     next_poll: Duration,
+    detected_types: Vec<String>,
 }
 
 impl RemoteConnection {
@@ -161,6 +162,7 @@ impl RemoteConnection {
 #[derive(Resource, Debug, Default)]
 pub struct RemoteSnapshot {
     rows: HashMap<Entity, Map<String, Value>>,
+    detected: HashMap<Entity, Vec<String>>,
     order: Vec<Entity>,
     dirty: bool,
     revision: u64,
@@ -182,16 +184,44 @@ impl RemoteSnapshot {
         self.order.is_empty()
     }
 
+    /// The type paths of the components `remote` holds that `world.query` reported through `has`
+    /// but did not serialize.
+    pub fn detected(&self, remote: Entity) -> &[String] {
+        self.detected
+            .get(&remote)
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+    }
+
+    /// Replaces the snapshot with `rows`.
+    ///
+    /// Entities with neither a serialized nor a detected component are skipped: these are the
+    /// observers, systems and other internal entities whose components are not reflected.
     fn set(&mut self, rows: BrpQueryResponse) {
         self.rows.clear();
+        self.detected.clear();
         self.order.clear();
         for row in rows {
-            if row.components.contains_key(IS_RESOURCE) || row.components.is_empty() {
+            let components = row.components;
+            let detected: Vec<String> = row
+                .has
+                .into_iter()
+                .filter(|(path, present)| {
+                    *present == Value::Bool(true) && !components.contains_key(path)
+                })
+                .map(|(path, _)| path)
+                .collect();
+            if components.contains_key(IS_RESOURCE)
+                || (components.is_empty() && detected.is_empty())
+            {
                 continue;
             }
             self.order.push(row.entity);
             self.rows
-                .insert(row.entity, row.components.into_iter().collect());
+                .insert(row.entity, components.into_iter().collect());
+            if !detected.is_empty() {
+                self.detected.insert(row.entity, detected);
+            }
         }
         self.dirty = true;
     }
@@ -272,6 +302,7 @@ pub fn sync_remote_source(world: &mut World) {
 
     clear_proxies(world);
     world.resource_mut::<RemoteSnapshot>().set(Vec::new());
+    let detected_types = label_type_paths(world);
 
     let mut connection = world.resource_mut::<RemoteConnection>();
     connection.pending = None;
@@ -281,6 +312,7 @@ pub fn sync_remote_source(world: &mut World) {
         .as_ref()
         .map(|source| BrpClient::new(source.host.clone(), source.port));
     connection.source = source;
+    connection.detected_types = detected_types;
 
     world.resource_mut::<EntityTreeSync>().set_dirty();
     world.resource_mut::<DetailsPanelSync>().set_dirty();
@@ -349,7 +381,10 @@ pub fn poll_remote_connection(
     let (kind, task) = match connection.state {
         RemoteConnectionState::Connected { .. } => (
             RequestKind::Query,
-            client.spawn_call(BRP_QUERY_METHOD, Some(query_params())),
+            client.spawn_call(
+                BRP_QUERY_METHOD,
+                Some(query_params(&connection.detected_types)),
+            ),
         ),
         _ => {
             if connection.state == RemoteConnectionState::Disconnected {
@@ -368,12 +403,38 @@ pub fn poll_remote_connection(
     });
 }
 
-fn query_params() -> Value {
+/// The type paths of the label-defining components registered locally for reflection.
+///
+/// These are asked for with `has`, so that a label-defining component the remote app fails to
+/// serialize, such as one holding a `Handle`, still labels its entity.
+fn label_type_paths(world: &World) -> Vec<String> {
+    let (Some(registry), Some(priorities)) = (
+        world.get_resource::<AppTypeRegistry>(),
+        world.get_resource::<LabelResolutionRegistry>(),
+    ) else {
+        return Vec::new();
+    };
+    let registry = registry.read();
+    let mut paths: Vec<String> = registry
+        .iter()
+        .filter(|registration| {
+            registration.data::<ReflectComponent>().is_some()
+                && priorities
+                    .get_priority_by_type_id(registration.type_id())
+                    .is_some()
+        })
+        .map(|registration| registration.type_info().type_path().to_string())
+        .collect();
+    paths.sort_unstable();
+    paths
+}
+
+fn query_params(has: &[String]) -> Value {
     let params = BrpQueryParams {
         data: BrpQuery {
             components: Vec::new(),
             option: ComponentSelector::All,
-            has: Vec::new(),
+            has: has.to_vec(),
         },
         filter: BrpQueryFilter {
             without: alloc::vec![IS_RESOURCE.to_string()],
@@ -525,8 +586,14 @@ fn apply_labels(world: &mut World, snapshot: &RemoteSnapshot) {
         let Some(proxy) = world.resource::<RemoteProxyIndex>().proxy(*remote) else {
             continue;
         };
-        let label = remote_label(world, &registry, proxy, &snapshot.rows[remote])
-            .unwrap_or_else(|| remote.to_string());
+        let label = remote_label(
+            world,
+            &registry,
+            proxy,
+            &snapshot.rows[remote],
+            snapshot.detected(*remote),
+        )
+        .unwrap_or_else(|| remote.to_string());
         if world
             .get::<RemoteLabel>(proxy)
             .map(|label| label.0.as_str())
@@ -538,7 +605,8 @@ fn apply_labels(world: &mut World, snapshot: &RemoteSnapshot) {
 }
 
 /// Resolves the label of a remote entity the way the local tree does: its [`Name`], or else the
-/// label-defining components it holds that are registered locally.
+/// label-defining components it holds that are registered locally, whether serialized in
+/// `components` or only `detected`.
 ///
 /// [`Name`]: bevy_ecs::name::Name
 fn remote_label(
@@ -546,6 +614,7 @@ fn remote_label(
     registry: &TypeRegistry,
     proxy: Entity,
     components: &Map<String, Value>,
+    detected: &[String],
 ) -> Option<String> {
     if let Some(name) = components.get(NAME).and_then(Value::as_str) {
         return Some(name.to_string());
@@ -553,6 +622,7 @@ fn remote_label(
     let priorities = world.get_resource::<LabelResolutionRegistry>()?;
     let labels: Vec<(&str, _)> = components
         .keys()
+        .chain(detected)
         .filter_map(|type_path| {
             let registration = registry.get_with_type_path(type_path)?;
             let priority = priorities.get_priority_by_type_id(registration.type_id())?;
@@ -576,8 +646,9 @@ fn remote_label(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_dev_tools::inspection::label_resolution::LabelDefinitionPriority;
     use bevy_ecs::name::Name;
-    use bevy_reflect::TypeRegistryArc;
+    use bevy_reflect::{TypePath, TypeRegistryArc};
     use serde_json::json;
 
     pub(crate) fn test_world() -> World {
@@ -660,6 +731,72 @@ mod tests {
             proxy_label(&world, proxy(&world, remote(7))).as_deref(),
             Some("7v0")
         );
+    }
+
+    #[derive(Component, Reflect)]
+    #[reflect(Component)]
+    struct Labelled;
+
+    #[derive(Component, Reflect)]
+    struct Unreflected;
+
+    fn label_world() -> World {
+        let mut world = test_world();
+        {
+            let registry = world.resource::<AppTypeRegistry>();
+            let mut registry = registry.write();
+            registry.register::<Labelled>();
+            registry.register::<Unreflected>();
+        }
+        let mut priorities = LabelResolutionRegistry::new();
+        priorities.register_label_defining_type::<Labelled>(LabelDefinitionPriority::LIBRARY);
+        priorities.register_label_defining_type::<Unreflected>(LabelDefinitionPriority::LIBRARY);
+        world.insert_resource(priorities);
+        world
+    }
+
+    #[test]
+    fn asks_for_the_reflected_label_defining_components() {
+        let world = label_world();
+        assert_eq!(
+            label_type_paths(&world),
+            alloc::vec![Labelled::type_path().to_string()]
+        );
+    }
+
+    #[test]
+    fn labels_entities_with_components_only_reported_by_has() {
+        let mut world = label_world();
+        let path = Labelled::type_path();
+        apply(
+            &mut world,
+            alloc::vec![json!({
+                "entity": remote(3),
+                "components": {},
+                "has": { path: true },
+            })],
+        );
+        assert_eq!(
+            proxy_label(&world, proxy(&world, remote(3))).as_deref(),
+            Some("Labelled")
+        );
+    }
+
+    #[test]
+    fn skips_entities_without_a_reflected_or_detected_component() {
+        let mut world = label_world();
+        let path = Labelled::type_path();
+        apply(
+            &mut world,
+            alloc::vec![
+                json!({ "entity": remote(1), "components": {}, "has": { path: false } }),
+                row(remote(2), json!({ IS_RESOURCE: {}, NAME: "Resource" })),
+                row(remote(3), json!({ NAME: "Shown" })),
+            ],
+        );
+        let index = world.resource::<RemoteProxyIndex>();
+        assert_eq!(index.len(), 1);
+        assert!(index.proxy(remote(3)).is_some());
     }
 
     #[test]
