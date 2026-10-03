@@ -88,6 +88,17 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
 #[reflect(Component, Default, PartialEq, Hash, Debug)]
 pub struct Hdr;
 
+/// Moves a camera's tonemapping from its material shader to a separate tonemapping pass.
+///
+/// This adds an `Rgba16Float` main texture and one fullscreen pass. That is generally
+/// cheap on desktop, but expensive on mobile. In return, the pass also tonemaps gizmos
+/// and custom materials that don't tonemap themselves, and effects that read the main
+/// texture before tonemapping get values that aren't tonemapped yet. Depth of field and
+/// motion blur require this component. Cameras that share a render target ignore it.
+#[derive(Component, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash, Debug)]
+#[reflect(Component, Default, PartialEq, Hash, Debug)]
+pub struct TonemappingPass;
+
 /// Color space for alpha compositing. Affects how overlapping semi-transparent layers blend.
 #[derive(Component, Copy, Clone, Reflect, PartialEq, Eq, Hash, Debug, Default)]
 #[reflect(Component, PartialEq, Hash, Debug, Default)]
