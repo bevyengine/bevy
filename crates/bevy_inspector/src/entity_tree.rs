@@ -27,7 +27,7 @@ use bevy_feathers::{
     display::caption,
 };
 use bevy_log::warn;
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, WorldSceneExt};
 use bevy_time::{Time, Timer, TimerMode};
@@ -284,8 +284,9 @@ fn diff_container(world: &World, container: Entity, expected: &[Entity], plan: &
         }
     }
 
+    let expected_set: HashSet<Entity> = expected.iter().copied().collect();
     for (source, row) in existing.iter() {
-        if !expected.contains(source) {
+        if !expected_set.contains(source) {
             plan.despawn.push(*row);
         }
     }
@@ -592,6 +593,35 @@ mod tests {
         let sources = row_sources(app.world(), tree);
         assert!(sources.contains(&local));
         assert!(!sources.contains(&stray));
+    }
+
+    #[test]
+    fn diffs_many_rows_against_the_expected_set() {
+        let mut app = test_app();
+        let panel = app.world_mut().spawn(InspectorUi).id();
+        let tree = app
+            .world_mut()
+            .spawn((InspectorTreeView, ChildOf(panel)))
+            .id();
+        let roots: Vec<Entity> = (0..500)
+            .map(|index| app.world_mut().spawn(Name::new(format!("{index}"))).id())
+            .collect();
+        app.update();
+        assert_eq!(row_sources(app.world(), tree).len(), 501);
+
+        for root in roots.iter().step_by(2) {
+            app.world_mut().entity_mut(*root).despawn();
+        }
+        app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
+        app.update();
+
+        let sources = row_sources(app.world(), tree);
+        assert_eq!(sources.len(), 251);
+        assert!(roots
+            .iter()
+            .skip(1)
+            .step_by(2)
+            .all(|root| sources.contains(root)));
     }
 
     #[test]
