@@ -225,5 +225,28 @@ fn layout(c: &mut Criterion) {
                 app.update();
             });
         });
+
+        group.bench_function(
+            BenchmarkId::new("update_single_leaf", layout.label()),
+            |b| {
+                let mut app = setup_app();
+                let mut leaf = spawn_layout(app.world_mut(), true, layout.nodes, layout.depth);
+                while let Some(children) = app.world().get::<Children>(leaf) {
+                    leaf = children[0];
+                }
+                for _ in 1..layout.roots {
+                    spawn_layout(app.world_mut(), true, layout.nodes, layout.depth);
+                }
+                app.update();
+                app.update();
+                b.iter(|| {
+                    let mut node = app.world_mut().get_mut::<Node>(leaf).unwrap();
+                    let length = if node.width == px(1) { px(2) } else { px(1) };
+                    node.width = length;
+                    node.height = length;
+                    app.update();
+                });
+            },
+        );
     }
 }
