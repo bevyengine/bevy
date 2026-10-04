@@ -124,7 +124,7 @@ struct GenerateRandomLightSampleResult {
 fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> LightContribution {
     let sample = generate_random_light_sample(rng);
     var light_contribution = calculate_resolved_light_contribution(sample.resolved_light_sample, ray_origin, origin_world_normal);
-    light_contribution.radiance *= trace_visibility(ray_origin, sample.resolved_light_sample.world_position);
+    light_contribution.radiance *= trace_visibility(ray_origin, sample.resolved_light_sample.world_position, RAY_FLAG_NONE);
     return light_contribution;
 }
 
@@ -224,7 +224,7 @@ fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSam
     return LightContribution(radiance, resolved_light_sample.inverse_pdf, inverse_solid_angle_pdf, wi, resolved_light_sample.world_position.w == 1.0);
 }
 
-fn trace_visibility(ray_origin: vec3<f32>, point: vec4<f32>) -> f32 {
+fn trace_visibility(ray_origin: vec3<f32>, point: vec4<f32>, ray_flag: u32) -> f32 {
     var ray_direction = point.xyz;
     var ray_t_max = RAY_T_MAX;
 
@@ -237,7 +237,7 @@ fn trace_visibility(ray_origin: vec3<f32>, point: vec4<f32>) -> f32 {
 
     if ray_t_max < RAY_T_MIN { return 0.0; }
 
-    let ray_hit = trace_ray(ray_origin, ray_direction, RAY_T_MIN, ray_t_max, RAY_FLAG_TERMINATE_ON_FIRST_HIT);
+    let ray_hit = trace_ray(ray_origin, ray_direction, RAY_T_MIN, ray_t_max, ray_flag | RAY_FLAG_TERMINATE_ON_FIRST_HIT);
     return f32(ray_hit.kind == RAY_QUERY_INTERSECTION_NONE);
 }
 
