@@ -10,6 +10,9 @@ use crate::light_consts;
 ///
 /// The rectangle lies in the XY plane of the entity's local coordinate frame
 /// and faces the local -Z direction.
+/// Its width and height are scaled by the transform's local X and Y axes.
+/// A zero width, height, X scale, or Y scale disables the light until its area
+/// becomes nonzero again. The Z scale does not affect the rectangle.
 ///
 /// Shadow maps are currently unsupported, objects illuminated by a
 /// ``RectLight`` will not cast shadows.
