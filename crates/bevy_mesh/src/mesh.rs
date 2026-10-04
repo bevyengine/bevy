@@ -526,6 +526,21 @@ impl Mesh {
         self.attributes
             .as_mut()?
             .insert(attribute.id, MeshAttributeData { attribute, values });
+
+        // A compression flag only applies while its attribute is in the compressed format.
+        if let Some((flag, format)) = MeshAttributeCompressionFlags::for_attribute(attribute.id)
+            && values_format != format
+            && self.attribute_compression.contains(flag)
+        {
+            self.attribute_compression -= flag;
+            if flag == MeshAttributeCompressionFlags::COMPRESS_POSITION {
+                self.final_aabb = None;
+            } else if flag == MeshAttributeCompressionFlags::COMPRESS_UV0 {
+                self.final_uv_ranges[0] = None;
+            } else if flag == MeshAttributeCompressionFlags::COMPRESS_UV1 {
+                self.final_uv_ranges[1] = None;
+            }
+        }
         Ok(())
     }
 
@@ -1143,25 +1158,29 @@ impl Mesh {
         }
     }
 
-    /// Converts compressed attributes back to floats and clears their
-    /// [`MeshAttributeCompressionFlags`]. Uncompressed attributes are unchanged.
+    /// Converts the compressed attributes among `attributes` back to floats and clears their
+    /// [`MeshAttributeCompressionFlags`]. Other attributes are unchanged.
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
-    pub fn decompress_attributes(&mut self) -> &mut Mesh {
+    pub fn decompress_attributes(
+        &mut self,
+        attributes: MeshAttributeCompressionFlags,
+    ) -> &mut Mesh {
         use MeshAttributeCompressionFlags as Flags;
 
+        let compressed = self.attribute_compression & attributes;
         let positions = self
             .decoded_positions()
-            .filter(|positions| matches!(positions, DecodedPositions::Compressed { .. }))
+            .filter(|_| compressed.contains(Flags::COMPRESS_POSITION))
             .map(|positions| positions.iter().map(|p| p.to_array()).collect::<Vec<_>>());
         let normals = self
             .decoded_normals()
-            .filter(|normals| matches!(normals, DecodedNormals::Compressed(_)))
+            .filter(|_| compressed.contains(Flags::COMPRESS_NORMAL))
             .map(|normals| normals.iter().map(|n| n.to_array()).collect::<Vec<_>>());
         let tangents = match self.attribute(Mesh::ATTRIBUTE_TANGENT) {
             Some(VertexAttributeValues::Snorm16x2(tangents))
-                if self.attribute_compression.contains(Flags::COMPRESS_TANGENT) =>
+                if compressed.contains(Flags::COMPRESS_TANGENT) =>
             {
                 Some(
                     tangents
@@ -1173,8 +1192,9 @@ impl Mesh {
             _ => None,
         };
         let uvs = [UvChannel::Uv0, UvChannel::Uv1].map(|channel| {
+            let (flag, _) = Flags::for_attribute(channel.attribute().id)?;
             self.decoded_uvs(channel)
-                .filter(|uvs| matches!(uvs, DecodedUvs::Compressed(..)))
+                .filter(|_| compressed.contains(flag))
                 .map(|uvs| uvs.iter().map(|uv| uv.to_array()).collect::<Vec<_>>())
         });
 
@@ -1192,9 +1212,43 @@ impl Mesh {
                 self.insert_attribute(channel.attribute(), uvs);
             }
         }
-        self.attribute_compression = Flags::empty();
-        self.final_uv_ranges = [None; 2];
         self
+    }
+
+    /// Runs `edit` with the compressed attributes among `attributes` decompressed, and compresses
+    /// them again afterwards.
+    fn edit_decompressed<E: From<MeshAccessError>>(
+        &mut self,
+        attributes: MeshAttributeCompressionFlags,
+        edit: impl FnOnce(&mut Self) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let compressed = self.attribute_compression & attributes;
+        if compressed.is_empty() {
+            return edit(self);
+        }
+        // Return extracted meshes as an error before `decompress_attributes` would panic.
+        self.attributes.as_ref()?;
+        self.decompress_attributes(compressed);
+        edit(self)?;
+        self.compress_mesh(&MeshCompressionArgs {
+            compress_attributes: compressed,
+            ..MeshCompressionArgs::none()
+        })
+        .expect("attributes that were compressed compress again");
+        Ok(())
+    }
+
+    /// Moves compressed positions by scaling, then translating, the AABB they are encoded
+    /// against. This is exact. `scale` must be positive on every axis.
+    fn scale_translate_compressed_positions(&mut self, scale: Vec3, translation: Vec3) {
+        if self
+            .attribute_compression
+            .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            && let Some(aabb) = &mut self.final_aabb
+        {
+            aabb.min = aabb.min * Vec3A::from(scale) + Vec3A::from(translation);
+            aabb.max = aabb.max * Vec3A::from(scale) + Vec3A::from(translation);
+        }
     }
 
     /// Compresses `attribute` with `encode` and `insert`, unless it is already compressed.
@@ -2220,10 +2274,14 @@ impl Mesh {
             "smooth normals can only be computed on indexed meshes"
         );
 
-        let positions = self
-            .try_attribute(Mesh::ATTRIBUTE_POSITION)?
-            .as_float3()
-            .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
+        self.try_attribute(Mesh::ATTRIBUTE_POSITION)?;
+        let positions: Cow<[[f32; 3]]> = match self.decoded_positions().expect(
+            "`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3` or compressed",
+        ) {
+            DecodedPositions::Float(positions) => Cow::Borrowed(positions),
+            positions => Cow::Owned(positions.iter().map(|p| p.to_array()).collect()),
+        };
+        let positions = positions.as_ref();
 
         let mut normals = vec![Vec3::ZERO; positions.len()];
 
@@ -2415,6 +2473,22 @@ impl Mesh {
     ///   [`VertexAttributeValues::Float32x3`], would be invalid.
     /// * Both meshes must have the same primitive topology.
     pub fn merge(&mut self, other: &Mesh) -> Result<(), MeshMergeError> {
+        // Compressed attributes of each mesh are encoded against its own ranges, so they merge
+        // as floats.
+        let other = if other.attribute_compression.is_empty() {
+            Cow::Borrowed(other)
+        } else {
+            let mut other = other.clone();
+            other.attributes.as_ref()?;
+            other.decompress_attributes(MeshAttributeCompressionFlags::all());
+            Cow::Owned(other)
+        };
+        self.edit_decompressed(MeshAttributeCompressionFlags::all(), |mesh| {
+            mesh.merge_floats(&other)
+        })
+    }
+
+    fn merge_floats(&mut self, other: &Mesh) -> Result<(), MeshMergeError> {
         use VertexAttributeValues::*;
 
         // Check if the meshes `primitive_topology` field is the same,
@@ -2523,6 +2597,24 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn try_transform_by(&mut self, transform: Transform) -> Result<(), MeshAccessError> {
+        self.attributes.as_ref()?;
+        let mut attributes = MeshAttributeCompressionFlags::empty();
+        if transform.rotation == Quat::IDENTITY && transform.scale.cmpgt(Vec3::ZERO).all() {
+            self.scale_translate_compressed_positions(transform.scale, transform.translation);
+        } else {
+            attributes |= MeshAttributeCompressionFlags::COMPRESS_POSITION;
+        }
+        if !transform.rotation.is_near_identity()
+            || transform.scale.x != transform.scale.y
+            || transform.scale.y != transform.scale.z
+        {
+            attributes |= MeshAttributeCompressionFlags::COMPRESS_NORMAL
+                | MeshAttributeCompressionFlags::COMPRESS_TANGENT;
+        }
+        self.edit_decompressed(attributes, |mesh| mesh.transform_by_floats(transform))
+    }
+
+    fn transform_by_floats(&mut self, transform: Transform) -> Result<(), MeshAccessError> {
         // Needed when transforming normals and tangents
         let scale_recip = 1. / transform.scale;
         debug_assert!(
@@ -2610,6 +2702,12 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn try_translate_by(&mut self, translation: Vec3) -> Result<(), MeshAccessError> {
+        self.attributes.as_ref()?;
+        self.scale_translate_compressed_positions(Vec3::ONE, translation);
+        self.translate_by_floats(translation)
+    }
+
+    fn translate_by_floats(&mut self, translation: Vec3) -> Result<(), MeshAccessError> {
         if translation == Vec3::ZERO {
             return Ok(());
         }
@@ -2661,6 +2759,15 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn try_rotate_by(&mut self, rotation: Quat) -> Result<(), MeshAccessError> {
+        let mut attributes = MeshAttributeCompressionFlags::COMPRESS_POSITION;
+        if !rotation.is_near_identity() {
+            attributes |= MeshAttributeCompressionFlags::COMPRESS_NORMAL
+                | MeshAttributeCompressionFlags::COMPRESS_TANGENT;
+        }
+        self.edit_decompressed(attributes, |mesh| mesh.rotate_by_floats(rotation))
+    }
+
+    fn rotate_by_floats(&mut self, rotation: Quat) -> Result<(), MeshAccessError> {
         if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.try_attribute_mut_option(Mesh::ATTRIBUTE_POSITION)?
         {
@@ -2734,6 +2841,21 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn try_scale_by(&mut self, scale: Vec3) -> Result<(), MeshAccessError> {
+        self.attributes.as_ref()?;
+        let mut attributes = MeshAttributeCompressionFlags::empty();
+        if scale.cmpgt(Vec3::ZERO).all() {
+            self.scale_translate_compressed_positions(scale, Vec3::ZERO);
+        } else {
+            attributes |= MeshAttributeCompressionFlags::COMPRESS_POSITION;
+        }
+        if scale.x != scale.y || scale.y != scale.z {
+            attributes |= MeshAttributeCompressionFlags::COMPRESS_NORMAL
+                | MeshAttributeCompressionFlags::COMPRESS_TANGENT;
+        }
+        self.edit_decompressed(attributes, |mesh| mesh.scale_by_floats(scale))
+    }
+
+    fn scale_by_floats(&mut self, scale: Vec3) -> Result<(), MeshAccessError> {
         // Needed when transforming normals and tangents
         let scale_recip = 1. / scale;
         debug_assert!(
@@ -4209,7 +4331,7 @@ mod tests {
             ..MeshCompressionArgs::none()
         })
         .unwrap();
-        mesh.decompress_attributes();
+        mesh.decompress_attributes(MeshAttributeCompressionFlags::all());
 
         assert_eq!(
             mesh.attribute_compression,
@@ -4255,6 +4377,139 @@ mod tests {
                 .map(|&uv| Vec2::from(uv).extend(0.0).extend(0.0))
                 .collect(),
         );
+    }
+
+    fn compressed_vector_mesh(positions: Vec<[f32; 3]>) -> Mesh {
+        use crate::MeshCompressionArgs;
+
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_NORMAL,
+            vec![[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_TANGENT,
+            vec![
+                [1.0, 0.0, 0.0, 1.0],
+                [0.0, 0.0, 1.0, -1.0],
+                [0.0, 1.0, 0.0, 1.0],
+            ],
+        )
+        .compressed_mesh(&MeshCompressionArgs {
+            compress_attributes: MeshAttributeCompressionFlags::all(),
+            ..MeshCompressionArgs::none()
+        })
+        .unwrap()
+    }
+
+    /// Asserts that `actual` and `expected` hold the same float positions, normals and
+    /// tangents within `tolerance`.
+    fn assert_vectors_near(actual: &Mesh, expected: &Mesh, tolerance: f32) {
+        let (mut actual, mut expected) = (actual.clone(), expected.clone());
+        actual.decompress_attributes(MeshAttributeCompressionFlags::all());
+        expected.decompress_attributes(MeshAttributeCompressionFlags::all());
+        for id in [
+            Mesh::ATTRIBUTE_POSITION.id,
+            Mesh::ATTRIBUTE_NORMAL.id,
+            Mesh::ATTRIBUTE_TANGENT.id,
+        ] {
+            let floats = |mesh: &Mesh| -> Vec<Vec4> {
+                match mesh.attribute(id).unwrap() {
+                    VertexAttributeValues::Float32x3(v) => {
+                        v.iter().map(|&v| Vec3::from(v).extend(0.0)).collect()
+                    }
+                    VertexAttributeValues::Float32x4(v) => v.iter().map(|&v| v.into()).collect(),
+                    values => panic!("{id:?} is {values:?}"),
+                }
+            };
+            for (a, e) in floats(&actual).iter().zip(&floats(&expected)) {
+                assert!(a.abs_diff_eq(*e, tolerance), "{id:?}: {a} != {e}");
+            }
+        }
+    }
+
+    #[test]
+    fn transform_compressed_mesh() {
+        use bevy_math::Quat;
+
+        let mesh =
+            compressed_vector_mesh(vec![[0.0, 1.0, -1.0], [1.0, -0.5, -1.0], [-1.0, -0.5, 1.0]]);
+        let transform = Transform::from_xyz(3.0, -2.0, 1.0)
+            .with_rotation(Quat::from_rotation_y(0.7))
+            .with_scale(Vec3::new(2.0, 0.5, 1.5));
+        let mut expected = mesh.clone();
+        expected.decompress_attributes(MeshAttributeCompressionFlags::all());
+        let expected = expected.transformed_by(transform);
+        let transformed = mesh.transformed_by(transform);
+
+        assert_eq!(
+            transformed.attribute_compression,
+            MeshAttributeCompressionFlags::COMPRESS_POSITION
+                | MeshAttributeCompressionFlags::COMPRESS_NORMAL
+                | MeshAttributeCompressionFlags::COMPRESS_TANGENT
+        );
+        assert_vectors_near(&transformed, &expected, 1e-3);
+    }
+
+    #[test]
+    fn translate_compressed_mesh_is_exact() {
+        let mesh =
+            compressed_vector_mesh(vec![[0.0, 1.0, -1.0], [1.0, -0.5, -1.0], [-1.0, -0.5, 1.0]]);
+        let translated = mesh
+            .clone()
+            .translated_by(Vec3::new(1.0, 2.0, 3.0))
+            .scaled_by(Vec3::splat(2.0));
+
+        assert_eq!(
+            translated.attribute(Mesh::ATTRIBUTE_POSITION),
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        );
+        assert_eq!(
+            translated.attribute(Mesh::ATTRIBUTE_NORMAL),
+            mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
+        );
+        let aabb = translated.final_aabb.unwrap();
+        assert_eq!(
+            (aabb.min, aabb.max),
+            (Vec3A::new(0.0, 3.0, 4.0), Vec3A::new(4.0, 6.0, 8.0))
+        );
+    }
+
+    #[test]
+    fn merge_compressed_meshes() {
+        let a = vec![[0.0, 1.0, -1.0], [1.0, -0.5, -1.0], [-1.0, -0.5, 1.0]];
+        let b = vec![[10.0, 0.0, 0.0], [12.0, 3.0, 0.0], [10.0, 0.0, 5.0]];
+        let mut merged = compressed_vector_mesh(a.clone());
+        merged.merge(&compressed_vector_mesh(b.clone())).unwrap();
+
+        let positions: Vec<Vec3> = merged.decoded_positions().unwrap().iter().collect();
+        for (actual, expected) in positions.iter().zip(a.iter().chain(&b)) {
+            assert!(
+                actual.abs_diff_eq(Vec3::from(*expected), 1e-3),
+                "{actual} != {expected:?}"
+            );
+        }
+        assert!(merged
+            .attribute_compression
+            .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION));
+    }
+
+    #[test]
+    fn inserting_floats_clears_compression_flag() {
+        let mut mesh = compressed_vector_mesh(vec![[0.0; 3]; 3]);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 1.0, 0.0]; 3]);
+
+        assert!(!mesh
+            .attribute_compression
+            .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL));
+        mesh.compress_normals().unwrap();
+        assert!(mesh
+            .attribute_compression
+            .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL));
     }
 
     #[test]
