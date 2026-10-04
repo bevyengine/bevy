@@ -321,18 +321,21 @@ impl UiSurface {
             self.taffy.disable_rounding();
         }
 
-        let out = match self.taffy.layout(taffy_node.id).cloned() {
-            Ok(layout) => {
-                self.taffy.disable_rounding();
-                let taffy_size = self.taffy.layout(taffy_node.id).unwrap().size;
-                let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
-                Ok((layout, unrounded_size))
-            }
-            Err(taffy_error) => Err(UiSurfaceError::TaffyError(taffy_error)),
-        };
+        let layout = self.taffy.layout(taffy_node.id).cloned();
+        // Temporarily disable rounding to retrieve the unrounded layout size
+        self.taffy.disable_rounding();
+        let taffy_size = self.taffy.layout(taffy_node.id).unwrap().size;
+        let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
 
-        self.taffy.enable_rounding();
-        out
+        // Restore the initial rounding state instead of unconditionally enabling it
+        if use_rounding {
+            self.taffy.enable_rounding();
+        }
+
+        match layout {
+            Ok(l) => Ok((l, unrounded_size)),
+            Err(e) => Err(UiSurfaceError::TaffyError(e)),
+        }
     }
 
     /// Returns the number of children belonging to the entity's associated taffy node.
