@@ -7,6 +7,7 @@ use bevy_ecs::system::{Res, ResMut};
 use bevy_math::Mat3;
 use bevy_pbr::DfgLut;
 use bevy_render::{
+    mesh::MeshMetadata,
     render_asset::RenderAssets,
     render_resource::{
         BindGroup, BindGroupEntries, BindGroupLayout, Buffer, BufferBinding, BufferDescriptor,
@@ -32,10 +33,11 @@ pub struct BindGroupCacheState {
 
 impl BindGroupCacheState {
     pub fn new(render_device: &RenderDevice) -> Self {
-        // Binding arrays are dense, so freed slots still need something valid bound into them
+        // Binding arrays are dense, so freed slots still need something valid bound into them.
+        // It holds one element of the largest type bound with it.
         let dummy_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_dummy_binding_array_buffer"),
-            size: 48,
+            size: size_of::<MeshMetadata>() as u64,
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
@@ -56,10 +58,15 @@ fn buffer_bindings<'a>(
     buffers: &'a RetainedBindingArray<BufferId, Buffer>,
     dummy: &'a Buffer,
 ) -> Vec<BufferBinding<'a>> {
-    buffers
+    let mut bindings: Vec<_> = buffers
         .iter()
         .map(|buffer| buffer.unwrap_or(dummy).as_entire_buffer_binding())
-        .collect()
+        .collect();
+    // A binding array needs at least one element.
+    if bindings.is_empty() {
+        bindings.push(dummy.as_entire_buffer_binding());
+    }
+    bindings
 }
 
 impl RaytracingSceneBindings {
@@ -97,6 +104,7 @@ impl RaytracingSceneBindings {
         for dirty in [
             &mut self.instances.vertex_buffers.dirty,
             &mut self.instances.index_buffers.dirty,
+            &mut self.instances.metadata_buffers.dirty,
             &mut self.assets.textures.dirty,
         ] {
             invalid |= core::mem::replace(dirty, false);
@@ -143,6 +151,7 @@ impl RaytracingSceneBindings {
         let dummy = &self.bind_groups.dummy_buffer;
         let vertex_buffers = buffer_bindings(&self.instances.vertex_buffers, dummy);
         let index_buffers = buffer_bindings(&self.instances.index_buffers, dummy);
+        let metadata_buffers = buffer_bindings(&self.instances.metadata_buffers, dummy);
 
         let (mut textures, mut samplers): (Vec<_>, Vec<_>) = self
             .assets
@@ -241,6 +250,7 @@ impl RaytracingSceneBindings {
                 environment_map_light,
                 &self.environment_map_light_sampler,
                 &self.environment_map_light_buffer,
+                metadata_buffers.as_slice(),
             )),
         )
     }

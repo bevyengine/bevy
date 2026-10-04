@@ -2,11 +2,13 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
+    decode_compressed_tangent, encode_compressed_normals, encode_compressed_positions,
+    encode_compressed_tangents, encode_compressed_uvs,
     skinning::{SkinnedMeshBounds, SkinnedMeshBoundsError},
-    triangle_area_normal, triangle_normal, FourIterators, Indices, MeshAttributeData,
-    MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout,
-    MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
-    VertexAttributeValues, VertexBufferLayout,
+    triangle_area_normal, triangle_normal, DecodedNormals, DecodedPositions, DecodedUvs,
+    FourIterators, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
+    MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
+    MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
 };
 #[cfg(feature = "morph")]
 use crate::morph::MorphAttributes;
@@ -19,7 +21,7 @@ use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_math::*;
 use bevy_platform::collections::{hash_map, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_shape::{Aabb2d, Aabb3d, Triangle3d};
+use bevy_shape::{Aabb2d, Aabb3d, BoundingVolume, Triangle3d};
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
 use core::ptr;
@@ -352,6 +354,26 @@ bitflags::bitflags! {
     }
 }
 
+impl MeshAttributeCompressionFlags {
+    /// The flag that compresses `attribute` and the format it has when compressed, or `None` if
+    /// `attribute` has no compressed form.
+    pub fn for_attribute(attribute: MeshVertexAttributeId) -> Option<(Self, VertexFormat)> {
+        Some(if attribute == Mesh::ATTRIBUTE_POSITION.id {
+            (Self::COMPRESS_POSITION, VertexFormat::Snorm16x4)
+        } else if attribute == Mesh::ATTRIBUTE_NORMAL.id {
+            (Self::COMPRESS_NORMAL, VertexFormat::Snorm16x2)
+        } else if attribute == Mesh::ATTRIBUTE_TANGENT.id {
+            (Self::COMPRESS_TANGENT, VertexFormat::Snorm16x2)
+        } else if attribute == Mesh::ATTRIBUTE_UV_0.id {
+            (Self::COMPRESS_UV0, VertexFormat::Unorm16x2)
+        } else if attribute == Mesh::ATTRIBUTE_UV_1.id {
+            (Self::COMPRESS_UV1, VertexFormat::Unorm16x2)
+        } else {
+            return None;
+        })
+    }
+}
+
 impl Mesh {
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
@@ -446,6 +468,11 @@ impl Mesh {
             skinned_mesh_bounds: None,
             final_uv_ranges: [None; 2],
         }
+    }
+
+    /// Returns which vertex attributes are compressed. See [`MeshAttributeCompressionFlags`].
+    pub fn attribute_compression(&self) -> MeshAttributeCompressionFlags {
+        self.attribute_compression
     }
 
     /// Returns the topology of the mesh.
@@ -1062,157 +1089,317 @@ impl Mesh {
         }
     }
 
+    /// [`Mesh::ATTRIBUTE_POSITION`] as floats, whether stored as `Float32x3` or compressed.
+    ///
+    /// Returns `None` if positions are missing, in another format, or extracted to `RenderWorld`.
+    pub fn decoded_positions(&self) -> Option<DecodedPositions<'_>> {
+        match self.try_attribute_option(Mesh::ATTRIBUTE_POSITION).ok()?? {
+            VertexAttributeValues::Float32x3(positions) => Some(DecodedPositions::Float(positions)),
+            VertexAttributeValues::Snorm16x4(positions)
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION) =>
+            {
+                let aabb = self.final_aabb?;
+                Some(DecodedPositions::Compressed {
+                    positions,
+                    center: aabb.center(),
+                    half_size: aabb.half_size(),
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// [`Mesh::ATTRIBUTE_NORMAL`] as floats, whether stored as `Float32x3` or compressed.
+    ///
+    /// Returns `None` if normals are missing, in another format, or extracted to `RenderWorld`.
+    pub fn decoded_normals(&self) -> Option<DecodedNormals<'_>> {
+        match self.try_attribute_option(Mesh::ATTRIBUTE_NORMAL).ok()?? {
+            VertexAttributeValues::Float32x3(normals) => Some(DecodedNormals::Float(normals)),
+            VertexAttributeValues::Snorm16x2(normals)
+                if self
+                    .attribute_compression
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL) =>
+            {
+                Some(DecodedNormals::Compressed(normals))
+            }
+            _ => None,
+        }
+    }
+
+    /// The UVs of `channel` as floats, whether stored as `Float32x2` or compressed.
+    ///
+    /// Returns `None` if the UVs are missing, in another format, or extracted to `RenderWorld`.
+    pub fn decoded_uvs(&self, channel: UvChannel) -> Option<DecodedUvs<'_>> {
+        let (flag, _) = MeshAttributeCompressionFlags::for_attribute(channel.attribute().id)?;
+        let range = self.final_uv_ranges[channel.clone() as usize];
+        match self.try_attribute_option(channel.attribute()).ok()?? {
+            VertexAttributeValues::Float32x2(uvs) => Some(DecodedUvs::Float(uvs)),
+            VertexAttributeValues::Unorm16x2(uvs) if self.attribute_compression.contains(flag) => {
+                Some(DecodedUvs::Compressed(uvs, range?))
+            }
+            _ => None,
+        }
+    }
+
+    /// Converts compressed attributes back to floats and clears their
+    /// [`MeshAttributeCompressionFlags`]. Uncompressed attributes are unchanged.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
+    pub fn decompress_attributes(&mut self) -> &mut Mesh {
+        use MeshAttributeCompressionFlags as Flags;
+
+        let positions = self
+            .decoded_positions()
+            .filter(|positions| matches!(positions, DecodedPositions::Compressed { .. }))
+            .map(|positions| positions.iter().map(|p| p.to_array()).collect::<Vec<_>>());
+        let normals = self
+            .decoded_normals()
+            .filter(|normals| matches!(normals, DecodedNormals::Compressed(_)))
+            .map(|normals| normals.iter().map(|n| n.to_array()).collect::<Vec<_>>());
+        let tangents = match self.attribute(Mesh::ATTRIBUTE_TANGENT) {
+            Some(VertexAttributeValues::Snorm16x2(tangents))
+                if self.attribute_compression.contains(Flags::COMPRESS_TANGENT) =>
+            {
+                Some(
+                    tangents
+                        .iter()
+                        .map(|&t| decode_compressed_tangent(t).to_array())
+                        .collect::<Vec<_>>(),
+                )
+            }
+            _ => None,
+        };
+        let uvs = [UvChannel::Uv0, UvChannel::Uv1].map(|channel| {
+            self.decoded_uvs(channel)
+                .filter(|uvs| matches!(uvs, DecodedUvs::Compressed(..)))
+                .map(|uvs| uvs.iter().map(|uv| uv.to_array()).collect::<Vec<_>>())
+        });
+
+        if let Some(positions) = positions {
+            self.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        }
+        if let Some(normals) = normals {
+            self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        }
+        if let Some(tangents) = tangents {
+            self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
+        }
+        for (channel, uvs) in [UvChannel::Uv0, UvChannel::Uv1].into_iter().zip(uvs) {
+            if let Some(uvs) = uvs {
+                self.insert_attribute(channel.attribute(), uvs);
+            }
+        }
+        self.attribute_compression = Flags::empty();
+        self.final_uv_ranges = [None; 2];
+        self
+    }
+
+    /// Compresses `attribute` with `encode` and `insert`, unless it is already compressed.
+    fn compress_attribute<T>(
+        &mut self,
+        attribute: MeshVertexAttribute,
+        encode: impl FnOnce(&VertexAttributeValues) -> Option<T>,
+        insert: impl FnOnce(&mut Self, T),
+    ) -> Result<&mut Mesh, MeshAttributeCompressionError> {
+        let (flag, expected) = MeshAttributeCompressionFlags::for_attribute(attribute.id)
+            .expect("only attributes with a compressed form are compressed");
+        if self.attribute_compression.contains(flag) {
+            return Ok(self);
+        }
+        let Some(values) = self.attribute(attribute) else {
+            return Err(MeshAttributeCompressionError::MissingAttribute(
+                attribute.id,
+            ));
+        };
+        if values.is_empty() {
+            return Err(MeshAttributeCompressionError::EmptyAttribute(attribute));
+        }
+        let Some(encoded) = encode(values) else {
+            return Err(
+                MeshAttributeCompressionError::UnsupportedAttributeForCompression {
+                    attr: attribute,
+                    expected,
+                },
+            );
+        };
+        insert(self, encoded);
+        Ok(self)
+    }
+
+    /// Inserts `values` for `attribute` in its compressed format and applies its compression flag.
+    fn insert_compressed(&mut self, attribute: MeshVertexAttribute, values: VertexAttributeValues) {
+        let (flag, format) = MeshAttributeCompressionFlags::for_attribute(attribute.id)
+            .expect("only attributes with a compressed form are compressed");
+        self.insert_attribute(
+            MeshVertexAttribute {
+                format,
+                ..attribute
+            },
+            values,
+        );
+        self.attribute_compression |= flag;
+    }
+
     /// Compress positions and apply [`MeshAttributeCompressionFlags::COMPRESS_POSITION`].
-    /// See [`MeshAttributeCompressionFlags`] for the details.
+    /// See [`MeshAttributeCompressionFlags`] for the details. Does nothing if positions are
+    /// already compressed.
     ///
     /// Return an error if [`Mesh::ATTRIBUTE_POSITION`] is missing or is empty or is not Float32x3.
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn compress_positions(&mut self) -> Result<&mut Mesh, MeshAttributeCompressionError> {
-        let mut attr = Mesh::ATTRIBUTE_POSITION;
-        let Some(values) = self.attribute(attr) else {
-            return Err(MeshAttributeCompressionError::MissingAttribute(attr.id));
-        };
-        if values.is_empty() {
-            return Err(MeshAttributeCompressionError::EmptyAttribute(attr));
-        }
+        self.compress_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            |values| {
+                let (VertexAttributeValues::Float32x3(positions), Some(aabb)) =
+                    (values, Self::compute_aabb(values))
+                else {
+                    return None;
+                };
+                let positions = positions.iter().copied().map(Vec3A::from);
+                Some((encode_compressed_positions(positions, aabb), aabb))
+            },
+            |mesh, (positions, aabb)| mesh.insert_compressed_positions(positions, aabb),
+        )
+    }
 
-        let expected = VertexFormat::Snorm16x4;
-        let Some(aabb) = Self::compute_aabb(values) else {
-            return Err(
-                MeshAttributeCompressionError::UnsupportedAttributeForCompression {
-                    attr,
-                    expected,
-                },
-            );
-        };
-        attr.format = expected;
-        self.insert_attribute(
-            attr,
-            values
-                .create_compressed_positions(aabb)
-                .expect("Compression should succeed since `compute_aabb` is checked above"),
+    /// Inserts positions encoded as described by
+    /// [`MeshAttributeCompressionFlags::COMPRESS_POSITION`] relative to `aabb`, such as by
+    /// [`encode_compressed_positions`], and applies the flag.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
+    pub fn insert_compressed_positions(&mut self, positions: Vec<[i16; 4]>, aabb: Aabb3d) {
+        self.insert_compressed(
+            Mesh::ATTRIBUTE_POSITION,
+            VertexAttributeValues::Snorm16x4(positions),
         );
         self.final_aabb = Some(aabb);
-        self.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_POSITION;
-        Ok(self)
     }
 
     fn compress_uvs(
         &mut self,
-        mut attr: MeshVertexAttribute,
-        on_compressed: impl Fn(&mut Mesh, Aabb2d),
+        channel: UvChannel,
     ) -> Result<&mut Mesh, MeshAttributeCompressionError> {
-        let Some(values) = self.attribute(attr) else {
-            return Err(MeshAttributeCompressionError::MissingAttribute(attr.id));
-        };
-        if values.is_empty() {
-            return Err(MeshAttributeCompressionError::EmptyAttribute(attr));
-        }
+        self.compress_attribute(
+            channel.attribute(),
+            |values| {
+                let (VertexAttributeValues::Float32x2(uvs), Some(range)) =
+                    (values, Self::compute_uv_range(values))
+                else {
+                    return None;
+                };
+                let uvs = uvs.iter().copied().map(Vec2::from);
+                Some((encode_compressed_uvs(uvs, range), range))
+            },
+            |mesh, (uvs, range)| mesh.insert_compressed_uvs(channel, uvs, range),
+        )
+    }
 
-        let expected = VertexFormat::Unorm16x2;
-        let Some(uv_range) = Self::compute_uv_range(values) else {
-            return Err(
-                MeshAttributeCompressionError::UnsupportedAttributeForCompression {
-                    attr,
-                    expected,
-                },
-            );
-        };
-        attr.format = expected;
-        self.insert_attribute(
-            attr,
-            values
-                .create_compressed_uvs(uv_range)
-                .expect("Compression should succeed since `compute_uv_range` is checked above"),
-        );
-        on_compressed(self, uv_range);
-        Ok(self)
+    /// Inserts UVs encoded as described by [`MeshAttributeCompressionFlags::COMPRESS_UV0`]
+    /// relative to `range` into `channel`, such as by [`encode_compressed_uvs`], and applies the
+    /// channel's flag.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
+    pub fn insert_compressed_uvs(&mut self, channel: UvChannel, uvs: Vec<[u16; 2]>, range: Aabb2d) {
+        self.insert_compressed(channel.attribute(), VertexAttributeValues::Unorm16x2(uvs));
+        self.final_uv_ranges[channel as usize] = Some(range);
     }
 
     /// Compress UV0 and apply [`MeshAttributeCompressionFlags::COMPRESS_UV0`].
-    /// See [`MeshAttributeCompressionFlags`] for the details.
+    /// See [`MeshAttributeCompressionFlags`] for the details. Does nothing if UV0 is already
+    /// compressed.
     ///
     /// Return an error if [`Mesh::ATTRIBUTE_UV_0`] is missing or is empty or is not Float32x2.
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn compress_uv0(&mut self) -> Result<&mut Mesh, MeshAttributeCompressionError> {
-        self.compress_uvs(Mesh::ATTRIBUTE_UV_0, |mesh, uv_range| {
-            mesh.final_uv_ranges[0] = Some(uv_range);
-            mesh.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_UV0;
-        })
+        self.compress_uvs(UvChannel::Uv0)
     }
 
     /// Compress UV1 and apply [`MeshAttributeCompressionFlags::COMPRESS_UV1`].
-    /// See [`MeshAttributeCompressionFlags`] for the details.
+    /// See [`MeshAttributeCompressionFlags`] for the details. Does nothing if UV1 is already
+    /// compressed.
     ///
     /// Return an error if [`Mesh::ATTRIBUTE_UV_1`] is missing or is empty or is not Float32x2.
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn compress_uv1(&mut self) -> Result<&mut Mesh, MeshAttributeCompressionError> {
-        self.compress_uvs(Mesh::ATTRIBUTE_UV_1, |mesh, uv_range| {
-            mesh.final_uv_ranges[1] = Some(uv_range);
-            mesh.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_UV1;
-        })
+        self.compress_uvs(UvChannel::Uv1)
     }
 
     /// Compress normals and apply [`MeshAttributeCompressionFlags::COMPRESS_NORMAL`].
-    /// See [`MeshAttributeCompressionFlags`] for the details.
+    /// See [`MeshAttributeCompressionFlags`] for the details. Does nothing if normals are
+    /// already compressed.
     ///
-    /// Return an error if [`Mesh::ATTRIBUTE_NORMAL`] is missing or is not Float32x3.
+    /// Return an error if [`Mesh::ATTRIBUTE_NORMAL`] is missing or is empty or is not Float32x3.
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn compress_normals(&mut self) -> Result<&mut Mesh, MeshAttributeCompressionError> {
-        let mut attr = Mesh::ATTRIBUTE_NORMAL;
-        let Some(values) = self.attribute(attr) else {
-            return Err(MeshAttributeCompressionError::MissingAttribute(attr.id));
-        };
+        self.compress_attribute(
+            Mesh::ATTRIBUTE_NORMAL,
+            |values| match values {
+                VertexAttributeValues::Float32x3(normals) => Some(encode_compressed_normals(
+                    normals.iter().copied().map(Vec3::from),
+                )),
+                _ => None,
+            },
+            Self::insert_compressed_normals,
+        )
+    }
 
-        let expected = VertexFormat::Snorm16x2;
-        let Some(values) = values.create_octahedral_encode_normals() else {
-            return Err(
-                MeshAttributeCompressionError::UnsupportedAttributeForCompression {
-                    attr,
-                    expected,
-                },
-            );
-        };
-        attr.format = expected;
-        self.insert_attribute(attr, values);
-        self.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_NORMAL;
-        Ok(self)
+    /// Inserts normals encoded as described by [`MeshAttributeCompressionFlags::COMPRESS_NORMAL`],
+    /// such as by [`encode_compressed_normals`], and applies the flag.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
+    pub fn insert_compressed_normals(&mut self, normals: Vec<[i16; 2]>) {
+        self.insert_compressed(
+            Mesh::ATTRIBUTE_NORMAL,
+            VertexAttributeValues::Snorm16x2(normals),
+        );
     }
 
     /// Compress tangents and apply [`MeshAttributeCompressionFlags::COMPRESS_TANGENT`].
-    /// See [`MeshAttributeCompressionFlags`] for the details.
+    /// See [`MeshAttributeCompressionFlags`] for the details. Does nothing if tangents are
+    /// already compressed.
     ///
-    /// Return an error if [`Mesh::ATTRIBUTE_TANGENT`] is missing or is not Float32x4.
+    /// Return an error if [`Mesh::ATTRIBUTE_TANGENT`] is missing or is empty or is not Float32x4.
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`.
     pub fn compress_tangents(&mut self) -> Result<&mut Mesh, MeshAttributeCompressionError> {
-        let mut attr = Mesh::ATTRIBUTE_TANGENT;
-        let Some(values) = self.attribute(attr) else {
-            return Err(MeshAttributeCompressionError::MissingAttribute(attr.id));
-        };
+        self.compress_attribute(
+            Mesh::ATTRIBUTE_TANGENT,
+            |values| match values {
+                VertexAttributeValues::Float32x4(tangents) => Some(encode_compressed_tangents(
+                    tangents.iter().copied().map(Vec4::from),
+                )),
+                _ => None,
+            },
+            Self::insert_compressed_tangents,
+        )
+    }
 
-        let expected = VertexFormat::Snorm16x2;
-        let Some(values) = values.create_octahedral_encode_tangents() else {
-            return Err(
-                MeshAttributeCompressionError::UnsupportedAttributeForCompression {
-                    attr,
-                    expected,
-                },
-            );
-        };
-        attr.format = expected;
-        self.insert_attribute(attr, values);
-        self.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_TANGENT;
-        Ok(self)
+    /// Inserts tangents encoded as described by
+    /// [`MeshAttributeCompressionFlags::COMPRESS_TANGENT`], such as by
+    /// [`encode_compressed_tangents`], and applies the flag.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to `RenderWorld`.
+    pub fn insert_compressed_tangents(&mut self, tangents: Vec<[i16; 2]>) {
+        self.insert_compressed(
+            Mesh::ATTRIBUTE_TANGENT,
+            VertexAttributeValues::Snorm16x2(tangents),
+        );
     }
 
     /// Quantize `Float32`, `Float32x2` or `Float32x4` vertex attribute to the format of `quantization`.
@@ -1775,16 +1962,17 @@ impl Mesh {
             "`compute_flat_normals` can only work on `TriangleList`s"
         );
 
-        let positions = self
-            .try_attribute(Mesh::ATTRIBUTE_POSITION)?
-            .as_float3()
-            .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
+        self.try_attribute(Mesh::ATTRIBUTE_POSITION)?;
+        let positions = self.decoded_positions().expect(
+            "`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3` or compressed",
+        );
 
-        let normals: Vec<_> = positions
-            .as_chunks()
-            .0
-            .iter()
-            .flat_map(|&[a, b, c]| [triangle_normal(a, b, c); 3])
+        let normals: Vec<_> = (0..positions.len() / 3)
+            .flat_map(|triangle| {
+                let [a, b, c] =
+                    [0, 1, 2].map(|i| positions.get(triangle * 3 + i).unwrap().to_array());
+                [triangle_normal(a, b, c); 3]
+            })
             .collect();
 
         self.try_insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -2639,20 +2827,19 @@ impl Mesh {
     /// [triangles]: Triangle3d
     pub fn triangles(&self) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
         fn indices_to_triangle<T: TryInto<usize> + Copy>(
-            vertices: &[[f32; 3]],
+            vertices: DecodedPositions,
             indices: &[T; 3],
         ) -> Option<Triangle3d> {
-            let vert0 = Vec3::from(*vertices.get(indices[0].try_into().ok()?)?);
-            let vert1 = Vec3::from(*vertices.get(indices[1].try_into().ok()?)?);
-            let vert2 = Vec3::from(*vertices.get(indices[2].try_into().ok()?)?);
+            let vert0 = vertices.get(indices[0].try_into().ok()?)?;
+            let vert1 = vertices.get(indices[1].try_into().ok()?)?;
+            let vert2 = vertices.get(indices[2].try_into().ok()?)?;
             Some(Triangle3d {
                 vertices: [vert0, vert1, vert2],
             })
         }
 
-        let position_data = self.try_attribute(Mesh::ATTRIBUTE_POSITION)?;
-
-        let Some(vertices) = position_data.as_float3() else {
+        self.try_attribute(Mesh::ATTRIBUTE_POSITION)?;
+        let Some(vertices) = self.decoded_positions() else {
             return Err(MeshTrianglesError::PositionsFormat);
         };
 
@@ -2667,13 +2854,13 @@ impl Mesh {
                         vec.as_chunks()
                             .0
                             .iter()
-                            .flat_map(|indices| indices_to_triangle(vertices, indices)),
+                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
                     ),
                     Indices::U32(vec) => FourIterators::Second(
                         vec.as_chunks()
                             .0
                             .iter()
-                            .flat_map(|indices| indices_to_triangle(vertices, indices)),
+                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
                     ),
                 };
 
@@ -2686,7 +2873,7 @@ impl Mesh {
                 let iterator = match indices {
                     Indices::U16(vec) => {
                         FourIterators::Third(vec.array_windows().enumerate().flat_map(
-                            |(i, indices @ &[idx0, idx1, idx2])| {
+                            move |(i, indices @ &[idx0, idx1, idx2])| {
                                 if i % 2 == 0 {
                                     indices_to_triangle(vertices, indices)
                                 } else {
@@ -2697,7 +2884,7 @@ impl Mesh {
                     }
                     Indices::U32(vec) => {
                         FourIterators::Fourth(vec.array_windows().enumerate().flat_map(
-                            |(i, indices @ &[idx0, idx1, idx2])| {
+                            move |(i, indices @ &[idx0, idx1, idx2])| {
                                 if i % 2 == 0 {
                                     indices_to_triangle(vertices, indices)
                                 } else {
@@ -2727,10 +2914,14 @@ impl Mesh {
         #[cfg(feature = "morph")]
         let morph_target_names = self.morph_target_names.extract()?;
 
-        // store the aabb extents as they cannot be computed after extraction
-        if let Some(MeshAttributeData { values, .. }) = attributes
-            .as_ref_option()?
-            .and_then(|attrs| attrs.get(&Self::ATTRIBUTE_POSITION.id))
+        // store the aabb extents as they cannot be computed after extraction. Compressed
+        // positions keep the AABB they are encoded against.
+        if !self
+            .attribute_compression
+            .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            && let Some(MeshAttributeData { values, .. }) = attributes
+                .as_ref_option()?
+                .and_then(|attrs| attrs.get(&Self::ATTRIBUTE_POSITION.id))
         {
             self.final_aabb = Self::compute_aabb(values);
         }
@@ -3037,6 +3228,16 @@ pub enum UvChannel {
     #[default]
     Uv0,
     Uv1,
+}
+
+impl UvChannel {
+    /// The mesh attribute holding this channel's UVs.
+    pub fn attribute(&self) -> MeshVertexAttribute {
+        match self {
+            UvChannel::Uv0 => Mesh::ATTRIBUTE_UV_0,
+            UvChannel::Uv1 => Mesh::ATTRIBUTE_UV_1,
+        }
+    }
 }
 
 /// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
@@ -3976,6 +4177,83 @@ mod tests {
                 [6554, 13107, 45875, 0],
                 [6554, 13107, 26214, 19661]
             ]))
+        );
+    }
+
+    #[test]
+    fn decompress_attributes_round_trip() {
+        use crate::{MeshCompressionArgs, MeshVertexAttributeId};
+
+        let positions = vec![[0.0, 1.0, -1.0], [1.0, -0.5, -1.0], [-1.0, -0.5, 1.0]];
+        let normals = vec![
+            Vec3::new(0.0, 1.0, 1.0).normalize().to_array(),
+            Vec3::new(1.0, 0.0, -1.0).normalize().to_array(),
+            [0.0, 0.0, -1.0],
+        ];
+        let tangents = vec![
+            [1.0, 0.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0, -1.0],
+            Vec3::new(1.0, 1.0, 0.0).normalize().extend(1.0).to_array(),
+        ];
+        let uvs = vec![[0.0, 0.5], [2.0, -1.0], [0.25, 1.0]];
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions.clone())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals.clone())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_TANGENT, tangents.clone())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs.clone());
+        mesh.compress_mesh(&MeshCompressionArgs {
+            compress_attributes: MeshAttributeCompressionFlags::all(),
+            ..MeshCompressionArgs::none()
+        })
+        .unwrap();
+        mesh.decompress_attributes();
+
+        assert_eq!(
+            mesh.attribute_compression,
+            MeshAttributeCompressionFlags::empty()
+        );
+        let assert_near = |id: MeshVertexAttributeId, expected: Vec<Vec4>| {
+            let actual: Vec<Vec4> = match mesh.attribute(id).unwrap() {
+                VertexAttributeValues::Float32x2(v) => v
+                    .iter()
+                    .map(|&v| Vec2::from(v).extend(0.0).extend(0.0))
+                    .collect(),
+                VertexAttributeValues::Float32x3(v) => {
+                    v.iter().map(|&v| Vec3::from(v).extend(0.0)).collect()
+                }
+                VertexAttributeValues::Float32x4(v) => v.iter().map(|&v| Vec4::from(v)).collect(),
+                values => panic!("{id:?} is {values:?}"),
+            };
+            for (actual, expected) in actual.iter().zip(&expected) {
+                assert!(
+                    actual.abs_diff_eq(*expected, 1e-4),
+                    "{id:?}: {actual} != {expected}"
+                );
+            }
+        };
+        assert_near(
+            Mesh::ATTRIBUTE_POSITION.id,
+            positions
+                .iter()
+                .map(|&p| Vec3::from(p).extend(0.0))
+                .collect(),
+        );
+        assert_near(
+            Mesh::ATTRIBUTE_NORMAL.id,
+            normals.iter().map(|&n| Vec3::from(n).extend(0.0)).collect(),
+        );
+        assert_near(
+            Mesh::ATTRIBUTE_TANGENT.id,
+            tangents.iter().map(|&t| Vec4::from(t)).collect(),
+        );
+        assert_near(
+            Mesh::ATTRIBUTE_UV_0.id,
+            uvs.iter()
+                .map(|&uv| Vec2::from(uv).extend(0.0).extend(0.0))
+                .collect(),
         );
     }
 

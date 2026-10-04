@@ -95,6 +95,7 @@ impl FromWorld for RaytracingSceneBindings {
                     texture_cube(TextureSampleType::Float { filterable: true }),
                     sampler(SamplerBindingType::Filtering),
                     storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None).count(MAX_MESH_SLAB_COUNT),
                 ),
             ),
         );

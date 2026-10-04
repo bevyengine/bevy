@@ -68,6 +68,16 @@ impl MeshletMesh {
         let s = debug_span!("build meshlet mesh");
         let _e = s.enter();
 
+        // Meshlet vertex data is built from float attributes.
+        let mesh = if mesh.attribute_compression().is_empty() {
+            Cow::Borrowed(mesh)
+        } else {
+            let mut mesh = mesh.clone();
+            mesh.decompress_attributes();
+            Cow::Owned(mesh)
+        };
+        let mesh = mesh.as_ref();
+
         // Validate mesh format
         let indices = validate_input_mesh(mesh)?;
 
