@@ -73,7 +73,6 @@ struct SolariLightingUniforms {
     world_cache_cell_updates_soft_target: u32,
     world_cache_position_base_cell_size: f32,
     world_cache_position_lod_scale: f32,
-    world_cache_force_opaque: u32,
     frame_rng: u32,
     reset: u32,
 }
@@ -91,7 +90,6 @@ impl SolariLightingUniforms {
             world_cache_cell_updates_soft_target: settings.world_cache_cell_updates_soft_target,
             world_cache_position_base_cell_size: settings.world_cache_position_base_cell_size,
             world_cache_position_lod_scale: settings.world_cache_position_lod_scale,
-            world_cache_force_opaque: settings.world_cache_force_opaque as u32,
             frame_rng: frame_count.wrapping_mul(5782582),
             reset: (settings.reset || force_reset) as u32,
         }
