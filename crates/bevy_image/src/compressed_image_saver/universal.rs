@@ -66,6 +66,7 @@ impl CompressedImageSaverUniversal {
             is_srgb,
             sampler: image.sampler.clone(),
             asset_usage: image.asset_usage,
+            source_color_primaries: Some(image.source_color_primaries),
             ..Default::default()
         })
     }
