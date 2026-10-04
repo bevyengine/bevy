@@ -53,6 +53,7 @@ struct SolariLightingSettings {
     world_cache_cell_updates_soft_target: u32,
     world_cache_position_base_cell_size: f32,
     world_cache_position_lod_scale: f32,
+    world_cache_force_opaque: u32,
     frame_rng: u32,
     reset: u32,
 }
