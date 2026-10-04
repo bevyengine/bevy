@@ -14,6 +14,7 @@ criterion = { version = "0.8.0", features = ["html_reports"] }
 seq-macro = "0.3.6"
 
 # Bevy crates
+
 bevy_app = { path = "../crates/bevy_app", optional = true }
 bevy_curve = { path = "../crates/bevy_curve", optional = true }
 bevy_ecs = { path = "../crates/bevy_ecs", optional = true, features = [
@@ -34,6 +35,7 @@ bevy_asset = { path = "../crates/bevy_asset", optional = true }
 bevy_render = { path = "../crates/bevy_render", optional = true }
 bevy_scene = { path = "../crates/bevy_scene", optional = true }
 bevy_tasks = { path = "../crates/bevy_tasks", optional = true }
+bevy_text = { path = "../crates/bevy_text", optional = true }
 bevy_transform = { path = "../crates/bevy_transform", optional = true }
 bevy_ui = { path = "../crates/bevy_ui", optional = true }
 bevy_ui_widgets = { path = "../crates/bevy_ui_widgets", optional = true }
@@ -117,11 +119,27 @@ bench_scene = [
 
 bench_tasks = ["dep:bevy_tasks"]
 
+bench_text = [
+  "dep:bevy_text",
+  "dep:bevy_app",
+  "dep:bevy_asset",
+  "dep:bevy_ecs",
+  "dep:bevy_math",
+]
+
 bench_transform = [
   "dep:bevy_transform",
   "dep:bevy_ecs",
   "dep:bevy_math",
   "dep:bevy_tasks",
+]
+
+bench_ui = [
+  "dep:bevy_ui",
+  "dep:bevy_app",
+  "dep:bevy_camera",
+  "dep:bevy_ecs",
+  "dep:bevy_text",
 ]
 
 [lints.clippy]
@@ -219,3 +237,15 @@ name = "platform"
 path = "benches/bevy_platform/main.rs"
 harness = false
 required-features = ["bench_platform"]
+
+[[bench]]
+name = "ui"
+path = "benches/bevy_ui/main.rs"
+harness = false
+required-features = ["bench_ui"]
+
+[[bench]]
+name = "text"
+path = "benches/bevy_text/main.rs"
+harness = false
+required-features = ["bench_text"]

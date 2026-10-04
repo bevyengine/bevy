@@ -4,7 +4,7 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
     query::Access,
-    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref},
+    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref, WorldId},
 };
 
 use bevy_ptr::Ptr;
@@ -77,6 +77,12 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity.id()
+    }
+
+    /// Returns the [ID](WorldId) of the world that the current entity belongs to.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.entity.world_id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
@@ -440,6 +446,12 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity.id()
+    }
+
+    /// Returns the [ID](WorldId) of the world that the current entity belongs to.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.entity.world_id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.

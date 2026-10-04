@@ -694,25 +694,25 @@ mod tests {
     ),
   },
   entities: {
-    4294967290: (
+    "5v0": (
       components: {
         "bevy_world_serialization::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
       },
     ),
-    4294967291: (
+    "4v0": (
       components: {
         "bevy_world_serialization::serde::tests::Bar": (345),
         "bevy_world_serialization::serde::tests::Baz": (789),
         "bevy_world_serialization::serde::tests::Foo": (123),
       },
     ),
-    4294967292: (
+    "3v0": (
       components: {
         "bevy_world_serialization::serde::tests::Bar": (345),
         "bevy_world_serialization::serde::tests::Foo": (123),
       },
     ),
-    4294967293: (
+    "2v0": (
       components: {
         "bevy_world_serialization::serde::tests::Foo": (123),
       },
@@ -749,25 +749,25 @@ mod tests {
     ),
   },
   entities: {
-    8589934591: (
+    "0v1": (
       components: {
         "bevy_world_serialization::serde::tests::Foo": (123),
       },
     ),
-    8589934590: (
+    "1v1": (
       components: {
         "bevy_world_serialization::serde::tests::Foo": (123),
         "bevy_world_serialization::serde::tests::Bar": (345),
       },
     ),
-    8589934589: (
+    "2v1": (
       components: {
         "bevy_world_serialization::serde::tests::Foo": (123),
         "bevy_world_serialization::serde::tests::Bar": (345),
         "bevy_world_serialization::serde::tests::Baz": (789),
       },
     ),
-    8589934588: (
+    "3v1": (
       components: {
         "bevy_world_serialization::serde::tests::FakeMesh3d": (Uuid("00000000-0000-0000-0000-000000000001")),
       },

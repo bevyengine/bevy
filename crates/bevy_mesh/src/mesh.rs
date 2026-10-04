@@ -244,19 +244,24 @@ pub struct Mesh {
     pub asset_usage: RenderAssetUsages,
     /// Whether or not to build a BLAS for use with `bevy_solari` raytracing.
     ///
+    /// If you want to use this mesh for raytracing, set opaque or non-opaque flags appropriately (can be both),
+    /// to match the types of materials you intend to use this mesh with.
+    ///
+    /// If empty flags are set, no BLAS is built, and the mesh cannot be used for raytracing.
+    ///
     /// Note that this is _not_ whether the mesh is _compatible_ with `bevy_solari` raytracing.
     /// This field just controls whether or not a BLAS gets built for this mesh, assuming that
     /// the mesh is compatible.
     ///
-    /// The use case for this field is using lower-resolution proxy meshes for raytracing (to save on BLAS memory usage),
-    /// while using higher-resolution meshes for raster. You can set this field to true for the lower-resolution proxy mesh,
-    /// and to false for the high-resolution raster mesh.
+    /// One thing you can do with this field is use lower-resolution proxy meshes for raytracing (to save on BLAS memory usage),
+    /// while using higher-resolution meshes for raster. You can set this field to the flags you need (e.g. [`MeshRaytracingFlags::OPAQUE`])
+    /// for the lower-resolution proxy meshes, and to [`MeshRaytracingFlags::empty()`] for the higher-resolution raster meshes.
     ///
-    /// Alternatively, you can use the same mesh for both raster and raytracing, with this field set to true.
+    /// Alternatively, you can use the same mesh for both raster and raytracing, with this field set to the flags you need.
     ///
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
-    pub enable_raytracing: bool,
+    pub raytracing: MeshRaytracingFlags,
     /// Indicate whether vertex attributes are compressed.
     attribute_compression: MeshAttributeCompressionFlags,
     /// Precomputed min and max extents of the mesh position data. Used mainly for constructing `Aabb`s for frustum culling and decompressing vertex positions.
@@ -328,6 +333,22 @@ bitflags::bitflags! {
         const COMPRESS_TANGENT = 1 << 2;
         const COMPRESS_UV0 = 1 << 3;
         const COMPRESS_UV1 = 1 << 4;
+    }
+}
+
+bitflags::bitflags! {
+    /// Which types of BLAS `bevy_solari` builds for a mesh. See [`Mesh::raytracing`].
+    #[repr(transparent)]
+    #[derive(Hash, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+    #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+    #[reflect(opaque)]
+    #[reflect(Hash, Clone, PartialEq, Debug)]
+    pub struct MeshRaytracingFlags: u8 {
+        /// A BLAS for instances with opaque materials.
+        const OPAQUE = 1 << 0;
+        /// A BLAS for instances whose materials need alpha testing, like alpha masked
+        /// or transparent materials.
+        const NON_OPAQUE = 1 << 1;
     }
 }
 
@@ -419,7 +440,7 @@ impl Mesh {
             #[cfg(feature = "morph")]
             morph_target_names: MeshExtractableData::NoData,
             asset_usage,
-            enable_raytracing: true,
+            raytracing: MeshRaytracingFlags::OPAQUE,
             attribute_compression: MeshAttributeCompressionFlags::empty(),
             final_aabb: None,
             skinned_mesh_bounds: None,
