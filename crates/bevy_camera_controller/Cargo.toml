@@ -46,7 +46,7 @@ pan_orbit_camera = []
 
 # PanOrbitCamera's extensions
 
-extension_anchor_indicator = ["pan_orbit_camera", "bevy_gizmos"]
+extension_anchor_indicator = ["dep:bevy_gizmos", "pan_orbit_camera"]
 extension_independent_skybox = [
   "pan_orbit_camera",
   "bevy_asset",

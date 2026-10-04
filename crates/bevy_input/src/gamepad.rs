@@ -12,6 +12,7 @@ use bevy_ecs::{
     entity::Entity,
     message::{Message, MessageReader, MessageWriter},
     name::Name,
+    reflect::ReflectMessage,
     system::{Commands, Query},
 };
 use bevy_math::ops;
@@ -36,7 +37,7 @@ use thiserror::Error;
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -63,7 +64,7 @@ pub enum GamepadEvent {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -84,7 +85,7 @@ pub enum RawGamepadEvent {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -116,7 +117,7 @@ impl RawGamepadButtonChangedEvent {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -149,7 +150,7 @@ impl RawGamepadAxisChangedEvent {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -188,7 +189,7 @@ impl GamepadConnectionEvent {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -220,7 +221,7 @@ impl GamepadButtonStateChangedEvent {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -256,7 +257,7 @@ impl GamepadButtonChangedEvent {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
@@ -1779,7 +1780,7 @@ impl GamepadRumbleIntensity {
 #[doc(alias = "vibration")]
 #[doc(alias = "vibrate")]
 #[derive(Message, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone, Message))]
 pub enum GamepadRumbleRequest {
     /// Add a rumble to the given gamepad.
     ///

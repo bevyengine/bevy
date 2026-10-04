@@ -16,7 +16,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::{Camera3d, PhysicalCameraParameters, Projection};
+use bevy_camera::{Camera3d, PhysicalCameraParameters, Projection, TonemappingPass};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -75,6 +75,7 @@ pub struct DepthOfFieldPlugin;
 /// [depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(Component, Clone, Default)]
+#[require(TonemappingPass)]
 pub struct DepthOfField {
     /// The appearance of the effect.
     pub mode: DepthOfFieldMode,

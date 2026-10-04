@@ -3,11 +3,10 @@ use variadics_please::all_tuples;
 
 use crate::{
     schedule::{
-        auto_insert_apply_deferred::IgnoreDeferred,
         condition::{BoxedCondition, SystemCondition},
         graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
-        Chain, Weak,
+        Chain,
     },
     system::{BoxedSystem, IntoSystem, ScheduleSystem, System},
 };
@@ -164,7 +163,7 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
                 config
                     .metadata
                     .dependencies
-                    .push(Dependency::new(DependencyKind::Before, set).add_config(Weak));
+                    .push(Dependency::new(DependencyKind::Before, set).set_weak());
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -180,7 +179,7 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
                 config
                     .metadata
                     .dependencies
-                    .push(Dependency::new(DependencyKind::After, set).add_config(Weak));
+                    .push(Dependency::new(DependencyKind::After, set).set_weak());
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -196,7 +195,7 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
                 config
                     .metadata
                     .dependencies
-                    .push(Dependency::new(DependencyKind::Before, set).add_config(IgnoreDeferred));
+                    .push(Dependency::new(DependencyKind::Before, set).ignore_deferred());
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -212,7 +211,7 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
                 config
                     .metadata
                     .dependencies
-                    .push(Dependency::new(DependencyKind::After, set).add_config(IgnoreDeferred));
+                    .push(Dependency::new(DependencyKind::After, set).ignore_deferred());
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -293,7 +292,7 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
         match &mut self {
             Self::ScheduleConfig(_) => { /* no op */ }
             Self::Configs { metadata, .. } => {
-                metadata.set_chained_with_config(IgnoreDeferred);
+                metadata.set_chained_ignore_deferred();
             }
         }
         self
@@ -303,7 +302,7 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
         match &mut self {
             Self::ScheduleConfig(_) => { /* no op */ }
             Self::Configs { metadata, .. } => {
-                metadata.set_chained_with_config(Weak);
+                metadata.set_chained_weak();
             }
         }
         self

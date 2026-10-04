@@ -99,6 +99,18 @@ pub const SCROLLBAR_THUMB: ThemeToken = ThemeToken::new_static("feathers.scrollb
 pub const SCROLLBAR_THUMB_HOVER: ThemeToken =
     ThemeToken::new_static("feathers.scrollbar.thumb.hover");
 
+/// Split pane handle line
+pub const SPLIT_PANE_HANDLE: ThemeToken = ThemeToken::new_static("feathers.splitpane.handle");
+/// Split pane handle line (hovered)
+pub const SPLIT_PANE_HANDLE_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.splitpane.handle.hover");
+/// Split pane handle line (dragging)
+pub const SPLIT_PANE_HANDLE_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.splitpane.handle.pressed");
+/// Split pane handle line (disabled)
+pub const SPLIT_PANE_HANDLE_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.splitpane.handle.disabled");
+
 // Checkbox
 
 /// Checkbox background around the checkmark

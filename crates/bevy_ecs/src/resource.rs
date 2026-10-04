@@ -210,8 +210,7 @@ impl IsResource {
     }
 }
 
-/// [`ComponentId`] of the [`IsResource`] component.
-pub const IS_RESOURCE: ComponentId = ComponentId::new(crate::component::IS_RESOURCE);
+pub use crate::component::IS_RESOURCE;
 
 #[cfg(test)]
 mod tests {
