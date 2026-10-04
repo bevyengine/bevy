@@ -431,6 +431,9 @@ bevy_ui_widgets = [
 # Load and save settings
 bevy_settings = ["bevy_internal/bevy_settings"]
 
+# Dock layout data model for Bevy UI.
+bevy_ui_dock = ["bevy_internal/bevy_ui_dock", "bevy_ui_widgets"]
+
 # Feathers widget collection.
 bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
