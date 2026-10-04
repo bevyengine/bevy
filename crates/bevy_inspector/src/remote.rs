@@ -52,6 +52,7 @@ use bevy_remote::{
         BrpQueryRow, ComponentSelector, BRP_APP_INFO_METHOD, BRP_QUERY_METHOD,
     },
     client::{BrpClient, BrpClientError},
+    http::DEFAULT_PORT,
 };
 use bevy_tasks::{block_on, poll_once, IoTaskPool, Task, TaskPool};
 use bevy_time::{Real, Time};
@@ -98,7 +99,7 @@ pub struct RemoteSource {
 
 impl Default for RemoteSource {
     fn default() -> Self {
-        Self::localhost(15702)
+        Self::localhost(DEFAULT_PORT)
     }
 }
 
@@ -923,7 +924,9 @@ mod tests {
             registry.register::<ChildOf>();
         }
         world.insert_resource(registry);
-        world.insert_resource(InspectorSource::Remote(RemoteSource::localhost(15702)));
+        world.insert_resource(InspectorSource::Remote(RemoteSource::localhost(
+            DEFAULT_PORT,
+        )));
         world.init_resource::<InspectorSelection>();
         world.init_resource::<RemoteConnection>();
         world.init_resource::<RemoteProxyIndex>();

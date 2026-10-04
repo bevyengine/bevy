@@ -28,6 +28,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.20.0-dev" }
 bevy_remote = { path = "../bevy_remote", version = "0.20.0-dev", default-features = false, features = [
   "client",
+  "http",
 ], optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.20.0-dev", optional = true }
 

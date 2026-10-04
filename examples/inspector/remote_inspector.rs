@@ -28,6 +28,7 @@ use bevy::{
         InspectorPlugin, InspectorSource,
     },
     prelude::*,
+    remote::http::DEFAULT_PORT,
     ui_widgets::split_pane_self_update,
 };
 
@@ -45,7 +46,7 @@ fn remote_source() -> RemoteSource {
     let port = std::env::var("BRP_PORT")
         .ok()
         .and_then(|port| port.parse().ok())
-        .unwrap_or(15702);
+        .unwrap_or(DEFAULT_PORT);
     RemoteSource::new(host, port)
 }
 
