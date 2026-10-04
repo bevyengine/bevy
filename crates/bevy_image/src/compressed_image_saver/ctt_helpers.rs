@@ -5,7 +5,7 @@ use ctt::{
         astcenc::{AstcencSettings, AstcencUsage, NormalSwizzle},
         Encoder,
     },
-    AlphaMode, TargetFormat,
+    AlphaMode, ColorSpace, FormatExt, TargetFormat,
 };
 use ktx2::Format;
 use wgpu_types::{AstcBlock, AstcChannel, TextureFormat};
@@ -66,6 +66,7 @@ pub fn parse_astc_env_var() -> Result<Option<(Format, Format)>, CompressedImageS
 
 pub fn choose_ctt_compressed_format(
     input: TextureFormat,
+    color_space: ColorSpace,
     is_normal_map: bool,
 ) -> Result<TargetFormat, CompressedImageSaverError> {
     let astc_block = parse_astc_env_var()?;
@@ -232,7 +233,7 @@ pub fn choose_ctt_compressed_format(
 
     Ok(TargetFormat::Compressed {
         encoder: Encoder::Auto,
-        format,
+        format: format.with_color_space(color_space),
     })
 }
 

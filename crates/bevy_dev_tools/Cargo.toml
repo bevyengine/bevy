@@ -72,6 +72,7 @@ serde_json = { version = "1.0", default-features = false, features = [
 ], optional = true }
 ron = { version = "0.12", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+strsim = { version = "0.11", default-features = false }
 
 [dev-dependencies]
 # Allow tests to depend on the names of systems.
@@ -92,3 +93,13 @@ rustdoc-args = [
   "--generate-macro-expansion",
 ]
 all-features = true
+
+[package.metadata.wgsl-analyzer]
+edition = "2026_pre"
+root = "src"
+
+[package.metadata.wgsl-analyzer.dependencies]
+bevy_render = { path = "../bevy_render" }
+bevy_pbr = { path = "../bevy_pbr" }
+bevy_ui_render = { path = "../bevy_ui_render" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline" }

@@ -32,7 +32,8 @@ use bevy_mesh::UvChannel;
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Indices, Mesh, Mesh3d, MeshCompressionArgs, MeshVertexAttribute, PrimitiveTopology,
+    Indices, Mesh, Mesh3d, MeshCompressionArgs, MeshRaytracingFlags, MeshVertexAttribute,
+    PrimitiveTopology,
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
@@ -43,6 +44,7 @@ use bevy_world_serialization::WorldAsset;
 use gltf::{
     accessor::Iter,
     image::Source,
+    material::AlphaMode,
     mesh::{util::ReadIndices, Mode},
     Material, Node, Semantic,
 };
@@ -893,6 +895,14 @@ impl GltfLoader {
                 {
                     warn!("Failed to generate skinned mesh bounds: {err}");
                 }
+
+                mesh.raytracing = match primitive.material().alpha_mode() {
+                    AlphaMode::Opaque => MeshRaytracingFlags::OPAQUE,
+                    AlphaMode::Mask => MeshRaytracingFlags::NON_OPAQUE,
+                    // TODO: Solari doesn't support transparency yet, so this is treated as opaque for now
+                    #[expect(clippy::match_same_arms, reason = "Transparency not yet supported")]
+                    AlphaMode::Blend => MeshRaytracingFlags::OPAQUE,
+                };
 
                 let mesh_handle = load_context.add_labeled_asset(
                     primitive_label.to_string(),

@@ -318,6 +318,7 @@ Example | Description
 [Extract Schedule Data](../examples/dev_tools/schedule_data.rs) | Extracts the schedule data from a default app and writes it to a file
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
 [Infinite grid](../examples/dev_tools/infinite_grid.rs) | Demonstrates Bevy's infinite grid, suitable as a ground plane for editors
+[Local Inspector](../examples/inspector/local_inspector.rs) | Inspects the app's own world with the bevy_inspector entity tree panel
 
 ### Diagnostics
 
@@ -616,6 +617,7 @@ Example | Description
 [Generic Font Families](../examples/ui/text/generic_font_families.rs) | Demonstrates how to use generic font families
 [Ghost Nodes](../examples/ui/layout/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/styling/gradients.rs) | An example demonstrating gradients
+[Headless Split Pane](../examples/ui/widgets/headless_split_pane.rs) | Demonstrates nested headless split panes with draggable handles
 [Headless Tabs](../examples/ui/widgets/headless_tabs.rs) | Demonstrates controlled and self-updating headless tab lists
 [Headless Tree](../examples/ui/widgets/headless_tree.rs) | Demonstrates the headless tree view with lazy population and keyboard navigation
 [IME Support](../examples/ui/text/ime_support.rs) | Demonstrates IME (Input Method Editor) support for text input
