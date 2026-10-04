@@ -1,16 +1,13 @@
 use crate::{
     change_detection::Tick,
-    query::FilteredAccessSet,
     storage::SparseSetIndex,
     system::{
-        ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam,
+        SystemAccess, SystemMeta, SystemParam, SystemParamAccessConflict,
         SystemParamValidationError,
     },
-    world::{FromWorld, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_platform::sync::atomic::{AtomicUsize, Ordering};
-
-use super::unsafe_world_cell::UnsafeWorldCell;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 // We use usize here because that is the largest `Atomic` we want to require
@@ -64,10 +61,7 @@ impl FromWorld for WorldId {
     }
 }
 
-// SAFETY: No world data is accessed.
-unsafe impl ReadOnlySystemParam for WorldId {}
-
-// SAFETY: No world data is accessed.
+// SAFETY: World metadata is registered and accessed.
 unsafe impl SystemParam for WorldId {
     type State = ();
 
@@ -78,9 +72,12 @@ unsafe impl SystemParam for WorldId {
     fn init_access(
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
-        _world: &mut World,
-    ) {
+        system_access: &mut SystemAccess,
+    ) -> Result<(), SystemParamAccessConflict> {
+        system_access.try_extend_metadata().map_err(|access| {
+            SystemParamAccessConflict::new::<Self>(access)
+                .with_suggestion_if_exclusive(system_access, "Calling `World::id()`")
+        })
     }
 
     #[inline]
@@ -91,22 +88,6 @@ unsafe impl SystemParam for WorldId {
         _: Tick,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         Ok(world.id())
-    }
-}
-
-impl ExclusiveSystemParam for WorldId {
-    type State = WorldId;
-    type Item<'s> = WorldId;
-
-    fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        world.id()
-    }
-
-    fn get_param<'s>(
-        state: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-    ) -> Result<Self::Item<'s>, SystemParamValidationError> {
-        Ok(*state)
     }
 }
 
@@ -124,6 +105,8 @@ impl SparseSetIndex for WorldId {
 
 #[cfg(test)]
 mod tests {
+    use crate::system::assert_is_system;
+
     use super::*;
     use alloc::vec::Vec;
 
@@ -154,15 +137,12 @@ mod tests {
     }
 
     #[test]
-    fn world_id_exclusive_system_param() {
+    #[should_panic]
+    fn world_id_cannot_be_exclusive_system_param() {
         fn test_system(_world: &mut World, world_id: WorldId) -> WorldId {
             world_id
         }
-
-        let mut world = World::default();
-        let system_id = world.register_system(test_system);
-        let world_id = world.run_system(system_id).unwrap();
-        assert_eq!(world.id(), world_id);
+        assert_is_system(test_system);
     }
 
     // We cannot use this test as-is, as it causes other tests to panic due to using the same atomic variable.

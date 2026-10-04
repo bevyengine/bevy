@@ -1,9 +1,9 @@
-// Inputs a depth texture and outputs a MIP-chain of depths.
-//
-// Because SSAO's performance is bound by texture reads, this increases
-// performance over using the full resolution depth for every sample.
-
-// Reference: https://research.nvidia.com/sites/default/files/pubs/2012-06_Scalable-Ambient-Obscurance/McGuire12SAO.pdf, section 2.2
+//! Inputs a depth texture and outputs a MIP-chain of depths.
+//!
+//! Because SSAO's performance is bound by texture reads, this increases
+//! performance over using the full resolution depth for every sample.
+//!
+//! Reference: https://research.nvidia.com/sites/default/files/pubs/2012-06_Scalable-Ambient-Obscurance/McGuire12SAO.pdf, section 2.2
 
 import bevy_render::view::View;
 
@@ -26,7 +26,7 @@ import bevy_render::view::View;
 @group(1) @binding(1) var linear_clamp_sampler: sampler;
 @group(1) @binding(2) var<uniform> view: View;
 
-// Using 4 depths from the previous MIP, compute a weighted average for the depth of the current MIP
+/// Using 4 depths from the previous MIP, compute a weighted average for the depth of the current MIP
 fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
     let depth_range_scale_factor = 0.75;
     let effect_radius = depth_range_scale_factor * 0.5 * 1.457;
@@ -45,7 +45,7 @@ fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
     return ((weight0 * depth0) + (weight1 * depth1) + (weight2 * depth2) + (weight3 * depth3)) / weight_total;
 }
 
-// Used to share the depths from the previous MIP level between all invocations in a workgroup
+/// Used to share the depths from the previous MIP level between all invocations in a workgroup
 var<workgroup> previous_mip_depth: array<array<f32, 8>, 8>;
 
 @compute

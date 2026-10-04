@@ -1,6 +1,6 @@
 use crate::{
     message::{Message, MessageId, Messages, WriteBatchIds},
-    system::{ResMut, SystemParam},
+    system::{ResMut, SystemAccess, SystemParam, SystemParamAccessConflict},
 };
 
 /// Writes [`Message`]s of type `T`.
@@ -59,12 +59,27 @@ use crate::{
 ///
 /// [`Observer`]: crate::observer::Observer
 #[derive(SystemParam)]
+#[system_param(map_access_conflict)]
 pub struct MessageWriter<'w, M: Message> {
     #[system_param(validation_message = "Message not initialized")]
     messages: ResMut<'w, Messages<M>>,
 }
 
 impl<'w, M: Message> MessageWriter<'w, M> {
+    /// Modifies the [`SystemParamAccessConflict`] returned by [`SystemParam::init_access`].
+    fn map_access_conflict(
+        access: &SystemAccess,
+        err: SystemParamAccessConflict,
+    ) -> SystemParamAccessConflict {
+        SystemParamAccessConflict::new::<Self>(err.access)
+            .with_code("B0009")
+            .with_suggestion(if access.is_exclusive() {
+                "Calling `World::write_message()`"
+            } else {
+                "Using `MessageMutator` to both read and write messages"
+            })
+    }
+
     /// Writes an `message`, which can later be read by [`MessageReader`](super::MessageReader)s.
     /// This method returns the [ID](`MessageId`) of the written `message`.
     ///

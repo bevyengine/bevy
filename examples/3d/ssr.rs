@@ -8,7 +8,7 @@ use bevy::{
     camera::Hdr,
     color::palettes::css::{BLACK, WHITE},
     feathers::{
-        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision},
         display::{label, label_small},
         theme::UiTheme,
         FeathersPlugins,
@@ -27,7 +27,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderType},
     shader::ShaderRef,
-    ui_widgets::{radio_self_update, ValueChange},
+    ui_widgets::{radio_self_update, NumericValue, ValueChange},
 };
 
 #[path = "../helpers/radio.rs"]
@@ -462,17 +462,18 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_setting
 
 fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
         Children[
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "SSR",
                 &[
                     (SsrOn(true), "On"),
                     (SsrOn(false), "Off"),
                 ],
                 0,
-            ),
-            feathers_option_buttons(
+            )
+            --
+            @feathers_option_buttons(
                 "Model",
                 &[
                     (DisplayedModel::Cube, "Cube"),
@@ -483,8 +484,9 @@ fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
                     (DisplayedModel::Capsules, "Capsules"),
                 ],
                 0,
-            ),
-            feathers_option_buttons(
+            )
+            --
+            @feathers_option_buttons(
                 "Base",
                 &[
                     (DisplayedBase::Water, "Water"),
@@ -492,28 +494,31 @@ fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
                     (DisplayedBase::RedPlane, "Red Plane"),
                 ],
                 0,
-            ),
-            range_row(
+            )
+            --
+            @range_row(
                 "Min Roughness",
                 app_settings.min_perceptual_roughness.start,
                 app_settings.min_perceptual_roughness.end,
                 AppNumberInput::MinRoughnessStart,
                 AppNumberInput::MinRoughnessEnd,
-            ),
-            range_row(
+            )
+            --
+            @range_row(
                 "Max Roughness",
                 app_settings.max_perceptual_roughness.start,
                 app_settings.max_perceptual_roughness.end,
                 AppNumberInput::MaxRoughnessStart,
                 AppNumberInput::MaxRoughnessEnd,
-            ),
-            range_row(
+            )
+            --
+            @range_row(
                 "Edge Fadeout",
                 app_settings.edge_fadeout.start,
                 app_settings.edge_fadeout.end,
                 AppNumberInput::EdgeFadeoutStart,
                 AppNumberInput::EdgeFadeoutEnd,
-            ),
+            )
         ]
     });
 }
@@ -534,22 +539,22 @@ fn range_row(
                 width: px(150),
             }
             Children[
-                label(title.to_string())
-            ],
-
-            range_controls(
+                @label(title.to_string())
+            ]
+            --
+            @range_controls(
                 start_value,
                 start_number_input
-            ),
-
+            )
+            --
             Node {
                 margin: UiRect::horizontal(px(10)),
             }
             Children [
-                label_small("to".to_string())
-            ],
-
-            range_controls(end_value, end_number_input),
+                @label_small("to".to_string())
+            ]
+            --
+            @range_controls(end_value, end_number_input)
         ]
     }
 }
@@ -557,8 +562,8 @@ fn range_row(
 fn range_controls(value: f32, app_number_input: AppNumberInput) -> impl Scene {
     bsn! {
         @FeathersNumberInput
-        template_value(NumberInputValue::F32(value))
-        template_value(app_number_input)
+        NumericValue::F32(value)
+        app_number_input
         NumberInputPrecision(3)
         HardLimit::f32(0.0..=1.0)
         Node {
@@ -774,7 +779,7 @@ fn handle_value_change_number_input(
 
         commands
             .entity(value_change.source)
-            .insert(NumberInputValue::F32(value_change.value));
+            .insert(NumericValue::F32(value_change.value));
 
         update_views(commands, app_settings, cameras);
     }

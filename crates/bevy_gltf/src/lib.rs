@@ -100,6 +100,8 @@
 //! | --------------------------------- | --------- | ----------------------------------- |
 //! | `KHR_animation_pointer`           | ❌        |                                     |
 //! | `KHR_draco_mesh_compression`      | ❌        |                                     |
+//! | `KHR_gaussian_splatting`          | ❌        |                                     |
+//! | `KHR_interactivity`               | ❌        |                                     |
 //! | `KHR_lights_punctual`             | ✅        |                                     |
 //! | `KHR_materials_anisotropy`        | ✅        | `pbr_anisotropy_texture`            |
 //! | `KHR_materials_clearcoat`         | ✅        | `pbr_multi_layer_material_textures` |
@@ -114,6 +116,9 @@
 //! | `KHR_materials_variants`          | ❌        |                                     |
 //! | `KHR_materials_volume`            | ✅        |                                     |
 //! | `KHR_mesh_quantization`           | ❌        |                                     |
+//! | `KHR_node_hoverability`           | ❌        |                                     |
+//! | `KHR_node_selectability`          | ❌        |                                     |
+//! | `KHR_node_visibility`             | ❌        |                                     |
 //! | `KHR_texture_basisu`              | ❌\*      |                                     |
 //! | `KHR_texture_transform`           | ✅\**     |                                     |
 //! | `KHR_xmp_json_ld`                 | ❌        |                                     |
@@ -148,7 +153,7 @@ use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::Resource;
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats, ImageSamplerDescriptor};
-use bevy_mesh::{MeshAttributeCompressionFlags, MeshVertexAttribute};
+use bevy_mesh::{MeshCompressionArgs, MeshVertexAttribute};
 
 /// The glTF prelude.
 ///
@@ -258,11 +263,8 @@ pub struct GltfPlugin {
     /// [`GltfLoaderSettings::skinning_influence_limit`].
     pub skinning_influence_limit: GltfSkinningInfluenceLimit,
 
-    /// Mesh attribute compression flags for the loaded meshes.
-    pub mesh_attribute_compression: MeshAttributeCompressionFlags,
-
-    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
-    pub mesh_index_compression: bool,
+    /// Mesh attribute compression arguments applied when loading meshes.
+    pub mesh_compression: MeshCompressionArgs,
 }
 
 impl Default for GltfPlugin {
@@ -273,8 +275,7 @@ impl Default for GltfPlugin {
             convert_coordinates: GltfConvertCoordinates::default(),
             skinned_mesh_bounds_policy: Default::default(),
             skinning_influence_limit: Default::default(),
-            mesh_attribute_compression: MeshAttributeCompressionFlags::empty(),
-            mesh_index_compression: false,
+            mesh_compression: MeshCompressionArgs::none(),
         }
     }
 }
@@ -332,8 +333,7 @@ impl Plugin for GltfPlugin {
             extensions: extensions.0.clone(),
             default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
             default_skinning_influence_limit: self.skinning_influence_limit,
-            default_mesh_attribute_compression: self.mesh_attribute_compression,
-            default_mesh_index_compression: self.mesh_index_compression,
+            default_mesh_compression: self.mesh_compression.clone(),
         });
     }
 }

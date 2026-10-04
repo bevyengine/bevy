@@ -1,3 +1,29 @@
+//! World space:
+//! +y is up
+//!
+//! View space:
+//! -z is forward, +x is right, +y is up
+//! Forward is from the camera position into the scene.
+//! (0.0, 0.0, -1.0) is linear distance of 1.0 in front of the camera's view relative to the camera's rotation
+//! (0.0, 1.0, 0.0) is linear distance of 1.0 above the camera's view relative to the camera's rotation
+//!
+//! NDC (normalized device coordinate):
+//! https://www.w3.org/TR/webgpu/#coordinate-systems
+//! (-1.0, -1.0) in NDC is located at the bottom-left corner of NDC
+//! (1.0, 1.0) in NDC is located at the top-right corner of NDC
+//! Z is depth where:
+//!    1.0 is near clipping plane
+//!    Perspective projection: 0.0 is inf far away
+//!    Orthographic projection: 0.0 is far clipping plane
+//!
+//! Clip space:
+//! This is NDC before the perspective divide, still in homogenous coordinate space.
+//! Dividing a clip space point by its w component yields a point in NDC space.
+//!
+//! UV space:
+//! 0.0, 0.0 is the top left
+//! 1.0, 1.0 is the bottom right
+
 struct ColorGrading {
     balance: mat3x3<f32>,
     saturation: vec3<f32>,
@@ -17,85 +43,58 @@ struct View {
     world_from_clip: mat4x4<f32>,
     world_from_view: mat4x4<f32>,
     view_from_world: mat4x4<f32>,
-    // Typically a column-major right-handed projection matrix, one of either:
-    //
-    // Perspective (infinite reverse z)
-    // ```
-    // f = 1 / tan(fov_y_radians / 2)
-    //
-    // ⎡ f / aspect  0   0     0 ⎤
-    // ⎢          0  f   0     0 ⎥
-    // ⎢          0  0   0  near ⎥
-    // ⎣          0  0  -1     0 ⎦
-    // ```
-    //
-    // Orthographic
-    // ```
-    // w = right - left
-    // h = top - bottom
-    // d = far - near
-    // cw = -right - left
-    // ch = -top - bottom
-    //
-    // ⎡ 2 / w      0      0   cw / w ⎤
-    // ⎢     0  2 / h      0   ch / h ⎥
-    // ⎢     0      0  1 / d  far / d ⎥
-    // ⎣     0      0      0        1 ⎦
-    // ```
-    //
-    // `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
-    //
-    // Wgsl matrices are column major, so for example getting the near plane of a perspective projection is `clip_from_view[3][2]`
-    //
-    // Custom projections are also possible however.
+    /// Typically a column-major right-handed projection matrix, one of either:
+    ///
+    /// Perspective (infinite reverse z)
+    /// ```
+    /// f = 1 / tan(fov_y_radians / 2)
+    ///
+    /// ⎡ f / aspect  0   0     0 ⎤
+    /// ⎢          0  f   0     0 ⎥
+    /// ⎢          0  0   0  near ⎥
+    /// ⎣          0  0  -1     0 ⎦
+    /// ```
+    ///
+    /// Orthographic
+    /// ```
+    /// w = right - left
+    /// h = top - bottom
+    /// d = far - near
+    /// cw = -right - left
+    /// ch = -top - bottom
+    ///
+    /// ⎡ 2 / w      0      0   cw / w ⎤
+    /// ⎢     0  2 / h      0   ch / h ⎥
+    /// ⎢     0      0  1 / d  far / d ⎥
+    /// ⎣     0      0      0        1 ⎦
+    /// ```
+    ///
+    /// `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    ///
+    /// Wgsl matrices are column major, so for example getting the near plane of a perspective projection is `clip_from_view[3][2]`
+    ///
+    /// Custom projections are also possible however.
     clip_from_view: mat4x4<f32>,
     view_from_clip: mat4x4<f32>,
     world_position: vec3<f32>,
     exposure: f32,
-    // viewport(x_origin, y_origin, width, height)
+    /// viewport(x_origin, y_origin, width, height)
     viewport: vec4<f32>,
     main_pass_viewport: vec4<f32>,
-    // 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
-    // The normal vectors point towards the interior of the frustum.
-    // A half space contains `p` if `normal.dot(p) + distance > 0.`
+    /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
+    /// The normal vectors point towards the interior of the frustum.
+    /// A half space contains `p` if `normal.dot(p) + distance > 0.`
     frustum: array<vec4<f32>, 6>,
-    // The world-space position of the camera used to resolve visibility ranges.
-    //
-    // This is the position of the camera itself, unless this view isn't
-    // associated with a camera, in which case it's the position of the primary
-    // camera.
+    /// The world-space position of the camera used to resolve visibility ranges.
+    ///
+    /// This is the position of the camera itself, unless this view isn't
+    /// associated with a camera, in which case it's the position of the primary
+    /// camera.
     lod_view_world_position: vec3<f32>,
     color_grading: ColorGrading,
     mip_bias: f32,
     frame_count: u32,
 };
-
-/// World space:
-/// +y is up
-
-/// View space:
-/// -z is forward, +x is right, +y is up
-/// Forward is from the camera position into the scene.
-/// (0.0, 0.0, -1.0) is linear distance of 1.0 in front of the camera's view relative to the camera's rotation
-/// (0.0, 1.0, 0.0) is linear distance of 1.0 above the camera's view relative to the camera's rotation
-
-/// NDC (normalized device coordinate):
-/// https://www.w3.org/TR/webgpu/#coordinate-systems
-/// (-1.0, -1.0) in NDC is located at the bottom-left corner of NDC
-/// (1.0, 1.0) in NDC is located at the top-right corner of NDC
-/// Z is depth where:
-///    1.0 is near clipping plane
-///    Perspective projection: 0.0 is inf far away
-///    Orthographic projection: 0.0 is far clipping plane
-
-/// Clip space:
-/// This is NDC before the perspective divide, still in homogenous coordinate space.
-/// Dividing a clip space point by its w component yields a point in NDC space.
-
-/// UV space:
-/// 0.0, 0.0 is the top left
-/// 1.0, 1.0 is the bottom right
-
 
 // -----------------
 // TO WORLD --------
@@ -248,18 +247,18 @@ fn view_z_to_depth_ndc(view_z: f32, clip_from_view: mat4x4<f32>) -> f32 {
 // UV --------------
 // -----------------
 
-/// Convert ndc space xy coordinate [-1.0 .. 1.0] to uv [0.0 .. 1.0]
+/// Convert ndc space xy coordinate `[-1.0 .. 1.0]` to uv `[0.0 .. 1.0]`
 fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
     return ndc * vec2(0.5, -0.5) + vec2(0.5);
 }
 
-/// Convert uv [0.0 .. 1.0] coordinate to ndc space xy [-1.0 .. 1.0]
+/// Convert uv `[0.0 .. 1.0]` coordinate to ndc space xy `[-1.0 .. 1.0]`
 fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
     return uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
 }
 
-/// returns the (0.0, 0.0) .. (1.0, 1.0) position within the viewport for the current render target
-/// [0 .. render target viewport size] eg. [(0.0, 0.0) .. (1280.0, 720.0)] to [(0.0, 0.0) .. (1.0, 1.0)]
+/// returns the `(0.0, 0.0) .. (1.0, 1.0)` position within the viewport for the current render target
+/// `[0 .. render target viewport size]` eg. `[(0.0, 0.0) .. (1280.0, 720.0)]` to `[(0.0, 0.0) .. (1.0, 1.0)]`
 fn frag_coord_to_uv(frag_coord: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> {
     return (frag_coord - viewport.xy) / viewport.zw;
 }
@@ -269,8 +268,8 @@ fn frag_coord_to_ndc(frag_coord: vec4<f32>, viewport: vec4<f32>) -> vec3<f32> {
     return vec3(uv_to_ndc(frag_coord_to_uv(frag_coord.xy, viewport)), frag_coord.z);
 }
 
-/// Convert ndc space xy coordinate [-1.0 .. 1.0] to [0 .. render target
-/// viewport size]
+/// Convert ndc space xy coordinate `[-1.0 .. 1.0]` to `[0 .. render target
+/// viewport size]`
 fn ndc_to_frag_coord(ndc: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> {
     return ndc_to_uv(ndc) * viewport.zw;
 }

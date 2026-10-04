@@ -24,7 +24,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 pub use crate::cursor::{CustomCursor, CustomCursorImage};
 
 /// System sets for cursor-related systems.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet, Reflect)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub enum CursorSystems {
     /// Reads changes to [`CursorIcon`] and queues the corresponding cursor to
     /// be applied to the window by the windowing backend.

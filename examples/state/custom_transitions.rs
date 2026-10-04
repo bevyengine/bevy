@@ -233,9 +233,9 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
                 top: px(10),
             }
             Children [
-                Text::new("Move with arrow keys.")
-            ],
-
+                Text("Move with arrow keys.")
+            ]
+            --
             Node {
                 position_type: PositionType::Absolute,
                 left: px(10),
@@ -261,12 +261,12 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
                     }
             })
             Children [
-                Text::new("Restart Game")
+                Text("Restart Game")
                 TextFont {
                         font_size: FontSize::Px(33.0),
                 }
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-            ],
+                TextColor(Color::srgb(0.9, 0.9, 0.9))
+            ]
         ]
     });
     info!("Setup game");

@@ -3,16 +3,15 @@ use crate::{
     error::{BevyError, Result},
     never::Never,
     prelude::FromWorld,
-    query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemIn, SystemInput,
-        SystemParam, SystemParamItem,
+        check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemAccess, SystemIn,
+        SystemInput, SystemParam, SystemParamAccessConflict, SystemParamItem,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
-use alloc::{borrow::Cow, vec, vec::Vec};
+use alloc::{borrow::Cow, format, string::String, vec, vec::Vec};
 use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
@@ -121,11 +120,6 @@ impl SystemMeta {
     #[inline]
     pub fn set_has_deferred(&mut self) {
         self.flags |= SystemStateFlags::DEFERRED;
-    }
-
-    /// Mark the system to run exclusively. i.e. no other systems will run at the same time.
-    pub fn set_exclusive(&mut self) {
-        self.flags |= SystemStateFlags::EXCLUSIVE;
     }
 }
 
@@ -308,10 +302,9 @@ impl<Param: SystemParam> SystemState<Param> {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = Param::init_state(world);
-        let mut component_access_set = FilteredAccessSet::new();
         // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
         // even though we don't use the calculated access.
-        Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
+        init_param_or_panic::<Param>(&param_state, &mut meta, world.into());
         Self {
             meta,
             param_state,
@@ -324,10 +317,9 @@ impl<Param: SystemParam> SystemState<Param> {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = builder.build(world);
-        let mut component_access_set = FilteredAccessSet::new();
         // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
         // even though we don't use the calculated access.
-        Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
+        init_param_or_panic::<Param>(&param_state, &mut meta, world.into());
         Self {
             meta,
             param_state,
@@ -509,6 +501,10 @@ where
     current_ptr: subsecond::HotFnPtr,
     state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
+    /// Used to take a different change ticking approach for exclusive systems;
+    /// external users should use [`SystemAccess::is_exclusive`] via
+    /// [`System::initialize`] instead.
+    is_exclusive: bool,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn(In) -> (Marker, Out)>,
 }
@@ -538,6 +534,7 @@ where
                 .ptr_address(),
             state,
             system_meta,
+            is_exclusive: false,
             marker: PhantomData,
         }
     }
@@ -564,9 +561,124 @@ where
                 .ptr_address(),
             state: None,
             system_meta: SystemMeta::new::<F>(),
+            is_exclusive: false,
             marker: PhantomData,
         }
     }
+}
+
+/// Registers any [`World`] access used by the given [`SystemParam`].
+///
+/// This method will panic with a descriptive message if [`SystemParam::init_access`] returns [`Err`].
+fn init_param_or_panic<P: SystemParam>(
+    state: &P::State,
+    system_meta: &mut SystemMeta,
+    world: UnsafeWorldCell,
+) -> SystemAccess {
+    let mut access = SystemAccess::default();
+    P::init_access(state, system_meta, &mut access).unwrap_or_else(|err2| {
+        if DebugName::ENABLED {
+            // Find the other conflicting parameter.
+            // By initializing `access` with the access of the later parameter,
+            // the earlier one will detect the conflict instead.
+            let mut access = err2.access.clone();
+            let err1 = P::init_access(state, system_meta, &mut access).err();
+            panic_for_param_conflict(system_meta.name(), world, err1, err2);
+        } else {
+            // The ordinary panic message includes multiple `DebugName`s,
+            // each of which would be replaced with an "Enable the debug feature" message.
+            // Don't even bother calling `init_access` again if we can't use the parameter name.
+            panic_for_param_conflict_no_debug(err2);
+        }
+    });
+    access
+}
+
+/// Formats a helpful panic message for conflicting [`SystemParam`] access.
+///
+/// This is separate from [`init_param_or_panic`] so that it is not monomorphized for each [`SystemParam`] type.
+#[cold]
+fn panic_for_param_conflict(
+    system_name: &DebugName,
+    world: UnsafeWorldCell<'_>,
+    err1: Option<SystemParamAccessConflict>,
+    err2: SystemParamAccessConflict,
+) -> ! {
+    let err1 =
+        err1.expect("System param with internal access conflict must always report a conflict");
+
+    let conflicts = err1.access.get_conflicts(&err2.access);
+    let mut accesses = conflicts.format_conflict_list(world);
+    // Access list may be empty (if access to all components requested)
+    if !accesses.is_empty() {
+        accesses.insert_str(0, " on component(s) ");
+    }
+
+    let code = if let Some(code) = err1.code
+        && Some(code) == err2.code
+    {
+        code
+    } else if err1.access.is_exclusive() || err2.access.is_exclusive() {
+        "B0008"
+    } else {
+        "B0007"
+    };
+    let code_lower = code.to_ascii_lowercase();
+
+    // Check if both parameters were the same.
+    // Only consider parameters duplicates if the name *and* access matches.
+    // Just checking the name will give false positives with nested queries.
+    let remove_duplicate = (err1.param == err2.param && err1.access == err2.access)
+        .then_some(DebugName::borrowed("Removing the duplicate parameter"));
+
+    let mut suggestions = err1
+        .suggestions
+        .iter()
+        .chain(&err2.suggestions)
+        .collect::<Vec<_>>();
+    // Remove duplicate suggestions so that we don't suggest "Using `Without<T>`" twice for conflicting queries.
+    suggestions.sort_by_key(|s| &***s);
+    suggestions.dedup();
+
+    let suggestions = suggestions
+        .into_iter()
+        .chain(&remove_duplicate)
+        .map(|s| format!("* {s}\n"))
+        .collect::<String>();
+
+    panic!(
+        concat!(
+            "error[{}]: `{}` and `{}` parameters in system `{}` conflict{}.\n",
+            "Consider:\n",
+            "{}",
+            "* Merging conflicting parameters into a `ParamSet`\n",
+            "See: https://bevy.org/learn/errors/{}",
+        ),
+        code,
+        err1.param.shortname(),
+        err2.param.shortname(),
+        system_name,
+        accesses,
+        suggestions,
+        code_lower,
+    );
+}
+
+/// Formats a simple panic message for conflicting [`SystemParam`] access when debug strings are not available.
+///
+/// This is separate from [`init_param_or_panic`] so that it is not monomorphized for each [`SystemParam`] type.
+#[cold]
+fn panic_for_param_conflict_no_debug(err2: SystemParamAccessConflict) -> ! {
+    let code = err2.code.unwrap_or("B0007");
+    let code_lower = code.to_ascii_lowercase();
+    panic!(
+        concat!(
+            "error[{}]: System parameter access conflict.\n",
+            "Enable the `debug` feature to see the system and parameter names.\n",
+            "See: https://bevy.org/learn/errors/{}"
+        ),
+        code, code_lower
+    );
 }
 
 /// A marker type used to distinguish regular function systems from exclusive function systems.
@@ -664,15 +776,52 @@ where
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
+        // This guard is used by exclusive systems to temporarily set the world's
+        // last change tick to the system's last run tick, and then restore it
+        // when the system finishes running, regardless of whether the system
+        // completes successfully or panics.
+        struct LastTickGuard<'a> {
+            world: UnsafeWorldCell<'a>,
+            last_tick: Tick,
+        }
+        // By setting the change tick in the drop impl, we ensure that
+        // the change tick gets reset even if a panic occurs during the scope.
+        impl Drop for LastTickGuard<'_> {
+            fn drop(&mut self) {
+                // SAFETY: The guard was only created under exclusive access to
+                // the world, and nothing else is accessing the world mutably
+                // when this drop occurs.
+                let world = unsafe { self.world.world_mut() };
+                world.last_change_tick = self.last_tick;
+            }
+        }
+
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
-
-        let change_tick = world.increment_change_tick();
 
         let input = F::In::from_inner(input);
 
         let state = self.state.as_mut().expect(Self::ERROR_UNINITIALIZED);
         assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+
+        let (change_tick, _guard) = if self.is_exclusive {
+            // SAFETY: an exclusive system has sole access to the world.
+            let exclusive_world = unsafe { world.world_mut() };
+            let change_tick = exclusive_world.change_tick();
+            let previous_tick = exclusive_world.last_change_tick();
+            exclusive_world.last_change_tick = self.system_meta.last_run;
+
+            (
+                change_tick,
+                Some(LastTickGuard {
+                    world,
+                    last_tick: previous_tick,
+                }),
+            )
+        } else {
+            (world.increment_change_tick(), None)
+        };
+
         // SAFETY:
         // - The above assert ensures the world matches.
         // - All world accesses used by `F::Param` have been registered, so the caller
@@ -695,7 +844,14 @@ where
         #[cfg(not(feature = "hotpatching"))]
         let out = self.func.run(input, params);
 
-        self.system_meta.last_run = change_tick;
+        if self.is_exclusive {
+            // SAFETY: The system has exclusive access to the world.
+            let world = unsafe { world.world_mut() };
+            world.flush();
+            self.system_meta.last_run = world.increment_change_tick();
+        } else {
+            self.system_meta.last_run = change_tick;
+        }
         IntoResult::into_result(out)
     }
 
@@ -722,7 +878,7 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         if let Some(state) = &self.state {
             assert_eq!(
                 state.world_id,
@@ -735,14 +891,10 @@ where
             world_id: world.id(),
         });
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let mut component_access_set = FilteredAccessSet::new();
-        F::Param::init_access(
-            &state.param,
-            &mut self.system_meta,
-            &mut component_access_set,
-            world,
-        );
-        component_access_set
+        let access =
+            init_param_or_panic::<F::Param>(&state.param, &mut self.system_meta, world.into());
+        self.is_exclusive = access.is_exclusive();
+        access
     }
 
     #[inline]

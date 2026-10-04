@@ -8,8 +8,8 @@ import package::render::{
 };
 
 @if(MORPH_TARGETS)
-// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
-// See https://github.com/gfx-rs/naga/issues/2416
+/// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
+/// See https://github.com/gfx-rs/naga/issues/2416
 fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> UncompressedVertex {
     var vertex = vertex_in;
     let first_vertex = mesh[instance_index].first_vertex_index;
