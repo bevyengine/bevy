@@ -162,6 +162,7 @@ Example | Description
 [Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Fog volumes](../examples/3d/fog_volumes.rs) | Demonstrates fog volumes
+[GPU Instance Batches (Particles)](../examples/3d/gpu_particles.rs) | Renders a GPU-authored batch of mesh instances using the GpuBatchedMesh3d API
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes
 [Light Probe Blending](../examples/3d/light_probe_blending.rs) | Demonstrates blending between multiple reflection probes

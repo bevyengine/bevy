@@ -24,7 +24,7 @@ use bevy::{
         system::{lifetimeless::SRes, SystemParamItem},
     },
     math::FloatOrd,
-    mesh::MeshVertexBufferLayoutRef,
+    mesh::{Mesh3dVisibility, MeshVertexBufferLayoutRef},
     pbr::{
         DrawMesh, MeshInputUniform, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
         MeshUniform, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
@@ -585,7 +585,7 @@ fn queue_custom_meshes(
         };
 
         // Since our phase can work on any 3d mesh we can reuse the default mesh 3d filter
-        let Some(render_visible_mesh_entities) = visible_entities.get::<Mesh3d>() else {
+        let Some(render_visible_mesh_entities) = visible_entities.get::<Mesh3dVisibility>() else {
             continue;
         };
 

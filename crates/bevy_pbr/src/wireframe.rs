@@ -19,7 +19,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
+use bevy_mesh::{Mesh, Mesh3d, Mesh3dVisibility, MeshVertexBufferLayoutRef};
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
@@ -1478,7 +1478,7 @@ pub fn specialize_wireframes(
             .entry(view.retained_view_entity)
             .or_default();
 
-        let Some(render_visible_mesh_entities) = visible_entities.get::<Mesh3d>() else {
+        let Some(render_visible_mesh_entities) = visible_entities.get::<Mesh3dVisibility>() else {
             continue;
         };
 
@@ -1649,7 +1649,7 @@ fn queue_wireframes(
             continue;
         };
 
-        let Some(render_mesh_visible_entities) = visible_entities.get::<Mesh3d>() else {
+        let Some(render_mesh_visible_entities) = visible_entities.get::<Mesh3dVisibility>() else {
             continue;
         };
 

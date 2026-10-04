@@ -20,7 +20,7 @@ use bevy_ecs::{entity::EntityHashSet, prelude::*, system::QueryLens};
 use bevy_gizmos::frustum::FrustumGizmoSystems;
 use bevy_log::warn_once;
 use bevy_math::Vec3A;
-use bevy_mesh::Mesh3d;
+use bevy_mesh::Mesh3dVisibility;
 use bevy_reflect::prelude::*;
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::Parallel;
@@ -258,11 +258,11 @@ pub type WithLight = Or<(
     With<RectLight>,
 )>;
 
-/// Add this component to make a [`Mesh3d`] not cast shadows.
+/// Add this component to make a [`Mesh3d`](bevy_mesh::Mesh3d) not cast shadows.
 #[derive(Debug, Component, Reflect, Default, Clone, PartialEq)]
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct NotShadowCaster;
-/// Add this component to make a [`Mesh3d`] not receive shadows.
+/// Add this component to make a [`Mesh3d`](bevy_mesh::Mesh3d) not receive shadows.
 ///
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
@@ -270,7 +270,7 @@ pub struct NotShadowCaster;
 #[derive(Debug, Component, Reflect, Default, Clone)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh3d`] using a PBR material with `StandardMaterial::diffuse_transmission > 0.0`
+/// Add this component to make a [`Mesh3d`](bevy_mesh::Mesh3d) using a PBR material with `StandardMaterial::diffuse_transmission > 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
 /// Not enabled by default, as it requires carefully setting up `StandardMaterial::thickness`
@@ -365,7 +365,7 @@ pub fn check_dir_light_mesh_visibility(
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
             Without<NoCpuCulling>,
-            With<Mesh3d>,
+            With<Mesh3dVisibility>,
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
@@ -545,7 +545,7 @@ pub fn check_point_light_mesh_visibility(
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
             Without<NoCpuCulling>,
-            With<Mesh3d>,
+            With<Mesh3dVisibility>,
         ),
     >,
     mut camera_query: Query<(Entity, &RenderTarget), With<Camera>>,
