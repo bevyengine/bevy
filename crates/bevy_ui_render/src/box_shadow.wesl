@@ -5,7 +5,7 @@ import package::ui::{
 };
 
 const PI: f32 = 3.14159265358979323846;
-const SAMPLES: i32 = constants::SHADOW_SAMPLES;
+const SAMPLES: u32 = constants::SHADOW_SAMPLES;
 
 @group(0) @binding(0) var<uniform> view: View;
 
@@ -23,7 +23,7 @@ fn gaussian(x: f32, sigma: f32) -> f32 {
     return exp(-(x * x) / (2. * sigma * sigma)) / (sqrt(2. * PI) * sigma);
 }
 
-// Approximates the Gauss error function: https://en.wikipedia.org/wiki/Error_function
+/// Approximates the Gauss error function: https://en.wikipedia.org/wiki/Error_function
 fn erf(p: vec2<f32>) -> vec2<f32> {
     let s = sign(p);
     let a = abs(p);
@@ -33,7 +33,7 @@ fn erf(p: vec2<f32>) -> vec2<f32> {
     return s - s / (result * result);
 }
 
-fn horizontalRoundedBoxShadow(x: f32, y: f32, blur: f32, radius: vec2<f32>, half_size: vec2<f32>) -> f32 {    
+fn horizontalRoundedBoxShadow(x: f32, y: f32, blur: f32, radius: vec2<f32>, half_size: vec2<f32>) -> f32 {
     var c = half_size.x;
     if 0.0 < min(radius.x, radius.y) {
         let d = min(half_size.y - radius.y - abs(y), 0.);
@@ -61,7 +61,7 @@ fn roundedBoxShadow(
     let step = (end - start) / f32(SAMPLES);
     var y = start + step * 0.5;
     var value: f32 = 0.0;
-    for (var i = 0; i < SAMPLES; i++) {
+    for (var i: u32 = 0; i < SAMPLES; i++) {
         let corner = select_corner_radius(p, corners_x, corners_y);
         value += horizontalRoundedBoxShadow(p.x, p.y - y, blur, corner, half_size) * gaussian(y, blur) * step;
         y += step;
@@ -98,5 +98,3 @@ fn fragment(
     let g = in.color.a * roundedBoxShadow(-0.5 * in.size, 0.5 * in.size, in.point, max(in.blur, 0.01), in.radius_x, in.radius_y);
     return vec4(in.color.rgb, g);
 }
-
-

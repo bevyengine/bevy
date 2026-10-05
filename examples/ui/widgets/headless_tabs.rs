@@ -10,8 +10,8 @@ use bevy::{
     prelude::*,
     ui::{InteractionDisabled, Selected},
     ui_widgets::{
-        tablist_self_update, ControlOrientation, SelectedTab, Tab, TabActivation, TabList,
-        ValueChange,
+        tablist_self_update, ControlOrientation, SelectedTab, Tab, TabActivation, TabDragMode,
+        TabDragging, TabInsertionPreview, TabList, TabLocked, TabMoved, ValueChange,
     },
 };
 
@@ -26,99 +26,113 @@ fn main() {
         .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .init_resource::<ControlledSelection>()
         .add_systems(Startup, showcase.spawn())
-        .add_systems(Update, update_tab_styles)
+        .add_systems(Update, (update_tab_styles, show_insertion_points).chain())
         .run();
 }
 
 fn showcase() -> impl SceneList {
-    bsn_list![
-        Camera2d,
-        (
-            Node {
-                width: percent(100),
-                height: percent(100),
-                padding: UiRect::all(px(24)),
-                display: Display::Flex,
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Start,
-                row_gap: px(18),
-                overflow: Overflow::scroll_y(),
+    bsn_list! {
+        Camera2d
+        --
+        Node {
+            width: percent(100),
+            height: percent(100),
+            padding: UiRect::all(px(24)),
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Start,
+            row_gap: px(18),
+            overflow: Overflow::scroll_y(),
+        }
+        BackgroundColor(Color::srgb(0.06, 0.07, 0.09))
+        TabGroup
+        Children [
+            @section_label("Horizontal automatic - self-updating")
+            --
+            #automatic
+            @tab_strip(ControlOrientation::Horizontal)
+            TabList {
+                orientation: ControlOrientation::Horizontal,
+                activation: TabActivation::Automatic,
             }
-            BackgroundColor(Color::srgb(0.06, 0.07, 0.09))
-            TabGroup
+            @selected_tab(#automatic_general)
+            on(tablist_self_update)
             Children [
-                @section_label("Horizontal automatic - self-updating"),
-                (
-                    #automatic
-                    @tab_strip(ControlOrientation::Horizontal)
-                    TabList {
-                        orientation: ControlOrientation::Horizontal,
-                        activation: TabActivation::Automatic,
-                    }
-                    @selected_tab(#automatic_general)
-                    on(tablist_self_update)
-                    Children [
-                        (
-                            #automatic_general
-                            @tab_header("General")
-                        ),
-                        @tab_header("Rendering"),
-                        (
-                            @tab_header("Disabled")
-                            InteractionDisabled
-                        ),
-                    ]
-                ),
-                @section_label("Horizontal manual - focus and selection are separate"),
-                (
-                    @tab_strip(ControlOrientation::Horizontal)
-                    TabList::default()
-                    @selected_tab(#manual_scene)
-                    on(tablist_self_update)
-                    Children [
-                        (
-                            #manual_scene
-                            @tab_header("Scene")
-                        ),
-                        @tab_header("Assets"),
-                        @tab_header("Inspector"),
-                    ]
-                ),
-                @section_label("Vertical manual"),
-                (
-                    @tab_strip(ControlOrientation::Vertical)
-                    TabList {
-                        orientation: ControlOrientation::Vertical,
-                        activation: TabActivation::Manual,
-                    }
-                    @selected_tab(#vertical_transform)
-                    on(tablist_self_update)
-                    Children [
-                        (
-                            #vertical_transform
-                            @tab_header("Transform")
-                        ),
-                        @tab_header("Visibility"),
-                        @tab_header("Metadata"),
-                    ]
-                ),
-                @section_label("Controlled - observer updates external state"),
-                (
-                    @tab_strip(ControlOrientation::Horizontal)
-                    TabList::default()
-                    @selected_tab(#controlled_a)
-                    on(controlled_selection)
-                    Children [
-                        (
-                            #controlled_a
-                            @tab_header("External A")
-                        ),
-                        @tab_header("External B"),
-                    ]
-                ),
+                #automatic_general
+                @tab_header("General")
+                --
+                @tab_header("Rendering")
+                --
+                @tab_header("Disabled")
+                InteractionDisabled
             ]
-        )
-    ]
+            --
+            @section_label("Horizontal manual - focus and selection are separate")
+            --
+            @tab_strip(ControlOrientation::Horizontal)
+            TabList
+            @selected_tab(#manual_scene)
+            on(tablist_self_update)
+            Children [
+                #manual_scene @tab_header("Scene")
+                --
+                @tab_header("Assets")
+                --
+                @tab_header("Inspector")
+            ]
+            --
+            @section_label("Vertical manual")
+            --
+            @tab_strip(ControlOrientation::Vertical)
+            TabList {
+                orientation: ControlOrientation::Vertical,
+                activation: TabActivation::Manual,
+            }
+            @selected_tab(#vertical_transform)
+            on(tablist_self_update)
+            Children [
+                #vertical_transform @tab_header("Transform")
+                --
+                @tab_header("Visibility")
+                --
+                @tab_header("Metadata")
+            ]
+            --
+            @section_label("Controlled - observer updates external state")
+            --
+            @tab_strip(ControlOrientation::Horizontal)
+            TabList
+            @selected_tab(#controlled_a)
+            on(controlled_selection)
+            Children [
+                #controlled_a @tab_header("External A")
+                --
+                @tab_header("External B")
+            ]
+            --
+            @section_label("Reorder - drag a tab past its neighbor's center")
+            --
+            @tab_strip(ControlOrientation::Horizontal)
+            TabList {
+                orientation: ControlOrientation::Horizontal,
+                activation: TabActivation::Manual,
+                drag: TabDragMode::Reorder,
+            }
+            @selected_tab(#reorder_outline)
+            on(tablist_self_update)
+            on(apply_tab_move)
+            Children [
+                #reorder_outline @tab_header("Outline")
+                --
+                @tab_header("Locked")
+                TabLocked
+                --
+                @tab_header("Timeline")
+                --
+                @tab_header("Console")
+            ]
+        ]
+    }
 }
 
 fn tab_strip(orientation: ControlOrientation) -> impl Scene {
@@ -151,13 +165,13 @@ fn tab_header(label: &'static str) -> impl Scene {
         }
         BackgroundColor(Color::srgb(0.13, 0.14, 0.18))
         BorderColor::all(Color::srgb(0.24, 0.25, 0.30))
-        Children [(
+        Children [
             Text(label)
             TextFont {
                 font_size: FontSize::Px(16.0)
             }
             TextColor(Color::srgb(0.88, 0.89, 0.92))
-        )]
+        ]
     }
 }
 
@@ -187,6 +201,12 @@ fn controlled_selection(
     commands.entity(change.source).insert(SelectedTab(state.0));
 }
 
+fn apply_tab_move(moved: On<TabMoved>, mut commands: Commands) {
+    commands
+        .entity(moved.to_strip)
+        .insert_child(moved.index, moved.tab);
+}
+
 fn update_tab_styles(
     focus: Res<InputFocus>,
     focus_visible: Res<InputFocusVisible>,
@@ -196,14 +216,15 @@ fn update_tab_styles(
             &Hovered,
             Has<Selected>,
             Has<InteractionDisabled>,
+            Has<TabDragging>,
             &mut BackgroundColor,
             &mut BorderColor,
         ),
         With<ShowcaseTab>,
     >,
 ) {
-    for (entity, hovered, selected, disabled, mut background, mut border) in &mut tabs {
-        background.0 = match (disabled, selected, hovered.get()) {
+    for (entity, hovered, selected, disabled, dragging, mut background, mut border) in &mut tabs {
+        background.0 = match (disabled || dragging, selected, hovered.get()) {
             (true, _, _) => Color::srgb(0.10, 0.10, 0.11),
             (false, true, _) => Color::srgb(0.18, 0.34, 0.52),
             (false, false, true) => Color::srgb(0.20, 0.21, 0.26),
@@ -214,5 +235,26 @@ fn update_tab_styles(
         } else {
             Color::srgb(0.24, 0.25, 0.30)
         });
+    }
+}
+
+fn show_insertion_points(
+    lists: Query<(&TabInsertionPreview, &Children)>,
+    mut borders: Query<&mut BorderColor, With<ShowcaseTab>>,
+) {
+    let color = Color::srgb(1.0, 0.68, 0.22);
+    for (preview, children) in &lists {
+        for entry in &preview.entries {
+            if let Some(mut border) = children
+                .get(entry.slot)
+                .and_then(|tab| borders.get_mut(*tab).ok())
+            {
+                border.left = color;
+            } else if let Some(mut border) =
+                children.last().and_then(|tab| borders.get_mut(*tab).ok())
+            {
+                border.right = color;
+            }
+        }
     }
 }

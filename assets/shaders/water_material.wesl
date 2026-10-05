@@ -1,7 +1,7 @@
-// A shader that creates water ripples by overlaying 4 normal maps on top of one
-// another.
-//
-// This is used in the `ssr` example. It only supports deferred rendering.
+//! A shader that creates water ripples by overlaying 4 normal maps on top of one
+//! another.
+//!
+//! This is used in the `ssr` example. It only supports deferred rendering.
 
 import bevy_pbr::{
     deferred::functions::deferred_output,
@@ -10,14 +10,14 @@ import bevy_pbr::{
 };
 import bevy_render::globals::Globals;
 
-// Parameters to the water shader.
+/// Parameters to the water shader.
 struct WaterSettings {
-    // How much to displace each octave each frame, in the u and v directions.
-    // Two octaves are packed into each `vec4`.
+    /// How much to displace each octave each frame, in the u and v directions.
+    /// Two octaves are packed into each `vec4`.
     octave_vectors: array<vec4<f32>, 2>,
-    // How wide the waves are in each octave.
+    /// How wide the waves are in each octave.
     octave_scales: vec4<f32>,
-    // How high the waves are in each octave.
+    /// How high the waves are in each octave.
     octave_strengths: vec4<f32>,
 }
 
@@ -27,14 +27,14 @@ struct WaterSettings {
 @group(constants::MATERIAL_BIND_GROUP) @binding(101) var water_normals_sampler: sampler;
 @group(constants::MATERIAL_BIND_GROUP) @binding(102) var<uniform> water_settings: WaterSettings;
 
-// Samples a single octave of noise and returns the resulting normal.
+/// Samples a single octave of noise and returns the resulting normal.
 fn sample_noise_octave(uv: vec2<f32>, strength: f32) -> vec3<f32> {
     let N = textureSample(water_normals_texture, water_normals_sampler, uv).rbg * 2.0 - 1.0;
     // This isn't slerp, but it's good enough.
-    return normalize(mix(vec3(0.0, 1.0, 0.0), N, strength)); 
+    return normalize(mix(vec3(0.0, 1.0, 0.0), N, strength));
 }
 
-// Samples all four octaves of noise and returns the resulting normal.
+/// Samples all four octaves of noise and returns the resulting normal.
 fn sample_noise(uv: vec2<f32>, time: f32) -> vec3<f32> {
     let uv0 = uv * water_settings.octave_scales[0] + water_settings.octave_vectors[0].xy * time;
     let uv1 = uv * water_settings.octave_scales[1] + water_settings.octave_vectors[0].zw * time;

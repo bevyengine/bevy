@@ -38,7 +38,10 @@ fn calc_label(
     for child in children {
         let values = text_reader
             .iter(child)
-            .map(|(_, _, text, _, _, _, _)| text.into())
+            .filter_map(|(_, _, item)| match item {
+                bevy_text::TextElement::Text { text, .. } => Some(text.into()),
+                bevy_text::TextElement::Box(_) => None,
+            })
             .collect::<Vec<String>>();
         if !values.is_empty() {
             name = Some(values.join(" "));
@@ -161,7 +164,10 @@ fn label_changed(
     for (entity, accessible) in &mut query {
         let values = text_reader
             .iter(entity)
-            .map(|(_, _, text, _, _, _, _)| text.into())
+            .filter_map(|(_, _, item)| match item {
+                bevy_text::TextElement::Text { text, .. } => Some(text.into()),
+                bevy_text::TextElement::Box(_) => None,
+            })
             .collect::<Vec<String>>();
         let label = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {

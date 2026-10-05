@@ -54,6 +54,8 @@ use crate::{
 /// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 /// [reflection]: crate
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
+// Prevents unexpectedly importing this trait when trying to call, for example, `Vec::iter`
+#[rust_analyzer::completions(ignore_flyimport_methods)]
 pub trait List: PartialReflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn PartialReflect>;
@@ -411,8 +413,8 @@ impl<'a> Iterator for ListIter<'a> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.list.len();
-        (size, Some(size))
+        let remaining = self.list.len().saturating_sub(self.index);
+        (remaining, Some(remaining))
     }
 }
 

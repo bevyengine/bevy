@@ -32,16 +32,18 @@ use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
 use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, ImageNodeSize, NodeImageMode, Text, TextShadow, ViewportNode};
+use bevy_ui::widget::{
+    ImageNode, ImageNodeSize, InlineImage, NodeImageMode, Text, TextShadow, ViewportNode,
+};
 use bevy_ui::{
-    BackgroundColor, BackgroundGradient, BorderColor, BorderGradient, BoxShadow, CalculatedClip,
-    ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, Display, Node, OuterColor, Outline,
-    ResolvedBorderRadius, UiGlobalTransform, UiSystems, VisualBox,
+    BackgroundColor, BackgroundGradient, BorderColor, BorderGradient, BorderStyle, BoxShadow,
+    CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, Display, Node,
+    OuterColor, Outline, ResolvedBorderRadius, UiGlobalTransform, UiSystems, VisualBox,
 };
 
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{Alpha, ColorToComponents, LinearRgba, Luminance};
 use bevy_core_pipeline::schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
 use bevy_core_pipeline::upscaling::upscaling;
 use bevy_ecs::prelude::*;
@@ -70,7 +72,7 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
+    ComputedTextBlock, EditableText, InlineBox, PositionedGlyph, Strikethrough, StrikethroughColor,
     TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan, Underline,
     UnderlineColor,
 };
@@ -124,6 +126,7 @@ pub mod stack_z_offsets {
     pub const TEXT: f32 = 0.06;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
     pub const TEXT_CURSOR: f32 = 0.08;
+    pub const INLINE_IMAGE: f32 = 0.09;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -142,6 +145,7 @@ pub enum RenderUiSystems {
     ExtractCursor,
     ExtractDebug,
     ExtractGradient,
+    ExtractInlineImages,
 }
 
 /// Marker for controlling whether UI is rendered with or without anti-aliasing
@@ -254,6 +258,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractText,
                     RenderUiSystems::ExtractCursor,
                     RenderUiSystems::ExtractDebug,
+                    RenderUiSystems::ExtractInlineImages,
                 )
                     .chain_weak(),
             )
@@ -274,6 +279,7 @@ impl Plugin for UiRenderPlugin {
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
                     extract_text_cursor.in_set(RenderUiSystems::ExtractCursor),
                     extract_preedit_underlines.in_set(RenderUiSystems::ExtractCursor),
+                    extract_inline_images.in_set(RenderUiSystems::ExtractInlineImages),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
@@ -470,7 +476,11 @@ pub fn extract_uinode_changes(
                         Changed<Underline>,
                         Changed<Strikethrough>,
                     )>,
-                    Or<(Changed<StrikethroughColor>, Changed<UnderlineColor>)>,
+                    Or<(
+                        Changed<StrikethroughColor>,
+                        Changed<UnderlineColor>,
+                        Changed<BorderStyle>,
+                    )>,
                 )>,
             ),
         >,
@@ -482,8 +492,9 @@ pub fn extract_uinode_changes(
         Query<
             Entity,
             (
-                With<TextSpan>,
+                Or<(With<TextSpan>, With<InlineImage>)>,
                 Or<(
+                    Changed<InlineImage>,
                     Changed<TextColor>,
                     Changed<TextBackgroundColor>,
                     Changed<Underline>,
@@ -494,7 +505,7 @@ pub fn extract_uinode_changes(
             ),
         >,
     >,
-    text_span_parent_query: Extract<Query<&ChildOf, With<TextSpan>>>,
+    text_span_parent_query: Extract<Query<&ChildOf, Or<(With<TextSpan>, With<InlineBox>)>>>,
     text_query: Extract<Query<Entity, With<Text>>>,
     (
         mut removed_computed_node_query,
@@ -553,9 +564,16 @@ pub fn extract_uinode_changes(
         Extract<RemovedComponents<Underline>>,
         Extract<RemovedComponents<Strikethrough>>,
     ),
-    (mut removed_strikethrough_color_query, mut removed_underline_color_query): (
+    (
+        mut removed_strikethrough_color_query,
+        mut removed_underline_color_query,
+        mut removed_inline_image_query,
+        mut removed_border_style_query,
+    ): (
         Extract<RemovedComponents<StrikethroughColor>>,
         Extract<RemovedComponents<UnderlineColor>>,
+        Extract<RemovedComponents<InlineImage>>,
+        Extract<RemovedComponents<BorderStyle>>,
     ),
     #[cfg(feature = "bevy_ui_debug")] mut removed_debug_options_query: Extract<
         RemovedComponents<UiDebugOptions>,
@@ -616,6 +634,8 @@ pub fn extract_uinode_changes(
             .chain(removed_strikethrough_query.read())
             .chain(removed_strikethrough_color_query.read())
             .chain(removed_underline_color_query.read())
+            .chain(removed_inline_image_query.read())
+            .chain(removed_border_style_query.read())
         {
             process_changed_entity(
                 main_entity.into(),
@@ -659,7 +679,7 @@ pub fn extract_uinode_changes(
     fn process_changed_entity(
         mut main_entity: MainEntity,
         commands: &mut Commands,
-        text_span_parent_query: &Query<&ChildOf, With<TextSpan>>,
+        text_span_parent_query: &Query<&ChildOf, Or<(With<TextSpan>, With<InlineBox>)>>,
         text_query: &Query<Entity, With<Text>>,
         extracted_uinodes: &mut ExtractedUiNodes,
         maybe_extra_nodes_to_invalidate: Option<&mut MainEntityHashSet>,
@@ -711,6 +731,7 @@ pub fn extract_uinode_background_colors(
             &ComputedUiTargetCamera,
             &BackgroundColor,
             Option<&OuterColor>,
+            Option<&BorderStyle>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -728,6 +749,7 @@ pub fn extract_uinode_background_colors(
         camera,
         background_color,
         maybe_outer_color,
+        maybe_border_style,
     ) in extracted_uinodes
         .changed
         .iter()
@@ -755,6 +777,10 @@ pub fn extract_uinode_background_colors(
         };
 
         if !background_color.is_fully_transparent() {
+            let background_inset = match maybe_border_style {
+                Some(BorderStyle::Double) => BorderRect::ZERO,
+                _ => uinode.border(),
+            };
             extracted_sub_uinodes.insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
@@ -771,7 +797,7 @@ pub fn extract_uinode_background_colors(
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
-                        border: uinode.border(),
+                        border: background_inset,
                         border_radius: uinode.border_radius(),
                         node_type: NodeType::Rect,
                     },
@@ -804,6 +830,85 @@ pub fn extract_uinode_background_colors(
                     },
                 },
             );
+        }
+    }
+}
+
+pub fn extract_inline_images(
+    mut commands: Commands,
+    extracted_uinodes: ResMut<ExtractedUiNodes>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &TextLayoutInfo,
+            &ComputedUiTargetCamera,
+            &InheritedVisibility,
+            &ComputedStackIndex,
+            &UiGlobalTransform,
+            Option<&CalculatedClip>,
+            &ComputedNode,
+        )>,
+    >,
+    inline_image_query: Extract<Query<&InlineImage, With<InlineBox>>>,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let extracted_uinodes = extracted_uinodes.into_inner();
+    let mut camera_mapper = camera_map.get_mapper();
+    for (entity, text_layout, camera, inherited_visibility, stack_index, transform, clip, uinode) in
+        extracted_uinodes
+            .changed
+            .iter()
+            .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
+    {
+        // Skip invisible images and empty nodes
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        for (inline_entity, _, rect) in text_layout.inline_boxes.iter() {
+            let Ok(image) = inline_image_query.get(*inline_entity) else {
+                continue;
+            };
+
+            if rect.is_empty()
+                || image.color.is_fully_transparent()
+                || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            {
+                continue;
+            }
+
+            extracted_uinodes
+                .uinodes
+                .entry(entity.into())
+                .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                .1
+                .insert(
+                    commands.spawn_empty().id(),
+                    ExtractedUiNode {
+                        z_order: stack_index.0 as f32 + stack_z_offsets::INLINE_IMAGE,
+                        clip: clip.cloned(),
+                        image: image.image.id(),
+                        transform: Affine2::from(*transform)
+                            * Affine2::from_translation(uinode.content_box().min + rect.center()),
+                        item: ExtractedUiItem::Node {
+                            color: image.color.into(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: rect.size(),
+                            },
+                            atlas_scaling: None,
+                            flip_x: image.flip_x,
+                            flip_y: image.flip_y,
+                            border: BorderRect::ZERO,
+                            border_radius: ResolvedBorderRadius::ZERO,
+                            node_type: NodeType::Rect,
+                        },
+                    },
+                );
         }
     }
 }
@@ -889,15 +994,7 @@ pub fn extract_uinode_images(
         inset.max_inset += image_inset;
 
         let radius = uinode.border_radius();
-        let clamped_radius = ResolvedBorderRadius {
-            top_left: (radius.top_left - inset.min_inset).clamp(Vec2::ZERO, 0.5 * size),
-            top_right: (radius.top_right - Vec2::new(inset.max_inset.x, inset.min_inset.y))
-                .clamp(Vec2::ZERO, 0.5 * size),
-            bottom_right: (radius.bottom_right - inset.max_inset).clamp(Vec2::ZERO, 0.5 * size),
-            bottom_left: (radius.bottom_left - Vec2::new(inset.min_inset.x, inset.max_inset.y))
-                .clamp(Vec2::ZERO, 0.5 * size),
-        };
-
+        let clamped_radius = shrink_border_radius(radius, inset, size);
         let atlas_rect = image
             .texture_atlas
             .as_ref()
@@ -955,6 +1052,32 @@ pub fn extract_uinode_images(
     }
 }
 
+/// Specifies the bevel style for a border ring.
+pub enum Bevel {
+    Inset,
+    Outset,
+}
+
+pub const SHADE_AMOUNT: f32 = 0.2;
+
+/// Returns the beveled colors for a border ring.
+pub fn bevel_colors(colors: [LinearRgba; 4], bevel: Bevel) -> [LinearRgba; 4] {
+    match bevel {
+        Bevel::Inset => [
+            colors[0].darker(SHADE_AMOUNT),
+            colors[1].darker(SHADE_AMOUNT),
+            colors[2].lighter(SHADE_AMOUNT),
+            colors[3].lighter(SHADE_AMOUNT),
+        ],
+        Bevel::Outset => [
+            colors[0].lighter(SHADE_AMOUNT),
+            colors[1].lighter(SHADE_AMOUNT),
+            colors[2].darker(SHADE_AMOUNT),
+            colors[3].darker(SHADE_AMOUNT),
+        ],
+    }
+}
+
 pub fn extract_uinode_borders(
     mut commands: Commands,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -968,7 +1091,7 @@ pub fn extract_uinode_borders(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
-            AnyOf<(&BorderColor, &Outline)>,
+            AnyOf<(&BorderColor, &Outline, &BorderStyle)>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -986,7 +1109,7 @@ pub fn extract_uinode_borders(
         inherited_visibility,
         maybe_clip,
         camera,
-        (maybe_border_color, maybe_outline),
+        (maybe_border_color, maybe_outline, maybe_border_style),
     ) in extracted_uinodes
         .changed
         .iter()
@@ -1012,58 +1135,89 @@ pub fn extract_uinode_borders(
                 border_color.bottom.to_linear(),
             ];
 
-            const BORDER_FLAGS: [u32; 4] = [
-                shader_flags::BORDER_LEFT,
-                shader_flags::BORDER_TOP,
-                shader_flags::BORDER_RIGHT,
-                shader_flags::BORDER_BOTTOM,
-            ];
-            let mut completed_flags = 0;
+            let border_colors = match maybe_border_style {
+                Some(BorderStyle::Inset) => bevel_colors(border_colors, Bevel::Inset),
+                Some(BorderStyle::Outset) => bevel_colors(border_colors, Bevel::Outset),
+                _ => border_colors,
+            };
 
-            for (i, &color) in border_colors.iter().enumerate() {
-                if color.is_fully_transparent() {
-                    continue;
-                }
+            let node_ctx = BorderNodeContext {
+                entity: entity.into(),
+                camera_entity: extracted_camera_entity,
+                z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
+                clip: maybe_clip.cloned(),
+            };
+            let base_transform: Affine2 = transform.into();
+            let full_size = computed_node.size();
+            let full_radius = computed_node.border_radius();
+            let full_border = computed_node.border();
 
-                let mut border_flags = BORDER_FLAGS[i];
+            let mut push_ring = |ring| {
+                push_border_ring(
+                    &mut commands,
+                    &mut extracted_uinodes.uinodes,
+                    &node_ctx,
+                    &ring,
+                );
+            };
 
-                if completed_flags & border_flags != 0 {
-                    continue;
-                }
+            match maybe_border_style {
+                Some(style @ (BorderStyle::Double | BorderStyle::Groove | BorderStyle::Ridge)) => {
+                    let (stripe, inner_inset) = match style {
+                        BorderStyle::Double => {
+                            let band_thickness = full_border / 3.0;
+                            (band_thickness, band_thickness * 2.0)
+                        }
+                        BorderStyle::Groove | BorderStyle::Ridge => {
+                            let band_thickness = full_border / 2.0;
+                            (band_thickness, band_thickness)
+                        }
+                        _ => unreachable!(),
+                    };
 
-                for j in i + 1..4 {
-                    if color == border_colors[j] {
-                        border_flags |= BORDER_FLAGS[j];
+                    let (outer_colors, inner_colors) = match style {
+                        BorderStyle::Double => (border_colors, border_colors),
+                        BorderStyle::Groove => (
+                            bevel_colors(border_colors, Bevel::Inset),
+                            bevel_colors(border_colors, Bevel::Outset),
+                        ),
+                        BorderStyle::Ridge => (
+                            bevel_colors(border_colors, Bevel::Outset),
+                            bevel_colors(border_colors, Bevel::Inset),
+                        ),
+                        _ => unreachable!(),
+                    };
+
+                    push_ring(BorderRing {
+                        transform: base_transform,
+                        size: full_size,
+                        radius: full_radius,
+                        thickness: stripe,
+                        colors: outer_colors,
+                    });
+
+                    let inner_size = full_size - inner_inset.min_inset - inner_inset.max_inset;
+                    if inner_size.cmpgt(Vec2::ZERO).all() {
+                        let inner_radius =
+                            shrink_border_radius(full_radius, inner_inset, inner_size);
+                        let center_offset = 0.5 * (inner_inset.min_inset - inner_inset.max_inset);
+
+                        push_ring(BorderRing {
+                            transform: base_transform * Affine2::from_translation(center_offset),
+                            size: inner_size,
+                            radius: inner_radius,
+                            thickness: stripe,
+                            colors: inner_colors,
+                        });
                     }
                 }
-                completed_flags |= border_flags;
-
-                let node = ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
-                    image,
-                    clip: maybe_clip.cloned(),
-                    transform: transform.into(),
-                    item: ExtractedUiItem::Node {
-                        color,
-                        rect: Rect {
-                            max: computed_node.size(),
-                            ..Default::default()
-                        },
-                        atlas_scaling: None,
-                        flip_x: false,
-                        flip_y: false,
-                        border: computed_node.border(),
-                        border_radius: computed_node.border_radius(),
-                        node_type: NodeType::Border(border_flags),
-                    },
-                };
-
-                extracted_uinodes
-                    .uinodes
-                    .entry(entity.into())
-                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                    .1
-                    .insert(commands.spawn_empty().id(), node);
+                _ => push_ring(BorderRing {
+                    transform: base_transform,
+                    size: full_size,
+                    radius: full_radius,
+                    thickness: full_border,
+                    colors: border_colors,
+                }),
             }
         }
 
@@ -1102,6 +1256,103 @@ pub fn extract_uinode_borders(
                     },
                 );
         }
+    }
+}
+
+/// Shrinks the border radius to fit within the given inset and inner size.
+pub fn shrink_border_radius(
+    radius: ResolvedBorderRadius,
+    inset: BorderRect,
+    inner_size: Vec2,
+) -> ResolvedBorderRadius {
+    let max = 0.5 * inner_size;
+    ResolvedBorderRadius {
+        top_left: (radius.top_left - inset.min_inset).clamp(Vec2::ZERO, max),
+        top_right: (radius.top_right - Vec2::new(inset.max_inset.x, inset.min_inset.y))
+            .clamp(Vec2::ZERO, max),
+        bottom_right: (radius.bottom_right - inset.max_inset).clamp(Vec2::ZERO, max),
+        bottom_left: (radius.bottom_left - Vec2::new(inset.min_inset.x, inset.max_inset.y))
+            .clamp(Vec2::ZERO, max),
+    }
+}
+
+/// Information that remains unchanged when drawing either the outer or inner ring of a UI node.
+pub struct BorderNodeContext {
+    entity: MainEntity,
+    camera_entity: Entity,
+    z_order: f32,
+    clip: Option<CalculatedClip>,
+}
+
+/// Geometric information and color for a single border ring.
+pub struct BorderRing {
+    transform: Affine2,
+    size: Vec2,
+    radius: ResolvedBorderRadius,
+    thickness: BorderRect,
+    /// [left, top, right, bottom]
+    colors: [LinearRgba; 4],
+}
+
+/// Pushes a border ring to the UI node's render queue.
+pub fn push_border_ring(
+    commands: &mut Commands,
+    uinodes: &mut MainEntityHashMap<(Entity, EntityIndexMap<ExtractedUiNode>)>,
+    node: &BorderNodeContext,
+    ring: &BorderRing,
+) {
+    const BORDER_FLAGS: [u32; 4] = [
+        shader_flags::BORDER_LEFT,
+        shader_flags::BORDER_TOP,
+        shader_flags::BORDER_RIGHT,
+        shader_flags::BORDER_BOTTOM,
+    ];
+    let image = AssetId::<Image>::default();
+    let mut completed_flags = 0;
+
+    for (i, &color) in ring.colors.iter().enumerate() {
+        if color.is_fully_transparent() {
+            continue;
+        }
+
+        let mut border_flags = BORDER_FLAGS[i];
+
+        if completed_flags & border_flags != 0 {
+            continue;
+        }
+
+        for (&flag, &other_color) in BORDER_FLAGS.iter().zip(ring.colors.iter()).skip(i + 1) {
+            if color == other_color {
+                border_flags |= flag;
+            }
+        }
+        completed_flags |= border_flags;
+
+        let extracted_node = ExtractedUiNode {
+            z_order: node.z_order,
+            image,
+            clip: node.clip.clone(),
+            transform: ring.transform,
+            item: ExtractedUiItem::Node {
+                color,
+                rect: Rect {
+                    max: ring.size,
+                    ..Default::default()
+                },
+                atlas_scaling: None,
+                flip_x: false,
+                flip_y: false,
+                border: ring.thickness,
+                border_radius: ring.radius,
+                node_type: NodeType::Border(border_flags),
+            },
+        };
+
+        uinodes
+            .entry(node.entity)
+            .or_insert_with(|| (node.camera_entity, Default::default()))
+            .1
+            .insert(commands.spawn_empty().id(), extracted_node);
     }
 }
 

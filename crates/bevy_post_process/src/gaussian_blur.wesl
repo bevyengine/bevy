@@ -1,26 +1,26 @@
-// A library containing a 1D Gaussian blur kernel.
-//
-// This is used by depth of field, but you can also use it in custom
-// postprocessing passes.
+//! A library containing a 1D Gaussian blur kernel.
+//!
+//! This is used by depth of field, but you can also use it in custom
+//! postprocessing passes.
 
-// Performs a single direction of the separable Gaussian blur kernel.
-//
-// * `color_texture` is the texture to blur.
-//
-// * `color_texture_sampler` is a sampler to sample the texture. It must have
-//   linear filtering for both minification and magnification.
-//
-// * `frag_coord` is the screen-space pixel coordinate of the fragment (i.e. the
-//   `position` input to the fragment).
-//
-// * `coc` is the diameter (not the radius) of the circle of confusion for this
-//   fragment.
-//
-// * `frag_offset` is the vector, in screen-space units, from one sample to the
-//   next. For a horizontal blur this will be `vec2(1.0, 0.0)`; for a vertical
-//   blur this will be `vec2(0.0, 1.0)`.
-//
-// Returns the resulting color of the fragment.
+/// Performs a single direction of the separable Gaussian blur kernel.
+///
+/// * `color_texture` is the texture to blur.
+///
+/// * `color_texture_sampler` is a sampler to sample the texture. It must have
+///   linear filtering for both minification and magnification.
+///
+/// * `frag_coord` is the screen-space pixel coordinate of the fragment (i.e. the
+///   `position` input to the fragment).
+///
+/// * `coc` is the diameter (not the radius) of the circle of confusion for this
+///   fragment.
+///
+/// * `frag_offset` is the vector, in screen-space units, from one sample to the
+///   next. For a horizontal blur this will be `vec2(1.0, 0.0)`; for a vertical
+///   blur this will be `vec2(0.0, 1.0)`.
+///
+/// Returns the resulting color of the fragment.
 fn gaussian_blur(color_texture: texture_2d<f32>, color_texture_sampler: sampler, frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f32> {
     // Usually σ (the standard deviation) is half the radius, and the radius is
     // half the CoC. So we multiply by 0.25.
@@ -70,4 +70,3 @@ fn gaussian_blur(color_texture: texture_2d<f32>, color_texture_sampler: sampler,
 
     return vec4(sum / weight_sum, 1.0);
 }
-
