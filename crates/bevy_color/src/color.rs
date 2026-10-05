@@ -119,6 +119,14 @@ impl Color {
         Self::srgba(red, green, blue, 1.)
     }
 
+    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color.
+    ///
+    /// # Arguments
+    /// * `array` - Red, Green, Blue and Alpha channels. Each channel is in the range [0.0, 1.0]
+    pub const fn srgba_from_array(array: [f32; 4]) -> Self {
+        Self::srgba(array[0], array[1], array[2], array[3])
+    }
+
     /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
     ///
     /// # Arguments
@@ -148,6 +156,22 @@ impl Color {
     /// * `blue` - Blue channel. [0, 255]
     pub const fn srgb_u8(red: u8, green: u8, blue: u8) -> Self {
         Self::srgba_u8(red, green, blue, 255)
+    }
+
+    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color.
+    ///
+    /// # Arguments
+    /// * `array` - Red, Green, Blue and Alpha channels. Each channel is in the range [0, 255]
+    pub const fn srgba_from_u8_array(array: [u8; 4]) -> Self {
+        Self::srgba_u8(array[0], array[1], array[2], array[3])
+    }
+
+    /// Reads an array of u8 to create a new [`Color`] object storing a [`Srgba`] color with an alpha of 255.
+    ///
+    /// # Arguments
+    /// * `array` - Red, Green, Blue and Alpha channels. Each channel is in the range [0, 255]
+    pub const fn srgb_from_u8_array(array: [u8; 3]) -> Self {
+        Self::srgba_u8(array[0], array[1], array[2], 255)
     }
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with an alpha of 255.
