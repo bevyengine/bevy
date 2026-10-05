@@ -472,6 +472,9 @@ compressed_image_saver_universal = [
 # Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
 compressed_image_saver = ["bevy_internal/compressed_image_saver"]
 
+# Equirectangular (lat-long) panorama to cubemap conversion
+equirectangular_cubemap = ["bevy_internal/equirectangular_cubemap"]
+
 # Enables system-level clipboard support.
 system_clipboard = ["bevy_clipboard", "bevy_internal/system_clipboard"]
 
