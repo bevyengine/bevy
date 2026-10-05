@@ -95,6 +95,8 @@ pub use bevy_shape as shape;
 pub use bevy_solari as solari;
 #[cfg(feature = "bevy_sprite")]
 pub use bevy_sprite as sprite;
+#[cfg(feature = "bevy_sprite_light")]
+pub use bevy_sprite_light as sprite_light;
 #[cfg(feature = "bevy_sprite_render")]
 pub use bevy_sprite_render as sprite_render;
 #[cfg(feature = "bevy_state")]

@@ -105,6 +105,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_shader|Provides shaders usable through asset handles.|
 |bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_sprite|Provides sprite functionality|
+|bevy_sprite_light|Provides 2D lighting|
 |bevy_sprite_render|Provides sprite rendering functionality|
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
