@@ -115,6 +115,11 @@ impl Color {
     /// * `red` - Red channel. [0.0, 1.0]
     /// * `green` - Green channel. [0.0, 1.0]
     /// * `blue` - Blue channel. [0.0, 1.0]
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// assert_eq!(Color::srgba(1.,1.,1.,1.), Color::srgb(1.,1.,1.));
+    /// ```
     pub const fn srgb(red: f32, green: f32, blue: f32) -> Self {
         Self::srgba(red, green, blue, 1.)
     }
@@ -131,6 +136,11 @@ impl Color {
     ///
     /// # Arguments
     /// * `array` - Red, Green and Blue channels. Each channel is in the range [0.0, 1.0]
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// assert_eq!(Color::srgba_from_array([1.,1.,1.,1.]), Color::srgb_from_array([1.,1.,1.]));
+    /// ```
     pub const fn srgb_from_array(array: [f32; 3]) -> Self {
         Self::srgba(array[0], array[1], array[2], 1.)
     }
@@ -154,6 +164,12 @@ impl Color {
     /// * `red` - Red channel. [0, 255]
     /// * `green` - Green channel. [0, 255]
     /// * `blue` - Blue channel. [0, 255]
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// assert_eq!(Color::srgba_u8(255,255,255,255), Color::srgb_u8(255,255,255));
+    /// assert_eq!(Color::srgba(1.,1.,1.,1.), Color::srgb_u8(255,255,255));
+    /// ```
     pub const fn srgb_u8(red: u8, green: u8, blue: u8) -> Self {
         Self::srgba_u8(red, green, blue, 255)
     }
@@ -170,6 +186,12 @@ impl Color {
     ///
     /// # Arguments
     /// * `array` - Red, Green, Blue and Alpha channels. Each channel is in the range [0, 255]
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// assert_eq!(Color::srgba_from_u8_array([255,255,255,255]), Color::srgb_from_u8_array([255,255,255]));
+    /// assert_eq!(Color::srgba_from_array([1.,1.,1.,1.]), Color::srgb_from_u8_array([255,255,255]));
+    /// ```
     pub const fn srgb_from_u8_array(array: [u8; 3]) -> Self {
         Self::srgba_u8(array[0], array[1], array[2], 255)
     }
@@ -184,6 +206,8 @@ impl Color {
     /// # use bevy_color::Color;
     /// let black = Color::srgb_u32(0x000000);
     /// let red = Color::srgb_u32(0xFF0000);
+    ///
+    /// assert_eq!(Color::srgb_u8(0x12, 0x34, 0x56), Color::srgb_u32(0x123456));
     /// ```
     pub const fn srgb_u32(color: u32) -> Self {
         Self::srgb_u8(
@@ -203,6 +227,8 @@ impl Color {
     /// # use bevy_color::Color;
     /// let black = Color::srgba_u32(0x000000FF);
     /// let semi_transparent_red = Color::srgba_u32(0xFF000080);
+    ///
+    /// assert_eq!(Color::srgba_u8(0x12, 0x34, 0x56, 0x78), Color::srgba_u32(0x12345678));
     /// ```
     pub const fn srgba_u32(color: u32) -> Self {
         Self::srgba_u8(
