@@ -451,7 +451,7 @@ impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
 /// Names for arguments and the function itself are optional and will default to `_` if not provided.
 ///
 /// If the function is [overloaded], the output will include the signatures of all overloads as a set.
-/// For example, `DynamicFunction(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})`.
+/// For example, `DynamicFunction(fn add {(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})`.
 ///
 /// [overloaded]: DynamicFunction::with_overload
 impl<'env> Debug for DynamicFunction<'env> {
@@ -800,7 +800,7 @@ mod tests {
         let debug = format!("{function:?}");
         assert_eq!(
             debug,
-            "DynamicFunction(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})"
+            "DynamicFunction(fn add {(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})"
         );
     }
 }

@@ -1,11 +1,11 @@
 use crate::{
     error::ReflectCloneError,
     generics::{Generics, TypeParamInfo},
+    info::{MaybeTyped, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     map::{map_apply, map_partial_cmp, map_partial_eq, map_try_apply, Map, MapInfo},
     prelude::*,
     reflect::{impl_full_reflect, ApplyError},
-    type_info::{MaybeTyped, TypeInfo, Typed},
     type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::GenericTypeInfoCell,
 };
@@ -203,6 +203,11 @@ where
         registration.register_type_data::<ReflectFromPtr, Self>();
         registration.register_type_data::<ReflectFromReflect, Self>();
         registration
+    }
+
+    fn register_type_dependencies(registry: &mut crate::TypeRegistry) {
+        registry.register::<K>();
+        registry.register::<V>();
     }
 }
 

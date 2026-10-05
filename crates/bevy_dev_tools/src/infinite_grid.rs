@@ -11,6 +11,7 @@ use bevy_camera::{
 };
 use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::{
+    core_2d::Transparent2d,
     core_3d::{Transparent3d, TransparentSortingInfo3d},
     FullscreenShader,
 };
@@ -22,7 +23,8 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::{Mat3, Vec3, Vec4};
+use bevy_log::warn;
+use bevy_math::{FloatOrd, Mat3, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -51,7 +53,7 @@ pub struct InfiniteGridPlugin;
 
 impl Plugin for InfiniteGridPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "infinite_grid.wgsl");
+        embedded_asset!(app, "infinite_grid.wesl");
         app.register_type::<InfiniteGrid>()
             .register_type::<InfiniteGridSettings>();
     }
@@ -65,6 +67,7 @@ impl Plugin for InfiniteGridPlugin {
             .init_resource::<InfiniteGridDisplaySettingsUniforms>()
             .init_resource::<InfiniteGridPipeline>()
             .init_resource::<SpecializedRenderPipelines<InfiniteGridPipeline>>()
+            .add_render_command::<Transparent2d, DrawInfiniteGrid>()
             .add_render_command::<Transparent3d, DrawInfiniteGrid>()
             .add_systems(ExtractSchedule, extract_infinite_grids)
             .add_systems(
@@ -86,7 +89,7 @@ impl Plugin for InfiniteGridPlugin {
 /// The component used to represent an infinite grid.
 ///
 /// This is intended for use as a ground plane in editor-like tools.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, Copy, Clone)]
 #[reflect(Component, Default)]
 #[require(
     InfiniteGridSettings,
@@ -111,7 +114,7 @@ pub struct InfiniteGridSettings {
     pub z_axis_color: Color,
     /// The color of the minor lines of the grid
     pub minor_line_color: Color,
-    /// The color of the major lines of the grid. Every 10th line is considered major
+    /// The color of the major lines of the grid
     pub major_line_color: Color,
     /// How far the grid will be visible relative to the camera
     pub fadeout_distance: f32,
@@ -120,6 +123,8 @@ pub struct InfiniteGridSettings {
     /// The scale of the distance between the lines. A smaller value increases the distance between
     /// the lines
     pub scale: f32,
+    /// The interval at which major lines are drawn
+    pub major_line_interval: u32,
 }
 
 impl Default for InfiniteGridSettings {
@@ -134,6 +139,7 @@ impl Default for InfiniteGridSettings {
             fadeout_distance: 100.,
             dot_fadeout_strength: 0.25,
             scale: 1.0,
+            major_line_interval: 10,
         }
     }
 }
@@ -152,6 +158,8 @@ struct InfiniteGridSettingsUniform {
     one_over_fadeout_distance: f32,
     // 1 / dot_fadeout_strength
     one_over_dot_fadeout: f32,
+    // 1 / major_line_interval
+    one_over_major_line_interval: f32,
     x_axis_color: Vec3,
     z_axis_color: Vec3,
     minor_line_color: Vec4,
@@ -164,6 +172,7 @@ impl InfiniteGridSettingsUniform {
             scale: settings.scale,
             one_over_fadeout_distance: 1. / settings.fadeout_distance,
             one_over_dot_fadeout: 1. / settings.dot_fadeout_strength,
+            one_over_major_line_interval: 1. / settings.major_line_interval.max(1) as f32,
             x_axis_color: settings.x_axis_color.to_linear().to_vec3(),
             z_axis_color: settings.z_axis_color.to_linear().to_vec3(),
             minor_line_color: settings.minor_line_color.to_linear().to_vec4(),
@@ -227,7 +236,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawInfiniteGridCommand {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(base_offsets) = maybe_base_offsets else {
-            bevy_log::warn!("InfiniteGridUniformOffsets missing");
+            warn!("InfiniteGridUniformOffsets missing");
             return RenderCommandResult::Skip;
         };
         pass.set_bind_group(0, &view_bind_group.value, &[view_uniform.offset]);
@@ -358,25 +367,36 @@ fn prepare_bind_groups_for_infinite_grids(
 
 fn queue_infinite_grids(
     pipeline_cache: Res<PipelineCache>,
-    transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
+    transparent_2d_draw_functions: Res<DrawFunctions<Transparent2d>>,
+    transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     pipeline: Res<InfiniteGridPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<InfiniteGridPipeline>>,
     infinite_grids: Query<&GlobalTransform, With<InfiniteGridSettings>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
+    mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa), With<ExtractedCamera>>,
 ) {
-    let Some(draw_function_id) = transparent_draw_functions
+    let Some(draw_function_2d) = transparent_2d_draw_functions
         .read()
         .get_id::<DrawInfiniteGrid>()
     else {
-        bevy_log::warn!("Failed to get DrawInfiniteGrid draw_function_id");
+        warn!("Failed to get 2D DrawInfiniteGrid draw_function_id");
+        return;
+    };
+    let Some(draw_function_3d) = transparent_3d_draw_functions
+        .read()
+        .get_id::<DrawInfiniteGrid>()
+    else {
+        warn!("Failed to get 3D DrawInfiniteGrid draw_function_id");
         return;
     };
 
     for (view, entities, msaa) in views.iter_mut() {
-        let Some(phase) = transparent_render_phases.get_mut(&view.retained_view_entity) else {
+        let mut phase_2d = transparent_2d_phases.get_mut(&view.retained_view_entity);
+        let mut phase_3d = transparent_3d_phases.get_mut(&view.retained_view_entity);
+        if phase_2d.is_none() && phase_3d.is_none() {
             continue;
-        };
+        }
 
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
@@ -390,32 +410,57 @@ fn queue_infinite_grids(
         let Some(render_visible_mesh_entities) = entities.get::<InfiniteGrid>() else {
             continue;
         };
+
+        for (render_entity, main_entity) in &render_visible_mesh_entities.removed_entities {
+            if let Some(phase) = phase_2d.as_deref_mut() {
+                phase.remove(*render_entity, *main_entity);
+            }
+            if let Some(phase) = phase_3d.as_deref_mut() {
+                phase.remove(*render_entity, *main_entity);
+            }
+        }
+
         for (render_entity, main_entity) in render_visible_mesh_entities.iter_visible() {
             let Ok(transform) = infinite_grids.get(*render_entity) else {
                 continue;
             };
-            // Don't render if the view is directly on the plane
             if !plane_check(transform, view.world_from_view.translation()) {
                 continue;
             }
-            phase.add_retained(Transparent3d {
-                pipeline: pipeline_id,
-                entity: (*render_entity, *main_entity),
-                draw_function: draw_function_id,
-                distance: f32::NEG_INFINITY,
-                batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex::None,
-                indexed: false,
-                sorting_info: TransparentSortingInfo3d::Sorted {
-                    mesh_center: Vec3::ZERO,
-                    depth_bias: 0.0,
-                },
-            });
+
+            if let Some(phase) = phase_2d.as_deref_mut() {
+                phase.add_retained(Transparent2d {
+                    pipeline: pipeline_id,
+                    entity: (*render_entity, *main_entity),
+                    draw_function: draw_function_2d,
+                    sort_key: FloatOrd(f32::NEG_INFINITY),
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::None,
+                    extracted_index: usize::MAX,
+                    indexed: false,
+                });
+            }
+
+            if let Some(phase) = phase_3d.as_deref_mut() {
+                phase.add_retained(Transparent3d {
+                    pipeline: pipeline_id,
+                    entity: (*render_entity, *main_entity),
+                    draw_function: draw_function_3d,
+                    distance: f32::NEG_INFINITY,
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::None,
+                    indexed: false,
+                    sorting_info: TransparentSortingInfo3d::Sorted {
+                        mesh_center: Vec3::ZERO,
+                        depth_bias: 0.0,
+                    },
+                });
+            }
         }
     }
 }
 
-/// Checks if the point is one the plane
+/// Checks if the point is on the plane
 fn plane_check(plane: &GlobalTransform, point: Vec3) -> bool {
     plane.up().dot(plane.translation() - point).abs() > f32::EPSILON
 }
@@ -447,7 +492,7 @@ impl FromWorld for InfiniteGridPipeline {
                 ),
             ),
         );
-        let shader = load_embedded_asset!(world.resource::<AssetServer>(), "infinite_grid.wgsl");
+        let shader = load_embedded_asset!(world.resource::<AssetServer>(), "infinite_grid.wesl");
         let fullscreen_shader = world.resource::<FullscreenShader>().clone();
 
         Self {

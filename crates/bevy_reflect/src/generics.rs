@@ -1,4 +1,4 @@
-use crate::type_info::impl_type_methods;
+use crate::ty::impl_type_methods;
 use crate::{Reflect, Type, TypePath};
 use alloc::{borrow::Cow, boxed::Box};
 use bevy_platform::sync::Arc;
@@ -20,7 +20,7 @@ use derive_more::derive::From;
 /// the generics will be empty even if the type has generics.
 ///
 /// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
-/// [`TypeInfo`]: crate::type_info::TypeInfo
+/// [`TypeInfo`]: crate::info::TypeInfo
 /// [`Typed::type_info`]: crate::Typed::type_info
 #[derive(Clone, Default, Debug)]
 pub struct Generics(Option<Box<[GenericInfo]>>);

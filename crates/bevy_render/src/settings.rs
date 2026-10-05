@@ -208,7 +208,6 @@ impl RenderResources {
         render_world.insert_resource(instance);
         render_world.insert_resource(PipelineCache::new(
             device.clone(),
-            render_adapter.clone(),
             synchronous_pipeline_compilation,
         ));
         render_world.insert_resource(DeviceErrorHandler::new(&device));
@@ -222,7 +221,7 @@ impl RenderResources {
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
 pub enum RenderCreation {
     /// Allows renderer resource initialization to happen outside of the rendering plugin.
-    Manual(RenderResources),
+    Manual(Box<RenderResources>),
     /// Lets the rendering plugin create resources itself.
     Automatic(Box<WgpuSettings>),
 }
@@ -265,7 +264,7 @@ impl RenderCreation {
     ) -> bool {
         match self {
             RenderCreation::Manual(resources) => {
-                *future_resources.lock().unwrap() = Some(resources.clone());
+                *future_resources.lock().unwrap() = Some(*resources.clone());
             }
             RenderCreation::Automatic(render_creation) => {
                 let Some(backends) = render_creation.backends else {
@@ -302,7 +301,7 @@ impl RenderCreation {
 
 impl From<RenderResources> for RenderCreation {
     fn from(value: RenderResources) -> Self {
-        Self::Manual(value)
+        Self::Manual(Box::new(value))
     }
 }
 

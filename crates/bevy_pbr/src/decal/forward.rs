@@ -7,8 +7,7 @@ use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
 };
-use bevy_material::AlphaMode;
-use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
+use bevy_math::{Quat, Vec2, Vec3};
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
@@ -21,13 +20,14 @@ use bevy_render::{
     RenderDebugFlags,
 };
 use bevy_shader::load_shader_library;
+use bevy_shape::Rectangle;
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
 
 impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "forward_decal.wgsl");
+        load_shader_library!(app, "forward.wesl");
 
         let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
             Rectangle::from_size(Vec2::ONE)
@@ -47,7 +47,7 @@ impl Plugin for ForwardDecalPlugin {
     }
 }
 
-/// A decal that renders via a 1x1 transparent quad mesh, smoothly alpha-blending with the underlying
+/// A decal that renders via a 1x1 quad mesh, smoothly alpha-blending with the underlying
 /// geometry towards the edges.
 ///
 /// Because forward decals are meshes, you can use arbitrary materials to control their appearance.
@@ -91,6 +91,7 @@ pub struct ForwardDecalMaterialExt {
     /// blending with more distant surfaces.
     ///
     /// Units are in meters.
+    /// This has no effect if alpha mode is `Opaque`.
     pub depth_fade_factor: f32,
 }
 
@@ -111,8 +112,15 @@ impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMater
 }
 
 impl MaterialExtension for ForwardDecalMaterialExt {
-    fn alpha_mode() -> Option<AlphaMode> {
-        Some(AlphaMode::Blend)
+    // Forward decal is incompatible with OIT as it needs to be rendered
+    // even it's occluded by opaque objects.
+    fn enable_oit() -> bool {
+        false
+    }
+
+    // Don't write forward decal's own depth if it is opaque.
+    fn enable_prepass() -> bool {
+        false
     }
 
     fn enable_shadows() -> bool {

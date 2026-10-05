@@ -1,7 +1,5 @@
-use bevy_math::{
-    primitives::{Annulus, Capsule2d, Circle, Ellipse, Extrusion, Primitive2d},
-    Vec2, Vec3,
-};
+use bevy_math::{Vec2, Vec3};
+use bevy_shape::{Annulus, Capsule2d, Circle, Ellipse, Extrusion, Primitive2d};
 
 use super::{MeshBuilder, Meshable};
 use crate::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};

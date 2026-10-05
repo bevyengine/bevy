@@ -94,6 +94,7 @@ fn update_camera(mut camera: Query<&mut Transform, With<Camera>>, time: Res<Time
 }
 
 #[derive(Resource, ExtractResource, Clone, Default)]
+#[extract_app(RenderApp)]
 enum RenderError {
     #[default]
     None,

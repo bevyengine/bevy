@@ -210,6 +210,8 @@ impl Timer {
     /// This can be useful when needing an immediate action without having
     /// to wait for the set duration of the timer in the first tick.
     ///
+    /// If the timer is already finished, this does nothing.
+    ///
     /// # Examples
     /// ```
     /// # use bevy_time::*;
@@ -221,7 +223,7 @@ impl Timer {
     /// ```
     #[inline]
     pub fn almost_finish(&mut self) {
-        let remaining = self.remaining() - Duration::from_nanos(1);
+        let remaining = self.remaining().saturating_sub(Duration::from_nanos(1));
         self.tick(remaining);
     }
 

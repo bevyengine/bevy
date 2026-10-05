@@ -13,7 +13,7 @@ use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::{
-    any::{Any, TypeId},
+    any::{type_name, Any, TypeId},
     convert::Infallible,
 };
 use downcast_rs::{impl_downcast, Downcast};
@@ -124,7 +124,7 @@ where
     }
 
     fn asset_type_name(&self) -> &'static str {
-        core::any::type_name::<L::Asset>()
+        type_name::<L::Asset>()
     }
 
     fn asset_type_id(&self) -> TypeId {
@@ -335,20 +335,27 @@ impl<A: Asset> AssetContainer for A {
     }
 
     fn asset_type_name(&self) -> &'static str {
-        core::any::type_name::<A>()
+        type_name::<A>()
     }
 }
 
 /// An error that occurs when attempting an async load using [`NestedLoadBuilder`].
 #[derive(Error, Debug)]
 pub enum LoadDirectError {
+    /// The asset path was empty.
     #[error("Attempted to load an asset with an empty path \"{0}\"")]
     EmptyPath(AssetPath<'static>),
+    /// Loading an asset path with a subasset at the end is unsupported. See issue [#18291].
+    ///
+    /// [#18291]: https://github.com/bevyengine/bevy/issues/18291
     #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
     RequestedSubasset(AssetPath<'static>),
+    /// A general [`AssetLoadError`] for an asset dependency.
     #[error("Failed to load dependency {dependency:?} {error}")]
     LoadError {
+        /// Which dependency failed.
         dependency: AssetPath<'static>,
+        /// The original error for that dependency.
         error: Box<AssetLoadError>,
     },
 }
@@ -356,8 +363,10 @@ pub enum LoadDirectError {
 /// An error that occurs while deserializing [`AssetMeta`].
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum DeserializeMetaError {
+    /// Failed to deserialize the asset metadata.
     #[error("Failed to deserialize asset meta: {0:?}")]
     DeserializeSettings(#[from] SpannedError),
+    /// Failed to deserialize the minimal asset metadata.
     #[error("Failed to deserialize minimal asset meta: {0:?}")]
     DeserializeMinimal(SpannedError),
 }
@@ -495,15 +504,45 @@ impl<'a> LoadContext<'a> {
         label: impl Into<CowArc<'static, str>>,
         loaded_asset: LoadedAsset<A>,
     ) -> Handle<A> {
-        let label = label.into();
-        let loaded_asset: ErasedLoadedAsset = loaded_asset.into();
+        self.add_erased_loaded_labeled_asset_internal(
+            label.into(),
+            loaded_asset.into(),
+            Some(type_name::<A>()),
+        )
+        .typed_debug_checked()
+    }
+
+    /// Adds an [`ErasedLoadedAsset`] that is a "labeled sub asset" of the root path of this load
+    /// context. This can be used in combination with [`LoadContext::begin_labeled_asset`] to
+    /// parallelize sub asset loading.
+    ///
+    /// See [`AssetPath`] for more on labeled assets.
+    pub fn add_erased_loaded_labeled_asset(
+        &mut self,
+        label: impl Into<CowArc<'static, str>>,
+        loaded_asset: ErasedLoadedAsset,
+    ) -> UntypedHandle {
+        self.add_erased_loaded_labeled_asset_internal(label.into(), loaded_asset, None)
+    }
+
+    /// Internal versions of the above that are type erased, but still may include `type_name` for
+    /// debug information.
+    fn add_erased_loaded_labeled_asset_internal(
+        &mut self,
+        label: CowArc<'static, str>,
+        loaded_asset: ErasedLoadedAsset,
+        type_name: Option<&str>,
+    ) -> UntypedHandle {
         let labeled_path = self.asset_path.clone().with_label(label.clone());
-        let handle = self
-            .asset_server
-            .get_or_create_path_handle(labeled_path, None);
+        let handle = self.asset_server.get_or_create_path_handle_erased(
+            labeled_path,
+            loaded_asset.asset_type_id(),
+            type_name,
+            None,
+        );
         let asset = LabeledAsset {
             asset: loaded_asset,
-            handle: handle.clone().untyped(),
+            handle: handle.clone(),
         };
         match self.label_to_asset_index.entry(label) {
             Entry::Occupied(entry) => {
@@ -518,7 +557,7 @@ impl<'a> LoadContext<'a> {
             Entry::Vacant(entry) => {
                 entry.insert(self.labeled_assets.len());
                 self.asset_id_to_asset_index
-                    .insert(handle.id().untyped(), self.labeled_assets.len());
+                    .insert(handle.id(), self.labeled_assets.len());
                 self.labeled_assets.push(asset);
             }
         }

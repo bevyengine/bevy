@@ -64,6 +64,13 @@ pub(crate) fn get_linear_textures(document: &Document) -> HashSet<usize> {
         {
             linear_textures.insert(texture_index);
         }
+        #[cfg(feature = "pbr_transmission_textures")]
+        if let Some(texture) = material
+            .volume()
+            .and_then(|volume| volume.thickness_texture())
+        {
+            linear_textures.insert(texture.texture().index());
+        }
 
         // None of the clearcoat maps should be loaded as sRGB.
         #[cfg(feature = "pbr_multi_layer_material_textures")]

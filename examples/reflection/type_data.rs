@@ -103,6 +103,8 @@ fn main() {
     // This is why we named it with the `Reflect` prefix:
     // the derive macro will automatically look for a type named `ReflectDamageable` in the current scope.
     #[reflect(Damageable)]
+    // We can also specify the path to type data if it isn't currently in-scope:
+    // #[reflect(path::to::MyTypeData)]
     struct Skeleton {
         health: i32,
     }

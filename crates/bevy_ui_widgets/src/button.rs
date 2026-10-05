@@ -12,8 +12,10 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::FocusedInput;
-use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
+use bevy_input_focus::{Focusable, FocusedInput};
+use bevy_picking::events::{
+    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
+};
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Pressed};
 
@@ -23,7 +25,7 @@ use crate::Activate;
 /// indicate whether the button is currently being pressed by the user. It emits an [`Activate`]
 /// event when the button is un-pressed.
 #[derive(Component, Default, Debug, Clone)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
+#[require(AccessibilityNode(accesskit::Node::new(Role::Button)), Focusable)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct Button;
@@ -56,7 +58,7 @@ fn button_on_key_event(
 }
 
 fn button_on_pointer_click(
-    mut click: On<Pointer<Click>>,
+    mut click: On<PointerClick>,
     mut q_state: Query<
         (Has<Pressed>, Has<InteractionDisabled>, Has<ActivateOnPress>),
         With<Button>,
@@ -74,7 +76,7 @@ fn button_on_pointer_click(
 }
 
 fn button_on_pointer_down(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     mut q_state: Query<
         (
             Entity,
@@ -98,7 +100,7 @@ fn button_on_pointer_down(
 }
 
 fn button_on_pointer_up(
-    mut release: On<Pointer<Release>>,
+    mut release: On<PointerRelease>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
     mut commands: Commands,
 ) {
@@ -111,7 +113,7 @@ fn button_on_pointer_up(
 }
 
 fn button_on_pointer_drag_end(
-    mut drag_end: On<Pointer<DragEnd>>,
+    mut drag_end: On<PointerDragEnd>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
     mut commands: Commands,
 ) {
@@ -124,7 +126,7 @@ fn button_on_pointer_drag_end(
 }
 
 fn button_on_pointer_cancel(
-    mut cancel: On<Pointer<Cancel>>,
+    mut cancel: On<PointerCancel>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
     mut commands: Commands,
 ) {

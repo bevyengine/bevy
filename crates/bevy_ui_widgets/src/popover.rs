@@ -253,6 +253,8 @@ pub(crate) fn position_popover(
                 computed_target.scale_factor(),
                 computed_node.size(),
                 computed_target.physical_size().as_vec2(),
+                computed_node.em_size,
+                computed_node.rem_size,
             );
             let logical_translation = (resolved_translation
                 + parent_matrix.inverse() * physical_translation)

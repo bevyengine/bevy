@@ -20,7 +20,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wesl";
 
 // The length of the buffer sent to the gpu
 const BUFFER_LEN: usize = 16;
@@ -60,6 +60,7 @@ impl Plugin for GpuReadbackPlugin {
 }
 
 #[derive(Resource, ExtractResource, Clone)]
+#[extract_app(RenderApp)]
 struct ReadbackBuffer(Handle<ShaderBuffer>);
 
 fn trigger_once_readback(
@@ -78,6 +79,7 @@ fn trigger_once_readback(
 }
 
 #[derive(Resource, ExtractResource, Clone)]
+#[extract_app(RenderApp)]
 struct ReadbackImage(Handle<Image>);
 
 fn setup(
@@ -89,7 +91,7 @@ fn setup(
     let buffer: Vec<u32> = (0..BUFFER_LEN as u32).collect();
     let mut buffer = ShaderBuffer::from(buffer);
     // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
-    buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
+    buffer.buffer_usage |= BufferUsages::COPY_SRC;
     let buffer = buffers.add(buffer);
 
     // Create a storage texture with some data

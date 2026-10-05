@@ -53,7 +53,7 @@ If you'd like to help build Bevy, check out the **[Contributor's Guide](https://
 For simple problems, feel free to [open an issue](https://github.com/bevyengine/bevy/issues) or
 [PR](https://github.com/bevyengine/bevy/pulls) and tackle it yourself!
 
-For more complex architecture decisions and experimental mad science, please open an [RFC](https://github.com/bevyengine/rfcs) (Request For Comments) so we can brainstorm together effectively!
+For more complex architecture decisions and experimental mad science, please open a [GitHub Discussion](https://github.com/bevyengine/bevy/discussions) so we can brainstorm together effectively!
 
 ## Getting Started
 

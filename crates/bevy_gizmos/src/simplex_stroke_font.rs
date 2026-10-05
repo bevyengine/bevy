@@ -11,6 +11,8 @@ pub(crate) const SIMPLEX_CAP_HEIGHT: f32 = 21.0;
 pub(crate) const SIMPLEX_DESCENDER_DEPTH: f32 = 7.0;
 pub(crate) const SIMPLEX_HEIGHT: f32 = SIMPLEX_CAP_HEIGHT + SIMPLEX_DESCENDER_DEPTH;
 
+pub(crate) const TAB_WIDTH_IN_SPACES: usize = 4;
+
 pub(crate) const SIMPLEX_POSITIONS: [[i8; 2]; 1100] = [
     [5, 21],
     [5, 7],

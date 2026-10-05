@@ -387,7 +387,7 @@ all_tuples!(template_impl, 0, 12, T);
 
 // This includes `Unpin` to enable specialization for Templates that also implement Default, by using the
 // ["auto trait specialization" trick](https://github.com/coolcatcoder/rust_techniques/issues/1)
-impl<T: Clone + Default + Unpin> Template for T {
+impl<T: Clone + Unpin> Template for T {
     type Output = T;
 
     fn build_template(&self, _context: &mut TemplateContext) -> Result<Self::Output> {
@@ -416,6 +416,8 @@ impl<T: Clone + Default + Unpin> FromTemplate for T {
 pub trait SpecializeFromTemplate: Sized {}
 
 /// A [`Template`] reference to an [`Entity`].
+///
+/// This is only valid during scene spawning and should **never** be used as a [`Component`](bevy_ecs::prelude::Component) field.
 #[derive(Copy, Clone, Default, Debug)]
 pub enum EntityTemplate {
     /// A reference to a specific [`Entity`]

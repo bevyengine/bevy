@@ -1,8 +1,8 @@
 use super::triangle3d;
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
-use bevy_math::primitives::{Tetrahedron, Triangle3d};
 use bevy_reflect::prelude::*;
+use bevy_shape::{Tetrahedron, Triangle3d};
 
 /// A builder used for creating a [`Mesh`] with a [`Tetrahedron`] shape.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
