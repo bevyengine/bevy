@@ -183,7 +183,10 @@ pub fn init_batched_instance_buffer(mut commands: Commands, render_device: Res<R
     ));
 }
 
-fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<AssetServer>) {
+pub(crate) fn load_mesh2d_bindings(
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
     let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
     if let Some(per_object_buffer_batch_size) =
