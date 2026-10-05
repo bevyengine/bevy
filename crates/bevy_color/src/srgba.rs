@@ -91,12 +91,7 @@ impl Srgba {
     /// * `green` - Green channel. [0.0, 1.0]
     /// * `blue` - Blue channel. [0.0, 1.0]
     pub const fn rgb(red: f32, green: f32, blue: f32) -> Self {
-        Self {
-            red,
-            green,
-            blue,
-            alpha: 1.0,
-        }
+        Self::new(red, green, blue, 1.)
     }
 
     /// New `Srgba` from sRGB colorspace.
