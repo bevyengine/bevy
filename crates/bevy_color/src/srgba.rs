@@ -99,6 +99,38 @@ impl Srgba {
         }
     }
 
+    /// New `Srgba` from sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
+    /// * `alpha` - Alpha channel. [0, 255]
+    ///
+    /// See also [`Srgba::new`], [`Srgba::rgb`], [`Srgba::rgb_u8`], [`Srgba::hex`].
+    pub const fn rgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
+        Self::new(
+            red as f32 / 255.,
+            green as f32 / 255.,
+            blue as f32 / 255.,
+            alpha as f32 / 255.,
+        )
+    }
+
+    /// New `Srgba` from sRGB colorspace, with the default alpha (255).
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
+    ///
+    /// See also [`Srgba::new`],  [`Srgba::rgb`], [`Srgba::rgba_u8`], [`Srgba::hex`].
+    pub const fn rgb_u8(red: u8, green: u8, blue: u8) -> Self {
+        Self::rgba_u8(red, green, blue, 255)
+    }
+
     /// Return a copy of this color with the red channel set to the given value.
     pub const fn with_red(self, red: f32) -> Self {
         Self { red, ..self }
@@ -170,35 +202,6 @@ impl Srgba {
             255 => format!("#{r:02X}{g:02X}{b:02X}"),
             _ => format!("#{r:02X}{g:02X}{b:02X}{a:02X}"),
         }
-    }
-
-    /// New `Srgba` from sRGB colorspace.
-    ///
-    /// # Arguments
-    ///
-    /// * `r` - Red channel. [0, 255]
-    /// * `g` - Green channel. [0, 255]
-    /// * `b` - Blue channel. [0, 255]
-    ///
-    /// See also [`Srgba::new`], [`Srgba::rgba_u8`], [`Srgba::hex`].
-    pub fn rgb_u8(r: u8, g: u8, b: u8) -> Self {
-        Self::from_u8_array_no_alpha([r, g, b])
-    }
-
-    // Float operations in const fn are not stable yet
-    // see https://github.com/rust-lang/rust/issues/57241
-    /// New `Srgba` from sRGB colorspace.
-    ///
-    /// # Arguments
-    ///
-    /// * `r` - Red channel. [0, 255]
-    /// * `g` - Green channel. [0, 255]
-    /// * `b` - Blue channel. [0, 255]
-    /// * `a` - Alpha channel. [0, 255]
-    ///
-    /// See also [`Srgba::new`], [`Srgba::rgb_u8`], [`Srgba::hex`].
-    pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self::from_u8_array([r, g, b, a])
     }
 
     /// Converts a non-linear sRGB value to a linear one via [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction).
