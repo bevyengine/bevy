@@ -9,14 +9,6 @@ java {
     }
 }
 
-kotlin {
-    // https://kotlinlang.org/docs/gradle-compiler-options.html#all-compiler-options
-    compilerOptions {
-        languageVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_3
-        jvmToolchain(17)
-    }
-}
-
 android {
     namespace = "org.bevyengine.example"
     compileSdk = 37
