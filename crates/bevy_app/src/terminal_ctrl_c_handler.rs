@@ -1,5 +1,8 @@
 use core::sync::atomic::{AtomicU8, Ordering};
 
+use alloc::{boxed::Box, vec::Vec};
+use std::sync::Mutex;
+
 use bevy_ecs::message::MessageWriter;
 
 use crate::{App, AppExit, Plugin, Update};
@@ -8,6 +11,9 @@ pub use ctrlc;
 
 /// Indicates that all [`App`]'s should exit.
 static SHOULD_EXIT: AtomicU8 = AtomicU8::new(0);
+
+/// Handlers run when the app is asked to exit via `Ctrl+C`.
+static ON_EXIT_HANDLERS: Mutex<Vec<Box<dyn Fn() + Send>>> = Mutex::new(Vec::new());
 
 /// Gracefully handles `Ctrl+C` by emitting a [`AppExit`] event. This plugin is part of the `DefaultPlugins`.
 ///
@@ -51,6 +57,21 @@ impl TerminalCtrlCHandlerPlugin {
             log::error!("Received more than one ctrl+c. Skipping graceful shutdown.");
             std::process::exit(Self::EXIT_CODE.into());
         };
+
+        if let Ok(handlers) = ON_EXIT_HANDLERS.lock() {
+            for handler in handlers.iter() {
+                handler();
+            }
+        }
+    }
+
+    /// Registers a `handler` that is invoked when `Ctrl+C` is received.
+    ///
+    /// This can be used to e.g. waking a sleeping event loop so it can observe the [`AppExit`].
+    pub fn register_exit_handler(handler: impl Fn() + Send + 'static) {
+        if let Ok(mut handlers) = ON_EXIT_HANDLERS.lock() {
+            handlers.push(Box::new(handler));
+        }
     }
 
     /// Sends a [`AppExit`] event when the user presses `Ctrl+C` on the terminal.

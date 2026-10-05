@@ -3,8 +3,9 @@ mod prepass_bindings;
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
-    setup_morph_and_skinning_defs, skin, DeferredAlphaMaskDrawFunction, DeferredFragmentShader,
-    DeferredOpaqueDrawFunction, DeferredVertexShader, DrawMesh, MaterialPipeline, MeshLayouts,
+    setup_morph_and_skinning_defs, skin, visibility_ranges_min_binding_size,
+    DeferredAlphaMaskDrawFunction, DeferredFragmentShader, DeferredOpaqueDrawFunction,
+    DeferredVertexShader, DrawMesh, MaterialPipeline, MaterialPropertiesExt, MeshLayouts,
     MeshPipeline, MeshPipelineKey, PreparedMaterial, PrepassAlphaMaskDrawFunction,
     PrepassFragmentShader, PrepassOpaqueDepthOnlyDrawFunction, PrepassOpaqueDrawFunction,
     PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
@@ -25,7 +26,7 @@ use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     AlphaMode, MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
-use bevy_math::{Affine3A, Mat4, Vec2, Vec4};
+use bevy_math::{Affine3A, Mat4, Vec2};
 use bevy_mesh::{Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -36,7 +37,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    sync_world::RenderEntity,
+    sync_world::{MainEntityHashSet, RenderEntity},
     view::{
         ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
         ViewUniform, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
@@ -75,11 +76,11 @@ pub struct PrepassPipelinePlugin;
 
 impl Plugin for PrepassPipelinePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "prepass.wgsl");
+        embedded_asset!(app, "prepass.wesl");
 
-        load_shader_library!(app, "prepass_bindings.wgsl");
-        load_shader_library!(app, "prepass_utils.wgsl");
-        load_shader_library!(app, "prepass_io.wgsl");
+        load_shader_library!(app, "bindings.wesl");
+        load_shader_library!(app, "utils.wesl");
+        load_shader_library!(app, "io.wesl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -299,7 +300,9 @@ pub fn init_prepass_pipeline(
                     buffer_layout(
                         visibility_ranges_buffer_binding_type,
                         false,
-                        Some(Vec4::min_size()),
+                        Some(visibility_ranges_min_binding_size(
+                            visibility_ranges_buffer_binding_type,
+                        )),
                     )
                     .visibility(ShaderStages::VERTEX),
                 ),
@@ -322,7 +325,9 @@ pub fn init_prepass_pipeline(
                     buffer_layout(
                         visibility_ranges_buffer_binding_type,
                         false,
-                        Some(Vec4::min_size()),
+                        Some(visibility_ranges_min_binding_size(
+                            visibility_ranges_buffer_binding_type,
+                        )),
                     )
                     .visibility(ShaderStages::VERTEX),
                 ),
@@ -337,7 +342,7 @@ pub fn init_prepass_pipeline(
         view_layout_motion_vectors,
         view_layout_no_motion_vectors,
         mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
-        default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wgsl"),
+        default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wesl"),
         skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device.limits()),
         metadata_use_uniform_buffers: bevy_render::storage_buffers_are_unsupported(
             &render_device.limits(),
@@ -390,7 +395,9 @@ impl SpecializedMeshPipeline for PrepassPipelineSpecializer {
 }
 
 fn is_depth_only_opaque_prepass(mesh_key: MeshPipelineKey) -> bool {
-    mesh_key.intersection(MeshPipelineKey::ALL_PREPASS_BITS) == MeshPipelineKey::DEPTH_PREPASS
+    !mesh_key.intersects(MeshPipelineKey::MAY_DISCARD | MeshPipelineKey::PREPASS_READS_MATERIAL)
+        && mesh_key.intersection(MeshPipelineKey::ALL_PREPASS_BITS)
+            == MeshPipelineKey::DEPTH_PREPASS
 }
 
 impl PrepassPipeline {
@@ -425,7 +432,12 @@ impl PrepassPipeline {
         // or emulated by setting depth in the fragment shader for GPUs that don't support it natively.
         let emulate_unclipped_depth = mesh_key.contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
             && !self.depth_clip_control_supported;
-        if is_depth_only_opaque_prepass(mesh_key) && !emulate_unclipped_depth {
+        if is_depth_only_opaque_prepass(mesh_key)
+            && !emulate_unclipped_depth
+            && !material_properties.prepass_reads_material()
+        {
+            // The shaders for depth only opaque prepass don't need the material's bind group.
+            // We set an empty layout and batch them by setting `material_bind_group_index` to `None` in batch set key.
             bind_group_layouts.push(self.empty_layout.clone());
         } else {
             bind_group_layouts.push(
@@ -1121,6 +1133,10 @@ pub(crate) fn specialize_prepass_material_meshes(
                     continue;
                 }
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
+                    // Retry specialization once the mesh is ready.
+                    view_pending_prepass_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
 
@@ -1179,6 +1195,10 @@ pub(crate) fn specialize_prepass_material_meshes(
                     .entity_has_crossfading_visibility_ranges(*visible_entity)
                 {
                     mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
+                }
+
+                if material.properties.prepass_reads_material() {
+                    mesh_key |= MeshPipelineKey::PREPASS_READS_MATERIAL;
                 }
 
                 // If the previous frame has skins or morph targets, note that.
@@ -1299,6 +1319,7 @@ pub fn queue_prepass_material_meshes(
     specialized_material_pipeline_cache: Res<SpecializedPrepassMaterialPipelineCache>,
     mut pending_prepass_mesh_material_queues: ResMut<PendingPrepassMeshMaterialQueues>,
     dirty_specializations: Res<DirtySpecializations>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (extracted_view, visible_entities) in &views {
         let (
@@ -1364,6 +1385,7 @@ pub fn queue_prepass_material_meshes(
             extracted_view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_prepass_mesh_material_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(&(_, pipeline_id, draw_function)) =
                 view_specialized_material_pipeline_cache.get(visible_entity)

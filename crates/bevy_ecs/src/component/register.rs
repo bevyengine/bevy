@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use bevy_platform::sync::PoisonError;
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::any::Any;
 use core::{any::TypeId, fmt::Debug, ops::Deref};
 
@@ -22,7 +22,7 @@ pub struct ComponentIds {
 impl ComponentIds {
     /// Peeks the next [`ComponentId`] to be generated without generating it.
     pub fn peek(&self) -> ComponentId {
-        ComponentId(
+        ComponentId::new(
             self.next
                 .load(bevy_platform::sync::atomic::Ordering::Relaxed),
         )
@@ -30,7 +30,7 @@ impl ComponentIds {
 
     /// Generates and returns the next [`ComponentId`].
     pub fn next(&self) -> ComponentId {
-        ComponentId(
+        ComponentId::new(
             self.next
                 .fetch_add(1, bevy_platform::sync::atomic::Ordering::Relaxed),
         )
@@ -38,20 +38,20 @@ impl ComponentIds {
 
     /// Peeks the next [`ComponentId`] to be generated without generating it.
     pub fn peek_mut(&mut self) -> ComponentId {
-        ComponentId(*self.next.get_mut())
+        ComponentId::new(*self.next.get_mut())
     }
 
     /// Generates and returns the next [`ComponentId`].
     pub fn next_mut(&mut self) -> ComponentId {
         let id = self.next.get_mut();
-        let result = ComponentId(*id);
+        let result = ComponentId::new(*id);
         *id += 1;
         result
     }
 
     /// Returns the number of [`ComponentId`]s generated.
     pub fn len(&self) -> usize {
-        self.peek().0
+        self.peek().index()
     }
 
     /// Returns true if and only if no ids have been generated.
@@ -132,12 +132,7 @@ impl<'w> ComponentsRegistrator<'w> {
                 .unwrap_or_else(PoisonError::into_inner);
             queued.components.keys().next().copied().map(|type_id| {
                 // SAFETY: the id just came from a valid iterator.
-                unsafe {
-                    queued
-                        .components
-                        .shift_remove(&type_id)
-                        .debug_checked_unwrap()
-                }
+                unsafe { queued.components.remove(&type_id).debug_checked_unwrap() }
             })
         } {
             registrator.register(self);
@@ -193,7 +188,7 @@ impl<'w> ComponentsRegistrator<'w> {
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner)
             .components
-            .shift_remove(&type_id)
+            .remove(&type_id)
         {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
@@ -254,7 +249,7 @@ impl<'w> ComponentsRegistrator<'w> {
             &mut self
                 .components
                 .components
-                .get_mut(id.0)
+                .get_mut(id.index())
                 .debug_checked_unwrap()
                 .as_mut()
                 .debug_checked_unwrap()
@@ -329,7 +324,7 @@ impl<'w> ComponentsRegistrator<'w> {
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner)
             .components
-            .shift_remove(&type_id)
+            .remove(&type_id)
         {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
@@ -391,7 +386,7 @@ impl QueuedRegistration {
 /// Allows queuing components to be registered.
 #[derive(Default)]
 pub struct QueuedComponents {
-    pub(super) components: TypeIdMap<QueuedRegistration>,
+    pub(super) components: TypeIdHashMap<QueuedRegistration>,
     pub(super) dynamic_registrations: Vec<QueuedRegistration>,
 }
 

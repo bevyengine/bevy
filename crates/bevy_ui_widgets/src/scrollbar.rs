@@ -10,11 +10,14 @@ use bevy_ecs::{
     query::{With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    system::{Query, Res},
+    system::{Query, Res, ResMut},
     template::FromTemplate,
 };
 use bevy_math::{Affine2, Vec2};
-use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press};
+use bevy_picking::events::{
+    PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress,
+};
+use bevy_picking::hover::PointerCaptureMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     prelude::BorderRect, ui_layout_system, BackgroundColor, BorderColor, BorderRadius,
@@ -137,7 +140,7 @@ pub struct ScrollbarDragState {
 }
 
 fn scrollbar_on_pointer_down(
-    mut ev: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     q_thumb: Query<&ChildOf, With<ScrollbarThumb>>,
     mut q_scrollbar: Query<(
         &Scrollbar,
@@ -148,16 +151,17 @@ fn scrollbar_on_pointer_down(
     mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<Scrollbar>>,
     ui_scale: Res<UiScale>,
 ) {
-    if q_thumb.contains(ev.entity) {
+    if q_thumb.contains(press.entity) {
         // If they click on the thumb, do nothing. This will be handled by the drag event.
-        ev.propagate(false);
-    } else if let Ok((scrollbar, node, node_target, transform)) = q_scrollbar.get_mut(ev.entity) {
+        press.propagate(false);
+    } else if let Ok((scrollbar, node, node_target, transform)) = q_scrollbar.get_mut(press.entity)
+    {
         // If they click on the scrollbar track, page up or down.
-        ev.propagate(false);
+        press.propagate(false);
 
         let Some(normalized_pos) = node.normalize_point(
             *transform,
-            ev.event().pointer_location.position * node_target.scale_factor() / ui_scale.0,
+            press.pointer.position * node_target.scale_factor() / ui_scale.0,
         ) else {
             return;
         };
@@ -194,7 +198,8 @@ fn scrollbar_on_pointer_down(
 }
 
 fn scrollbar_on_drag_start(
-    mut ev: On<Pointer<DragStart>>,
+    mut ev: On<PointerDragStart>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_thumb: Query<(&ChildOf, &mut ScrollbarDragState), With<ScrollbarThumb>>,
     q_scrollbar: Query<&Scrollbar>,
     q_scroll_area: Query<&ScrollPosition>,
@@ -209,12 +214,13 @@ fn scrollbar_on_drag_start(
                 ControlOrientation::Horizontal => scroll_area.x,
                 ControlOrientation::Vertical => scroll_area.y,
             };
+            capture_map.capture(ev.pointer.id, ev.entity, ev.hit.clone());
         }
     }
 }
 
 fn scrollbar_on_drag(
-    mut ev: On<Pointer<Drag>>,
+    mut ev: On<PointerDrag>,
     mut q_thumb: Query<(&ChildOf, &mut ScrollbarDragState), With<ScrollbarThumb>>,
     mut q_scrollbar: Query<(&ComputedNode, &Scrollbar)>,
     mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<Scrollbar>>,
@@ -256,19 +262,21 @@ fn scrollbar_on_drag(
 }
 
 fn scrollbar_on_drag_end(
-    mut ev: On<Pointer<DragEnd>>,
+    mut ev: On<PointerDragEnd>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_thumb: Query<&mut ScrollbarDragState, With<ScrollbarThumb>>,
 ) {
     if let Ok(mut drag) = q_thumb.get_mut(ev.entity) {
         ev.propagate(false);
         if drag.dragging {
             drag.dragging = false;
+            capture_map.release(ev.pointer.id);
         }
     }
 }
 
 fn scrollbar_on_drag_cancel(
-    mut ev: On<Pointer<Cancel>>,
+    mut ev: On<PointerCancel>,
     mut q_thumb: Query<&mut ScrollbarDragState, With<ScrollbarThumb>>,
 ) {
     if let Ok(mut drag) = q_thumb.get_mut(ev.entity) {
@@ -401,6 +409,8 @@ pub(crate) fn update_scrollbar_thumb(
                 target_info.scale_factor(),
                 thumb_physical_size,
                 target_info.physical_size().as_vec2(),
+                thumb_node.em_size,
+                thumb_node.rem_size,
             );
             if thumb_node.border_radius != border_radius {
                 thumb_node.border_radius = border_radius;
@@ -411,6 +421,8 @@ pub(crate) fn update_scrollbar_thumb(
                     target_info.scale_factor(),
                     thumb_physical_size.x,
                     target_info.physical_size().as_vec2(),
+                    thumb_node.em_size,
+                    thumb_node.rem_size,
                 )
                 .unwrap_or(0.)
             };
@@ -447,6 +459,8 @@ pub(crate) fn update_scrollbar_thumb(
                     target_info.scale_factor(),
                     thumb_physical_size,
                     target_info.physical_size().as_vec2(),
+                    thumb_node.em_size,
+                    thumb_node.rem_size,
                 )
                 * Affine2::from_translation(thumb_center * target_info.scale_factor());
 

@@ -12,7 +12,7 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_resource::*,
     renderer::{RenderContext, ViewQuery},
-    view::{ViewDepthTexture, ViewUniformOffset},
+    view::{ViewDepthStencilTexture, ViewUniformOffset},
 };
 
 ///
@@ -22,7 +22,7 @@ pub fn meshlet_visibility_buffer_raster(
     world: &World,
     view: ViewQuery<(
         &ExtractedCamera,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         &ViewUniformOffset,
         &PreviousViewUniformOffset,
         &MeshletViewBindGroups,

@@ -4,22 +4,24 @@
 //!
 //! [`OrderIndependentTransparencyPlugin`]: bevy::core_pipeline::oit::OrderIndependentTransparencyPlugin
 
-use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
 use bevy::{
-    camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
     core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
     ecs::system::SystemParam,
+    feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
     pbr::{ExtendedMaterial, MaterialExtension},
     picking::window::update_window_hits,
     prelude::*,
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
+    ui::Checked,
+    ui_widgets::{RadioButton, RadioGroup, ValueChange},
     window::{CursorIcon, PrimaryWindow, SystemCursorIcon},
 };
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/radio.rs"]
+mod radio;
 
 /// Scene construction functions
 const SCENES: &[(&str, &str, fn(&mut Commands, &mut SceneResources))] = &[
@@ -55,7 +57,7 @@ impl Default for AppState {
 }
 
 /// Tweakable settings
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 enum AppSetting {
     /// Change whether OIT is used or not
     EnableOIT(bool),
@@ -63,6 +65,22 @@ enum AppSetting {
     UseDepthPrepass(bool),
     /// Change the displayed scene
     ChangeScene(usize),
+}
+
+/// impl Default so that `AppSetting` can be more easily used in bsn!
+impl Default for AppSetting {
+    fn default() -> Self {
+        Self::EnableOIT(true)
+    }
+}
+
+/// Marker components to make it easier to update the `Selected` of each radio group.
+#[derive(Component, Clone, Default, PartialEq)]
+enum RadioGroupSetting {
+    #[default]
+    EnableOIT,
+    UseDepthPrepass,
+    ChangeScene,
 }
 
 /// This system param bundles up the resources used by the scene creation functions.
@@ -76,33 +94,20 @@ struct SceneResources<'w> {
     asset_server: Res<'w, AssetServer>,
 }
 
-/// This message is similar to `WidgetClickEvent<AppSetting>`, only for events generated
-/// by the app itself.
-#[derive(Clone, Message, Deref, DerefMut)]
-struct AppEvent(AppSetting);
-
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, FeathersPlugins))
         .add_plugins(MaterialPlugin::<NoisyOpacityMaterial>::default())
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, CheckeredMaterialExtension>,
         >::default())
+        .insert_resource(UiTheme(create_dark_theme()))
         .init_resource::<AppState>()
-        .add_message::<WidgetClickEvent<AppSetting>>()
-        .add_message::<AppEvent>()
         .add_systems(Startup, setup)
         .add_systems(Update, handle_keyboard_shortcuts)
         .add_systems(Update, scene_change_watcher)
         .add_systems(Update, update_window_hits)
-        .add_systems(
-            Update,
-            (
-                widgets::handle_ui_interactions::<AppSetting>,
-                update_radio_buttons.after(widgets::handle_ui_interactions::<AppSetting>),
-                handle_setting_change.after(widgets::handle_ui_interactions::<AppSetting>),
-            ),
-        )
+        .add_observer(on_radio_value_change)
         .run();
 }
 
@@ -118,13 +123,13 @@ fn setup(
     window: Single<Entity, With<PrimaryWindow>>,
 ) {
     // Spawn the main UI
-    spawn_ui(&mut commands);
+    spawn_ui(&mut commands, &app_state);
 
     // Drag events handling on the window, tied to the camera rotation
     commands
         .entity(*window)
         .observe(
-            |event: On<Pointer<Drag>>,
+            |event: On<PointerDrag>,
              mut commands: Commands,
              mut camera_transforms: Single<
                 (&mut Transform, &BaseTransform),
@@ -144,18 +149,18 @@ fn setup(
             },
         )
         .observe(
-            |_: On<Pointer<DragStart>>,
+            |_: On<PointerDragStart>,
              mut commands: Commands,
              camera: Single<(Entity, &Transform), With<Camera3d>>| {
                 let (camera, transform) = *camera;
-                // Memorize the current transform 
+                // Memorize the current transform
                 commands
                     .entity(camera)
                     .insert(BaseTransform(*transform));
             },
         )
         .observe(
-            |_: On<Pointer<DragEnd>>,
+            |_: On<PointerDragEnd>,
              mut commands: Commands,
              window: Single<Entity, With<PrimaryWindow>>| {
                 commands
@@ -168,7 +173,6 @@ fn setup(
     let mut camera = commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        RenderLayers::layer(1),
         // Msaa currently doesn't work with OIT
         Msaa::Off,
     ));
@@ -192,41 +196,49 @@ fn setup(
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
-        RenderLayers::layer(1),
     ));
 
     // Spawn the default scene
     SCENES[0].2(&mut commands, &mut resources); //&mut meshes, &mut materials);
 }
 
-/// Watches for key presses and queues corresponding `AppEvent`'s
+/// Watches for key presses and changes the app accordingly.
 fn handle_keyboard_shortcuts(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut app_state: ResMut<AppState>,
-    mut messages: MessageWriter<AppEvent>,
+    camera: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
+    radio_group_q: Query<(&Children, &RadioGroupSetting), With<RadioGroup>>,
+    setting_q: Query<(Entity, &RadioButtonOptionValue<AppSetting>), With<RadioButton>>,
+    mut commands: Commands,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Tab) {
+    let new_setting = if keyboard_input.just_pressed(KeyCode::KeyS)
+        || keyboard_input.just_pressed(KeyCode::KeyA)
+    {
         let n = app_state.current_scene_id + SCENES.len();
-        if keyboard_input.pressed(KeyCode::ShiftLeft) {
-            app_state.current_scene_id = (n - 1) % SCENES.len();
+        if keyboard_input.pressed(KeyCode::KeyA) {
+            AppSetting::ChangeScene((n - 1) % SCENES.len())
         } else {
-            app_state.current_scene_id = (n + 1) % SCENES.len();
+            AppSetting::ChangeScene((n + 1) % SCENES.len())
         }
-        // There is a dedicated scene change watcher, so no need to push an AppEvent
-    }
+    } else if keyboard_input.just_pressed(KeyCode::KeyT) {
+        AppSetting::EnableOIT(!app_state.use_oit)
+    } else if keyboard_input.just_pressed(KeyCode::KeyD) {
+        AppSetting::UseDepthPrepass(!app_state.use_depth_prepass)
+    } else {
+        return;
+    };
 
-    if keyboard_input.just_pressed(KeyCode::KeyT) {
-        messages.write(AppEvent(AppSetting::EnableOIT(!app_state.use_oit)));
-    }
-
-    if keyboard_input.just_pressed(KeyCode::KeyD) {
-        messages.write(AppEvent(AppSetting::UseDepthPrepass(
-            !app_state.use_depth_prepass,
-        )));
-    }
+    change_setting(
+        &new_setting,
+        &mut app_state,
+        camera,
+        radio_group_q,
+        setting_q,
+        &mut commands,
+    );
 }
 
-fn spawn_ui(commands: &mut Commands) {
+fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
     // Invite to interact
     commands.spawn((
         Node {
@@ -247,110 +259,130 @@ fn spawn_ui(commands: &mut Commands) {
     ));
 
     // Buttons
-    commands
-        .spawn((
-            widgets::main_ui_node(),
-            children![
-                widgets::option_buttons::<AppSetting>(
-                    "Scene",
-                    &(SCENES
-                        .iter()
-                        .enumerate()
-                        .map(|(i, scene)| (AppSetting::ChangeScene(i), scene.0))
-                        .collect::<Vec<_>>())
-                ),
-                widgets::option_buttons(
-                    "Order Independent [T]ransparency",
-                    &[
-                        (AppSetting::EnableOIT(true), "On"),
-                        (AppSetting::EnableOIT(false), "Off")
-                    ]
-                ),
-                widgets::option_buttons(
-                    "[D]epth Prepass",
-                    &[
-                        (AppSetting::UseDepthPrepass(true), "On"),
-                        (AppSetting::UseDepthPrepass(false), "Off")
-                    ]
-                ),
-            ],
-        ))
+    commands.spawn_scene(bsn! {
+        @main_ui_node_scene()
         // Prevent the event from bubble up so that view drag does not initiate when interacting with the UI
-        .observe(|mut event: On<Pointer<Drag>>| {
+        on (|mut event: On<PointerDrag>| {
             event.propagate(false);
-        });
+        })
+        Children [
+            RadioGroupSetting::ChangeScene
+            @feathers_option_buttons(
+                "Scene ([A] or [S])",
+                &(SCENES
+                    .iter()
+                    .enumerate()
+                    .map(|(i, scene)| (AppSetting::ChangeScene(i), scene.1))
+                    .collect::<Vec<_>>()),
+                app_state.current_scene_id,
+            )
+            --
+            RadioGroupSetting::EnableOIT
+            @feathers_option_buttons(
+                "Order Independent [T]ransparency",
+                &[
+                    (AppSetting::EnableOIT(true), "On"),
+                    (AppSetting::EnableOIT(false), "Off")
+                ],
+                if app_state.use_oit {
+                    0
+                } else {
+                    1
+                }
+            )
+            --
+            RadioGroupSetting::UseDepthPrepass
+            @feathers_option_buttons(
+                "[D]epth Prepass",
+                &[
+                    (AppSetting::UseDepthPrepass(true), "On"),
+                    (AppSetting::UseDepthPrepass(false), "Off")
+                ],
+                if app_state.use_depth_prepass {
+                    0
+                } else {
+                    1
+                }
+            )
+        ]
+    });
 }
 
-fn update_radio_buttons(
-    mut widgets: Query<
-        (
-            Entity,
-            Option<&mut BackgroundColor>,
-            Has<Text>,
-            &WidgetClickSender<AppSetting>,
-        ),
-        Or<(With<RadioButton>, With<RadioButtonText>)>,
-    >,
-    app_state: Res<AppState>,
-    mut writer: TextUiWriter,
-) {
-    for (entity, background_color, has_text, sender) in widgets.iter_mut() {
-        let selected = match **sender {
-            AppSetting::EnableOIT(value) => value == app_state.use_oit,
-            AppSetting::UseDepthPrepass(value) => value == app_state.use_depth_prepass,
-            AppSetting::ChangeScene(scene_id) => scene_id == app_state.current_scene_id,
-        };
-
-        if let Some(mut background_color) = background_color {
-            widgets::update_ui_radio_button(&mut background_color, selected);
-        }
-        if has_text {
-            widgets::update_ui_radio_button_text(entity, &mut writer, selected);
-        }
-    }
-}
-
-/// Runs through the messages (either `WidgetClickEvent` or `AppEvent`), updates the `AppState`,
-/// and performs the corresponding ECS changes.
-fn handle_setting_change(
+/// Handles setting changes via the radio buttons
+fn on_radio_value_change(
+    event: On<ValueChange<Entity>>,
+    new_value_q: Query<&RadioButtonOptionValue<AppSetting>>,
     mut commands: Commands,
-    mut click_events: MessageReader<WidgetClickEvent<AppSetting>>,
-    mut app_events: MessageReader<AppEvent>,
     mut app_state: ResMut<AppState>,
     camera: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
+    radio_group_q: Query<(&Children, &RadioGroupSetting), With<RadioGroup>>,
+    setting_q: Query<(Entity, &RadioButtonOptionValue<AppSetting>), With<RadioButton>>,
 ) {
-    // Chain the two message iterators to handle both WidgetCliockEvent and AppEvent
-    // This works because both can be derefed to AppSetting
-    for event in click_events
-        .read()
-        .map(|e| &**e)
-        .chain(app_events.read().map(|e| &**e))
-    {
-        match *event {
-            AppSetting::EnableOIT(value) => {
-                app_state.use_oit = value;
-                if app_state.use_oit {
-                    commands.entity(camera.0).insert(app_state.oit_settings);
-                } else {
-                    commands
-                        .entity(camera.0)
-                        .remove::<OrderIndependentTransparencySettings>();
-                }
-            }
-            AppSetting::UseDepthPrepass(value) => {
-                app_state.use_depth_prepass = value;
+    let Ok(RadioButtonOptionValue(setting)) = new_value_q.get(event.value) else {
+        return;
+    };
 
-                if app_state.use_depth_prepass {
-                    commands.entity(camera.0).insert(DepthPrepass);
-                } else {
-                    commands.entity(camera.0).remove::<DepthPrepass>();
-                }
+    change_setting(
+        setting,
+        &mut app_state,
+        camera,
+        radio_group_q,
+        setting_q,
+        &mut commands,
+    );
+}
+
+/// Helper that updates the `app_state`, what is shown on the screen,
+/// and the radio button selections.
+fn change_setting(
+    new_app_setting: &AppSetting,
+    app_state: &mut AppState,
+    camera: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
+    radio_group_q: Query<(&Children, &RadioGroupSetting), With<RadioGroup>>,
+    setting_q: Query<(Entity, &RadioButtonOptionValue<AppSetting>), With<RadioButton>>,
+    commands: &mut Commands,
+) {
+    let radio_group_setting = match *new_app_setting {
+        AppSetting::EnableOIT(value) => {
+            app_state.use_oit = value;
+            if app_state.use_oit {
+                commands.entity(camera.0).insert(app_state.oit_settings);
+            } else {
+                commands
+                    .entity(camera.0)
+                    .remove::<OrderIndependentTransparencySettings>();
             }
-            AppSetting::ChangeScene(id) => {
-                if id != app_state.current_scene_id {
-                    app_state.current_scene_id = id;
-                }
-                // The actual scene change is handled by scene_change_watcher()
+            RadioGroupSetting::EnableOIT
+        }
+        AppSetting::UseDepthPrepass(value) => {
+            app_state.use_depth_prepass = value;
+
+            if app_state.use_depth_prepass {
+                commands.entity(camera.0).insert(DepthPrepass);
+            } else {
+                commands.entity(camera.0).remove::<DepthPrepass>();
+            }
+            RadioGroupSetting::UseDepthPrepass
+        }
+        AppSetting::ChangeScene(id) => {
+            if id != app_state.current_scene_id {
+                app_state.current_scene_id = id;
+            }
+            RadioGroupSetting::ChangeScene
+            // The actual scene change is handled by scene_change_watcher()
+        }
+    };
+
+    // Update the radio group
+    for (children, group_setting) in radio_group_q.iter() {
+        if *group_setting != radio_group_setting {
+            continue;
+        }
+        for (entity, setting) in setting_q.iter_many(children).matched() {
+            if setting.0 == *new_app_setting {
+                commands.entity(entity).insert(Checked);
+            } else {
+                commands.entity(entity).remove::<Checked>();
             }
         }
     }
@@ -391,8 +423,6 @@ fn spawn_spheres(commands: &mut Commands, resources: &mut SceneResources) {
 
     let alpha = 0.25;
 
-    let render_layers = RenderLayers::layer(1);
-
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
@@ -401,7 +431,6 @@ fn spawn_spheres(commands: &mut Commands, resources: &mut SceneResources) {
             ..default()
         })),
         Transform::from_translation(pos_a + offset),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
@@ -411,7 +440,6 @@ fn spawn_spheres(commands: &mut Commands, resources: &mut SceneResources) {
             ..default()
         })),
         Transform::from_translation(pos_b + offset),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
@@ -421,7 +449,6 @@ fn spawn_spheres(commands: &mut Commands, resources: &mut SceneResources) {
             ..default()
         })),
         Transform::from_translation(pos_c + offset),
-        render_layers.clone(),
     ));
 }
 
@@ -432,7 +459,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
     let materials = &mut resources.materials;
 
     let quad_handle = meshes.add(Rectangle::new(3.0, 3.0).mesh());
-    let render_layers = RenderLayers::layer(1);
     let xform = |x, y, z| {
         Transform::from_rotation(Quat::from_rotation_y(0.5))
             .mul_transform(Transform::from_xyz(x, y, z))
@@ -452,7 +478,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
             ..common_params.clone()
         })),
         xform(1.0, -0.1, 0.),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
@@ -461,7 +486,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
             ..common_params.clone()
         })),
         xform(0.5, 0.2, -0.5),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
@@ -470,7 +494,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
             ..common_params.clone()
         })),
         xform(0.0, 0.4, -1.),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
@@ -479,7 +502,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
             ..common_params.clone()
         })),
         xform(-0.5, 0.6, -1.1),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
@@ -488,7 +510,6 @@ fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
             ..common_params
         })),
         xform(-0.8, 0.8, -1.2),
-        render_layers.clone(),
     ));
 }
 
@@ -503,15 +524,12 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
     let cube_handle = meshes.add(Cuboid::from_size(Vec3::ONE).mesh());
     let cube_material = materials.add(Color::srgb(0.8, 0.7, 0.6));
 
-    let render_layers = RenderLayers::layer(1);
-
     // front
     let x = -2.5;
     commands.spawn((
         Mesh3d(cube_handle.clone()),
         MeshMaterial3d(cube_material.clone()),
         Transform::from_xyz(x, 0.0, 2.0),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
@@ -521,7 +539,6 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
             ..default()
         })),
         Transform::from_xyz(x, 0., 0.),
-        render_layers.clone(),
     ));
 
     // intersection
@@ -529,7 +546,6 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
         Mesh3d(cube_handle.clone()),
         MeshMaterial3d(cube_material.clone()),
         Transform::from_xyz(x, 0.0, 1.0),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
@@ -539,7 +555,6 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
             ..default()
         })),
         Transform::from_xyz(0., 0., 0.),
-        render_layers.clone(),
     ));
 
     // back
@@ -548,7 +563,6 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
         Mesh3d(cube_handle.clone()),
         MeshMaterial3d(cube_material.clone()),
         Transform::from_xyz(x, 0.0, -2.0),
-        render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
@@ -558,7 +572,6 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
             ..default()
         })),
         Transform::from_xyz(x, 0., 0.),
-        render_layers.clone(),
     ));
 }
 
@@ -568,8 +581,6 @@ fn spawn_auto_instancing_test(commands: &mut Commands, resources: &mut SceneReso
     let meshes = &mut resources.meshes;
     let materials = &mut resources.materials;
     let asset_server = &mut resources.asset_server;
-
-    let render_layers = RenderLayers::layer(1);
 
     let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
     let material_handle = materials.add(StandardMaterial {
@@ -586,7 +597,6 @@ fn spawn_auto_instancing_test(commands: &mut Commands, resources: &mut SceneReso
                     Mesh3d(cube.clone()),
                     MeshMaterial3d(material_handle.clone()),
                     Transform::from_xyz(x as f32 * 2.0, y as f32 * 2.0, z as f32 * 2.0),
-                    render_layers.clone(),
                 ));
             }
         }
@@ -594,7 +604,7 @@ fn spawn_auto_instancing_test(commands: &mut Commands, resources: &mut SceneReso
     commands.spawn_batch(bundles);
 }
 
-const EXTENDED_MATERIAL_SHADER_ASSET_PATH: &str = "shaders/oit_compatible_extended_material.wgsl";
+const EXTENDED_MATERIAL_SHADER_ASSET_PATH: &str = "shaders/oit_compatible_extended_material.wesl";
 
 /// Material extension that defines the extra data that will be passed to your shader
 /// Used as `ExtendedMaterial<StandardMaterial, CheckeredMaterialExtension>`
@@ -616,7 +626,7 @@ impl MaterialExtension for CheckeredMaterialExtension {
     }
 }
 
-const CUSTOM_MATERIAL_SHADER_ASSET_PATH: &str = "shaders/oit_compatible_custom_material.wgsl";
+const CUSTOM_MATERIAL_SHADER_ASSET_PATH: &str = "shaders/oit_compatible_custom_material.wesl";
 
 /// A custom material
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default)]
@@ -653,8 +663,6 @@ fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources
     let custom_materials = &mut resources.custom_materials;
     let materials = &mut resources.materials;
 
-    let render_layers = RenderLayers::layer(1);
-
     let torus = meshes.add(Torus::new(2.0, 3.0));
 
     // Spawn a torus with an ExtendedMaterial
@@ -671,7 +679,6 @@ fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources
             },
         })),
         Transform::from_rotation(Quat::from_rotation_z(0.4)),
-        render_layers.clone(),
     ));
 
     // Spawn a torus with an custom material
@@ -681,7 +688,6 @@ fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources
             color: LinearRgba::new(0.9, 0.6, 0.0, 0.5),
         })),
         Transform::from_rotation(Quat::from_rotation_z(1.0)),
-        render_layers.clone(),
     ));
 
     // Spawn a torus with a StandardMaterial
@@ -694,6 +700,5 @@ fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources
             ..default()
         })),
         Transform::from_rotation(Quat::from_rotation_x(1.0)),
-        render_layers.clone(),
     ));
 }

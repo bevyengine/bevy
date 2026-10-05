@@ -53,11 +53,7 @@ impl Plugin for LineGizmo2dPlugin {
                 GizmoRenderSystems::QueueLineGizmos2d
                     .in_set(RenderSystems::Queue)
                     .ambiguous_with(bevy_sprite_render::queue_sprites)
-                    .ambiguous_with(
-                        bevy_sprite_render::queue_material2d_meshes::<
-                            bevy_sprite_render::ColorMaterial,
-                        >,
-                    ),
+                    .ambiguous_with(bevy_sprite_render::queue_material2d_meshes),
             )
             .add_systems(
                 RenderStartup,
@@ -90,12 +86,12 @@ fn init_line_gizmo_pipelines(
     commands.insert_resource(LineGizmoPipeline {
         mesh_pipeline: mesh_2d_pipeline.clone(),
         uniform_layout: uniform_bind_group_layout.layout.clone(),
-        shader: load_embedded_asset!(asset_server.as_ref(), "lines.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "lines.wesl"),
     });
     commands.insert_resource(LineJointGizmoPipeline {
         mesh_pipeline: mesh_2d_pipeline.clone(),
         uniform_layout: uniform_bind_group_layout.layout.clone(),
-        shader: load_embedded_asset!(asset_server.as_ref(), "line_joints.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "line_joints.wesl"),
     });
 }
 

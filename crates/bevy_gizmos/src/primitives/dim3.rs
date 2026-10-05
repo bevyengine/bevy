@@ -1,19 +1,18 @@
-//! A module for rendering each of the 3D [`bevy_math::primitives`] with [`GizmoBuffer`].
+//! A module for rendering each of the 3D [`bevy_shape`] primitives with [`GizmoBuffer`].
 
 use super::helpers::*;
 
 use bevy_color::Color;
-use bevy_math::{
-    primitives::{
-        Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Polyline3d,
-        Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
-    },
-    Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3,
+use bevy_math::{Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3};
+use bevy_shape::{
+    Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Polyline3d, Primitive3d,
+    Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
 };
 
 use crate::{circles::SphereBuilder, gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 
 const DEFAULT_RESOLUTION: u32 = 5;
+const DEFAULT_CAPSULE_RESOLUTION: u32 = 4;
 // length used to simulate infinite lines
 const INFINITE_LEN: f32 = 10_000.0;
 
@@ -496,7 +495,7 @@ where
             half_length: primitive.half_length,
             isometry: isometry.into(),
             color: color.into(),
-            resolution: DEFAULT_RESOLUTION,
+            resolution: DEFAULT_CAPSULE_RESOLUTION,
         }
     }
 }

@@ -446,7 +446,10 @@ impl<'a> Debug for PrettyPrintFunctionInfo<'a> {
         }
 
         if self.info.is_overloaded() {
-            // `{(arg0: i32, arg1: i32) -> (), (arg0: f32, arg1: f32) -> ()}`
+            // `fn name {(arg0: i32, arg1: i32) -> (), (arg0: f32, arg1: f32) -> ()}`
+            if self.include_fn_token || self.include_name {
+                write!(f, " ")?;
+            }
             let mut set = f.debug_set();
             for signature in self.info.signatures() {
                 set.entry(&PrettyPrintSignatureInfo::new(signature));
@@ -744,6 +747,7 @@ fn create_info<F>() -> SignatureInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::format;
 
     #[test]
     fn should_create_function_info() {
@@ -826,22 +830,22 @@ mod tests {
 
     #[test]
     fn should_pretty_print_info() {
-        // fn add(a: i32, b: i32) -> i32 {
-        //     a + b
-        // }
-        //
-        // let info = add.get_function_info().with_name("add");
-        //
-        // let pretty = info.pretty_printer();
-        // assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
-        //
-        // let pretty = info.pretty_printer().include_fn_token();
-        // assert_eq!(format!("{:?}", pretty), "fn(_: i32, _: i32) -> i32");
-        //
-        // let pretty = info.pretty_printer().include_name();
-        // assert_eq!(format!("{:?}", pretty), "add(_: i32, _: i32) -> i32");
-        //
-        // let pretty = info.pretty_printer().include_fn_token().include_name();
-        // assert_eq!(format!("{:?}", pretty), "fn add(_: i32, _: i32) -> i32");
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+        let info = add.get_function_info().with_name(Some("add"));
+
+        let pretty = info.pretty_printer();
+        assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
+
+        let pretty = info.pretty_printer().include_fn_token();
+        assert_eq!(format!("{:?}", pretty), "fn(_: i32, _: i32) -> i32");
+
+        let pretty = info.pretty_printer().include_name();
+        assert_eq!(format!("{:?}", pretty), "add(_: i32, _: i32) -> i32");
+
+        let pretty = info.pretty_printer().include_fn_token().include_name();
+        assert_eq!(format!("{:?}", pretty), "fn add(_: i32, _: i32) -> i32");
     }
 }

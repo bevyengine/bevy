@@ -8,9 +8,8 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
-use bevy_picking::PickingSystems;
+use bevy_picking::{cursor::EntityCursor, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::{bsn, Scene, SceneComponent};
@@ -21,8 +20,8 @@ use bevy_ui_widgets::Checkbox;
 use bevy_window::SystemCursorIcon;
 
 use crate::{
-    constants::icons, cursor::EntityCursor, display::icon, focus::FocusIndicator,
-    theme::InheritableThemeTextColor, tokens,
+    constants::icons, display::icon, focus::FocusIndicator, theme::InheritableThemeTextColor,
+    tokens,
 };
 
 /// A toggle button which shows a chevron that points either right or down, used to expand or
@@ -30,13 +29,16 @@ use crate::{
 /// state.
 ///
 /// This is spawnable by inheriting it as a "scene component".
+///
+/// A more complete explanation of how to control this widget can be found in the documentation
+/// for [`Checkbox`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct FeathersDisclosureToggle;
 
 impl FeathersDisclosureToggle {
     fn scene() -> impl Scene {
-        bsn!(
+        bsn! {
             Node {
                 width: px(12),
                 height: px(12),
@@ -48,11 +50,10 @@ impl FeathersDisclosureToggle {
             EntityCursor::System(SystemCursorIcon::Pointer)
             FocusIndicator
             InheritableThemeTextColor(tokens::BUTTON_TEXT)
-            TabIndex(0)
             Children [
-                icon(icons::CHEVRON_RIGHT)
+                @icon(icons::CHEVRON_RIGHT)
             ]
-        )
+        }
     }
 }
 
@@ -153,7 +154,9 @@ impl Plugin for DisclosureTogglePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PreUpdate,
-            (update_toggle_styles, update_toggle_styles_remove).in_set(PickingSystems::Last),
+            (update_toggle_styles, update_toggle_styles_remove)
+                .chain()
+                .in_set(PickingSystems::Last),
         );
     }
 }

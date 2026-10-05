@@ -362,6 +362,72 @@ mod tests {
     }
 
     #[test]
+    fn should_desrialize_short_type_path() {
+        #[derive(Reflect)]
+        struct SomeType {
+            value: u32,
+        }
+
+        let mut registry = get_registry();
+        registry.register::<SomeType>();
+
+        let input = r#"{
+    "SomeType": (
+        value: 17,
+    ),
+}"#;
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+
+        let output = SomeType::from_reflect(&*output).unwrap();
+        assert_eq!(output.value, 17);
+    }
+
+    mod some_mod {
+        use crate::Reflect;
+
+        #[derive(Reflect)]
+        pub struct Ambiguous(pub u32);
+    }
+
+    #[derive(Reflect)]
+    struct Ambiguous(u32);
+
+    #[test]
+    fn ambiguous_short_type_path_errors() {
+        let mut registry = get_registry();
+        registry.register::<Ambiguous>();
+        registry.register::<some_mod::Ambiguous>();
+
+        let input = r#"{
+    "bevy_reflect::serde::de::tests::some_mod::Ambiguous": (17),
+}"#;
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+
+        // Using the full name is totally fine.
+        let output = some_mod::Ambiguous::from_reflect(&*output).unwrap();
+        assert_eq!(output.0, 17);
+
+        let ambiguous_input = r#"{
+    "Ambiguous": (17),
+}"#;
+
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let mut deserializer = ron::de::Deserializer::from_str(ambiguous_input).unwrap();
+        let error = reflect_deserializer
+            .deserialize(&mut deserializer)
+            .unwrap_err();
+
+        #[cfg(feature = "debug_stack")]
+        assert_eq!(error, ron::Error::Message("found short type path `Ambiguous`, but this short type path is ambiguous between multiple different types (stack: )".to_string()));
+        #[cfg(not(feature = "debug_stack"))]
+        assert_eq!(error, ron::Error::Message("found short type path `Ambiguous`, but this short type path is ambiguous between multiple different types".to_string()));
+    }
+
+    #[test]
     fn enum_should_deserialize() {
         #[derive(Reflect)]
         enum MyEnum {
@@ -382,7 +448,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::from(MyEnum::Unit);
+        let expected = DynamicEnum::try_from(MyEnum::Unit).unwrap();
         assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
 
         // === NewType Variant === //
@@ -393,7 +459,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::from(MyEnum::NewType(123));
+        let expected = DynamicEnum::try_from(MyEnum::NewType(123)).unwrap();
         assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
 
         // === Tuple Variant === //
@@ -404,7 +470,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::from(MyEnum::Tuple(1.23, 3.21));
+        let expected = DynamicEnum::try_from(MyEnum::Tuple(1.23, 3.21)).unwrap();
         assert!(expected
             .reflect_partial_eq(output.as_partial_reflect())
             .unwrap());
@@ -419,9 +485,10 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::from(MyEnum::Struct {
+        let expected = DynamicEnum::try_from(MyEnum::Struct {
             value: String::from("I <3 Enums"),
-        });
+        })
+        .unwrap();
         assert!(expected
             .reflect_partial_eq(output.as_partial_reflect())
             .unwrap());

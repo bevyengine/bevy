@@ -8,8 +8,8 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::{
     generics::impl_generic_info_methods, ty::impl_type_methods, ApplyError, Generics, MaybeTyped,
-    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
-    TypePath,
+    PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    Type, TypeInfo, TypePath,
 };
 use alloc::{boxed::Box, vec::Vec};
 
@@ -48,6 +48,8 @@ use alloc::{boxed::Box, vec::Vec};
 /// [`BTreeMap`]: alloc::collections::BTreeMap
 /// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 /// [reflection]: crate
+// Prevents unexpectedly importing this trait when trying to call, for example, `HashMap::get`
+#[rust_analyzer::completions(ignore_flyimport_methods)]
 pub trait Map: PartialReflect {
     /// Returns a reference to the value associated with the given key.
     ///
@@ -81,13 +83,15 @@ pub trait Map: PartialReflect {
     fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool);
 
     /// Creates a new [`DynamicMap`] from this map.
-    fn to_dynamic_map(&self) -> DynamicMap {
+    ///
+    /// Returns an error if any key or value cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_map(&self) -> Result<DynamicMap, ReflectCloneError> {
         let mut map = DynamicMap::default();
         map.set_represented_type(self.get_represented_type_info());
         for (key, value) in self.iter() {
-            map.insert_boxed(key.to_dynamic(), value.to_dynamic());
+            map.insert_boxed(key.to_dynamic()?, value.to_dynamic()?);
         }
-        map
+        Ok(map)
     }
 
     /// Inserts a key-value pair into the map.
@@ -598,7 +602,7 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), Ap
         if let Some(a_value) = a.get_mut(key) {
             a_value.try_apply(b_value)?;
         } else {
-            a.insert_boxed(key.to_dynamic(), b_value.to_dynamic());
+            a.insert_boxed(key.to_dynamic()?, b_value.to_dynamic()?);
         }
     }
     a.retain(&mut |key, _| map_value.get(key).is_some());

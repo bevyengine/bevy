@@ -88,7 +88,7 @@ pub fn init_bloom_downsampling_pipeline(
         bind_group_layout,
         sampler,
         fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wesl"),
     });
 }
 

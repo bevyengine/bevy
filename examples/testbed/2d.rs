@@ -50,7 +50,7 @@ fn main() {
     app.run();
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
 enum Scene {
     #[default]
     Shapes,
@@ -61,6 +61,19 @@ enum Scene {
     Gizmos,
     TextureAtlasBuilder,
     ColorConsistency,
+}
+
+impl Scene {
+    const ALL_ORDERED: &'static [Scene] = &[
+        Scene::Shapes,
+        Scene::Bloom,
+        Scene::Text,
+        Scene::Sprite,
+        Scene::SpriteSlicing,
+        Scene::Gizmos,
+        Scene::TextureAtlasBuilder,
+        Scene::ColorConsistency,
+    ];
 }
 
 impl std::str::FromStr for Scene {
@@ -80,16 +93,12 @@ impl std::str::FromStr for Scene {
 
 impl Next for Scene {
     fn next(&self) -> Self {
-        match self {
-            Scene::Shapes => Scene::Bloom,
-            Scene::Bloom => Scene::Text,
-            Scene::Text => Scene::Sprite,
-            Scene::Sprite => Scene::SpriteSlicing,
-            Scene::SpriteSlicing => Scene::Gizmos,
-            Scene::Gizmos => Scene::TextureAtlasBuilder,
-            Scene::TextureAtlasBuilder => Scene::ColorConsistency,
-            Scene::ColorConsistency => Scene::Shapes,
-        }
+        Scene::ALL_ORDERED[(Scene::ALL_ORDERED
+            .iter()
+            .position(|scene| scene == self)
+            .unwrap()
+            + 1)
+            % Scene::ALL_ORDERED.len()]
     }
 }
 
@@ -356,7 +365,23 @@ mod sprite_slicing {
                 custom_size: Some(Vec2::new(200.0, 200.0)),
                 ..default()
             },
-            Transform::from_translation(Vec3::new(150.0, 50.0, 0.0)),
+            Transform::from_translation(Vec3::new(150.0, 50.0, 1.0)),
+            DespawnOnExit(super::Scene::SpriteSlicing),
+        ));
+
+        commands.spawn((
+            Sprite {
+                image: asset_server.load("textures/fantasy_ui_borders/numbered_slices.png"),
+                image_mode: SpriteImageMode::Sliced(TextureSlicer {
+                    border: BorderRect::all(16.0),
+                    center_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+                    sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+                    ..default()
+                }),
+                custom_size: Some(Vec2::new(200.0, 200.0)),
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(450.0, 50.0, 1.0)),
             DespawnOnExit(super::Scene::SpriteSlicing),
         ));
 
@@ -379,6 +404,17 @@ mod sprite_slicing {
                 ..default()
             },
             Transform::from_translation(Vec3::new(150.0, -80.0, 0.0)),
+            DespawnOnExit(super::Scene::SpriteSlicing),
+        ));
+
+        commands.spawn((
+            Text2d::new("Tiled"),
+            TextFont {
+                font: FontSource::from(font.clone()),
+                font_size: FontSize::Px(20.0),
+                ..default()
+            },
+            Transform::from_translation(Vec3::new(450.0, -80.0, 0.0)),
             DespawnOnExit(super::Scene::SpriteSlicing),
         ));
     }

@@ -16,7 +16,6 @@ use bevy_ecs::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_platform::collections::HashMap;
-use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use disqualified::ShortName;
 use tracing::error;
@@ -55,8 +54,9 @@ impl<A: Asset> Default for AssetChanges<A> {
 }
 
 struct AssetChangeCheck<'w, A: AsAssetId> {
-    // This should never be `None` in practice, but we need to handle the case
-    // where the `AssetChanges` resource was removed.
+    // This will be `None` if:
+    // - the `AssetChanges` resource was removed (should never happen)
+    // - no assets changed since the last run
     change_ticks: Option<&'w HashMap<AssetId<A::Asset>, Tick>>,
     last_run: Tick,
     this_run: Tick,
@@ -78,6 +78,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
             this_run,
         }
     }
+
     // TODO(perf): some sort of caching? Each check has two levels of indirection,
     // which is not optimal.
     fn has_changed(&self, handle: &A) -> bool {
@@ -192,6 +193,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
                 },
             };
         };
+
         let has_updates = changes.last_change_tick.is_newer_than(last_run, this_run);
 
         AssetChangedFetch {
@@ -242,20 +244,14 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     // In order to access two different entities we implement init_nested_access.
     fn init_nested_access(
         state: &Self::State,
-        system_name: Option<&str>,
         component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
         let mut filter = FilteredAccess::default();
         filter.add_read(state.resource_id);
         filter.and_with(IS_RESOURCE);
 
-        let conflicts = component_access_set.get_conflicts_single(&filter);
-        if conflicts.is_empty() {
-            component_access_set.add(filter);
-            return;
-        }
-        panic!("error[B0002]: AssetChanged<{}> in system {:?} conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<A>(), system_name);
+        component_access_set.try_add(filter)?;
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {
@@ -284,12 +280,19 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     ) -> bool {
         set_contains_id(state.asset_id)
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 #[expect(unsafe_code, reason = "QueryFilter is an unsafe trait.")]
 // SAFETY: read-only access
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+        fetch.inner.is_some()
+    }
 
     #[inline]
     unsafe fn filter_fetch(

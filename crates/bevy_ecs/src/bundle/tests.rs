@@ -1,6 +1,10 @@
 use crate::{
-    archetype::ArchetypeCreated, lifecycle::HookContext, prelude::*, world::DeferredWorld,
+    archetype::{Archetype, ArchetypeCreated, ArchetypeId},
+    lifecycle::HookContext,
+    prelude::*,
+    world::DeferredWorld,
 };
+use alloc::{vec, vec::Vec};
 
 #[derive(Component)]
 struct A;
@@ -66,6 +70,18 @@ fn can_spawn_bundle_without_extract() {
         .id();
 
     assert!(world.entity(id).get::<Children>().is_some());
+}
+
+#[derive(Bundle)]
+#[bundle(ignore_from_components)]
+struct BundleWithChildren(crate::spawn::SpawnOneRelated<ChildOf, A>);
+
+#[test]
+fn can_spawn_bundle_with_children() {
+    let mut world = World::new();
+    let parent = world.spawn(BundleWithChildren(Children::spawn_one(A)));
+    let children = parent.get::<Children>();
+    assert_eq!(children.map(Children::len), Some(1));
 }
 
 #[test]
@@ -255,6 +271,32 @@ fn new_archetype_created() {
     assert_eq!(world.resource::<Count>().0, 3);
 }
 
+#[test]
+fn new_archetype_created_triggered_first() {
+    let mut world = World::new();
+    #[derive(Resource, Default)]
+    struct Log(Vec<(Option<ArchetypeId>, &'static str)>);
+    world.init_resource::<Log>();
+    world.add_observer(|t: On<ArchetypeCreated>, mut log: ResMut<Log>| {
+        log.0.push((Some(t.event().0), "Archetype created"));
+    });
+    world.add_observer(|t: On<Insert<A>>, mut log: ResMut<Log>| {
+        log.0.push((
+            t.trigger().new_archetype.map(Archetype::id),
+            "Bundle inserted",
+        ));
+    });
+
+    let archetype = world.spawn(A).archetype().id();
+    assert_eq!(
+        world.resource::<Log>().0,
+        vec![
+            (Some(archetype), "Archetype created"),
+            (Some(archetype), "Bundle inserted")
+        ]
+    );
+}
+
 #[derive(Bundle)]
 #[expect(unused, reason = "tests the output of the derive macro is valid")]
 struct Ignore {
@@ -263,3 +305,7 @@ struct Ignore {
     #[bundle(ignore)]
     bar: i32,
 }
+
+#[derive(Bundle)]
+#[expect(unused, reason = "tests the derive macro does not leak private type")]
+pub struct Exported(A);

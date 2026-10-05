@@ -12,7 +12,10 @@ use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::change_detection::Tick,
     math::{vec3, vec4},
-    mesh::{Indices, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef, PrimitiveTopology},
+    mesh::{
+        Indices, MeshAttributeCompressionFlags, MeshCompressionArgs, MeshVertexBufferLayoutRef,
+        PrimitiveTopology,
+    },
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSystems, MeshPipelineViewLayoutKey,
         RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
@@ -35,12 +38,13 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, VertexState,
         },
+        sync_world::MainEntityHashSet,
         view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
 
-const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wesl";
 
 fn main() {
     App::new()
@@ -89,6 +93,24 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
             Transform::from_xyz(x, y, 0.0),
         ));
     }
+    commands.spawn((
+        // We use a marker component to identify the mesh that will be rendered
+        // with our specialized pipeline
+        CustomRenderedEntity,
+        // We need to add the mesh handle to the entity
+        Mesh3d(
+            meshes.add(
+                Rectangle::new(0.5, 0.5)
+                    .mesh()
+                    .build()
+                    .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL)
+                    .with_removed_attribute(Mesh::ATTRIBUTE_UV_0)
+                    .compressed_mesh(&MeshCompressionArgs::regular())
+                    .unwrap(),
+            ),
+        ),
+        Transform::from_xyz(0.0, -1.0 / 3.0, -1.0),
+    ));
 
     // Spawn the camera.
     commands.spawn((
@@ -137,6 +159,7 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
 #[derive(Clone, Component, ExtractComponent)]
 #[require(VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<CustomRenderedEntity>)]
+#[extract_app(RenderApp)]
 struct CustomRenderedEntity;
 
 /// The custom draw commands that Bevy executes for each entity we enqueue into
@@ -210,6 +233,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
         if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
+            shader_defs.push("VERTEX_COLORS".into());
             // Make sure this matches the shader location
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(1));
         }
@@ -304,6 +328,7 @@ fn queue_custom_mesh_pipeline(
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_custom_mesh_queues: ResMut<PendingCustomMeshQueues>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     // Get the id for our custom draw function
     let draw_function = opaque_draw_functions
@@ -345,6 +370,7 @@ fn queue_custom_mesh_pipeline(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_custom_mesh_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             // Get the mesh instance
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
