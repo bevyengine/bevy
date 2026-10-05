@@ -51,6 +51,9 @@ struct Material {
     flags: u32,
     uv_translation: vec2<f32>,
     uv_transform: mat2x2<f32>,
+    alpha: f32,
+    alpha_cutoff: f32,
+    _padding: vec2<f32>,
 }
 
 const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
@@ -147,7 +150,12 @@ fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ra
     let ray = RayDesc(ray_flag, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
     var rq: ray_query;
     rayQueryInitialize(&rq, tlas, ray);
-    rayQueryProceed(&rq);
+    while rayQueryProceed(&rq) {
+        let candidate = rayQueryGetCandidateIntersection(&rq);
+        if passes_alpha_test(candidate) {
+            rayQueryConfirmIntersection(&rq);
+        }
+    }
     return rayQueryGetCommittedIntersection(&rq);
 }
 
@@ -155,12 +163,22 @@ fn trace_ray_previous_frame(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray
     let ray = RayDesc(ray_flag, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
     var rq: ray_query;
     rayQueryInitialize(&rq, previous_frame_tlas, ray);
-    rayQueryProceed(&rq);
+    while rayQueryProceed(&rq) {
+        let candidate = rayQueryGetCandidateIntersection(&rq);
+        if passes_alpha_test(candidate) {
+            rayQueryConfirmIntersection(&rq);
+        }
+    }
     return rayQueryGetCommittedIntersection(&rq);
 }
 
-fn sample_texture(id: u32, uv: vec2<f32>) -> vec3<f32> {
-    return textureSampleLevel(textures[id], samplers[id], uv, 0.0).rgb; // TODO: Mipmap
+fn passes_alpha_test(candidate: RayIntersection) -> bool {
+    let barycentrics = vec3(1.0 - candidate.barycentrics.x - candidate.barycentrics.y, candidate.barycentrics);
+    return !resolve_triangle_data_full(candidate.instance_custom_data, candidate.primitive_index, barycentrics).material.alpha_masked_out;
+}
+
+fn sample_texture(id: u32, uv: vec2<f32>) -> vec4<f32> {
+    return textureSampleLevel(textures[id], samplers[id], uv, 0.0); // TODO: Mipmap
 }
 
 struct ResolvedMaterial {
@@ -170,6 +188,7 @@ struct ResolvedMaterial {
     perceptual_roughness: f32,
     roughness: f32,
     metallic: f32,
+    alpha_masked_out: bool,
 }
 
 struct ResolvedRayHitFull {
@@ -189,13 +208,20 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     var m: ResolvedMaterial;
 
     m.base_color = material.base_color.rgb;
+    var alpha = material.alpha;
     if material.base_color_texture_id != TEXTURE_MAP_NONE {
-        m.base_color *= sample_texture(material.base_color_texture_id, uv);
+        let base_color = sample_texture(material.base_color_texture_id, uv);
+        m.base_color *= base_color.rgb;
+        alpha *= base_color.a;
     }
 
     m.emissive = material.emissive.rgb;
     if material.emissive_texture_id != TEXTURE_MAP_NONE {
-        m.emissive *= sample_texture(material.emissive_texture_id, uv);
+        m.emissive *= sample_texture(material.emissive_texture_id, uv).rgb;
+    }
+    m.alpha_masked_out = alpha < material.alpha_cutoff;
+    if m.alpha_masked_out {
+        m.emissive = vec3(0.0);
     }
 
     m.reflectance = material.reflectance;
@@ -203,7 +229,7 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     m.perceptual_roughness = material.perceptual_roughness;
     m.metallic = material.metallic;
     if material.metallic_roughness_texture_id != TEXTURE_MAP_NONE {
-        let metallic_roughness = sample_texture(material.metallic_roughness_texture_id, uv);
+        let metallic_roughness = sample_texture(material.metallic_roughness_texture_id, uv).rgb;
         m.perceptual_roughness *= metallic_roughness.g;
         m.metallic *= metallic_roughness.b;
     }
@@ -288,7 +314,7 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         let T = TBN[0];
         let B = TBN[1];
         let N = TBN[2];
-        var Nt = sample_texture(material.normal_map_texture_id, uv) * 2.0 - 1.0;
+        var Nt = sample_texture(material.normal_map_texture_id, uv).rgb * 2.0 - 1.0;
         if (material.flags & MATERIAL_FLAG_FLIP_NORMAL_MAP_Y) != 0u {
             Nt.y = -Nt.y;
         }

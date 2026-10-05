@@ -176,6 +176,7 @@ pub fn prepare_raytracing_scene_resources(
 
     // Roll light ids over before any removal or compaction writes this frame's translations
     bindings.lights.begin_frame(needs_previous_frame_data);
+    bindings.instances.begin_frame();
 
     // Update material and texture assets
     bindings
