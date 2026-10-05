@@ -125,7 +125,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Converts this `QueryState` to a `QueryState` that does not access anything mutably.
     ///
     /// The returned `QueryState` includes any original mutable query access,
-    /// and it sound to transmute back to `QueryState<D, F>`.
+    /// and it is sound to transmute back to `QueryState<D, F>`.
     pub fn into_readonly(self) -> QueryState<D::ReadOnly, F> {
         let QueryState {
             world_id,
