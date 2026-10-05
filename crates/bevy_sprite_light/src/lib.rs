@@ -6,3 +6,7 @@
 )]
 
 //! This crate provides 2d lighting support for the Bevy game engine.
+
+mod point_light;
+
+pub use point_light::PointLight2d;
