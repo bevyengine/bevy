@@ -113,6 +113,9 @@ pub struct InstanceState {
     pub material_ids: AtomicSparseBufferVec<u32>,
     pub blas_refs: AtomicSparseBufferVec<GpuBlasRef>,
     pub slots: IndexAllocator,
+    /// Slab buffer references dropped this frame, released next frame since the previous frame's
+    /// TLAS can still reach them through `geometry_ids`.
+    retired_buffers: Vec<InstanceBuffers>,
     records: EntityHashMap<Instance>,
     pub live_count: u32,
     pub pending_refresh: EntityHashSet,
@@ -132,6 +135,7 @@ impl InstanceState {
             material_ids: storage_buffer("solari_material_ids"),
             blas_refs: storage_buffer("solari_blas_refs"),
             slots: IndexAllocator::new(),
+            retired_buffers: Vec::new(),
             records: EntityHashMap::default(),
             live_count: 0,
             pending_refresh: EntityHashSet::default(),
@@ -209,6 +213,19 @@ fn relink<K: Copy + Eq + Hash>(
 }
 
 impl InstanceState {
+    /// Frees slots and slab buffers dropped last frame, now that the previous frame's TLAS no longer
+    /// references them.
+    pub fn begin_frame(&mut self) {
+        self.slots.recycle_retired();
+        for buffers in core::mem::take(&mut self.retired_buffers) {
+            self.vertex_buffers.release(&buffers.vertex);
+            self.index_buffers.release(&buffers.index);
+            if let Some(metadata) = buffers.metadata {
+                self.metadata_buffers.release(&metadata);
+            }
+        }
+    }
+
     pub fn remove_instances(
         &mut self,
         lights: &mut LightState,
@@ -473,13 +490,7 @@ impl InstanceState {
     }
 
     fn release_buffers(&mut self, buffers: Option<InstanceBuffers>) {
-        if let Some(buffers) = buffers {
-            self.vertex_buffers.release(&buffers.vertex);
-            self.index_buffers.release(&buffers.index);
-            if let Some(metadata) = buffers.metadata {
-                self.metadata_buffers.release(&metadata);
-            }
-        }
+        self.retired_buffers.extend(buffers);
     }
 
     fn remove_instance(&mut self, lights: &mut LightState, entity: Entity) {
@@ -488,7 +499,7 @@ impl InstanceState {
         };
 
         self.deactivate_instance(lights, entity, &mut instance);
-        self.slots.release(instance.slot);
+        self.slots.retire(instance.slot);
         self.pending_refresh.remove(&entity);
         unlink(&mut self.mesh_instances, &instance.mesh, entity);
         unlink(&mut self.material_instances, &instance.material, entity);
