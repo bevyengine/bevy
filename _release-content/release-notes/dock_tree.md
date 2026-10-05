@@ -1,7 +1,7 @@
 ---
 title: Dock tree
 authors: ["@jbuehler23"]
-pull_requests: []
+pull_requests: [26034]
 ---
 
 The new `bevy_ui_dock` crate describes dockable layouts as plain data. A `DockTree` component holds tab groups and the splits between them, with operations to add, move, split and close tabs. Empty groups are removed and nested splits are merged as the tree changes.
