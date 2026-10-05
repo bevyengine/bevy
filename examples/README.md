@@ -717,13 +717,17 @@ rustup target add aarch64-linux-android
 cargo install cargo-ndk
 ```
 
-The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
+The Android SDK must be installed, and the environment variable `ANDROID_HOME` set to the root Android `sdk` folder.
+
+A JDK 21 must be installed and discoverable by Gradle.
 
 When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
-Alternatively, you can install Android Studio.
+Alternatively, you can install Android Studio, which bundles the Android SDK and a JDK.
 
 #### Build & Run
+
+The following commands are run from the `examples/mobile` directory.
 
 **⚠️ Note:** In order to run this example on `x86_64`, you may need to use the `--release` flag.
 
@@ -857,19 +861,14 @@ If you still want to use `NativeActivity`, please see the next section.
     --- a/examples/mobile/android/gradle/libs.versions.toml
     +++ b/examples/mobile/android/gradle/libs.versions.toml
     [versions]
-    agp = "9.2.1"
-    appcompat = "1.7.1"
-    core = "1.19.0"
-    -gamesActivity = "4.4.2" # Note: This must be compatible with `android-activity` crate used by bevy.
-    material = "1.14.0"
-    coreKtx = "1.19.0"
+    ...
+    -gamesActivity = "..." # Note: This must be compatible with `android-activity` crate used by bevy.
+    ...
 
     [libraries]
-    appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-    core = { group = "androidx.core", name = "core", version.ref = "core" }
+    ...
     -games-activity = { group = "androidx.games", name = "games-activity", version.ref = "gamesActivity" }
-    material = { group = "com.google.android.material", name = "material", version.ref = "material" }
-    core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+    ...
     ```
 
     </details>
