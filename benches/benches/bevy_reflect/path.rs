@@ -1,12 +1,14 @@
 use core::{fmt::Write, hint::black_box, str, time::Duration};
 
 use benches::bench;
-use bevy_reflect::ParsedPath;
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_reflect::{GetPath, ParsedPath, Reflect};
 use chacha20::ChaCha8Rng;
 use criterion::{criterion_group, BatchSize, BenchmarkId, Criterion, Throughput};
 use rand::{distr::Uniform, RngExt, SeedableRng};
+use std::collections::BTreeMap;
 
-criterion_group!(benches, parse_reflect_path);
+criterion_group!(benches, parse_reflect_path, path_map_set);
 
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(2);
@@ -31,7 +33,7 @@ fn random_index(rng: &mut ChaCha8Rng, f: &mut dyn Write) {
 }
 
 fn write_random_access(rng: &mut ChaCha8Rng, f: &mut dyn Write) {
-    match rng.random_range(0..4) {
+    match rng.random_range(0..5) {
         0 => {
             // Access::Field
             f.write_char('.').unwrap();
@@ -43,7 +45,7 @@ fn write_random_access(rng: &mut ChaCha8Rng, f: &mut dyn Write) {
             random_index(rng, f);
         }
         2 => {
-            // Access::Index
+            // Access::ListIndex
             f.write_char('[').unwrap();
             random_index(rng, f);
             f.write_char(']').unwrap();
@@ -52,6 +54,14 @@ fn write_random_access(rng: &mut ChaCha8Rng, f: &mut dyn Write) {
             // Access::TupleIndex
             f.write_char('.').unwrap();
             random_index(rng, f);
+        }
+        4 => {
+            // Access::Key: a quoted key in brackets.
+            f.write_char('[').unwrap();
+            f.write_char('"').unwrap();
+            random_ident(rng, f);
+            f.write_char('"').unwrap();
+            f.write_char(']').unwrap();
         }
         _ => unreachable!(),
     }
@@ -64,6 +74,53 @@ fn mk_paths(size: usize) -> impl FnMut() -> String {
         (0..size).for_each(|_| write_random_access(&mut rng, &mut ret));
         ret
     }
+}
+
+/// A struct holding the collection types that reflect paths can address by key.
+///
+/// Maps are read and written, sets are read only, matching the path API's behavior.
+#[derive(Reflect)]
+struct KeyedCollections {
+    string_map: HashMap<String, u32>,
+    int_map: BTreeMap<u32, u8>,
+    string_set: HashSet<String>,
+}
+
+/// Benchmarks reading and writing values through the new key-based path access,
+/// which the parse benchmark above covers only at the syntactic level.
+fn path_map_set(criterion: &mut Criterion) {
+    let mut holder = KeyedCollections {
+        string_map: HashMap::from([(String::from("key"), 1_u32)]),
+        int_map: BTreeMap::from([(7_u32, 2_u8)]),
+        string_set: HashSet::from([String::from("key")]),
+    };
+    let read = KeyedCollections {
+        string_map: HashMap::from([(String::from("key"), 1_u32)]),
+        int_map: BTreeMap::from([(7_u32, 2_u8)]),
+        string_set: HashSet::from([String::from("key")]),
+    };
+
+    let mut group = criterion.benchmark_group(bench!("path_map_set"));
+
+    group.warm_up_time(WARM_UP_TIME);
+    group.measurement_time(MEASUREMENT_TIME);
+    group.sample_size(SAMPLE_SIZE);
+    group.noise_threshold(NOISE_THRESHOLD);
+
+    group.bench_function("map_get", |b| {
+        b.iter(|| black_box(read.path::<u32>(r#"string_map["key"]"#)));
+    });
+    group.bench_function("map_set", |b| {
+        b.iter(|| {
+            *black_box(holder.path_mut::<u32>(r#"string_map["key"]"#).unwrap()) += 1;
+        });
+    });
+    group.bench_function("int_map_get", |b| {
+        b.iter(|| black_box(read.path::<u8>(r#"int_map["7"]"#)));
+    });
+    group.bench_function("set_get", |b| {
+        b.iter(|| black_box(read.path::<String>(r#"string_set["key"]"#)));
+    });
 }
 
 fn parse_reflect_path(criterion: &mut Criterion) {
