@@ -51,6 +51,9 @@ struct Material {
     flags: u32,
     uv_translation: vec2<f32>,
     uv_transform: mat2x2<f32>,
+    alpha: f32,
+    alpha_cutoff: f32,
+    _padding: vec2<f32>,
 }
 
 const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
@@ -61,18 +64,52 @@ const MATERIAL_FLAG_FLIP_NORMAL_MAP_Y = 1u << 1u;
 const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
 
 struct LightSource {
-    kind: u32, // 1 bit for kind, 31 bits for extra data
+    kind: u32, // LIGHT_SOURCE_KIND_BITS bits for kind, rest of the bits for extra data
     id: u32,
 }
 
+const LIGHT_SOURCE_KIND_BITS = 3u;
+
 const LIGHT_SOURCE_KIND_EMISSIVE_MESH = 0u;
 const LIGHT_SOURCE_KIND_DIRECTIONAL = 1u;
+const LIGHT_SOURCE_KIND_POINT = 2u;
+const LIGHT_SOURCE_KIND_RECT = 3u;
+
+fn light_source_kind(light_source: LightSource) -> u32 {
+    return light_source.kind & ((1u << LIGHT_SOURCE_KIND_BITS) - 1u);
+}
+
+fn emissive_mesh_triangle_count(light_source: LightSource) -> u32 {
+    return light_source.kind >> LIGHT_SOURCE_KIND_BITS;
+}
 
 struct DirectionalLight {
     direction_to_light: vec3<f32>,
     cos_theta_max: f32,
     luminance: vec3<f32>,
     inverse_pdf: f32,
+}
+
+/// A point or spot light. Point lights have no cone, e.g. `cos_outer <= -1`.
+struct PointLight {
+    position: vec3<f32>,
+    radius: f32,
+    intensity: vec3<f32>,
+    cos_inner: f32,
+    axis: vec3<f32>,
+    cos_outer: f32,
+}
+
+/// A one-sided rectangular light facing `cross(edge_y, edge_x)`.
+struct RectLight {
+    center: vec3<f32>,
+    area: f32,
+    edge_x: vec3<f32>,
+    _padding0: f32,
+    edge_y: vec3<f32>,
+    _padding1: f32,
+    radiance: vec3<f32>,
+    _padding2: f32,
 }
 
 struct EnvironmentMapLight {
@@ -93,14 +130,16 @@ const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 @group(0) @binding(8) var<storage> previous_frame_transforms: array<mat3x4<f32>>;
 @group(0) @binding(9) var<storage> geometry_ids: array<InstanceGeometryIds>;
 @group(0) @binding(10) var<storage> material_ids: array<u32>;
-@group(0) @binding(11) var<storage> light_sources: array<LightSource>;
-@group(0) @binding(12) var<storage> directional_lights: array<DirectionalLight>;
-@group(0) @binding(13) var<storage> previous_frame_light_id_translations: array<u32>;
-@group(0) @binding(14) var brdf_dfg_lut: texture_2d<f32>;
-@group(0) @binding(15) var brdf_dfg_lut_sampler: sampler;
-@group(0) @binding(16) var environment_map: texture_cube<f32>;
-@group(0) @binding(17) var environment_map_sampler: sampler;
-@group(0) @binding(18) var<storage> environment_map_light: EnvironmentMapLight;
+@group(0) @binding(11) var brdf_dfg_lut: texture_2d<f32>;
+@group(0) @binding(12) var brdf_dfg_lut_sampler: sampler;
+@group(0) @binding(13) var<storage> light_sources: array<LightSource>;
+@group(0) @binding(14) var<storage> directional_lights: array<DirectionalLight>;
+@group(0) @binding(15) var<storage> point_lights: array<PointLight>;
+@group(0) @binding(16) var<storage> rect_lights: array<RectLight>;
+@group(0) @binding(17) var environment_map: texture_cube<f32>;
+@group(0) @binding(18) var environment_map_sampler: sampler;
+@group(0) @binding(19) var<storage> environment_map_light: EnvironmentMapLight;
+@group(0) @binding(20) var<storage> previous_frame_light_id_translations: array<u32>;
 
 const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;
@@ -111,7 +150,12 @@ fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ra
     let ray = RayDesc(ray_flag, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
     var rq: ray_query;
     rayQueryInitialize(&rq, tlas, ray);
-    rayQueryProceed(&rq);
+    while rayQueryProceed(&rq) {
+        let candidate = rayQueryGetCandidateIntersection(&rq);
+        if passes_alpha_test(candidate) {
+            rayQueryConfirmIntersection(&rq);
+        }
+    }
     return rayQueryGetCommittedIntersection(&rq);
 }
 
@@ -119,12 +163,22 @@ fn trace_ray_previous_frame(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray
     let ray = RayDesc(ray_flag, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
     var rq: ray_query;
     rayQueryInitialize(&rq, previous_frame_tlas, ray);
-    rayQueryProceed(&rq);
+    while rayQueryProceed(&rq) {
+        let candidate = rayQueryGetCandidateIntersection(&rq);
+        if passes_alpha_test(candidate) {
+            rayQueryConfirmIntersection(&rq);
+        }
+    }
     return rayQueryGetCommittedIntersection(&rq);
 }
 
-fn sample_texture(id: u32, uv: vec2<f32>) -> vec3<f32> {
-    return textureSampleLevel(textures[id], samplers[id], uv, 0.0).rgb; // TODO: Mipmap
+fn passes_alpha_test(candidate: RayIntersection) -> bool {
+    let barycentrics = vec3(1.0 - candidate.barycentrics.x - candidate.barycentrics.y, candidate.barycentrics);
+    return !resolve_triangle_data_full(candidate.instance_custom_data, candidate.primitive_index, barycentrics).material.alpha_masked_out;
+}
+
+fn sample_texture(id: u32, uv: vec2<f32>) -> vec4<f32> {
+    return textureSampleLevel(textures[id], samplers[id], uv, 0.0); // TODO: Mipmap
 }
 
 struct ResolvedMaterial {
@@ -134,6 +188,7 @@ struct ResolvedMaterial {
     perceptual_roughness: f32,
     roughness: f32,
     metallic: f32,
+    alpha_masked_out: bool,
 }
 
 struct ResolvedRayHitFull {
@@ -153,13 +208,20 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     var m: ResolvedMaterial;
 
     m.base_color = material.base_color.rgb;
+    var alpha = material.alpha;
     if material.base_color_texture_id != TEXTURE_MAP_NONE {
-        m.base_color *= sample_texture(material.base_color_texture_id, uv);
+        let base_color = sample_texture(material.base_color_texture_id, uv);
+        m.base_color *= base_color.rgb;
+        alpha *= base_color.a;
     }
 
     m.emissive = material.emissive.rgb;
     if material.emissive_texture_id != TEXTURE_MAP_NONE {
-        m.emissive *= sample_texture(material.emissive_texture_id, uv);
+        m.emissive *= sample_texture(material.emissive_texture_id, uv).rgb;
+    }
+    m.alpha_masked_out = alpha < material.alpha_cutoff;
+    if m.alpha_masked_out {
+        m.emissive = vec3(0.0);
     }
 
     m.reflectance = material.reflectance;
@@ -167,7 +229,7 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     m.perceptual_roughness = material.perceptual_roughness;
     m.metallic = material.metallic;
     if material.metallic_roughness_texture_id != TEXTURE_MAP_NONE {
-        let metallic_roughness = sample_texture(material.metallic_roughness_texture_id, uv);
+        let metallic_roughness = sample_texture(material.metallic_roughness_texture_id, uv).rgb;
         m.perceptual_roughness *= metallic_roughness.g;
         m.metallic *= metallic_roughness.b;
     }
@@ -252,7 +314,7 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         let T = TBN[0];
         let B = TBN[1];
         let N = TBN[2];
-        var Nt = sample_texture(material.normal_map_texture_id, uv) * 2.0 - 1.0;
+        var Nt = sample_texture(material.normal_map_texture_id, uv).rgb * 2.0 - 1.0;
         if (material.flags & MATERIAL_FLAG_FLIP_NORMAL_MAP_Y) != 0u {
             Nt.y = -Nt.y;
         }
