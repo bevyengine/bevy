@@ -119,7 +119,7 @@ macro_rules! impl_atomic_pod {
     (
         $pod_ty: ty,
         $blob_ty: ident
-        $(, field($field_name: ident : $field_ty: ty, $getter: ident $(, $($setter: ident)?)?))*
+        $(, field($field_name: ident : $field_ty: ty, $getter: ident $(, $($setter: ident $(,)?)?)?))*
         $(,)?
     ) => {
         #[derive(::bevy_derive::Deref, ::bevy_derive::DerefMut)]

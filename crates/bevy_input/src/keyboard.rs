@@ -532,8 +532,8 @@ pub enum KeyCode {
     NumpadMemoryStore,
     /// <kbd>M</kbd> Subtract current entry from the value stored in memory.
     NumpadMemorySubtract,
-    /// <kbd>*</kbd> on a keyboard. For use with numpads that provide mathematical
-    /// operations (<kbd>+</kbd>, <kbd>-</kbd> <kbd>*</kbd> and <kbd>/</kbd>).
+    /// <kbd>\*</kbd> on a keyboard. For use with numpads that provide mathematical
+    /// operations (<kbd>+</kbd>, <kbd>-</kbd> <kbd>\*</kbd> and <kbd>/</kbd>).
     ///
     /// Use `NumpadStar` for the <kbd>*</kbd> key on phones and remote controls.
     NumpadMultiply,
