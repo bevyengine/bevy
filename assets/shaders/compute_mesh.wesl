@@ -1,12 +1,12 @@
-// This shader is used for the compute_mesh example
-// The actual work it does is not important for the example and
-// has been hardcoded to return a cube mesh
+//! This shader is used for the compute_mesh example
+//! The actual work it does is not important for the example and
+//! has been hardcoded to return a cube mesh
 
-// `vertex_start` is the starting offset of the mesh data in the *vertex_data* storage buffer
-// `index_start` is the starting offset of the index data in the *index_data* storage buffer
 struct DataRanges {
+    /// the starting offset of the mesh data in the *vertex_data* storage buffer
     vertex_start: u32,
     vertex_end: u32,
+    /// the starting offset of the index data in the *index_data* storage buffer
     index_start: u32,
     index_end: u32,
 }
@@ -26,7 +26,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // which allocates slabs that each can contain multiple meshes.
         // This buffer is one slab, and data_range.vertex_start is the
         // starting offset for the mesh we care about.
-        // So the 0 starting value in the for loop is added to 
+        // So the 0 starting value in the for loop is added to
         // data_range.vertex_start which means we start writing at the
         // correct offset.
         //
@@ -46,7 +46,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 
 // hardcoded compute shader data.
-// half_size is half the size of the cube
+/// half the size of the cube
 const half_size = vec3(1.5);
 const min = -half_size;
 const max = half_size;

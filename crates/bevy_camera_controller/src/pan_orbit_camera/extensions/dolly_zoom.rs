@@ -7,10 +7,12 @@ use std::time::Duration;
 
 use bevy_app::prelude::*;
 use bevy_camera::{prelude::*, ScalingMode};
+use bevy_curve::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_log::error_once;
 use bevy_math::{prelude::*, DQuat, DVec3};
-use bevy_platform::{collections::HashMap, time::Instant};
+use bevy_platform::collections::HashMap;
+use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_transform::components::Transform;
 use bevy_window::RequestRedraw;
 
@@ -107,7 +109,7 @@ impl DollyZoomTrigger {
                 ..Default::default()
             };
             *proj = Projection::Perspective(perspective_start.clone());
-
+            let animation_duration = state.animation_duration;
             state
                 .map
                 .entry(event.camera)
@@ -115,16 +117,14 @@ impl DollyZoomTrigger {
                     e.perspective_start = perspective_start.clone();
                     e.proj_end = event.target_projection.clone();
                     e.triangle_base = triangle_base;
-                    e.start = Instant::now();
-                    e.complete = false;
+                    e.animation_timer = Timer::new(animation_duration, TimerMode::Once);
                 })
                 .or_insert(ZoomEntry {
                     perspective_start,
                     proj_end: event.target_projection.clone(),
                     triangle_base,
-                    start: Instant::now(),
+                    animation_timer: Timer::new(animation_duration, TimerMode::Once),
                     initial_enabled: controller.enabled_motion.clone(),
-                    complete: false,
                 });
 
             controller.end_move();
@@ -146,9 +146,8 @@ struct ZoomEntry {
     perspective_start: PerspectiveProjection,
     proj_end: Projection,
     triangle_base: f64,
-    start: Instant,
+    animation_timer: Timer,
     initial_enabled: EnabledMotion,
-    complete: bool,
 }
 
 /// Stores settings and state for the dolly zoom plugin.
@@ -182,8 +181,8 @@ impl DollyZoom {
             Query<&mut Transform, With<PanOrbitCamera>>,
         )>,
         mut redraw: MessageWriter<RequestRedraw>,
+        time: Res<Time<Real>>,
     ) {
-        let animation_duration = state.animation_duration;
         let animation_curve = state.animation_curve;
         for (
             camera_entity,
@@ -191,22 +190,22 @@ impl DollyZoom {
                 perspective_start,
                 proj_end,
                 triangle_base,
-                start,
+                animation_timer,
                 initial_enabled,
-                complete,
             },
         ) in state.map.iter_mut()
         {
+            animation_timer.tick(time.delta());
             let mut cameras = camera_set.p0();
             let Ok((camera, mut projection, mut controller)) = cameras.get_mut(*camera_entity)
             else {
-                *complete = true;
+                animation_timer.finish();
                 continue;
             };
             let Projection::Perspective(last_perspective) = projection.clone() else {
                 *projection = proj_end.clone();
                 controller.enabled_motion = initial_enabled.clone();
-                *complete = true;
+                animation_timer.finish();
                 continue;
             };
 
@@ -223,8 +222,7 @@ impl DollyZoom {
                     return;
                 }
             };
-            let progress = start.elapsed().as_secs_f32() / animation_duration.as_secs_f32();
-            let progress = animation_curve.ease(progress);
+            let progress = animation_curve.ease(animation_timer.fraction());
             let next_fov = (1.0 - progress as f64) * fov_start + progress as f64 * fov_end;
 
             let last_dist = *triangle_base / (last_fov / 2.0).tan();
@@ -236,7 +234,7 @@ impl DollyZoom {
             delta_translation += next_translation;
             controller.last_anchor_depth += forward_dist;
 
-            if progress < 1.0 {
+            if !animation_timer.is_finished() {
                 *projection = Projection::Perspective(PerspectiveProjection {
                     fov: next_fov as f32,
                     ..last_perspective
@@ -248,7 +246,6 @@ impl DollyZoom {
                     ortho.scale = (*triangle_base * multiplier) as f32;
                 }
                 controller.enabled_motion = initial_enabled.clone();
-                *complete = true;
             }
             redraw.write(RequestRedraw);
 
@@ -256,7 +253,7 @@ impl DollyZoom {
             let mut camera_mut = camera_muts.get_mut(*camera_entity).unwrap();
             apply_delta(&mut camera_mut, delta_translation, DQuat::IDENTITY);
         }
-        state.map.retain(|_, v| !v.complete);
+        state.map.retain(|_, v| !v.animation_timer.is_finished());
     }
 }
 

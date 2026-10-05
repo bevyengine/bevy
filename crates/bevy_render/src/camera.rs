@@ -12,7 +12,8 @@ use crate::{
     view::{
         ColorGrading, ExtractedView, ExtractedWindow, Msaa, NoIndirectDrawing,
         RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
-        RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
+        ResolvedCompositingSpace, RetainedViewEntity, Tonemapping, ViewUniformOffset,
+        VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -24,7 +25,8 @@ use bevy_camera::{
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
     ClearColor, ClearColorConfig, CompositingSpace, Exposure, Hdr, ManualTextureViewHandle,
-    MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
+    MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo,
+    TonemappingPass, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -39,7 +41,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     schedule::{InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel, SystemSet},
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Local, Query, Res, ResMut},
     world::DeferredWorld,
 };
 use bevy_image::Image;
@@ -321,8 +323,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
             NormalizedRenderTarget::Image(image_target) => {
                 changed_image_handles.contains(&image_target.handle.id())
             }
-            NormalizedRenderTarget::TextureView(_) => true,
-            NormalizedRenderTarget::None { .. } => false,
+            NormalizedRenderTarget::TextureView(_) | NormalizedRenderTarget::None { .. } => true,
         }
     }
 }
@@ -468,9 +469,14 @@ pub struct ExtractedCamera {
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
     pub hdr: bool,
-    /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
-    /// and shaders output sRGB-encoded values for gamma-encoded blending.
-    pub compositing_space: Option<CompositingSpace>,
+    /// Whether the camera tonemaps in its material shaders instead of in the
+    /// tonemapping pass.
+    ///
+    /// This is true for SDR cameras with tonemapping enabled, unless the camera has
+    /// [`TonemappingPass`], a non-linear [`CompositingSpace`], or a non-window render
+    /// target. Those exceptions don't apply when the render target is shared by
+    /// multiple cameras.
+    pub tonemap_in_shader: bool,
 }
 
 pub fn extract_cameras(
@@ -488,6 +494,7 @@ pub fn extract_cameras(
             &Frustum,
             (
                 Has<Hdr>,
+                Option<&Tonemapping>,
                 Option<&CompositingSpace>,
                 Option<&ColorGrading>,
                 Option<&Exposure>,
@@ -496,6 +503,7 @@ pub fn extract_cameras(
                 Option<&RenderLayers>,
                 Option<&Projection>,
                 Has<NoIndirectDrawing>,
+                Has<TonemappingPass>,
             ),
         )>,
     >,
@@ -509,13 +517,27 @@ pub fn extract_cameras(
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     visibility_extraction_system_param: VisibilityExtractionSystemParam,
     extracted_swap_chains: Query<(MainEntity, &ExtractedWindow)>,
+    mut active_cameras_per_target: Local<HashMap<NormalizedRenderTarget, usize>>,
 ) {
     main_pass_formats.clear();
     let primary_window = primary_window.iter().next();
+
+    // Count cameras per render target to make sure tonemapping isn't duplicated.
+    // The map is a `Local` so it keeps its allocation between frames.
+    active_cameras_per_target.clear();
+    for (_, _, camera, render_target, ..) in query.iter() {
+        if !camera.is_active {
+            continue;
+        }
+        if let Some(target) = render_target.normalize(primary_window) {
+            *active_cameras_per_target.entry(target).or_default() += 1;
+        }
+    }
+
     type ExtractedCameraComponents = (
         ExtractedCamera,
         ExtractedView,
-        RenderVisibleEntities,
+        ResolvedCompositingSpace,
         TemporalJitter,
         MipBias,
         RenderLayers,
@@ -535,6 +557,7 @@ pub fn extract_cameras(
         frustum,
         (
             hdr,
+            tonemapping,
             compositing_space,
             color_grading,
             exposure,
@@ -543,13 +566,15 @@ pub fn extract_cameras(
             render_layers,
             projection,
             no_indirect_drawing,
+            tonemapping_pass,
         ),
     ) in query.iter()
     {
         if !camera.is_active {
+            // Note: `RenderVisibleEntities` is here because several other retained data `ViewBinnedRenderPhase<Opaque3d>` will be removed when camera is not active
             commands
                 .entity(render_entity)
-                .remove::<ExtractedCameraComponents>();
+                .remove::<(ExtractedCameraComponents, RenderVisibleEntities)>();
             continue;
         }
 
@@ -618,13 +643,25 @@ pub fn extract_cameras(
                         .map(|format| normalize_bgra8(target, format))
                 })
                 .unwrap_or(TextureFormat::Rgba8UnormSrgb);
-            let target_format = if hdr {
-                TextureFormat::Rgba16Float
-            } else if compositing_space.is_some_and(|s| *s == CompositingSpace::Srgb) {
-                TextureFormat::Rgba8Unorm
-            } else {
-                output_texture_format
-            };
+            let tonemapping_enabled = tonemapping.is_some_and(Tonemapping::is_enabled);
+            let shares_target = target
+                .as_ref()
+                .and_then(|t| active_cameras_per_target.get(t))
+                .is_some_and(|&count| count > 1);
+            let in_shader = tonemaps_in_shader(
+                hdr,
+                tonemapping_enabled,
+                tonemapping_pass,
+                compositing_space.copied(),
+                target.as_ref(),
+                shares_target,
+            );
+            let target_format = main_texture_format(
+                hdr,
+                tonemapping_enabled && !in_shader,
+                compositing_space.copied(),
+                output_texture_format,
+            );
             main_pass_formats.insert(render_entity, target_format);
 
             let mut commands = commands.entity(render_entity);
@@ -645,8 +682,9 @@ pub fn extract_cameras(
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr,
-                    compositing_space: compositing_space.copied(),
+                    tonemap_in_shader: in_shader,
                 },
+                ResolvedCompositingSpace(compositing_space.copied()),
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
@@ -718,6 +756,41 @@ fn normalize_bgra8(target: &NormalizedRenderTarget, format: TextureFormat) -> Te
     format
 }
 
+/// Whether a camera tonemaps in its material shaders. See
+/// [`ExtractedCamera::tonemap_in_shader`].
+fn tonemaps_in_shader(
+    hdr: bool,
+    tonemapping_enabled: bool,
+    tonemapping_pass: bool,
+    compositing_space: Option<CompositingSpace>,
+    target: Option<&NormalizedRenderTarget>,
+    shares_target: bool,
+) -> bool {
+    tonemapping_enabled
+        && !hdr
+        && (shares_target
+            || (!tonemapping_pass
+                && compositing_space.is_none_or(|s| s == CompositingSpace::Linear)
+                && matches!(target, Some(NormalizedRenderTarget::Window(_)))))
+}
+
+/// The main texture format for a camera view.
+fn main_texture_format(
+    hdr: bool,
+    tonemapping_pass_runs: bool,
+    compositing_space: Option<CompositingSpace>,
+    output_texture_format: TextureFormat,
+) -> TextureFormat {
+    if hdr || tonemapping_pass_runs {
+        // The tonemapping pass needs values above 1.0, which an 8-bit texture clamps.
+        TextureFormat::Rgba16Float
+    } else if compositing_space == Some(CompositingSpace::Srgb) {
+        TextureFormat::Rgba8Unorm
+    } else {
+        output_texture_format
+    }
+}
+
 /// Cameras sorted by their order field. This is updated in the [`sort_cameras`] system.
 #[derive(Resource, Default)]
 pub struct SortedCameras(pub Vec<SortedCamera>);
@@ -726,7 +799,6 @@ pub struct SortedCamera {
     pub entity: Entity,
     pub order: isize,
     pub target: Option<NormalizedRenderTarget>,
-    pub hdr: bool,
     pub output_mode: CameraOutputMode,
 }
 
@@ -740,7 +812,6 @@ pub fn sort_cameras(
             entity,
             order: camera.order,
             target: camera.target.clone(),
-            hdr: camera.hdr,
             output_mode: camera.output_mode,
         });
     }
@@ -759,9 +830,17 @@ pub fn sort_cameras(
             ambiguities.insert(new_order_target.clone());
         }
         if let Some(target) = &sorted_camera.target {
-            let count = target_counts
-                .entry((target.clone(), sorted_camera.hdr))
-                .or_insert(0usize);
+            // Cameras that share a render target are indexed bottom to top. The index
+            // does not affect render graph ordering. It is read at the end of
+            // rendering, when each camera's image is written out to the target. By
+            // default the bottom camera replaces what is there and every camera above
+            // it alpha-blends on top.
+            //
+            // The map has to be keyed by only the target, and not by anything else.
+            // Splitting the count by a camera setting such as `Hdr` would leave a
+            // mixed stack with two bottom cameras, and the top one would overwrite
+            // the base instead of blending over it. So we don't do that.
+            let count = target_counts.entry(target.clone()).or_insert(0usize);
             let (_, mut camera) = cameras.get_mut(sorted_camera.entity).unwrap();
             camera.sorted_camera_index_for_target = *count;
             *count += 1;
@@ -925,15 +1004,17 @@ impl DirtySpecializations {
                     })),
             )
         })
-        .chain(last_frame_view_pending_queues.iter().filter_map(
-            |(entity, main_entity)| {
-                if render_view_visible_mesh_entities.entity_pair_is_visible(*entity, *main_entity) {
-                    Some((entity, main_entity))
-                } else {
-                    None
-                }
-            },
-        ))
+        .chain(
+            last_frame_view_pending_queues
+                .iter()
+                .filter_map(|(_, main_entity)| {
+                    // Resolve pending entries against the current visible entities.
+                    self.entity_pair_from_visible_main_entity(
+                        render_view_visible_mesh_entities,
+                        main_entity,
+                    )
+                }),
+        )
     }
 
     /// Iterates over all renderables that should be removed from the phase.
@@ -1015,7 +1096,13 @@ impl DirtySpecializations {
         .chain(
             last_frame_view_pending_queues
                 .iter()
-                .map(|(entity, main_entity)| (entity, main_entity)),
+                .filter_map(|(_, main_entity)| {
+                    // Resolve pending entries against the current visible entities.
+                    self.entity_pair_from_visible_main_entity(
+                        render_visible_mesh_entities,
+                        main_entity,
+                    )
+                }),
         )
         .filter(|(_, main_entity)| {
             mesh_instances_queued_this_iteration_scratch_space.insert(**main_entity)
@@ -1164,5 +1251,291 @@ impl PendingQueues {
     /// order to clean up resources relating to views that no longer exist.
     pub fn expire_stale_views(&mut self, all_views: &HashSet<RetainedViewEntity>) {
         self.retain(|retained_view_entity, _| all_views.contains(retained_view_entity));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::Main;
+    use bevy_ecs::{system::RunSystemOnce, world::World};
+    use bevy_window::WindowRef;
+
+    fn window_target() -> NormalizedRenderTarget {
+        NormalizedRenderTarget::Window(
+            WindowRef::Entity(Entity::from_raw_u32(0).unwrap())
+                .normalize(None)
+                .unwrap(),
+        )
+    }
+
+    /// The inputs to [`tonemaps_in_shader`] and [`main_texture_format`] for one
+    /// table case.
+    #[derive(Clone, Copy)]
+    struct CameraCase<'a> {
+        hdr: bool,
+        tonemapping_enabled: bool,
+        tonemapping_pass: bool,
+        compositing_space: Option<CompositingSpace>,
+        target: Option<&'a NormalizedRenderTarget>,
+        shares_target: bool,
+    }
+
+    /// A solo SDR camera that tonemaps in-shader, used as the baseline for the case
+    /// tables.
+    fn eligible_camera(target: &NormalizedRenderTarget) -> CameraCase<'_> {
+        CameraCase {
+            hdr: false,
+            tonemapping_enabled: true,
+            tonemapping_pass: false,
+            compositing_space: None,
+            target: Some(target),
+            shares_target: false,
+        }
+    }
+
+    const OUTPUT_FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
+
+    fn assert_case_table(table: &[(&str, CameraCase, TextureFormat, bool)]) {
+        for (name, case, expected_format, expected_in_shader) in table {
+            let in_shader = tonemaps_in_shader(
+                case.hdr,
+                case.tonemapping_enabled,
+                case.tonemapping_pass,
+                case.compositing_space,
+                case.target,
+                case.shares_target,
+            );
+            assert_eq!(in_shader, *expected_in_shader, "{name} (in-shader)");
+            let format = main_texture_format(
+                case.hdr,
+                case.tonemapping_enabled && !in_shader,
+                case.compositing_space,
+                OUTPUT_FORMAT,
+            );
+            assert_eq!(format, *expected_format, "{name}");
+        }
+    }
+
+    #[test]
+    fn solo_camera_cases() {
+        let window = window_target();
+        let texture_view = NormalizedRenderTarget::TextureView(ManualTextureViewHandle(0));
+        let base = eligible_camera(&window);
+
+        let table = [
+            ("eligible SDR camera", base, OUTPUT_FORMAT, true),
+            (
+                "explicit linear compositing",
+                CameraCase {
+                    compositing_space: Some(CompositingSpace::Linear),
+                    ..base
+                },
+                OUTPUT_FORMAT,
+                true,
+            ),
+            (
+                "Hdr camera",
+                CameraCase { hdr: true, ..base },
+                TextureFormat::Rgba16Float,
+                false,
+            ),
+            (
+                "TonemappingPass camera",
+                CameraCase {
+                    tonemapping_pass: true,
+                    ..base
+                },
+                TextureFormat::Rgba16Float,
+                false,
+            ),
+            (
+                "explicit sRGB compositing with tonemapping enabled",
+                CameraCase {
+                    compositing_space: Some(CompositingSpace::Srgb),
+                    ..base
+                },
+                TextureFormat::Rgba16Float,
+                false,
+            ),
+            (
+                "explicit Oklab compositing with tonemapping enabled",
+                CameraCase {
+                    compositing_space: Some(CompositingSpace::Oklab),
+                    ..base
+                },
+                TextureFormat::Rgba16Float,
+                false,
+            ),
+            (
+                "non-window target",
+                CameraCase {
+                    target: Some(&texture_view),
+                    ..base
+                },
+                TextureFormat::Rgba16Float,
+                false,
+            ),
+            (
+                "no render target",
+                CameraCase {
+                    target: None,
+                    ..base
+                },
+                TextureFormat::Rgba16Float,
+                false,
+            ),
+            (
+                "tonemapping disabled",
+                CameraCase {
+                    tonemapping_enabled: false,
+                    ..base
+                },
+                OUTPUT_FORMAT,
+                false,
+            ),
+            (
+                "explicit sRGB compositing with tonemapping disabled",
+                CameraCase {
+                    tonemapping_enabled: false,
+                    compositing_space: Some(CompositingSpace::Srgb),
+                    ..base
+                },
+                TextureFormat::Rgba8Unorm,
+                false,
+            ),
+            (
+                "explicit Oklab compositing with tonemapping disabled",
+                CameraCase {
+                    tonemapping_enabled: false,
+                    compositing_space: Some(CompositingSpace::Oklab),
+                    ..base
+                },
+                OUTPUT_FORMAT,
+                false,
+            ),
+        ];
+
+        assert_case_table(&table);
+    }
+
+    /// Stacked and split screen cameras keep the in-shader path. Only solo
+    /// cameras move to the tonemapping pass; see [`ExtractedCamera::tonemap_in_shader`].
+    #[test]
+    fn shared_target_cameras_keep_the_in_shader_path() {
+        let window = window_target();
+        let texture_view = NormalizedRenderTarget::TextureView(ManualTextureViewHandle(0));
+        let shared = CameraCase {
+            shares_target: true,
+            ..eligible_camera(&window)
+        };
+
+        let table = [
+            ("shared window target", shared, OUTPUT_FORMAT, true),
+            (
+                "shared texture target",
+                CameraCase {
+                    target: Some(&texture_view),
+                    ..shared
+                },
+                OUTPUT_FORMAT,
+                true,
+            ),
+            (
+                "shared target with TonemappingPass",
+                CameraCase {
+                    tonemapping_pass: true,
+                    ..shared
+                },
+                OUTPUT_FORMAT,
+                true,
+            ),
+            (
+                "Hdr camera on a shared target",
+                CameraCase {
+                    hdr: true,
+                    ..shared
+                },
+                TextureFormat::Rgba16Float,
+                false,
+            ),
+            (
+                "sRGB compositing with tonemapping enabled on a shared target",
+                CameraCase {
+                    compositing_space: Some(CompositingSpace::Srgb),
+                    ..shared
+                },
+                TextureFormat::Rgba8Unorm,
+                true,
+            ),
+            (
+                "misconfigured Oklab camera without Hdr on a shared target",
+                CameraCase {
+                    compositing_space: Some(CompositingSpace::Oklab),
+                    ..shared
+                },
+                OUTPUT_FORMAT,
+                true,
+            ),
+            (
+                "tonemapping disabled on a shared target",
+                CameraCase {
+                    tonemapping_enabled: false,
+                    ..shared
+                },
+                OUTPUT_FORMAT,
+                false,
+            ),
+        ];
+
+        assert_case_table(&table);
+    }
+
+    fn extracted_camera(
+        order: isize,
+        hdr: bool,
+        target: NormalizedRenderTarget,
+    ) -> ExtractedCamera {
+        ExtractedCamera {
+            target: Some(target),
+            physical_viewport_size: None,
+            physical_target_size: None,
+            viewport: None,
+            schedule: Main.intern(),
+            order,
+            output_mode: CameraOutputMode::default(),
+            msaa_writeback: MsaaWriteback::default(),
+            clear_color: ClearColorConfig::Default,
+            sorted_camera_index_for_target: 0,
+            exposure: 1.0,
+            hdr,
+            tonemap_in_shader: false,
+        }
+    }
+
+    #[test]
+    fn sort_cameras_assigns_sequential_indices_for_mixed_hdr_shared_target() {
+        let mut world = World::new();
+        world.init_resource::<SortedCameras>();
+
+        let shared = NormalizedRenderTarget::TextureView(ManualTextureViewHandle(0));
+        let other = NormalizedRenderTarget::TextureView(ManualTextureViewHandle(1));
+        // Spawn the upper camera first, so the indices prove camera order beats spawn order.
+        let upper = world.spawn(extracted_camera(1, true, shared.clone())).id();
+        let lower = world.spawn(extracted_camera(0, false, shared)).id();
+        let solo = world.spawn(extracted_camera(0, true, other)).id();
+
+        world.run_system_once(sort_cameras).unwrap();
+
+        let index = |entity: Entity| {
+            world
+                .entity(entity)
+                .get::<ExtractedCamera>()
+                .unwrap()
+                .sorted_camera_index_for_target
+        };
+        assert_eq!(index(lower), 0);
+        assert_eq!(index(upper), 1);
+        assert_eq!(index(solo), 0);
     }
 }

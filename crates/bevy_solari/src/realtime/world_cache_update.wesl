@@ -1,7 +1,8 @@
 import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_range_u, sample_cosine_hemisphere};
+import bevy_render::maths::PI;
 import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
-import package::scene::sampling::{calculate_resolved_light_contribution, trace_visibility};
+import package::scene::sampling::{calculate_resolved_light_contribution, trace_visibility, sample_environment_map_light};
 import package::scene::bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN};
 import package::realtime::world_cache_query::query_world_cache;
 import package::realtime::bindings::{
@@ -45,6 +46,11 @@ fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
         let cell_life = atomicLoad(&world_cache.life[cell_index]);
         let radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray.t, cell_life, &rng);
         world_cache.active_cells_new_radiance[active_cell_id.x] += ray_hit.material.base_color * radiance;
+    } else {
+        // The ray is cut short at world_cache_max_gi_ray_distance to save on traversal costs. 
+        // A miss here may actually have been a surface further away if we kept tracing, and not actually have been a miss.
+        // We could be leaking sky light due to this if world_cache_max_gi_ray_distance is too small.
+        world_cache.active_cells_new_radiance[active_cell_id.x] += PI * sample_environment_map_light(ray_direction);
     }
 }
 

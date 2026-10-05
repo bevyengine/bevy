@@ -1,6 +1,7 @@
 use crate::{
-    init_mesh_2d_pipeline, DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey,
-    RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache,
+    extract_2d_meshes, init_mesh_2d_pipeline, load_mesh2d_bindings, DrawMesh2d, Mesh2d,
+    Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances, SetMesh2dBindGroup,
+    SetMesh2dViewBindGroup, ViewKeyCache,
 };
 use alloc::sync::Arc;
 use bevy_app::{App, Plugin, PostUpdate};
@@ -93,7 +94,7 @@ pub const MATERIAL_2D_BIND_GROUP_INDEX: usize = 2;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
-/// # use bevy_math::primitives::Circle;
+/// # use bevy_shape::Circle;
 /// #
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 /// pub struct CustomMaterial {
@@ -195,7 +196,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// # use bevy_mesh::{Mesh, Mesh2d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
-/// # use bevy_math::primitives::Circle;
+/// # use bevy_shape::Circle;
 /// #
 /// // Spawn an entity with a mesh using `ColorMaterial`.
 /// fn setup(
@@ -351,12 +352,18 @@ where
             );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            let shaders = initialize_material2d_shaders::<M>(render_app.world());
             render_app
-                .insert_resource(Material2dShaders::<M>::with_shader_cache(shaders))
                 .init_resource::<PendingMeshMaterial2dQueues>()
                 .allow_ambiguous_resource::<PendingMeshMaterial2dQueues>()
-                .add_systems(RenderStartup, add_material2d_bind_group_allocator::<M>)
+                .add_systems(
+                    RenderStartup,
+                    (
+                        // mesh2d_bindings depends on runtime values so we need to load material2d
+                        // shaders after it's already loaded
+                        initialize_material2d_shaders::<M>.after(load_mesh2d_bindings),
+                        add_material2d_bind_group_allocator::<M>,
+                    ),
+                )
                 .add_systems(
                     ExtractSchedule,
                     (
@@ -364,7 +371,7 @@ where
                             .in_set(DirtySpecializationSystems::CheckForChanges),
                         extract_entities_that_need_specializations_removed::<M>
                             .in_set(DirtySpecializationSystems::CheckForRemovals),
-                        extract_mesh_materials_2d::<M>,
+                        extract_mesh_materials_2d::<M>.before(extract_2d_meshes),
                     ),
                 );
         }
@@ -623,7 +630,7 @@ pub const fn alpha_mode_pipeline_key_2d(alpha_mode: AlphaMode) -> Mesh2dPipeline
 
 pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
     match tonemapping {
-        Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
+        Tonemapping::None | Tonemapping::Linear => Mesh2dPipelineKey::TONEMAP_METHOD_LINEAR,
         Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
         Tonemapping::ReinhardLuminance => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
         Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
@@ -904,7 +911,15 @@ pub fn specialize_material2d_meshes(
                         .insert((*render_entity, *visible_entity));
                     continue;
                 };
+                // The instance may have been extracted before the material was prepared,
+                // or the material may have been reallocated to a new binding.
+                mesh_instance.material_bindings_index = material_2d.binding;
+
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                    // Retry specialization once the mesh is ready.
+                    view_pending_mesh_material2d_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
 
@@ -1303,6 +1318,15 @@ where
             }),
         })
     }
+
+    fn unload_asset(
+        source_asset: AssetId<Self::SourceAsset>,
+        (_, _, _, _, bind_group_allocators, render_material_bindings, ..): &mut SystemParamItem<
+            Self::Param,
+        >,
+    ) {
+        render_material_bindings.unload_material(source_asset, bind_group_allocators);
+    }
 }
 
 /// Creates a [`Material2dPipelineSpecializer`] and uses it to specialize a
@@ -1411,13 +1435,10 @@ where
 }
 
 /// Initializes the vertex and fragment shaders for a single 2D material.
-fn initialize_material2d_shaders<M>(
-    render_world: &World,
-) -> SmallVec<[(InternedShaderLabel, Handle<Shader>); 6]>
+fn initialize_material2d_shaders<M>(mut commands: Commands, asset_server: Res<AssetServer>)
 where
     M: Material2d,
 {
-    let asset_server = render_world.resource::<AssetServer>();
     let mut shaders = SmallVec::new();
 
     let mut add_shader = |label: InternedShaderLabel, shader_ref: ShaderRef| {
@@ -1434,7 +1455,7 @@ where
     add_shader(Material2dVertexShader.intern(), M::vertex_shader());
     add_shader(Material2dFragmentShader.intern(), M::fragment_shader());
 
-    shaders
+    commands.insert_resource(Material2dShaders::<M>::with_shader_cache(shaders));
 }
 
 /// A system that ensures that [`super::mesh::extract_2d_meshes`] re-extracts
@@ -1448,7 +1469,7 @@ where
 /// [`RenderMesh2dInstances`] might not be updated properly.  The easiest way to
 /// ensure that [`super::mesh::extract_2d_meshes`] re-extracts a mesh is to mark
 /// its [`Mesh2d`] as changed, so that's what this system does.
-fn mark_2d_meshes_as_changed_if_their_materials_changed<M>(
+pub fn mark_2d_meshes_as_changed_if_their_materials_changed<M>(
     mut queries: ParamSet<(
         Query<&mut Mesh2d, Or<(Changed<MeshMaterial2d<M>>, AssetChanged<MeshMaterial2d<M>>)>>,
         Query<&mut Mesh2d>,

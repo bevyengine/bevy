@@ -321,7 +321,7 @@ impl PanOrbitCamera {
             Query<&mut Transform, With<PanOrbitCamera>>,
         )>,
         mut event: MessageWriter<RequestRedraw>,
-        time: Res<Time>,
+        time: Res<Time<Real>>,
     ) {
         camera_set
             .p0()

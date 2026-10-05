@@ -271,6 +271,12 @@ where
 
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         unsafe {
+            // SAFETY: This method can only be called once per instance of
+            // `QueryContiguousParIter`, which ensures that mutable queries
+            // cannot be executed multiple times at once.  Mutable instances of
+            // `QueryContiguousParIter` can only be created via an exclusive
+            // borrow of a `Query` or a `World`, which ensures that multiple
+            // aliasing `QueryContiguousParIter`s cannot exist at the same time.
             QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run)
                 .unwrap()
                 .fold(init(), func);

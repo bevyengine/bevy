@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, mut texture_atlas_layouts: ResMut<Assets<Textur
             left: px(12),
         }
         Children [
-            Text::new("*Click some food to eat it*")
+            Text("*Click some food to eat it*")
         ]
     });
 }
@@ -126,7 +126,7 @@ fn build_ability(
             texture_atlas: texture_atlas_template(layout, index),
         }
         Cooldown(Timer::from_seconds(cooldown, TimerMode::Once))
-        Name::new(name)
+        Name(name)
         Children [
             Node {
                 width: percent(100),

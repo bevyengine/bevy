@@ -262,6 +262,12 @@ pub struct GizmoLineConfig {
     pub style: GizmoLineStyle,
     /// Describe how lines should join.
     pub joints: GizmoLineJoint,
+    /// This only applies to [`GizmoLineStyle::Dotted`] and [`GizmoLineStyle::Dashed`] and
+    /// determines how far the dots/dashes are offset from their original position. This can be used
+    /// to create animations.
+    ///
+    /// Defaults to `0.0`.
+    pub animation_offset: f32,
 }
 
 impl Default for GizmoLineConfig {
@@ -271,6 +277,7 @@ impl Default for GizmoLineConfig {
             perspective: false,
             style: GizmoLineStyle::Solid,
             joints: GizmoLineJoint::None,
+            animation_offset: 0.0,
         }
     }
 }

@@ -324,8 +324,8 @@ fn spawn_buttons(commands: &mut Commands) {
     // Spawn the radio buttons that allow the user to select an object to
     // control.
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
-        Children [feathers_option_buttons(
+        @main_ui_node_scene()
+        Children [@feathers_option_buttons(
             "Drag Action",
             &[
                 (DragAction::MoveCamera, "Move Camera"),

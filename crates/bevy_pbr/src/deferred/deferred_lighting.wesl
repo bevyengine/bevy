@@ -4,7 +4,7 @@ import package::{
         pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
         pbr_functions,
         pbr_lighting as lighting,
-        mesh_view_bindings::deferred_prepass_texture,
+        mesh_view_bindings::{deferred_prepass_texture, view},
     },
     deferred::{
         functions::pbr_input_from_deferred_gbuffer,
@@ -86,4 +86,3 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     return output_color;
 }
-

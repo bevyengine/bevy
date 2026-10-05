@@ -56,9 +56,16 @@ jobs:
           - "thumbv6m-none-eabi"
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+      - name: Install toolchain
+        env:
+          RUST_TARGET: ${{ matrix.target }}
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal
+          rustup target add ${{ env.RUST_TARGET }} --toolchain stable
+          rustup override set stable
+          cargo -V
       - name: Check Compile
-        run: cargo check --no-default-features --features libm,critical-section --target ${{ matrix.target }}
+        env:
+          RUST_TARGET: ${{ matrix.target }}
+        run: cargo check --no-default-features --features libm,critical-section --target ${{ env.RUST_TARGET }}
 ```

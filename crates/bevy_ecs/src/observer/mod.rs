@@ -18,7 +18,7 @@ pub use system_param::*;
 
 use crate::{
     change_detection::MaybeLocation,
-    event::Event,
+    event::{Event, EventTriggerState},
     prelude::*,
     world::{DeferredWorld, *},
 };
@@ -60,10 +60,13 @@ impl World {
     ///
     /// For a variant that borrows the `event` rather than consuming it, use [`World::trigger_ref`] instead.
     #[track_caller]
-    pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(&mut self, mut event: E) {
+    pub fn trigger<E: Event>(&mut self, mut event: E)
+    where
+        EventTriggerState<'static, E>: Default,
+    {
         self.trigger_ref_with_caller(
             &mut event,
-            &mut <E::Trigger<'a> as Default>::default(),
+            &mut EventTriggerState::<E>::default(),
             MaybeLocation::caller(),
         );
     }
@@ -72,7 +75,7 @@ impl World {
     ///
     /// For a variant that borrows the `event` rather than consuming it, use [`World::trigger_ref`] instead.
     #[track_caller]
-    pub fn trigger_with<'a, E: Event>(&mut self, mut event: E, mut trigger: E::Trigger<'a>) {
+    pub fn trigger_with<E: Event>(&mut self, mut event: E, mut trigger: EventTriggerState<'_, E>) {
         self.trigger_ref_with_caller(&mut event, &mut trigger, MaybeLocation::caller());
     }
 
@@ -81,10 +84,13 @@ impl World {
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
     #[track_caller]
-    pub fn trigger_ref<'a, E: Event<Trigger<'a>: Default>>(&mut self, event: &mut E) {
+    pub fn trigger_ref<E: Event>(&mut self, event: &mut E)
+    where
+        EventTriggerState<'static, E>: Default,
+    {
         self.trigger_ref_with_caller(
             event,
-            &mut <E::Trigger<'a> as Default>::default(),
+            &mut EventTriggerState::<E>::default(),
             MaybeLocation::caller(),
         );
     }
@@ -94,14 +100,18 @@ impl World {
     ///
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
-    pub fn trigger_ref_with<'a, E: Event>(&mut self, event: &mut E, trigger: &mut E::Trigger<'a>) {
+    pub fn trigger_ref_with<E: Event>(
+        &mut self,
+        event: &mut E,
+        trigger: &mut EventTriggerState<'_, E>,
+    ) {
         self.trigger_ref_with_caller(event, trigger, MaybeLocation::caller());
     }
 
-    pub(crate) fn trigger_ref_with_caller<'a, E: Event>(
+    pub(crate) fn trigger_ref_with_caller<E: Event>(
         &mut self,
         event: &mut E,
-        trigger: &mut E::Trigger<'a>,
+        trigger: &mut EventTriggerState<'_, E>,
         caller: MaybeLocation,
     ) {
         let event_key = self.register_event_key::<E>();
@@ -502,7 +512,7 @@ mod tests {
     struct EntityEventA(Entity);
 
     #[derive(EntityEvent)]
-    #[entity_event(trigger = EntityComponentsTrigger<'a>)]
+    #[entity_event(trigger = EntityComponentsTrigger<'static>)]
     struct EntityComponentsEvent(Entity);
 
     struct EntityComponents<B: Bundle>(PhantomData<B>);
@@ -1831,8 +1841,7 @@ mod tests {
 
         fn observer<E>(e: On<E>, mut c: ResMut<Changes>)
         where
-            E: EventPattern,
-            E::Event: for<'a> Event<Trigger<'a> = EntityComponentsTrigger<'a>>,
+            E: EventPattern<Event: EntityEvent<Trigger = EntityComponentsTrigger<'static>>>,
         {
             c.0.push((
                 type_name::<E::Event>(),
@@ -1924,5 +1933,70 @@ mod tests {
         world.entity_mut(observer).despawn();
 
         assert!(!world.entity(target).contains::<ObservedBy>());
+    }
+
+    #[test]
+    fn observer_system_despawns_observer() {
+        let mut world = World::new();
+        world.add_observer(DespawnObserversOnInit(0));
+
+        use crate::change_detection::{CheckChangeTicks, Tick};
+        use crate::system::{RunSystemError, SystemAccess, SystemStateFlags};
+        use crate::world::unsafe_world_cell::UnsafeWorldCell;
+        use bevy_utils::prelude::DebugName;
+
+        #[expect(unused, reason = "This will only trigger UB if it has nonzero size")]
+        struct DespawnObserversOnInit(usize);
+        impl System for DespawnObserversOnInit {
+            type In = On<'static, Add<()>>;
+
+            type Out = ();
+
+            fn name(&self) -> DebugName {
+                DebugName::type_name::<DespawnObserversOnInit>()
+            }
+
+            fn flags(&self) -> SystemStateFlags {
+                SystemStateFlags::empty()
+            }
+
+            unsafe fn run_unsafe(
+                &mut self,
+                _input: SystemIn<'_, Self>,
+                _world: UnsafeWorldCell,
+            ) -> Result<Self::Out, RunSystemError> {
+                Ok(())
+            }
+
+            #[cfg(feature = "hotpatching")]
+            fn refresh_hotpatch(&mut self) {}
+
+            fn apply_deferred(&mut self, _world: &mut World) {}
+
+            fn queue_deferred(&mut self, _world: DeferredWorld) {
+                todo!()
+            }
+
+            fn initialize(&mut self, world: &mut World) -> SystemAccess {
+                let observers: Vec<_> = world
+                    .query_filtered::<Entity, With<Observer>>()
+                    .query(world)
+                    .iter()
+                    .collect();
+                for observer in observers {
+                    world.despawn(observer);
+                }
+
+                SystemAccess::None
+            }
+
+            fn check_change_tick(&mut self, _check: CheckChangeTicks) {}
+
+            fn get_last_run(&self) -> Tick {
+                unimplemented!()
+            }
+
+            fn set_last_run(&mut self, _last_run: Tick) {}
+        }
     }
 }

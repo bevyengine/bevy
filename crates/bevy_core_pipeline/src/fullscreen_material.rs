@@ -188,7 +188,10 @@ fn init_pipeline<T: FullscreenMaterial>(
 }
 
 #[derive(Component)]
-pub struct FullscreenMaterialPipelineId(pub CachedRenderPipelineId);
+pub struct FullscreenMaterialPipelineId<T: FullscreenMaterial>(
+    pub CachedRenderPipelineId,
+    PhantomData<T>,
+);
 
 fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
     mut commands: Commands,
@@ -200,7 +203,7 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
         if material.is_none() {
             commands
                 .entity(entity)
-                .remove::<FullscreenMaterialPipelineId>();
+                .remove::<FullscreenMaterialPipelineId<T>>();
             continue;
         }
 
@@ -213,7 +216,7 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
 
         commands
             .entity(entity)
-            .insert(FullscreenMaterialPipelineId(pipeline_id));
+            .insert(FullscreenMaterialPipelineId::<T>(pipeline_id, PhantomData));
     }
 
     Ok(())
@@ -292,7 +295,7 @@ pub fn fullscreen_material_system<T: FullscreenMaterial>(
         &ViewTarget,
         &DynamicUniformIndex<T>,
         &FullscreenMaterialBindGroup<T>,
-        &FullscreenMaterialPipelineId,
+        &FullscreenMaterialPipelineId<T>,
     )>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,

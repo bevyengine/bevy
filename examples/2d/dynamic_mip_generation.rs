@@ -319,11 +319,11 @@ fn setup(
 /// Spawns the UI widgets at the bottom of the window.
 fn spawn_ui(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
         Children [
             // Spawn the "Regenerate Top Mip Level" button.
             @FeathersButton {
-                @caption: bsn! { caption("Regenerate Top Mip Level") }
+                @caption: bsn! { @caption("Regenerate Top Mip Level") }
             }
             RegenerateTopMipLevelButton
             Node {
@@ -331,11 +331,10 @@ fn spawn_ui(commands: &mut Commands) {
                 align_items: AlignItems::Center,
             }
             BackgroundColor(Color::BLACK)
-            ,
-
+            --
             // Spawn the "Mip Generation" switch that allows the user to toggle
             // mip generation on and off.
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Mip Generation",
                 &[
                     (
@@ -347,10 +346,11 @@ fn spawn_ui(commands: &mut Commands) {
                         "Off"
                     ),
                 ], 0
-            ),
+            )
+            --
             // Spawn the "Image Width" control that allows the user to set the
             // width of the image.
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Image Width",
                 &[
                     (ImageSizeSetting::ImageWidth(ImageSize::Size240), "240"),
@@ -360,10 +360,11 @@ fn spawn_ui(commands: &mut Commands) {
                     (ImageSizeSetting::ImageWidth(ImageSize::Size1920), "1920"),
                 ],
                 2
-            ),
+            )
+            --
             // Spawn the "Image Height" control that allows the user to set the
             // height of the image.
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Image Height",
                 &[
                     (ImageSizeSetting::ImageHeight(ImageSize::Size240), "240"),
@@ -373,7 +374,7 @@ fn spawn_ui(commands: &mut Commands) {
                     (ImageSizeSetting::ImageHeight(ImageSize::Size1920), "1920"),
                 ],
                 1
-            ),
+            )
         ]
     });
 }
