@@ -232,6 +232,10 @@ impl UiSurface {
     ) {
         let implicit_viewport_node = self.get_or_insert_taffy_viewport_node(ui_root_entity);
 
+        // Ensure rounding is enabled globally before computing the layout tree,
+        // as enable/disable_rounding controls whether rounded node geometry is created during layout.
+        self.taffy.enable_rounding();
+
         let available_space = taffy::geometry::Size {
             width: taffy::style::AvailableSpace::Definite(render_target_resolution.x as f32),
             height: taffy::style::AvailableSpace::Definite(render_target_resolution.y as f32),
@@ -315,6 +319,10 @@ impl UiSurface {
             return Err(UiSurfaceError::NoAssociatedTaffyNode);
         };
 
+        // Note: Taffy's enable/disable_rounding has a dual purpose:
+        // 1. It controls whether rounded geometry is generated during compute_layout.
+        // 2. It controls whether the per-node layout() getter returns rounded or unrounded geometry.
+        // Here we temporarily toggle it to fetch the unrounded size regardless of the global state.
         if use_rounding {
             self.taffy.enable_rounding();
         } else {
@@ -322,19 +330,14 @@ impl UiSurface {
         }
 
         let layout = self.taffy.layout(taffy_node.id).cloned();
-        // Temporarily disable rounding to retrieve the unrounded layout size
+
         self.taffy.disable_rounding();
         let taffy_size = self.taffy.layout(taffy_node.id).unwrap().size;
         let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
 
-        // Restore the initial rounding state instead of unconditionally enabling it
-        if use_rounding {
-            self.taffy.enable_rounding();
-        }
-
         match layout {
             Ok(l) => Ok((l, unrounded_size)),
-            Err(e) => Err(UiSurfaceError::TaffyError(e)),
+            Err(taffy_error) => Err(UiSurfaceError::TaffyError(taffy_error)),
         }
     }
 
