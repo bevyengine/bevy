@@ -3112,7 +3112,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Nes
         // in which case `D` matches the type passed to `new`,
         // or this was created as some other type and transmuted,
         // in which case `D: ReadOnlyQueryData` and `D == D::ReadOnly`.
-        let state = unsafe { state.as_query_state::<D>() };
+        let state = unsafe { state.recover_query_data_type::<D>() };
 
         state.init_access(component_access_set)
     }
@@ -3145,7 +3145,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Nes
         // in which case `D` matches the type passed to `new`,
         // or this was created as some other type and transmuted,
         // in which case `D: ReadOnlyQueryData` and `D == D::ReadOnly`.
-        let state = unsafe { state.as_query_state_mut::<D>() };
+        let state = unsafe { state.recover_query_data_type_mut::<D>() };
 
         state.update_archetypes_unsafe_world_cell(world);
     }
@@ -3181,7 +3181,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for Nest
         // in which case `D` matches the type passed to `new`,
         // or this was created as some other type and transmuted,
         // in which case `D: ReadOnlyQueryData` and `D == D::ReadOnly`.
-        let state = unsafe { state.as_query_state::<D>() };
+        let state = unsafe { state.recover_query_data_type::<D>() };
 
         // SAFETY:
         // - We registered the required access in `init_nested_access`, so it's available.
