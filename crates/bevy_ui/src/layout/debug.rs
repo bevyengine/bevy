@@ -1,60 +1,19 @@
 use core::fmt::Write;
 
-use bevy_ecs::{
-    entity::Entity,
-    hierarchy::{ChildOf, Children},
-    query::{Has, With, Without},
-    system::Query,
-    world::{Ref, World},
-};
+use bevy_ecs::{entity::Entity, world::World};
 
-use crate::{
-    layout::{
-        layout_tree::{collect_ui_children, entity_node_id, node_id_entity, ComputedLayout},
-        UiTreeDirty,
-    },
-    ContentSize, Display, FixedNode, GhostNode, Node,
-};
+use crate::{layout::layout_tree::ComputedLayout, ContentSize, Display, Node, UiRoots};
 
 /// Prints the latest computed UI layout tree for each root node.
+///
+/// Uses
 pub fn print_ui_layout_tree(world: &World) {
-    let mut root_node_query = world
-        .try_query_filtered::<Entity, (With<Node>, Without<ChildOf>)>()
-        .unwrap();
-    let mut fixed_nodes_query = world
-        .try_query_filtered::<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>()
-        .unwrap();
-    let mut ui_hierarchy = world
-        .try_query_filtered::<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>()
-        .unwrap();
-    let mut layout_query = world
-        .try_query::<(&Node, &ComputedLayout, &ContentSize)>()
-        .unwrap();
-    let root_node_query = root_node_query.query(world);
-    let fixed_nodes_query = fixed_nodes_query.query(world);
-    let ui_hierarchy = ui_hierarchy.query(world);
-    let layout_query = layout_query.query(world);
-    let mut root_stack = vec![];
-    for entity in root_node_query.iter() {
-        if ui_hierarchy
-            .get(entity)
-            .is_ok_and(|(_, is_ghost, _)| is_ghost)
-        {
-            collect_ui_children(entity, &ui_hierarchy, &mut root_stack, &mut vec![]);
-        } else {
-            root_stack.push(entity_node_id(entity));
-        }
-    }
-    root_stack.retain(|node_id| !fixed_nodes_query.contains(node_id_entity(*node_id)));
-    root_stack.extend(
-        fixed_nodes_query
-            .iter()
-            .filter_map(|(entity, is_ghost)| (!is_ghost).then_some(entity_node_id(entity))),
-    );
-
-    for entity in root_stack.iter().copied().map(node_id_entity) {
+    let Some(ui_roots) = world.get_resource::<UiRoots>() else {
+        return;
+    };
+    for entity in ui_roots.layout_roots() {
         let mut out = String::new();
-        print_node(&layout_query, entity, false, String::new(), &mut out);
+        print_node(world, entity, false, String::new(), &mut out);
 
         tracing::info!("Layout tree for root entity: {entity}\n{out}");
     }
@@ -62,13 +21,18 @@ pub fn print_ui_layout_tree(world: &World) {
 
 /// Recursively navigates the layout tree printing each node's information.
 fn print_node(
-    layout_query: &Query<(&Node, &ComputedLayout, &ContentSize)>,
+    world: &World,
     entity: Entity,
     has_sibling: bool,
     lines_string: String,
     acc: &mut String,
 ) {
-    let Ok((node, computed_layout, content_size)) = layout_query.get(entity) else {
+    let Ok(entity_ref) = world.get_entity(entity) else {
+        return;
+    };
+    let Ok((node, computed_layout, content_size)) =
+        entity_ref.get_components::<(&Node, &ComputedLayout, &ContentSize)>()
+    else {
         return;
     };
     let Some((layout, _)) = computed_layout.get_layout(true) else {
@@ -113,12 +77,6 @@ fn print_node(
     // Recurse into children
     for (index, child_entity) in computed_layout.child_entities().enumerate() {
         let has_sibling = index < num_children - 1;
-        print_node(
-            layout_query,
-            child_entity,
-            has_sibling,
-            new_string.clone(),
-            acc,
-        );
+        print_node(world, child_entity, has_sibling, new_string.clone(), acc);
     }
 }
