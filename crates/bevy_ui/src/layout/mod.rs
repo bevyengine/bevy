@@ -336,7 +336,9 @@ pub fn mark_dirty_ui_trees(
     }
 }
 
-/// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
+/// Syncs and computes `ComputedLayout`, and resets unreachable nodes.
+///
+/// Runs in `UiSystems::Layout`.
 pub fn ui_layout_system(
     ui_roots: Res<UiRoots>,
     ui_children: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
