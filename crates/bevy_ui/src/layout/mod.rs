@@ -325,7 +325,7 @@ pub fn mark_dirty_ui_trees(
         while let Ok((mut dirty_tree, is_fixed_node, is_ghost_node, maybe_child_of)) =
             trees.get_mut(next)
         {
-            // If `UiDirtyTree` was added since the last update, `is_changed()` will be `true` even if this node wasn't already visited.
+            // If [`UiTreeDirty`] was added since the last update, `is_changed()` will be `true` even if this node wasn't already visited.
             // So we can't skip it as we don't know if it was already visited.
             if dirty_tree.is_changed() && !dirty_tree.is_added() {
                 break;
