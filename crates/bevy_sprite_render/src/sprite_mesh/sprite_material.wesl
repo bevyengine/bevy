@@ -9,6 +9,8 @@ import package::{
 };
 @if(BINDLESS)
 import package::sprite_mesh::bindings::material_indices;
+@if(LIGHTING_2D)
+import package::light::lighting::apply_lighting_2d;
 
 @if(TONEMAP_IN_SHADER)
 import bevy_core_pipeline::tonemapping;
@@ -72,6 +74,9 @@ fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
     var output_color = sprite_functions::sample_final_color(mesh.uv, mesh.instance_index);
+
+@if(LIGHTING_2D)
+    output_color = apply_lighting_2d(output_color);
 
 @if(TONEMAP_IN_SHADER)
     output_color = tonemapping::tone_mapping(output_color, view.color_grading);

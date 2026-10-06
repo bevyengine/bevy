@@ -20,6 +20,7 @@ pub struct Lighting2dPlugin;
 impl Plugin for Lighting2dPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "types.wesl");
+        load_shader_library!(app, "lighting.wesl");
 
         app.init_resource::<GlobalAmbientLight2d>().add_plugins((
             ExtractComponentPlugin::<PointLight2d, RenderApp, Self>::default(),

@@ -4,6 +4,8 @@ import package::mesh2d::{
     bindings::mesh,
 };
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
+@if(LIGHTING_2D)
+import package::light::lighting::apply_lighting_2d;
 
 @if(TONEMAP_IN_SHADER)
 import bevy_core_pipeline::tonemapping;
@@ -86,6 +88,8 @@ fn fragment(
 
     output_color = alpha_discard(flags, alpha_cutoff, output_color);
 
+@if(LIGHTING_2D)
+    output_color = apply_lighting_2d(output_color);
 @if(TONEMAP_IN_SHADER)
     output_color = tonemapping::tone_mapping(output_color, view.color_grading);
 @if(SRGB_OUTPUT)
