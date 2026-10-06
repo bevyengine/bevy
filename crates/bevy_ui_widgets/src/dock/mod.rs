@@ -1,8 +1,8 @@
-//! Dock layouts for Bevy UI, described as plain data.
+//! Dock layouts for Bevy UI.
 //!
-//! A [`DockTree`] describes how a region of the screen is divided into tab groups. It holds
-//! no entities and draws nothing; UI is built from it and kept in sync by other code. Layout
-//! changes such as moving, splitting or closing tabs are made on the tree.
+//! A [`DockTree`] describes how a region of the screen is divided into tab groups. It is
+//! plain data: layout changes such as moving, splitting or closing tabs are made on the tree,
+//! and [`DockPlugin`] builds and updates UI to match.
 //!
 //! The tree has two kinds of node:
 //!
@@ -43,14 +43,6 @@
 //! assert_eq!(tree.leaves().count(), 4);
 //! ```
 //!
-//! The above code produces this layout:
-//!
-//!  ┌───┬───┬─────┐
-//!  │ O │ V │ I/S │
-//!  ├───┴───┴─────┤
-//!  │     A       │
-//!  └─────────────┘
-//!
 //! The above code produces this layout, where `O` is the outliner, `V` the viewport, `I/S` the
 //! inspector and settings tabs, and `A` the assets:
 //!
@@ -62,9 +54,30 @@
 //! +---+---+-----+
 //! ```
 //!
+//! # UI
+//!
+//! [`DockPlugin`] is part of [`UiWidgetsPlugins`](crate::UiWidgetsPlugins). With it, an
+//! entity with a [`DockTree`] and a [`Node`] gets UI built as its children: each split becomes a
+//! [`SplitPane`] with [`SplitPaneHandle`]s between its panes, and each leaf becomes a column
+//! holding a [`TabList`] and a content area. The app gives each [`DockPanelKey`] a title and a
+//! content builder in [`DockPanels`]. Content is built once per tab and kept until the tab is
+//! removed, so its state survives switching and moving tabs. The UI is headless: it has the
+//! layout it needs and no colors.
+//!
+//! The UI is controlled. Selecting a tab or dragging a splitter sends a [`DockChange`] to
+//! the dock entity instead of changing the tree. Add [`dock_self_update`] as an observer on
+//! the dock entity to apply these changes, or observe [`DockChange`] and edit the tree with
+//! [`DockEdit::apply`] or other operations.
+//!
 //! [`ControlOrientation`]: crate::ControlOrientation
+//! [`Node`]: bevy_ui::Node
+//! [`SplitPane`]: crate::SplitPane
+//! [`SplitPaneHandle`]: crate::SplitPaneHandle
+//! [`TabList`]: crate::TabList
 //! [`Pane::size`]: crate::Pane::size
 
 mod tree;
+mod ui;
 
 pub use tree::*;
+pub use ui::*;
