@@ -4,8 +4,8 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::{ChildOf, Children},
     query::{Has, With, Without},
-    system::{Local, Query},
-    world::Ref,
+    system::Query,
+    world::{Ref, World},
 };
 
 use crate::{
@@ -17,14 +17,24 @@ use crate::{
 };
 
 /// Prints the latest computed UI layout tree for each root node.
-pub fn print_ui_layout_tree(
-    root_node_query: Query<Entity, (With<Node>, Without<ChildOf>)>,
-    fixed_nodes_query: Query<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>,
-    ui_hierarchy: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
-    layout_query: Query<(&Node, &ComputedLayout, &ContentSize)>,
-    mut root_stack: Local<Vec<taffy::NodeId>>,
-) {
-    root_stack.clear();
+pub fn print_ui_layout_tree(world: &World) {
+    let mut root_node_query = world
+        .try_query_filtered::<Entity, (With<Node>, Without<ChildOf>)>()
+        .unwrap();
+    let mut fixed_nodes_query = world
+        .try_query_filtered::<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>()
+        .unwrap();
+    let mut ui_hierarchy = world
+        .try_query_filtered::<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>()
+        .unwrap();
+    let mut layout_query = world
+        .try_query::<(&Node, &ComputedLayout, &ContentSize)>()
+        .unwrap();
+    let root_node_query = root_node_query.query(world);
+    let fixed_nodes_query = fixed_nodes_query.query(world);
+    let ui_hierarchy = ui_hierarchy.query(world);
+    let layout_query = layout_query.query(world);
+    let mut root_stack = vec![];
     for entity in root_node_query.iter() {
         if ui_hierarchy
             .get(entity)
