@@ -31,11 +31,11 @@ pub mod layout_tree;
 #[cfg(test)]
 mod tests;
 
-/// `UiTreeDirty` is used to signal that a `Node` 's subtree contains a
+/// `UiTreeDirty` is used to signal that a `Node`'s subtree contains a
 /// change that requires a layout update.
 /// ZST marker component uses change detection to signal changes.
 ///
-/// Doesn't need to be reset,
+/// Doesn't need to be reset.
 /// Optimization copied from `bevy_transform`'s `TransformTreeChanged`.
 #[derive(Component, Default, Debug, Clone)]
 pub struct UiTreeDirty;
@@ -46,7 +46,7 @@ pub struct UiTreeDirty;
 pub struct UiRoots {
     /// All parentless UI nodes.
     parentless: Vec<Entity>,
-    /// All parentless, non-ghost root UI nodes.    
+    /// All parentless, non-ghost root UI nodes.
     parentless_non_ghosts: Vec<Entity>,
     /// All non-ghost nodes with no non-ghost ancestors.
     roots_under_ghosts: Vec<Entity>,
