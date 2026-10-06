@@ -10,3 +10,11 @@
 mod point_light;
 
 pub use point_light::PointLight2d;
+
+/// The 2d lighting prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::PointLight2d;
+}
