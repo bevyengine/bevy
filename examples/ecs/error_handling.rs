@@ -2,8 +2,8 @@
 //! syntax.
 
 use bevy::ecs::{entity::SpawnError, error::warn, world::DeferredWorld};
-use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
+use bevy::shape::sampling::UniformMeshSampler;
 
 use chacha20::ChaCha8Rng;
 use rand::distr::Distribution;
@@ -31,7 +31,7 @@ fn main() {
     // types of systems the same way, except for the error handling.
     app.add_systems(Startup, setup);
 
-    // Commands can also return `Result`s, which are automatically handled by the global error handler
+    // Commands can also return `Result`s, which are automatically handled by the fallback error handler
     // if not explicitly handled by the user.
     app.add_systems(Startup, failing_commands);
 
@@ -124,7 +124,7 @@ fn setup(
 
 // Observer systems can also return a `Result`.
 fn fallible_observer(
-    pointer_move: On<Pointer<Move>>,
+    pointer_move: On<PointerMove>,
     mut world: DeferredWorld,
     mut step: Local<f32>,
 ) -> Result {
@@ -177,7 +177,7 @@ fn failing_commands(mut commands: Commands) {
         // This entity doesn't exist!
         .entity(Entity::from_raw_u32(12345678).unwrap())
         // Normally, this failed command would panic,
-        // but since we've set the global error handler to `warn`
+        // but since we've set the fallback error handler to `warn`
         // it will log a warning instead.
         .insert(Transform::default());
 

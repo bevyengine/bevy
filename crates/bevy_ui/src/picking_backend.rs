@@ -21,7 +21,7 @@
 //!   `(-0.5, -0.5, 0.)` at the top left and `(0.5, 0.5, 0.)` in the bottom right. Coordinates are
 //!   relative to the entire node, not just the visible region. This backend does not provide a `normal`.
 
-use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
+use crate::{prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
 use bevy_camera::{visibility::InheritedVisibility, Camera, RenderTarget};
 use bevy_ecs::{prelude::*, query::QueryData};
@@ -92,6 +92,7 @@ pub struct NodeQuery {
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedUiTargetCamera,
     text_node: Option<(&'static TextLayoutInfo, &'static ComputedTextBlock)>,
+    calculated_clip: Option<&'static CalculatedClip>,
 }
 
 /// Computes the UI node entities under each pointer.
@@ -106,8 +107,6 @@ pub fn ui_picking(
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: MessageWriter<PointerHits>,
-    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: Query<&ChildOf, Without<OverrideClip>>,
     pickable_query: Query<&Pickable>,
 ) {
     // Map from each camera to its active pointers and their positions in viewport space
@@ -132,13 +131,14 @@ pub fn ui_picking(
         {
             let mut pointer_pos =
                 pointer_location.position * camera.target_scaling_factor().unwrap_or(1.);
-            if let Some(viewport) = camera.physical_viewport_rect() {
-                if !viewport.as_rect().contains(pointer_pos) {
-                    // The pointer is outside the viewport, skip it
-                    continue;
-                }
-                pointer_pos -= viewport.min.as_vec2();
-            }
+            let Some(viewport) = camera
+                .physical_viewport_rect()
+                .filter(|r| r.as_rect().contains(pointer_pos))
+            else {
+                // The camera has no viewport or the pointer is outside the viewport, skip it
+                continue;
+            };
+            pointer_pos -= viewport.min.as_vec2();
             pointer_pos_by_camera
                 .entry(entity)
                 .or_default()
@@ -204,12 +204,9 @@ pub fn ui_picking(
             // Coordinates are relative to the entire node, not just the visible region.
             for (pointer_id, cursor_position) in pointers_on_this_cam.iter() {
                 if node.node.contains_point(*node.transform, *cursor_position)
-                    && clip_check_recursive(
-                        *cursor_position,
-                        node_entity,
-                        &clipping_query,
-                        &child_of_query,
-                    )
+                    && node
+                        .calculated_clip
+                        .is_none_or(|clip| clip.contains_point(*cursor_position))
                     && let Some(target) = node
                         .text_node
                         .and_then(|(text_layout_info, text_block)| {
@@ -294,5 +291,8 @@ fn pick_ui_text_section(
         .iter()
         .find(|run| run.bounds.contains(local_point))
         .map(|run| run.section_index)?;
-    text_block.entities().get(section_index).map(|e| e.entity)
+    text_block
+        .entities()
+        .get(section_index as usize)
+        .map(|e| e.entity)
 }

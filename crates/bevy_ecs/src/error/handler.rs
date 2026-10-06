@@ -107,6 +107,8 @@ pub type ErrorHandler = fn(BevyError, ErrorContext);
 /// Fallback error handler to call when an error is not handled otherwise.
 /// Defaults to [`match_severity()`].
 ///
+/// Called both for explicitly returned errors, and when a panic occurs.
+///
 /// When updated while a [`Schedule`] is running, it doesn't take effect for
 /// that schedule until it's completed.
 ///
@@ -119,10 +121,6 @@ impl Default for FallbackErrorHandler {
         Self(match_severity)
     }
 }
-
-/// Deprecated alias for [`FallbackErrorHandler`].
-#[deprecated(since = "0.19.0", note = "Renamed to `FallbackErrorHandler`.")]
-pub type DefaultErrorHandler = FallbackErrorHandler;
 
 /// Error handler that defers to an error's [`Severity`].
 #[track_caller]
@@ -139,10 +137,24 @@ pub fn match_severity(err: BevyError, ctx: ErrorContext) {
     }
 }
 
-/// Error handler that panics with the system error.
+/// Error handler that panics with the system error. If panics are passed as errors
+/// these will be resumed.
 #[track_caller]
 #[inline]
-pub fn panic(error: BevyError, ctx: ErrorContext) {
+#[expect(
+    clippy::allow_attributes,
+    reason = "allow is needed because this only applies for no-std"
+)]
+#[allow(unused_mut, reason = "mut is needed for std feature")]
+pub fn panic(mut error: BevyError, ctx: ErrorContext) {
+    // if the error originates from a panic, just resume unwinding
+    #[cfg(feature = "std")]
+    if matches!(error.severity(), Severity::Panic)
+        && let Some(payload) = error.take_payload()
+    {
+        std::panic::resume_unwind(payload);
+    }
+
     inner!(panic, error, ctx);
 }
 

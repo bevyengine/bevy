@@ -6,7 +6,7 @@
 //! Same as [`component`](`super::component`), but for messages.
 
 use crate::{message::Message, reflect::from_reflect_with_fallback, world::World};
-use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on reflected [`Message`] trait of a type.
 ///
@@ -41,12 +41,12 @@ pub struct ReflectMessageFns {
 
 impl ReflectMessageFns {
     /// Get the default set of [`ReflectMessageFns`] for a specific event type
-    /// using its [`FromType`] implementation.
+    /// using its [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation
     /// before overriding some of the functions to create a custom implementation.
     pub fn new<M: Message + FromReflect + TypePath>() -> Self {
-        <ReflectMessage as FromType<M>>::from_type().0
+        <ReflectMessage as CreateTypeData<M>>::create_type_data(()).0
     }
 }
 
@@ -97,8 +97,8 @@ impl ReflectMessage {
     }
 }
 
-impl<M: Message + Reflect + TypePath> FromType<M> for ReflectMessage {
-    fn from_type() -> Self {
+impl<M: Message + Reflect + TypePath> CreateTypeData<M> for ReflectMessage {
+    fn create_type_data(_input: ()) -> Self {
         ReflectMessage(ReflectMessageFns {
             write_message: |world, reflected_message, registry| {
                 let message = from_reflect_with_fallback::<M>(reflected_message, world, registry);

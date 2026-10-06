@@ -4,12 +4,12 @@ use bevy_math::{ops, Vec3, Vec4};
 /// guaranteed to produce consistent results across color spaces,
 /// but will be within a given space.
 pub trait Luminance: Sized {
-    /// Return the luminance of this color (0.0 - 1.0).
+    /// Return the luminance of this color. SDR colors are in `[0.0, 1.0]`. An HDR
+    /// color's luminance can be above or below 1.0.
     fn luminance(&self) -> f32;
 
-    /// Return a new version of this color with the given luminance. The resulting color will
-    /// be clamped to the valid range for the color space; for some color spaces, clamping
-    /// may cause the hue or chroma to change.
+    /// Return a new version of this color with the given luminance. The result is not
+    /// clamped, so an out-of-range target is stored as-is.
     fn with_luminance(&self, value: f32) -> Self;
 
     /// Return a darker version of this color. The `amount` should be between 0.0 and 1.0.
@@ -23,7 +23,8 @@ pub trait Luminance: Sized {
     /// Return a lighter version of this color. The `amount` should be between 0.0 and 1.0.
     /// The amount represents an absolute increase in luminance, and is distributive:
     /// `color.lighter(a).lighter(b) == color.lighter(a + b)`. Colors are clamped to white
-    /// if the amount would cause them to go above white.
+    /// if the amount would cause them to go above white, so this operation is not suitable
+    /// for HDR colors. To scale an HDR color, use [`with_luminance`](Luminance::with_luminance).
     ///
     /// For a relative increase in luminance, you can simply `mix()` with white.
     fn lighter(&self, amount: f32) -> Self;
@@ -126,33 +127,33 @@ pub trait Saturation: Sized {
 
 /// Trait with methods for converting colors to non-color types
 pub trait ColorToComponents {
-    /// Convert to an f32 array
+    /// Convert to an `f32` array
     fn to_f32_array(self) -> [f32; 4];
-    /// Convert to an f32 array without the alpha value
+    /// Convert to an `f32` array without the alpha value
     fn to_f32_array_no_alpha(self) -> [f32; 3];
-    /// Convert to a Vec4
+    /// Convert to a `Vec4`
     fn to_vec4(self) -> Vec4;
-    /// Convert to a Vec3
+    /// Convert to a `Vec3`
     fn to_vec3(self) -> Vec3;
-    /// Convert from an f32 array
+    /// Convert from an `f32` array
     fn from_f32_array(color: [f32; 4]) -> Self;
-    /// Convert from an f32 array without the alpha value
+    /// Convert from an `f32` array without the alpha value
     fn from_f32_array_no_alpha(color: [f32; 3]) -> Self;
-    /// Convert from a Vec4
+    /// Convert from a `Vec4`
     fn from_vec4(color: Vec4) -> Self;
-    /// Convert from a Vec3
+    /// Convert from a `Vec3`
     fn from_vec3(color: Vec3) -> Self;
 }
 
 /// Trait with methods for converting colors to packed non-color types
 pub trait ColorToPacked {
-    /// Convert to [u8; 4] where that makes sense (Srgba is most relevant)
+    /// Convert to `[u8; 4]` where that makes sense (Srgba is most relevant)
     fn to_u8_array(self) -> [u8; 4];
-    /// Convert to [u8; 3] where that makes sense (Srgba is most relevant)
+    /// Convert to `[u8; 3]` where that makes sense (Srgba is most relevant)
     fn to_u8_array_no_alpha(self) -> [u8; 3];
-    /// Convert from [u8; 4] where that makes sense (Srgba is most relevant)
+    /// Convert from `[u8; 4]` where that makes sense (Srgba is most relevant)
     fn from_u8_array(color: [u8; 4]) -> Self;
-    /// Convert to [u8; 3] where that makes sense (Srgba is most relevant)
+    /// Convert to `[u8; 3]` where that makes sense (Srgba is most relevant)
     fn from_u8_array_no_alpha(color: [u8; 3]) -> Self;
 }
 

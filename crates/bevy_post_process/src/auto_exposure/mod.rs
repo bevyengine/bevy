@@ -46,7 +46,7 @@ struct AutoExposureResources {
 
 impl Plugin for AutoExposurePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "auto_exposure.wgsl");
+        embedded_asset!(app, "auto_exposure.wesl");
 
         app.add_plugins(RenderAssetPlugin::<GpuAutoExposureCompensationCurve>::default())
             .init_asset::<AutoExposureCompensationCurve>()

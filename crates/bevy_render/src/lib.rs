@@ -38,17 +38,31 @@ extern crate self as bevy_render;
 
 pub mod batching;
 pub mod camera;
+pub mod combined_bind_group;
 pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod error_handler;
-pub mod extract_component;
-pub mod extract_instances;
-mod extract_param;
-pub mod extract_plugin;
-pub mod extract_resource;
+pub mod extract_component {
+    pub type ExtractComponentPlugin<C, F = ()> =
+        bevy_extract::extract_component::ExtractComponentPlugin<C, crate::RenderApp, F>;
+
+    pub use crate::uniform::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin};
+
+    pub use bevy_extract::extract_component::ExtractComponent;
+}
+pub mod extract_plugin {
+    pub use bevy_extract::extract_plugin::ExtractPlugin;
+}
+pub mod extract_resource {
+    pub type ExtractResourcePlugin<R, F = ()> =
+        bevy_extract::extract_resource::ExtractResourcePlugin<R, crate::RenderApp, F>;
+
+    pub use bevy_extract::extract_resource::{extract_resource, ExtractResource};
+}
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod gpu_readback;
+pub mod material_bind_groups;
 pub mod mesh;
 pub mod occlusion_culling;
 #[cfg(not(target_arch = "wasm32"))]
@@ -60,8 +74,23 @@ pub mod renderer;
 pub mod settings;
 pub mod slab_allocator;
 pub mod storage;
-pub mod sync_component;
-pub mod sync_world;
+pub mod sync_component {
+    pub type SyncComponentPlugin<C, F = ()> =
+        bevy_extract::sync_component::SyncComponentPlugin<C, crate::RenderApp, F>;
+
+    pub use bevy_extract::sync_component::SyncComponent;
+}
+pub mod sync_world {
+    pub type SyncToRenderWorld = bevy_extract::sync_world::SyncToSubWorld<crate::RenderApp>;
+
+    pub type RenderEntity = bevy_extract::sync_world::SubEntity<crate::RenderApp>;
+
+    pub type TemporaryRenderEntity = bevy_extract::sync_world::TemporaryEntity<crate::RenderApp>;
+
+    pub use bevy_extract::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
+}
+#[cfg(test)]
+pub(crate) mod test_utils;
 pub mod texture;
 pub mod uniform;
 pub mod view;
@@ -76,15 +105,16 @@ pub mod prelude {
         view::Msaa, ExtractSchedule,
     };
 }
-
-pub use extract_param::Extract;
-pub use extract_plugin::{ExtractSchedule, MainWorld};
+pub use bevy_extract::{
+    extract_param::Extract,
+    extract_plugin::{ExtractSchedule, MainWorld},
+};
 
 use crate::{
     camera::CameraPlugin,
     error_handler::{RenderErrorHandler, RenderState},
-    extract_plugin::ExtractPlugin,
     gpu_readback::GpuReadbackPlugin,
+    material_bind_groups::MaterialBindGroupPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, SparseBufferPlugin},
@@ -96,13 +126,14 @@ use crate::{
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, First, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{
     prelude::*,
     schedule::{InternedScheduleLabel, ScheduleLabel},
 };
+use bevy_extract::ExtractPlugin;
 use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_time::TimeSender;
@@ -115,7 +146,7 @@ use render_asset::{
     RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
 };
 use settings::RenderResources;
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -256,7 +287,7 @@ pub struct RenderScheduleOrder {
 impl Default for RenderScheduleOrder {
     fn default() -> Self {
         Self {
-            labels: vec![Render.intern()],
+            labels: vec![First.intern(), Render.intern()],
         }
     }
 }
@@ -284,6 +315,8 @@ impl RenderScheduleOrder {
 }
 
 /// The main render schedule.
+///
+/// See also [`RenderGraph`] for more details.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct Render;
 
@@ -310,16 +343,17 @@ impl Render {
                 Cleanup,
                 PostCleanup,
             )
-                .chain(),
+                .chain_weak(),
         );
         schedule.ignore_ambiguity(Specialize, Specialize);
 
-        schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
+        schedule
+            .configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain_weak());
         schedule.configure_sets(
             (QueueMeshes, QueueSweep)
-                .chain()
+                .chain_weak()
                 .in_set(Queue)
-                .after(prepare_assets::<RenderMesh>),
+                .after_weak(prepare_assets::<RenderMesh>),
         );
         schedule.configure_sets(
             (
@@ -330,7 +364,7 @@ impl Render {
                 PrepareResourcesFlush,
                 PrepareBindGroups,
             )
-                .chain()
+                .chain_weak()
                 .in_set(Prepare),
         );
 
@@ -342,7 +376,7 @@ impl Render {
 pub(crate) struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
 /// A label for the rendering sub-app.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel, Default)]
 pub struct RenderApp;
 
 impl Plugin for RenderPlugin {
@@ -350,16 +384,22 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
-        load_shader_library!(app, "maths.wgsl");
-        load_shader_library!(app, "color_operations.wgsl");
-        load_shader_library!(app, "bindless.wgsl");
+        load_shader_library!(app, "utils.wesl");
+        load_shader_library!(app, "view.wesl");
+        load_shader_library!(app, "maths.wesl");
+        load_shader_library!(app, "color_operations.wesl");
+        load_shader_library!(app, "bindless.wesl");
 
         if insert_future_resources(&self.render_creation, app.world_mut()) {
             // We only create the render world and set up extraction if we
             // have a rendering backend available.
-            app.add_plugins(ExtractPlugin {
-                pre_extract: error_handler::update_state,
-            });
+            app.add_plugins(ExtractPlugin::<RenderApp>::new(
+                error_handler::update_state,
+                Render::base_schedule,
+                Render.intern(),
+                RenderSystems::ExtractCommands.intern(),
+                RenderSystems::PostCleanup.intern(),
+            ));
         };
 
         app.add_plugins((
@@ -376,6 +416,7 @@ impl Plugin for RenderPlugin {
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
             SparseBufferPlugin,
+            MaterialBindGroupPlugin,
             #[cfg(feature = "tracing-tracy")]
             diagnostic::RenderDiagnosticsPlugin,
         ));
@@ -582,6 +623,5 @@ pub fn get_pixel10_driver_version(adapter_info: &RenderAdapterInfo) -> Option<u3
 /// Returns true if storage buffers are unsupported on this platform or false
 /// if they are supported.
 pub fn storage_buffers_are_unsupported(limits: &WgpuLimits) -> bool {
-    static STORAGE_BUFFERS_UNSUPPORTED: OnceLock<bool> = OnceLock::new();
-    *STORAGE_BUFFERS_UNSUPPORTED.get_or_init(|| limits.max_storage_buffers_per_shader_stage == 0)
+    limits.max_storage_buffers_per_shader_stage == 0
 }

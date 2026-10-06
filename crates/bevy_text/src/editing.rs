@@ -73,13 +73,15 @@
 // and `bevy_ui`, such as text layout and font management.
 
 use crate::{
-    text_edit::{poll_and_apply_paste, TextEdit},
+    scroll::TextViewport,
+    text_edit::{poll_and_apply_paste, reveal_cursor, TextEdit},
     FontCx, FontHinting, LayoutCx, LineHeight, TextBrush, TextColor, TextFont, TextLayout,
 };
 use alloc::sync::Arc;
 use bevy_clipboard::ClipboardRead;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
+use bevy_math::Vec2;
 use core::time::Duration;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
 
@@ -101,7 +103,8 @@ use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
     TextColor,
     LineHeight,
     FontHinting,
-    EditableTextGeneration
+    EditableTextGeneration,
+    TextReadWriteMode
 )]
 pub struct EditableText {
     /// A [`parley::PlainEditor`], tracking both the text content and cursor position.
@@ -115,6 +118,8 @@ pub struct EditableText {
     /// These operations should generally be batched together to avoid redundant layout work.
     // The B: Brush generic here must match the brush used by `ComputedTextBlock` to ensure that the font system is compatible.
     pub editor: PlainEditor<TextBrush>,
+    /// The bounds of the visible portion of the text layout.
+    pub viewport: TextViewport,
     /// Text edit actions that have been requested but not yet applied.
     ///
     /// These edits are processed in first-in, first-out order.
@@ -128,6 +133,11 @@ pub struct EditableText {
     /// rather than draining further edits, so that everything after the paste stays correctly ordered *behind* it.
     // TODO: this may cause unexpected stalls if the clipboard read takes too long. We may want to add a timeout.
     pub pending_paste: Option<ClipboardRead>,
+    /// Cursor reveal margins as fractions of the viewport size.
+    ///
+    /// Each component is applied to both edges of its axis. Values are clamped
+    /// to `0.0..=0.5`, and non-finite values are treated as zero.
+    pub cursor_margin: Vec2,
     /// Cursor width, relative to font size
     pub cursor_width: f32,
     /// Cursor blink period in seconds.
@@ -151,6 +161,8 @@ impl Default for EditableText {
         Self {
             // Defaults selected to match `Text::default()`
             editor: PlainEditor::new(100.),
+            viewport: TextViewport::default(),
+            cursor_margin: Vec2::splat(0.2),
             pending_edits: Vec::new(),
             pending_paste: None,
             cursor_width: 0.2,
@@ -217,6 +229,8 @@ impl EditableText {
             pending_edits,
             pending_paste,
             max_characters,
+            viewport,
+            cursor_margin,
             ..
         } = self;
 
@@ -225,11 +239,15 @@ impl EditableText {
         // First: resolve any paste carried over from a previous frame. If it's still
         // pending, hold the remaining edits (untouched in `pending_edits`) for next frame
         // so ordering relative to the paste is preserved.
-        if let Some(mut read) = pending_paste.take()
-            && !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter)
-        {
-            *pending_paste = Some(read);
-            return;
+        if let Some(mut read) = pending_paste.take() {
+            let generation = driver.editor.generation();
+            if !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter) {
+                *pending_paste = Some(read);
+                return;
+            }
+            if generation != driver.editor.generation() {
+                reveal_cursor(&mut driver, viewport, *cursor_margin);
+            }
         }
 
         // Drain edits one at a time. A paste that resolves synchronously (always the case
@@ -239,6 +257,7 @@ impl EditableText {
         while let Some(edit) = edits.next() {
             match edit {
                 TextEdit::Paste => {
+                    let generation = driver.editor.generation();
                     let mut read = clipboard.fetch_text();
                     if !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter)
                     {
@@ -246,13 +265,23 @@ impl EditableText {
                         pending_edits.extend(edits);
                         return;
                     }
+                    if generation != driver.editor.generation() {
+                        reveal_cursor(&mut driver, viewport, *cursor_margin);
+                    }
                 }
-                other => other.apply(&mut driver, clipboard, *max_characters, &char_filter),
+                other => other.apply(
+                    &mut driver,
+                    viewport,
+                    *cursor_margin,
+                    clipboard,
+                    *max_characters,
+                    &char_filter,
+                ),
             }
         }
     }
 
-    /// Clears the input's text buffer and any pending edits.
+    /// Clears the input's text buffer and any pending edits, and moves the cursor to the start.
     ///
     /// Also drops any in-flight paste. The underlying clipboard read task
     /// will still complete, but its result is discarded.
@@ -260,6 +289,7 @@ impl EditableText {
         self.editor.set_text("");
         self.pending_edits.clear();
         self.pending_paste = None;
+        self.queue_edit(TextEdit::TextStart(false));
     }
 
     /// Is the IME currently composing text for this input?
@@ -282,6 +312,20 @@ pub struct EditableTextGeneration(parley::Generation);
 /// The filter does not apply to characters already within the `EditableText`'s text buffer.
 #[derive(Component, Clone, Default)]
 pub struct EditableTextFilter(Option<Arc<dyn Fn(char) -> bool + Send + Sync + 'static>>);
+
+/// Indicates whether the text is editable, or is in "readonly" mode. A special "static" mode is
+/// also available, which is used by the feathers number input widget.
+#[derive(Component, Clone, Copy, Default, PartialEq, Debug)]
+pub enum TextReadWriteMode {
+    /// Text input functions normally
+    #[default]
+    Editable,
+    /// Cursor movement, selection, and copy to clipboard is still enabled, but no mutations are allowed
+    ReadOnly,
+    /// Display only, all interactions disabled - this is used by number input widget when dragging.
+    /// This disallows cursor movement and selection as well.
+    Static,
+}
 
 impl EditableTextFilter {
     /// Create a new `EditableTextFilter` from the given filter function.
@@ -308,7 +352,7 @@ pub fn apply_text_edits(
         // so check for either before doing work.
         if !editable_text.pending_edits.is_empty() || editable_text.pending_paste.is_some() {
             editable_text.apply_pending_edits(
-                &mut font_context.0,
+                &mut font_context,
                 &mut layout_context.0,
                 &mut clipboard,
                 match filter {
@@ -330,4 +374,53 @@ pub fn apply_text_edits(
 #[derive(EntityEvent)]
 pub struct TextEditChange {
     entity: Entity,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::borrow::Cow;
+    use parley::FontFamilyName;
+
+    fn edit_after_clear(setup: TextEdit, edit: TextEdit) -> String {
+        let mut font_context = FontContext::new();
+        let font = crate::Font::from_bytes(include_bytes!("FiraMono-subset.ttf").to_vec());
+        font_context.collection.register_fonts(font.data, None);
+        let mut layout_context = LayoutContext::new();
+        let mut clipboard = bevy_clipboard::Clipboard::default();
+
+        let mut text = EditableText::new("hello world");
+        text.editor
+            .edit_styles()
+            .insert(FontFamilyName::Named(Cow::Borrowed("Fira Mono")).into());
+        text.queue_edit(setup);
+        text.apply_pending_edits(
+            &mut font_context,
+            &mut layout_context,
+            &mut clipboard,
+            |_| true,
+        );
+
+        text.clear();
+        text.queue_edit(edit);
+        text.apply_pending_edits(
+            &mut font_context,
+            &mut layout_context,
+            &mut clipboard,
+            |_| true,
+        );
+        text.value().to_string()
+    }
+
+    #[test]
+    fn insert_after_clear_uses_a_fresh_cursor() {
+        let value = edit_after_clear(TextEdit::TextEnd(false), TextEdit::Insert("x".into()));
+        assert_eq!(value, "x");
+    }
+
+    #[test]
+    fn delete_after_clear_ignores_the_old_selection() {
+        let value = edit_after_clear(TextEdit::SelectAll, TextEdit::Backspace);
+        assert_eq!(value, "");
+    }
 }

@@ -1,7 +1,7 @@
 macro_rules! impl_reflect_for_veclike {
     ($ty:ty, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
         const _: () = {
-            impl<T: $crate::from_reflect::FromReflect + $crate::type_info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::list::List for $ty {
+            impl<T: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::list::List for $ty {
                 #[inline]
                 fn get(&self, index: usize) -> Option<&dyn $crate::reflect::PartialReflect> {
                     <$sub>::get(self, index).map(|value| value as &dyn $crate::reflect::PartialReflect)
@@ -60,10 +60,10 @@ macro_rules! impl_reflect_for_veclike {
                 }
             }
 
-            impl<T: $crate::from_reflect::FromReflect + $crate::type_info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::reflect::PartialReflect for $ty {
+            impl<T: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::reflect::PartialReflect for $ty {
                 #[inline]
-                fn get_represented_type_info(&self) -> Option<&'static $crate::type_info::TypeInfo> {
-                    Some(<Self as $crate::type_info::Typed>::type_info())
+                fn get_represented_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
+                    Some(<Self as $crate::info::Typed>::type_info())
                 }
 
                 fn into_partial_reflect(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect> {
@@ -139,13 +139,13 @@ macro_rules! impl_reflect_for_veclike {
                 }
             }
 
-            $crate::impl_full_reflect!(<T> for $ty where T: $crate::from_reflect::FromReflect + $crate::type_info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration);
+            $crate::impl_full_reflect!(<T> for $ty where T: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration);
 
-            impl<T: $crate::from_reflect::FromReflect + $crate::type_info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::type_info::Typed for $ty {
-                fn type_info() -> &'static $crate::type_info::TypeInfo {
+            impl<T: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::info::Typed for $ty {
+                fn type_info() -> &'static $crate::info::TypeInfo {
                     static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
                     CELL.get_or_insert::<Self, _>(|| {
-                        $crate::type_info::TypeInfo::List(
+                        $crate::info::TypeInfo::List(
                             $crate::list::ListInfo::new::<Self, T>().with_generics($crate::generics::Generics::from_iter([
                                 $crate::generics::TypeParamInfo::new::<T>("T")
                             ]))
@@ -154,13 +154,13 @@ macro_rules! impl_reflect_for_veclike {
                 }
             }
 
-            impl<T: $crate::from_reflect::FromReflect + $crate::type_info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::type_registry::GetTypeRegistration
+            impl<T: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::type_registry::GetTypeRegistration
                 for $ty
             {
                 fn get_type_registration() -> $crate::type_registry::TypeRegistration {
                     let mut registration = $crate::type_registry::TypeRegistration::of::<$ty>();
-                    registration.insert::<$crate::type_registry::ReflectFromPtr>($crate::type_registry::FromType::<$ty>::from_type());
-                    registration.insert::<$crate::from_reflect::ReflectFromReflect>($crate::type_registry::FromType::<$ty>::from_type());
+                    registration.register_type_data::<$crate::type_registry::ReflectFromPtr, $ty>();
+                    registration.register_type_data::<$crate::from_reflect::ReflectFromReflect, $ty>();
                     registration
                 }
 
@@ -169,7 +169,7 @@ macro_rules! impl_reflect_for_veclike {
                 }
             }
 
-            impl<T: $crate::from_reflect::FromReflect + $crate::type_info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::from_reflect::FromReflect for $ty {
+            impl<T: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::from_reflect::FromReflect for $ty {
                 fn from_reflect(reflect: &dyn $crate::reflect::PartialReflect) -> Option<Self> {
                     let ref_list = reflect.reflect_ref().as_list().ok()?;
 

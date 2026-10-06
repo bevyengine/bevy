@@ -198,7 +198,7 @@ fuzz_target!(|input: ObserverFuzzInput| {
     {
         let c = counts.add_a.clone();
         let e = world
-            .add_observer(move |_: On<Add, CompA>| {
+            .add_observer(move |_: On<Add<CompA>>| {
                 c.fetch_add(1, Ordering::Relaxed);
             })
             .id();
@@ -207,7 +207,7 @@ fuzz_target!(|input: ObserverFuzzInput| {
     {
         let c = counts.insert_a.clone();
         let e = world
-            .add_observer(move |_: On<Insert, CompA>| {
+            .add_observer(move |_: On<Insert<CompA>>| {
                 c.fetch_add(1, Ordering::Relaxed);
             })
             .id();
@@ -216,7 +216,7 @@ fuzz_target!(|input: ObserverFuzzInput| {
     {
         let c = counts.discard_a.clone();
         let e = world
-            .add_observer(move |_: On<Discard, CompA>| {
+            .add_observer(move |_: On<Discard<CompA>>| {
                 c.fetch_add(1, Ordering::Relaxed);
             })
             .id();
@@ -225,7 +225,7 @@ fuzz_target!(|input: ObserverFuzzInput| {
     {
         let c = counts.remove_a.clone();
         let e = world
-            .add_observer(move |_: On<Remove, CompA>| {
+            .add_observer(move |_: On<Remove<CompA>>| {
                 c.fetch_add(1, Ordering::Relaxed);
             })
             .id();
@@ -235,7 +235,7 @@ fuzz_target!(|input: ObserverFuzzInput| {
     {
         let c = counts.add_b.clone();
         let e = world
-            .add_observer(move |_: On<Add, CompB>| {
+            .add_observer(move |_: On<Add<CompB>>| {
                 c.fetch_add(1, Ordering::Relaxed);
             })
             .id();
@@ -244,7 +244,7 @@ fuzz_target!(|input: ObserverFuzzInput| {
     {
         let c = counts.insert_b.clone();
         let e = world
-            .add_observer(move |_: On<Insert, CompB>| {
+            .add_observer(move |_: On<Insert<CompB>>| {
                 c.fetch_add(1, Ordering::Relaxed);
             })
             .id();
@@ -253,7 +253,7 @@ fuzz_target!(|input: ObserverFuzzInput| {
     {
         let c = counts.remove_b.clone();
         let e = world
-            .add_observer(move |_: On<Remove, CompB>| {
+            .add_observer(move |_: On<Remove<CompB>>| {
                 c.fetch_add(1, Ordering::Relaxed);
             })
             .id();
@@ -271,7 +271,7 @@ fuzz_target!(|input: ObserverFuzzInput| {
     }
 
     let e = world
-        .add_observer(|_: On<Add, CompC>, mut commands: Commands| {
+        .add_observer(|_: On<Add<CompC>>, mut commands: Commands| {
             commands.spawn_empty();
         })
         .id();

@@ -16,18 +16,21 @@ use bevy_ecs::{
     entity::EntityHashSet,
     prelude::*,
     schedule::{InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel, SystemSet},
+    system::SystemState,
 };
 #[cfg(feature = "trace")]
 use bevy_log::info_span;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, SortedCameras},
+    diagnostic::{DiagnosticsRecorder, RecordDiagnostics},
     render_resource::{
         CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
         RenderPassDescriptor, StoreOp,
     },
     renderer::{CurrentView, PendingCommandBuffers, RenderDevice, RenderQueue},
-    view::ExtractedWindows,
+    sync_world::MainEntity,
+    view::ExtractedWindow,
 };
 
 /// Schedule label for the Core 3D rendering pipeline.
@@ -63,7 +66,7 @@ impl Core3d {
             ..Default::default()
         });
 
-        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain());
+        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain_weak());
 
         schedule
     }
@@ -102,7 +105,7 @@ impl Core2d {
             ..Default::default()
         });
 
-        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain());
+        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain_weak());
 
         schedule
     }
@@ -130,7 +133,10 @@ pub struct RootNonCameraView(#[reflect(ignore)] pub InternedScheduleLabel);
 /// and clears any swap chains that were not covered by a camera. Users can order any additional
 /// operations (e.g. one-off compute passes) before or after this system in the root render
 /// graph schedule.
-pub fn camera_driver(world: &mut World) {
+pub fn camera_driver(
+    world: &mut World,
+    state: &mut SystemState<Query<(MainEntity, &ExtractedWindow)>>,
+) {
     // Gather up all cameras and auxiliary views not associated with a camera.
     let root_views: Vec<_> = {
         let mut auxiliary_views = world.query_filtered::<Entity, With<RootNonCameraView>>();
@@ -147,6 +153,33 @@ pub fn camera_driver(world: &mut World) {
 
     let mut camera_windows = EntityHashSet::default();
 
+    let diagnostics_enabled = world.contains_resource::<DiagnosticsRecorder>();
+    let mut reached_root_camera = false;
+    if diagnostics_enabled {
+        let device = world.resource::<RenderDevice>().clone();
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("camera_driver_diagnostic_span"),
+        });
+        world
+            .resource::<DiagnosticsRecorder>()
+            .begin_time_span(&mut encoder, "auxiliary_views".into());
+        world
+            .resource_mut::<PendingCommandBuffers>()
+            .push_encoder(encoder, "camera_driver_span_begin");
+    }
+    let end_time_span = |world: &mut World| {
+        let device = world.resource::<RenderDevice>().clone();
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("camera_driver_diagnostic_span"),
+        });
+        world
+            .resource::<DiagnosticsRecorder>()
+            .end_time_span(&mut encoder);
+        world
+            .resource_mut::<PendingCommandBuffers>()
+            .push_encoder(encoder, "camera_driver_span_end");
+    };
+
     for root_view in root_views {
         let mut run_schedule = true;
         let (schedule, view_entity);
@@ -156,6 +189,10 @@ pub fn camera_driver(world: &mut World) {
                 entity: camera_entity,
                 ..
             } => {
+                if diagnostics_enabled && !reached_root_camera {
+                    reached_root_camera = true;
+                    end_time_span(world);
+                }
                 let Some(camera) = world.get::<ExtractedCamera>(camera_entity) else {
                     continue;
                 };
@@ -165,11 +202,12 @@ pub fn camera_driver(world: &mut World) {
 
                 if let Some(NormalizedRenderTarget::Window(window_ref)) = &target {
                     let window_entity = window_ref.entity();
-                    let windows = world.resource::<ExtractedWindows>();
-                    if windows
-                        .windows
-                        .get(&window_entity)
-                        .is_some_and(|w| w.physical_width > 0 && w.physical_height > 0)
+
+                    if let Ok(windows) = state.get(world)
+                        && windows
+                            .iter()
+                            .find(|(e, _)| *e == window_entity)
+                            .is_some_and(|(_, w)| w.physical_width > 0 && w.physical_height > 0)
                     {
                         camera_windows.insert(window_entity);
                     } else {
@@ -200,6 +238,10 @@ pub fn camera_driver(world: &mut World) {
             world.run_schedule(schedule);
         }
     }
+    if diagnostics_enabled && !reached_root_camera {
+        end_time_span(world);
+    }
+
     world.remove_resource::<CurrentView>();
 
     world.insert_resource(CameraWindows(camera_windows));
@@ -225,16 +267,18 @@ impl Display for RootView {
     }
 }
 
-pub(crate) fn submit_pending_command_buffers(world: &mut World) {
-    let mut pending = world.resource_mut::<PendingCommandBuffers>();
+pub(crate) fn submit_pending_command_buffers(
+    world: &mut World,
+    state: &mut SystemState<(ResMut<PendingCommandBuffers>, Res<RenderQueue>)>,
+) {
+    let (mut pending, queue) = state.get_mut(world).unwrap();
     #[cfg(feature = "trace")]
     let buffer_count = pending.len();
-    let buffers = pending.take();
+    let mut buffers = pending.finish().peekable();
 
-    if !buffers.is_empty() {
+    if buffers.peek().is_some() {
         #[cfg(feature = "trace")]
         let _span = info_span!("queue_submit", count = buffer_count).entered();
-        let queue = world.resource::<RenderQueue>();
         queue.submit(buffers);
     }
 }
@@ -245,11 +289,12 @@ pub(crate) fn handle_uncovered_swap_chains(world: &mut World) {
         let Some(camera_windows) = world.remove_resource::<CameraWindows>() else {
             return;
         };
-        let windows = world.resource::<ExtractedWindows>();
-        windows
-            .iter()
+
+        world
+            .query::<(MainEntity, &ExtractedWindow)>()
+            .iter(world)
             .filter_map(|(window_entity, window)| {
-                if camera_windows.0.contains(window_entity) {
+                if camera_windows.0.contains(&window_entity.entity()) {
                     return None;
                 }
                 let swap_chain_texture = window.swap_chain_texture_view.as_ref()?;

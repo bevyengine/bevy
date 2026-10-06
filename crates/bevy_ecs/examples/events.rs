@@ -54,7 +54,7 @@ fn sending_system(mut message_writer: MessageWriter<MyMessage>) {
     }
 }
 
-// This system listens for messages of the type MyEvent
+// This system listens for messages of the type MyMessage
 // If a message is received it will be printed to the console
 fn receiving_system(mut message_reader: MessageReader<MyMessage>) {
     for my_message in message_reader.read() {

@@ -17,16 +17,15 @@
 
 use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
 use bevy_camera::Camera;
+use bevy_curve::{Curve, Interval, SampleAutoCurve};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyCode;
 use bevy_input::mouse::{
-    AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseScrollUnit,
+    AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseScrollPixelsPerLine,
 };
 use bevy_input::touch::Touches;
 use bevy_input::ButtonInput;
 use bevy_log::info;
-use bevy_math::curve::{Interval, SampleAutoCurve};
-use bevy_math::Curve;
 use bevy_math::{ops::exp, Dir3, EulerRot, Quat, StableInterpolate, Vec2, Vec3};
 use bevy_time::{Real, Time};
 use bevy_transform::prelude::Transform;
@@ -267,6 +266,7 @@ pub fn run_freecamera_controller(
     mut windows: Query<(&Window, &mut CursorOptions)>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
+    mouse_scroll_conversion: Res<MouseScrollPixelsPerLine>,
     touch_input: Res<Touches>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     key_input: Res<ButtonInput<KeyCode>>,
@@ -302,12 +302,10 @@ pub fn run_freecamera_controller(
         return;
     }
 
-    let scroll = match accumulated_mouse_scroll.unit {
-        MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
-        MouseScrollUnit::Pixel => {
-            accumulated_mouse_scroll.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
-        }
-    };
+    let scroll = accumulated_mouse_scroll
+        .to_lines(&mouse_scroll_conversion)
+        .delta
+        .y;
     // By using exponentiation we ensure that this scales up and down smoothly
     // regardless of the amount of scrolling processed per frame
     state.speed_multiplier *= exp(config.scroll_factor * scroll);

@@ -1,3 +1,4 @@
+use crate::generics::generate_generics;
 use crate::{
     impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed},
     where_clause_options::WhereClauseOptions,
@@ -20,11 +21,19 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let with_docs: Option<proc_macro2::TokenStream> = None;
 
     let where_clause_options = WhereClauseOptions::new(meta);
+    let mut info = quote! {
+        #bevy_reflect_path::OpaqueInfo::new::<Self>() #with_docs
+    };
+    if let Some(generics) = generate_generics(meta) {
+        info.extend(quote! {
+            .with_generics(#generics)
+        });
+    }
     let typed_impl = impl_typed(
         &where_clause_options,
         quote! {
-            let info = #bevy_reflect_path::OpaqueInfo::new::<Self>() #with_docs;
-            #bevy_reflect_path::TypeInfo::Opaque(info)
+            let info = #info;
+            #bevy_reflect_path::TypeInfo::Opaque(#info)
         },
     );
 
@@ -84,8 +93,8 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             }
 
             #[inline]
-            fn to_dynamic(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
-                #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#FQClone::clone(self))
+            fn to_dynamic(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect>, #bevy_reflect_path::ReflectCloneError> {
+                #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#FQClone::clone(self)))
             }
 
              #[inline]

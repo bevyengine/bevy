@@ -116,7 +116,7 @@ fn concrete_struct_apply(criterion: &mut Criterion) {
                 bencher.iter_batched(
                     || {
                         let (obj, _) = input();
-                        let patch = obj.to_dynamic_struct();
+                        let patch = obj.to_dynamic_struct().unwrap();
                         (obj, patch)
                     },
                     |(mut obj, patch)| obj.apply(black_box(&patch)),
@@ -206,14 +206,14 @@ fn concrete_struct_to_dynamic_struct(criterion: &mut Criterion) {
             BenchmarkId::new("NonGeneric", field_count),
             &standard,
             |bencher, s| {
-                bencher.iter(|| s.to_dynamic_struct());
+                bencher.iter(|| s.to_dynamic_struct().unwrap());
             },
         );
         group.bench_with_input(
             BenchmarkId::new("Generic", field_count),
             &generic,
             |bencher, s| {
-                bencher.iter(|| s.to_dynamic_struct());
+                bencher.iter(|| s.to_dynamic_struct().unwrap());
             },
         );
     }
@@ -223,11 +223,11 @@ fn dynamic_struct_to_dynamic_struct(criterion: &mut Criterion) {
     let mut group = create_group(criterion, bench!("dynamic_struct_to_dynamic_struct"));
 
     let structs: [Box<dyn Struct>; 5] = [
-        Box::new(Struct1::default().to_dynamic_struct()),
-        Box::new(Struct16::default().to_dynamic_struct()),
-        Box::new(Struct32::default().to_dynamic_struct()),
-        Box::new(Struct64::default().to_dynamic_struct()),
-        Box::new(Struct128::default().to_dynamic_struct()),
+        Box::new(Struct1::default().to_dynamic_struct().unwrap()),
+        Box::new(Struct16::default().to_dynamic_struct().unwrap()),
+        Box::new(Struct32::default().to_dynamic_struct().unwrap()),
+        Box::new(Struct64::default().to_dynamic_struct().unwrap()),
+        Box::new(Struct128::default().to_dynamic_struct().unwrap()),
     ];
 
     for s in structs {
@@ -237,7 +237,7 @@ fn dynamic_struct_to_dynamic_struct(criterion: &mut Criterion) {
             BenchmarkId::from_parameter(field_count),
             &s,
             |bencher, s| {
-                bencher.iter(|| s.to_dynamic_struct());
+                bencher.iter(|| s.to_dynamic_struct().unwrap());
             },
         );
     }
@@ -268,7 +268,7 @@ fn dynamic_struct_apply(criterion: &mut Criterion) {
             &patch,
             |bencher, patch| {
                 bencher.iter_batched(
-                    || (base.to_dynamic_struct(), patch()),
+                    || (base.to_dynamic_struct().unwrap(), patch()),
                     |(mut base, patch)| base.apply(black_box(&*patch)),
                     BatchSize::SmallInput,
                 );
@@ -292,7 +292,7 @@ fn dynamic_struct_apply(criterion: &mut Criterion) {
                 }
 
                 bencher.iter_batched(
-                    || base.to_dynamic_struct(),
+                    || base.to_dynamic_struct().unwrap(),
                     |mut base| base.apply(black_box(&patch)),
                     BatchSize::SmallInput,
                 );
@@ -318,7 +318,7 @@ fn dynamic_struct_insert(criterion: &mut Criterion) {
 
                 let field = format!("field_{field_count}");
                 bencher.iter_batched(
-                    || s.to_dynamic_struct(),
+                    || s.to_dynamic_struct().unwrap(),
                     |mut s| {
                         s.insert(black_box(&field), ());
                     },

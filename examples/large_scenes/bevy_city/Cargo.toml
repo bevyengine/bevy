@@ -11,8 +11,12 @@ bevy = { path = "../../../", features = [
   "free_camera",
   "bevy_feathers",
   "web_asset_cache",
+  "bevy_dev_tools",
 ] }
 
 argh = "0.1"
 noise = "0.9.0"
 rand = "0.10.0"
+
+[lints]
+workspace = true
