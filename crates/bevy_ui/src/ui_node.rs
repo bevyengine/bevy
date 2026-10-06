@@ -164,7 +164,7 @@ impl ComputedNode {
 
     /// Returns the border radius for each of the node's corners in physical pixels.
     ///
-    /// Automatically calculated by [`update_border_radius`](`super::layout::update_computed_nodes`).
+    /// Automatically calculated by [`update_border_radius`](`super::layout::update_border_radius`).
     #[inline]
     pub const fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
