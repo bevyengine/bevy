@@ -1,8 +1,8 @@
 //! Builds a dockable layout from a `DockTree` and edits the tree at runtime.
 //!
 //! Drag the splitters to resize groups, click tabs to switch between them and drag tabs to
-//! reorder them or move them to another group. The keyboard shortcuts listed at the top of the
-//! window edit the tree, and the UI follows.
+//! reorder them, move them to another group or drop them at the edge of a group to split it. The
+//! keyboard shortcuts listed at the top of the window edit the tree, and the UI follows.
 //!
 //! `build_panels` fills the content entity the dock spawns for each tab.
 //! Clicking a panel's counter updates its `DockPanelTitle`.
@@ -15,9 +15,10 @@ use bevy::{
     prelude::*,
     ui::Selected,
     ui_widgets::{
-        dock_self_update, ControlOrientation, DockChange, DockEdge, DockEdit, DockNodeId,
-        DockPanelContent, DockPanelTitle, DockSystems, DockTabBinding, DockTree, SplitPane,
-        SplitPaneHandle, TabDragging, TabInsertionPreview, TabList,
+        dock_self_update, ControlOrientation, DockChange, DockDropArea, DockDropTarget,
+        DockDropZone, DockEdge, DockEdit, DockNodeId, DockPanelContent, DockPanelTitle,
+        DockSystems, DockTabBinding, DockTree, SplitPane, SplitPaneHandle, TabDragging,
+        TabInsertionPreview, TabList,
     },
     window::SystemCursorIcon,
 };
@@ -28,6 +29,7 @@ const TAB_BAR: Color = Color::srgb(0.10, 0.10, 0.12);
 const HANDLE: Color = Color::srgb(0.05, 0.05, 0.06);
 const TAB_DRAGGED: Color = Color::srgb(0.45, 0.50, 0.62);
 const INSERTION: Color = Color::srgb(0.95, 0.80, 0.30);
+const DROP_PREVIEW: Color = Color::srgba(0.95, 0.80, 0.30, 0.25);
 
 const HELP: &str =
     "N: add a note to the last clicked group    S: split the viewport to the right    \
@@ -46,6 +48,9 @@ struct Counter {
     title: String,
 }
 
+#[derive(Component)]
+struct DropPreview;
+
 #[derive(Resource, Default)]
 struct LastGroup(Option<DockNodeId>);
 
@@ -59,7 +64,13 @@ fn main() {
         .add_systems(PostUpdate, build_panels.in_set(DockSystems::Panels))
         .add_systems(
             Update,
-            (edit_tree, style_tabs, style_tab_lists, style_handles),
+            (
+                edit_tree,
+                style_tabs,
+                style_tab_lists,
+                style_handles,
+                preview_drop,
+            ),
         )
         .run();
 }
@@ -306,5 +317,51 @@ fn style_handles(
         commands
             .entity(handle)
             .insert((BackgroundColor(HANDLE), EntityCursor::System(icon)));
+    }
+}
+
+fn preview_drop(
+    mut commands: Commands,
+    areas: Query<(Entity, Option<&DockDropTarget>, Option<&Children>), With<DockDropArea>>,
+    mut previews: Query<&mut Node, With<DropPreview>>,
+) {
+    for (area, target, children) in &areas {
+        let preview = children.and_then(|c| c.iter().find(|child| previews.contains(*child)));
+        match (target, preview) {
+            (Some(target), Some(preview)) => {
+                if let Ok(mut node) = previews.get_mut(preview) {
+                    node.set_if_neq(drop_rect(target.0));
+                }
+            }
+            (Some(target), None) => {
+                commands.spawn((
+                    DropPreview,
+                    drop_rect(target.0),
+                    BackgroundColor(DROP_PREVIEW),
+                    Pickable::IGNORE,
+                    ChildOf(area),
+                ));
+            }
+            (None, Some(preview)) => commands.entity(preview).despawn(),
+            (None, None) => {}
+        }
+    }
+}
+
+fn drop_rect(zone: DockDropZone) -> Node {
+    let (left, top, width, height) = match zone {
+        DockDropZone::Edge(DockEdge::Left) => (0, 0, 50, 100),
+        DockDropZone::Edge(DockEdge::Right) => (50, 0, 50, 100),
+        DockDropZone::Edge(DockEdge::Top) => (0, 0, 100, 50),
+        DockDropZone::Edge(DockEdge::Bottom) => (0, 50, 100, 50),
+        DockDropZone::Center => (0, 0, 100, 100),
+    };
+    Node {
+        position_type: PositionType::Absolute,
+        left: percent(left),
+        top: percent(top),
+        width: percent(width),
+        height: percent(height),
+        ..default()
     }
 }
