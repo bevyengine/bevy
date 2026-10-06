@@ -5,8 +5,6 @@ use bevy_ecs::{entity::Entity, world::World};
 use crate::{layout::layout_tree::ComputedLayout, ContentSize, Display, Node, UiRoots};
 
 /// Prints the latest computed UI layout tree for each root node.
-///
-/// Uses
 pub fn print_ui_layout_tree(world: &World) {
     let Some(ui_roots) = world.get_resource::<UiRoots>() else {
         return;
