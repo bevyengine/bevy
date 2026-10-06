@@ -40,3 +40,23 @@ pub fn try_codegen<T: Parse + BsnTokenStream>(input: TokenStream) -> syn::Result
 
     Ok(scene.into_tokens(&mut ctx))
 }
+
+/// Maximum nesting of `(`, `[`, `{` and `<` accepted by [`too_deep`].
+const MAX_NESTING: usize = 128;
+
+pub fn too_deep(data: &str) -> bool {
+    let mut depth = 0usize;
+    for c in data.chars() {
+        match c {
+            '(' | '[' | '{' | '<' => {
+                depth += 1;
+                if depth > MAX_NESTING {
+                    return true;
+                }
+            }
+            ')' | ']' | '}' | '>' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    false
+}

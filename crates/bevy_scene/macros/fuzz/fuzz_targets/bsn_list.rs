@@ -1,9 +1,12 @@
 #![no_main]
 
-use bevy_scene_macros_fuzz::{_bsn::types::BsnListRoot, try_codegen};
+use bevy_scene_macros_fuzz::{_bsn::types::BsnListRoot, too_deep, try_codegen};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &str| {
+    if too_deep(data) {
+        return;
+    }
     let Ok(tokens) = data.parse::<proc_macro2::TokenStream>() else {
         return;
     };
