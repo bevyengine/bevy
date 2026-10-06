@@ -3584,7 +3584,7 @@ pub struct FixedNode;
 /// - Events pass through normally.
 /// - `FixedNode` is ignored on a `GhostNode`.
 /// - `OverrideClip` is not ignored on a `GhostNode`.
-/// - Clipping propagates through `GhostNode`'s but their `Node::override` setting is ignored.
+/// - Clipping propagates through `GhostNode`'s but their `Node::overflow` setting is ignored.
 /// - `GhostNode`'s children's `Val::Percent` coords are resolved based on the the size of their grandparent, skipping the `GhostNode`.
 /// - A root `GhostNode`'s children are UI root nodes each with their own implicit viewport node.
 #[derive(Component, Debug, Copy, Clone, Reflect, Default)]
