@@ -187,6 +187,10 @@ impl ComputedLayout {
         self.layout_dirty = false;
         self.subtree_dirty = false;
         self.self_dirty = false;
+        self.has_outline = false;
+        self.has_layout_config = false;
+        self.has_ignore_scroll = false;
+        self.has_override_clip = false;
     }
 
     /// Returns true if both rounded and unrounded layouts are present
