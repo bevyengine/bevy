@@ -68,10 +68,10 @@ impl UiRoots {
             .copied()
     }
 
-    /// Returns the nodes where geometry updates start from.
+    /// Returns the nodes where `UiTransform` and other geometry updates start from.
     /// Includes all parentless UI nodes, including [`GhostNode`]s, and valid [`FixedNode`]s.
     /// Starting at root ghosts allows their transforms to propagate to descendants.
-    pub fn geometry_roots(&self) -> impl Iterator<Item = Entity> {
+    pub fn transform_roots(&self) -> impl Iterator<Item = Entity> {
         self.parentless
             .iter()
             .chain(self.fixed_nodes.iter())
@@ -154,7 +154,7 @@ pub fn clear_transient_dirty_flags(mut computed_layout_query: Query<&mut Compute
         });
 }
 
-/// Updates the list of root nodes.
+/// Updates the lists of root nodes.
 ///
 /// Runs in `UiSystems::Layout`.
 pub fn update_ui_roots(
@@ -521,7 +521,7 @@ pub fn update_computed_nodes(
     )>,
     mut child_stack: Local<Vec<Entity>>,
 ) {
-    for ui_root_entity in ui_roots.geometry_roots() {
+    for ui_root_entity in ui_roots.transform_roots() {
         let Ok(target_info) = targets_query.get(ui_root_entity) else {
             continue;
         };

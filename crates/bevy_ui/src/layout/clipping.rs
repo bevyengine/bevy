@@ -36,7 +36,7 @@ pub fn update_clipping_system(
     )>,
     ui_children: Query<&Children, With<Node>>,
 ) {
-    for root_node in ui_roots.geometry_roots() {
+    for root_node in ui_roots.transform_roots() {
         update_clipping(
             &mut commands,
             &ui_children,
