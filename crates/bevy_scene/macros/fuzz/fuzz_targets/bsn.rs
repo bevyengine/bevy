@@ -1,6 +1,6 @@
 #![no_main]
 
-use bevy_scene_macros_fuzz::{bsn::types::BsnRoot, try_codegen};
+use bevy_scene_macros_fuzz::{_bsn::types::BsnRoot, try_codegen};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &str| {

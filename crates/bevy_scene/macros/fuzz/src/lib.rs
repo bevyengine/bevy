@@ -6,7 +6,8 @@
 //! binary, so this crate re-includes the BSN parser/codegen modules directly
 //! via `#[path]` and exposes a wrapper.
 
-pub mod bsn {
+#[path = "bsn"]
+pub mod _bsn {
     #[path = "../../../src/bsn/codegen.rs"]
     pub mod codegen;
     #[path = "../../../src/bsn/parse.rs"]
@@ -15,7 +16,7 @@ pub mod bsn {
     pub mod types;
 }
 
-use bsn::codegen::{BsnCodegenCtx, BsnTokenStream, EntityRefs, HoistedExpressions};
+use _bsn::codegen::{BsnCodegenCtx, BsnTokenStream, EntityRefs, HoistedExpressions};
 use proc_macro2::TokenStream;
 use syn::parse::Parse;
 
@@ -34,7 +35,8 @@ pub fn try_codegen<T: Parse + BsnTokenStream>(input: TokenStream) -> syn::Result
         invocation_index: syn::parse_quote!(("", 0, 0)),
         hoisted_expressions: &mut hoisted_expressions,
         errors: Vec::new(),
+        deprecations: Vec::new(),
     };
 
-    Ok(scene.to_tokens(&mut ctx))
+    Ok(scene.into_tokens(&mut ctx))
 }
