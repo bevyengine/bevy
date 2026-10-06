@@ -297,7 +297,6 @@ fn column_split_on_drag_end(
     mut drag_end: On<PointerDragEnd>,
     q_handles: Query<&ChildOf, With<ColumnSplitHandle>>,
     mut q_splits: Query<Splits>,
-    mut capture_map: ResMut<PointerCaptureMap>,
 ) {
     if drag_end.button == PointerButton::Primary
         && let Ok(child_of) = q_handles.get(drag_end.entity)
@@ -306,7 +305,6 @@ fn column_split_on_drag_end(
     {
         drag_end.propagate(false);
         state.dragging = false;
-        capture_map.release(drag_end.pointer.id);
     }
 }
 
@@ -314,7 +312,6 @@ fn column_split_on_cancel(
     mut cancel: On<PointerCancel>,
     q_handles: Query<&ChildOf, With<ColumnSplitHandle>>,
     mut q_splits: Query<Splits>,
-    mut capture_map: ResMut<PointerCaptureMap>,
 ) {
     if let Ok(child_of) = q_handles.get(cancel.entity)
         && let Ok((mut split, mut state, ..)) = q_splits.get_mut(child_of.parent())
@@ -323,7 +320,6 @@ fn column_split_on_cancel(
         cancel.propagate(false);
         split.fraction = state.start;
         state.dragging = false;
-        capture_map.release(cancel.pointer.id);
     }
 }
 
@@ -394,7 +390,7 @@ mod tests {
         cursor::CursorIconPlugin,
         events::Pointer,
         hover::{generate_hovermap, HoverMap, PreviousHoverMap},
-        pointer::{Location, PointerId, PointerInput, PointerMap},
+        pointer::{Location, PointerAction, PointerId, PointerInput, PointerMap},
         PickingSystems,
     };
     use bevy_ui::{prelude::BorderRect, UiRect};
@@ -536,6 +532,16 @@ mod tests {
         assert!(!dragging(&app, split));
     }
 
+    fn pointer_input(app: &mut App, action: PointerAction) {
+        let pointer = pointer();
+        let location = Location {
+            target: pointer.target,
+            position: pointer.position,
+        };
+        app.world_mut()
+            .write_message(PointerInput::new(PointerId::Mouse, location, action));
+    }
+
     fn hover_row(app: &mut App, row: Entity) -> Option<CursorIcon> {
         app.world_mut()
             .write_message(PointerHits::new(PointerId::Mouse, vec![(row, hit())], 0.0));
@@ -575,6 +581,7 @@ mod tests {
         assert_eq!(hover_row(&mut app, row), col_resize);
 
         drag_end(&mut app, handle);
+        pointer_input(&mut app, PointerAction::Release(PointerButton::Primary));
         assert_eq!(hover_row(&mut app, row), not_allowed);
 
         drag_start(&mut app, handle, PointerButton::Primary);
@@ -584,6 +591,12 @@ mod tests {
             pointer: pointer(),
             hit: hit(),
         });
+        pointer_input(&mut app, PointerAction::Cancel);
+        hover_row(&mut app, row);
+        assert!(!app
+            .world()
+            .resource::<PointerCaptureMap>()
+            .is_captured(&PointerId::Mouse));
         assert_eq!(hover_row(&mut app, row), not_allowed);
     }
 
