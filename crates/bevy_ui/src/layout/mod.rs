@@ -141,7 +141,22 @@ pub enum LayoutError {
     InvalidUiRoot,
 }
 
-/// Update the list of root nodes
+/// Clear the local dirty flags that are only valid for the current frame.
+///
+/// Runs in `UiSystems::Prepare`
+pub fn clear_transient_dirty_flags(mut computed_layout_query: Query<&mut ComputedLayout>) {
+    computed_layout_query
+        .par_iter_mut()
+        .for_each(|mut computed_layout| {
+            computed_layout
+                .bypass_change_detection()
+                .clear_transient_dirty_flags();
+        });
+}
+
+/// Updates the list of root nodes.
+///
+/// Runs in `UiSystems::Layout`.
 pub fn update_ui_roots(
     mut navigation_stack: Local<Vec<Entity>>,
     mut ui_roots: ResMut<UiRoots>,
@@ -197,6 +212,8 @@ pub fn update_ui_roots(
 /// into pixels when the `TextFont`, render target or `RemSize` changes. Nodes
 /// without `TextFont` keep their `EmSize` intact. If `TextFont` is removed the
 /// `EmSize` remains unchanged.
+///
+/// Runs in `UiSystems::Layout`.
 pub fn sync_font_size_to_em_size(
     mut em_size_query: Query<
         (&mut EmSize, Ref<TextFont>, Ref<ComputedUiRenderTargetInfo>),
@@ -220,6 +237,8 @@ pub fn sync_font_size_to_em_size(
 }
 
 /// Sync each `Node` with its corresponding `TaffyStyle`.
+///
+/// Runs in `UiSystems::Layout`.
 pub fn sync_taffy_styles_with_nodes(
     rem_size: Res<RemSize>,
     mut update_query: Query<(
@@ -251,20 +270,11 @@ pub fn sync_taffy_styles_with_nodes(
         });
 }
 
-/// Clear the local dirty flags that are only valid for the current frame.
-pub fn clear_transient_dirty_flags(mut computed_layout_query: Query<&mut ComputedLayout>) {
-    computed_layout_query
-        .par_iter_mut()
-        .for_each(|mut computed_layout| {
-            computed_layout
-                .bypass_change_detection()
-                .clear_transient_dirty_flags();
-        });
-}
-
 /// Identify entities whose UI layout input components have been changed, added or removed.
 /// Mark their `UiTreeDirty` component changed, then walk up the tree and mark
 /// each ancestor's `UiTreeDirty` changed.
+///
+/// Runs in `UiSystems::Layout`.
 pub fn mark_dirty_ui_trees(
     changed_ui_components_query: Query<
         Entity,
