@@ -99,7 +99,7 @@ pub trait Measure: Send + Sync + 'static {
     fn measure(&self, measure_args: MeasureArgs<'_>) -> Vec2;
 }
 
-/// A type to serve as Taffy's node context (which allows the content size of leaf nodes to be computed)
+/// `NodeMeasure` allows the content size of leaf nodes to be computed.
 ///
 /// It has specific variants for common built-in types to avoid making them opaque and needing to box them
 /// by wrapping them in a closure and a Custom variant that allows arbitrary measurement closures if required.
