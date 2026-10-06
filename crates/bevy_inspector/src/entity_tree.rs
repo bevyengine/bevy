@@ -481,12 +481,20 @@ fn row_label(text: String) -> impl Scene {
 
 fn is_excluded(world: &World, entity: Entity) -> bool {
     let Ok(entity_ref) = world.get_entity(entity) else {
+        println!("exc none");
         return true;
     };
     if entity_ref.contains::<IsResource>()
-        || entity_ref.contains::<SystemIdMarker>()
-        || entity_ref.contains::<Observer>()
     {
+        // println!("exc IsResource");
+        return true;
+    }
+    if entity_ref.contains::<SystemIdMarker>() {
+        println!("exc SystemIdMarker");
+        return true;
+    }
+    if entity_ref.contains::<Observer>() {
+        println!("exc Observer");
         return true;
     }
 

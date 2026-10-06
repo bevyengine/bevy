@@ -36,14 +36,16 @@ use serde_json::Value;
 use crate::{
     details_panel::{DetailsCollapsed, DetailsColumnSplits, DetailsPanelSync},
     entity_tree::{clear_rows, EntityTreeSync},
-    remote::world::RemoteWorlds,
     InspectableEntity, InspectorSelection, InspectorSource,
 };
 use bevy_ecs::entity::Entity;
 
 use super::{
     details,
-    world::{self, Coverage, PolledComponent, RemoteWorld, SpawnRemoteError},
+    world::{
+        self, Coverage, PolledComponent, RemoteWorld, RemoteWorlds,
+        SpawnRemoteError,
+    },
 };
 
 const NAME: &str = "bevy_ecs::name::Name";
@@ -458,8 +460,12 @@ fn reset_inspected_world(world: &mut World, is_main: bool) {
             }
         }
     }
-    if let Some(mut fetch) = world.get_resource_mut::<details::RemoteEntityFetch>() {
-        *fetch = details::RemoteEntityFetch::default();
+    if let Some(mut fetchs) = world.get_resource_mut::<details::RemoteEntityFetchs>() {
+        if is_main {
+            fetchs.main = details::RemoteEntityFetch::default();
+        } else {
+            fetchs.render = details::RemoteEntityFetch::default();
+        }
     }
     clear_rows(world);
     world.resource_mut::<EntityTreeSync>().set_dirty();
@@ -528,35 +534,35 @@ fn _poll_remote_connection(
     }) else {
         return;
     };
-    let Some(client) = connection.client.clone() else {
-        return;
-    };
-    let (task, full) = match request {
-        Request::Info => (
-            spawn(async move {
-                let value = client.call(BRP_APP_INFO_METHOD, None).await?;
-                Ok(Reply::Info(serde_json::from_value(value)?))
-            }),
-            false,
-        ),
-        Request::Query { params, full } => {
-            let registry = registry
-                .map(|registry| registry.0.clone())
-                .unwrap_or_default();
-            (
+    if let Some(client) = connection.client.clone() {
+        let (task, full) = match request {
+            Request::Info => (
                 spawn(async move {
-                    let value = client.call(BRP_QUERY_METHOD, Some(params)).await?;
-                    Ok(Reply::Rows(parse_rows(value, &registry.read(), full)?))
+                    let value = client.call(BRP_APP_INFO_METHOD, None).await?;
+                    Ok(Reply::Info(serde_json::from_value(value)?))
                 }),
-                full,
-            )
-        }
-    };
-    connection.pending = Some(PendingCall {
-        task,
-        started: now,
-        full,
-    });
+                false,
+            ),
+            Request::Query { params, full } => {
+                let registry = registry
+                    .as_ref()
+                    .map(|registry| registry.0.clone())
+                    .unwrap_or_default();
+                (
+                    spawn(async move {
+                        let value = client.call(BRP_QUERY_METHOD, Some(params)).await?;
+                        Ok(Reply::Rows(parse_rows(value, &registry.read(), full)?))
+                    }),
+                    full,
+                )
+            }
+        };
+        connection.pending = Some(PendingCall {
+            task,
+            started: now,
+            full,
+        });
+    }
 }
 
 pub(super) fn spawn<T: Send + 'static>(
@@ -882,7 +888,10 @@ fn apply_rows(
                 applied.tree |= spawned;
                 writable.push(index);
             }
-            Err(SpawnRemoteError::Behind) => return Err(pending),
+            Err(SpawnRemoteError::Behind) => {
+                println!("is_main={} is behind", is_main);
+                return Err(pending);
+            }
             Err(SpawnRemoteError::Taken) => {
                 bevy_log::warn_once!(
                     "the remote inspector cannot mirror {}, its id is taken by a resource",
@@ -950,7 +959,7 @@ pub(crate) mod tests {
         world.init_resource::<RemoteConnections>();
         world.init_resource::<RemoteSnapshots>();
         world.init_resource::<RemoteWorlds>();
-        world.init_resource::<details::RemoteEntityFetch>();
+        world.init_resource::<details::RemoteEntityFetchs>();
         world.init_resource::<EntityTreeSync>();
         world.init_resource::<DetailsPanelSync>();
         world.init_resource::<DetailsCollapsed>();
@@ -1612,7 +1621,10 @@ pub(crate) mod tests {
             Some(InspectableEntity::new(remote(11), true));
         details::sync_remote_details(&mut world);
         assert_eq!(
-            world.resource::<details::RemoteEntityFetch>().entity(),
+            world
+                .resource::<details::RemoteEntityFetchs>()
+                .main
+                .entity(),
             Some(remote(11))
         );
 
@@ -1637,7 +1649,10 @@ pub(crate) mod tests {
             .is_empty());
         assert_eq!(world.resource::<InspectorSelection>().0, None);
         assert_eq!(
-            world.resource::<details::RemoteEntityFetch>().entity(),
+            world
+                .resource::<details::RemoteEntityFetchs>()
+                .main
+                .entity(),
             None
         );
     }
