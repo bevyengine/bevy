@@ -57,6 +57,11 @@ pub(crate) struct UnregisteredComponents;
 /// the inspector shows, each with a [`RemoteComponents`] record. Errors of commands queued by
 /// component hooks are logged as warnings instead of panicking.
 #[derive(Resource)]
+pub struct RemoteWorlds {
+    pub main: RemoteWorld,
+    pub render: RemoteWorld,
+}
+
 pub struct RemoteWorld {
     world: World,
     reserved: u32,
@@ -141,7 +146,7 @@ impl Garbage {
     }
 }
 
-impl FromWorld for RemoteWorld {
+impl FromWorld for RemoteWorlds {
     fn from_world(world: &mut World) -> Self {
         Self::new(
             world
@@ -149,6 +154,15 @@ impl FromWorld for RemoteWorld {
                 .cloned()
                 .unwrap_or_default(),
         )
+    }
+}
+
+impl RemoteWorlds {
+    pub(crate) fn new(registry: AppTypeRegistry) -> Self {
+        Self {
+            main: RemoteWorld::new(registry.clone()),
+            render: RemoteWorld::new(registry),
+        }
     }
 }
 

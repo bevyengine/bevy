@@ -34,15 +34,13 @@ use bevy_time::{Real, Time};
 use serde_json::Value;
 
 use crate::{
-    details_panel::{DetailsCollapsed, DetailsColumnSplits, DetailsPanelSync},
-    entity_tree::{clear_rows, EntityTreeSync},
-    InspectorSelection, InspectorSource,
+    InspectorSelection, InspectorSource, details_panel::{DetailsCollapsed, DetailsColumnSplits, DetailsPanelSync}, entity_tree::{EntityTreeSync, clear_rows},
 };
 use bevy_ecs::entity::Entity;
 
 use super::{
     details,
-    world::{self, Coverage, PolledComponent, RemoteWorld, SpawnRemoteError},
+    world::{self, Coverage, PolledComponent, RemoteWorld, RemoteWorlds, SpawnRemoteError, RemoteComponents},
 };
 
 const NAME: &str = "bevy_ecs::name::Name";
@@ -389,7 +387,7 @@ fn reset_inspected_world(world: &mut World) {
         .get_resource::<AppTypeRegistry>()
         .cloned()
         .unwrap_or_default();
-    world.resource_mut::<RemoteWorld>().reset(registry);
+    world.resource_mut::<RemoteWorlds>().main.reset(registry);
     world.resource_mut::<InspectorSelection>().0 = None;
     if let Some(mut collapsed) = world.get_resource_mut::<DetailsCollapsed>() {
         collapsed.0.clear();
@@ -691,8 +689,8 @@ pub fn sync_remote_world(world: &mut World) {
         return;
     };
     let selection = world.resource::<InspectorSelection>().0;
-    let written = world.resource_scope(|_, mut remote: Mut<RemoteWorld>| {
-        apply_rows(&mut remote, pending, selection)
+    let written = world.resource_scope(|_, mut remote: Mut<RemoteWorlds>| {
+        apply_rows(&mut remote.main, pending, selection)
     });
     let written = match written {
         Ok(written) => written,
@@ -701,8 +699,8 @@ pub fn sync_remote_world(world: &mut World) {
             reset_inspected_world(world);
             world.resource_mut::<RemoteConnection>().next_full = Duration::ZERO;
             world
-                .resource_scope(|_, mut remote: Mut<RemoteWorld>| {
-                    apply_rows(&mut remote, pending, None)
+                .resource_scope(|_, mut remote: Mut<RemoteWorlds>| {
+                    apply_rows(&mut remote.main, pending, None)
                 })
                 .unwrap_or_default()
         }
@@ -819,7 +817,7 @@ pub(crate) mod tests {
         world.init_resource::<InspectorSelection>();
         world.init_resource::<RemoteConnection>();
         world.init_resource::<RemoteSnapshot>();
-        world.init_resource::<RemoteWorld>();
+        world.init_resource::<RemoteWorlds>();
         world.init_resource::<details::RemoteEntityFetch>();
         world.init_resource::<EntityTreeSync>();
         world.init_resource::<DetailsPanelSync>();
@@ -861,7 +859,7 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn mirrored(world: &World) -> &World {
-        world.resource::<RemoteWorld>().world()
+        world.resource::<RemoteWorlds>().main.world()
     }
 
     fn label(world: &World, entity: Entity) -> String {
@@ -1118,7 +1116,7 @@ pub(crate) mod tests {
             ],
             true,
         );
-        assert_eq!(world.resource_mut::<RemoteWorld>().entities().len(), 2);
+        assert_eq!(world.resource_mut::<RemoteWorlds>().main.entities().len(), 2);
 
         let unseen = parse(
             &world,
@@ -1136,7 +1134,8 @@ pub(crate) mod tests {
             .resource_mut::<RemoteSnapshot>()
             .set(unseen, false, types));
         sync_remote_world(&mut world);
-        let remote_world = world.resource::<RemoteWorld>();
+        let rws = world.resource::<RemoteWorlds>();
+        let remote_world = &rws.main;
         assert!(remote_world.contains(remote(11)));
         assert!(
             remote_world.contains(remote(12)),
@@ -1166,8 +1165,8 @@ pub(crate) mod tests {
             ],
             true,
         );
-        assert_eq!(world.resource_mut::<RemoteWorld>().entities().len(), 4);
-        assert!(world.resource::<RemoteWorld>().contains(remote(14)));
+        assert_eq!(world.resource_mut::<RemoteWorlds>().main.entities().len(), 4);
+        assert!(world.resource::<RemoteWorlds>().main.contains(remote(14)));
     }
 
     #[test]
@@ -1205,7 +1204,7 @@ pub(crate) mod tests {
                 row(remote(13), json!({ NAME: "Shown" })),
             ],
         );
-        let entities = world.resource_mut::<RemoteWorld>().entities();
+        let entities = world.resource_mut::<RemoteWorlds>().main.entities();
         assert_eq!(entities, [remote(13)]);
     }
 
@@ -1269,7 +1268,7 @@ pub(crate) mod tests {
         assert!(inspected.get_entity(b).is_err());
         assert!(inspected.get_entity(c).is_ok());
         assert_eq!(inspected.get::<ChildOf>(c).map(ChildOf::parent), Some(a));
-        assert_eq!(world.resource_mut::<RemoteWorld>().entities().len(), 2);
+        assert_eq!(world.resource_mut::<RemoteWorlds>().main.entities().len(), 2);
 
         apply(&mut world, alloc::vec![row(c, json!({ NAME: "C" }))]);
         let inspected = mirrored(&world);
@@ -1348,7 +1347,7 @@ pub(crate) mod tests {
         world.insert_resource(InspectorSource::Local);
         sync_remote_source(&mut world);
 
-        assert!(world.resource_mut::<RemoteWorld>().entities().is_empty());
+        assert!(world.resource_mut::<RemoteWorlds>().main.entities().is_empty());
         assert!(world.resource::<DetailsCollapsed>().0.is_empty());
         assert!(world.resource::<DetailsColumnSplits>().0.is_empty());
         assert_eq!(world.resource::<InspectorSelection>().0, None);
@@ -1446,7 +1445,7 @@ pub(crate) mod tests {
         details::sync_remote_details(&mut world);
 
         assert!(world.resource::<RemoteSnapshot>().is_empty());
-        assert!(world.resource_mut::<RemoteWorld>().entities().is_empty());
+        assert!(world.resource_mut::<RemoteWorlds>().main.entities().is_empty());
         assert_eq!(world.resource::<InspectorSelection>().0, None);
         assert_eq!(
             world.resource::<details::RemoteEntityFetch>().entity(),
@@ -1472,7 +1471,7 @@ pub(crate) mod tests {
             );
         });
         sync_remote_world(&mut world);
-        assert!(world.resource_mut::<RemoteWorld>().entities().is_empty());
+        assert!(world.resource_mut::<RemoteWorlds>().main.entities().is_empty());
     }
 
     #[test]

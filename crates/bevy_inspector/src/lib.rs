@@ -57,9 +57,9 @@ pub enum InspectorSource {
 pub(crate) fn world_to_inspect(world: &World) -> &World {
     #[cfg(feature = "remote")]
     if remote::is_remote(world)
-        && let Some(remote) = world.get_resource::<remote::RemoteWorld>()
+        && let Some(remote) = world.get_resource::<remote::RemoteWorlds>()
     {
-        return remote.world();
+        return remote.main.world();
     }
     world
 }
@@ -131,7 +131,7 @@ impl Plugin for InspectorPlugin {
         #[cfg(feature = "remote")]
         app.init_resource::<remote::RemoteConnection>()
             .init_resource::<remote::RemoteSnapshot>()
-            .init_resource::<remote::RemoteWorld>()
+            .init_resource::<remote::RemoteWorlds>()
             .init_resource::<remote::details::RemoteEntityFetch>()
             .add_systems(
                 PostUpdate,
