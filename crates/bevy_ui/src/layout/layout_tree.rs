@@ -113,7 +113,9 @@ pub(super) fn node_id_entity(node_id: NodeId) -> Entity {
     Entity::from_bits(u64::from(node_id))
 }
 
-/// Collect the `NodeId`s of only the children that are valid UI nodes that should be exposed to Taffy.
+/// Collect the children of `parent`, after flattening any `GhostNode`s, that are valid UI nodes that should be exposed to Taffy.
+///
+/// Returns true if any of the flattened `GhostNode`s is marked dirty.
 pub(super) fn collect_ui_children(
     parent: Entity,
     ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
@@ -131,8 +133,8 @@ pub(super) fn collect_ui_children(
         };
         if is_ghost {
             ghost_stack.push(child);
-            dirty_ghost |= tree_changed.is_changed()
-                | collect_ui_children(child, ui_children, child_stack, ghost_stack);
+            dirty_ghost |= collect_ui_children(child, ui_children, child_stack, ghost_stack)
+                || tree_changed.is_changed();
         } else {
             child_stack.push(entity_node_id(child));
         }

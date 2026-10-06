@@ -499,6 +499,7 @@ pub fn ui_layout_system(
     );
 }
 
+/// Updates the [`ComputedNode`] and [`UiGlobalTransform`] components for each UI node entity.
 pub fn update_computed_nodes(
     ui_roots: Res<UiRoots>,
     rem_size: Res<RemSize>,
