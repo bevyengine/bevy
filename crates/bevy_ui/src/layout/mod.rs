@@ -57,7 +57,7 @@ pub struct UiRoots {
 }
 
 impl UiRoots {
-    /// Returns the root node where layout updates start from, with [`GhostNode`]s flattened.
+    /// Returns the root nodes where layout updates start from, with [`GhostNode`]s flattened.
     /// Includes parentless non-ghost nodes, non-ghost nodes with only ghost ancestors,
     /// and valid [`FixedNode`]s.
     pub fn layout_roots(&self) -> impl Iterator<Item = Entity> {
