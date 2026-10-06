@@ -13,7 +13,13 @@ use bevy_ecs::{
     world::Ref,
 };
 
-/// Updates clipping for all nodes
+/// Updates clipping for all nodes.
+///
+/// Propagates changes to the clipping geometry down the tree, starting from
+/// each transform root: parentless UI nodes (including ghosts) and fixed nodes.
+///
+///
+/// Runs after the layout is updated, in the `UiSystems::Clipping` system set.
 pub fn update_clipping_system(
     mut commands: Commands,
     ui_roots: Res<UiRoots>,
@@ -43,7 +49,6 @@ pub fn update_clipping_system(
     }
 }
 
-// Needs more tests
 fn update_clipping(
     commands: &mut Commands,
     ui_children: &Query<&Children, With<Node>>,
