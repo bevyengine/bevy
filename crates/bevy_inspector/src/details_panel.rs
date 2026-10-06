@@ -922,8 +922,8 @@ pub(crate) fn inspect_components(
         })
         .collect();
     #[cfg(feature = "remote")]
-    if let Some(record) = world.component_id::<crate::remote::RemoteComponents>() {
-        components.retain(|component| component.id != record);
+    if let Some(record) = world.get::<crate::remote::RemoteComponents>(entity) {
+        return crate::remote::details::annotate(world, record, components);
     }
     components.sort_by(|left, right| (&left.name, left.id).cmp(&(&right.name, right.id)));
     components
