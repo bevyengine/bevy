@@ -250,7 +250,7 @@ impl ComputedLayout {
         self.reached_in_full_walk
     }
 
-    /// Returns the layout geometry and unrounded size.
+    /// Returns the rounded or unrounded layout for the node, and its unrounded size.
     pub fn get_layout(&self, use_rounding: bool) -> Option<(Layout, Vec2)> {
         let unrounded = self.unrounded?;
         let selected_layout = if use_rounding {
