@@ -64,16 +64,20 @@
 //! removed, so its state survives switching and moving tabs. The UI is headless: it has the
 //! layout it needs and no colors.
 //!
-//! The UI is controlled. Selecting a tab or dragging a splitter sends a [`DockChange`] to
-//! the dock entity instead of changing the tree. Add [`dock_self_update`] as an observer on
-//! the dock entity to apply these changes, or observe [`DockChange`] and edit the tree with
-//! [`DockEdit::apply`] or other operations.
+//! Tab lists use [`TabDragMode::External`], so tabs can be dragged within a group and between
+//! groups of the same dock. Drops on lists outside the dock are ignored.
+//!
+//! The UI is controlled. Selecting a tab, dragging a tab or dragging a splitter sends a
+//! [`DockChange`] to the dock entity instead of changing the tree. Add [`dock_self_update`] as
+//! an observer on the dock entity to apply these changes, or observe [`DockChange`] and edit
+//! the tree with [`DockEdit::apply`] or other operations.
 //!
 //! [`ControlOrientation`]: crate::ControlOrientation
 //! [`Node`]: bevy_ui::Node
 //! [`SplitPane`]: crate::SplitPane
 //! [`SplitPaneHandle`]: crate::SplitPaneHandle
 //! [`TabList`]: crate::TabList
+//! [`TabDragMode::External`]: crate::TabDragMode::External
 //! [`Pane::size`]: crate::Pane::size
 
 mod tree;

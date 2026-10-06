@@ -25,4 +25,6 @@ fn setup(mut commands: Commands, mut panels: ResMut<DockPanels>) {
 }
 ```
 
-Like other headless widgets, the dock is controlled. Clicking a tab or dragging a splitter sends a `DockChange` to the dock entity, and `dock_self_update` applies it to the tree. Apps that manage the layout themselves can observe `DockChange` instead. The UI has layout only and no colors, so apps can style it as they like.
+Tabs can be dragged to reorder them within a group or to move them to another group of the same dock. The tab lists use `TabDragMode::External`, and a drop becomes a `DockEdit::MoveTab` applied with `DockTree::move_tab`, so a group emptied by the move is removed from the layout.
+
+Like other headless widgets, the dock is controlled. Clicking a tab, dragging a tab or dragging a splitter sends a `DockChange` to the dock entity, and `dock_self_update` applies it to the tree. Apps that manage the layout themselves can observe `DockChange` instead. The UI has layout only and no colors, so apps can style it as they like.

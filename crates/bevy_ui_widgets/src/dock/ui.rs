@@ -19,8 +19,8 @@ use bevy_ui::{px, widget::Text, Display, FlexDirection, Node, Overflow, UiRect, 
 
 use crate::{
     ControlOrientation, DockError, DockLeaf, DockNode, DockNodeId, DockPanelKey, DockSplit,
-    DockTab, DockTabId, DockTree, Pane, SelectedTab, SplitPane, SplitPaneHandle, Tab, TabList,
-    ValueChange,
+    DockTab, DockTabId, DockTree, Pane, SelectedTab, SplitPane, SplitPaneHandle, Tab, TabDragMode,
+    TabList, TabMoved, ValueChange,
 };
 
 /// Builds and maintains UI for every entity with a [`DockTree`].
@@ -36,6 +36,7 @@ impl Plugin for DockPlugin {
         app.init_resource::<DockPanels>()
             .add_observer(forward_split_change)
             .add_observer(forward_tab_change)
+            .add_observer(forward_tab_move)
             .add_systems(
                 PostUpdate,
                 build_dock_ui.in_set(DockSystems).before(UiSystems::Prepare),
@@ -158,6 +159,15 @@ pub enum DockEdit {
         /// The selected tab.
         tab: DockTabId,
     },
+    /// A tab was dragged to a position in a leaf, as taken by [`DockTree::move_tab`].
+    MoveTab {
+        /// The dragged tab.
+        tab: DockTabId,
+        /// The leaf it was dropped on, which may be the leaf it came from.
+        to_leaf: DockNodeId,
+        /// The insertion index, or `None` for the end.
+        index: Option<usize>,
+    },
 }
 
 impl DockEdit {
@@ -166,6 +176,11 @@ impl DockEdit {
         match self {
             DockEdit::Resize { split, sizes } => tree.set_sizes(*split, sizes),
             DockEdit::Activate { leaf, tab } => tree.set_active(*leaf, *tab),
+            DockEdit::MoveTab {
+                tab,
+                to_leaf,
+                index,
+            } => tree.move_tab(*tab, *to_leaf, *index),
         }
     }
 }
@@ -218,6 +233,35 @@ fn forward_tab_change(
             tab: binding.tab,
         },
         is_final: change.is_final,
+    });
+}
+
+fn forward_tab_move(
+    moved: On<TabMoved>,
+    tabs: Query<&DockTabBinding>,
+    parents: Query<&ChildOf>,
+    leaves: Query<&DockNodeBinding>,
+    mut commands: Commands,
+) {
+    let Ok(binding) = tabs.get(moved.tab) else {
+        return;
+    };
+    let Some(leaf) = parents
+        .get(moved.to_strip)
+        .ok()
+        .and_then(|parent| leaves.get(parent.parent()).ok())
+        .filter(|leaf| leaf.dock == binding.dock)
+    else {
+        return;
+    };
+    commands.trigger(DockChange {
+        dock: binding.dock,
+        edit: DockEdit::MoveTab {
+            tab: binding.tab,
+            to_leaf: leaf.node,
+            index: Some(moved.index),
+        },
+        is_final: true,
     });
 }
 
@@ -404,7 +448,10 @@ impl DockBuilder<'_, '_> {
                 let tab_list = self
                     .commands
                     .spawn((
-                        TabList::default(),
+                        TabList {
+                            drag: TabDragMode::External,
+                            ..Default::default()
+                        },
                         Node {
                             flex_shrink: 0.0,
                             overflow: Overflow::clip(),
@@ -956,6 +1003,35 @@ mod tests {
         assert_eq!(app.world().get::<DockTree>(dock).unwrap(), &tree);
     }
 
+    fn tab_list(world: &mut World, leaf: DockNodeId) -> Entity {
+        let leaf = node_entity(world, leaf);
+        children(world, leaf)[0]
+    }
+
+    fn drop_tab(app: &mut App, tab: DockTabId, to_leaf: DockNodeId, index: usize) {
+        let world = app.world_mut();
+        let header = header_entity(world, tab);
+        let from_strip = parent(world, header);
+        let to_strip = tab_list(world, to_leaf);
+        world.trigger(TabMoved {
+            from_strip,
+            tab: header,
+            to_strip,
+            index,
+        });
+        app.update();
+    }
+
+    fn leaf_tabs(app: &App, dock: Entity, leaf: DockNodeId) -> Vec<DockTabId> {
+        let tree = app.world().get::<DockTree>(dock).unwrap();
+        tree.leaf(leaf)
+            .unwrap()
+            .tabs()
+            .iter()
+            .map(|t| t.id)
+            .collect()
+    }
+
     #[test]
     fn split_merged_into_parent_keeps_siblings() {
         let mut app = app();
@@ -987,5 +1063,125 @@ mod tests {
         let d_content = content_entity(world, d);
         assert_eq!(parent(world, parent(world, d_content)), expected[3]);
         assert_eq!(display(world, d_content), Display::Flex);
+    }
+
+    #[test]
+    fn tab_lists_drag_externally() {
+        let mut app = app();
+        let (tree, left, _, _) = three_way();
+        spawn_dock(&mut app, tree);
+        let world = app.world_mut();
+        let list = tab_list(world, left);
+        assert_eq!(
+            world.get::<TabList>(list).unwrap().drag,
+            TabDragMode::External
+        );
+    }
+
+    #[test]
+    fn drags_tab_between_groups() {
+        let mut app = app();
+        let (tree, left, center, _) = three_way();
+        let (_, a) = tree.find_panel("a").unwrap();
+        let (_, b) = tree.find_panel("b").unwrap();
+        let (_, c) = tree.find_panel("c").unwrap();
+        let dock = spawn_dock(&mut app, tree);
+        let world = app.world_mut();
+        let content = content_entity(world, a);
+
+        drop_tab(&mut app, a, left, 0);
+        assert_eq!(leaf_tabs(&app, dock, left), vec![a, c]);
+        assert_eq!(leaf_tabs(&app, dock, center), vec![b]);
+        let world = app.world_mut();
+        let left_list = tab_list(world, left);
+        let header = header_entity(world, a);
+        assert_eq!(
+            children(world, left_list),
+            vec![header, header_entity(world, c)]
+        );
+        assert_eq!(world.get::<SelectedTab>(left_list).unwrap().0, Some(header));
+        assert_eq!(content_entity(world, a), content);
+        assert_eq!(
+            parent(world, parent(world, content)),
+            node_entity(world, left)
+        );
+        assert_eq!(display(world, content), Display::Flex);
+    }
+
+    #[test]
+    fn drags_tab_within_group() {
+        let mut app = app();
+        let (tree, _, center, _) = three_way();
+        let (_, a) = tree.find_panel("a").unwrap();
+        let (_, b) = tree.find_panel("b").unwrap();
+        let dock = spawn_dock(&mut app, tree);
+
+        drop_tab(&mut app, b, center, 0);
+        assert_eq!(leaf_tabs(&app, dock, center), vec![b, a]);
+        let world = app.world_mut();
+        let list = tab_list(world, center);
+        assert_eq!(
+            children(world, list),
+            vec![header_entity(world, b), header_entity(world, a)]
+        );
+    }
+
+    #[test]
+    fn drag_that_empties_group_collapses_it() {
+        let mut app = app();
+        let (tree, left, center, right) = three_way();
+        let split = tree.root();
+        let (_, c) = tree.find_panel("c").unwrap();
+        let dock = spawn_dock(&mut app, tree);
+        let world = app.world_mut();
+        let left_entity = node_entity(world, left);
+        let c_content = content_entity(world, c);
+
+        drop_tab(&mut app, c, center, 2);
+        let tree = app.world().get::<DockTree>(dock).unwrap();
+        assert!(tree.node(left).is_none());
+        assert_eq!(tree.leaf(center).unwrap().tabs()[2].id, c);
+        let world = app.world_mut();
+        assert!(world.get_entity(left_entity).is_err());
+        let split_entity = node_entity(world, split);
+        let panes = children(world, split_entity);
+        assert_eq!(panes.len(), 3);
+        assert_eq!(panes[0], node_entity(world, center));
+        assert_eq!(panes[2], node_entity(world, right));
+        assert_eq!(world.get_entity(c_content).map(|e| e.id()), Ok(c_content));
+        assert_eq!(parent(world, parent(world, c_content)), panes[0]);
+    }
+
+    #[test]
+    fn ignores_drops_on_other_docks() {
+        let mut app = app();
+        let (tree, left, _, _) = three_way();
+        let (_, a) = tree.find_panel("a").unwrap();
+        let first = spawn_dock(&mut app, tree.clone());
+        let second = spawn_dock(&mut app, tree.clone());
+        let world = app.world_mut();
+        let mut query = world.query::<(Entity, &DockTabBinding)>();
+        let header = query
+            .iter(world)
+            .find(|(_, b)| b.dock == first && b.tab == a)
+            .unwrap()
+            .0;
+        let from_strip = parent(world, header);
+        let mut lists = world.query::<(&DockNodeBinding, &Children)>();
+        let to_strip = lists
+            .iter(world)
+            .find(|(b, _)| b.dock == second && b.node == left)
+            .unwrap()
+            .1[0];
+        world.trigger(TabMoved {
+            from_strip,
+            tab: header,
+            to_strip,
+            index: 0,
+        });
+        app.update();
+        assert_eq!(app.world().get::<DockTree>(first).unwrap(), &tree);
+        assert_eq!(app.world().get::<DockTree>(second).unwrap(), &tree);
+        assert_eq!(parent(app.world(), header), from_strip);
     }
 }

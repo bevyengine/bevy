@@ -1,7 +1,8 @@
 //! Builds a dockable layout from a `DockTree` and edits the tree at runtime.
 //!
-//! Drag the splitters to resize groups and click tabs to switch between them. The keyboard
-//! shortcuts listed at the top of the window edit the tree, and the UI follows.
+//! Drag the splitters to resize groups, click tabs to switch between them and drag tabs to
+//! reorder them or move them to another group. The keyboard shortcuts listed at the top of the
+//! window edit the tree, and the UI follows.
 
 use bevy::{
     picking::{
@@ -12,7 +13,8 @@ use bevy::{
     ui::Selected,
     ui_widgets::{
         dock_self_update, ControlOrientation, DockChange, DockEdge, DockEdit, DockNodeId,
-        DockPanels, DockTabBinding, DockTree, SplitPane, SplitPaneHandle, TabList,
+        DockPanels, DockTabBinding, DockTree, SplitPane, SplitPaneHandle, TabDragging,
+        TabInsertionPreview, TabList,
     },
     window::SystemCursorIcon,
 };
@@ -21,6 +23,8 @@ const TAB: Color = Color::srgb(0.16, 0.17, 0.20);
 const TAB_SELECTED: Color = Color::srgb(0.30, 0.33, 0.40);
 const TAB_BAR: Color = Color::srgb(0.10, 0.10, 0.12);
 const HANDLE: Color = Color::srgb(0.05, 0.05, 0.06);
+const TAB_DRAGGED: Color = Color::srgb(0.45, 0.50, 0.62);
+const INSERTION: Color = Color::srgb(0.95, 0.80, 0.30);
 
 const HELP: &str =
     "N: add a note to the last clicked group    S: split the viewport to the right    \
@@ -197,12 +201,52 @@ fn edit_tree(
 
 fn style_tabs(
     mut commands: Commands,
-    tabs: Query<(Entity, Has<Selected>, Option<&BackgroundColor>), With<DockTabBinding>>,
+    mut tabs: Query<
+        (
+            Entity,
+            Has<Selected>,
+            Has<TabDragging>,
+            &mut Node,
+            Option<&BackgroundColor>,
+            Option<&BorderColor>,
+        ),
+        With<DockTabBinding>,
+    >,
+    previews: Query<(&Children, &TabInsertionPreview)>,
 ) {
-    for (tab, selected, background) in &tabs {
-        let color = BackgroundColor(if selected { TAB_SELECTED } else { TAB });
+    let mut marks: Vec<(Entity, bool)> = Vec::new();
+    for (children, preview) in &previews {
+        for entry in &preview.entries {
+            match children.get(entry.slot) {
+                Some(&tab) => marks.push((tab, true)),
+                None => marks.extend(children.last().map(|&tab| (tab, false))),
+            }
+        }
+    }
+    for (tab, selected, dragged, mut node, background, border) in &mut tabs {
+        let color = BackgroundColor(match (dragged, selected) {
+            (true, _) => TAB_DRAGGED,
+            (false, true) => TAB_SELECTED,
+            (false, false) => TAB,
+        });
         if background != Some(&color) {
             commands.entity(tab).insert(color);
+        }
+        let mut edges = BorderColor::all(Color::NONE);
+        for &(marked, before) in &marks {
+            if marked == tab {
+                if before {
+                    edges.left = INSERTION;
+                } else {
+                    edges.right = INSERTION;
+                }
+            }
+        }
+        if border != Some(&edges) {
+            commands.entity(tab).insert(edges);
+        }
+        if node.border.left != px(2) {
+            node.border = UiRect::horizontal(px(2));
         }
     }
 }
