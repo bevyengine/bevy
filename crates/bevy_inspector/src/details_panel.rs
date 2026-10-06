@@ -560,7 +560,7 @@ pub(crate) fn apply_field_edit(edit: On<FieldEdit>, mut commands: Commands) {
     commands.queue(move |world: &mut World| write_field_edit(world, &edit));
 }
 
-/// Writes `edit` into its component, marking the component changed only if the write succeeds.
+/// Writes `edit` into its component, marking the component changed only if its value changes.
 ///
 /// The details panel is refreshed on the next tick whenever the field does not end up holding the
 /// edited value, so that its widget is reverted.
@@ -606,20 +606,20 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
     } else {
         target.reflect_path_mut(edit.path.as_str())
     };
-    let (written, held, typing_a_char) = match field {
+    let (write, held, typing_a_char) = match field {
         Ok(field) => {
-            let written = write_field_value(field, &edit.value);
-            let held = written && holds_value(field, &edit.value);
+            let write = write_field_value(field, &edit.value);
+            let held = write != FieldWrite::Rejected && holds_value(field, &edit.value);
             let typing_a_char = matches!(edit.value, FieldValue::Text(_))
                 && field.try_downcast_ref::<char>().is_some();
-            (written, held, typing_a_char)
+            (write, held, typing_a_char)
         }
-        Err(_) => (false, false, false),
+        Err(_) => (FieldWrite::Rejected, false, false),
     };
-    if written {
+    if write == FieldWrite::Written {
         component.set_changed();
     }
-    if !written && !typing_a_char {
+    if write == FieldWrite::Rejected && !typing_a_char {
         warn!(
             "the inspector cannot edit `{}` at `{}`",
             edit.component, edit.path
@@ -656,48 +656,74 @@ fn same_value(left: &FieldValue, right: &FieldValue) -> bool {
     }
 }
 
-fn write_field_value(field: &mut dyn PartialReflect, value: &FieldValue) -> bool {
-    match value {
-        FieldValue::Bool(new) => match field.try_downcast_mut::<bool>() {
-            Some(target) => {
-                *target = *new;
-                true
-            }
-            None => false,
-        },
-        FieldValue::Number(number) => write_number_field(field, *number),
-        FieldValue::Text(text) => write_text_field(field, text),
-        FieldValue::Variant { variants, selected } => variants
-            .get(*selected)
-            .is_some_and(|name| write_variant_field(field, name)),
-        FieldValue::Color(_) | FieldValue::Label(_) => false,
+/// Describes the outcome of a field write attempt.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FieldWrite {
+    /// The field now holds a new value.
+    Written,
+    /// The field already held the value, so nothing was written.
+    Unchanged,
+    /// The value cannot be written into the field.
+    Rejected,
+}
+
+/// Assigns `value` to `target`, reporting the change based on previous data.
+fn assign<T: PartialEq>(target: &mut T, value: T) -> FieldWrite {
+    if *target == value {
+        FieldWrite::Unchanged
+    } else {
+        *target = value;
+        FieldWrite::Written
     }
 }
 
-/// Writes text into a string or `char` field.
+fn write_field_value(field: &mut dyn PartialReflect, value: &FieldValue) -> FieldWrite {
+    match value {
+        FieldValue::Bool(new) => match field.try_downcast_mut::<bool>() {
+            Some(target) => assign(target, *new),
+            None => FieldWrite::Rejected,
+        },
+        FieldValue::Number(number) => write_number_field(field, *number),
+        FieldValue::Text(text) => write_text_field(field, text),
+        FieldValue::Variant { variants, selected } => match variants.get(*selected) {
+            Some(name) => write_variant_field(field, name),
+            None => FieldWrite::Rejected,
+        },
+        FieldValue::Color(_) | FieldValue::Label(_) => FieldWrite::Rejected,
+    }
+}
+
+/// Writes text into a string or `char` field, allocating only when the text differs.
 ///
 /// A `char` field takes the last character of the text, so that typing replaces it.
-fn write_text_field(field: &mut dyn PartialReflect, text: &str) -> bool {
+fn write_text_field(field: &mut dyn PartialReflect, text: &str) -> FieldWrite {
     if let Some(target) = field.try_downcast_mut::<String>() {
+        if target == text {
+            return FieldWrite::Unchanged;
+        }
         *target = text.to_string();
-        return true;
+        return FieldWrite::Written;
     }
     if let Some(target) = field.try_downcast_mut::<Cow<'static, str>>() {
+        if target == text {
+            return FieldWrite::Unchanged;
+        }
         *target = Cow::Owned(text.to_string());
-        return true;
+        return FieldWrite::Written;
     }
     if let Some(target) = field.try_downcast_mut::<char>()
         && let Some(last) = text.chars().last()
     {
-        *target = last;
-        return true;
+        return assign(target, last);
     }
-    false
+    FieldWrite::Rejected
 }
 
 /// Writes a number into a numeric field, rejecting non-finite values and integers outside the
 /// field's range.
-fn write_number_field(field: &mut dyn PartialReflect, value: NumericValue) -> bool {
+///
+/// Floats are compared bit for bit, so that writing `-0.0` over `0.0` counts as a change.
+fn write_number_field(field: &mut dyn PartialReflect, value: NumericValue) -> FieldWrite {
     let float = match value {
         NumericValue::F32(value) => value as f64,
         NumericValue::F64(value) => value,
@@ -705,7 +731,7 @@ fn write_number_field(field: &mut dyn PartialReflect, value: NumericValue) -> bo
         NumericValue::I64(value) => value as f64,
     };
     if !float.is_finite() {
-        return false;
+        return FieldWrite::Rejected;
     }
     if let Some(target) = field.try_downcast_mut::<f32>() {
         let narrowed = match value {
@@ -713,67 +739,74 @@ fn write_number_field(field: &mut dyn PartialReflect, value: NumericValue) -> bo
             _ => float as f32,
         };
         if !narrowed.is_finite() {
-            return false;
+            return FieldWrite::Rejected;
         }
-        *target = narrowed;
-        return true;
+        return assign_bits(target, narrowed, f32::to_bits);
     }
     if let Some(target) = field.try_downcast_mut::<f64>() {
-        *target = float;
-        return true;
+        return assign_bits(target, float, f64::to_bits);
     }
 
     let integer = match value {
         NumericValue::I32(value) => i128::from(value),
         NumericValue::I64(value) => i128::from(value),
         _ if float.fract() == 0.0 => float as i128,
-        _ => return false,
+        _ => return FieldWrite::Rejected,
     };
 
     if let Some(target) = field.try_downcast_mut::<i128>() {
-        *target = integer;
-        return true;
+        return assign(target, integer);
     }
 
     macro_rules! write_as {
         ($($type:ty),*) => {
             $(
                 if let Some(target) = field.try_downcast_mut::<$type>() {
-                    let Ok(value) = <$type>::try_from(integer) else {
-                        return false;
+                    return match <$type>::try_from(integer) {
+                        Ok(value) => assign(target, value),
+                        Err(_) => FieldWrite::Rejected,
                     };
-                    *target = value;
-                    return true;
                 }
             )*
         };
     }
 
     write_as!(i8, i16, i32, i64, isize, u8, u16, u32, u64, u128, usize);
-    false
+    FieldWrite::Rejected
+}
+
+/// Assigns a float to `target`, comparing the `bits` of both values rather than using `PartialEq`.
+fn assign_bits<T: Copy, B: PartialEq>(target: &mut T, value: T, bits: fn(T) -> B) -> FieldWrite {
+    if bits(*target) == bits(value) {
+        FieldWrite::Unchanged
+    } else {
+        *target = value;
+        FieldWrite::Written
+    }
 }
 
 /// Switches a unit-only enum field to the variant `name`.
-fn write_variant_field(field: &mut dyn PartialReflect, name: &str) -> bool {
+fn write_variant_field(field: &mut dyn PartialReflect, name: &str) -> FieldWrite {
     let ReflectRef::Enum(current) = field.reflect_ref() else {
-        return false;
+        return FieldWrite::Rejected;
     };
     if current.variant_name() == name {
-        return true;
+        return FieldWrite::Unchanged;
     }
     let Some(TypeInfo::Enum(info)) = field.get_represented_type_info() else {
-        return false;
+        return FieldWrite::Rejected;
     };
     if info.variant(name).is_none()
         || info
             .iter()
             .any(|variant| variant.variant_type() != VariantType::Unit)
     {
-        return false;
+        return FieldWrite::Rejected;
     }
-    field
-        .try_apply(&DynamicEnum::new(name, DynamicVariant::Unit))
-        .is_ok()
+    match field.try_apply(&DynamicEnum::new(name, DynamicVariant::Unit)) {
+        Ok(()) => FieldWrite::Written,
+        Err(_) => FieldWrite::Rejected,
+    }
 }
 
 /// Rebuilds or refreshes the details panel so that it matches the selected entity.
@@ -3747,6 +3780,67 @@ mod tests {
 
         edit_kinds(&mut app, entity, "byte", byte(300));
         assert_ne!(elapsed(&mut app), Duration::ZERO);
+    }
+
+    #[test]
+    fn dragging_an_integer_to_the_same_value_does_not_mark_it_changed() {
+        let (mut app, entity) = kinds_app();
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        select(&mut app, Some(entity));
+        let input = field_widget(&mut app, "byte");
+        let changed = |app: &App| {
+            app.world()
+                .entity(entity)
+                .get_ref::<Kinds>()
+                .unwrap()
+                .last_changed()
+        };
+
+        trigger_change(&mut app, input, 7_i32);
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().byte, 7);
+        let before = changed(&app);
+
+        for _ in 0..3 {
+            app.world_mut().increment_change_tick();
+            trigger_change(&mut app, input, 7_i32);
+        }
+        assert_eq!(changed(&app), before);
+    }
+
+    #[test]
+    fn an_unchanged_text_edit_keeps_the_string_and_change_tick() {
+        let (mut app, entity) = kinds_app();
+        edit_kinds(&mut app, entity, "text", FieldValue::Text("same".into()));
+        let state = |app: &App| {
+            let kinds = app.world().entity(entity).get_ref::<Kinds>().unwrap();
+            (kinds.text.as_ptr(), kinds.last_changed())
+        };
+        let before = state(&app);
+
+        app.world_mut().increment_change_tick();
+        edit_kinds(&mut app, entity, "text", FieldValue::Text("same".into()));
+        assert_eq!(state(&app), before);
+    }
+
+    #[test]
+    fn an_unchanged_variant_choice_does_not_mark_it_changed() {
+        let mut app = test_app();
+        let subject = app.world_mut().spawn(Subject::default()).id();
+        let changed = |app: &App| {
+            app.world()
+                .entity(subject)
+                .get_ref::<Subject>()
+                .unwrap()
+                .last_changed()
+        };
+        app.world_mut().increment_change_tick();
+        let before = changed(&app);
+
+        edit(&mut app, subject, "mode", variant(&["Idle", "Running"], 0));
+        assert_eq!(changed(&app), before);
+
+        edit(&mut app, subject, "mode", variant(&["Idle", "Running"], 1));
+        assert_ne!(changed(&app), before);
     }
 
     #[test]
