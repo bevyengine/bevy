@@ -106,8 +106,6 @@ pub use bevy_time as time;
 pub use bevy_transform as transform;
 #[cfg(feature = "bevy_ui")]
 pub use bevy_ui as ui;
-#[cfg(feature = "bevy_ui_dock")]
-pub use bevy_ui_dock as ui_dock;
 #[cfg(feature = "bevy_ui_render")]
 pub use bevy_ui_render as ui_render;
 #[cfg(feature = "bevy_ui_widgets")]

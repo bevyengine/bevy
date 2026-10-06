@@ -2,8 +2,9 @@ use alloc::{collections::BTreeMap, string::String, vec, vec::Vec};
 
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui_widgets::ControlOrientation;
 use thiserror::Error;
+
+use crate::ControlOrientation;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -18,7 +19,7 @@ use serde::{Deserialize, Serialize};
     derive(Serialize, Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct NodeId(u64);
+pub struct DockNodeId(u64);
 
 /// Identifies a tab in a [`DockTree`]. A tab keeps its id when it moves between leaves, and
 /// ids are never reused within a tree.
@@ -29,7 +30,7 @@ pub struct NodeId(u64);
     derive(Serialize, Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct TabId(u64);
+pub struct DockTabId(u64);
 
 /// Names the content shown by a tab. The app maps each key to the content it builds for it.
 ///
@@ -41,22 +42,22 @@ pub struct TabId(u64);
     derive(Serialize, Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct PanelKey(pub String);
+pub struct DockPanelKey(pub String);
 
-impl PanelKey {
+impl DockPanelKey {
     /// Returns the key as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-impl From<&str> for PanelKey {
+impl From<&str> for DockPanelKey {
     fn from(value: &str) -> Self {
         Self(value.into())
     }
 }
 
-impl From<String> for PanelKey {
+impl From<String> for DockPanelKey {
     fn from(value: String) -> Self {
         Self(value)
     }
@@ -70,7 +71,7 @@ impl From<String> for PanelKey {
     derive(Serialize, Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum Edge {
+pub enum DockEdge {
     /// Above the node.
     Top,
     /// Below the node.
@@ -81,18 +82,19 @@ pub enum Edge {
     Right,
 }
 
-impl Edge {
+impl DockEdge {
     /// The orientation of a split that places a node at this edge.
     pub fn orientation(self) -> ControlOrientation {
         match self {
-            Edge::Top | Edge::Bottom => ControlOrientation::Vertical,
-            Edge::Left | Edge::Right => ControlOrientation::Horizontal,
+            DockEdge::Top | DockEdge::Bottom => ControlOrientation::Vertical,
+            DockEdge::Left | DockEdge::Right => ControlOrientation::Horizontal,
         }
     }
 
-    /// Returns true for [`Edge::Top`] and [`Edge::Left`], which come first in a split.
+    /// Returns true for [`DockEdge::Top`] and [`DockEdge::Left`], which place the new node
+    /// before the target, so it ends up above or to the left of it.
     pub fn is_start(self) -> bool {
-        matches!(self, Edge::Top | Edge::Left)
+        matches!(self, DockEdge::Top | DockEdge::Left)
     }
 }
 
@@ -106,12 +108,13 @@ impl Edge {
 )]
 pub struct DockTab {
     /// The id of this tab.
-    pub id: TabId,
+    pub id: DockTabId,
     /// The content this tab shows.
-    pub panel: PanelKey,
+    pub panel: DockPanelKey,
 }
 
-/// A tab group: an ordered list of tabs, one of which is active.
+/// A tab group: an ordered list of tabs. A non-empty group has exactly one active tab, and an
+/// empty group has none.
 #[derive(Clone, Debug, Default, PartialEq, Reflect)]
 #[reflect(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(
@@ -121,7 +124,7 @@ pub struct DockTab {
 )]
 pub struct DockLeaf {
     tabs: Vec<DockTab>,
-    active: Option<TabId>,
+    active: Option<DockTabId>,
     persistent: bool,
 }
 
@@ -132,7 +135,7 @@ impl DockLeaf {
     }
 
     /// The id of the active tab, or `None` if the leaf is empty.
-    pub fn active(&self) -> Option<TabId> {
+    pub fn active(&self) -> Option<DockTabId> {
         self.active
     }
 
@@ -143,7 +146,7 @@ impl DockLeaf {
     }
 
     /// The position of a tab in this leaf.
-    pub fn tab_index(&self, tab: TabId) -> Option<usize> {
+    pub fn tab_index(&self, tab: DockTabId) -> Option<usize> {
         self.tabs.iter().position(|t| t.id == tab)
     }
 
@@ -161,12 +164,12 @@ impl DockLeaf {
     derive(Serialize, Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct SplitChild {
+pub struct DockSplitChild {
     /// The child node.
-    pub node: NodeId,
+    pub node: DockNodeId,
     /// The flex weight of the child along the split axis, as in [`Pane::size`].
     ///
-    /// [`Pane::size`]: bevy_ui_widgets::Pane::size
+    /// [`Pane::size`]: crate::Pane::size
     pub size: f32,
 }
 
@@ -180,19 +183,19 @@ pub struct SplitChild {
 )]
 pub struct DockSplit {
     orientation: ControlOrientation,
-    children: Vec<SplitChild>,
+    children: Vec<DockSplitChild>,
 }
 
 impl DockSplit {
     /// The axis the children are laid out along, as in [`SplitPane::orientation`].
     ///
-    /// [`SplitPane::orientation`]: bevy_ui_widgets::SplitPane::orientation
+    /// [`SplitPane::orientation`]: crate::SplitPane::orientation
     pub fn orientation(&self) -> ControlOrientation {
         self.orientation
     }
 
     /// The children in layout order: left to right, or top to bottom.
-    pub fn children(&self) -> &[SplitChild] {
+    pub fn children(&self) -> &[DockSplitChild] {
         &self.children
     }
 }
@@ -235,23 +238,23 @@ impl DockNode {
 pub enum DockError {
     /// The node does not exist.
     #[error("dock node {0:?} does not exist")]
-    NodeNotFound(NodeId),
+    NodeNotFound(DockNodeId),
     /// The node is a split where a leaf was expected.
     #[error("dock node {0:?} is not a leaf")]
-    NotALeaf(NodeId),
+    NotALeaf(DockNodeId),
     /// The node is a leaf where a split was expected.
     #[error("dock node {0:?} is not a split")]
-    NotASplit(NodeId),
+    NotASplit(DockNodeId),
     /// The tab does not exist.
     #[error("dock tab {0:?} does not exist")]
-    TabNotFound(TabId),
+    TabNotFound(DockTabId),
     /// The tab exists but is not in the given leaf.
     #[error("dock tab {tab:?} is not in leaf {leaf:?}")]
     TabNotInLeaf {
         /// The leaf that was searched.
-        leaf: NodeId,
+        leaf: DockNodeId,
         /// The tab that was not found.
-        tab: TabId,
+        tab: DockTabId,
     },
     /// Split sizes must be finite, positive, and one per child.
     #[error("split sizes must be finite, positive, and one per child")]
@@ -269,15 +272,15 @@ pub enum DockError {
     reflect(Serialize, Deserialize)
 )]
 pub struct DockTree {
-    nodes: BTreeMap<NodeId, DockNode>,
-    root: NodeId,
+    nodes: BTreeMap<DockNodeId, DockNode>,
+    root: DockNodeId,
     next_node: u64,
     next_tab: u64,
 }
 
 impl Default for DockTree {
     fn default() -> Self {
-        let root = NodeId(0);
+        let root = DockNodeId(0);
         Self {
             nodes: BTreeMap::from([(root, DockNode::Leaf(DockLeaf::default()))]),
             root,
@@ -294,22 +297,22 @@ impl DockTree {
     }
 
     /// The root node.
-    pub fn root(&self) -> NodeId {
+    pub fn root(&self) -> DockNodeId {
         self.root
     }
 
     /// Returns a node by id.
-    pub fn node(&self, id: NodeId) -> Option<&DockNode> {
+    pub fn node(&self, id: DockNodeId) -> Option<&DockNode> {
         self.nodes.get(&id)
     }
 
     /// Returns a leaf by id, or `None` if it does not exist or is a split.
-    pub fn leaf(&self, id: NodeId) -> Option<&DockLeaf> {
+    pub fn leaf(&self, id: DockNodeId) -> Option<&DockLeaf> {
         self.node(id).and_then(DockNode::as_leaf)
     }
 
     /// Every node reachable from the root with its depth, in depth-first order.
-    pub fn iter_dfs(&self) -> Vec<(NodeId, usize)> {
+    pub fn iter_dfs(&self) -> Vec<(DockNodeId, usize)> {
         let mut out = Vec::new();
         let mut stack = vec![(self.root, 0)];
         while let Some((id, depth)) = stack.pop() {
@@ -322,20 +325,20 @@ impl DockTree {
     }
 
     /// Every leaf reachable from the root, in depth-first order.
-    pub fn leaves(&self) -> impl Iterator<Item = (NodeId, &DockLeaf)> {
+    pub fn leaves(&self) -> impl Iterator<Item = (DockNodeId, &DockLeaf)> {
         self.iter_dfs()
             .into_iter()
             .filter_map(|(id, _)| self.leaf(id).map(|leaf| (id, leaf)))
     }
 
     /// Every tab with the leaf that holds it, in depth-first then display order.
-    pub fn tabs(&self) -> impl Iterator<Item = (NodeId, &DockTab)> {
+    pub fn tabs(&self) -> impl Iterator<Item = (DockNodeId, &DockTab)> {
         self.leaves()
             .flat_map(|(id, leaf)| leaf.tabs.iter().map(move |tab| (id, tab)))
     }
 
     /// The leaf that holds a tab.
-    pub fn find_leaf_for_tab(&self, tab: TabId) -> Option<NodeId> {
+    pub fn find_leaf_for_tab(&self, tab: DockTabId) -> Option<DockNodeId> {
         self.nodes.iter().find_map(|(id, node)| match node {
             DockNode::Leaf(leaf) if leaf.tab_index(tab).is_some() => Some(*id),
             _ => None,
@@ -343,14 +346,14 @@ impl DockTree {
     }
 
     /// The first tab showing a panel, with the leaf that holds it.
-    pub fn find_panel(&self, panel: &str) -> Option<(NodeId, TabId)> {
+    pub fn find_panel(&self, panel: &str) -> Option<(DockNodeId, DockTabId)> {
         self.tabs()
             .find(|(_, tab)| tab.panel.as_str() == panel)
             .map(|(leaf, tab)| (leaf, tab.id))
     }
 
     /// The split that contains a node, or `None` for the root or an unknown node.
-    pub fn parent_of(&self, child: NodeId) -> Option<NodeId> {
+    pub fn parent_of(&self, child: DockNodeId) -> Option<DockNodeId> {
         self.nodes.iter().find_map(|(id, node)| match node {
             DockNode::Split(split) if split.children.iter().any(|c| c.node == child) => Some(*id),
             _ => None,
@@ -360,9 +363,9 @@ impl DockTree {
     /// Appends a tab showing `panel` to a leaf and makes it active.
     pub fn add_tab(
         &mut self,
-        leaf: NodeId,
-        panel: impl Into<PanelKey>,
-    ) -> Result<TabId, DockError> {
+        leaf: DockNodeId,
+        panel: impl Into<DockPanelKey>,
+    ) -> Result<DockTabId, DockError> {
         self.leaf_mut(leaf)?;
         let tab = self.fresh_tab(panel.into());
         let id = tab.id;
@@ -378,10 +381,10 @@ impl DockTree {
     /// Returns the new leaf and tab.
     pub fn split(
         &mut self,
-        target: NodeId,
-        edge: Edge,
-        panel: impl Into<PanelKey>,
-    ) -> Result<(NodeId, TabId), DockError> {
+        target: DockNodeId,
+        edge: DockEdge,
+        panel: impl Into<DockPanelKey>,
+    ) -> Result<(DockNodeId, DockTabId), DockError> {
         self.node_exists(target)?;
         let tab = self.fresh_tab(panel.into());
         let id = tab.id;
@@ -394,8 +397,8 @@ impl DockTree {
     /// also reorders tabs within a leaf.
     pub fn move_tab(
         &mut self,
-        tab: TabId,
-        to: NodeId,
+        tab: DockTabId,
+        to: DockNodeId,
         index: Option<usize>,
     ) -> Result<(), DockError> {
         self.leaf_mut(to)?;
@@ -413,10 +416,10 @@ impl DockTree {
     /// Returns the new leaf.
     pub fn move_tab_to_edge(
         &mut self,
-        tab: TabId,
-        target: NodeId,
-        edge: Edge,
-    ) -> Result<NodeId, DockError> {
+        tab: DockTabId,
+        target: DockNodeId,
+        edge: DockEdge,
+    ) -> Result<DockNodeId, DockError> {
         self.node_exists(target)?;
         let (_, entry) = self.take_tab(tab)?;
         Ok(self.split_with(target, edge, entry))
@@ -424,14 +427,14 @@ impl DockTree {
 
     /// Removes a tab and returns it. A leaf left empty is removed unless it is the root or
     /// persistent.
-    pub fn remove_tab(&mut self, tab: TabId) -> Result<DockTab, DockError> {
+    pub fn remove_tab(&mut self, tab: DockTabId) -> Result<DockTab, DockError> {
         let (_, entry) = self.take_tab(tab)?;
         self.simplify();
         Ok(entry)
     }
 
     /// Makes a tab in a leaf active.
-    pub fn set_active(&mut self, leaf: NodeId, tab: TabId) -> Result<(), DockError> {
+    pub fn set_active(&mut self, leaf: DockNodeId, tab: DockTabId) -> Result<(), DockError> {
         let target = self.leaf_mut(leaf)?;
         if target.tab_index(tab).is_none() {
             return Err(DockError::TabNotInLeaf { leaf, tab });
@@ -441,7 +444,7 @@ impl DockTree {
     }
 
     /// Sets whether a leaf is kept when its last tab is removed.
-    pub fn set_persistent(&mut self, leaf: NodeId, persistent: bool) -> Result<(), DockError> {
+    pub fn set_persistent(&mut self, leaf: DockNodeId, persistent: bool) -> Result<(), DockError> {
         self.leaf_mut(leaf)?.persistent = persistent;
         Ok(())
     }
@@ -449,7 +452,7 @@ impl DockTree {
     /// Sets the sizes of a split's children, one per child in layout order.
     ///
     /// This takes the same values a split pane reports in its `ValueChange<Vec<f32>>`.
-    pub fn set_sizes(&mut self, split: NodeId, sizes: &[f32]) -> Result<(), DockError> {
+    pub fn set_sizes(&mut self, split: DockNodeId, sizes: &[f32]) -> Result<(), DockError> {
         let DockNode::Split(target) = self
             .nodes
             .get_mut(&split)
@@ -484,7 +487,7 @@ impl DockTree {
         };
     }
 
-    fn simplify_node(&mut self, id: NodeId, root: NodeId) -> Option<NodeId> {
+    fn simplify_node(&mut self, id: DockNodeId, root: DockNodeId) -> Option<DockNodeId> {
         let (orientation, old_children) = match self.nodes.get(&id)? {
             DockNode::Leaf(leaf) => {
                 if leaf.tabs.is_empty() && !leaf.persistent && id != root {
@@ -503,13 +506,13 @@ impl DockTree {
             match self.nodes.get(&node) {
                 Some(DockNode::Split(inner)) if inner.orientation == orientation => {
                     let total: f32 = inner.children.iter().map(|c| c.size).sum();
-                    children.extend(inner.children.iter().map(|c| SplitChild {
+                    children.extend(inner.children.iter().map(|c| DockSplitChild {
                         node: c.node,
                         size: child.size * c.size / total,
                     }));
                     self.nodes.remove(&node);
                 }
-                _ => children.push(SplitChild {
+                _ => children.push(DockSplitChild {
                     node,
                     size: child.size,
                 }),
@@ -533,7 +536,7 @@ impl DockTree {
         }
     }
 
-    fn split_with(&mut self, target: NodeId, edge: Edge, tab: DockTab) -> NodeId {
+    fn split_with(&mut self, target: DockNodeId, edge: DockEdge, tab: DockTab) -> DockNodeId {
         let parent = self.parent_of(target);
         let leaf = self.fresh_node();
         self.nodes.insert(
@@ -554,7 +557,7 @@ impl DockTree {
             split,
             DockNode::Split(DockSplit {
                 orientation: edge.orientation(),
-                children: pair.map(|node| SplitChild { node, size: 1.0 }).into(),
+                children: pair.map(|node| DockSplitChild { node, size: 1.0 }).into(),
             }),
         );
         match parent.and_then(|p| self.nodes.get_mut(&p)) {
@@ -571,7 +574,7 @@ impl DockTree {
         leaf
     }
 
-    fn take_tab(&mut self, tab: TabId) -> Result<(NodeId, DockTab), DockError> {
+    fn take_tab(&mut self, tab: DockTabId) -> Result<(DockNodeId, DockTab), DockError> {
         let leaf = self
             .find_leaf_for_tab(tab)
             .ok_or(DockError::TabNotFound(tab))?;
@@ -585,7 +588,7 @@ impl DockTree {
         Ok((leaf, entry))
     }
 
-    fn leaf_mut(&mut self, id: NodeId) -> Result<&mut DockLeaf, DockError> {
+    fn leaf_mut(&mut self, id: DockNodeId) -> Result<&mut DockLeaf, DockError> {
         match self.nodes.get_mut(&id) {
             Some(DockNode::Leaf(leaf)) => Ok(leaf),
             Some(DockNode::Split(_)) => Err(DockError::NotALeaf(id)),
@@ -593,7 +596,7 @@ impl DockTree {
         }
     }
 
-    fn node_exists(&self, id: NodeId) -> Result<(), DockError> {
+    fn node_exists(&self, id: DockNodeId) -> Result<(), DockError> {
         if self.nodes.contains_key(&id) {
             Ok(())
         } else {
@@ -601,14 +604,14 @@ impl DockTree {
         }
     }
 
-    fn fresh_node(&mut self) -> NodeId {
-        let id = NodeId(self.next_node);
+    fn fresh_node(&mut self) -> DockNodeId {
+        let id = DockNodeId(self.next_node);
         self.next_node += 1;
         id
     }
 
-    fn fresh_tab(&mut self, panel: PanelKey) -> DockTab {
-        let id = TabId(self.next_tab);
+    fn fresh_tab(&mut self, panel: DockPanelKey) -> DockTab {
+        let id = DockTabId(self.next_tab);
         self.next_tab += 1;
         DockTab { id, panel }
     }
@@ -619,7 +622,7 @@ mod tests {
     use super::*;
     use alloc::{string::ToString, vec::Vec};
 
-    fn tree_with(panels: &[&str]) -> (DockTree, NodeId) {
+    fn tree_with(panels: &[&str]) -> (DockTree, DockNodeId) {
         let mut tree = DockTree::new();
         let root = tree.root();
         for panel in panels {
@@ -628,7 +631,7 @@ mod tests {
         (tree, root)
     }
 
-    fn panels(tree: &DockTree, leaf: NodeId) -> Vec<String> {
+    fn panels(tree: &DockTree, leaf: DockNodeId) -> Vec<String> {
         tree.leaf(leaf)
             .unwrap()
             .tabs()
@@ -637,11 +640,11 @@ mod tests {
             .collect()
     }
 
-    fn active_panel(tree: &DockTree, leaf: NodeId) -> Option<&str> {
+    fn active_panel(tree: &DockTree, leaf: DockNodeId) -> Option<&str> {
         tree.leaf(leaf)?.active_tab().map(|t| t.panel.as_str())
     }
 
-    fn tab(tree: &DockTree, panel: &str) -> TabId {
+    fn tab(tree: &DockTree, panel: &str) -> DockTabId {
         tree.find_panel(panel).unwrap().1
     }
 
@@ -649,7 +652,7 @@ mod tests {
         tree.node(tree.root()).unwrap().as_split().unwrap()
     }
 
-    fn child_nodes(split: &DockSplit) -> Vec<NodeId> {
+    fn child_nodes(split: &DockSplit) -> Vec<DockNodeId> {
         split.children().iter().map(|c| c.node).collect()
     }
 
@@ -671,7 +674,7 @@ mod tests {
     #[test]
     fn split_right_wraps_target() {
         let (mut tree, root) = tree_with(&["a"]);
-        let (new_leaf, _) = tree.split(root, Edge::Right, "b").unwrap();
+        let (new_leaf, _) = tree.split(root, DockEdge::Right, "b").unwrap();
         let split = root_split(&tree);
         assert_eq!(split.orientation(), ControlOrientation::Horizontal);
         assert_eq!(child_nodes(split), vec![root, new_leaf]);
@@ -683,10 +686,10 @@ mod tests {
     #[test]
     fn split_at_each_edge() {
         for (edge, orientation, new_first) in [
-            (Edge::Top, ControlOrientation::Vertical, true),
-            (Edge::Bottom, ControlOrientation::Vertical, false),
-            (Edge::Left, ControlOrientation::Horizontal, true),
-            (Edge::Right, ControlOrientation::Horizontal, false),
+            (DockEdge::Top, ControlOrientation::Vertical, true),
+            (DockEdge::Bottom, ControlOrientation::Vertical, false),
+            (DockEdge::Left, ControlOrientation::Horizontal, true),
+            (DockEdge::Right, ControlOrientation::Horizontal, false),
         ] {
             let (mut tree, root) = tree_with(&["a"]);
             let (new_leaf, _) = tree.split(root, edge, "b").unwrap();
@@ -704,22 +707,22 @@ mod tests {
     #[test]
     fn split_top_puts_new_first() {
         let (mut tree, root) = tree_with(&["a"]);
-        let (new_leaf, _) = tree.split(root, Edge::Top, "b").unwrap();
+        let (new_leaf, _) = tree.split(root, DockEdge::Top, "b").unwrap();
         assert_eq!(child_nodes(root_split(&tree)), vec![new_leaf, root]);
     }
 
     #[test]
     fn split_bottom_puts_new_last() {
         let (mut tree, root) = tree_with(&["a"]);
-        let (new_leaf, _) = tree.split(root, Edge::Bottom, "b").unwrap();
+        let (new_leaf, _) = tree.split(root, DockEdge::Bottom, "b").unwrap();
         assert_eq!(child_nodes(root_split(&tree)), vec![root, new_leaf]);
     }
 
     #[test]
     fn split_of_nested_leaf_preserves_other_sibling() {
         let (mut tree, root) = tree_with(&["a"]);
-        let (right, _) = tree.split(root, Edge::Right, "b").unwrap();
-        let (bottom, _) = tree.split(right, Edge::Bottom, "c").unwrap();
+        let (right, _) = tree.split(root, DockEdge::Right, "b").unwrap();
+        let (bottom, _) = tree.split(right, DockEdge::Bottom, "c").unwrap();
 
         assert_eq!(panels(&tree, root), vec!["a"]);
         assert_eq!(panels(&tree, right), vec!["b"]);
@@ -731,8 +734,8 @@ mod tests {
     #[test]
     fn split_in_same_orientation_joins_parent() {
         let (mut tree, root) = tree_with(&["a"]);
-        let (right, _) = tree.split(root, Edge::Right, "b").unwrap();
-        let (middle, _) = tree.split(root, Edge::Right, "c").unwrap();
+        let (right, _) = tree.split(root, DockEdge::Right, "b").unwrap();
+        let (middle, _) = tree.split(root, DockEdge::Right, "c").unwrap();
 
         let split = root_split(&tree);
         assert_eq!(child_nodes(split), vec![root, middle, right]);
@@ -743,7 +746,7 @@ mod tests {
     #[test]
     fn move_tab_relocates_and_activates() {
         let (mut tree, root) = tree_with(&["a", "b"]);
-        let (right, _) = tree.split(root, Edge::Right, "c").unwrap();
+        let (right, _) = tree.split(root, DockEdge::Right, "c").unwrap();
         tree.move_tab(tab(&tree, "a"), right, None).unwrap();
 
         assert_eq!(panels(&tree, root), vec!["b"]);
@@ -765,7 +768,7 @@ mod tests {
     #[test]
     fn move_last_tab_simplifies_tree() {
         let (mut tree, root) = tree_with(&["a"]);
-        let (right, _) = tree.split(root, Edge::Right, "b").unwrap();
+        let (right, _) = tree.split(root, DockEdge::Right, "b").unwrap();
         tree.move_tab(tab(&tree, "a"), right, None).unwrap();
 
         assert_eq!(tree.root(), right);
@@ -777,7 +780,7 @@ mod tests {
     fn move_tab_to_edge_keeps_tab_id() {
         let (mut tree, root) = tree_with(&["a", "b"]);
         let b = tab(&tree, "b");
-        let leaf = tree.move_tab_to_edge(b, root, Edge::Left).unwrap();
+        let leaf = tree.move_tab_to_edge(b, root, DockEdge::Left).unwrap();
 
         assert_eq!(child_nodes(root_split(&tree)), vec![leaf, root]);
         assert_eq!(tree.find_panel("b"), Some((leaf, b)));
@@ -797,8 +800,8 @@ mod tests {
     #[test]
     fn remove_last_tab_collapses_leaf_and_parent() {
         let (mut tree, root) = tree_with(&["a"]);
-        let (right, _) = tree.split(root, Edge::Right, "b").unwrap();
-        tree.split(right, Edge::Bottom, "c").unwrap();
+        let (right, _) = tree.split(root, DockEdge::Right, "b").unwrap();
+        tree.split(right, DockEdge::Bottom, "c").unwrap();
         tree.set_sizes(tree.root(), &[1.0, 3.0]).unwrap();
 
         tree.remove_tab(tab(&tree, "c")).unwrap();
@@ -822,7 +825,7 @@ mod tests {
     #[test]
     fn set_sizes_rejects_invalid_values() {
         let (mut tree, root) = tree_with(&["a"]);
-        tree.split(root, Edge::Right, "b").unwrap();
+        tree.split(root, DockEdge::Right, "b").unwrap();
         let split = tree.root();
 
         tree.set_sizes(split, &[2.0, 1.0]).unwrap();
@@ -843,7 +846,7 @@ mod tests {
         tree.set_active(root, a).unwrap();
         assert_eq!(active_panel(&tree, root), Some("a"));
 
-        let stranger = TabId(9999);
+        let stranger = DockTabId(9999);
         assert_eq!(
             tree.set_active(root, stranger),
             Err(DockError::TabNotInLeaf {
@@ -872,7 +875,7 @@ mod tests {
     #[test]
     fn persistent_leaf_kept_when_emptied() {
         let (mut tree, root) = tree_with(&["a"]);
-        let (other, _) = tree.split(root, Edge::Right, "b").unwrap();
+        let (other, _) = tree.split(root, DockEdge::Right, "b").unwrap();
         tree.set_persistent(root, true).unwrap();
         tree.move_tab(tab(&tree, "a"), other, None).unwrap();
 
@@ -885,8 +888,8 @@ mod tests {
     #[test]
     fn nested_split_chain_simplifies_when_drained() {
         let (mut tree, root) = tree_with(&["a"]);
-        let (right, _) = tree.split(root, Edge::Right, "b").unwrap();
-        tree.split(right, Edge::Bottom, "c").unwrap();
+        let (right, _) = tree.split(root, DockEdge::Right, "b").unwrap();
+        tree.split(right, DockEdge::Bottom, "c").unwrap();
 
         tree.move_tab(tab(&tree, "b"), root, None).unwrap();
         tree.move_tab(tab(&tree, "c"), root, None).unwrap();
@@ -899,10 +902,10 @@ mod tests {
     #[test]
     fn invalid_ids_return_errors() {
         let (mut tree, root) = tree_with(&["a"]);
-        tree.split(root, Edge::Right, "b").unwrap();
+        tree.split(root, DockEdge::Right, "b").unwrap();
         let split = tree.root();
-        let missing_node = NodeId(9999);
-        let missing_tab = TabId(9999);
+        let missing_node = DockNodeId(9999);
+        let missing_tab = DockTabId(9999);
         let before = tree.clone();
 
         assert_eq!(
@@ -911,7 +914,7 @@ mod tests {
         );
         assert_eq!(tree.add_tab(split, "x"), Err(DockError::NotALeaf(split)));
         assert_eq!(
-            tree.split(missing_node, Edge::Top, "x"),
+            tree.split(missing_node, DockEdge::Top, "x"),
             Err(DockError::NodeNotFound(missing_node))
         );
         assert_eq!(
@@ -923,7 +926,7 @@ mod tests {
             Err(DockError::NotALeaf(split))
         );
         assert_eq!(
-            tree.move_tab_to_edge(tab(&tree, "a"), missing_node, Edge::Top),
+            tree.move_tab_to_edge(tab(&tree, "a"), missing_node, DockEdge::Top),
             Err(DockError::NodeNotFound(missing_node))
         );
         assert_eq!(
@@ -943,7 +946,7 @@ mod tests {
     #[test]
     fn serde_round_trip() {
         let (mut tree, root) = tree_with(&["a"]);
-        tree.split(root, Edge::Right, "b").unwrap();
+        tree.split(root, DockEdge::Right, "b").unwrap();
         tree.set_sizes(tree.root(), &[2.0, 1.0]).unwrap();
 
         let text = ron::to_string(&tree).unwrap();

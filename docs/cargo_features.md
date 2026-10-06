@@ -110,7 +110,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_ui_debug|Provides a debug overlay for Bevy UI|
-|bevy_ui_dock|Dock layout data model for Bevy UI.|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_ui_widgets|Headless widget collection for Bevy UI.|
 |bevy_window|Windowing layer|
