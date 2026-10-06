@@ -16,20 +16,10 @@
 
 use bevy::{
     feathers::{
-        controls::{FeathersPane, FeathersSplitPane, FeathersSplitPaneHandle},
-        dark_theme::create_dark_theme,
-        theme::UiTheme,
-        FeathersPlugins,
-    },
-    inspector::{
-        details_panel::details_panel,
-        entity_tree::{entity_tree_panel, InspectorUi},
-        remote::RemoteSource,
-        InspectorPlugin, InspectorSource,
-    },
-    prelude::*,
-    remote::http::DEFAULT_PORT,
-    ui_widgets::split_pane_self_update,
+        FeathersPlugins, controls::{FeathersPane, FeathersSplitPane, FeathersSplitPaneHandle}, dark_theme::create_dark_theme, theme::UiTheme,
+    }, inspector::{
+        InspectorPlugin, InspectorSource, details_panel::details_panel, entity_tree::{InspectorUi, entity_tree_panel}, remote::RemoteSource,
+    }, prelude::*, remote::http::{DEFAULT_PORT, DEFAULT_RENDER_PORT}, ui_widgets::split_pane_self_update,
 };
 
 fn main() {
@@ -43,11 +33,11 @@ fn main() {
 
 fn remote_source() -> RemoteSource {
     let host = std::env::var("BRP_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let port = std::env::var("BRP_PORT")
+    let main_port = std::env::var("BRP_PORT")
         .ok()
         .and_then(|port| port.parse().ok())
         .unwrap_or(DEFAULT_PORT);
-    RemoteSource::new(host, port)
+    RemoteSource::new(host, main_port, DEFAULT_RENDER_PORT)
 }
 
 fn camera() -> impl Scene {

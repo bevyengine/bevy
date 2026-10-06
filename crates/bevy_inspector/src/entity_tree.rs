@@ -197,7 +197,7 @@ pub fn sync_entity_tree(world: &mut World) {
         return;
     }
 
-    let plan = plan_sync(world);
+    let plan = plan_sync(world, true);
     apply_sync(world, plan);
     rebuild_index(world);
 }
@@ -229,11 +229,11 @@ struct SyncPlan {
 ///
 /// The rows live in `world`, while the entities they display are read from the inspected world,
 /// see [`crate::world_to_inspect`].
-fn plan_sync(world: &World) -> SyncPlan {
+fn plan_sync(world: &World, is_main: bool) -> SyncPlan {
     let mut plan = SyncPlan::default();
     let mut tree_view = None;
     let mut populated = Vec::new();
-    let inspected = crate::world_to_inspect(world);
+    let inspected = crate::world_to_inspect(world, is_main);
     let priorities = world.get_resource::<LabelResolutionRegistry>();
 
     for entity_ref in world.iter_entities() {
@@ -603,7 +603,7 @@ mod tests {
 
         let mut app = test_app();
         app.register_type::<ChildOf>().register_type::<Name>();
-        app.insert_resource(InspectorSource::Remote(RemoteSource::localhost(1)));
+        app.insert_resource(InspectorSource::Remote(RemoteSource::localhost(1, 2)));
         app.update();
 
         let panel = app.world_mut().spawn(InspectorUi).id();

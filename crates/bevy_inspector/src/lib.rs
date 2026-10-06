@@ -54,12 +54,16 @@ pub enum InspectorSource {
 
 /// The world the panels read: the `RemoteWorld` while the inspector reads from a remote
 /// app, and `world` otherwise.
-pub(crate) fn world_to_inspect(world: &World) -> &World {
+pub(crate) fn world_to_inspect(world: &World, is_main: bool) -> &World {
     #[cfg(feature = "remote")]
     if remote::is_remote(world)
         && let Some(remote) = world.get_resource::<remote::RemoteWorlds>()
     {
-        return remote.main.world();
+        // if is_main {
+            return remote.main.world();
+        // } else {
+            // return remote.render.world();
+        // }
     }
     world
 }
@@ -129,10 +133,10 @@ impl Plugin for InspectorPlugin {
             );
 
         #[cfg(feature = "remote")]
-        app.init_resource::<remote::RemoteConnection>()
-            .init_resource::<remote::RemoteSnapshot>()
+        app.init_resource::<remote::RemoteConnections>()
+            .init_resource::<remote::RemoteSnapshots>()
             .init_resource::<remote::RemoteWorlds>()
-            .init_resource::<remote::details::RemoteEntityFetch>()
+            .init_resource::<remote::details::RemoteEntityFetchs>()
             .add_systems(
                 PostUpdate,
                 (

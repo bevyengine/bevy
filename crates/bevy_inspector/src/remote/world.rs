@@ -58,10 +58,13 @@ pub(crate) struct UnregisteredComponents;
 /// component hooks are logged as warnings instead of panicking.
 #[derive(Resource)]
 pub struct RemoteWorlds {
+    /// remote main
     pub main: RemoteWorld,
+    /// remote render
     pub render: RemoteWorld,
 }
 
+/// Single remote world
 pub struct RemoteWorld {
     world: World,
     reserved: u32,
