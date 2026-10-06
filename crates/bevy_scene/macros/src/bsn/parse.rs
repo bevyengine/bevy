@@ -705,17 +705,18 @@ impl Parse for BsnFnArg {
             }
         } else if input.peek(Bracket) {
             let forked = input.fork();
-            let Ok(bracketed) = bracketed_tokens(&forked) else {
-                return input.parse().map(BsnFnArg::Tokens);
+            let content;
+            bracketed!(content in forked);
+            let parse_punctuated_bsn_values = || -> Result<Vec<BsnValue>> {
+                let mut values = Vec::new();
+                parse_punctuated_vec_autocomplete_friendly!(values, content, BsnValue, Comma);
+                Ok(values)
             };
-            let Ok(values) = syn::parse::Parser::parse2(
-                <syn::punctuated::Punctuated<BsnValue, Token![,]>>::parse_terminated,
-                bracketed,
-            ) else {
+            let Ok(values) = parse_punctuated_bsn_values() else {
                 return input.parse().map(BsnFnArg::Tokens);
             };
             input.advance_to(&forked);
-            BsnFnArg::Array(values.into_iter().collect())
+            BsnFnArg::Array(values)
         } else {
             BsnFnArg::Tokens(input.parse::<TokenStream>()?)
         })
