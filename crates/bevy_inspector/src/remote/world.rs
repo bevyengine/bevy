@@ -1,8 +1,9 @@
 //! A [`World`] mirroring the entities and components of the remote app.
 //!
 //! Remote entities are spawned at their remote ids, so the entity tree and the details panel read
-//! the mirror like any other world. Component values are inserted through reflection. Components
-//! that cannot be inserted safely are kept aside on the entity's [`RemoteComponents`] instead.
+//! the mirror like any other world. Component values are inserted through reflection, but only for
+//! types that have no component hooks, so that inserting them never spawns entities or depends on
+//! state the mirror lacks. Other components are kept aside on the entity's [`RemoteComponents`].
 //!
 //! Spawning at the remote ids keeps every id, such as the selection or a [`ChildOf`] target, the
 //! same in both worlds. [`World::spawn_at`] only accepts the current generation of an index, and a
@@ -26,12 +27,13 @@ use bevy_ecs::{
     entity::{Entity, SpawnError},
     error::{warn, FallbackErrorHandler},
     hierarchy::{ChildOf, Children},
+    lifecycle::HookContext,
     name::Name,
     query::With,
     reflect::{AppTypeRegistry, ReflectComponent},
     relationship::RelationshipAccessor,
     resource::Resource,
-    world::{FromWorld, World},
+    world::{DeferredWorld, FromWorld, World},
 };
 use bevy_log::warn_once;
 use bevy_platform::{collections::HashMap, hash::FixedHasher};
@@ -41,13 +43,6 @@ use bevy_reflect::{
 };
 use serde::de::DeserializeSeed;
 use serde_json::Value;
-
-/// Component types that are never inserted into the remote world, since their hooks read
-/// resources the remote world does not have.
-pub const DENYLIST: &[&str] = &[
-    "bevy_picking::pointer::PointerId",
-    "bevy_sprite_render::tilemap_chunk::TilemapChunk",
-];
 
 /// The most generations [`spawn_at_remote_id`] steps through for one entity in one call.
 const MAX_GENERATION_STEPS: u32 = 4096;
@@ -65,9 +60,73 @@ pub(crate) struct UnregisteredComponents;
 pub struct RemoteWorld {
     world: World,
     reserved: u32,
-    types: HashMap<u64, (ComponentId, ReflectComponent)>,
+    types: HashMap<u64, Registered>,
+    probe: HookProbe,
     garbage: Garbage,
 }
+
+/// A component type registered in the [`RemoteWorld`].
+#[derive(Clone)]
+struct Registered {
+    id: ComponentId,
+    reflect_component: ReflectComponent,
+    /// Whether values of the type are inserted, rather than kept aside for having hooks.
+    insertable: bool,
+}
+
+/// Finds the component types that have no hooks, using a world of its own that never holds an
+/// entity, since hooks can only be inspected by trying to register them.
+///
+/// Hooks declared on a type are found. Hooks that plugins register at runtime do not exist in the
+/// remote world either, so they are not looked for.
+struct HookProbe {
+    world: World,
+    hook_free: HashMap<ComponentId, bool>,
+}
+
+impl HookProbe {
+    fn new() -> Self {
+        Self {
+            world: World::new(),
+            hook_free: HashMap::default(),
+        }
+    }
+
+    /// Whether the type of `reflect_component` and all its required components have no hooks.
+    fn is_hook_free(&mut self, reflect_component: &ReflectComponent) -> bool {
+        let id = reflect_component.register_component(&mut self.world);
+        let required: Vec<ComponentId> = self
+            .world
+            .components()
+            .get_info(id)
+            .map(|info| info.required_components().iter_ids().collect())
+            .unwrap_or_default();
+        core::iter::once(id)
+            .chain(required)
+            .all(|id| self.has_no_hooks(id))
+    }
+
+    /// Whether the component `id` has no hooks. Each id is only probed once, since probing
+    /// registers placeholder hooks.
+    fn has_no_hooks(&mut self, id: ComponentId) -> bool {
+        if let Some(hook_free) = self.hook_free.get(&id) {
+            return *hook_free;
+        }
+        let hook_free = self
+            .world
+            .register_component_hooks_by_id(id)
+            .and_then(|hooks| hooks.try_on_add(no_hook))
+            .and_then(|hooks| hooks.try_on_insert(no_hook))
+            .and_then(|hooks| hooks.try_on_discard(no_hook))
+            .and_then(|hooks| hooks.try_on_remove(no_hook))
+            .and_then(|hooks| hooks.try_on_despawn(no_hook))
+            .is_some();
+        self.hook_free.insert(id, hook_free);
+        hook_free
+    }
+}
+
+fn no_hook(_: DeferredWorld, _: HookContext) {}
 
 /// Polled data that is no longer needed, to drop off the main thread.
 #[derive(Default)]
@@ -118,11 +177,17 @@ impl RemoteWorld {
             world,
             reserved: 0,
             types: HashMap::default(),
+            probe: HookProbe::new(),
             garbage: Garbage::default(),
         }
     }
 
-    /// Registers the component types at `type_paths` that are registered locally for reflection.
+    /// Registers the component types at `type_paths` that are registered locally for reflection,
+    /// and finds whether they have hooks.
+    ///
+    /// Only types with no hooks are inserted. [`ChildOf`] is the one exception, since its hooks
+    /// only build [`Children`], which is never inserted from JSON. Types that have hooks are kept
+    /// aside instead.
     ///
     /// A relationship and its target only know they form a relationship once both are
     /// registered, so the types of a whole request are registered before any is written.
@@ -139,7 +204,17 @@ impl RemoteWorld {
                 .and_then(|registration| registration.data::<ReflectComponent>())
             {
                 let id = reflect_component.register_component(&mut self.world);
-                self.types.insert(hash, (id, reflect_component.clone()));
+                let insertable = Some(id) == self.world.component_id::<ChildOf>()
+                    || Some(id) == self.world.component_id::<Children>()
+                    || self.probe.is_hook_free(reflect_component);
+                self.types.insert(
+                    hash,
+                    Registered {
+                        id,
+                        reflect_component: reflect_component.clone(),
+                        insertable,
+                    },
+                );
             }
         }
     }
@@ -408,8 +483,8 @@ pub enum AsideReason {
     Unregistered,
     /// The JSON does not match the local definition of the type.
     Failed(String),
-    /// The type is on the [`DENYLIST`].
-    Denied,
+    /// The type or one of its required components has component hooks.
+    Hooked,
     /// The component relates to an entity that is not mirrored.
     MissingTarget,
     /// A hook removed the component right after it was inserted.
@@ -735,7 +810,7 @@ fn remove_written(world: &mut World, remote: Entity, path_hash: u64) {
 fn write_component(
     world: &mut World,
     remote: Entity,
-    registered: Option<(ComponentId, ReflectComponent)>,
+    registered: Option<Registered>,
     component: PolledComponent,
     written: &mut Vec<(String, Value)>,
 ) -> Option<ComponentId> {
@@ -749,14 +824,18 @@ fn write_component(
     let outcome = match (value, &registered) {
         (Decoded::Unregistered, _) | (_, None) => Err((AsideReason::Unregistered, None)),
         (Decoded::Failed(error), _) => Err((AsideReason::Failed(error), None)),
-        (Decoded::Value(value), _) if DENYLIST.contains(&type_path.as_str()) => {
-            Err((AsideReason::Denied, Some(value)))
+        (Decoded::Value(value), Some(registered)) if !registered.insertable => {
+            Err((AsideReason::Hooked, Some(value)))
         }
-        (Decoded::Value(value), Some((id, reflect_component))) => {
-            insert_value(world, remote, reflect_component, *id, value)
-        }
+        (Decoded::Value(value), Some(registered)) => insert_value(
+            world,
+            remote,
+            &registered.reflect_component,
+            registered.id,
+            value,
+        ),
     };
-    let id = registered.map(|(id, _)| id);
+    let id = registered.map(|registered| registered.id);
 
     if outcome.is_err() {
         remove_written(world, remote, path_hash);
@@ -845,14 +924,9 @@ fn insert_value(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_ecs::{
-        hierarchy::{ChildOf, Children},
-        lifecycle::HookContext,
-        world::DeferredWorld,
-    };
+    use bevy_ecs::hierarchy::{ChildOf, Children};
     use bevy_picking::pointer::PointerId;
     use bevy_reflect::{prelude::ReflectDefault, TypePath, TypeRegistryArc};
-    use core::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
     use serde_json::json;
 
     #[derive(Component, Reflect, Default, Debug, PartialEq)]
@@ -876,16 +950,19 @@ mod tests {
     #[reflect(Component, Default)]
     struct Shadow(u8);
 
-    static INSERTS: AtomicUsize = AtomicUsize::new(0);
+    #[derive(Component, Reflect, Default)]
+    #[component(on_add = spawn_one)]
+    #[reflect(Component, Default)]
+    struct Spawner(u8);
+
+    fn spawn_one(mut world: DeferredWorld, _: HookContext) {
+        world.commands().spawn_empty();
+    }
 
     #[derive(Component, Reflect, Default)]
-    #[component(on_insert = count_insert)]
     #[reflect(Component, Default)]
-    struct Counted(u8);
-
-    fn count_insert(_: DeferredWorld, _: HookContext) {
-        INSERTS.fetch_add(1, AtomicOrdering::Relaxed);
-    }
+    #[require(Spawner)]
+    struct NeedsSpawner(u8);
 
     fn registry() -> AppTypeRegistry {
         let registry = AppTypeRegistry(TypeRegistryArc::default());
@@ -898,7 +975,8 @@ mod tests {
             registry.register::<Team>();
             registry.register::<Visible>();
             registry.register::<Shadow>();
-            registry.register::<Counted>();
+            registry.register::<Spawner>();
+            registry.register::<NeedsSpawner>();
             registry.register::<PointerId>();
         }
         registry
@@ -1018,7 +1096,7 @@ mod tests {
     }
 
     #[test]
-    fn pointer_id_is_kept_aside() {
+    fn pointer_id_is_kept_aside_for_its_hooks() {
         let entity = remote(3);
         let mut remote_world = spawned(entity);
         write(
@@ -1028,9 +1106,98 @@ mod tests {
         );
         assert!(!remote_world.world.entity(entity).contains::<PointerId>());
         let aside = &record(&remote_world, entity).aside()[0];
-        assert_eq!(aside.reason, AsideReason::Denied);
+        assert_eq!(aside.reason, AsideReason::Hooked);
         assert!(aside.value.is_some());
         assert!(aside.id.is_some());
+    }
+
+    fn entity_count(remote_world: &mut RemoteWorld) -> usize {
+        remote_world
+            .world
+            .query::<Entity>()
+            .iter(&remote_world.world)
+            .count()
+    }
+
+    #[test]
+    fn a_component_whose_hook_spawns_is_kept_aside() {
+        let entity = remote(3);
+        let mut remote_world = spawned(entity);
+        let before = entity_count(&mut remote_world);
+        write(
+            &mut remote_world,
+            entity,
+            json!({ Spawner::type_path(): 1 }),
+        );
+        assert!(!remote_world.world.entity(entity).contains::<Spawner>());
+        assert_eq!(
+            record(&remote_world, entity).aside()[0].reason,
+            AsideReason::Hooked
+        );
+        assert_eq!(entity_count(&mut remote_world), before);
+        assert_eq!(remote_world.spawn(remote(4)), Ok(true));
+    }
+
+    #[test]
+    fn a_required_component_with_hooks_keeps_its_requirer_aside() {
+        let entity = remote(3);
+        let mut remote_world = spawned(entity);
+        write(
+            &mut remote_world,
+            entity,
+            json!({ NeedsSpawner::type_path(): 1 }),
+        );
+        let world = remote_world.world.entity(entity);
+        assert!(!world.contains::<NeedsSpawner>() && !world.contains::<Spawner>());
+        assert_eq!(
+            record(&remote_world, entity).aside()[0].reason,
+            AsideReason::Hooked
+        );
+    }
+
+    #[test]
+    fn hook_free_components_are_inserted_with_their_values() {
+        let entity = remote(3);
+        let mut remote_world = spawned(entity);
+        write(
+            &mut remote_world,
+            entity,
+            json!({ Health::type_path(): { "current": 2.5, "names": ["a"] } }),
+        );
+        assert_eq!(
+            remote_world.world.get::<Health>(entity),
+            Some(&Health {
+                current: 2.5,
+                names: alloc::vec!["a".into()],
+            })
+        );
+        assert!(record(&remote_world, entity).aside().is_empty());
+    }
+
+    #[test]
+    fn each_type_is_probed_once() {
+        let mut remote_world = RemoteWorld::new(registry());
+        let reflect_component = |type_id| {
+            remote_world
+                .world
+                .resource::<AppTypeRegistry>()
+                .read()
+                .get(type_id)
+                .and_then(|registration| registration.data::<ReflectComponent>())
+                .unwrap()
+                .clone()
+        };
+        let health = reflect_component(core::any::TypeId::of::<Health>());
+        let visible = reflect_component(core::any::TypeId::of::<Visible>());
+        assert!(remote_world.probe.is_hook_free(&health));
+        assert!(remote_world.probe.is_hook_free(&health));
+        assert_eq!(remote_world.probe.hook_free.len(), 1);
+        assert!(remote_world.probe.is_hook_free(&visible));
+        assert!(remote_world.probe.is_hook_free(&visible));
+        assert_eq!(remote_world.probe.hook_free.len(), 3);
+
+        remote_world.register([Health::type_path(), Health::type_path()]);
+        assert_eq!(remote_world.probe.hook_free.len(), 3);
     }
 
     #[test]
@@ -1141,33 +1308,14 @@ mod tests {
     fn unchanged_json_is_not_written_again() {
         let entity = remote(3);
         let mut remote_world = spawned(entity);
-        let before = INSERTS.load(AtomicOrdering::Relaxed);
-        let first = write(
-            &mut remote_world,
-            entity,
-            json!({ Counted::type_path(): 1 }),
-        );
-        let again = write(
-            &mut remote_world,
-            entity,
-            json!({ Counted::type_path(): 1 }),
-        );
+        let first = write(&mut remote_world, entity, json!({ Shadow::type_path(): 1 }));
+        let again = write(&mut remote_world, entity, json!({ Shadow::type_path(): 1 }));
         assert!(first.changed && first.tree);
         assert_eq!(again, Written::default());
-        assert_eq!(INSERTS.load(AtomicOrdering::Relaxed), before + 1);
 
-        let changed = write(
-            &mut remote_world,
-            entity,
-            json!({ Counted::type_path(): 2 }),
-        );
+        let changed = write(&mut remote_world, entity, json!({ Shadow::type_path(): 2 }));
         assert!(changed.changed && !changed.tree);
-        assert_eq!(
-            INSERTS.load(AtomicOrdering::Relaxed),
-            before + 1,
-            "a present mutable component is set without hooks"
-        );
-        assert_eq!(remote_world.world.get::<Counted>(entity).unwrap().0, 2);
+        assert_eq!(remote_world.world.get::<Shadow>(entity).unwrap().0, 2);
     }
 
     #[test]

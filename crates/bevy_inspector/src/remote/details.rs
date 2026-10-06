@@ -242,7 +242,8 @@ pub(crate) fn decode_entity(
 ///
 /// Only components whose value came from the remote app keep their value. Those it holds without
 /// serializing them show a note, and the others, such as required components only added locally,
-/// are hidden. Components kept aside show their deserialized value, or else their raw JSON.
+/// are hidden. Components kept aside for having hooks show their raw JSON with a note. Other
+/// components kept aside show their deserialized value, or else their raw JSON.
 /// Components that are not registered locally are gathered into one last group.
 pub(crate) fn annotate(
     world: &World,
@@ -274,7 +275,10 @@ pub(crate) fn annotate(
         };
         let fields = match (&aside.reason, &aside.value) {
             (AsideReason::Failed(error), _) => {
-                alloc::vec![value_entry(raw_value(&aside.json, Some(error)))]
+                alloc::vec![value_entry(raw_value(&aside.json, Some(error.as_str())))]
+            }
+            (AsideReason::Hooked, _) => {
+                alloc::vec![value_entry(raw_value(&aside.json, Some(SERVER_DATA)))]
             }
             (_, Some(value)) => field_entries(value.as_partial_reflect(), &registry)
                 .into_iter()
@@ -319,6 +323,9 @@ pub(crate) fn annotate(
     groups
 }
 
+/// The note on the raw JSON of components that are not inserted for having hooks.
+const SERVER_DATA: &str = "shown from server data";
+
 fn value_entry(text: String) -> FieldEntry {
     FieldEntry {
         path: String::new(),
@@ -350,13 +357,13 @@ impl Write for BoundedText {
 }
 
 /// `json` as text, cut after [`RAW_JSON_CHARS`] characters without formatting the rest.
-fn raw_value(json: &Value, error: Option<&String>) -> String {
+fn raw_value(json: &Value, note: Option<&str>) -> String {
     let mut text = BoundedText::default();
     if write!(text, "{json}").is_err() {
         text.text.push_str("...");
     }
-    match error {
-        Some(error) => alloc::format!("{} ({error})", text.text),
+    match note {
+        Some(note) => alloc::format!("{} ({note})", text.text),
         None => text.text,
     }
 }
@@ -368,7 +375,10 @@ mod tests {
         details_panel::inspect_components,
         remote::tests::{apply, mirrored, remote, row, test_world},
     };
-    use bevy_ecs::{component::Component, reflect::ReflectComponent};
+    use bevy_ecs::{
+        component::Component, lifecycle::HookContext, reflect::ReflectComponent,
+        world::DeferredWorld,
+    };
     use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
     use serde_json::json;
 
@@ -398,6 +408,15 @@ mod tests {
     #[reflect(Component, Default)]
     struct Shadow(u8);
 
+    #[derive(Component, Reflect, Default)]
+    #[component(on_add = no_op)]
+    #[reflect(Component, Default)]
+    struct Hooked {
+        level: u8,
+    }
+
+    fn no_op(_: DeferredWorld, _: HookContext) {}
+
     fn details_world() -> World {
         let world = test_world();
         {
@@ -408,6 +427,7 @@ mod tests {
             registry.register::<Handled>();
             registry.register::<Visible>();
             registry.register::<Shadow>();
+            registry.register::<Hooked>();
         }
         world
     }
@@ -533,6 +553,27 @@ mod tests {
             panic!("raw components are read-only");
         };
         assert!(text.starts_with(r#"{"renamed":1.0}"#));
+    }
+
+    #[test]
+    fn components_with_hooks_show_their_raw_json() {
+        let mut world = details_world();
+        let target = remote(11);
+        select(&mut world, target);
+        fetched(
+            &mut world,
+            target,
+            json!({ Hooked::type_path(): { "level": 4 } }),
+            &[],
+        );
+
+        assert!(!mirrored(&world).entity(target).contains::<Hooked>());
+        let groups = groups(&world, target);
+        assert_eq!(names(&groups), ["Hooked"]);
+        let FieldValue::Label(text) = &groups[0].fields[0].value else {
+            panic!("components with hooks are read-only");
+        };
+        assert_eq!(text, r#"{"level":4} (shown from server data)"#);
     }
 
     #[test]
