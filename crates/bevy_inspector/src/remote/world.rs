@@ -24,7 +24,7 @@ use core::{
 
 use bevy_ecs::{
     component::{Component, ComponentId, ComponentInfo},
-    entity::{Entity, SpawnError},
+    entity::{Entity, EntityHashMap, SpawnError},
     error::{warn, FallbackErrorHandler},
     hierarchy::{ChildOf, Children},
     lifecycle::HookContext,
@@ -380,6 +380,29 @@ impl RemoteWorld {
         }
         written
     }
+
+    /// Sorts the [`Children`] of every mirrored entity into the order the remote app reported.
+    ///
+    /// The mirror builds [`Children`] from the [`ChildOf`] it inserts, so their order follows
+    /// insertion. Children the remote app did not report are kept at the end.
+    pub(crate) fn order_children(&mut self) {
+        let mut query = self.world.query::<(&RemoteComponents, &mut Children)>();
+        for (record, mut children) in query.iter_mut(&mut self.world) {
+            if record.children.is_empty() {
+                continue;
+            }
+            let order: EntityHashMap<usize> = record
+                .children
+                .iter()
+                .enumerate()
+                .map(|(position, child)| (*child, position))
+                .collect();
+            let position = |child: &Entity| order.get(child).copied().unwrap_or(usize::MAX);
+            if !children.is_sorted_by_key(position) {
+                children.sort_by_cached_key(position);
+            }
+        }
+    }
 }
 
 /// What [`RemoteWorld::write`] changed.
@@ -449,6 +472,8 @@ pub struct RemoteComponents {
     serialized: Vec<Serialized>,
     unserialized: Vec<(Option<ComponentId>, String)>,
     aside: Vec<AsideComponent>,
+    /// The order of [`Children`] the remote app reported, empty if it reported none.
+    children: Vec<Entity>,
 }
 
 #[derive(Debug)]
@@ -784,6 +809,7 @@ fn is_tree_type(world: &World, id: ComponentId) -> bool {
 /// Removes the record of the type with `path_hash` from `remote`, and the component if it was
 /// inserted.
 fn remove_written(world: &mut World, remote: Entity, path_hash: u64) {
+    let children = world.component_id::<Children>();
     let Some(mut record) = world.get_mut::<RemoteComponents>(remote) else {
         return;
     };
@@ -796,6 +822,9 @@ fn remove_written(world: &mut World, remote: Entity, path_hash: u64) {
         return;
     };
     let id = record.serialized.swap_remove(position).id;
+    if Some(id) == children {
+        record.children.clear();
+    }
     if !is_relationship_target(world, id) {
         world.entity_mut(remote).remove_by_id(id);
     }
@@ -806,7 +835,8 @@ fn remove_written(world: &mut World, remote: Entity, path_hash: u64) {
 ///
 /// A present mutable component is replaced with [`Reflect::set`], which runs no hooks and
 /// shrinks collections. Other components are inserted. Relationship targets such as `Children`
-/// are never written, since the hooks of their relationships build them.
+/// are never written, since the hooks of their relationships build them. The order of `Children`
+/// is recorded for [`RemoteWorld::order_children`].
 fn write_component(
     world: &mut World,
     remote: Entity,
@@ -821,6 +851,12 @@ fn write_component(
         path_hash,
         json_hash,
     } = component;
+    let children = match &value {
+        Decoded::Value(value) => value
+            .downcast_ref::<Children>()
+            .map(|children| children.to_vec()),
+        _ => None,
+    };
     let outcome = match (value, &registered) {
         (Decoded::Unregistered, _) | (_, None) => Err((AsideReason::Unregistered, None)),
         (Decoded::Failed(error), _) => Err((AsideReason::Failed(error), None)),
@@ -845,6 +881,9 @@ fn write_component(
     match outcome {
         Ok(()) => {
             let id = id?;
+            if let Some(children) = children {
+                record.children = children;
+            }
             match record
                 .serialized
                 .iter_mut()

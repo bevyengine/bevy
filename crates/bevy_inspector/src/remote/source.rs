@@ -780,6 +780,9 @@ fn apply_rows(
         applied.tree |= written.tree;
         applied.selection |= written.changed && selection == Some(row.entity);
     }
+    if applied.tree {
+        remote.order_children();
+    }
     let garbage = remote.take_garbage();
     if !garbage.is_empty() {
         spawn(async move { drop(garbage) }).detach();
@@ -906,6 +909,44 @@ pub(crate) mod tests {
         let row = row(remote(5), json!({ CHILD_OF: remote(2) }));
         assert_eq!(row["entity"], json!("5v0"));
         assert_eq!(row["components"][CHILD_OF], json!("2v0"));
+    }
+
+    fn children_of(world: &World, parent: Entity) -> Vec<Entity> {
+        mirrored(world)
+            .get::<Children>(parent)
+            .map(|children| children.to_vec())
+            .unwrap_or_default()
+    }
+
+    fn family(parent: Entity, children: &[Entity], order: &[Entity]) -> Vec<Value> {
+        let mut rows = alloc::vec![row(parent, json!({ Children::type_path(): order }))];
+        rows.extend(
+            children
+                .iter()
+                .map(|child| row(*child, json!({ CHILD_OF: parent }))),
+        );
+        rows
+    }
+
+    #[test]
+    fn children_follow_the_remote_order() {
+        let mut world = test_world();
+        let parent = remote(20);
+        let [a, b, c] = [remote(21), remote(22), remote(23)];
+        apply(&mut world, family(parent, &[a, b, c], &[c, a, b]));
+        assert_eq!(children_of(&world, parent), alloc::vec![c, a, b]);
+
+        apply(&mut world, family(parent, &[a, b, c], &[b, c, a]));
+        assert_eq!(children_of(&world, parent), alloc::vec![b, c, a]);
+    }
+
+    #[test]
+    fn children_missing_from_the_mirror_are_skipped() {
+        let mut world = test_world();
+        let parent = remote(20);
+        let [a, b, c, missing] = [remote(21), remote(22), remote(23), remote(30)];
+        apply(&mut world, family(parent, &[a, b, c], &[missing, b, a]));
+        assert_eq!(children_of(&world, parent), alloc::vec![b, a, c]);
     }
 
     #[test]

@@ -147,6 +147,9 @@ pub(crate) fn receive_entity(world: &mut World, remote: Entity, fetched: Fetched
             Coverage::Entity,
             false,
         );
+        if written.tree {
+            remote_world.order_children();
+        }
         remote_world.take_garbage();
         written
     });
