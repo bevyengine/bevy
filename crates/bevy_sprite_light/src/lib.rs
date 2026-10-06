@@ -7,8 +7,10 @@
 
 //! This crate provides 2d lighting support for the Bevy game engine.
 
+mod ambient_light;
 mod point_light;
 
+pub use ambient_light::GlobalAmbientLight2d;
 pub use point_light::PointLight2d;
 
 /// The 2d lighting prelude.
@@ -16,5 +18,5 @@ pub use point_light::PointLight2d;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::PointLight2d;
+    pub use crate::{GlobalAmbientLight2d, PointLight2d};
 }
