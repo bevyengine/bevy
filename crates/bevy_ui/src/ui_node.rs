@@ -76,7 +76,7 @@ pub struct ComputedNode {
 impl ComputedNode {
     /// The calculated node size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn size(&self) -> Vec2 {
         self.size
@@ -84,7 +84,7 @@ impl ComputedNode {
 
     /// The calculated node content size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn content_size(&self) -> Vec2 {
         self.content_size
@@ -99,7 +99,7 @@ impl ComputedNode {
 
     /// The calculated node size as width and height in physical pixels before rounding.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn unrounded_size(&self) -> Vec2 {
         self.unrounded_size
@@ -108,7 +108,7 @@ impl ComputedNode {
     /// Returns the thickness of the UI node's outline in physical pixels.
     /// If this value is negative or zero then no outline will be rendered.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_width(&self) -> f32 {
         self.outline_width
@@ -116,7 +116,7 @@ impl ComputedNode {
 
     /// Returns the amount of space between the outline and the edge of the node in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_offset(&self) -> f32 {
         self.outline_offset
@@ -124,7 +124,7 @@ impl ComputedNode {
 
     /// Returns the size of the node when including its outline.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outlined_node_size(&self) -> Vec2 {
         let offset = 2. * (self.outline_offset + self.outline_width);
@@ -135,7 +135,7 @@ impl ComputedNode {
     /// An outline's border radius is derived from the node's border-radius
     /// so that the outline wraps the border equally at all points.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
@@ -156,7 +156,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's border on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn border(&self) -> BorderRect {
         self.border
@@ -164,7 +164,7 @@ impl ComputedNode {
 
     /// Returns the border radius for each of the node's corners in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_border_radius`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
@@ -187,7 +187,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's padding on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn padding(&self) -> BorderRect {
         self.padding
