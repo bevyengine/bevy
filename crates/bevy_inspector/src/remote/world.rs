@@ -3,6 +3,13 @@
 //! Remote entities are spawned at their remote ids, so the entity tree reads the mirror like any
 //! other world. Only their [`Name`] and [`ChildOf`] are inserted. The other components the tree
 //! labels entities with are recorded on the entity's [`RemoteComponents`].
+//!
+//! Spawning at the remote ids keeps every id, such as the selection or a [`ChildOf`] target, the
+//! same in both worlds. [`World::spawn_at`] only accepts the current generation of an index, and a
+//! fresh world starts every index at generation 0, so the index is stepped up to the remote
+//! generation by spawning and despawning it without freeing. Indices up to the remote ones are
+//! reserved, so the allocator never hands them out. A `bevy_ecs` API setting the generation of an
+//! index and reserving it would replace this stepping.
 
 use alloc::{string::String, vec::Vec};
 use core::cmp::Ordering;
