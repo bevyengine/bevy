@@ -207,7 +207,7 @@ impl ComputedLayout {
         self.layout_dirty
     }
 
-    /// True if the subtree is dirty
+    /// True if this node or its descendants needs a geometry update.
     #[inline]
     pub const fn subtree_dirty(&self) -> bool {
         self.subtree_dirty
@@ -250,7 +250,7 @@ impl ComputedLayout {
         self.reached_in_full_walk
     }
 
-    /// Get the layout geometry and size
+    /// Returns the layout geometry and unrounded size.
     pub fn get_layout(&self, use_rounding: bool) -> Option<(Layout, Vec2)> {
         let unrounded = self.unrounded?;
         let selected_layout = if use_rounding {
