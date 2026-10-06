@@ -114,7 +114,7 @@ pub enum UiSystems {
     ///
     /// Runs in [`PostUpdate`]
     Clipping,
-    /// UI systems ordered after the layout has been been updated.
+    /// UI systems ordered after `UiSystems::Layout` and `UiSystems::Clipping`.
     ///
     /// Runs in [`PostUpdate`].
     PostLayout,
