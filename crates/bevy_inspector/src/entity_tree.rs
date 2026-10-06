@@ -9,7 +9,7 @@ use bevy_dev_tools::inspection::label_resolution::{
     resolve_label, ComponentLabelData, LabelDefinitionPriority, LabelResolutionRegistry,
 };
 use bevy_ecs::{
-    component::{Component, ComponentId},
+    component::{Component, ComponentId, ComponentInfo},
     entity::Entity,
     hierarchy::{ChildOf, Children},
     observer::{Observer, On},
@@ -226,12 +226,15 @@ struct SyncPlan {
 }
 
 /// Builds the [`SyncPlan`] for one synchronization pass.
+///
+/// The rows live in `world`, while the entities they display are read from the inspected world,
+/// see [`crate::world_to_inspect`].
 fn plan_sync(world: &World) -> SyncPlan {
     let mut plan = SyncPlan::default();
     let mut tree_view = None;
-    let mut roots = Vec::new();
     let mut populated = Vec::new();
-    let remote = crate::is_remote(world);
+    let inspected = crate::world_to_inspect(world);
+    let priorities = world.get_resource::<LabelResolutionRegistry>();
 
     for entity_ref in world.iter_entities() {
         let entity = entity_ref.id();
@@ -241,40 +244,57 @@ fn plan_sync(world: &World) -> SyncPlan {
         if entity_ref.contains::<InspectorRow>() && entity_ref.contains::<InspectorRowPopulated>() {
             populated.push(entity);
         }
-        if !entity_ref.contains::<ChildOf>()
-            && remote == crate::remote_entity(world, entity).is_some()
-            && !is_excluded(world, entity)
-        {
-            roots.push(entity);
-        }
     }
 
     let Some(tree_view) = tree_view else {
         return plan;
     };
 
-    roots.sort_unstable_by_key(|root| crate::remote_entity(world, *root).unwrap_or(*root).index());
-    diff_container(world, tree_view, &roots, &mut plan);
+    let mut roots: Vec<Entity> = inspected
+        .iter_entities()
+        .filter(|entity_ref| !entity_ref.contains::<ChildOf>())
+        .map(|entity_ref| entity_ref.id())
+        .filter(|entity| !is_excluded(inspected, *entity))
+        .collect();
+    roots.sort_unstable_by_key(|root| root.index());
+    let sources = Sources {
+        world: inspected,
+        priorities,
+    };
+    diff_container(world, &sources, tree_view, &roots, &mut plan);
 
     for row in populated {
         let Some(source) = world.get::<InspectorRow>(row).map(|row| row.source) else {
             continue;
         };
-        if world.get_entity(source).is_err() {
+        if inspected.get_entity(source).is_err() {
             continue;
         }
         let Some(container) = child_with::<FeathersTreeItemChildren>(world, row) else {
             continue;
         };
-        let expected = visible_children(world, source);
-        diff_container(world, container, &expected, &mut plan);
+        let expected = visible_children(inspected, source);
+        diff_container(world, &sources, container, &expected, &mut plan);
     }
 
     plan
 }
 
-/// Diffs one container's rows against `expected`, recording the changes into `plan`. See [`SyncPlan`].
-fn diff_container(world: &World, container: Entity, expected: &[Entity], plan: &mut SyncPlan) {
+/// The inspected world, and the label priorities of the world the inspector runs in.
+struct Sources<'w> {
+    world: &'w World,
+    priorities: Option<&'w LabelResolutionRegistry>,
+}
+
+/// Diffs one container's rows in `world` against the `expected` inspected entities, recording the
+/// changes into `plan`. See [`SyncPlan`].
+fn diff_container(
+    world: &World,
+    sources: &Sources,
+    container: Entity,
+    expected: &[Entity],
+    plan: &mut SyncPlan,
+) {
     let mut existing: HashMap<Entity, Entity> = HashMap::new();
     if let Some(children) = world.get::<Children>(container) {
         for child in children.iter().copied() {
@@ -292,8 +312,8 @@ fn diff_container(world: &World, container: Entity, expected: &[Entity], plan: &
     }
 
     for source in expected.iter().copied() {
-        let expandable = !visible_children(world, source).is_empty();
-        let label = entity_label(world, source);
+        let expandable = !visible_children(sources.world, source).is_empty();
+        let label = entity_label(sources.world, sources.priorities, source);
         let Some(row) = existing.get(&source).copied() else {
             plan.spawn.push(RowSpawn {
                 container,
@@ -355,6 +375,24 @@ fn apply_sync(world: &mut World, plan: SyncPlan) {
             }
             Err(error) => warn!("failed to spawn an inspector tree row: {error}"),
         }
+    }
+}
+
+/// Despawns every tree row, for when the inspected world is replaced and its entity ids no longer
+/// mean the same entities.
+#[cfg(feature = "remote")]
+pub(crate) fn clear_rows(world: &mut World) {
+    let rows: Vec<Entity> = world
+        .query_filtered::<Entity, With<InspectorRow>>()
+        .iter(world)
+        .collect();
+    for row in rows {
+        if let Ok(row) = world.get_entity_mut(row) {
+            row.despawn();
+        }
+    }
+    if let Some(mut index) = world.get_resource_mut::<TreeRowIndex>() {
+        *index = TreeRowIndex::default();
     }
 }
 
@@ -426,21 +464,35 @@ fn visible_children(world: &World, entity: Entity) -> Vec<Entity> {
         .unwrap_or_default()
 }
 
-fn entity_label(world: &World, entity: Entity) -> String {
-    #[cfg(feature = "remote")]
-    if let Some(label) = crate::remote::proxy_label(world, entity) {
-        return label;
-    }
-    let Ok(components) = world.inspect_entity(entity) else {
+/// The label of `entity` in the inspected `world`, resolved with the label `priorities` of the
+/// world the inspector runs in.
+///
+/// For a remote entity, only the components the remote app reported count, see
+/// [`crate::remote::RemoteComponents`].
+pub(crate) fn entity_label(
+    world: &World,
+    priorities: Option<&LabelResolutionRegistry>,
+    entity: Entity,
+) -> String {
+    let Ok(entity_ref) = world.get_entity(entity) else {
         return entity.to_string();
     };
-    let registry = world.get_resource::<LabelResolutionRegistry>();
+    #[cfg(feature = "remote")]
+    let ids = match entity_ref.get::<crate::remote::RemoteComponents>() {
+        Some(record) => record.reported().collect(),
+        None => entity_ref.archetype().components().to_vec(),
+    };
+    #[cfg(not(feature = "remote"))]
+    let ids = entity_ref.archetype().components().to_vec();
 
-    let component_data: Vec<(ComponentId, String, Option<LabelDefinitionPriority>)> = components
-        .map(|(component_id, info)| {
-            let priority = info
-                .type_id()
-                .and_then(|type_id| registry?.get_priority_by_type_id(type_id));
+    let component_data: Vec<(ComponentId, String, Option<LabelDefinitionPriority>)> = ids
+        .into_iter()
+        .map(|component_id| {
+            let priority = world
+                .components()
+                .get_info(component_id)
+                .and_then(ComponentInfo::type_id)
+                .and_then(|type_id| priorities?.get_priority_by_type_id(type_id));
             (
                 component_id,
                 crate::component_short_name(world, component_id),
@@ -541,12 +593,16 @@ mod tests {
 
     #[cfg(feature = "remote")]
     #[test]
-    fn shows_only_proxies_while_remote_and_hides_them_while_local() {
-        use crate::remote::{RemoteEntityProxy, RemoteLabel, RemoteSource};
+    fn shows_the_inspected_world_only() {
+        use crate::remote::{
+            tests::{apply, row},
+            RemoteSource,
+        };
         use crate::InspectorSource;
-        use bevy_ecs::entity_disabling::Disabled;
+        use serde_json::json;
 
         let mut app = test_app();
+        app.register_type::<ChildOf>().register_type::<Name>();
         app.insert_resource(InspectorSource::Remote(RemoteSource::localhost(1)));
         app.update();
 
@@ -556,22 +612,15 @@ mod tests {
             .spawn((InspectorTreeView, ChildOf(panel)))
             .id();
         let local = app.world_mut().spawn(Name::new("Local")).id();
-        let parent = app
-            .world_mut()
-            .spawn((
-                Disabled,
-                RemoteEntityProxy { remote: local },
-                RemoteLabel("Remote".to_string()),
-            ))
-            .id();
-        app.world_mut().spawn((
-            Disabled,
-            RemoteEntityProxy {
-                remote: Entity::from_raw_u32(900).unwrap(),
-            },
-            ChildOf(parent),
-        ));
-        app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
+        let parent = Entity::from_raw_u32(40).unwrap();
+        let child = Entity::from_raw_u32(41).unwrap();
+        apply(
+            app.world_mut(),
+            alloc::vec![
+                row(parent, json!({ "bevy_ecs::name::Name": "Remote" })),
+                row(child, json!({ "bevy_ecs::hierarchy::ChildOf": parent })),
+            ],
+        );
         app.update();
 
         assert_eq!(row_sources(app.world(), tree), [parent]);
@@ -582,17 +631,11 @@ mod tests {
 
         app.insert_resource(InspectorSource::Local);
         app.update();
-        assert!(app.world().get_entity(parent).is_err());
-
-        let stray = app
-            .world_mut()
-            .spawn((Disabled, RemoteEntityProxy { remote: local }))
-            .id();
         app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
         app.update();
         let sources = row_sources(app.world(), tree);
         assert!(sources.contains(&local));
-        assert!(!sources.contains(&stray));
+        assert!(!sources.contains(&parent));
     }
 
     #[test]

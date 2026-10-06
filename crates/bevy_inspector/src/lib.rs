@@ -52,26 +52,16 @@ pub enum InspectorSource {
     Remote(remote::RemoteSource),
 }
 
-/// Whether the inspector currently reads from a remote app.
-pub(crate) fn is_remote(world: &World) -> bool {
+/// The world the panels read: the `RemoteWorld` while the inspector reads from a remote
+/// app, and `world` otherwise.
+pub(crate) fn world_to_inspect(world: &World) -> &World {
     #[cfg(feature = "remote")]
-    return remote::is_remote(world);
-    #[cfg(not(feature = "remote"))]
+    if remote::is_remote(world)
+        && let Some(remote) = world.get_resource::<remote::RemoteWorld>()
     {
-        let _ = world;
-        false
+        return remote.world();
     }
-}
-
-/// The remote entity mirrored by `entity`, if it is a remote proxy.
-pub(crate) fn remote_entity(world: &World, entity: Entity) -> Option<Entity> {
-    #[cfg(feature = "remote")]
-    return remote::remote_entity(world, entity);
-    #[cfg(not(feature = "remote"))]
-    {
-        let _ = (world, entity);
-        None
-    }
+    world
 }
 
 /// The entity currently being inspected, as an id in the inspected world.
@@ -141,15 +131,13 @@ impl Plugin for InspectorPlugin {
         #[cfg(feature = "remote")]
         app.init_resource::<remote::RemoteConnection>()
             .init_resource::<remote::RemoteSnapshot>()
-            .init_resource::<remote::RemoteProxyIndex>()
-            .init_resource::<remote::details::RemoteDetails>()
+            .init_resource::<remote::RemoteWorld>()
             .add_systems(
                 PostUpdate,
                 (
                     remote::sync_remote_source,
                     remote::poll_remote_connection,
-                    remote::apply_remote_snapshot,
-                    remote::details::sync_remote_details,
+                    remote::sync_remote_world,
                 )
                     .chain()
                     .before(sync_entity_tree)
