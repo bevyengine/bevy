@@ -1,0 +1,2 @@
+Foo::Baz(Nested { a: 3, ..custom_nested() })
+MyEnum::Unit

@@ -9,7 +9,7 @@ Node {
 }
 BorderColor::from(Color::BLACK)
 BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
-Children [(
+Children [
     Text(label)
     TextFont {
         font: FontSourceTemplate::Handle("fonts/FiraSans-Bold.ttf"),
@@ -17,4 +17,4 @@ Children [(
     }
     TextColor(Color::srgb(0.9, 0.9, 0.9))
     TextShadow
-)]
+]

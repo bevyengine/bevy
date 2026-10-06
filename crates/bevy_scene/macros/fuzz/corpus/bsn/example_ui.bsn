@@ -6,13 +6,10 @@ Node {
     column_gap: px(5),
 }
 Children [
-    (
-        button("Ok")
-        on(|_event: On<Pointer<Press>>| println!("Ok pressed!"))
-    ),
-    (
-        button("Cancel")
-        on(|_event: On<Pointer<Press>>| println!("Cancel pressed!"))
-        BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
-    ),
+    @button("Ok")
+    on(|_event: On<Pointer<Press>>| println!("Ok pressed!"))
+    --
+    @button("Cancel")
+    on(|_event: On<Pointer<Press>>| println!("Cancel pressed!"))
+    BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
 ]

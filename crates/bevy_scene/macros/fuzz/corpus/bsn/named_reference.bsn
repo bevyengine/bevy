@@ -1,5 +1,6 @@
 #Hub
 Children [
-    Link(#Hub),
-    Link(#Hub),
+    Link(#Hub)
+    --
+    Link(#Hub)
 ]
