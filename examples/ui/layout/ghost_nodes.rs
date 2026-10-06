@@ -1,7 +1,6 @@
 //! This example demonstrates the use of Ghost Nodes.
 //!
 //! UI layout replaces ghost nodes with their children.
-//!
 
 use bevy::{
     prelude::*,

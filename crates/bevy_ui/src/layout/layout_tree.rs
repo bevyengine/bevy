@@ -164,7 +164,7 @@ pub struct ComputedLayout {
     /// If `true` local inputs have changed since the last frame.
     /// Set to `false` each frame in `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
     self_dirty: bool,
-    /// If `true` this node or its descendent's geometry needs to be updated.
+    /// If `true` this node or its descendants geometry needs to be updated.
     /// Set to `false` each frame in `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
     subtree_dirty: bool,
     /// True if the node has an `Outline` component.
