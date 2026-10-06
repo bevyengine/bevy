@@ -41,7 +41,7 @@ mod tests;
 pub struct UiTreeDirty;
 
 /// List of all UI root nodes.
-/// Updated by `update_ui_roots`.
+/// Updated by [`update_ui_roots`] in [`UiSystems::Layout`](`super::UiSystems::Layout`).
 #[derive(Resource, Default)]
 pub struct UiRoots {
     /// All parentless UI nodes.
@@ -156,7 +156,7 @@ pub fn clear_transient_dirty_flags(mut computed_layout_query: Query<&mut Compute
 
 /// Updates the lists of root nodes.
 ///
-/// Runs in `UiSystems::Layout`.
+/// Runs in [`UiSystems::Layout`](`super::UiSystems::Layout`).
 pub fn update_ui_roots(
     mut navigation_stack: Local<Vec<Entity>>,
     mut ui_roots: ResMut<UiRoots>,
@@ -213,7 +213,7 @@ pub fn update_ui_roots(
 /// without `TextFont` keep their `EmSize` intact. If `TextFont` is removed the
 /// `EmSize` remains unchanged.
 ///
-/// Runs in `UiSystems::Layout`.
+/// Runs in [`UiSystems::Layout`](`super::UiSystems::Layout`).
 pub fn sync_font_size_to_em_size(
     mut em_size_query: Query<
         (&mut EmSize, Ref<TextFont>, Ref<ComputedUiRenderTargetInfo>),
@@ -238,7 +238,7 @@ pub fn sync_font_size_to_em_size(
 
 /// Sync each `Node` with its corresponding `TaffyStyle`.
 ///
-/// Runs in `UiSystems::Layout`.
+/// Runs in [`UiSystems::Layout`](`super::UiSystems::Layout`).
 pub fn sync_taffy_styles_with_nodes(
     rem_size: Res<RemSize>,
     mut update_query: Query<(
@@ -274,7 +274,7 @@ pub fn sync_taffy_styles_with_nodes(
 /// Mark their `UiTreeDirty` component changed, then walk up the tree and mark
 /// each ancestor's `UiTreeDirty` changed.
 ///
-/// Runs in `UiSystems::Layout`.
+/// Runs in [`UiSystems::Layout`](`super::UiSystems::Layout`).
 pub fn mark_dirty_ui_trees(
     changed_ui_components_query: Query<
         Entity,
@@ -348,7 +348,7 @@ pub fn mark_dirty_ui_trees(
 
 /// Syncs and computes `ComputedLayout`, and resets unreachable nodes.
 ///
-/// Runs in `UiSystems::Layout`.
+/// Runs in [`UiSystems::Layout`](`super::UiSystems::Layout`).
 pub fn ui_layout_system(
     ui_roots: Res<UiRoots>,
     ui_children: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeDirty>), With<Node>>,
