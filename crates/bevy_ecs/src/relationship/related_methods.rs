@@ -187,7 +187,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
         collection.clear();
-        collection.extend_from_iter(related.iter().copied());
+        collection.extend_from_iter(related.iter().copied().collect::<EntityHashSet>());
         self.insert(relations);
 
         self
