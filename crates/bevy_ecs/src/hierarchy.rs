@@ -1052,13 +1052,40 @@ mod tests {
 
         let parent = world.spawn_empty().id();
         let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
 
-        world.entity_mut(parent).add_children(&[child_a]);
         world
             .entity_mut(parent)
+            .add_children(&[child_a])
             .replace_children(&[child_a, child_a]);
 
         assert_eq!(world.entity(parent).get::<Children>().unwrap().0, [child_a]);
+
+        world.entity_mut(parent).clear();
+
+        // Ensure the order is correct (child_a before child_b, irrespective of which is already inserted).
+
+        world
+            .entity_mut(parent)
+            .add_children(&[child_b])
+            .replace_children(&[child_a, child_b, child_a]);
+
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_a, child_b]
+        );
+
+        world.entity_mut(parent).clear();
+
+        world
+            .entity_mut(parent)
+            .add_children(&[child_a])
+            .replace_children(&[child_a, child_b, child_a]);
+
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_a, child_b]
+        );
     }
 
     #[test]
