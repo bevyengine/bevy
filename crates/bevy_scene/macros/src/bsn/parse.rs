@@ -712,8 +712,19 @@ impl Parse for BsnFnArg {
                 parse_punctuated_vec_autocomplete_friendly!(values, content, BsnValue, Comma);
                 Ok(values)
             };
-            let Ok(values) = parse_punctuated_bsn_values() else {
-                return input.parse().map(BsnFnArg::Tokens);
+            let values = match parse_punctuated_bsn_values() {
+                Ok(values)
+                // For now, we're only considering arrays that consist entirely of entity names.
+                // Everything else is passed through unchanged.
+                if forked.is_empty()
+                    && values.iter()
+                    .all(|value| matches!(value, BsnValue::Name(_))) =>
+                {
+                    values
+                }
+                _ => {
+                    return input.parse().map(BsnFnArg::Tokens);
+                }
             };
             input.advance_to(&forked);
             BsnFnArg::Array(values)
