@@ -94,6 +94,19 @@ mod tests {
     }
 
     #[test]
+    fn option_with_default_inner_type_should_default_to_none() {
+        let mut registry = TypeRegistry::new();
+        registry.register::<Option<u32>>();
+
+        let reflect_default = registry
+            .get_type_data::<ReflectDefault>(TypeId::of::<Option<u32>>())
+            .unwrap();
+        let value = reflect_default.default();
+
+        assert_eq!(value.downcast_ref::<Option<u32>>(), Some(&None));
+    }
+
+    #[test]
     fn option_should_apply() {
         #[derive(Reflect, PartialEq, Debug)]
         struct Foo(usize);
