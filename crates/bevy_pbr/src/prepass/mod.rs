@@ -5,7 +5,7 @@ use crate::{
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
     setup_morph_and_skinning_defs, skin, visibility_ranges_min_binding_size,
     DeferredAlphaMaskDrawFunction, DeferredFragmentShader, DeferredOpaqueDrawFunction,
-    DeferredVertexShader, DrawMesh, MaterialPipeline, MaterialPropertiesExt, MeshLayouts,
+    DeferredVertexShader, DfgLut, DrawMesh, MaterialPipeline, MaterialPropertiesExt, MeshLayouts,
     MeshPipeline, MeshPipelineKey, PreparedMaterial, PrepassAlphaMaskDrawFunction,
     PrepassFragmentShader, PrepassOpaqueDepthOnlyDrawFunction, PrepassOpaqueDrawFunction,
     PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
@@ -28,6 +28,8 @@ use bevy_material::{
 };
 use bevy_math::{Affine3A, Mat4, Vec2};
 use bevy_mesh::{Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef};
+use bevy_render::settings::WgpuLimits;
+use bevy_render::texture::{FallbackImage, GpuImage};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{DirtySpecializations, PendingQueues, TemporalJitter},
@@ -35,7 +37,10 @@ use bevy_render::{
     mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
-    render_resource::{binding_types::uniform_buffer, *},
+    render_resource::{
+        binding_types::{sampler, texture_2d, uniform_buffer},
+        *,
+    },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::{MainEntityHashSet, RenderEntity},
     view::{
@@ -266,6 +271,10 @@ pub struct PrepassPipeline {
 
     pub depth_clip_control_supported: bool,
 
+    /// The limits of the render device, which decide whether the deferred pass has the
+    /// specular tint target.
+    pub render_device_limits: WgpuLimits,
+
     /// Whether binding arrays (a.k.a. bindless textures) are usable on the
     /// current render device.
     pub binding_arrays_are_usable: bool,
@@ -283,9 +292,28 @@ pub fn init_prepass_pipeline(
     let visibility_ranges_buffer_binding_type =
         render_device.get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
+    // The deferred G-buffer folds lightmap light with the same `F_AB` term that forward
+    // shading uses, so the prepass binds the DFG LUT at the mesh view binding indices.
+    let with_dfg_lut = |entries: &[BindGroupLayoutEntry]| {
+        let mut entries = entries.to_vec();
+        if cfg!(feature = "dfg_lut") {
+            entries.extend_from_slice(&BindGroupLayoutEntries::with_indices(
+                ShaderStages::FRAGMENT,
+                (
+                    (
+                        37,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    (38, sampler(SamplerBindingType::Filtering)),
+                ),
+            ));
+        }
+        entries
+    };
+
     let view_layout_motion_vectors = BindGroupLayoutDescriptor::new(
         "prepass_view_layout_motion_vectors",
-        &BindGroupLayoutEntries::with_indices(
+        &with_dfg_lut(&BindGroupLayoutEntries::with_indices(
             ShaderStages::VERTEX_FRAGMENT,
             (
                 // View
@@ -307,12 +335,12 @@ pub fn init_prepass_pipeline(
                     .visibility(ShaderStages::VERTEX),
                 ),
             ),
-        ),
+        )),
     );
 
     let view_layout_no_motion_vectors = BindGroupLayoutDescriptor::new(
         "prepass_view_layout_no_motion_vectors",
-        &BindGroupLayoutEntries::with_indices(
+        &with_dfg_lut(&BindGroupLayoutEntries::with_indices(
             ShaderStages::VERTEX_FRAGMENT,
             (
                 // View
@@ -332,7 +360,7 @@ pub fn init_prepass_pipeline(
                     .visibility(ShaderStages::VERTEX),
                 ),
             ),
-        ),
+        )),
     );
 
     let depth_clip_control_supported = render_device
@@ -348,6 +376,7 @@ pub fn init_prepass_pipeline(
             &render_device.limits(),
         ),
         depth_clip_control_supported,
+        render_device_limits: render_device.limits(),
         binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
         empty_layout: BindGroupLayoutDescriptor::new("prepass_empty_layout", &[]),
         material_pipeline: material_pipeline.clone(),
@@ -450,6 +479,24 @@ impl PrepassPipeline {
         }
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
+        // The deferred G-buffer stores values that the specular textures modify.
+        if cfg!(feature = "pbr_specular_textures")
+            && mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS)
+        {
+            shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
+        }
+        if cfg!(feature = "dfg_lut") {
+            shader_defs.push("DFG_LUT".into());
+        }
+        let deferred_specular_tint = mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS)
+            && deferred_specular_tint_fits(
+                &self.render_device_limits,
+                mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS),
+                mesh_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS),
+            );
+        if deferred_specular_tint {
+            shader_defs.push("DEFERRED_SPECULAR_TINT".into());
+        }
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
         let view_projection = mesh_key.intersection(MeshPipelineKey::VIEW_PROJECTION_RESERVED_BITS);
         if view_projection == MeshPipelineKey::VIEW_PROJECTION_NONSTANDARD {
@@ -611,6 +658,7 @@ impl PrepassPipeline {
             mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS),
             mesh_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS),
             mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS),
+            deferred_specular_tint,
         );
 
         if targets.iter().all(Option::is_none) {
@@ -865,6 +913,11 @@ pub fn prepare_prepass_view_bind_group(
     globals_buffer: Res<GlobalsBuffer>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
     visibility_ranges: Res<RenderVisibilityRanges>,
+    (images, fallback_image, dfg_lut): (
+        Res<RenderAssets<GpuImage>>,
+        Res<FallbackImage>,
+        Res<DfgLut>,
+    ),
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
     if let (Some(view_binding), Some(globals_binding), Some(visibility_ranges_buffer)) = (
@@ -872,26 +925,50 @@ pub fn prepare_prepass_view_bind_group(
         globals_buffer.buffer.binding(),
         visibility_ranges.buffer().buffer(),
     ) {
+        let (dfg_view, dfg_sampler) = images
+            .get(&dfg_lut.texture)
+            .map(|img| (&img.texture_view, &img.sampler))
+            .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
+        fn with_dfg_lut<'b>(
+            entries: DynamicBindGroupEntries<'b>,
+            dfg_view: &'b TextureView,
+            dfg_sampler: &'b Sampler,
+        ) -> DynamicBindGroupEntries<'b> {
+            if cfg!(feature = "dfg_lut") {
+                entries.extend_with_indices(((37, dfg_view), (38, dfg_sampler)))
+            } else {
+                entries
+            }
+        }
+
         prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
             "prepass_view_no_motion_vectors_bind_group",
             &pipeline_cache.get_bind_group_layout(&prepass_pipeline.view_layout_no_motion_vectors),
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, globals_binding.clone()),
-                (14, visibility_ranges_buffer.as_entire_binding()),
-            )),
+            &with_dfg_lut(
+                DynamicBindGroupEntries::new_with_indices((
+                    (0, view_binding.clone()),
+                    (1, globals_binding.clone()),
+                    (14, visibility_ranges_buffer.as_entire_binding()),
+                )),
+                dfg_view,
+                dfg_sampler,
+            ),
         ));
 
         if let Some(previous_view_uniforms_binding) = previous_view_uniforms.uniforms.binding() {
             prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
                 "prepass_view_motion_vectors_bind_group",
                 &pipeline_cache.get_bind_group_layout(&prepass_pipeline.view_layout_motion_vectors),
-                &BindGroupEntries::with_indices((
-                    (0, view_binding),
-                    (1, globals_binding),
-                    (2, previous_view_uniforms_binding),
-                    (14, visibility_ranges_buffer.as_entire_binding()),
-                )),
+                &with_dfg_lut(
+                    DynamicBindGroupEntries::new_with_indices((
+                        (0, view_binding),
+                        (1, globals_binding),
+                        (2, previous_view_uniforms_binding),
+                        (14, visibility_ranges_buffer.as_entire_binding()),
+                    )),
+                    dfg_view,
+                    dfg_sampler,
+                ),
             ));
         }
     }

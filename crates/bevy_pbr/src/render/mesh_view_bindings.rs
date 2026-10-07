@@ -4,6 +4,7 @@ use crate::{
 };
 use arrayvec::ArrayVec;
 use bevy_core_pipeline::{
+    deferred::deferred_specular_tint_fits,
     oit::{
         OitBuffers, OrderIndependentTransparencySettings,
         OrderIndependentTransparencySettingsOffset,
@@ -259,6 +260,7 @@ fn layout_entries(
         irradiance_volume_entries,
         clustered_decal_entries,
         is_oit_supported,
+        deferred_specular_tint_fits,
     }: &MeshPipelineViewLayoutParams,
 ) -> [Vec<BindGroupLayoutEntry>; 2] {
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
@@ -415,9 +417,12 @@ fn layout_entries(
     if cfg!(any(feature = "webgpu", not(target_arch = "wasm32")))
         || !layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED)
     {
-        for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
-            .iter()
-            .zip([20, 21, 22, 23])
+        let deferred_specular_tint =
+            view_has_deferred_specular_tint(layout_key, deferred_specular_tint_fits);
+        for (entry, binding) in
+            prepass::get_bind_group_layout_entries(layout_key, deferred_specular_tint)
+                .iter()
+                .zip([20, 21, 22, 23, 39])
         {
             if let Some(entry) = entry {
                 entries = entries.extend_with_indices(((binding as u32, *entry),));
@@ -542,6 +547,9 @@ struct MeshPipelineViewLayoutParams {
     irradiance_volume_entries: [BindGroupLayoutEntryBuilder; 2],
     clustered_decal_entries: Option<[BindGroupLayoutEntryBuilder; 3]>,
     is_oit_supported: bool,
+    /// Whether the deferred pass fits the specular tint target, indexed by
+    /// `normal_prepass as usize | (motion_vector_prepass as usize) << 1`.
+    deferred_specular_tint_fits: [bool; 4],
 }
 
 /// Stores the view layouts entries for creating bind group layouts of pipeline keys.
@@ -581,13 +589,39 @@ pub fn init_mesh_pipeline_view_layouts(
                 &render_device,
                 false,
             ),
+            deferred_specular_tint_fits: core::array::from_fn(|i| {
+                deferred_specular_tint_fits(&render_device.limits(), i & 1 != 0, i & 2 != 0)
+            }),
         }),
     };
 
     commands.insert_resource(res);
 }
 
+/// Returns whether a view with this layout key has a deferred specular tint texture.
+///
+/// This matches the decision in `prepare_prepass_textures`, which depends on the prepasses of the
+/// view and the device limits.
+fn view_has_deferred_specular_tint(
+    layout_key: MeshPipelineViewLayoutKey,
+    deferred_specular_tint_fits: [bool; 4],
+) -> bool {
+    let normal = layout_key.contains(MeshPipelineViewLayoutKey::NORMAL_PREPASS) as usize;
+    let motion_vectors =
+        layout_key.contains(MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS) as usize;
+    layout_key.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS)
+        && deferred_specular_tint_fits[normal | (motion_vectors << 1)]
+}
+
 impl MeshPipelineViewLayouts {
+    /// Returns whether the view layout for the given key has the deferred specular tint binding.
+    ///
+    /// Pipelines that read the tint with `pbr_input_from_deferred_gbuffer` set the
+    /// `DEFERRED_SPECULAR_TINT` shader def when this returns `true`.
+    pub fn has_deferred_specular_tint(&self, layout_key: MeshPipelineViewLayoutKey) -> bool {
+        view_has_deferred_specular_tint(layout_key, self.params.deferred_specular_tint_fits)
+    }
+
     /// Get view bind group layout for the given key.
     pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> MeshPipelineViewLayout {
         let mut entries = layout_entries(layout_key, &self.params);
@@ -894,7 +928,7 @@ pub fn prepare_mesh_view_bind_groups(
                 for (binding, index) in prepass_bindings
                     .iter()
                     .map(Option::as_ref)
-                    .zip([20, 21, 22, 23])
+                    .zip([20, 21, 22, 23, 39])
                     .flat_map(|(b, i)| b.map(|b| (b, i)))
                 {
                     entries = entries.extend_with_indices(((index, binding),));

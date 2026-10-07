@@ -199,6 +199,11 @@ fn run_deferred_prepass_system(
             .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
     );
 
+    // WebGL2 has no specular tint texture.
+    if let Some(deferred_specular_tint) = &view_prepass_textures.deferred_specular_tint {
+        color_attachments.push(Some(deferred_specular_tint.get_attachment()));
+    }
+
     // If all color attachments are none: clear the color attachment list so that no fragment shader is required
     if color_attachments.iter().all(Option::is_none) {
         color_attachments.clear();

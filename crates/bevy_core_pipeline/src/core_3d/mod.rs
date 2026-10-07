@@ -71,7 +71,7 @@ use bevy_render::{
     sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthStencilTexture},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use nonmax::NonMaxU32;
 
@@ -82,8 +82,9 @@ use crate::tonemapping::tonemapping;
 use crate::upscaling::upscaling;
 use crate::{
     deferred::{
-        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
-        DEFERRED_PREPASS_FORMAT,
+        deferred_specular_tint_fits, init_deferred_specular_tint_fallback, AlphaMask3dDeferred,
+        Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT,
+        DEFERRED_SPECULAR_TINT_FORMAT,
     },
     prepass::{
         AlphaMask3dPrepass, DeferredPrepass, DeferredPrepassDoubleBuffer, DepthPrepass,
@@ -127,6 +128,7 @@ impl Plugin for Core3dPlugin {
             .init_resource::<ViewBinnedRenderPhases<Opaque3dDeferred>>()
             .init_resource::<ViewBinnedRenderPhases<AlphaMask3dDeferred>>()
             .init_resource::<ViewSortedRenderPhases<Transparent3d>>()
+            .add_systems(RenderStartup, init_deferred_specular_tint_fallback)
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(ExtractSchedule, extract_camera_prepass_phase)
             .add_systems(
@@ -799,6 +801,8 @@ pub fn prepare_prepass_textures(
     let mut deferred_textures1: HashMap<_, _> = <HashMap<_, _>>::default();
     let mut deferred_textures2: HashMap<_, _> = <HashMap<_, _>>::default();
     let mut deferred_lighting_id_textures = <HashMap<_, _>>::default();
+    let mut deferred_specular_tint_textures1 = <HashMap<_, _>>::default();
+    let mut deferred_specular_tint_textures2 = <HashMap<_, _>>::default();
     let mut motion_vectors_textures = <HashMap<_, _>>::default();
     for (
         entity,
@@ -985,6 +989,47 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
+        let deferred_specular_tint_supported = deferred_specular_tint_fits(
+            &render_device.limits(),
+            normal_prepass,
+            motion_vector_prepass,
+        );
+        let mut deferred_specular_tint_texture = |label, textures: &mut HashMap<_, _>| {
+            textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some(label),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: TextureDimension::D2,
+                            format: DEFERRED_SPECULAR_TINT_FORMAT,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
+                        },
+                    )
+                })
+                .clone()
+        };
+        let cached_deferred_specular_tint_texture1 =
+            (deferred_prepass && deferred_specular_tint_supported).then(|| {
+                deferred_specular_tint_texture(
+                    "prepass_deferred_specular_tint_texture_1",
+                    &mut deferred_specular_tint_textures1,
+                )
+            });
+        let cached_deferred_specular_tint_texture2 =
+            (deferred_prepass_double_buffer && deferred_specular_tint_supported).then(|| {
+                deferred_specular_tint_texture(
+                    "prepass_deferred_specular_tint_texture_2",
+                    &mut deferred_specular_tint_textures2,
+                )
+            });
+
         commands.entity(entity).insert(ViewPrepassTextures {
             depth: package_double_buffered_depth_texture(
                 cached_depth_texture1,
@@ -1005,6 +1050,12 @@ pub fn prepare_prepass_textures(
             ),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
                 .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK.into()))),
+            // A value of 0 decodes to a white specular tint.
+            deferred_specular_tint: package_double_buffered_texture(
+                cached_deferred_specular_tint_texture1,
+                cached_deferred_specular_tint_texture2,
+                frame_count.0,
+            ),
             size,
         });
     }

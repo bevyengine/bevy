@@ -1,6 +1,7 @@
 import package::render::{
     mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT,
     pbr_types::{STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
+    rgb9e5::{vec3_to_rgb9e5_, rgb9e5_to_vec3_},
 };
 
 // Maximum of 8 bits available
@@ -131,4 +132,21 @@ fn unpack_unorm3x4_plus_unorm_20_(v: u32) -> vec4<f32> {
         f32((v >> 8u) & 0xFu) / 15.0,
         f32((v >> 12u) & 0xFFFFFFu) / U20MAXF,
     );
+}
+
+// `vec3_to_rgb9e5_(vec3(1.0))`.
+const RGB9E5_WHITE: u32 = 0x84020100u;
+
+/// Packs a specular tint for the deferred specular tint texture.
+///
+/// The tint is stored as rgb9e5 XORed with the rgb9e5 encoding of white, so white packs to 0.
+/// The texture clears to 0, and a `FragmentOutput` field that a shader does not write is 0, so
+/// both decode to white.
+fn pack_specular_tint(specular_tint: vec3<f32>) -> u32 {
+    return vec3_to_rgb9e5_(specular_tint) ^ RGB9E5_WHITE;
+}
+
+/// Unpacks a specular tint packed by `pack_specular_tint`.
+fn unpack_specular_tint(packed: u32) -> vec3<f32> {
+    return rgb9e5_to_vec3_(packed ^ RGB9E5_WHITE);
 }

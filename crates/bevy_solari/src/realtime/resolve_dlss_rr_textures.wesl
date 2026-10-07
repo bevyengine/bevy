@@ -3,7 +3,7 @@ import bevy_pbr::deferred::types::unpack_24bit_normal;
 import bevy_pbr::render::pbr_functions::calculate_diffuse_color;
 import bevy_render::utils::octahedral_decode;
 import package::realtime::gbuffer_utils::gpixel_resolve;
-import package::realtime::bindings::{gbuffer, depth_buffer, load_motion_vector, motion_vectors, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
+import package::realtime::bindings::{gbuffer, gbuffer_specular_tint, depth_buffer, load_motion_vector, motion_vectors, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
 import package::scene::brdf::{evaluate_specular_brdf, F_AB, lobe_reflectances, material_F0_dielectric};
 import package::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, ResolvedMaterial, ResolvedRayHitFull};
 
@@ -42,7 +42,7 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
         return;
     }
 
-    let surface = gpixel_resolve(textureLoad(gbuffer, pixel_id, 0), depth, pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
+    let surface = gpixel_resolve(textureLoad(gbuffer, pixel_id, 0), textureLoad(gbuffer_specular_tint, pixel_id, 0).r, depth, pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
     let wo = normalize(view.world_position - surface.world_position);
 
     textureStore(diffuse_albedo, pixel_id, vec4(calculate_diffuse_color(surface.material.base_color, surface.material.metallic, 0.0, 0.0), 0.0));

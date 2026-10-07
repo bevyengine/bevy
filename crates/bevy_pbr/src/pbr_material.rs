@@ -192,8 +192,9 @@ pub struct StandardMaterial {
     ///
     /// The specular highlights and reflection are tinted with this color.
     ///
-    /// This feature is currently unsupported in the deferred rendering path, in
-    /// order to reduce the size of the geometry buffers.
+    /// The deferred renderer ignores this value when the device can't fit a specular
+    /// tint target in the G-buffer or allows only 16 sampled textures per shader stage,
+    /// which includes WebGL2.
     ///
     /// Defaults to [`Color::WHITE`].
     #[doc(alias = "specular_color")]
@@ -489,8 +490,9 @@ pub struct StandardMaterial {
     /// [`StandardMaterial::specular_tint`] value. See the documentation for
     /// that field for more information.
     ///
-    /// Like the fixed specular tint value, this texture map isn't supported in
-    /// the deferred renderer.
+    /// Like the fixed specular tint value, the deferred renderer ignores this
+    /// texture when the device can't fit a specular tint target in the G-buffer or
+    /// allows only 16 sampled textures per shader stage.
     #[cfg_attr(feature = "pbr_specular_textures", texture(29))]
     #[cfg_attr(feature = "pbr_specular_textures", sampler(30))]
     #[cfg(feature = "pbr_specular_textures")]

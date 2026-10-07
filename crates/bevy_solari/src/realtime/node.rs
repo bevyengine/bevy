@@ -6,6 +6,7 @@ use crate::scene::RaytracingSceneBindings;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_anti_alias::dlss::ViewDlssRayReconstructionTextures;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_core_pipeline::deferred::DeferredSpecularTintFallback;
 use bevy_core_pipeline::prepass::{
     PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms, ViewPrepassTextures,
     MOTION_VECTOR_PREPASS_FORMAT,
@@ -90,6 +91,7 @@ pub fn solari_lighting(
     scene_bindings: Res<RaytracingSceneBindings>,
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
+    deferred_specular_tint_fallback: Res<DeferredSpecularTintFallback>,
     render_device: Res<RenderDevice>,
     mut ctx: RenderContext,
 ) {
@@ -115,6 +117,14 @@ pub fn solari_lighting(
     let Some(pipelines) = solari_pipelines else {
         return;
     };
+
+    // The deferred pass has no specular tint target when the device limits can't fit it.
+    let gbuffer_specular_tint = view_prepass_textures
+        .deferred_specular_tint_view()
+        .unwrap_or(&deferred_specular_tint_fallback.view);
+    let previous_gbuffer_specular_tint = view_prepass_textures
+        .previous_deferred_specular_tint_view()
+        .unwrap_or(&deferred_specular_tint_fallback.view);
 
     let restir = solari_lighting_resources.reservoirs.as_ref().zip(
         view_prepass_textures
@@ -222,6 +232,7 @@ pub fn solari_lighting(
             previous_view_uniforms_binding.clone(),
             s.world_cache.as_entire_binding(),
             s.constants.as_entire_binding(),
+            gbuffer_specular_tint,
         )),
     );
 
@@ -241,7 +252,9 @@ pub fn solari_lighting(
                     previous_view_uniforms_binding,
                     s.world_cache.as_entire_binding(),
                     s.constants.as_entire_binding(),
+                    gbuffer_specular_tint,
                     previous_gbuffer,
+                    previous_gbuffer_specular_tint,
                     previous_depth_buffer,
                     reservoirs.a.as_entire_binding(),
                     reservoirs.b.as_entire_binding(),
@@ -430,6 +443,7 @@ pub fn init_solari_lighting_pipelines(
                 uniform_buffer::<PreviousViewData>(true),
                 storage_buffer_sized(false, None),
                 uniform_buffer_sized(false, None),
+                texture_2d(TextureSampleType::Uint),
             ),
         ),
     );
@@ -449,6 +463,8 @@ pub fn init_solari_lighting_pipelines(
                 uniform_buffer::<PreviousViewData>(true),
                 storage_buffer_sized(false, None),
                 uniform_buffer_sized(false, None),
+                texture_2d(TextureSampleType::Uint),
+                texture_2d(TextureSampleType::Uint),
                 texture_2d(TextureSampleType::Uint),
                 texture_depth_2d(),
                 storage_buffer_sized(false, None),
