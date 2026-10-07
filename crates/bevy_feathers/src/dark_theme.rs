@@ -178,8 +178,9 @@ pub fn create_dark_theme() -> ThemeProps {
                 tokens::TAB_INSERTION_INDICATOR,
                 semantic::FILL_ACCENT_DEFAULT,
             ),
-            (tokens::TAB_DRAG_PROXY_BG, semantic::SURFACE_PANE_BODY),
+            (tokens::TAB_DRAG_PROXY_BG, semantic::SURFACE_SUBPANE_HEADER),
             (tokens::TAB_DRAG_PROXY_BORDER, semantic::FILL_ACCENT_DEFAULT),
+            (tokens::TAB_DRAG_PROXY_OUTLINE, semantic::BORDER_DEFAULT),
             (tokens::TAB_DRAG_PROXY_TEXT, semantic::TEXT_DEFAULT),
             // Checkbox
             (tokens::CHECKBOX_BG, semantic::FILL_SOLID_DEFAULT),

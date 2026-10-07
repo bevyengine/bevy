@@ -1111,6 +1111,8 @@ fn demo_column_2() -> impl Scene {
                             display: Display::Flex,
                             flex_direction: FlexDirection::Column,
                             flex_grow: 1.0,
+                            flex_basis: px(0),
+                            min_width: px(0),
                         }
                         Children [
                             @demo_external_tabs()
@@ -1127,6 +1129,8 @@ fn demo_column_2() -> impl Scene {
                             display: Display::Flex,
                             flex_direction: FlexDirection::Column,
                             flex_grow: 1.0,
+                            flex_basis: px(0),
+                            min_width: px(0),
                         }
                         Children [
                             @demo_external_tabs()

@@ -146,6 +146,8 @@ pub const TAB_INSERTION_INDICATOR: ThemeToken = ThemeToken::new_static("feathers
 pub const TAB_DRAG_PROXY_BG: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.bg");
 /// Tab drag proxy border
 pub const TAB_DRAG_PROXY_BORDER: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.border");
+/// Tab drag proxy outline
+pub const TAB_DRAG_PROXY_OUTLINE: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.outline");
 /// Tab drag proxy text
 pub const TAB_DRAG_PROXY_TEXT: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.text");
 

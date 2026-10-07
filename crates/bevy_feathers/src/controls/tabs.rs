@@ -1,4 +1,5 @@
 use bevy_app::{Plugin, PostUpdate, Propagate};
+use bevy_color::{Alpha, Srgba};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -23,11 +24,11 @@ use bevy_picking::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_text::FontWeight;
+use bevy_text::{FontWeight, LineBreak, TextLayout};
 use bevy_ui::{
-    px, AlignItems, BorderRadius, ComputedNode, Display, FlexDirection, GlobalZIndex,
-    InlineDirection, InteractionDisabled, Node, OuterColor, PositionType, Selected, UiRect,
-    UiSystems, Val,
+    px, AlignItems, BorderRadius, BoxShadow, ComputedNode, Display, FlexDirection, GlobalZIndex,
+    InlineDirection, InteractionDisabled, Node, OuterColor, Outline, Overflow, PositionType,
+    Selected, UiRect, UiSystems, Val,
 };
 use bevy_ui_widgets::{
     ControlOrientation, DragOverlayRoot, DragProxy, SelectedTab, Tab, TabActivation, TabDragMode,
@@ -41,13 +42,14 @@ use crate::{
     font_styles::InheritableFont,
     theme::{
         InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
-        ThemeContext, UiTheme,
+        ThemeContext, ThemedText, UiTheme,
     },
     tokens,
 };
 
 const TAB_PADDING: f32 = 10.0;
 const TAB_GAP: f32 = 6.0;
+const TAB_MIN_WIDTH: f32 = TAB_PADDING * 2.0 + 24.0;
 const TAB_RADIUS: f32 = 4.0;
 const STRIPE_SIZE: f32 = 2.0;
 const FILLET_SIZE: f32 = 8.0;
@@ -105,16 +107,18 @@ impl Default for FeathersTabListProps {
 impl FeathersTabList {
     /// Scene function for a tab list.
     pub fn scene(props: FeathersTabListProps) -> impl Scene {
-        let (flex_direction, padding, border) = match props.orientation {
+        let (flex_direction, padding, border, overflow) = match props.orientation {
             ControlOrientation::Horizontal => (
                 FlexDirection::Row,
                 UiRect::new(px(FILLET_SIZE), px(FILLET_SIZE), px(STRIP_INSET), px(0)),
                 UiRect::new(px(1), px(1), px(1), px(0)),
+                Overflow::clip_x(),
             ),
             ControlOrientation::Vertical => (
                 FlexDirection::Column,
                 UiRect::new(px(STRIP_INSET), px(0), px(FILLET_SIZE), px(FILLET_SIZE)),
                 UiRect::new(px(1), px(0), px(1), px(1)),
+                Overflow::clip_y(),
             ),
         };
         bsn! {
@@ -125,6 +129,7 @@ impl FeathersTabList {
                 min_height: size::ROW_HEIGHT,
                 padding: {padding},
                 border: {border},
+                overflow: {overflow},
             }
             TabList {
                 orientation: {props.orientation},
@@ -209,6 +214,7 @@ impl FeathersTabListLeading {
                 display: Display::Flex,
                 align_items: AlignItems::Center,
                 column_gap: px(2),
+                flex_shrink: 0.0,
             }
         }
     }
@@ -228,6 +234,7 @@ impl FeathersTabListTrailing {
                 display: Display::Flex,
                 align_items: AlignItems::Center,
                 column_gap: px(2),
+                flex_shrink: 0.0,
             }
         }
     }
@@ -235,7 +242,8 @@ impl FeathersTabListTrailing {
 
 /// A themed tab header inside a [`FeathersTabList`].
 ///
-/// The caption may contain text, icons and app-owned controls such as a close button.
+/// The caption may contain text, icons and app-owned controls such as a close button. When the
+/// list is too narrow, tabs shrink down to a minimum width and their captions are clipped.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersTabProps)]
 #[reflect(Component, Clone, Default)]
@@ -262,10 +270,11 @@ impl FeathersTab {
         bsn! {
             Node {
                 display: Display::Flex,
+                min_width: px(TAB_MIN_WIDTH),
                 min_height: size::ROW_HEIGHT,
+                flex_shrink: 1.0,
                 align_items: AlignItems::Center,
                 padding: UiRect::horizontal(px(TAB_PADDING)),
-                column_gap: px(TAB_GAP),
                 border: {border},
                 border_radius: {border_radius},
             }
@@ -284,13 +293,28 @@ impl FeathersTab {
             Children [
                 @tab_fillet(TabFilletEdge::Start)
                 --
-                {props.caption}
+                Node {
+                    display: Display::Flex,
+                    align_items: AlignItems::Center,
+                    column_gap: px(TAB_GAP),
+                    min_width: px(0),
+                    flex_shrink: 1.0,
+                    overflow: Overflow::clip_x(),
+                }
+                TabCaption
+                ThemedText
+                Children [ {props.caption} ]
                 --
                 @tab_fillet(TabFilletEdge::End)
             ]
         }
     }
 }
+
+/// The node that holds and clips a tab's caption.
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Clone, Default)]
+struct TabCaption;
 
 /// One of the two flares at the base of a selected [`FeathersTab`].
 #[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
@@ -509,6 +533,22 @@ fn arrange_tab_lists(
         arranged.sort_by_key(rank);
         if arranged[..] != children[..] {
             commands.entity(list).insert_children(0, &arranged);
+        }
+    }
+}
+
+/// Keeps text placed directly in a tab caption on one line, so it is clipped instead of wrapped.
+fn keep_captions_on_one_line(
+    captions: Query<&Children, (With<TabCaption>, Changed<Children>)>,
+    mut layouts: Query<&mut TextLayout>,
+) {
+    for children in &captions {
+        for child in children.iter().copied() {
+            if let Ok(mut layout) = layouts.get_mut(child)
+                && layout.linebreak != LineBreak::NoWrap
+            {
+                layout.linebreak = LineBreak::NoWrap;
+            }
         }
     }
 }
@@ -800,7 +840,9 @@ fn spawn_tab_drag_proxy(
             With<TabFilletEdge>,
         )>,
     >,
+    caption_nodes: Query<&Children, With<TabCaption>>,
     pointer_state: Option<Res<PointerState>>,
+    theme: Option<Res<UiTheme>>,
     mut commands: Commands,
 ) {
     let tab = add.entity;
@@ -837,6 +879,10 @@ fn spawn_tab_drag_proxy(
         .flatten()
         .copied()
         .filter(|child| !skipped.contains(*child))
+        .flat_map(|child| match caption_nodes.get(child) {
+            Ok(caption) => caption.to_vec(),
+            Err(_) => vec![child],
+        })
         .collect::<Vec<_>>();
     commands.queue(move |world: &mut World| {
         for caption in captions {
@@ -853,6 +899,12 @@ fn spawn_tab_drag_proxy(
             while let Some(entity) = stack.pop() {
                 let mut entity = world.entity_mut(entity);
                 entity.insert(Pickable::IGNORE);
+                if let Some(mut layout) = entity.get_mut::<TextLayout>() {
+                    layout.linebreak = LineBreak::NoWrap;
+                }
+                if let Some(mut node) = entity.get_mut::<Node>() {
+                    node.flex_shrink = 0.0;
+                }
                 if let Some(children) = entity.get::<Children>() {
                     stack.extend(children.iter());
                 }
@@ -870,7 +922,7 @@ fn spawn_tab_drag_proxy(
         Node {
             display: Display::Flex,
             position_type: PositionType::Absolute,
-            width: length(size.x),
+            width: Val::Auto,
             height: length(size.y),
             min_height: size::ROW_HEIGHT,
             align_items: AlignItems::Center,
@@ -881,6 +933,20 @@ fn spawn_tab_drag_proxy(
             ..Default::default()
         },
         GlobalZIndex(DRAG_PROXY_Z),
+        Outline::new(
+            px(1),
+            px(0),
+            theme.map_or(Srgba::BLACK.into(), |theme| {
+                theme.color(&tokens::TAB_DRAG_PROXY_OUTLINE)
+            }),
+        ),
+        BoxShadow::new(
+            Srgba::BLACK.with_alpha(0.6).into(),
+            px(0),
+            px(2),
+            px(0),
+            px(6),
+        ),
         ThemeBackgroundColor(tokens::TAB_DRAG_PROXY_BG),
         ThemeBorderColor(tokens::TAB_DRAG_PROXY_BORDER),
         InheritableThemeTextColor(tokens::TAB_DRAG_PROXY_TEXT),
@@ -901,6 +967,7 @@ impl Plugin for FeathersTabsPlugin {
             (
                 arrange_tab_lists,
                 update_tab_styles,
+                keep_captions_on_one_line,
                 update_tab_fillets,
                 update_insertion_indicators,
             )
@@ -1051,10 +1118,10 @@ mod tests {
         let tab_children = tab.get::<Children>().unwrap();
         assert_eq!(tab_children.len(), 3);
         assert!(world.entity(tab_children[0]).contains::<TabFilletEdge>());
-        assert_eq!(
-            world.entity(tab_children[1]).get::<Text>().unwrap().0,
-            "Scene"
-        );
+        let caption = world.entity(tab_children[1]);
+        assert!(caption.contains::<TabCaption>());
+        let text = caption.get::<Children>().unwrap()[0];
+        assert_eq!(world.entity(text).get::<Text>().unwrap().0, "Scene");
         assert!(world.entity(tab_children[2]).contains::<TabFilletEdge>());
     }
 
@@ -1203,11 +1270,15 @@ mod tests {
         let (list, tabs) = spawn_list(&mut app, 1);
         app.world_mut().entity_mut(list).insert(ChildOf(root));
         let tab = tabs[0];
+        let caption = app
+            .world_mut()
+            .spawn((TabCaption, Node::default(), ChildOf(tab)))
+            .id();
         let label = app
             .world_mut()
-            .spawn((Text::new("Scene"), ChildOf(tab)))
+            .spawn((Text::new("Scene"), ChildOf(caption)))
             .id();
-        app.world_mut().spawn((Text::new("x"), ChildOf(tab)));
+        app.world_mut().spawn((Text::new("x"), ChildOf(caption)));
         let mut pointer_state = PointerState::default();
         pointer_state
             .get_mut(PointerId::Touch(4), PointerButton::Primary)
@@ -1233,6 +1304,23 @@ mod tests {
             .map(|(proxy, drag_proxy, children)| (proxy, *drag_proxy, children.to_vec()))
             .unwrap();
         assert_eq!(drag_proxy.pointer_id, PointerId::Touch(4));
+        let ghost = app.world().entity(proxy);
+        assert_eq!(
+            ghost.get::<Outline>().map(|outline| outline.width),
+            Some(px(1))
+        );
+        assert!(ghost.contains::<BoxShadow>());
+        let ghost_node = ghost.get::<Node>().unwrap();
+        assert_eq!(ghost_node.width, Val::Auto);
+        assert_eq!(ghost_node.overflow, Overflow::visible());
+        assert_eq!(
+            ghost.get::<ThemeBackgroundColor>().unwrap().0,
+            tokens::TAB_DRAG_PROXY_BG
+        );
+        assert_eq!(
+            ghost.get::<ThemeBorderColor>().unwrap().0,
+            tokens::TAB_DRAG_PROXY_BORDER
+        );
         assert_eq!(
             app.world().entity(proxy).get::<ChildOf>(),
             Some(&ChildOf(label))
@@ -1245,10 +1333,15 @@ mod tests {
         assert!(children
             .iter()
             .all(|child| app.world().entity(*child).get::<Pickable>() == Some(&Pickable::IGNORE)));
+        assert!(children.iter().all(|child| {
+            let entity = app.world().entity(*child);
+            entity.get::<TextLayout>().map(|layout| layout.linebreak) == Some(LineBreak::NoWrap)
+                && entity.get::<Node>().unwrap().flex_shrink == 0.0
+        }));
         assert!(!children.contains(&label));
         assert_eq!(
             app.world().entity(label).get::<ChildOf>(),
-            Some(&ChildOf(tab))
+            Some(&ChildOf(caption))
         );
     }
 
@@ -1399,6 +1492,64 @@ mod tests {
         assert_eq!(
             FeathersTabList::child_index(&children, is_tab, Entity::PLACEHOLDER, 2),
             3
+        );
+    }
+
+    #[test]
+    fn tabs_shrink_and_clip_in_narrow_strips() {
+        let mut app = scene_app();
+        let list = app
+            .world_mut()
+            .spawn_scene(bsn! {
+                @FeathersTabList
+                Children [
+                    @FeathersTabListLeading
+                    --
+                    @FeathersTab { @caption: bsn! { Text("A long tab caption") } }
+                    --
+                    @FeathersTabListTrailing
+                ]
+            })
+            .unwrap()
+            .id();
+        app.update();
+
+        let world = app.world();
+        assert_eq!(
+            world.entity(list).get::<Node>().unwrap().overflow,
+            Overflow::clip_x()
+        );
+        let children = world.entity(list).get::<Children>().unwrap();
+        let node = |entity: Entity| world.entity(entity).get::<Node>().unwrap();
+        assert_eq!(node(children[0]).flex_shrink, 0.0);
+        assert_eq!(node(children[2]).flex_shrink, 0.0);
+
+        let tab = node(children[1]);
+        assert!(tab.flex_shrink > 0.0);
+        assert_eq!(tab.min_width, px(TAB_MIN_WIDTH));
+        assert_eq!(tab.overflow, Overflow::visible());
+
+        let caption = world.entity(children[1]).get::<Children>().unwrap()[1];
+        let caption_node = node(caption);
+        assert_eq!(caption_node.overflow, Overflow::clip_x());
+        assert_eq!(caption_node.min_width, px(0));
+        assert!(caption_node.flex_shrink > 0.0);
+        let text = world.entity(caption).get::<Children>().unwrap()[0];
+        assert_eq!(
+            world.entity(text).get::<TextLayout>().unwrap().linebreak,
+            LineBreak::NoWrap
+        );
+
+        let vertical = app
+            .world_mut()
+            .spawn_scene(bsn! {
+                @FeathersTabList { @orientation: ControlOrientation::Vertical }
+            })
+            .unwrap()
+            .id();
+        assert_eq!(
+            app.world().entity(vertical).get::<Node>().unwrap().overflow,
+            Overflow::clip_y()
         );
     }
 }
