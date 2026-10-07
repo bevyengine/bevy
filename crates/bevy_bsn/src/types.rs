@@ -188,13 +188,13 @@ impl BsnNamedField {
 macro_rules! impl_parse_token {
     ($token:ident) => {
         impl Parse for $token {
-            fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+            fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
                 match input.next_token()? {
                     Some(token) => {
                         if matches!(token.token, Token::$token) {
                             Ok($token)
                         } else {
-                            Err(ParseError::UnexpectedToken(token))
+                            Err(ParseError::UnexpectedToken(token.into()))
                         }
                     }
                     None => Err(ParseError::EndOfInput),
@@ -217,13 +217,13 @@ macro_rules! impl_parse_token {
 macro_rules! impl_parse_arg_token {
     ($token:ident) => {
         impl Parse for $token {
-            fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+            fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
                 match input.next_token()? {
                     Some(token) => {
                         if let Token::$token(value) = token.token {
                             Ok($token(value))
                         } else {
-                            Err(ParseError::UnexpectedToken(token))
+                            Err(ParseError::UnexpectedToken(token.into()))
                         }
                     }
                     None => Err(ParseError::EndOfInput),

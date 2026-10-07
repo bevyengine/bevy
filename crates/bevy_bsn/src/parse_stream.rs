@@ -9,32 +9,7 @@ use thiserror::Error;
 
 /// An error that occurs while parsing BSN.
 #[derive(Error)]
-pub enum ParseError<'a> {
-    /// A lex error.
-    #[error(transparent)]
-    LexError(LexError),
-    /// Occurs when an unexpected token is encountered.
-    #[error("{}", .0.span.message(&format!("Unexpected Token {:?}", .0.token)))]
-    UnexpectedToken(SpannedToken<'a>),
-    /// Occurs when the end of input was reached unexpectedly
-    #[error("Unexpected end of input.")]
-    EndOfInput,
-    /// An error that occurred for a given spanned token.
-    #[error("{}", .token.span.message(.message))]
-    SpannedMessage {
-        /// The message. This should provide helpful user-facing context for the error.
-        message: String,
-        /// The spanned token that produced the error.
-        token: SpannedToken<'a>,
-    },
-    /// A span-less error occurred. Prefer [`ParseError::SpannedMessage`] when possible.
-    #[error("{0}")]
-    Message(String),
-}
-
-/// An error that occurs while parsing BSN.
-#[derive(Error)]
-pub enum OwnedParseError {
+pub enum ParseError {
     /// A lex error.
     #[error(transparent)]
     LexError(LexError),
@@ -57,23 +32,6 @@ pub enum OwnedParseError {
     Message(String),
 }
 
-impl<'a> From<ParseError<'a>> for OwnedParseError {
-    fn from(value: ParseError<'a>) -> Self {
-        match value {
-            ParseError::LexError(lex_error) => OwnedParseError::LexError(lex_error),
-            ParseError::UnexpectedToken(spanned_token) => {
-                OwnedParseError::UnexpectedToken(spanned_token.into())
-            }
-            ParseError::EndOfInput => OwnedParseError::EndOfInput,
-            ParseError::SpannedMessage { message, token } => OwnedParseError::SpannedMessage {
-                message,
-                token: token.into(),
-            },
-            ParseError::Message(message) => OwnedParseError::Message(message),
-        }
-    }
-}
-
 /// A [`Token`] coupled with the [`Span`] that produced it.
 #[derive(Debug, Clone)]
 pub struct OwnedSpannedToken {
@@ -92,18 +50,12 @@ impl<'a> From<SpannedToken<'a>> for OwnedSpannedToken {
     }
 }
 
-impl<'a> std::fmt::Debug for ParseError<'a> {
+impl std::fmt::Debug for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
     }
 }
-
-impl std::fmt::Debug for OwnedParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(self, f)
-    }
-}
-impl<'a> From<LexError> for ParseError<'a> {
+impl From<LexError> for ParseError {
     fn from(value: LexError) -> Self {
         Self::LexError(value)
     }
@@ -126,7 +78,7 @@ impl<'a> From<Span<'a>> for ParseStream<'a> {
 
 impl<'a> ParseStream<'a> {
     /// Try to parse the given type `P`.
-    pub fn parse<P: Parse>(&mut self) -> Result<P, ParseError<'a>> {
+    pub fn parse<P: Parse>(&mut self) -> Result<P, ParseError> {
         P::parse(self)
     }
 
@@ -176,18 +128,18 @@ impl<'a> ParseStream<'a> {
 
     /// Returns a [`ParseError`] with the given `message`. If there is a next token in the stream,
     /// its [`Span`] will be used.
-    pub fn error(&mut self, message: impl Into<String>) -> ParseError<'a> {
+    pub fn error(&mut self, message: impl Into<String>) -> ParseError {
         match self.peek_token() {
             Some(token) => ParseError::SpannedMessage {
                 message: message.into(),
-                token: token.clone(),
+                token: token.clone().into(),
             },
             None => ParseError::Message(message.into()),
         }
     }
 
     /// Parses a type `P` contained within brackets.
-    pub fn bracketed<P: Parse>(&mut self) -> Result<P, ParseError<'a>> {
+    pub fn bracketed<P: Parse>(&mut self) -> Result<P, ParseError> {
         self.parse::<LBracket>()?;
         let p = self.parse::<P>()?;
         self.parse::<RBracket>()?;
@@ -195,7 +147,7 @@ impl<'a> ParseStream<'a> {
     }
 
     /// Parses a type `P` contained within parentheses.
-    pub fn parenthesized<P: Parse>(&mut self) -> Result<P, ParseError<'a>> {
+    pub fn parenthesized<P: Parse>(&mut self) -> Result<P, ParseError> {
         self.parse::<LParen>()?;
         let p = self.parse::<P>()?;
         self.parse::<RParen>()?;
@@ -203,7 +155,7 @@ impl<'a> ParseStream<'a> {
     }
 
     /// Parses a type `P` contained within braces.
-    pub fn braced<P: Parse>(&mut self) -> Result<P, ParseError<'a>> {
+    pub fn braced<P: Parse>(&mut self) -> Result<P, ParseError> {
         self.parse::<LBrace>()?;
         let p = self.parse::<P>()?;
         self.parse::<RBrace>()?;
@@ -214,7 +166,7 @@ impl<'a> ParseStream<'a> {
 /// A parse-able type.
 pub trait Parse: Sized {
     /// Parses the given type using the next tokens in the `input` [`ParseStream`].
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>>;
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError>;
 }
 
 /// A peek-able type.

@@ -11,13 +11,13 @@ use crate::{
 };
 
 impl Parse for BsnRoot {
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
         Ok(BsnRoot(input.parse::<Bsn>()?))
     }
 }
 
 impl Parse for Bsn {
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
         let mut entries = Vec::new();
         while !(input.is_empty_or_closing_delimiter() || input.peek::<DoubleMinus>()) {
             entries.push(input.parse::<BsnEntry>()?);
@@ -27,7 +27,7 @@ impl Parse for Bsn {
 }
 
 impl Parse for BsnEntry {
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
         Ok(if input.peek::<Hash>() {
             let _ = input.parse::<Hash>()?;
             let ident = input.parse::<Ident>()?;
@@ -56,7 +56,7 @@ impl Parse for BsnEntry {
 }
 
 impl Parse for BsnType {
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
         let path = input.parse::<Path>()?;
         let fields = input.parse::<BsnFields>()?;
         Ok(BsnType {
@@ -68,7 +68,7 @@ impl Parse for BsnType {
 }
 
 impl Parse for BsnFields {
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
         Ok(if input.peek::<LBrace>() {
             let _ = input.parse::<LBrace>()?;
             let mut fields = Vec::new();
@@ -100,7 +100,7 @@ impl Parse for BsnFields {
 }
 
 impl Parse for BsnNamedField {
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
         let name = input.parse::<Ident>()?;
         let _ = input.parse::<Colon>()?;
         let value = input.parse::<BsnValue>()?;
@@ -112,7 +112,7 @@ impl Parse for BsnNamedField {
 }
 
 impl Parse for BsnValue {
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
         Ok(if input.peek::<Float>() {
             let value = input.parse::<Float>()?;
             BsnValue::Float(value.0)
@@ -135,14 +135,14 @@ impl Parse for BsnValue {
 }
 
 impl Parse for BsnSceneList {
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
         let items = input.bracketed::<BsnSceneListItems>()?;
         Ok(BsnSceneList(items))
     }
 }
 
 impl Parse for BsnSceneListItems {
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
         let mut scenes = Vec::new();
         while !input.is_empty_or_closing_delimiter() {
             scenes.push(input.parse::<Bsn>()?);
@@ -157,7 +157,7 @@ impl Parse for BsnSceneListItems {
 }
 
 impl Parse for Path {
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
         let leading_colon = if input.peek::<DoubleColon>() {
             let _ = input.parse::<DoubleColon>()?;
             true
@@ -178,7 +178,7 @@ impl Parse for Path {
 }
 
 impl Parse for PathSegment {
-    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError<'a>> {
+    fn parse<'a>(input: &mut ParseStream<'a>) -> Result<Self, ParseError> {
         let ident = input.parse::<Ident>()?;
         Ok(PathSegment { ident })
     }
