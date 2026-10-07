@@ -1,6 +1,6 @@
 ---
 title: "`StandardMaterial::reflectance` is replaced by `ior` and `specular`"
-pull_requests: [24552]
+pull_requests: [26044]
 ---
 
 `StandardMaterial::reflectance` and `GltfMaterial::reflectance` have been removed.
