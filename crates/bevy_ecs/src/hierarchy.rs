@@ -318,6 +318,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Replaces all the related children with a new set of children.
+    ///
+    /// Duplicated children are removed, leaving only their first occurrence.
     pub fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         self.replace_related::<ChildOf>(children)
     }
@@ -411,6 +413,8 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Replaces the children on this entity with a new list of children.
+    ///
+    /// Duplicated children are removed, leaving only their first occurrence.
     pub fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         self.replace_related::<ChildOf>(children)
     }

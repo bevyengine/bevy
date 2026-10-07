@@ -139,6 +139,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Replaces all the related entities with a new set of entities.
+    ///
+    /// Duplicated entities are removed, leaving only their first occurrence.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         type Collection<R> =
             <<R as Relationship>::RelationshipTarget as RelationshipTarget>::Collection;
@@ -477,6 +479,8 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Replaces all the related entities with the given set of new related entities.
+    ///
+    /// Duplicated entities are removed, leaving only their first occurrence.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let related: Box<[Entity]> = related.into();
 
