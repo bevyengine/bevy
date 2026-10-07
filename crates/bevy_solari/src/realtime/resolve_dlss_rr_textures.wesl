@@ -2,9 +2,9 @@ import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::deferred::types::unpack_24bit_normal;
 import bevy_pbr::render::pbr_functions::calculate_diffuse_color;
 import bevy_render::utils::octahedral_decode;
-import package::realtime::gbuffer_utils::gpixel_resolve;
-import package::realtime::bindings::{gbuffer, gbuffer_specular_tint, depth_buffer, load_motion_vector, motion_vectors, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
-import package::scene::brdf::{evaluate_specular_brdf, F_AB, lobe_reflectances, material_F0_dielectric};
+import package::realtime::gbuffer_utils::load_gpixel;
+import package::realtime::bindings::{gbuffer, depth_buffer, load_motion_vector, motion_vectors, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
+import package::scene::brdf::{evaluate_specular_brdf, F_AB, lobe_reflectances};
 import package::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, ResolvedMaterial, ResolvedRayHitFull};
 
 enable wgpu_ray_query;
@@ -42,7 +42,7 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
         return;
     }
 
-    let surface = gpixel_resolve(textureLoad(gbuffer, pixel_id, 0), textureLoad(gbuffer_specular_tint, pixel_id, 0).r, depth, pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
+    let surface = load_gpixel(pixel_id, depth);
     let wo = normalize(view.world_position - surface.world_position);
 
     textureStore(diffuse_albedo, pixel_id, vec4(calculate_diffuse_color(surface.material.base_color, surface.material.metallic, 0.0, 0.0), 0.0));
@@ -239,12 +239,14 @@ fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: v
 
 /// Directional specular albedo of the material, with the specular weight applied to the dielectric lobe.
 fn specular_albedo_approx(material: ResolvedMaterial, N: vec3<f32>, V: vec3<f32>) -> vec3<f32> {
-    let dielectric = env_brdf_approx2(material_F0_dielectric(material), material.roughness, N, V);
-    let metallic = env_brdf_approx2(material.base_color, material.roughness, N, V);
+    let scale_bias = env_brdf_scale_bias(material.roughness, N, V);
+    let dielectric = env_brdf_approx2(material.F0_dielectric, scale_bias);
+    let metallic = env_brdf_approx2(material.base_color, scale_bias);
     return mix(material.specular_weight * dielectric, metallic, material.metallic);
 }
 
-fn env_brdf_approx2(specular_color: vec3<f32>, alpha: f32, N: vec3<f32>, V: vec3<f32>) -> vec3<f32> {
+/// Returns the scale (x) and bias (y) that `env_brdf_approx2` applies to F0.
+fn env_brdf_scale_bias(alpha: f32, N: vec3<f32>, V: vec3<f32>) -> vec2<f32> {
     let NoV = abs(dot(N, V));
 
     var X: vec4<f32>;
@@ -264,10 +266,12 @@ fn env_brdf_approx2(specular_color: vec3<f32>, alpha: f32, N: vec3<f32>, V: vec3
     let M3 = mat2x2<f32>(0.0365463, 9.0632, 3.32707, -9.04756);
     let M4 = mat3x3<f32>(1.0, 9.04401, 5.56589, 3.59685, -16.3174, 19.7886, -1.36772, 9.22949, -20.2123);
 
-    var bias = dot(M1 * X.xy, Y.xy) / dot(M2 * X.xyw, Y.xyw);
+    let bias = dot(M1 * X.xy, Y.xy) / dot(M2 * X.xyw, Y.xyw);
     let scale = dot(M3 * X.xy, Y.xy) / dot(M4 * X.xzw, Y.xyw);
+    return vec2(scale, bias);
+}
 
-    bias *= saturate(specular_color.g * 50.0);
-
-    return fma(specular_color, vec3(max(0.0, scale)), vec3(max(0.0, bias)));
+fn env_brdf_approx2(specular_color: vec3<f32>, scale_bias: vec2<f32>) -> vec3<f32> {
+    let bias = scale_bias.y * saturate(specular_color.g * 50.0);
+    return fma(specular_color, vec3(max(0.0, scale_bias.x)), vec3(max(0.0, bias)));
 }

@@ -227,14 +227,14 @@ fn setup(
     // Chessboard Plane
     let black_material = materials.add(StandardMaterial {
         base_color: Color::BLACK,
-        specular: 0.85,
+        ior: 1.27,
         perceptual_roughness: 0.8,
         ..default()
     });
 
     let white_material = materials.add(StandardMaterial {
         base_color: Color::WHITE,
-        specular: 0.85,
+        ior: 1.27,
         perceptual_roughness: 0.8,
         ..default()
     });

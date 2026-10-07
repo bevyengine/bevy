@@ -83,23 +83,13 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         specular_transmission,
         diffuse_transmission
     );
-    @if(STANDARD_MATERIAL_CLEARCOAT)
-    let reflectance_ior =
-        pbr_functions::clearcoat_base_layer_ior(in.material.ior, in.material.clearcoat);
-    @else
-    let reflectance_ior = in.material.ior;
-    let F0_dielectric =
-        pbr_functions::calculate_F0_dielectric(reflectance_ior, in.material.specular_tint);
+    let F0_dielectric = pbr_functions::calculate_specular_reflectance(in.material).F0_dielectric;
     let NdotV = max(dot(in.N, in.V), 0.0001);
     let F_ab = lighting::F_AB(in.material.perceptual_roughness, NdotV);
-    let indirect_diffuse_reflectance = lighting::indirect_diffuse_reflectance(
-        diffuse_color,
-        metallic,
-        F0_dielectric,
-        base_color,
-        F_ab,
-        saturate(in.material.specular_weight),
-    );
+    let multiscatter = lighting::compute_lobe_multiscatter(
+        F0_dielectric, base_color, F_ab, saturate(in.material.specular_weight));
+    let indirect_diffuse_reflectance =
+        lighting::indirect_diffuse_reflectance(multiscatter, diffuse_color, metallic);
     emissive += in.lightmap_light * indirect_diffuse_reflectance * view.exposure;
 }
 
@@ -147,9 +137,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     @if(!WEBGL2)
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
     @if(!WEBGL2)
-    let ior_specular_props = u32(round(props.r * 255.0));
-    @if(!WEBGL2)
-    let ior_specular = deferred_types::unpack_8bit_ior_specular(ior_specular_props);
+    let ior_specular = deferred_types::unpack_8bit_ior_specular(gbuffer.b);
     @if(!WEBGL2) {
     let clearcoat_props = u32(round(props.a * 255.0));
     pbr.material.clearcoat = f32(clearcoat_props & 0x0fu) / 15.0;

@@ -54,8 +54,8 @@ pub struct GltfMaterial {
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_texture: Option<Handle<Image>>,
 
-    /// A color with which to modulate the default reflectance at normal incidence (which is computed from [`GltfMaterial::ior`]).
-    /// Only affects non-metals.
+    /// A color that multiplies the reflectance at normal incidence of non-metals, which
+    /// [`GltfMaterial::ior`] sets.
     pub specular_tint: Color,
 
     /// The UV channel to use for the

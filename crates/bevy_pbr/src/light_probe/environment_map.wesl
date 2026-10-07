@@ -5,7 +5,8 @@ import package::render::mesh_view_types::{
     LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE, LIGHT_PROBE_FLAG_PARALLAX_CORRECT
 };
 import package::render::pbr_lighting::{
-    compute_multiscatter, F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT
+    F_Schlick_vec, indirect_diffuse_reflectance, LightingInput, LayerLightingInput, LobeMultiscatter,
+    LAYER_BASE, LAYER_CLEARCOAT
 };
 import package::render::clustered_forward::ClusterableObjectIndexRanges;
 import bevy_render::maths::quat_rotate;
@@ -310,8 +311,12 @@ fn environment_map_light_clearcoat(
     (*out).specular = (*out).specular * inv_Fc * inv_Fc + clearcoat_radiances.radiance * Fc;
 }
 
+/// Returns the diffuse and specular light that the environment map contributes to `input`.
+///
+/// `multiscatter` is the result of `compute_lobe_multiscatter` for the material in `input`.
 fn environment_map_light(
     input: ptr<function, LightingInput>,
+    multiscatter: LobeMultiscatter,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapLight {
@@ -320,10 +325,6 @@ fn environment_map_light(
     let diffuse_color = (*input).diffuse_color;
     let metallic = (*input).metallic;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
-    let F_ab = (*input).F_ab;
-    let F0_dielectric = (*input).F0_dielectric;
-    let F0_metallic = (*input).F0_metallic;
-    let specular_weight = (*input).specular_weight;
     let world_position = (*input).P;
 
     var out: EnvironmentMapLight;
@@ -341,27 +342,15 @@ fn environment_map_light(
         return out;
     }
 
-    let F0_surface = mix(F0_dielectric, F0_metallic, metallic);
-
-    // Compute per-material (dielectric and metallic separately) then mix the results.
-    // We can't use F0 directly as the multiscattering term is nonlinear.
-    let Ems = 1.0 - (F_ab.x + F_ab.y);
-
-    // Following `KHR_materials_specular`, the specular weight scales the dielectric lobe only, and
-    // the diffuse lobe receives the energy the weighted specular lobe no longer reflects.
-    let ms_dielectric = compute_multiscatter(F0_dielectric, F_ab, Ems, specular_weight);
-    let ms_metallic = compute_multiscatter(F0_metallic, F_ab, Ems, 1.0);
-
-    let FmsEms = mix(ms_dielectric.FmsEms, ms_metallic.FmsEms, metallic);
-    let kD = diffuse_color * ms_dielectric.Edss;
-
     if (!found_diffuse_indirect) {
-        out.diffuse = (FmsEms + kD) * radiances.irradiance;
+        out.diffuse = indirect_diffuse_reflectance(multiscatter, diffuse_color, metallic) *
+            radiances.irradiance;
     } else {
         out.diffuse = vec3(0.0);
     }
 
-    out.specular = mix(ms_dielectric.FssEss, ms_metallic.FssEss, metallic) * radiances.radiance;
+    out.specular = mix(multiscatter.dielectric.FssEss, multiscatter.metallic.FssEss, metallic) *
+        radiances.radiance;
 
     @if(STANDARD_MATERIAL_CLEARCOAT)
     environment_map_light_clearcoat(

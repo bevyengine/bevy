@@ -108,7 +108,7 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
         let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
         let base_rough = unpack_unorm4x8_(deferred.x);
         let props = unpack_unorm4x8_(deferred.z);
-        let ior_specular = unpack_8bit_ior_specular(deferred.z & 0xFFu);
+        let ior_specular = unpack_8bit_ior_specular(deferred.z);
         // R: Specular weight, G: Metallic, B: Occlusion, A: Perceptual Roughness
         output_color = vec4(ior_specular.y, props.g, props.b, base_rough.a);
     }

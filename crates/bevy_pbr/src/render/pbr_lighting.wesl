@@ -78,7 +78,7 @@ struct LightingInput {
     /// The 0-1 metallic factor of the material.
     metallic: f32,
 
-    /// Specular weight for dielectric materials
+    /// The 0-1 specular weight, which scales the dielectric specular lobe.
     specular_weight: f32,
 
     /// Specular reflectance at the normal incidence angle.
@@ -320,13 +320,11 @@ fn F_Schlick(f0: f32, f90: f32, VdotH: f32) -> f32 {
 }
 
 /// Returns the specular reflectance at normal incidence (F0) of a material that
-/// mixes a dielectric lobe and a metallic lobe by `metallic`.
+/// mixes a dielectric lobe and a metallic lobe by `metallic`. Following
+/// `KHR_materials_specular`, `specular_weight` scales the dielectric lobe only.
 ///
-/// Following `KHR_materials_specular`, `specular_weight` scales the dielectric
-/// lobe only. The result is `mix(specular_weight * F0_dielectric, F0_metallic,
-/// metallic)`. Used with [`specular_F90`], Schlick's approximation gives
-/// `mix(specular_weight * F_dielectric, F_metallic, metallic)`, because it is
-/// linear in F0 and F90.
+/// Schlick's approximation is linear in F0 and F90, so using this with
+/// `specular_F90` gives the same result as mixing the Fresnel terms of the lobes.
 fn specular_F0(
     F0_dielectric: vec3<f32>,
     F0_metallic: vec3<f32>,
@@ -336,12 +334,8 @@ fn specular_F0(
     return mix(specular_weight * F0_dielectric, F0_metallic, metallic);
 }
 
-/// Returns the specular reflectance at grazing angles (F90) of a material that
-/// mixes a dielectric lobe and a metallic lobe by `metallic`.
-///
-/// Both lobes have F90 = 1, and `specular_weight` scales the dielectric lobe
-/// only, so the result is `mix(specular_weight, 1.0, metallic)`. See
-/// [`specular_F0`].
+/// Returns the specular reflectance at grazing angles (F90) that goes with
+/// `specular_F0`.
 fn specular_F90(specular_weight: f32, metallic: f32) -> f32 {
     return mix(specular_weight, 1.0, metallic);
 }
@@ -594,8 +588,8 @@ struct MultiscatterResult {
 
 /// Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
 ///
-/// We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
-/// Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
+/// Uses the standard Fresnel term, not the roughness-dependent Fresnel of
+/// https://bruop.github.io/ibl, which makes Fresnel too bright.
 fn compute_multiscatter(
     F0: vec3<f32>,
     F_ab: vec2<f32>,
@@ -610,25 +604,40 @@ fn compute_multiscatter(
     return MultiscatterResult(FssEss, FmsEms, Edss);
 }
 
-/// Returns the fraction of incoming indirect diffuse light (irradiance) that a surface reflects,
-/// with the same diffuse and specular energy split as the environment map.
+/// Multiscattering terms of the dielectric and metallic specular lobes of a material.
+struct LobeMultiscatter {
+    dielectric: MultiscatterResult,
+    metallic: MultiscatterResult,
+}
+
+/// Returns the multiscattering terms of the dielectric and metallic specular lobes.
 ///
-/// Following `KHR_materials_specular`, `specular_weight` scales the dielectric specular lobe only,
-/// and the diffuse lobe receives the energy the weighted specular lobe does not reflect. The result
-/// includes the multiscattered specular energy, which is approximated as diffuse.
-fn indirect_diffuse_reflectance(
-    diffuse_color: vec3<f32>,
-    metallic: f32,
+/// The lobes are kept separate because the terms are nonlinear in F0. Following
+/// `KHR_materials_specular`, `specular_weight` scales the dielectric lobe only.
+fn compute_lobe_multiscatter(
     F0_dielectric: vec3<f32>,
     F0_metallic: vec3<f32>,
     F_ab: vec2<f32>,
     specular_weight: f32,
-) -> vec3<f32> {
+) -> LobeMultiscatter {
     let Ems = 1.0 - (F_ab.x + F_ab.y);
-    let ms_dielectric = compute_multiscatter(F0_dielectric, F_ab, Ems, specular_weight);
-    let ms_metallic = compute_multiscatter(F0_metallic, F_ab, Ems, 1.0);
-    let FmsEms = mix(ms_dielectric.FmsEms, ms_metallic.FmsEms, metallic);
-    return FmsEms + diffuse_color * ms_dielectric.Edss;
+    return LobeMultiscatter(
+        compute_multiscatter(F0_dielectric, F_ab, Ems, specular_weight),
+        compute_multiscatter(F0_metallic, F_ab, Ems, 1.0),
+    );
+}
+
+/// Returns the fraction of incoming indirect diffuse light (irradiance) that a surface reflects.
+///
+/// The diffuse lobe receives the energy the weighted specular lobes do not reflect, and the
+/// multiscattered specular energy is approximated as diffuse.
+fn indirect_diffuse_reflectance(
+    multiscatter: LobeMultiscatter,
+    diffuse_color: vec3<f32>,
+    metallic: f32,
+) -> vec3<f32> {
+    let FmsEms = mix(multiscatter.dielectric.FmsEms, multiscatter.metallic.FmsEms, metallic);
+    return FmsEms + diffuse_color * multiscatter.dielectric.Edss;
 }
 
 fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
@@ -834,10 +843,10 @@ fn point_light(
     var derived_input = derive_lighting_input(N, V, L);
     var diffuse = vec3(0.0);
     if (enable_diffuse) {
-        // KHR_materials_specular describes how the specular strength also influences the diffuse reflectance.
-        // We can't reproduce it however because we (following Filament) do not explicitly couple the diffuse and
-        // specular reflectances like glTF does, and have no term for specular compensation.
-        // See https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coupling-diffuse-and-specular-reflection.
+        // In KHR_materials_specular, the specular strength also changes the diffuse reflectance.
+        // This diffuse term follows Filament, which doesn't couple diffuse and specular
+        // reflectance, so it ignores the specular strength. See
+        // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coupling-diffuse-and-specular-reflection
         diffuse = diffuse_color * Fd_Burley(input, &derived_input);
     }
 

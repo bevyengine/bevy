@@ -143,7 +143,8 @@ pub struct ViewPrepassTextures {
     pub deferred_lighting_pass_id: Option<ColorAttachment>,
     /// The specular tint written by the deferred pass, in [`DEFERRED_SPECULAR_TINT_FORMAT`].
     /// Exists only if [`DeferredPrepass`] is added to the `ViewTarget` and
-    /// [`deferred_specular_tint_fits`](crate::deferred::deferred_specular_tint_fits) returns `true`.
+    /// [`DeferredSpecularTintSupport::is_supported`](crate::deferred::DeferredSpecularTintSupport::is_supported)
+    /// returns `true`.
     pub deferred_specular_tint: Option<ColorAttachment>,
     /// The size of the textures.
     pub size: Extent3d,

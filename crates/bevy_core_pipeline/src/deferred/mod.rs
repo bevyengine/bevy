@@ -14,11 +14,8 @@ use bevy_render::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
         PhaseItemExtraIndex,
     },
-    render_resource::{
-        CachedRenderPipelineId, Extent3d, TextureDataOrder, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
-    },
-    renderer::{RenderDevice, RenderQueue},
+    render_resource::{CachedRenderPipelineId, TextureFormat},
+    renderer::RenderDevice,
     settings::WgpuLimits,
 };
 
@@ -26,27 +23,58 @@ pub const DEFERRED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba32Uint;
 pub const DEFERRED_LIGHTING_PASS_ID_FORMAT: TextureFormat = TextureFormat::R8Uint;
 /// The format of the deferred specular tint texture.
 ///
-/// Each texel holds the specular tint in rgb9e5, combined by exclusive or with the rgb9e5 encoding
-/// of white, so that a value of 0 decodes to white. The deferred pass has this target only when
-/// [`deferred_specular_tint_fits`] returns `true`.
+/// Each texel holds the rgb9e5 specular tint XOR the rgb9e5 encoding of white, so 0 decodes to
+/// white. The deferred pass has this target only when
+/// [`DeferredSpecularTintSupport::is_supported`] returns `true`.
 pub const DEFERRED_SPECULAR_TINT_FORMAT: TextureFormat = TextureFormat::R32Uint;
 
-/// Returns whether the deferred pass can add the specular tint target to its other color
-/// attachments within `limits`.
+/// Whether the deferred pass has the specular tint target, for each combination of normal and
+/// motion vector prepasses.
 ///
-/// The deferred pass writes the normal and motion vector targets when their prepasses are enabled,
-/// then the G-buffer, the lighting pass ID and the specular tint. This function sums the byte cost
-/// of these targets with the same alignment rules that wgpu uses, and compares the sum with
-/// `max_color_attachment_bytes_per_sample`. It also checks `max_color_attachments`, and requires
-/// `max_sampled_textures_per_shader_stage` above the WebGPU minimum of 16, because the tint adds a
-/// sampled texture to the mesh view bind group. On WebGL2 it always returns `false`.
-pub fn deferred_specular_tint_fits(
+/// The tint target is supported when all deferred pass color targets fit in the device's
+/// `max_color_attachments` and `max_color_attachment_bytes_per_sample` limits, and
+/// `max_sampled_textures_per_shader_stage` is above the WebGPU minimum of 16, since the tint adds a
+/// sampled texture to the mesh view bind group. It is never supported on WebGL2.
+///
+/// Without the target, views have no deferred specular tint texture and deferred shading uses a
+/// white specular tint.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct DeferredSpecularTintSupport {
+    /// Indexed by `normal_prepass as usize | (motion_vector_prepass as usize) << 1`.
+    supported: [bool; 4],
+}
+
+impl DeferredSpecularTintSupport {
+    /// Computes the support for every prepass combination from the device `limits`.
+    pub fn new(limits: &WgpuLimits) -> Self {
+        Self {
+            supported: core::array::from_fn(|i| {
+                deferred_specular_tint_fits(limits, i & 1 != 0, i & 2 != 0)
+            }),
+        }
+    }
+
+    /// Returns whether the deferred pass of a view with these prepasses has the specular tint
+    /// target.
+    pub fn is_supported(&self, normal_prepass: bool, motion_vector_prepass: bool) -> bool {
+        self.supported[normal_prepass as usize | ((motion_vector_prepass as usize) << 1)]
+    }
+}
+
+/// Inserts [`DeferredSpecularTintSupport`] for the limits of the [`RenderDevice`].
+pub fn init_deferred_specular_tint_support(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+) {
+    commands.insert_resource(DeferredSpecularTintSupport::new(&render_device.limits()));
+}
+
+fn deferred_specular_tint_fits(
     limits: &WgpuLimits,
     normal_prepass: bool,
     motion_vector_prepass: bool,
 ) -> bool {
-    // WebGL2 can't clear integer attachments with a load operation, and its mesh view bind group
-    // has no binding for the specular tint.
+    // WebGL2 can't clear integer attachments with a load operation.
     if cfg!(all(
         feature = "webgl",
         target_arch = "wasm32",
@@ -62,8 +90,8 @@ pub fn deferred_specular_tint_fits(
         Some(DEFERRED_LIGHTING_PASS_ID_FORMAT),
         Some(DEFERRED_SPECULAR_TINT_FORMAT),
     ];
-    // Pipelines that use the mesh view bind group and a material bind group can already use 16
-    // sampled textures in the fragment stage.
+    // The mesh view and material bind groups can already use 16 sampled textures in the fragment
+    // stage.
     if limits.max_sampled_textures_per_shader_stage <= 16 {
         return false;
     }
@@ -83,44 +111,6 @@ pub fn deferred_specular_tint_fits(
     bytes_per_sample <= limits.max_color_attachment_bytes_per_sample
 }
 
-/// A 1x1 [`DEFERRED_SPECULAR_TINT_FORMAT`] texture that holds 0, which decodes to a white
-/// specular tint.
-///
-/// Passes that always bind a specular tint texture, such as Solari, bind it when the view has no
-/// deferred specular tint texture.
-#[derive(Resource)]
-pub struct DeferredSpecularTintFallback {
-    pub view: TextureView,
-}
-
-pub fn init_deferred_specular_tint_fallback(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-) {
-    let texture = render_device.create_texture_with_data(
-        &render_queue,
-        &TextureDescriptor {
-            label: Some("deferred_specular_tint_fallback"),
-            size: Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: DEFERRED_SPECULAR_TINT_FORMAT,
-            usage: TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        },
-        TextureDataOrder::default(),
-        &[0; 4],
-    );
-    commands.insert_resource(DeferredSpecularTintFallback {
-        view: texture.create_view(&TextureViewDescriptor::default()),
-    });
-}
 pub const DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth16Unorm;
 
 /// Opaque phase of the 3D Deferred pass.

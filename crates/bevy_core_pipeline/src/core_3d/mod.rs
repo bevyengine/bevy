@@ -82,7 +82,7 @@ use crate::tonemapping::tonemapping;
 use crate::upscaling::upscaling;
 use crate::{
     deferred::{
-        deferred_specular_tint_fits, init_deferred_specular_tint_fallback, AlphaMask3dDeferred,
+        init_deferred_specular_tint_support, AlphaMask3dDeferred, DeferredSpecularTintSupport,
         Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT,
         DEFERRED_SPECULAR_TINT_FORMAT,
     },
@@ -128,7 +128,7 @@ impl Plugin for Core3dPlugin {
             .init_resource::<ViewBinnedRenderPhases<Opaque3dDeferred>>()
             .init_resource::<ViewBinnedRenderPhases<AlphaMask3dDeferred>>()
             .init_resource::<ViewSortedRenderPhases<Transparent3d>>()
-            .add_systems(RenderStartup, init_deferred_specular_tint_fallback)
+            .add_systems(RenderStartup, init_deferred_specular_tint_support)
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(ExtractSchedule, extract_camera_prepass_phase)
             .add_systems(
@@ -772,6 +772,7 @@ pub fn prepare_prepass_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     render_adapter: Res<RenderAdapter>,
+    deferred_specular_tint_support: Res<DeferredSpecularTintSupport>,
     frame_count: Res<FrameCount>,
     opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
@@ -989,11 +990,8 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let deferred_specular_tint_supported = deferred_specular_tint_fits(
-            &render_device.limits(),
-            normal_prepass,
-            motion_vector_prepass,
-        );
+        let deferred_specular_tint_supported =
+            deferred_specular_tint_support.is_supported(normal_prepass, motion_vector_prepass);
         let mut deferred_specular_tint_texture = |label, textures: &mut HashMap<_, _>| {
             textures
                 .entry(camera.target.clone())

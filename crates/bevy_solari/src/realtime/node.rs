@@ -6,7 +6,7 @@ use crate::scene::RaytracingSceneBindings;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_anti_alias::dlss::ViewDlssRayReconstructionTextures;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
-use bevy_core_pipeline::deferred::DeferredSpecularTintFallback;
+use bevy_core_pipeline::deferred::DEFERRED_SPECULAR_TINT_FORMAT;
 use bevy_core_pipeline::prepass::{
     PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms, ViewPrepassTextures,
     MOTION_VECTOR_PREPASS_FORMAT,
@@ -20,11 +20,13 @@ use bevy_render::{
             uniform_buffer_sized,
         },
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
-        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, LoadOp,
-        PipelineCache, RenderPassDescriptor, ShaderStages, StorageTextureAccess, TextureFormat,
-        TextureFormatFeatureFlags, TextureSampleType,
+        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, Extent3d,
+        LoadOp, PipelineCache, RenderPassDescriptor, ShaderStages, StorageTextureAccess,
+        TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureFormatFeatureFlags, TextureSampleType, TextureUsages, TextureView,
+        TextureViewDescriptor,
     },
-    renderer::{RenderAdapter, RenderContext, RenderDevice, ViewQuery},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue, ViewQuery},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 use bevy_shader::{Shader, ShaderDefVal};
@@ -91,7 +93,7 @@ pub fn solari_lighting(
     scene_bindings: Res<RaytracingSceneBindings>,
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
-    deferred_specular_tint_fallback: Res<DeferredSpecularTintFallback>,
+    specular_tint_fallback: Res<SpecularTintFallback>,
     render_device: Res<RenderDevice>,
     mut ctx: RenderContext,
 ) {
@@ -118,13 +120,13 @@ pub fn solari_lighting(
         return;
     };
 
-    // The deferred pass has no specular tint target when the device limits can't fit it.
+    // Views without a deferred specular tint texture bind the white fallback.
     let gbuffer_specular_tint = view_prepass_textures
         .deferred_specular_tint_view()
-        .unwrap_or(&deferred_specular_tint_fallback.view);
+        .unwrap_or(&specular_tint_fallback.0);
     let previous_gbuffer_specular_tint = view_prepass_textures
         .previous_deferred_specular_tint_view()
-        .unwrap_or(&deferred_specular_tint_fallback.view);
+        .unwrap_or(&specular_tint_fallback.0);
 
     let restir = solari_lighting_resources.reservoirs.as_ref().zip(
         view_prepass_textures
@@ -408,6 +410,40 @@ pub fn solari_lighting(
         ),
         "solari_lighting/world_cache_active_cells_count",
     );
+}
+
+/// A 1x1 [`DEFERRED_SPECULAR_TINT_FORMAT`] texture that holds 0, which decodes to a white
+/// specular tint. Solari binds it when the view has no deferred specular tint texture.
+#[derive(Resource)]
+pub(crate) struct SpecularTintFallback(TextureView);
+
+pub(crate) fn init_specular_tint_fallback(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) {
+    let texture = render_device.create_texture_with_data(
+        &render_queue,
+        &TextureDescriptor {
+            label: Some("solari_specular_tint_fallback"),
+            size: Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: DEFERRED_SPECULAR_TINT_FORMAT,
+            usage: TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        },
+        TextureDataOrder::default(),
+        &[0; 4],
+    );
+    commands.insert_resource(SpecularTintFallback(
+        texture.create_view(&TextureViewDescriptor::default()),
+    ));
 }
 
 /// Initializes the Solari lighting pipelines at render startup.

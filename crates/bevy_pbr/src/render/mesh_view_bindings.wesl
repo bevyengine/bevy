@@ -79,7 +79,7 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 
 @if(DEFERRED_PREPASS)
 @group(0) @binding(23) var deferred_prepass_texture: texture_2d<u32>;
-// Views have this texture only when the device limits fit the tint target in the deferred pass.
+// Present only when `DeferredSpecularTintSupport` allows the tint target.
 @if(DEFERRED_SPECULAR_TINT)
 @group(0) @binding(39) var deferred_specular_tint_texture: texture_2d<u32>;
 

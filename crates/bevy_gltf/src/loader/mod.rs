@@ -1423,7 +1423,7 @@ fn load_material(
                 )
             });
 
-    // glTF allows an IOR of 0 or at least 1. Anything else, including NaN and infinity, uses the
+    // KHR_materials_ior allows an IOR of 0 or at least 1. Other values, NaN and infinity use the
     // default of 1.5.
     let ior = material
         .ior()

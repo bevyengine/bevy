@@ -1,6 +1,5 @@
 import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::pbr_lighting::{D_GGX, V_SmithGGXCorrelated, specular_multiscatter};
-import bevy_pbr::render::pbr_functions::calculate_F0_dielectric;
 import bevy_pbr::render::utils::{rand_f, sample_cosine_hemisphere};
 import bevy_render::maths::{PI, orthonormalize};
 import package::scene::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid};
@@ -20,19 +19,14 @@ struct LobeReflectances {
     diffuse: vec3<f32>,
 }
 
-/// Reflectance at normal incidence of the dielectric specular lobe, before the specular weight.
-fn material_F0_dielectric(material: ResolvedMaterial) -> vec3<f32> {
-    return calculate_F0_dielectric(material.ior, material.specular_tint);
-}
-
 /// Hemispherical reflectance of each lobe
 fn lobe_reflectances(material: ResolvedMaterial, F_ab: vec2<f32>) -> LobeReflectances {
     let F0_metal = material.base_color;
-    let F0_dielectric = material_F0_dielectric(material);
+    let F0_dielectric = material.F0_dielectric;
     let multiscattering_factor = 1.0 / (F_ab.x + F_ab.y) - 1.0;
     let rho_specular_metallic = (F0_metal * F_ab.x + F_ab.y) * (1.0 + F0_metal * multiscattering_factor);
-    // The specular weight scales the whole dielectric specular lobe (KHR_materials_specular), and the
-    // diffuse lobe receives the energy the specular lobe no longer reflects.
+    // Following KHR_materials_specular, the specular weight scales the whole dielectric specular
+    // lobe, and the diffuse lobe receives the energy that the weighted lobe does not reflect.
     let rho_specular_dielectric = material.specular_weight * (F0_dielectric * F_ab.x + F_ab.y) * (1.0 + F0_dielectric * multiscattering_factor);
     return LobeReflectances(
         mix(rho_specular_dielectric, rho_specular_metallic, material.metallic),
@@ -128,7 +122,7 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     if NdotL < 0.0001 || NdotH < 0.0001 || LdotH < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
 
     let F0_metal = material.base_color;
-    let F0_dielectric = material_F0_dielectric(material);
+    let F0_dielectric = material.F0_dielectric;
 
     if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD {
         let mirror_wi = 2.0 * NdotV * world_normal - wo;

@@ -175,26 +175,25 @@ pub struct StandardMaterial {
 
     /// Specular strength for non-metals on a linear scale of `[0.0, 1.0]`.
     ///
-    /// For non metals the specular reflectance at normal incidence is governed by the [`StandardMaterial::ior`] parameter.
+    /// Scales the whole specular response of non-metals, at normal incidence and at grazing
+    /// angles, for both highlights and reflections. [`StandardMaterial::ior`] sets the reflectance
+    /// at normal incidence that this value scales. At `0.0`, non-metals have no specular response.
+    /// Values outside `[0.0, 1.0]` are clamped. The deferred renderer on WebGL2 stores only
+    /// whether this value is above `0.0`.
     ///
-    /// This value scales the whole specular response of non-metals: the reflectance at normal
-    /// incidence and the reflectance at grazing angles, for highlights and reflections.
-    ///
-    /// Set to `0.0`, no specular highlight is visible. The highlight is strongest when `specular` is set to `1.0`.
-    /// Values outside `[0.0, 1.0]` are clamped.
-    ///
-    /// Defaults to `1.0`, which will compute the normal incidence reflectance according to the material's IOR.
+    /// Defaults to `1.0`.
     #[doc(alias = "specular_intensity")]
     #[doc(alias = "reflectance")]
     pub specular: f32,
 
-    /// A color with which to modulate the specular reflectance for non-metals.
+    /// A color that multiplies the reflectance at normal incidence of non-metals.
     ///
-    /// The specular highlights and reflection are tinted with this color.
+    /// Components can exceed `1.0`. The tinted reflectance is clamped to `1.0`.
     ///
-    /// The deferred renderer ignores this value when the device can't fit a specular
-    /// tint target in the G-buffer or allows only 16 sampled textures per shader stage,
-    /// which includes WebGL2.
+    /// The deferred renderer ignores this value when the device can't fit a specular tint
+    /// target. See
+    /// [`DeferredSpecularTintSupport`](bevy_core_pipeline::deferred::DeferredSpecularTintSupport)
+    /// for the conditions.
     ///
     /// Defaults to [`Color::WHITE`].
     #[doc(alias = "specular_color")]
@@ -316,10 +315,9 @@ pub struct StandardMaterial {
 
     /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
     ///
-    /// For non-metals, the IOR sets the specular reflectance at normal incidence (F0) as
-    /// `((ior - 1) / (ior + 1))^2`. The default of 1.5 gives 4%, an IOR of 1.0 (vacuum or air)
-    /// gives no reflectance at normal incidence, and an IOR of 0.0 gives 100%. With a clearcoat, F0
-    /// uses `ior / mix(1.0, 1.5, clearcoat)`, the IOR relative to the clearcoat layer.
+    /// For non-metals, the IOR sets the reflectance at normal incidence (F0) to
+    /// `((ior - 1) / (ior + 1))^2`: 4% at the default of 1.5, 0% at 1.0 and 100% at 0.0. With a
+    /// clearcoat, F0 uses the IOR relative to the clearcoat layer, `ior / mix(1.0, 1.5, clearcoat)`.
     ///
     /// Defaults to 1.5.
     ///
@@ -458,13 +456,11 @@ pub struct StandardMaterial {
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_channel: UvChannel,
 
-    /// A map that adjusts the strength of the highlights and reflection for non-metallic materials.
+    /// A map that scales the specular strength of non-metallic materials.
     ///
-    /// Alpha values from [0.0, 1.0] in this texture will be multiplied with the constant
-    /// [`StandardMaterial::specular`] value, to obtain a strength factor that linearly scales
-    /// the whole specular response of the material, as [`StandardMaterial::specular`] does.
-    /// This follows the `KHR_materials_specular` specification. The map will have no effect if
-    /// the material is fully metallic.
+    /// The alpha channel multiplies [`StandardMaterial::specular`], following the
+    /// `KHR_materials_specular` specification. The map has no effect on fully metallic
+    /// materials.
     ///
     /// Note that, because the specular strength is stored in the alpha channel, and
     /// the [`StandardMaterial::specular_tint_texture`] has no alpha value, it
@@ -490,9 +486,8 @@ pub struct StandardMaterial {
     /// [`StandardMaterial::specular_tint`] value. See the documentation for
     /// that field for more information.
     ///
-    /// Like the fixed specular tint value, the deferred renderer ignores this
-    /// texture when the device can't fit a specular tint target in the G-buffer or
-    /// allows only 16 sampled textures per shader stage.
+    /// The deferred renderer ignores this texture in the same cases as
+    /// [`StandardMaterial::specular_tint`].
     #[cfg_attr(feature = "pbr_specular_textures", texture(29))]
     #[cfg_attr(feature = "pbr_specular_textures", sampler(30))]
     #[cfg(feature = "pbr_specular_textures")]
@@ -1036,9 +1031,9 @@ pub struct StandardMaterialUniform {
     pub attenuation_color: Vec4,
     /// The transform applied to the UVs corresponding to `ATTRIBUTE_UV_0` on the mesh before sampling. Default is identity.
     pub uv_transform: Mat3,
-    /// Specular tint modulating non-metals specular reflectance.
+    /// See [`StandardMaterial::specular_tint`].
     pub specular_tint: Vec3,
-    /// Specular strength for non-metals on a linear scale of [0.0, 1.0]. Default is 1.0.
+    /// See [`StandardMaterial::specular`].
     pub specular_weight: f32,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089

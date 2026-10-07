@@ -11,7 +11,7 @@ use bevy_camera::{
 };
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
-    deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
+    deferred::{init_deferred_specular_tint_support, AlphaMask3dDeferred, Opaque3dDeferred},
     oit::prepare_oit_buffers,
     prepass::MotionVectorPrepass,
 };
@@ -322,7 +322,8 @@ impl Plugin for MeshRenderPlugin {
                 RenderStartup,
                 (init_mesh_pipeline_view_layouts, init_mesh_pipeline)
                     .chain()
-                    .in_set(MeshPipelineSystems),
+                    .in_set(MeshPipelineSystems)
+                    .after(init_deferred_specular_tint_support),
             );
         }
 

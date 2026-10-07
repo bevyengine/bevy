@@ -1,4 +1,4 @@
-import bevy_pbr::render::pbr_functions::calculate_tbn_mikktspace;
+import bevy_pbr::render::pbr_functions::{calculate_F0_dielectric, calculate_tbn_mikktspace};
 import bevy_render::maths::affine3_to_square;
 
 enable wgpu_ray_query;
@@ -187,8 +187,8 @@ fn sample_texture(id: u32, uv: vec2<f32>) -> vec4<f32> {
 struct ResolvedMaterial {
     base_color: vec3<f32>,
     emissive: vec3<f32>,
-    specular_tint: vec3<f32>,
-    ior: f32,
+    /// Reflectance at normal incidence of the dielectric specular lobe, before the specular weight.
+    F0_dielectric: vec3<f32>,
     specular_weight: f32,
     perceptual_roughness: f32,
     roughness: f32,
@@ -229,11 +229,11 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
         m.emissive = vec3(0.0);
     }
 
-    m.specular_tint = material.specular_tint;
+    var specular_tint = material.specular_tint;
     if material.specular_tint_texture_id != TEXTURE_MAP_NONE {
-        m.specular_tint *= sample_texture(material.specular_tint_texture_id, uv).rgb;
+        specular_tint *= sample_texture(material.specular_tint_texture_id, uv).rgb;
     }
-    m.ior = material.ior;
+    m.F0_dielectric = calculate_F0_dielectric(material.ior, specular_tint);
     m.specular_weight = material.specular_weight;
     if material.specular_texture_id != TEXTURE_MAP_NONE {
         m.specular_weight *= sample_texture(material.specular_texture_id, uv).a;

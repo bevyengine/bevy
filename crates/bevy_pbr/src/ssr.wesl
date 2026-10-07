@@ -187,15 +187,10 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
 
-    // Match the deferred lighting pass, which uses the base layer's IOR relative to the clearcoat
-    // layer. `clearcoat` is 0 when the G-buffer has no clearcoat data.
-    let reflectance_ior = pbr_functions::clearcoat_base_layer_ior(
-        pbr_input.material.ior, pbr_input.material.clearcoat);
-    let F0_dielectric = pbr_functions::calculate_F0_dielectric(reflectance_ior, pbr_input.material.specular_tint);
-    let F0_metallic = pbr_input.material.base_color.rgb;
-    let F0 = lighting::specular_F0(
-        F0_dielectric, F0_metallic, pbr_input.material.specular_weight, pbr_input.material.metallic);
-    let F90 = lighting::specular_F90(pbr_input.material.specular_weight, pbr_input.material.metallic);
+    let specular_reflectance = pbr_functions::calculate_specular_reflectance(pbr_input.material);
+    let F0_dielectric = specular_reflectance.F0_dielectric;
+    let F0 = specular_reflectance.F0;
+    let F90 = specular_reflectance.F90;
 
     // Get some random numbers. If the spatio-temporal blue noise (STBN) texture
     // is available (i.e. not the 1x1 placeholder), we use it. Otherwise, we
@@ -316,8 +311,10 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // We pass `true` for `found_diffuse_indirect` here because we only want
     // the specular part; the diffuse part was already accumulated in the
     // main PBR pass.
+    let multiscatter = lighting::compute_lobe_multiscatter(
+        F0_dielectric, base_color, F_ab, pbr_input.material.specular_weight);
     let environment_light = environment_map::environment_map_light(
-        &lighting_input, &clusterable_object_index_ranges, true);
+        &lighting_input, multiscatter, &clusterable_object_index_ranges, true);
 
     // Accumulate the environment map light.
     // Note that we multiply by (1.0 - ssr_specular.a * fade) to occlude the
