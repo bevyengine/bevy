@@ -55,7 +55,8 @@ struct Material {
     uv_transform: mat2x2<f32>,
     alpha: f32,
     alpha_cutoff: f32,
-    _padding: vec2<f32>,
+    specular_texture_id: u32,
+    specular_tint_texture_id: u32,
 }
 
 const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
@@ -229,8 +230,14 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     }
 
     m.specular_tint = material.specular_tint;
+    if material.specular_tint_texture_id != TEXTURE_MAP_NONE {
+        m.specular_tint *= sample_texture(material.specular_tint_texture_id, uv).rgb;
+    }
     m.ior = material.ior;
     m.specular_weight = material.specular_weight;
+    if material.specular_texture_id != TEXTURE_MAP_NONE {
+        m.specular_weight *= sample_texture(material.specular_texture_id, uv).a;
+    }
 
     m.perceptual_roughness = material.perceptual_roughness;
     m.metallic = material.metallic;
