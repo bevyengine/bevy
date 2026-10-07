@@ -7,7 +7,7 @@ fn apply_lighting_2d(color: vec4<f32>, world_position: vec2<f32>) -> vec4<f32> {
         let point_light = lights_2d.point_lights[i];
         let dist = distance(world_position, point_light.position);
         if dist < point_light.range {
-            light += point_light.color.rgb * attenuation(dist, point_light.range, point_light.intensity, 0.0);
+            light += point_light.color * attenuation(dist, point_light.range, point_light.intensity, point_light.falloff);
         }
     }
 

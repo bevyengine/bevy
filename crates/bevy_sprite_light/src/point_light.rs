@@ -15,6 +15,9 @@ pub struct PointLight2d {
     pub intensity: f32,
     /// The range of the light. Illumination will only occur within the light's range.
     pub range: f32,
+    /// How quickly illumination from the light should deteriorate over distance.
+    /// A higher falloff value will result in less illumination at the light's maximum radius.
+    pub falloff: f32,
 }
 
 impl Default for PointLight2d {
@@ -23,6 +26,7 @@ impl Default for PointLight2d {
             color: Color::WHITE,
             intensity: 1.0,
             range: 100.0,
+            falloff: 0.0,
         }
     }
 }

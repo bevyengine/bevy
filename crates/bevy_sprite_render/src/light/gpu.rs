@@ -1,6 +1,6 @@
 use bevy_color::ColorToComponents;
 use bevy_ecs::prelude::*;
-use bevy_math::{Vec2, Vec3, Vec4};
+use bevy_math::{Vec2, Vec3};
 use bevy_render::{
     render_resource::{ShaderSize, ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
@@ -18,7 +18,8 @@ pub struct GpuPointLight2d {
     pub position: Vec2,
     pub range: f32,
     pub intensity: f32,
-    pub color: Vec4,
+    pub color: Vec3,
+    pub falloff: f32,
 }
 
 #[derive(Clone, ShaderType)]
@@ -69,7 +70,8 @@ pub fn prepare_lights_2d_buffer(
             position: light.transform.translation().truncate(),
             range: light.range,
             intensity: light.intensity,
-            color: light.color.to_linear().to_vec4(),
+            color: light.color.to_linear().to_vec3(),
+            falloff: light.falloff,
         };
         count += 1;
     }

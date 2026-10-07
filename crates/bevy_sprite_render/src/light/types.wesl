@@ -2,7 +2,8 @@ struct PointLight2d {
     position: vec2<f32>,
     range: f32,
     intensity: f32,
-    color: vec4<f32>,
+    color: vec3<f32>,
+    falloff: f32,
 }
 
 struct Lights2d {

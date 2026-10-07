@@ -13,6 +13,7 @@ pub struct ExtractedPointLight2d {
     pub transform: GlobalTransform,
     pub range: f32,
     pub intensity: f32,
+    pub falloff: f32,
 }
 
 impl SyncComponent<RenderApp, Lighting2dPlugin> for PointLight2d {
@@ -39,6 +40,7 @@ impl ExtractComponent<RenderApp, Lighting2dPlugin> for PointLight2d {
             transform: *transform,
             range: light.range,
             intensity: light.intensity,
+            falloff: light.falloff,
         })
     }
 }
