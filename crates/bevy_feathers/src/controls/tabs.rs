@@ -323,7 +323,7 @@ struct TabCaption;
 
 /// One of the two flares at the base of a selected [`FeathersTab`].
 ///
-/// Only the area outside its rounded corner is painted, so the neighbouring tab shows through.
+/// Only the area outside its rounded corner is painted, so the neighboring tab shows through.
 #[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Component, Clone, Default, PartialEq)]
 pub enum TabFilletEdge {
@@ -1518,13 +1518,13 @@ mod tests {
         check(&mut app, tabs[1], "selected");
 
         app.world_mut().entity_mut(tabs[0]).insert(Hovered(true));
-        check(&mut app, tabs[1], "neighbour hovered");
+        check(&mut app, tabs[1], "neighbor hovered");
         app.world_mut().entity_mut(tabs[1]).insert(Hovered(true));
         check(&mut app, tabs[1], "selected hovered");
 
         app.insert_resource(bevy_input_focus::InputFocus::from_entity(tabs[0]));
         app.insert_resource(bevy_input_focus::InputFocusVisible(true));
-        check(&mut app, tabs[1], "neighbour focused");
+        check(&mut app, tabs[1], "neighbor focused");
 
         app.world_mut()
             .entity_mut(list)
