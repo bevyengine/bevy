@@ -316,8 +316,8 @@ pub struct StandardMaterial {
     /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
     ///
     /// For non-metals, the IOR sets the reflectance at normal incidence (F0) to
-    /// `((ior - 1) / (ior + 1))^2`: 4% at the default of 1.5, 0% at 1.0 and 100% at 0.0. With a
-    /// clearcoat, F0 uses the IOR relative to the clearcoat layer, `ior / mix(1.0, 1.5, clearcoat)`.
+    /// `((ior - 1) / (ior + 1))^2`: 4% at the default of 1.5, 0% at 1.0 and 100% at 0.0. A
+    /// clearcoat doesn't change it, as in `KHR_materials_clearcoat`.
     ///
     /// Defaults to 1.5.
     ///

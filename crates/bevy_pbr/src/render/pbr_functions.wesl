@@ -301,11 +301,9 @@ struct SpecularReflectance {
 
 /// Returns the specular reflectance of `material`.
 ///
-/// The dielectric F0 uses the IOR relative to the clearcoat layer (IOR 1.5), weighted by
-/// `material.clearcoat`. The specular weight is clamped to [0, 1].
+/// The specular weight is clamped to [0, 1].
 fn calculate_specular_reflectance(material: pbr_types::StandardMaterial) -> SpecularReflectance {
-    let reflectance_ior = material.ior / mix(1.0, 1.5, material.clearcoat);
-    let F0_dielectric = calculate_F0_dielectric(reflectance_ior, material.specular_tint);
+    let F0_dielectric = calculate_F0_dielectric(material.ior, material.specular_tint);
     let specular_weight = saturate(material.specular_weight);
     return SpecularReflectance(
         F0_dielectric,
