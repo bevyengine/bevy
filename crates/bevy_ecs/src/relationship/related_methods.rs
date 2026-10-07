@@ -166,17 +166,18 @@ impl<'w> EntityWorldMut<'w> {
 
         let collection = relations.collection_mut_risky();
 
-        let mut potential_relations = EntityHashSet::from_iter(related.iter().copied());
+        let existing_relations = EntityIndexSet::from_iter(collection.iter());
+        let final_relations = EntityIndexSet::from_iter(related.iter().copied());
 
         let id = self.id();
         self.world_scope(|world| {
-            for related in collection.iter() {
-                if !potential_relations.remove(related) {
-                    world.entity_mut(related).remove::<R>();
-                }
+            // Remove the existing relations that we won't keep
+            for &related in existing_relations.difference(&final_relations) {
+                world.entity_mut(related).remove::<R>();
             }
 
-            for related in potential_relations {
+            // Add the final relations that don't exist yet.
+            for &related in final_relations.difference(&existing_relations) {
                 // SAFETY: We'll manually be adjusting the contents of the `RelationshipTarget` to fit the final state.
                 world
                     .entity_mut(related)
@@ -189,7 +190,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
         collection.clear();
-        collection.extend_from_iter(related.iter().copied().collect::<EntityIndexSet>());
+        collection.extend_from_iter(final_relations);
         self.insert(relations);
 
         self
