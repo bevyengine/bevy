@@ -588,7 +588,7 @@ mod parallel {
                             &mut dedup.borrow_local_mut(),
                             &nodes,
                             &static_optimizations,
-                        )
+                        );
                     });
                 });
             propagation_worker(
