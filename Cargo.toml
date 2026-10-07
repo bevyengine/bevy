@@ -843,6 +843,18 @@ hidden = true
 
 # 2D Rendering
 [[example]]
+name = "lighting_2d"
+path = "examples/2d/lighting_2d.rs"
+doc-scrape-examples = true
+required-features = ["bevy_sprite_light"]
+
+[package.metadata.example.lighting_2d]
+name = "2D Lighting"
+description = "Illustrates lighting in 2d"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "bloom_2d"
 path = "examples/2d/bloom_2d.rs"
 doc-scrape-examples = true
