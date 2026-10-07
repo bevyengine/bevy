@@ -1043,6 +1043,21 @@ mod tests {
     }
 
     #[test]
+    fn replace_children_duplicates() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+
+        world.entity_mut(parent).add_children(&[child_a]);
+        world
+            .entity_mut(parent)
+            .replace_children(&[child_a, child_a]);
+
+        assert_eq!(world.entity(parent).get::<Children>().unwrap().0, [child_a]);
+    }
+
+    #[test]
     #[should_panic]
     #[cfg_attr(
         not(debug_assertions),
