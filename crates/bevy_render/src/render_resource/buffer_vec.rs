@@ -568,6 +568,13 @@ where
         offset / u64::from(T::min_size()) as usize
     }
 
+    /// Returns the encoded bytes of the pushed values, exactly as [`write_buffer`](Self::write_buffer)
+    /// uploads them. The slice is valid until the next mutation of this buffer.
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.data
+    }
+
     /// Changes the debugging label of the buffer.
     ///
     /// The next time the buffer is updated (via [`Self::reserve`]), Bevy will inform
@@ -999,4 +1006,35 @@ pub(crate) fn make_buffer_label<'a, T>(label: &'a Option<String>) -> Option<&'a 
         return Some(core::any::type_name::<T>());
     }
     label.as_deref()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_math::Vec4;
+    use encase::StorageBuffer;
+
+    #[test]
+    fn as_bytes_matches_encase_encoding() {
+        let values = [Vec4::new(1.0, 2.0, 3.0, 4.0), Vec4::new(5.0, 6.0, 7.0, 8.0)];
+        let mut buffer = BufferVec::<Vec4>::new(BufferUsages::STORAGE);
+        assert!(buffer.as_bytes().is_empty());
+        for value in values {
+            buffer.push(value);
+        }
+
+        let expected: Vec<u8> = values
+            .iter()
+            .flat_map(|value| {
+                let mut encoded = StorageBuffer::new(Vec::<u8>::new());
+                encoded.write(value).unwrap();
+                encoded.into_inner()
+            })
+            .collect();
+        assert_eq!(
+            buffer.as_bytes().len(),
+            values.len() * u64::from(Vec4::min_size()) as usize
+        );
+        assert_eq!(buffer.as_bytes(), expected.as_slice());
+    }
 }
