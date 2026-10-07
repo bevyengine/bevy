@@ -1,11 +1,11 @@
-use bevy_app::{Plugin, PostUpdate};
+use bevy_app::{Plugin, PostUpdate, Propagate};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
     lifecycle::Add,
     observer::On,
-    query::{Has, Or, With},
+    query::{Changed, Has, Or, With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
@@ -26,7 +26,8 @@ use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, AlignItems, BorderRadius, ComputedNode, Display, FlexDirection, GlobalZIndex,
-    InteractionDisabled, Node, PositionType, Selected, UiRect, UiSystems, Val,
+    InlineDirection, InteractionDisabled, Node, OuterColor, PositionType, Selected, UiRect,
+    UiSystems, Val,
 };
 use bevy_ui_widgets::{
     ControlOrientation, DragOverlayRoot, DragProxy, SelectedTab, Tab, TabActivation, TabDragMode,
@@ -38,13 +39,19 @@ use crate::{
     constants::{fonts, size},
     focus::FocusIndicator,
     font_styles::InheritableFont,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
+    theme::{
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
+        ThemeContext, UiTheme,
+    },
     tokens,
 };
 
 const TAB_PADDING: f32 = 10.0;
 const TAB_GAP: f32 = 6.0;
 const TAB_RADIUS: f32 = 4.0;
+const STRIPE_SIZE: f32 = 2.0;
+const FILLET_SIZE: f32 = 8.0;
+const STRIP_INSET: f32 = 3.0;
 const INDICATOR_SIZE: f32 = 2.0;
 const DRAG_PROXY_OFFSET: Vec2 = Vec2::new(10.0, 10.0);
 const DRAG_PROXY_Z: i32 = 200;
@@ -54,6 +61,12 @@ const DRAG_PROXY_Z: i32 = 200;
 /// A more complete explanation of how to control this widget can be found in the documentation
 /// for [`TabList`] and [`bevy_ui_widgets`]. Selection changes and drag moves are proposed with
 /// events and applied by the app.
+///
+/// The selected tab shares its background with the pane body below the strip and flares into it
+/// at its bottom corners. Children marked [`FeathersTabListLeading`] or
+/// [`FeathersTabListTrailing`] are kept at the start or end of the strip, so apps can put their own
+/// controls there. Use [`FeathersTabList::child_index`] to apply a [`bevy_ui_widgets::TabMoved`]
+/// when such children are present.
 ///
 /// While a tab is dragged, a [`FeathersTabDragProxy`] follows the pointer and a
 /// [`FeathersTabInsertionIndicator`] marks the drop position. The proxy is only shown when an
@@ -73,6 +86,8 @@ pub struct FeathersTabListProps {
     pub drag: TabDragMode,
     /// The initially selected tab.
     pub selected: OptionTemplate<EntityTemplate>,
+    /// Where the selected tab may flare into the body at the ends of the list.
+    pub fillets: TabFillets,
 }
 
 impl Default for FeathersTabListProps {
@@ -82,6 +97,7 @@ impl Default for FeathersTabListProps {
             activation: TabActivation::Manual,
             drag: TabDragMode::Disabled,
             selected: OptionTemplate::None,
+            fillets: TabFillets::default(),
         }
     }
 }
@@ -89,9 +105,17 @@ impl Default for FeathersTabListProps {
 impl FeathersTabList {
     /// Scene function for a tab list.
     pub fn scene(props: FeathersTabListProps) -> impl Scene {
-        let flex_direction = match props.orientation {
-            ControlOrientation::Horizontal => FlexDirection::Row,
-            ControlOrientation::Vertical => FlexDirection::Column,
+        let (flex_direction, padding, border) = match props.orientation {
+            ControlOrientation::Horizontal => (
+                FlexDirection::Row,
+                UiRect::new(px(FILLET_SIZE), px(FILLET_SIZE), px(STRIP_INSET), px(0)),
+                UiRect::new(px(1), px(1), px(1), px(0)),
+            ),
+            ControlOrientation::Vertical => (
+                FlexDirection::Column,
+                UiRect::new(px(STRIP_INSET), px(0), px(FILLET_SIZE), px(FILLET_SIZE)),
+                UiRect::new(px(1), px(0), px(1), px(1)),
+            ),
         };
         bsn! {
             Node {
@@ -99,7 +123,8 @@ impl FeathersTabList {
                 flex_direction: {flex_direction},
                 align_items: AlignItems::Stretch,
                 min_height: size::ROW_HEIGHT,
-                border: px(1),
+                padding: {padding},
+                border: {border},
             }
             TabList {
                 orientation: {props.orientation},
@@ -107,8 +132,103 @@ impl FeathersTabList {
                 drag: {props.drag},
             }
             SelectedTab({props.selected})
+            TabFillets {
+                start: {props.fillets.start},
+                end: {props.fillets.end},
+            }
             ThemeBackgroundColor(tokens::TAB_STRIP_BG)
             ThemeBorderColor(tokens::TAB_STRIP_BORDER)
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Base))
+        }
+    }
+
+    /// Returns where to insert `tab` among a list's `children` so that it lands at `index`, as
+    /// given by [`bevy_ui_widgets::TabMoved`] or [`bevy_ui_widgets::TabDrop`].
+    ///
+    /// Those indices only count tabs, so this skips slot content, buttons and `tab` itself.
+    pub fn child_index(
+        children: &[Entity],
+        is_tab: impl Fn(Entity) -> bool,
+        tab: Entity,
+        index: usize,
+    ) -> usize {
+        let mut seen = 0;
+        let mut end = 0;
+        for (position, child) in children
+            .iter()
+            .copied()
+            .filter(|child| *child != tab)
+            .enumerate()
+        {
+            if !is_tab(child) {
+                continue;
+            }
+            if seen == index {
+                return position;
+            }
+            seen += 1;
+            end = position + 1;
+        }
+        end
+    }
+}
+
+/// Controls whether the selected tab flares into the body at the ends of a [`FeathersTabList`].
+///
+/// A flare between two tabs is always shown. `start` and `end` only apply when the selected tab
+/// is the first or last child laid out in the list.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Component, Default, Clone, PartialEq)]
+pub struct TabFillets {
+    /// Show the flare at the start of the list.
+    pub start: bool,
+    /// Show the flare at the end of the list.
+    pub end: bool,
+}
+
+impl Default for TabFillets {
+    fn default() -> Self {
+        Self {
+            start: true,
+            end: true,
+        }
+    }
+}
+
+/// Content placed before the tabs in a [`FeathersTabList`].
+///
+/// Add this as a child of the list and put the app's own controls inside it.
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
+pub struct FeathersTabListLeading;
+
+impl FeathersTabListLeading {
+    fn scene() -> impl Scene {
+        bsn! {
+            Node {
+                display: Display::Flex,
+                align_items: AlignItems::Center,
+                column_gap: px(2),
+            }
+        }
+    }
+}
+
+/// Content placed at the far end of a [`FeathersTabList`].
+///
+/// Add this as a child of the list and put the app's own controls inside it.
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
+pub struct FeathersTabListTrailing;
+
+impl FeathersTabListTrailing {
+    fn scene() -> impl Scene {
+        bsn! {
+            Node {
+                display: Display::Flex,
+                align_items: AlignItems::Center,
+                column_gap: px(2),
+            }
         }
     }
 }
@@ -138,6 +258,7 @@ impl Default for FeathersTabProps {
 impl FeathersTab {
     /// Scene function for a tab.
     pub fn scene(props: FeathersTabProps) -> impl Scene {
+        let (border, border_radius) = tab_shape(ControlOrientation::Horizontal);
         bsn! {
             Node {
                 display: Display::Flex,
@@ -145,13 +266,15 @@ impl FeathersTab {
                 align_items: AlignItems::Center,
                 padding: UiRect::horizontal(px(TAB_PADDING)),
                 column_gap: px(TAB_GAP),
-                border_radius: BorderRadius::all(px(TAB_RADIUS)),
+                border: {border},
+                border_radius: {border_radius},
             }
             Tab
             Hovered
             EntityCursor::System(SystemCursorIcon::Pointer)
             FocusIndicator
             ThemeBackgroundColor(tokens::TAB_BG)
+            ThemeBorderColor(tokens::TAB_STRIPE)
             InheritableThemeTextColor(tokens::TAB_TEXT)
             InheritableFont {
                 font: fonts::REGULAR,
@@ -159,9 +282,37 @@ impl FeathersTab {
                 weight: FontWeight::NORMAL,
             }
             Children [
+                @tab_fillet(TabFilletEdge::Start)
+                --
                 {props.caption}
+                --
+                @tab_fillet(TabFilletEdge::End)
             ]
         }
+    }
+}
+
+/// One of the two flares at the base of a selected [`FeathersTab`].
+#[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Component, Clone, Default, PartialEq)]
+pub enum TabFilletEdge {
+    /// The flare at the logical start of the tab.
+    #[default]
+    Start,
+    /// The flare at the logical end of the tab.
+    End,
+}
+
+fn tab_fillet(edge: TabFilletEdge) -> impl Scene {
+    bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            display: Display::None,
+        }
+        edge
+        ThemeBackgroundColor(tokens::TAB_STRIP_BG)
+        OuterColor
+        Pickable::IGNORE
     }
 }
 
@@ -178,17 +329,31 @@ pub struct FeathersTabInsertionIndicator {
     pub pointer_id: PointerId,
 }
 
-/// A semi-transparent copy of a dragged [`FeathersTab`] that follows the pointer.
+/// A copy of a dragged [`FeathersTab`] that follows the pointer.
 ///
 /// Spawned by [`FeathersTabsPlugin`] when a tab starts dragging and moved beneath the nearest
-/// [`DragOverlayRoot`]. It holds copies of the tab's children and is despawned with its
+/// [`DragOverlayRoot`]. It holds copies of the tab's caption and is despawned with its
 /// [`DragProxy`] when the drag ends.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct FeathersTabDragProxy;
 
+/// Returns a tab's border, which holds the selection stripe, and its corner radii.
+fn tab_shape(orientation: ControlOrientation) -> (UiRect, BorderRadius) {
+    match orientation {
+        ControlOrientation::Horizontal => (
+            UiRect::top(px(STRIPE_SIZE)),
+            BorderRadius::top(px(TAB_RADIUS)),
+        ),
+        ControlOrientation::Vertical => (
+            UiRect::left(px(STRIPE_SIZE)),
+            BorderRadius::left(px(TAB_RADIUS)),
+        ),
+    }
+}
+
 fn update_tab_styles(
-    tabs: Query<
+    mut tabs: Query<
         (
             Entity,
             Option<&ChildOf>,
@@ -197,14 +362,17 @@ fn update_tab_styles(
             Has<InteractionDisabled>,
             Has<TabDragging>,
             &ThemeBackgroundColor,
+            &ThemeBorderColor,
             &InheritableThemeTextColor,
             Option<&EntityCursor>,
+            &mut Node,
         ),
         With<FeathersTab>,
     >,
     lists: Query<
         (
             Entity,
+            &TabList,
             Has<InteractionDisabled>,
             Has<TabInsertionPreview>,
             &ThemeBorderColor,
@@ -213,17 +381,35 @@ fn update_tab_styles(
     >,
     mut commands: Commands,
 ) {
-    for (tab, parent, hovered, selected, tab_disabled, dragging, bg, text, cursor) in &tabs {
-        let list_disabled = parent
-            .and_then(|parent| lists.get(parent.parent()).ok())
-            .is_some_and(|(_, disabled, _, _)| disabled);
-        let disabled = tab_disabled || list_disabled;
+    for (
+        tab,
+        parent,
+        hovered,
+        selected,
+        tab_disabled,
+        dragging,
+        bg,
+        stripe,
+        text,
+        cursor,
+        mut node,
+    ) in &mut tabs
+    {
+        let list = parent.and_then(|parent| lists.get(parent.parent()).ok());
+        let disabled = tab_disabled || list.is_some_and(|(_, _, disabled, _, _)| disabled);
+        let orientation = list.map_or(ControlOrientation::Horizontal, |(_, tablist, ..)| {
+            tablist.orientation
+        });
 
         let bg_token = match (disabled, dragging, selected, hovered.0) {
             (false, true, _, _) => tokens::TAB_BG_DRAGGING,
             (false, false, true, _) => tokens::TAB_BG_SELECTED,
             (false, false, false, true) => tokens::TAB_BG_HOVER,
             _ => tokens::TAB_BG,
+        };
+        let stripe_token = match !disabled && !dragging && selected {
+            true => tokens::TAB_STRIPE_SELECTED,
+            false => tokens::TAB_STRIPE,
         };
         let text_token = match (disabled, dragging, selected) {
             (true, _, _) => tokens::TAB_TEXT_DISABLED,
@@ -235,9 +421,13 @@ fn update_tab_styles(
             true => SystemCursorIcon::NotAllowed,
             false => SystemCursorIcon::Pointer,
         });
+        let (border, border_radius) = tab_shape(orientation);
 
         if bg.0 != bg_token {
             commands.entity(tab).insert(ThemeBackgroundColor(bg_token));
+        }
+        if stripe.0 != stripe_token {
+            commands.entity(tab).insert(ThemeBorderColor(stripe_token));
         }
         if text.0 != text_token {
             commands
@@ -247,9 +437,13 @@ fn update_tab_styles(
         if cursor != Some(&cursor_shape) {
             commands.entity(tab).insert(cursor_shape);
         }
+        if node.border != border || node.border_radius != border_radius {
+            node.border = border;
+            node.border_radius = border_radius;
+        }
     }
 
-    for (list, _, preview, border) in &lists {
+    for (list, _, _, preview, border) in &lists {
         let border_token = match preview {
             true => tokens::TAB_STRIP_BORDER_PREVIEW,
             false => tokens::TAB_STRIP_BORDER,
@@ -260,6 +454,210 @@ fn update_tab_styles(
     }
 }
 
+/// Keeps leading content first, and the add button and trailing content after the tabs.
+fn arrange_tab_lists(
+    lists: Query<
+        (Entity, &TabList, &Children),
+        (
+            With<FeathersTabList>,
+            Or<(Changed<Children>, Changed<TabList>)>,
+        ),
+    >,
+    mut leading: Query<
+        &mut Node,
+        (
+            With<FeathersTabListLeading>,
+            Without<FeathersTabListTrailing>,
+        ),
+    >,
+    mut trailing: Query<
+        &mut Node,
+        (
+            With<FeathersTabListTrailing>,
+            Without<FeathersTabListLeading>,
+        ),
+    >,
+    mut commands: Commands,
+) {
+    for (list, tablist, children) in &lists {
+        let (leading_margin, trailing_margin) = match tablist.orientation {
+            ControlOrientation::Horizontal => (UiRect::right(px(4)), UiRect::left(Val::Auto)),
+            ControlOrientation::Vertical => (UiRect::bottom(px(4)), UiRect::top(Val::Auto)),
+        };
+        for child in children.iter().copied() {
+            if let Ok(mut node) = leading.get_mut(child)
+                && node.margin != leading_margin
+            {
+                node.margin = leading_margin;
+            }
+            if let Ok(mut node) = trailing.get_mut(child)
+                && node.margin != trailing_margin
+            {
+                node.margin = trailing_margin;
+            }
+        }
+        let rank = |child: &Entity| {
+            if leading.contains(*child) {
+                0
+            } else if trailing.contains(*child) {
+                2
+            } else {
+                1
+            }
+        };
+        let mut arranged = children.to_vec();
+        arranged.sort_by_key(rank);
+        if arranged[..] != children[..] {
+            commands.entity(list).insert_children(0, &arranged);
+        }
+    }
+}
+
+fn update_tab_fillets(
+    lists: Query<
+        (&Node, &Children, &SelectedTab, Option<&TabFillets>),
+        (With<FeathersTabList>, Without<TabFilletEdge>),
+    >,
+    tabs: Query<(Has<InteractionDisabled>, Has<TabDragging>, &Children), With<FeathersTab>>,
+    layout: Query<&Node, Without<TabFilletEdge>>,
+    mut fillets: Query<(
+        &TabFilletEdge,
+        &mut Node,
+        &mut OuterColor,
+        Option<&ThemeContext>,
+    )>,
+    theme: Option<Res<UiTheme>>,
+) {
+    for (list_node, children, selection, options) in &lists {
+        let options = options.copied().unwrap_or_default();
+        let selected = selection.0.filter(|selected| {
+            children.contains(selected)
+                && tabs
+                    .get(*selected)
+                    .is_ok_and(|(disabled, dragging, _)| !disabled && !dragging)
+        });
+        let laid_out = children
+            .iter()
+            .copied()
+            .filter(|child| {
+                layout.get(*child).is_ok_and(|node| {
+                    node.position_type != PositionType::Absolute && node.display != Display::None
+                })
+            })
+            .collect::<Vec<_>>();
+        let reversed = matches!(
+            list_node.flex_direction,
+            FlexDirection::RowReverse | FlexDirection::ColumnReverse
+        );
+        let start_edge = logical_start_edge(list_node);
+
+        for tab in children.iter().copied() {
+            let Ok((_, _, tab_children)) = tabs.get(tab) else {
+                continue;
+            };
+            let position = laid_out.iter().position(|child| *child == tab);
+            let before = position.is_some_and(|index| index > 0);
+            let after = position.is_some_and(|index| index + 1 < laid_out.len());
+            let (start_space, end_space) = match reversed {
+                true => (after, before),
+                false => (before, after),
+            };
+
+            for child in tab_children.iter().copied() {
+                let Ok((edge, mut node, mut outer, context)) = fillets.get_mut(child) else {
+                    continue;
+                };
+                let visible = selected == Some(tab)
+                    && match edge {
+                        TabFilletEdge::Start => start_space || options.start,
+                        TabFilletEdge::End => end_space || options.end,
+                    };
+                let physical = match edge {
+                    TabFilletEdge::Start => start_edge,
+                    TabFilletEdge::End => start_edge.opposite(),
+                };
+                let desired = fillet_node(visible, physical);
+                if *node != desired {
+                    *node = desired;
+                }
+                if let Some(theme) = theme.as_ref() {
+                    let context = context.map_or(SurfaceLevel::Base, |context| context.0);
+                    let color = theme.context_color(&tokens::TAB_BG_SELECTED, context);
+                    if outer.0 != color {
+                        outer.0 = color;
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PhysicalEdge {
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+
+impl PhysicalEdge {
+    fn opposite(self) -> Self {
+        match self {
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+            Self::Top => Self::Bottom,
+            Self::Bottom => Self::Top,
+        }
+    }
+}
+
+fn logical_start_edge(node: &Node) -> PhysicalEdge {
+    match node.flex_direction {
+        FlexDirection::Row | FlexDirection::RowReverse => match node.direction {
+            InlineDirection::Ltr => PhysicalEdge::Left,
+            InlineDirection::Rtl => PhysicalEdge::Right,
+        },
+        FlexDirection::Column | FlexDirection::ColumnReverse => PhysicalEdge::Top,
+    }
+}
+
+/// Returns the node of a flare beside `edge` of a selected tab, curving into the body.
+fn fillet_node(visible: bool, edge: PhysicalEdge) -> Node {
+    let size = px(FILLET_SIZE);
+    let mut node = Node {
+        position_type: PositionType::Absolute,
+        display: match visible {
+            true => Display::Flex,
+            false => Display::None,
+        },
+        width: size,
+        height: size,
+        ..Default::default()
+    };
+    match edge {
+        PhysicalEdge::Left => {
+            node.left = px(-FILLET_SIZE);
+            node.bottom = px(0);
+            node.border_radius = BorderRadius::bottom_right(size);
+        }
+        PhysicalEdge::Right => {
+            node.right = px(-FILLET_SIZE);
+            node.bottom = px(0);
+            node.border_radius = BorderRadius::bottom_left(size);
+        }
+        PhysicalEdge::Top => {
+            node.top = px(-FILLET_SIZE);
+            node.right = px(0);
+            node.border_radius = BorderRadius::bottom_right(size);
+        }
+        PhysicalEdge::Bottom => {
+            node.bottom = px(-FILLET_SIZE);
+            node.right = px(0);
+            node.border_radius = BorderRadius::top_right(size);
+        }
+    }
+    node
+}
 fn update_insertion_indicators(
     lists: Query<
         (
@@ -385,6 +783,7 @@ fn spawn_tab_drag_proxy(
     tabs: Query<
         (
             &TabDragging,
+            &Node,
             Option<&ComputedNode>,
             Option<&InheritableFont>,
             Option<&Children>,
@@ -398,13 +797,14 @@ fn spawn_tab_drag_proxy(
         Or<(
             With<FeathersTabInsertionIndicator>,
             With<FeathersTabDragProxy>,
+            With<TabFilletEdge>,
         )>,
     >,
     pointer_state: Option<Res<PointerState>>,
     mut commands: Commands,
 ) {
     let tab = add.entity;
-    let Ok((dragging, computed, font, children)) = tabs.get(tab) else {
+    let Ok((dragging, tab_node, computed, font, children)) = tabs.get(tab) else {
         return;
     };
     if !parents
@@ -476,8 +876,8 @@ fn spawn_tab_drag_proxy(
             align_items: AlignItems::Center,
             padding: UiRect::horizontal(px(TAB_PADDING)),
             column_gap: px(TAB_GAP),
-            border: UiRect::all(px(1)),
-            border_radius: BorderRadius::all(px(TAB_RADIUS)),
+            border: tab_node.border,
+            border_radius: tab_node.border_radius,
             ..Default::default()
         },
         GlobalZIndex(DRAG_PROXY_Z),
@@ -498,7 +898,13 @@ impl Plugin for FeathersTabsPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_observer(spawn_tab_drag_proxy).add_systems(
             PostUpdate,
-            (update_tab_styles, update_insertion_indicators).in_set(UiSystems::Content),
+            (
+                arrange_tab_lists,
+                update_tab_styles,
+                update_tab_fillets,
+                update_insertion_indicators,
+            )
+                .in_set(UiSystems::Content),
         );
     }
 }
@@ -512,6 +918,20 @@ mod tests {
     use bevy_scene::{ScenePlugin, WorldSceneExt};
     use bevy_ui::widget::Text;
     use bevy_ui_widgets::TabInsertionPoint;
+
+    use crate::theme::ThemeToken;
+
+    fn scene_app() -> App {
+        let mut app = App::new();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            ScenePlugin,
+            FeathersTabsPlugin,
+        ));
+        app.init_asset::<bevy_text::Font>();
+        app
+    }
 
     fn tabs_app() -> App {
         let mut app = App::new();
@@ -538,6 +958,7 @@ mod tests {
                         Node::default(),
                         Hovered::default(),
                         ThemeBackgroundColor(tokens::TAB_BG),
+                        ThemeBorderColor(tokens::TAB_STRIPE),
                         InheritableThemeTextColor(tokens::TAB_TEXT),
                         ChildOf(list),
                     ))
@@ -569,15 +990,26 @@ mod tests {
             .collect()
     }
 
+    fn stripe(app: &App, tab: Entity) -> ThemeToken {
+        app.world()
+            .entity(tab)
+            .get::<ThemeBorderColor>()
+            .unwrap()
+            .0
+            .clone()
+    }
+
+    fn spawn_fillets(app: &mut App, tab: Entity) -> [Entity; 2] {
+        [TabFilletEdge::Start, TabFilletEdge::End].map(|edge| {
+            app.world_mut()
+                .spawn((edge, Node::default(), OuterColor::default(), ChildOf(tab)))
+                .id()
+        })
+    }
+
     #[test]
     fn scene_applies_props_and_named_selection() {
-        let mut app = App::new();
-        app.add_plugins((
-            TaskPoolPlugin::default(),
-            AssetPlugin::default(),
-            ScenePlugin,
-        ));
-        app.init_asset::<bevy_text::Font>();
+        let mut app = scene_app();
         let list = app
             .world_mut()
             .spawn_scene(bsn! {
@@ -616,8 +1048,14 @@ mod tests {
         let tab = world.entity(tab);
         assert!(tab.contains::<Tab>());
         assert!(tab.contains::<FocusIndicator>());
-        let caption = tab.get::<Children>().unwrap()[0];
-        assert_eq!(world.entity(caption).get::<Text>().unwrap().0, "Scene");
+        let tab_children = tab.get::<Children>().unwrap();
+        assert_eq!(tab_children.len(), 3);
+        assert!(world.entity(tab_children[0]).contains::<TabFilletEdge>());
+        assert_eq!(
+            world.entity(tab_children[1]).get::<Text>().unwrap().0,
+            "Scene"
+        );
+        assert!(world.entity(tab_children[2]).contains::<TabFilletEdge>());
     }
 
     #[test]
@@ -643,6 +1081,7 @@ mod tests {
             style(&app),
             (tokens::TAB_BG_SELECTED, tokens::TAB_TEXT_SELECTED)
         );
+        assert_eq!(stripe(&app, tab), tokens::TAB_STRIPE_SELECTED);
 
         app.world_mut().entity_mut(tab).insert(TabDragging {
             pointer_id: PointerId::Mouse,
@@ -652,6 +1091,7 @@ mod tests {
             style(&app),
             (tokens::TAB_BG_DRAGGING, tokens::TAB_TEXT_DRAGGING)
         );
+        assert_eq!(stripe(&app, tab), tokens::TAB_STRIPE);
 
         app.world_mut().entity_mut(list).insert(InteractionDisabled);
         app.update();
@@ -826,5 +1266,139 @@ mod tests {
             .iter(app.world())
             .next()
             .is_none());
+    }
+
+    #[test]
+    fn accent_stripe_shows_only_on_selected_tab() {
+        let mut app = tabs_app();
+        let (_, tabs) = spawn_list(&mut app, 3);
+        app.world_mut().entity_mut(tabs[1]).insert(Selected);
+        app.update();
+        let stripes = tabs
+            .iter()
+            .map(|tab| stripe(&app, *tab))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            stripes,
+            [
+                tokens::TAB_STRIPE,
+                tokens::TAB_STRIPE_SELECTED,
+                tokens::TAB_STRIPE
+            ]
+        );
+        let node = app.world().entity(tabs[1]).get::<Node>().unwrap();
+        assert_eq!(node.border, UiRect::top(px(STRIPE_SIZE)));
+        assert_eq!(node.border_radius, BorderRadius::top(px(TAB_RADIUS)));
+
+        app.world_mut().entity_mut(tabs[1]).remove::<Selected>();
+        app.world_mut().entity_mut(tabs[2]).insert(Selected);
+        app.update();
+        assert_eq!(stripe(&app, tabs[1]), tokens::TAB_STRIPE);
+        assert_eq!(stripe(&app, tabs[2]), tokens::TAB_STRIPE_SELECTED);
+    }
+
+    #[test]
+    fn fillets_follow_selected_tab() {
+        let mut app = tabs_app();
+        let (list, tabs) = spawn_list(&mut app, 3);
+        let fillets = tabs
+            .iter()
+            .map(|tab| spawn_fillets(&mut app, *tab))
+            .collect::<Vec<_>>();
+        let shown = |app: &App| {
+            fillets
+                .iter()
+                .map(|pair| {
+                    pair.map(|fillet| {
+                        app.world().entity(fillet).get::<Node>().unwrap().display == Display::Flex
+                    })
+                })
+                .collect::<Vec<_>>()
+        };
+
+        app.update();
+        assert_eq!(shown(&app), [[false, false]; 3]);
+
+        app.world_mut()
+            .entity_mut(list)
+            .insert(SelectedTab(Some(tabs[1])));
+        app.update();
+        assert_eq!(shown(&app), [[false, false], [true, true], [false, false]]);
+        let start = app.world().entity(fillets[1][0]).get::<Node>().unwrap();
+        assert_eq!(start.left, px(-FILLET_SIZE));
+        assert_eq!(start.bottom, px(0));
+        let end = app.world().entity(fillets[1][1]).get::<Node>().unwrap();
+        assert_eq!(end.right, px(-FILLET_SIZE));
+
+        app.world_mut().entity_mut(list).insert((
+            SelectedTab(Some(tabs[0])),
+            TabFillets {
+                start: false,
+                end: true,
+            },
+        ));
+        app.update();
+        assert_eq!(shown(&app), [[false, true], [false, false], [false, false]]);
+
+        app.world_mut().entity_mut(tabs[0]).insert(TabDragging {
+            pointer_id: PointerId::Mouse,
+        });
+        app.update();
+        assert_eq!(shown(&app), [[false, false]; 3]);
+    }
+
+    #[test]
+    fn slot_content_is_placed_in_the_strip() {
+        let mut app = scene_app();
+        let list = app
+            .world_mut()
+            .spawn_scene(bsn! {
+                @FeathersTabList
+                Children [
+                    @FeathersTab { @caption: bsn! { Text("A") } }
+                    --
+                    @FeathersTabListTrailing
+                    --
+                    @FeathersTab { @caption: bsn! { Text("B") } }
+                    --
+                    @FeathersTabListLeading
+                ]
+            })
+            .unwrap()
+            .id();
+        app.update();
+
+        let world = app.world();
+        let children = world.entity(list).get::<Children>().unwrap().to_vec();
+        let kinds = children
+            .iter()
+            .map(|child| {
+                let child = world.entity(*child);
+                match () {
+                    _ if child.contains::<FeathersTabListLeading>() => "leading",
+                    _ if child.contains::<FeathersTab>() => "tab",
+                    _ if child.contains::<FeathersTabListTrailing>() => "trailing",
+                    _ => "other",
+                }
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(kinds, ["leading", "tab", "tab", "trailing"]);
+        assert_eq!(
+            world.entity(children[3]).get::<Node>().unwrap().margin,
+            UiRect::left(Val::Auto)
+        );
+        let is_tab = |entity: Entity| world.entity(entity).contains::<Tab>();
+        assert_eq!(
+            FeathersTabList::child_index(&children, is_tab, children[2], 0),
+            1
+        );
+        assert_eq!(
+            FeathersTabList::child_index(&children, is_tab, children[1], 1),
+            2
+        );
+        assert_eq!(
+            FeathersTabList::child_index(&children, is_tab, Entity::PLACEHOLDER, 2),
+            3
+        );
     }
 }

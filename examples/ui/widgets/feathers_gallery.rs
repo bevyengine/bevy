@@ -12,7 +12,7 @@ use bevy::{
         font_styles::InheritableFont,
         palette,
         rounded_corners::RoundedCorners,
-        theme::{ThemeBackgroundColor, UiTheme},
+        theme::{ThemeBackgroundColor, ThemeBorderColor, UiTheme},
         tokens, FeathersPlugins,
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
@@ -26,8 +26,8 @@ use bevy::{
         radio_self_update, slider_self_update, split_pane_self_update, tablist_self_update,
         tree_view_expand_self_update, tree_view_self_update, Activate, ActivateOnPress,
         ControlOrientation, DragOverlayRoot, NumericRange, NumericValue, RadioGroup, RequestClose,
-        SelectedTab, SliderPrecision, SliderStep, SliderValue, TabDragMode, TabLocked, TabMoved,
-        TreeItemExpandChange, ValueChange,
+        SelectedTab, SliderPrecision, SliderStep, SliderValue, Tab, TabDragMode, TabLocked,
+        TabMoved, TreeItemExpandChange, ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -1059,42 +1059,82 @@ fn demo_column_2() -> impl Scene {
                 ]
                 --
                 @subpane_body() Children [
-                    @FeathersTabList {
-                        @drag: TabDragMode::Reorder,
-                        @selected: OptionTemplate::Some(#home_tab),
+                    Node {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Column,
                     }
-                    on(tablist_self_update)
-                    on(apply_tab_move)
-                    on(show_tab_panel)
                     Children [
-                        #home_tab
-                        @demo_tab("Home")
-                        TabLocked
+                        @FeathersTabList {
+                            @drag: TabDragMode::Reorder,
+                            @selected: OptionTemplate::Some(#home_tab),
+                        }
+                        on(tablist_self_update)
+                        on(apply_tab_move)
+                        on(show_tab_panel)
+                        Children [
+                            @FeathersTabListLeading
+                            Children [
+                                @FeathersToolButton {
+                                    @variant: ButtonVariant::Plain,
+                                    @caption: bsn! { @icon(icons::CHEVRON_DOWN) }
+                                }
+                            ]
+                            --
+                            #home_tab
+                            @demo_tab("Home")
+                            TabLocked
+                            --
+                            @demo_tab("Scene")
+                            --
+                            @demo_tab("Assets")
+                            --
+                            @FeathersTabListTrailing
+                            Children [
+                                @label_dim("::")
+                                Node { padding: UiRect::horizontal(px(4)) }
+                            ]
+                        ]
                         --
-                        @demo_tab("Scene")
-                        --
-                        @demo_tab("Assets")
+                        @demo_tab_panel()
+                        Children [
+                            @label_dim("Home panel")
+                            DemoTabPanel
+                        ]
                     ]
-                    --
-                    @label_dim("Home panel")
-                    DemoTabPanel
-                    Node { padding: px(4) }
                     --
                     Node {
                         display: Display::Flex,
                         column_gap: px(8),
                     }
                     Children [
-                        @demo_external_tabs()
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            flex_grow: 1.0,
+                        }
                         Children [
-                            @demo_tab("Console")
+                            @demo_external_tabs()
+                            Children [
+                                @demo_tab("Console")
+                                --
+                                @demo_tab("Output")
+                            ]
                             --
-                            @demo_tab("Output")
+                            @demo_tab_panel()
                         ]
                         --
-                        @demo_external_tabs()
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            flex_grow: 1.0,
+                        }
                         Children [
-                            @demo_tab("Inspector")
+                            @demo_external_tabs()
+                            Children [
+                                @demo_tab("Inspector")
+                            ]
+                            --
+                            @demo_tab_panel()
                         ]
                     ]
                 ]
@@ -1204,15 +1244,45 @@ fn demo_tab(text: &'static str) -> impl Scene {
 fn demo_external_tabs() -> impl Scene {
     bsn! {
         @FeathersTabList { @drag: TabDragMode::External }
-        Node { flex_grow: 1.0 }
         on(tablist_self_update)
         on(apply_tab_move)
     }
 }
 
-fn apply_tab_move(moved: On<TabMoved>, mut commands: Commands) {
+fn demo_tab_panel() -> impl Scene {
+    bsn! {
+        Node {
+            min_height: px(40),
+            padding: px(8),
+            border: UiRect {
+                left: px(1),
+                right: px(1),
+                bottom: px(1),
+            },
+        }
+        ThemeBackgroundColor(tokens::PANE_BODY_BG)
+        ThemeBorderColor(tokens::TAB_STRIP_BG)
+    }
+}
+
+fn apply_tab_move(
+    moved: On<TabMoved>,
+    children: Query<&Children>,
+    tabs: Query<(), With<Tab>>,
+    mut commands: Commands,
+) {
+    let siblings = children
+        .get(moved.to_strip)
+        .map(|children| children.to_vec())
+        .unwrap_or_default();
+    let index = FeathersTabList::child_index(
+        &siblings,
+        |entity| tabs.contains(entity),
+        moved.tab,
+        moved.index,
+    );
     let mut strip = commands.entity(moved.to_strip);
-    strip.insert_child(moved.index, moved.tab);
+    strip.insert_child(index, moved.tab);
     if moved.to_strip != moved.from_strip {
         strip.insert(SelectedTab(Some(moved.tab)));
     }

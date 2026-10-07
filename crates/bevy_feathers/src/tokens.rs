@@ -128,6 +128,10 @@ pub const TAB_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.tab.bg.hov
 pub const TAB_BG_SELECTED: ThemeToken = ThemeToken::new_static("feathers.tab.bg.selected");
 /// Tab background (being dragged)
 pub const TAB_BG_DRAGGING: ThemeToken = ThemeToken::new_static("feathers.tab.bg.dragging");
+/// Tab selection stripe
+pub const TAB_STRIPE: ThemeToken = ThemeToken::new_static("feathers.tab.stripe");
+/// Tab selection stripe (selected)
+pub const TAB_STRIPE_SELECTED: ThemeToken = ThemeToken::new_static("feathers.tab.stripe.selected");
 /// Tab text
 pub const TAB_TEXT: ThemeToken = ThemeToken::new_static("feathers.tab.text");
 /// Tab text (selected)

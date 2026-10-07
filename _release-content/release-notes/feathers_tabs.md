@@ -4,7 +4,9 @@ authors: ["@jbuehler23"]
 pull_requests: [25987]
 ---
 
-`bevy_feathers` now has styled tabs built on the headless `TabList` and `Tab` widgets. `FeathersTabList` is the strip and `FeathersTab` is a tab header whose caption can hold text, icons or your own controls. Tabs are themed for hover, selection, focus, dragging and disabled states.
+`bevy_feathers` now has styled tabs built on the headless `TabList` and `Tab` widgets. `FeathersTabList` is the strip and `FeathersTab` is a tab header whose caption can hold text, icons or your own controls. Tabs are themed for hover, selection, focus, dragging and disabled states. The selected tab gets an accent stripe and shares the pane body's background, flaring into it at the bottom corners.
+
+Put your own controls at either end of the strip with `FeathersTabListLeading` and `FeathersTabListTrailing` children. When the strip has leading content, `FeathersTabList::child_index` turns a `TabMoved` index into a child index.
 
 When dragging is enabled, a copy of the dragged tab header follows the pointer and a thin accent line marks where it will land, including on another list during an external drag. The copy is shown above the nearest `DragOverlayRoot`, so add that component to your root UI node.
 
