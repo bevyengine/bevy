@@ -371,7 +371,6 @@ fn environment_map_light(
     let ms_dielectric = compute_multiscatter(F0_dielectric, F_ab, Ems);
     let ms_metallic = compute_multiscatter(F0_metallic, F_ab, Ems);
 
-    let FssEss = mix(ms_dielectric.FssEss, ms_metallic.FssEss, metallic);
     let FmsEms = mix(ms_dielectric.FmsEms, ms_metallic.FmsEms, metallic);
     let kD = diffuse_color * ms_dielectric.Edss;
 
@@ -381,7 +380,9 @@ fn environment_map_light(
         out.diffuse = vec3(0.0);
     }
 
-    out.specular = specular_weight * FssEss * radiances.radiance;
+    // Following `KHR_materials_specular`, the specular weight scales the dielectric lobe only.
+    out.specular = mix(specular_weight * ms_dielectric.FssEss, ms_metallic.FssEss, metallic) *
+        radiances.radiance;
 
     @if(STANDARD_MATERIAL_CLEARCOAT)
     environment_map_light_clearcoat(

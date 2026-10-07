@@ -50,42 +50,51 @@ fn unpack_flags(packed: u32) -> u32 {
     return (packed >> 24u) & 0xFFu;
 }
 
+// The G-buffer stores IOR as the Fresnel ratio |(ior - 1) / (ior + 1)|, which is sqrt(F0).
+// Every F0 in [0, 1] is representable: IOR 1 to 3 (F0 0 to 0.25), higher IOR, IOR between 0 and 1
+// (same F0 as 1 / ior), and IOR 0 (F0 = 1).
+// The ratio is quantized on a square-root scale to give more codes to the common low values.
+fn ior_to_fresnel_ratio(ior: f32) -> f32 {
+    // Same as `calculate_F0_dielectric`: (ior - 1) / (ior + 1), safe for IOR <= -1 and infinite IOR.
+    return saturate(abs(1.0 - 2.0 / max(ior + 1.0, 1e-4)));
+}
+
+// Returns the IOR >= 1 with the given Fresnel ratio, or 0 when the ratio is 1 (F0 = 1).
+fn fresnel_ratio_to_ior(ratio: f32) -> f32 {
+    return select((1.0 + ratio) / max(1.0 - ratio, 1e-4), 0.0, ratio >= 1.0);
+}
+
 // Pack ior and specular strength into 4 bits.
-// With so little space, specular is made binary, and all values except specular = 0.0 are mapped to 1
-// IOR values outside [1.33, 2.33] are clamped.
+// With so little space, specular is made binary: code 0 is specular = 0.0, and codes 1 to 15 are
+// specular = 1.0 with 15 levels of IOR.
 @if(WEBGL2)
 fn pack_4bit_ior_specular(ior: f32, specular: f32) -> u32 {
-    var ior_remapped = saturate(ior - 1.33);
-    // give more range to lower values
-    ior_remapped = sqrt(ior_remapped);
-    let ior3 = u32(ior_remapped * 7.0 + 0.5);
-    return (u32(specular > 0.0) << 3u) | ior3;
+    if specular <= 0.0 {
+        return 0u;
+    }
+    return 1u + u32(sqrt(ior_to_fresnel_ratio(ior)) * 14.0 + 0.5);
 }
 
 @if(WEBGL2)
 fn unpack_4bit_ior_specular(v: u32) -> vec2<f32> {
-    let specular = f32(v >> 3u);
-    var ior = f32(v & 0x7u) / 7.0;
-    ior = ior * ior + 1.33;
-    return vec2<f32>(ior, specular);
+    if v == 0u {
+        return vec2<f32>(1.5, 0.0);
+    }
+    let ratio_sqrt = f32(min(v, 15u) - 1u) / 14.0;
+    return vec2<f32>(fresnel_ratio_to_ior(ratio_sqrt * ratio_sqrt), 1.0);
 }
 
 // Pack ior and specular strength into 8 bits. Allocation is IOR: 5 bits / specular: 3 bits
-// IOR values outside [1.0. 3.0] are clamped
 fn pack_8bit_ior_specular(ior: f32, specular: f32) -> u32 {
-    var ior_remapped = saturate((ior - 1.0) / 2.0);
-    // give more range to lower values
-    ior_remapped = sqrt(ior_remapped);
-    let ior5 = u32(ior_remapped * 31.0 + 0.5);
+    let ior5 = u32(sqrt(ior_to_fresnel_ratio(ior)) * 31.0 + 0.5);
     let specular3 = u32(saturate(specular) * 7.0 + 0.5);
     return (specular3 << 5u) | ior5;
 }
 
 fn unpack_8bit_ior_specular(v: u32) -> vec2<f32> {
-    let specular = f32(v >> 5u) / 7.0;
-    var ior = f32(v & 0x1Fu) / 31.0;
-    ior = ior * ior * 2.0 + 1.0;
-    return vec2<f32>(ior, specular);
+    let specular = f32((v >> 5u) & 0x7u) / 7.0;
+    let ratio_sqrt = f32(v & 0x1Fu) / 31.0;
+    return vec2<f32>(fresnel_ratio_to_ior(ratio_sqrt * ratio_sqrt), specular);
 }
 
 /// The builtin one didn't work in webgl.

@@ -50,7 +50,7 @@ pub struct GltfMaterial {
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_channel: UvChannel,
 
-    /// A map that specifies reflectance for non-metallic materials.
+    /// A map whose alpha channel scales [`GltfMaterial::specular`] for non-metallic materials.
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_texture: Option<Handle<Image>>,
 

@@ -319,6 +319,60 @@ fn F_Schlick(f0: f32, f90: f32, VdotH: f32) -> f32 {
     return f0 + (f90 - f0) * pow(1.0 - VdotH, 5.0);
 }
 
+/// Returns the specular reflectance at normal incidence (F0) of a material that
+/// mixes a dielectric lobe and a metallic lobe by `metallic`.
+///
+/// Following `KHR_materials_specular`, `specular_weight` scales the dielectric
+/// lobe only. The result is `mix(specular_weight * F0_dielectric, F0_metallic,
+/// metallic)`. Used with [`specular_F90`], Schlick's approximation gives
+/// `mix(specular_weight * F_dielectric, F_metallic, metallic)`, because it is
+/// linear in F0 and F90.
+fn specular_F0(
+    F0_dielectric: vec3<f32>,
+    F0_metallic: vec3<f32>,
+    specular_weight: f32,
+    metallic: f32,
+) -> vec3<f32> {
+    return mix(specular_weight * F0_dielectric, F0_metallic, metallic);
+}
+
+/// Returns the specular reflectance at grazing angles (F90) of a material that
+/// mixes a dielectric lobe and a metallic lobe by `metallic`.
+///
+/// Both lobes have F90 = 1, and `specular_weight` scales the dielectric lobe
+/// only, so the result is `mix(specular_weight, 1.0, metallic)`. See
+/// [`specular_F0`].
+fn specular_F90(specular_weight: f32, metallic: f32) -> f32 {
+    return mix(specular_weight, 1.0, metallic);
+}
+
+/// Evaluates the specular lobe with distribution `D` and visibility `V` for
+/// the dielectric and metallic parts of the material separately, and mixes
+/// them by `metallic`.
+///
+/// Each part uses the Schlick Fresnel term with its own F0 and F90 = 1.
+/// Following `KHR_materials_specular`, `specular_weight` scales the dielectric
+/// part only.
+fn specular_dielectric_metallic(
+    input: ptr<function, LightingInput>,
+    D: f32,
+    V: f32,
+    LdotH: f32,
+    specular_intensity: f32,
+) -> vec3<f32> {
+    let F0_dielectric = (*input).F0_dielectric;
+    let F0_metallic = (*input).F0_metallic;
+    let F_ab = (*input).F_ab;
+
+    let F_dielectric = F_Schlick_vec(F0_dielectric, 1.0, LdotH);
+    let F_metallic = F_Schlick_vec(F0_metallic, 1.0, LdotH);
+
+    let Fr_dielectric = specular_multiscatter(
+        D, V, F_dielectric, F0_dielectric, F_ab, specular_intensity * (*input).specular_weight);
+    let Fr_metallic = specular_multiscatter(D, V, F_metallic, F0_metallic, F_ab, specular_intensity);
+    return mix(Fr_dielectric, Fr_metallic, (*input).metallic);
+}
+
 /// Given distribution, visibility, and Fresnel term, calculates the final
 /// specular light.
 ///
@@ -406,7 +460,6 @@ fn specular(
 ) -> vec3<f32> {
     // Unpack.
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
-    let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
     let NdotL = (*derived_input).NdotL;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
@@ -415,12 +468,9 @@ fn specular(
     let D = D_GGX(roughness, NdotH);
     // Calculate visibility.
     let V = V_SmithGGXCorrelated(roughness, NdotV, NdotL);
-    // Calculate the Fresnel term.
-    let F = F_Schlick_vec(F0, 1.0, LdotH);
 
-    // Calculate the specular light.
-    let Fr = specular_multiscatter(D, V, F, F0, (*input).F_ab, specular_intensity);
-    return Fr;
+    // Calculate the Fresnel term and the specular light.
+    return specular_dielectric_metallic(input, D, V, LdotH, specular_intensity);
 }
 
 /// Calculates the specular light for the clearcoat layer. Returns Fc, the
@@ -461,7 +511,6 @@ fn specular_anisotropy(
     // Unpack.
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let V = (*input).V;
-    let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
     let anisotropy = (*input).anisotropy;
     let Ta = (*input).Ta;
     let Ba = (*input).Ba;
@@ -482,11 +531,9 @@ fn specular_anisotropy(
 
     let Da = D_GGX_anisotropic(at, ab, NdotH, TdotH, BdotH);
     let Va = V_GGX_anisotropic(at, ab, NdotL, NdotV, BdotV, TdotV, TdotL, BdotL);
-    let Fa = F_Schlick_vec(F0, 1.0, LdotH);
 
-    // Calculate the specular light.
-    let Fr = specular_multiscatter(Da, Va, Fa, F0, (*input).F_ab, specular_intensity);
-    return Fr;
+    // Calculate the Fresnel term and the specular light.
+    return specular_dielectric_metallic(input, Da, Va, LdotH, specular_intensity);
 }
 
 /// Diffuse BRDF
@@ -645,8 +692,6 @@ fn point_light(
     let distance = sqrt(distance_square);
     let rangeAttenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
 
-    let specular_weight = (*input).specular_weight;
-
     // Base layer
 
     let a = (*input).layers[LAYER_BASE].roughness;
@@ -663,11 +708,7 @@ fn point_light(
     var specular_derived_input = derive_lighting_input(N, V, L_spec);
 
     let normalizationFactor = a / a_prime;
-    var specular_intensity = normalizationFactor * normalizationFactor;
-
-    // Scale the specular reflectance for dialectrics (following KHR_materials_specular).
-    // Contrary to only scaling F0 this scales the whole Fresnel response and can also cut grazing reflections (F90).
-    specular_intensity *= mix(specular_weight, 1.0, (*input).metallic);
+    let specular_intensity = normalizationFactor * normalizationFactor;
 
     let brdf_roughness = mix(a, a_prime, specular_fix_remap(a));
 
@@ -867,14 +908,10 @@ fn directional_light(
         diffuse = diffuse_color * Fd_Burley(input, &derived_input);
     }
 
-    // Scale the specular reflectance for dialectrics (following KHR_materials_specular).
-    // Contrary to only scaling F0 this scales the whole Fresnel response and can also cut grazing reflections (F90).
-    let specular_intensity = (*input).specular_weight;
-
 @if(STANDARD_MATERIAL_ANISOTROPY)
-    let specular_light = specular_anisotropy(input, &derived_input, L, roughness, specular_intensity);
+    let specular_light = specular_anisotropy(input, &derived_input, L, roughness, 1.0);
 @else   // STANDARD_MATERIAL_ANISOTROPY
-    let specular_light = specular(input, &derived_input, roughness, specular_intensity);
+    let specular_light = specular(input, &derived_input, roughness, 1.0);
 
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
@@ -1104,8 +1141,10 @@ fn rect_light(
     let diff = select(0.0, ltc_integrate_quad(N, V, P, identity, corners), enable_diffuse);
 
     // t2.x encodes the bsdf magnitude and t2.y the fresnel direction
-    let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
-    let spec_weight = F0 * t2.x + (1.0 - F0) * t2.y;
+    let F0 = specular_F0(
+        (*input).F0_dielectric, (*input).F0_metallic, (*input).specular_weight, (*input).metallic);
+    let F90 = specular_F90((*input).specular_weight, (*input).metallic);
+    let spec_weight = F0 * t2.x + (F90 - F0) * t2.y;
 
 @if(STANDARD_MATERIAL_CLEARCOAT) {
     let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;

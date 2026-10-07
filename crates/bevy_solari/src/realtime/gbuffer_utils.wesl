@@ -1,4 +1,4 @@
-import bevy_pbr::deferred::types::unpack_24bit_normal;
+import bevy_pbr::deferred::types::{unpack_24bit_normal, unpack_8bit_ior_specular};
 import bevy_pbr::render::rgb9e5::rgb9e5_to_vec3_;
 import bevy_render::utils::octahedral_decode;
 import bevy_render::view::{View, depth_ndc_to_view_z};
@@ -19,10 +19,12 @@ fn gpixel_resolve(gpixel: vec4<u32>, depth: f32, pixel_id: vec2<u32>, view_size:
     let perceptual_roughness = base_rough.a;
     let roughness = perceptual_roughness * perceptual_roughness;
     let props = unpack4x8unorm(gpixel.b);
-    let reflectance = props.r;
+    let ior_specular = unpack_8bit_ior_specular(gpixel.b & 0xFFu);
     let metallic = props.g;
     let emissive = rgb9e5_to_vec3_(gpixel.g);
-    let material = ResolvedMaterial(base_color, emissive, reflectance, perceptual_roughness, roughness, metallic, false);
+    // The G-buffer does not store the specular tint.
+    let specular_tint = vec3(1.0);
+    let material = ResolvedMaterial(base_color, emissive, specular_tint, ior_specular.x, ior_specular.y, perceptual_roughness, roughness, metallic, false);
 
     return ResolvedGPixel(world_position, world_normal, material);
 }

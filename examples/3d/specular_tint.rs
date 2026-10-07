@@ -7,7 +7,6 @@ use std::{
 
 use bevy::{
     camera::Hdr,
-    color::palettes::css::WHITE,
     feathers::{theme::UiTheme, FeathersPlugins},
     light::Skybox,
     prelude::*,
@@ -26,6 +25,11 @@ mod theme;
 const ROTATION_SPEED: f32 = 0.005;
 /// The rate at which the specular tint hue changes in degrees per frame.
 const HUE_SHIFT_SPEED: f32 = 0.2;
+/// The factor applied to the specular tint.
+///
+/// With the default IOR of 1.5, the reflectance at normal incidence is 0.04.
+/// A tint of 4.0 raises it to 0.16, which makes the tint easier to see.
+const SPECULAR_TINT_SCALE: f32 = 4.0;
 
 /// The current settings the user has chosen.
 #[derive(Resource, Default)]
@@ -133,8 +137,7 @@ fn setup(
             // We want only reflected specular light here, so we set the base
             // color as black.
             base_color: Color::BLACK,
-            specular: 2.0,
-            specular_tint: Color::hsva(app_status.hue, 1.0, 1.0, 1.0),
+            specular_tint: solid_specular_tint(app_status.hue),
             // The object must not be metallic, or else the reflectance is
             // ignored per the Filament spec:
             //
@@ -173,8 +176,16 @@ fn shift_hue(
         let Some(mut material) = standard_materials.get_mut(material_handle) else {
             continue;
         };
-        material.specular_tint = Color::hsva(app_status.hue, 1.0, 1.0, 1.0);
+        material.specular_tint = solid_specular_tint(app_status.hue);
     }
+}
+
+/// Returns the solid specular tint for the given hue, scaled by
+/// [`SPECULAR_TINT_SCALE`].
+fn solid_specular_tint(hue: f32) -> Color {
+    (LinearRgba::from(Color::hsva(hue, 1.0, 1.0, 1.0)) * SPECULAR_TINT_SCALE)
+        .with_alpha(1.0)
+        .into()
 }
 
 /// Spawns the radio buttons in the bottom left corner of the screen.
@@ -219,13 +230,18 @@ fn toggle_specular_map(
         // Adjust the tint type.
         match app_status.tint_type {
             TintType::Solid => {
-                material.specular_tint = Color::linear_rgb(2.0, 2.0, 2.0);
+                // `shift_hue` below sets the solid tint.
                 material.specular_tint_texture = None;
             }
             TintType::Map => {
                 // As the tint map is multiplied by the tint color, we set the
-                // latter to white so that only the map has an effect.
-                material.specular_tint = WHITE.into();
+                // latter to the same value in every channel so that only the map
+                // changes the hue.
+                material.specular_tint = Color::linear_rgb(
+                    SPECULAR_TINT_SCALE,
+                    SPECULAR_TINT_SCALE,
+                    SPECULAR_TINT_SCALE,
+                );
                 material.specular_tint_texture = Some(app_assets.noise_texture.clone());
             }
         };

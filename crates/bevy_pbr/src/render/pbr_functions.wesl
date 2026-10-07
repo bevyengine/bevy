@@ -274,11 +274,19 @@ fn calculate_diffuse_color(
         (1.0 - diffuse_transmission);
 }
 
+/// Returns the IOR of a base layer relative to a clearcoat layer (IOR 1.5) of strength `clearcoat`
+/// that covers it.
+fn clearcoat_base_layer_ior(ior: f32, clearcoat: f32) -> f32 {
+    return ior / mix(1.0, 1.5, clearcoat);
+}
+
 /// Reflectance at normal incidence for dielectrics is computed from IOR, then optionally tinted (non-physically).
 fn calculate_F0_dielectric(ior: f32, specular_tint: vec3<f32>) -> vec3<f32> {
-    // Physical reflectance at normal incidence
-    var f0 = max(0.0, (ior - 1.0) / (ior + 1.0));
-    f0 *= f0;
+    // Physical reflectance at normal incidence: ((ior - 1) / (ior + 1))^2, written so that IOR 0 and
+    // infinite IOR give F0 = 1, and negative IOR (including -1) is clamped to F0 = 1 instead of
+    // dividing by zero.
+    let ratio = clamp(1.0 - 2.0 / max(ior + 1.0, 1e-4), -1.0, 1.0);
+    let f0 = ratio * ratio;
     // Artistic tint
     return min(f0 * specular_tint, vec3<f32>(1.0));
 }
@@ -361,11 +369,13 @@ fn apply_pbr_lighting(
     let clearcoat_NdotV = max(dot(clearcoat_N, in.V), 0.0001);
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_R = reflect(-in.V, clearcoat_N);
-    // Correct the base layer's IOR to account for the change of interface from air (IOR = 1) to the clearcoat layer (IOR = 1.5).
-    @if(STANDARD_MATERIAL_CLEARCOAT)
-    let ior = in.material.ior / mix(1.0, 1.5, clearcoat);
-    @else
+    // The base layer's reflectance uses its IOR relative to the clearcoat layer (IOR = 1.5) instead
+    // of air (IOR = 1). Refraction uses the material's IOR unchanged.
     let ior = in.material.ior;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
+    let reflectance_ior = clearcoat_base_layer_ior(ior, clearcoat);
+    @else
+    let reflectance_ior = ior;
 
     let diffuse_color = calculate_diffuse_color(
         output_color.rgb,
@@ -380,12 +390,14 @@ fn apply_pbr_lighting(
     // Calculate the world position of the second Lambertian lobe used for diffuse transmission, by subtracting material thickness
     let diffuse_transmissive_lobe_world_position = in.world_position - vec4<f32>(in.world_normal, 0.0) * thickness;
 
-    let F0_dielectric = calculate_F0_dielectric(ior, in.material.specular_tint);
+    let F0_dielectric = calculate_F0_dielectric(reflectance_ior, in.material.specular_tint);
 
     // Reflectance at normal incidence for pure metals is the base color
     let F0_metallic = output_color.rgb;
 
-    let F0 = mix(F0_dielectric, F0_metallic, metallic);
+    // Reflectance of the whole material, with the specular weight applied to the dielectric part.
+    let F0 = lighting::specular_F0(F0_dielectric, F0_metallic, specular_weight, metallic);
+    let F90 = lighting::specular_F90(specular_weight, metallic);
 
     let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
 
@@ -436,7 +448,8 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.V = -in.V;
     transmissive_lighting_input.diffuse_color = diffuse_transmissive_color;
     transmissive_lighting_input.metallic = 0.0;
-    transmissive_lighting_input.specular_weight = 1.0;
+    // The diffuse transmission lobe has no specular term.
+    transmissive_lighting_input.specular_weight = 0.0;
     transmissive_lighting_input.F0_dielectric = vec3(0.0);
     transmissive_lighting_input.F0_metallic = vec3(0.0);
     transmissive_lighting_input.F_ab = vec2(0.1);
@@ -512,6 +525,7 @@ fn apply_pbr_lighting(
         // R = vec3<f32>(0.0) // doesn't really matter
         // F_ab = vec2<f32>(0.1)
         // F0 = vec3<f32>(0.0)
+        // specular_weight = 0.0
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
                 && (view_bindings::clustered_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
@@ -573,6 +587,7 @@ fn apply_pbr_lighting(
         // R = vec3<f32>(0.0) // doesn't really matter
         // F_ab = vec2<f32>(0.1)
         // F0 = vec3<f32>(0.0)
+        // specular_weight = 0.0
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
                 && (view_bindings::clustered_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
@@ -639,6 +654,7 @@ fn apply_pbr_lighting(
         // R = vec3<f32>(0.0) // doesn't really matter
         // F_ab = vec2<f32>(0.1)
         // F0 = vec3<f32>(0.0)
+        // specular_weight = 0.0
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
@@ -688,8 +704,9 @@ fn apply_pbr_lighting(
     // perceptual_roughness = 1.0;
     // NdotV = 1.0;
     // F0 = vec3<f32>(0.0)
+    // F90 = 0.0
     // diffuse_occlusion = vec3<f32>(1.0)
-    transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
+    transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 0.0, 1.0, vec3<f32>(1.0));
 
     // Diffuse indirect lighting can come from a variety of sources. The
     // priority goes like this:
@@ -763,7 +780,7 @@ fn apply_pbr_lighting(
     @else   // LIGHTMAP
     let enable_ambient = true;
     if (enable_ambient) {
-        indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
+        indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, F90, perceptual_roughness, diffuse_occlusion);
     }
 
     // we'll use the specular component of the transmitted environment
@@ -781,6 +798,7 @@ fn apply_pbr_lighting(
     // NdotV = 1.0;
     // R = T // see definition below
     // F0 = vec3<f32>(1.0) (using F0_dielectric = 1, F0_metallic = 0 and metallic = 0)
+    // specular_weight = 1.0 (`specular_transmissive_light()` applies the material's F0 and F90 to its Fresnel term)
     // diffuse_occlusion = 1.0
     //
     // (This one is slightly different from the other light types above, because the environment
@@ -801,6 +819,7 @@ fn apply_pbr_lighting(
     transmissive_environment_light_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
     transmissive_environment_light_input.layers[LAYER_BASE].roughness = roughness;
     transmissive_environment_light_input.metallic = 0.0;
+    transmissive_environment_light_input.specular_weight = 1.0;
     transmissive_environment_light_input.F0_dielectric = vec3<f32>(1.0);
     transmissive_environment_light_input.F0_metallic = vec3<f32>(0.0);
     transmissive_environment_light_input.F_ab = vec2(0.1);
@@ -843,7 +862,7 @@ fn apply_pbr_lighting(
     emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
 
 @if(STANDARD_MATERIAL_SPECULAR_TRANSMISSION) {
-    transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, specular_weight, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
+    transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, F90, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
 
     if (in.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT) != 0u
         && in.material.attenuation_distance != 0.0 {

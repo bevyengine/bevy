@@ -47,7 +47,9 @@ struct Material {
     perceptual_roughness: f32,
     emissive: vec3<f32>,
     metallic: f32,
-    reflectance: f32,
+    specular_tint: vec3<f32>,
+    ior: f32,
+    specular_weight: f32,
     flags: u32,
     uv_translation: vec2<f32>,
     uv_transform: mat2x2<f32>,
@@ -184,7 +186,9 @@ fn sample_texture(id: u32, uv: vec2<f32>) -> vec4<f32> {
 struct ResolvedMaterial {
     base_color: vec3<f32>,
     emissive: vec3<f32>,
-    reflectance: f32,
+    specular_tint: vec3<f32>,
+    ior: f32,
+    specular_weight: f32,
     perceptual_roughness: f32,
     roughness: f32,
     metallic: f32,
@@ -224,7 +228,9 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
         m.emissive = vec3(0.0);
     }
 
-    m.reflectance = material.reflectance;
+    m.specular_tint = material.specular_tint;
+    m.ior = material.ior;
+    m.specular_weight = material.specular_weight;
 
     m.perceptual_roughness = material.perceptual_roughness;
     m.metallic = material.metallic;

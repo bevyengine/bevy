@@ -177,13 +177,14 @@ pub struct StandardMaterial {
     ///
     /// For non metals the specular reflectance at normal incidence is governed by the [`StandardMaterial::ior`] parameter.
     ///
-    /// Use this value as a way to scale down this default reflectance, and thus the intensity of the
-    /// specular highlight of the material, i.e. how reflective the material ultimately is.
+    /// This value scales the whole specular response of non-metals: the reflectance at normal
+    /// incidence and the reflectance at grazing angles, for highlights and reflections.
     ///
     /// Set to `0.0`, no specular highlight is visible. The highlight is strongest when `specular` is set to `1.0`.
     ///
     /// Defaults to `1.0`, which will compute the normal incidence reflectance according to the material's IOR.
     #[doc(alias = "specular_intensity")]
+    #[doc(alias = "reflectance")]
     pub specular: f32,
 
     /// A color with which to modulate the specular reflectance for non-metals.
@@ -313,6 +314,11 @@ pub struct StandardMaterial {
 
     /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
     ///
+    /// For non-metals, the IOR sets the specular reflectance at normal incidence (F0) as
+    /// `((ior - 1) / (ior + 1))^2`. The default of 1.5 gives 4%, an IOR of 1.0 (vacuum or air)
+    /// gives no reflectance at normal incidence, and an IOR of 0.0 gives 100%. With a clearcoat, F0
+    /// uses `ior / mix(1.0, 1.5, clearcoat)`, the IOR relative to the clearcoat layer.
+    ///
     /// Defaults to 1.5.
     ///
     /// | Material        | Index of Refraction  |
@@ -336,10 +342,11 @@ pub struct StandardMaterial {
     /// | Diamond         | 2.42                 |
     /// | Moissanite      | 2.65                 |
     ///
-    /// **Note:** Typically used in conjunction with [`StandardMaterial::specular_transmission`] and [`StandardMaterial::thickness`].
+    /// **Note:** Refraction uses this value together with [`StandardMaterial::specular_transmission`] and [`StandardMaterial::thickness`].
     #[doc(alias = "index_of_refraction")]
     #[doc(alias = "refraction_index")]
     #[doc(alias = "refractive_index")]
+    #[doc(alias = "reflectance")]
     pub ior: f32,
 
     /// How far, on average, light travels through the volume beneath the material's
@@ -452,8 +459,8 @@ pub struct StandardMaterial {
     /// A map that adjusts the strength of the highlights and reflection for non-metallic materials.
     ///
     /// Alpha values from [0.0, 1.0] in this texture will be multiplied with the constant
-    /// [`StandardMaterial::specular`] value, to obtain a strength factor that will linearly
-    /// linearly scale the default specular reflectance of the material.
+    /// [`StandardMaterial::specular`] value, to obtain a strength factor that linearly scales
+    /// the whole specular response of the material, as [`StandardMaterial::specular`] does.
     /// This follows the `KHR_materials_specular` specification. The map will have no effect if
     /// the material is fully metallic.
     ///

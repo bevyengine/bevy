@@ -31,7 +31,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     @if(WEBGL2)
     let ior_specular_props = f32(ior_specular) / 15.0;
     @if(WEBGL2)
-    var props = deferred_types::unpack_unorm3x4_plus_unorm_20_(vec4(
+    var props = deferred_types::pack_unorm3x4_plus_unorm_20_(vec4(
         ior_specular_props,
         in.material.metallic,
         diffuse_occlusion,
