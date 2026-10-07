@@ -237,7 +237,7 @@ fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: v
     return (clip_position - previous_clip_position) * vec2(0.5, -0.5);
 }
 
-/// Directional specular albedo of the material, with the specular weight applied to the dielectric lobe.
+/// Directional specular albedo of the material.
 fn specular_albedo_approx(material: ResolvedMaterial, N: vec3<f32>, V: vec3<f32>) -> vec3<f32> {
     let scale_bias = env_brdf_scale_bias(material.roughness, N, V);
     let dielectric = env_brdf_approx2(material.F0_dielectric, scale_bias);

@@ -301,7 +301,8 @@ struct SpecularReflectance {
 
 /// Returns the specular reflectance of `material`.
 ///
-/// The specular weight is clamped to [0, 1].
+/// Textures and custom shaders can set any specular weight, so it is clamped to the [0, 1] range
+/// of `StandardMaterial::specular`.
 fn calculate_specular_reflectance(material: pbr_types::StandardMaterial) -> SpecularReflectance {
     let F0_dielectric = calculate_F0_dielectric(material.ior, material.specular_tint);
     let specular_weight = saturate(material.specular_weight);
@@ -358,8 +359,6 @@ fn apply_pbr_lighting(
     let emissive = in.material.emissive;
 
     let metallic = in.material.metallic;
-    // Textures and custom shaders can set any value, so clamp to the [0, 1] range of
-    // `StandardMaterial::specular`.
     let specular_weight = saturate(in.material.specular_weight);
 
     // calculate non-linear roughness from linear perceptualRoughness

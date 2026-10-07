@@ -287,7 +287,6 @@ pub fn meshlet_deferred_gbuffer_prepass(
             .as_ref()
             .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
     ];
-    // Present only when `DeferredSpecularTintSupport` allows the tint target.
     if let Some(deferred_specular_tint) = &view_prepass_textures.deferred_specular_tint {
         color_attachments.push(Some(deferred_specular_tint.get_attachment()));
     }

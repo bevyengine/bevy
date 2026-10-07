@@ -1048,7 +1048,6 @@ pub fn prepare_prepass_textures(
             ),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
                 .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK.into()))),
-            // A value of 0 decodes to a white specular tint.
             deferred_specular_tint: package_double_buffered_texture(
                 cached_deferred_specular_tint_texture1,
                 cached_deferred_specular_tint_texture2,

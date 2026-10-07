@@ -78,7 +78,8 @@ struct LightingInput {
     /// The 0-1 metallic factor of the material.
     metallic: f32,
 
-    /// The 0-1 specular weight, which scales the dielectric specular lobe.
+    /// The 0-1 specular weight. Following `KHR_materials_specular`, it scales the dielectric
+    /// specular lobe only.
     specular_weight: f32,
 
     /// Specular reflectance at the normal incidence angle.
@@ -320,8 +321,7 @@ fn F_Schlick(f0: f32, f90: f32, VdotH: f32) -> f32 {
 }
 
 /// Returns the specular reflectance at normal incidence (F0) of a material that
-/// mixes a dielectric lobe and a metallic lobe by `metallic`. Following
-/// `KHR_materials_specular`, `specular_weight` scales the dielectric lobe only.
+/// mixes a dielectric lobe and a metallic lobe by `metallic`.
 ///
 /// Schlick's approximation is linear in F0 and F90, so using this with
 /// `specular_F90` gives the same result as mixing the Fresnel terms of the lobes.
@@ -345,8 +345,6 @@ fn specular_F90(specular_weight: f32, metallic: f32) -> f32 {
 /// them by `metallic`.
 ///
 /// Each part uses the Schlick Fresnel term with its own F0 and F90 = 1.
-/// Following `KHR_materials_specular`, `specular_weight` scales the dielectric
-/// part only.
 fn specular_dielectric_metallic(
     input: ptr<function, LightingInput>,
     D: f32,
@@ -612,8 +610,7 @@ struct LobeMultiscatter {
 
 /// Returns the multiscattering terms of the dielectric and metallic specular lobes.
 ///
-/// The lobes are kept separate because the terms are nonlinear in F0. Following
-/// `KHR_materials_specular`, `specular_weight` scales the dielectric lobe only.
+/// The lobes are kept separate because the terms are nonlinear in F0.
 fn compute_lobe_multiscatter(
     F0_dielectric: vec3<f32>,
     F0_metallic: vec3<f32>,

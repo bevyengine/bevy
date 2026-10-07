@@ -21,11 +21,6 @@ use bevy_render::{
 
 pub const DEFERRED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba32Uint;
 pub const DEFERRED_LIGHTING_PASS_ID_FORMAT: TextureFormat = TextureFormat::R8Uint;
-/// The format of the deferred specular tint texture.
-///
-/// Each texel holds the rgb9e5 specular tint XOR the rgb9e5 encoding of white, so 0 decodes to
-/// white. The deferred pass has this target only when
-/// [`DeferredSpecularTintSupport::is_supported`] returns `true`.
 pub const DEFERRED_SPECULAR_TINT_FORMAT: TextureFormat = TextureFormat::R32Uint;
 
 /// Whether the deferred pass has the specular tint target, for each combination of normal and
@@ -33,11 +28,8 @@ pub const DEFERRED_SPECULAR_TINT_FORMAT: TextureFormat = TextureFormat::R32Uint;
 ///
 /// The tint target is supported when all deferred pass color targets fit in the device's
 /// `max_color_attachments` and `max_color_attachment_bytes_per_sample` limits, and
-/// `max_sampled_textures_per_shader_stage` is above the WebGPU minimum of 16, since the tint adds a
-/// sampled texture to the mesh view bind group. It is never supported on WebGL2.
-///
-/// Without the target, views have no deferred specular tint texture and deferred shading uses a
-/// white specular tint.
+/// `max_sampled_textures_per_shader_stage` is above the WebGPU minimum of 16. It is never supported
+/// on WebGL2.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct DeferredSpecularTintSupport {
     /// Indexed by `normal_prepass as usize | (motion_vector_prepass as usize) << 1`.
@@ -91,7 +83,7 @@ fn deferred_specular_tint_fits(
         Some(DEFERRED_SPECULAR_TINT_FORMAT),
     ];
     // The mesh view and material bind groups can already use 16 sampled textures in the fragment
-    // stage.
+    // stage, and the tint texture adds one to the mesh view bind group.
     if limits.max_sampled_textures_per_shader_stage <= 16 {
         return false;
     }

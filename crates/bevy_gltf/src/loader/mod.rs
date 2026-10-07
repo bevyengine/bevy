@@ -2856,7 +2856,7 @@ mod test {
         assert_eq!(ior_and_specular.specular, 0.5);
         assert_eq!(ior_and_specular.specular_tint, white);
 
-        // glTF only allows an IOR of 0 or at least 1, so 0.5 falls back to the default.
+        // 0.5 is invalid, so it falls back to the default.
         let invalid_ior = material("invalid_ior");
         assert_eq!(invalid_ior.ior, 1.5);
         assert_eq!(invalid_ior.specular, 1.0);

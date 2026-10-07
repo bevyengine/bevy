@@ -52,17 +52,17 @@ fn unpack_flags(packed: u32) -> u32 {
     return (packed >> 24u) & 0xFFu;
 }
 
-// The G-buffer stores IOR as the Fresnel ratio |(ior - 1) / (ior + 1)|, which is sqrt(F0), so it
-// covers every F0 in [0, 1]. An IOR between 0 and 1 decodes as 1 / ior, which has the same F0.
-// The ratio is quantized on a square-root scale to give more codes to the common low values.
+// The G-buffer stores IOR as `abs(ior_to_fresnel_ratio(ior))`, which covers every F0 in [0, 1]. An
+// IOR between 0 and 1 decodes as 1 / ior, which has the same F0. The ratio is quantized on a
+// square-root scale to give more codes to the common low values.
 
-// Returns the IOR >= 1 with the given Fresnel ratio, or 0 when the ratio is 1 (F0 = 1).
+/// Returns the IOR >= 1 with the given Fresnel ratio, or 0 when the ratio is 1 (F0 = 1).
 fn fresnel_ratio_to_ior(ratio: f32) -> f32 {
     return select((1.0 + ratio) / max(1.0 - ratio, 1e-4), 0.0, ratio >= 1.0);
 }
 
-// Packs IOR and specular weight into 4 bits. Code 0 is a specular weight of 0. Codes 1 to 15 are
-// a specular weight of 1, for any weight above 0, with 15 levels of IOR.
+/// Packs IOR and specular weight into 4 bits. Code 0 is a specular weight of 0. Codes 1 to 15 are
+/// a specular weight of 1, for any weight above 0, with 15 levels of IOR.
 @if(WEBGL2)
 fn pack_4bit_ior_specular(ior: f32, specular: f32) -> u32 {
     if specular <= 0.0 {
@@ -71,6 +71,7 @@ fn pack_4bit_ior_specular(ior: f32, specular: f32) -> u32 {
     return 1u + u32(sqrt(abs(ior_to_fresnel_ratio(ior))) * 14.0 + 0.5);
 }
 
+/// Returns the IOR and specular weight packed by `pack_4bit_ior_specular`.
 @if(WEBGL2)
 fn unpack_4bit_ior_specular(v: u32) -> vec2<f32> {
     if v == 0u {
@@ -80,7 +81,7 @@ fn unpack_4bit_ior_specular(v: u32) -> vec2<f32> {
     return vec2<f32>(fresnel_ratio_to_ior(ratio_sqrt * ratio_sqrt), 1.0);
 }
 
-// Packs IOR into the low 5 bits and specular weight into the high 3 bits.
+/// Packs IOR into the low 5 bits and specular weight into the high 3 bits.
 fn pack_8bit_ior_specular(ior: f32, specular: f32) -> u32 {
     let ior5 = u32(sqrt(abs(ior_to_fresnel_ratio(ior))) * 31.0 + 0.5);
     let specular3 = u32(saturate(specular) * 7.0 + 0.5);
@@ -131,7 +132,7 @@ fn unpack_unorm3x4_plus_unorm_20_(v: u32) -> vec4<f32> {
     );
 }
 
-// `vec3_to_rgb9e5_(vec3(1.0))`.
+/// `vec3_to_rgb9e5_(vec3(1.0))`.
 const RGB9E5_WHITE: u32 = 0x84020100u;
 
 /// Packs a specular tint for the deferred specular tint texture.

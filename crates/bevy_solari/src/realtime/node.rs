@@ -120,7 +120,6 @@ pub fn solari_lighting(
         return;
     };
 
-    // Views without a deferred specular tint texture bind the white fallback.
     let gbuffer_specular_tint = view_prepass_textures
         .deferred_specular_tint_view()
         .unwrap_or(&specular_tint_fallback.0);
@@ -412,8 +411,7 @@ pub fn solari_lighting(
     );
 }
 
-/// A 1x1 [`DEFERRED_SPECULAR_TINT_FORMAT`] texture that holds 0, which decodes to a white
-/// specular tint. Solari binds it when the view has no deferred specular tint texture.
+/// A 1x1 white specular tint texture, bound when the view has no deferred specular tint texture.
 #[derive(Resource)]
 pub(crate) struct SpecularTintFallback(TextureView);
 

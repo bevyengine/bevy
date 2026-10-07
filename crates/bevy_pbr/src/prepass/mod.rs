@@ -269,7 +269,6 @@ pub struct PrepassPipeline {
 
     pub depth_clip_control_supported: bool,
 
-    /// Whether the deferred pass has the specular tint target, per prepass combination.
     pub deferred_specular_tint_support: DeferredSpecularTintSupport,
 
     /// Whether binding arrays (a.k.a. bindless textures) are usable on the
