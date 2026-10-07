@@ -54,6 +54,7 @@ const TAB_RADIUS: f32 = 4.0;
 const STRIPE_SIZE: f32 = 2.0;
 const FILLET_SIZE: f32 = 8.0;
 const STRIP_INSET: f32 = 3.0;
+const STRIP_BORDER: f32 = 1.0;
 const INDICATOR_SIZE: f32 = 2.0;
 const DRAG_PROXY_OFFSET: Vec2 = Vec2::new(10.0, 10.0);
 const DRAG_PROXY_Z: i32 = 200;
@@ -111,22 +112,26 @@ impl FeathersTabList {
             ControlOrientation::Horizontal => (
                 FlexDirection::Row,
                 UiRect::new(px(FILLET_SIZE), px(FILLET_SIZE), px(STRIP_INSET), px(0)),
-                UiRect::new(px(1), px(1), px(1), px(0)),
+                UiRect::new(px(STRIP_BORDER), px(STRIP_BORDER), px(STRIP_BORDER), px(0)),
                 Overflow::clip_x(),
             ),
             ControlOrientation::Vertical => (
                 FlexDirection::Column,
                 UiRect::new(px(STRIP_INSET), px(0), px(FILLET_SIZE), px(FILLET_SIZE)),
-                UiRect::new(px(1), px(0), px(1), px(1)),
+                UiRect::new(px(STRIP_BORDER), px(0), px(STRIP_BORDER), px(STRIP_BORDER)),
                 Overflow::clip_y(),
             ),
+        };
+        let min_height = match props.orientation {
+            ControlOrientation::Horizontal => strip_min_height(),
+            ControlOrientation::Vertical => size::ROW_HEIGHT,
         };
         bsn! {
             Node {
                 display: Display::Flex,
                 flex_direction: {flex_direction},
                 align_items: AlignItems::Stretch,
-                min_height: size::ROW_HEIGHT,
+                min_height: {min_height},
                 padding: {padding},
                 border: {border},
                 overflow: {overflow},
@@ -362,6 +367,14 @@ pub struct FeathersTabInsertionIndicator {
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct FeathersTabDragProxy;
+
+/// Returns the height of a horizontal strip holding one row of tabs, so an empty strip matches.
+fn strip_min_height() -> Val {
+    match size::ROW_HEIGHT {
+        Val::Px(row) => px(STRIP_INSET + STRIP_BORDER + row),
+        other => other,
+    }
+}
 
 /// Returns a tab's border, which holds the selection stripe, and its corner radii.
 fn tab_shape(orientation: ControlOrientation) -> (UiRect, BorderRadius) {
@@ -1741,6 +1754,36 @@ mod tests {
             FeathersTabList::child_index(&children, is_tab, Entity::PLACEHOLDER, 2),
             3
         );
+    }
+
+    #[test]
+    fn empty_horizontal_strip_is_as_tall_as_one_with_tabs() {
+        let mut app = scene_app();
+        let list = app
+            .world_mut()
+            .spawn_scene(bsn! { @FeathersTabList })
+            .unwrap()
+            .id();
+        let tab = app
+            .world_mut()
+            .spawn_scene(bsn! { @FeathersTab })
+            .unwrap()
+            .id();
+        app.update();
+
+        let world = app.world();
+        let list = world.entity(list).get::<Node>().unwrap();
+        let tab = world.entity(tab).get::<Node>().unwrap();
+        let (Val::Px(tab_height), Val::Px(min_height)) = (tab.min_height, list.min_height) else {
+            panic!("expected pixel heights");
+        };
+        let Val::Px(top) = list.padding.top else {
+            panic!("expected pixel padding");
+        };
+        let Val::Px(border) = list.border.top else {
+            panic!("expected pixel border");
+        };
+        assert_eq!(min_height, top + border + tab_height);
     }
 
     #[test]
