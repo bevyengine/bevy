@@ -1,6 +1,6 @@
 use crate::{
     bundle::Bundle,
-    entity::{hash_set::EntityHashSet, Entity},
+    entity::{hash_set::EntityHashSet, Entity, EntityIndexSet},
     prelude::Children,
     relationship::{
         Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
@@ -187,7 +187,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
         collection.clear();
-        collection.extend_from_iter(related.iter().copied().collect::<EntityHashSet>());
+        collection.extend_from_iter(related.iter().copied().collect::<EntityIndexSet>());
         self.insert(relations);
 
         self
