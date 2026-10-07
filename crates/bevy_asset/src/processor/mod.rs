@@ -203,6 +203,7 @@ impl AssetProcessor {
         self.data.sources.get(id.into())
     }
 
+    /// Retrieves all the [`AssetSource`]s for this processor.
     #[inline]
     pub fn sources(&self) -> &AssetSources {
         &self.data.sources
@@ -1830,6 +1831,7 @@ pub enum InitializeError {
 /// An error when attempting to set the transaction log factory.
 #[derive(Error, Debug)]
 pub enum SetTransactionLogFactoryError {
+    /// The transaction log is already in use, so setting the factory does nothing.
     #[error("Transaction log is already in use so setting the factory does nothing")]
     AlreadyInUse,
 }
@@ -1837,11 +1839,15 @@ pub enum SetTransactionLogFactoryError {
 /// An error when retrieving an asset processor.
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum GetProcessorError {
+    /// The processor of that name does not exist.
     #[error("The processor '{0}' does not exist")]
     Missing(String),
+    /// The given short name is ambiguous between several processors.
     #[error("The processor '{processor_short_name}' is ambiguous between several processors: {ambiguous_processor_names:?}")]
     Ambiguous {
+        /// The given string for the processor name.
         processor_short_name: String,
+        /// The list of processors that might match it.
         ambiguous_processor_names: Vec<&'static str>,
     },
 }

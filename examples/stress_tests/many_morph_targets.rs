@@ -3,6 +3,8 @@
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    gltf::GltfPlugin,
+    mesh::MeshCompressionArgs,
     post_process::motion_blur::MotionBlur,
     prelude::*,
     window::{PresentMode, WindowResolution},
@@ -129,6 +131,10 @@ struct Args {
     /// enable motion blur
     #[argh(switch)]
     motion_blur: bool,
+
+    /// whether to enable mesh compression.
+    #[argh(switch)]
+    mesh_compression: bool,
 }
 
 fn main() {
@@ -140,22 +146,32 @@ fn main() {
 
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Many Morph Targets".to_string(),
-                    present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
-                    ..Default::default()
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Many Morph Targets".to_string(),
+                        present_mode: PresentMode::AutoNoVsync,
+                        resolution: WindowResolution::new(1920, 1080)
+                            .with_scale_factor_override(1.0),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(GltfPlugin {
+                    mesh_compression: if args.mesh_compression {
+                        MeshCompressionArgs::regular()
+                    } else {
+                        MeshCompressionArgs::none()
+                    },
+                    ..default()
                 }),
-                ..Default::default()
-            }),
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(WinitSettings::continuous())
         .insert_resource(GlobalAmbientLight {
             brightness: 1000.0,
-            ..Default::default()
+            ..default()
         })
         .insert_resource(MorphAssets::default())
         .insert_resource(Rng(ChaCha8Rng::seed_from_u64(856673)))
@@ -194,6 +210,8 @@ fn setup(
     mut graphs: ResMut<Assets<AnimationGraph>>,
     state: Res<State>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     let (x_dim, _) = dims(state.slot_count);
 
     commands.spawn((
@@ -217,7 +235,7 @@ fn setup(
             MotionBlur {
                 // Use an unrealistically large shutter angle so that motion blur is clearly visible.
                 shutter_angle: 3.0,
-                ..Default::default()
+                ..default()
             },
             // MSAA and MotionBlur are not compatible on WebGL.
             #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]

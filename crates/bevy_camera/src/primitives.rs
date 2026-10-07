@@ -2,24 +2,22 @@ use core::borrow::Borrow;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
-use bevy_math::{
-    bounding::{Aabb3d, BoundingVolume},
-    primitives::{HalfSpace, ViewFrustum},
-    Affine3A, Mat3A, Vec3, Vec3A,
-};
+use bevy_math::{Affine3A, Mat3A, Vec3, Vec3A};
 use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
+use bevy_shape::{Aabb3d, BoundingVolume, HalfSpace, ViewFrustum};
 
 pub trait MeshAabb {
-    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
+    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space,
+    /// or return [`Mesh::final_aabb`] if it is not `None`.
     ///
     /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
     /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
-    fn compute_aabb(&self) -> Option<Aabb>;
+    fn get_aabb(&self) -> Option<Aabb>;
 }
 
 impl MeshAabb for Mesh {
-    fn compute_aabb(&self) -> Option<Aabb> {
+    fn get_aabb(&self) -> Option<Aabb> {
         if let Some(aabb) = self.final_aabb {
             // use precomputed extents
             return Some(aabb.into());

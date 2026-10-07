@@ -4,8 +4,10 @@ use argh::FromArgs;
 use bevy::{
     color::palettes::css::ORANGE_RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    picking::hover::Hovered,
     prelude::*,
     text::TextColor,
+    ui_widgets::Button,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
@@ -58,6 +60,10 @@ struct Args {
     /// a layout with a separate camera for each button
     #[argh(switch)]
     many_cameras: bool,
+
+    /// set overflow clip for each button
+    #[argh(switch)]
+    overflow_clip: bool,
 }
 
 /// This example shows what happens when there is a lot of buttons on screen.
@@ -67,8 +73,6 @@ fn main() {
     let args: Args = argh::from_env();
     #[cfg(target_arch = "wasm32")]
     let args = Args::from_args(&[], &[]).unwrap();
-
-    warn!(include_str!("warning_string.txt"));
 
     let mut app = App::new();
 
@@ -85,6 +89,7 @@ fn main() {
         LogDiagnosticsPlugin::default(),
     ))
     .insert_resource(WinitSettings::continuous())
+    .add_systems(Startup, || warn!(include_str!("warning_string.txt")))
     .add_systems(Update, (button_system, set_text_colors_changed));
 
     if !args.no_camera {
@@ -136,15 +141,13 @@ fn set_text_colors_changed(mut colors: Query<&mut TextColor>) {
 struct IdleColor(Color);
 
 fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &IdleColor),
-        Changed<Interaction>,
-    >,
+    mut hovered_query: Query<(&Hovered, &mut BackgroundColor, &IdleColor), Changed<Hovered>>,
 ) {
-    for (interaction, mut color, &IdleColor(idle_color)) in interaction_query.iter_mut() {
-        *color = match interaction {
-            Interaction::Hovered => ORANGE_RED.into(),
-            _ => idle_color.into(),
+    for (hovered, mut color, &IdleColor(idle_color)) in hovered_query.iter_mut() {
+        *color = if hovered.get() {
+            ORANGE_RED.into()
+        } else {
+            idle_color.into()
         };
     }
 }
@@ -199,6 +202,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                             images.as_ref().map(|images| {
                                 images[((column + row) / args.image_freq) % images.len()].clone()
                             }),
+                            args.overflow_clip,
                         );
                     }
                 });
@@ -254,6 +258,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                         images.as_ref().map(|images| {
                             images[((column + row) / args.image_freq) % images.len()].clone()
                         }),
+                        args.overflow_clip,
                     );
                 }
             }
@@ -270,12 +275,14 @@ fn spawn_button(
     border: UiRect,
     border_color: BorderColor,
     image: Option<Handle<Image>>,
+    clip: bool,
 ) {
     let width = vw(90.0 / buttons);
     let height = vh(90.0 / buttons);
     let margin = UiRect::axes(width * 0.05, height * 0.05);
     let mut builder = commands.spawn((
         Button,
+        Hovered(false),
         Node {
             width,
             height,
@@ -283,6 +290,11 @@ fn spawn_button(
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             border,
+            overflow: if clip {
+                Overflow::clip()
+            } else {
+                Overflow::visible()
+            },
             ..default()
         },
         BackgroundColor(background_color),
@@ -392,6 +404,7 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
                                     images[((column + row) / args.image_freq) % images.len()]
                                         .clone()
                                 }),
+                                args.overflow_clip,
                             );
                         });
                 });

@@ -38,7 +38,6 @@ use bevy_render::{
         allocator::{MeshAllocator, MeshAllocatorSettings, MeshSlabs},
         RenderMesh, RenderMeshBufferInfo,
     },
-    prelude::*,
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
@@ -50,12 +49,13 @@ use bevy_render::{
     },
     render_resource::{binding_types::*, *},
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
-    sync_world::{MainEntity, MainEntityHashMap},
+    sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet},
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
-        RetainedViewEntity, ViewDepthTexture, ViewTarget,
+        RetainedViewEntity, ViewDepthStencilTexture, ViewTarget,
     },
-    Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
+    RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bytemuck::{Pod, Zeroable};
@@ -86,7 +86,7 @@ impl WireframePlugin {
 
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "render/wireframe.wgsl");
+        embedded_asset!(app, "render/wireframe.wesl");
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<Wireframe3d, MeshPipeline>::new(self.debug_flags),
@@ -94,11 +94,10 @@ impl Plugin for WireframePlugin {
         ))
         .init_asset::<WireframeMaterial>()
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
-        .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
         .init_resource::<WireframeConfig>()
-        .init_resource::<WireframeEntitiesNeedingSpecialization>()
         .register_type::<WireframeLineWidth>()
         .register_type::<WireframeTopology>()
+        .register_type::<WireframeXray>()
         .add_systems(Startup, setup_global_wireframe_material)
         .add_systems(
             PostUpdate,
@@ -107,6 +106,7 @@ impl Plugin for WireframePlugin {
                 wireframe_color_changed,
                 wireframe_line_width_changed,
                 wireframe_topology_changed,
+                wireframe_xray_changed,
                 // Run `apply_global_wireframe_material` after `apply_wireframe_material` so that the global
                 // wireframe setting is applied to a mesh on the same frame its wireframe marker component is removed.
                 (apply_wireframe_material, apply_global_wireframe_material).chain(),
@@ -723,7 +723,7 @@ pub fn init_wireframe_3d_pipeline(
 
     commands.insert_resource(Wireframe3dPipeline {
         mesh_pipeline: mesh_pipeline.clone(),
-        shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wesl"),
         wide_bind_group_layout,
         wide_bind_group_layout_descriptor,
     });
@@ -735,6 +735,7 @@ pub struct WireframePipelineKey {
     pub wide: bool,
     pub quads: bool,
     pub line_mode: bool,
+    pub xray_mode: bool,
 }
 
 impl SpecializedMeshPipeline for Wireframe3dPipeline {
@@ -746,6 +747,14 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
+
+        if key.xray_mode {
+            descriptor.primitive.cull_mode = None;
+            let depth_stencil = descriptor.depth_stencil.as_mut().unwrap();
+            // An x-ray wireframe must not occlude or be occluded by anything
+            depth_stencil.depth_compare = Some(CompareFunction::Always);
+            depth_stencil.depth_write_enabled = Some(false);
+        }
 
         if descriptor.primitive.topology.is_triangles() {
             descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
@@ -799,7 +808,7 @@ pub fn wireframe_3d(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
     )>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
     mut ctx: RenderContext,
@@ -880,8 +889,16 @@ pub enum WireframeTopology {
     Quads,
 }
 
+/// Controls whether wireframe edges render as an x-ray overlay.
+///
+/// Overrides [`WireframeConfig::xray_mode`].
+#[derive(Component, Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct WireframeXray(pub bool);
+
 #[derive(Resource, Debug, Clone, ExtractResource, Reflect)]
 #[reflect(Resource, Debug, Default)]
+#[extract_app(RenderApp)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
@@ -894,6 +911,9 @@ pub struct WireframeConfig {
     pub default_line_width: f32,
     /// Default edge topology.
     pub default_topology: WireframeTopology,
+    /// Whether all wireframe pipelines render as x-ray overlays. When enabled,
+    /// both sides are rendered without depth testing.
+    pub xray_mode: bool,
 }
 
 impl Default for WireframeConfig {
@@ -903,6 +923,7 @@ impl Default for WireframeConfig {
             default_color: Color::default(),
             default_line_width: 1.0,
             default_topology: WireframeTopology::default(),
+            xray_mode: false,
         }
     }
 }
@@ -913,6 +934,7 @@ pub struct WireframeMaterial {
     pub color: Color,
     pub line_width: f32,
     pub topology: WireframeTopology,
+    pub xray_mode: bool,
 }
 
 impl Default for WireframeMaterial {
@@ -921,6 +943,7 @@ impl Default for WireframeMaterial {
             color: Color::default(),
             line_width: 1.0,
             topology: WireframeTopology::default(),
+            xray_mode: false,
         }
     }
 }
@@ -929,6 +952,7 @@ pub struct RenderWireframeMaterial {
     pub color: [f32; 4],
     pub line_width: f32,
     pub topology: WireframeTopology,
+    pub xray_mode: bool,
 }
 
 #[derive(
@@ -959,6 +983,7 @@ impl RenderAsset for RenderWireframeMaterial {
             color: source_asset.color.to_linear().to_f32_array(),
             line_width: source_asset.line_width,
             topology: source_asset.topology,
+            xray_mode: source_asset.xray_mode,
         })
     }
 }
@@ -980,7 +1005,10 @@ pub struct WireframeEntitiesNeedingSpecialization {
 #[derive(Resource, Default)]
 pub struct SpecializedWireframePipelineCache {
     views: HashMap<RetainedViewEntity, SpecializedWireframeViewPipelineCache>,
-    wide: HashMap<(MeshPipelineKey, MeshVertexBufferLayoutRef, bool, bool), CachedRenderPipelineId>,
+    wide: HashMap<
+        (MeshPipelineKey, MeshVertexBufferLayoutRef, bool, bool, bool),
+        CachedRenderPipelineId,
+    >,
 }
 
 #[derive(Deref, DerefMut, Default)]
@@ -1038,6 +1066,7 @@ fn setup_global_wireframe_material(
             color: config.default_color,
             line_width: config.default_line_width,
             topology: config.default_topology,
+            xray_mode: config.xray_mode,
         }),
     });
 }
@@ -1052,6 +1081,7 @@ fn wireframe_config_changed(
             Option<&WireframeColor>,
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
+            Option<&WireframeXray>,
         ),
         With<Wireframe>,
     >,
@@ -1060,9 +1090,12 @@ fn wireframe_config_changed(
         mat.color = config.default_color;
         mat.line_width = config.default_line_width;
         mat.topology = config.default_topology;
+        mat.xray_mode = config.xray_mode;
     }
 
-    for (mut handle, maybe_color, maybe_width, maybe_topology) in &mut per_entity_wireframes {
+    for (mut handle, maybe_color, maybe_width, maybe_topology, maybe_xray) in
+        &mut per_entity_wireframes
+    {
         if handle.0 == global_material.handle {
             continue;
         }
@@ -1072,6 +1105,7 @@ fn wireframe_config_changed(
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
+            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
         });
     }
 }
@@ -1084,18 +1118,22 @@ fn wireframe_color_changed(
             &WireframeColor,
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
+            Option<&WireframeXray>,
         ),
         (With<Wireframe>, Changed<WireframeColor>),
     >,
     config: Res<WireframeConfig>,
 ) {
-    for (mut handle, wireframe_color, maybe_width, maybe_topology) in &mut colors_changed {
+    for (mut handle, wireframe_color, maybe_width, maybe_topology, maybe_xray) in
+        &mut colors_changed
+    {
         handle.0 = materials.add(WireframeMaterial {
             color: wireframe_color.color,
             line_width: maybe_width
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
+            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
         });
     }
 }
@@ -1108,16 +1146,20 @@ fn wireframe_line_width_changed(
             &WireframeLineWidth,
             Option<&WireframeColor>,
             Option<&WireframeTopology>,
+            Option<&WireframeXray>,
         ),
         (With<Wireframe>, Changed<WireframeLineWidth>),
     >,
     config: Res<WireframeConfig>,
 ) {
-    for (mut handle, wireframe_width, maybe_color, maybe_topology) in &mut widths_changed {
+    for (mut handle, wireframe_width, maybe_color, maybe_topology, maybe_xray) in
+        &mut widths_changed
+    {
         handle.0 = materials.add(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: wireframe_width.width,
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
+            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
         });
     }
 }
@@ -1130,18 +1172,46 @@ fn wireframe_topology_changed(
             &WireframeTopology,
             Option<&WireframeColor>,
             Option<&WireframeLineWidth>,
+            Option<&WireframeXray>,
         ),
         (With<Wireframe>, Changed<WireframeTopology>),
     >,
     config: Res<WireframeConfig>,
 ) {
-    for (mut handle, topology, maybe_color, maybe_width) in &mut topology_changed {
+    for (mut handle, topology, maybe_color, maybe_width, maybe_xray) in &mut topology_changed {
         handle.0 = materials.add(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: maybe_width
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: *topology,
+            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+        });
+    }
+}
+
+fn wireframe_xray_changed(
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut xray_changed: Query<
+        (
+            &mut Mesh3dWireframe,
+            &WireframeXray,
+            Option<&WireframeColor>,
+            Option<&WireframeLineWidth>,
+            Option<&WireframeTopology>,
+        ),
+        (With<Wireframe>, Changed<WireframeXray>),
+    >,
+    config: Res<WireframeConfig>,
+) {
+    for (mut handle, xray, maybe_color, maybe_width, maybe_topology) in &mut xray_changed {
+        handle.0 = materials.add(WireframeMaterial {
+            color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
+            line_width: maybe_width
+                .map(|w| w.width)
+                .unwrap_or(config.default_line_width),
+            topology: maybe_topology.copied().unwrap_or(config.default_topology),
+            xray_mode: xray.0,
         });
     }
 }
@@ -1157,6 +1227,7 @@ fn apply_wireframe_material(
             Option<&WireframeColor>,
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
+            Option<&WireframeXray>,
         ),
         (With<Wireframe>, Without<Mesh3dWireframe>),
     >,
@@ -1172,11 +1243,12 @@ fn apply_wireframe_material(
     }
 
     let mut material_to_spawn = vec![];
-    for (e, maybe_color, maybe_width, maybe_topology) in &wireframes {
+    for (e, maybe_color, maybe_width, maybe_topology, maybe_xray) in &wireframes {
         let material = get_wireframe_material(
             maybe_color,
             maybe_width,
             maybe_topology,
+            maybe_xray,
             &mut materials,
             &global_material,
             &config,
@@ -1198,6 +1270,7 @@ fn apply_global_wireframe_material(
             Option<&WireframeColor>,
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
+            Option<&WireframeXray>,
         ),
         (WireframeFilter, Without<Mesh3dWireframe>),
     >,
@@ -1207,11 +1280,12 @@ fn apply_global_wireframe_material(
 ) {
     if config.global {
         let mut material_to_spawn = vec![];
-        for (e, maybe_color, maybe_width, maybe_topology) in &meshes_without_material {
+        for (e, maybe_color, maybe_width, maybe_topology, maybe_xray) in &meshes_without_material {
             let material = get_wireframe_material(
                 maybe_color,
                 maybe_width,
                 maybe_topology,
+                maybe_xray,
                 &mut materials,
                 &global_material,
                 &config,
@@ -1233,17 +1307,23 @@ fn get_wireframe_material(
     maybe_color: Option<&WireframeColor>,
     maybe_width: Option<&WireframeLineWidth>,
     maybe_topology: Option<&WireframeTopology>,
+    maybe_xray: Option<&WireframeXray>,
     wireframe_materials: &mut Assets<WireframeMaterial>,
     global_material: &GlobalWireframeMaterial,
     config: &WireframeConfig,
 ) -> Handle<WireframeMaterial> {
-    if maybe_color.is_some() || maybe_width.is_some() || maybe_topology.is_some() {
+    if maybe_color.is_some()
+        || maybe_width.is_some()
+        || maybe_topology.is_some()
+        || maybe_xray.is_some()
+    {
         wireframe_materials.add(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: maybe_width
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
+            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
         })
     } else {
         // If there's no color specified we can use the global material since it's already set to use the default_color
@@ -1317,8 +1397,11 @@ pub fn check_wireframe_entities_needing_specialization(
             AssetChanged<Mesh3dWireframe>,
             Changed<WireframeLineWidth>,
             Changed<WireframeTopology>,
+            Changed<WireframeXray>,
         )>,
     >,
+    wireframe_entities: Query<Entity, With<Mesh3dWireframe>>,
+    config: Res<WireframeConfig>,
     mut entities_needing_specialization: ResMut<WireframeEntitiesNeedingSpecialization>,
     mut removed_mesh_3d_components: RemovedComponents<Mesh3d>,
     mut removed_mesh_3d_wireframe_components: RemovedComponents<Mesh3dWireframe>,
@@ -1329,6 +1412,12 @@ pub fn check_wireframe_entities_needing_specialization(
     // Gather all entities that need their specializations regenerated.
     for entity in &needs_specialization {
         entities_needing_specialization.changed.push(entity);
+    }
+
+    if config.is_changed() {
+        entities_needing_specialization
+            .changed
+            .extend(wireframe_entities.iter());
     }
 
     // All entities that removed their `Mesh3d` or `Mesh3dWireframe` components
@@ -1433,6 +1522,10 @@ pub fn specialize_wireframes(
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
+                // Retry specialization once the mesh is ready.
+                view_pending_wireframe_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
 
@@ -1481,17 +1574,19 @@ pub fn specialize_wireframes(
                 .map(|m| m.topology == WireframeTopology::Quads)
                 .unwrap_or(false);
             let thick = mat.map(|m| m.line_width > 1.0).unwrap_or(false);
+            let xray_mode = mat.map(|m| m.xray_mode).unwrap_or(false);
             let wide = thick || quads;
             let line_mode = wide && !thick;
 
             let pipeline_id = if wide {
-                let cache_key = (mesh_key, mesh.layout.clone(), quads, line_mode);
+                let cache_key = (mesh_key, mesh.layout.clone(), quads, line_mode, xray_mode);
                 *wide_pipeline_cache.entry(cache_key).or_insert_with(|| {
                     let wireframe_key = WireframePipelineKey {
                         mesh_key,
                         wide: true,
                         quads,
                         line_mode,
+                        xray_mode,
                     };
                     match pipeline.specialize(wireframe_key, &mesh.layout) {
                         Ok(descriptor) => pipeline_cache.queue_render_pipeline(descriptor),
@@ -1507,6 +1602,7 @@ pub fn specialize_wireframes(
                     wide: false,
                     quads: false,
                     line_mode: false,
+                    xray_mode,
                 };
                 match pipelines.specialize(&pipeline_cache, &pipeline, wireframe_key, &mesh.layout)
                 {
@@ -1540,6 +1636,7 @@ fn queue_wireframes(
     mut wireframe_3d_phases: ResMut<ViewBinnedRenderPhases<Wireframe3d>>,
     mut pending_wireframe_queues: ResMut<PendingWireframeQueues>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (view, visible_entities) in &mut views {
         let Some(wireframe_phase) = wireframe_3d_phases.get_mut(&view.retained_view_entity) else {
@@ -1578,6 +1675,7 @@ fn queue_wireframes(
             view.retained_view_entity,
             render_mesh_visible_entities,
             &view_pending_wireframe_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(wireframe_instance) = render_wireframe_instances.get(visible_entity) else {
                 continue;
@@ -1609,6 +1707,7 @@ fn queue_wireframes(
             let Some(MeshSlabs {
                 vertex_slab_id: vertex_slab,
                 index_slab_id: index_slab,
+                metadata_slab_id: metadata_slab,
                 morph_target_slab_id: morph_target_slab,
             }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())
             else {
@@ -1624,6 +1723,7 @@ fn queue_wireframes(
                 slabs: MeshSlabs {
                     vertex_slab_id: vertex_slab,
                     morph_target_slab_id: morph_target_slab,
+                    metadata_slab_id: metadata_slab,
                     // wide wireframes use non-indexed draws (vertex pulling
                     // from storage), so set index_slab to None to make the
                     // preprocessor emit IndirectParametersNonIndexed instead of

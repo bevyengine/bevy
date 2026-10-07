@@ -85,21 +85,11 @@ impl WinitWindows {
             WindowMode::BorderlessFullscreen(_) => winit_window_attributes
                 .with_fullscreen(Some(Fullscreen::Borderless(maybe_selected_monitor.clone()))),
             WindowMode::Fullscreen(monitor_selection, video_mode_selection) => {
-                let select_monitor = &maybe_selected_monitor
-                    .clone()
-                    .expect("Unable to get monitor.");
-
-                if let Some(video_mode) =
-                    get_selected_videomode(select_monitor, &video_mode_selection)
-                {
-                    winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(video_mode)))
-                } else {
-                    warn!(
-                        "Could not find valid fullscreen video mode for {:?} {:?}",
-                        monitor_selection, video_mode_selection
-                    );
-                    winit_window_attributes
-                }
+                winit_window_attributes.with_fullscreen(Some(resolve_exclusive_fullscreen(
+                    maybe_selected_monitor.clone(),
+                    monitor_selection,
+                    video_mode_selection,
+                )))
             }
             WindowMode::Windowed => {
                 if let Some(position) = winit_window_position(
@@ -384,6 +374,35 @@ pub fn get_selected_videomode(
     }
 }
 
+/// Resolves a `WindowMode::Fullscreen` request to a [`Fullscreen`] value.
+///
+/// Tries exclusive fullscreen first; falls back to borderless fullscreen and logs a
+/// warning if the monitor cannot be resolved or no matching video mode is available.
+pub(crate) fn resolve_exclusive_fullscreen(
+    monitor: Option<MonitorHandle>,
+    monitor_selection: MonitorSelection,
+    video_mode_selection: VideoModeSelection,
+) -> Fullscreen {
+    let video_mode = monitor
+        .as_ref()
+        .and_then(|m| get_selected_videomode(m, &video_mode_selection));
+    if let Some(video_mode) = video_mode {
+        return Fullscreen::Exclusive(video_mode);
+    }
+    if monitor.is_none() {
+        warn!(
+            "Could not find monitor for {:?}; falling back to borderless fullscreen",
+            monitor_selection
+        );
+    } else {
+        warn!(
+            "Could not find valid fullscreen video mode for {:?} {:?}; falling back to borderless fullscreen",
+            monitor_selection, video_mode_selection
+        );
+    }
+    Fullscreen::Borderless(monitor)
+}
+
 /// Gets a monitor's current video-mode.
 ///
 // TODO: When Winit 0.31 releases this function can be removed and replaced with
@@ -425,7 +444,7 @@ pub(crate) fn attempt_grab(
         CursorGrabMode::None => winit_window.set_cursor_grab(WinitCursorGrabMode::None),
         CursorGrabMode::Confined => winit_window
             .set_cursor_grab(WinitCursorGrabMode::Confined)
-            .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::Locked)),
+            .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::None)),
         CursorGrabMode::Locked => winit_window
             .set_cursor_grab(WinitCursorGrabMode::Locked)
             .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::Confined)),

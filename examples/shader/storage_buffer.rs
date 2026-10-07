@@ -7,7 +7,7 @@ use bevy::{
     shader::ShaderRef,
 };
 
-const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wesl";
 
 fn main() {
     App::new()
@@ -50,7 +50,7 @@ fn setup(
             commands.spawn((
                 Mesh3d(mesh_handle.clone()),
                 MeshMaterial3d(material_handle.clone()),
-                MeshTag(current_color_id % 5),
+                MeshTag::new(current_color_id % 5),
                 Transform::from_xyz(i as f32, j as f32, 0.0),
             ));
             current_color_id += 1;
@@ -74,19 +74,16 @@ fn update(
     let material = materials.get_mut(&material_handles.0).unwrap();
 
     let mut buffer = buffers.get_mut(&material.colors).unwrap();
-    buffer.set_data(
-        (0..5)
-            .map(|i| {
-                let t = time.elapsed_secs() * 5.0;
-                [
-                    ops::sin(t + i as f32) / 2.0 + 0.5,
-                    ops::sin(t + i as f32 + 2.0) / 2.0 + 0.5,
-                    ops::sin(t + i as f32 + 4.0) / 2.0 + 0.5,
-                    1.0,
-                ]
-            })
-            .collect::<Vec<[f32; 4]>>(),
-    );
+    buffer.clear();
+    buffer.extend((0..5).map(|i| {
+        let t = time.elapsed_secs() * 5.0;
+        [
+            ops::sin(t + i as f32) / 2.0 + 0.5,
+            ops::sin(t + i as f32 + 2.0) / 2.0 + 0.5,
+            ops::sin(t + i as f32 + 4.0) / 2.0 + 0.5,
+            1.0,
+        ]
+    }));
 }
 
 // Holds handles to the custom materials

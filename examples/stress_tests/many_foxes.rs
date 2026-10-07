@@ -6,7 +6,9 @@ use std::{f32::consts::PI, time::Duration};
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    gltf::GltfPlugin,
     light::CascadeShadowConfigBuilder,
+    mesh::MeshCompressionArgs,
     post_process::motion_blur::MotionBlur,
     prelude::*,
     window::{PresentMode, WindowResolution},
@@ -28,6 +30,10 @@ struct Args {
     /// enable motion blur.
     #[argh(switch)]
     motion_blur: bool,
+
+    /// whether to enable mesh compression.
+    #[argh(switch)]
+    mesh_compression: bool,
 }
 
 #[derive(Resource)]
@@ -47,15 +53,25 @@ fn main() {
 
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
-                    present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
+                        present_mode: PresentMode::AutoNoVsync,
+                        resolution: WindowResolution::new(1920, 1080)
+                            .with_scale_factor_override(1.0),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(GltfPlugin {
+                    mesh_compression: if args.mesh_compression {
+                        MeshCompressionArgs::regular()
+                    } else {
+                        MeshCompressionArgs::none()
+                    },
                     ..default()
                 }),
-                ..default()
-            }),
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))

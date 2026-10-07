@@ -1,24 +1,23 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncCell;
 use bevy_utils::prelude::DebugName;
+use smallvec::SmallVec;
 use variadics_please::all_tuples;
 
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
+    component::Mutable,
     prelude::QueryBuilder,
-    query::{FilteredAccessSet, QueryData, QueryFilter, QueryState},
+    query::{QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
         DynSystemParam, DynSystemParamState, FromInput, FunctionSystem, If, IntoResult, IntoSystem,
-        Local, ParamSet, Query, ReadOnlySystem, System, SystemInput, SystemMeta, SystemParam,
-        SystemParamFunction, SystemParamValidationError,
+        Local, ParamSet, Query, ReadOnlySystem, System, SystemAccess, SystemInput, SystemMeta,
+        SystemParam, SystemParamFunction, SystemParamValidationError,
     },
-    world::{
-        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources,
-        FilteredResourcesBuilder, FilteredResourcesMut, FilteredResourcesMutBuilder, FromWorld,
-        World,
-    },
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
+
 use core::{fmt::Debug, marker::PhantomData, mem};
 
 use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
@@ -101,10 +100,6 @@ use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
 /// You can also use a [`QueryState`] to build a [`Query`].
 ///
 /// [`LocalBuilder`] can build a [`Local`] to supply the initial value for the `Local`.
-///
-/// [`FilteredResourcesParamBuilder`] can build a [`FilteredResources`],
-/// and [`FilteredResourcesMutParamBuilder`] can build a [`FilteredResourcesMut`],
-/// to configure the resources that can be accessed.
 ///
 /// [`DynParamBuilder`] can build a [`DynSystemParam`] to determine the type of the inner parameter,
 /// and to supply any `SystemParamBuilder` it needs.
@@ -226,7 +221,8 @@ impl ParamBuilder {
     }
 
     /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to `of::<ResMut<T>>()`
-    pub fn resource_mut<'w, T: Resource>() -> impl SystemParamBuilder<ResMut<'w, T>> {
+    pub fn resource_mut<'w, T: Resource<Mutability = Mutable>>(
+    ) -> impl SystemParamBuilder<ResMut<'w, T>> {
         Self
     }
 
@@ -421,7 +417,7 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         let inner = mem::replace(&mut self.inner, BuilderSystemInner::Invalid);
         match inner {
             BuilderSystemInner::Initialized { mut system } => {
@@ -494,8 +490,7 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 
 /// A [`SystemParamBuilder`] for a [`Query`].
 /// This takes a closure accepting an `&mut` [`QueryBuilder`] and uses the builder to construct the query's state.
-/// This can be used to add additional filters,
-/// or to configure the components available to [`FilteredEntityRef`](crate::world::FilteredEntityRef) or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
+/// This can be used to add additional filters.
 ///
 /// ## Example
 ///
@@ -613,6 +608,17 @@ all_tuples!(
 // SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>> for Vec<B> {
     fn build(self, world: &mut World) -> <Vec<P> as SystemParam>::State {
+        self.into_iter()
+            .map(|builder| builder.build(world))
+            .collect()
+    }
+}
+
+// SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>, const N: usize>
+    SystemParamBuilder<SmallVec<[P; N]>> for SmallVec<[B; N]>
+{
+    fn build(self, world: &mut World) -> <SmallVec<[P; N]> as SystemParam>::State {
         self.into_iter()
             .map(|builder| builder.build(world))
             .collect()
@@ -785,74 +791,6 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
     }
 }
 
-/// A [`SystemParamBuilder`] for a [`FilteredResources`].
-/// See the [`FilteredResources`] docs for examples.
-#[derive(Clone)]
-pub struct FilteredResourcesParamBuilder<T>(T);
-
-impl<T> FilteredResourcesParamBuilder<T> {
-    /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
-    pub fn new(f: T) -> Self
-    where
-        T: FnOnce(&mut FilteredResourcesBuilder),
-    {
-        Self(f)
-    }
-}
-
-impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuilder) + 'a>> {
-    /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
-    /// This boxes the callback so that it has a common type.
-    pub fn new_box(f: impl FnOnce(&mut FilteredResourcesBuilder) + 'a) -> Self {
-        Self(Box::new(f))
-    }
-}
-
-// SAFETY: Any `Access` is a valid state for `FilteredResources`.
-unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
-    SystemParamBuilder<FilteredResources<'w, 's>> for FilteredResourcesParamBuilder<T>
-{
-    fn build(self, world: &mut World) -> <FilteredResources<'w, 's> as SystemParam>::State {
-        let mut builder = FilteredResourcesBuilder::new(world);
-        (self.0)(&mut builder);
-        builder.build()
-    }
-}
-
-/// A [`SystemParamBuilder`] for a [`FilteredResourcesMut`].
-/// See the [`FilteredResourcesMut`] docs for examples.
-#[derive(Clone)]
-pub struct FilteredResourcesMutParamBuilder<T>(T);
-
-impl<T> FilteredResourcesMutParamBuilder<T> {
-    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
-    pub fn new(f: T) -> Self
-    where
-        T: FnOnce(&mut FilteredResourcesMutBuilder),
-    {
-        Self(f)
-    }
-}
-
-impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesMutBuilder) + 'a>> {
-    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
-    /// This boxes the callback so that it has a common type.
-    pub fn new_box(f: impl FnOnce(&mut FilteredResourcesMutBuilder) + 'a) -> Self {
-        Self(Box::new(f))
-    }
-}
-
-// SAFETY: Any `Access` is a valid state for `FilteredResourcesMut`.
-unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
-    SystemParamBuilder<FilteredResourcesMut<'w, 's>> for FilteredResourcesMutParamBuilder<T>
-{
-    fn build(self, world: &mut World) -> <FilteredResourcesMut<'w, 's> as SystemParam>::State {
-        let mut builder = FilteredResourcesMutBuilder::new(world);
-        (self.0)(&mut builder);
-        builder.build()
-    }
-}
-
 /// A [`SystemParamBuilder`] for an [`Option`].
 #[derive(Clone)]
 pub struct OptionBuilder<T>(T);
@@ -899,11 +837,9 @@ mod tests {
         entity::Entities,
         error::Result,
         prelude::{Component, Query},
-        reflect::ReflectResource,
         system::{Local, RunSystemOnce},
     };
     use alloc::vec;
-    use bevy_reflect::Reflect;
 
     use super::*;
 
@@ -915,12 +851,6 @@ mod tests {
 
     #[derive(Component)]
     struct C;
-
-    #[derive(Resource, Default, Reflect)]
-    #[reflect(Resource)]
-    struct R {
-        foo: usize,
-    }
 
     fn local_system(local: Local<u64>) -> u64 {
         *local
@@ -1270,115 +1200,5 @@ mod tests {
 
         let output = world.run_system_once(builder_system).unwrap();
         assert_eq!(output, 101);
-    }
-
-    #[test]
-    fn filtered_resource_conflicts_read_with_res() {
-        let mut world = World::new();
-        (
-            ParamBuilder::resource(),
-            FilteredResourcesParamBuilder::new(|builder| {
-                builder.add_read::<R>();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(|_r: Res<R>, _fr: FilteredResources| {});
-    }
-
-    #[test]
-    #[should_panic]
-    fn filtered_resource_conflicts_read_with_resmut() {
-        let mut world = World::new();
-        (
-            ParamBuilder::resource_mut(),
-            FilteredResourcesParamBuilder::new(|builder| {
-                builder.add_read::<R>();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(|_r: ResMut<R>, _fr: FilteredResources| {});
-    }
-
-    #[test]
-    #[should_panic]
-    fn filtered_resource_conflicts_read_all_with_resmut() {
-        let mut world = World::new();
-        (
-            ParamBuilder::resource_mut(),
-            FilteredResourcesParamBuilder::new(|builder| {
-                builder.add_read_all();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(|_r: ResMut<R>, _fr: FilteredResources| {});
-    }
-
-    #[test]
-    fn filtered_resource_mut_conflicts_read_with_res() {
-        let mut world = World::new();
-        (
-            ParamBuilder::resource(),
-            FilteredResourcesMutParamBuilder::new(|builder| {
-                builder.add_read::<R>();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(|_r: Res<R>, _fr: FilteredResourcesMut| {});
-    }
-
-    #[test]
-    #[should_panic]
-    fn filtered_resource_mut_conflicts_read_with_resmut() {
-        let mut world = World::new();
-        (
-            ParamBuilder::resource_mut(),
-            FilteredResourcesMutParamBuilder::new(|builder| {
-                builder.add_read::<R>();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
-    }
-
-    #[test]
-    #[should_panic]
-    fn filtered_resource_mut_conflicts_write_with_res() {
-        let mut world = World::new();
-        (
-            ParamBuilder::resource(),
-            FilteredResourcesMutParamBuilder::new(|builder| {
-                builder.add_write::<R>();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(|_r: Res<R>, _fr: FilteredResourcesMut| {});
-    }
-
-    #[test]
-    #[should_panic]
-    fn filtered_resource_mut_conflicts_write_all_with_res() {
-        let mut world = World::new();
-        (
-            ParamBuilder::resource(),
-            FilteredResourcesMutParamBuilder::new(|builder| {
-                builder.add_write_all();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(|_r: Res<R>, _fr: FilteredResourcesMut| {});
-    }
-
-    #[test]
-    #[should_panic]
-    fn filtered_resource_mut_conflicts_write_with_resmut() {
-        let mut world = World::new();
-        (
-            ParamBuilder::resource_mut(),
-            FilteredResourcesMutParamBuilder::new(|builder| {
-                builder.add_write::<R>();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
     }
 }

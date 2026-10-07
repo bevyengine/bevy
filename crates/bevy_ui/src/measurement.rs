@@ -51,9 +51,9 @@ pub struct ResolvedAxis {
 fn resolve_axis(
     known_size: Option<f32>,
     available_space: AvailableSpace,
-    min_dim: taffy::style::Dimension,
+    min_dim: taffy::style::LengthPercentageAuto,
     size_dim: taffy::style::Dimension,
-    max_dim: taffy::style::Dimension,
+    max_dim: taffy::style::LengthPercentageAuto,
 ) -> ResolvedAxis {
     let calc = |_, _| 0.;
     let available = available_space.into_option();
@@ -92,7 +92,7 @@ impl MeasureArgs<'_> {
     }
 }
 
-/// A `Measure` is used to compute the size of a ui node
+/// A `Measure` is used to compute the size of a UI node
 /// when the size of that node is based on its content.
 pub trait Measure: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.

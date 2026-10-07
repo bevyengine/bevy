@@ -100,6 +100,8 @@
 //! | --------------------------------- | --------- | ----------------------------------- |
 //! | `KHR_animation_pointer`           | ❌        |                                     |
 //! | `KHR_draco_mesh_compression`      | ❌        |                                     |
+//! | `KHR_gaussian_splatting`          | ❌        |                                     |
+//! | `KHR_interactivity`               | ❌        |                                     |
 //! | `KHR_lights_punctual`             | ✅        |                                     |
 //! | `KHR_materials_anisotropy`        | ✅        | `pbr_anisotropy_texture`            |
 //! | `KHR_materials_clearcoat`         | ✅        | `pbr_multi_layer_material_textures` |
@@ -114,6 +116,9 @@
 //! | `KHR_materials_variants`          | ❌        |                                     |
 //! | `KHR_materials_volume`            | ✅        |                                     |
 //! | `KHR_mesh_quantization`           | ❌        |                                     |
+//! | `KHR_node_hoverability`           | ❌        |                                     |
+//! | `KHR_node_selectability`          | ❌        |                                     |
+//! | `KHR_node_visibility`             | ❌        |                                     |
 //! | `KHR_texture_basisu`              | ❌\*      |                                     |
 //! | `KHR_texture_transform`           | ✅\**     |                                     |
 //! | `KHR_xmp_json_ld`                 | ❌        |                                     |
@@ -148,7 +153,7 @@ use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::Resource;
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats, ImageSamplerDescriptor};
-use bevy_mesh::MeshVertexAttribute;
+use bevy_mesh::{MeshCompressionArgs, MeshVertexAttribute};
 
 /// The glTF prelude.
 ///
@@ -163,10 +168,7 @@ use crate::{convert_coordinates::GltfConvertCoordinates, extensions::GltfExtensi
 pub use {assets::*, label::GltfAssetLabel, loader::*, material::GltfMaterial};
 
 /// Re-exports for GLTF
-pub mod gltf {
-    #[doc(hidden)]
-    pub use gltf::{Animation, Document, Gltf, Material, Mesh, Primitive, Scene, Texture};
-}
+pub use gltf;
 
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
 /// Stores default [`ImageSamplerDescriptor`] in main world.
@@ -237,6 +239,9 @@ pub struct GltfPlugin {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+
+    /// Mesh attribute compression arguments applied when loading meshes.
+    pub mesh_compression: MeshCompressionArgs,
 }
 
 impl Default for GltfPlugin {
@@ -246,6 +251,7 @@ impl Default for GltfPlugin {
             custom_vertex_attributes: HashMap::default(),
             convert_coordinates: GltfConvertCoordinates::default(),
             skinned_mesh_bounds_policy: Default::default(),
+            mesh_compression: MeshCompressionArgs::none(),
         }
     }
 }
@@ -302,6 +308,7 @@ impl Plugin for GltfPlugin {
             default_convert_coordinates: self.convert_coordinates,
             extensions: extensions.0.clone(),
             default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
+            default_mesh_compression: self.mesh_compression.clone(),
         });
     }
 }

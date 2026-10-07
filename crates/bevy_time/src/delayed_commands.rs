@@ -158,6 +158,14 @@ pub fn check_delayed_command_queues(
     }
 }
 
+/// The system used to silence [`DelayedCommandQueue`] that exist, but haven't been run
+/// when the application is exiting.
+pub fn silence_delayed_command_queues_on_exit(queues: Query<&mut DelayedCommandQueue>) {
+    for mut queue in queues {
+        queue.queue.silence_drop_warning();
+    }
+}
+
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {

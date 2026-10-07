@@ -25,7 +25,7 @@ pub struct ScenePatch {
     pub dependencies: Vec<UntypedHandle>,
     /// The [`ResolvedSceneRoot`], if exists. This is populated after the [`Scene`] has been loaded and resolved
     // TODO: consider breaking this out to prevent mutating asset events when resolved. Assets as Entities will enable this!
-    // TODO: This Arc exists to allow nested ResolvedSceneRoot::apply when borrowing inherited ScenePatch assets (see the ResolvedSceneRoot::apply implementation).
+    // TODO: This Arc exists to allow nested ResolvedSceneRoot::apply when borrowing cached ScenePatch assets (see the ResolvedSceneRoot::apply implementation).
     pub resolved: Option<Arc<ResolvedSceneRoot>>,
 }
 

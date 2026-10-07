@@ -10,6 +10,7 @@ use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    material::AlphaMode as AlphaMode3d,
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     sprite::SpriteAlphaMode,
@@ -27,6 +28,9 @@ const BIRD_SCALE: f32 = 0.15;
 const BIRD_TEXTURE_SIZE: usize = 256;
 const HALF_BIRD_SIZE: f32 = BIRD_TEXTURE_SIZE as f32 * BIRD_SCALE * 0.5;
 
+const FIXED_DELTA_TIME: f32 = 1.0 / 60.0;
+const FIXED_TIMESTEP: f32 = 0.2;
+
 #[derive(Resource)]
 struct BevyCounter {
     pub count: usize,
@@ -41,7 +45,7 @@ struct Bird {
 #[derive(FromArgs, Resource)]
 /// `bevymark` sprite / 2D mesh stress test
 struct Args {
-    /// whether to use sprite or mesh2d
+    /// whether to use `sprite`, `mesh2d` or `mesh3d`
     #[argh(option, default = "Mode::Sprite")]
     mode: Mode,
 
@@ -80,8 +84,8 @@ struct Args {
 enum Mode {
     #[default]
     Sprite,
-    SpriteMesh,
     Mesh2d,
+    Mesh3d,
 }
 
 impl FromStr for Mode {
@@ -91,9 +95,9 @@ impl FromStr for Mode {
         match s {
             "sprite" => Ok(Self::Sprite),
             "mesh2d" => Ok(Self::Mesh2d),
-            "sprite_mesh" => Ok(Self::SpriteMesh),
+            "mesh3d" => Ok(Self::Mesh3d),
             _ => Err(format!(
-                "Unknown mode: '{s}', valid modes: 'sprite', 'mesh2d', 'sprite_mesh'"
+                "Unknown mode: '{s}', valid modes: 'sprite', 'mesh2d', 'mesh3d'"
             )),
         }
     }
@@ -121,8 +125,6 @@ impl FromStr for AlphaMode {
         }
     }
 }
-
-const FIXED_TIMESTEP: f32 = 0.2;
 
 fn main() {
     // `from_env` panics on the web
@@ -203,7 +205,8 @@ fn scheduled_spawner(
 #[derive(Resource)]
 struct BirdResources {
     textures: Vec<Handle<Image>>,
-    materials: Vec<Handle<ColorMaterial>>,
+    materials_2d: Vec<Handle<ColorMaterial>>,
+    materials_3d: Vec<Handle<StandardMaterial>>,
     quad: Handle<Mesh>,
     color_rng: ChaCha8Rng,
     material_rng: ChaCha8Rng,
@@ -219,7 +222,8 @@ fn setup(
     args: Res<Args>,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
-    material_assets: ResMut<Assets<ColorMaterial>>,
+    color_materials: ResMut<Assets<ColorMaterial>>,
+    standard_materials: ResMut<Assets<StandardMaterial>>,
     images: ResMut<Assets<Image>>,
     window: Single<&Window>,
     counter: ResMut<BevyCounter>,
@@ -235,19 +239,61 @@ fn setup(
     }
     init_textures(&mut textures, args, images);
 
-    let material_assets = material_assets.into_inner();
-    let materials = init_materials(args, &textures, material_assets);
+    let mut materials_2d = Vec::new();
+    let mut materials_3d = Vec::new();
+    match args.mode {
+        Mode::Sprite => {}
+        Mode::Mesh2d => {
+            let alpha_mode = match args.alpha_mode {
+                AlphaMode::Opaque => AlphaMode2d::Opaque,
+                AlphaMode::Blend => AlphaMode2d::Blend,
+                AlphaMode::AlphaMask => AlphaMode2d::Mask(0.5),
+            };
+            materials_2d = init_materials(
+                args,
+                &textures,
+                color_materials.into_inner(),
+                |color, texture| ColorMaterial {
+                    color,
+                    texture,
+                    alpha_mode,
+                    ..default()
+                },
+            );
+        }
+        Mode::Mesh3d => {
+            let alpha_mode = match args.alpha_mode {
+                AlphaMode::Opaque => AlphaMode3d::Opaque,
+                AlphaMode::Blend => AlphaMode3d::Blend,
+                AlphaMode::AlphaMask => AlphaMode3d::Mask(0.5),
+            };
+            // Unlit, so that the shading work stays close to `ColorMaterial`.
+            materials_3d = init_materials(
+                args,
+                &textures,
+                standard_materials.into_inner(),
+                |base_color, base_color_texture| StandardMaterial {
+                    base_color,
+                    base_color_texture,
+                    alpha_mode,
+                    unlit: true,
+                    ..default()
+                },
+            );
+        }
+    }
 
     let mut bird_resources = BirdResources {
         textures,
-        materials,
+        materials_2d,
+        materials_3d,
         quad: meshes.add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32))),
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
-        color_rng: ChaCha8Rng::seed_from_u64(42),
-        material_rng: ChaCha8Rng::seed_from_u64(42),
-        velocity_rng: ChaCha8Rng::seed_from_u64(42),
-        transform_rng: ChaCha8Rng::seed_from_u64(42),
+        color_rng: ChaCha8Rng::seed_from_u64(100),
+        material_rng: ChaCha8Rng::seed_from_u64(200),
+        velocity_rng: ChaCha8Rng::seed_from_u64(300),
+        transform_rng: ChaCha8Rng::seed_from_u64(400),
     };
 
     let font = TextFont {
@@ -255,7 +301,19 @@ fn setup(
         ..Default::default()
     };
 
-    commands.spawn(Camera2d);
+    match args.mode {
+        Mode::Sprite | Mode::Mesh2d => {
+            commands.spawn(Camera2d);
+        }
+        Mode::Mesh3d => {
+            commands.spawn((
+                Camera3d::default(),
+                Projection::Orthographic(OrthographicProjection::default_3d()),
+                Transform::from_xyz(0.0, 0.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ));
+        }
+    }
+
     commands
         .spawn((
             Node {
@@ -338,7 +396,7 @@ fn mouse_handler(
     if rng.is_none() {
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
-        *rng = Some(ChaCha8Rng::seed_from_u64(42));
+        *rng = Some(ChaCha8Rng::seed_from_u64(500));
     }
     let rng = rng.as_mut().unwrap();
 
@@ -363,29 +421,41 @@ fn mouse_handler(
 }
 
 fn bird_velocity_transform(
+    args: &Args,
+    index: usize,
     half_extents: Vec2,
-    mut translation: Vec3,
-    velocity_rng: &mut ChaCha8Rng,
     waves: Option<usize>,
-    dt: f32,
-) -> (Transform, Vec3) {
-    let mut velocity = Vec3::new(MAX_VELOCITY * (velocity_rng.random::<f32>() - 0.5), 0., 0.);
+    bird_resources: &mut BirdResources,
+) -> (Transform, Bird) {
+    let bird_z = if args.ordered_z {
+        index as f32 * 0.00001
+    } else {
+        bird_resources.transform_rng.random::<f32>()
+    };
+    let mut translation = Vec3::new(
+        -half_extents.x + HALF_BIRD_SIZE,
+        half_extents.y - HALF_BIRD_SIZE,
+        bird_z,
+    );
+    let mut velocity = Vec3::new(
+        MAX_VELOCITY * (bird_resources.velocity_rng.random::<f32>() - 0.5),
+        0.,
+        0.,
+    );
 
     if let Some(waves) = waves {
         // Step the movement and handle collisions as if the wave had been spawned at fixed time intervals
         // and with dt-spaced frames of simulation
-        for _ in 0..(waves * (FIXED_TIMESTEP / dt).round() as usize) {
-            step_movement(&mut translation, &mut velocity, dt);
+        for _ in 0..(waves * (FIXED_TIMESTEP / FIXED_DELTA_TIME).round() as usize) {
+            step_movement(&mut translation, &mut velocity, FIXED_DELTA_TIME);
             handle_collision(half_extents, &translation, &mut velocity);
         }
     }
     (
         Transform::from_translation(translation).with_scale(Vec3::splat(BIRD_SCALE)),
-        velocity,
+        Bird { velocity },
     )
 }
-
-const FIXED_DELTA_TIME: f32 = 1.0 / 60.0;
 
 fn spawn_birds(
     commands: &mut Commands,
@@ -397,9 +467,6 @@ fn spawn_birds(
     waves_to_simulate: Option<usize>,
     wave: usize,
 ) {
-    let bird_x = (primary_window_resolution.width() / -2.) + HALF_BIRD_SIZE;
-    let bird_y = (primary_window_resolution.height() / 2.) - HALF_BIRD_SIZE;
-
     let half_extents = 0.5 * primary_window_resolution.size();
 
     let color = counter.color;
@@ -407,22 +474,21 @@ fn spawn_birds(
 
     match args.mode {
         Mode::Sprite => {
+            let alpha_mode = match args.alpha_mode {
+                AlphaMode::Opaque => SpriteAlphaMode::Opaque,
+                AlphaMode::Blend => SpriteAlphaMode::Blend,
+                AlphaMode::AlphaMask => SpriteAlphaMode::Mask(0.5),
+            };
+
             let batch = (0..spawn_count)
                 .map(|count| {
-                    let bird_z = if args.ordered_z {
-                        (current_count + count) as f32 * 0.00001
-                    } else {
-                        bird_resources.transform_rng.random::<f32>()
-                    };
-
-                    let (transform, velocity) = bird_velocity_transform(
+                    let (transform, bird) = bird_velocity_transform(
+                        args,
+                        current_count + count,
                         half_extents,
-                        Vec3::new(bird_x, bird_y, bird_z),
-                        &mut bird_resources.velocity_rng,
                         waves_to_simulate,
-                        FIXED_DELTA_TIME,
+                        bird_resources,
                     );
-
                     let color = if args.vary_per_instance {
                         Color::linear_rgb(
                             bird_resources.color_rng.random(),
@@ -440,60 +506,11 @@ fn spawn_birds(
                                 .unwrap()
                                 .clone(),
                             color,
-                            ..default()
-                        },
-                        transform,
-                        Bird { velocity },
-                    )
-                })
-                .collect::<Vec<_>>();
-            commands.spawn_batch(batch);
-        }
-        Mode::SpriteMesh => {
-            let alpha_mode = match args.alpha_mode {
-                AlphaMode::Opaque => SpriteAlphaMode::Opaque,
-                AlphaMode::Blend => SpriteAlphaMode::Blend,
-                AlphaMode::AlphaMask => SpriteAlphaMode::Mask(0.5),
-            };
-
-            let batch = (0..spawn_count)
-                .map(|count| {
-                    let bird_z = if args.ordered_z {
-                        (current_count + count) as f32 * 0.00001
-                    } else {
-                        bird_resources.transform_rng.random::<f32>()
-                    };
-
-                    let (transform, velocity) = bird_velocity_transform(
-                        half_extents,
-                        Vec3::new(bird_x, bird_y, bird_z),
-                        &mut bird_resources.velocity_rng,
-                        waves_to_simulate,
-                        FIXED_DELTA_TIME,
-                    );
-
-                    let color = if args.vary_per_instance {
-                        Color::linear_rgb(
-                            bird_resources.color_rng.random(),
-                            bird_resources.color_rng.random(),
-                            bird_resources.color_rng.random(),
-                        )
-                    } else {
-                        color
-                    };
-                    (
-                        SpriteMesh {
-                            image: bird_resources
-                                .textures
-                                .choose(&mut bird_resources.material_rng)
-                                .unwrap()
-                                .clone(),
-                            color,
                             alpha_mode,
                             ..default()
                         },
                         transform,
-                        Bird { velocity },
+                        bird,
                     )
                 })
                 .collect::<Vec<_>>();
@@ -502,35 +519,48 @@ fn spawn_birds(
         Mode::Mesh2d => {
             let batch = (0..spawn_count)
                 .map(|count| {
-                    let bird_z = if args.ordered_z {
-                        (current_count + count) as f32 * 0.00001
-                    } else {
-                        bird_resources.transform_rng.random::<f32>()
-                    };
-
-                    let (transform, velocity) = bird_velocity_transform(
+                    let (transform, bird) = bird_velocity_transform(
+                        args,
+                        current_count + count,
                         half_extents,
-                        Vec3::new(bird_x, bird_y, bird_z),
-                        &mut bird_resources.velocity_rng,
                         waves_to_simulate,
-                        FIXED_DELTA_TIME,
+                        bird_resources,
                     );
-
-                    let material =
-                        if args.vary_per_instance || args.material_texture_count > args.waves {
-                            bird_resources
-                                .materials
-                                .choose(&mut bird_resources.material_rng)
-                                .unwrap()
-                                .clone()
-                        } else {
-                            bird_resources.materials[wave % bird_resources.materials.len()].clone()
-                        };
                     (
                         Mesh2d(bird_resources.quad.clone()),
-                        MeshMaterial2d(material),
+                        MeshMaterial2d(select_material(
+                            args,
+                            &bird_resources.materials_2d,
+                            &mut bird_resources.material_rng,
+                            wave,
+                        )),
                         transform,
-                        Bird { velocity },
+                        bird,
+                    )
+                })
+                .collect::<Vec<_>>();
+            commands.spawn_batch(batch);
+        }
+        Mode::Mesh3d => {
+            let batch = (0..spawn_count)
+                .map(|count| {
+                    let (transform, bird) = bird_velocity_transform(
+                        args,
+                        current_count + count,
+                        half_extents,
+                        waves_to_simulate,
+                        bird_resources,
+                    );
+                    (
+                        Mesh3d(bird_resources.quad.clone()),
+                        MeshMaterial3d(select_material(
+                            args,
+                            &bird_resources.materials_3d,
+                            &mut bird_resources.material_rng,
+                            wave,
+                        )),
+                        transform,
+                        bird,
                     )
                 })
                 .collect::<Vec<_>>();
@@ -544,6 +574,19 @@ fn spawn_birds(
         bird_resources.color_rng.random(),
         bird_resources.color_rng.random(),
     );
+}
+
+fn select_material<M: Asset>(
+    args: &Args,
+    materials: &[Handle<M>],
+    material_rng: &mut ChaCha8Rng,
+    wave: usize,
+) -> Handle<M> {
+    if args.vary_per_instance || args.material_texture_count > args.waves {
+        materials.choose(material_rng).unwrap().clone()
+    } else {
+        materials[wave % materials.len()].clone()
+    }
 }
 
 fn step_movement(translation: &mut Vec3, velocity: &mut Vec3, dt: f32) {
@@ -621,7 +664,7 @@ fn counter_system(
 fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut Assets<Image>) {
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
-    let mut color_rng = ChaCha8Rng::seed_from_u64(42);
+    let mut color_rng = ChaCha8Rng::seed_from_u64(600);
     while textures.len() < args.material_texture_count {
         let pixel = [
             color_rng.random(),
@@ -643,11 +686,12 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
     }
 }
 
-fn init_materials(
+fn init_materials<M: Asset>(
     args: &Args,
     textures: &[Handle<Image>],
-    assets: &mut Assets<ColorMaterial>,
-) -> Vec<Handle<ColorMaterial>> {
+    assets: &mut Assets<M>,
+    new_material: impl Fn(Color, Option<Handle<Image>>) -> M,
+) -> Vec<Handle<M>> {
     let capacity = if args.vary_per_instance {
         args.per_wave * args.waves
     } else {
@@ -655,32 +699,19 @@ fn init_materials(
     }
     .max(1);
 
-    let alpha_mode = match args.alpha_mode {
-        AlphaMode::Opaque => AlphaMode2d::Opaque,
-        AlphaMode::Blend => AlphaMode2d::Blend,
-        AlphaMode::AlphaMask => AlphaMode2d::Mask(0.5),
-    };
-
     let mut materials = Vec::with_capacity(capacity);
-    materials.push(assets.add(ColorMaterial {
-        color: Color::WHITE,
-        texture: textures.first().cloned(),
-        alpha_mode,
-        ..default()
-    }));
+    materials.push(assets.add(new_material(Color::WHITE, textures.first().cloned())));
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
-    let mut color_rng = ChaCha8Rng::seed_from_u64(42);
-    let mut texture_rng = ChaCha8Rng::seed_from_u64(42);
+    let mut color_rng = ChaCha8Rng::seed_from_u64(700);
+    let mut texture_rng = ChaCha8Rng::seed_from_u64(800);
     materials.extend(
         std::iter::repeat_with(|| {
-            assets.add(ColorMaterial {
-                color: Color::srgb_u8(color_rng.random(), color_rng.random(), color_rng.random()),
-                texture: textures.choose(&mut texture_rng).cloned(),
-                alpha_mode,
-                ..default()
-            })
+            assets.add(new_material(
+                Color::srgb_u8(color_rng.random(), color_rng.random(), color_rng.random()),
+                textures.choose(&mut texture_rng).cloned(),
+            ))
         })
         .take(capacity - materials.len()),
     );

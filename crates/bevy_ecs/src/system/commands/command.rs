@@ -10,9 +10,10 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
-    error::{CommandOutput, ErrorContext, ErrorHandler, Result},
-    event::Event,
+    error::{BevyError, CommandOutput, ErrorContext, Result},
+    event::{Event, EventTriggerState},
     message::{Message, Messages},
+    query::{QueryData, QueryFilter},
     resource::Resource,
     schedule::ScheduleLabel,
     system::{IntoSystem, SystemId, SystemInput},
@@ -63,7 +64,10 @@ pub trait Command: Send + 'static {
     /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
     #[inline]
-    fn handle_error_with(self, error_handler: ErrorHandler) -> impl Command<Out = ()>
+    fn handle_error_with(
+        self,
+        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
+    ) -> impl Command<Out = ()>
     where
         Self: Sized,
     {
@@ -182,7 +186,8 @@ pub fn remove_resource<R: Resource>() -> impl Command {
 }
 
 /// A [`Command`] that runs the system corresponding to the given [`SystemId`].
-pub fn run_system<O: 'static>(id: SystemId<(), O>) -> impl Command {
+pub fn run_system<O: 'static>(id: impl Into<SystemId<(), O>> + Send) -> impl Command {
+    let id = id.into();
     move |world: &mut World| -> Result {
         world.run_system(id)?;
         Ok(())
@@ -191,10 +196,14 @@ pub fn run_system<O: 'static>(id: SystemId<(), O>) -> impl Command {
 
 /// A [`Command`] that runs the system corresponding to the given [`SystemId`]
 /// and provides the given input value.
-pub fn run_system_with<I>(id: SystemId<I>, input: I::Inner<'static>) -> impl Command
+pub fn run_system_with<I>(
+    id: impl Into<SystemId<I>> + Send,
+    input: I::Inner<'static>,
+) -> impl Command
 where
     I: SystemInput<Inner<'static>: Send> + 'static,
 {
+    let id = id.into();
     move |world: &mut World| -> Result {
         world.run_system_with(id, input)?;
         Ok(())
@@ -273,14 +282,13 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command {
 ///
 /// [`Observer`]: crate::observer::Observer
 #[track_caller]
-pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(mut event: E) -> impl Command {
+pub fn trigger<E: Event>(mut event: E) -> impl Command
+where
+    EventTriggerState<'static, E>: Default,
+{
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger_ref_with_caller(
-            &mut event,
-            &mut <E::Trigger<'_> as Default>::default(),
-            caller,
-        );
+        world.trigger_ref_with_caller(&mut event, &mut EventTriggerState::<E>::default(), caller);
     }
 }
 
@@ -289,10 +297,13 @@ pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(mut event: E) -> impl Command
 /// [`Trigger`]: crate::event::Trigger
 /// [`Observer`]: crate::observer::Observer
 #[track_caller]
-pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
+pub fn trigger_with<E: Event>(
     mut event: E,
-    mut trigger: E::Trigger<'static>,
-) -> impl Command {
+    mut trigger: EventTriggerState<'static, E>,
+) -> impl Command
+where
+    EventTriggerState<'static, E>: Send + Sync,
+{
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
         world.trigger_ref_with_caller(&mut event, &mut trigger, caller);
@@ -306,5 +317,25 @@ pub fn write_message<M: Message>(message: M) -> impl Command {
     move |world: &mut World| {
         let mut messages = world.resource_mut::<Messages<M>>();
         messages.write_with_caller(message, caller);
+    }
+}
+
+/// A [`Command`] that [despawns](crate::system::entity_command::despawn) all entities matching a specific [`QueryFilter`].
+#[track_caller]
+pub fn despawn_all<F: QueryFilter>() -> impl Command {
+    let caller = MaybeLocation::caller();
+    move |world: &mut World| {
+        world.despawn_all_with_caller::<F>(caller);
+    }
+}
+
+/// A [`Command`] that [despawns](crate::system::entity_command::despawn) all entities matching a specific [`QueryFilter`] and condition.
+#[track_caller]
+pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
+    cond: impl FnMut(D::Item<'_, '_>) -> bool + Send + 'static,
+) -> impl Command {
+    let caller = MaybeLocation::caller();
+    move |world: &mut World| {
+        world.despawn_all_where_with_caller::<D, F>(cond, caller);
     }
 }

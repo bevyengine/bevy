@@ -15,10 +15,18 @@ use syn::{
 
 use crate::map_entities::{map_entities, MapEntitiesAttributeKind};
 
+/// Whether the derive macro may contain a `component(storage = "…")` attribute.
+pub enum StorageAttribute {
+    /// User can overwrite the storage type
+    Allowed,
+    /// User cannot overwrite the storage type
+    Disallowed,
+}
+
 /// Derived `Component` trait specification, which can be used to generate a component implementation.
 pub struct DeriveComponent {
     /// The storage type of the component.
-    pub storage: StorageTy,
+    pub storage: Option<StorageTy>,
     /// The parsed punctuated list of required components.
     pub requires: Option<Punctuated<Require, Comma>>,
     /// The `on_add` hook.
@@ -37,6 +45,8 @@ pub struct DeriveComponent {
     pub relationship_target: Option<RelationshipTarget>,
     /// Whether or not this component is immutable.
     pub immutable: bool,
+    /// Whether or not this component tracks a summary tick.
+    pub summary_tick: bool,
     /// The clone behavior for this component.
     pub clone_behavior: Option<Expr>,
     /// The `map_entities` attribute information.
@@ -47,9 +57,9 @@ pub struct DeriveComponent {
 
 impl DeriveComponent {
     /// Parse [`DeriveComponent`] from the given `ast`.
-    pub fn parse(ast: &DeriveInput) -> Result<DeriveComponent> {
+    pub fn parse(ast: &DeriveInput, storage_attr: StorageAttribute) -> Result<DeriveComponent> {
         let mut attrs = DeriveComponent {
-            storage: StorageTy::Table,
+            storage: None,
             on_add: None,
             on_insert: None,
             on_discard: None,
@@ -59,6 +69,7 @@ impl DeriveComponent {
             relationship: None,
             relationship_target: None,
             immutable: false,
+            summary_tick: false,
             clone_behavior: None,
             map_entities: None,
             additional_requires: Vec::new(),
@@ -68,8 +79,10 @@ impl DeriveComponent {
         for attr in ast.attrs.iter() {
             if attr.path().is_ident(COMPONENT) {
                 attr.parse_nested_meta(|nested| {
-                    if nested.path.is_ident(STORAGE) {
-                        attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
+                    if let StorageAttribute::Allowed = storage_attr
+                        && nested.path.is_ident(STORAGE)
+                    {
+                        attrs.storage = Some(match nested.value()?.parse::<LitStr>()?.value() {
                             s if s == TABLE => StorageTy::Table,
                             s if s == SPARSE_SET => StorageTy::SparseSet,
                             s => {
@@ -77,7 +90,7 @@ impl DeriveComponent {
                                 "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
                             )));
                             }
-                        };
+                        });
                         Ok(())
                     } else if nested.path.is_ident(ON_ADD) {
                         attrs.on_add = Some(HookAttributeKind::parse(nested.input, || {
@@ -106,6 +119,9 @@ impl DeriveComponent {
                         Ok(())
                     } else if nested.path.is_ident(IMMUTABLE) {
                         attrs.immutable = true;
+                        Ok(())
+                    } else if nested.path.is_ident(SUMMARY_TICK) {
+                        attrs.summary_tick = true;
                         Ok(())
                     } else if nested.path.is_ident(CLONE_BEHAVIOR) {
                         attrs.clone_behavior = Some(nested.value()?.parse()?);
@@ -150,13 +166,25 @@ impl DeriveComponent {
             ));
         }
 
+        if attrs.summary_tick && matches!(attrs.storage, Some(StorageTy::SparseSet)) {
+            return Err(syn::Error::new(
+                ast.span(),
+                "Summary ticks are only supported for components with table storage.",
+            ));
+        }
+
         Ok(attrs)
     }
 
     /// Generates a new `Component` trait implementation from this specification.
     ///
     /// Note that this will add Send + Sync + 'static to the where clause
-    pub fn impl_component(self, ast: &mut DeriveInput, bevy_ecs: &Path) -> Result<TokenStream> {
+    pub fn impl_component(
+        self,
+        ast: &mut DeriveInput,
+        bevy_ecs: &Path,
+        default_storage: StorageTy,
+    ) -> Result<TokenStream> {
         // We want to raise a compile time error when the generic lifetimes
         // are not bound to 'static lifetime
         let non_static_lifetime_error = ast
@@ -198,7 +226,16 @@ impl DeriveComponent {
             }
         });
 
-        let storage = storage_path(bevy_ecs, self.storage);
+        // If this component has a summary tick, define the appropriate method.
+        let has_summary_tick = if self.summary_tick {
+            quote! {
+                const HAS_SUMMARY_TICK: bool = true;
+            }
+        } else {
+            quote! {}
+        };
+
+        let storage = storage_path(bevy_ecs, self.storage.unwrap_or(default_storage));
 
         let on_add_path = Vec::from_iter(self.on_add.map(|path| path.to_token_stream(bevy_ecs)));
         let on_remove_path =
@@ -347,6 +384,8 @@ impl DeriveComponent {
                 fn relationship_accessor() -> #FQOption<#bevy_ecs::relationship::ComponentRelationshipAccessor<Self>> {
                     #relationship_accessor
                 }
+
+                #has_summary_tick
             }
 
             #relationship
@@ -493,6 +532,7 @@ const ON_REMOVE: &str = "on_remove";
 const ON_DESPAWN: &str = "on_despawn";
 
 const IMMUTABLE: &str = "immutable";
+const SUMMARY_TICK: &str = "summary_tick";
 const CLONE_BEHAVIOR: &str = "clone_behavior";
 
 /// All allowed attribute value expression kinds for component hooks.

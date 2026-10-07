@@ -1,0 +1,123 @@
+use bevy_asset::{io::Writer, saver::SavedAsset, AssetPath, AsyncWriteExt};
+use ctt::{
+    convert, ColorSpace, Container, ConvertSettings, FormatDesc, ImageRef, MipmapFilter,
+    PipelineOutput, Quality, SurfaceRef, TextureKind,
+};
+
+use super::{
+    ctt_helpers::{bevy_to_ctt_alpha_mode, choose_ctt_compressed_format, ctt_format},
+    CompressedImageSaverError, CompressedImageSaverSettings,
+};
+use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoaderSettings};
+
+#[derive(Default)]
+pub struct CompressedImageSaverCtt;
+
+impl CompressedImageSaverCtt {
+    pub async fn save(
+        &self,
+        writer: &mut Writer,
+        image: SavedAsset<'_, '_, Image>,
+        settings: &CompressedImageSaverSettings,
+        _asset_path: AssetPath<'_>,
+    ) -> Result<ImageLoaderSettings, CompressedImageSaverError> {
+        let Some(ref data) = image.data else {
+            return Err(CompressedImageSaverError::UninitializedImage);
+        };
+
+        if image.texture_descriptor.mip_level_count != 1 {
+            return Err(CompressedImageSaverError::CompressionFailed(
+                "Expected texture_descriptor.mip_level_count to be 1".into(),
+            ));
+        }
+
+        let is_srgb = image.texture_descriptor.format.is_srgb();
+        let color_space = if is_srgb {
+            ColorSpace::Srgb
+        } else {
+            ColorSpace::Linear
+        };
+
+        let input_format = ctt_format(image.texture_descriptor.format)?;
+        let output_format = choose_ctt_compressed_format(
+            image.texture_descriptor.format,
+            color_space,
+            settings.is_normal_map,
+        )?;
+
+        let is_cubemap = matches!(
+            image.texture_view_descriptor,
+            Some(wgpu_types::TextureViewDescriptor {
+                dimension: Some(wgpu_types::TextureViewDimension::Cube),
+                ..
+            })
+        );
+
+        let bytes_per_pixel =
+            crate::TextureFormatPixelInfo::pixel_size(&image.texture_descriptor.format).map_err(
+                |_| CompressedImageSaverError::UnsupportedFormat(image.texture_descriptor.format),
+            )? as u32;
+
+        let surfaces = data
+            .chunks_exact((image.width() * image.height() * bytes_per_pixel) as usize)
+            .map(|layer_data| {
+                vec![SurfaceRef {
+                    data: layer_data,
+                    width: image.width(),
+                    height: image.height(),
+                    depth: 1,
+                    stride: image.width() * bytes_per_pixel,
+                    slice_stride: 0,
+                }]
+            })
+            .collect();
+        let ctt_image = ImageRef {
+            surfaces,
+            kind: if is_cubemap {
+                TextureKind::Cubemap
+            } else {
+                TextureKind::Texture2D
+            },
+            desc: FormatDesc {
+                format: input_format,
+                color_space,
+                alpha: bevy_to_ctt_alpha_mode(settings.input_alpha_mode),
+            },
+        };
+
+        let settings = ConvertSettings {
+            format: Some(output_format),
+            container: Container::ktx2_zstd(0),
+            quality: Quality::default(),
+            output_color_space: None,
+            output_alpha: Some(bevy_to_ctt_alpha_mode(settings.output_alpha_mode)),
+            allow_discarding_alpha: settings.is_normal_map,
+            swizzle: None,
+            mipmap: settings.generate_mipmaps,
+            mipmap_count: None,
+            mipmap_filter: if settings.is_normal_map {
+                MipmapFilter::Triangle
+            } else {
+                MipmapFilter::Lanczos3
+            },
+        };
+
+        let output = convert(ctt_image, settings)
+            .map_err(|e| CompressedImageSaverError::CompressionFailed(Box::new(e)))?;
+        let PipelineOutput::Encoded(compressed_bytes) = &output else {
+            return Err(CompressedImageSaverError::CompressionFailed(
+                "Expected encoded output from ctt".into(),
+            ));
+        };
+
+        writer.write_all(compressed_bytes).await?;
+
+        Ok(ImageLoaderSettings {
+            format: ImageFormatSetting::Format(ImageFormat::Ktx2),
+            is_srgb,
+            sampler: image.sampler.clone(),
+            asset_usage: image.asset_usage,
+            ..Default::default()
+        })
+    }
+}

@@ -1,5 +1,5 @@
 use crate::{
-    meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath, AssetServer,
+    Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath, AssetServer, Assets,
     ErasedAssetIndex, ReflectHandle, UntypedAssetId,
 };
 use alloc::sync::Arc;
@@ -47,7 +47,7 @@ impl AssetHandleProvider {
     /// [`UntypedHandle`] will match the [`Asset`] [`TypeId`] assigned to this [`AssetHandleProvider`].
     pub fn reserve_handle(&self) -> UntypedHandle {
         let index = self.allocator.reserve();
-        UntypedHandle::Strong(self.get_handle(index, false, None, None))
+        UntypedHandle::Strong(self.get_handle(index, false, None))
     }
 
     pub(crate) fn get_handle(
@@ -55,13 +55,11 @@ impl AssetHandleProvider {
         index: AssetIndex,
         asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
-        meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
         Arc::new(StrongHandle {
             index,
             type_id: self.type_id,
             drop_sender: self.drop_sender.clone(),
-            meta_transform,
             path,
             asset_server_managed,
         })
@@ -71,25 +69,20 @@ impl AssetHandleProvider {
         &self,
         asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
-        meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
         let index = self.allocator.reserve();
-        self.get_handle(index, asset_server_managed, path, meta_transform)
+        self.get_handle(index, asset_server_managed, path)
     }
 }
 
 /// The internal "strong" [`Asset`] handle storage for [`Handle::Strong`] and [`UntypedHandle::Strong`]. When this is dropped,
 /// the [`Asset`] will be freed. It also stores some asset metadata for easy access from handles.
-#[derive(TypePath)]
+#[derive(TypePath, Debug)]
 pub struct StrongHandle {
     pub(crate) index: AssetIndex,
     pub(crate) type_id: TypeId,
     pub(crate) asset_server_managed: bool,
     pub(crate) path: Option<AssetPath<'static>>,
-    /// Modifies asset meta. This is stored on the handle because it is:
-    /// 1. configuration tied to the lifetime of a specific asset load
-    /// 2. configuration that must be repeatable when the asset is hot-reloaded
-    pub(crate) meta_transform: Option<MetaTransform>,
     pub(crate) drop_sender: Sender<DropEvent>,
 }
 
@@ -102,20 +95,8 @@ impl Drop for StrongHandle {
     }
 }
 
-impl core::fmt::Debug for StrongHandle {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("StrongHandle")
-            .field("index", &self.index)
-            .field("type_id", &self.type_id)
-            .field("asset_server_managed", &self.asset_server_managed)
-            .field("path", &self.path)
-            .field("drop_sender", &self.drop_sender)
-            .finish()
-    }
-}
-
 /// A handle to a specific [`Asset`] of type `A`. Handles act as abstract "references" to
-/// assets, whose data are stored in the [`Assets<A>`](crate::prelude::Assets) resource,
+/// assets, whose data are stored in the [`Assets<A>`] resource,
 /// avoiding the need to store multiple copies of the same data.
 ///
 /// If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
@@ -123,7 +104,7 @@ impl core::fmt::Debug for StrongHandle {
 /// nor will it keep assets alive.
 ///
 /// Modifying a *handle* will change which existing asset is referenced, but modifying the *asset*
-/// (by mutating the [`Assets`](crate::prelude::Assets) resource) will change the asset for all handles referencing it.
+/// (by mutating the [`Assets`] resource) will change the asset for all handles referencing it.
 ///
 /// [`Handle`] can be cloned. If a [`Handle::Strong`] is cloned, the referenced [`Asset`] will not be freed until _all_ instances
 /// of the [`Handle`] are dropped.
@@ -140,8 +121,6 @@ pub enum Handle<A: Asset> {
     Uuid(Uuid, #[reflect(ignore, clone)] PhantomData<fn() -> A>),
 }
 
-// `Handle` needs a custom `FromReflect` to do extra type checking - see the
-// `strong_handle.type_id` check below.
 // `Handle` needs a custom `FromReflect` to do extra type checking - see the
 // `strong_handle.type_id` check below.
 impl<A: Asset> FromReflect for Handle<A>
@@ -208,7 +187,7 @@ impl<A: Asset> Handle<A> {
         }
     }
 
-    /// Returns `true` if this is a uuid handle.
+    /// Returns `true` if this is a UUID handle.
     #[inline]
     pub fn is_uuid(&self) -> bool {
         matches!(self, Handle::Uuid(..))
@@ -352,7 +331,9 @@ impl<T: Asset> Template for HandleTemplate<T> {
                     AssetOrHandle::Value(value) => {
                         // This unwrap is ok because AssetOrHandle::Value will always either contain a Some Value
                         // when it is in this state (AssetOrHandle is private).
-                        let handle = context.resource::<AssetServer>().add(value.take().unwrap());
+                        let handle = context
+                            .resource_mut::<Assets<T>>()
+                            .add(value.take().unwrap());
                         *value_or_handle = AssetOrHandle::Handle(handle.clone());
                         handle
                     }
@@ -562,20 +543,10 @@ impl UntypedHandle {
         handle
     }
 
-    /// Converts to a typed Handle. This will panic if the internal [`TypeId`] does not match the given asset type `A`
+    /// Converts to a typed Handle if the internal [`TypeId`] matches the given asset type `A`.
     #[inline]
     pub fn try_typed<A: Asset>(self) -> Result<Handle<A>, UntypedAssetConversionError> {
         Handle::try_from(self)
-    }
-
-    /// The "meta transform" for the strong handle. This will only be [`Some`] if the handle is strong and there is a meta transform
-    /// associated with it.
-    #[inline]
-    pub fn meta_transform(&self) -> Option<&MetaTransform> {
-        match self {
-            UntypedHandle::Strong(handle) => handle.meta_transform.as_ref(),
-            UntypedHandle::Uuid { .. } => None,
-        }
     }
 }
 
@@ -705,7 +676,7 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
 #[macro_export]
 macro_rules! uuid_handle {
     ($uuid:expr) => {{
-        $crate::Handle::Uuid($crate::uuid::uuid!($uuid), core::marker::PhantomData)
+        $crate::Handle::Uuid($crate::uuid::uuid!($uuid), ::core::marker::PhantomData)
     }};
 }
 
@@ -737,11 +708,11 @@ pub enum UntypedAssetConversionError {
 mod tests {
     use alloc::boxed::Box;
     use bevy_platform::hash::FixedHasher;
-    use bevy_reflect::PartialReflect;
+    use bevy_reflect::{FromReflect, PartialReflect};
     use core::hash::BuildHasher;
     use uuid::Uuid;
 
-    use crate::tests::create_app;
+    use crate::{tests::create_app, AssetApp, Assets, VisitAssetDependencies};
 
     use super::*;
 
@@ -847,9 +818,6 @@ mod tests {
     /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong count of a strong handle
     #[test]
     fn strong_handle_reflect_clone() {
-        use crate::{AssetApp, Assets, VisitAssetDependencies};
-        use bevy_reflect::FromReflect;
-
         #[derive(Reflect)]
         struct MyAsset {
             value: u32,
@@ -881,7 +849,7 @@ mod tests {
                     "Cloning the handle with reflect should increase the strong count to 2"
                 );
 
-                let dynamic_handle: Box<dyn PartialReflect> = reflected.to_dynamic();
+                let dynamic_handle: Box<dyn PartialReflect> = reflected.to_dynamic().unwrap();
 
                 assert_eq!(
                     Arc::strong_count(strong),
@@ -904,9 +872,6 @@ mod tests {
 
     #[test]
     fn handle_from_reflect_verifies_type_id() {
-        use crate::{AssetApp, Assets};
-        use bevy_reflect::FromReflect;
-
         #[derive(Reflect, Asset)]
         struct A;
         #[derive(Reflect, Asset)]
@@ -918,7 +883,7 @@ mod tests {
         let mut assets = app.world_mut().resource_mut::<Assets<A>>();
         let handle_a = assets.add(A);
 
-        let dynamic_handle_a = handle_a.to_dynamic();
+        let dynamic_handle_a = handle_a.to_dynamic().unwrap();
         let reflected_handle_a = handle_a.as_partial_reflect();
 
         let handle_b_from_reflect_dynamic: Option<Handle<B>> =
@@ -939,5 +904,51 @@ mod tests {
             handle_a_from_reflect.is_some(),
             "Handle<A> should be constructible from reflected Handle<A>"
         );
+    }
+
+    #[test]
+    #[ignore = "Known failure tracked in #24111"]
+    fn handle_try_apply_verifies_type_id() {
+        #[derive(Reflect, Asset)]
+        struct A;
+        #[derive(Reflect, Asset)]
+        struct B;
+
+        let mut app = create_app().0;
+        app.init_asset::<A>().init_asset::<B>();
+
+        let mut assets_a = app.world_mut().resource_mut::<Assets<A>>();
+        let handle_a = assets_a.add(A);
+
+        let reflected_handle_a = handle_a.as_partial_reflect();
+
+        let mut assets_b = app.world_mut().resource_mut::<Assets<B>>();
+        let mut handle_b = assets_b.add(B);
+        assert!(
+            handle_b.try_apply(reflected_handle_a).is_err(),
+            "Handle<A> should not be applicable to Handle<B>"
+        );
+    }
+
+    #[test]
+    fn handle_from_reflect_and_try_apply() {
+        #[derive(Reflect, Asset)]
+        struct A(i32);
+
+        let mut app = create_app().0;
+        app.init_asset::<A>();
+
+        let mut assets = app.world_mut().resource_mut::<Assets<A>>();
+        let handle_1 = assets.add(A(1));
+        let reflected_handle_1 = handle_1.as_partial_reflect();
+
+        let handle_1_from_reflect: Handle<A> =
+            FromReflect::from_reflect(reflected_handle_1).unwrap();
+        assert_eq!(handle_1, handle_1_from_reflect);
+
+        let mut handle_2 = assets.add(A(2));
+        assert_ne!(handle_1, handle_2);
+        handle_2.try_apply(reflected_handle_1).unwrap();
+        assert_eq!(handle_1, handle_2);
     }
 }

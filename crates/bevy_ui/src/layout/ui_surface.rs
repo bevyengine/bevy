@@ -1,8 +1,9 @@
+use bevy_platform::collections::hash_map::Entry;
 use core::fmt;
 use core::ops::{Deref, DerefMut};
-
-use bevy_platform::collections::hash_map::Entry;
-use taffy::TaffyTree;
+use taffy::NodeId;
+use taffy::{Style, TaffyTree, TraversePartialTree};
+use thiserror::Error;
 
 #[cfg(feature = "ghost_nodes")]
 use bevy_ecs::entity::EntityHashSet;
@@ -13,19 +14,26 @@ use bevy_ecs::{
 use bevy_math::{UVec2, Vec2};
 use bevy_utils::default;
 
-use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
+use crate::{layout::convert, LayoutContext, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_text::FontCx;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct LayoutNode {
     // Implicit "viewport" node if this `LayoutNode` corresponds to a root UI node entity
-    pub(super) viewport_id: Option<taffy::NodeId>,
+    pub viewport_id: Option<NodeId>,
     // The id of the node in the taffy tree
-    pub(super) id: taffy::NodeId,
+    pub id: NodeId,
 }
 
-impl From<taffy::NodeId> for LayoutNode {
-    fn from(value: taffy::NodeId) -> Self {
+impl LayoutNode {
+    /// Returns true if this is a root node.
+    pub const fn is_root(&self) -> bool {
+        self.viewport_id.is_some()
+    }
+}
+
+impl From<NodeId> for LayoutNode {
+    fn from(value: NodeId) -> Self {
         LayoutNode {
             viewport_id: None,
             id: value,
@@ -58,17 +66,17 @@ impl<T> DerefMut for UiTree<T> {
 
 #[derive(Resource)]
 pub struct UiSurface {
-    pub root_entity_to_viewport_node: EntityHashMap<taffy::NodeId>,
+    pub root_entity_to_viewport_node: EntityHashMap<NodeId>,
     pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
     pub(super) taffy: UiTree<NodeMeasure>,
-    taffy_children_scratch: Vec<taffy::NodeId>,
+    taffy_children_scratch: Vec<NodeId>,
     #[cfg(feature = "ghost_nodes")]
     pub(super) dirty_ghost_children_scratch: EntityHashSet,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<EntityHashMap<taffy::NodeId>>();
+    _assert_send_sync::<EntityHashMap<NodeId>>();
     _assert_send_sync::<UiTree<NodeMeasure>>();
     _assert_send_sync::<UiSurface>();
 }
@@ -181,15 +189,21 @@ impl UiSurface {
     }
 
     /// Gets or inserts an implicit taffy viewport node corresponding to the given UI root entity
-    pub fn get_or_insert_taffy_viewport_node(&mut self, ui_root_entity: Entity) -> taffy::NodeId {
+    pub fn get_or_insert_taffy_viewport_node(&mut self, ui_root_entity: Entity) -> NodeId {
         *self
             .root_entity_to_viewport_node
             .entry(ui_root_entity)
             .or_insert_with(|| {
                 let root_node = self.entity_to_taffy.get_mut(&ui_root_entity).unwrap();
+
+                // remove parent node to avoid a potential panic (invalid SlotMap key used) when this `NodeId` is `remove`d
+                if let Some(parent_node) = self.taffy.parent(root_node.id) {
+                    let _ = self.taffy.remove_child(parent_node, root_node.id);
+                };
+
                 let implicit_root = self
                     .taffy
-                    .new_leaf(taffy::style::Style {
+                    .new_leaf(Style {
                         display: taffy::style::Display::Grid,
                         // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
                         // So this is setting width:100% and height:100%
@@ -197,8 +211,8 @@ impl UiSurface {
                             width: taffy::style_helpers::percent(1.0_f32),
                             height: taffy::style_helpers::percent(1.0_f32),
                         },
-                        align_items: Some(taffy::style::AlignItems::Start),
-                        justify_items: Some(taffy::style::JustifyItems::Start),
+                        align_items: Some(taffy::style::AlignItems::START),
+                        justify_items: Some(taffy::style::JustifyItems::START),
                         ..default()
                     })
                     .unwrap();
@@ -218,6 +232,10 @@ impl UiSurface {
     ) {
         let implicit_viewport_node = self.get_or_insert_taffy_viewport_node(ui_root_entity);
 
+        // Ensure rounding is enabled globally before computing the layout tree,
+        // as enable/disable_rounding controls whether rounded node geometry is created during layout.
+        self.taffy.enable_rounding();
+
         let available_space = taffy::geometry::Size {
             width: taffy::style::AvailableSpace::Definite(render_target_resolution.x as f32),
             height: taffy::style::AvailableSpace::Definite(render_target_resolution.y as f32),
@@ -227,37 +245,46 @@ impl UiSurface {
             .compute_layout_with_measure(
                 implicit_viewport_node,
                 available_space,
-                |known_dimensions: taffy::Size<Option<f32>>,
-                 available_space: taffy::Size<taffy::AvailableSpace>,
-                 _node_id: taffy::NodeId,
+                |layout_input: taffy::LayoutInput,
+                 _node_id: NodeId,
                  context: Option<&mut NodeMeasure>,
-                 style: &taffy::Style|
-                 -> taffy::Size<f32> {
-                    context
-                        .map(|ctx| {
-                            let buffer = get_text_buffer(
-                                crate::widget::TextMeasure::needs_buffer(
-                                    known_dimensions.height,
-                                    available_space.width,
-                                ),
-                                ctx,
-                                buffer_query,
-                            );
-                            let size = ctx.measure(MeasureArgs {
-                                known_width: known_dimensions.width,
-                                known_height: known_dimensions.height,
-                                available_width: available_space.width,
-                                available_height: available_space.height,
-                                font_system,
-                                buffer,
-                                style,
-                            });
-                            taffy::Size {
-                                width: size.x,
-                                height: size.y,
-                            }
-                        })
-                        .unwrap_or(taffy::Size::ZERO)
+                 style: &Style|
+                 -> taffy::LayoutOutput {
+                    taffy::compute_leaf_layout(
+                        layout_input,
+                        style,
+                        |_, _| 0.0,
+                        |known_dimensions, available_space| {
+                            context
+                                .map(|ctx| {
+                                    let mut measure_args = MeasureArgs {
+                                        known_width: known_dimensions.width,
+                                        known_height: known_dimensions.height,
+                                        available_width: available_space.width,
+                                        available_height: available_space.height,
+                                        font_system,
+                                        buffer: None,
+                                        style,
+                                    };
+                                    let buffer = get_text_buffer(
+                                        crate::widget::TextMeasure::needs_buffer(
+                                            measure_args.resolve_width().effective,
+                                            measure_args.resolve_height().effective,
+                                            available_space.width,
+                                        ),
+                                        ctx,
+                                        buffer_query,
+                                    );
+                                    measure_args.buffer = buffer;
+                                    let size = ctx.measure(measure_args);
+                                    taffy::Size {
+                                        width: size.x,
+                                        height: size.y,
+                                    }
+                                })
+                                .unwrap_or(taffy::Size::ZERO)
+                        },
+                    )
                 },
             )
             .unwrap();
@@ -267,6 +294,9 @@ impl UiSurface {
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
+                if let Some(parent_node) = self.taffy.parent(node.id) {
+                    let _ = self.taffy.remove_child(parent_node, node.id);
+                }
                 self.taffy.remove(node.id).unwrap();
                 if let Some(viewport_node) = node.viewport_id {
                     self.taffy.remove(viewport_node).ok();
@@ -276,7 +306,7 @@ impl UiSurface {
         }
     }
 
-    /// Get the layout geometry for the taffy node corresponding to the ui node [`Entity`].
+    /// Get the layout geometry for the taffy node corresponding to the UI node [`Entity`].
     /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
     /// On success returns a pair consisting of the final resolved layout values after rounding
     /// and the size of the node after layout resolution but before rounding.
@@ -284,30 +314,102 @@ impl UiSurface {
         &mut self,
         entity: Entity,
         use_rounding: bool,
-    ) -> Result<(taffy::Layout, Vec2), LayoutError> {
+    ) -> Result<(taffy::Layout, Vec2), UiSurfaceError> {
         let Some(taffy_node) = self.entity_to_taffy.get(&entity) else {
-            return Err(LayoutError::InvalidHierarchy);
+            return Err(UiSurfaceError::NoAssociatedTaffyNode);
         };
 
+        // Note: Taffy's enable/disable_rounding has a dual purpose:
+        // 1. It controls whether rounded geometry is generated during compute_layout.
+        // 2. It controls whether the per-node layout() getter returns rounded or unrounded geometry.
+        // Here we temporarily toggle it to fetch the unrounded size regardless of the global state.
         if use_rounding {
             self.taffy.enable_rounding();
         } else {
             self.taffy.disable_rounding();
         }
 
-        let out = match self.taffy.layout(taffy_node.id).cloned() {
-            Ok(layout) => {
-                self.taffy.disable_rounding();
-                let taffy_size = self.taffy.layout(taffy_node.id).unwrap().size;
-                let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
-                Ok((layout, unrounded_size))
-            }
-            Err(taffy_error) => Err(LayoutError::TaffyError(taffy_error)),
-        };
+        let layout = self.taffy.layout(taffy_node.id).cloned();
 
-        self.taffy.enable_rounding();
-        out
+        self.taffy.disable_rounding();
+        let taffy_size = self.taffy.layout(taffy_node.id).unwrap().size;
+        let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
+
+        match layout {
+            Ok(l) => Ok((l, unrounded_size)),
+            Err(taffy_error) => Err(UiSurfaceError::TaffyError(taffy_error)),
+        }
     }
+
+    /// Returns the number of children belonging to the entity's associated taffy node.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UiSurfaceError::NoAssociatedTaffyNode`] if the entity does not have an associated taffy node.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the associated taffy node is not found in the layout tree.
+    pub fn child_count(&self, entity: Entity) -> Result<usize, UiSurfaceError> {
+        let node = self
+            .get(entity)
+            .ok_or(UiSurfaceError::NoAssociatedTaffyNode)?;
+        Ok(self.taffy.child_count(node.id))
+    }
+
+    /// Returns the number of nodes in the taffy tree, including viewport nodes.
+    pub fn total_count(&self) -> usize {
+        self.taffy.total_node_count()
+    }
+
+    /// Returns the number of root taffy nodes.
+    pub fn root_count(&self) -> usize {
+        self.root_entity_to_viewport_node.len()
+    }
+
+    /// Returns the number of taffy nodes with an associated entity.
+    pub fn count(&self) -> usize {
+        self.entity_to_taffy.len()
+    }
+
+    /// Returns true if the Entity has a corresponding taffy node.
+    pub fn is_node(&self, entity: Entity) -> bool {
+        self.entity_to_taffy.contains_key(&entity)
+    }
+
+    /// Returns true if the Entity is a root node in `UiSurface`.
+    pub fn is_root(&self, entity: Entity) -> bool {
+        self.root_entity_to_viewport_node.contains_key(&entity)
+    }
+
+    /// Returns the `LayoutNode` corresponding to the given Entity, if any.
+    pub fn get(&self, entity: Entity) -> Option<LayoutNode> {
+        self.entity_to_taffy.get(&entity).copied()
+    }
+
+    /// Returns the Taffy `Style` for the given entity.
+    pub fn get_style(&self, entity: Entity) -> Result<&Style, UiSurfaceError> {
+        self.get(entity)
+            .ok_or(UiSurfaceError::NoAssociatedTaffyNode)
+            .and_then(|node| {
+                self.taffy
+                    .style(node.id)
+                    .map_err(UiSurfaceError::TaffyError)
+            })
+    }
+
+    /// Returns the `NodeId` of the parent of `Entity`, if any.
+    pub fn parent(&self, entity: Entity) -> Option<NodeId> {
+        self.get(entity).and_then(|node| self.taffy.parent(node.id))
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum UiSurfaceError {
+    #[error("There is no taffy node associated with the given Entity.")]
+    NoAssociatedTaffyNode,
+    #[error("Taffy error: {0}")]
+    TaffyError(taffy::tree::TaffyError),
 }
 
 pub fn get_text_buffer<'a>(

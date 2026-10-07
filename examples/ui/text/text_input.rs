@@ -1,6 +1,6 @@
-//! Demonstrates a simple, unstyled [`EditableText`] widget.
+//! Demonstrates a simple, unstyled [`TextInput`] widget.
 //!
-//! [`EditableText`] is a basic primitive for text input in Bevy UI.
+//! [`TextInput`] is a basic primitive for text input in Bevy UI.
 //! In most cases, this should be combined with other entities to create a compound widget
 //! that includes e.g. a background, border, and text label.
 //!
@@ -31,6 +31,7 @@ use bevy::input_focus::{
 };
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle};
+use bevy::ui_widgets::TextInput;
 
 fn main() {
     App::new()
@@ -49,20 +50,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let root = commands
         .spawn(Node {
-            display: Display::Flex,
+            align_items: AlignItems::Center,
             flex_direction: FlexDirection::Column,
             padding: px(20).all(),
             row_gap: px(16),
+            margin: auto().all(),
             ..default()
         })
         .id();
 
     let text_instructions = commands
         .spawn((
-            Text::new("Ctrl+Enter to submit text"),
+            Text::new("Enter to submit text\nTab to switch inputs"),
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                font_size: FontSize::Px(30.0),
+                font_size: FontSize::Px(25.0),
                 ..default()
             },
         ))
@@ -74,8 +76,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let input_container = commands
         .spawn((
             Node {
-                display: Display::Flex,
-                align_items: AlignItems::Start,
                 column_gap: px(16),
                 ..default()
             },
@@ -88,7 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_output = commands
         .spawn((
             Node {
-                width: px(416),
+                width: px(400),
                 border: px(2).all(),
                 padding: px(8).all(),
                 ..Default::default()
@@ -96,6 +96,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             BorderColor::from(Color::from(SLATE_300)),
             Text::new(""),
             TextOutput,
+            TextLayout {
+                linebreak: LineBreak::WordOrCharacter,
+                ..default()
+            },
             TextFont {
                 font_size: FontSize::Px(24.0),
                 ..default()
@@ -116,17 +120,18 @@ fn build_input_text(commands: &mut Commands, is_left: bool, font_size: f32) -> E
     commands
         .spawn((
             Node {
-                width: px(200),
                 border: px(2).all(),
-                padding: px(8).all(),
                 ..Default::default()
             },
             BorderColor::from(Color::from(SLATE_300)),
             Name::new(if is_left { "Left" } else { "Right" }),
+            TextInput,
             EditableText {
-                max_characters: (!is_left).then_some(7),
+                visible_width: Some(10.),
+                allow_newlines: false,
                 ..Default::default()
             },
+            TextLayout::no_wrap(),
             TextFont {
                 font_size: FontSize::Px(font_size),
                 ..default()
@@ -146,8 +151,6 @@ fn text_submission(
     mut text_output: Single<&mut Text, With<TextOutput>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Enter)
-        && (keyboard_input.pressed(KeyCode::ControlLeft)
-            || keyboard_input.pressed(KeyCode::ControlRight))
         && let Some(focused_entity) = input_focus.get()
         && let Ok((mut text_input, name)) = text_input.get_mut(focused_entity)
     {

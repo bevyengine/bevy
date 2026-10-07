@@ -43,6 +43,7 @@
 //!
 //! Manually define your navigation using the [`DirectionalNavigationMap`], and use the
 //! [`DirectionalNavigation`] system parameter to navigate between components.
+//! Destinations must have the [`Focusable`] component when navigation occurs.
 //! You can define navigation connections using methods like
 //! [`add_edge`](DirectionalNavigationMap::add_edge) and
 //! [`add_looping_edges`](DirectionalNavigationMap::add_looping_edges).
@@ -56,7 +57,7 @@
 //! - **Cross-layer navigation**: Connect elements across different UI layers or z-index levels
 //! - **Custom behavior**: Implement domain-specific navigation patterns (e.g., spreadsheet-style wrapping)
 
-use crate::{navigator::find_best_candidate, FocusCause, InputFocus};
+use crate::{navigator::find_best_candidate, FocusCause, Focusable, InputFocus};
 use bevy_app::prelude::*;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -357,8 +358,8 @@ impl DirectionalNavigationMap {
     ///
     /// Unlike [`add_looping_edges`](Self::add_looping_edges), this method does not loop back to the first entity.
     pub fn add_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
-        for pair in entities.windows(2) {
-            self.add_symmetrical_edge(pair[0], pair[1], direction);
+        for &[a, b] in entities.array_windows() {
+            self.add_symmetrical_edge(a, b, direction);
         }
     }
 
@@ -367,10 +368,10 @@ impl DirectionalNavigationMap {
     /// This is useful for creating a circular navigation path between a set of entities, such as a menu.
     pub fn add_looping_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
         self.add_edges(entities, direction);
-        if let Some((first_entity, rest)) = entities.split_first() {
-            if let Some(last_entity) = rest.last() {
-                self.add_symmetrical_edge(*last_entity, *first_entity, direction);
-            }
+        if let Some((first_entity, rest)) = entities.split_first()
+            && let Some(last_entity) = rest.last()
+        {
+            self.add_symmetrical_edge(*last_entity, *first_entity, direction);
         }
     }
 
@@ -393,14 +394,16 @@ impl DirectionalNavigationMap {
 
 /// A system parameter for navigating between focusable entities in a directional way.
 #[derive(SystemParam, Debug)]
-pub struct DirectionalNavigation<'w> {
+pub struct DirectionalNavigation<'w, 's> {
     /// The currently focused entity.
     pub focus: ResMut<'w, InputFocus>,
     /// The directional navigation map containing manually defined connections between entities.
     pub map: Res<'w, DirectionalNavigationMap>,
+    /// Entities which may receive input focus.
+    focusable: Query<'w, 's, (), With<Focusable>>,
 }
 
-impl<'w> DirectionalNavigation<'w> {
+impl DirectionalNavigation<'_, '_> {
     /// Navigates to the neighbor in a given direction from the current focus, if any.
     ///
     /// Returns the new focus if successful.
@@ -423,8 +426,15 @@ impl<'w> DirectionalNavigation<'w> {
                     direction,
                 }),
                 NavNeighbor::Set(new_focus) => {
-                    self.focus.set(new_focus, FocusCause::Navigated);
-                    Ok(new_focus)
+                    if self.focusable.contains(new_focus) {
+                        self.focus.set(new_focus, FocusCause::Navigated);
+                        Ok(new_focus)
+                    } else {
+                        Err(DirectionalNavigationError::NoNeighborInDirection {
+                            current_focus,
+                            direction,
+                        })
+                    }
                 }
             }
         } else {
@@ -436,8 +446,8 @@ impl<'w> DirectionalNavigation<'w> {
 /// An error that can occur when navigating between focusable entities using [directional navigation](crate::directional_navigation).
 #[derive(Debug, PartialEq, Clone, Error)]
 pub enum DirectionalNavigationError {
-    /// No focusable entity is currently set.
-    #[error("No focusable entity is currently set.")]
+    /// No entity currently has input focus.
+    #[error("No entity currently has input focus.")]
     NoFocus,
     /// No neighbor in the requested direction.
     #[error("No neighbor from {current_focus} in the {direction:?} direction.")]
@@ -569,13 +579,15 @@ mod tests {
         let mut neighbors = NavNeighbors::EMPTY;
         assert_eq!(neighbors.get(CompassOctant::SouthEast), NavNeighbor::Auto);
 
-        neighbors.set(CompassOctant::SouthEast, Entity::PLACEHOLDER);
+        let entity = World::default().spawn_empty().id();
+
+        neighbors.set(CompassOctant::SouthEast, entity);
 
         for i in 0..8 {
             if i == CompassOctant::SouthEast.to_index() {
                 assert_eq!(
                     neighbors.get(CompassOctant::SouthEast),
-                    NavNeighbor::Set(Entity::PLACEHOLDER)
+                    NavNeighbor::Set(entity)
                 );
             } else {
                 assert_eq!(
@@ -745,9 +757,9 @@ mod tests {
     #[test]
     fn manual_nav_with_system_param() {
         let mut world = World::new();
-        let a = world.spawn_empty().id();
-        let b = world.spawn_empty().id();
-        let c = world.spawn_empty().id();
+        let a = world.spawn(Focusable).id();
+        let b = world.spawn(Focusable).id();
+        let c = world.spawn(Focusable).id();
 
         let mut map = DirectionalNavigationMap::default();
         map.add_looping_edges(&[a, b, c], CompassOctant::East);
@@ -775,6 +787,39 @@ mod tests {
 
         world.run_system_once(navigate_east).unwrap();
         assert_eq!(world.resource::<InputFocus>().get(), Some(a));
+    }
+
+    #[test]
+    fn manual_navigation_skips_non_focusable_destination() {
+        let mut world = World::new();
+        let current = world.spawn_empty().id();
+        let destination = world.spawn_empty().id();
+        let mut map = DirectionalNavigationMap::default();
+        map.add_edge(current, destination, CompassOctant::East);
+        world.insert_resource(map);
+        world.insert_resource(InputFocus::from_entity(current));
+
+        fn navigate_east(
+            mut nav: DirectionalNavigation,
+        ) -> Result<Entity, DirectionalNavigationError> {
+            nav.navigate(CompassOctant::East)
+        }
+
+        assert_eq!(
+            world.run_system_once(navigate_east).unwrap(),
+            Err(DirectionalNavigationError::NoNeighborInDirection {
+                current_focus: current,
+                direction: CompassOctant::East,
+            })
+        );
+        assert_eq!(world.resource::<InputFocus>().get(), Some(current));
+
+        world.entity_mut(destination).insert(Focusable);
+        assert_eq!(
+            world.run_system_once(navigate_east).unwrap(),
+            Ok(destination)
+        );
+        assert_eq!(world.resource::<InputFocus>().get(), Some(destination));
     }
 
     #[test]

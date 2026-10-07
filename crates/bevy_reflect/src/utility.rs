@@ -6,7 +6,7 @@ use bevy_platform::{
     hash::{DefaultHasher, FixedHasher, NoOpHash},
     sync::{OnceLock, PoisonError, RwLock},
 };
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::{
     any::{Any, TypeId},
     hash::BuildHasher,
@@ -223,7 +223,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// ```
 /// [`impl_type_path`]: crate::impl_type_path
 /// [`TypePath`]: crate::TypePath
-pub struct GenericTypeCell<T: TypedProperty>(RwLock<TypeIdMap<&'static T::Stored>>);
+pub struct GenericTypeCell<T: TypedProperty>(RwLock<TypeIdHashMap<&'static T::Stored>>);
 
 /// See [`GenericTypeCell`].
 pub type GenericTypeInfoCell = GenericTypeCell<TypeInfo>;
@@ -233,7 +233,7 @@ pub type GenericTypePathCell = GenericTypeCell<TypePathComponent>;
 impl<T: TypedProperty> GenericTypeCell<T> {
     /// Initialize a [`GenericTypeCell`] for generic types.
     pub const fn new() -> Self {
-        Self(RwLock::new(TypeIdMap::with_hasher(NoOpHash)))
+        Self(RwLock::new(TypeIdHashMap::with_hasher(NoOpHash)))
     }
 
     /// Returns a reference to the [`TypedProperty`] stored in the cell.
@@ -278,7 +278,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
 
         write_lock
             .entry(type_id)
-            .insert_entry({
+            .insert({
                 // We leak here in order to obtain a `&'static` reference.
                 // Otherwise, we won't be able to return a reference due to the `RwLock`.
                 // This should be okay, though, since we expect it to remain statically

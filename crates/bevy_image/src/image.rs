@@ -27,23 +27,6 @@ use wgpu_types::{
     TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
-/// Trait used to provide default values for Bevy-external types that
-/// do not implement [`Default`].
-#[deprecated(
-    note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default TextureFormat anymore. If you really need this, use TextureFormat::Rgba8UnormSrgb"
-)]
-pub trait BevyDefault {
-    /// Returns the default value for a type.
-    fn bevy_default() -> Self;
-}
-
-#[expect(deprecated, reason = "deprecated")]
-impl BevyDefault for TextureFormat {
-    fn bevy_default() -> Self {
-        TextureFormat::Rgba8UnormSrgb
-    }
-}
-
 /// Trait used to provide texture srgb view formats with static lifetime for `TextureDescriptor.view_formats`.
 pub trait TextureSrgbViewFormats {
     /// Returns the srgb view formats for a type.
@@ -180,27 +163,51 @@ pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
 pub struct ImagePlugin {
     /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
     pub default_sampler: ImageSamplerDescriptor,
+    /// The file extensions that will be assigned a default compressed image
+    /// processor. This means they will be automatically compressed unless
+    /// overridden with a `.meta` file.
+    ///
+    /// Defaults to `["png", "jpeg", "jpg"]`.
+    #[cfg(any(
+        feature = "compressed_image_saver",
+        feature = "compressed_image_saver_universal"
+    ))]
+    pub default_compressed_image_processor_extensions: Vec<String>,
 }
 
 impl Default for ImagePlugin {
     fn default() -> Self {
-        ImagePlugin::default_linear()
+        ImagePlugin {
+            default_sampler: ImageSamplerDescriptor::linear(),
+            #[cfg(any(
+                feature = "compressed_image_saver",
+                feature = "compressed_image_saver_universal"
+            ))]
+            default_compressed_image_processor_extensions: [
+                "png".into(),
+                "jpeg".into(),
+                "jpg".into(),
+            ]
+            .into(),
+        }
     }
 }
 
 impl ImagePlugin {
+    /// Sets [`ImagePlugin::default_sampler`].
+    pub fn with_default_sampler(mut self, value: ImageSamplerDescriptor) -> ImagePlugin {
+        self.default_sampler = value;
+        self
+    }
+
     /// Creates image settings with linear sampling by default.
     pub fn default_linear() -> ImagePlugin {
-        ImagePlugin {
-            default_sampler: ImageSamplerDescriptor::linear(),
-        }
+        Default::default()
     }
 
     /// Creates image settings with nearest sampling by default.
     pub fn default_nearest() -> ImagePlugin {
-        ImagePlugin {
-            default_sampler: ImageSamplerDescriptor::nearest(),
-        }
+        ImagePlugin::default().with_default_sampler(ImageSamplerDescriptor::nearest())
     }
 }
 
@@ -225,7 +232,10 @@ impl Plugin for ImagePlugin {
             .insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent())
             .unwrap();
 
-        #[cfg(feature = "compressed_image_saver")]
+        #[cfg(any(
+            feature = "compressed_image_saver",
+            feature = "compressed_image_saver_universal"
+        ))]
         if let Some(processor) = app
             .world()
             .get_resource::<bevy_asset::processor::AssetProcessor>()
@@ -234,12 +244,22 @@ impl Plugin for ImagePlugin {
                 ImageLoader,
                 bevy_asset::transformer::IdentityAssetTransformer<Image>,
                 crate::CompressedImageSaver,
-            >>(crate::CompressedImageSaver.into());
-            processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
-                ImageLoader,
+            >>(crate::CompressedImageSaver::default().into());
+
+            #[cfg(all(feature = "hdr", feature = "compressed_image_saver"))]
+            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
+                crate::HdrTextureLoader,
                 bevy_asset::transformer::IdentityAssetTransformer<Image>,
                 crate::CompressedImageSaver,
-            >>("png");
+            >>(crate::CompressedImageSaver::default().into());
+
+            for file_extension in &self.default_compressed_image_processor_extensions {
+                processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
+                    ImageLoader,
+                    bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                    crate::CompressedImageSaver,
+                >>(file_extension);
+            }
         }
 
         app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);
@@ -600,7 +620,15 @@ impl ToExtents for UVec3 {
 ///
 /// ## Remote Inspection
 ///
-/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use [`SerializedImage`](crate::SerializedImage).
+/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use
+#[cfg_attr(
+    feature = "serialize",
+    doc = "[`SerializedImage`](crate::SerializedImage)."
+)]
+#[cfg_attr(
+    not(feature = "serialize"),
+    doc = "`SerializedImage`, which requires the `serialize` feature."
+)]
 /// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
 #[derive(Asset, Debug, Clone, PartialEq)]
 #[cfg_attr(
@@ -1397,6 +1425,9 @@ impl Image {
         layers: u32,
     ) -> Result<(), TextureReinterpretationError> {
         // Must be a stacked image, and the height must be divisible by layers.
+        if layers < 2 {
+            return Err(TextureReinterpretationError::NotEnoughLayers);
+        }
         if self.texture_descriptor.dimension != TextureDimension::D2 {
             return Err(TextureReinterpretationError::WrongDimension);
         }
@@ -1419,6 +1450,108 @@ impl Image {
         Ok(())
     }
 
+    /// Returns a newly constructed 2D image using the same properties as &self from a grid of tiles of the specified size,
+    /// The new image is constructed in a vertical stack of tiles to be used as a 2D array texture.
+    ///
+    /// This is primarily for preparing grid based tilesets.
+    ///
+    /// # Errors
+    /// Returns [`TextureReinterpretationError`] if the texture is not 2D, has more than one layers
+    /// or is not evenly dividable by `size_in_tiles`.
+    pub fn create_stacked_array_from_2d_grid(
+        &self,
+        rows: u32,
+        columns: u32,
+    ) -> Result<Image, TextureReinterpretationError> {
+        // In a texture 2d array, there must be at least 2 textures or else a render validation
+        // error will be thrown.
+        if rows * columns < 2 {
+            return Err(TextureReinterpretationError::NotEnoughLayers);
+        }
+        // Must be a grid image, and the image height and width must be divisible by the rows and columns.
+        if self.texture_descriptor.dimension != TextureDimension::D2 {
+            return Err(TextureReinterpretationError::WrongDimension);
+        }
+        if self.texture_descriptor.size.depth_or_array_layers != 1 {
+            return Err(TextureReinterpretationError::InvalidLayerCount);
+        }
+        if !self.height().is_multiple_of(rows) {
+            return Err(
+                TextureReinterpretationError::GridHeightNotDivisibleByTileHeight {
+                    height: self.height(),
+                    tile_count_y: rows,
+                },
+            );
+        }
+        if !self.width().is_multiple_of(columns) {
+            return Err(
+                TextureReinterpretationError::GridWidthNotDivisibleByTileWidth {
+                    width: self.width(),
+                    tile_count_x: columns,
+                },
+            );
+        }
+
+        let tile_width = self.width() / columns;
+        let tile_height = self.height() / rows;
+        let tiles_x = columns as usize;
+        let tiles_y = rows as usize;
+        let image_width = self.width() as usize;
+        let total_tiles = tiles_x * tiles_y;
+
+        let new_data = match &self.data {
+            Some(pixels) => {
+                let mut new_data: Vec<u8> = Vec::with_capacity(pixels.len());
+
+                let pixel_size = self
+                    .texture_descriptor
+                    .format
+                    .pixel_size()
+                    .map_err(|_| TextureReinterpretationError::InvalidTextureFormat)?;
+
+                // Iterate tiles in row-major order (left-to-right, top-to-bottom).
+                let tile_height_usize = tile_height as usize;
+                let tile_width_usize = tile_width as usize;
+
+                for ty in 0..tiles_y {
+                    for tx in 0..tiles_x {
+                        for row in 0..tile_height_usize {
+                            let src_row = ty * tile_height_usize + row;
+                            let src_col = tx * tile_width_usize;
+                            let src_start = (src_row * image_width + src_col) * pixel_size;
+                            let src_end = src_start + tile_width_usize * pixel_size;
+                            new_data.extend_from_slice(&pixels[src_start..src_end]);
+                        }
+                    }
+                }
+
+                Some(new_data)
+            }
+            None => None,
+        };
+
+        // Transform the grid of tiles into a single vertical stack of tiles.
+
+        let new_image = Image {
+            data: new_data,
+            data_order: self.data_order,
+            texture_descriptor: TextureDescriptor {
+                size: Extent3d {
+                    width: tile_width,
+                    height: tile_height,
+                    depth_or_array_layers: total_tiles as u32,
+                },
+                ..self.texture_descriptor.clone()
+            },
+            sampler: self.sampler.clone(),
+            texture_view_descriptor: self.texture_view_descriptor.clone(),
+            asset_usage: self.asset_usage,
+            copy_on_resize: self.copy_on_resize,
+        };
+
+        Ok(new_image)
+    }
+
     /// Convert a texture from a format to another. Only a few formats are
     /// supported as input and output:
     /// - `TextureFormat::R8Unorm`
@@ -1431,6 +1564,15 @@ impl Image {
         self.clone()
             .try_into_dynamic()
             .ok()
+            // `Rgba16Float` and `Rgba32Float` inputs return `None`. `image`
+            // would clamp them to 8 bits with no sRGB encode, and the
+            // `Rgba8UnormSrgb` result would be dark and clipped.
+            .filter(|img| {
+                !matches!(
+                    img,
+                    image::DynamicImage::ImageRgb32F(_) | image::DynamicImage::ImageRgba32F(_)
+                )
+            })
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => {
                     Some((image::DynamicImage::ImageLuma8(img.into_luma8()), false))
@@ -1444,12 +1586,33 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb, self.asset_usage))
+            .map(|(dyn_img, is_srgb)| {
+                Self::from_dynamic_inner(dyn_img, is_srgb, false, self.asset_usage)
+            })
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
-    /// crate
+    /// crate. Grayscale images are expanded to RGBA.
     pub fn from_buffer(
+        buffer: &[u8],
+        image_type: ImageType,
+        supported_compressed_formats: CompressedImageFormats,
+        is_srgb: bool,
+        image_sampler: ImageSampler,
+        asset_usage: RenderAssetUsages,
+    ) -> Result<Image, TextureError> {
+        Self::from_buffer_inner(
+            buffer,
+            image_type,
+            supported_compressed_formats,
+            is_srgb,
+            true,
+            image_sampler,
+            asset_usage,
+        )
+    }
+
+    pub(crate) fn from_buffer_inner(
         buffer: &[u8],
         image_type: ImageType,
         #[cfg_attr(
@@ -1458,6 +1621,7 @@ impl Image {
         )]
         supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
+        expand_grayscale: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
     ) -> Result<Image, TextureError> {
@@ -1496,7 +1660,7 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic(dyn_img, is_srgb, asset_usage)
+                Self::from_dynamic_inner(dyn_img, is_srgb, expand_grayscale, asset_usage)
             }
         };
         image.sampler = image_sampler;
@@ -2074,6 +2238,10 @@ pub enum TextureReinterpretationError {
     /// The image was expected to be 2d.
     #[error("must be a 2d image")]
     WrongDimension,
+    /// In a texture 2d array, there needs to be at least 2 layers or else a render validation error
+    /// will be throw.
+    #[error("Rows * Columns must be > 1")]
+    NotEnoughLayers,
     /// The image was expected to have a single layer.
     #[error("must not already be a layered image")]
     InvalidLayerCount,
@@ -2085,6 +2253,25 @@ pub enum TextureReinterpretationError {
         /// The desired number of image layers.
         layers: u32,
     },
+    /// The grid height is not divisible by the number of tiles in the height.
+    #[error("can not evenly divide grid with height = {height} by tiles = {tile_count_y}")]
+    GridHeightNotDivisibleByTileHeight {
+        /// The total image height in pixels.
+        height: u32,
+        /// The desired number of image layers.
+        tile_count_y: u32,
+    },
+    /// The grid width is not divisible by the number of tiles in the width.
+    #[error("can not evenly divide grid with width = {width} by tiles = {tile_count_x}")]
+    GridWidthNotDivisibleByTileWidth {
+        /// The total image height in pixels.
+        width: u32,
+        /// The desired number of image layers.
+        tile_count_x: u32,
+    },
+    /// The texture format is not supported.
+    #[error("Cannot process texture in its current format. Is it compressed?")]
+    InvalidTextureFormat,
 }
 
 /// An error that occurs when accessing specific pixels in a texture.
@@ -2314,6 +2501,29 @@ pub struct CompressedImageFormatSupport(pub CompressedImageFormats);
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn convert_keeps_single_channel() {
+        let image = Image::new_fill(
+            Extent3d {
+                width: 2,
+                height: 2,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[10, 20, 30, 255],
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+
+        let r8 = image.convert(TextureFormat::R8Unorm).unwrap();
+        assert_eq!(r8.texture_descriptor.format, TextureFormat::R8Unorm);
+        assert_eq!(r8.data.as_ref().unwrap().len(), 4);
+
+        let rg8 = image.convert(TextureFormat::Rg8Unorm).unwrap();
+        assert_eq!(rg8.texture_descriptor.format, TextureFormat::Rg8Unorm);
+        assert_eq!(rg8.data.as_ref().unwrap().len(), 8);
+    }
 
     #[test]
     fn image_size() {
@@ -2572,6 +2782,111 @@ mod test {
             image.get_color_at_3d(0, 0, 1),
             Ok(Color::LinearRgba(GROW_FILL))
         ));
+    }
+
+    #[test]
+    fn create_array_from_2d_grid() {
+        // 2x2 pixel image
+        let image = Image::new_fill(
+            Extent3d {
+                width: 6,
+                height: 6,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
+
+        let new_array_image = image.create_stacked_array_from_2d_grid(2, 2).unwrap();
+
+        // 2x2 pixel image with 1px tiles should convert to a 2d array of 4 layers
+        assert!(
+            new_array_image
+                .texture_descriptor
+                .size
+                .depth_or_array_layers
+                == 2 * 2
+        );
+        assert!(
+            new_array_image.data.unwrap().len()
+                == pixel_count(new_array_image.texture_descriptor.size)
+                    * new_array_image
+                        .texture_descriptor
+                        .format
+                        .pixel_size()
+                        .unwrap()
+        );
+
+        // 9x2 pixel image with 3x2px tiles should convert to array of 3 layers
+        let image = Image::new_fill(
+            Extent3d {
+                width: 9,
+                height: 2,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
+
+        let new_array_image = image.create_stacked_array_from_2d_grid(1, 3).unwrap();
+
+        assert!(
+            new_array_image
+                .texture_descriptor
+                .size
+                .depth_or_array_layers
+                == 3
+        );
+        assert!(
+            new_array_image.data.unwrap().len()
+                == pixel_count(new_array_image.texture_descriptor.size)
+                    * new_array_image
+                        .texture_descriptor
+                        .format
+                        .pixel_size()
+                        .unwrap()
+        );
+
+        let image = Image::new_fill(
+            Extent3d {
+                width: 2,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.texture_descriptor.size.depth_or_array_layers == 1);
+
+        let new_array_image = image.create_stacked_array_from_2d_grid(1, 2).unwrap();
+
+        assert!(
+            new_array_image
+                .texture_descriptor
+                .size
+                .depth_or_array_layers
+                == 2
+        );
+        assert!(
+            new_array_image.data.unwrap().len()
+                == pixel_count(new_array_image.texture_descriptor.size)
+                    * new_array_image
+                        .texture_descriptor
+                        .format
+                        .pixel_size()
+                        .unwrap()
+        );
     }
 
     #[test]

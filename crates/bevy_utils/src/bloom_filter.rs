@@ -1,7 +1,7 @@
 use bevy_platform::hash::FixedHasher;
 use core::hash::{BuildHasher, Hash};
 
-/// A Bloom filter, parameterized by number of u64 segments `N` and number of hash functions `K`.
+/// A Bloom filter, parameterized by number of `u64` segments `N` and number of hash functions `K`.
 ///
 /// `N` should be based on how much you plan to insert into the filter.
 /// `N * 64` should be at least the number of items you plan to insert.

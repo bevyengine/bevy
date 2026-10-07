@@ -1,5 +1,5 @@
 use crate::entity::{EntityMapper, MapEntities};
-use bevy_reflect::{FromReflect, FromType, PartialReflect};
+use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect};
 
 /// For a specific type of value, this maps any fields with values of type [`Entity`] to a new world.
 ///
@@ -25,8 +25,8 @@ impl ReflectMapEntities {
     }
 }
 
-impl<C: FromReflect + MapEntities> FromType<C> for ReflectMapEntities {
-    fn from_type() -> Self {
+impl<C: FromReflect + MapEntities> CreateTypeData<C> for ReflectMapEntities {
+    fn create_type_data(_input: ()) -> Self {
         ReflectMapEntities {
             map_entities: |reflected, mut mapper| {
                 let mut concrete = C::from_reflect(reflected).expect("reflected type should match");
