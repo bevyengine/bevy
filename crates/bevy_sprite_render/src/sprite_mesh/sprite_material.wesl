@@ -76,7 +76,7 @@ fn fragment(
     var output_color = sprite_functions::sample_final_color(mesh.uv, mesh.instance_index);
 
 @if(LIGHTING_2D)
-    output_color = apply_lighting_2d(output_color);
+    output_color = apply_lighting_2d(output_color, mesh.world_position.xy);
 
 @if(TONEMAP_IN_SHADER)
     output_color = tonemapping::tone_mapping(output_color, view.color_grading);

@@ -74,7 +74,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
 @if(LIGHTING_2D)
-    final_color = apply_lighting_2d(final_color);
+    final_color = apply_lighting_2d(final_color, in.world_position.xy);
 
     return final_color;
 }

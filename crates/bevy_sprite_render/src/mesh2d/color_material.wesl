@@ -89,7 +89,7 @@ fn fragment(
     output_color = alpha_discard(flags, alpha_cutoff, output_color);
 
 @if(LIGHTING_2D)
-    output_color = apply_lighting_2d(output_color);
+    output_color = apply_lighting_2d(output_color, in.world_position.xy);
 @if(TONEMAP_IN_SHADER)
     output_color = tonemapping::tone_mapping(output_color, view.color_grading);
 @if(SRGB_OUTPUT)
