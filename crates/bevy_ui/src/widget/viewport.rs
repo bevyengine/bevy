@@ -185,6 +185,75 @@ pub fn update_viewport_render_target_size(
             continue;
         };
         let size = size.as_uvec2().max(UVec2::ONE).to_extents();
-        images.get_mut(image_handle).unwrap().resize(size);
+        if let Some(mut image) = images.get_mut(image_handle) {
+            image.resize(size);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_asset::Handle;
+    use bevy_ecs::{system::RunSystemOnce, world::World};
+    use bevy_math::Vec2;
+
+    fn setup_viewport(size: Vec2) -> (World, Entity, Handle<Image>) {
+        let mut world = World::new();
+        #[cfg(feature = "bevy_picking")]
+        world.init_resource::<bevy_picking::pointer::PointerMap>();
+        let mut images = Assets::<Image>::default();
+        let image = images.add(Image::default());
+        world.insert_resource(images);
+        let camera = world.spawn(RenderTarget::from(image.clone())).id();
+        let viewport = world
+            .spawn((
+                ViewportNode::new(camera),
+                ComputedNode {
+                    size,
+                    ..Default::default()
+                },
+            ))
+            .id();
+        (world, viewport, image)
+    }
+
+    #[test]
+    fn viewport_resize_skips_removed_images() {
+        let (mut world, viewport, image) = setup_viewport(Vec2::new(64., 32.));
+        world.resource_mut::<Assets<Image>>().remove(&image);
+
+        world
+            .run_system_once(update_viewport_render_target_size)
+            .unwrap();
+
+        assert!(world
+            .get::<ViewportNode>(viewport)
+            .unwrap()
+            .camera
+            .is_some());
+    }
+
+    #[test]
+    fn viewport_resize_uses_node_size() {
+        for (size, expected) in [
+            (Vec2::new(64., 32.), UVec2::new(64, 32)),
+            (Vec2::ZERO, UVec2::ONE),
+        ] {
+            let (mut world, _, image) = setup_viewport(size);
+
+            world
+                .run_system_once(update_viewport_render_target_size)
+                .unwrap();
+
+            assert_eq!(
+                world
+                    .resource::<Assets<Image>>()
+                    .get(&image)
+                    .unwrap()
+                    .size(),
+                expected
+            );
+        }
     }
 }
