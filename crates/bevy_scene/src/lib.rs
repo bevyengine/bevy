@@ -3629,5 +3629,4 @@ mod tests {
             .id();
         assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 15);
     }
-
 }
