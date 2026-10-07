@@ -3098,6 +3098,9 @@ impl World {
                 RelationshipHookMode::Run,
             )
         };
+        if !entity_mut.contains::<IsResource>() {
+            entity_mut.insert(IsResource::new(component_id));
+        }
     }
 
     /// Inserts new `!Send` data with the given `value`. Will replace the value if it already
@@ -4252,6 +4255,74 @@ mod tests {
         let resource = unsafe { resource.deref::<TestResource>() };
 
         assert_eq!(resource.0, 42);
+    }
+
+    #[test]
+    fn dynamic_resource_by_id() {
+        for storage_type in [StorageType::Table, StorageType::SparseSet] {
+            let mut world = World::new();
+            let initial_entity_count = world.entities().count_spawned();
+            // SAFETY: u64 is Send + Sync and does not require a drop function.
+            let descriptor = unsafe {
+                ComponentDescriptor::new_with_layout(
+                    "DynamicResource",
+                    storage_type,
+                    core::alloc::Layout::new::<u64>(),
+                    None,
+                    true,
+                    false,
+                    ComponentCloneBehavior::Default,
+                    None,
+                )
+            };
+            let component_id = world.register_component_with_descriptor(descriptor);
+
+            for value in [42_u64, 43] {
+                OwningPtr::make(value, |ptr| {
+                    // SAFETY: the descriptor was registered with the layout of u64.
+                    unsafe {
+                        world.insert_resource_by_id(component_id, ptr, MaybeLocation::caller());
+                    }
+                });
+
+                let resource = world.get_resource_by_id(component_id).unwrap();
+                // SAFETY: the resource was inserted as a u64.
+                assert_eq!(unsafe { *resource.deref::<u64>() }, value);
+                assert_eq!(world.entities().count_spawned(), initial_entity_count + 1);
+            }
+
+            let resource_entity = world.resource_entities().get(component_id).unwrap();
+            {
+                let mut resource = world.get_resource_mut_by_id(component_id).unwrap();
+                // SAFETY: the resource was inserted as a u64.
+                unsafe { *resource.as_mut().deref_mut::<u64>() = 44 };
+            }
+            let resource = world.get_resource_by_id(component_id).unwrap();
+            // SAFETY: the resource was inserted as a u64.
+            assert_eq!(unsafe { *resource.deref::<u64>() }, 44);
+
+            assert!(world.remove_resource_by_id(component_id));
+            assert!(world.get_resource_by_id(component_id).is_none());
+            assert_eq!(
+                world.resource_entities().get(component_id),
+                Some(resource_entity)
+            );
+
+            OwningPtr::make(45_u64, |ptr| {
+                // SAFETY: the descriptor was registered with the layout of u64.
+                unsafe {
+                    world.insert_resource_by_id(component_id, ptr, MaybeLocation::caller());
+                }
+            });
+            let resource = world.get_resource_by_id(component_id).unwrap();
+            // SAFETY: the resource was inserted as a u64.
+            assert_eq!(unsafe { *resource.deref::<u64>() }, 45);
+            assert_eq!(
+                world.resource_entities().get(component_id),
+                Some(resource_entity)
+            );
+            assert_eq!(world.entities().count_spawned(), initial_entity_count + 1);
+        }
     }
 
     #[test]
