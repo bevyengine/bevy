@@ -766,7 +766,7 @@ fn demo_column_2() -> impl Scene {
             padding: px(8),
             row_gap: px(8),
             width: percent(30),
-            min_width: px(200),
+            min_width: px(360),
         }
         Children [
             @pane() Children [
@@ -1059,86 +1059,92 @@ fn demo_column_2() -> impl Scene {
                 ]
                 --
                 @subpane_body() Children [
+                    @FeathersSplitPane { @orientation: ControlOrientation::Vertical }
                     Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Column,
+                        height: px(200)
                     }
+                    on(split_pane_self_update)
                     Children [
-                        @FeathersTabList {
-                            @drag: TabDragMode::Reorder,
-                            @selected: OptionTemplate::Some(#home_tab),
-                        }
-                        on(tablist_self_update)
-                        on(apply_tab_move)
-                        on(show_tab_panel)
+                        @FeathersPane { @min_size: 80.0 }
                         Children [
-                            @FeathersTabListLeading
+                            @FeathersTabList {
+                                @drag: TabDragMode::Reorder,
+                                @selected: OptionTemplate::Some(#home_tab),
+                            }
+                            on(tablist_self_update)
+                            on(apply_tab_move)
+                            on(show_tab_panel)
                             Children [
-                                @FeathersToolButton {
-                                    @variant: ButtonVariant::Plain,
-                                    @caption: bsn! { @icon(icons::CHEVRON_DOWN) }
-                                }
-                            ]
-                            --
-                            #home_tab
-                            @demo_tab("Home")
-                            TabLocked
-                            --
-                            @demo_tab("Scene")
-                            --
-                            @demo_tab("Assets")
-                            --
-                            @FeathersTabListTrailing
-                            Children [
-                                @label_dim("::")
-                                Node { padding: UiRect::horizontal(px(4)) }
-                            ]
-                        ]
-                        --
-                        @demo_tab_panel()
-                        Children [
-                            @label_dim("Home panel")
-                            DemoTabPanel
-                        ]
-                    ]
-                    --
-                    Node {
-                        display: Display::Flex,
-                        column_gap: px(8),
-                    }
-                    Children [
-                        Node {
-                            display: Display::Flex,
-                            flex_direction: FlexDirection::Column,
-                            flex_grow: 1.0,
-                            flex_basis: px(0),
-                            min_width: px(0),
-                        }
-                        Children [
-                            @demo_external_tabs()
-                            Children [
-                                @demo_tab("Console")
+                                @FeathersTabListLeading
+                                Children [
+                                    @FeathersToolButton {
+                                        @variant: ButtonVariant::Plain,
+                                        @caption: bsn! { @icon(icons::CHEVRON_DOWN) }
+                                    }
+                                ]
                                 --
-                                @demo_tab("Output")
+                                #home_tab
+                                @demo_tab("Home (locked)")
+                                TabLocked
+                                --
+                                @demo_tab("Scene")
+                                --
+                                @demo_tab("Assets")
                             ]
                             --
                             @demo_tab_panel()
+                            Children [
+                                @label_dim("Home (locked) panel")
+                                DemoTabPanel
+                            ]
                         ]
                         --
-                        Node {
-                            display: Display::Flex,
-                            flex_direction: FlexDirection::Column,
-                            flex_grow: 1.0,
-                            flex_basis: px(0),
-                            min_width: px(0),
-                        }
+                        @FeathersSplitPaneHandle
+                        --
+                        @FeathersPane { @min_size: 80.0 }
                         Children [
-                            @demo_external_tabs()
+                            @FeathersSplitPane
+                            Node {
+                                flex_grow: 1.0
+                            }
+                            on(split_pane_self_update)
                             Children [
-                                @demo_tab("Inspector")
+                                @FeathersPane { @min_size: 150.0 }
+                                Children [
+                                    @FeathersTabList {
+                                        @drag: TabDragMode::External,
+                                        @selected: OptionTemplate::Some(#console_tab),
+                                    }
+                                    on(tablist_self_update)
+                                    on(apply_tab_move)
+                                    Children [
+                                        #console_tab
+                                        @demo_tab("Console")
+                                        --
+                                        @demo_tab("Output")
+                                    ]
+                                    --
+                                    @demo_tab_panel()
+                                ]
+                                --
+                                @FeathersSplitPaneHandle
+                                --
+                                @FeathersPane { @min_size: 100.0 }
+                                Children [
+                                    @FeathersTabList {
+                                        @drag: TabDragMode::External,
+                                        @selected: OptionTemplate::Some(#inspector_tab),
+                                    }
+                                    on(tablist_self_update)
+                                    on(apply_tab_move)
+                                    Children [
+                                        #inspector_tab
+                                        @demo_tab("Inspector")
+                                    ]
+                                    --
+                                    @demo_tab_panel()
+                                ]
                             ]
-                            --
-                            @demo_tab_panel()
                         ]
                     ]
                 ]
@@ -1245,18 +1251,10 @@ fn demo_tab(text: &'static str) -> impl Scene {
     }
 }
 
-fn demo_external_tabs() -> impl Scene {
-    bsn! {
-        @FeathersTabList { @drag: TabDragMode::External }
-        on(tablist_self_update)
-        on(apply_tab_move)
-    }
-}
-
 fn demo_tab_panel() -> impl Scene {
     bsn! {
         Node {
-            min_height: px(40),
+            flex_grow: 1.0,
             padding: px(8),
             border: UiRect {
                 left: px(1),

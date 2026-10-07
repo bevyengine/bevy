@@ -22,7 +22,7 @@ bsn! {
     on(apply_tab_move)
     Children [
         #home
-        @FeathersTab { @caption: bsn! { @caption("Home") } }
+        @FeathersTab { @caption: bsn! { @caption("Home (locked)") } }
         TabLocked
         --
         @FeathersTab { @caption: bsn! { @caption("Scene") } }

@@ -317,6 +317,8 @@ impl FeathersTab {
 struct TabCaption;
 
 /// One of the two flares at the base of a selected [`FeathersTab`].
+///
+/// Only the area outside its rounded corner is painted, so the neighbouring tab shows through.
 #[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Component, Clone, Default, PartialEq)]
 pub enum TabFilletEdge {
@@ -334,7 +336,6 @@ fn tab_fillet(edge: TabFilletEdge) -> impl Scene {
             display: Display::None,
         }
         edge
-        ThemeBackgroundColor(tokens::TAB_STRIP_BG)
         OuterColor
         Pickable::IGNORE
     }
@@ -1438,6 +1439,253 @@ mod tests {
         });
         app.update();
         assert_eq!(shown(&app), [[false, false]; 3]);
+    }
+
+    #[test]
+    fn fillets_paint_only_the_selected_flare() {
+        let mut app = scene_app();
+        app.insert_resource(UiTheme(crate::dark_theme::create_dark_theme()));
+        let list = app
+            .world_mut()
+            .spawn_scene(bsn! {
+                @FeathersTabList { @drag: TabDragMode::Reorder }
+                Children [
+                    @FeathersTab { @caption: bsn! { Text("Home") } }
+                    --
+                    @FeathersTab { @caption: bsn! { Text("Assets") } }
+                    --
+                    @FeathersTab { @caption: bsn! { Text("Scene") } }
+                ]
+            })
+            .unwrap()
+            .id();
+        let tabs = app.world().entity(list).get::<Children>().unwrap().to_vec();
+        let flare = app
+            .world()
+            .resource::<UiTheme>()
+            .context_color(&tokens::TAB_BG_SELECTED, SurfaceLevel::Base);
+        let check = |app: &mut App, selected: Entity, state: &str| {
+            app.update();
+            let world = app.world();
+            for tab in world
+                .entity(list)
+                .get::<Children>()
+                .unwrap()
+                .iter()
+                .copied()
+            {
+                let fillets = world
+                    .entity(tab)
+                    .get::<Children>()
+                    .unwrap()
+                    .iter()
+                    .copied()
+                    .filter(|child| world.entity(*child).contains::<TabFilletEdge>())
+                    .collect::<Vec<_>>();
+                assert_eq!(fillets.len(), 2, "{state}");
+                for fillet in fillets {
+                    let fillet = world.entity(fillet);
+                    assert!(!fillet.contains::<ThemeBackgroundColor>(), "{state}");
+                    assert!(
+                        fillet
+                            .get::<bevy_ui::BackgroundColor>()
+                            .is_none_or(|bg| bg.0.is_fully_transparent()),
+                        "{state}"
+                    );
+                    assert_eq!(fillet.get::<OuterColor>().unwrap().0, flare, "{state}");
+                    let shown = fillet.get::<Node>().unwrap().display == Display::Flex;
+                    assert_eq!(shown, tab == selected, "{state}");
+                }
+            }
+        };
+
+        app.world_mut()
+            .entity_mut(list)
+            .insert(SelectedTab(Some(tabs[1])));
+        check(&mut app, tabs[1], "selected");
+
+        app.world_mut().entity_mut(tabs[0]).insert(Hovered(true));
+        check(&mut app, tabs[1], "neighbour hovered");
+        app.world_mut().entity_mut(tabs[1]).insert(Hovered(true));
+        check(&mut app, tabs[1], "selected hovered");
+
+        app.insert_resource(bevy_input_focus::InputFocus::from_entity(tabs[0]));
+        app.insert_resource(bevy_input_focus::InputFocusVisible(true));
+        check(&mut app, tabs[1], "neighbour focused");
+
+        app.world_mut()
+            .entity_mut(list)
+            .insert(SelectedTab(Some(tabs[2])));
+        check(&mut app, tabs[2], "selection changed");
+
+        app.world_mut()
+            .entity_mut(list)
+            .insert_children(0, &[tabs[2]]);
+        check(&mut app, tabs[2], "reordered");
+
+        app.world_mut().entity_mut(tabs[2]).insert(TabDragging {
+            pointer_id: PointerId::Mouse,
+        });
+        check(&mut app, Entity::PLACEHOLDER, "dragging");
+        app.world_mut().entity_mut(tabs[2]).remove::<TabDragging>();
+        check(&mut app, tabs[2], "drag cancelled");
+    }
+
+    #[test]
+    fn tabs_drag_between_external_strips_with_slots_and_captions() {
+        use bevy_picking::{
+            backend::HitData,
+            events::{Pointer, PointerDrag, PointerDragEnd, PointerDragStart},
+            hover::HoverMap,
+            pointer::Location,
+        };
+        use bevy_ui::UiGlobalTransform;
+        use bevy_ui_widgets::{tablist_self_update, TabMoved, TabPlugin};
+        use bevy_window::{Window, WindowRef};
+
+        fn apply_tab_move(
+            moved: On<TabMoved>,
+            children: Query<&Children>,
+            tabs: Query<(), With<Tab>>,
+            mut commands: Commands,
+        ) {
+            let siblings = children
+                .get(moved.to_strip)
+                .map(|children| children.to_vec())
+                .unwrap_or_default();
+            let index = FeathersTabList::child_index(
+                &siblings,
+                |entity| tabs.contains(entity),
+                moved.tab,
+                moved.index,
+            );
+            let mut strip = commands.entity(moved.to_strip);
+            strip.insert_child(index, moved.tab);
+            if moved.to_strip != moved.from_strip {
+                strip.insert(SelectedTab(Some(moved.tab)));
+            }
+        }
+
+        let mut app = scene_app();
+        app.add_plugins(TabPlugin);
+        app.init_resource::<bevy_input_focus::InputFocus>();
+        let window = app.world_mut().spawn(Window::default()).id();
+        let strip = |name: &'static str| {
+            bsn! {
+                @FeathersTabList { @drag: TabDragMode::External }
+                on(tablist_self_update)
+                on(apply_tab_move)
+                Children [
+                    @FeathersTabListLeading
+                    --
+                    @FeathersTab { @caption: bsn! { Text(name) } }
+                    --
+                    @FeathersTabListTrailing
+                ]
+            }
+        };
+        let source = app.world_mut().spawn_scene(strip("A")).unwrap().id();
+        let destination = app.world_mut().spawn_scene(strip("B")).unwrap().id();
+        app.update();
+
+        let world = app.world();
+        let tab_in = |list: Entity| world.entity(list).get::<Children>().unwrap()[1];
+        let (dragged, target) = (tab_in(source), tab_in(destination));
+        let label = |tab: Entity| {
+            let caption = world.entity(tab).get::<Children>().unwrap()[1];
+            world.entity(caption).get::<Children>().unwrap()[0]
+        };
+        let (dragged_label, target_label) = (label(dragged), label(target));
+        app.world_mut()
+            .entity_mut(dragged)
+            .insert(UiGlobalTransform::from_xy(50.0, 10.0));
+        app.world_mut()
+            .entity_mut(target)
+            .insert(UiGlobalTransform::from_xy(50.0, 40.0));
+
+        let pointer = |position: Vec2| {
+            Pointer::new(
+                PointerId::Mouse,
+                Location {
+                    target: bevy_camera::NormalizedRenderTarget::Window(
+                        WindowRef::Entity(window).normalize(Some(window)).unwrap(),
+                    ),
+                    position,
+                },
+            )
+        };
+        let hit = HitData::new(window, 0.0, None, None);
+        let hover = |app: &mut App, entity: Entity| {
+            let mut map = app.world_mut().resource_mut::<HoverMap>();
+            map.clear();
+            map.entry(PointerId::Mouse)
+                .or_default()
+                .insert(entity, hit.clone());
+        };
+        let start = Vec2::new(50.0, 10.0);
+        let end = Vec2::new(80.0, 40.0);
+
+        hover(&mut app, dragged_label);
+        app.world_mut().trigger(PointerDragStart {
+            entity: dragged_label,
+            pointer: pointer(start),
+            button: PointerButton::Primary,
+            hit: hit.clone(),
+        });
+        app.update();
+        hover(&mut app, target_label);
+        app.world_mut().trigger(PointerDrag {
+            entity: dragged_label,
+            pointer: pointer(end),
+            button: PointerButton::Primary,
+            distance: end - start,
+            delta: end - start,
+        });
+        app.update();
+        let preview = app.world().entity(destination).get::<TabInsertionPreview>();
+        assert_eq!(preview.map(|preview| preview.entries[0].index), Some(1));
+        assert!(app.world().entity(dragged).contains::<TabDragging>());
+
+        app.world_mut().trigger(PointerDragEnd {
+            entity: dragged_label,
+            pointer: pointer(end),
+            button: PointerButton::Primary,
+            distance: end - start,
+        });
+        app.update();
+        app.update();
+
+        let world = app.world();
+        let kinds = |list: Entity| {
+            world
+                .entity(list)
+                .get::<Children>()
+                .map(|children| children.to_vec())
+                .unwrap_or_default()
+                .into_iter()
+                .map(|child| match child {
+                    _ if child == dragged => "dragged",
+                    _ if world.entity(child).contains::<FeathersTabListLeading>() => "leading",
+                    _ if world.entity(child).contains::<FeathersTabListTrailing>() => "trailing",
+                    _ => "tab",
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(kinds(source), ["leading", "trailing"]);
+        assert_eq!(
+            kinds(destination),
+            ["leading", "tab", "dragged", "trailing"]
+        );
+        assert_eq!(
+            world.entity(destination).get::<SelectedTab>(),
+            Some(&SelectedTab(Some(dragged)))
+        );
+        assert!(world.entity(dragged).contains::<Selected>());
+        assert!(!world.entity(dragged).contains::<TabDragging>());
+        assert!(world
+            .entity(destination)
+            .get::<TabInsertionPreview>()
+            .is_none());
     }
 
     #[test]
