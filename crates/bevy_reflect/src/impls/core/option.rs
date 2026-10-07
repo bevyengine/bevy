@@ -3,10 +3,12 @@
     reason = "the macro uses `MyEnum::Variant` which is generally unnecessary for `Option`"
 )]
 
+use crate::std_traits::ReflectDefault;
 use bevy_reflect_derive::impl_reflect;
 
 impl_reflect! {
     #[type_path = "core::option"]
+    #[reflect(Default)]
     enum Option<T> {
         None,
         Some(T),
@@ -17,9 +19,11 @@ impl_reflect! {
 mod tests {
     use crate::{
         enums::{Enum, VariantInfo, VariantType},
-        FromReflect, PartialReflect, TypeInfo, Typed,
+        std_traits::ReflectDefault,
+        FromReflect, PartialReflect, TypeInfo, TypeRegistry, Typed,
     };
     use bevy_reflect_derive::Reflect;
+    use core::any::TypeId;
     use static_assertions::assert_impl_all;
 
     #[test]
@@ -68,6 +72,25 @@ mod tests {
         let output = <Option<Foo> as FromReflect>::from_reflect(&expected).unwrap();
 
         assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn option_should_register_reflect_default() {
+        #[derive(Reflect)]
+        struct NonDefault;
+
+        let mut registry = TypeRegistry::new();
+        registry.register::<Option<NonDefault>>();
+
+        let reflect_default = registry
+            .get_type_data::<ReflectDefault>(TypeId::of::<Option<NonDefault>>())
+            .unwrap();
+        let value = reflect_default.default();
+
+        assert!(value
+            .downcast_ref::<Option<NonDefault>>()
+            .unwrap()
+            .is_none());
     }
 
     #[test]
