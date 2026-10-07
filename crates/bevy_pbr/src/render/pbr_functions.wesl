@@ -337,7 +337,9 @@ fn apply_pbr_lighting(
     let emissive = in.material.emissive;
 
     let metallic = in.material.metallic;
-    let specular_weight = in.material.specular_weight;
+    // Clamped here so textures and custom shaders can't push the weight past the [0, 1] that
+    // the deferred G-buffer and Solari use.
+    let specular_weight = saturate(in.material.specular_weight);
 
     // calculate non-linear roughness from linear perceptualRoughness
     let perceptual_roughness = in.material.perceptual_roughness;
@@ -722,8 +724,20 @@ fn apply_pbr_lighting(
     var indirect_light = vec3(0.0f);
     var found_diffuse_indirect = false;
 
+    // Lightmaps and irradiance volumes split diffuse and specular energy the same way as the
+    // environment map.
+    @if(LIGHTMAP || IRRADIANCE_VOLUME)
+    let indirect_diffuse_reflectance = lighting::indirect_diffuse_reflectance(
+        diffuse_color,
+        metallic,
+        F0_dielectric,
+        F0_metallic,
+        F_ab,
+        specular_weight,
+    );
+
 @if(LIGHTMAP) {
-    indirect_light += in.lightmap_light * diffuse_color;
+    indirect_light += in.lightmap_light * indirect_diffuse_reflectance;
     found_diffuse_indirect = true;
 }
 
@@ -735,7 +749,7 @@ fn apply_pbr_lighting(
             in.N,
             &clusterable_object_index_ranges,
         );
-        indirect_light += irradiance_volume_light * diffuse_color * diffuse_occlusion;
+        indirect_light += irradiance_volume_light * indirect_diffuse_reflectance * diffuse_occlusion;
         found_diffuse_indirect = true;
     }
 

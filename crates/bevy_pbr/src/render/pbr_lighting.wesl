@@ -586,6 +586,51 @@ fn EnvBRDFApprox(F0: vec3<f32>, F_ab: vec2<f32>) -> vec3<f32> {
     return F0 * F_ab.x + F_ab.y;
 }
 
+struct MultiscatterResult {
+    FssEss: vec3<f32>,
+    FmsEms: vec3<f32>,
+    Edss: vec3<f32>,
+}
+
+/// Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
+///
+/// We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
+/// Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
+fn compute_multiscatter(
+    F0: vec3<f32>,
+    F_ab: vec2<f32>,
+    Ems: f32,
+    specular_weight: f32,
+) -> MultiscatterResult {
+    let FssEss = specular_weight * (F0 * F_ab.x + F_ab.y);
+    let Favg = F0 + (1.0 - F0) / 21.0;
+    let FmsEms = FssEss * Favg / (1.0 - Ems * Favg) * Ems;
+    let Edss = 1.0 - (FssEss + FmsEms);
+
+    return MultiscatterResult(FssEss, FmsEms, Edss);
+}
+
+/// Returns the fraction of incoming indirect diffuse light (irradiance) that a surface reflects,
+/// with the same diffuse and specular energy split as the environment map.
+///
+/// Following `KHR_materials_specular`, `specular_weight` scales the dielectric specular lobe only,
+/// and the diffuse lobe receives the energy the weighted specular lobe does not reflect. The result
+/// includes the multiscattered specular energy, which is approximated as diffuse.
+fn indirect_diffuse_reflectance(
+    diffuse_color: vec3<f32>,
+    metallic: f32,
+    F0_dielectric: vec3<f32>,
+    F0_metallic: vec3<f32>,
+    F_ab: vec2<f32>,
+    specular_weight: f32,
+) -> vec3<f32> {
+    let Ems = 1.0 - (F_ab.x + F_ab.y);
+    let ms_dielectric = compute_multiscatter(F0_dielectric, F_ab, Ems, specular_weight);
+    let ms_metallic = compute_multiscatter(F0_metallic, F_ab, Ems, 1.0);
+    let FmsEms = mix(ms_dielectric.FmsEms, ms_metallic.FmsEms, metallic);
+    return FmsEms + diffuse_color * ms_dielectric.Edss;
+}
+
 fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
     // clamp perceptual roughness to prevent precision problems
     // According to Filament design 0.089 is recommended for mobile

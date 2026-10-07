@@ -181,6 +181,7 @@ pub struct StandardMaterial {
     /// incidence and the reflectance at grazing angles, for highlights and reflections.
     ///
     /// Set to `0.0`, no specular highlight is visible. The highlight is strongest when `specular` is set to `1.0`.
+    /// Values outside `[0.0, 1.0]` are clamped.
     ///
     /// Defaults to `1.0`, which will compute the normal incidence reflectance according to the material's IOR.
     #[doc(alias = "specular_intensity")]

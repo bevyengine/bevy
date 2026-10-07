@@ -4,7 +4,9 @@ import package::render::mesh_view_bindings::light_probes;
 import package::render::mesh_view_types::{
     LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE, LIGHT_PROBE_FLAG_PARALLAX_CORRECT
 };
-import package::render::pbr_lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT};
+import package::render::pbr_lighting::{
+    compute_multiscatter, F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT
+};
 import package::render::clustered_forward::ClusterableObjectIndexRanges;
 import bevy_render::maths::quat_rotate;
 
@@ -19,12 +21,6 @@ struct EnvironmentMapLight {
 struct EnvironmentMapRadiances {
     irradiance: vec3<f32>,
     radiance: vec3<f32>,
-}
-
-struct MultiscatterResult {
-    FssEss: vec3<f32>,
-    FmsEms: vec3<f32>,
-    Edss: vec3<f32>,
 }
 
 /// Computes the direction at which to sample the reflection probe.
@@ -314,23 +310,6 @@ fn environment_map_light_clearcoat(
     (*out).specular = (*out).specular * inv_Fc * inv_Fc + clearcoat_radiances.radiance * Fc;
 }
 
-/// Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
-///
-/// We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
-/// Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
-fn compute_multiscatter(
-    F0: vec3<f32>,
-    F_ab: vec2<f32>,
-    Ems: f32,
-) -> MultiscatterResult {
-    let FssEss = (F0 * F_ab.x + F_ab.y);
-    let Favg = F0 + (1.0 - F0) / 21.0;
-    let FmsEms = FssEss * Favg / (1.0 - Ems * Favg) * Ems;
-    let Edss = 1.0 - (FssEss + FmsEms);
-
-    return MultiscatterResult(FssEss, FmsEms, Edss);
-}
-
 fn environment_map_light(
     input: ptr<function, LightingInput>,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
@@ -368,8 +347,10 @@ fn environment_map_light(
     // We can't use F0 directly as the multiscattering term is nonlinear.
     let Ems = 1.0 - (F_ab.x + F_ab.y);
 
-    let ms_dielectric = compute_multiscatter(F0_dielectric, F_ab, Ems);
-    let ms_metallic = compute_multiscatter(F0_metallic, F_ab, Ems);
+    // Following `KHR_materials_specular`, the specular weight scales the dielectric lobe only, and
+    // the diffuse lobe receives the energy the weighted specular lobe no longer reflects.
+    let ms_dielectric = compute_multiscatter(F0_dielectric, F_ab, Ems, specular_weight);
+    let ms_metallic = compute_multiscatter(F0_metallic, F_ab, Ems, 1.0);
 
     let FmsEms = mix(ms_dielectric.FmsEms, ms_metallic.FmsEms, metallic);
     let kD = diffuse_color * ms_dielectric.Edss;
@@ -380,9 +361,7 @@ fn environment_map_light(
         out.diffuse = vec3(0.0);
     }
 
-    // Following `KHR_materials_specular`, the specular weight scales the dielectric lobe only.
-    out.specular = mix(specular_weight * ms_dielectric.FssEss, ms_metallic.FssEss, metallic) *
-        radiances.radiance;
+    out.specular = mix(ms_dielectric.FssEss, ms_metallic.FssEss, metallic) * radiances.radiance;
 
     @if(STANDARD_MATERIAL_CLEARCOAT)
     environment_map_light_clearcoat(

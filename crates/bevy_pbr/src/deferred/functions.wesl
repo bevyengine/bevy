@@ -2,6 +2,7 @@ import package::{
     render::{
         pbr_types::{PbrInput, pbr_input_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
         pbr_functions,
+        pbr_lighting as lighting,
         rgb9e5,
         mesh_view_bindings::view,
         view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
@@ -67,7 +68,8 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
 
     // Utilize the emissive channel to transmit the lightmap data. To ensure
     // it matches the output in forward shading, pre-multiply it with the
-    // calculated diffuse color.
+    // reflectance that `apply_pbr_lighting` applies to lightmap light.
+@if(LIGHTMAP) {
     let base_color = in.material.base_color.rgb;
     let metallic = in.material.metallic;
     let specular_transmission = in.material.specular_transmission;
@@ -78,7 +80,25 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         specular_transmission,
         diffuse_transmission
     );
-    emissive += in.lightmap_light * diffuse_color * view.exposure;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
+    let reflectance_ior =
+        pbr_functions::clearcoat_base_layer_ior(in.material.ior, in.material.clearcoat);
+    @else
+    let reflectance_ior = in.material.ior;
+    let F0_dielectric =
+        pbr_functions::calculate_F0_dielectric(reflectance_ior, in.material.specular_tint);
+    let NdotV = max(dot(in.N, in.V), 0.0001);
+    let F_ab = lighting::F_AB(in.material.perceptual_roughness, NdotV);
+    let indirect_diffuse_reflectance = lighting::indirect_diffuse_reflectance(
+        diffuse_color,
+        metallic,
+        F0_dielectric,
+        base_color,
+        F_ab,
+        saturate(in.material.specular_weight),
+    );
+    emissive += in.lightmap_light * indirect_diffuse_reflectance * view.exposure;
+}
 
     let deferred = vec4(
         deferred_types::pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
