@@ -1,4 +1,5 @@
 //! Shows the `bevy_inspector` entity tree and details panels inspecting the app's own world.
+//! Editing the showcase tint and shape updates the object in the scene.
 //!
 //! Run with the `bevy_inspector` feature enabled, and `debug` for readable names of unregistered types:
 //! ```bash
@@ -26,7 +27,7 @@ fn main() {
         .add_plugins((DefaultPlugins, FeathersPlugins, InspectorPlugin))
         .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, (demo_scene.spawn(), inspector_ui.spawn()))
-        .add_systems(Update, log_selection)
+        .add_systems(Update, (log_selection, apply_showcase))
         .run();
 }
 
@@ -67,11 +68,11 @@ enum Mode {
 #[derive(Reflect, Default, Clone, Copy, PartialEq)]
 enum Shape {
     #[default]
-    Point,
-    Circle {
+    Hidden,
+    Sphere {
         radius: f32,
     },
-    Rect(f32, f32),
+    Cuboid(f32, f32, f32),
 }
 
 #[derive(Reflect, Default, Clone, Copy)]
@@ -120,6 +121,9 @@ fn demo_scene() -> impl SceneList {
             ]
             --
             Name("Showcase")
+            Mesh3d(asset_value(Sphere::new(0.4)))
+            MeshMaterial3d::<StandardMaterial>(asset_value(Color::srgb(0.95, 0.55, 0.2)))
+            Transform::from_xyz(3.0, 0.4, 1.0)
             Showcase {
                 enabled: true,
                 health: 72.5,
@@ -134,7 +138,7 @@ fn demo_scene() -> impl SceneList {
                 tint: Color::srgb(0.95, 0.55, 0.2),
                 glow: { LinearRgba::rgb(0.2, 0.6, 1.0) },
                 mode: Mode::Walking,
-                shape: { Shape::Circle { radius: 1.5 } },
+                shape: { Shape::Sphere { radius: 0.4 } },
                 speed: { Some(3.5) },
                 limit: { None },
                 bounds: Bounds {
@@ -150,6 +154,39 @@ fn demo_scene() -> impl SceneList {
         Mesh3d(asset_value(Sphere::new(0.5)))
         MeshMaterial3d::<StandardMaterial>(asset_value(Color::srgb(0.9, 0.8, 0.3)))
         Transform::from_xyz(0.0, 1.8, -2.0)
+    }
+}
+
+fn apply_showcase(
+    mut showcases: Query<
+        (
+            &Showcase,
+            &mut Mesh3d,
+            &mut Visibility,
+            &MeshMaterial3d<StandardMaterial>,
+        ),
+        Changed<Showcase>,
+    >,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut applied: Local<Option<Shape>>,
+) {
+    for (showcase, mut mesh, mut visibility, material) in &mut showcases {
+        if let Some(mut material) = materials.get_mut(&material.0) {
+            material.base_color = showcase.tint;
+        }
+        if *applied != Some(showcase.shape) {
+            *applied = Some(showcase.shape);
+            let size = |value: f32| if value > 0.0 { value } else { 0.5 };
+            *visibility = Visibility::Inherited;
+            match showcase.shape {
+                Shape::Hidden => *visibility = Visibility::Hidden,
+                Shape::Sphere { radius } => mesh.0 = meshes.add(Sphere::new(size(radius))),
+                Shape::Cuboid(width, height, depth) => {
+                    mesh.0 = meshes.add(Cuboid::new(size(width), size(height), size(depth)));
+                }
+            }
+        }
     }
 }
 
