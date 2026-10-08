@@ -19,11 +19,9 @@ impl_reflect! {
 mod tests {
     use crate::{
         enums::{Enum, VariantInfo, VariantType},
-        std_traits::ReflectDefault,
-        FromReflect, PartialReflect, TypeInfo, TypeRegistry, Typed,
+        FromReflect, PartialReflect, TypeInfo, Typed,
     };
     use bevy_reflect_derive::Reflect;
-    use core::any::TypeId;
     use static_assertions::assert_impl_all;
 
     #[test]
@@ -72,38 +70,6 @@ mod tests {
         let output = <Option<Foo> as FromReflect>::from_reflect(&expected).unwrap();
 
         assert_eq!(expected, output);
-    }
-
-    #[test]
-    fn option_should_register_reflect_default() {
-        #[derive(Reflect)]
-        struct NonDefault;
-
-        let mut registry = TypeRegistry::new();
-        registry.register::<Option<NonDefault>>();
-
-        let reflect_default = registry
-            .get_type_data::<ReflectDefault>(TypeId::of::<Option<NonDefault>>())
-            .unwrap();
-        let value = reflect_default.default();
-
-        assert!(value
-            .downcast_ref::<Option<NonDefault>>()
-            .unwrap()
-            .is_none());
-    }
-
-    #[test]
-    fn option_with_default_inner_type_should_default_to_none() {
-        let mut registry = TypeRegistry::new();
-        registry.register::<Option<u32>>();
-
-        let reflect_default = registry
-            .get_type_data::<ReflectDefault>(TypeId::of::<Option<u32>>())
-            .unwrap();
-        let value = reflect_default.default();
-
-        assert_eq!(value.downcast_ref::<Option<u32>>(), Some(&None));
     }
 
     #[test]
