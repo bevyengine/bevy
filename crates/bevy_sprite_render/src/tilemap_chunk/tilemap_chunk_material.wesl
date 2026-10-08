@@ -67,14 +67,14 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     let tex_color = textureSample(tileset, tileset_sampler, local_uv, tile.tileset_index);
-    var final_color = tex_color * tile.color;
+    var output_color = tex_color * tile.color;
 
-    if (final_color.a < 0.001) {
+    if (output_color.a < 0.001) {
         discard;
     }
 
 @if(LIGHTING_2D)
-    final_color = apply_lighting_2d(final_color, in.world_position.xy);
+    output_color= apply_lighting_2d(output_color, in.world_position.xy);
 
-    return final_color;
+    return output_color;
 }
