@@ -1645,7 +1645,9 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
         return walk.entries;
     }
     let (value, path) = flatten_newtypes(value, String::new());
-    if let Some(scalar) = scalar_value(value) {
+    if let Some(label) = asset_handle_label(value) {
+        walk.push(path, "value".to_string(), 0, FieldValue::Label(label));
+    } else if let Some(scalar) = scalar_value(value) {
         walk.push_scalar(path, "value".to_string(), 0, value, scalar);
     } else if let Some(variant) = variant_value(value, registry) {
         walk.push(path.clone(), "variant".to_string(), 0, variant);
@@ -1724,6 +1726,11 @@ impl Walk<'_> {
 
         if depth >= MAX_DEPTH {
             self.push(path, label, depth, FieldValue::Label("...".to_string()));
+            return;
+        }
+
+        if let Some(caption) = asset_handle_label(value) {
+            self.push(path, label, depth, FieldValue::Label(caption));
             return;
         }
 
@@ -1819,6 +1826,18 @@ impl Walk<'_> {
         }
     }
 }
+
+/// The read-only caption of an asset handle, or `None` if `value` is not one.
+///
+/// Handles are matched by type path, since this crate does not depend on `bevy_asset`.
+fn asset_handle_label(value: &dyn PartialReflect) -> Option<String> {
+    let type_path = value.get_represented_type_info()?.type_path();
+    type_path
+        .starts_with(ASSET_HANDLE_PREFIX)
+        .then(|| ShortName(type_path).to_string())
+}
+
+const ASSET_HANDLE_PREFIX: &str = "bevy_asset::handle::Handle<";
 
 /// The read-only caption form of a field value.
 pub(crate) fn read_only(value: FieldValue) -> FieldValue {
@@ -2146,6 +2165,21 @@ mod tests {
 
     #[derive(Reflect, Debug, Default, PartialEq)]
     struct Point(f32, f32);
+
+    #[derive(Component, Reflect, Debug)]
+    #[reflect(Component)]
+    struct Pointer(bevy_asset::Handle<bevy_image::Image>);
+
+    #[derive(Reflect, Debug)]
+    struct Texture(bevy_asset::Handle<bevy_image::Image>);
+
+    #[derive(Component, Reflect, Debug)]
+    #[reflect(Component)]
+    struct Skin {
+        texture: Texture,
+        direct: bevy_asset::Handle<bevy_image::Image>,
+        mode: Mode,
+    }
 
     #[derive(Reflect, Debug, Default)]
     struct Outer {
@@ -2601,6 +2635,49 @@ mod tests {
             "expected one caption row, got {entries:?}"
         );
         assert_eq!(entries[0].value, FieldValue::Label("Left Cube".to_string()));
+    }
+
+    #[test]
+    fn asset_handles_are_read_only_labels() {
+        let handle = bevy_asset::Handle::<bevy_image::Image>::default();
+        assert!(
+            bevy_asset::Handle::<bevy_image::Image>::type_path().starts_with(ASSET_HANDLE_PREFIX)
+        );
+        let mut registry = TypeRegistry::new();
+        registry.register::<Mode>();
+        registry.register_type_data::<Mode, ReflectDefault>();
+
+        let entries = field_entries(&Pointer(handle.clone()), &registry);
+        assert_eq!(entries.len(), 1, "{entries:?}");
+        assert_eq!(
+            entries[0].value,
+            FieldValue::Label("Handle<Image>".to_string())
+        );
+
+        let entries = field_entries(
+            &Skin {
+                texture: Texture(handle.clone()),
+                direct: handle,
+                mode: Mode::Idle,
+            },
+            &registry,
+        );
+        let label = FieldValue::Label("Handle<Image>".to_string());
+        assert_eq!(entry(&entries, "texture.0").value, label);
+        assert_eq!(entry(&entries, "direct").value, label);
+        assert!(
+            entries
+                .iter()
+                .filter(
+                    |entry| entry.path.starts_with("texture") || entry.path.starts_with("direct")
+                )
+                .all(|entry| entry.value == label),
+            "{entries:?}"
+        );
+        assert!(matches!(
+            entry(&entries, "mode").value,
+            FieldValue::Variant { .. }
+        ));
     }
 
     #[test]
