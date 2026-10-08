@@ -5,7 +5,7 @@
 //! for the selected entity, see [`details_panel`].
 //!
 //! With the `remote` feature the same panels can inspect a separate running app over the Bevy
-//! Remote Protocol, see [`remote`].
+//! Remote Protocol, see the `remote` module.
 //!
 //! Apps are expected to add `bevy_feathers::FeathersPlugins` themselves, alongside
 //! [`InspectorPlugin`].
