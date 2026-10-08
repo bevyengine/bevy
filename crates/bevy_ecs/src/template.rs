@@ -136,6 +136,7 @@ impl SceneEntityReferences {
 ///
 /// The uniqueness of this is ensured by the following factors:
 /// - macro invocation location: filename, line and column
+/// - macro invocation ID (usually from a static `LazyLock`)
 /// - the `name_id` should uniquely identify a name in the individual macros scope
 /// - runtime, per-scope counter for each runtime call (usually from a static `AtomicU64`)
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
@@ -147,13 +148,16 @@ pub struct InnerSceneEntityReference {
     file: &'static str,
     line: usize,
     column: usize,
+    invocation_id: u64,
     name_id: usize,
     runtime: u64,
 }
 impl SceneEntityReference {
-    /// Create a new [`SceneEntityReference`] from the invocation location, runtime time, and a local (per-macro) counter for names
+    /// Create a new [`SceneEntityReference`] from the invocation location, invocation ID, a local
+    /// (per-macro) counter for names, and runtime time.
     pub fn new(
         (file, line, column): (&'static str, usize, usize),
+        invocation_id: u64,
         name_id: usize,
         runtime: u64,
     ) -> Self {
@@ -161,6 +165,7 @@ impl SceneEntityReference {
             file,
             line,
             column,
+            invocation_id,
             name_id,
             runtime,
         }))
@@ -170,8 +175,8 @@ impl SceneEntityReference {
 impl core::fmt::Display for SceneEntityReference {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!(
-            "global={}:{}:{} name_id={} runtime={:?}",
-            self.file, self.line, self.column, self.name_id, self.runtime
+            "global={}:{}:{} invocation={} name_id={} runtime={:?}",
+            self.file, self.line, self.column, self.invocation_id, self.name_id, self.runtime
         ))
     }
 }
@@ -433,11 +438,17 @@ impl Unpin for EntityTemplate where for<'a> [()]: SpecializeFromTemplate {}
 impl EntityTemplate {
     /// Create a [`EntityTemplate::SceneEntityReference`] from the data needed for [`SceneEntityReference`]
     pub fn from_reference(
-        invocation: (&'static str, usize, usize),
+        invocation_loc: (&'static str, usize, usize),
+        invocation_id: u64,
         name_id: usize,
         runtime: u64,
     ) -> Self {
-        Self::SceneEntityReference(SceneEntityReference::new(invocation, name_id, runtime))
+        Self::SceneEntityReference(SceneEntityReference::new(
+            invocation_loc,
+            invocation_id,
+            name_id,
+            runtime,
+        ))
     }
 }
 
