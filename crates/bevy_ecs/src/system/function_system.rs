@@ -501,6 +501,10 @@ where
     current_ptr: subsecond::HotFnPtr,
     state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
+    /// Used to take a different change ticking approach for exclusive systems;
+    /// external users should use [`SystemAccess::is_exclusive`] via
+    /// [`System::initialize`] instead.
+    is_exclusive: bool,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn(In) -> (Marker, Out)>,
 }
@@ -530,6 +534,7 @@ where
                 .ptr_address(),
             state,
             system_meta,
+            is_exclusive: false,
             marker: PhantomData,
         }
     }
@@ -556,6 +561,7 @@ where
                 .ptr_address(),
             state: None,
             system_meta: SystemMeta::new::<F>(),
+            is_exclusive: false,
             marker: PhantomData,
         }
     }
@@ -578,12 +584,11 @@ fn init_param_or_panic<P: SystemParam>(
             let mut access = err2.access.clone();
             let err1 = P::init_access(state, system_meta, &mut access).err();
             panic_for_param_conflict(system_meta.name(), world, err1, err2);
-        } else {
-            // The ordinary panic message includes multiple `DebugName`s,
-            // each of which would be replaced with an "Enable the debug feature" message.
-            // Don't even bother calling `init_access` again if we can't use the parameter name.
-            panic_for_param_conflict_no_debug(err2);
         }
+        // The ordinary panic message includes multiple `DebugName`s,
+        // each of which would be replaced with an "Enable the debug feature" message.
+        // Don't even bother calling `init_access` again if we can't use the parameter name.
+        panic_for_param_conflict_no_debug(err2);
     });
     access
 }
@@ -770,15 +775,52 @@ where
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
+        // This guard is used by exclusive systems to temporarily set the world's
+        // last change tick to the system's last run tick, and then restore it
+        // when the system finishes running, regardless of whether the system
+        // completes successfully or panics.
+        struct LastTickGuard<'a> {
+            world: UnsafeWorldCell<'a>,
+            last_tick: Tick,
+        }
+        // By setting the change tick in the drop impl, we ensure that
+        // the change tick gets reset even if a panic occurs during the scope.
+        impl Drop for LastTickGuard<'_> {
+            fn drop(&mut self) {
+                // SAFETY: The guard was only created under exclusive access to
+                // the world, and nothing else is accessing the world mutably
+                // when this drop occurs.
+                let world = unsafe { self.world.world_mut() };
+                world.last_change_tick = self.last_tick;
+            }
+        }
+
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
-
-        let change_tick = world.increment_change_tick();
 
         let input = F::In::from_inner(input);
 
         let state = self.state.as_mut().expect(Self::ERROR_UNINITIALIZED);
         assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+
+        let (change_tick, _guard) = if self.is_exclusive {
+            // SAFETY: an exclusive system has sole access to the world.
+            let exclusive_world = unsafe { world.world_mut() };
+            let change_tick = exclusive_world.change_tick();
+            let previous_tick = exclusive_world.last_change_tick();
+            exclusive_world.last_change_tick = self.system_meta.last_run;
+
+            (
+                change_tick,
+                Some(LastTickGuard {
+                    world,
+                    last_tick: previous_tick,
+                }),
+            )
+        } else {
+            (world.increment_change_tick(), None)
+        };
+
         // SAFETY:
         // - The above assert ensures the world matches.
         // - All world accesses used by `F::Param` have been registered, so the caller
@@ -801,7 +843,14 @@ where
         #[cfg(not(feature = "hotpatching"))]
         let out = self.func.run(input, params);
 
-        self.system_meta.last_run = change_tick;
+        if self.is_exclusive {
+            // SAFETY: The system has exclusive access to the world.
+            let world = unsafe { world.world_mut() };
+            world.flush();
+            self.system_meta.last_run = world.increment_change_tick();
+        } else {
+            self.system_meta.last_run = change_tick;
+        }
         IntoResult::into_result(out)
     }
 
@@ -841,7 +890,10 @@ where
             world_id: world.id(),
         });
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        init_param_or_panic::<F::Param>(&state.param, &mut self.system_meta, world.into())
+        let access =
+            init_param_or_panic::<F::Param>(&state.param, &mut self.system_meta, world.into());
+        self.is_exclusive = access.is_exclusive();
+        access
     }
 
     #[inline]

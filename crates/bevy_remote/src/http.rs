@@ -116,6 +116,10 @@ pub struct RemoteHttpPlugin {
     /// The port that Bevy will listen on.
     port: u16,
     /// The port that Bevy will listen on for render subapp.
+    #[cfg_attr(
+        not(feature = "bevy_render"),
+        expect(dead_code, reason = "only used by the render sub-app")
+    )]
     render_port: u16,
     /// The headers that Bevy will include in its HTTP responses
     headers: Headers,

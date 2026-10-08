@@ -88,6 +88,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_input_focus|Enable input focus subsystem|
+|bevy_inspector|Entity inspector built on bevy_ui and bevy_feathers.|
 |bevy_light|Provides light types such as point lights, directional lights, spotlights.|
 |bevy_log|Enable integration with `tracing` and `log`|
 |bevy_material|Provides materials.|
@@ -131,6 +132,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |dlss|NVIDIA Deep Learning Super Sampling|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
+|equirectangular_cubemap|Equirectangular (lat-long) panorama to cubemap conversion|
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |ff|Farbfeld image format support|

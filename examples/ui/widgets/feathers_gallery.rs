@@ -12,7 +12,7 @@ use bevy::{
         font_styles::InheritableFont,
         palette,
         rounded_corners::RoundedCorners,
-        theme::{ThemeBackgroundColor, UiTheme},
+        theme::{ThemeBackgroundColor, ThemeBorderColor, UiTheme},
         tokens, FeathersPlugins,
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
@@ -23,9 +23,11 @@ use bevy::{
     ui_widgets::{
         checkbox_self_update, listbox_update_selection,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-        radio_self_update, slider_self_update, tree_view_expand_self_update, tree_view_self_update,
-        Activate, ActivateOnPress, NumericRange, NumericValue, RadioGroup, RequestClose,
-        SliderPrecision, SliderStep, SliderValue, TreeItemExpandChange, ValueChange,
+        radio_self_update, slider_self_update, split_pane_self_update, tablist_self_update,
+        tree_view_expand_self_update, tree_view_self_update, Activate, ActivateOnPress,
+        ControlOrientation, DragOverlayRoot, NumericRange, NumericValue, RadioGroup, RequestClose,
+        SelectedTab, SliderPrecision, SliderStep, SliderValue, Tab, TabDragMode, TabLocked,
+        TabMoved, TreeItemExpandChange, ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -66,6 +68,12 @@ struct DemoLazyBranch;
 
 #[derive(Component, Clone, Copy, Default)]
 struct DemoPopulated;
+
+#[derive(Component, Clone, Copy, Default)]
+struct DemoTabLabel(&'static str);
+
+#[derive(Component, Clone, Copy, Default)]
+struct DemoTabPanel;
 
 #[derive(Component, Clone, Copy, Default)]
 enum DemoVec3Field {
@@ -111,6 +119,7 @@ fn demo_root() -> impl Scene {
             column_gap: px(8),
         }
         TabGroup
+        DragOverlayRoot
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children [
             @demo_column_1()
@@ -757,7 +766,7 @@ fn demo_column_2() -> impl Scene {
             padding: px(8),
             row_gap: px(8),
             width: percent(30),
-            min_width: px(200),
+            min_width: px(360),
         }
         Children [
             @pane() Children [
@@ -1002,6 +1011,144 @@ fn demo_column_2() -> impl Scene {
                     on(listbox_update_selection)
                 ]
             ]
+            --
+            @subpane() Children [
+                @subpane_header() Children [
+                    @caption("Split Pane")
+                ]
+                --
+                @subpane_body() Children [
+                    @FeathersSplitPane
+                    Node {
+                        height: px(140)
+                    }
+                    on(split_pane_self_update)
+                    Children [
+                        @FeathersPane { @min_size: 40.0 }
+                        Node { padding: px(4) }
+                        Children [ @label("Left") ]
+                        --
+                        @FeathersSplitPaneHandle
+                        --
+                        @FeathersPane { @size: 2.0, @min_size: 60.0 }
+                        Children [
+                            @FeathersSplitPane { @orientation: ControlOrientation::Vertical }
+                            Node {
+                                flex_grow: 1.0
+                            }
+                            on(split_pane_self_update)
+                            Children [
+                                @FeathersPane { @min_size: 30.0 }
+                                Node { padding: px(4) }
+                                Children [ @label("Top") ]
+                                --
+                                @FeathersSplitPaneHandle
+                                --
+                                @FeathersPane { @min_size: 30.0 }
+                                Node { padding: px(4) }
+                                Children [ @label("Bottom") ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+            --
+            @subpane() Children [
+                @subpane_header() Children [
+                    @caption("Tabs")
+                ]
+                --
+                @subpane_body() Children [
+                    @FeathersSplitPane { @orientation: ControlOrientation::Vertical }
+                    Node {
+                        height: px(200)
+                    }
+                    on(split_pane_self_update)
+                    Children [
+                        @FeathersPane { @min_size: 80.0 }
+                        Children [
+                            @FeathersTabList {
+                                @drag: TabDragMode::Reorder,
+                                @selected: OptionTemplate::Some(#home_tab),
+                            }
+                            on(tablist_self_update)
+                            on(apply_tab_move)
+                            on(show_tab_panel)
+                            Children [
+                                @FeathersTabListStartAdornment
+                                Children [
+                                    @FeathersToolButton {
+                                        @variant: ButtonVariant::Plain,
+                                        @caption: bsn! { @icon(icons::CHEVRON_DOWN) }
+                                    }
+                                ]
+                                --
+                                #home_tab
+                                @demo_tab("Home (locked)")
+                                TabLocked
+                                --
+                                @demo_tab("Scene")
+                                --
+                                @demo_tab("Assets")
+                            ]
+                            --
+                            @demo_tab_panel()
+                            Children [
+                                @label_dim("Home (locked) panel")
+                                DemoTabPanel
+                            ]
+                        ]
+                        --
+                        @FeathersSplitPaneHandle
+                        --
+                        @FeathersPane { @min_size: 80.0 }
+                        Children [
+                            @FeathersSplitPane
+                            Node {
+                                flex_grow: 1.0
+                            }
+                            on(split_pane_self_update)
+                            Children [
+                                @FeathersPane { @min_size: 150.0 }
+                                Children [
+                                    @FeathersTabList {
+                                        @drag: TabDragMode::External,
+                                        @selected: OptionTemplate::Some(#console_tab),
+                                    }
+                                    on(tablist_self_update)
+                                    on(apply_tab_move)
+                                    Children [
+                                        #console_tab
+                                        @demo_tab("Console")
+                                        --
+                                        @demo_tab("Output")
+                                    ]
+                                    --
+                                    @demo_tab_panel()
+                                ]
+                                --
+                                @FeathersSplitPaneHandle
+                                --
+                                @FeathersPane { @min_size: 100.0 }
+                                Children [
+                                    @FeathersTabList {
+                                        @drag: TabDragMode::External,
+                                        @selected: OptionTemplate::Some(#inspector_tab),
+                                    }
+                                    on(tablist_self_update)
+                                    on(apply_tab_move)
+                                    Children [
+                                        #inspector_tab
+                                        @demo_tab("Inspector")
+                                    ]
+                                    --
+                                    @demo_tab_panel()
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
         ]
     }
 }
@@ -1092,6 +1239,67 @@ fn demo_column_3() -> impl Scene {
                 ]
             ]
         ]
+    }
+}
+
+fn demo_tab(text: &'static str) -> impl Scene {
+    bsn! {
+        @FeathersTab {
+            @caption: bsn! { @caption(text) }
+        }
+        DemoTabLabel(text)
+    }
+}
+
+fn demo_tab_panel() -> impl Scene {
+    bsn! {
+        Node {
+            flex_grow: 1.0,
+            padding: px(8),
+            border: UiRect {
+                left: px(1),
+                right: px(1),
+                bottom: px(1),
+            },
+        }
+        ThemeBackgroundColor(tokens::PANE_BODY_BG)
+        ThemeBorderColor(tokens::TAB_STRIP_BG)
+    }
+}
+
+fn apply_tab_move(
+    moved: On<TabMoved>,
+    children: Query<&Children>,
+    tabs: Query<(), With<Tab>>,
+    mut commands: Commands,
+) {
+    let siblings = children
+        .get(moved.to_strip)
+        .map(|children| children.to_vec())
+        .unwrap_or_default();
+    let index = FeathersTabList::child_index(
+        &siblings,
+        |entity| tabs.contains(entity),
+        moved.tab,
+        moved.index,
+    );
+    let mut strip = commands.entity(moved.to_strip);
+    strip.insert_child(index, moved.tab);
+    if moved.to_strip != moved.from_strip {
+        strip.insert(SelectedTab(Some(moved.tab)));
+    }
+}
+
+fn show_tab_panel(
+    change: On<ValueChange<Option<Entity>>>,
+    labels: Query<&DemoTabLabel>,
+    mut panels: Query<&mut Text, With<DemoTabPanel>>,
+) {
+    let Some(label) = change.value.and_then(|tab| labels.get(tab).ok()) else {
+        return;
+    };
+    for mut text in &mut panels {
+        text.0 = format!("{} panel", label.0);
     }
 }
 
