@@ -813,7 +813,7 @@ mod tests {
     }
 
     #[test]
-    fn removing_active_tab_activates_neighbour() {
+    fn removing_active_tab_activates_neighbor() {
         let (mut tree, root) = tree_with(&["a", "b", "c"]);
         tree.set_active(root, tab(&tree, "b")).unwrap();
         tree.remove_tab(tab(&tree, "b")).unwrap();
