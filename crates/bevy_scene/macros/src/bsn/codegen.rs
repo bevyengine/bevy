@@ -334,18 +334,24 @@ impl BsnEntry {
                     BsnConstructor {
                         type_path,
                         function,
+                        function_generics,
                         args,
                     },
                 dot_expression,
             } => EntryResult::CombinedSceneFunction({
                 let args = args.into_tokens(ctx);
+                let generics_tokens = if let Some(function_generics) = function_generics {
+                    quote! { #function_generics }
+                } else {
+                    quote! {}
+                };
                 if let Some(dot_expr) = dot_expression {
                     quote! {
-                        _scene.insert_template::<#type_path>(#type_path::#function #args #dot_expr);
+                        _scene.insert_template::<#type_path>(#type_path::#function #generics_tokens #args #dot_expr);
                     }
                 } else {
                     quote! {
-                        _scene.insert_template::<#type_path>(#type_path::#function #args);
+                        _scene.insert_template::<#type_path>(#type_path::#function #generics_tokens #args);
                     }
                 }
             }),
@@ -354,18 +360,24 @@ impl BsnEntry {
                     BsnConstructor {
                         type_path,
                         function,
+                        function_generics,
                         args,
                     },
                 dot_expression,
             } => EntryResult::CombinedSceneFunction({
                 let args = args.into_tokens(ctx);
+                let generics_tokens = if let Some(function_generics) = function_generics {
+                    quote! { #function_generics }
+                } else {
+                    quote! {}
+                };
                 if let Some(dot_expr) = dot_expression {
                     quote! {
-                        _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args #dot_expr);
+                        _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #generics_tokens #args #dot_expr);
                     }
                 } else {
                     quote! {
-                        _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args);
+                        _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #generics_tokens #args);
                     }
                 }
             }),
@@ -1241,5 +1253,37 @@ mod tests {
 
         // Assert
         assert_eq!(res, expected,);
+    }
+
+    #[test]
+    fn bsn_root_supports_turbofish_in_template_constructor() {
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+
+        let root: BsnRoot = syn::parse_str("~A::from::<B>()").unwrap();
+
+        // Act
+        let res = root.into_tokens(&mut ctx).to_string();
+
+        // The turbofish must be preserved when converting `A::from::<B>()` into a template constructor.
+        assert!(res.contains("{ _scene . insert_template :: < A > (A :: from :: < B > ()) ; }"));
+    }
+
+    #[test]
+    fn bsn_root_supports_turbofish_in_from_template_constructor() {
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+
+        let root: BsnRoot = syn::parse_str("A::from::<B>()").unwrap();
+
+        // Act
+        let res = root.into_tokens(&mut ctx).to_string();
+
+        // The turbofish must be preserved when converting `A::from::<B>()` into a `FromTemplate` constructor.
+        assert!(res.contains("{ _scene . insert_template (< A as bevy_ecs :: template :: FromTemplate > :: Template :: from :: < B > ()) ; }"));
     }
 }
