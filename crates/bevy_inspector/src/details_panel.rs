@@ -205,13 +205,13 @@ struct FieldWidget {
 
 /// A component of the inspected entity, with its fields flattened into rows.
 #[derive(Debug, Clone)]
-struct ComponentDetails {
-    id: ComponentId,
+pub(crate) struct ComponentDetails {
+    pub(crate) id: ComponentId,
     /// The name shown in the group header, a [`ShortName`] of the component type.
-    name: String,
-    type_path: String,
-    memory: String,
-    fields: Vec<FieldEntry>,
+    pub(crate) name: String,
+    pub(crate) type_path: String,
+    pub(crate) memory: String,
+    pub(crate) fields: Vec<FieldEntry>,
 }
 
 /// The group spawned for one component, whether its fields were spawned, and the rows they were
@@ -835,8 +835,9 @@ pub fn sync_details_panel(world: &mut World) {
         return;
     };
 
-    let components = inspect_components(world, selection);
-    let empty = empty_state(world, selection, &components);
+    let inspected = crate::world_to_inspect(world);
+    let components = inspect_components(inspected, selection);
+    let empty = empty_state(inspected, selection, &components);
 
     let index = world.resource::<DetailsIndex>();
     if selection_changed || index.body != Some(body) || index.empty != empty {
@@ -855,7 +856,11 @@ fn find_body(world: &mut World) -> Option<Entity> {
         .next()
 }
 
-fn inspect_components(world: &World, selection: Option<Entity>) -> Vec<ComponentDetails> {
+/// The component groups of `selection` in the inspected `world`, sorted in display order.
+pub(crate) fn inspect_components(
+    world: &World,
+    selection: Option<Entity>,
+) -> Vec<ComponentDetails> {
     let Some(entity) = selection else {
         return Vec::new();
     };
@@ -916,6 +921,10 @@ fn inspect_components(world: &World, selection: Option<Entity>) -> Vec<Component
             }
         })
         .collect();
+    #[cfg(feature = "remote")]
+    if let Some(record) = world.component_id::<crate::remote::RemoteComponents>() {
+        components.retain(|component| component.id != record);
+    }
     components.sort_by(|left, right| (&left.name, left.id).cmp(&(&right.name, right.id)));
     components
 }
@@ -1684,7 +1693,7 @@ impl Walk {
 }
 
 /// The read-only caption form of a field value.
-fn read_only(value: FieldValue) -> FieldValue {
+pub(crate) fn read_only(value: FieldValue) -> FieldValue {
     FieldValue::Label(match value {
         FieldValue::Bool(value) => value.to_string(),
         FieldValue::Number(NumericValue::F32(value)) => value.to_string(),
