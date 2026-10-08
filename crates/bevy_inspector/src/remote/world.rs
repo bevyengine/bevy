@@ -274,11 +274,11 @@ mod tests {
 
     #[derive(Component, Reflect)]
     #[reflect(Component)]
-    struct Labelled;
+    struct Labeled;
 
     fn registry() -> AppTypeRegistry {
         let registry = AppTypeRegistry(TypeRegistryArc::default());
-        registry.write().register::<Labelled>();
+        registry.write().register::<Labeled>();
         registry
     }
 
@@ -407,7 +407,7 @@ mod tests {
     fn detected_labels_are_kept_until_has_is_asked_again() {
         let entity = remote(3);
         let mut remote_world = spawned(entity);
-        let id = remote_world.world.register_component::<Labelled>();
+        let id = remote_world.world.register_component::<Labeled>();
         let reported = |remote_world: &RemoteWorld| -> Vec<ComponentId> {
             remote_world
                 .world
@@ -418,7 +418,7 @@ mod tests {
         };
 
         let detected = TreeComponents {
-            detected: Some(alloc::vec![Labelled::type_path().into()]),
+            detected: Some(alloc::vec![Labeled::type_path().into()]),
             ..TreeComponents::default()
         };
         assert!(remote_world.write(entity, detected.clone()));
@@ -433,6 +433,6 @@ mod tests {
         };
         assert!(remote_world.write(entity, unknown));
         assert!(reported(&remote_world).is_empty());
-        assert!(remote_world.world.get::<Labelled>(entity).is_none());
+        assert!(remote_world.world.get::<Labeled>(entity).is_none());
     }
 }

@@ -895,7 +895,7 @@ pub(crate) mod tests {
 
     #[derive(Component, Reflect)]
     #[reflect(Component)]
-    struct Labelled;
+    struct Labeled;
 
     #[derive(Component, Reflect)]
     struct Unreflected;
@@ -905,11 +905,11 @@ pub(crate) mod tests {
         {
             let registry = world.resource::<AppTypeRegistry>();
             let mut registry = registry.write();
-            registry.register::<Labelled>();
+            registry.register::<Labeled>();
             registry.register::<Unreflected>();
         }
         let mut priorities = LabelResolutionRegistry::new();
-        priorities.register_label_defining_type::<Labelled>(LabelDefinitionPriority::LIBRARY);
+        priorities.register_label_defining_type::<Labeled>(LabelDefinitionPriority::LIBRARY);
         priorities.register_label_defining_type::<Unreflected>(LabelDefinitionPriority::LIBRARY);
         world.insert_resource(priorities);
         world
@@ -954,7 +954,7 @@ pub(crate) mod tests {
             [
                 CHILD_OF.to_string(),
                 NAME.to_string(),
-                Labelled::type_path().to_string(),
+                Labeled::type_path().to_string(),
                 Plain::type_path().to_string(),
             ]
         );
@@ -991,7 +991,7 @@ pub(crate) mod tests {
                 json!({
                     NAME: "Cube",
                     CHILD_OF: remote(3),
-                    Labelled::type_path(): {},
+                    Labeled::type_path(): {},
                     "demo::Transform": { "x": 1.0 },
                 }),
             )]),
@@ -1002,7 +1002,7 @@ pub(crate) mod tests {
             TreeComponents {
                 name: Some("Cube".to_string()),
                 parent: Some(remote(3)),
-                labels: alloc::vec![Labelled::type_path().to_string()],
+                labels: alloc::vec![Labeled::type_path().to_string()],
                 detected: None,
             }
         );
@@ -1072,7 +1072,7 @@ pub(crate) mod tests {
     #[test]
     fn labels_entities_with_components_only_reported_by_has() {
         let mut world = label_world();
-        let path = Labelled::type_path();
+        let path = Labeled::type_path();
         apply(
             &mut world,
             alloc::vec![json!({
@@ -1081,13 +1081,13 @@ pub(crate) mod tests {
                 "has": { path: true },
             })],
         );
-        assert_eq!(label(&world, remote(13)), "Labelled");
-        assert!(mirrored(&world).get::<Labelled>(remote(13)).is_none());
+        assert_eq!(label(&world, remote(13)), "Labeled");
+        assert!(mirrored(&world).get::<Labeled>(remote(13)).is_none());
 
         poll(&mut world, alloc::vec![row(remote(13), json!({}))], false);
         assert_eq!(
             label(&world, remote(13)),
-            "Labelled",
+            "Labeled",
             "detected labels are kept until the next full poll"
         );
     }
@@ -1095,7 +1095,7 @@ pub(crate) mod tests {
     #[test]
     fn skips_entities_without_a_reflected_or_detected_component() {
         let mut world = label_world();
-        let path = Labelled::type_path();
+        let path = Labeled::type_path();
         apply(
             &mut world,
             alloc::vec![
