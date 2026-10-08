@@ -22,6 +22,13 @@
 //! [`DockTree`] is a component, so an app can have several docks, one per root entity. With
 //! the `serialize` feature it can be saved and loaded with serde.
 //!
+//! The tree is the source of truth for the layout, and the dock's UI entities are derived from
+//! it. Widgets such as tabs and splitters only propose changes, which are applied to the tree,
+//! and the UI is then brought back in line with it. Keeping the layout as plain data makes
+//! operations like splitting at an edge or collapsing empty groups simple to write and test,
+//! makes layouts easy to save and restore, and lets the UI entities be rebuilt without losing
+//! the layout.
+//!
 //! ```
 //! use bevy_ui_widgets::{DockEdge, DockTree};
 //!

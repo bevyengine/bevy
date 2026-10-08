@@ -263,6 +263,9 @@ pub enum DockError {
 
 /// A dock layout: a tree of tab groups and the splits between them.
 ///
+/// The tree is the source of truth for the layout, and lives on the dock's root entity. The
+/// dock's UI is derived from it, and widgets propose changes that are applied to the tree.
+///
 /// The tree always has a root node. A new tree's root is an empty leaf.
 #[derive(Component, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Clone, Debug, Default, PartialEq)]
