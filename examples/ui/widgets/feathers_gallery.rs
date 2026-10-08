@@ -1075,7 +1075,7 @@ fn demo_column_2() -> impl Scene {
                             on(apply_tab_move)
                             on(show_tab_panel)
                             Children [
-                                @FeathersTabListLeading
+                                @FeathersTabListStartAdornment
                                 Children [
                                     @FeathersToolButton {
                                         @variant: ButtonVariant::Plain,

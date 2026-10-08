@@ -66,10 +66,10 @@ const DRAG_PROXY_Z: i32 = 200;
 /// events and applied by the app.
 ///
 /// The selected tab shares its background with the pane body below the strip and flares into it
-/// at its bottom corners. Children marked [`FeathersTabListLeading`] or
-/// [`FeathersTabListTrailing`] are kept at the start or end of the strip, so apps can put their own
-/// controls there. Use [`FeathersTabList::child_index`] to apply a [`bevy_ui_widgets::TabMoved`]
-/// when such children are present.
+/// at its bottom corners. Children marked [`FeathersTabListStartAdornment`] or
+/// [`FeathersTabListEndAdornment`] are kept at the start or end of the strip, so apps can put
+/// their own controls there. Use [`FeathersTabList::child_index`] to apply a
+/// [`bevy_ui_widgets::TabMoved`] when such children are present.
 ///
 /// While a tab is dragged, a [`FeathersTabDragProxy`] follows the pointer and a
 /// [`FeathersTabInsertionIndicator`] marks the drop position. The proxy is only shown when an
@@ -155,7 +155,7 @@ impl FeathersTabList {
     /// Returns where to insert `tab` among a list's `children` so that it lands at `index`, as
     /// given by [`bevy_ui_widgets::TabMoved`] or [`bevy_ui_widgets::TabDrop`].
     ///
-    /// Those indices only count tabs, so this skips slot content, buttons and `tab` itself.
+    /// Those indices only count tabs, so this skips adornments, buttons and `tab` itself.
     pub fn child_index(
         children: &[Entity],
         is_tab: impl Fn(Entity) -> bool,
@@ -205,14 +205,14 @@ impl Default for TabFillets {
     }
 }
 
-/// Content placed before the tabs in a [`FeathersTabList`].
+/// An adornment placed before the tabs in a [`FeathersTabList`].
 ///
 /// Add this as a child of the list and put the app's own controls inside it.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
-pub struct FeathersTabListLeading;
+pub struct FeathersTabListStartAdornment;
 
-impl FeathersTabListLeading {
+impl FeathersTabListStartAdornment {
     fn scene() -> impl Scene {
         bsn! {
             Node {
@@ -225,14 +225,14 @@ impl FeathersTabListLeading {
     }
 }
 
-/// Content placed at the far end of a [`FeathersTabList`].
+/// An adornment placed at the far end of a [`FeathersTabList`].
 ///
 /// Add this as a child of the list and put the app's own controls inside it.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
-pub struct FeathersTabListTrailing;
+pub struct FeathersTabListEndAdornment;
 
-impl FeathersTabListTrailing {
+impl FeathersTabListEndAdornment {
     fn scene() -> impl Scene {
         bsn! {
             Node {
@@ -492,7 +492,7 @@ fn update_tab_styles(
     }
 }
 
-/// Keeps leading content first, and the add button and trailing content after the tabs.
+/// Keeps the start adornment first, and the add button and end adornment after the tabs.
 fn arrange_tab_lists(
     lists: Query<
         (Entity, &TabList, &Children),
@@ -501,43 +501,43 @@ fn arrange_tab_lists(
             Or<(Changed<Children>, Changed<TabList>)>,
         ),
     >,
-    mut leading: Query<
+    mut start: Query<
         &mut Node,
         (
-            With<FeathersTabListLeading>,
-            Without<FeathersTabListTrailing>,
+            With<FeathersTabListStartAdornment>,
+            Without<FeathersTabListEndAdornment>,
         ),
     >,
-    mut trailing: Query<
+    mut end: Query<
         &mut Node,
         (
-            With<FeathersTabListTrailing>,
-            Without<FeathersTabListLeading>,
+            With<FeathersTabListEndAdornment>,
+            Without<FeathersTabListStartAdornment>,
         ),
     >,
     mut commands: Commands,
 ) {
     for (list, tablist, children) in &lists {
-        let (leading_margin, trailing_margin) = match tablist.orientation {
+        let (start_margin, end_margin) = match tablist.orientation {
             ControlOrientation::Horizontal => (UiRect::right(px(4)), UiRect::left(Val::Auto)),
             ControlOrientation::Vertical => (UiRect::bottom(px(4)), UiRect::top(Val::Auto)),
         };
         for child in children.iter().copied() {
-            if let Ok(mut node) = leading.get_mut(child)
-                && node.margin != leading_margin
+            if let Ok(mut node) = start.get_mut(child)
+                && node.margin != start_margin
             {
-                node.margin = leading_margin;
+                node.margin = start_margin;
             }
-            if let Ok(mut node) = trailing.get_mut(child)
-                && node.margin != trailing_margin
+            if let Ok(mut node) = end.get_mut(child)
+                && node.margin != end_margin
             {
-                node.margin = trailing_margin;
+                node.margin = end_margin;
             }
         }
         let rank = |child: &Entity| {
-            if leading.contains(*child) {
+            if start.contains(*child) {
                 0
-            } else if trailing.contains(*child) {
+            } else if end.contains(*child) {
                 2
             } else {
                 1
@@ -1545,7 +1545,7 @@ mod tests {
     }
 
     #[test]
-    fn tabs_drag_between_external_strips_with_slots_and_captions() {
+    fn tabs_drag_between_external_strips_with_adornments_and_captions() {
         use bevy_picking::{
             backend::HitData,
             events::{Pointer, PointerDrag, PointerDragEnd, PointerDragStart},
@@ -1589,11 +1589,11 @@ mod tests {
                 on(tablist_self_update)
                 on(apply_tab_move)
                 Children [
-                    @FeathersTabListLeading
+                    @FeathersTabListStartAdornment
                     --
                     @FeathersTab { @caption: bsn! { Text(name) } }
                     --
-                    @FeathersTabListTrailing
+                    @FeathersTabListEndAdornment
                 ]
             }
         };
@@ -1676,19 +1676,19 @@ mod tests {
                 .map(|children| children.to_vec())
                 .unwrap_or_default()
                 .into_iter()
-                .map(|child| match child {
-                    _ if child == dragged => "dragged",
-                    _ if world.entity(child).contains::<FeathersTabListLeading>() => "leading",
-                    _ if world.entity(child).contains::<FeathersTabListTrailing>() => "trailing",
-                    _ => "tab",
+                .map(|child| {
+                    let entity = world.entity(child);
+                    match child {
+                        _ if child == dragged => "dragged",
+                        _ if entity.contains::<FeathersTabListStartAdornment>() => "start",
+                        _ if entity.contains::<FeathersTabListEndAdornment>() => "end",
+                        _ => "tab",
+                    }
                 })
                 .collect::<Vec<_>>()
         };
-        assert_eq!(kinds(source), ["leading", "trailing"]);
-        assert_eq!(
-            kinds(destination),
-            ["leading", "tab", "dragged", "trailing"]
-        );
+        assert_eq!(kinds(source), ["start", "end"]);
+        assert_eq!(kinds(destination), ["start", "tab", "dragged", "end"]);
         assert_eq!(
             world.entity(destination).get::<SelectedTab>(),
             Some(&SelectedTab(Some(dragged)))
@@ -1702,7 +1702,7 @@ mod tests {
     }
 
     #[test]
-    fn slot_content_is_placed_in_the_strip() {
+    fn adornments_are_placed_in_the_strip() {
         let mut app = scene_app();
         let list = app
             .world_mut()
@@ -1711,11 +1711,11 @@ mod tests {
                 Children [
                     @FeathersTab { @caption: bsn! { Text("A") } }
                     --
-                    @FeathersTabListTrailing
+                    @FeathersTabListEndAdornment
                     --
                     @FeathersTab { @caption: bsn! { Text("B") } }
                     --
-                    @FeathersTabListLeading
+                    @FeathersTabListStartAdornment
                 ]
             })
             .unwrap()
@@ -1729,14 +1729,14 @@ mod tests {
             .map(|child| {
                 let child = world.entity(*child);
                 match () {
-                    _ if child.contains::<FeathersTabListLeading>() => "leading",
+                    _ if child.contains::<FeathersTabListStartAdornment>() => "start",
                     _ if child.contains::<FeathersTab>() => "tab",
-                    _ if child.contains::<FeathersTabListTrailing>() => "trailing",
+                    _ if child.contains::<FeathersTabListEndAdornment>() => "end",
                     _ => "other",
                 }
             })
             .collect::<Vec<_>>();
-        assert_eq!(kinds, ["leading", "tab", "tab", "trailing"]);
+        assert_eq!(kinds, ["start", "tab", "tab", "end"]);
         assert_eq!(
             world.entity(children[3]).get::<Node>().unwrap().margin,
             UiRect::left(Val::Auto)
@@ -1794,11 +1794,11 @@ mod tests {
             .spawn_scene(bsn! {
                 @FeathersTabList
                 Children [
-                    @FeathersTabListLeading
+                    @FeathersTabListStartAdornment
                     --
                     @FeathersTab { @caption: bsn! { Text("A long tab caption") } }
                     --
-                    @FeathersTabListTrailing
+                    @FeathersTabListEndAdornment
                 ]
             })
             .unwrap()
