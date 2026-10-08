@@ -30,8 +30,8 @@ use bevy_ui::UiSystems;
 
 use crate::column_split::ColumnSplitPlugin;
 use crate::details_panel::{
-    store_column_splits, sync_details_panel, DetailsCollapsed, DetailsColumnSplits, DetailsIndex,
-    DetailsPanelSync,
+    apply_field_edit, store_column_splits, sync_details_panel, DetailsCollapsed,
+    DetailsColumnSplits, DetailsIndex, DetailsPanelSync,
 };
 use crate::entity_tree::{sync_entity_tree, EntityTreeSync, TreeRowIndex};
 
@@ -98,6 +98,7 @@ impl Plugin for InspectorPlugin {
             .init_resource::<DetailsCollapsed>()
             .init_resource::<DetailsColumnSplits>()
             .init_resource::<DetailsPanelSync>()
+            .add_observer(apply_field_edit)
             .add_systems(
                 PostUpdate,
                 (

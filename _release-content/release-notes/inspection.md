@@ -1,7 +1,7 @@
 ---
 title: Entity inspection tools
 authors: ["@jbuehler23", "@alice-i-cecile", "@Nilirad", "@Zeophlite"]
-pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885]
+pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885, 25923]
 ---
 
 `bevy_dev_tools::inspection` is gaining a backend for inspecting worlds, entities, components, and resources.
@@ -17,4 +17,4 @@ This note will be completed once the rest of the series lands.
 - Added entity and resource inspection to `bevy_dev_tools` (#25845)
 - Added serde support and structured values to the inspection types (#25866)
 - Added `world.inspect*`, `world.summarize` and `registry.component_metadata` to the Bevy Remote Protocol (#25883)
-- Added the `bevy_inspector` crate with a local entity tree and details panel (#25884, #25885)
+- Added the `bevy_inspector` crate with a local entity tree and an editable details panel (#25884, #25885, #25923)
