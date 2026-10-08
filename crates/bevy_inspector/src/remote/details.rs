@@ -97,19 +97,36 @@ impl RemoteEntityFetch {
 /// Fetches the components of the selected remote entity, and writes them into the
 /// [`RemoteWorld`] when they change.
 pub fn sync_remote_details(world: &mut World) { // CHAIN 4
+    _sync_remote_details(world, true);
+    _sync_remote_details(world, false);
+}
+
+fn _sync_remote_details(world: &mut World, is_main: bool) {
+    let rw = world.resource::<RemoteWorlds>();
+    let w = if is_main { &rw.main } else { &rw.render };
+
     let selection = world
         .resource::<InspectorSelection>()
         .0
-        .filter(|entity| world.resource::<RemoteWorlds>().main.contains(*entity));
-    if world.resource::<RemoteEntityFetchs>().main.entity != selection {
+        .filter(|entity| w.contains(entity.0));
+    let selection_entity = selection.map_or(None, |s| Some(s.0));
+    
+    let fs = world.resource::<RemoteEntityFetchs>();
+    let f = if is_main { &fs.main } else { &fs.render };
+    if f.entity != selection_entity {
         world.resource_mut::<RemoteEntityFetchs>().main = RemoteEntityFetch {
-            entity: selection,
+            entity: selection_entity,
             ..RemoteEntityFetch::default()
         };
     }
-    let Some(remote) = selection else {
+
+    let Some((remote, sel_is_main)) = selection else {
         return;
     };
+    if sel_is_main != is_main {
+        return;
+    }
+
     let now = world
         .get_resource::<Time<Real>>()
         .map(Time::elapsed)
@@ -445,7 +462,8 @@ mod tests {
     /// Mirrors `target` with a name, and selects it.
     fn select(world: &mut World, target: Entity) {
         apply(world, alloc::vec![row(target, json!({ NAME: "Selected" }))]);
-        world.resource_mut::<InspectorSelection>().0 = Some(target);
+        let sel = world.resource_mut::<InspectorSelection>();
+        sel.0 = Some((target, true));
         sync_remote_details(world);
     }
 
@@ -465,7 +483,7 @@ mod tests {
     }
 
     fn groups(world: &World, target: Entity) -> Vec<ComponentDetails> {
-        inspect_components(mirrored(world), Some(target))
+        inspect_components(mirrored(world), Some(target, true))
     }
 
     fn names(groups: &[ComponentDetails]) -> Vec<&str> {

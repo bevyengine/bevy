@@ -277,7 +277,7 @@ pub struct DetailsIndex {
     fields: HashMap<(ComponentId, String), FieldWidget>,
     groups: HashMap<ComponentId, GroupWidget>,
     body: Option<Entity>,
-    selection: Option<Entity>,
+    selection: Option<(Entity, bool)>, // is_main
     empty: Option<EmptyState>,
 }
 
@@ -435,7 +435,7 @@ fn emit_field_edit(
     let Ok(field) = fields.get(widget) else {
         return;
     };
-    let Some(entity) = index.selection else {
+    let Some((entity, is_main)) = index.selection else {
         return;
     };
     let Some(stored) = index.fields.get_mut(&(field.component, field.path.clone())) else {
@@ -835,9 +835,12 @@ pub fn sync_details_panel(world: &mut World) {
         return;
     };
 
-    let inspected = crate::world_to_inspect(world, true);
+    let maybe_is_main = selection.map_or(false, |s| s.1);
+    let maybe_selected = selection.map_or(None, |s| Some(s.0));
+
+    let inspected = crate::world_to_inspect(world, maybe_is_main);
     let components = inspect_components(inspected, selection);
-    let empty = empty_state(inspected, selection, &components);
+    let empty = empty_state(inspected, maybe_selected, &components);
 
     let index = world.resource::<DetailsIndex>();
     if selection_changed || index.body != Some(body) || index.empty != empty {
@@ -859,9 +862,9 @@ fn find_body(world: &mut World) -> Option<Entity> {
 /// The component groups of `selection` in the inspected `world`, sorted in display order.
 pub(crate) fn inspect_components(
     world: &World,
-    selection: Option<Entity>,
+    selection: Option<(Entity, bool)>,
 ) -> Vec<ComponentDetails> {
-    let Some(entity) = selection else {
+    let Some((entity, is_main)) = selection else {
         return Vec::new();
     };
 
@@ -947,7 +950,7 @@ fn empty_state(
 fn reset_body(
     world: &mut World,
     body: Entity,
-    selection: Option<Entity>,
+    selection: Option<(Entity, bool)>,
     empty: Option<EmptyState>,
 ) {
     let children: Vec<Entity> = world

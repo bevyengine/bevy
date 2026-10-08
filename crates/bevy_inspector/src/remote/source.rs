@@ -370,19 +370,32 @@ pub(crate) fn is_remote(world: &World) -> bool {
 /// Sets the connection up for the current [`InspectorSource`] when it changes, clearing the
 /// [`RemoteWorld`] and the selection.
 pub fn sync_remote_source(world: &mut World) { // CHAIN 1
+    _sync_remote_source(world, true);
+    _sync_remote_source(world, false);
+}
+
+fn _sync_remote_source(world: &mut World, is_main: bool) {
     let source = match world.get_resource::<InspectorSource>() {
         Some(InspectorSource::Remote(source)) => Some(source),
         _ => None,
     };
-    if world.resource::<RemoteConnections>().main.source.as_ref() == source {
+    let remote_connections = world.resource::<RemoteConnections>();
+    let connection = if is_main { &remote_connections.main } else { &remote_connections.render };
+    if connection.source.as_ref() == source {
         return;
     }
     let source = source.cloned();
 
-    world.resource_mut::<RemoteSnapshots>().main = RemoteSnapshot::default();
+    let mut snapshots = world.resource_mut::<RemoteSnapshots>();
+    if is_main {
+        snapshots.main = RemoteSnapshot::default();
+    } else {
+        snapshots.render = RemoteSnapshot::default();
+    }
     reset_inspected_world(world);
 
-    let mut connection = &mut world.resource_mut::<RemoteConnections>().main;
+    let mut remote_connections = world.resource_mut::<RemoteConnections>();
+    let mut connection = if is_main { &mut remote_connections.main } else { &mut remote_connections.render };
     connection.pending = None;
     connection.state = RemoteConnectionState::Disconnected;
     connection.next_poll = Duration::ZERO;
@@ -401,7 +414,8 @@ fn reset_inspected_world(world: &mut World) {
         .cloned()
         .unwrap_or_default();
     world.resource_mut::<RemoteWorlds>().main.reset(registry);
-    world.resource_mut::<InspectorSelection>().0 = None;
+    let mut sel = world.resource_mut::<InspectorSelection>();
+    sel.0 = None;
     if let Some(mut collapsed) = world.get_resource_mut::<DetailsCollapsed>() {
         collapsed.0.clear();
     }
@@ -424,16 +438,34 @@ pub fn poll_remote_connection( // CHAIN 2
     mut connection: ResMut<RemoteConnections>,
     mut snapshot: ResMut<RemoteSnapshots>,
 ) {
-    if connection.main.client.is_none() {
+    let now = time.map(|time: Res<'_, Time<Real>>| time.elapsed()).unwrap_or_default();
+    let registry = registry.as_deref();
+    let priorities = priorities.as_deref();
+
+    let RemoteConnections {main: main_connection, render: render_connection} = connection.into_inner();
+    let RemoteSnapshots {main: main_snapshot, render: render_snapshot} = snapshot.into_inner();
+
+    _poll_remote_connection(now, registry, priorities.clone(), main_connection, main_snapshot, true);
+    _poll_remote_connection(now, registry, priorities, render_connection, render_snapshot, false);
+}
+
+fn _poll_remote_connection(
+    now: Duration,
+    registry: Option<&AppTypeRegistry>,
+    priorities: Option<&LabelResolutionRegistry>,
+    connection: &mut RemoteConnection,
+    snapshot: &mut RemoteSnapshot,
+    _is_main: bool,
+) {
+    if connection.client.is_none() {
         return;
     }
-    let now = time.map(|time: Res<'_, Time<Real>>| time.elapsed()).unwrap_or_default();
-    let connection = &mut connection.main;
-    if !connection.finish_pending(&mut snapshot.main, now) {
+    
+    if !connection.finish_pending(snapshot, now) {
         return;
     }
     let Some(request) = connection.next_request(now, || match &registry {
-        Some(registry) => poll_types(&registry.read(), priorities.as_deref()),
+        Some(registry) => poll_types(&registry.read(), priorities),
         None => PollTypes::default(),
     }) else {
         return;
@@ -688,6 +720,11 @@ fn finish_call(
 /// generation than the one mirrored, the remote app restarted: the world is rebuilt, the poll
 /// written again, and a full poll requested.
 pub fn sync_remote_world(world: &mut World) { // CHAIN 3
+    _sync_remote_world(world, true);
+    _sync_remote_world(world, false);
+}
+
+fn _sync_remote_world(world: &mut World, is_main: bool) {
     if !is_remote(world) {
         return;
     }
@@ -700,9 +737,13 @@ pub fn sync_remote_world(world: &mut World) { // CHAIN 3
     let Some(pending) = pending else {
         return;
     };
-    let selection = world.resource::<InspectorSelection>().0;
+    let sel = world.resource::<InspectorSelection>();
+    let selection = sel.0;
+    let maybe_is_main = selection.map_or(false, |s| s.1);
+    let selection_entity = selection.map_or(None, |s| Some(s.0));
     let written = world.resource_scope(|_, mut remote: Mut<RemoteWorlds>| {
-        apply_rows(&mut remote.main, pending, selection)
+        let w = if maybe_is_main { &mut remote.main } else { &mut remote.render };
+        apply_rows(w, pending, selection_entity)
     });
     let written = match written {
         Ok(written) => written,

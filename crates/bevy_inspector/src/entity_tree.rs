@@ -154,17 +154,18 @@ pub fn entity_tree_panel() -> impl Scene {
 /// Observer that records the inspected entity of the selected row in [`InspectorSelection`].
 pub fn inspector_tree_selected(
     change: On<ValueChange<Option<Entity>>>,
-    trees: Query<(), With<InspectorTreeView>>,
+    trees: Query<&InspectorTreeView>,
     rows: Query<&InspectorRow>,
     mut selection: ResMut<InspectorSelection>,
 ) {
-    if !trees.contains(change.source) {
+    let Ok(tree) = trees.get(change.source) else {
         return;
-    }
+    };
+
     selection.0 = change
         .value
         .and_then(|row| rows.get(row).ok())
-        .map(|row| row.source);
+        .map(|row| (row.source, true));
 }
 
 /// Observer that starts keeping a row's child rows in sync the first time it is expanded.
