@@ -373,7 +373,7 @@ impl Components {
         };
 
         // Cannot create cyclic requirements.
-        if required_required_components.all.contains_key(&requiree) {
+        if requiree == required || required_required_components.all.contains_key(&requiree) {
             return Err(RequiredComponentsError::CyclicRequirement(
                 requiree, required,
             ));
@@ -524,6 +524,9 @@ impl Components {
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum RequiredComponentsError {
+    /// The component has not been registered in this world.
+    #[error("Component {0:?} is not registered in this world")]
+    UnregisteredComponent(ComponentId),
     /// The component is already a directly required component for the requiree.
     #[error("Component {0:?} already directly requires component {1:?}")]
     DuplicateRegistration(ComponentId, ComponentId),
@@ -662,10 +665,142 @@ mod tests {
 
     use crate::{
         bundle::Bundle,
-        component::{Component, RequiredComponentsError},
+        component::{
+            Component, ComponentCloneBehavior, ComponentDescriptor, ComponentId,
+            RequiredComponentsError, StorageType,
+        },
         prelude::Resource,
         world::World,
     };
+
+    fn register_dynamic_component(world: &mut World, storage_type: StorageType) -> ComponentId {
+        // SAFETY: () is Send + Sync and does not require a drop function.
+        let descriptor = unsafe {
+            ComponentDescriptor::new_with_layout(
+                "DynamicComponent",
+                storage_type,
+                core::alloc::Layout::new::<()>(),
+                None,
+                true,
+                false,
+                ComponentCloneBehavior::Default,
+                None,
+            )
+        };
+        world.register_component_with_descriptor(descriptor)
+    }
+
+    #[test]
+    fn runtime_required_components_by_id() {
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, PartialEq, Debug)]
+        struct C(u32);
+
+        for storage_type in [StorageType::Table, StorageType::SparseSet] {
+            let mut world = World::new();
+            let id = register_dynamic_component(&mut world, storage_type);
+            world.register_required_components_by_id::<B>(id);
+            // Adding a requirement to B must update the already registered dynamic requiree.
+            world.register_required_components_with::<B, C>(|| C(7));
+
+            let entity = bevy_ptr::OwningPtr::make((), |ptr| {
+                // SAFETY: id was registered with the layout of () in this world.
+                unsafe { world.spawn_empty().insert_by_id(id, ptr).id() }
+            });
+            assert!(world.entity(entity).contains::<B>());
+            assert_eq!(world.entity(entity).get::<C>(), Some(&C(7)));
+        }
+    }
+
+    #[test]
+    fn runtime_required_components_with_by_id_preserves_constructor_priority() {
+        #[derive(Component, Default)]
+        #[require(C(7))]
+        struct B;
+
+        #[derive(Component, PartialEq, Debug)]
+        struct C(u32);
+
+        for storage_type in [StorageType::Table, StorageType::SparseSet] {
+            let mut world = World::new();
+            let id = register_dynamic_component(&mut world, storage_type);
+            world.register_required_components_by_id::<B>(id);
+            world.register_required_components_with_by_id::<C>(id, || C(9));
+
+            let entity = bevy_ptr::OwningPtr::make((), |ptr| {
+                // SAFETY: id was registered with the layout of () in this world.
+                unsafe { world.spawn_empty().insert_by_id(id, ptr).id() }
+            });
+            assert!(world.entity(entity).contains::<B>());
+            assert_eq!(world.entity(entity).get::<C>(), Some(&C(9)));
+
+            let explicit = world.spawn(C(11)).id();
+            bevy_ptr::OwningPtr::make((), |ptr| {
+                // SAFETY: id was registered with the layout of () in this world.
+                unsafe { world.entity_mut(explicit).insert_by_id(id, ptr) };
+            });
+            assert!(world.entity(explicit).contains::<B>());
+            assert_eq!(world.entity(explicit).get::<C>(), Some(&C(11)));
+        }
+    }
+
+    #[test]
+    fn runtime_required_components_by_id_errors() {
+        #[derive(Component, Default)]
+        struct B;
+
+        let mut world = World::new();
+        let unregistered = ComponentId::new(usize::MAX);
+        assert!(matches!(
+            world.try_register_required_components_by_id::<B>(unregistered),
+            Err(RequiredComponentsError::UnregisteredComponent(id)) if id == unregistered
+        ));
+        assert!(world.component_id::<B>().is_none());
+
+        let id = register_dynamic_component(&mut world, StorageType::Table);
+        world.register_required_components_by_id::<B>(id);
+        let required = world.component_id::<B>().unwrap();
+        assert!(matches!(
+            world.try_register_required_components_by_id::<B>(id),
+            Err(RequiredComponentsError::DuplicateRegistration(a, b)) if a == id && b == required
+        ));
+
+        bevy_ptr::OwningPtr::make((), |ptr| {
+            // SAFETY: id was registered with the layout of () in this world.
+            unsafe { world.spawn_empty().insert_by_id(id, ptr) };
+        });
+        assert!(matches!(
+            world.try_register_required_components_by_id::<B>(id),
+            Err(RequiredComponentsError::ArchetypeExists(a)) if a == id
+        ));
+    }
+
+    #[test]
+    fn runtime_required_components_by_id_rejects_cycles() {
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        let mut world = World::new();
+        let b = world.register_component::<B>();
+        let c = world.register_component::<C>();
+        assert!(matches!(
+            world.try_register_required_components_by_id::<B>(b),
+            Err(RequiredComponentsError::CyclicRequirement(a, required)) if a == b && required == b
+        ));
+        world.register_required_components_by_id::<C>(b);
+        assert!(matches!(
+            world.try_register_required_components_by_id::<B>(c),
+            Err(RequiredComponentsError::CyclicRequirement(a, required)) if a == c && required == b
+        ));
+        // Failed registrations must not leave a cyclic requirement in the graph.
+        let entity = world.spawn(B).id();
+        assert!(world.entity(entity).contains::<C>());
+    }
 
     #[test]
     fn required_components() {
