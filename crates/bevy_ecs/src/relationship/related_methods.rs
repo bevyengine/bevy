@@ -1,6 +1,6 @@
 use crate::{
     bundle::Bundle,
-    entity::{hash_set::EntityHashSet, Entity},
+    entity::{Entity, EntityIndexSet},
     prelude::Children,
     relationship::{
         Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
@@ -139,6 +139,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Replaces all the related entities with a new set of entities.
+    ///
+    /// Duplicated entities are removed, leaving only their first occurrence.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         type Collection<R> =
             <<R as Relationship>::RelationshipTarget as RelationshipTarget>::Collection;
@@ -164,17 +166,18 @@ impl<'w> EntityWorldMut<'w> {
 
         let collection = relations.collection_mut_risky();
 
-        let mut potential_relations = EntityHashSet::from_iter(related.iter().copied());
+        let existing_relations = EntityIndexSet::from_iter(collection.iter());
+        let final_relations = EntityIndexSet::from_iter(related.iter().copied());
 
         let id = self.id();
         self.world_scope(|world| {
-            for related in collection.iter() {
-                if !potential_relations.remove(related) {
-                    world.entity_mut(related).remove::<R>();
-                }
+            // Remove the existing relations that we won't keep
+            for &related in existing_relations.difference(&final_relations) {
+                world.entity_mut(related).remove::<R>();
             }
 
-            for related in potential_relations {
+            // Add the final relations that don't exist yet.
+            for &related in final_relations.difference(&existing_relations) {
                 // SAFETY: We'll manually be adjusting the contents of the `RelationshipTarget` to fit the final state.
                 world
                     .entity_mut(related)
@@ -187,7 +190,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
         collection.clear();
-        collection.extend_from_iter(related.iter().copied());
+        collection.extend_from_iter(final_relations);
         self.insert(relations);
 
         self
@@ -221,6 +224,7 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         #[cfg(debug_assertions)]
         {
+            use crate::entity::hash_set::EntityHashSet;
             let entities_to_relate = EntityHashSet::from_iter(entities_to_relate.iter().copied());
             let entities_to_unrelate =
                 EntityHashSet::from_iter(entities_to_unrelate.iter().copied());
@@ -477,6 +481,8 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Replaces all the related entities with the given set of new related entities.
+    ///
+    /// Duplicated entities are removed, leaving only their first occurrence.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let related: Box<[Entity]> = related.into();
 
