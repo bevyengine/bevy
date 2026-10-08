@@ -1,6 +1,6 @@
 use crate::{
     bundle::Bundle,
-    entity::{hash_set::EntityHashSet, Entity, EntityIndexSet},
+    entity::{Entity, EntityIndexSet},
     prelude::Children,
     relationship::{
         Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
@@ -224,6 +224,7 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         #[cfg(debug_assertions)]
         {
+            use crate::entity::hash_set::EntityHashSet;
             let entities_to_relate = EntityHashSet::from_iter(entities_to_relate.iter().copied());
             let entities_to_unrelate =
                 EntityHashSet::from_iter(entities_to_unrelate.iter().copied());
