@@ -157,7 +157,7 @@ impl Color {
         Self::Srgba(Srgba::rgba_u8(red, green, blue, alpha))
     }
 
-    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 255.
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0 (255 in `u8` terms).
     ///
     /// # Arguments
     ///
@@ -182,7 +182,7 @@ impl Color {
         Self::srgba_u8(array[0], array[1], array[2], array[3])
     }
 
-    /// Reads an array of u8 to create a new [`Color`] object storing a [`Srgba`] color with an alpha of 255.
+    /// Reads an array of u8 to create a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0 (255 in `u8` terms).
     ///
     /// # Arguments
     /// * `array` - Red, Green, Blue and Alpha channels. Each channel is in the range [0, 255]
@@ -196,7 +196,7 @@ impl Color {
         Self::srgba_u8(array[0], array[1], array[2], 255)
     }
 
-    /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with an alpha of 255.
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with an alpha of 1.0 (255 in `u8` terms).
     ///
     /// For example, a value of `0x000000` results in black, and a value of `0xFF0000` results in red.
     ///
