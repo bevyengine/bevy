@@ -7,8 +7,9 @@ use crate::{
     processor::AssetProcessor,
     saver::{AssetSaver, SavedAsset},
     transformer::{AssetTransformer, IdentityAssetTransformer, TransformedAsset},
-    AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, LoadedAsset,
-    MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
+    AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedAssetLoader,
+    ErasedLoadedAsset, LoadedAsset, MissingAssetLoaderForExtensionError,
+    MissingAssetLoaderForTypeNameError,
 };
 use alloc::{
     borrow::ToOwned,
@@ -199,7 +200,7 @@ where
     ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
         let pre_transformed_asset = TransformedAsset::from_loaded(
             context
-                .load_source_asset::<Loader>(&settings.loader_settings)
+                .load_self::<Loader>(&settings.loader_settings)
                 .await?,
         );
 
@@ -267,7 +268,7 @@ impl<P: Process> ErasedProcessor for P {
             let loader_settings = <P as Process>::process(self, context, settings, writer).await?;
             let output_meta: Box<dyn AssetMetaDyn> =
                 Box::new(AssetMeta::<P::OutputLoader, ()>::new(AssetAction::Load {
-                    loader: P::OutputLoader::type_path().to_string(),
+                    loader: <P::OutputLoader as TypePath>::type_path().to_string(),
                     settings: loader_settings,
                 }));
             Ok(output_meta)
@@ -344,18 +345,75 @@ impl<'a> ProcessContext<'a> {
     /// This will take the "load dependencies" (asset values used when loading with `L`]) and
     /// register them as "process dependencies" because they are asset values required to process the
     /// current asset.
+    #[deprecated = "Use `ProcessContext::load_self` instead"]
     pub async fn load_source_asset<L: AssetLoader>(
         &mut self,
         settings: &L::Settings,
     ) -> Result<LoadedAsset<L::Asset>, AssetLoadError> {
+        self.load_self::<L>(settings).await
+    }
+
+    /// Finds the loader of type `L` in the [`AssetServer`], then uses that loader to load the asset
+    /// currently being processed.
+    ///
+    /// [`AssetServer`]: crate::AssetServer
+    pub async fn load_self<L: AssetLoader>(
+        &mut self,
+        settings: &L::Settings,
+    ) -> Result<LoadedAsset<L::Asset>, AssetLoadError> {
         let server = &self.processor.server;
-        let loader_name = L::type_path();
+        let loader_name = <L as TypePath>::type_path();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
+        let loaded_asset = self
+            .load_self_with_erased_loader(&*loader, settings)
+            .await?;
+
+        // Note: we can't use unwrap because the error is the original asset (which doesn't impl
+        // Debug).
+        let Ok(loaded_asset) = loaded_asset.downcast() else {
+            // This should be impossible, since we looked up the loader by its type, and the loader
+            // type tells us its output type.
+            panic!("Loader of type L did not return asset of type L::Asset");
+        };
+        Ok(loaded_asset)
+    }
+
+    /// Loads the asset currently being processed with the given loader.
+    ///
+    /// This is the same as [`Self::load_self`], but avoids looking up the loader. This allows users
+    /// to create asset loaders that they **do not** need to register, but can still be used when
+    /// processing assets.
+    pub async fn load_self_with_loader<L: AssetLoader>(
+        &mut self,
+        loader: &L,
+        settings: &L::Settings,
+    ) -> Result<LoadedAsset<L::Asset>, AssetLoadError> {
+        let loaded_asset = self.load_self_with_erased_loader(loader, settings).await?;
+
+        // Note: we can't use unwrap because the error is the original asset (which doesn't impl
+        // Debug).
+        let Ok(loaded_asset) = loaded_asset.downcast() else {
+            // This should be impossible, since we loaded using the provided loader.
+            panic!("Loader of type L did not return asset of type L::Asset");
+        };
+        Ok(loaded_asset)
+    }
+
+    /// Loads the asset currently being processed with the given dynamically-typed loader.
+    ///
+    /// This is the same as [`Self::load_self_with_loader`], but not generic, allowing the type of
+    /// the loader to be selected at runtime.
+    pub async fn load_self_with_erased_loader(
+        &mut self,
+        loader: &dyn ErasedAssetLoader,
+        settings: &dyn Settings,
+    ) -> Result<ErasedLoadedAsset, AssetLoadError> {
+        let server = &self.processor.server;
         let loaded_asset = server
             .load_with_settings_loader_and_reader(
                 self.path,
                 settings,
-                &*loader,
+                loader,
                 &mut self.reader,
                 false,
                 true,
@@ -369,13 +427,6 @@ impl<'a> ProcessContext<'a> {
                     path: path.to_owned(),
                 });
         }
-        // Note: we can't use unwrap because the error is the original asset (which doesn't impl
-        // Debug).
-        let Ok(loaded_asset) = loaded_asset.downcast() else {
-            // This should be impossible, since we looked up the loader by its type, and the loader
-            // type tells us its output type.
-            panic!("Loader of type L did not return asset of type L::Asset");
-        };
         Ok(loaded_asset)
     }
 
