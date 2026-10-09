@@ -1375,6 +1375,7 @@ mod tests {
                 .0
         );
     }
+
     #[test]
     fn bsn_reverse_reference() {
         let mut app = test_app();
@@ -1937,6 +1938,7 @@ mod tests {
         };
         world.spawn_scene(scene).unwrap();
     }
+
     #[test]
     fn children_list_expr() {
         fn container(items: impl SceneList) -> impl Scene {
@@ -1966,6 +1968,7 @@ mod tests {
             .collect();
         assert_eq!(&names, &["First", "Second", "Third", "Last"]);
     }
+
     #[test]
     fn children_single_expr() {
         fn container(item: impl Scene) -> impl Scene {
@@ -1993,6 +1996,7 @@ mod tests {
             .collect();
         assert_eq!(&names, &["First", "Second", "Last"]);
     }
+
     #[test]
     fn conditional_scene() {
         #[derive(Component, Clone, Default)]
@@ -2036,6 +2040,7 @@ mod tests {
             .collect();
         assert_eq!(&names, &[9, 9]);
     }
+
     #[test]
     fn partial_tuple_struct() {
         // Tests that only part of a tuple struct can be patched,
