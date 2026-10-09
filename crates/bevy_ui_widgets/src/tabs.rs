@@ -417,7 +417,7 @@ fn tab_on_key_input(
         }
         KeyCode::Home => Navigation::First,
         KeyCode::End => Navigation::Last,
-        KeyCode::Enter | KeyCode::Space => Navigation::Activate,
+        KeyCode::Enter | KeyCode::NumpadEnter | KeyCode::Space => Navigation::Activate,
         _ => return,
     };
 
@@ -927,7 +927,7 @@ mod tests {
             KeyCode::ArrowDown => Key::ArrowDown,
             KeyCode::Home => Key::Home,
             KeyCode::End => Key::End,
-            KeyCode::Enter => Key::Enter,
+            KeyCode::Enter | KeyCode::NumpadEnter => Key::Enter,
             KeyCode::Space => Key::Space,
             KeyCode::Escape => Key::Escape,
             _ => Key::Unidentified(bevy_input::keyboard::NativeKey::Unidentified),
@@ -1319,11 +1319,12 @@ mod tests {
         app.update();
 
         press_key(&mut app, KeyCode::Enter, window);
+        press_key(&mut app, KeyCode::NumpadEnter, window);
         press_key(&mut app, KeyCode::Space, window);
 
         assert_eq!(
             app.world().resource::<SelectionRequests>().0,
-            [(list, Some(tab)), (list, Some(tab))]
+            [(list, Some(tab)), (list, Some(tab)), (list, Some(tab))]
         );
     }
 
