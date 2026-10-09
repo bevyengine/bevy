@@ -3394,6 +3394,95 @@ mod tests {
     }
 
     #[test]
+    fn scene_with_projected_scene_entity_ref_collision() {
+        #[derive(Default)]
+        pub struct ContainerProps {
+            pub content: Option<Box<dyn SceneList>>,
+        }
+
+        #[derive(SceneComponent, Clone, Default)]
+        #[scene(ContainerProps)]
+        pub struct Container;
+
+        impl Container {
+            fn scene(props: ContainerProps) -> impl Scene {
+                bsn! {
+                    Children [
+                        { props.content }
+                    ]
+                }
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let scene = bsn! {
+            #E1
+            @Container {
+                @content: bsn! { #E2 }
+            }
+        };
+
+        let e1 = world.spawn_scene(scene).unwrap();
+
+        assert_eq!(e1.get::<Name>(), Some(&Name::new("E1")));
+
+        let Some(&e1_child) = e1.get::<Children>().and_then(|c| c.first()) else {
+            panic!("scene should have a child");
+        };
+
+        let e2 = world.entity(e1_child);
+
+        assert_eq!(e2.get::<Name>(), Some(&Name::new("E2")));
+    }
+
+    #[test]
+    fn scene_list_with_projected_scene_entity_ref_collision() {
+        #[derive(Default)]
+        pub struct ContainerProps {
+            pub content: Option<Box<dyn SceneList>>,
+        }
+
+        #[derive(SceneComponent, Clone, Default)]
+        #[scene(ContainerProps)]
+        pub struct Container;
+
+        impl Container {
+            fn scene(props: ContainerProps) -> impl Scene {
+                bsn! {
+                    Children [
+                        { props.content }
+                    ]
+                }
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let scene = bsn_list! {
+            #E1
+            @Container {
+                @content: bsn_list! { #E2 }
+            }
+        };
+
+        let entities = world.spawn_scene_list(scene).unwrap();
+        let e1 = world.entity(entities[0]);
+
+        assert_eq!(e1.get::<Name>(), Some(&Name::new("E1")));
+
+        let Some(&e1_child) = e1.get::<Children>().and_then(|c| c.first()) else {
+            panic!("scene should have a child");
+        };
+
+        let e2 = world.entity(e1_child);
+
+        assert_eq!(e2.get::<Name>(), Some(&Name::new("E2")));
+    }
+
+    #[test]
     fn ready_event() {
         #[derive(Component, FromTemplate)]
         struct Foo(usize);
