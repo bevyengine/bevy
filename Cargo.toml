@@ -337,6 +337,9 @@ bevy_world_serialization = ["bevy_internal/bevy_world_serialization"]
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene"]
 
+# Provides BSN AST / parsing functionality
+bevy_bsn = ["bevy_internal/bevy_bsn"]
+
 # Provides raytraced lighting (experimental)
 bevy_solari = ["bevy_internal/bevy_solari"]
 
