@@ -29,7 +29,7 @@ static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wesl";
 /// declaration:
 ///
 /// ```wgsl
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(101)
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(101)
 /// var<storage> example_extended_material: array<ExampleBindlessExtendedMaterial>;
 /// ```
 ///
@@ -47,7 +47,7 @@ static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wesl";
 ///     modulate_texture_sampler: u32,      // 52
 /// }
 ///
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(100)
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(100)
 /// var<storage> example_extended_material_indices: array<ExampleBindlessExtendedMaterialIndices>;
 /// ```
 ///
