@@ -10,7 +10,7 @@ ratatui = "0.30.0"
 regex = "1.11.1"
 serde = { version = "1.0", features = ["derive"] }
 serde-saphyr = { version = "1", default-features = false, features = [
-    "deserialize",
+  "deserialize",
 ] }
 thiserror = "2.0.12"
 
