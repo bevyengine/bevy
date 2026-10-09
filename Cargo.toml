@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.96.0"
+rust-version = "1.97.1"
 
 [workspace]
 resolver = "3"
@@ -47,6 +47,8 @@ members = [
 exclude = [
   # Integration tests are not part of the workspace
   "tests-integration",
+  # Fuzz testing crates
+  "crates/bevy_ecs/fuzz",
 ]
 
 [workspace.lints.clippy]
@@ -469,6 +471,9 @@ compressed_image_saver_universal = [
 
 # Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
 compressed_image_saver = ["bevy_internal/compressed_image_saver"]
+
+# Equirectangular (lat-long) panorama to cubemap conversion
+equirectangular_cubemap = ["bevy_internal/equirectangular_cubemap"]
 
 # Enables system-level clipboard support.
 system_clipboard = ["bevy_clipboard", "bevy_internal/system_clipboard"]
@@ -4855,6 +4860,18 @@ category = "Dev tools"
 wasm = true
 
 [[example]]
+name = "infinite_grid_2d"
+path = "examples/dev_tools/infinite_grid_2d.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools", "render_dev_tools"]
+
+[package.metadata.example.infinite_grid_2d]
+name = "Infinite grid 2D"
+description = "Demonstrates Bevy's infinite grid in a 2D scene"
+category = "Dev tools"
+wasm = true
+
+[[example]]
 name = "local_inspector"
 path = "examples/inspector/local_inspector.rs"
 doc-scrape-examples = true
@@ -4865,6 +4882,18 @@ name = "Local Inspector"
 description = "Inspects the app's own world with the bevy_inspector entity tree panel"
 category = "Dev tools"
 wasm = true
+
+[[example]]
+name = "remote_inspector"
+path = "examples/inspector/remote_inspector.rs"
+doc-scrape-examples = true
+required-features = ["bevy_inspector", "bevy_remote_client"]
+
+[package.metadata.example.remote_inspector]
+name = "Remote Inspector"
+description = "Inspects a separate running app with the bevy_inspector panels over the Bevy Remote Protocol"
+category = "Dev tools"
+wasm = false
 
 [[example]]
 name = "2d_top_down_camera"

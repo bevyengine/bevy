@@ -39,6 +39,9 @@ compressed_image_saver_universal = [
 # Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
 compressed_image_saver = ["bevy_image/compressed_image_saver"]
 
+# Equirectangular (lat-long) panorama to cubemap conversion
+equirectangular_cubemap = ["bevy_image/equirectangular_cubemap"]
+
 # For ktx2 supercompression
 zlib = ["bevy_image/zlib"]
 zstd = ["bevy_image/zstd"]
@@ -361,7 +364,11 @@ pan_orbit_gizmo = [
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
-bevy_remote_client = ["bevy_remote", "bevy_remote/client"]
+bevy_remote_client = [
+  "bevy_remote",
+  "bevy_remote/client",
+  "bevy_inspector?/remote",
+]
 
 # Provides picking functionality without any backend
 bevy_picking = ["dep:bevy_picking"]

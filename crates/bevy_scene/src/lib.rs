@@ -3534,4 +3534,99 @@ mod tests {
             Ok(ScenePatch::load_with(load_context, (self.0)()))
         }
     }
+
+    #[test]
+    fn arrays_in_bsn() {
+        #[derive(Component)]
+        struct Foo(Vec<Entity>);
+
+        impl FromTemplate for Foo {
+            type Template = FooTemplate;
+        }
+
+        struct FooTemplate(Vec<bevy_ecs::template::EntityTemplate>);
+
+        impl Template for FooTemplate {
+            type Output = Foo;
+
+            fn build_template(
+                &self,
+                context: &mut bevy_ecs::template::TemplateContext,
+            ) -> Result<Self::Output> {
+                self.0
+                    .iter()
+                    .map(|template| template.build_template(context))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(Foo)
+            }
+
+            fn clone_template(&self) -> Self {
+                FooTemplate(self.0.clone())
+            }
+        }
+
+        impl FooTemplate {
+            fn new<const N: usize>(
+                entities: [bevy_ecs::template::EntityTemplate; N],
+            ) -> FooTemplate {
+                FooTemplate(entities.to_vec())
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entities = world
+            .spawn_scene_list(bsn_list! {
+                Foo::new([#A, #B])
+                --
+                #A
+                --
+                #B
+            })
+            .unwrap();
+        let foo = world.entity(entities[0]).get::<Foo>().unwrap();
+        assert_eq!(foo.0, entities[1..]);
+    }
+
+    #[test]
+    fn array_argument_allows_trailing_tokens() {
+        #[derive(Component, Default, Clone)]
+        struct Marker(usize);
+
+        fn count_scene(len: usize) -> impl Scene {
+            bsn! { Marker({ len }) }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { @count_scene([1, 2, 3].len()) })
+            .unwrap()
+            .id();
+        assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 3);
+    }
+
+    #[test]
+    fn array_argument_preserves_plain_rust_struct_literal() {
+        #[derive(Component, Default, Clone)]
+        struct Marker(u32);
+
+        #[derive(Clone, Copy)]
+        struct Pair {
+            a: u32,
+            b: u32,
+        }
+
+        fn pair_scene(pairs: [Pair; 1]) -> impl Scene {
+            bsn! { Marker({ pairs[0].a + pairs[0].b }) }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { @pair_scene([Pair { a: 7, b: 8 }]) })
+            .unwrap()
+            .id();
+        assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 15);
+    }
 }

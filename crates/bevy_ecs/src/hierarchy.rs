@@ -318,6 +318,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Replaces all the related children with a new set of children.
+    ///
+    /// Duplicated children are removed, leaving only their first occurrence.
     pub fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         self.replace_related::<ChildOf>(children)
     }
@@ -411,6 +413,8 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Replaces the children on this entity with a new list of children.
+    ///
+    /// Duplicated children are removed, leaving only their first occurrence.
     pub fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         self.replace_related::<ChildOf>(children)
     }
@@ -1040,6 +1044,48 @@ mod tests {
         world.entity_mut(parent).replace_children(&new_order);
 
         assert_eq!(world.entity(parent).get::<Children>().unwrap().0, new_order);
+    }
+
+    #[test]
+    fn replace_children_duplicates() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
+
+        world
+            .entity_mut(parent)
+            .add_children(&[child_a])
+            .replace_children(&[child_a, child_a]);
+
+        assert_eq!(world.entity(parent).get::<Children>().unwrap().0, [child_a]);
+
+        world.entity_mut(parent).clear();
+
+        // Ensure the order is correct (child_a before child_b, irrespective of which is already inserted).
+
+        world
+            .entity_mut(parent)
+            .add_children(&[child_b])
+            .replace_children(&[child_a, child_b, child_a]);
+
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_a, child_b]
+        );
+
+        world.entity_mut(parent).clear();
+
+        world
+            .entity_mut(parent)
+            .add_children(&[child_a])
+            .replace_children(&[child_a, child_b, child_a]);
+
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_a, child_b]
+        );
     }
 
     #[test]

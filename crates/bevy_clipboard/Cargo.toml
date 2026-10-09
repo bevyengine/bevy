@@ -3,7 +3,7 @@ name = "bevy_clipboard"
 version = "0.20.0-dev"
 edition = "2024"
 description = "Provides clipboard support for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "clipboard"]
@@ -42,5 +42,9 @@ wasm-bindgen-futures = "0.4"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true
