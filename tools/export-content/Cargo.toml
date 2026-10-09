@@ -9,7 +9,9 @@ miette = { version = "7.6.0", features = ["fancy"] }
 ratatui = "0.30.0"
 regex = "1.11.1"
 serde = { version = "1.0", features = ["derive"] }
-serde_yml = "0.0.12"
+serde-saphyr = { version = "1", default-features = false, features = [
+  "deserialize",
+] }
 thiserror = "2.0.12"
 
 [lints]

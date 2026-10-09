@@ -345,14 +345,16 @@ fn load_content(dir: PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
         ))?;
 
         let frontmatter = caps.name("frontmatter").unwrap().as_str();
-        let metadata = serde_yml::from_str::<Metadata>(frontmatter).map_err(|e| ParseError {
+        let metadata = serde_saphyr::from_str::<Metadata>(frontmatter).map_err(|e| ParseError {
             src: NamedSource::new(
                 format!("{}", dir_entry.path().display()),
                 frontmatter.to_owned(),
             ),
             kind,
             file_name,
-            err_span: e.location().map(|l| l.index()),
+            err_span: e
+                .location()
+                .and_then(|l| l.span().byte_offset().map(|offset| offset as usize)),
             error: e,
         })?;
         let content = caps.name("content").unwrap().as_str().to_owned();
@@ -372,5 +374,5 @@ pub struct ParseError {
     file_name: String,
     #[label("{error}")]
     err_span: Option<usize>,
-    error: serde_yml::Error,
+    error: serde_saphyr::Error,
 }
