@@ -167,6 +167,7 @@ macro_rules! impl_pointer_event {
 }
 
 /// Fires when a pointer is canceled, and its current interaction state is dropped.
+/// Sent to previously hovered entities and any entities still pressed by the pointer.
 #[derive(EntityEvent, Message, Clone, PartialEq, Debug, Reflect)]
 #[entity_event(propagate = PointerTraversal, auto_propagate)]
 #[reflect(Clone, PartialEq)]
@@ -1292,16 +1293,28 @@ pub fn pointer_events(
             }
             // Canceled
             PointerAction::Cancel => {
-                // Emit a Cancel to the hovered entity.
-                for (hovered_entity, hit) in hover_map
+                // Hits for canceled pointers are excluded from the current hover map.
+                let hovered = previous_hover_map
                     .get(&pointer_id)
-                    .iter()
-                    .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
-                {
+                    .into_iter()
+                    .flat_map(|hits| hits.iter());
+                let pressed = PointerButton::iter()
+                    .filter_map(|button| pointer_state.get(pointer_id, button))
+                    .flat_map(|state| {
+                        state
+                            .pressing
+                            .iter()
+                            .map(|(entity, (_, _, hit))| (entity, hit))
+                    });
+                let mut sent = EntityHashSet::default();
+                for (&entity, hit) in hovered.chain(pressed) {
+                    if !sent.insert(entity) {
+                        continue;
+                    }
                     let cancel_event = PointerCancel {
                         pointer: pointer.clone(),
-                        entity: hovered_entity,
-                        hit,
+                        entity,
+                        hit: hit.clone(),
                     };
                     commands.trigger(cancel_event.clone());
                     message_writers.cancel_events.write(cancel_event);
@@ -1378,6 +1391,128 @@ mod tests {
         app.world_mut()
             .insert_resource(PreviousHoverMap(previous_hover_map));
         app.world_mut().insert_resource(hover_map);
+    }
+
+    #[test]
+    fn touch_cancellation_reaches_pressed_target() {
+        use bevy_app::PreUpdate;
+        use bevy_input::{touch::TouchInput, InputPlugin};
+        use bevy_math::Rect;
+        use bevy_window::{PrimaryWindow, WindowEvent, WindowPlugin};
+
+        use crate::{
+            backend::PointerHits, pointer::PointerPressState, DefaultPickingPlugins, PickingSystems,
+        };
+
+        #[derive(Resource, Default)]
+        struct Observed(Vec<Entity>);
+
+        for move_to_second in [false, true] {
+            let mut app = App::new();
+            app.add_plugins((InputPlugin, WindowPlugin::default(), DefaultPickingPlugins));
+            app.init_resource::<Observed>();
+            app.world_mut()
+                .resource_mut::<PickingSettings>()
+                .is_window_picking_enabled = false;
+            app.update();
+            let window = app
+                .world_mut()
+                .query_filtered::<Entity, With<PrimaryWindow>>()
+                .single(app.world())
+                .unwrap();
+            let first = app.world_mut().spawn_empty().id();
+            let second = app.world_mut().spawn_empty().id();
+            let targets = [
+                (first, Rect::from_corners(Vec2::ZERO, Vec2::splat(100.))),
+                (
+                    second,
+                    Rect::from_corners(Vec2::new(200., 0.), Vec2::new(300., 100.)),
+                ),
+            ];
+            app.add_systems(
+                PreUpdate,
+                (move |pointers: Query<(&PointerId, &PointerLocation)>,
+                       mut hits: MessageWriter<PointerHits>| {
+                    for (id, location) in &pointers {
+                        let Some(location) = location.location() else {
+                            continue;
+                        };
+                        for (entity, bounds) in &targets {
+                            if bounds.contains(location.position) {
+                                hits.write(PointerHits::new(
+                                    *id,
+                                    vec![(*entity, HitData::new(window, 0., None, None))],
+                                    0.,
+                                ));
+                            }
+                        }
+                    }
+                })
+                .in_set(PickingSystems::Backend),
+            );
+            let touch = |app: &mut App, phase, position| {
+                app.world_mut()
+                    .write_message(WindowEvent::TouchInput(TouchInput {
+                        window,
+                        phase,
+                        position,
+                        force: None,
+                        id: 42,
+                    }));
+            };
+            touch(&mut app, TouchPhase::Started, Vec2::splat(50.));
+            app.update();
+            assert_eq!(app.world().resource::<Messages<PointerPress>>().len(), 1);
+            let pointer = app
+                .world()
+                .resource::<PointerMap>()
+                .get_entity(PointerId::Touch(42))
+                .unwrap();
+            assert!(app
+                .world()
+                .get::<PointerPressState>(pointer)
+                .unwrap()
+                .is_primary_pressed());
+            for target in [first, second] {
+                app.world_mut().entity_mut(target).observe(
+                    move |event: On<PointerCancel>,
+                          pointers: Query<&PointerPressState>,
+                          mut observed: ResMut<Observed>| {
+                        assert!(!pointers.get(pointer).unwrap().is_any_pressed());
+                        observed.0.push(event.entity);
+                    },
+                );
+            }
+            let position = if move_to_second {
+                Vec2::new(250., 50.)
+            } else {
+                Vec2::splat(50.)
+            };
+            if move_to_second {
+                touch(&mut app, TouchPhase::Moved, position);
+                app.update();
+            }
+            touch(&mut app, TouchPhase::Canceled, position);
+            app.update();
+
+            let mut expected = if move_to_second {
+                vec![first, second]
+            } else {
+                vec![first]
+            };
+            expected.sort_unstable();
+            let mut canceled: Vec<_> = app
+                .world_mut()
+                .resource_mut::<Messages<PointerCancel>>()
+                .drain()
+                .map(|event| event.entity)
+                .collect();
+            canceled.sort_unstable();
+            assert_eq!(canceled, expected, "move_to_second={move_to_second}");
+            let mut observed = app.world_mut().resource_mut::<Observed>();
+            observed.0.sort_unstable();
+            assert_eq!(observed.0, expected, "move_to_second={move_to_second}");
+        }
     }
 
     #[test]
