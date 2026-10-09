@@ -116,9 +116,10 @@ impl ColorInputSettings {
 /// This is spawnable by inheriting it as a "scene component" with optional
 /// [`FeathersColorInputProps`].
 ///
-/// The picker contains a number of user preferences which are sticky, and which
-/// are stored on the [`ColorInputSettings`] resource. If the bevy settings plugin in installed,
-/// these user preferences will be saved along with the user's settings.
+/// The picker contains a number of user preferences which are sticky during
+/// the lifetime of the app, and which are stored on the
+/// [`ColorInputSettings`] resource. These preferences are not currently saved
+/// between app runs, even if the bevy settings plugin is installed.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 #[scene(FeathersColorInputProps)]
