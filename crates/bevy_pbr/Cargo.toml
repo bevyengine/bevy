@@ -81,7 +81,7 @@ lz4_flex = { version = "0.14", default-features = false, features = [
 range-alloc = { version = "0.1", optional = true }
 meshopt = { version = "0.6.2", optional = true }
 metis = { version = "0.2.2", optional = true }
-itertools = { version = "0.14", optional = true }
+itertools = { version = "0.15", optional = true }
 bitvec = { version = "1", optional = true }
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive", "must_cast"] }
