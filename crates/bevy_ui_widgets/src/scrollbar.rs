@@ -19,6 +19,8 @@ use bevy_picking::events::{
 };
 use bevy_picking::hover::PointerCaptureMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_ui::{
     prelude::BorderRect, ui_layout_system, BackgroundColor, BorderColor, BorderRadius,
     ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
@@ -29,6 +31,11 @@ use bevy_ui::{
 // TODO: Move this to a more central place.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
 #[reflect(PartialEq, Clone, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum ControlOrientation {
     /// Horizontal orientation (stretching from left to right)
     Horizontal,
