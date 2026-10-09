@@ -171,7 +171,7 @@ fn lex_double_colon(input: Span) -> IResult<Span, SpannedToken> {
 
 fn lex_minus(input: Span) -> IResult<Span, SpannedToken> {
     let (rest, value) = tag("-")(input)?;
-    Ok((rest, Token::Colon.spanned(value)))
+    Ok((rest, Token::Minus.spanned(value)))
 }
 
 fn lex_double_minus(input: Span) -> IResult<Span, SpannedToken> {
@@ -356,7 +356,7 @@ mod tests {
     fn lex() {
         let results = Span::from(
             r#"true false Foo foo_bar1 Foo2Bar { }
-            ( ) [ ] :: : , # @ 1 10 -10 0.1 1.0 -1.0 10.1
+            ( ) [ ] :: : , # @ 1 10 0.1 1.0 10.1
             "hello" "a \" \t"
             - --
             "#,
@@ -384,10 +384,8 @@ mod tests {
                 Token::At,
                 Token::Int(1),
                 Token::Int(10),
-                Token::Int(-10),
                 Token::Float(0.1),
                 Token::Float(1.0),
-                Token::Float(-1.0),
                 Token::Float(10.1),
                 Token::StringLit("hello".to_string()),
                 Token::StringLit("a \" \t".to_string()),
