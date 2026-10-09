@@ -20,7 +20,6 @@ use alloc::{
 use bevy_ecs::error::BevyError;
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -69,9 +68,9 @@ pub struct LoadTransformAndSave<
     T: AssetTransformer<AssetInput = L::Asset>,
     S: AssetSaver<Asset = T::AssetOutput>,
 > {
+    loader: Option<L>,
     transformer: T,
     saver: S,
-    marker: PhantomData<fn() -> L>,
 }
 
 impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S>
@@ -79,9 +78,9 @@ impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S>
 {
     fn from(value: S) -> Self {
         LoadTransformAndSave {
+            loader: None,
             transformer: IdentityAssetTransformer::new(),
             saver: value,
-            marker: PhantomData,
         }
     }
 }
@@ -106,11 +105,27 @@ impl<
         S: AssetSaver<Asset = T::AssetOutput>,
     > LoadTransformAndSave<L, T, S>
 {
-    pub fn new(transformer: T, saver: S) -> Self {
+    /// Creates an instance that will first load with the provided `loader`, then transform with the
+    /// given `transformer`, and finally save with the given `saver`.
+    pub fn new(loader: L, transformer: T, saver: S) -> Self {
         LoadTransformAndSave {
+            loader: Some(loader),
             transformer,
             saver,
-            marker: PhantomData,
+        }
+    }
+
+    /// Creates an instance from the given `transformer` and `saver`, but where the loader is
+    /// "implied", and looked up in the [`AssetServer`] during processing.
+    ///
+    /// This means that a loader of type `L` must have been registered in the [`AssetServer`].
+    ///
+    /// [`AssetServer`]: crate::AssetServer
+    pub fn with_implicit_loader(transformer: T, saver: S) -> Self {
+        LoadTransformAndSave {
+            loader: None,
+            transformer,
+            saver,
         }
     }
 }
@@ -198,11 +213,17 @@ where
         settings: &Self::Settings,
         writer: &mut Writer,
     ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
-        let pre_transformed_asset = TransformedAsset::from_loaded(
+        let loaded_asset = if let Some(loader) = self.loader.as_ref() {
+            context
+                .load_self_with_loader::<Loader>(loader, &settings.loader_settings)
+                .await?
+        } else {
             context
                 .load_self::<Loader>(&settings.loader_settings)
-                .await?,
-        );
+                .await?
+        };
+
+        let pre_transformed_asset = TransformedAsset::from_loaded(loaded_asset);
 
         let post_transformed_asset = self
             .transformer
