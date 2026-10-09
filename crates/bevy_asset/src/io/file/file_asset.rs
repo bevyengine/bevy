@@ -10,6 +10,7 @@ use async_lock::{Semaphore, SemaphoreGuard};
 use futures_lite::StreamExt;
 
 use alloc::{borrow::ToOwned, boxed::Box};
+use atomicow::CowArc;
 #[cfg(target_os = "windows")]
 use core::marker::PhantomData;
 #[cfg(not(target_os = "windows"))]
@@ -72,11 +73,14 @@ impl<'a> Reader for GuardedFile<'a> {
 }
 
 impl AssetReader for FileAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         #[cfg(not(target_os = "windows"))]
         let _guard = maybe_get_semaphore().await;
 
-        let full_path = self.root_path.join(path);
+        let full_path = self.root_path.join(&path);
         File::open(&full_path)
             .await
             .map_err(|e| {
@@ -95,11 +99,14 @@ impl AssetReader for FileAssetReader {
             })
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         #[cfg(not(target_os = "windows"))]
         let _guard = maybe_get_semaphore().await;
 
-        let meta_path = get_meta_path(path);
+        let meta_path = get_meta_path(&path);
         let full_path = self.root_path.join(meta_path);
         File::open(&full_path)
             .await

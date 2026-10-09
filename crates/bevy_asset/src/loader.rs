@@ -620,7 +620,7 @@ impl<'a> LoadContext<'a> {
             AssetServerMode::Unprocessed => source.reader(),
             AssetServerMode::Processed => source.processed_reader()?,
         };
-        let mut reader = asset_reader.read(path.path()).await?;
+        let mut reader = asset_reader.read(path.path_cow()).await?;
         let hash = if self.populate_hashes {
             // NOTE: ensure meta is read while the asset bytes reader is still active to ensure transactionality
             // See `ProcessorGatedReader` for more info
