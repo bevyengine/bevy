@@ -391,7 +391,7 @@ fn tree_item_on_key_input(
         KeyCode::End => Navigation::Last,
         KeyCode::ArrowRight => Navigation::In,
         KeyCode::ArrowLeft => Navigation::Out,
-        KeyCode::Enter | KeyCode::Space => Navigation::Activate,
+        KeyCode::Enter | KeyCode::NumpadEnter | KeyCode::Space => Navigation::Activate,
         _ => return,
     };
     input.propagate(false);
@@ -739,7 +739,7 @@ mod tests {
             KeyCode::ArrowDown => Key::ArrowDown,
             KeyCode::Home => Key::Home,
             KeyCode::End => Key::End,
-            KeyCode::Enter => Key::Enter,
+            KeyCode::Enter | KeyCode::NumpadEnter => Key::Enter,
             KeyCode::Space => Key::Space,
             _ => Key::Unidentified(bevy_input::keyboard::NativeKey::Unidentified),
         };
@@ -1066,18 +1066,24 @@ mod tests {
         focus(&mut app, fixture.first);
 
         press_key(&mut app, KeyCode::Enter, window);
+        press_key(&mut app, KeyCode::NumpadEnter, window);
         press_key(&mut app, KeyCode::Space, window);
 
         assert_eq!(
             app.world().resource::<SelectionRequests>().0,
             [
                 (fixture.tree, Some(fixture.first)),
+                (fixture.tree, Some(fixture.first)),
                 (fixture.tree, Some(fixture.first))
             ]
         );
         assert_eq!(
             app.world().resource::<Activations>().0,
-            [(fixture.tree, fixture.first), (fixture.tree, fixture.first)]
+            [
+                (fixture.tree, fixture.first),
+                (fixture.tree, fixture.first),
+                (fixture.tree, fixture.first)
+            ]
         );
     }
 
