@@ -11,11 +11,10 @@ use crate::{
     lifecycle::{DiscardEvent, HookContext, InsertEvent, DISCARD, INSERT},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::TriggerContext,
-    prelude::{Component, QueryState},
-    query::{QueryData, QueryFilter},
+    prelude::Component,
     relationship::RelationshipHookMode,
     resource::Resource,
-    system::{Commands, Query},
+    system::Commands,
     world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
 

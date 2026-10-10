@@ -32,14 +32,12 @@ pub use accessibility::AccessibilityUiSystems;
 // This module is not re-exported, but is instead made public.
 // This is intended to discourage accidental use of the experimental API.
 pub mod experimental;
-mod focus;
 mod geometry;
 mod layout;
 mod stack;
 mod ui_node;
 
 use bevy_text::{detect_text_needs_rerender, EditableTextSystems};
-pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
 pub use interaction_states::{
@@ -61,12 +59,6 @@ pub mod prelude {
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
     pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
-    #[expect(
-        deprecated,
-        reason = "Should be removed after 0.20 is released when Button & Interaction are removed."
-    )]
-    #[doc(hidden)]
-    pub use crate::{widget::Button, Interaction};
     #[doc(hidden)]
     pub use {
         crate::{
@@ -86,7 +78,6 @@ pub mod prelude {
 use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, PropagateSet};
 use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
-use bevy_input::InputSystems;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::{ComputedStackIndex, UiStack};
@@ -184,11 +175,7 @@ impl Plugin for UiPlugin {
             )
             .add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
                 PostUpdate,
-            ))
-            .add_systems(
-                PreUpdate,
-                ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
-            );
+            ));
 
         #[cfg(feature = "bevy_picking")]
         app.add_plugins(picking_backend::UiPickingPlugin)
