@@ -1462,12 +1462,12 @@ impl RenderMeshInstanceGpuBuilder {
         morph_indices: &MorphIndices,
         timestamp: FrameCount,
     ) -> Option<RenderMeshInstanceGpuPrepared> {
-        // Read the binding from the prepared material. The binding allocator can
-        // still contain an old binding while a modified material waits for its
-        // textures to load, and that binding may move when preparation succeeds.
-        // If the material isn't ready, return None so that
+        // Look up the material index. If we couldn't fetch the material index,
+        // then the material hasn't been prepared yet, perhaps because it hasn't
+        // yet loaded. In that case, we return None so that
         // `collect_meshes_for_gpu_building` will add the mesh to
         // `meshes_to_reextract_next_frame` and bail.
+        // `RenderMaterialBindings` can hold a stale binding, so we don't use it here.
         let mesh_material = mesh_material_ids.mesh_material(entity);
         let mesh_material_binding_id = if let Some(mesh_material) = mesh_material {
             render_materials.get(mesh_material)?.binding
@@ -2123,7 +2123,7 @@ pub fn extract_meshes_for_gpu_building(
 
     // Also record info about each mesh that became invisible.
     for entity in removed_meshes_query.read() {
-        // Only queue a mesh for removal if we didn't pick it up above.
+        // Only queue a mesh for removal if the entity no longer has one.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
         let entity = MainEntity::from(entity);

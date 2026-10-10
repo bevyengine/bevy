@@ -755,6 +755,7 @@ fn extract_mesh_materials<M: Material>(
             Or<(
                 Changed<ViewVisibility>,
                 Changed<MeshMaterial3d<M>>,
+                // Re-added meshes need a fresh entry; see `late_sweep_material_instances`.
                 Added<Mesh3d>,
             )>,
         >,
