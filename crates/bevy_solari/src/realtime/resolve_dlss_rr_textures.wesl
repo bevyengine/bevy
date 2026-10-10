@@ -108,9 +108,16 @@ fn psr_chain_mirror(psr: PsrState, plane_normal: vec3<f32>) -> PsrState {
     return chained;
 }
 
-fn psr_environment_miss(pixel_id: vec2<u32>, primary_wo: vec3<f32>) {
+fn psr_environment_miss(pixel_id: vec2<u32>, psr: PsrState, primary_world_position: vec3<f32>, primary_wo: vec3<f32>) {
     let far_position = view.world_position - (primary_wo * ENVIRONMENT_VIRTUAL_DISTANCE);
     textureStore(specular_motion_vectors, pixel_id, vec4(calculate_motion_vector(far_position, far_position), vec2(0.0)));
+
+    if psr.replace_fully {
+        let primary_distance = length(primary_world_position - view.world_position);
+        let primary_depth = textureLoad(depth_buffer, pixel_id, 0);
+        let path_length = max(ENVIRONMENT_VIRTUAL_DISTANCE, primary_distance + psr.reflection_length);
+        textureStore(dlss_rr_depth, pixel_id, vec4(primary_depth * primary_distance / path_length));
+    }
 }
 
 /// Primary surface replacement for perfect mirrors. The reflection chain has been followed to its
