@@ -184,6 +184,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |reflect_functions|Enable function reflection|
 |render_dev_tools|Enable systems that allow for renderable dev tools|
 |schedule_data|Enable collecting schedule data from the app.|
+|screenrecording|Enables the screen recording dev utilities|
 |serialize|Enable serialization support through serde|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
