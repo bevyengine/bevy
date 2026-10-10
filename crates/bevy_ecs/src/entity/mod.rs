@@ -1276,6 +1276,8 @@ impl EntityMeta {
 
 /// A location of an entity in an archetype.
 #[derive(Copy, Clone, Debug, PartialEq)]
+// Specifying alignment helps codegen around `UnsafeEntityCell`.
+#[repr(align(8))]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.
     ///
