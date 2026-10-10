@@ -388,7 +388,6 @@ where
         }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         match &mut self.inner {

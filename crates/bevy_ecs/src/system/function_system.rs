@@ -854,14 +854,16 @@ where
         IntoResult::into_result(out)
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
-        let new = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run).ptr_address();
-        if new != self.current_ptr {
-            log::debug!("system {} hotpatched", self.name());
+        #[cfg(feature = "hotpatching")]
+        {
+            let new = subsecond::HotFn::current(F::run).ptr_address();
+            if new != self.current_ptr {
+                log::debug!("system {} hotpatched", self.name());
+            }
+            self.current_ptr = new;
         }
-        self.current_ptr = new;
     }
 
     #[inline]
