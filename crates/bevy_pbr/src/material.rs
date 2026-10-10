@@ -137,12 +137,12 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// }
 /// ```
 ///
-/// In WGSL shaders, the material's binding would look like this:
+/// In WESL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(2) var color_sampler: sampler;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
