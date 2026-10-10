@@ -5,12 +5,13 @@
 /// On other platforms the wrapper simply contains the wrapped value.
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 macro_rules! wgpu_wrapper {
-    ($( $(#[$($attrs:tt)*])* $vis:vis struct $name:ident ($wgputy:ty) );+ $(;)?) => {
+    ($( $(#[$($attrs:tt)*])* $vis:vis struct $name:ident $(<$lt:lifetime>)? ($wgputy:ty) );+ $(;)?) => {
         $(
             $( #[$($attrs)*] )*
-            $vis struct $name ($wgputy);
+            #[repr(transparent)]
+            $vis struct $name$(<$lt>)* ($wgputy);
 
-            impl $name {
+            impl$(<$lt>)* $name$(<$lt>)* {
                 /// Constructs a new instance of `WgpuWrapper` which will wrap the specified value.
                 pub fn new(t: $wgputy) -> Self {
                     Self(t)
@@ -23,7 +24,7 @@ macro_rules! wgpu_wrapper {
                 }
             }
 
-            impl ::core::ops::Deref for $name {
+            impl$(<$lt>)* ::core::ops::Deref for $name$(<$lt>)* {
                 type Target = $wgputy;
 
                 fn deref(&self) -> &Self::Target {
@@ -31,7 +32,7 @@ macro_rules! wgpu_wrapper {
                 }
             }
 
-            impl ::core::ops::DerefMut for $name {
+            impl$(<$lt>)* ::core::ops::DerefMut for $name$(<$lt>)* {
                 fn deref_mut(&mut self) -> &mut Self::Target {
                     &mut self.0
                 }
@@ -42,15 +43,18 @@ macro_rules! wgpu_wrapper {
             // this creates a short-circuit for the trait solver that reduces recursion depth
             // and substantially improves compile times.
             const _: () = {
-                const fn assert_sync_send<T: Sync + Send>() {}
-                assert_sync_send::<$wgputy>()
+                const fn assert_sync_send<T: ?Sized + Sync + Send>() {}
+                #[allow(clippy::allow_attributes, dead_code, clippy::extra_unused_lifetimes, reason = "Only used for its type-check side effect.")]
+                fn check $(<$lt>)? () {
+                    assert_sync_send::<$wgputy>();
+                }
             };
             // SAFETY: We just asserted that $wgputy is Send and Sync
             #[expect(unsafe_code, reason = "Blanket-impl Send requires unsafe.")]
-            unsafe impl Send for $name {}
+            unsafe impl$(<$lt>)* Send for $name$(<$lt>)* {}
             // SAFETY: We just asserted that $wgputy is Send and Sync
             #[expect(unsafe_code, reason = "Blanket-impl Send requires unsafe.")]
-            unsafe impl Sync for $name {}
+            unsafe impl$(<$lt>)* Sync for $name$(<$lt>)* {}
         )+
     };
 }

@@ -138,7 +138,7 @@ impl RenderAsset for GpuImage {
                         new_texture.as_image_copy(),
                         copy_size,
                     );
-                    render_queue.submit([command_encoder.finish()]);
+                    render_queue.submit([command_encoder.into_inner().finish()]);
                 } else {
                     warn!("No previous asset to copy from for image: {:?}", image);
                 }
