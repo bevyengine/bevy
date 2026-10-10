@@ -119,7 +119,7 @@ fn update_swatch_color(
                 .insert(BackgroundColor(value.0));
         }
 
-        if let Some(second_child) = children.get(1) {
+        if let Some(second_child) = children.get_index(1) {
             commands
                 .entity(*second_child)
                 .insert(BackgroundColor(value.0.with_alpha(1.0)));

@@ -488,7 +488,7 @@ mod parallel {
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use crate::systems::StaticTransformOptimizations;
     use alloc::{sync::Arc, vec::Vec};
-    use bevy_ecs::{entity::UniqueEntitySlice, prelude::*, system::lifetimeless::Read};
+    use bevy_ecs::{prelude::*, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
@@ -697,10 +697,7 @@ mod parallel {
             // does not have any cycles. Because the hierarchy does not have cycles, we know we are
             // visiting disjoint entities in parallel, which is safe.
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
-            let children_iter = unsafe {
-                nodes.iter_many_unique_unsafe(UniqueEntitySlice::from_slice_unchecked(p_children))
-            }
-            .matched();
+            let children_iter = unsafe { nodes.iter_many_unique_unsafe(p_children) }.matched();
 
             let mut last_child = None;
             let new_children = children_iter.filter_map(
@@ -1081,9 +1078,12 @@ mod test {
         app.update();
 
         // check the `Children` structure is spawned
-        assert_eq!(&**app.world().get::<Children>(parent).unwrap(), &[child]);
         assert_eq!(
-            &**app.world().get::<Children>(child).unwrap(),
+            app.world().get::<Children>(parent).unwrap().as_slice(),
+            &[child]
+        );
+        assert_eq!(
+            app.world().get::<Children>(child).unwrap().as_slice(),
             &[grandchild]
         );
         // Note that at this point, the `GlobalTransform`s will not have updated yet, due to

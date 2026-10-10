@@ -325,7 +325,7 @@ fn update_wheel_color(
         position_thumb(&mut q_transform, *thumb_ent, center + offset);
 
         // Find the ring thumb.
-        let Some(ring_thumb_ent) = children_inner.get(1) else {
+        let Some(ring_thumb_ent) = children_inner.get_index(1) else {
             continue;
         };
 
