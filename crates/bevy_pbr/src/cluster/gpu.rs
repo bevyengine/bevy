@@ -341,6 +341,10 @@ struct ViewClusteringReadbackData {
     /// This starts out at the default size as specified by the allocation and
     /// can grow based on the results of GPU readback.
     max_index_list_capacity: usize,
+    /// The configured initial capacities, used as the floor when shrinking
+    /// back down after a spike.
+    initial_z_slice_list_capacity: usize,
+    initial_index_list_capacity: usize,
     /// Buffers corresponding to GPU readback operations in progress.
     metadata_staging_pending_buffers: Vec<Buffer>,
     /// Buffers corresponding to GPU readback operations that are finished.
@@ -373,6 +377,8 @@ impl ViewClusteringReadbackData {
         ViewClusteringReadbackData {
             z_slice_list_capacity: settings.initial_z_slice_list_capacity,
             max_index_list_capacity: settings.initial_index_list_capacity,
+            initial_z_slice_list_capacity: settings.initial_z_slice_list_capacity,
+            initial_index_list_capacity: settings.initial_index_list_capacity,
             metadata_staging_pending_buffers: vec![],
             metadata_staging_free_buffers: vec![],
             last_frame_statistics: None,
@@ -427,6 +433,31 @@ impl ViewClusteringReadbackData {
                 self.max_index_list_capacity, new_capacity
             );
             self.max_index_list_capacity = new_capacity as usize;
+        }
+
+        // Shrink back toward the configured initial capacity once the scene's
+        // clustered object load drops. The capacities otherwise stick at the
+        // highest peak the scene ever hit, and
+        // `prepare_clusters_for_gpu_clustering` reserves and uploads the full
+        // capacity every frame, taxing every later frame with the peak's buffer
+        // costs. The 4x headroom keeps a merely varying scene from resizing,
+        // and the initial capacities stay the floor.
+        let index_list_size = gpu_clustering_metadata.index_list_capacity as usize;
+        if self.max_index_list_capacity > index_list_size * 4
+            && self.max_index_list_capacity > self.initial_index_list_capacity
+        {
+            self.max_index_list_capacity = index_list_size
+                .next_power_of_two()
+                .max(self.initial_index_list_capacity);
+        }
+
+        let z_slice_count = gpu_clustering_metadata.indirect_draw_params.instance_count as usize;
+        if self.z_slice_list_capacity > z_slice_count * 4
+            && self.z_slice_list_capacity > self.initial_z_slice_list_capacity
+        {
+            self.z_slice_list_capacity = z_slice_count
+                .next_power_of_two()
+                .max(self.initial_z_slice_list_capacity);
         }
 
         // Record the statistics we just received.
