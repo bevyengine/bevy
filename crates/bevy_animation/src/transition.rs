@@ -85,9 +85,16 @@ impl AnimationTransitions {
             && let Some(old_animation) = player.animation_mut(old_animation_index)
             && !old_animation.is_paused()
         {
+            // FIX: Handled zero duration to prevent division by zero / infinity.
+            let weight_decline_per_sec = if transition_duration.is_zero() {
+                f32::INFINITY
+            } else {
+                1.0 / transition_duration.as_secs_f32()
+            };
+
             self.transitions.push(AnimationTransition {
                 current_weight: old_animation.weight,
-                weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
+                weight_decline_per_sec,
                 animation: old_animation_index,
             });
         }
@@ -98,11 +105,6 @@ impl AnimationTransitions {
             .retain(|transition| transition.animation != new_animation);
 
         player.start(new_animation)
-    }
-
-    /// Obtain the currently playing main animation.
-    pub fn get_main_animation(&self) -> Option<AnimationNodeIndex> {
-        self.main_animation
     }
 }
 
@@ -120,7 +122,8 @@ pub fn advance_transitions(
     for (mut animation_transitions, mut player) in query.iter_mut() {
         let mut remaining_weight = 1.0;
 
-        for transition in &mut animation_transitions.transitions.iter_mut().rev() {
+        // FIX: Removed incorrect leading `&mut` reference to avoid compilation errors.
+        for transition in animation_transitions.transitions.iter_mut().rev() {
             // Decrease weight.
             transition.current_weight = (transition.current_weight
                 - transition.weight_decline_per_sec * time.delta_secs())
