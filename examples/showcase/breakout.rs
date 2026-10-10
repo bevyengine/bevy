@@ -52,7 +52,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(
             stepping::SteppingPlugin::default()
-                .add_schedule(Update)
+                .add_schedule(Main)
                 .at(percent(35), percent(50)),
         )
         .insert_resource(Score(0))

@@ -159,7 +159,7 @@ impl Plugin for UiPlugin {
                 widget::EditableTextContentSizeState,
             >()
             .configure_sets(
-                PostUpdate,
+                Main,
                 (
                     CameraUpdateSystems,
                     UiSystems::Prepare.after(AnimationSystems),
@@ -169,17 +169,18 @@ impl Plugin for UiPlugin {
                     UiSystems::Clipping,
                     UiSystems::PostLayout,
                 )
-                    .chain_weak(),
+                    .chain_weak()
+                    .in_set(PostUpdate),
             )
             .configure_sets(
-                PostUpdate,
+                Main,
                 PropagateSet::<ComputedUiTargetCamera>::default().in_set(UiSystems::Propagate),
             )
             .add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
                 PostUpdate,
             ))
             .configure_sets(
-                PostUpdate,
+                Main,
                 PropagateSet::<ComputedUiRenderTargetInfo>::default().in_set(UiSystems::Propagate),
             )
             .add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
@@ -307,19 +308,16 @@ fn build_text_interop(app: &mut App) {
         ),
     );
 
-    app.configure_sets(
-        PostUpdate,
-        AmbiguousWithText.ambiguous_with(widget::text_system),
-    );
+    app.configure_sets(Main, AmbiguousWithText.ambiguous_with(widget::text_system));
 
     app.configure_sets(
-        PostUpdate,
+        Main,
         AmbiguousWithUpdateText2dLayout.ambiguous_with(bevy_sprite::update_text2d_layout),
     );
 
     // We cannot set this up in bevy_text as this would create a circular dependency between bevy_ui and bevy_text
     app.configure_sets(
-        PostUpdate,
+        Main,
         EditableTextSystems
             .after(UiSystems::Layout)
             .before(UiSystems::PostLayout),

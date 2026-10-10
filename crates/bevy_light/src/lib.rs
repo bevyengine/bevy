@@ -4,7 +4,7 @@
 
 extern crate alloc;
 
-use bevy_app::{App, Plugin, PostUpdate, Update};
+use bevy_app::{App, Main, Plugin, PostUpdate, Update};
 use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
@@ -170,12 +170,12 @@ impl Plugin for LightPlugin {
             .init_asset::<ScatteringMedium>()
             .register_required_components::<Camera3d, Clusters>()
             .configure_sets(
-                PostUpdate,
+                Main,
                 SimulationLightSystems::CheckLightVisibility
                     .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
             )
             .configure_sets(
-                PostUpdate,
+                Main,
                 SimulationLightSystems::AssignLightsToClusters
                     .before(bevy_app::TransformGizmoRenderStep),
             )

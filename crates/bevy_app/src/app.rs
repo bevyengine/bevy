@@ -1,5 +1,6 @@
 use crate::{
-    Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp, SubApps,
+    EntryPoint, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
+    SubApps,
 };
 use alloc::{
     boxed::Box,
@@ -16,7 +17,7 @@ use bevy_ecs::{
     prelude::*,
     schedule::{
         InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy, ScheduleError,
-        ScheduleLabel,
+        ScheduleLabel, SystemLocation,
     },
     system::{ScheduleSystem, SystemId, SystemInput},
 };
@@ -56,7 +57,7 @@ pub(crate) enum AppError {
 }
 
 /// [`App`] is the primary API for writing user applications. It automates the setup of a
-/// [standard lifecycle](Main) and provides interface glue for [plugins](`Plugin`).
+/// [standard lifecycle](crate::main_schedule::Main) and provides interface glue for [plugins](`Plugin`).
 ///
 /// A single [`App`] can contain multiple [`SubApp`] instances, but [`App`] methods only affect
 /// the "main" one. To access a particular [`SubApp`], use [`get_sub_app`](App::get_sub_app)
@@ -108,7 +109,7 @@ impl Debug for App {
 impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
-        app.sub_apps.main.update_schedule = Some(Main.intern());
+        app.sub_apps.main.update_schedule = Some(EntryPoint.intern());
 
         #[cfg(feature = "bevy_reflect")]
         {
@@ -320,10 +321,10 @@ impl App {
     /// ```
     pub fn add_systems<M>(
         &mut self,
-        schedule: impl ScheduleLabel,
+        location: impl SystemLocation,
         systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
-        self.main_mut().add_systems(schedule, systems);
+        self.main_mut().add_systems(location, systems);
         self
     }
 
@@ -348,7 +349,7 @@ impl App {
     /// app.add_systems(Update, system_a);
     ///
     /// // remove the system
-    /// app.remove_systems_in_set(Update, system_a, ScheduleCleanupPolicy::RemoveSystemsOnly);
+    /// app.remove_systems_in_set(Main, system_a, ScheduleCleanupPolicy::RemoveSystemsOnly);
     /// ```
     pub fn remove_systems_in_set<M>(
         &mut self,

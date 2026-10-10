@@ -93,7 +93,7 @@ impl Plugin for CiTestingPlugin {
         // As a result, we must conditionally order the two systems using a system set.
         #[cfg(any(unix, windows))]
         app.configure_sets(
-            Update,
+            Main,
             EventSenderSystems.before(bevy_app::TerminalCtrlCHandlerPlugin::exit_on_flag),
         );
     }

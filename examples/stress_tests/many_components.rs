@@ -13,6 +13,7 @@
 //! If no valid number is provided, for each argument there's a reasonable default.
 
 use bevy::{
+    app::Main,
     diagnostic::{
         DiagnosticPath, DiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
     },
@@ -23,7 +24,7 @@ use bevy::{
     },
     log::LogPlugin,
     platform::collections::HashSet,
-    prelude::{App, In, IntoSystem, Query, Schedule, SystemParamBuilder, Update},
+    prelude::{App, In, IntoSystem, Query, Schedule, SystemParamBuilder},
     ptr::{OwningPtr, PtrMut},
     MinimalPlugins,
 };
@@ -104,7 +105,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
         .collect();
 
     // fill the schedule with systems
-    let mut schedule = Schedule::new(Update);
+    let mut schedule = Schedule::new(Main);
     for _ in 1..=num_systems {
         let num_access_components = rng.random_range(1..10);
         let access_components: Vec<ComponentId> = component_ids
