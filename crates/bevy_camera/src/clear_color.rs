@@ -31,14 +31,10 @@ pub enum ClearColorConfig {
 pub enum MsaaWriteback {
     /// Never perform MSAA writeback for this camera.
     Off,
-    /// Perform MSAA writeback only when the main pass must load existing content: a
-    /// fullscreen camera whose main texture a lower camera wrote this frame, or a
-    /// camera that preserves content across frames with `ClearColorConfig::None`.
+    /// Perform MSAA writeback. Current this is the same as [`MsaaWriteback::Always`].
     #[default]
     Auto,
-    /// Always perform MSAA writeback, even if this is the first camera rendering to the target.
-    /// This is useful when content has been written directly to the main texture (e.g., via
-    /// `write_texture`) and needs to be preserved through the MSAA render pass.
+    /// Always perform MSAA writeback as long as the camera has [`ClearColorConfig::None`],
     Always,
 }
 
