@@ -20,8 +20,8 @@ use bevy_picking::events::{
 use bevy_picking::hover::PointerCaptureMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
-    prelude::BorderRect, ui_layout_system, BackgroundColor, BorderColor, BorderRadius,
-    ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
+    prelude::BorderRect, BackgroundColor, BorderColor, BorderRadius, ComputedNode,
+    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
     UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
 };
 
@@ -103,7 +103,7 @@ pub struct Scrollbar {
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct ScrollbarThumb {
-    /// Border radius of the scrollbar thumb, used to update [`ComputedNode::border_radius`] in [`UiSystems::Layout`].
+    /// Border radius of the scrollbar thumb, used to update [`ComputedNode::border_radius`] after [`UiSystems::Layout`].
     pub border_radius: BorderRadius,
     /// Thickness of the thumb node's border.
     ///
@@ -484,8 +484,8 @@ impl Plugin for ScrollbarPlugin {
             .add_systems(
                 PostUpdate,
                 update_scrollbar_thumb
-                    .in_set(UiSystems::Layout)
-                    .after(ui_layout_system),
+                    .after(UiSystems::Layout)
+                    .before(UiSystems::Clipping),
             );
     }
 }

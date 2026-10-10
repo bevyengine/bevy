@@ -1,4 +1,8 @@
 use crate::{
+    layout::{
+        layout_tree::{ComputedLayout, TaffyStyle},
+        UiTreeDirty,
+    },
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val,
 };
@@ -20,8 +24,7 @@ use tracing::warn;
 
 /// Provides the computed size and layout properties of a UI [`Node`].
 ///
-/// All of the fields are automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`)
-/// during `PostUpdate` in the [`UiSystems::Layout`](super::UiSystems) set.
+/// All of the fields are automatically calculated during `PostUpdate` in the [`UiSystems::Layout`](super::UiSystems) set.
 ///
 /// The fields are measured in physical pixels.
 /// You can multiply by the `inverse_scale_factor` field to convert back to logical pixels.
@@ -73,7 +76,7 @@ pub struct ComputedNode {
 impl ComputedNode {
     /// The calculated node size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn size(&self) -> Vec2 {
         self.size
@@ -81,7 +84,7 @@ impl ComputedNode {
 
     /// The calculated node content size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn content_size(&self) -> Vec2 {
         self.content_size
@@ -96,7 +99,7 @@ impl ComputedNode {
 
     /// The calculated node size as width and height in physical pixels before rounding.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn unrounded_size(&self) -> Vec2 {
         self.unrounded_size
@@ -105,7 +108,7 @@ impl ComputedNode {
     /// Returns the thickness of the UI node's outline in physical pixels.
     /// If this value is negative or zero then no outline will be rendered.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_width(&self) -> f32 {
         self.outline_width
@@ -113,7 +116,7 @@ impl ComputedNode {
 
     /// Returns the amount of space between the outline and the edge of the node in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_offset(&self) -> f32 {
         self.outline_offset
@@ -121,7 +124,7 @@ impl ComputedNode {
 
     /// Returns the size of the node when including its outline.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outlined_node_size(&self) -> Vec2 {
         let offset = 2. * (self.outline_offset + self.outline_width);
@@ -132,7 +135,7 @@ impl ComputedNode {
     /// An outline's border radius is derived from the node's border-radius
     /// so that the outline wraps the border equally at all points.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
@@ -153,7 +156,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's border on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn border(&self) -> BorderRect {
         self.border
@@ -161,7 +164,7 @@ impl ComputedNode {
 
     /// Returns the border radius for each of the node's corners in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_border_radius`](`super::layout::update_border_radius`).
     #[inline]
     pub const fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
@@ -184,7 +187,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's padding on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn padding(&self) -> BorderRect {
         self.padding
@@ -461,8 +464,10 @@ impl From<BVec2> for IgnoreScroll {
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
+    TaffyStyle,
     ComputedNode,
     ComputedStackIndex,
+    ComputedLayout,
     ContentSize,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,
@@ -473,7 +478,8 @@ impl From<BVec2> for IgnoreScroll {
     ScrollPosition,
     Visibility,
     ZIndex,
-    EmSize
+    EmSize,
+    UiTreeDirty
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -3560,10 +3566,32 @@ impl ComputedUiRenderTargetInfo {
 /// A `FixedNode` UI entity is positioned relative to the target camera's viewport rather that its parent element.
 ///
 /// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
-#[derive(Component, Clone, Default, Reflect)]
+/// `FixedNode` is ignored on a `GhostNode`.
+/// `FixedNode` on a parentless node is redundant.
+/// All of a `FixedNode`'s ancestors must be `Node` entities.
+#[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 #[require(Node)]
 pub struct FixedNode;
+
+/// Marker component for `Node` entities that should be replaced by their children during UI layout.
+///
+/// - A `GhostNode` is a UI node entity, it requires `Node` but all the field's on its `Node` component are ignored.
+/// - A `GhostNode` is given zero size during layout.
+/// - Its position is the same as its parent (before `UiTransform`, is present, is applied).
+/// - Its `UiTransform` will be resolved and applied normally, except that instead of its own size, percentage
+///   values are based on the size of the `GhostNode`'s parent.
+/// - Events pass through normally.
+/// - `FixedNode` is ignored on a `GhostNode`.
+/// - `OverrideClip` is not ignored on a `GhostNode`.
+/// - Clipping propagates through `GhostNode`'s but their `Node::overflow` setting is ignored.
+/// - A `GhostNode`'s children's `Val::Percent` coords are resolved based on the the size of their nearest non-ghost ancestor,
+///   skipping any intermediate ghosts, or the size of the viewport if they have no non-ghost ancestors.
+/// - A root `GhostNode`'s children are UI root nodes each with their own implicit viewport node.
+#[derive(Component, Debug, Copy, Clone, Reflect, Default)]
+#[reflect(Component, Debug, Clone)]
+#[require(Node)]
+pub struct GhostNode;
 
 #[cfg(test)]
 mod tests {

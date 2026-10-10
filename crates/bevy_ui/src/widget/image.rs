@@ -273,7 +273,7 @@ pub struct ImageMeasure {
 }
 
 impl Measure for ImageMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs) -> Vec2 {
+    fn measure(&self, measure_args: MeasureArgs) -> Vec2 {
         let mut width = measure_args.resolve_width();
         let mut height = measure_args.resolve_height();
 
