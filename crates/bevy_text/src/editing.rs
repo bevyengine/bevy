@@ -17,6 +17,7 @@
 //! - Click to place cursor; click and drag to extend the selection
 //! - Multi-click: double-click to select a word, triple-click to select a line
 //! - Optional select-all on focus via the `SelectAllOnFocus` component
+//! - Optional placeholder hint text via the `Placeholder` component
 //! - Per-character input filtering via the [`EditableTextFilter`] component
 //! - Max character limits via [`EditableText::max_characters`]
 //! - Cursor blinking
@@ -56,7 +57,6 @@
 //!
 //! However, the following features are planned but currently not implemented:
 //!
-//! - Placeholder text (displayed when the input is empty)
 //! - Undo/redo functionality
 //! - Text validation (e.g., email format, numeric input)
 //! - Password-style character masking
