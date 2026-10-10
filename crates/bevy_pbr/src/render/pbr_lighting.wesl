@@ -78,6 +78,10 @@ struct LightingInput {
     /// The 0-1 metallic factor of the material.
     metallic: f32,
 
+    /// The 0-1 specular weight. Following `KHR_materials_specular`, it scales the dielectric
+    /// specular lobe only.
+    specular_weight: f32,
+
     /// Specular reflectance at the normal incidence angle.
     F0_dielectric: vec3<f32>,
     F0_metallic: vec3<f32>,
@@ -316,11 +320,49 @@ fn F_Schlick(f0: f32, f90: f32, VdotH: f32) -> f32 {
     return f0 + (f90 - f0) * pow(1.0 - VdotH, 5.0);
 }
 
-fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
-    // f_90 suitable for ambient occlusion
-    // see https://google.github.io/filament/Filament.md.html#lighting/occlusion
-    let f90 = saturate(dot(f0, vec3<f32>(50.0 * 0.33)));
-    return F_Schlick_vec(f0, f90, LdotH);
+/// Returns the specular reflectance at normal incidence (F0) of a material that
+/// mixes a dielectric lobe and a metallic lobe by `metallic`.
+///
+/// Schlick's approximation is linear in F0 and F90, so using this with
+/// `specular_F90` gives the same result as mixing the Fresnel terms of the lobes.
+fn specular_F0(
+    F0_dielectric: vec3<f32>,
+    F0_metallic: vec3<f32>,
+    specular_weight: f32,
+    metallic: f32,
+) -> vec3<f32> {
+    return mix(specular_weight * F0_dielectric, F0_metallic, metallic);
+}
+
+/// Returns the specular reflectance at grazing angles (F90) that goes with
+/// `specular_F0`.
+fn specular_F90(specular_weight: f32, metallic: f32) -> f32 {
+    return mix(specular_weight, 1.0, metallic);
+}
+
+/// Evaluates the specular lobe with distribution `D` and visibility `V` for
+/// the dielectric and metallic parts of the material separately, and mixes
+/// them by `metallic`.
+///
+/// Each part uses the Schlick Fresnel term with its own F0 and F90 = 1.
+fn specular_dielectric_metallic(
+    input: ptr<function, LightingInput>,
+    D: f32,
+    V: f32,
+    LdotH: f32,
+    specular_intensity: f32,
+) -> vec3<f32> {
+    let F0_dielectric = (*input).F0_dielectric;
+    let F0_metallic = (*input).F0_metallic;
+    let F_ab = (*input).F_ab;
+
+    let F_dielectric = F_Schlick_vec(F0_dielectric, 1.0, LdotH);
+    let F_metallic = F_Schlick_vec(F0_metallic, 1.0, LdotH);
+
+    let Fr_dielectric = specular_multiscatter(
+        D, V, F_dielectric, F0_dielectric, F_ab, specular_intensity * (*input).specular_weight);
+    let Fr_metallic = specular_multiscatter(D, V, F_metallic, F0_metallic, F_ab, specular_intensity);
+    return mix(Fr_dielectric, Fr_metallic, (*input).metallic);
 }
 
 /// Given distribution, visibility, and Fresnel term, calculates the final
@@ -410,7 +452,6 @@ fn specular(
 ) -> vec3<f32> {
     // Unpack.
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
-    let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
     let NdotL = (*derived_input).NdotL;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
@@ -419,12 +460,9 @@ fn specular(
     let D = D_GGX(roughness, NdotH);
     // Calculate visibility.
     let V = V_SmithGGXCorrelated(roughness, NdotV, NdotL);
-    // Calculate the Fresnel term.
-    let F = fresnel(F0, LdotH);
 
-    // Calculate the specular light.
-    let Fr = specular_multiscatter(D, V, F, F0, (*input).F_ab, specular_intensity);
-    return Fr;
+    // Calculate the Fresnel term and the specular light.
+    return specular_dielectric_metallic(input, D, V, LdotH, specular_intensity);
 }
 
 /// Calculates the specular light for the clearcoat layer. Returns Fc, the
@@ -465,7 +503,6 @@ fn specular_anisotropy(
     // Unpack.
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let V = (*input).V;
-    let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
     let anisotropy = (*input).anisotropy;
     let Ta = (*input).Ta;
     let Ba = (*input).Ba;
@@ -486,11 +523,9 @@ fn specular_anisotropy(
 
     let Da = D_GGX_anisotropic(at, ab, NdotH, TdotH, BdotH);
     let Va = V_GGX_anisotropic(at, ab, NdotL, NdotV, BdotV, TdotV, TdotL, BdotL);
-    let Fa = fresnel(F0, LdotH);
 
-    // Calculate the specular light.
-    let Fr = specular_multiscatter(Da, Va, Fa, F0, (*input).F_ab, specular_intensity);
-    return Fr;
+    // Calculate the Fresnel term and the specular light.
+    return specular_dielectric_metallic(input, Da, Va, LdotH, specular_intensity);
 }
 
 /// Diffuse BRDF
@@ -541,6 +576,65 @@ fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
 
 fn EnvBRDFApprox(F0: vec3<f32>, F_ab: vec2<f32>) -> vec3<f32> {
     return F0 * F_ab.x + F_ab.y;
+}
+
+struct MultiscatterResult {
+    FssEss: vec3<f32>,
+    FmsEms: vec3<f32>,
+    Edss: vec3<f32>,
+}
+
+/// Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
+///
+/// Uses the standard Fresnel term, not the roughness-dependent Fresnel of
+/// https://bruop.github.io/ibl, which makes Fresnel too bright.
+fn compute_multiscatter(
+    F0: vec3<f32>,
+    F_ab: vec2<f32>,
+    Ems: f32,
+    specular_weight: f32,
+) -> MultiscatterResult {
+    let FssEss = specular_weight * (F0 * F_ab.x + F_ab.y);
+    let Favg = F0 + (1.0 - F0) / 21.0;
+    let FmsEms = FssEss * Favg / (1.0 - Ems * Favg) * Ems;
+    let Edss = 1.0 - (FssEss + FmsEms);
+
+    return MultiscatterResult(FssEss, FmsEms, Edss);
+}
+
+/// Multiscattering terms of the dielectric and metallic specular lobes of a material.
+struct LobeMultiscatter {
+    dielectric: MultiscatterResult,
+    metallic: MultiscatterResult,
+}
+
+/// Returns the multiscattering terms of the dielectric and metallic specular lobes.
+///
+/// The lobes are kept separate because the terms are nonlinear in F0.
+fn compute_lobe_multiscatter(
+    F0_dielectric: vec3<f32>,
+    F0_metallic: vec3<f32>,
+    F_ab: vec2<f32>,
+    specular_weight: f32,
+) -> LobeMultiscatter {
+    let Ems = 1.0 - (F_ab.x + F_ab.y);
+    return LobeMultiscatter(
+        compute_multiscatter(F0_dielectric, F_ab, Ems, specular_weight),
+        compute_multiscatter(F0_metallic, F_ab, Ems, 1.0),
+    );
+}
+
+/// Returns the fraction of incoming indirect diffuse light (irradiance) that a surface reflects.
+///
+/// The diffuse lobe receives the energy the weighted specular lobes do not reflect, and the
+/// multiscattered specular energy is approximated as diffuse.
+fn indirect_diffuse_reflectance(
+    multiscatter: LobeMultiscatter,
+    diffuse_color: vec3<f32>,
+    metallic: f32,
+) -> vec3<f32> {
+    let FmsEms = mix(multiscatter.dielectric.FmsEms, multiscatter.metallic.FmsEms, metallic);
+    return FmsEms + diffuse_color * multiscatter.dielectric.Edss;
 }
 
 fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
@@ -746,6 +840,10 @@ fn point_light(
     var derived_input = derive_lighting_input(N, V, L);
     var diffuse = vec3(0.0);
     if (enable_diffuse) {
+        // In KHR_materials_specular, the specular strength also changes the diffuse reflectance.
+        // This diffuse term follows Filament, which doesn't couple diffuse and specular
+        // reflectance, so it ignores the specular strength. See
+        // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coupling-diffuse-and-specular-reflection
         diffuse = diffuse_color * Fd_Burley(input, &derived_input);
     }
 
@@ -1094,8 +1192,10 @@ fn rect_light(
     let diff = select(0.0, ltc_integrate_quad(N, V, P, identity, corners), enable_diffuse);
 
     // t2.x encodes the bsdf magnitude and t2.y the fresnel direction
-    let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
-    let spec_weight = F0 * t2.x + (1.0 - F0) * t2.y;
+    let F0 = specular_F0(
+        (*input).F0_dielectric, (*input).F0_metallic, (*input).specular_weight, (*input).metallic);
+    let F90 = specular_F90((*input).specular_weight, (*input).metallic);
+    let spec_weight = F0 * t2.x + (F90 - F0) * t2.y;
 
 @if(STANDARD_MATERIAL_CLEARCOAT) {
     let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;

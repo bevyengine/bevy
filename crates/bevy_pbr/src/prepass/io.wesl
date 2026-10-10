@@ -148,6 +148,9 @@ struct FragmentOutput {
     @location(2) deferred: vec4<u32>,
     @if(DEFERRED_PREPASS)
     @location(3) deferred_lighting_pass_id: u32,
+    // Packed with `bevy_pbr::deferred::types::pack_specular_tint`.
+    @if(DEFERRED_SPECULAR_TINT)
+    @location(4) deferred_specular_tint: u32,
 
     @if(UNCLIPPED_DEPTH_ORTHO_EMULATION)
     @builtin(frag_depth) frag_depth: f32,

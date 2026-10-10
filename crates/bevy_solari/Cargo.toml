@@ -45,6 +45,7 @@ wgpu = { version = "30", default-features = false }
 [features]
 dlss = ["bevy_anti_alias/dlss"]
 force_disable_dlss = ["bevy_anti_alias/force_disable_dlss"]
+pbr_specular_textures = ["bevy_pbr/pbr_specular_textures"]
 
 [lints]
 workspace = true

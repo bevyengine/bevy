@@ -1423,7 +1423,12 @@ fn load_material(
                 )
             });
 
-    let ior = material.ior().unwrap_or(1.5);
+    // KHR_materials_ior allows an IOR of 0 or at least 1. Other values, NaN and infinity use the
+    // default of 1.5.
+    let ior = material
+        .ior()
+        .filter(|&ior| ior == 0.0 || (ior >= 1.0 && ior.is_finite()))
+        .unwrap_or(1.5);
 
     // Parse the `KHR_materials_clearcoat` extension data if necessary.
     let clearcoat =
@@ -1505,9 +1510,7 @@ fn load_material(
         anisotropy_channel: anisotropy.anisotropy_channel,
         #[cfg(feature = "pbr_anisotropy_texture")]
         anisotropy_texture: anisotropy.anisotropy_texture,
-        // From the `KHR_materials_specular` spec:
-        // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
-        reflectance: specular.specular_factor * 0.5,
+        specular: specular.specular_factor,
         #[cfg(feature = "pbr_specular_textures")]
         specular_channel: specular.specular_channel,
         #[cfg(feature = "pbr_specular_textures")]
@@ -2134,6 +2137,7 @@ mod test {
         },
         AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext, LoadState,
     };
+    use bevy_color::Color;
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_image::{Image, ImageLoaderSettings};
     use bevy_log::LogPlugin;
@@ -2777,6 +2781,86 @@ mod test {
             LoadState::Loading => None,
             state => panic!("Unexpected load state: {state:?}"),
         });
+    }
+
+    #[test]
+    fn material_ior_and_specular_extensions() {
+        let gltf_path = "test.gltf";
+        let app = load_gltf_into_app(
+            gltf_path,
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "extensionsUsed": ["KHR_materials_ior", "KHR_materials_specular"],
+    "materials": [
+        {
+            "name": "ior_only",
+            "extensions": {
+                "KHR_materials_ior": { "ior": 1.45 }
+            }
+        },
+        {
+            "name": "specular_only",
+            "extensions": {
+                "KHR_materials_specular": {
+                    "specularFactor": 0.2,
+                    "specularColorFactor": [0.25, 1.0, 1.0]
+                }
+            }
+        },
+        {
+            "name": "ior_and_specular",
+            "extensions": {
+                "KHR_materials_ior": { "ior": 2.0 },
+                "KHR_materials_specular": { "specularFactor": 0.5 }
+            }
+        },
+        {
+            "name": "invalid_ior",
+            "extensions": {
+                "KHR_materials_ior": { "ior": 0.5 }
+            }
+        }
+    ]
+}
+"#,
+        );
+        let asset_server = app.world().resource::<AssetServer>();
+        let handle = asset_server.load(gltf_path);
+        let gltf_root = app.world().resource::<Assets<Gltf>>().get(&handle).unwrap();
+        let gltf_materials = app.world().resource::<Assets<GltfMaterial>>();
+        let material = |name: &str| {
+            gltf_materials
+                .get(gltf_root.named_materials.get(name).unwrap())
+                .unwrap()
+        };
+        let white = Color::linear_rgb(1.0, 1.0, 1.0);
+
+        let ior_only = material("ior_only");
+        assert_eq!(ior_only.ior, 1.45);
+        assert_eq!(ior_only.specular, 1.0);
+        assert_eq!(ior_only.specular_tint, white);
+
+        let specular_only = material("specular_only");
+        assert_eq!(specular_only.ior, 1.5);
+        assert_eq!(specular_only.specular, 0.2);
+        assert_eq!(
+            specular_only.specular_tint,
+            Color::linear_rgb(0.25, 1.0, 1.0)
+        );
+
+        let ior_and_specular = material("ior_and_specular");
+        assert_eq!(ior_and_specular.ior, 2.0);
+        assert_eq!(ior_and_specular.specular, 0.5);
+        assert_eq!(ior_and_specular.specular_tint, white);
+
+        // 0.5 is invalid, so it falls back to the default.
+        let invalid_ior = material("invalid_ior");
+        assert_eq!(invalid_ior.ior, 1.5);
+        assert_eq!(invalid_ior.specular, 1.0);
+        assert_eq!(invalid_ior.specular_tint, white);
     }
 
     #[test]

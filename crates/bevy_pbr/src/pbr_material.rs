@@ -173,27 +173,27 @@ pub struct StandardMaterial {
     #[dependency]
     pub metallic_roughness_texture: Option<Handle<Image>>,
 
-    /// Specular intensity for non-metals on a linear scale of `[0.0, 1.0]`.
+    /// Specular strength for non-metals on a linear scale of `[0.0, 1.0]`.
     ///
-    /// Use the value as a way to control the intensity of the
-    /// specular highlight of the material, i.e. how reflective is the material,
-    /// rather than the physical property "reflectance."
+    /// Scales the whole specular response of non-metals, at normal incidence and at grazing
+    /// angles, for both highlights and reflections. [`StandardMaterial::ior`] sets the reflectance
+    /// at normal incidence that this value scales. At `0.0`, non-metals have no specular response.
+    /// Values outside `[0.0, 1.0]` are clamped. The deferred renderer on WebGL2 stores only
+    /// whether this value is above `0.0`.
     ///
-    /// Set to `0.0`, no specular highlight is visible, the highlight is strongest
-    /// when `reflectance` is set to `1.0`.
-    ///
-    /// Defaults to `0.5` which is mapped to 4% reflectance in the shader.
+    /// Defaults to `1.0`.
     #[doc(alias = "specular_intensity")]
-    pub reflectance: f32,
+    #[doc(alias = "reflectance")]
+    pub specular: f32,
 
-    /// A color with which to modulate the [`StandardMaterial::reflectance`] for
-    /// non-metals.
+    /// A color that multiplies the reflectance at normal incidence of non-metals.
     ///
-    /// The specular highlights and reflection are tinted with this color. Note
-    /// that it has no effect for non-metals.
+    /// Components can exceed `1.0`. The tinted reflectance is clamped to `1.0`.
     ///
-    /// This feature is currently unsupported in the deferred rendering path, in
-    /// order to reduce the size of the geometry buffers.
+    /// The deferred renderer ignores this value when the device can't fit a specular tint
+    /// target. See
+    /// [`DeferredSpecularTintSupport`](bevy_core_pipeline::deferred::DeferredSpecularTintSupport)
+    /// for the conditions.
     ///
     /// Defaults to [`Color::WHITE`].
     #[doc(alias = "specular_color")]
@@ -315,6 +315,10 @@ pub struct StandardMaterial {
 
     /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
     ///
+    /// For non-metals, the IOR sets the reflectance at normal incidence (F0) to
+    /// `((ior - 1) / (ior + 1))^2`: 4% at the default of 1.5, 0% at 1.0 and 100% at 0.0. A
+    /// clearcoat doesn't change it, as in `KHR_materials_clearcoat`.
+    ///
     /// Defaults to 1.5.
     ///
     /// | Material        | Index of Refraction  |
@@ -338,10 +342,11 @@ pub struct StandardMaterial {
     /// | Diamond         | 2.42                 |
     /// | Moissanite      | 2.65                 |
     ///
-    /// **Note:** Typically used in conjunction with [`StandardMaterial::specular_transmission`] and [`StandardMaterial::thickness`].
+    /// **Note:** Refraction uses this value together with [`StandardMaterial::specular_transmission`] and [`StandardMaterial::thickness`].
     #[doc(alias = "index_of_refraction")]
     #[doc(alias = "refraction_index")]
     #[doc(alias = "refractive_index")]
+    #[doc(alias = "reflectance")]
     pub ior: f32,
 
     /// How far, on average, light travels through the volume beneath the material's
@@ -451,19 +456,13 @@ pub struct StandardMaterial {
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_channel: UvChannel,
 
-    /// A map that specifies reflectance for non-metallic materials.
+    /// A map that scales the specular strength of non-metallic materials.
     ///
-    /// Alpha values from [0.0, 1.0] in this texture are linearly mapped to
-    /// reflectance values of [0.0, 0.5] and multiplied by the constant
-    /// [`StandardMaterial::reflectance`] value. This follows the
-    /// `KHR_materials_specular` specification. The map will have no effect if
-    /// the material is fully metallic.
+    /// The alpha channel multiplies [`StandardMaterial::specular`], following the
+    /// `KHR_materials_specular` specification. The map has no effect on fully metallic
+    /// materials.
     ///
-    /// When using this map, you may wish to set the
-    /// [`StandardMaterial::reflectance`] value to 2.0 so that this map can
-    /// express the full [0.0, 1.0] range of values.
-    ///
-    /// Note that, because the reflectance is stored in the alpha channel, and
+    /// Note that, because the specular strength is stored in the alpha channel, and
     /// the [`StandardMaterial::specular_tint_texture`] has no alpha value, it
     /// may be desirable to pack the values together and supply the same
     /// texture to both fields.
@@ -487,8 +486,8 @@ pub struct StandardMaterial {
     /// [`StandardMaterial::specular_tint`] value. See the documentation for
     /// that field for more information.
     ///
-    /// Like the fixed specular tint value, this texture map isn't supported in
-    /// the deferred renderer.
+    /// The deferred renderer ignores this texture in the same cases as
+    /// [`StandardMaterial::specular_tint`].
     #[cfg_attr(feature = "pbr_specular_textures", texture(29))]
     #[cfg_attr(feature = "pbr_specular_textures", sampler(30))]
     #[cfg(feature = "pbr_specular_textures")]
@@ -873,10 +872,6 @@ impl Default for StandardMaterial {
             metallic: 0.0,
             metallic_roughness_channel: UvChannel::Uv0,
             metallic_roughness_texture: None,
-            // Minimum real-world reflectance is 2%, most materials between 2-5%
-            // Expressed in a linear scale and equivalent to 4% reflectance see
-            // <https://google.github.io/filament/Material%20Properties.pdf>
-            reflectance: 0.5,
             diffuse_transmission: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]
             diffuse_transmission_channel: UvChannel::Uv0,
@@ -899,6 +894,7 @@ impl Default for StandardMaterial {
             occlusion_texture: None,
             normal_map_channel: UvChannel::Uv0,
             normal_map_texture: None,
+            specular: 1.0,
             #[cfg(feature = "pbr_specular_textures")]
             specular_channel: UvChannel::Uv0,
             #[cfg(feature = "pbr_specular_textures")]
@@ -1035,9 +1031,10 @@ pub struct StandardMaterialUniform {
     pub attenuation_color: Vec4,
     /// The transform applied to the UVs corresponding to `ATTRIBUTE_UV_0` on the mesh before sampling. Default is identity.
     pub uv_transform: Mat3,
-    /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
-    /// defaults to 0.5 which is mapped to 4% reflectance in the shader
-    pub reflectance: Vec3,
+    /// See [`StandardMaterial::specular_tint`].
+    pub specular_tint: Vec3,
+    /// See [`StandardMaterial::specular`].
+    pub specular_weight: f32,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
     pub roughness: f32,
@@ -1218,7 +1215,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             emissive,
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
-            reflectance: LinearRgba::from(self.specular_tint).to_vec3() * self.reflectance,
+            specular_tint: LinearRgba::from(self.specular_tint).to_vec3(),
+            specular_weight: self.specular,
             clearcoat: self.clearcoat,
             clearcoat_perceptual_roughness: self.clearcoat_perceptual_roughness,
             anisotropy_strength: self.anisotropy_strength,

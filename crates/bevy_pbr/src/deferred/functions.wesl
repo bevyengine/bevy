@@ -2,6 +2,7 @@ import package::{
     render::{
         pbr_types::{PbrInput, pbr_input_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
         pbr_functions,
+        pbr_lighting as lighting,
         rgb9e5,
         mesh_view_bindings::view,
         view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
@@ -10,6 +11,9 @@ import package::{
     prepass::io::FragmentOutput,
 };
 import bevy_render::utils::{octahedral_encode, octahedral_decode};
+
+@if(DEFERRED_SPECULAR_TINT)
+    import package::render::mesh_view_bindings::deferred_specular_tint_texture;
 
 @if(MESHLET_MESH_MATERIAL_PASS) import package::meshlet::visibility_buffer_resolve::VertexOutput;
 @else import package::prepass::io::VertexOutput;
@@ -26,14 +30,20 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     // https://en.wikipedia.org/wiki/Rec._709
     let rec_709_coeffs = vec3<f32>(0.2126, 0.7152, 0.0722);
     let diffuse_occlusion = dot(in.diffuse_occlusion, rec_709_coeffs);
-    // Only monochrome specular supported.
-    let reflectance = dot(in.material.reflectance, rec_709_coeffs);
     @if(WEBGL2) // More crunched for webgl so we can also fit depth.
+    let ior_specular = deferred_types::pack_4bit_ior_specular(in.material.ior, in.material.specular_weight);
+    @if(WEBGL2)
+    let ior_specular_props = f32(ior_specular) / 15.0;
+    @if(WEBGL2)
     var props = deferred_types::pack_unorm3x4_plus_unorm_20_(vec4(
-        reflectance,
+        ior_specular_props,
         in.material.metallic,
         diffuse_occlusion,
         in.frag_coord.z));
+    @if(!WEBGL2)
+    let ior_specular = deferred_types::pack_8bit_ior_specular(in.material.ior, in.material.specular_weight);
+    @if(!WEBGL2)
+    let ior_specular_props = f32(ior_specular) / 255.0;
     @if(!WEBGL2)
     let clearcoat = u32(round(saturate(in.material.clearcoat) * 15.0));
     @if(!WEBGL2)
@@ -43,7 +53,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     let clearcoat_props = f32(clearcoat | (clearcoat_perceptual_roughness << 4u)) / 255.0;
     @if(!WEBGL2)
     var props = deferred_types::pack_unorm4x8_(vec4(
-        reflectance, // could be fewer bits
+        ior_specular_props,
         in.material.metallic, // could be fewer bits
         diffuse_occlusion, // is this worth including?
         clearcoat_props));
@@ -61,7 +71,8 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
 
     // Utilize the emissive channel to transmit the lightmap data. To ensure
     // it matches the output in forward shading, pre-multiply it with the
-    // calculated diffuse color.
+    // reflectance that `apply_pbr_lighting` applies to lightmap light.
+@if(LIGHTMAP) {
     let base_color = in.material.base_color.rgb;
     let metallic = in.material.metallic;
     let specular_transmission = in.material.specular_transmission;
@@ -72,7 +83,15 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         specular_transmission,
         diffuse_transmission
     );
-    emissive += in.lightmap_light * diffuse_color * view.exposure;
+    let F0_dielectric = pbr_functions::calculate_specular_reflectance(in.material).F0_dielectric;
+    let NdotV = max(dot(in.N, in.V), 0.0001);
+    let F_ab = lighting::F_AB(in.material.perceptual_roughness, NdotV);
+    let multiscatter = lighting::compute_lobe_multiscatter(
+        F0_dielectric, base_color, F_ab, saturate(in.material.specular_weight));
+    let indirect_diffuse_reflectance =
+        lighting::indirect_diffuse_reflectance(multiscatter, diffuse_color, metallic);
+    emissive += in.lightmap_light * indirect_diffuse_reflectance * view.exposure;
+}
 
     let deferred = vec4(
         deferred_types::pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
@@ -84,8 +103,15 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
 }
 
 /// Creates a PbrInput from the deferred gbuffer.
+///
+/// With the `DEFERRED_SPECULAR_TINT` shader def, the specular tint is loaded from
+/// `deferred_specular_tint_texture` at `frag_coord.xy`. Without it, the tint is white.
 fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
     var pbr = pbr_input_new();
+
+    @if(DEFERRED_SPECULAR_TINT)
+    pbr.material.specular_tint = deferred_types::unpack_specular_tint(
+        textureLoad(deferred_specular_tint_texture, vec2<i32>(frag_coord.xy), 0).r);
 
     let flags = deferred_types::unpack_flags(gbuffer.a);
     let deferred_flags = deferred_types::mesh_material_flags_from_deferred_flags(flags);
@@ -104,17 +130,21 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     }
     @if(WEBGL2) // More crunched for webgl so we can also fit depth.
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
-    // Bias to 0.5 since that's the value for almost all materials.
     @if(WEBGL2)
-    pbr.material.reflectance = vec3(saturate(props.r - 0.03333333333));
+    let ior_specular_props = u32(round(props.r * 15.0));
+    @if(WEBGL2)
+    let ior_specular = deferred_types::unpack_4bit_ior_specular(ior_specular_props);
     @if(!WEBGL2)
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
+    @if(!WEBGL2)
+    let ior_specular = deferred_types::unpack_8bit_ior_specular(gbuffer.b);
     @if(!WEBGL2) {
     let clearcoat_props = u32(round(props.a * 255.0));
-    pbr.material.reflectance = vec3(props.r);
     pbr.material.clearcoat = f32(clearcoat_props & 0x0fu) / 15.0;
     pbr.material.clearcoat_perceptual_roughness = f32(clearcoat_props >> 4u) / 30.0;
     }
+    pbr.material.ior = ior_specular.x;
+    pbr.material.specular_weight = ior_specular.y;
     pbr.material.metallic = props.g;
     pbr.diffuse_occlusion = vec3(props.b);
     let octahedral_normal = deferred_types::unpack_24bit_normal(gbuffer.a);
@@ -143,6 +173,9 @@ fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
     out.deferred = deferred_gbuffer_from_pbr_input(pbr_input);
     // lighting pass id (used to determine which lighting shader to run for the fragment)
     out.deferred_lighting_pass_id = pbr_input.material.deferred_lighting_pass_id;
+    // specular tint
+    @if(DEFERRED_SPECULAR_TINT)
+    out.deferred_specular_tint = deferred_types::pack_specular_tint(pbr_input.material.specular_tint);
     // normal if required
     @if(NORMAL_PREPASS)
     out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);

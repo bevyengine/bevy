@@ -246,12 +246,17 @@ pbr_input.material.uv_transform = uv_transform;
         pbr_input.material.attenuation_distance = pbr_bindings::material.attenuation_distance;
 }
 
-        // reflectance
-@if(BINDLESS)
-        pbr_input.material.reflectance =
-                pbr_bindings::material_array[material_indices[slot].material].reflectance;
-@else
-        pbr_input.material.reflectance = pbr_bindings::material.reflectance;
+        // Specular reflectance
+@if(BINDLESS) {
+        pbr_input.material.specular_tint =
+                pbr_bindings::material_array[material_indices[slot].material].specular_tint;
+        pbr_input.material.specular_weight =
+                pbr_bindings::material_array[material_indices[slot].material].specular_weight;
+}
+@else {
+        pbr_input.material.specular_tint = pbr_bindings::material.specular_tint;
+        pbr_input.material.specular_weight = pbr_bindings::material.specular_weight;
+}
 
 @if(PBR_SPECULAR_TEXTURES_SUPPORTED && VERTEX_UVS) {
 
@@ -273,9 +278,7 @@ pbr_input.material.uv_transform = uv_transform;
             let specular = textureSampleGrad(texture, sampler_, coords, bias.ddx_uv, bias.ddy_uv).a;
             @else
             let specular = textureSampleBias(texture, sampler_, coords, bias.mip_bias).a;
-            // This 0.5 factor is from the `KHR_materials_specular` specification:
-            // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
-            pbr_input.material.reflectance *= specular * 0.5;
+            pbr_input.material.specular_weight *= specular;
         }
 
         // Specular tint texture
@@ -296,7 +299,7 @@ pbr_input.material.uv_transform = uv_transform;
             let specular_tint = textureSampleGrad(texture, sampler_, coords, bias.ddx_uv, bias.ddy_uv).rgb;
             @else
             let specular_tint = textureSampleBias(texture, sampler_, coords, bias.mip_bias).rgb;
-            pbr_input.material.reflectance *= specular_tint;
+            pbr_input.material.specular_tint *= specular_tint;
         }
 
 }

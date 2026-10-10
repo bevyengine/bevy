@@ -43,19 +43,19 @@ pub struct GltfMaterial {
     /// Metallic and roughness maps, stored as a single texture.
     pub metallic_roughness_texture: Option<Handle<Image>>,
 
-    /// Specular intensity for non-metals on a linear scale of `[0.0, 1.0]`.
-    pub reflectance: f32,
+    /// Specular strength for non-metals on a linear scale of `[0.0, 1.0]`.
+    pub specular: f32,
 
     /// The UV channel to use for the [`GltfMaterial::specular_texture`].
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_channel: UvChannel,
 
-    /// A map that specifies reflectance for non-metallic materials.
+    /// A map whose alpha channel scales [`GltfMaterial::specular`] for non-metallic materials.
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_texture: Option<Handle<Image>>,
 
-    /// A color with which to modulate the [`GltfMaterial::reflectance`] for
-    /// non-metals.
+    /// A color that multiplies the reflectance at normal incidence of non-metals, which
+    /// [`GltfMaterial::ior`] sets.
     pub specular_tint: Color,
 
     /// The UV channel to use for the
@@ -206,10 +206,6 @@ impl Default for GltfMaterial {
             metallic: 0.0,
             metallic_roughness_channel: UvChannel::Uv0,
             metallic_roughness_texture: None,
-            // Minimum real-world reflectance is 2%, most materials between 2-5%
-            // Expressed in a linear scale and equivalent to 4% reflectance see
-            // <https://google.github.io/filament/Material%20Properties.pdf>
-            reflectance: 0.5,
             specular_transmission: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]
             specular_transmission_channel: UvChannel::Uv0,
@@ -227,6 +223,7 @@ impl Default for GltfMaterial {
             occlusion_texture: None,
             normal_map_channel: UvChannel::Uv0,
             normal_map_texture: None,
+            specular: 1.0,
             #[cfg(feature = "pbr_specular_textures")]
             specular_channel: UvChannel::Uv0,
             #[cfg(feature = "pbr_specular_textures")]
