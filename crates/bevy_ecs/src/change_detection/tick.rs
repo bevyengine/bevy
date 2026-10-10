@@ -1,11 +1,12 @@
 use bevy_ecs_macros::Event;
+use bevy_platform::sync::atomic::AtomicU32;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::{
     cell::UnsafeCell,
     fmt::{self, Debug, Formatter},
     panic::Location,
-    sync::atomic::{AtomicU32, Ordering},
+    sync::atomic::Ordering,
 };
 
 use crate::change_detection::{MaybeLocation, MAX_CHANGE_AGE};
