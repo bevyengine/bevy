@@ -199,7 +199,7 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
         Ok(())
     }
 
-    fn commit(&mut self, mut entity: AnimationEntityMut) -> Result<(), AnimationEvaluationError> {
+    fn commit(&mut self, entity: &mut AnimationEntityMut) -> Result<(), AnimationEvaluationError> {
         if self.stack_morph_target_weights.is_empty() {
             return Ok(());
         }
