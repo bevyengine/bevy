@@ -57,6 +57,7 @@ use crate::{
     MissingAssetLoaderForExtensionError, UnapprovedPathMode, WriteDefaultMetaError,
 };
 use alloc::{borrow::ToOwned, boxed::Box, string::String, sync::Arc, vec, vec::Vec};
+use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_platform::{
     collections::{hash_map::Entry, HashMap, HashSet},
@@ -1108,7 +1109,10 @@ impl AssetProcessor {
         let new_hash = {
             // Create a reader just for computing the hash. Keep this scoped here so that we drop it
             // as soon as the hash is computed.
-            let mut reader_for_hash = reader.read(path).await.map_err(reader_err)?;
+            let mut reader_for_hash = reader
+                .read(CowArc::Borrowed(path))
+                .await
+                .map_err(reader_err)?;
 
             get_asset_hash(&meta_bytes, &mut reader_for_hash)
                 .await
@@ -1176,7 +1180,10 @@ impl AssetProcessor {
             // it's not likely to be too big a deal. If in the future, we decide we want to avoid
             // this repeated read, we could "ask" the asset source if it prefers avoiding repeated
             // reads or not.
-            let reader_for_process = reader.read(path).await.map_err(reader_err)?;
+            let reader_for_process = reader
+                .read(CowArc::Borrowed(path))
+                .await
+                .map_err(reader_err)?;
 
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             let mut processed_meta = {
@@ -1224,7 +1231,10 @@ impl AssetProcessor {
                 .map_err(writer_err)?;
         } else {
             // See the reasoning for processing why it's ok to do a second read here.
-            let mut reader_for_copy = reader.read(path).await.map_err(reader_err)?;
+            let mut reader_for_copy = reader
+                .read(CowArc::Borrowed(path))
+                .await
+                .map_err(reader_err)?;
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             futures_lite::io::copy(&mut reader_for_copy, &mut writer)
                 .await
