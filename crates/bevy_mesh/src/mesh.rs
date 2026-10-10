@@ -307,6 +307,18 @@ impl MeshCompressionArgs {
                     Mesh::ATTRIBUTE_JOINT_WEIGHT.id,
                     AttributeQuantization::Unorm16,
                 ),
+                (
+                    Mesh::ATTRIBUTE_JOINT_WEIGHT_1.id,
+                    AttributeQuantization::Unorm16,
+                ),
+                (
+                    Mesh::ATTRIBUTE_JOINT_WEIGHT_2.id,
+                    AttributeQuantization::Unorm16,
+                ),
+                (
+                    Mesh::ATTRIBUTE_JOINT_WEIGHT_3.id,
+                    AttributeQuantization::Unorm16,
+                ),
             ])
                 .into(),
             compress_attributes: MeshAttributeCompressionFlags::all(),
@@ -423,9 +435,57 @@ impl Mesh {
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
 
+    /// An additional set of per-vertex joint transform matrix weights.
+    /// Use in conjunction with [`Mesh::ATTRIBUTE_JOINT_INDEX_1`] to support up to eight
+    /// joint influences per vertex.
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
+    pub const ATTRIBUTE_JOINT_WEIGHT_1: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_JointWeight_1", 8, VertexFormat::Float32x4);
+
+    /// An additional set of per-vertex joint transform matrix indices.
+    /// Use in conjunction with [`Mesh::ATTRIBUTE_JOINT_WEIGHT_1`] to support up to eight
+    /// joint influences per vertex.
+    ///
+    /// The format of this attribute is [`VertexFormat::Uint16x4`].
+    pub const ATTRIBUTE_JOINT_INDEX_1: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_JointIndex_1", 9, VertexFormat::Uint16x4);
+
+    /// A third set of per-vertex joint transform matrix weights.
+    /// Use in conjunction with [`Mesh::ATTRIBUTE_JOINT_INDEX_2`] to support up to twelve
+    /// joint influences per vertex.
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
+    pub const ATTRIBUTE_JOINT_WEIGHT_2: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_JointWeight_2", 10, VertexFormat::Float32x4);
+
+    /// A third set of per-vertex joint transform matrix indices.
+    /// Use in conjunction with [`Mesh::ATTRIBUTE_JOINT_WEIGHT_2`] to support up to twelve
+    /// joint influences per vertex.
+    ///
+    /// The format of this attribute is [`VertexFormat::Uint16x4`].
+    pub const ATTRIBUTE_JOINT_INDEX_2: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_JointIndex_2", 11, VertexFormat::Uint16x4);
+
+    /// A fourth set of per-vertex joint transform matrix weights.
+    /// Use in conjunction with [`Mesh::ATTRIBUTE_JOINT_INDEX_3`] to support up to sixteen
+    /// joint influences per vertex.
+    ///
+    /// The format of this attribute is [`VertexFormat::Float32x4`].
+    pub const ATTRIBUTE_JOINT_WEIGHT_3: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_JointWeight_3", 12, VertexFormat::Float32x4);
+
+    /// A fourth set of per-vertex joint transform matrix indices.
+    /// Use in conjunction with [`Mesh::ATTRIBUTE_JOINT_WEIGHT_3`] to support up to sixteen
+    /// joint influences per vertex.
+    ///
+    /// The format of this attribute is [`VertexFormat::Uint16x4`].
+    pub const ATTRIBUTE_JOINT_INDEX_3: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_JointIndex_3", 13, VertexFormat::Uint16x4);
+
     /// The first index that can be used for custom vertex attributes.
     /// Only the attributes with an index below this are used by Bevy.
-    pub const FIRST_AVAILABLE_CUSTOM_ATTRIBUTE: u64 = 8;
+    pub const FIRST_AVAILABLE_CUSTOM_ATTRIBUTE: u64 = 14;
 
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
@@ -1253,13 +1313,24 @@ impl Mesh {
         self.quantize_float32_attribute(Mesh::ATTRIBUTE_COLOR, quantization)
     }
 
-    /// Quantize `Float32x4` joint weights to the format of `quantization` using [`Mesh::quantize_float32_attribute`].
+    /// Quantize all present sets of `Float32x4` joint weights to the format of
+    /// `quantization` using [`Mesh::quantize_float32_attribute`].
     /// [`AttributeQuantization::Unorm16`] is recommended.
     pub fn quantize_joint_weights(
         &mut self,
         quantization: AttributeQuantization,
     ) -> Result<&mut Mesh, MeshAttributeCompressionError> {
-        self.quantize_float32_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, quantization)
+        self.quantize_float32_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, quantization)?;
+        for attribute in [
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_1,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_3,
+        ] {
+            if self.contains_attribute(attribute) {
+                self.quantize_float32_attribute(attribute, quantization)?;
+            }
+        }
+        Ok(self)
     }
 
     /// If indices are u32 and vertex count <= 65535, indices will be converted to u16, otherwise this does nothing.
@@ -2605,21 +2676,60 @@ impl Mesh {
 
     /// Normalize joint weights so they sum to 1.
     pub fn try_normalize_joint_weights(&mut self) -> Result<(), MeshAccessError> {
-        if let Some(VertexAttributeValues::Float32x4(joints)) =
-            self.try_attribute_mut_option(Self::ATTRIBUTE_JOINT_WEIGHT)?
-        {
-            for weights in joints.iter_mut() {
-                // force negative weights to zero
-                weights.iter_mut().for_each(|w| *w = w.max(0.0));
+        let weight_attributes = [
+            Self::ATTRIBUTE_JOINT_WEIGHT,
+            Self::ATTRIBUTE_JOINT_WEIGHT_1,
+            Self::ATTRIBUTE_JOINT_WEIGHT_2,
+            Self::ATTRIBUTE_JOINT_WEIGHT_3,
+        ];
+        let normalization_scales = {
+            let Some(VertexAttributeValues::Float32x4(primary_weights)) =
+                self.try_attribute_option(Self::ATTRIBUTE_JOINT_WEIGHT)?
+            else {
+                return Ok(());
+            };
+            let joint_weight_1 = match self.try_attribute_option(Self::ATTRIBUTE_JOINT_WEIGHT_1)? {
+                Some(VertexAttributeValues::Float32x4(weights)) => Some(weights),
+                _ => None,
+            };
+            let joint_weight_2 = match self.try_attribute_option(Self::ATTRIBUTE_JOINT_WEIGHT_2)? {
+                Some(VertexAttributeValues::Float32x4(weights)) => Some(weights),
+                _ => None,
+            };
+            let joint_weight_3 = match self.try_attribute_option(Self::ATTRIBUTE_JOINT_WEIGHT_3)? {
+                Some(VertexAttributeValues::Float32x4(weights)) => Some(weights),
+                _ => None,
+            };
+            let additional_weights = [joint_weight_1, joint_weight_2, joint_weight_3];
 
-                let sum: f32 = weights.iter().sum();
-                if sum == 0.0 {
-                    // all-zero weights are invalid
-                    weights[0] = 1.0;
-                } else {
-                    let recip = sum.recip();
-                    for weight in weights.iter_mut() {
-                        *weight *= recip;
+            primary_weights
+                .iter()
+                .enumerate()
+                .map(|(vertex_index, weights)| {
+                    let primary_sum: f32 = weights.iter().map(|weight| weight.max(0.0)).sum();
+                    let additional_sum: f32 = additional_weights
+                        .iter()
+                        .filter_map(|weights| weights.and_then(|weights| weights.get(vertex_index)))
+                        .flatten()
+                        .map(|weight| weight.max(0.0))
+                        .sum();
+                    let sum = primary_sum + additional_sum;
+                    (sum != 0.0).then(|| sum.recip())
+                })
+                .collect::<Vec<_>>()
+        };
+
+        for (set_index, attribute) in weight_attributes.into_iter().enumerate() {
+            if let Some(VertexAttributeValues::Float32x4(joint_weights)) =
+                self.try_attribute_mut_option(attribute)?
+            {
+                for (weights, scale) in joint_weights.iter_mut().zip(&normalization_scales) {
+                    weights.iter_mut().for_each(|weight| {
+                        *weight = weight.max(0.0) * scale.unwrap_or_default();
+                    });
+                    if set_index == 0 && scale.is_none() {
+                        // All-zero weights are invalid. Bind the vertex to joint zero.
+                        weights[0] = 1.0;
                     }
                 }
             }
@@ -3136,6 +3246,12 @@ impl Default for MeshDeserializer {
             Mesh::ATTRIBUTE_COLOR,
             Mesh::ATTRIBUTE_JOINT_WEIGHT,
             Mesh::ATTRIBUTE_JOINT_INDEX,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_1,
+            Mesh::ATTRIBUTE_JOINT_INDEX_1,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+            Mesh::ATTRIBUTE_JOINT_INDEX_2,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_3,
+            Mesh::ATTRIBUTE_JOINT_INDEX_3,
         ];
         Self {
             custom_vertex_attributes: BUILTINS
@@ -3242,9 +3358,9 @@ pub enum MeshMergeError {
 
 #[cfg(test)]
 mod tests {
-    use super::Mesh;
     #[cfg(feature = "serialize")]
     use super::SerializedMesh;
+    use super::{Mesh, MeshCompressionArgs};
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
     use crate::{
         AttributeQuantization, MeshAttributeCompressionFlags, MeshVertexAttribute,
@@ -3263,6 +3379,65 @@ mod tests {
             RenderAssetUsages::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+    }
+
+    #[test]
+    fn normalize_sixteen_joint_weights_together() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            vec![[0.2, -0.1, 0.0, 0.0], [0.0; 4], [2.0, 2.0, 0.0, 0.0]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_1,
+            vec![[0.3, 0.5, 0.0, 0.0], [0.0; 4], [0.0; 4]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+            vec![[0.5, 0.5, 0.0, 0.0], [0.0; 4], [0.0; 4]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_3,
+            vec![[1.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]],
+        );
+
+        mesh.normalize_joint_weights();
+
+        assert_eq!(
+            mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT),
+            Some(&VertexAttributeValues::Float32x4(vec![
+                [0.05, 0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0, 0.0],
+                [0.5, 0.5, 0.0, 0.0],
+            ]))
+        );
+        assert_eq!(
+            mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT_1),
+            Some(&VertexAttributeValues::Float32x4(vec![
+                [0.075, 0.125, 0.0, 0.0],
+                [0.0; 4],
+                [0.0; 4],
+            ]))
+        );
+        assert_eq!(
+            mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT_2),
+            Some(&VertexAttributeValues::Float32x4(vec![
+                [0.125, 0.125, 0.0, 0.0],
+                [0.0; 4],
+                [0.0; 4],
+            ]))
+        );
+        assert_eq!(
+            mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT_3),
+            Some(&VertexAttributeValues::Float32x4(vec![
+                [0.25, 0.25, 0.0, 0.0],
+                [0.0; 4],
+                [0.0; 4],
+            ]))
+        );
     }
 
     #[test]
@@ -3977,6 +4152,41 @@ mod tests {
                 [6554, 13107, 26214, 19661]
             ]))
         );
+    }
+
+    #[test]
+    fn quantize_all_joint_weight_sets() {
+        let attributes = [
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_1,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_3,
+        ];
+        for set_count in 1..=4 {
+            let mut mesh = Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            );
+            for attribute in &attributes[..set_count] {
+                mesh.insert_attribute(*attribute, vec![[0.1, 0.2, 0.4, 0.3]]);
+            }
+
+            let mut directly_quantized = mesh.clone();
+            directly_quantized
+                .quantize_joint_weights(AttributeQuantization::Unorm16)
+                .unwrap();
+            mesh.compress_mesh(&MeshCompressionArgs::regular()).unwrap();
+
+            for attribute in &attributes[..set_count] {
+                let expected = VertexAttributeValues::Unorm16x4(vec![[6554, 13107, 26214, 19661]]);
+                assert_eq!(mesh.attribute(*attribute), Some(&expected));
+                assert_eq!(directly_quantized.attribute(*attribute), Some(&expected));
+            }
+            for attribute in &attributes[set_count..] {
+                assert!(!mesh.contains_attribute(*attribute));
+                assert!(!directly_quantized.contains_attribute(*attribute));
+            }
+        }
     }
 
     #[test]
