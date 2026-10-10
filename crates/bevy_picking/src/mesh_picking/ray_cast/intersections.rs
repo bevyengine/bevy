@@ -1,5 +1,7 @@
 use bevy_math::{Affine3A, Dir3, Vec2, Vec3, Vec3A};
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
+use bevy_mesh::{
+    DecodedNormals, DecodedPositions, DecodedUvs, Indices, Mesh, PrimitiveTopology, UvChannel,
+};
 use bevy_reflect::Reflect;
 use bevy_shape::{Aabb3d, Ray3d};
 
@@ -47,33 +49,19 @@ pub(super) fn ray_intersection_over_mesh(
         return None; // ray_mesh_intersection assumes vertices are laid out in a triangle list
     }
     // Vertex positions are required
-    let positions = mesh
-        .try_attribute(Mesh::ATTRIBUTE_POSITION)
-        .ok()?
-        .as_float3()?;
-
-    // Normals are optional
-    let normals = mesh
-        .try_attribute(Mesh::ATTRIBUTE_NORMAL)
-        .ok()
-        .and_then(|normal_values| normal_values.as_float3());
-
-    let uvs = mesh
-        .try_attribute(Mesh::ATTRIBUTE_UV_0)
-        .ok()
-        .and_then(|uvs| match uvs {
-            VertexAttributeValues::Float32x2(uvs) => Some(uvs.as_slice()),
-            _ => None,
-        });
+    let positions = mesh.decoded_positions()?;
+    // Normals and UVs are optional
+    let normals = mesh.decoded_normals();
+    let uvs = mesh.decoded_uvs(UvChannel::Uv0);
 
     match mesh.try_indices().ok() {
         Some(Indices::U16(indices)) => {
-            ray_mesh_intersection(ray, transform, positions, normals, Some(indices), uvs, cull)
+            intersect_mesh(ray, transform, positions, normals, Some(indices), uvs, cull)
         }
         Some(Indices::U32(indices)) => {
-            ray_mesh_intersection(ray, transform, positions, normals, Some(indices), uvs, cull)
+            intersect_mesh(ray, transform, positions, normals, Some(indices), uvs, cull)
         }
-        None => ray_mesh_intersection::<u32>(ray, transform, positions, normals, None, uvs, cull),
+        None => intersect_mesh::<u32>(ray, transform, positions, normals, None, uvs, cull),
     }
 }
 
@@ -90,6 +78,29 @@ pub fn ray_mesh_intersection<I>(
 where
     I: TryInto<usize> + Clone + Copy,
 {
+    intersect_mesh(
+        ray,
+        mesh_transform,
+        DecodedPositions::Float(positions),
+        vertex_normals.map(DecodedNormals::Float),
+        indices,
+        uvs.map(DecodedUvs::Float),
+        backface_culling,
+    )
+}
+
+fn intersect_mesh<I>(
+    ray: Ray3d,
+    mesh_transform: &Affine3A,
+    positions: DecodedPositions,
+    vertex_normals: Option<DecodedNormals>,
+    indices: Option<&[I]>,
+    uvs: Option<DecodedUvs>,
+    backface_culling: Backfaces,
+) -> Option<RayMeshHit>
+where
+    I: TryInto<usize> + Clone + Copy,
+{
     let world_to_mesh = mesh_transform.inverse();
 
     let ray = Ray3d::new(
@@ -97,135 +108,84 @@ where
         Dir3::new(world_to_mesh.transform_vector3(*ray.direction)).ok()?,
     );
 
-    let closest_hit = if let Some(indices) = indices {
-        // The index list must be a multiple of three. If not, the mesh is malformed and the raycast
-        // result might be nonsensical.
-        if indices.len() % 3 != 0 {
-            return None;
+    // The vertex indices of each triangle.
+    let triangle = |tri_idx: usize| -> Option<[usize; 3]> {
+        let [i, j, k] = [tri_idx * 3, tri_idx * 3 + 1, tri_idx * 3 + 2];
+        match indices {
+            Some(indices) => Some([
+                indices.get(i).copied()?.try_into().ok()?,
+                indices.get(j).copied()?.try_into().ok()?,
+                indices.get(k).copied()?.try_into().ok()?,
+            ]),
+            None => Some([i, j, k]),
         }
-
-        indices
-            .as_chunks()
-            .0
-            .iter()
-            .enumerate()
-            .fold(
-                (f32::MAX, None),
-                |(closest_distance, closest_hit), (tri_idx, &[a, b, c])| {
-                    let [Ok(a), Ok(b), Ok(c)] = [a.try_into(), b.try_into(), c.try_into()] else {
-                        return (closest_distance, closest_hit);
-                    };
-
-                    let tri_vertices = match [positions.get(a), positions.get(b), positions.get(c)]
-                    {
-                        [Some(a), Some(b), Some(c)] => {
-                            [Vec3::from(*a), Vec3::from(*b), Vec3::from(*c)]
-                        }
-                        _ => return (closest_distance, closest_hit),
-                    };
-
-                    match ray_triangle_intersection(&ray, &tri_vertices, backface_culling) {
-                        Some(hit) if hit.distance >= 0. && hit.distance < closest_distance => {
-                            (hit.distance, Some((tri_idx, hit)))
-                        }
-                        _ => (closest_distance, closest_hit),
-                    }
-                },
-            )
-            .1
-    } else {
-        positions
-            .as_chunks()
-            .0
-            .iter()
-            .map(|&[a, b, c]| [Vec3::from(a), Vec3::from(b), Vec3::from(c)])
-            .enumerate()
-            .fold(
-                (f32::MAX, None),
-                |(closest_distance, closest_hit), (tri_idx, tri_vertices)| {
-                    match ray_triangle_intersection(&ray, &tri_vertices, backface_culling) {
-                        Some(hit) if hit.distance >= 0. && hit.distance < closest_distance => {
-                            (hit.distance, Some((tri_idx, hit)))
-                        }
-                        _ => (closest_distance, closest_hit),
-                    }
-                },
-            )
-            .1
+    };
+    let triangle_count = match indices {
+        // The index list must be a multiple of three. If not, the mesh is malformed and the
+        // raycast result might be nonsensical.
+        Some(indices) if indices.len() % 3 != 0 => return None,
+        Some(indices) => indices.len() / 3,
+        None => positions.len() / 3,
+    };
+    let vertices = |[a, b, c]: [usize; 3]| -> Option<[Vec3; 3]> {
+        Some([positions.get(a)?, positions.get(b)?, positions.get(c)?])
     };
 
-    closest_hit.and_then(|(tri_idx, hit)| {
-        let [a, b, c] = match indices {
-            Some(indices) => {
-                let [i, j, k] = [tri_idx * 3, tri_idx * 3 + 1, tri_idx * 3 + 2];
-                [
-                    indices.get(i).copied()?.try_into().ok()?,
-                    indices.get(j).copied()?.try_into().ok()?,
-                    indices.get(k).copied()?.try_into().ok()?,
-                ]
-            }
-            None => [tri_idx * 3, tri_idx * 3 + 1, tri_idx * 3 + 2],
-        };
+    let (tri_idx, [a, b, c], tri_vertices, hit) = (0..triangle_count)
+        .fold(
+            (f32::MAX, None),
+            |(closest_distance, closest_hit), tri_idx| {
+                let Some((triangle, tri_vertices)) =
+                    triangle(tri_idx).and_then(|triangle| Some((triangle, vertices(triangle)?)))
+                else {
+                    return (closest_distance, closest_hit);
+                };
+                match ray_triangle_intersection(&ray, &tri_vertices, backface_culling) {
+                    Some(hit) if hit.distance >= 0. && hit.distance < closest_distance => {
+                        (hit.distance, Some((tri_idx, triangle, tri_vertices, hit)))
+                    }
+                    _ => (closest_distance, closest_hit),
+                }
+            },
+        )
+        .1?;
 
-        let tri_vertices = match [positions.get(a), positions.get(b), positions.get(c)] {
-            [Some(a), Some(b), Some(c)] => [Vec3::from(*a), Vec3::from(*b), Vec3::from(*c)],
-            _ => return None,
-        };
+    let point = ray.get_point(hit.distance);
+    // Note that we need to convert from the Möller-Trumbore convention to the more common
+    // P = uA + vB + (1 - u - v)C convention.
+    let u = hit.barycentric_coords.0;
+    let v = hit.barycentric_coords.1;
+    let w = 1.0 - u - v;
+    let barycentric = Vec3::new(w, u, v);
 
-        let tri_normals = vertex_normals.and_then(|normals| {
-            let [Some(a), Some(b), Some(c)] = [normals.get(a), normals.get(b), normals.get(c)]
-            else {
-                return None;
-            };
-            Some([Vec3::from(*a), Vec3::from(*b), Vec3::from(*c)])
-        });
+    let tri_normals = vertex_normals
+        .and_then(|normals| Some([normals.get(a)?, normals.get(b)?, normals.get(c)?]));
+    let normal = if let Some(normals) = tri_normals {
+        normals[1] * u + normals[2] * v + normals[0] * w
+    } else {
+        (tri_vertices[1] - tri_vertices[0])
+            .cross(tri_vertices[2] - tri_vertices[0])
+            .normalize()
+    };
 
-        let point = ray.get_point(hit.distance);
-        // Note that we need to convert from the Möller-Trumbore convention to the more common
-        // P = uA + vB + (1 - u - v)C convention.
-        let u = hit.barycentric_coords.0;
-        let v = hit.barycentric_coords.1;
-        let w = 1.0 - u - v;
-        let barycentric = Vec3::new(w, u, v);
+    let uv = uvs.and_then(|uvs| {
+        Some(
+            barycentric.x * uvs.get(a)?
+                + barycentric.y * uvs.get(b)?
+                + barycentric.z * uvs.get(c)?,
+        )
+    });
 
-        let normal = if let Some(normals) = tri_normals {
-            normals[1] * u + normals[2] * v + normals[0] * w
-        } else {
-            (tri_vertices[1] - tri_vertices[0])
-                .cross(tri_vertices[2] - tri_vertices[0])
-                .normalize()
-        };
-
-        let uv = uvs.and_then(|uvs| {
-            let tri_uvs = if let Some(indices) = indices {
-                let i = tri_idx * 3;
-                [
-                    uvs[indices[i].try_into().ok()?],
-                    uvs[indices[i + 1].try_into().ok()?],
-                    uvs[indices[i + 2].try_into().ok()?],
-                ]
-            } else {
-                let i = tri_idx * 3;
-                [uvs[i], uvs[i + 1], uvs[i + 2]]
-            };
-            Some(
-                barycentric.x * Vec2::from(tri_uvs[0])
-                    + barycentric.y * Vec2::from(tri_uvs[1])
-                    + barycentric.z * Vec2::from(tri_uvs[2]),
-            )
-        });
-
-        Some(RayMeshHit {
-            point: mesh_transform.transform_point3(point),
-            normal: mesh_transform.transform_vector3(normal),
-            uv,
-            barycentric_coords: barycentric,
-            distance: mesh_transform
-                .transform_vector3(ray.direction * hit.distance)
-                .length(),
-            triangle: Some(tri_vertices.map(|v| mesh_transform.transform_point3(v))),
-            triangle_index: Some(tri_idx),
-        })
+    Some(RayMeshHit {
+        point: mesh_transform.transform_point3(point),
+        normal: mesh_transform.transform_vector3(normal),
+        uv,
+        barycentric_coords: barycentric,
+        distance: mesh_transform
+            .transform_vector3(ray.direction * hit.distance)
+            .length(),
+        triangle: Some(tri_vertices.map(|v| mesh_transform.transform_point3(v))),
+        triangle_index: Some(tri_idx),
     })
 }
 
@@ -529,5 +489,42 @@ mod tests {
         );
 
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn ray_mesh_intersection_compressed() {
+        use bevy_asset::RenderAssetUsages;
+        use bevy_mesh::{MeshAttributeCompressionFlags, MeshCompressionArgs};
+
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![V0, V1, V2])
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[-1.0, 0.0, 0.0]; 3])
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_UV_0,
+            vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+        );
+        let compressed = mesh
+            .clone()
+            .compressed_mesh(&MeshCompressionArgs {
+                compress_attributes: MeshAttributeCompressionFlags::all(),
+                ..MeshCompressionArgs::none()
+            })
+            .unwrap();
+
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+        let transform = GlobalTransform::IDENTITY.affine();
+        let hit = ray_intersection_over_mesh(&mesh, &transform, ray, Backfaces::Cull).unwrap();
+        let compressed_hit =
+            ray_intersection_over_mesh(&compressed, &transform, ray, Backfaces::Cull).unwrap();
+
+        assert!(compressed_hit.point.abs_diff_eq(hit.point, 1e-4));
+        assert!(compressed_hit.normal.abs_diff_eq(hit.normal, 1e-4));
+        assert!(compressed_hit
+            .uv
+            .unwrap()
+            .abs_diff_eq(hit.uv.unwrap(), 1e-4));
     }
 }

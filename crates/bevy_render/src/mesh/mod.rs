@@ -119,7 +119,8 @@ pub fn prepare_mesh_metadata_fallback_buffer(
 pub struct MeshMetadata {
     // AABB for decompressing positions.
     pub aabb_center: Vec3,
-    pub pad1: u32,
+    /// The mesh's [`MeshAttributeCompressionFlags`].
+    pub attribute_compression: u32,
     // AABB for decompressing positions.
     pub aabb_half_extents: Vec3,
     pub pad2: u32,

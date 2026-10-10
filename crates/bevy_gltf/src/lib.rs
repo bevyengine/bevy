@@ -115,7 +115,7 @@
 //! | `KHR_materials_unlit`             | ✅        |                                     |
 //! | `KHR_materials_variants`          | ❌        |                                     |
 //! | `KHR_materials_volume`            | ✅        |                                     |
-//! | `KHR_mesh_quantization`           | ❌        |                                     |
+//! | `KHR_mesh_quantization`           | ✅        |                                     |
 //! | `KHR_node_hoverability`           | ❌        |                                     |
 //! | `KHR_node_selectability`          | ❌        |                                     |
 //! | `KHR_node_visibility`             | ❌        |                                     |
@@ -242,6 +242,14 @@ pub struct GltfPlugin {
 
     /// Mesh attribute compression arguments applied when loading meshes.
     pub mesh_compression: MeshCompressionArgs,
+
+    /// If true, positions, normals, tangents and texture coordinates stored with
+    /// `KHR_mesh_quantization` load in the compressed formats of
+    /// [`MeshAttributeCompressionFlags`](bevy_mesh::MeshAttributeCompressionFlags) instead of as
+    /// floats, with at least the precision of the source. Float attributes load unchanged.
+    ///
+    /// Can be overridden by [`GltfLoaderSettings::preserve_quantization`].
+    pub preserve_quantization: bool,
 }
 
 impl Default for GltfPlugin {
@@ -252,6 +260,7 @@ impl Default for GltfPlugin {
             convert_coordinates: GltfConvertCoordinates::default(),
             skinned_mesh_bounds_policy: Default::default(),
             mesh_compression: MeshCompressionArgs::none(),
+            preserve_quantization: true,
         }
     }
 }
@@ -309,6 +318,7 @@ impl Plugin for GltfPlugin {
             extensions: extensions.0.clone(),
             default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
             default_mesh_compression: self.mesh_compression.clone(),
+            default_preserve_quantization: self.preserve_quantization,
         });
     }
 }

@@ -1,5 +1,7 @@
 import bevy_pbr::render::pbr_functions::calculate_tbn_mikktspace;
 import bevy_render::maths::affine3_to_square;
+import bevy_render::utils::{decompress_vertex_position, decompress_vertex_normal, decompress_vertex_tangent, decompress_vertex_uv};
+import bevy_render::mesh::metadata_types::{MeshMetadata, COMPRESS_POSITION, COMPRESS_NORMAL, COMPRESS_TANGENT, COMPRESS_UV0};
 
 enable wgpu_ray_query;
 enable wgpu_binding_array;
@@ -10,32 +12,27 @@ struct InstanceGeometryIds {
     index_buffer_id: u32,
     index_buffer_offset: u32,
     triangle_count: u32,
+    metadata_buffer_id: u32,
+    metadata_offset: u32,
 }
 
-struct VertexBuffer { vertices: array<PackedVertex> }
+/// The `metadata_buffer_id` of meshes without allocator metadata, whose attributes are all
+/// uncompressed.
+const NO_MESH_METADATA = 0xFFFFFFFFu;
+
+struct MeshMetadataBuffer { metadata: array<MeshMetadata> }
+
+/// Interleaved position, normal, UV0 and tangent, each either uncompressed or compressed as
+/// `MeshMetadata::attribute_compression` describes.
+struct VertexBuffer { words: array<u32> }
 
 struct IndexBuffer { indices: array<u32> }
-
-struct PackedVertex {
-    a: vec4<f32>,
-    b: vec4<f32>,
-    tangent: vec4<f32>,
-}
 
 struct Vertex {
     position: vec3<f32>,
     normal: vec3<f32>,
     uv: vec2<f32>,
     tangent: vec4<f32>,
-}
-
-fn unpack_vertex(packed: PackedVertex) -> Vertex {
-    var vertex: Vertex;
-    vertex.position = packed.a.xyz;
-    vertex.normal = vec3(packed.a.w, packed.b.xy);
-    vertex.uv = packed.b.zw;
-    vertex.tangent = packed.tangent;
-    return vertex;
 }
 
 struct Material {
@@ -140,6 +137,7 @@ const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 @group(0) @binding(18) var environment_map_sampler: sampler;
 @group(0) @binding(19) var<storage> environment_map_light: EnvironmentMapLight;
 @group(0) @binding(20) var<storage> previous_frame_light_id_translations: array<u32>;
+@group(0) @binding(21) var<storage> mesh_metadata_buffers: binding_array<MeshMetadataBuffer>;
 
 const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;
@@ -255,17 +253,80 @@ fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
     return resolved;
 }
 
+fn load_word(vertex_buffer_id: u32, i: u32) -> u32 {
+    return vertex_buffers[vertex_buffer_id].words[i];
+}
+
+fn load_f32x2(vertex_buffer_id: u32, i: u32) -> vec2<f32> {
+    return bitcast<vec2<f32>>(vec2(load_word(vertex_buffer_id, i), load_word(vertex_buffer_id, i + 1u)));
+}
+
+fn load_f32x3(vertex_buffer_id: u32, i: u32) -> vec3<f32> {
+    return vec3(load_f32x2(vertex_buffer_id, i), bitcast<f32>(load_word(vertex_buffer_id, i + 2u)));
+}
+
+fn load_f32x4(vertex_buffer_id: u32, i: u32) -> vec4<f32> {
+    return vec4(load_f32x2(vertex_buffer_id, i), load_f32x2(vertex_buffer_id, i + 2u));
+}
+
+fn load_vertex(vertex_buffer_id: u32, metadata: MeshMetadata, vertex_index: u32) -> Vertex {
+    let c = metadata.attribute_compression;
+    let position_words = select(3u, 2u, (c & COMPRESS_POSITION) != 0u);
+    let normal_words = select(3u, 1u, (c & COMPRESS_NORMAL) != 0u);
+    let uv_words = select(2u, 1u, (c & COMPRESS_UV0) != 0u);
+    let tangent_words = select(4u, 1u, (c & COMPRESS_TANGENT) != 0u);
+    let stride = position_words + normal_words + uv_words + tangent_words;
+
+    var i = vertex_index * stride;
+    var vertex: Vertex;
+
+    if (c & COMPRESS_POSITION) != 0u {
+        let compressed = vec4(unpack2x16snorm(load_word(vertex_buffer_id, i)), unpack2x16snorm(load_word(vertex_buffer_id, i + 1u)));
+        vertex.position = decompress_vertex_position(compressed, metadata.aabb_center, metadata.aabb_half_extents);
+    } else {
+        vertex.position = load_f32x3(vertex_buffer_id, i);
+    }
+    i += position_words;
+
+    if (c & COMPRESS_NORMAL) != 0u {
+        vertex.normal = decompress_vertex_normal(unpack2x16snorm(load_word(vertex_buffer_id, i)));
+    } else {
+        vertex.normal = load_f32x3(vertex_buffer_id, i);
+    }
+    i += normal_words;
+
+    if (c & COMPRESS_UV0) != 0u {
+        vertex.uv = decompress_vertex_uv(unpack2x16unorm(load_word(vertex_buffer_id, i)), metadata.uv_channels_min_and_extents[0]);
+    } else {
+        vertex.uv = load_f32x2(vertex_buffer_id, i);
+    }
+    i += uv_words;
+
+    if (c & COMPRESS_TANGENT) != 0u {
+        vertex.tangent = decompress_vertex_tangent(unpack2x16snorm(load_word(vertex_buffer_id, i)));
+    } else {
+        vertex.tangent = load_f32x4(vertex_buffer_id, i);
+    }
+
+    return vertex;
+}
+
 fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -> array<Vertex, 3> {
     let index_buffer = &index_buffers[instance_geometry_ids.index_buffer_id].indices;
-    let vertex_buffer = &vertex_buffers[instance_geometry_ids.vertex_buffer_id].vertices;
 
     let indices_i = (triangle_id * 3u) + vec3(0u, 1u, 2u) + instance_geometry_ids.index_buffer_offset;
     let indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]) + instance_geometry_ids.vertex_buffer_offset;
 
+    var metadata: MeshMetadata;
+    if instance_geometry_ids.metadata_buffer_id != NO_MESH_METADATA {
+        metadata = mesh_metadata_buffers[instance_geometry_ids.metadata_buffer_id].metadata[instance_geometry_ids.metadata_offset];
+    }
+
+    let vertex_buffer_id = instance_geometry_ids.vertex_buffer_id;
     return array<Vertex, 3>(
-        unpack_vertex((*vertex_buffer)[indices.x]),
-        unpack_vertex((*vertex_buffer)[indices.y]),
-        unpack_vertex((*vertex_buffer)[indices.z])
+        load_vertex(vertex_buffer_id, metadata, indices.x),
+        load_vertex(vertex_buffer_id, metadata, indices.y),
+        load_vertex(vertex_buffer_id, metadata, indices.z)
     );
 }
 

@@ -35,7 +35,14 @@ pub struct GpuInstanceGeometryIds {
     index_buffer_id: u32,
     index_buffer_offset: u32,
     triangle_count: u32,
+    /// [`NO_MESH_METADATA`] for meshes without allocator metadata.
+    metadata_buffer_id: u32,
+    metadata_offset: u32,
 }
+
+/// The `metadata_buffer_id` of meshes without allocator metadata, whose attributes are all
+/// uncompressed.
+const NO_MESH_METADATA: u32 = u32::MAX;
 
 /// A world-from-local affine transform, stored transposed as three rows.
 #[derive(Clone, Copy, Default, PartialEq, Pod, Zeroable)]
@@ -75,7 +82,15 @@ struct Instance {
     mesh: AssetId<Mesh>,
     material: AssetId<StandardMaterial>,
     opacity: BlasOpacity,
-    buffers: Option<(BufferId, BufferId)>,
+    buffers: Option<InstanceBuffers>,
+}
+
+/// The mesh slabs an instance holds slots for in the binding arrays.
+#[derive(Clone, Copy)]
+struct InstanceBuffers {
+    vertex: BufferId,
+    index: BufferId,
+    metadata: Option<BufferId>,
 }
 
 impl Instance {
@@ -91,6 +106,7 @@ impl Instance {
 pub struct InstanceState {
     pub vertex_buffers: RetainedBindingArray<BufferId, Buffer>,
     pub index_buffers: RetainedBindingArray<BufferId, Buffer>,
+    pub metadata_buffers: RetainedBindingArray<BufferId, Buffer>,
     pub transforms: AtomicSparseBufferVec<GpuTransform>,
     pub previous_frame_transforms: AtomicSparseBufferVec<GpuTransform>,
     pub geometry_ids: AtomicSparseBufferVec<GpuInstanceGeometryIds>,
@@ -99,7 +115,7 @@ pub struct InstanceState {
     pub slots: IndexAllocator,
     /// Slab buffer references dropped this frame, released next frame since the previous frame's
     /// TLAS can still reach them through `geometry_ids`.
-    retired_buffers: Vec<(BufferId, BufferId)>,
+    retired_buffers: Vec<InstanceBuffers>,
     records: EntityHashMap<Instance>,
     pub live_count: u32,
     pub pending_refresh: EntityHashSet,
@@ -112,6 +128,7 @@ impl InstanceState {
         Self {
             vertex_buffers: RetainedBindingArray::new(),
             index_buffers: RetainedBindingArray::new(),
+            metadata_buffers: RetainedBindingArray::new(),
             transforms: storage_buffer("solari_transforms"),
             previous_frame_transforms: storage_buffer("solari_previous_frame_transforms"),
             geometry_ids: storage_buffer("solari_geometry_ids"),
@@ -200,9 +217,12 @@ impl InstanceState {
     /// references them.
     pub fn begin_frame(&mut self) {
         self.slots.recycle_retired();
-        for (vertex_key, index_key) in core::mem::take(&mut self.retired_buffers) {
-            self.vertex_buffers.release(&vertex_key);
-            self.index_buffers.release(&index_key);
+        for buffers in core::mem::take(&mut self.retired_buffers) {
+            self.vertex_buffers.release(&buffers.vertex);
+            self.index_buffers.release(&buffers.index);
+            if let Some(metadata) = buffers.metadata {
+                self.metadata_buffers.release(&metadata);
+            }
         }
     }
 
@@ -351,12 +371,19 @@ impl InstanceState {
             self.deactivate_instance(lights, entity, instance);
             return false;
         };
+        let metadata_slice = inputs.mesh_allocator.mesh_metadata_slice(&instance.mesh);
 
-        let vertex_buffer_key = vertex_slice.buffer.id();
-        let index_buffer_key = index_slice.buffer.id();
+        let buffers = InstanceBuffers {
+            vertex: vertex_slice.buffer.id(),
+            index: index_slice.buffer.id(),
+            metadata: metadata_slice.as_ref().map(|slice| slice.buffer.id()),
+        };
         let capacity = MAX_MESH_SLAB_COUNT.get();
-        if !self.vertex_buffers.has_room(&vertex_buffer_key, capacity)
-            || !self.index_buffers.has_room(&index_buffer_key, capacity)
+        if !self.vertex_buffers.has_room(&buffers.vertex, capacity)
+            || !self.index_buffers.has_room(&buffers.index, capacity)
+            || buffers
+                .metadata
+                .is_some_and(|key| !self.metadata_buffers.has_room(&key, capacity))
         {
             once!(warn!(
                 "Solari scene needs more than {} mesh slabs. Instances past that limit will \
@@ -370,13 +397,22 @@ impl InstanceState {
         let previous_buffers = instance.buffers.take();
         let vertex_buffer_id = self
             .vertex_buffers
-            .acquire(vertex_buffer_key, capacity, || vertex_slice.buffer.clone())
+            .acquire(buffers.vertex, capacity, || vertex_slice.buffer.clone())
             .expect("vertex slab binding array had room but handed out no slot");
         let index_buffer_id = self
             .index_buffers
-            .acquire(index_buffer_key, capacity, || index_slice.buffer.clone())
+            .acquire(buffers.index, capacity, || index_slice.buffer.clone())
             .expect("index slab binding array had room but handed out no slot");
-        instance.buffers = Some((vertex_buffer_key, index_buffer_key));
+        let (metadata_buffer_id, metadata_offset) = match (&metadata_slice, buffers.metadata) {
+            (Some(slice), Some(key)) => (
+                self.metadata_buffers
+                    .acquire(key, capacity, || slice.buffer.clone())
+                    .expect("metadata slab binding array had room but handed out no slot"),
+                slice.range.start,
+            ),
+            _ => (NO_MESH_METADATA, 0),
+        };
+        instance.buffers = Some(buffers);
         self.release_buffers(previous_buffers);
 
         let triangle_count = (index_slice.range.len() / 3) as u32;
@@ -388,6 +424,8 @@ impl InstanceState {
                 index_buffer_id,
                 index_buffer_offset: index_slice.range.start,
                 triangle_count,
+                metadata_buffer_id,
+                metadata_offset,
             },
         );
         self.material_ids.grow_and_set(slot, material_slot);
@@ -451,7 +489,7 @@ impl InstanceState {
         self.release_buffers(instance.buffers.take());
     }
 
-    fn release_buffers(&mut self, buffers: Option<(BufferId, BufferId)>) {
+    fn release_buffers(&mut self, buffers: Option<InstanceBuffers>) {
         self.retired_buffers.extend(buffers);
     }
 
