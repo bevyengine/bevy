@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.96.0"
+rust-version = "1.97.1"
 
 [workspace]
 resolver = "3"
@@ -47,6 +47,8 @@ members = [
 exclude = [
   # Integration tests are not part of the workspace
   "tests-integration",
+  # Fuzz testing crates
+  "crates/bevy_ecs/fuzz",
 ]
 
 [workspace.lints.clippy]
@@ -432,6 +434,9 @@ bevy_settings = ["bevy_internal/bevy_settings"]
 # Feathers widget collection.
 bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
+# Entity inspector built on bevy_ui and bevy_feathers.
+bevy_inspector = ["bevy_internal/bevy_inspector", "bevy_feathers"]
+
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
@@ -466,6 +471,9 @@ compressed_image_saver_universal = [
 
 # Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
 compressed_image_saver = ["bevy_internal/compressed_image_saver"]
+
+# Equirectangular (lat-long) panorama to cubemap conversion
+equirectangular_cubemap = ["bevy_internal/equirectangular_cubemap"]
 
 # Enables system-level clipboard support.
 system_clipboard = ["bevy_clipboard", "bevy_internal/system_clipboard"]
@@ -1698,9 +1706,7 @@ doc-scrape-examples = true
 name = "Irradiance Volumes"
 description = "Demonstrates irradiance volumes"
 category = "3D Rendering"
-# On WebGL and WebGPU, the number of texture bindings is too low
-# See <https://github.com/bevyengine/bevy/issues/11885>
-wasm = false
+wasm = true
 
 [[example]]
 name = "meshlet"
@@ -3741,7 +3747,7 @@ wasm = false
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
 doc-scrape-examples = true
-required-features = ["free_camera", "bevy_dev_tools"]
+required-features = ["free_camera", "bevy_dev_tools", "render_dev_tools"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -4490,7 +4496,7 @@ hidden = true
 name = "desktop_request_redraw"
 path = "tests/window/desktop_request_redraw.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
+required-features = ["bevy_dev_tools", "render_dev_tools"]
 
 [package.metadata.example.desktop_request_redraw]
 hidden = true
@@ -4852,6 +4858,42 @@ name = "Infinite grid"
 description = "Demonstrates Bevy's infinite grid, suitable as a ground plane for editors"
 category = "Dev tools"
 wasm = true
+
+[[example]]
+name = "infinite_grid_2d"
+path = "examples/dev_tools/infinite_grid_2d.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools", "render_dev_tools"]
+
+[package.metadata.example.infinite_grid_2d]
+name = "Infinite grid 2D"
+description = "Demonstrates Bevy's infinite grid in a 2D scene"
+category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "local_inspector"
+path = "examples/inspector/local_inspector.rs"
+doc-scrape-examples = true
+required-features = ["bevy_inspector"]
+
+[package.metadata.example.local_inspector]
+name = "Local Inspector"
+description = "Inspects the app's own world with the bevy_inspector entity tree panel"
+category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "remote_inspector"
+path = "examples/inspector/remote_inspector.rs"
+doc-scrape-examples = true
+required-features = ["bevy_inspector", "bevy_remote_client"]
+
+[package.metadata.example.remote_inspector]
+name = "Remote Inspector"
+description = "Inspects a separate running app with the bevy_inspector panels over the Bevy Remote Protocol"
+category = "Dev tools"
+wasm = false
 
 [[example]]
 name = "2d_top_down_camera"
@@ -5546,6 +5588,17 @@ category = "Usage"
 wasm = true
 
 [[example]]
+name = "headless_split_pane"
+path = "examples/ui/widgets/headless_split_pane.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_split_pane]
+name = "Headless Split Pane"
+description = "Demonstrates nested headless split panes with draggable handles"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "headless_tabs"
 path = "examples/ui/widgets/headless_tabs.rs"
 doc-scrape-examples = true
@@ -5830,3 +5883,14 @@ name = "GPU Component Array Buffer"
 description = "Shows how to expose per-mesh-instance data to the GPU"
 category = "Shaders"
 wasm = true
+
+[package.metadata.wgsl-analyzer]
+edition = "2026_pre"
+root = "assets/shaders"
+
+[package.metadata.wgsl-analyzer.dependencies]
+bevy_render = { path = "crates/bevy_render" }
+bevy_pbr = { path = "crates/bevy_pbr" }
+bevy_core_pipeline = { path = "crates/bevy_core_pipeline" }
+bevy_sprite_render = { path = "crates/bevy_sprite_render" }
+bevy_ui_render = { path = "crates/bevy_ui_render" }

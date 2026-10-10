@@ -90,6 +90,7 @@ impl core::error::Error for EntityInspectionError {}
 /// Settings for inspecting an individual entity.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default))]
 pub struct EntityInspectionSettings {
     /// Whether component information should be included in the inspection. Component-based label
     /// resolution is unavailable when it is not.

@@ -20,7 +20,7 @@ use {
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-use crate::VideoMode;
+use crate::{DisplayTarget, VideoMode};
 
 /// Default string used for the window title.
 ///
@@ -160,7 +160,7 @@ impl ContainsEntity for NormalizedWindowRef {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[require(CursorOptions)]
+#[require(CursorOptions, DisplayTarget)]
 pub struct Window {
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,
