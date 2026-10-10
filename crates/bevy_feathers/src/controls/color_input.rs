@@ -12,7 +12,7 @@ use bevy_ecs::{
     lifecycle::Despawn,
     observer::On,
     query::{Changed, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectResource},
     relationship::Relationship,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -28,6 +28,7 @@ use bevy_log::warn;
 use bevy_math::{UVec2, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, Ready};
+use bevy_settings::{ReflectSettingsGroup, SettingsGroup};
 use bevy_text::{EditableText, FontSize, Justify, LineHeight, TextEdit, TextLayout};
 use bevy_ui::{
     prelude::AccessibleLabel, px, AlignItems, AlignSelf, Display, FlexDirection, GridPlacement,
@@ -84,8 +85,11 @@ pub enum ColorInputMode {
 /// the picker will be in that mode. The assumption is that artists have a preferred mode and will
 /// generally stick with it. (Also, we have no way to store the user's preference on a
 /// per-attribute basis.)
-#[derive(Resource, Default)]
-// #[derive(SettingsGroup)] // TODO
+///
+/// These preferences can be saved along with the rest of the app's settings if the
+/// app adds the `SettingsPlugin` and triggers a save, for example before exiting.
+#[derive(Resource, SettingsGroup, Reflect, Default, Clone, PartialEq)]
+#[reflect(Resource, ReflectSettingsGroup, Default)]
 pub struct ColorInputSettings {
     /// Which color space we're editing
     pub mode: ColorInputMode,
@@ -116,9 +120,10 @@ impl ColorInputSettings {
 /// This is spawnable by inheriting it as a "scene component" with optional
 /// [`FeathersColorInputProps`].
 ///
-/// The picker contains a number of user preferences which are sticky, and which
-/// are stored on the [`ColorInputSettings`] resource. If the bevy settings plugin in installed,
-/// these user preferences will be saved along with the user's settings.
+/// The picker has a number of sticky user preferences, stored on the
+/// [`ColorInputSettings`] resource. These preferences can be saved along with the
+/// rest of the app's settings if the app adds the `SettingsPlugin` and triggers a
+/// save, for example before exiting.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 #[scene(FeathersColorInputProps)]
