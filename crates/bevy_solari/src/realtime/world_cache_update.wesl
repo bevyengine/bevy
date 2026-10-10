@@ -14,6 +14,11 @@ import package::realtime::bindings::{
 
 enable wgpu_ray_query;
 
+@if(WORLD_CACHE_FORCE_OPAQUE)
+const WORLD_CACHE_RAY_FLAG = RAY_FLAG_FORCE_OPAQUE;
+@if(!WORLD_CACHE_FORCE_OPAQUE)
+const WORLD_CACHE_RAY_FLAG = RAY_FLAG_NONE;
+
 @compute @workgroup_size(64, 1, 1)
 fn sample_di(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x >= world_cache.active_cells_count { return; }
@@ -40,14 +45,14 @@ fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
     if rand_f(&rng) >= f32(constants.world_cache_cell_updates_soft_target) / f32(world_cache.active_cells_count) { return; }
 
     let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
-    let ray = trace_ray(geometry_data.world_position + (geometry_data.world_normal * RAY_T_MIN), ray_direction, RAY_T_MIN, constants.world_cache_max_gi_ray_distance, RAY_FLAG_NONE);
+    let ray = trace_ray(geometry_data.world_position + (geometry_data.world_normal * RAY_T_MIN), ray_direction, RAY_T_MIN, constants.world_cache_max_gi_ray_distance, WORLD_CACHE_RAY_FLAG);
     if ray.kind != RAY_QUERY_INTERSECTION_NONE {
         let ray_hit = resolve_ray_hit_full(ray);
         let cell_life = atomicLoad(&world_cache.life[cell_index]);
         let radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray.t, cell_life, &rng);
         world_cache.active_cells_new_radiance[active_cell_id.x] += ray_hit.material.base_color * radiance;
     } else {
-        // The ray is cut short at world_cache_max_gi_ray_distance to save on traversal costs. 
+        // The ray is cut short at world_cache_max_gi_ray_distance to save on traversal costs.
         // A miss here may actually have been a surface further away if we kept tracing, and not actually have been a miss.
         // We could be leaking sky light due to this if world_cache_max_gi_ray_distance is too small.
         world_cache.active_cells_new_radiance[active_cell_id.x] += PI * sample_environment_map_light(ray_direction);
@@ -115,7 +120,7 @@ fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, w
         let inverse_target_function = select(0.0, 1.0 / selected_sample_target_function, selected_sample_target_function > 0.0);
         unbiased_contribution_weight = weight_sum * inverse_target_function;
 
-        unbiased_contribution_weight *= trace_visibility(world_position + (world_normal * RAY_T_MIN), selected_sample_world_position);
+        unbiased_contribution_weight *= trace_visibility(world_position + (world_normal * RAY_T_MIN), selected_sample_world_position, WORLD_CACHE_RAY_FLAG);
     }
 
     return selected_sample_radiance * unbiased_contribution_weight;
