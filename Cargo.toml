@@ -343,6 +343,9 @@ bevy_solari = ["bevy_internal/bevy_solari"]
 # Provides sprite functionality
 bevy_sprite = ["bevy_internal/bevy_sprite"]
 
+# Provides 2D lighting
+bevy_sprite_light = ["bevy_internal/bevy_sprite_light"]
+
 # Provides sprite rendering functionality
 bevy_sprite_render = ["bevy_internal/bevy_sprite_render"]
 
@@ -839,6 +842,18 @@ doc-scrape-examples = true
 hidden = true
 
 # 2D Rendering
+[[example]]
+name = "lighting_2d"
+path = "examples/2d/lighting_2d.rs"
+doc-scrape-examples = true
+required-features = ["bevy_sprite_light"]
+
+[package.metadata.example.lighting_2d]
+name = "2D Lighting"
+description = "Illustrates lighting in 2d"
+category = "2D Rendering"
+wasm = true
+
 [[example]]
 name = "bloom_2d"
 path = "examples/2d/bloom_2d.rs"

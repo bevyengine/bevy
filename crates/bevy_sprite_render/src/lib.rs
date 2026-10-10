@@ -10,6 +10,8 @@
 
 extern crate alloc;
 
+#[cfg(feature = "bevy_sprite_light")]
+mod light;
 mod mesh2d;
 mod render;
 mod sprite_mesh;
@@ -72,6 +74,10 @@ impl Plugin for SpriteRenderPlugin {
             TilemapChunkPlugin,
             TilemapChunkMaterialPlugin,
         ));
+
+        #[cfg(feature = "bevy_sprite_light")]
+        app.add_plugins(light::Lighting2dPlugin);
+
         app.register_required_components::<Sprite, SyncToRenderWorld>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
