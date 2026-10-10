@@ -458,13 +458,13 @@ mod libm_ops_for_no_std {
     /// Calculates the least nonnegative remainder of `self (mod rhs)`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline]
     pub fn rem_euclid(x: f32, y: f32) -> f32 {
         let result = libm::remainderf(x, y);
 
         // libm::remainderf has a range of -y/2 to +y/2
         if result < 0. {
-            result + y
+            // FIX: Use y.abs() so that when y is negative, we correctly add its positive magnitude to wrap into [0, |y|)
+            result + y.abs()
         } else {
             result
         }
