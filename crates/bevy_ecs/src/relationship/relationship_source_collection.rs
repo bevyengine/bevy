@@ -1,4 +1,4 @@
-use alloc::collections::{btree_set, BTreeSet};
+use alloc::collections::{btree_set, vec_deque, BTreeSet, VecDeque};
 use core::{
     hash::BuildHasher,
     ops::{Deref, DerefMut},
@@ -574,6 +574,65 @@ impl RelationshipSourceCollection for BTreeSet<Entity> {
 
     fn shrink_to_fit(&mut self) {
         // BTreeSet doesn't have a capacity
+    }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
+}
+
+impl RelationshipSourceCollection for VecDeque<Entity> {
+    type SourceIter<'a>
+        = core::iter::Copied<vec_deque::Iter<'a, Entity>>
+    where
+        Self: 'a;
+
+    fn new() -> Self {
+        VecDeque::default()
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        VecDeque::with_capacity(capacity)
+    }
+
+    fn reserve(&mut self, additional: usize) {
+        self.reserve(additional);
+    }
+
+    fn add(&mut self, entity: Entity) -> bool {
+        self.push_front(entity);
+        true
+    }
+
+    fn remove(&mut self, entity: Entity) -> bool {
+        if Some(&entity) == self.back() {
+            self.pop_back();
+        } else if Some(&entity) == self.front() {
+            self.pop_front();
+        } else {
+            let Some(i) = self.iter().position(|e| *e == entity) else {
+                return false;
+            };
+            self.remove(i);
+        }
+
+        true
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        self.iter().copied()
+    }
+
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn clear(&mut self) {
+        self.clear();
+    }
+
+    fn shrink_to_fit(&mut self) {
+        self.shrink_to_fit();
     }
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
