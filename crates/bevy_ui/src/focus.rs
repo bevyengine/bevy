@@ -58,30 +58,6 @@ pub enum DeprecatedInteraction {
     None,
 }
 
-#[deprecated(
-    since = "0.20.0",
-    note = "Use picking::hover::Hovered and ui::Pressed."
-)]
-pub type Interaction = DeprecatedInteraction;
-
-#[expect(
-    deprecated,
-    reason = "Should be removed after 0.20 is released when Interaction is removed."
-)]
-impl Interaction {
-    const DEFAULT: Self = Self::None;
-}
-
-#[expect(
-    deprecated,
-    reason = "Should be removed after 0.20 is released when Interaction is removed."
-)]
-impl Default for Interaction {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the center and (0.5, 0.5) being the bottom-right
 /// If the mouse is not over the node, the value will go beyond the range of (-0.5, -0.5) to (0.5, 0.5)
 ///

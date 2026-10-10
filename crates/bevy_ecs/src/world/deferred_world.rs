@@ -444,20 +444,6 @@ impl<'w> DeferredWorld<'w> {
         (fetcher, commands)
     }
 
-    /// Returns [`Query`] for the given [`QueryState`], which is used to efficiently
-    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
-    ///
-    /// # Panics
-    /// If state is from a different world then self
-    #[inline]
-    #[deprecated(since = "0.19.0", note = "use `QueryState::query_mut`")]
-    pub fn query<'s, D: QueryData, F: QueryFilter>(
-        &mut self,
-        state: &'s mut QueryState<D, F>,
-    ) -> Query<'_, 's, D, F> {
-        state.query_mut(self)
-    }
-
     /// Gets a mutable reference to the resource of the given type
     ///
     /// # Panics
