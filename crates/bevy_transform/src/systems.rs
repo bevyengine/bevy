@@ -488,7 +488,7 @@ mod parallel {
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use crate::systems::StaticTransformOptimizations;
     use alloc::{sync::Arc, vec::Vec};
-    use bevy_ecs::{entity::UniqueEntitySlice, prelude::*, system::lifetimeless::Read};
+    use bevy_ecs::{entity::EntityIndexSet, prelude::*, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
@@ -505,6 +505,7 @@ mod parallel {
     /// [`mark_dirty_trees`](super::mark_dirty_trees).
     pub fn propagate_parent_transforms(
         mut queue: Local<WorkQueue>,
+        dedup: Local<Parallel<EntityIndexSet>>,
         mut roots: Query<
             (
                 Entity,
@@ -520,8 +521,14 @@ mod parallel {
     ) {
         // Process roots in parallel, seeding the work queue
         roots.par_iter_mut().for_each_init(
-            || queue.local_queue.borrow_local_mut(),
-            |outbox, (parent, transform, mut parent_transform, children, transform_tree)| {
+            || {
+                (
+                    queue.local_queue.borrow_local_mut(),
+                    dedup.borrow_local_mut(),
+                )
+            },
+            |(outbox, dedup),
+             (parent, transform, mut parent_transform, children, transform_tree)| {
                 if static_optimizations.is_enabled() && !transform_tree.is_changed() {
                     // Early exit if the subtree is static and the optimization is enabled.
                     return;
@@ -541,6 +548,7 @@ mod parallel {
                         &nodes,
                         outbox,
                         &queue,
+                        dedup,
                         &static_optimizations,
                         // Need to revisit this single-max-depth by profiling more representative
                         // scenes. It's possible that it is actually beneficial to go deep into the
@@ -574,9 +582,21 @@ mod parallel {
         task_pool.scope(|s| {
             (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
                 .for_each(|_| {
-                    s.spawn(async { propagation_worker(&queue, &nodes, &static_optimizations) });
+                    s.spawn(async {
+                        propagation_worker(
+                            &queue,
+                            &mut dedup.borrow_local_mut(),
+                            &nodes,
+                            &static_optimizations,
+                        );
+                    });
                 });
-            propagation_worker(&queue, &nodes, &static_optimizations);
+            propagation_worker(
+                &queue,
+                &mut dedup.borrow_local_mut(),
+                &nodes,
+                &static_optimizations,
+            );
         });
     }
 
@@ -585,6 +605,7 @@ mod parallel {
     #[inline]
     fn propagation_worker(
         queue: &WorkQueue,
+        dedup: &mut EntityIndexSet,
         nodes: &NodeQuery,
         static_optimizations: &StaticTransformOptimizations,
     ) {
@@ -642,6 +663,7 @@ mod parallel {
                         nodes,
                         &mut outbox,
                         queue,
+                        dedup,
                         static_optimizations,
                         // Only affects performance. Trees deeper than this will still be fully
                         // propagated, but the work will be broken into multiple tasks. This number
@@ -683,6 +705,7 @@ mod parallel {
         nodes: &NodeQuery,
         outbox: &mut Vec<Entity>,
         queue: &WorkQueue,
+        dedup: &mut EntityIndexSet,
         static_optimizations: &StaticTransformOptimizations,
         max_depth: usize,
     ) {
@@ -692,15 +715,15 @@ mod parallel {
 
         // See the optimization note at the end to understand why this loop is here.
         for depth in 1..=max_depth {
+            dedup.clear();
+            dedup.extend(p_children);
+
             // Safety: traversing the entity tree from the roots, we assert that the childof and
             // children pointers match in both directions (see assert below) to ensure the hierarchy
             // does not have any cycles. Because the hierarchy does not have cycles, we know we are
             // visiting disjoint entities in parallel, which is safe.
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
-            let children_iter = unsafe {
-                nodes.iter_many_unique_unsafe(UniqueEntitySlice::from_slice_unchecked(p_children))
-            }
-            .matched();
+            let children_iter = unsafe { nodes.iter_many_unique_unsafe(&*dedup) }.matched();
 
             let mut last_child = None;
             let new_children = children_iter.filter_map(
