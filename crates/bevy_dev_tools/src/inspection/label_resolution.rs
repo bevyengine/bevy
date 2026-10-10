@@ -11,21 +11,24 @@ use bevy_ecs::{
     system::SystemIdMarker, world::World,
 };
 use bevy_input::gamepad::Gamepad;
+#[cfg(feature = "render")]
 use bevy_light::{
     AmbientLight, Atmosphere, DirectionalLight, FogVolume, IrradianceVolume, LightProbe,
     PointLight, SpotLight, SunDisk,
 };
 use bevy_mesh::{Mesh2d, Mesh3d};
-#[cfg(feature = "render")]
+#[cfg(feature = "bevy_pbr")]
 use bevy_pbr::{wireframe::Wireframe, DistanceFog, Lightmap};
 use bevy_picking::pointer::PointerId;
 use bevy_platform::collections::HashMap;
 use bevy_sprite::{Sprite, Text2d};
 use bevy_text::TextSpan;
+#[cfg(feature = "bevy_ui")]
 use bevy_ui::{
     widget::{ImageNode, Text, ViewportNode},
     Node,
 };
+#[cfg(feature = "bevy_ui_widgets")]
 use bevy_ui_widgets::Button;
 use bevy_window::{Monitor, Window};
 use core::{
@@ -290,20 +293,24 @@ impl Plugin for LabelResolutionPlugin {
             .register_label_defining_type::<PointerId>(LabelDefinitionPriority::LIBRARY);
 
         // UI
-        label_resolution_registry
-            .register_label_defining_type::<Node>(LabelDefinitionPriority::FALLBACK);
+        #[cfg(feature = "bevy_ui_widgets")]
         label_resolution_registry
             .register_label_defining_type::<Button>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<Text>(LabelDefinitionPriority::LIBRARY);
+        #[cfg(feature = "bevy_ui")]
+        {
+            label_resolution_registry
+                .register_label_defining_type::<Node>(LabelDefinitionPriority::FALLBACK);
+            label_resolution_registry
+                .register_label_defining_type::<ImageNode>(LabelDefinitionPriority::LIBRARY);
+            label_resolution_registry
+                .register_label_defining_type::<ViewportNode>(LabelDefinitionPriority::LIBRARY);
+            label_resolution_registry
+                .register_label_defining_type::<Text>(LabelDefinitionPriority::LIBRARY);
+        }
         label_resolution_registry
             .register_label_defining_type::<TextSpan>(LabelDefinitionPriority::LIBRARY);
         label_resolution_registry
             .register_label_defining_type::<Text2d>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<ImageNode>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<ViewportNode>(LabelDefinitionPriority::LIBRARY);
 
         // Cameras
         label_resolution_registry
@@ -314,21 +321,24 @@ impl Plugin for LabelResolutionPlugin {
             .register_label_defining_type::<Camera2d>(LabelDefinitionPriority::LIBRARY);
 
         // Lights
-        label_resolution_registry
-            .register_label_defining_type::<DirectionalLight>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<PointLight>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<SpotLight>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<AmbientLight>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<LightProbe>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<IrradianceVolume>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<SunDisk>(LabelDefinitionPriority::LIBRARY);
         #[cfg(feature = "render")]
+        {
+            label_resolution_registry
+                .register_label_defining_type::<DirectionalLight>(LabelDefinitionPriority::LIBRARY);
+            label_resolution_registry
+                .register_label_defining_type::<PointLight>(LabelDefinitionPriority::LIBRARY);
+            label_resolution_registry
+                .register_label_defining_type::<SpotLight>(LabelDefinitionPriority::LIBRARY);
+            label_resolution_registry
+                .register_label_defining_type::<AmbientLight>(LabelDefinitionPriority::LIBRARY);
+            label_resolution_registry
+                .register_label_defining_type::<LightProbe>(LabelDefinitionPriority::LIBRARY);
+            label_resolution_registry
+                .register_label_defining_type::<IrradianceVolume>(LabelDefinitionPriority::LIBRARY);
+            label_resolution_registry
+                .register_label_defining_type::<SunDisk>(LabelDefinitionPriority::LIBRARY);
+        }
+        #[cfg(feature = "bevy_pbr")]
         label_resolution_registry
             .register_label_defining_type::<Lightmap>(LabelDefinitionPriority::LIBRARY);
 
@@ -339,19 +349,21 @@ impl Plugin for LabelResolutionPlugin {
             .register_label_defining_type::<Mesh2d>(LabelDefinitionPriority::LIBRARY);
         label_resolution_registry
             .register_label_defining_type::<Mesh3d>(LabelDefinitionPriority::LIBRARY);
-        #[cfg(feature = "render")]
+        #[cfg(feature = "bevy_pbr")]
         label_resolution_registry
             .register_label_defining_type::<Wireframe>(LabelDefinitionPriority::LIBRARY);
 
         // Atmospherics
         #[cfg(feature = "render")]
-        label_resolution_registry
-            .register_label_defining_type::<Skybox>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<FogVolume>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<Atmosphere>(LabelDefinitionPriority::LIBRARY);
-        #[cfg(feature = "render")]
+        {
+            label_resolution_registry
+                .register_label_defining_type::<Skybox>(LabelDefinitionPriority::LIBRARY);
+            label_resolution_registry
+                .register_label_defining_type::<FogVolume>(LabelDefinitionPriority::LIBRARY);
+            label_resolution_registry
+                .register_label_defining_type::<Atmosphere>(LabelDefinitionPriority::LIBRARY);
+        }
+        #[cfg(feature = "bevy_pbr")]
         label_resolution_registry
             .register_label_defining_type::<DistanceFog>(LabelDefinitionPriority::LIBRARY);
 

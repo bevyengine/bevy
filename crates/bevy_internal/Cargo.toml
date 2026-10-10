@@ -223,8 +223,6 @@ webgpu = [
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
-render_dev_tools = ["bevy_dev_tools/render"]
-
 # Enable glTF animation loading
 gltf_animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
@@ -245,7 +243,8 @@ bevy_text = [
   "bevy_sprite?/bevy_text",
   "bevy_sprite_render?/bevy_text",
 ]
-bevy_ui = ["dep:bevy_ui", "bevy_text", "bevy_sprite"]
+bevy_ui = ["dep:bevy_ui", "bevy_text", "bevy_sprite", "bevy_dev_tools?/bevy_ui"]
+bevy_ui_widgets = ["dep:bevy_ui_widgets", "bevy_dev_tools?/bevy_ui_widgets"]
 bevy_mesh = ["dep:bevy_mesh", "bevy_image", "bevy_gizmos?/bevy_mesh"]
 bevy_animation = ["dep:bevy_animation", "bevy_mesh"]
 bevy_mikktspace = ["bevy_mesh?/bevy_mikktspace"]
@@ -263,7 +262,11 @@ bevy_render = [
   "bevy_color/wgpu-types",
   "bevy_color/encase",
 ]
-bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_render"]
+bevy_core_pipeline = [
+  "dep:bevy_core_pipeline",
+  "bevy_render",
+  "bevy_dev_tools?/render",
+]
 bevy_anti_alias = ["dep:bevy_anti_alias", "bevy_core_pipeline"]
 bevy_post_process = ["dep:bevy_post_process", "bevy_core_pipeline"]
 bevy_pbr = [
@@ -272,6 +275,7 @@ bevy_pbr = [
   "bevy_material",
   "bevy_core_pipeline",
   "bevy_gizmos_render?/bevy_pbr",
+  "bevy_dev_tools?/bevy_pbr",
 ]
 bevy_sprite_render = [
   "dep:bevy_sprite_render",
@@ -280,7 +284,12 @@ bevy_sprite_render = [
   "bevy_core_pipeline",
   "bevy_gizmos_render?/bevy_sprite_render",
 ]
-bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
+bevy_ui_render = [
+  "dep:bevy_ui_render",
+  "bevy_sprite_render",
+  "bevy_ui",
+  "bevy_dev_tools?/bevy_ui_render",
+]
 # Feathers ships its built-in icons as PNGs, so enable the PNG feature
 bevy_feathers = ["dep:bevy_feathers", "png"]
 bevy_inspector = ["dep:bevy_inspector", "bevy_feathers"]
