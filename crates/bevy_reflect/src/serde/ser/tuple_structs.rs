@@ -19,15 +19,12 @@ impl<P: ReflectSerializerProcessor> Serialize for TupleStructSerializer<'_, P> {
     where
         S: serde::Serializer,
     {
-        let type_info = self
-            .tuple_struct
-            .get_represented_type_info()
-            .ok_or_else(|| {
-                make_custom_error(format_args!(
-                    "cannot get type info for `{}`",
-                    self.tuple_struct.reflect_type_path()
-                ))
-            })?;
+        let type_info = self.tuple_struct.runtime_type_info().ok_or_else(|| {
+            make_custom_error(format_args!(
+                "cannot get type info for `{}`",
+                self.tuple_struct.reflect_type_path()
+            ))
+        })?;
 
         let tuple_struct_info = match type_info {
             TypeInfo::TupleStruct(tuple_struct_info) => tuple_struct_info,
