@@ -887,7 +887,6 @@
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[expect(deprecated, reason = "easier migrations")]
     pub use crate::{
         bsn, bsn_list, on, CommandsSceneExt, EntityCommandsSceneExt, EntityWorldMutSceneExt,
         PatchFromTemplate, PatchTemplate, Scene, SceneComponent, SceneList, ScenePatchInstance,
