@@ -57,7 +57,7 @@ pub struct MaterialBindGroupPlugin;
 ///
 /// This duplicates information in `RenderAssets<M>`, but it doesn't have the
 /// `M` type parameter, so it can be used in untyped contexts like
-/// `collect_meshes_for_gpu_building`.
+/// `extract_meshes_for_cpu_building`.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct RenderMaterialBindings {
     /// The mapping from each asset ID to its location within the material bind
