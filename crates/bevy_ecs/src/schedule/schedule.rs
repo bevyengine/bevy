@@ -1885,7 +1885,7 @@ pub struct ScheduleBuildSettings {
     /// is only logged or also results in an [`Ambiguity`](ScheduleBuildWarning::Ambiguity)
     /// warning or error.
     ///
-    /// Defaults to [`LogLevel::Ignore`].
+    /// Defaults to [`LogLevel::Warn`].
     pub ambiguity_detection: LogLevel,
     /// Determines whether the presence of redundant edges in the hierarchy of system sets is only
     /// logged or also results in a [`HierarchyRedundancy`](ScheduleBuildWarning::HierarchyRedundancy)
@@ -1943,7 +1943,7 @@ impl ScheduleBuildSettings {
     /// See the field-level documentation for the default value of each field.
     pub const fn new() -> Self {
         Self {
-            ambiguity_detection: LogLevel::Ignore,
+            ambiguity_detection: LogLevel::Warn,
             hierarchy_detection: LogLevel::Warn,
             auto_insert_apply_deferred: true,
             use_shortnames: true,
