@@ -150,18 +150,15 @@ where
                 VertexFormat::Float32x4,
             ],
         );
-        let shader_defs = Vec::new();
 
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.vertex_shader.clone(),
-                shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
-                shader_defs,
                 targets: vec![Some(ColorTargetState {
                     format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
@@ -175,7 +172,15 @@ where
 
         descriptor.layout = vec![self.view_layout.clone(), self.ui_layout.clone()];
 
+        let writer_encode = key.writer_encode;
         M::specialize(&mut descriptor, key);
+
+        // The encode runs in the fragment shader only. Its defs are pushed
+        // after the material specializes, so a material that replaces the
+        // fragment shader defs keeps the encode for the view.
+        if let Some(fragment) = &mut descriptor.fragment {
+            writer_encode.push_shader_defs(&mut fragment.shader_defs);
+        }
 
         descriptor
     }
@@ -674,7 +679,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    render_views: Query<&UiCameraView, With<ExtractedView>>,
+    render_views: Query<(&UiCameraView, Option<&ResolvedCompositingSpace>), With<ExtractedView>>,
     camera_views: Query<&ExtractedView>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -687,26 +692,28 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         extracted_uinodes.uinodes.iter()
     {
         if current_camera_entity != *extracted_camera_entity {
-            current_phase =
-                render_views
-                    .get(*extracted_camera_entity)
-                    .ok()
-                    .and_then(|default_camera_view| {
-                        camera_views
-                            .get(default_camera_view.0)
-                            .ok()
-                            .and_then(|view| {
-                                transparent_render_phases
-                                    .get_mut(&view.retained_view_entity)
-                                    .map(|transparent_phase| {
-                                        (view.target_format, transparent_phase)
-                                    })
-                            })
-                    });
+            current_phase = render_views.get(*extracted_camera_entity).ok().and_then(
+                |(default_camera_view, resolved_space)| {
+                    camera_views
+                        .get(default_camera_view.0)
+                        .ok()
+                        .and_then(|view| {
+                            transparent_render_phases
+                                .get_mut(&view.retained_view_entity)
+                                .map(|transparent_phase| {
+                                    (
+                                        view.target_format,
+                                        UiWriterEncodeKey::from_resolved_space(resolved_space),
+                                        transparent_phase,
+                                    )
+                                })
+                        })
+                },
+            );
             current_camera_entity = *extracted_camera_entity;
         }
 
-        let Some((target_format, transparent_phase)) = current_phase.as_mut() else {
+        let Some((target_format, writer_encode, transparent_phase)) = current_phase.as_mut() else {
             continue;
         };
         for (render_entity, extracted_uinode) in extracted_sub_uinodes.iter() {
@@ -720,6 +727,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 UiMaterialKey {
                     target_format: *target_format,
                     bind_group_data: material.key.clone(),
+                    writer_encode: *writer_encode,
                 },
             );
             if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
@@ -737,5 +745,49 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 indexed: false,
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_camera::CompositingSpace;
+    use bevy_reflect::TypePath;
+    use bevy_shader::ShaderDefVal;
+
+    /// Replaces the fragment shader defs, as feathers' color plane material does.
+    #[derive(AsBindGroup, Asset, TypePath, Clone)]
+    struct ReplacesFragmentDefs {}
+
+    impl UiMaterial for ReplacesFragmentDefs {
+        fn specialize(descriptor: &mut RenderPipelineDescriptor, _key: UiMaterialKey<Self>) {
+            descriptor.fragment.as_mut().unwrap().shader_defs = vec!["MATERIAL_DEF".into()];
+        }
+    }
+
+    #[test]
+    fn writer_encode_survives_material_specialize() {
+        let pipeline = UiMaterialPipeline::<ReplacesFragmentDefs> {
+            ui_layout: BindGroupLayoutDescriptor::new("ui_layout", &[]),
+            view_layout: BindGroupLayoutDescriptor::new("view_layout", &[]),
+            vertex_shader: Handle::default(),
+            fragment_shader: Handle::default(),
+            marker: PhantomData,
+        };
+        let descriptor = pipeline.specialize(UiMaterialKey {
+            target_format: TextureFormat::Rgba8UnormSrgb,
+            bind_group_data: (),
+            writer_encode: UiWriterEncodeKey {
+                compositing_space: Some(CompositingSpace::Oklab),
+            },
+        });
+
+        assert_eq!(
+            descriptor.fragment.unwrap().shader_defs,
+            vec![
+                ShaderDefVal::from("MATERIAL_DEF"),
+                ShaderDefVal::from("COMPOSITING_SPACE_OKLAB"),
+            ]
+        );
     }
 }
