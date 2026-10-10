@@ -1621,7 +1621,7 @@ fn load_node(
         };
 
         node.insert((
-            Camera3d::default(),
+            Camera3d,
             projection,
             transform,
             Camera {

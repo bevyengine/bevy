@@ -108,7 +108,7 @@ fn setup(
 
     // camera
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
         Projection::from(OrthographicProjection {
             scale: 0.01,

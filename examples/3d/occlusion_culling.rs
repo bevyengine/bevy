@@ -380,7 +380,7 @@ fn spawn_light(commands: &mut Commands) {
 /// Spawns a camera that includes the depth prepass and occlusion culling.
 fn spawn_camera(commands: &mut Commands) {
     commands
-        .spawn(Camera3d::default())
+        .spawn(Camera3d)
         .insert(Transform::from_xyz(0.0, 0.0, 9.0).looking_at(Vec3::ZERO, Vec3::Y))
         .insert(DepthPrepass)
         .insert(OcclusionCulling);

@@ -10,5 +10,5 @@ fn main() {
 }
 
 fn setup_system(mut commands: Commands) {
-    commands.spawn(Camera3d::default());
+    commands.spawn(Camera3d);
 }

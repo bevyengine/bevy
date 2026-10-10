@@ -167,7 +167,7 @@ fn on_c_1_exit(mut commands: Commands) {
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn(Camera3d::default());
+    commands.spawn(Camera3d);
 }
 
 fn toggle(

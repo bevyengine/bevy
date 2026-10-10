@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let cam_trans = Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y);
     let camera = commands
         .spawn((
-            Camera3d::default(),
+            Camera3d,
             Hdr,
             Camera::default(),
             cam_trans,

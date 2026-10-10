@@ -239,7 +239,7 @@ fn spawn_light(commands: &mut Commands) {
 /// Spawns a camera.
 fn spawn_camera(commands: &mut Commands) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(2.0, 0.0, -7.0).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
     ));
