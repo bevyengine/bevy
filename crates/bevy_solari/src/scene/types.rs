@@ -12,8 +12,19 @@ use derive_more::derive::From;
 ///
 /// The mesh used in this component must declare the BLAS its material needs in
 /// [`Mesh::raytracing`],
-/// use the following set of vertex attributes: `{POSITION, NORMAL, UV_0, TANGENT}`, use [`bevy_mesh::PrimitiveTopology::TriangleList`],
+/// use exactly the following set of vertex attributes, in their default formats: `{POSITION, NORMAL, UV_0, TANGENT}`, use [`bevy_mesh::PrimitiveTopology::TriangleList`],
 /// and use [`bevy_mesh::Indices::U32`].
+///
+/// Meshes with incompatible vertex attributes, topology, or index formats are skipped
+/// without a warning.
+/// Skinned meshes are skipped because joint indices and weights are additional
+/// vertex attributes. Morph targets are not vertex attributes and are ignored:
+/// a compatible morphed mesh is ray traced in its unmorphed base shape.
+///
+/// A separate compatible mesh can represent a static pose, but it does not follow
+/// later skinning or morph changes. It is placed by this entity's transform, which
+/// skinning does not apply, so a pose baked from joint matrices must be expressed
+/// in this entity's local space.
 ///
 /// The material used for this entity must be [`MeshMaterial3d<StandardMaterial>`].
 #[derive(
