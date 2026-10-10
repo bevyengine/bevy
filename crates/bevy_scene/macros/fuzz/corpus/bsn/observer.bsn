@@ -1,0 +1,5 @@
+Health { max: 100, current: 100 }
+on(|ev: On<Damage>, mut query: Query<&mut Health>| {
+    let mut health = query.get_mut(ev.target()).unwrap();
+    health.current = health.current.saturating_sub(ev.0);
+})

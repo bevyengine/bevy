@@ -1,0 +1,2 @@
+~Size::new(1).tall()
+component.clone()

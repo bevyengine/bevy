@@ -1,0 +1,34 @@
+@some_scene()
+#SomeName
+ComponentA
+ComponentB(0.0)
+component
+component.clone()
+Node {
+    height: px(0.1)
+}
+on(|evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| {
+    let mut b = query.get_mut(evt.entity).unwrap();
+    b.0 += evt.value;
+})
+Children [
+    #Child1 ComponentA
+    --
+    Link(#SomeName)
+    @MySceneComponent {
+        @some_prop: 3,
+        normal_field: 5
+    }
+    --
+    Node {
+        width: some_var
+    }
+    ComponentB({some_var + 3.})
+    @Container {
+        @items: bsn_list! {
+            #Item1 SomeComponent
+            --
+            #Item2 @some_scene()
+        }
+    }
+]
