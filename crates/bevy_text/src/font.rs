@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::FontCx;
 use crate::FontSource;
 use crate::TextFont;
@@ -35,9 +36,9 @@ pub struct Font {
 
 impl Font {
     /// Creates a [`Font`] from bytes
-    pub fn from_bytes(font_data: Vec<u8>) -> Font {
+    pub fn from_bytes(font_data: impl  AsRef<[u8]> +  Send + Sync + 'static) -> Font {
         Self {
-            data: Blob::from(font_data),
+            data: Blob::new(Arc::new(font_data)),
             alias: String::new(),
         }
     }
