@@ -839,7 +839,7 @@ pub fn sync_details_panel(world: &mut World) {
     };
 
     let is_main = selection.is_none_or(|s| s.is_main);
-    let maybe_selected = selection.map(|s| Some(s.entity));
+    let maybe_selected = selection.map(|s| s.entity);
 
     let inspected = crate::world_to_inspect(world, is_main);
     let components = inspect_components(inspected, selection);
