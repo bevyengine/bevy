@@ -12,7 +12,7 @@ enable wgpu_binding_array;
 @group(2) @binding(5) var lightmaps_sampler: sampler;
 }
 
-// Samples the lightmap, if any, and returns indirect illumination from it.
+/// Samples the lightmap, if any, and returns indirect illumination from it.
 fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     let packed_uv_rect = mesh[instance_index].lightmap_uv_rect;
     let uv_rect = vec4<f32>(

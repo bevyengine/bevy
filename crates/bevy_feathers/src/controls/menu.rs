@@ -41,8 +41,7 @@ use crate::{
     tokens,
 };
 use bevy_input_focus::{
-    tab_navigation::{NavAction, TabIndex},
-    FocusCause, InputFocus, InputFocusSystems, InputFocusVisible,
+    tab_navigation::NavAction, FocusCause, InputFocus, InputFocusSystems, InputFocusVisible,
 };
 
 /// Top-level menu container. This wraps the menu button and provides an anchor for the popover.
@@ -154,7 +153,7 @@ impl Default for FeathersLazyMenu {
         Self {
             popup: Arc::new(|| {
                 warn!("Menu content not specified");
-                Box::new(bsn!())
+                Box::new(bsn! {})
             }),
         }
     }
@@ -191,11 +190,11 @@ fn on_lazy_menu_event(
             ev.propagate(false);
             commands
                 .entity(ev.source)
-                .queue_spawn_related_scenes::<Children>(bsn!(
+                .queue_spawn_related_scenes::<Children>(bsn! {
                     @popup()
                     MenuFocusState::Opening(nav)
                     Visibility::Visible
-                ));
+                });
         }
         MenuAction::Toggle => {
             let Ok(FeathersLazyMenu { popup }) = q_menu_lazy.get(ev.source) else {
@@ -216,11 +215,11 @@ fn on_lazy_menu_event(
             if !menu_open {
                 commands
                     .entity(ev.source)
-                    .queue_spawn_related_scenes::<Children>(bsn!(
+                    .queue_spawn_related_scenes::<Children>(bsn! {
                         @popup()
                         MenuFocusState::Opening(NavAction::First)
                         Visibility::Visible
-                    ));
+                    });
             }
         }
         MenuAction::CloseAll => {
@@ -272,7 +271,7 @@ pub struct FeathersMenuButtonProps {
 impl Default for FeathersMenuButtonProps {
     fn default() -> Self {
         Self {
-            caption: Box::new(bsn_list!()),
+            caption: Box::new(bsn_list! {}),
             corners: Default::default(),
             arrow: true,
         }
@@ -292,12 +291,13 @@ impl FeathersMenuButton {
             // Additional children for menu chevron
             Children [
                 {
-                    props.arrow.then(|| bsn_list!(
+                    props.arrow.then(|| bsn_list! {
                         Node {
                             flex_grow: 1.0,
-                        },
-                        @icon(icons::CHEVRON_DOWN),
-                    ))
+                        }
+                        --
+                        @icon(icons::CHEVRON_DOWN)
+                    })
                 }
             ]
         }
@@ -328,10 +328,11 @@ impl FeathersMenuToolButton {
             // Additional children for menu chevron
             Children [
                 {
-                    props.arrow.then(|| bsn_list!(
-                        Node { min_width: px(2) },
-                        @icon(icons::CHEVRON_DOWN),
-                    ))
+                    props.arrow.then(|| bsn_list! {
+                        Node { min_width: px(2) }
+                        --
+                        @icon(icons::CHEVRON_DOWN)
+                    })
                 }
             ]
         }
@@ -408,7 +409,7 @@ pub struct FeathersMenuItemProps {
 impl Default for FeathersMenuItemProps {
     fn default() -> Self {
         Self {
-            caption: Box::new(bsn_list!()),
+            caption: Box::new(bsn_list! {}),
         }
     }
 }
@@ -427,7 +428,6 @@ impl FeathersMenuItem {
             MenuItem
             Hovered
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-            TabIndex(0)
             ThemeBackgroundColor(tokens::MENU_BG) // Same as menu
             InheritableThemeTextColor(tokens::MENUITEM_TEXT)
             InheritableFont {

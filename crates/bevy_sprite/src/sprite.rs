@@ -240,6 +240,18 @@ impl SpriteImageMode {
             None
         }
     }
+
+    /// Returns true if this mode is [`SpriteImageMode::Sliced`] and the slicer's borders
+    /// don't fit within an image of the given size, in which case no slicing can be applied.
+    pub fn slice_border_out_of_bounds(&self, image_size: Vec2) -> bool {
+        if let SpriteImageMode::Sliced(slicer) = self {
+            (slicer.border.min_inset + slicer.border.max_inset)
+                .cmpge(image_size)
+                .any()
+        } else {
+            false
+        }
+    }
 }
 
 /// Represents various modes for proportional scaling of a texture.

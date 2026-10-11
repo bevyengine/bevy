@@ -10,13 +10,14 @@ use bevy_ecs::{
     query::{With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    system::{Query, Res},
+    system::{Query, Res, ResMut},
     template::FromTemplate,
 };
 use bevy_math::{Affine2, Vec2};
 use bevy_picking::events::{
     PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress,
 };
+use bevy_picking::hover::PointerCaptureMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     prelude::BorderRect, ui_layout_system, BackgroundColor, BorderColor, BorderRadius,
@@ -198,6 +199,7 @@ fn scrollbar_on_pointer_down(
 
 fn scrollbar_on_drag_start(
     mut ev: On<PointerDragStart>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_thumb: Query<(&ChildOf, &mut ScrollbarDragState), With<ScrollbarThumb>>,
     q_scrollbar: Query<&Scrollbar>,
     q_scroll_area: Query<&ScrollPosition>,
@@ -212,6 +214,7 @@ fn scrollbar_on_drag_start(
                 ControlOrientation::Horizontal => scroll_area.x,
                 ControlOrientation::Vertical => scroll_area.y,
             };
+            capture_map.capture(ev.pointer.id, ev.entity, ev.hit.clone());
         }
     }
 }
@@ -260,12 +263,14 @@ fn scrollbar_on_drag(
 
 fn scrollbar_on_drag_end(
     mut ev: On<PointerDragEnd>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_thumb: Query<&mut ScrollbarDragState, With<ScrollbarThumb>>,
 ) {
     if let Ok(mut drag) = q_thumb.get_mut(ev.entity) {
         ev.propagate(false);
         if drag.dragging {
             drag.dragging = false;
+            capture_map.release(ev.pointer.id);
         }
     }
 }

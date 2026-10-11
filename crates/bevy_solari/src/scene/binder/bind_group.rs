@@ -2,17 +2,19 @@ use super::{
     allocator::RetainedBindingArray, lights::GpuLightSource, RaytracingSceneBindings,
     TlasInstanceSetupPipeline,
 };
+use crate::scene::extract::ExtractedEnvironmentMapLight;
 use bevy_ecs::system::{Res, ResMut};
+use bevy_math::Mat3;
 use bevy_pbr::DfgLut;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         BindGroup, BindGroupEntries, BindGroupLayout, Buffer, BufferBinding, BufferDescriptor,
-        BufferId, BufferSize, BufferUsages, PipelineCache, Sampler, SamplerId,
+        BufferId, BufferSize, BufferUsages, PipelineCache, Sampler, SamplerId, ShaderType,
         SparseBufferUpdateBindGroups, SparseBufferUpdateJobs, SparseBufferUpdatePipelines,
-        TextureView, TextureViewId,
+        StorageBuffer, TextureView, TextureViewId,
     },
-    renderer::RenderDevice,
+    renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImage, GpuImage},
 };
 use core::{mem::size_of, ops::Deref};
@@ -21,9 +23,10 @@ use tracing::info_span;
 pub struct BindGroupCacheState {
     cached: [Option<BindGroup>; 2],
     pub invalid: bool,
-    last_buffer_ids: [Option<BufferId>; 9],
-    last_light_count: u32,
+    last_buffer_ids: Option<[BufferId; 11]>,
     last_dfg_ids: Option<(TextureViewId, SamplerId)>,
+    last_light_count: u32,
+    last_environment_map_light_id: Option<TextureViewId>,
     pub dummy_buffer: Buffer,
 }
 
@@ -40,9 +43,10 @@ impl BindGroupCacheState {
         Self {
             cached: [None, None],
             invalid: true,
-            last_buffer_ids: [None; 9],
-            last_light_count: 0,
+            last_buffer_ids: None,
             last_dfg_ids: None,
+            last_light_count: 0,
+            last_environment_map_light_id: None,
             dummy_buffer,
         }
     }
@@ -59,31 +63,33 @@ fn buffer_bindings<'a>(
 }
 
 impl RaytracingSceneBindings {
-    /// Each sparse buffer's GPU buffer id, or `None` where it has not been created yet.
-    fn buffer_ids(&self) -> [Option<BufferId>; 9] {
+    /// The id of each buffer in the bind group.
+    fn buffer_ids(&self) -> [BufferId; 11] {
         [
-            self.assets.materials.buffer().map(Buffer::id),
-            self.instances.transforms.buffer().map(Buffer::id),
-            self.instances
-                .previous_frame_transforms
-                .buffer()
-                .map(Buffer::id),
-            self.instances.geometry_ids.buffer().map(Buffer::id),
-            self.instances.material_ids.buffer().map(Buffer::id),
-            self.instances.blas_refs.buffer().map(Buffer::id),
-            self.lights.sources.buffer().map(Buffer::id),
-            self.lights.directional_lights.buffer().map(Buffer::id),
-            self.lights
-                .previous_frame_id_translations
-                .buffer()
-                .map(Buffer::id),
+            self.assets.materials.buffer(),
+            self.instances.transforms.buffer(),
+            self.instances.previous_frame_transforms.buffer(),
+            self.instances.geometry_ids.buffer(),
+            self.instances.material_ids.buffer(),
+            self.lights.sources.buffer(),
+            self.lights.directional_lights.buffer(),
+            self.lights.point_lights.buffer(),
+            self.lights.rect_lights.buffer(),
+            self.environment_map_light_buffer.buffer(),
+            self.lights.previous_frame_id_translations.buffer(),
         ]
+        .map(|buffer| {
+            buffer
+                .expect("scene buffers should have been written before the bind group is prepared")
+                .id()
+        })
     }
 
     fn take_bind_group_invalidation(
         &mut self,
         dfg_view: &TextureView,
         dfg_sampler: &Sampler,
+        environment_map_light: &TextureView,
     ) -> bool {
         let mut invalid = self.bind_groups.invalid;
         self.bind_groups.invalid = false;
@@ -96,9 +102,15 @@ impl RaytracingSceneBindings {
             invalid |= core::mem::replace(dirty, false);
         }
 
-        let buffer_ids = self.buffer_ids();
+        let buffer_ids = Some(self.buffer_ids());
         if self.bind_groups.last_buffer_ids != buffer_ids {
             self.bind_groups.last_buffer_ids = buffer_ids;
+            invalid = true;
+        }
+
+        let dfg_ids = Some((dfg_view.id(), dfg_sampler.id()));
+        if self.bind_groups.last_dfg_ids != dfg_ids {
+            self.bind_groups.last_dfg_ids = dfg_ids;
             invalid = true;
         }
 
@@ -108,9 +120,9 @@ impl RaytracingSceneBindings {
             invalid = true;
         }
 
-        let dfg_ids = Some((dfg_view.id(), dfg_sampler.id()));
-        if self.bind_groups.last_dfg_ids != dfg_ids {
-            self.bind_groups.last_dfg_ids = dfg_ids;
+        let environment_map_light_id = Some(environment_map_light.id());
+        if self.bind_groups.last_environment_map_light_id != environment_map_light_id {
+            self.bind_groups.last_environment_map_light_id = environment_map_light_id;
             invalid = true;
         }
 
@@ -125,6 +137,7 @@ impl RaytracingSceneBindings {
         fallback_texture: &FallbackImage,
         dfg_view: &TextureView,
         dfg_sampler: &Sampler,
+        environment_map_light: &TextureView,
     ) -> BindGroup {
         let _span = info_span!("create_bind_group").entered();
         let dummy = &self.bind_groups.dummy_buffer;
@@ -156,49 +169,6 @@ impl RaytracingSceneBindings {
             ),
         };
 
-        let materials = self
-            .assets
-            .materials
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let transforms = self
-            .instances
-            .transforms
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let previous_frame_transforms = self
-            .instances
-            .previous_frame_transforms
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let geometry_ids = self
-            .instances
-            .geometry_ids
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let material_ids = self
-            .instances
-            .material_ids
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let directional_lights = self
-            .lights
-            .directional_lights
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-        let translations = self
-            .lights
-            .previous_frame_id_translations
-            .buffer()
-            .unwrap()
-            .as_entire_buffer_binding();
-
         let current = self.tlas.structures[current_index].as_ref().unwrap();
         let previous = self.tlas.structures[current_index ^ 1]
             .as_ref()
@@ -213,18 +183,26 @@ impl RaytracingSceneBindings {
                 index_buffers.as_slice(),
                 textures.as_slice(),
                 samplers.as_slice(),
-                materials,
+                self.assets.materials.binding().unwrap(),
                 current.as_binding(),
                 previous.as_binding(),
-                transforms,
-                previous_frame_transforms,
-                geometry_ids,
-                material_ids,
-                light_sources,
-                directional_lights,
-                translations,
+                self.instances.transforms.binding().unwrap(),
+                self.instances.previous_frame_transforms.binding().unwrap(),
+                self.instances.geometry_ids.binding().unwrap(),
+                self.instances.material_ids.binding().unwrap(),
                 dfg_view,
                 dfg_sampler,
+                light_sources,
+                self.lights.directional_lights.binding().unwrap(),
+                self.lights.point_lights.binding().unwrap(),
+                self.lights.rect_lights.binding().unwrap(),
+                environment_map_light,
+                &self.environment_map_light_sampler,
+                &self.environment_map_light_buffer,
+                self.lights
+                    .previous_frame_id_translations
+                    .binding()
+                    .unwrap(),
             )),
         )
     }
@@ -237,6 +215,7 @@ impl RaytracingSceneBindings {
         fallback_texture: &FallbackImage,
         dfg_view: &TextureView,
         dfg_sampler: &Sampler,
+        environment_map_light: &TextureView,
     ) -> BindGroup {
         if let Some(bind_group) = &self.bind_groups.cached[current_index] {
             return bind_group.clone();
@@ -251,8 +230,9 @@ impl RaytracingSceneBindings {
             fallback_texture,
             dfg_view,
             dfg_sampler,
+            environment_map_light,
         );
-        if self.tlas.built[current_index ^ 1] {
+        if self.tlas.previous_binding_is_stable() {
             self.bind_groups.cached[current_index] = Some(bind_group.clone());
         }
         bind_group
@@ -264,7 +244,9 @@ pub fn prepare_raytracing_scene_bind_group(
     texture_assets: Res<RenderAssets<GpuImage>>,
     fallback_texture: Res<FallbackImage>,
     dfg_lut: Res<DfgLut>,
+    extracted_environment_map_light: Res<ExtractedEnvironmentMapLight>,
     render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
     sparse_buffer_update_pipelines: Res<SparseBufferUpdatePipelines>,
     instance_setup_pipeline: Res<TlasInstanceSetupPipeline>,
@@ -306,7 +288,16 @@ pub fn prepare_raytracing_scene_bind_group(
             &fallback_texture.d2.sampler,
         ));
 
-    if bindings.take_bind_group_invalidation(dfg_view, dfg_sampler) {
+    let environment_map_light = prepare_environment_map_light(
+        &extracted_environment_map_light,
+        &texture_assets,
+        &fallback_texture,
+        &mut bindings.environment_map_light_buffer,
+        &render_device,
+        &render_queue,
+    );
+
+    if bindings.take_bind_group_invalidation(dfg_view, dfg_sampler, environment_map_light) {
         bindings.bind_groups.cached = [None, None];
     }
 
@@ -318,7 +309,48 @@ pub fn prepare_raytracing_scene_bind_group(
         &fallback_texture,
         dfg_view,
         dfg_sampler,
+        environment_map_light,
     ));
+}
+
+#[derive(ShaderType, Default)]
+pub struct GpuEnvironmentMapLight {
+    pub light_from_world: Mat3,
+    pub intensity: f32,
+}
+
+fn prepare_environment_map_light<'a>(
+    extracted_environment_map_light: &ExtractedEnvironmentMapLight,
+    texture_assets: &'a RenderAssets<GpuImage>,
+    fallback_texture: &'a FallbackImage,
+    buffer: &mut StorageBuffer<GpuEnvironmentMapLight>,
+    render_device: &RenderDevice,
+    render_queue: &RenderQueue,
+) -> &'a TextureView {
+    let cubemap = extracted_environment_map_light
+        .cubemap
+        .as_ref()
+        .and_then(|cubemap| texture_assets.get(cubemap));
+
+    let (texture, uniform) = match cubemap {
+        Some(cubemap) => (
+            &cubemap.texture_view,
+            GpuEnvironmentMapLight {
+                light_from_world: Mat3::from_quat(
+                    extracted_environment_map_light.rotation.inverse(),
+                ),
+                intensity: extracted_environment_map_light.intensity,
+            },
+        ),
+        None => (
+            &fallback_texture.cube.texture_view,
+            GpuEnvironmentMapLight::default(),
+        ),
+    };
+
+    buffer.set(uniform);
+    buffer.write_buffer(render_device, render_queue);
+    texture
 }
 
 /// Queues the compute jobs that scatter each buffer's staged elements into its GPU buffer.
@@ -362,6 +394,12 @@ fn prepare_sparse_uploads(
         .prepare_to_populate_buffers(device, cache, jobs, groups, pipelines);
     lights
         .directional_lights
+        .prepare_to_populate_buffers(device, cache, jobs, groups, pipelines);
+    lights
+        .point_lights
+        .prepare_to_populate_buffers(device, cache, jobs, groups, pipelines);
+    lights
+        .rect_lights
         .prepare_to_populate_buffers(device, cache, jobs, groups, pipelines);
     lights
         .previous_frame_id_translations

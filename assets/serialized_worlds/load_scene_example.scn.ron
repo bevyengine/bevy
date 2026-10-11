@@ -5,7 +5,7 @@
     ),
   },
   entities: {
-    4294967297: (
+    "0v0": (
       components: {
         "bevy_ecs::name::Name": "joe",
         "bevy_transform::components::global_transform::GlobalTransform": ((1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)),
@@ -24,7 +24,7 @@
         "bevy_world_serialization::components::WorldAssetRoot": (Path("models/FlightHelmet/FlightHelmet.gltf#Scene0")),
       },
     ),
-    4294967298: (
+    "1v0": (
       components: {
         "world_serialization::ComponentA": (
           x: 3.0,

@@ -4,6 +4,7 @@ use bevy_animation::AnimationPlayer;
 use bevy_app::{App, Plugin};
 use bevy_audio::{AudioPlayer, AudioSink};
 use bevy_camera::{Camera, Camera2d};
+#[cfg(feature = "render")]
 use bevy_core_pipeline::Skybox;
 use bevy_ecs::{
     component::ComponentId, entity::Entity, name::Name, observer::Observer, resource::Resource,
@@ -15,6 +16,7 @@ use bevy_light::{
     PointLight, SpotLight, SunDisk,
 };
 use bevy_mesh::{Mesh2d, Mesh3d};
+#[cfg(feature = "render")]
 use bevy_pbr::{wireframe::Wireframe, DistanceFog, Lightmap};
 use bevy_picking::pointer::PointerId;
 use bevy_platform::collections::HashMap;
@@ -326,6 +328,7 @@ impl Plugin for LabelResolutionPlugin {
             .register_label_defining_type::<IrradianceVolume>(LabelDefinitionPriority::LIBRARY);
         label_resolution_registry
             .register_label_defining_type::<SunDisk>(LabelDefinitionPriority::LIBRARY);
+        #[cfg(feature = "render")]
         label_resolution_registry
             .register_label_defining_type::<Lightmap>(LabelDefinitionPriority::LIBRARY);
 
@@ -336,16 +339,19 @@ impl Plugin for LabelResolutionPlugin {
             .register_label_defining_type::<Mesh2d>(LabelDefinitionPriority::LIBRARY);
         label_resolution_registry
             .register_label_defining_type::<Mesh3d>(LabelDefinitionPriority::LIBRARY);
+        #[cfg(feature = "render")]
         label_resolution_registry
             .register_label_defining_type::<Wireframe>(LabelDefinitionPriority::LIBRARY);
 
         // Atmospherics
+        #[cfg(feature = "render")]
         label_resolution_registry
             .register_label_defining_type::<Skybox>(LabelDefinitionPriority::LIBRARY);
         label_resolution_registry
             .register_label_defining_type::<FogVolume>(LabelDefinitionPriority::LIBRARY);
         label_resolution_registry
             .register_label_defining_type::<Atmosphere>(LabelDefinitionPriority::LIBRARY);
+        #[cfg(feature = "render")]
         label_resolution_registry
             .register_label_defining_type::<DistanceFog>(LabelDefinitionPriority::LIBRARY);
 

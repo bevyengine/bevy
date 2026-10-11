@@ -44,10 +44,10 @@ fn fragment(input: VertexOutput) -> @location(0) vec4<f32> {
     return color;
 }
 
-// An implementation of the simplex noise algorithm to generate noise for the dissolve effect. Credit to <https://crates.io/crates/noisy_bevy>.
-//
-// Note that usually sampling the noise from a prebaked texture is better for performance.
-// However, to avoid increasing the size of the bevy git repository, we generate the noise in the shader.
+/// An implementation of the simplex noise algorithm to generate noise for the dissolve effect. Credit to <https://crates.io/crates/noisy_bevy>.
+///
+/// Note that usually sampling the noise from a prebaked texture is better for performance.
+/// However, to avoid increasing the size of the bevy git repository, we generate the noise in the shader.
 fn simplex_noise_2d(v: vec2<f32>) -> f32 {
     let C = vec4(
         0.211324865405187, // (3.0 - sqrt(3.0)) / 6.0
@@ -88,7 +88,7 @@ fn simplex_noise_2d(v: vec2<f32>) -> f32 {
     return (130. * dot(m, g) + 1.) / 2.;
 }
 
-// Fractional brownian motion using simplex noise. This approach makes the noise look more detailed.
+/// Fractional brownian motion using simplex noise. This approach makes the noise look more detailed.
 fn fbm_simplex_2d(pos: vec2<f32>) -> f32 {
     const octaves = 3;
     const lacunarity = 2.0;

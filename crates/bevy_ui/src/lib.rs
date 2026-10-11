@@ -43,7 +43,7 @@ pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
 pub use interaction_states::{
-    Checkable, Checked, InteractionDisabled, Pressed, Selectable, Selected,
+    Checkable, Checked, Expandable, Expanded, InteractionDisabled, Pressed, Selectable, Selected,
 };
 pub use layout::*;
 pub use measurement::*;
@@ -74,7 +74,7 @@ pub mod prelude {
             gradients::*,
             ui_node::*,
             ui_transform::*,
-            widget::{ImageNode, Label, NodeImageMode, ViewportNode},
+            widget::{ImageNode, InlineImage, Label, NodeImageMode, ViewportNode},
             UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
@@ -113,7 +113,11 @@ pub enum UiSystems {
     ///
     /// Runs in [`PostUpdate`].
     Layout,
-    /// UI systems ordered after [`UiSystems::Layout`].
+    /// After this, UI clipping has been updated.
+    ///
+    /// Runs in [`PostUpdate`]
+    Clipping,
+    /// UI systems ordered after [`UiSystems::Layout`] and [`UiSystems::Clipping`].
     ///
     /// Runs in [`PostUpdate`].
     PostLayout,
@@ -162,6 +166,7 @@ impl Plugin for UiPlugin {
                     UiSystems::Propagate,
                     UiSystems::Content,
                     UiSystems::Layout,
+                    UiSystems::Clipping,
                     UiSystems::PostLayout,
                 )
                     .chain_weak(),
@@ -202,7 +207,7 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystems::Layout)
                     .ambiguous_with(bevy_sprite::update_text2d_layout),
                 ui_stack_system.in_set(UiSystems::Stack),
-                update_clipping_system.in_set(UiSystems::PostLayout),
+                update_clipping_system.in_set(UiSystems::Clipping),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -229,6 +234,10 @@ impl Plugin for UiPlugin {
             .add_observer(interaction_states::on_remove_checkable)
             .add_observer(interaction_states::on_add_checked)
             .add_observer(interaction_states::on_remove_checked)
+            .add_observer(interaction_states::on_add_expandable)
+            .add_observer(interaction_states::on_remove_expandable)
+            .add_observer(interaction_states::on_add_expanded)
+            .add_observer(interaction_states::on_remove_expanded)
             .add_observer(interaction_states::on_add_selectable)
             .add_observer(interaction_states::on_remove_selectable)
             .add_observer(interaction_states::on_add_selected)
@@ -242,6 +251,9 @@ fn build_text_interop(app: &mut App) {
     app.add_systems(
         PostUpdate,
         (
+            widget::update_inline_image_boxes
+                .before(detect_text_needs_rerender)
+                .in_set(UiSystems::Content),
             widget::measure_text_system
                 .after(detect_text_needs_rerender)
                 .after(bevy_text::load_font_assets_into_font_collection)

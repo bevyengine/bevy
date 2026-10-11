@@ -299,8 +299,8 @@ impl<'a> Iterator for VariantFieldIter<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.container.field_len();
-        (size, Some(size))
+        let remaining = self.container.field_len().saturating_sub(self.index);
+        (remaining, Some(remaining))
     }
 }
 

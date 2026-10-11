@@ -42,13 +42,13 @@ fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> Uncompres
 }
 
 @if(MORPH_TARGETS)
-// Returns the morphed position of the given vertex from the previous frame.
-//
-// This function is used for motion vector calculation, and, as such, it doesn't
-// bother morphing the normals and tangents.
-//
-// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
-// See https://github.com/gfx-rs/naga/issues/2416
+/// Returns the morphed position of the given vertex from the previous frame.
+///
+/// This function is used for motion vector calculation, and, as such, it doesn't
+/// bother morphing the normals and tangents.
+///
+/// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
+/// See https://github.com/gfx-rs/naga/issues/2416
 fn morph_prev_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> UncompressedVertex {
     var vertex = vertex_in;
     let first_vertex = mesh[instance_index].first_vertex_index;
