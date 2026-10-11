@@ -1,14 +1,16 @@
 //! A source inspecting a separate running app over the Bevy Remote Protocol.
 //!
-//! The remote entities are mirrored into a separate [`World`], the [`RemoteWorld`], at their
-//! remote ids. The entity tree and the details panel read that world instead of the local one, so
-//! no local hook, observer or system ever sees remote data. See [`world`] for what is mirrored.
+//! The remote entities and their components are mirrored into a separate [`World`], the
+//! [`RemoteWorld`], at their remote ids. The entity tree and the details panel read that world
+//! instead of the local one, so no local hook, observer or system ever sees remote data. See
+//! [`world`] for how values are inserted.
 //!
 //! The entity tree is polled with `world.query` for the components it needs only: [`Name`],
 //! [`ChildOf`] and the label-defining components. A full poll reading every component runs when
 //! entities the inspector has not seen appear, and at least every 10 seconds. It tells which
 //! entities hold a reflected component, since the others, such as observers and systems, are not
-//! mirrored. Answers are parsed off the main thread, and only what changed is written.
+//! mirrored. The components of the selected entity are fetched separately, see [`details`].
+//! Answers are deserialized off the main thread, and only values whose JSON changed are written.
 //!
 //! Remote entities with the [`Disabled`] component are not shown, since `world.query` skips them.
 //!
@@ -17,6 +19,7 @@
 //! [`Disabled`]: bevy_ecs::entity_disabling::Disabled
 //! [`World`]: bevy_ecs::world::World
 
+pub mod details;
 mod source;
 pub mod world;
 

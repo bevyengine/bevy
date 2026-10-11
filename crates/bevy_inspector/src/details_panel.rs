@@ -839,7 +839,7 @@ pub fn sync_details_panel(world: &mut World) {
     };
 
     let is_main = selection.is_none_or(|s| s.is_main);
-    let maybe_selected = selection.map(|s| Some(s.entity));
+    let maybe_selected = selection.map(|s| s.entity);
 
     let inspected = crate::world_to_inspect(world, is_main);
     let components = inspect_components(inspected, selection);
@@ -928,8 +928,8 @@ pub(crate) fn inspect_components(
         })
         .collect();
     #[cfg(feature = "remote")]
-    if let Some(record) = world.component_id::<crate::remote::RemoteComponents>() {
-        components.retain(|component| component.id != record);
+    if let Some(record) = world.get::<crate::remote::RemoteComponents>(selection.entity) {
+        return crate::remote::details::annotate(world, record, components);
     }
     components.sort_by(|left, right| (&left.name, left.id).cmp(&(&right.name, right.id)));
     components

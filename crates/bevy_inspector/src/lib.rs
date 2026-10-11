@@ -153,12 +153,14 @@ impl Plugin for InspectorPlugin {
         app.init_resource::<remote::RemoteConnections>()
             .init_resource::<remote::RemoteSnapshots>()
             .init_resource::<remote::RemoteWorlds>()
+            .init_resource::<remote::details::RemoteEntityFetch>()
             .add_systems(
                 PostUpdate,
                 (
                     remote::sync_remote_source,
                     remote::poll_remote_connection,
                     remote::sync_remote_world,
+                    remote::details::sync_remote_details,
                 )
                     .chain()
                     .before(sync_entity_tree)

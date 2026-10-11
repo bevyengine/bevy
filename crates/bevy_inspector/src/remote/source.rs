@@ -10,7 +10,6 @@ use core::{any::TypeId, time::Duration};
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionRegistry;
 use bevy_ecs::{
     change_detection::Mut,
-    entity::Entity,
     reflect::{AppTypeRegistry, ReflectComponent},
     resource::Resource,
     system::{Res, ResMut},
@@ -32,27 +31,32 @@ use bevy_remote::{
 };
 use bevy_tasks::{block_on, poll_once, IoTaskPool, Task, TaskPool};
 use bevy_time::{Real, Time};
-use serde::Deserialize;
 use serde_json::Value;
 
-use super::world::{RemoteWorld, SpawnRemoteError, TreeComponents};
 use crate::{
     details_panel::{DetailsCollapsed, DetailsColumnSplits, DetailsPanelSync},
     entity_tree::{clear_rows, EntityTreeSync},
     remote::world::RemoteWorlds,
     InspectableEntity, InspectorSelection, InspectorSource,
 };
+use bevy_ecs::entity::Entity;
+
+use super::{
+    details,
+    world::{self, Coverage, PolledComponent, RemoteWorld, SpawnRemoteError},
+};
 
 const NAME: &str = "bevy_ecs::name::Name";
 const CHILD_OF: &str = "bevy_ecs::hierarchy::ChildOf";
+const CHILDREN: &str = "bevy_ecs::hierarchy::Children";
 const IS_RESOURCE: &str = "bevy_ecs::resource::IsResource";
 
 /// The shortest time between two `world.query` polls.
-const POLL_INTERVAL: Duration = Duration::from_millis(500);
+pub(super) const POLL_INTERVAL: Duration = Duration::from_millis(500);
 /// The time to wait before reconnecting after a failed request.
 const RETRY_INTERVAL: Duration = Duration::from_secs(2);
 /// The time after which a request without an answer is dropped and the connection marked failed.
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+pub(super) const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 /// The longest time between two full polls.
 ///
 /// Full polls otherwise only run when unseen entities appear, so this bounds how long a change
@@ -119,8 +123,11 @@ pub enum RemoteConnectionState {
 /// The component types a poll asks for.
 #[derive(Debug, Default)]
 struct PollTypes {
-    /// [`NAME`], [`CHILD_OF`] and the serializable label-defining types, read on every poll.
+    /// [`NAME`], [`CHILD_OF`], [`CHILDREN`] and the serializable label-defining types, read on
+    /// every poll.
     read: Vec<String>,
+    /// The sorted [`world::path_hash`]es of [`PollTypes::read`].
+    read_hashes: Vec<u64>,
     /// The label-defining types that cannot be serialized, asked for with `has` on full polls.
     has: Vec<String>,
 }
@@ -136,7 +143,7 @@ enum Request {
 #[derive(Debug)]
 enum Reply {
     Info(BrpAppInfoResponse),
-    Rows(Vec<PolledRow>),
+    Rows(PolledRows),
 }
 
 struct PendingCall {
@@ -258,10 +265,28 @@ impl RemoteConnection {
 #[derive(Debug)]
 struct PolledRow {
     entity: Entity,
-    /// The components the [`RemoteWorld`] mirrors.
-    components: TreeComponents,
+    /// The serialized components, deserialized off the main thread.
+    components: Vec<PolledComponent>,
+    /// The types `has` reported present, or `None` if the poll did not ask for `has`.
+    detected: Option<Vec<String>>,
     /// Whether the poll serialized or detected any component of the entity.
     reflected: bool,
+}
+
+/// The rows of a `world.query` answer, and the type paths they hold.
+#[derive(Debug, Default)]
+struct PolledRows {
+    rows: Vec<PolledRow>,
+    type_paths: Vec<String>,
+}
+
+/// The rows of a poll that are still to be written into the [`RemoteWorld`].
+#[derive(Debug)]
+struct PendingRows {
+    rows: Vec<PolledRow>,
+    type_paths: Vec<String>,
+    full: bool,
+    types: Arc<PollTypes>,
 }
 
 /// The entities of the remote app.
@@ -275,7 +300,7 @@ pub struct RemoteSnapshots {
 #[derive(Debug, Default)]
 pub struct RemoteSnapshot {
     shown: Vec<Entity>,
-    pending: Option<Vec<PolledRow>>,
+    pending: Option<PendingRows>,
     known: HashSet<Entity>,
     reflected: HashSet<Entity>,
     reset: bool,
@@ -313,14 +338,14 @@ impl RemoteSnapshot {
     /// a polled component.
     ///
     /// Returns whether the rows hold entities the last full poll did not see.
-    fn set(&mut self, polled: Vec<PolledRow>, full: bool) -> bool {
+    fn set(&mut self, polled: PolledRows, full: bool, types: Arc<PollTypes>) -> bool {
         if full {
             self.known.clear();
             self.reflected.clear();
         }
         let mut unseen = false;
-        let mut shown = Vec::with_capacity(polled.len());
-        for polled in polled {
+        let mut shown = Vec::with_capacity(polled.rows.len());
+        for polled in polled.rows {
             let entity = polled.entity;
             if full {
                 self.known.insert(entity);
@@ -335,7 +360,12 @@ impl RemoteSnapshot {
             }
         }
         self.shown = shown.iter().map(|row| row.entity).collect();
-        self.pending = Some(shown);
+        self.pending = Some(PendingRows {
+            rows: shown,
+            type_paths: polled.type_paths,
+            full,
+            types,
+        });
         unseen
     }
 }
@@ -428,6 +458,9 @@ fn reset_inspected_world(world: &mut World, is_main: bool) {
             }
         }
     }
+    if let Some(mut fetch) = world.get_resource_mut::<details::RemoteEntityFetch>() {
+        *fetch = details::RemoteEntityFetch::default();
+    }
     clear_rows(world);
     world.resource_mut::<EntityTreeSync>().set_dirty();
     world.resource_mut::<DetailsPanelSync>().set_dirty();
@@ -507,11 +540,13 @@ fn _poll_remote_connection(
             false,
         ),
         Request::Query { params, full } => {
-            let types = connection.types.clone();
+            let registry = registry
+                .map(|registry| registry.0.clone())
+                .unwrap_or_default();
             (
                 spawn(async move {
                     let value = client.call(BRP_QUERY_METHOD, Some(params)).await?;
-                    Ok(Reply::Rows(parse_rows(value, &types, full)?))
+                    Ok(Reply::Rows(parse_rows(value, &registry.read(), full)?))
                 }),
                 full,
             )
@@ -524,7 +559,9 @@ fn _poll_remote_connection(
     });
 }
 
-fn spawn<T: Send + 'static>(future: impl Future<Output = T> + Send + 'static) -> Task<T> {
+pub(super) fn spawn<T: Send + 'static>(
+    future: impl Future<Output = T> + Send + 'static,
+) -> Task<T> {
     IoTaskPool::get_or_init(TaskPool::default).spawn(future)
 }
 
@@ -536,7 +573,7 @@ fn spawn<T: Send + 'static>(future: impl Future<Output = T> + Send + 'static) ->
 /// every entity, it is only asked for on full polls.
 fn poll_types(registry: &TypeRegistry, priorities: Option<&LabelResolutionRegistry>) -> PollTypes {
     let mut types = PollTypes {
-        read: alloc::vec![NAME.to_string(), CHILD_OF.to_string()],
+        read: alloc::vec![NAME.to_string(), CHILD_OF.to_string(), CHILDREN.to_string()],
         ..PollTypes::default()
     };
     for registration in registry.iter() {
@@ -560,6 +597,12 @@ fn poll_types(registry: &TypeRegistry, priorities: Option<&LabelResolutionRegist
     }
     types.read.sort_unstable();
     types.has.sort_unstable();
+    types.read_hashes = types
+        .read
+        .iter()
+        .map(|type_path| world::path_hash(type_path))
+        .collect();
+    types.read_hashes.sort_unstable();
     types
 }
 
@@ -644,20 +687,27 @@ fn query_params(types: &PollTypes, full: bool) -> Value {
     serde_json::to_value(params).unwrap_or_default()
 }
 
-/// Parses a `world.query` answer, keeping the components the [`RemoteWorld`] mirrors.
+/// Parses a `world.query` answer, deserializing every component with `registry`.
 fn parse_rows(
     value: Value,
-    types: &PollTypes,
+    registry: &TypeRegistry,
     full: bool,
-) -> Result<Vec<PolledRow>, serde_json::Error> {
+) -> Result<PolledRows, serde_json::Error> {
     let rows: BrpQueryResponse = serde_json::from_value(value)?;
-    Ok(rows
+    let rows: Vec<PolledRow> = rows
         .into_iter()
-        .filter_map(|row| polled_row(row, types, full))
-        .collect())
+        .filter_map(|row| polled_row(row, registry, full))
+        .collect();
+    let type_paths: HashSet<&str> = rows
+        .iter()
+        .flat_map(|row| &row.components)
+        .map(|component| component.type_path.as_str())
+        .collect();
+    let type_paths = type_paths.into_iter().map(ToString::to_string).collect();
+    Ok(PolledRows { rows, type_paths })
 }
 
-fn polled_row(row: BrpQueryRow, types: &PollTypes, full: bool) -> Option<PolledRow> {
+fn polled_row(row: BrpQueryRow, registry: &TypeRegistry, full: bool) -> Option<PolledRow> {
     let BrpQueryRow {
         entity,
         components,
@@ -666,32 +716,20 @@ fn polled_row(row: BrpQueryRow, types: &PollTypes, full: bool) -> Option<PolledR
     if components.contains_key(IS_RESOURCE) {
         return None;
     }
-    let mut detected: Vec<String> = has
+    let detected: Vec<String> = has
         .into_iter()
         .filter(|(_, present)| *present == Value::Bool(true))
         .map(|(path, _)| path)
         .collect();
-    detected.sort_unstable();
     let reflected = !components.is_empty() || !detected.is_empty();
-    let mut labels: Vec<String> = components
-        .keys()
-        .filter(|path| *path != NAME && *path != CHILD_OF && types.read.binary_search(path).is_ok())
-        .cloned()
+    let components = components
+        .into_iter()
+        .map(|(type_path, json)| PolledComponent::decode(registry, type_path, json))
         .collect();
-    labels.sort_unstable();
     Some(PolledRow {
         entity,
-        components: TreeComponents {
-            name: components
-                .get(NAME)
-                .and_then(Value::as_str)
-                .map(ToString::to_string),
-            parent: components
-                .get(CHILD_OF)
-                .and_then(|parent| Entity::deserialize(parent).ok()),
-            labels,
-            detected: full.then_some(detected),
-        },
+        components,
+        detected: full.then_some(detected),
         reflected,
     })
 }
@@ -720,7 +758,7 @@ fn finish_call(
             connection.next_full = now;
         }
         Ok(Reply::Rows(rows)) => {
-            let unseen = snapshot.set(rows, full);
+            let unseen = snapshot.set(rows, full, connection.types.clone());
             if full {
                 connection.last_full = now;
                 connection.next_full = now + FULL_REFRESH_INTERVAL;
@@ -777,7 +815,7 @@ fn _sync_remote_world(world: &mut World, is_main: bool) {
     let written = match written {
         Ok(written) => written,
         Err(pending) => {
-            warn!("the remote app restarted, rebuilding the remote inspector's copy of it pending_rows={}", pending.len());
+            warn!("the remote app restarted, rebuilding the remote inspector's copy of it pending_rows={}", pending.rows.len());
             reset_inspected_world(world, is_main);
 
             let mut rc = world.resource_mut::<RemoteConnections>();
@@ -816,15 +854,15 @@ struct Applied {
     selection: bool,
 }
 
-/// Writes `rows` into `remote`. Hands `rows` back if the remote app restarted.
+/// Writes `pending` into `remote`. Hands `pending` back if the remote app restarted.
 fn apply_rows(
     remote: &mut RemoteWorld,
-    rows: Vec<PolledRow>,
+    pending: PendingRows,
     selection: Option<InspectableEntity>,
     is_main: bool,
-) -> Result<Applied, Vec<PolledRow>> {
+) -> Result<Applied, PendingRows> {
     let mut applied = Applied::default();
-    let shown: HashSet<Entity> = rows.iter().map(|row| row.entity).collect();
+    let shown: HashSet<Entity> = pending.rows.iter().map(|row| row.entity).collect();
     for entity in remote.entities() {
         if !shown.contains(&entity) {
             remote.despawn(entity);
@@ -836,14 +874,15 @@ fn apply_rows(
         }
     }
 
-    let mut writable = Vec::with_capacity(rows.len());
-    for (index, row) in rows.iter().enumerate() {
+    remote.register(pending.type_paths.iter().map(String::as_str));
+    let mut writable = Vec::with_capacity(pending.rows.len());
+    for (index, row) in pending.rows.iter().enumerate() {
         match remote.spawn(row.entity) {
             Ok(spawned) => {
                 applied.tree |= spawned;
                 writable.push(index);
             }
-            Err(SpawnRemoteError::Behind) => return Err(rows),
+            Err(SpawnRemoteError::Behind) => return Err(pending),
             Err(SpawnRemoteError::Taken) => {
                 bevy_log::warn_once!(
                     "the remote inspector cannot mirror {}, its id is taken by a resource",
@@ -854,15 +893,28 @@ fn apply_rows(
         }
     }
 
+    let coverage = if pending.full {
+        Coverage::Full(&pending.types.has)
+    } else {
+        Coverage::Paths(&pending.types.read_hashes)
+    };
     let mut writable = writable.into_iter().peekable();
-    for (index, row) in rows.into_iter().enumerate() {
+    for (index, row) in pending.rows.into_iter().enumerate() {
         if writable.next_if_eq(&index).is_none() {
             continue;
         }
-        let changed = remote.write(row.entity, row.components);
-        applied.tree |= changed;
-        applied.selection |=
-            changed && selection.is_some_and(|f| f.entity == row.entity && f.is_main == is_main);
+        let written = remote.write(
+            row.entity,
+            row.components,
+            row.detected.as_deref().unwrap_or_default(),
+            coverage,
+        );
+        applied.tree |= written.tree;
+        applied.selection |= written.changed && selection.is_some_and(|f| f.entity == row.entity && f.is_main == is_main);
+    }
+    let garbage = remote.take_garbage();
+    if !garbage.is_empty() {
+        spawn(async move { drop(garbage) }).detach();
     }
     Ok(applied)
 }
@@ -898,6 +950,7 @@ pub(crate) mod tests {
         world.init_resource::<RemoteConnections>();
         world.init_resource::<RemoteSnapshots>();
         world.init_resource::<RemoteWorlds>();
+        world.init_resource::<details::RemoteEntityFetch>();
         world.init_resource::<EntityTreeSync>();
         world.init_resource::<DetailsPanelSync>();
         world.init_resource::<DetailsCollapsed>();
@@ -920,13 +973,17 @@ pub(crate) mod tests {
         )
     }
 
-    fn parse(world: &World, rows: Value, full: bool) -> Vec<PolledRow> {
-        parse_rows(rows, &world_types(world), full).unwrap()
+    fn parse(world: &World, rows: Value, full: bool) -> PolledRows {
+        parse_rows(rows, &world.resource::<AppTypeRegistry>().read(), full).unwrap()
     }
 
     fn poll(world: &mut World, rows: Vec<Value>, full: bool) {
         let rows = parse(world, Value::Array(rows), full);
-        world.resource_mut::<RemoteSnapshots>().main.set(rows, full);
+        let types = Arc::new(world_types(world));
+        world
+            .resource_mut::<RemoteSnapshots>()
+            .main
+            .set(rows, full, types);
         sync_remote_world(world);
     }
 
@@ -948,13 +1005,13 @@ pub(crate) mod tests {
 
     fn rows(rows: Value) -> Result<Reply, BrpClientError> {
         Ok(Reply::Rows(
-            parse_rows(rows, &PollTypes::default(), false).unwrap(),
+            parse_rows(rows, &TypeRegistry::default(), false).unwrap(),
         ))
     }
 
     fn full_rows(rows: Value) -> Result<Reply, BrpClientError> {
         Ok(Reply::Rows(
-            parse_rows(rows, &PollTypes::default(), true).unwrap(),
+            parse_rows(rows, &TypeRegistry::default(), true).unwrap(),
         ))
     }
 
@@ -985,6 +1042,44 @@ pub(crate) mod tests {
         assert_eq!(row["components"][CHILD_OF], json!("2v0"));
     }
 
+    fn children_of(world: &World, parent: Entity) -> Vec<Entity> {
+        mirrored(world)
+            .get::<Children>(parent)
+            .map(|children| children.to_vec())
+            .unwrap_or_default()
+    }
+
+    fn family(parent: Entity, children: &[Entity], order: &[Entity]) -> Vec<Value> {
+        let mut rows = alloc::vec![row(parent, json!({ Children::type_path(): order }))];
+        rows.extend(
+            children
+                .iter()
+                .map(|child| row(*child, json!({ CHILD_OF: parent }))),
+        );
+        rows
+    }
+
+    #[test]
+    fn children_follow_the_remote_order() {
+        let mut world = test_world();
+        let parent = remote(20);
+        let [a, b, c] = [remote(21), remote(22), remote(23)];
+        apply(&mut world, family(parent, &[a, b, c], &[c, a, b]));
+        assert_eq!(children_of(&world, parent), alloc::vec![c, a, b]);
+
+        apply(&mut world, family(parent, &[a, b, c], &[b, c, a]));
+        assert_eq!(children_of(&world, parent), alloc::vec![b, c, a]);
+    }
+
+    #[test]
+    fn children_missing_from_the_mirror_are_kept_as_reported() {
+        let mut world = test_world();
+        let parent = remote(20);
+        let [a, b, c, missing] = [remote(21), remote(22), remote(23), remote(30)];
+        apply(&mut world, family(parent, &[a, b, c], &[missing, b, a]));
+        assert_eq!(children_of(&world, parent), alloc::vec![missing, b, a]);
+    }
+
     #[test]
     fn mirrors_remote_entities_at_their_ids() {
         let mut world = test_world();
@@ -993,7 +1088,7 @@ pub(crate) mod tests {
         apply(
             &mut world,
             alloc::vec![
-                row(parent, json!({ NAME: "Parent" })),
+                row(parent, json!({ NAME: "Parent", CHILDREN: [child] })),
                 row(child, json!({ NAME: "Child", CHILD_OF: parent })),
             ],
         );
@@ -1087,6 +1182,7 @@ pub(crate) mod tests {
             types.read,
             [
                 CHILD_OF.to_string(),
+                CHILDREN.to_string(),
                 NAME.to_string(),
                 Labeled::type_path().to_string(),
                 Plain::type_path().to_string(),
@@ -1116,30 +1212,30 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn rows_keep_only_the_tree_components() {
+    fn rows_are_deserialized_when_parsed() {
         let world = label_world();
         let rows = parse(
             &world,
             json!([row(
                 remote(20),
-                json!({
-                    NAME: "Cube",
-                    CHILD_OF: remote(3),
-                    Labeled::type_path(): {},
-                    "demo::Transform": { "x": 1.0 },
-                }),
+                json!({ NAME: "Cube", "demo::Transform": { "x": 1.0 } }),
             )]),
             false,
         );
-        assert_eq!(
-            rows[0].components,
-            TreeComponents {
-                name: Some("Cube".to_string()),
-                parent: Some(remote(3)),
-                labels: alloc::vec![Labeled::type_path().to_string()],
-                detected: None,
-            }
-        );
+        let decoded = |type_path: &str| {
+            &rows.rows[0]
+                .components
+                .iter()
+                .find(|component| component.type_path == type_path)
+                .unwrap()
+                .value
+        };
+        assert!(matches!(decoded(NAME), world::Decoded::Value(_)));
+        assert!(matches!(
+            decoded("demo::Transform"),
+            world::Decoded::Unregistered
+        ));
+        assert_eq!(rows.rows[0].detected, None);
     }
 
     #[test]
@@ -1170,10 +1266,11 @@ pub(crate) mod tests {
             ]),
             false,
         );
+        let types = Arc::new(world_types(&world));
         assert!(world
             .resource_mut::<RemoteSnapshots>()
             .main
-            .set(unseen, false));
+            .set(unseen, false, types));
         sync_remote_world(&mut world);
         let rws = world.resource::<RemoteWorlds>();
         let remote_world = &rws.main;
@@ -1513,6 +1610,11 @@ pub(crate) mod tests {
         );
         world.resource_mut::<InspectorSelection>().0 =
             Some(InspectableEntity::new(remote(11), true));
+        details::sync_remote_details(&mut world);
+        assert_eq!(
+            world.resource::<details::RemoteEntityFetch>().entity(),
+            Some(remote(11))
+        );
 
         world.resource_scope(|world, mut connection: Mut<RemoteConnections>| {
             finish_call(
@@ -1525,6 +1627,7 @@ pub(crate) mod tests {
             );
         });
         sync_remote_world(&mut world);
+        details::sync_remote_details(&mut world);
 
         assert!(world.resource::<RemoteSnapshots>().main.is_empty());
         assert!(world
@@ -1533,6 +1636,10 @@ pub(crate) mod tests {
             .entities()
             .is_empty());
         assert_eq!(world.resource::<InspectorSelection>().0, None);
+        assert_eq!(
+            world.resource::<details::RemoteEntityFetch>().entity(),
+            None
+        );
     }
 
     #[test]
@@ -1567,11 +1674,12 @@ pub(crate) mod tests {
         snapshot.set(
             parse_rows(
                 json!([row(remote(11), json!({ NAME: "A" }))]),
-                &PollTypes::default(),
+                &TypeRegistry::default(),
                 true,
             )
             .unwrap(),
             true,
+            Arc::default(),
         );
         let started = Duration::from_secs(1);
         connection.pending = Some(PendingCall {
