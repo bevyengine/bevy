@@ -9,8 +9,8 @@ use core::{
     iter::FusedIterator,
     marker::PhantomData,
     ops::{
-        Bound, Deref, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull,
-        RangeInclusive, RangeTo, RangeToInclusive,
+        Bound, Deref, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive,
+        RangeTo, RangeToInclusive,
     },
     ptr,
 };
@@ -162,7 +162,7 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
     /// Moves all key-value pairs from `other` into `self`, leaving `other` empty.
     ///
     /// Equivalent to [`IndexMap::append`].
-    pub fn append(&mut self, other: &mut EntityEquivalentIndexMap<K>) {
+    pub fn append(&mut self, other: &mut EntityEquivalentIndexMap<K, V>) {
         self.0.append(&mut other.0);
     }
 
@@ -229,7 +229,12 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
     /// Insert a key-value pair in the map at its ordered position using a sort-key extraction function.
     ///
     /// Equivalent to [`IndexMap::insert_sorted_by_key`].
-    pub fn insert_sorted_by_key<B, F>(&mut self, key: K, value: V, sort_key: F) -> (usize, Option<V>)
+    pub fn insert_sorted_by_key<B, F>(
+        &mut self,
+        key: K,
+        value: V,
+        sort_key: F,
+    ) -> (usize, Option<V>)
     where
         B: Ord,
         F: FnMut(&K, &V) -> B,
@@ -374,7 +379,7 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
     pub fn sort_by_key<Q, F>(&mut self, sort_key: F)
     where
         Q: Ord,
-        F: FnMut(&K, &V, &K, &V) -> Q,
+        F: FnMut(&K, &V) -> Q,
     {
         self.0.sort_by_key(sort_key);
     }
@@ -385,7 +390,7 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
     /// Equivalent to [`IndexMap::sort_unstable_by`].
     pub fn sort_unstable_by<F>(&mut self, cmp: F)
     where
-        F: FnMut(&K, &K) -> Ordering,
+        F: FnMut(&K, &V, &K, &V) -> Ordering,
     {
         self.0.sort_unstable_by(cmp);
     }
@@ -410,7 +415,7 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
         &mut self,
         range: R,
         replace_with: I,
-    ) -> set::Splice<'_, I::IntoIter, K, V, EntityHash>
+    ) -> map::Splice<'_, I::IntoIter, K, V, EntityHash>
     where
         R: RangeBounds<usize>,
         I: IntoIterator<Item = (K, V)>,
@@ -484,7 +489,6 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
     ) -> Result<(), indexmap::TryReserveError> {
         self.0.try_reserve_exact(additional)
     }
-
 }
 
 impl<K: EntityEquivalent + Hash, V> Default for EntityEquivalentIndexMap<K, V> {
