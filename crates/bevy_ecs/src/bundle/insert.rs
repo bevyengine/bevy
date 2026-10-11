@@ -263,13 +263,14 @@ impl<'w> BundleInserter<'w> {
                 // SAFETY: Points to valid archetype, doesn't conflict with other references, will not outlive `BundleInserter::insert`
                 let new_archetype = unsafe { new_archetype.as_mut() };
 
-                let (sparse_sets, table, entities) = {
+                let (sparse_sets, table, entities, removed_components) = {
                     // SAFETY: has read+write perms, we do not use the `&mut World` to access archetypes, world ref will be dropped after this block
                     let world = unsafe { world.world_mut() };
                     (
                         &mut world.storages.sparse_sets,
                         &mut world.storages.tables[new_archetype.table_id()],
                         &mut world.entities,
+                        &mut world.removed_components,
                     )
                 };
 
@@ -282,6 +283,7 @@ impl<'w> BundleInserter<'w> {
                             .debug_checked_unwrap()
                             .remove(entity);
                     }
+                    removed_components.write(removed_component, entity);
                 }
 
                 let result = archetype.swap_remove(location.archetype_row);
@@ -314,7 +316,7 @@ impl<'w> BundleInserter<'w> {
                 let new_archetype = unsafe { new_archetype.as_mut() };
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let (archetypes_ptr, tables, sparse_sets, entities) = {
+                let (archetypes_ptr, tables, sparse_sets, entities, removed_components) = {
                     // SAFETY: has read+write perms, we do not use the `&mut World` to access archetypes, world ref will be dropped after this block
                     let world = unsafe { world.world_mut() };
                     let archetype_ptr: *mut Archetype = world.archetypes.archetypes.as_mut_ptr();
@@ -323,6 +325,7 @@ impl<'w> BundleInserter<'w> {
                         &mut world.storages.tables,
                         &mut world.storages.sparse_sets,
                         &mut world.entities,
+                        &mut world.removed_components,
                     )
                 };
                 let result = archetype.swap_remove(location.archetype_row);
@@ -371,6 +374,11 @@ impl<'w> BundleInserter<'w> {
                             .debug_checked_unwrap()
                             .remove(entity);
                     }
+                    removed_components.write(removed_component, entity);
+                }
+
+                for &removed_component in archetype_after_insert.removed_table().iter() {
+                    removed_components.write(removed_component, entity);
                 }
 
                 // SAFETY: Table data has been moved to this table/row, sparse set data was already valid

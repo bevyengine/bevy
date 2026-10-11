@@ -174,7 +174,7 @@ impl ArchetypeAfterBundleInsert {
     }
 
     pub(crate) fn existing(&self) -> &[ComponentId] {
-        // SAFETY: `existing_start_idx` and `removed_sparse_start_idx` is always in range `0..=components.len()`
+        // SAFETY: `existing_start_idx` and `removed_sparse_start_idx` are always in range `0..=components.len()`
         unsafe {
             self.components
                 .get(self.existing_start_idx as usize..self.removed_sparse_start_idx as usize)
@@ -192,10 +192,19 @@ impl ArchetypeAfterBundleInsert {
     }
 
     pub(crate) fn removed_sparse(&self) -> &[ComponentId] {
-        // SAFETY: `removed_sparse_start_idx` and `removed_table_start_idx` is always in range `0..=components.len()`
+        // SAFETY: `removed_sparse_start_idx` and `removed_table_start_idx` are always in range `0..=components.len()`
         unsafe {
             self.components
                 .get(self.removed_sparse_start_idx as usize..self.removed_table_start_idx as usize)
+                .debug_checked_unwrap()
+        }
+    }
+
+    pub(crate) fn removed_table(&self) -> &[ComponentId] {
+        // SAFETY: `removed_table_start_idx` is always in range `0..=components.len()`
+        unsafe {
+            self.components
+                .get(self.removed_table_start_idx as usize..)
                 .debug_checked_unwrap()
         }
     }

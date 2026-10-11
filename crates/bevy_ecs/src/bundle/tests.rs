@@ -643,3 +643,70 @@ fn mutually_exclusive_with_existing_component_on_archetype_should_panic() {
     let player = world.spawn(Grounded).id();
     world.entity_mut(player).insert((Grounded, Jumping));
 }
+
+#[test]
+fn mutually_exclusive_removal_triggers_removed_components_message() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    #[component(storage = "SparseSet")]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    struct CompC;
+
+    #[derive(Component, Default)]
+    #[component(storage = "SparseSet")]
+    struct CompD;
+
+    let mut world = World::new();
+    let a_id = world.register_component::<CompA>();
+    let b_id = world.register_component::<CompB>();
+
+    world.register_mutually_exclusive_components::<(CompA, CompC)>();
+    world.register_mutually_exclusive_components::<(CompB, CompC)>();
+    world.register_mutually_exclusive_components::<(CompB, CompD)>();
+
+    // Table move
+    let e1 = world.spawn((CompA, CompB)).id();
+    world.entity_mut(e1).insert(CompC);
+    assert_eq!(
+        world
+            .removed_components()
+            .get(a_id)
+            .unwrap()
+            .iter_current_update_messages()
+            .cloned()
+            .map(Into::into)
+            .collect::<Vec<Entity>>(),
+        vec![e1]
+    );
+    assert_eq!(
+        world
+            .removed_components()
+            .get(b_id)
+            .unwrap()
+            .iter_current_update_messages()
+            .cloned()
+            .map(Into::into)
+            .collect::<Vec<Entity>>(),
+        vec![e1]
+    );
+    world.removed_components.update();
+
+    // Archetype move
+    let e2 = world.spawn((CompA, CompB)).id();
+    world.entity_mut(e2).insert(CompD);
+    assert_eq!(
+        world
+            .removed_components()
+            .get(b_id)
+            .unwrap()
+            .iter_current_update_messages()
+            .cloned()
+            .map(Into::into)
+            .collect::<Vec<Entity>>(),
+        vec![e2]
+    );
+}
