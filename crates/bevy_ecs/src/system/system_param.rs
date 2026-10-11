@@ -3357,6 +3357,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "World")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_commands_first() {
         fn system(_: Commands, _: &mut World) {}
         assert_is_system(system);
@@ -3364,6 +3368,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Commands")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_commands_second() {
         fn system(_: &mut World, _: Commands) {}
         assert_is_system(system);
@@ -3371,6 +3379,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "World")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_entities_first() {
         fn system(_: &Entities, _: &mut World) {}
         assert_is_system(system);
@@ -3378,6 +3390,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Entities")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_entities_second() {
         fn system(_: &mut World, _: &Entities) {}
         assert_is_system(system);
@@ -3385,6 +3401,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Archetypes")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_archetypes() {
         fn system(_: &mut World, _: &Archetypes) {}
         assert_is_system(system);
@@ -3392,6 +3412,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Components")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_components() {
         fn system(_: &mut World, _: &Components) {}
         assert_is_system(system);
@@ -3399,6 +3423,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "EntityAllocator")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_entity_allocator() {
         fn system(_: &mut World, _: &EntityAllocator) {}
         assert_is_system(system);
@@ -3406,6 +3434,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Bundles")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_bundles() {
         fn system(_: &mut World, _: &Bundles) {}
         assert_is_system(system);
@@ -3413,6 +3445,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "World")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_immutable_world() {
         fn system(_: &mut World, _: &World) {}
         assert_is_system(system);
@@ -3420,6 +3456,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "DeferredWorld")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_deferred_world() {
         fn system(_: &mut World, _: DeferredWorld) {}
         assert_is_system(system);
@@ -3439,6 +3479,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "World")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_param_set_conflicts_outside() {
         fn system(_: &Entities, _: ParamSet<(&mut World, &Entities)>) {}
         assert_is_system(system);
@@ -3446,6 +3490,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Entities")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_param_set_conflicts_outside_reverse() {
         fn system(_: ParamSet<(&mut World, &Entities)>, _: &Entities) {}
         assert_is_system(system);
@@ -3453,6 +3501,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Entities")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_optional_entities() {
         fn system(_: &mut World, _: Option<&Entities>) {}
         assert_is_system(system);
@@ -3460,6 +3512,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "error[B0008]")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_optional_query() {
         #[derive(Component)]
         struct A;
@@ -3469,6 +3525,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "error[B0008]")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_query() {
         #[derive(Component)]
         struct A;
@@ -3478,6 +3538,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "error[B0008]")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn mutable_world_conflicts_with_empty_query() {
         fn system(_: &mut World, _: Query<()>) {}
         assert_is_system(system);

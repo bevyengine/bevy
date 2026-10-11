@@ -341,7 +341,11 @@ impl<A, B> IntoPipeSystem<A, B> {
     /// Note that the "first" system is the one passed as `self` to [`IntoSystem::pipe`].
     /// When piping multiple systems, that may itself by another [`PipeSystem`]!
     ///
-    /// ```
+    #[cfg_attr(feature = "debug", doc = " ```")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        doc = " ```ignore (test only works with the `debug` feature enabled)"
+    )]
     /// # use bevy_ecs::prelude::*;
     /// # let a = IntoSystem::into_system(|| {}).with_name("a");
     /// # let b = IntoSystem::into_system(|| {}).with_name("b");
@@ -359,11 +363,15 @@ impl<A, B> IntoPipeSystem<A, B> {
     }
 
     /// Set the name of the output [`PipeSystem`] to the name of the second system.
-    ///   
+    ///
     /// Note that the "second" system is the one passed as a parameter to [`IntoSystem::pipe`].
     /// When piping multiple systems, that may itself by another [`PipeSystem`]!
     ///
-    /// ```
+    #[cfg_attr(feature = "debug", doc = " ```")]
+    #[cfg_attr(
+        not(feature = "debug"),
+        doc = " ```ignore (test only works with the `debug` feature enabled)"
+    )]
     /// # use bevy_ecs::prelude::*;
     /// # let a = IntoSystem::into_system(|| {}).with_name("a");
     /// # let b = IntoSystem::into_system(|| {}).with_name("b");
