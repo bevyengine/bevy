@@ -37,7 +37,7 @@ use serde_json::Value;
 use super::{
     source::{spawn, POLL_INTERVAL, REQUEST_TIMEOUT},
     world::{AsideReason, Coverage, PolledComponent, UnregisteredComponents},
-    RemoteComponents, RemoteConnections, RemoteConnectionState, RemoteWorlds,
+    RemoteComponents, RemoteConnectionState, RemoteConnections, RemoteWorlds,
 };
 use crate::{
     component_short_name,
@@ -96,7 +96,8 @@ impl RemoteEntityFetch {
 
 /// Fetches the components of the selected remote entity, and writes them into the
 /// [`RemoteWorld`] when they change.
-pub fn sync_remote_details(world: &mut World) { // CHAIN 4
+pub fn sync_remote_details(world: &mut World) {
+    // CHAIN 4
     _sync_remote_details(world, true);
     _sync_remote_details(world, false);
 }
@@ -108,22 +109,30 @@ fn _sync_remote_details(world: &mut World, is_main: bool) {
     let selection = world
         .resource::<InspectorSelection>()
         .0
-        .filter(|entity| w.contains(entity.0));
-    let selection_entity = selection.map_or(None, |s| Some(s.0));
-    
+        .filter(|selection| w.contains(selection.entity));
+    let selection_entity = selection.map_or(None, |s| Some(s.entity));
+
     let fs = world.resource::<RemoteEntityFetchs>();
     let f = if is_main { &fs.main } else { &fs.render };
     if f.entity != selection_entity {
-        world.resource_mut::<RemoteEntityFetchs>().main = RemoteEntityFetch {
-            entity: selection_entity,
-            ..RemoteEntityFetch::default()
-        };
+        let mut fetchs = world.resource_mut::<RemoteEntityFetchs>();
+        if is_main {
+            fetchs.main = RemoteEntityFetch {
+                entity: selection_entity,
+                ..RemoteEntityFetch::default()
+            };
+        } else {
+            fetchs.render = RemoteEntityFetch {
+                entity: selection_entity,
+                ..RemoteEntityFetch::default()
+            };
+        }
     }
 
-    let Some((remote, sel_is_main)) = selection else {
+    let Some(selection) = selection else {
         return;
     };
-    if sel_is_main != is_main {
+    if selection.is_main != is_main {
         return;
     }
 
@@ -132,15 +141,31 @@ fn _sync_remote_details(world: &mut World, is_main: bool) {
         .map(Time::elapsed)
         .unwrap_or_default();
 
-    if let Some(fetched) = finish_fetch(&mut world.resource_mut::<RemoteEntityFetchs>().main, now) {
-        receive_entity(world, remote, fetched);
+    let mut fetchs = world.resource_mut::<RemoteEntityFetchs>();
+    let mut fetch = if is_main {
+        &mut fetchs.main
+    } else {
+        &mut fetchs.render
+    };
+    if let Some(fetched) = finish_fetch(&mut fetch, now) {
+        receive_entity(world, selection.entity, fetched, is_main);
     }
 
-    let fetch = &world.resource::<RemoteEntityFetchs>().main;
+    let fetchs = world.resource::<RemoteEntityFetchs>();
+    let fetch = if is_main {
+        &fetchs.main
+    } else {
+        &fetchs.render
+    };
     if fetch.pending.is_some() || now < fetch.next_fetch {
         return;
     }
-    let connection = &world.resource::<RemoteConnections>().main;
+    let connections = world.resource::<RemoteConnections>();
+    let connection = if is_main {
+        &connections.main
+    } else {
+        &connections.render
+    };
     if !matches!(connection.state, RemoteConnectionState::Connected { .. }) {
         return;
     }
@@ -148,22 +173,38 @@ fn _sync_remote_details(world: &mut World, is_main: bool) {
         return;
     };
     let registry = world.resource::<AppTypeRegistry>().0.clone();
-    world.resource_mut::<RemoteEntityFetchs>().main.pending = Some(DetailsCall {
-        task: spawn(fetch_entity(client, remote, registry)),
+    let mut fetchs = world.resource_mut::<RemoteEntityFetchs>();
+    let mut fetch = if is_main {
+        &mut fetchs.main
+    } else {
+        &mut fetchs.render
+    };
+    fetch.pending = Some(DetailsCall {
+        task: spawn(fetch_entity(client, selection.entity, registry)),
         started: now,
     });
 }
 
 /// Writes the fetched components of `remote` into the [`RemoteWorld`].
-pub(crate) fn receive_entity(world: &mut World, remote: Entity, fetched: FetchedEntity) {
-    let written = world.resource_scope(|_, mut remote_world: Mut<RemoteWorlds>| {
-        remote_world.main.register(
+pub(crate) fn receive_entity(
+    world: &mut World,
+    remote: Entity,
+    fetched: FetchedEntity,
+    is_main: bool,
+) {
+    let written = world.resource_scope(|_, mut remote_worlds: Mut<RemoteWorlds>| {
+        let remote_world = if is_main {
+            &mut remote_worlds.main
+        } else {
+            &mut remote_worlds.render
+        };
+        remote_world.register(
             fetched
                 .components
                 .iter()
                 .map(|component| component.type_path.as_str()),
         );
-        let written = remote_world.main.write(
+        let written = remote_world.write(
             remote,
             fetched.components,
             &fetched.unserialized,
@@ -171,9 +212,9 @@ pub(crate) fn receive_entity(world: &mut World, remote: Entity, fetched: Fetched
             false,
         );
         if written.tree {
-            remote_world.main.order_children();
+            remote_world.order_children();
         }
-        remote_world.main.take_garbage();
+        remote_world.take_garbage();
         written
     });
     if written.changed {
@@ -399,6 +440,7 @@ fn raw_value(json: &Value, note: Option<&str>) -> String {
 mod tests {
     use super::*;
     use crate::{
+        _InspectorSelection,
         details_panel::inspect_components,
         remote::tests::{apply, mirrored, remote, row, test_world},
     };
@@ -462,8 +504,11 @@ mod tests {
     /// Mirrors `target` with a name, and selects it.
     fn select(world: &mut World, target: Entity) {
         apply(world, alloc::vec![row(target, json!({ NAME: "Selected" }))]);
-        let sel = world.resource_mut::<InspectorSelection>();
-        sel.0 = Some((target, true));
+        let mut sel = world.resource_mut::<InspectorSelection>();
+        sel.0 = Some(_InspectorSelection {
+            entity: target,
+            is_main: true,
+        });
         sync_remote_details(world);
     }
 
@@ -483,7 +528,13 @@ mod tests {
     }
 
     fn groups(world: &World, target: Entity) -> Vec<ComponentDetails> {
-        inspect_components(mirrored(world), Some(target, true))
+        inspect_components(
+            mirrored(world),
+            Some(_InspectorSelection {
+                entity: target,
+                is_main: true,
+            }),
+        )
     }
 
     fn names(groups: &[ComponentDetails]) -> Vec<&str> {

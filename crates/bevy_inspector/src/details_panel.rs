@@ -55,6 +55,7 @@ use bevy_ui_widgets::{ControlOrientation, NumericRange, NumericValue, ScrollArea
 use bevy_utils::prelude::ShortName;
 
 use crate::{
+    _InspectorSelection,
     column_split::{ColumnSplit, ColumnSplitLeading},
     entity_tree::InspectorUi,
     InspectorSelection, InspectorSource,
@@ -158,6 +159,8 @@ pub struct FieldEdit {
     /// The inspected entity holding the component.
     #[event_target]
     pub entity: Entity,
+    /// Whether the inspected entity is a main entity or render entity.
+    pub is_main: bool,
     /// The full type path of the component.
     pub component: String,
     /// The path of the field within the component, in [`bevy_reflect::GetPath`] syntax.
@@ -277,7 +280,7 @@ pub struct DetailsIndex {
     fields: HashMap<(ComponentId, String), FieldWidget>,
     groups: HashMap<ComponentId, GroupWidget>,
     body: Option<Entity>,
-    selection: Option<(Entity, bool)>, // is_main
+    selection: Option<_InspectorSelection>,
     empty: Option<EmptyState>,
 }
 
@@ -435,7 +438,7 @@ fn emit_field_edit(
     let Ok(field) = fields.get(widget) else {
         return;
     };
-    let Some((entity, is_main)) = index.selection else {
+    let Some(selection) = index.selection else {
         return;
     };
     let Some(stored) = index.fields.get_mut(&(field.component, field.path.clone())) else {
@@ -449,7 +452,8 @@ fn emit_field_edit(
     let displayed = stored.clone();
     commands.queue(move |world: &mut World| apply_value(world, &displayed, &displayed.value));
     commands.trigger(FieldEdit {
-        entity,
+        entity: selection.entity,
+        is_main: selection.is_main,
         component: field.type_path.clone(),
         path: field.path.clone(),
         value,
@@ -835,10 +839,10 @@ pub fn sync_details_panel(world: &mut World) {
         return;
     };
 
-    let maybe_is_main = selection.map_or(false, |s| s.1);
-    let maybe_selected = selection.map_or(None, |s| Some(s.0));
+    let is_main = selection.map_or(true, |s| s.is_main);
+    let maybe_selected = selection.map_or(None, |s| Some(s.entity));
 
-    let inspected = crate::world_to_inspect(world, maybe_is_main);
+    let inspected = crate::world_to_inspect(world, is_main);
     let components = inspect_components(inspected, selection);
     let empty = empty_state(inspected, maybe_selected, &components);
 
@@ -862,9 +866,9 @@ fn find_body(world: &mut World) -> Option<Entity> {
 /// The component groups of `selection` in the inspected `world`, sorted in display order.
 pub(crate) fn inspect_components(
     world: &World,
-    selection: Option<(Entity, bool)>,
+    selection: Option<_InspectorSelection>,
 ) -> Vec<ComponentDetails> {
-    let Some((entity, is_main)) = selection else {
+    let Some(selection) = selection else {
         return Vec::new();
     };
 
@@ -877,7 +881,7 @@ pub(crate) fn inspect_components(
         },
     };
 
-    let Ok(inspection) = world.inspect(entity, settings) else {
+    let Ok(inspection) = world.inspect(selection.entity, settings) else {
         return Vec::new();
     };
     let Some(registry) = world.get_resource::<AppTypeRegistry>() else {
@@ -925,8 +929,11 @@ pub(crate) fn inspect_components(
         })
         .collect();
     #[cfg(feature = "remote")]
-    if let Some(record) = world.get::<crate::remote::RemoteComponents>(entity) {
-        return crate::remote::details::annotate(world, record, components);
+    {
+        let inspected = crate::world_to_inspect(world, selection.is_main);
+        if let Some(record) = inspected.get::<crate::remote::RemoteComponents>(selection.entity) {
+            return crate::remote::details::annotate(inspected, record, components);
+        }
     }
     components.sort_by(|left, right| (&left.name, left.id).cmp(&(&right.name, right.id)));
     components
@@ -950,7 +957,7 @@ fn empty_state(
 fn reset_body(
     world: &mut World,
     body: Entity,
-    selection: Option<(Entity, bool)>,
+    selection: Option<_InspectorSelection>,
     empty: Option<EmptyState>,
 ) {
     let children: Vec<Entity> = world

@@ -27,7 +27,7 @@ pub(crate) use source::is_remote;
 #[cfg(test)]
 pub(crate) use source::tests;
 pub use source::{
-    poll_remote_connection, sync_remote_source, sync_remote_world, RemoteConnection, RemoteConnections,
-    RemoteConnectionState, RemoteSnapshot, RemoteSnapshots, RemoteSource,
+    poll_remote_connection, sync_remote_source, sync_remote_world, RemoteConnection,
+    RemoteConnectionState, RemoteConnections, RemoteSnapshot, RemoteSnapshots, RemoteSource,
 };
 pub use world::{RemoteComponents, RemoteWorld, RemoteWorlds};

@@ -68,10 +68,18 @@ pub(crate) fn world_to_inspect(world: &World, is_main: bool) -> &World {
     world
 }
 
+// TODO: needs better name
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Hash)]
+#[reflect(Debug, Clone, PartialEq)]
+pub struct _InspectorSelection {
+    entity: Entity,
+    is_main: bool,
+}
+
 /// The entity currently being inspected, as an id in the inspected world.
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
-pub struct InspectorSelection(pub Option<(Entity, bool)>); // is_main
+pub struct InspectorSelection(pub Option<_InspectorSelection>);
 
 /// The [`ShortName`] of a component type, taken from the type registry where possible.
 ///

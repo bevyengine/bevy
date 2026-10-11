@@ -16,10 +16,20 @@
 
 use bevy::{
     feathers::{
-        FeathersPlugins, controls::{FeathersPane, FeathersSplitPane, FeathersSplitPaneHandle}, dark_theme::create_dark_theme, theme::UiTheme,
-    }, inspector::{
-        InspectorPlugin, InspectorSource, details_panel::details_panel, entity_tree::{InspectorUi, entity_tree_panel}, remote::RemoteSource,
-    }, prelude::*, remote::http::{DEFAULT_PORT, DEFAULT_RENDER_PORT}, ui_widgets::split_pane_self_update,
+        controls::{FeathersPane, FeathersSplitPane, FeathersSplitPaneHandle},
+        dark_theme::create_dark_theme,
+        theme::UiTheme,
+        FeathersPlugins,
+    },
+    inspector::{
+        details_panel::details_panel,
+        entity_tree::{entity_tree_panel, InspectorUi},
+        remote::RemoteSource,
+        InspectorPlugin, InspectorSource,
+    },
+    prelude::*,
+    remote::http::{DEFAULT_PORT, DEFAULT_RENDER_PORT},
+    ui_widgets::split_pane_self_update,
 };
 
 fn main() {
