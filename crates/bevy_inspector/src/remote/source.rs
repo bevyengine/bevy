@@ -47,6 +47,7 @@ use super::{
 
 const NAME: &str = "bevy_ecs::name::Name";
 const CHILD_OF: &str = "bevy_ecs::hierarchy::ChildOf";
+const CHILDREN: &str = "bevy_ecs::hierarchy::Children";
 const IS_RESOURCE: &str = "bevy_ecs::resource::IsResource";
 
 /// The shortest time between two `world.query` polls.
@@ -118,7 +119,8 @@ pub enum RemoteConnectionState {
 /// The component types a poll asks for.
 #[derive(Debug, Default)]
 struct PollTypes {
-    /// [`NAME`], [`CHILD_OF`] and the serializable label-defining types, read on every poll.
+    /// [`NAME`], [`CHILD_OF`], [`CHILDREN`] and the serializable label-defining types, read on
+    /// every poll.
     read: Vec<String>,
     /// The sorted [`world::path_hash`]es of [`PollTypes::read`].
     read_hashes: Vec<u64>,
@@ -472,7 +474,7 @@ pub(super) fn spawn<T: Send + 'static>(
 /// every entity, it is only asked for on full polls.
 fn poll_types(registry: &TypeRegistry, priorities: Option<&LabelResolutionRegistry>) -> PollTypes {
     let mut types = PollTypes {
-        read: alloc::vec![NAME.to_string(), CHILD_OF.to_string()],
+        read: alloc::vec![NAME.to_string(), CHILD_OF.to_string(), CHILDREN.to_string()],
         ..PollTypes::default()
     };
     for registration in registry.iter() {
@@ -764,7 +766,6 @@ fn apply_rows(
     } else {
         Coverage::Paths(&pending.types.read_hashes)
     };
-    let retry = applied.tree;
     let mut writable = writable.into_iter().peekable();
     for (index, row) in pending.rows.into_iter().enumerate() {
         if writable.next_if_eq(&index).is_none() {
@@ -775,13 +776,9 @@ fn apply_rows(
             row.components,
             row.detected.as_deref().unwrap_or_default(),
             coverage,
-            retry,
         );
         applied.tree |= written.tree;
         applied.selection |= written.changed && selection == Some(row.entity);
-    }
-    if applied.tree {
-        remote.order_children();
     }
     let garbage = remote.take_garbage();
     if !garbage.is_empty() {
@@ -941,12 +938,12 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn children_missing_from_the_mirror_are_skipped() {
+    fn children_missing_from_the_mirror_are_kept_as_reported() {
         let mut world = test_world();
         let parent = remote(20);
         let [a, b, c, missing] = [remote(21), remote(22), remote(23), remote(30)];
         apply(&mut world, family(parent, &[a, b, c], &[missing, b, a]));
-        assert_eq!(children_of(&world, parent), alloc::vec![b, a, c]);
+        assert_eq!(children_of(&world, parent), alloc::vec![missing, b, a]);
     }
 
     #[test]
@@ -957,7 +954,7 @@ pub(crate) mod tests {
         apply(
             &mut world,
             alloc::vec![
-                row(parent, json!({ NAME: "Parent" })),
+                row(parent, json!({ NAME: "Parent", CHILDREN: [child] })),
                 row(child, json!({ NAME: "Child", CHILD_OF: parent })),
             ],
         );
@@ -1051,6 +1048,7 @@ pub(crate) mod tests {
             types.read,
             [
                 CHILD_OF.to_string(),
+                CHILDREN.to_string(),
                 NAME.to_string(),
                 Labeled::type_path().to_string(),
                 Plain::type_path().to_string(),

@@ -602,7 +602,9 @@ mod tests {
         use serde_json::json;
 
         let mut app = test_app();
-        app.register_type::<ChildOf>().register_type::<Name>();
+        app.register_type::<ChildOf>()
+            .register_type::<Children>()
+            .register_type::<Name>();
         app.insert_resource(InspectorSource::Remote(RemoteSource::localhost(1)));
         app.update();
 
@@ -617,7 +619,13 @@ mod tests {
         apply(
             app.world_mut(),
             alloc::vec![
-                row(parent, json!({ "bevy_ecs::name::Name": "Remote" })),
+                row(
+                    parent,
+                    json!({
+                        "bevy_ecs::name::Name": "Remote",
+                        "bevy_ecs::hierarchy::Children": [child],
+                    })
+                ),
                 row(child, json!({ "bevy_ecs::hierarchy::ChildOf": parent })),
             ],
         );
@@ -636,6 +644,51 @@ mod tests {
         let sources = row_sources(app.world(), tree);
         assert!(sources.contains(&local));
         assert!(!sources.contains(&parent));
+    }
+
+    #[cfg(feature = "remote")]
+    #[test]
+    fn skips_remote_entities_that_are_not_mirrored() {
+        use crate::remote::{
+            tests::{apply, mirrored, row},
+            RemoteSource,
+        };
+        use crate::InspectorSource;
+        use serde_json::json;
+
+        let mut app = test_app();
+        app.register_type::<ChildOf>()
+            .register_type::<Children>()
+            .register_type::<Name>();
+        app.insert_resource(InspectorSource::Remote(RemoteSource::localhost(1)));
+        app.update();
+
+        let panel = app.world_mut().spawn(InspectorUi).id();
+        let tree = app
+            .world_mut()
+            .spawn((InspectorTreeView, ChildOf(panel)))
+            .id();
+        let parent = Entity::from_raw_u32(40).unwrap();
+        let child = Entity::from_raw_u32(41).unwrap();
+        let orphan = Entity::from_raw_u32(42).unwrap();
+        let missing = Entity::from_raw_u32(50).unwrap();
+        apply(
+            app.world_mut(),
+            alloc::vec![
+                row(
+                    parent,
+                    json!({ "bevy_ecs::hierarchy::Children": [missing, child] })
+                ),
+                row(child, json!({ "bevy_ecs::hierarchy::ChildOf": parent })),
+                row(orphan, json!({ "bevy_ecs::hierarchy::ChildOf": missing })),
+            ],
+        );
+        app.update();
+
+        assert_eq!(row_sources(app.world(), tree), [parent]);
+        let inspected = mirrored(app.world());
+        assert_eq!(visible_children(inspected, parent), [child]);
+        assert!(is_excluded(inspected, orphan));
     }
 
     #[test]

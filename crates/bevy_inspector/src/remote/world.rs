@@ -1,44 +1,47 @@
 //! A [`World`] mirroring the entities and components of the remote app.
 //!
 //! Remote entities are spawned at their remote ids, so the entity tree and the details panel read
-//! the mirror like any other world. Component values are inserted through reflection, but only for
-//! types that have no component hooks, so that inserting them never spawns entities or depends on
-//! state the mirror lacks. Other components are kept aside on the entity's [`RemoteComponents`].
+//! the mirror like any other world. Component values are written through reflection, but only for
+//! types that have no component hooks besides relationship hooks, so that writing them never spawns
+//! entities or depends on state the mirror lacks. Other components are kept aside on the entity's
+//! [`RemoteComponents`].
 //!
 //! Spawning at the remote ids keeps every id, such as the selection or a [`ChildOf`] target, the
-//! same in both worlds. [`World::spawn_at`] only accepts the current generation of an index, and a
-//! fresh world starts every index at generation 0, so the index is stepped up to the remote
-//! generation by spawning and despawning it without freeing. Indices up to the remote ones are
-//! reserved, so the allocator never hands them out. A `bevy_ecs` API setting the generation of an
-//! index and reserving it would replace this stepping.
+//! same in both worlds, so relationships and their targets, such as [`Children`], are inserted as
+//! the remote app reported them, with relationship hooks skipped.
+//!
+//! [`World::spawn_at`] only accepts the current generation of an index, and a fresh world starts
+//! every index at generation 0, so the index is stepped up to the remote generation by spawning
+//! and despawning it without freeing. Indices up to the remote ones are reserved, so the allocator
+//! never hands them out. A `bevy_ecs` API setting the generation of an index and reserving it would
+//! replace this stepping.
 
 use alloc::{
     boxed::Box,
     string::{String, ToString},
     vec::Vec,
 };
-use core::{
-    cmp::Ordering,
-    hash::{BuildHasher, Hasher},
-};
+use core::{cmp::Ordering, hash::BuildHasher, mem::ManuallyDrop, ptr::NonNull};
 
 use bevy_ecs::{
+    bundle::BundleScratch,
     component::{Component, ComponentId, ComponentInfo},
-    entity::{Entity, EntityHashMap, SpawnError},
+    entity::{Entity, SpawnError},
     error::{warn, FallbackErrorHandler},
     hierarchy::{ChildOf, Children},
     lifecycle::HookContext,
     name::Name,
+    ptr::OwningPtr,
     query::With,
     reflect::{AppTypeRegistry, ReflectComponent},
-    relationship::RelationshipAccessor,
+    relationship::{RelationshipAccessor, RelationshipHookMode},
     resource::Resource,
     world::{DeferredWorld, FromWorld, World},
 };
 use bevy_log::warn_once;
-use bevy_platform::{collections::HashMap, hash::FixedHasher};
+use bevy_platform::{cell::SyncCell, collections::HashMap, hash::FixedHasher};
 use bevy_reflect::{
-    serde::TypedReflectDeserializer, PartialReflect, Reflect, ReflectFromReflect, ReflectRef,
+    serde::TypedReflectDeserializer, std_traits::ReflectDefault, Reflect, ReflectFromReflect,
     TypeRegistry,
 };
 use serde::de::DeserializeSeed;
@@ -63,6 +66,7 @@ pub struct RemoteWorld {
     types: HashMap<u64, Registered>,
     probe: HookProbe,
     garbage: Garbage,
+    scratch: SyncCell<BundleScratch>,
 }
 
 /// A component type registered in the [`RemoteWorld`].
@@ -70,12 +74,12 @@ pub struct RemoteWorld {
 struct Registered {
     id: ComponentId,
     reflect_component: ReflectComponent,
-    /// Whether values of the type are inserted, rather than kept aside for having hooks.
+    /// Whether values of the type are written, rather than kept aside for having hooks.
     insertable: bool,
 }
 
-/// Finds the component types that have no hooks, using a world of its own that never holds an
-/// entity, since hooks can only be inspected by trying to register them.
+/// Finds the component types that have no hooks besides relationship hooks, using a world of its
+/// own that never holds an entity, since hooks can only be inspected by trying to register them.
 ///
 /// Hooks declared on a type are found. Hooks that plugins register at runtime do not exist in the
 /// remote world either, so they are not looked for.
@@ -86,13 +90,17 @@ struct HookProbe {
 
 impl HookProbe {
     fn new() -> Self {
+        let mut world = World::new();
+        world.register_component::<ChildOf>();
+        world.register_component::<Children>();
         Self {
-            world: World::new(),
+            world,
             hook_free: HashMap::default(),
         }
     }
 
-    /// Whether the type of `reflect_component` and all its required components have no hooks.
+    /// Whether the type of `reflect_component` and all its required components have no hooks
+    /// besides relationship hooks.
     fn is_hook_free(&mut self, reflect_component: &ReflectComponent) -> bool {
         let id = reflect_component.register_component(&mut self.world);
         let required: Vec<ComponentId> = self
@@ -106,20 +114,32 @@ impl HookProbe {
             .all(|id| self.has_no_hooks(id))
     }
 
-    /// Whether the component `id` has no hooks. Each id is only probed once, since probing
-    /// registers placeholder hooks.
+    /// Whether the component `id` has no hooks besides those a relationship or its target
+    /// registers, which writing skips, and which only update the relationship's entities on
+    /// removal. Each id is only probed once, since probing registers placeholder hooks.
     fn has_no_hooks(&mut self, id: ComponentId) -> bool {
         if let Some(hook_free) = self.hook_free.get(&id) {
             return *hook_free;
         }
+        let relationship = self
+            .world
+            .components()
+            .get_info(id)
+            .and_then(ComponentInfo::relationship_accessor)
+            .map(|accessor| matches!(accessor, RelationshipAccessor::Relationship { .. }));
         let hook_free = self
             .world
             .register_component_hooks_by_id(id)
             .and_then(|hooks| hooks.try_on_add(no_hook))
-            .and_then(|hooks| hooks.try_on_insert(no_hook))
-            .and_then(|hooks| hooks.try_on_discard(no_hook))
             .and_then(|hooks| hooks.try_on_remove(no_hook))
-            .and_then(|hooks| hooks.try_on_despawn(no_hook))
+            .and_then(|hooks| match relationship {
+                Some(true) => hooks.try_on_despawn(no_hook),
+                Some(false) => hooks.try_on_insert(no_hook),
+                None => hooks
+                    .try_on_insert(no_hook)?
+                    .try_on_discard(no_hook)?
+                    .try_on_despawn(no_hook),
+            })
             .is_some();
         self.hook_free.insert(id, hook_free);
         hook_free
@@ -179,43 +199,46 @@ impl RemoteWorld {
             types: HashMap::default(),
             probe: HookProbe::new(),
             garbage: Garbage::default(),
+            scratch: SyncCell::new(BundleScratch::default()),
         }
     }
 
     /// Registers the component types at `type_paths` that are registered locally for reflection,
     /// and finds whether they have hooks.
     ///
-    /// Only types with no hooks are inserted. [`ChildOf`] is the one exception, since its hooks
-    /// only build [`Children`], which is never inserted from JSON. Types that have hooks are kept
-    /// aside instead.
+    /// Only types with no hooks besides relationship hooks are written. Types that have other
+    /// hooks are kept aside instead.
     ///
     /// A relationship and its target only know they form a relationship once both are
-    /// registered, so the types of a whole request are registered before any is written.
+    /// registered, so the types of a whole request are registered before any is probed.
     pub(crate) fn register<'a>(&mut self, type_paths: impl IntoIterator<Item = &'a str>) {
         let registry = self.world.resource::<AppTypeRegistry>().clone();
         let registry = registry.read();
-        for type_path in type_paths {
-            let hash = path_hash(type_path);
-            if self.types.contains_key(&hash) {
-                continue;
-            }
-            if let Some(reflect_component) = registry
-                .get_with_type_path(type_path)
-                .and_then(|registration| registration.data::<ReflectComponent>())
-            {
+        let new: Vec<(u64, ComponentId, &ReflectComponent)> = type_paths
+            .into_iter()
+            .filter_map(|type_path| {
+                let hash = path_hash(type_path);
+                if self.types.contains_key(&hash) {
+                    return None;
+                }
+                let reflect_component = registry
+                    .get_with_type_path(type_path)?
+                    .data::<ReflectComponent>()?;
+                reflect_component.register_component(&mut self.probe.world);
                 let id = reflect_component.register_component(&mut self.world);
-                let insertable = Some(id) == self.world.component_id::<ChildOf>()
-                    || Some(id) == self.world.component_id::<Children>()
-                    || self.probe.is_hook_free(reflect_component);
-                self.types.insert(
-                    hash,
-                    Registered {
-                        id,
-                        reflect_component: reflect_component.clone(),
-                        insertable,
-                    },
-                );
-            }
+                Some((hash, id, reflect_component))
+            })
+            .collect();
+        for (hash, id, reflect_component) in new {
+            let insertable = self.probe.is_hook_free(reflect_component);
+            self.types.insert(
+                hash,
+                Registered {
+                    id,
+                    reflect_component: reflect_component.clone(),
+                    insertable,
+                },
+            );
         }
     }
 
@@ -260,8 +283,8 @@ impl RemoteWorld {
         Ok(true)
     }
 
-    /// Despawns `remote` without freeing its index, detaching its relationship sources first so
-    /// that they are not despawned with it.
+    /// Despawns `remote` without freeing its index, emptying and removing its relationship
+    /// targets first so that their sources are neither despawned nor detached with it.
     pub(crate) fn despawn(&mut self, remote: Entity) {
         let Ok(entity) = self.world.get_entity(remote) else {
             return;
@@ -273,6 +296,9 @@ impl RemoteWorld {
             .copied()
             .filter(|id| is_relationship_target(&self.world, *id))
             .collect();
+        for id in &targets {
+            empty_relationship_target(&mut self.world, remote, *id);
+        }
         let mut entity = self.world.entity_mut(remote);
         entity.remove_by_ids(&targets);
         entity.despawn_no_free();
@@ -283,18 +309,16 @@ impl RemoteWorld {
     /// The types of `components` must be registered first with [`RemoteWorld::register`], or they
     /// are kept aside as unregistered.
     ///
-    /// Only components whose JSON changed, or that a hook removed, are written. Components the
-    /// request covers that it no longer returned are removed if they were written before.
-    /// `unserialized` lists the types the request reported present, which count as unserialized
-    /// unless `components` holds them. Components kept aside for relating to an entity that was not
-    /// mirrored, or removed by a hook, are retried if `retry` is set.
+    /// Only components whose JSON changed are written. Present mutable components are set in
+    /// place, and the others are inserted in one batch. Components the request covers that it no
+    /// longer returned are removed if they were written before. `unserialized` lists the types the
+    /// request reported present, which count as unserialized unless `components` holds them.
     pub(crate) fn write(
         &mut self,
         remote: Entity,
         components: Vec<PolledComponent>,
         unserialized: &[String],
         coverage: Coverage<'_>,
-        retry: bool,
     ) -> Written {
         let mut written = Written::default();
         let world = &mut self.world;
@@ -324,9 +348,8 @@ impl RemoteWorld {
             .cloned()
             .collect();
         let unserialized = record.next_unserialized(&unserialized, coverage);
-        let state = |component: &PolledComponent| {
-            record.state(component, |id| entity.contains_id(id), retry)
-        };
+        let state =
+            |component: &PolledComponent| record.state(component, |id| entity.contains_id(id));
         if removed.is_empty()
             && unserialized.is_none()
             && components
@@ -364,10 +387,8 @@ impl RemoteWorld {
             }
         }
 
+        let mut batch = Vec::new();
         for (component, known) in pending {
-            if world.get_entity(remote).is_err() {
-                break;
-            }
             let registered = self.types.get(&component.path_hash).cloned();
             let id = write_component(
                 world,
@@ -375,33 +396,18 @@ impl RemoteWorld {
                 registered,
                 component,
                 &mut self.garbage.written,
+                &mut batch,
             );
             written.tree |= !known || id.is_none_or(|id| is_tree_type(world, id));
         }
+        insert_batch(
+            world,
+            self.scratch.get(),
+            remote,
+            batch,
+            &mut self.garbage.written,
+        );
         written
-    }
-
-    /// Sorts the [`Children`] of every mirrored entity into the order the remote app reported.
-    ///
-    /// The mirror builds [`Children`] from the [`ChildOf`] it inserts, so their order follows
-    /// insertion. Children the remote app did not report are kept at the end.
-    pub(crate) fn order_children(&mut self) {
-        let mut query = self.world.query::<(&RemoteComponents, &mut Children)>();
-        for (record, mut children) in query.iter_mut(&mut self.world) {
-            if record.children.is_empty() {
-                continue;
-            }
-            let order: EntityHashMap<usize> = record
-                .children
-                .iter()
-                .enumerate()
-                .map(|(position, child)| (*child, position))
-                .collect();
-            let position = |child: &Entity| order.get(child).copied().unwrap_or(usize::MAX);
-            if !children.is_sorted_by_key(position) {
-                children.sort_by_cached_key(position);
-            }
-        }
     }
 }
 
@@ -472,8 +478,6 @@ pub struct RemoteComponents {
     serialized: Vec<Serialized>,
     unserialized: Vec<(Option<ComponentId>, String)>,
     aside: Vec<AsideComponent>,
-    /// The order of [`Children`] the remote app reported, empty if it reported none.
-    children: Vec<Entity>,
 }
 
 #[derive(Debug)]
@@ -510,10 +514,6 @@ pub enum AsideReason {
     Failed(String),
     /// The type or one of its required components has component hooks.
     Hooked,
-    /// The component relates to an entity that is not mirrored.
-    MissingTarget,
-    /// A hook removed the component right after it was inserted.
-    RemovedByHook,
 }
 
 impl RemoteComponents {
@@ -554,12 +554,7 @@ impl RemoteComponents {
     }
 
     /// Whether `component` is recorded with the same JSON and still present.
-    fn state(
-        &self,
-        component: &PolledComponent,
-        contains: impl Fn(ComponentId) -> bool,
-        retry: bool,
-    ) -> State {
+    fn state(&self, component: &PolledComponent, contains: impl Fn(ComponentId) -> bool) -> State {
         if let Some(entry) = self
             .serialized
             .iter()
@@ -576,16 +571,7 @@ impl RemoteComponents {
             .find(|entry| entry.path_hash == component.path_hash)
         {
             None => State::New,
-            Some(entry)
-                if entry.json_hash == component.json_hash
-                    && !(retry
-                        && matches!(
-                            entry.reason,
-                            AsideReason::MissingTarget | AsideReason::RemovedByHook
-                        )) =>
-            {
-                State::Current
-            }
+            Some(entry) if entry.json_hash == component.json_hash => State::Current,
             Some(_) => State::Stale,
         }
     }
@@ -713,7 +699,7 @@ impl PolledComponent {
         };
         Self {
             path_hash: path_hash(&type_path),
-            json_hash: json_hash(&json),
+            json_hash: FixedHasher.hash_one(&json),
             type_path,
             json,
             value,
@@ -726,46 +712,6 @@ pub(crate) fn path_hash(type_path: &str) -> u64 {
     FixedHasher.hash_one(type_path)
 }
 
-/// A hash of a JSON value, for cheap comparisons.
-fn json_hash(json: &Value) -> u64 {
-    fn feed(json: &Value, hasher: &mut impl Hasher) {
-        match json {
-            Value::Null => hasher.write_u8(0),
-            Value::Bool(value) => hasher.write_u8(1 + u8::from(*value)),
-            Value::Number(number) => {
-                hasher.write_u8(3);
-                match (number.as_u64(), number.as_i64(), number.as_f64()) {
-                    (Some(value), _, _) => hasher.write_u64(value),
-                    (_, Some(value), _) => hasher.write_i64(value),
-                    (_, _, value) => hasher.write_u64(value.unwrap_or_default().to_bits()),
-                }
-            }
-            Value::String(value) => {
-                hasher.write_u8(4);
-                hasher.write(value.as_bytes());
-                hasher.write_u8(0xff);
-            }
-            Value::Array(values) => {
-                hasher.write_u8(5);
-                hasher.write_usize(values.len());
-                values.iter().for_each(|value| feed(value, hasher));
-            }
-            Value::Object(map) => {
-                hasher.write_u8(6);
-                hasher.write_usize(map.len());
-                for (key, value) in map {
-                    hasher.write(key.as_bytes());
-                    hasher.write_u8(0xff);
-                    feed(value, hasher);
-                }
-            }
-        }
-    }
-    let mut hasher = FixedHasher.build_hasher();
-    feed(json, &mut hasher);
-    hasher.finish()
-}
-
 fn is_relationship_target(world: &World, id: ComponentId) -> bool {
     matches!(
         world
@@ -774,26 +720,6 @@ fn is_relationship_target(world: &World, id: ComponentId) -> bool {
             .and_then(|info| info.relationship_accessor()),
         Some(RelationshipAccessor::RelationshipTarget { .. })
     )
-}
-
-fn is_relationship(world: &World, id: ComponentId) -> bool {
-    matches!(
-        world
-            .components()
-            .get_info(id)
-            .and_then(|info| info.relationship_accessor()),
-        Some(RelationshipAccessor::Relationship { .. })
-    )
-}
-
-/// The entities held directly by the fields of `value`.
-fn entities_in(value: &dyn PartialReflect) -> impl Iterator<Item = Entity> + '_ {
-    let fields: Box<dyn Iterator<Item = &dyn PartialReflect>> = match value.reflect_ref() {
-        ReflectRef::Struct(value) => Box::new(value.iter_fields().map(|(_, field)| field)),
-        ReflectRef::TupleStruct(value) => Box::new(value.iter_fields()),
-        _ => Box::new(core::iter::empty()),
-    };
-    fields.filter_map(|field| field.try_downcast_ref::<Entity>().copied())
 }
 
 /// Whether a new value of the component `id` can change the entity tree: a name or a
@@ -807,9 +733,8 @@ fn is_tree_type(world: &World, id: ComponentId) -> bool {
 }
 
 /// Removes the record of the type with `path_hash` from `remote`, and the component if it was
-/// inserted.
+/// written.
 fn remove_written(world: &mut World, remote: Entity, path_hash: u64) {
-    let children = world.component_id::<Children>();
     let Some(mut record) = world.get_mut::<RemoteComponents>(remote) else {
         return;
     };
@@ -822,27 +747,61 @@ fn remove_written(world: &mut World, remote: Entity, path_hash: u64) {
         return;
     };
     let id = record.serialized.swap_remove(position).id;
-    if Some(id) == children {
-        record.children.clear();
+    if is_relationship_target(world, id) {
+        empty_relationship_target(world, remote, id);
     }
-    if !is_relationship_target(world, id) {
-        world.entity_mut(remote).remove_by_id(id);
+    world.entity_mut(remote).remove_by_id(id);
+}
+
+/// Empties the relationship target `id` of `remote` without running hooks, so that removing it
+/// does not detach sources the remote app has since moved to another target.
+fn empty_relationship_target(world: &mut World, remote: Entity, id: ComponentId) {
+    let Some(type_id) = world
+        .components()
+        .get_info(id)
+        .and_then(ComponentInfo::type_id)
+    else {
+        return;
+    };
+    let registry = world.resource::<AppTypeRegistry>().clone();
+    let registry = registry.read();
+    let Some(registration) = registry.get(type_id) else {
+        return;
+    };
+    let (Some(reflect_component), Some(default)) = (
+        registration.data::<ReflectComponent>(),
+        registration.data::<ReflectDefault>(),
+    ) else {
+        return;
+    };
+    let mut entity = world.entity_mut(remote);
+    if let Some(mut target) = reflect_component.reflect_mut(&mut entity) {
+        let _ = target.set(default.default());
     }
 }
 
-/// Writes one component into `remote`, returning its id if it was written into the world rather
+/// A component value waiting to be inserted with the rest of its entity's batch.
+struct Batched {
+    id: ComponentId,
+    value: Box<dyn Reflect>,
+    type_path: String,
+    json: Value,
+    path_hash: u64,
+    json_hash: u64,
+}
+
+/// Writes one component into `remote`, returning its id if it is written into the world rather
 /// than kept aside.
 ///
 /// A present mutable component is replaced with [`Reflect::set`], which runs no hooks and
-/// shrinks collections. Other components are inserted. Relationship targets such as `Children`
-/// are never written, since the hooks of their relationships build them. The order of `Children`
-/// is recorded for [`RemoteWorld::order_children`].
+/// shrinks collections. Other components are pushed to `batch` for [`insert_batch`].
 fn write_component(
     world: &mut World,
     remote: Entity,
     registered: Option<Registered>,
     component: PolledComponent,
     written: &mut Vec<(String, Value)>,
+    batch: &mut Vec<Batched>,
 ) -> Option<ComponentId> {
     let PolledComponent {
         type_path,
@@ -851,112 +810,182 @@ fn write_component(
         path_hash,
         json_hash,
     } = component;
-    let children = match &value {
-        Decoded::Value(value) => value
-            .downcast_ref::<Children>()
-            .map(|children| children.to_vec()),
-        _ => None,
-    };
     let outcome = match (value, &registered) {
         (Decoded::Unregistered, _) | (_, None) => Err((AsideReason::Unregistered, None)),
         (Decoded::Failed(error), _) => Err((AsideReason::Failed(error), None)),
         (Decoded::Value(value), Some(registered)) if !registered.insertable => {
             Err((AsideReason::Hooked, Some(value)))
         }
-        (Decoded::Value(value), Some(registered)) => insert_value(
-            world,
-            remote,
-            &registered.reflect_component,
-            registered.id,
-            value,
-        ),
+        (Decoded::Value(value), Some(registered)) => set_in_place(world, remote, registered, value),
     };
     let id = registered.map(|registered| registered.id);
-
-    if outcome.is_err() {
-        remove_written(world, remote, path_hash);
-    }
-    let mut record = world.get_mut::<RemoteComponents>(remote)?;
-    record.aside.retain(|entry| entry.path_hash != path_hash);
     match outcome {
-        Ok(()) => {
-            let id = id?;
-            if let Some(children) = children {
-                record.children = children;
-            }
-            match record
-                .serialized
-                .iter_mut()
-                .find(|entry| entry.path_hash == path_hash)
-            {
-                Some(entry) => entry.json_hash = json_hash,
-                None => record.serialized.push(Serialized {
-                    id,
-                    path_hash,
-                    json_hash,
-                }),
-            }
-            written.push((type_path, json));
-            Some(id)
-        }
-        Err((reason, value)) => {
-            record.aside.push(AsideComponent {
-                id,
+        Ok(Some(value)) => {
+            batch.push(Batched {
+                id: id?,
+                value,
                 type_path,
                 json,
-                value,
-                reason,
                 path_hash,
                 json_hash,
             });
+            id
+        }
+        Ok(None) => {
+            record_serialized(world, remote, id?, path_hash, json_hash);
+            written.push((type_path, json));
+            id
+        }
+        Err((reason, value)) => {
+            keep_aside(
+                world,
+                remote,
+                AsideComponent {
+                    id,
+                    type_path,
+                    json,
+                    value,
+                    reason,
+                    path_hash,
+                    json_hash,
+                },
+            );
             None
         }
     }
 }
 
+/// Records `aside` on `remote`, removing the component if it was written before.
+fn keep_aside(world: &mut World, remote: Entity, aside: AsideComponent) {
+    remove_written(world, remote, aside.path_hash);
+    if let Some(mut record) = world.get_mut::<RemoteComponents>(remote) {
+        record.aside.push(aside);
+    }
+}
+
 type Aside = (AsideReason, Option<Box<dyn Reflect>>);
 
-fn insert_value(
+/// Sets `value` into the present mutable component of `remote`, or hands it back to be inserted.
+fn set_in_place(
     world: &mut World,
     remote: Entity,
-    reflect_component: &ReflectComponent,
-    id: ComponentId,
+    registered: &Registered,
     value: Box<dyn Reflect>,
-) -> Result<(), Aside> {
-    if is_relationship_target(world, id) {
-        return Ok(());
-    }
-    if is_relationship(world, id)
-        && entities_in(value.as_partial_reflect())
-            .any(|target| world.get::<RemoteComponents>(target).is_none())
-    {
-        return Err((AsideReason::MissingTarget, Some(value)));
-    }
+) -> Result<Option<Box<dyn Reflect>>, Aside> {
     let mutable = world
         .components()
-        .get_info(id)
+        .get_info(registered.id)
         .is_some_and(ComponentInfo::mutable);
     let mut entity = world.entity_mut(remote);
-    if mutable && entity.contains_id(id) {
-        let Some(mut current) = reflect_component.reflect_mut(&mut entity) else {
-            return Err((AsideReason::Failed("not readable".to_string()), Some(value)));
-        };
-        return current.set(value).map_err(|value| {
-            (
-                AsideReason::Failed("the value has another type".to_string()),
-                Some(value),
-            )
-        });
+    if !mutable || !entity.contains_id(registered.id) {
+        return Ok(Some(value));
     }
-    let registry = entity.resource::<AppTypeRegistry>().clone();
-    reflect_component.insert(&mut entity, value.as_partial_reflect(), &registry.read());
-    if world
-        .get_entity(remote)
-        .is_ok_and(|entity| entity.contains_id(id))
+    let Some(mut current) = registered.reflect_component.reflect_mut(&mut entity) else {
+        return Err((AsideReason::Failed("not readable".to_string()), Some(value)));
+    };
+    current.set(value).map(|()| None).map_err(|value| {
+        (
+            AsideReason::Failed("the value has another type".to_string()),
+            Some(value),
+        )
+    })
+}
+
+/// Inserts `batch` into `remote` with one archetype move, skipping relationship hooks, since the
+/// remote app reports both sides of each relationship with the same ids.
+#[expect(
+    unsafe_code,
+    reason = "Batching a dynamic bundle needs `BundleWriter`, whose writes are unsafe."
+)]
+fn insert_batch(
+    world: &mut World,
+    scratch: &mut BundleScratch,
+    remote: Entity,
+    batch: Vec<Batched>,
+    written: &mut Vec<(String, Value)>,
+) {
+    if batch.is_empty() {
+        return;
+    }
+    let mut writer = scratch.writer();
+    let mut inserted = Vec::with_capacity(batch.len());
+    for Batched {
+        id,
+        value,
+        type_path,
+        json,
+        path_hash,
+        json_hash,
+    } in batch
     {
-        Ok(())
-    } else {
-        Err((AsideReason::RemovedByHook, Some(value)))
+        let Some(layout) = world
+            .components()
+            .get_info(id)
+            .filter(|info| info.type_id() == Some(value.as_any().type_id()))
+            .map(ComponentInfo::layout)
+        else {
+            keep_aside(
+                world,
+                remote,
+                AsideComponent {
+                    id: Some(id),
+                    type_path,
+                    json,
+                    value: Some(value),
+                    reason: AsideReason::Failed("the value has another type".to_string()),
+                    path_hash,
+                    json_hash,
+                },
+            );
+            continue;
+        };
+        let value = NonNull::from(Box::leak(value));
+        // SAFETY: `value` points to a value of the component type `id` of `world`, checked above,
+        // and `layout` is the layout of that type.
+        unsafe { writer.push_component_by_id(id, OwningPtr::new(value.cast()), layout) };
+        // SAFETY: `value` comes from a `Box` and was moved into the writer, so its allocation is
+        // freed without dropping the value.
+        drop(unsafe { Box::from_raw(value.as_ptr() as *mut ManuallyDrop<dyn Reflect>) });
+        inserted.push((id, type_path, json, path_hash, json_hash));
+    }
+    if !writer.is_empty() {
+        // SAFETY: every component was pushed with an id of `world`, which `remote` belongs to.
+        unsafe {
+            writer.write_with_relationship_hook_insert_mode(
+                &mut world.entity_mut(remote),
+                RelationshipHookMode::Skip,
+            );
+        }
+    }
+    for (id, type_path, json, path_hash, json_hash) in inserted {
+        record_serialized(world, remote, id, path_hash, json_hash);
+        written.push((type_path, json));
+    }
+}
+
+/// Records the component `id` of `remote` as written with the JSON hashed to `json_hash`.
+fn record_serialized(
+    world: &mut World,
+    remote: Entity,
+    id: ComponentId,
+    path_hash: u64,
+    json_hash: u64,
+) {
+    let Some(mut record) = world.get_mut::<RemoteComponents>(remote) else {
+        return;
+    };
+    record.aside.retain(|entry| entry.path_hash != path_hash);
+    match record
+        .serialized
+        .iter_mut()
+        .find(|entry| entry.path_hash == path_hash)
+    {
+        Some(entry) => entry.json_hash = json_hash,
+        None => record.serialized.push(Serialized {
+            id,
+            path_hash,
+            json_hash,
+        }),
     }
 }
 
@@ -1051,7 +1080,7 @@ mod tests {
                 .iter()
                 .map(|component| component.type_path.as_str()),
         );
-        remote_world.write(entity, components, &[], Coverage::Entity, false)
+        remote_world.write(entity, components, &[], Coverage::Entity)
     }
 
     fn spawned(entity: Entity) -> RemoteWorld {
@@ -1240,59 +1269,132 @@ mod tests {
     }
 
     #[test]
-    fn inserting_children_from_json_detaches_the_children() {
-        let registry = registry();
-        let mut world = World::new();
-        let parent = world.spawn_empty().id();
-        let child = world.spawn(ChildOf(parent)).id();
-        let registry = registry.read();
-        let registration = registry.get(core::any::TypeId::of::<Children>()).unwrap();
-        let value = TypedReflectDeserializer::new(registration, &registry)
-            .deserialize(&json!([child]))
-            .unwrap();
-        registration.data::<ReflectComponent>().unwrap().insert(
-            &mut world.entity_mut(parent),
-            value.as_ref(),
-            &registry,
-        );
-        assert!(world.get::<ChildOf>(child).is_none());
-    }
-
-    #[test]
-    fn children_are_built_from_child_of_and_never_written() {
+    fn relationships_are_written_as_reported() {
         let parent = remote(10);
-        let child = remote(11);
+        let [a, b] = [remote(11), remote(12)];
         let mut remote_world = spawned(parent);
-        remote_world.spawn(child).unwrap();
+        remote_world.spawn(a).unwrap();
+        remote_world.spawn(b).unwrap();
         write(
             &mut remote_world,
-            parent,
-            json!({ Children::type_path(): [child] }),
+            b,
+            json!({ ChildOf::type_path(): parent }),
         );
         write(
             &mut remote_world,
-            child,
+            a,
             json!({ ChildOf::type_path(): parent }),
         );
         write(
             &mut remote_world,
             parent,
-            json!({ Children::type_path(): [child, remote(12)] }),
+            json!({ Children::type_path(): [a, b] }),
         );
+        let children = |remote_world: &RemoteWorld| {
+            remote_world
+                .world
+                .get::<Children>(parent)
+                .map(|children| children.to_vec())
+        };
+        assert_eq!(children(&remote_world), Some(alloc::vec![a, b]));
 
+        write(
+            &mut remote_world,
+            parent,
+            json!({ Children::type_path(): [b, a] }),
+        );
+        assert_eq!(children(&remote_world), Some(alloc::vec![b, a]));
+        assert_eq!(
+            remote_world.world.get::<ChildOf>(a).map(ChildOf::parent),
+            Some(parent)
+        );
+        assert!(record(&remote_world, parent).aside().is_empty());
+        assert!(record(&remote_world, a).aside().is_empty());
+    }
+
+    #[test]
+    fn relationships_with_unmirrored_entities_are_written_as_is() {
+        let parent = remote(10);
+        let child = remote(11);
+        let missing = remote(30);
+        let mut remote_world = spawned(parent);
+        remote_world.spawn(child).unwrap();
+        write(
+            &mut remote_world,
+            child,
+            json!({ ChildOf::type_path(): missing }),
+        );
+        write(
+            &mut remote_world,
+            parent,
+            json!({ Children::type_path(): [missing, child] }),
+        );
         let world = &remote_world.world;
         assert_eq!(
             world.get::<ChildOf>(child).map(ChildOf::parent),
-            Some(parent)
+            Some(missing)
         );
         assert_eq!(
             world
                 .get::<Children>(parent)
                 .map(|children| children.to_vec()),
-            Some(alloc::vec![child])
+            Some(alloc::vec![missing, child])
         );
-        let children = world.component_id::<Children>().unwrap();
-        assert!(record(&remote_world, parent).is_serialized(children));
+
+        write(&mut remote_world, parent, json!({}));
+        write(&mut remote_world, child, json!({}));
+        assert!(remote_world.world.get::<Children>(parent).is_none());
+        assert!(remote_world.world.get::<ChildOf>(child).is_none());
+        remote_world.despawn(child);
+        remote_world.despawn(parent);
+    }
+
+    #[test]
+    fn removing_a_target_keeps_its_moved_sources() {
+        let [a, b, c] = [remote(10), remote(11), remote(12)];
+        let mut remote_world = spawned(a);
+        remote_world.spawn(b).unwrap();
+        remote_world.spawn(c).unwrap();
+        write(&mut remote_world, c, json!({ ChildOf::type_path(): a }));
+        write(&mut remote_world, a, json!({ Children::type_path(): [c] }));
+
+        write(&mut remote_world, c, json!({ ChildOf::type_path(): b }));
+        write(&mut remote_world, b, json!({ Children::type_path(): [c] }));
+        write(&mut remote_world, a, json!({}));
+        assert!(remote_world.world.get::<Children>(a).is_none());
+        assert_eq!(
+            remote_world.world.get::<ChildOf>(c).map(ChildOf::parent),
+            Some(b)
+        );
+
+        write(&mut remote_world, c, json!({ ChildOf::type_path(): a }));
+        write(&mut remote_world, a, json!({ Children::type_path(): [c] }));
+        remote_world.despawn(b);
+        assert!(remote_world.world.get_entity(c).is_ok());
+        assert_eq!(
+            remote_world.world.get::<ChildOf>(c).map(ChildOf::parent),
+            Some(a)
+        );
+    }
+
+    #[test]
+    fn an_entity_is_written_with_one_archetype_move() {
+        let entity = remote(3);
+        let mut remote_world = spawned(entity);
+        let before = remote_world.world.archetypes().len();
+        write(
+            &mut remote_world,
+            entity,
+            json!({
+                Health::type_path(): { "current": 1.0, "names": [] },
+                Team::type_path(): 1,
+                Shadow::type_path(): 2,
+            }),
+        );
+        assert_eq!(remote_world.world.archetypes().len(), before + 1);
+        let world = remote_world.world.entity(entity);
+        assert!(world.contains::<Health>() && world.contains::<Team>());
+        assert_eq!(world.get::<Shadow>().unwrap().0, 2);
     }
 
     #[test]
@@ -1383,46 +1485,16 @@ mod tests {
             json!({ Health::type_path(): { "current": 1.0, "names": [] }, Team::type_path(): 1, "demo::Unknown": 1 }),
         );
         let read = [path_hash(Name::type_path())];
-        remote_world.write(entity, Vec::new(), &[], Coverage::Paths(&read), false);
+        remote_world.write(entity, Vec::new(), &[], Coverage::Paths(&read));
         assert!(remote_world.world.entity(entity).contains::<Health>());
 
         let components = polled(&remote_world, json!({ Team::type_path(): 1 }));
-        let written = remote_world.write(entity, components, &[], Coverage::Full(&[]), false);
+        let written = remote_world.write(entity, components, &[], Coverage::Full(&[]));
         assert!(written.changed && written.tree);
         let world = &remote_world.world;
         assert!(!world.entity(entity).contains::<Health>());
         assert!(world.entity(entity).contains::<Team>());
         assert!(record(&remote_world, entity).aside().is_empty());
-    }
-
-    #[test]
-    fn a_child_of_a_missing_parent_is_kept_aside_until_it_appears() {
-        let parent = remote(20);
-        let child = remote(21);
-        let mut remote_world = spawned(child);
-        let child_of = json!({ ChildOf::type_path(): parent });
-        write(&mut remote_world, child, child_of.clone());
-        assert!(remote_world.world.get::<ChildOf>(child).is_none());
-        assert_eq!(
-            record(&remote_world, child).aside()[0].reason,
-            AsideReason::MissingTarget
-        );
-        assert_eq!(
-            write(&mut remote_world, child, child_of.clone()),
-            Written::default()
-        );
-
-        remote_world.spawn(parent).unwrap();
-        let components = polled(&remote_world, child_of);
-        remote_world.write(child, components, &[], Coverage::Entity, true);
-        assert_eq!(
-            remote_world
-                .world
-                .get::<ChildOf>(child)
-                .map(ChildOf::parent),
-            Some(parent)
-        );
-        assert!(record(&remote_world, child).aside().is_empty());
     }
 
     #[test]
@@ -1449,7 +1521,7 @@ mod tests {
         let entity = remote(3);
         let mut remote_world = spawned(entity);
         let has = [Visible::type_path().to_string()];
-        remote_world.write(entity, Vec::new(), &has, Coverage::Full(&has), false);
+        remote_world.write(entity, Vec::new(), &has, Coverage::Full(&has));
         let types = |remote_world: &RemoteWorld| -> Vec<String> {
             record(remote_world, entity)
                 .unserialized()
@@ -1459,14 +1531,14 @@ mod tests {
         };
         assert_eq!(types(&remote_world), has);
 
-        remote_world.write(entity, Vec::new(), &[], Coverage::Paths(&[]), false);
+        remote_world.write(entity, Vec::new(), &[], Coverage::Paths(&[]));
         assert_eq!(types(&remote_world), has);
 
         let listed = ["demo::Handled".to_string()];
-        remote_world.write(entity, Vec::new(), &listed, Coverage::Entity, false);
+        remote_world.write(entity, Vec::new(), &listed, Coverage::Entity);
         assert_eq!(types(&remote_world), listed);
 
-        remote_world.write(entity, Vec::new(), &[], Coverage::Full(&has), false);
+        remote_world.write(entity, Vec::new(), &[], Coverage::Full(&has));
         assert_eq!(
             types(&remote_world),
             listed,
