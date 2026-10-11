@@ -56,20 +56,41 @@ pub enum InspectorSource {
 
 /// The world the panels read: the `RemoteWorld` while the inspector reads from a remote
 /// app, and `world` otherwise.
-pub(crate) fn world_to_inspect(world: &World) -> &World {
+pub(crate) fn world_to_inspect(world: &World, is_main: bool) -> &World {
     #[cfg(feature = "remote")]
     if remote::is_remote(world)
-        && let Some(remote) = world.get_resource::<remote::RemoteWorld>()
+        && let Some(remote) = world.get_resource::<remote::RemoteWorlds>()
     {
-        return remote.world();
+        if is_main {
+            return remote.main.world();
+        }
+        return remote.render.world();
     }
+    let _ = is_main;
     world
+}
+
+/// An inspected entity, and whether its from the main or render world.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Hash)]
+#[reflect(Debug, Clone, PartialEq)]
+pub struct InspectableEntity {
+    /// The entity in the remote world
+    pub entity: Entity,
+    /// Whether its from the main or render world
+    pub is_main: bool,
+}
+
+impl InspectableEntity {
+    /// Creates an selection
+    pub fn new(entity: Entity, is_main: bool) -> Self {
+        InspectableEntity { entity, is_main }
+    }
 }
 
 /// The entity currently being inspected, as an id in the inspected world.
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
-pub struct InspectorSelection(pub Option<Entity>);
+pub struct InspectorSelection(pub Option<InspectableEntity>);
 
 /// The [`ShortName`] of a component type, taken from the type registry where possible.
 ///
@@ -131,9 +152,9 @@ impl Plugin for InspectorPlugin {
             );
 
         #[cfg(feature = "remote")]
-        app.init_resource::<remote::RemoteConnection>()
-            .init_resource::<remote::RemoteSnapshot>()
-            .init_resource::<remote::RemoteWorld>()
+        app.init_resource::<remote::RemoteConnections>()
+            .init_resource::<remote::RemoteSnapshots>()
+            .init_resource::<remote::RemoteWorlds>()
             .add_systems(
                 PostUpdate,
                 (
