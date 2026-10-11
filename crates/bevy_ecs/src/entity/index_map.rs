@@ -9,7 +9,7 @@ use core::{
     iter::FusedIterator,
     marker::PhantomData,
     ops::{
-        Bound, Deref, DerefMut, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull,
+        Bound, Deref, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull,
         RangeInclusive, RangeTo, RangeToInclusive,
     },
     ptr,
@@ -57,8 +57,23 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
     }
 
     /// Constructs an `EntityIndexMap` from an [`IndexMap`].
-    pub const fn from_index_map(set: IndexMap<K, V, EntityHash>) -> Self {
+    ///
+    /// # Safety
+    ///
+    /// The given map cannot contain duplicates, for example by using
+    /// [`MutableKeys`](indexmap::map::MutableKeys).
+    pub const unsafe fn from_index_map_unchecked(set: IndexMap<K, V, EntityHash>) -> Self {
         Self(set)
+    }
+
+    /// Returns a mutable reference to the inner [`IndexMap`].
+    ///
+    /// # Safety
+    ///
+    /// The returned reference cannot be used to introduce duplicates in the map, for example
+    /// by using [`MutableKeys`](indexmap::map::MutableKeys).
+    pub const unsafe fn as_index_map_unchecked(&mut self) -> &mut IndexMap<K, V, EntityHash> {
+        &mut self.0
     }
 
     /// Returns the inner [`IndexMap`].
@@ -143,6 +158,333 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
     pub fn into_keys(self) -> IntoKeys<K, V> {
         IntoKeys(self.0.into_keys(), PhantomData)
     }
+
+    /// Moves all key-value pairs from `other` into `self`, leaving `other` empty.
+    ///
+    /// Equivalent to [`IndexMap::append`].
+    pub fn append(&mut self, other: &mut EntityEquivalentIndexMap<K>) {
+        self.0.append(&mut other.0);
+    }
+
+    /// Remove all key-value pairs in the map, while preserving its capacity.
+    ///
+    /// Equivalent to [`IndexMap::clear`].
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    /// Creates an iterator which uses a closure to determine if an element should be removed,
+    /// for all elements in the given range.
+    ///
+    /// Equivalent to [`IndexMap::extract_if`].
+    pub fn extract_if<F, R>(&mut self, range: R, pred: F) -> map::ExtractIf<'_, K, V, F>
+    where
+        F: FnMut(&K, &mut V) -> bool,
+        R: RangeBounds<usize>,
+    {
+        self.0.extract_if(range, pred)
+    }
+
+    /// Insert a key-value pair in the map.
+    ///
+    /// Equivalent to [`IndexMap::insert`].
+    pub fn insert(&mut self, key: K, value: V) -> Option<V> {
+        self.0.insert(key, value)
+    }
+
+    /// Insert the value into the set before the value at the given index, or at the end.
+    ///
+    /// Equivalent to [`IndexMap::insert_before`].
+    pub fn insert_before(&mut self, index: usize, key: K, value: V) -> (usize, Option<V>) {
+        self.0.insert_before(index, key, value)
+    }
+
+    /// Insert a key-value pair in the map, and get their index.
+    ///
+    /// Equivalent to [`IndexMap::insert_full`].
+    pub fn insert_full(&mut self, key: K, value: V) -> (usize, Option<V>) {
+        self.0.insert_full(key, value)
+    }
+
+    /// Insert a key-value pair in the map at its ordered position among sorted keys.
+    ///
+    /// Equivalent to [`IndexMap::insert_sorted`].
+    pub fn insert_sorted(&mut self, key: K, value: V) -> (usize, Option<V>)
+    where
+        K: Ord,
+    {
+        self.0.insert_sorted(key, value)
+    }
+
+    /// Insert a key-value pair in the map at its ordered position among keys sorted by `cmp`.
+    ///
+    /// Equivalent to [`IndexMap::insert_sorted_by`].
+    pub fn insert_sorted_by<F>(&mut self, key: K, value: V, cmp: F) -> (usize, Option<V>)
+    where
+        F: FnMut(&K, &V, &K, &V) -> Ordering,
+    {
+        self.0.insert_sorted_by(key, value, cmp)
+    }
+
+    /// Insert a key-value pair in the map at its ordered position using a sort-key extraction function.
+    ///
+    /// Equivalent to [`IndexMap::insert_sorted_by_key`].
+    pub fn insert_sorted_by_key<B, F>(&mut self, key: K, value: V, sort_key: F) -> (usize, Option<V>)
+    where
+        B: Ord,
+        F: FnMut(&K, &V) -> B,
+    {
+        self.0.insert_sorted_by_key(key, value, sort_key)
+    }
+
+    /// Moves the position of a key-value pair from one index to another by shifting all other pairs in-between.
+    ///
+    /// Equivalent to [`IndexMap::move_index`].
+    pub fn move_index(&mut self, from: usize, to: usize) {
+        self.0.move_index(from, to);
+    }
+
+    /// Remove the last key-value pair
+    ///
+    /// Equivalent to [`IndexMap::pop`].
+    pub fn pop(&mut self) -> Option<(K, V)> {
+        self.0.pop()
+    }
+
+    /// Removes and returns the last key-value pair from a map if the predicate returns `true`,
+    /// or [`None`] if the predicate returns `false` or the map is empty
+    /// (the predicate will not be called in that case).
+    ///
+    /// Equivalent to [`IndexMap::pop_if`].
+    pub fn pop_if(&mut self, predicate: impl FnOnce(&K, &mut V) -> bool) -> Option<(K, V)> {
+        self.0.pop_if(predicate)
+    }
+
+    /// Replaces the key at the given index. The new key does not need to be equivalent
+    /// to the one it is replacing, but it must be unique to the rest of the set.
+    ///
+    /// Equivalent to [`IndexMap::replace_index`].
+    pub fn replace_index(&mut self, index: usize, key: K) -> Result<K, (usize, K)> {
+        self.0.replace_index(index, key)
+    }
+
+    /// Reserve capacity for `additional` more key-value pairs.
+    ///
+    /// Equivalent to [`IndexMap::reserve`].
+    pub fn reserve(&mut self, additional: usize) {
+        self.0.reserve(additional);
+    }
+
+    /// Reserve capacity for `additional` more key-value pairs, without over-allocating.
+    ///
+    /// Equivalent to [`IndexMap::reserve_exact`].
+    pub fn reserve_exact(&mut self, additional: usize) {
+        self.0.reserve_exact(additional);
+    }
+
+    /// Scan through each key-value pair in the map and keep those where the closure `keep` returns `true`.
+    ///
+    /// Equivalent to [`IndexMap::retain`].
+    pub fn retain<F>(&mut self, keep: F)
+    where
+        F: FnMut(&K, &mut V) -> bool,
+    {
+        self.0.retain(keep);
+    }
+
+    /// Reverses the order of the map’s key-value pairs in place.
+    ///
+    /// Equivalent to [`IndexMap::reverse`].
+    pub fn reverse(&mut self) {
+        self.0.reverse();
+    }
+
+    /// Insert a key-value pair in the map at the given index.
+    ///
+    /// Equivalent to [`IndexMap::shift_insert`].
+    pub fn shift_insert(&mut self, index: usize, key: K, value: V) -> Option<V> {
+        self.0.shift_insert(index, key, value)
+    }
+
+    /// Remove the key-value pair equivalent to `key` and return its value.
+    ///
+    /// Equivalent to [`IndexMap::shift_remove`].
+    pub fn shift_remove<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.shift_remove(key)
+    }
+
+    /// Remove the key-value pair equivalent to `key` and return it and the index it had.
+    ///
+    /// Equivalent to [`IndexMap::shift_remove_full`].
+    pub fn shift_remove_full<Q>(&mut self, key: &Q) -> Option<(usize, K, V)>
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.shift_remove_full(key)
+    }
+
+    /// Remove the key-value pair by index
+    ///
+    /// Equivalent to [`IndexMap::shift_remove_index`].
+    pub fn shift_remove_index(&mut self, index: usize) -> Option<(K, V)> {
+        self.0.shift_remove_index(index)
+    }
+
+    /// Shrink the capacity of the set with a lower limit.
+    ///
+    /// Equivalent to [`IndexMap::shrink_to`].
+    pub fn shrink_to(&mut self, min_capacity: usize) {
+        self.0.shrink_to(min_capacity);
+    }
+
+    /// Shrink the capacity of the set as much as possible.
+    ///
+    /// Equivalent to [`IndexMap::shrink_to_fit`].
+    pub fn shrink_to_fit(&mut self) {
+        self.0.shrink_to_fit();
+    }
+
+    /// Sort the map’s key-value pairs in place using the comparison function `cmp`.
+    ///
+    /// Equivalent to [`IndexMap::sort_by`].
+    pub fn sort_by<F>(&mut self, cmp: F)
+    where
+        F: FnMut(&K, &V, &K, &V) -> Ordering,
+    {
+        self.0.sort_by(cmp);
+    }
+
+    /// Sort the map’s key-value pairs in place using a sort-key extraction function.
+    ///
+    /// Equivalent to [`IndexMap::sort_by_cached_key`].
+    pub fn sort_by_cached_key<Q, F>(&mut self, sort_key: F)
+    where
+        Q: Ord,
+        F: FnMut(&K, &V) -> Q,
+    {
+        self.0.sort_by_cached_key(sort_key);
+    }
+
+    /// Sort the map’s key-value pairs in place using a sort-key extraction function.
+    ///
+    /// Equivalent to [`IndexMap::sort_by_key`].
+    pub fn sort_by_key<Q, F>(&mut self, sort_key: F)
+    where
+        Q: Ord,
+        F: FnMut(&K, &V, &K, &V) -> Q,
+    {
+        self.0.sort_by_key(sort_key);
+    }
+
+    /// Sort the map’s key-value pairs in place using the comparison function `cmp`,
+    /// but may not preserve the order of equal elements.
+    ///
+    /// Equivalent to [`IndexMap::sort_unstable_by`].
+    pub fn sort_unstable_by<F>(&mut self, cmp: F)
+    where
+        F: FnMut(&K, &K) -> Ordering,
+    {
+        self.0.sort_unstable_by(cmp);
+    }
+
+    /// Sort the map’s key-value pairs in place using a sort-key extraction function.
+    ///
+    /// Equivalent to [`IndexMap::sort_unstable_by_key`].
+    pub fn sort_unstable_by_key<Q, F>(&mut self, sort_key: F)
+    where
+        Q: Ord,
+        F: FnMut(&K, &V) -> Q,
+    {
+        self.0.sort_unstable_by_key(sort_key);
+    }
+
+    /// Creates a splicing iterator that replaces the specified range in the map with the given
+    /// `replace_with` key-value iterator and yields the removed items. `replace_with` does not need to be
+    /// the same length as `range`.
+    ///
+    /// Equivalent to [`IndexMap::splice`].
+    pub fn splice<R, I>(
+        &mut self,
+        range: R,
+        replace_with: I,
+    ) -> set::Splice<'_, I::IntoIter, K, V, EntityHash>
+    where
+        R: RangeBounds<usize>,
+        I: IntoIterator<Item = (K, V)>,
+    {
+        self.0.splice(range, replace_with)
+    }
+
+    /// Splits the collection into two at the given index.
+    ///
+    /// Equivalent to [`IndexMap::split_off`].
+    pub fn split_off(&mut self, at: usize) -> Self {
+        let split_off = self.0.split_off(at);
+        // SAFETY: `self` didn't contain duplicates, so the split off part also doesn't contain duplicated.
+        unsafe { Self::from_index_map_unchecked(split_off) }
+    }
+
+    /// Swaps the position of two key-value pairs in the map.
+    ///
+    /// Equivalent to [`IndexMap::swap_indices`].
+    pub fn swap_indices(&mut self, a: usize, b: usize) {
+        self.0.swap_indices(a, b);
+    }
+
+    /// Remove the key-value pair equivalent to `key` and return its value.
+    ///
+    /// Equivalent to [`IndexMap::swap_remove`].
+    pub fn swap_remove<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.swap_remove(key)
+    }
+
+    /// Remove the key-value pair equivalent to `key` and return it and the index it had.
+    ///
+    /// Equivalent to [`IndexMap::swap_remove_full`].
+    pub fn swap_remove_full<Q>(&mut self, key: &Q) -> Option<(usize, K, V)>
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.swap_remove_full(key)
+    }
+
+    /// Remove the key-value pair by index
+    ///
+    /// Equivalent to [`IndexMap::swap_remove_index`].
+    pub fn swap_remove_index(&mut self, index: usize) -> Option<(K, V)> {
+        self.0.swap_remove_index(index)
+    }
+
+    /// Shortens the map, keeping the first `len` elements and dropping the rest.
+    ///
+    /// Equivalent to [`IndexMap::truncate`].
+    pub fn truncate(&mut self, len: usize) {
+        self.0.truncate(len);
+    }
+
+    /// Try to reserve capacity for `additional` more key-value pairs.
+    ///
+    /// Equivalent to [`IndexMap::try_reserve`].
+    pub fn try_reserve(&mut self, additional: usize) -> Result<(), indexmap::TryReserveError> {
+        self.0.try_reserve(additional)
+    }
+
+    /// Try to reserve capacity for `additional` more key-value pairs, without over-allocating.
+    ///
+    /// Equivalent to [`IndexMap::try_reserve`].
+    pub fn try_reserve_exact(
+        &mut self,
+        additional: usize,
+    ) -> Result<(), indexmap::TryReserveError> {
+        self.0.try_reserve_exact(additional)
+    }
+
 }
 
 impl<K: EntityEquivalent + Hash, V> Default for EntityEquivalentIndexMap<K, V> {
@@ -156,12 +498,6 @@ impl<K: EntityEquivalent + Hash, V> Deref for EntityEquivalentIndexMap<K, V> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl<K: EntityEquivalent + Hash, V> DerefMut for EntityEquivalentIndexMap<K, V> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
