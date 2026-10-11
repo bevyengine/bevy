@@ -1,6 +1,6 @@
 ---
 title: Many-to-Many Relationships
-pull_requests: [20377]
+pull_requests: []
 ---
 
 In order to support many-to-many relationships, the `Relationship` trait has been changed:

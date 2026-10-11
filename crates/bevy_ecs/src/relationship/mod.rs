@@ -113,9 +113,16 @@ use log::warn;
     reason = "Relationships should never be empty"
 )]
 pub trait Relationship: Component + Sized {
-    /// The [`Component`] added to the "target" entities of this [`Relationship`], which contains the list of all "source"
-    /// entities that relate to the "target".
-    type RelationshipTarget: RelationshipTarget<Relationship = Self>;
+    /// The [`Component`] added to the "target" entities of this [`Relationship`], which contains the list of
+    /// all "source" entities that relate to the "target".
+    ///
+    /// A struct cannot be both a [`Relationship`] as well as its [`RelationshipTarget`], because they serve
+    /// fundamentally different purposes. The [`Relationship`] functions as the source of truth, while
+    /// [`RelationshipTarget`] reflects that truth. If a struct can be both, hooks start conflicting with
+    /// potentially unsound results.
+    ///
+    /// Check out the [`IsNot`] documentation, to figure out how we guarantee this at compile time.
+    type RelationshipTarget: IsNot<Self, Key = Pass> + RelationshipTarget<Relationship = Self>;
 
     /// The collection type that stores the "target" entities for this [`Relationship`] component.
     type Collection: RelationshipCollection;
@@ -269,6 +276,7 @@ pub trait Relationship: Component + Sized {
             ..
         }: HookContext,
     ) {
+        std::println!("ON_DISCARD_RELATIONSHIP: {}", entity);
         match relationship_hook_mode {
             RelationshipHookMode::Run => {}
             RelationshipHookMode::Skip => return,
@@ -287,20 +295,10 @@ pub trait Relationship: Component + Sized {
             .unwrap()
             .get();
         for target_entity in target_entities.iter() {
-            if target_entity == entity {
-                // Self-referential relationships are cleaned up by the `on_insert`
-                // hook, but we may still encounter them when they're being removed.
-                // We skip them here to avoid potentially accessing the same entity
-                // simultaneously, which could violate rust safety invariants if
-                // the `Relationship` and `RelationshipTarget` are the same component
-                // (which is technically possible for many-to-many relationships).
-                continue;
-            }
-
             if let Ok(target_entity_cell) = world_cell.get_entity(target_entity) {
                 if let Some(mut relationship_target) =
-                    // SAFETY: We verified that the target entity is not the same as the source entity,
-                    // avoiding violating safety invariants.
+                    // SAFETY: Because `Relationship` and `RelationshipTarget` are guaranteed to be different components,
+                    // this call can't conflict with any other hooks, avoiding violating safety invariants.
                     unsafe { target_entity_cell.get_mut::<Self::RelationshipTarget>() }
                 {
                     relationship_target.collection_mut_risky().remove(entity);
@@ -327,6 +325,37 @@ pub trait Relationship: Component + Sized {
             }
         }
     }
+}
+
+/// Trait vodoo that ensures a relationships [`RelationshipTarget'] cannot be implemented on the same struct.
+/// This makes the following into a compile time error:
+///
+/// ```
+/// #[derive(Component)]
+/// #[relationship(relationship_target = Likes)]
+/// #[relationship_target(relationship = Likes)]
+/// struct Likes(Vec<Entity>);
+/// ```
+///
+/// It is not even possible to get around this restriction via a manual implementation of `Relationship` and `RelationshipTarget`.
+/// The reasoning behind this design is further explained in the [`Relationship`] docs.
+///
+/// The trait vodoo works by implementing `IsNot<T>` for all `T` with the associated type `Key = Block`.
+/// If a user tries to implement `Relationship` for `Likes` with `RelationshipTarget = Likes`, `Likes` *needs* to implement `IsNot<Likes>` with `Key = Pass`.
+/// However, `IsNot<Likes>` is already implemented for `Likes` with `Key = Block`, which cannot be overwritten. This prevents users from using the same struct as the relationship and the target.
+pub trait IsNot<T: ?Sized> {
+    /// When implemented with `Key = Block`, it cannot be used as the [`RelationshipTarget`] of a relationship.
+    type Key;
+}
+
+/// Used with the [`IsNot`] trait. Check the documentation for more information.
+pub struct Pass;
+
+/// Used with the [`IsNot`] trait. Check the documentation for more information.
+pub struct Block;
+
+impl<T: ?Sized> IsNot<T> for T {
+    type Key = Block;
 }
 
 /// The iterator type for the source entities in a [`RelationshipTarget`] collection,
@@ -890,7 +919,6 @@ impl<C> ComponentRelationshipAccessor<C> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
     use core::marker::PhantomData;
     use core::sync::atomic::AtomicBool;
 
@@ -905,7 +933,7 @@ mod tests {
     fn custom_relationship() {
         #[derive(Component)]
         #[relationship(relationship_target = LikedBy)]
-        struct Likes(pub Vec<Entity>);
+        struct Likes(pub Entity);
 
         #[derive(Component)]
         #[relationship_target(relationship = Likes)]
@@ -913,8 +941,8 @@ mod tests {
 
         let mut world = World::new();
         let a = world.spawn_empty().id();
-        let b = world.spawn(Likes(vec![a])).id();
-        let c = world.spawn(Likes(vec![a, b])).id();
+        let b = world.spawn(Likes(a)).id();
+        let c = world.spawn(Likes(a)).id();
         assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
     }
 
@@ -1362,6 +1390,40 @@ mod tests {
         assert!(DESPAWN_CALLED.load(core::sync::atomic::Ordering::Relaxed));
     }
 
+    #[test]
+    fn custom_linked_spawn() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(pub Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn(Rel(a)).id();
+        let c = world.spawn(Rel(a)).id();
+
+        world.entity_mut(a).despawn(); // should also despawn c
+        assert!(world.get_entity(a).is_err());
+        assert!(world.get_entity(b).is_err());
+        assert!(world.get_entity(c).is_err());
+    }
+
+    #[test]
+    fn chained_linked_spawn() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn(ChildOf(a)).id();
+        let c = world.spawn(ChildOf(b)).id();
+
+        world.entity_mut(a).despawn(); // should despawn all
+        assert!(world.get_entity(a).is_err());
+        assert!(world.get_entity(b).is_err());
+        assert!(world.get_entity(c).is_err());
+    }
+
     mod many_to_many {
         use alloc::{vec, vec::Vec};
 
@@ -1499,6 +1561,45 @@ mod tests {
             assert!(world.get_entity(b).is_err());
             assert!(world.entity(c).get::<LikedBy>().is_none());
             assert!(world.entity(c).get::<Likes>().is_none());
+        }
+
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(pub Vec<Entity>);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
+        struct RelTarget(Vec<Entity>);
+
+        #[test]
+        fn simple_linked_spawn() {
+            let mut world = World::new();
+            let a = world.spawn_empty().id();
+            let b = world.spawn_empty().id();
+            let c = world.spawn(Rel(vec![a, b])).id();
+
+            world.entity_mut(a).despawn(); // should not despawn c
+            assert!(world.get_entity(a).is_err());
+            assert_eq!(world.entity(b).get::<RelTarget>().unwrap().0, vec![c]);
+            assert_eq!(world.entity(c).get::<Rel>().unwrap().0, vec![b]);
+
+            world.entity_mut(b).despawn(); // should despawn c
+            assert!(world.get_entity(a).is_err());
+            assert!(world.get_entity(b).is_err());
+            assert!(world.get_entity(c).is_err());
+        }
+
+        #[test]
+        fn chained_linked_spawn() {
+            let mut world = World::new();
+            let a = world.spawn_empty().id();
+            let b = world.spawn(Rel(vec![a])).id();
+            let c = world.spawn(Rel(vec![a, b])).id();
+
+            world.entity_mut(a).despawn(); // should despawn all entities
+            assert!(world.get_entity(a).is_err());
+            assert!(world.get_entity(b).is_err());
+            assert!(world.get_entity(c).is_err());
         }
     }
 }

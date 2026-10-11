@@ -498,6 +498,10 @@ impl DeriveComponent {
         let linked_spawn = relationship_target.linked_spawn;
         let fqdefault = FQDefault.into_token_stream();
         Ok(Some(quote! {
+            impl #impl_generics #bevy_ecs::relationship::IsNot<#relationship> for #struct_name #type_generics #where_clause {
+                type Key = #bevy_ecs::relationship::Pass;
+            }
+
             impl #impl_generics #bevy_ecs::relationship::RelationshipTarget for #struct_name #type_generics #where_clause {
                 const LINKED_SPAWN: bool = #linked_spawn;
                 type Relationship = #relationship;
