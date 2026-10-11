@@ -35,13 +35,21 @@ const MAX_GENERATION_STEPS: u32 = 4096;
 /// It holds a clone of the local [`AppTypeRegistry`], sharing its types, and the remote entities
 /// the inspector shows, each with a [`RemoteComponents`] record.
 #[derive(Resource)]
+pub struct RemoteWorlds {
+    /// remote main
+    pub main: RemoteWorld,
+    /// remote render
+    pub render: RemoteWorld,
+}
+
+/// Single remote world
 pub struct RemoteWorld {
     world: World,
     reserved: u32,
     types: HashMap<String, Option<ComponentId>>,
 }
 
-impl FromWorld for RemoteWorld {
+impl FromWorld for RemoteWorlds {
     fn from_world(world: &mut World) -> Self {
         Self::new(
             world
@@ -49,6 +57,15 @@ impl FromWorld for RemoteWorld {
                 .cloned()
                 .unwrap_or_default(),
         )
+    }
+}
+
+impl RemoteWorlds {
+    pub(crate) fn new(registry: AppTypeRegistry) -> Self {
+        Self {
+            main: RemoteWorld::new(registry.clone()),
+            render: RemoteWorld::new(registry),
+        }
     }
 }
 
