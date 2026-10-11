@@ -403,6 +403,7 @@ impl TaskPool {
             executor,
             external_executor,
             scope_executor,
+            tick_task_pool_executor: tick_task_pool_executor || self.threads.is_empty(),
             spawned,
             scope: PhantomData,
             env: PhantomData,
@@ -417,67 +418,32 @@ impl TaskPool {
         if spawned.is_empty() {
             Vec::new()
         } else {
-            block_on(async move {
-                let get_results = async {
-                    let mut results = Vec::with_capacity(spawned.len());
-                    while let Ok(task) = spawned.pop() {
-                        if let Some(res) = task.await {
-                            match res {
-                                Ok(res) => results.push(res),
-                                Err(payload) => std::panic::resume_unwind(payload),
-                            }
-                        } else {
-                            panic!("Failed to catch panic!");
+            scope.block_on_driving(async {
+                let mut results = Vec::with_capacity(spawned.len());
+                while let Ok(task) = spawned.pop() {
+                    if let Some(res) = task.await {
+                        match res {
+                            Ok(res) => results.push(res),
+                            Err(payload) => std::panic::resume_unwind(payload),
                         }
+                    } else {
+                        panic!("Failed to catch panic!");
                     }
-                    results
-                };
-
-                let tick_task_pool_executor = tick_task_pool_executor || self.threads.is_empty();
-
-                // we get this from a thread local so we should always be on the scope executors thread.
-                // note: it is possible `scope_executor` and `external_executor` is the same executor,
-                // in that case, we should only tick one of them, otherwise, it may cause deadlock.
-                let scope_ticker = scope_executor.ticker().unwrap();
-                let external_ticker = if !external_executor.is_same(scope_executor) {
-                    external_executor.ticker()
-                } else {
-                    None
-                };
-
-                match (external_ticker, tick_task_pool_executor) {
-                    (Some(external_ticker), true) => {
-                        Self::execute_global_external_scope(
-                            executor,
-                            external_ticker,
-                            scope_ticker,
-                            get_results,
-                        )
-                        .await
-                    }
-                    (Some(external_ticker), false) => {
-                        Self::execute_external_scope(external_ticker, scope_ticker, get_results)
-                            .await
-                    }
-                    // either external_executor is none or it is same as scope_executor
-                    (None, true) => {
-                        Self::execute_global_scope(executor, scope_ticker, get_results).await
-                    }
-                    (None, false) => Self::execute_scope(scope_ticker, get_results).await,
                 }
+                results
             })
         }
     }
 
     #[inline]
-    async fn execute_global_external_scope<'scope, 'ticker, T>(
+    async fn execute_global_external_scope<'scope, 'ticker, R>(
         executor: &'scope crate::executor::Executor<'scope>,
         external_ticker: ThreadExecutorTicker<'scope, 'ticker>,
         scope_ticker: ThreadExecutorTicker<'scope, 'ticker>,
-        get_results: impl Future<Output = Vec<T>>,
-    ) -> Vec<T> {
+        future: impl Future<Output = R>,
+    ) -> R {
         // we restart the executors if a task errors. if a scoped
-        // task errors it will panic the scope on the call to get_results
+        // task errors it will panic the scope when `future` awaits its result
         let execute_forever = async move {
             loop {
                 let tick_forever = async {
@@ -493,15 +459,15 @@ impl TaskPool {
                     .is_ok();
             }
         };
-        get_results.or(execute_forever).await
+        future.or(execute_forever).await
     }
 
     #[inline]
-    async fn execute_external_scope<'scope, 'ticker, T>(
+    async fn execute_external_scope<'scope, 'ticker, R>(
         external_ticker: ThreadExecutorTicker<'scope, 'ticker>,
         scope_ticker: ThreadExecutorTicker<'scope, 'ticker>,
-        get_results: impl Future<Output = Vec<T>>,
-    ) -> Vec<T> {
+        future: impl Future<Output = R>,
+    ) -> R {
         let execute_forever = async {
             loop {
                 let tick_forever = async {
@@ -512,15 +478,15 @@ impl TaskPool {
                 let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
             }
         };
-        get_results.or(execute_forever).await
+        future.or(execute_forever).await
     }
 
     #[inline]
-    async fn execute_global_scope<'scope, 'ticker, T>(
+    async fn execute_global_scope<'scope, 'ticker, R>(
         executor: &'scope crate::executor::Executor<'scope>,
         scope_ticker: ThreadExecutorTicker<'scope, 'ticker>,
-        get_results: impl Future<Output = Vec<T>>,
-    ) -> Vec<T> {
+        future: impl Future<Output = R>,
+    ) -> R {
         let execute_forever = async {
             loop {
                 let tick_forever = async {
@@ -534,14 +500,14 @@ impl TaskPool {
                     .is_ok();
             }
         };
-        get_results.or(execute_forever).await
+        future.or(execute_forever).await
     }
 
     #[inline]
-    async fn execute_scope<'scope, 'ticker, T>(
+    async fn execute_scope<'scope, 'ticker, R>(
         scope_ticker: ThreadExecutorTicker<'scope, 'ticker>,
-        get_results: impl Future<Output = Vec<T>>,
-    ) -> Vec<T> {
+        future: impl Future<Output = R>,
+    ) -> R {
         let execute_forever = async {
             loop {
                 let tick_forever = async {
@@ -552,7 +518,7 @@ impl TaskPool {
                 let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
             }
         };
-        get_results.or(execute_forever).await
+        future.or(execute_forever).await
     }
 
     /// Spawns a static future onto the thread pool. The returned [`Task`] is a
@@ -635,6 +601,8 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope crate::executor::Executor<'scope>,
     external_executor: &'scope ThreadExecutor<'scope>,
     scope_executor: &'scope ThreadExecutor<'scope>,
+    /// Whether the waiting thread also runs the pool's tasks.
+    tick_task_pool_executor: bool,
     spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -694,12 +662,56 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     }
 }
 
+impl<'scope, 'env, T> Scope<'scope, 'env, T>
+where
+    T: 'scope,
+{
+    /// Blocks on `future` while driving the executors the scope's tasks run on.
+    fn block_on_driving<R>(&self, future: impl Future<Output = R>) -> R {
+        // we get this from a thread local so we should always be on the scope executors thread.
+        // note: it is possible `scope_executor` and `external_executor` is the same executor,
+        // in that case, we should only tick one of them, otherwise, it may cause deadlock.
+        let scope_ticker = self.scope_executor.ticker().unwrap();
+        let external_ticker = if !self.external_executor.is_same(self.scope_executor) {
+            self.external_executor.ticker()
+        } else {
+            None
+        };
+
+        block_on(async move {
+            match (external_ticker, self.tick_task_pool_executor) {
+                (Some(external_ticker), true) => {
+                    TaskPool::execute_global_external_scope(
+                        self.executor,
+                        external_ticker,
+                        scope_ticker,
+                        future,
+                    )
+                    .await
+                }
+                (Some(external_ticker), false) => {
+                    TaskPool::execute_external_scope(external_ticker, scope_ticker, future).await
+                }
+                // either external_executor is none or it is same as scope_executor
+                (None, true) => {
+                    TaskPool::execute_global_scope(self.executor, scope_ticker, future).await
+                }
+                (None, false) => TaskPool::execute_scope(scope_ticker, future).await,
+            }
+        })
+    }
+}
+
 impl<'scope, 'env, T> Drop for Scope<'scope, 'env, T>
 where
     T: 'scope,
 {
     fn drop(&mut self) {
-        block_on(async {
+        if self.spawned.is_empty() {
+            return;
+        }
+        // a cancellation only completes once an executor runs the task.
+        self.block_on_driving(async {
             while let Ok(task) = self.spawned.pop() {
                 task.cancel().await;
             }
@@ -958,5 +970,20 @@ mod tests {
         });
 
         assert_eq!(count.load(Ordering::Acquire), 1);
+    }
+
+    // This test hangs if the scope's drop doesn't drive its executors.
+    #[test]
+    fn test_scope_panic_with_spawn_on_scope() {
+        let pool = TaskPool::new();
+
+        let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            pool.scope(|scope| {
+                scope.spawn_on_scope(async {});
+                panic!("the scope panics before its task runs");
+            });
+        }));
+
+        assert!(result.is_err());
     }
 }
