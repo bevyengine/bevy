@@ -86,16 +86,52 @@ impl MineField {
             .count()
     }
 
+    fn count_adjacent_flags(&self, target: IVec2) -> usize {
+        self.get_adjacent(target)
+            .filter(|&adjacent| self[adjacent].flagged)
+            .count()
+    }
+
     fn reveal(&mut self, target: IVec2) {
         let mut open = vec![target];
         while let Some(current) = open.pop() {
             if !self[current].revealed {
                 self[current].revealed = true;
+                self[current].flagged = false;
                 if self.count_adjacent_mines(current) == 0 {
                     open.extend(self.get_adjacent(current));
                 }
             }
         }
+    }
+
+    fn reveal_flagged(&mut self, target: IVec2) -> bool {
+        if self.count_adjacent_flags(target) != self.count_adjacent_mines(target) {
+            return false;
+        }
+
+        let mut open = vec![];
+        for adjacent in self.get_adjacent(target) {
+            if self[adjacent].mined && !self[adjacent].flagged {
+                return true;
+            } else if self[adjacent].flagged {
+                continue;
+            }
+
+            open.push(adjacent);
+        }
+
+        while let Some(current) = open.pop() {
+            if !self[current].revealed {
+                self[current].revealed = true;
+                self[current].flagged = false;
+                if self.count_adjacent_mines(current) == 0 {
+                    open.extend(self.get_adjacent(current));
+                }
+            }
+        }
+
+        false
     }
 
     fn iter(&self) -> impl Iterator<Item = (IVec2, Tile)> + '_ {
@@ -179,6 +215,9 @@ struct GameRoot;
 
 #[derive(Component)]
 struct TileCell(IVec2);
+
+#[derive(Component)]
+struct NumberCell(IVec2);
 
 #[derive(Component, Clone, Copy)]
 enum ButtonAction {
@@ -317,6 +356,7 @@ fn rebuild_game_ui(commands: &mut Commands, root: Entity, game: &Game, assets: &
                                 };
                                 parent.spawn((
                                     tile_node,
+                                    NumberCell(position),
                                     BackgroundColor(BACKGROUND_COLOR),
                                     BorderColor::all(color),
                                     Pickable::IGNORE,
@@ -512,6 +552,29 @@ fn on_tile_click(
     rebuild_game_ui(&mut commands, *game_root, &game, &assets);
 }
 
+fn on_number_tile_click(
+    click: On<PointerClick>,
+    tiles: Query<&NumberCell>,
+    mut game: ResMut<Game>,
+    mut commands: Commands,
+    game_root: Single<Entity, With<GameRoot>>,
+    assets: Res<AssetServer>,
+) {
+    if game.game_over || game.field.is_cleared() {
+        return;
+    }
+
+    let Ok(&NumberCell(position)) = tiles.get(click.event_target()) else {
+        return;
+    };
+
+    if click.button == PointerButton::Primary {
+        game.game_over = game.field.reveal_flagged(position);
+
+        rebuild_game_ui(&mut commands, *game_root, &game, &assets);
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -526,5 +589,6 @@ fn main() {
         .add_observer(on_tile_click)
         .add_observer(on_tile_over)
         .add_observer(on_tile_out)
+        .add_observer(on_number_tile_click)
         .run();
 }
