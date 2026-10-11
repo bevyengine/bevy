@@ -623,3 +623,23 @@ fn mutually_exclusive_after_bundle_register_panics_on_spawn() {
 
     world.spawn((CompA, CompB));
 }
+
+#[test]
+#[should_panic(expected = "has mutually exclusive components")]
+fn mutually_exclusive_with_existing_component_on_archetype_should_panic() {
+    #[derive(Component, Default)]
+    struct Grounded;
+
+    #[derive(Component, Default)]
+    struct Airborne;
+
+    #[derive(Component, Default)]
+    #[require(Airborne)]
+    struct Jumping;
+
+    let mut world = World::new();
+    world.register_mutually_exclusive_components::<(Grounded, Airborne)>();
+
+    let player = world.spawn(Grounded).id();
+    world.entity_mut(player).insert((Grounded, Jumping));
+}

@@ -639,24 +639,27 @@ impl BundleInfo {
         let mut existing = Vec::new();
         let mut removed_table = Vec::new();
         let mut removed_sparse = Vec::new();
-        let mut added_maybe_incompatible = Vec::new();
+        let mut maybe_incompatible = Vec::new();
 
         let current_archetype = &mut archetypes[archetype_id];
         for component_id in self.iter_explicit_components() {
+            // SAFETY: component_id exists
+            let component_info = unsafe { components.get_info_unchecked(component_id) };
             if current_archetype.contains(component_id) {
                 bundle_status.push(ComponentStatus::Existing);
                 existing.push(component_id);
+                if !component_info.mutually_exclusive().is_empty() {
+                    maybe_incompatible.push(component_id);
+                }
             } else {
                 bundle_status.push(ComponentStatus::Added);
                 added.push(component_id);
-                // SAFETY: component_id exists
-                let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id),
                     StorageType::SparseSet => new_sparse_set_components.push(component_id),
                 }
                 if !component_info.mutually_exclusive().is_empty() {
-                    added_maybe_incompatible.push(component_id);
+                    maybe_incompatible.push(component_id);
                     for &incompatible_id in component_info
                         .mutually_exclusive()
                         .iter()
@@ -685,7 +688,7 @@ impl BundleInfo {
                     StorageType::SparseSet => new_sparse_set_components.push(component_id),
                 }
                 if !component_info.mutually_exclusive().is_empty() {
-                    added_maybe_incompatible.push(component_id);
+                    maybe_incompatible.push(component_id);
                     for &incompatible_id in component_info
                         .mutually_exclusive()
                         .iter()
@@ -703,11 +706,11 @@ impl BundleInfo {
             }
         }
 
-        if added_maybe_incompatible.len() > 1 {
-            for (idx, &component_id) in added_maybe_incompatible.iter().enumerate() {
+        if maybe_incompatible.len() > 1 {
+            for (idx, &component_id) in maybe_incompatible.iter().enumerate() {
                 // SAFETY: component_id exists
                 let info = unsafe { components.get_info_unchecked(component_id) };
-                for maybe_incompatible in &added_maybe_incompatible[idx + 1..] {
+                for maybe_incompatible in &maybe_incompatible[idx + 1..] {
                     if info.mutually_exclusive().contains(maybe_incompatible) {
                         // SAFETY: component_id exists
                         let incompatible_info =
