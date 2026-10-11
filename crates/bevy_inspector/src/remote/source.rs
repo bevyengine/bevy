@@ -42,10 +42,7 @@ use bevy_ecs::entity::Entity;
 
 use super::{
     details,
-    world::{
-        self, Coverage, PolledComponent, RemoteWorld, RemoteWorlds,
-        SpawnRemoteError,
-    },
+    world::{self, Coverage, PolledComponent, RemoteWorld, RemoteWorlds, SpawnRemoteError},
 };
 
 const NAME: &str = "bevy_ecs::name::Name";
@@ -460,11 +457,11 @@ fn reset_inspected_world(world: &mut World, is_main: bool) {
             }
         }
     }
-    if let Some(mut fetchs) = world.get_resource_mut::<details::RemoteEntityFetchs>() {
+    if let Some(mut fetches) = world.get_resource_mut::<details::RemoteEntityFetches>() {
         if is_main {
-            fetchs.main = details::RemoteEntityFetch::default();
+            fetches.main = details::RemoteEntityFetch::default();
         } else {
-            fetchs.render = details::RemoteEntityFetch::default();
+            fetches.render = details::RemoteEntityFetch::default();
         }
     }
     clear_rows(world);
@@ -889,7 +886,6 @@ fn apply_rows(
                 writable.push(index);
             }
             Err(SpawnRemoteError::Behind) => {
-                println!("is_main={} is behind", is_main);
                 return Err(pending);
             }
             Err(SpawnRemoteError::Taken) => {
@@ -919,7 +915,8 @@ fn apply_rows(
             coverage,
         );
         applied.tree |= written.tree;
-        applied.selection |= written.changed && selection.is_some_and(|f| f.entity == row.entity && f.is_main == is_main);
+        applied.selection |= written.changed
+            && selection.is_some_and(|f| f.entity == row.entity && f.is_main == is_main);
     }
     let garbage = remote.take_garbage();
     if !garbage.is_empty() {
@@ -959,7 +956,7 @@ pub(crate) mod tests {
         world.init_resource::<RemoteConnections>();
         world.init_resource::<RemoteSnapshots>();
         world.init_resource::<RemoteWorlds>();
-        world.init_resource::<details::RemoteEntityFetchs>();
+        world.init_resource::<details::RemoteEntityFetches>();
         world.init_resource::<EntityTreeSync>();
         world.init_resource::<DetailsPanelSync>();
         world.init_resource::<DetailsCollapsed>();
@@ -1622,7 +1619,7 @@ pub(crate) mod tests {
         details::sync_remote_details(&mut world);
         assert_eq!(
             world
-                .resource::<details::RemoteEntityFetchs>()
+                .resource::<details::RemoteEntityFetches>()
                 .main
                 .entity(),
             Some(remote(11))
@@ -1650,7 +1647,7 @@ pub(crate) mod tests {
         assert_eq!(world.resource::<InspectorSelection>().0, None);
         assert_eq!(
             world
-                .resource::<details::RemoteEntityFetchs>()
+                .resource::<details::RemoteEntityFetches>()
                 .main
                 .entity(),
             None

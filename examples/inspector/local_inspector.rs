@@ -186,7 +186,7 @@ fn log_selection(selection: Res<InspectorSelection>, names: Query<&Name>) {
         Some(InspectableEntity { entity, is_main }) => info!(
             "selected {entity} {is_main}: {}",
             names
-                .get(entity.0)
+                .get(entity)
                 .map(Name::as_str)
                 .unwrap_or("<unnamed entity>")
         ),

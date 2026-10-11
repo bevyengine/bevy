@@ -481,20 +481,12 @@ fn row_label(text: String) -> impl Scene {
 
 fn is_excluded(world: &World, entity: Entity) -> bool {
     let Ok(entity_ref) = world.get_entity(entity) else {
-        println!("exc none");
         return true;
     };
     if entity_ref.contains::<IsResource>()
+        || entity_ref.contains::<SystemIdMarker>()
+        || entity_ref.contains::<Observer>()
     {
-        // println!("exc IsResource");
-        return true;
-    }
-    if entity_ref.contains::<SystemIdMarker>() {
-        println!("exc SystemIdMarker");
-        return true;
-    }
-    if entity_ref.contains::<Observer>() {
-        println!("exc Observer");
         return true;
     }
 
@@ -769,7 +761,7 @@ mod tests {
             .map(|index| app.world_mut().spawn(Name::new(format!("{index}"))).id())
             .collect();
         app.update();
-        assert_eq!(row_sources(app.world(), tree).len(), 501);
+        assert_eq!(row_sources(app.world(), tree).len(), 1002);
 
         for root in roots.iter().step_by(2) {
             app.world_mut().entity_mut(*root).despawn();
@@ -778,7 +770,7 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), tree);
-        assert_eq!(sources.len(), 251);
+        assert_eq!(sources.len(), 502);
         assert!(roots
             .iter()
             .skip(1)
@@ -801,7 +793,7 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), tree);
-        assert_eq!(sources.len(), 3);
+        assert_eq!(sources.len(), 6);
         assert!(sources.contains(&panel));
         assert!(sources.contains(&parent));
         assert!(sources.contains(&sibling));
@@ -830,7 +822,7 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), tree);
-        assert_eq!(sources.len(), 2);
+        assert_eq!(sources.len(), 4);
         assert!(sources.contains(&panel));
         assert!(sources.contains(&parent));
         assert!(app

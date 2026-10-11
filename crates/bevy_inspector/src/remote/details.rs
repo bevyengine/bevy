@@ -9,6 +9,8 @@
 //!
 //! `world.list_components` reports component names, which the remote app only knows when built
 //! with the `debug` feature, as Bevy is by default.
+//!
+//! [`RemoteWorld`]: crate::remote::RemoteWorld
 
 use alloc::{
     string::{String, ToString},
@@ -69,7 +71,7 @@ struct DetailsCall {
 
 /// Stores fetches for remote app.
 #[derive(Resource, Default)]
-pub struct RemoteEntityFetchs {
+pub struct RemoteEntityFetches {
     /// The fetch for the remote main world.
     pub main: RemoteEntityFetch,
     /// The fetch for the remote render world.
@@ -98,7 +100,7 @@ impl RemoteEntityFetch {
 }
 
 /// Fetches the components of the selected remote entity, and writes them into the
-/// [`RemoteWorld`] when they change.
+/// [`RemoteWorld`](`crate::remote::RemoteWorld`) when they change.
 pub fn sync_remote_details(world: &mut World) {
     _sync_remote_details(world, true);
     _sync_remote_details(world, false);
@@ -112,19 +114,19 @@ fn _sync_remote_details(world: &mut World, is_main: bool) {
         .resource::<InspectorSelection>()
         .0
         .filter(|selection| w.contains(selection.entity));
-    let selection_entity = selection.map_or(None, |s| Some(s.entity));
+    let selection_entity = selection.map(|s| s.entity);
 
-    let fs = world.resource::<RemoteEntityFetchs>();
+    let fs = world.resource::<RemoteEntityFetches>();
     let f = if is_main { &fs.main } else { &fs.render };
     if f.entity != selection_entity {
-        let mut fetchs = world.resource_mut::<RemoteEntityFetchs>();
+        let mut fetches = world.resource_mut::<RemoteEntityFetches>();
         if is_main {
-            fetchs.main = RemoteEntityFetch {
+            fetches.main = RemoteEntityFetch {
                 entity: selection_entity,
                 ..RemoteEntityFetch::default()
             };
         } else {
-            fetchs.render = RemoteEntityFetch {
+            fetches.render = RemoteEntityFetch {
                 entity: selection_entity,
                 ..RemoteEntityFetch::default()
             };
@@ -143,21 +145,21 @@ fn _sync_remote_details(world: &mut World, is_main: bool) {
         .map(Time::elapsed)
         .unwrap_or_default();
 
-    let mut fetchs = world.resource_mut::<RemoteEntityFetchs>();
-    let mut fetch = if is_main {
-        &mut fetchs.main
+    let mut fetches = world.resource_mut::<RemoteEntityFetches>();
+    let fetch = if is_main {
+        &mut fetches.main
     } else {
-        &mut fetchs.render
+        &mut fetches.render
     };
-    if let Some(fetched) = finish_fetch(&mut fetch, now) {
+    if let Some(fetched) = finish_fetch(fetch, now) {
         receive_entity(world, selection.entity, fetched, is_main);
     }
 
-    let fetchs = world.resource::<RemoteEntityFetchs>();
+    let fetches = world.resource::<RemoteEntityFetches>();
     let fetch = if is_main {
-        &fetchs.main
+        &fetches.main
     } else {
-        &fetchs.render
+        &fetches.render
     };
     if fetch.pending.is_some() || now < fetch.next_fetch {
         return;
@@ -175,11 +177,11 @@ fn _sync_remote_details(world: &mut World, is_main: bool) {
         return;
     };
     let registry = world.resource::<AppTypeRegistry>().0.clone();
-    let mut fetchs = world.resource_mut::<RemoteEntityFetchs>();
+    let mut fetches = world.resource_mut::<RemoteEntityFetches>();
     let fetch = if is_main {
-        &mut fetchs.main
+        &mut fetches.main
     } else {
-        &mut fetchs.render
+        &mut fetches.render
     };
     fetch.pending = Some(DetailsCall {
         task: spawn(fetch_entity(client, selection.entity, registry)),
@@ -187,7 +189,7 @@ fn _sync_remote_details(world: &mut World, is_main: bool) {
     });
 }
 
-/// Writes the fetched components of `remote` into the [`RemoteWorld`].
+/// Writes the fetched components of `remote` into the [`RemoteWorld`](`crate::remote::RemoteWorld`).
 pub(crate) fn receive_entity(
     world: &mut World,
     remote: Entity,
@@ -438,9 +440,9 @@ fn raw_value(json: &Value, note: Option<&str>) -> String {
 mod tests {
     use super::*;
     use crate::{
-        InspectableEntity,
         details_panel::inspect_components,
         remote::tests::{apply, mirrored, remote, row, test_world},
+        InspectableEntity,
     };
     use bevy_ecs::{
         component::Component, lifecycle::HookContext, reflect::ReflectComponent,
@@ -518,7 +520,12 @@ mod tests {
             .chain(unserialized.iter().map(ToString::to_string))
             .collect();
         let registry = world.resource::<AppTypeRegistry>().0.clone();
-        receive_entity(world, target, decode_entity(&registry, components, listed), true);
+        receive_entity(
+            world,
+            target,
+            decode_entity(&registry, components, listed),
+            true,
+        );
     }
 
     fn groups(world: &World, target: Entity) -> Vec<ComponentDetails> {
@@ -542,7 +549,7 @@ mod tests {
 
         assert!(mirrored(&world).get_entity(target).is_err());
         assert!(groups(&world, target).is_empty());
-        assert_eq!(world.resource::<RemoteEntityFetchs>().main.entity(), None);
+        assert_eq!(world.resource::<RemoteEntityFetches>().main.entity(), None);
     }
 
     #[test]
