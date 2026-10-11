@@ -886,9 +886,11 @@ impl RemotePlugin {
         .with_method(
             builtin_methods::BRP_APP_INFO_METHOD,
             if to_main {
+                println!("a_main");
                 builtin_methods::process_remote_app_info_request_main
                     as fn(In<Option<Value>>, &World) -> BrpResult
             } else {
+                println!("a_render");
                 builtin_methods::process_remote_app_info_request_render
                     as fn(In<Option<Value>>, &World) -> BrpResult
             },

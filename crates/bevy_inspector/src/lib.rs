@@ -54,20 +54,32 @@ pub enum InspectorSource {
 
 /// The world the panels read: the `RemoteWorld` while the inspector reads from a remote
 /// app, and `world` otherwise.
-pub(crate) fn world_to_inspect(world: &World) -> &World {
+pub(crate) fn world_to_inspect(world: &World, is_main: bool) -> &World {
     #[cfg(feature = "remote")]
     if remote::is_remote(world)
-        && let Some(remote) = world.get_resource::<remote::RemoteWorld>()
+        && let Some(remote) = world.get_resource::<remote::RemoteWorlds>()
     {
-        return remote.world();
+        if is_main {
+            return remote.main.world();
+        } else {
+            return remote.render.world();
+        }
     }
     world
+}
+
+// TODO: needs better name
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Hash)]
+#[reflect(Debug, Clone, PartialEq)]
+pub struct _InspectorSelection {
+    entity: Entity,
+    is_main: bool,
 }
 
 /// The entity currently being inspected, as an id in the inspected world.
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
-pub struct InspectorSelection(pub Option<Entity>);
+pub struct InspectorSelection(pub Option<_InspectorSelection>);
 
 /// The [`ShortName`] of a component type, taken from the type registry where possible.
 ///
@@ -129,15 +141,17 @@ impl Plugin for InspectorPlugin {
             );
 
         #[cfg(feature = "remote")]
-        app.init_resource::<remote::RemoteConnection>()
-            .init_resource::<remote::RemoteSnapshot>()
-            .init_resource::<remote::RemoteWorld>()
+        app.init_resource::<remote::RemoteConnections>()
+            .init_resource::<remote::RemoteSnapshots>()
+            .init_resource::<remote::RemoteWorlds>()
+            .init_resource::<remote::details::RemoteEntityFetchs>()
             .add_systems(
                 PostUpdate,
                 (
                     remote::sync_remote_source,
                     remote::poll_remote_connection,
                     remote::sync_remote_world,
+                    remote::details::sync_remote_details,
                 )
                     .chain()
                     .before(sync_entity_tree)
