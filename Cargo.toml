@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.96.0"
+rust-version = "1.97.1"
 
 [workspace]
 resolver = "3"
@@ -4882,6 +4882,18 @@ name = "Local Inspector"
 description = "Inspects the app's own world with the bevy_inspector entity tree panel"
 category = "Dev tools"
 wasm = true
+
+[[example]]
+name = "remote_inspector"
+path = "examples/inspector/remote_inspector.rs"
+doc-scrape-examples = true
+required-features = ["bevy_inspector", "bevy_remote_client"]
+
+[package.metadata.example.remote_inspector]
+name = "Remote Inspector"
+description = "Inspects a separate running app with the bevy_inspector panels over the Bevy Remote Protocol"
+category = "Dev tools"
+wasm = false
 
 [[example]]
 name = "2d_top_down_camera"

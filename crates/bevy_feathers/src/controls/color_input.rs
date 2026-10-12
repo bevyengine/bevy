@@ -835,7 +835,10 @@ fn hex_input_on_enter_key(
     mut q_state: Query<&mut ColorInputState>,
     mut commands: Commands,
 ) {
-    if key_input.input.key_code != KeyCode::Enter {
+    if !matches!(
+        key_input.input.key_code,
+        KeyCode::Enter | KeyCode::NumpadEnter
+    ) {
         return;
     }
 

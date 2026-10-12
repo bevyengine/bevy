@@ -4,6 +4,9 @@
 //! widgets. This crate provides an entity tree panel, see [`entity_tree`], and a details panel
 //! for the selected entity, see [`details_panel`].
 //!
+//! With the `remote` feature the same panels can inspect a separate running app over the Bevy
+//! Remote Protocol, see the `remote` module.
+//!
 //! Apps are expected to add `bevy_feathers::FeathersPlugins` themselves, alongside
 //! [`InspectorPlugin`].
 
@@ -12,6 +15,8 @@ extern crate alloc;
 pub mod column_split;
 pub mod details_panel;
 pub mod entity_tree;
+#[cfg(feature = "remote")]
+pub mod remote;
 
 use alloc::string::{String, ToString};
 
@@ -30,18 +35,33 @@ use bevy_ui::UiSystems;
 
 use crate::column_split::ColumnSplitPlugin;
 use crate::details_panel::{
-    store_column_splits, sync_details_panel, DetailsCollapsed, DetailsColumnSplits, DetailsIndex,
-    DetailsPanelSync,
+    apply_field_edit, store_column_splits, sync_details_panel, DetailsCollapsed,
+    DetailsColumnSplits, DetailsIndex, DetailsPanelSync,
 };
 use crate::entity_tree::{sync_entity_tree, EntityTreeSync, TreeRowIndex};
 
 /// Where the inspector reads its data from.
-#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
 pub enum InspectorSource {
     /// The world the inspector itself runs in.
     #[default]
     Local,
+    /// A separate running app, reached over the Bevy Remote Protocol.
+    #[cfg(feature = "remote")]
+    Remote(remote::RemoteSource),
+}
+
+/// The world the panels read: the `RemoteWorld` while the inspector reads from a remote
+/// app, and `world` otherwise.
+pub(crate) fn world_to_inspect(world: &World) -> &World {
+    #[cfg(feature = "remote")]
+    if remote::is_remote(world)
+        && let Some(remote) = world.get_resource::<remote::RemoteWorld>()
+    {
+        return remote.world();
+    }
+    world
 }
 
 /// The entity currently being inspected, as an id in the inspected world.
@@ -98,6 +118,7 @@ impl Plugin for InspectorPlugin {
             .init_resource::<DetailsCollapsed>()
             .init_resource::<DetailsColumnSplits>()
             .init_resource::<DetailsPanelSync>()
+            .add_observer(apply_field_edit)
             .add_systems(
                 PostUpdate,
                 (
@@ -105,6 +126,22 @@ impl Plugin for InspectorPlugin {
                     (store_column_splits, sync_details_panel).chain(),
                 )
                     .before(UiSystems::Prepare),
+            );
+
+        #[cfg(feature = "remote")]
+        app.init_resource::<remote::RemoteConnection>()
+            .init_resource::<remote::RemoteSnapshot>()
+            .init_resource::<remote::RemoteWorld>()
+            .add_systems(
+                PostUpdate,
+                (
+                    remote::sync_remote_source,
+                    remote::poll_remote_connection,
+                    remote::sync_remote_world,
+                )
+                    .chain()
+                    .before(sync_entity_tree)
+                    .before(sync_details_panel),
             );
     }
 }

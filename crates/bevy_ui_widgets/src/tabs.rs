@@ -29,6 +29,7 @@ use bevy_picking::{
     events::{
         PointerCancel, PointerClick, PointerDrag, PointerDragEnd, PointerDragStart, PointerState,
     },
+    hover::HoverMap,
     pointer::{PointerButton, PointerId},
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -61,6 +62,12 @@ pub enum TabDragMode {
     /// Once a drag starts, the pointer's position along the list's axis picks the insertion
     /// point, even when the pointer leaves the list.
     Reorder,
+    /// Tabs may be reordered within this list or moved between lists whose drag mode is also
+    /// `External`.
+    ///
+    /// The target is the nearest such list under the pointer. Over no such list, including this
+    /// one, there is no preview and the drag completes without a [`TabDrop`].
+    External,
 }
 
 /// Headless tab-strip behavior and policy.
@@ -75,7 +82,7 @@ pub enum TabDragMode {
 /// instead of consuming them.
 ///
 /// When [`TabList::drag`] allows it, dragging a tab emits [`TabMoved`] on release and does not
-/// change the hierarchy itself.
+/// change the hierarchy itself. [`TabDragLifecycle`] reports each accepted drag.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::TabList)), SelectedTab)]
 #[reflect(Component, Default, Clone, PartialEq)]
@@ -167,7 +174,8 @@ pub struct TabInsertionPreview {
 ///
 /// `index` counts the destination's tabs after removing `tab`, so an observer can apply the move
 /// with [`insert_child`](bevy_ecs::system::EntityCommands::insert_child) when the list contains
-/// only tabs.
+/// only tabs. When `to_strip` differs from `from_strip`, the same call moves the tab to the
+/// destination list.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, EntityEvent, Reflect)]
 #[reflect(Event, Clone, PartialEq)]
 pub struct TabMoved {
@@ -180,6 +188,48 @@ pub struct TabMoved {
     pub to_strip: Entity,
     /// The proposed insertion index.
     pub index: usize,
+}
+
+/// A list and insertion index that accepted a dropped tab.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Reflect)]
+#[reflect(Clone, PartialEq)]
+pub struct TabDrop {
+    /// The destination list.
+    pub destination: Entity,
+    /// The insertion index, counted after removing the dragged tab.
+    pub index: usize,
+}
+
+/// A transition in the life of an accepted tab drag.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Reflect)]
+#[reflect(Clone, PartialEq)]
+pub enum TabDragPhase {
+    /// The drag crossed the movement threshold.
+    Started,
+    /// The pointer was released.
+    Completed {
+        /// The accepting list, or `None` when released outside any compatible list.
+        drop: Option<TabDrop>,
+    },
+    /// The drag was cancelled by Escape, pointer cancellation, or the tab despawning.
+    Cancelled,
+}
+
+/// Reports the start and end of an accepted tab drag.
+///
+/// Every [`TabDragPhase::Started`] is followed by exactly one `Completed` or `Cancelled`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, EntityEvent, Reflect)]
+#[reflect(Event, Clone, PartialEq)]
+pub struct TabDragLifecycle {
+    /// The list the drag started from, which receives this event.
+    #[event_target]
+    pub source: Entity,
+    /// The dragged tab.
+    pub tab: Entity,
+    /// The pointer controlling the drag.
+    pub pointer_id: PointerId,
+    /// The transition being reported.
+    pub phase: TabDragPhase,
 }
 
 const TAB_DRAG_THRESHOLD: f32 = 4.0;
@@ -200,6 +250,15 @@ struct TabDropTarget {
     list: Entity,
     index: usize,
     slot: usize,
+}
+
+impl TabDropTarget {
+    fn drop(self) -> TabDrop {
+        TabDrop {
+            destination: self.list,
+            index: self.index,
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -223,6 +282,7 @@ pub struct TabPlugin;
 impl Plugin for TabPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TabDragGestures>()
+            .init_resource::<HoverMap>()
             .init_resource::<UiScale>()
             .add_observer(tablist_on_click)
             .add_observer(tab_on_key_input)
@@ -484,6 +544,12 @@ fn tab_on_drag(
             commands.entity(gesture.tab).insert(TabDragging {
                 pointer_id: gesture.pointer_id,
             });
+            commands.trigger(TabDragLifecycle {
+                source: gesture.source,
+                tab: gesture.tab,
+                pointer_id: gesture.pointer_id,
+                phase: TabDragPhase::Started,
+            });
         }
         TabDragState::Accepted => {}
     }
@@ -504,15 +570,10 @@ fn tab_on_drag_end(
     if gesture.state != TabDragState::Accepted {
         return;
     }
-    end_tab_drag(&gesture, &mut commands);
-    if let Some(target) = targets.resolve(&gesture, event.pointer.position) {
-        commands.trigger(TabMoved {
-            from_strip: gesture.source,
-            tab: gesture.tab,
-            to_strip: target.list,
-            index: target.index,
-        });
-    }
+    let drop = targets
+        .resolve(&gesture, event.pointer.position)
+        .map(TabDropTarget::drop);
+    end_tab_drag(&gesture, TabDragPhase::Completed { drop }, &mut commands);
 }
 
 fn tab_on_pointer_cancel(
@@ -532,7 +593,7 @@ fn tab_on_pointer_cancel(
         if gesture.pointer_id != pointer_id {
             return true;
         }
-        end_tab_drag(gesture, &mut commands);
+        end_tab_drag(gesture, TabDragPhase::Cancelled, &mut commands);
         false
     });
 }
@@ -555,19 +616,35 @@ fn cancel_tab_drags_on_escape(
     event.propagate(false);
     for gesture in &mut gestures.0 {
         if gesture.state == TabDragState::Accepted {
-            end_tab_drag(gesture, &mut commands);
+            end_tab_drag(gesture, TabDragPhase::Cancelled, &mut commands);
             gesture.state = TabDragState::Cancelled;
             gesture.preview = None;
         }
     }
 }
 
-fn end_tab_drag(gesture: &TabDragGesture, commands: &mut Commands) {
-    if gesture.state == TabDragState::Accepted
-        && let Ok(mut tab) = commands.get_entity(gesture.tab)
-    {
+/// Ends an accepted drag, proposing a [`TabMoved`] for a completed drop.
+fn end_tab_drag(gesture: &TabDragGesture, phase: TabDragPhase, commands: &mut Commands) {
+    if gesture.state != TabDragState::Accepted {
+        return;
+    }
+    if let Ok(mut tab) = commands.get_entity(gesture.tab) {
         tab.try_remove::<TabDragging>();
     }
+    if let TabDragPhase::Completed { drop: Some(drop) } = phase {
+        commands.trigger(TabMoved {
+            from_strip: gesture.source,
+            tab: gesture.tab,
+            to_strip: drop.destination,
+            index: drop.index,
+        });
+    }
+    commands.trigger(TabDragLifecycle {
+        source: gesture.source,
+        tab: gesture.tab,
+        pointer_id: gesture.pointer_id,
+        phase,
+    });
 }
 
 /// Drops gestures whose tab is gone or whose pointer is no longer dragging.
@@ -589,7 +666,7 @@ fn cleanup_tab_drags(
         if dragging && tabs.contains(gesture.tab) {
             return true;
         }
-        end_tab_drag(gesture, &mut commands);
+        end_tab_drag(gesture, TabDragPhase::Cancelled, &mut commands);
         false
     });
 }
@@ -636,20 +713,52 @@ fn sync_tab_insertion_previews(
 /// Resolves where a dragged tab would be inserted.
 #[derive(SystemParam)]
 struct TabDropTargets<'w, 's> {
-    tablists: Query<'w, 's, &'static TabList>,
+    tablists: Query<'w, 's, (&'static TabList, Has<InteractionDisabled>)>,
+    parents: Query<'w, 's, &'static ChildOf>,
     children: Query<'w, 's, &'static Children>,
     tabs: Query<'w, 's, Option<(&'static ComputedNode, &'static UiGlobalTransform)>, With<Tab>>,
+    hover_map: Res<'w, HoverMap>,
     ui_scale: Res<'w, UiScale>,
 }
 
 impl TabDropTargets<'_, '_> {
-    /// Returns the source list's insertion point, wherever the pointer is.
+    /// Returns where the dragged tab would land.
+    ///
+    /// A `Reorder` drag targets its source list wherever the pointer is. An `External` drag
+    /// targets the nearest enabled `External` list under the pointer.
     fn resolve(&self, gesture: &TabDragGesture, position: Vec2) -> Option<TabDropTarget> {
-        let tablist = self.tablists.get(gesture.source).ok()?;
-        if tablist.drag == TabDragMode::Disabled {
+        let (source, _) = self.tablists.get(gesture.source).ok()?;
+        let destination = match source.drag {
+            TabDragMode::Disabled => return None,
+            TabDragMode::Reorder => gesture.source,
+            TabDragMode::External => {
+                self.hover_map
+                    .get(&gesture.pointer_id)?
+                    .iter()
+                    .filter_map(|(entity, hit)| {
+                        let list = self.nearest_tablist(*entity)?;
+                        let (tablist, disabled) = self.tablists.get(list).ok()?;
+                        (tablist.drag == TabDragMode::External && !disabled)
+                            .then_some((list, hit.depth))
+                    })
+                    .min_by(|a, b| a.1.total_cmp(&b.1))?
+                    .0
+            }
+        };
+        let (tablist, disabled) = self.tablists.get(destination).ok()?;
+        if disabled {
             return None;
         }
-        self.insertion_point(gesture.source, tablist, gesture.tab, position)
+        self.insertion_point(destination, tablist, gesture.tab, position)
+    }
+
+    fn nearest_tablist(&self, entity: Entity) -> Option<Entity> {
+        if self.tablists.contains(entity) {
+            return Some(entity);
+        }
+        self.parents
+            .iter_ancestors(entity)
+            .find(|ancestor| self.tablists.contains(*ancestor))
     }
 
     /// Counts the tabs whose center lies before `position` along the list's axis, with and
@@ -774,6 +883,9 @@ mod tests {
     #[derive(Resource, Default)]
     struct TabMoveLog(Vec<TabMoved>);
 
+    #[derive(Resource, Default)]
+    struct DragLifecycleLog(Vec<TabDragLifecycle>);
+
     fn tab_app() -> (App, Entity) {
         let mut app = App::new();
         app.add_plugins((
@@ -784,6 +896,7 @@ mod tests {
         ))
         .init_resource::<SelectionRequests>()
         .init_resource::<TabMoveLog>()
+        .init_resource::<DragLifecycleLog>()
         .add_observer(
             |change: On<crate::ValueChange<Option<Entity>>>,
              mut requests: ResMut<SelectionRequests>| {
@@ -792,7 +905,12 @@ mod tests {
         )
         .add_observer(|event: On<TabMoved>, mut log: ResMut<TabMoveLog>| {
             log.0.push(*event.event());
-        });
+        })
+        .add_observer(
+            |event: On<TabDragLifecycle>, mut log: ResMut<DragLifecycleLog>| {
+                log.0.push(*event.event());
+            },
+        );
         let window = app
             .world_mut()
             .spawn((Window::default(), PrimaryWindow))
@@ -855,10 +973,18 @@ mod tests {
     }
 
     fn reorder_list(app: &mut App, window: Entity) -> Entity {
+        drag_list(app, window, TabDragMode::Reorder)
+    }
+
+    fn external_list(app: &mut App, window: Entity) -> Entity {
+        drag_list(app, window, TabDragMode::External)
+    }
+
+    fn drag_list(app: &mut App, window: Entity, drag: TabDragMode) -> Entity {
         app.world_mut()
             .spawn((
                 TabList {
-                    drag: TabDragMode::Reorder,
+                    drag,
                     ..Default::default()
                 },
                 ChildOf(window),
@@ -879,6 +1005,38 @@ mod tests {
 
     fn start_drag(app: &mut App, target: Entity, window: Entity, pointer_id: PointerId) {
         start_drag_at(app, target, window, pointer_id, Vec2::ZERO);
+    }
+
+    fn hover(app: &mut App, pointer_id: PointerId, entity: Entity, window: Entity) {
+        hover_at_depth(app, pointer_id, entity, window, 0.0);
+    }
+
+    fn hover_at_depth(
+        app: &mut App,
+        pointer_id: PointerId,
+        entity: Entity,
+        window: Entity,
+        depth: f32,
+    ) {
+        app.world_mut()
+            .resource_mut::<HoverMap>()
+            .entry(pointer_id)
+            .or_default()
+            .insert(entity, HitData::new(window, depth, None, None));
+    }
+
+    fn hover_only(app: &mut App, entity: Entity, window: Entity) {
+        app.world_mut().resource_mut::<HoverMap>().clear();
+        hover(app, PointerId::Mouse, entity, window);
+    }
+
+    fn phases(app: &App) -> Vec<TabDragPhase> {
+        app.world()
+            .resource::<DragLifecycleLog>()
+            .0
+            .iter()
+            .map(|event| event.phase)
+            .collect()
     }
 
     fn start_drag_at(
@@ -1752,5 +1910,292 @@ mod tests {
             [(list, Some(tab))]
         );
         assert!(app.world().resource::<TabMoveLog>().0.is_empty());
+    }
+
+    #[test]
+    fn external_drag_previews_on_the_hovered_list_and_proposes_a_cross_list_move() {
+        let (mut app, window) = tab_app();
+        let source = external_list(&mut app, window);
+        let destination = external_list(&mut app, window);
+        let dragged = placed_tab(&mut app, source, 50.0);
+        placed_tab(&mut app, source, 150.0);
+        placed_tab(&mut app, destination, 50.0);
+        let target = placed_tab(&mut app, destination, 150.0);
+        app.update();
+        hover_only(&mut app, source, window);
+
+        start_drag(&mut app, dragged, window, PointerId::Mouse);
+        drag_to(&mut app, dragged, window, PointerId::Mouse, 200.0);
+        assert_eq!(preview(&app, source).unwrap()[0].index, 1);
+        assert_eq!(preview(&app, destination), None);
+
+        hover_only(&mut app, target, window);
+        drag_to(&mut app, dragged, window, PointerId::Mouse, 100.0);
+        assert_eq!(preview(&app, source), None);
+        assert_eq!(
+            preview(&app, destination),
+            Some(vec![TabInsertionPoint {
+                pointer_id: PointerId::Mouse,
+                tab: dragged,
+                index: 1,
+                slot: 1,
+            }])
+        );
+
+        end_drag(&mut app, dragged, window, 100.0);
+        assert_eq!(
+            app.world().resource::<TabMoveLog>().0,
+            [TabMoved {
+                from_strip: source,
+                tab: dragged,
+                to_strip: destination,
+                index: 1,
+            }]
+        );
+        assert_eq!(
+            app.world().resource::<DragLifecycleLog>().0,
+            [
+                TabDragLifecycle {
+                    source,
+                    tab: dragged,
+                    pointer_id: PointerId::Mouse,
+                    phase: TabDragPhase::Started,
+                },
+                TabDragLifecycle {
+                    source,
+                    tab: dragged,
+                    pointer_id: PointerId::Mouse,
+                    phase: TabDragPhase::Completed {
+                        drop: Some(TabDrop {
+                            destination,
+                            index: 1,
+                        }),
+                    },
+                },
+            ]
+        );
+        assert_eq!(preview(&app, destination), None);
+        assert_eq!(
+            app.world().entity(dragged).get::<ChildOf>(),
+            Some(&ChildOf(source))
+        );
+    }
+
+    #[test]
+    fn nearest_compatible_list_under_the_pointer_wins() {
+        let (mut app, window) = tab_app();
+        let source = external_list(&mut app, window);
+        let near = external_list(&mut app, window);
+        let far = external_list(&mut app, window);
+        let covering = reorder_list(&mut app, window);
+        let dragged = placed_tab(&mut app, source, 50.0);
+        app.update();
+        hover_at_depth(&mut app, PointerId::Mouse, far, window, 2.0);
+        hover_at_depth(&mut app, PointerId::Mouse, near, window, 1.0);
+        hover_at_depth(&mut app, PointerId::Mouse, covering, window, 0.0);
+
+        start_drag(&mut app, dragged, window, PointerId::Mouse);
+        drag_to(&mut app, dragged, window, PointerId::Mouse, 20.0);
+
+        assert!(preview(&app, near).is_some());
+        assert_eq!(preview(&app, far), None);
+        assert_eq!(preview(&app, covering), None);
+    }
+
+    #[test]
+    fn tabs_move_only_between_enabled_external_lists() {
+        let (mut app, window) = tab_app();
+        let reorder = reorder_list(&mut app, window);
+        let external = external_list(&mut app, window);
+        let disabled = external_list(&mut app, window);
+        app.world_mut()
+            .entity_mut(disabled)
+            .insert(InteractionDisabled);
+        let reorder_tab = placed_tab(&mut app, reorder, 50.0);
+        let external_tab = placed_tab(&mut app, external, 50.0);
+        app.update();
+
+        for destination in [reorder, disabled] {
+            hover_only(&mut app, destination, window);
+            start_drag(&mut app, external_tab, window, PointerId::Mouse);
+            drag_to(&mut app, external_tab, window, PointerId::Mouse, 20.0);
+            assert_eq!(preview(&app, destination), None);
+            end_drag(&mut app, external_tab, window, 20.0);
+        }
+        assert!(app.world().resource::<TabMoveLog>().0.is_empty());
+        assert_eq!(
+            phases(&app),
+            [
+                TabDragPhase::Started,
+                TabDragPhase::Completed { drop: None },
+            ]
+            .repeat(2)
+        );
+
+        hover_only(&mut app, external, window);
+        start_drag(&mut app, reorder_tab, window, PointerId::Mouse);
+        drag_to(&mut app, reorder_tab, window, PointerId::Mouse, 20.0);
+        assert_eq!(preview(&app, external), None);
+        assert!(preview(&app, reorder).is_some());
+        end_drag(&mut app, reorder_tab, window, 20.0);
+        assert_eq!(
+            app.world().resource::<TabMoveLog>().0,
+            [TabMoved {
+                from_strip: reorder,
+                tab: reorder_tab,
+                to_strip: reorder,
+                index: 0,
+            }]
+        );
+    }
+
+    #[test]
+    fn external_drag_over_no_compatible_list_has_no_preview() {
+        let (mut app, window) = tab_app();
+        let source = external_list(&mut app, window);
+        let dragged = placed_tab(&mut app, source, 50.0);
+        placed_tab(&mut app, source, 150.0);
+        app.update();
+        hover_only(&mut app, source, window);
+
+        start_drag(&mut app, dragged, window, PointerId::Mouse);
+        drag_to(&mut app, dragged, window, PointerId::Mouse, 200.0);
+        assert_eq!(proposed(&app, source), Some((1, 2)));
+
+        app.world_mut().resource_mut::<HoverMap>().clear();
+        drag_to(&mut app, dragged, window, PointerId::Mouse, 200.0);
+        assert_eq!(preview(&app, source), None);
+
+        end_drag(&mut app, dragged, window, 200.0);
+        assert!(app.world().resource::<TabMoveLog>().0.is_empty());
+        assert_eq!(
+            phases(&app),
+            [
+                TabDragPhase::Started,
+                TabDragPhase::Completed { drop: None },
+            ]
+        );
+    }
+
+    #[test]
+    fn lifecycle_reports_cancellation_once() {
+        let (mut app, window) = tab_app();
+        let list = external_list(&mut app, window);
+        let first = placed_tab(&mut app, list, 50.0);
+        let second = placed_tab(&mut app, list, 150.0);
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(first, FocusCause::Navigated);
+        app.update();
+        hover(&mut app, PointerId::Mouse, list, window);
+
+        start_drag(&mut app, first, window, PointerId::Mouse);
+        drag_to(&mut app, first, window, PointerId::Mouse, 3.0);
+        assert!(phases(&app).is_empty());
+
+        drag_to(&mut app, first, window, PointerId::Mouse, 20.0);
+        press_key(&mut app, KeyCode::Escape, window);
+        end_drag(&mut app, first, window, 20.0);
+        assert_eq!(
+            phases(&app),
+            [TabDragPhase::Started, TabDragPhase::Cancelled]
+        );
+
+        start_drag(&mut app, second, window, PointerId::Mouse);
+        drag_to(&mut app, second, window, PointerId::Mouse, 20.0);
+        app.world_mut().trigger(PointerCancel {
+            entity: list,
+            pointer: Pointer::new(PointerId::Mouse, window_location(window, Vec2::ZERO)),
+            hit: HitData::new(window, 0.0, None, None),
+        });
+        app.update();
+
+        start_drag(&mut app, first, window, PointerId::Mouse);
+        drag_to(&mut app, first, window, PointerId::Mouse, 20.0);
+        app.world_mut().despawn(first);
+        app.update();
+
+        assert_eq!(
+            phases(&app),
+            [TabDragPhase::Started, TabDragPhase::Cancelled].repeat(3)
+        );
+    }
+
+    #[test]
+    fn despawning_the_destination_mid_drag_completes_without_a_drop() {
+        let (mut app, window) = tab_app();
+        let source = external_list(&mut app, window);
+        let destination = external_list(&mut app, window);
+        let dragged = placed_tab(&mut app, source, 50.0);
+        let target = placed_tab(&mut app, destination, 50.0);
+        app.update();
+        hover_only(&mut app, target, window);
+
+        start_drag(&mut app, dragged, window, PointerId::Mouse);
+        drag_to(&mut app, dragged, window, PointerId::Mouse, 20.0);
+        assert!(preview(&app, destination).is_some());
+
+        app.world_mut().entity_mut(destination).despawn();
+        app.update();
+        assert_eq!(dragging(&app, dragged), Some(PointerId::Mouse));
+        assert_eq!(preview(&app, source), None);
+
+        end_drag(&mut app, dragged, window, 20.0);
+        assert!(app.world().resource::<TabMoveLog>().0.is_empty());
+        assert_eq!(
+            phases(&app),
+            [
+                TabDragPhase::Started,
+                TabDragPhase::Completed { drop: None },
+            ]
+        );
+        assert_eq!(dragging(&app, dragged), None);
+    }
+
+    #[test]
+    fn the_last_tab_can_leave_its_list_and_return_to_it_empty() {
+        let (mut app, window) = tab_app();
+        app.add_observer(|moved: On<TabMoved>, mut commands: Commands| {
+            commands
+                .entity(moved.to_strip)
+                .insert_child(moved.index, moved.tab);
+        });
+        let source = external_list(&mut app, window);
+        let destination = external_list(&mut app, window);
+        let dragged = placed_tab(&mut app, source, 50.0);
+        let resident = placed_tab(&mut app, destination, 50.0);
+        app.world_mut()
+            .entity_mut(source)
+            .insert(SelectedTab(Some(dragged)));
+        app.update();
+
+        hover_only(&mut app, resident, window);
+        start_drag(&mut app, dragged, window, PointerId::Mouse);
+        drag_to(&mut app, dragged, window, PointerId::Mouse, 20.0);
+        end_drag(&mut app, dragged, window, 20.0);
+        assert!(app.world().entity(source).get::<Children>().is_none());
+        assert_eq!(
+            app.world()
+                .entity(destination)
+                .get::<Children>()
+                .unwrap()
+                .as_ref(),
+            [dragged, resident]
+        );
+        assert!(!app.world().entity(dragged).contains::<Selected>());
+
+        hover_only(&mut app, source, window);
+        start_drag(&mut app, dragged, window, PointerId::Mouse);
+        drag_to(&mut app, dragged, window, PointerId::Mouse, 20.0);
+        assert_eq!(preview(&app, source).unwrap()[0].index, 0);
+        end_drag(&mut app, dragged, window, 20.0);
+        assert_eq!(
+            app.world()
+                .entity(source)
+                .get::<Children>()
+                .unwrap()
+                .as_ref(),
+            [dragged]
+        );
     }
 }

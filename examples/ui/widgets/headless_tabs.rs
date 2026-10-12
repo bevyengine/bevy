@@ -131,6 +131,22 @@ fn showcase() -> impl SceneList {
                 --
                 @tab_header("Console")
             ]
+            --
+            @section_label("External - drag tabs between these two lists")
+            --
+            @external_strip()
+            Children [
+                @tab_header("Scene")
+                --
+                @tab_header("Game")
+            ]
+            --
+            @external_strip()
+            Children [
+                @tab_header("Assets")
+                --
+                @tab_header("Log")
+            ]
         ]
     }
 }
@@ -145,8 +161,22 @@ fn tab_strip(orientation: ControlOrientation) -> impl Scene {
             display: Display::Flex,
             flex_direction,
             align_items: AlignItems::Stretch,
+            min_width: px(112),
+            min_height: px(36),
         }
         BackgroundColor(Color::srgb(0.10, 0.11, 0.14))
+    }
+}
+
+fn external_strip() -> impl Scene {
+    bsn! {
+        @tab_strip(ControlOrientation::Horizontal)
+        TabList {
+            orientation: ControlOrientation::Horizontal,
+            activation: TabActivation::Manual,
+            drag: TabDragMode::External,
+        }
+        on(apply_tab_move)
     }
 }
 
