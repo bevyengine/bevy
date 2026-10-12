@@ -387,7 +387,9 @@ impl<'w> EntityWorldMut<'w> {
                     .modify_component_with_relationship_hook_mode::<R, _>(
                         this,
                         relationship_hook_mode,
-                        |r| r.set_risky(entity),
+                        |r| {
+                            let _ = r.get_mut_risky().add(entity);
+                        },
                     )
                     .expect("entity access must be valid")
                     .is_some();

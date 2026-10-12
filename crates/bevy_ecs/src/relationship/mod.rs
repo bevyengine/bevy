@@ -158,20 +158,6 @@ pub trait Relationship: Component + Sized {
     /// Creates this [`Relationship`] from the given `entity`.
     fn from(entity: Entity) -> Self;
 
-    /// Changes the current [`Entity`] ID of the entity containing the [`RelationshipTarget`] to another one.
-    ///
-    /// This is useful for updating the relationship without overwriting other fields stored in `Self`.
-    ///
-    /// # Warning
-    ///
-    /// This should generally not be called by user code, as modifying the related entity could invalidate the
-    /// relationship. If this method is used, then the hooks [`on_discard`](Relationship::on_discard) have to
-    /// run before and [`on_insert`](Relationship::on_insert) after it.
-    /// This happens automatically when this method is called with [`EntityWorldMut::modify_component`].
-    ///
-    /// Prefer to use regular means of insertions when possible.
-    fn set_risky(&mut self, entity: Entity);
-
     /// Iterates the related entities stored in this collection.
     #[inline]
     fn iter(&self) -> TargetIter<'_, Self> {
@@ -328,9 +314,7 @@ pub trait Relationship: Component + Sized {
 /// Trait vodoo that ensures a relationships [`RelationshipTarget`] cannot be implemented on the same struct.
 /// This makes the following into a compile time error:
 ///
-/// ```
-/// # use bevy_ecs::component::Component;
-/// # use bevy_ecs::entity::Entity;
+/// ```ignore
 /// #[derive(Component)]
 /// #[relationship(relationship_target = Likes)]
 /// #[relationship_target(relationship = Likes)]
@@ -522,7 +506,9 @@ pub fn clone_relationship_target<T: RelationshipTarget>(
                     .modify_component_with_relationship_hook_mode::<T::Relationship, ()>(
                         entity,
                         RelationshipHookMode::Skip,
-                        |r| r.set_risky(target),
+                        |r| {
+                            let _ = r.get_mut_risky().add(target);
+                        },
                     );
             });
         }

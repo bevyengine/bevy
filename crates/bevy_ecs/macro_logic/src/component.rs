@@ -451,11 +451,6 @@ impl DeriveComponent {
                         #relationship_member: <Self::Collection as #bevy_ecs::relationship::RelationshipCollection>::from(entity)
                     }
                 }
-
-                #[inline]
-                fn set_risky(&mut self, entity: #bevy_ecs::entity::Entity) {
-                    self.#relationship_member = <Self::Collection as #bevy_ecs::relationship::RelationshipCollection>::from(entity);
-                }
             }
         }))
     }
