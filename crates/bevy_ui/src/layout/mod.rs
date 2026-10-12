@@ -2934,4 +2934,42 @@ mod tests {
                 .abs_diff_eq(Vec2::new(50., 30.), 1e-5));
         }
     }
+
+    #[test]
+    fn rounding_test() {
+        // Regression test to ensure that updating layout properties (like width)
+        // and computing layouts with/without rounding works correctly
+        // without corrupting Taffy state or the calculated size.
+        let mut app = setup_ui_test_app();
+
+        let root = app
+            .world_mut()
+            .spawn(Node {
+                width: px(100.),
+                height: px(100.),
+                ..default()
+            })
+            .with_child((
+                Node::default(),
+                LayoutConfig {
+                    use_rounding: false,
+                },
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(root).unwrap().size(),
+            Vec2::splat(100.)
+        );
+
+        app.world_mut().get_mut::<Node>(root).unwrap().width = px(200.);
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(root).unwrap().size(),
+            Vec2::new(200., 100.)
+        );
+    }
 }

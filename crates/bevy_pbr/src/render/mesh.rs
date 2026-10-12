@@ -481,9 +481,8 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if camera.is_none_or(|camera| !camera.hdr)
+        if camera.is_some_and(|camera| camera.tonemap_in_shader)
             && let Some(tonemapping) = tonemapping
-            && tonemapping.is_enabled()
         {
             view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
             view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -884,12 +883,12 @@ impl_atomic_pod!(
     field(
         material_bindings_index: MaterialBindingId,
         material_bindings_index,
-        set_material_bindings_index
+        set_material_bindings_index,
     ),
     field(
         lightmap_slab_index: LightmapSlabIndexFlat,
         lightmap_slab_index_flat,
-        set_lightmap_slab_index_flat
+        set_lightmap_slab_index_flat,
     ),
     field(tag: u32, tag, set_tag),
     field(flags: RenderMeshInstanceFlags, flags, set_flags),

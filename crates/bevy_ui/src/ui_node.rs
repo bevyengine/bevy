@@ -3430,7 +3430,7 @@ impl Default for LayoutConfig {
 /// Root node's without an explicit [`UiTargetCamera`] will be rendered to the default UI camera,
 /// which is either a single camera with the [`IsDefaultUiCamera`] marker component or the highest
 /// order camera targeting the primary window.
-#[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
+#[derive(Component, FromTemplate, Clone, Debug, Reflect, Eq, PartialEq)]
 #[reflect(Component, Debug, PartialEq, Clone)]
 pub struct UiTargetCamera(pub Entity);
 
