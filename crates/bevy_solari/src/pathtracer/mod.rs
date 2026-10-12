@@ -3,14 +3,22 @@ mod node;
 mod prepare;
 
 use crate::{scene::RaytracingSceneBindings, SolariPlugins};
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::embedded_asset;
 use bevy_camera::Hdr;
 use bevy_core_pipeline::{
     schedule::{Core3d, Core3dSystems},
     tonemapping::tonemapping,
 };
-use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    query::With,
+    reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
+    system::{Commands, Query},
+};
+use bevy_light::AtmosphereEnvironmentMapLight;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     init_gpu_resource, renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup,
@@ -61,6 +69,8 @@ impl Plugin for PathtracingPlugin {
                     .after(Core3dSystems::MainPass)
                     .before(tonemapping),
             );
+
+        app.add_systems(PostUpdate, disable_atmosphere_env_map_filtering);
     }
 }
 
@@ -69,4 +79,24 @@ impl Plugin for PathtracingPlugin {
 #[require(Hdr)]
 pub struct Pathtracer {
     pub reset: bool,
+}
+
+/// Turn off atmosphere cubemap filtering for pathtracer cameras to save performance, since the pathtracer does not require it.
+fn disable_atmosphere_env_map_filtering(
+    mut commands: Commands,
+    lights: Query<(Entity, &AtmosphereEnvironmentMapLight), With<Pathtracer>>,
+) {
+    for (entity, light) in &lights {
+        if !light.filtered {
+            continue;
+        }
+
+        // Re-insert so the insert observer rebuilds the env map without filtering.
+        commands
+            .entity(entity)
+            .insert(AtmosphereEnvironmentMapLight {
+                filtered: false,
+                ..light.clone()
+            });
+    }
 }

@@ -177,7 +177,7 @@ impl ComponentInfo {
     derive(Reflect),
     reflect(Debug, Hash, PartialEq, Clone)
 )]
-pub struct ComponentId(pub(super) usize);
+pub struct ComponentId(usize);
 
 impl ComponentId {
     /// Creates a new [`ComponentId`].
@@ -687,8 +687,11 @@ impl Components {
     }
 
     /// Gets an iterator over all components fully registered with this instance.
-    pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.iter().filter_map(Option::as_ref)
+    pub fn iter_registered(&self) -> impl Iterator<Item = (ComponentId, &ComponentInfo)> + '_ {
+        self.components
+            .iter()
+            .enumerate()
+            .filter_map(|(index, info)| info.as_ref().map(|info| (ComponentId::new(index), info)))
     }
 
     pub(crate) fn get_relationship_accessor_mut(

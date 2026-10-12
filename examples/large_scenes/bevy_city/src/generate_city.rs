@@ -390,7 +390,6 @@ fn spawn_forest<R: RngExt>(
             );
 
             match rng.random_range(0..3) {
-                0 => {}
                 1 => {
                     assets.spawn_tree_small(commands, transform);
                     stats.trees += 1;

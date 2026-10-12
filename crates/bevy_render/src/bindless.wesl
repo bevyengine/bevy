@@ -1,6 +1,6 @@
 //! Defines the common arrays used to access bindless resources.
 //!
-//! This need to be kept up to date with the `BINDING_NUMBERS` table in
+//! This needs to be kept up to date with the `BINDING_NUMBERS` table in
 //! `bindless.rs`.
 //!
 //! You access these by indexing into the bindless index table, and from there
