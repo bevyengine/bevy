@@ -18,7 +18,7 @@ use bevy_core_pipeline::{
         DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, PreviousViewData,
         PreviousViewUniformOffset, PreviousViewUniforms,
     },
-    schedule::{Core3d, Core3dSystems},
+    schedule::{Core3d, Core3dShadows, Core3dSystems},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -575,6 +575,35 @@ impl Plugin for GpuMeshPreprocessPlugin {
                         .after(late_prepass_build_indirect_parameters)
                         .after(late_deferred_prepass)
                         .before(Core3dSystems::MainPass),
+                ),
+            )
+            .add_systems(
+                Core3dShadows,
+                (
+                    (
+                        allocate_uniforms,
+                        unpack_bins,
+                        early_gpu_preprocess,
+                        early_prepass_build_indirect_parameters.run_if(any_match_filter::<(
+                            With<PreprocessBindGroups>,
+                            Without<SkipGpuPreprocess>,
+                            Without<NoIndirectDrawing>,
+                            With<ShadowView>,
+                        )>),
+                    )
+                        .chain(),
+                    (
+                        late_gpu_preprocess,
+                        late_prepass_build_indirect_parameters.run_if(any_match_filter::<(
+                            With<PreprocessBindGroups>,
+                            Without<SkipGpuPreprocess>,
+                            Without<NoIndirectDrawing>,
+                            With<ShadowView>,
+                            With<OcclusionCulling>,
+                        )>),
+                    )
+                        .chain()
+                        .after(early_prepass_build_indirect_parameters),
                 ),
             );
     }
