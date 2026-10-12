@@ -1,5 +1,7 @@
 //! This example demonstrates how to use BSN to compose scenes.
 use bevy::{prelude::*, text::FontSourceTemplate, ui_widgets::Button};
+use bevy_ecs::template::EntityTemplate;
+use bevy_scene::Ready;
 
 fn main() {
     App::new()
@@ -18,6 +20,7 @@ fn scene() -> impl SceneList {
 
 fn ui() -> impl Scene {
     bsn! {
+        #MainUI
         Node {
             width: percent(100),
             height: percent(100),
@@ -26,19 +29,26 @@ fn ui() -> impl Scene {
             column_gap: px(5),
         }
         Children [
-            @button("Ok")
-            on(|_event: On<PointerPress>| println!("Ok pressed!"))
+            @button("Ok", #MainUI)
+            on(|event: On<PointerPress>| println!("Ok pressed! Im {:#?}", event.entity))
             --
-            @button("Cancel")
+            @button("Cancel", #MainUI)
             on(|_event: On<PointerPress>| println!("Cancel pressed!"))
             BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
         ]
+        on(|event: On<Ready>,| {
+            println!("I'm entity => {:#?}", event.entity);
+        })
     }
 }
 
-fn button(label: &str) -> impl Scene {
+#[derive(FromTemplate, Component)]
+struct Reference(Entity);
+
+fn button(label: &str, ui_entity: EntityTemplate) -> impl Scene {
     bsn! {
         Button
+        Reference( ui_entity )
         Node {
             width: px(150),
             height: px(65),
@@ -49,6 +59,11 @@ fn button(label: &str) -> impl Scene {
         }
         BorderColor::from(Color::BLACK)
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
+        on(|event: On<PointerPress>, q_reference: Query<&Reference> |{
+            let ui_holder = q_reference.get(event.entity).expect("We are sure it exists");
+            println!("I have a referece to this entity => {:#?}", ui_holder.0);
+
+        })
         Children [
             Text(label)
             TextFont {
