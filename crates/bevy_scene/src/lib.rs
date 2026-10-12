@@ -154,7 +154,8 @@
 //! ## Named Entity References
 //!
 //! The `#Name` syntax assigns a [`Name`] to an entity and registers it for cross-referencing within the same macro invocation.
-//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`] which ultimately resolves to an [`Entity`]:
+//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`],
+//! which is a [`Template`] that resolves to an [`Entity`]:
 //!
 //! ```ignore
 //! bsn! {
@@ -173,15 +174,39 @@
 //!
 //! ```ignore
 //! bsn! {
-//!     #Root
+//!     Reference(#Child)
 //!     Children [
-//!         Reference(#Root)
+//!         #Child
 //!     ]
 //! }
 //! ```
 //!
-//! Using `#Name` as a value in [`bsn!`] will result in an [`EntityTemplate`], which is a [`Template`] that resolves to an [`Entity`]
 //! [`Component`]s with [`Entity`] fields should generally derive [`FromTemplate`], because [`Entity`] uses [`FromTemplate`] to map to [`EntityTemplate`].
+//!
+//! ```rust, ignore
+//! #[derive(FromTemplate, Component)]
+//! struct Reference(Entity)
+//! ```
+//!
+//! You can pass it to fuctions by accepting a [`EntityTemplate`] argument:
+//!
+//! ```rust, ignore
+//! fn outer_scene() -> impl Scene {
+//!     bsn! {
+//!         #Outer
+//!         @inner_scene(#Outer)
+//!     }
+//!
+//! }
+//! fn inner_scene(entity: EntityTemplate) -> impl Scene {
+//!     bsn! {
+//!         #Inner
+//!         Reference(entity)
+//!     }
+//!
+//! }
+//! ```
+//!
 //!
 //! ### Scope rules
 //!
