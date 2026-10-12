@@ -1151,10 +1151,9 @@ pub fn refresh_mesh2d_sort_keys(
     mut transparent_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
 ) {
     for main_entity in dirty_sort_keys.iter() {
-        let key = (Entity::PLACEHOLDER, *main_entity);
         let mut items = transparent_phases
             .values_mut()
-            .filter_map(|phase| phase.items.get_mut(&key))
+            .filter_map(|phase| phase.get_main_mut(*main_entity))
             .peekable();
         if items.peek().is_none() {
             continue;

@@ -4831,14 +4831,13 @@ pub fn refresh_mesh_sort_keys(
     mut transmissive_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
 ) {
     for main_entity in dirty_sort_keys.iter() {
-        let key = (Entity::PLACEHOLDER, *main_entity);
         let transparent_items = transparent_phases
             .values_mut()
-            .filter_map(|phase| phase.items.get_mut(&key))
+            .filter_map(|phase| phase.get_main_mut(*main_entity))
             .map(|item| &mut item.sorting_info);
         let transmissive_items = transmissive_phases
             .values_mut()
-            .filter_map(|phase| phase.items.get_mut(&key))
+            .filter_map(|phase| phase.get_main_mut(*main_entity))
             .map(|item| &mut item.sorting_info);
         let mut mesh_centers = transparent_items
             .chain(transmissive_items)
