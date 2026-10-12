@@ -70,7 +70,7 @@ impl SystemWithAccess {
     /// determining which systems may run in parallel.
     ///
     /// Safety:
-    /// 
+    ///
     /// Widening the access here is always sound. Narrowing it to less than what the system
     /// actually touches is not: the executor would then allow the system to run concurrently
     /// with a conflicting one.
