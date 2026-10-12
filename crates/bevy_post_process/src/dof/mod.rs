@@ -88,6 +88,8 @@ pub struct DepthOfField {
     /// Focal length is derived from the FOV and this value. The default is
     /// 18.66mm, matching the [Super 35] format, which is popular in cinema.
     ///
+    /// Unused in orthographic projection.
+    ///
     /// [image sensor format]: https://en.wikipedia.org/wiki/Image_sensor_format
     ///
     /// [Super 35]: https://en.wikipedia.org/wiki/Super_35
@@ -95,6 +97,10 @@ pub struct DepthOfField {
 
     /// Along with the focal length, controls how much objects not in focus are
     /// blurred.
+    ///
+    /// For an orthographic projection, this defines the distance from the focal
+    /// plane, in world units, at which the blur is one world unit across. The
+    /// blur grows linearly with that distance.
     pub aperture_f_stops: f32,
 
     /// The maximum diameter, in pixels, that we allow a circle of confusion to be.
@@ -152,7 +158,8 @@ pub struct DepthOfFieldUniform {
     /// The premultiplied factor that we scale the circle of confusion by.
     ///
     /// This is calculated as `focal_length² / (sensor_height *
-    /// aperture_f_stops)`.
+    /// aperture_f_stops)`, or for an orthographic projection as
+    /// `1 / (aperture_f_stops * view_height)`.
     coc_scale_factor: f32,
 
     /// The maximum circle of confusion diameter in pixels. See the comment in
@@ -679,15 +686,32 @@ fn extract_depth_of_field_settings(
             .get_entity(entity)
             .expect("Depth of field entity wasn't synced.");
 
-        // Depth of field is nonsensical without a perspective projection.
-        let Projection::Perspective(ref perspective_projection) = *projection else {
-            entity_commands.remove::<<DepthOfField as SyncComponent<RenderApp>>::Target>();
+        let (focal_length, coc_scale_factor) = match projection {
+            Projection::Perspective(perspective_projection) => {
+                let focal_length = calculate_focal_length(
+                    depth_of_field.sensor_height,
+                    perspective_projection.fov,
+                );
+                let coc_scale_factor = focal_length * focal_length
+                    / (depth_of_field.sensor_height * depth_of_field.aperture_f_stops);
+                (focal_length, coc_scale_factor)
+            }
+            // Orthographic blur's diameter grows linearly with distance from
+            // the focal plane, by one world unit per `aperture_f_stops` units
+            // of depth. Dividing by the view's height makes it a fraction of
+            // the view, consistent with perspective.
+            Projection::Orthographic(orthographic_projection) => {
+                let coc_scale_factor =
+                    1.0 / (depth_of_field.aperture_f_stops * orthographic_projection.area.height());
+                (0.0, coc_scale_factor)
+            }
+            // Depth of field is nonsensical for other projections.
+            Projection::Custom(_) => {
+                entity_commands.remove::<<DepthOfField as SyncComponent<RenderApp>>::Target>();
 
-            continue;
+                continue;
+            }
         };
-
-        let focal_length =
-            calculate_focal_length(depth_of_field.sensor_height, perspective_projection.fov);
 
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
         entity_commands.insert((
@@ -695,8 +719,7 @@ fn extract_depth_of_field_settings(
             DepthOfFieldUniform {
                 focal_distance: depth_of_field.focal_distance,
                 focal_length,
-                coc_scale_factor: focal_length * focal_length
-                    / (depth_of_field.sensor_height * depth_of_field.aperture_f_stops),
+                coc_scale_factor,
                 max_circle_of_confusion_diameter: depth_of_field.max_circle_of_confusion_diameter,
                 max_depth: depth_of_field.max_depth,
                 pad_a: 0,
