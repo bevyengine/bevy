@@ -4884,6 +4884,18 @@ category = "Dev tools"
 wasm = true
 
 [[example]]
+name = "remote_inspector"
+path = "examples/inspector/remote_inspector.rs"
+doc-scrape-examples = true
+required-features = ["bevy_inspector", "bevy_remote_client"]
+
+[package.metadata.example.remote_inspector]
+name = "Remote Inspector"
+description = "Inspects a separate running app with the bevy_inspector panels over the Bevy Remote Protocol"
+category = "Dev tools"
+wasm = false
+
+[[example]]
 name = "2d_top_down_camera"
 path = "examples/camera/2d_top_down_camera.rs"
 doc-scrape-examples = true
