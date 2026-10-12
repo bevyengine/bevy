@@ -69,7 +69,7 @@ impl SystemWithAccess {
     /// access for a system it has reconfigured, so that the executor accounts for it when
     /// determining which systems may run in parallel.
     ///
-    /// Safety:
+    /// # Safety:
     ///
     /// Widening the access here is always sound. Narrowing it to less than what the system
     /// actually touches is not: the executor would then allow the system to run concurrently
