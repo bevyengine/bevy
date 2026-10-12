@@ -3,7 +3,6 @@ use alloc::{
     vec,
 };
 use core::{
-    fmt::Debug,
     hash::BuildHasher,
     ops::{Deref, DerefMut},
 };
@@ -15,7 +14,7 @@ use smallvec::SmallVec;
 
 /// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
 /// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
-pub trait RelationshipCollection: Debug {
+pub trait RelationshipCollection {
     /// The type of iterator returned by the `iter` method.
     ///
     /// This is an associated type (rather than using a method that returns an opaque return-position impl trait)
@@ -92,7 +91,7 @@ pub trait RelationshipCollection: Debug {
     /// May be faster than repeatedly calling [`Self::add`].
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>);
 
-    /// Returns a single entity from the collection, if it exists.
+    /// Returns an entity from the collection if that collection always contains exactly one entity.
     fn single(&self) -> Option<Entity> {
         None
     }

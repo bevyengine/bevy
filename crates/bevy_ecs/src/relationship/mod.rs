@@ -1,8 +1,8 @@
 //! This module provides functionality to link entities to each other using specialized components called "relationships". See the [`Relationship`] trait for more info.
 
 mod related_methods;
+mod relationship_collection;
 mod relationship_query;
-mod relationship_source_collection;
 
 use alloc::boxed::Box;
 use bevy_platform::sync::Arc;
@@ -13,8 +13,8 @@ use alloc::format;
 
 use bevy_utils::prelude::DebugName;
 pub use related_methods::*;
+pub use relationship_collection::*;
 pub use relationship_query::*;
-pub use relationship_source_collection::*;
 
 use crate::{
     component::{Component, ComponentCloneBehavior, ComponentId, Components, Mutable},
@@ -135,8 +135,8 @@ pub trait Relationship: Component + Sized {
     /// # Warning
     ///
     /// This should generally not be called by user code, as modifying the related entity could invalidate the
-    /// relationship. If this method is used, then the hooks [`on_replace`](Relationship::on_replace) have to
-    /// run before and [`on_insert`](Relationship::on_insert) after it.
+    /// relationship. If this method is used, then the [`on_discard`](Relationship::on_discard) hook has to
+    /// run before it and the [`on_insert`](Relationship::on_insert) hook after it.
     /// This happens automatically when this method is called with [`EntityWorldMut::modify_component`].
     ///
     /// Prefer to use regular means of insertions when possible.
@@ -214,7 +214,7 @@ pub trait Relationship: Component + Sized {
 
         if !Self::ALLOW_SELF_REFERENTIAL && target_entities.contains(entity) {
             warn!(
-                "{}The {}({target_entities:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.\nIf this is intended behavior self-referential relations can be enabled with the allow_self_referential attribute: #[relationship(allow_self_referential)]",
+                "{}The {} relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.\nIf this is intended behavior self-referential relations can be enabled with the allow_self_referential attribute: #[relationship(allow_self_referential)]",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                 DebugName::type_name::<Self>(),
                 DebugName::type_name::<Self>()
@@ -276,7 +276,6 @@ pub trait Relationship: Component + Sized {
             ..
         }: HookContext,
     ) {
-        std::println!("ON_DISCARD_RELATIONSHIP: {}", entity);
         match relationship_hook_mode {
             RelationshipHookMode::Run => {}
             RelationshipHookMode::Skip => return,
@@ -295,42 +294,43 @@ pub trait Relationship: Component + Sized {
             .unwrap()
             .get();
         for target_entity in target_entities.iter() {
-            if let Ok(target_entity_cell) = world_cell.get_entity(target_entity) {
-                if let Some(mut relationship_target) =
+            if let Ok(target_entity_cell) = world_cell.get_entity(target_entity)
+                && let Some(mut relationship_target) =
                     // SAFETY: Because `Relationship` and `RelationshipTarget` are guaranteed to be different components,
                     // this call can't conflict with any other hooks, avoiding violating safety invariants.
                     unsafe { target_entity_cell.get_mut::<Self::RelationshipTarget>() }
-                {
-                    relationship_target.collection_mut_risky().remove(entity);
-                    if relationship_target.len() == 0 {
-                        let command = |mut entity: EntityWorldMut| {
-                            // this "remove" operation must check emptiness because in the event that an identical
-                            // relationship is inserted on top, this despawn would result in the removal of that identical
-                            // relationship ... not what we want!
-                            if entity
-                                .get::<Self::RelationshipTarget>()
-                                .is_some_and(RelationshipTarget::is_empty)
-                            {
-                                entity.remove::<Self::RelationshipTarget>();
-                            }
-                        };
+            {
+                relationship_target.collection_mut_risky().remove(entity);
+                if relationship_target.len() == 0 {
+                    let command = |mut entity: EntityWorldMut| {
+                        // this "remove" operation must check emptiness because in the event that an identical
+                        // relationship is inserted on top, this despawn would result in the removal of that identical
+                        // relationship ... not what we want!
+                        if entity
+                            .get::<Self::RelationshipTarget>()
+                            .is_some_and(RelationshipTarget::is_empty)
+                        {
+                            entity.remove::<Self::RelationshipTarget>();
+                        }
+                    };
 
-                        // SAFETY: This is the only time we access the world's command queue
-                        // for the lifetime of the world cell.
-                        unsafe { world_cell.commands() }
-                            // If the entity was already despawned, we don't care.
-                            .queue_silenced(command.with_entity(target_entity));
-                    }
+                    // SAFETY: This is the only time we access the world's command queue
+                    // for the lifetime of the world cell.
+                    unsafe { world_cell.commands() }
+                        // If the entity was already despawned, we don't care.
+                        .queue_silenced(command.with_entity(target_entity));
                 }
             }
         }
     }
 }
 
-/// Trait vodoo that ensures a relationships [`RelationshipTarget'] cannot be implemented on the same struct.
+/// Trait vodoo that ensures a relationships [`RelationshipTarget`] cannot be implemented on the same struct.
 /// This makes the following into a compile time error:
 ///
 /// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
 /// #[relationship(relationship_target = Likes)]
 /// #[relationship_target(relationship = Likes)]
@@ -437,8 +437,14 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
         for source_entity in relationship_target.iter() {
             let command = move |source_entity_mut: EntityWorldMut| {
                 if let Some(relationship) = source_entity_mut.get::<Self::Relationship>() {
-                    // Only despawn if this source entity's target collection only contains the entity being despawned
-                    if relationship.len() == 1 && relationship.get().contains(entity) {
+                    // Because discard hooks run after despawn hooks, the relationship gets updated after everything
+                    // has been despawned. So we cannot rely on relationships being empty when deciding to despawn.
+                    // Instead we check that every entity in the relationship is either despawned or this entity.
+                    // If this is the case, despawning this entity severs the last connection and the source entity
+                    // should be removed.
+                    if relationship.iter().all(|e| {
+                        e == entity || !source_entity_mut.world().entities().contains_spawned(e)
+                    }) {
                         source_entity_mut.despawn();
                     }
                 }
