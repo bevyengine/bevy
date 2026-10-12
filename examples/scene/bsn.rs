@@ -1,7 +1,8 @@
 //! This example demonstrates how to use BSN to compose scenes.
-use bevy::{prelude::*, text::FontSourceTemplate, ui_widgets::Button};
-use bevy_ecs::template::EntityTemplate;
-use bevy_scene::Ready;
+use bevy::{
+    ecs::template::EntityTemplate, prelude::*, scene::Ready, text::FontSourceTemplate,
+    ui_widgets::Button,
+};
 
 fn main() {
     App::new()
@@ -61,7 +62,7 @@ fn button(label: &str, ui_entity: EntityTemplate) -> impl Scene {
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
         on(|event: On<PointerPress>, q_reference: Query<&Reference> |{
             let ui_holder = q_reference.get(event.entity).expect("We are sure it exists");
-            println!("I have a referece to this entity => {:#?}", ui_holder.0);
+            println!("I have a reference to this entity => {:#?}", ui_holder.0);
 
         })
         Children [
