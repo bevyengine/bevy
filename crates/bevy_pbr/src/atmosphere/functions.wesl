@@ -861,7 +861,7 @@ fn raymarch_atmosphere(
             let light_color = (*light).color.rgb;
             let transmittance_to_ground = exp(-optical_depth);
             let mu_light = dot(light_dir, sphere_normal);
-            let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
+            let transmittance_to_light = sample_transmittance_lut(atmosphere.inner_radius, mu_light);
             var light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
             @if(CLOUDS_ENABLED) {
             light_luminance *= sample_cloud_shadow_map(sphere_point, light_dir, true);
