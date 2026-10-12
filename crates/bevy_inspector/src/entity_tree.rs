@@ -717,7 +717,7 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), tree);
-        assert_eq!(sources.len(), 251);
+        assert_eq!(sources.len(), 502);
         assert!(roots
             .iter()
             .skip(1)
@@ -769,7 +769,7 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), tree);
-        assert_eq!(sources.len(), 2);
+        assert_eq!(sources.len(), 4);
         assert!(sources.contains(&panel));
         assert!(sources.contains(&parent));
         assert!(app
