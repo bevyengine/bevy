@@ -174,10 +174,10 @@ pub fn from_node(node: &Node, context: &LayoutContext) -> taffy::style::Style {
     }
 }
 
-impl From<AlignItems> for Option<taffy::style::AlignItems> {
+impl From<AlignItems> for taffy::style::AlignItems {
     fn from(value: AlignItems) -> Self {
         match value {
-            AlignItems::Default => None,
+            AlignItems::Default => taffy::style::AlignItems::NORMAL.into(),
             AlignItems::Start => taffy::style::AlignItems::START.into(),
             AlignItems::StartSafe => taffy::style::AlignItems::SAFE_START.into(),
             AlignItems::End => taffy::style::AlignItems::END.into(),
@@ -194,10 +194,10 @@ impl From<AlignItems> for Option<taffy::style::AlignItems> {
     }
 }
 
-impl From<JustifyItems> for Option<taffy::style::JustifyItems> {
+impl From<JustifyItems> for taffy::style::JustifyItems {
     fn from(value: JustifyItems) -> Self {
         match value {
-            JustifyItems::Default => None,
+            JustifyItems::Default => taffy::style::JustifyItems::NORMAL.into(),
             JustifyItems::Start => taffy::style::JustifyItems::START.into(),
             JustifyItems::StartSafe => taffy::style::JustifyItems::SAFE_START.into(),
             JustifyItems::End => taffy::style::JustifyItems::END.into(),
@@ -246,10 +246,10 @@ impl From<JustifySelf> for Option<taffy::style::JustifySelf> {
     }
 }
 
-impl From<AlignContent> for Option<taffy::style::AlignContent> {
+impl From<AlignContent> for taffy::style::AlignContent {
     fn from(value: AlignContent) -> Self {
         match value {
-            AlignContent::Default => None,
+            AlignContent::Default => taffy::style::AlignContent::NORMAL.into(),
             AlignContent::Start => taffy::style::AlignContent::START.into(),
             AlignContent::StartSafe => taffy::style::AlignContent::SAFE_START.into(),
             AlignContent::End => taffy::style::AlignContent::END.into(),
@@ -268,10 +268,10 @@ impl From<AlignContent> for Option<taffy::style::AlignContent> {
     }
 }
 
-impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
+impl From<JustifyContent> for taffy::style::JustifyContent {
     fn from(value: JustifyContent) -> Self {
         match value {
-            JustifyContent::Default => None,
+            JustifyContent::Default => taffy::style::JustifyContent::NORMAL.into(),
             JustifyContent::Start => taffy::style::JustifyContent::START.into(),
             JustifyContent::StartSafe => taffy::style::JustifyContent::SAFE_START.into(),
             JustifyContent::End => taffy::style::JustifyContent::END.into(),
@@ -632,18 +632,20 @@ mod tests {
         assert_eq!(taffy_style.flex_wrap, taffy::style::FlexWrap::WrapReverse);
         assert_eq!(
             taffy_style.align_items,
-            Some(taffy::style::AlignItems::BASELINE)
+            taffy::style::AlignItems::BASELINE
         );
         assert_eq!(taffy_style.align_self, Some(taffy::style::AlignSelf::START));
         assert_eq!(
             taffy_style.align_content,
-            Some(taffy::style::AlignContent::SPACE_AROUND)
+            taffy::style::AlignContent::SPACE_AROUND
         );
         assert_eq!(
             taffy_style.justify_content,
-            Some(taffy::style::JustifyContent::SPACE_EVENLY)
+            taffy::style::JustifyContent::SPACE_EVENLY
         );
-        assert_eq!(taffy_style.justify_items, None);
+        assert_eq!(taffy_style.justify_items,
+            taffy::style::JustifyItems::NORMAL
+        );
         assert_eq!(
             taffy_style.justify_self,
             Some(taffy::style::JustifySelf::CENTER)
