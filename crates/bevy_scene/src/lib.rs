@@ -180,7 +180,6 @@
 //!     ]
 //! }
 //! ```
-//!
 //! [`Component`]s with [`Entity`] fields should generally derive [`FromTemplate`], because [`Entity`] uses [`FromTemplate`] to map to [`EntityTemplate`].
 //!
 //! ```rust, ignore
@@ -188,7 +187,7 @@
 //! struct Reference(Entity)
 //! ```
 //!
-//! You can pass it to fuctions by accepting a [`EntityTemplate`] argument:
+//! You can pass it to functions by accepting a [`EntityTemplate`] argument:
 //!
 //! ```rust, ignore
 //! fn outer_scene() -> impl Scene {
