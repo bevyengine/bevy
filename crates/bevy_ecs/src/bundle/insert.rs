@@ -686,11 +686,15 @@ impl BundleInfo {
         }
 
         for (index, component_id) in self.iter_required_components().enumerate() {
-            if !current_archetype.contains(component_id) {
+            // SAFETY: component_id exists
+            let component_info = unsafe { components.get_info_unchecked(component_id) };
+            if current_archetype.contains(component_id) {
+                if !component_info.mutually_exclusive().is_empty() {
+                    maybe_incompatible.push(component_id);
+                }
+            } else {
                 added_required_components.push(self.required_component_constructors[index].clone());
                 added.push(component_id);
-                // SAFETY: component_id exists
-                let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id),
                     StorageType::SparseSet => new_sparse_set_components.push(component_id),

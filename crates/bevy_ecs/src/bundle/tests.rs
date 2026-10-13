@@ -710,3 +710,27 @@ fn mutually_exclusive_removal_triggers_removed_components_message() {
         vec![e2]
     );
 }
+
+#[test]
+#[should_panic]
+fn mutually_exclusive_with_existing_required_component_panics() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    #[require(CompA)]
+    struct CompC;
+
+    #[derive(Component, Default)]
+    #[require(CompB)]
+    struct CompD;
+
+    let mut world = World::new();
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+
+    let e = world.spawn(CompA).id();
+    world.entity_mut(e).insert((CompC, CompD));
+}
