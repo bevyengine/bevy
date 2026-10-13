@@ -1,7 +1,7 @@
 ---
 title: Number input precision in display units, and percentages
 authors: ["@viridia"]
-pull_requests: []
+pull_requests: [26158]
 ---
 
 A `FeathersNumberInput` with `NumberInputUnits` stores its value in one unit and shows it in another: angles are stored in radians but shown in degrees.

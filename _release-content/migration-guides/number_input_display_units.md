@@ -1,6 +1,6 @@
 ---
 title: "Number input precision and step are measured in display units"
-pull_requests: []
+pull_requests: [26158]
 ---
 
 `NumberInputPrecision` and `NumberInputStep` on a `FeathersNumberInput` are now measured in the units the user sees, not the units the value is stored in.
