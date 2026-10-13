@@ -568,4 +568,21 @@ mod tests {
         assert!(iter.next().is_none());
         assert!(iter.index == SIZE);
     }
+
+    #[test]
+    fn test_swap() {
+        let mut b = Box::new([0usize, 1usize]).into_reflect();
+        let array = b.reflect_mut().as_array().unwrap();
+        array.swap(0, 1);
+        assert_eq!(array.get(0).unwrap().try_downcast_ref(), Some(&1usize));
+        assert_eq!(array.get(1).unwrap().try_downcast_ref(), Some(&0usize));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_swap_oob() {
+        let mut b = Box::new([(); 2]).into_reflect();
+        let array = b.reflect_mut().as_array().unwrap();
+        array.swap(0, 10);
+    }
 }
