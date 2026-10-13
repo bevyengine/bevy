@@ -117,8 +117,14 @@ fn demo_root() -> impl Scene {
                 NumberInputUnits::new(&TimeSeconds)
             })
             --
-            @demo_field_f32("in degrees", PI, bsn! {
+            @demo_field_f32("in degrees, precision(1)", PI, bsn! {
                 NumberInputUnits::new(&AngleDegrees)
+                NumberInputPrecision(1)
+            })
+            --
+            @demo_field_f32("as percent, precision(0)", 0.5, bsn! {
+                NumberInputUnits::new(&RatioPercent)
+                NumberInputPrecision(0)
             })
         ]
     }
