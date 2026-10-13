@@ -87,8 +87,8 @@ pub enum ColorInputMode {
 /// generally stick with it. (Also, we have no way to store the user's preference on a
 /// per-attribute basis.)
 ///
-/// To save color input preferences between app runs, enable the `bevy_settings`
-/// feature, add `SettingsPlugin` to your app, and trigger a save. See the
+/// To save color input preferences between app runs, enable the `bevy_settings` feature,
+/// add `FeathersPlugins` before `SettingsPlugin` to your app, and trigger a save. See the
 /// [settings example](https://github.com/bevyengine/bevy/blob/latest/examples/app/settings.rs)
 /// for a complete demonstration.
 #[derive(Resource, Reflect, Default, Clone, PartialEq)]
@@ -1352,6 +1352,10 @@ pub struct ColorInputPlugin;
 impl Plugin for ColorInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<ColorInputSettings>();
+
+        #[cfg(feature = "bevy_settings")]
+        app.register_type::<ColorInputSettings>();
+
         app.add_systems(
             PostUpdate,
             (update_mode_selector, color_input_value_change).chain(),
