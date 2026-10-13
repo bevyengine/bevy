@@ -516,7 +516,7 @@ screenrecording = ["bevy_dev_tools/screenrecording"]
 schedule_data = ["bevy_dev_tools/schedule_data"]
 
 # Keep feature for bevy-settings as bevy_settings
-bevy_settings = ["bevy-settings"]
+bevy_settings = ["bevy-settings", "bevy_feathers?/bevy_settings"]
 
 [dependencies]
 # bevy (no_std)

@@ -28,6 +28,7 @@ use bevy_log::warn;
 use bevy_math::{UVec2, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, Ready};
+#[cfg(feature = "bevy_settings")]
 use bevy_settings::{ReflectSettingsGroup, SettingsGroup};
 use bevy_text::{EditableText, FontSize, Justify, LineHeight, TextEdit, TextLayout};
 use bevy_ui::{
@@ -86,10 +87,14 @@ pub enum ColorInputMode {
 /// generally stick with it. (Also, we have no way to store the user's preference on a
 /// per-attribute basis.)
 ///
-/// These preferences can be saved along with the rest of the app's settings if the
-/// app adds the `SettingsPlugin` and triggers a save, for example before exiting.
-#[derive(Resource, SettingsGroup, Reflect, Default, Clone, PartialEq)]
-#[reflect(Resource, ReflectSettingsGroup, Default)]
+/// To save color input preferences between app runs, enable the `bevy_settings`
+/// feature, add `SettingsPlugin` to your app, and trigger a save. See the
+/// [settings example](https://github.com/bevyengine/bevy/blob/latest/examples/app/settings.rs)
+/// for a complete demonstration.
+#[derive(Resource, Reflect, Default, Clone, PartialEq)]
+#[reflect(Resource, Default)]
+#[cfg_attr(feature = "bevy_settings", derive(SettingsGroup))]
+#[cfg_attr(feature = "bevy_settings", reflect(SettingsGroup))]
 pub struct ColorInputSettings {
     /// Which color space we're editing
     pub mode: ColorInputMode,
@@ -121,9 +126,8 @@ impl ColorInputSettings {
 /// [`FeathersColorInputProps`].
 ///
 /// The picker has a number of sticky user preferences, stored on the
-/// [`ColorInputSettings`] resource. These preferences can be saved along with the
-/// rest of the app's settings if the app adds the `SettingsPlugin` and triggers a
-/// save, for example before exiting.
+/// [`ColorInputSettings`] resource. See its documentation for details on
+/// saving these preferences between app runs.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 #[scene(FeathersColorInputProps)]
