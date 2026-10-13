@@ -1754,7 +1754,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     return None;
                 }
             }
-            let (id, schema) = export_type(type_reg, extra_info, components);
+            let (id, schema) = export_type(type_reg, extra_info, components, &types);
 
             if !filter.type_limit.with.is_empty()
                 && !filter

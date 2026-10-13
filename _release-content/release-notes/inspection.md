@@ -1,7 +1,7 @@
 ---
 title: Entity inspection tools
 authors: ["@jbuehler23", "@alice-i-cecile", "@Nilirad", "@Zeophlite"]
-pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885, 25923, 26014, 26063, 26172]
+pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885, 25923, 26014, 26063, 26172, 26171]
 ---
 
 `bevy_dev_tools::inspection` is gaining a backend for inspecting worlds, entities, components, and resources.
@@ -21,3 +21,4 @@ This note will be completed once the rest of the series lands.
 - Added a remote source to `bevy_inspector`, showing the entity tree of a separate running app over the Bevy Remote Protocol (#26014)
 - Added color picking and enum variant switching to the `bevy_inspector` details panel (#26063)
 - Added `type_path` to `ComponentInspection` and `ComponentTypeMetadata`, so remote inspectors can match results to schema types
+- `registry.schema` now includes each type's default value when it registers `ReflectDefault`

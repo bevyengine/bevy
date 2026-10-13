@@ -4,8 +4,8 @@ use alloc::{borrow::Cow, collections::BTreeMap};
 use bevy_ecs::component::{Components, StorageType};
 use bevy_ecs::{component::ComponentInfo, relationship::RelationshipAccessor};
 use bevy_reflect::{
-    enums::VariantInfo, GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration,
-    TypeRegistry,
+    enums::VariantInfo, serde::TypedReflectSerializer, std_traits::ReflectDefault,
+    GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration, TypeRegistry,
 };
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,9 @@ impl TypeRegistrySchemaReader for TypeRegistry {
         components: &Components,
     ) -> Option<JsonSchemaBevyType> {
         let type_reg = self.get(type_id)?;
-        Some((type_reg, extra_info, components).into())
+        let mut schema: JsonSchemaBevyType = (type_reg, extra_info, components).into();
+        schema.default = default_value(type_reg, self);
+        Some(schema)
     }
 }
 
@@ -49,11 +51,21 @@ pub fn export_type(
     reg: &TypeRegistration,
     metadata: &SchemaTypesMetadata,
     components: &Components,
+    registry: &TypeRegistry,
 ) -> (Cow<'static, str>, JsonSchemaBevyType) {
-    (
-        reg.type_info().type_path().into(),
-        (reg, metadata, components).into(),
-    )
+    let mut schema: JsonSchemaBevyType = (reg, metadata, components).into();
+    schema.default = default_value(reg, registry);
+    (reg.type_info().type_path().into(), schema)
+}
+
+/// Serializes the [`ReflectDefault`] value of a type, if it has one and it can be serialized.
+fn default_value(reg: &TypeRegistration, registry: &TypeRegistry) -> Option<Value> {
+    let value = reg.data::<ReflectDefault>()?.default();
+    serde_json::to_value(TypedReflectSerializer::new(
+        value.as_partial_reflect(),
+        registry,
+    ))
+    .ok()
 }
 
 impl From<(&TypeRegistration, &SchemaTypesMetadata, &Components)> for JsonSchemaBevyType {
@@ -292,6 +304,11 @@ pub struct JsonSchemaBevyType {
     /// array elements have been evaluated against this keyword's subschema.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub items: Option<Value>,
+    /// The default value of the type, serialized the same way as BRP component values.
+    ///
+    /// Only present when the type registers [`ReflectDefault`].
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub default: Option<Value>,
 }
 
 /// Kind of json schema, maps [`TypeInfo`] type
@@ -500,6 +517,7 @@ mod tests {
             &foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
+            &type_registry,
         );
 
         assert!(
@@ -545,6 +563,7 @@ mod tests {
             &foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
+            &type_registry,
         );
         assert!(
             schema.reflect_types.contains(&"Component".to_owned()),
@@ -584,6 +603,7 @@ mod tests {
             &foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
+            &type_registry,
         );
         assert!(
             !schema.reflect_types.contains(&"Component".to_owned()),
@@ -632,7 +652,12 @@ mod tests {
             .get(TypeId::of::<EnumComponent>())
             .expect("SHOULD BE REGISTERED")
             .clone();
-        let (_, schema) = export_type(&foo_registration, &metadata, &Components::default());
+        let (_, schema) = export_type(
+            &foo_registration,
+            &metadata,
+            &Components::default(),
+            &type_registry,
+        );
         assert!(
             !metadata.has_type_data::<ReflectComponent>(&schema.reflect_types),
             "Should not be a component"
@@ -673,6 +698,7 @@ mod tests {
             &foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
+            &type_registry,
         );
         assert!(
             schema.reflect_types.contains(&"Component".to_owned()),
@@ -708,6 +734,7 @@ mod tests {
             &foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
+            &type_registry,
         );
         let schema_as_value = serde_json::to_value(&schema).expect("Should serialize");
         let value = json!({
@@ -733,7 +760,10 @@ mod tests {
           },
           "required": [
             "a"
-          ]
+          ],
+          "default": {
+            "a": 0.0
+          }
         });
         assert_normalized_values(schema_as_value, value);
     }
@@ -764,6 +794,7 @@ mod tests {
                 type_registry.get(type_id).expect("SHOULD BE REGISTERED"),
                 &SchemaTypesMetadata::default(),
                 &Components::default(),
+                &type_registry,
             )
             .1
         };
@@ -788,6 +819,103 @@ mod tests {
         assert_eq!(properties["y"]["fieldIndex"], 0);
         assert_eq!(properties["x"]["fieldIndex"], 1);
         assert_eq!(properties["x"]["type"]["$ref"], "#/$defs/i32");
+    }
+
+    fn export_and_round_trip_default<T>(type_registry: &TypeRegistry) -> T
+    where
+        T: Reflect + bevy_reflect::FromReflect + bevy_reflect::Typed,
+    {
+        let registration = type_registry
+            .get(TypeId::of::<T>())
+            .expect("SHOULD BE REGISTERED");
+        let (_, schema) = export_type(
+            registration,
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
+            type_registry,
+        );
+        let default = schema.default.expect("Should export a default");
+        let deserializer =
+            bevy_reflect::serde::TypedReflectDeserializer::new(registration, type_registry);
+        let value = serde::de::DeserializeSeed::deserialize(deserializer, default)
+            .expect("Default should deserialize");
+        T::from_reflect(value.as_ref()).expect("Should convert from reflect")
+    }
+
+    #[test]
+    fn reflect_export_struct_default_round_trips() {
+        #[derive(Reflect, Debug, PartialEq)]
+        #[reflect(Default)]
+        struct Foo {
+            a: f32,
+            b: Option<i32>,
+            c: String,
+        }
+
+        impl Default for Foo {
+            fn default() -> Self {
+                Self {
+                    a: 1.5,
+                    b: Some(3),
+                    c: "hello".to_owned(),
+                }
+            }
+        }
+
+        let atr = AppTypeRegistry::default();
+        atr.write().register::<Foo>();
+        let type_registry = atr.read();
+        let value = export_and_round_trip_default::<Foo>(&type_registry);
+        assert_eq!(value, Foo::default());
+    }
+
+    #[test]
+    fn reflect_export_enum_struct_variant_default_round_trips() {
+        #[derive(Reflect, Debug, PartialEq)]
+        #[reflect(Default)]
+        enum Shape {
+            Point,
+            Rect { width: f32, height: f32 },
+        }
+
+        impl Default for Shape {
+            fn default() -> Self {
+                Self::Rect {
+                    width: 2.0,
+                    height: 4.0,
+                }
+            }
+        }
+
+        let atr = AppTypeRegistry::default();
+        atr.write().register::<Shape>();
+        let type_registry = atr.read();
+        let value = export_and_round_trip_default::<Shape>(&type_registry);
+        assert_eq!(value, Shape::default());
+    }
+
+    #[test]
+    fn reflect_export_without_default_has_no_default_key() {
+        #[derive(Reflect)]
+        struct NoDefault {
+            a: f32,
+        }
+
+        let atr = AppTypeRegistry::default();
+        atr.write().register::<NoDefault>();
+        let type_registry = atr.read();
+        let registration = type_registry
+            .get(TypeId::of::<NoDefault>())
+            .expect("SHOULD BE REGISTERED");
+        let (_, schema) = export_type(
+            registration,
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
+            &type_registry,
+        );
+        assert!(schema.default.is_none());
+        let schema_as_value = serde_json::to_value(&schema).expect("Should serialize");
+        assert!(schema_as_value.get("default").is_none());
     }
 
     /// This function exist to avoid false failures due to ordering differences between `serde_json` values.
