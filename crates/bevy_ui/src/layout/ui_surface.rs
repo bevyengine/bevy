@@ -112,7 +112,7 @@ impl Default for UiSurface {
 
 impl UiSurface {
     /// Retrieves the Taffy node associated with the given UI node entity and updates its style.
-    /// If no associated Taffy node exists a new Taffy node is inserted into the Taffy layout.
+    /// If no associated Taffy node exists, a new Taffy node is inserted into the Taffy layout.
     pub fn upsert_node(
         &mut self,
         layout_context: &LayoutContext,
