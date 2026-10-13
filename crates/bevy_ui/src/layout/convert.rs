@@ -630,10 +630,7 @@ mod tests {
             taffy::style::FlexDirection::ColumnReverse
         );
         assert_eq!(taffy_style.flex_wrap, taffy::style::FlexWrap::WrapReverse);
-        assert_eq!(
-            taffy_style.align_items,
-            taffy::style::AlignItems::BASELINE
-        );
+        assert_eq!(taffy_style.align_items, taffy::style::AlignItems::BASELINE);
         assert_eq!(taffy_style.align_self, Some(taffy::style::AlignSelf::START));
         assert_eq!(
             taffy_style.align_content,
@@ -643,7 +640,8 @@ mod tests {
             taffy_style.justify_content,
             taffy::style::JustifyContent::SPACE_EVENLY
         );
-        assert_eq!(taffy_style.justify_items,
+        assert_eq!(
+            taffy_style.justify_items,
             taffy::style::JustifyItems::NORMAL
         );
         assert_eq!(
