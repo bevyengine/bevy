@@ -14,25 +14,10 @@
 - How can other people (reviewers) test your changes? Is there anything specific they need to know?
 - If relevant, what platforms did you test these changes on, and are there any important ones you can't test?
 
----
-
 ## Showcase
 
-> This section is optional. If this PR does not include a visual change or does not add a new feature, you can delete this section.
+> This section is optional. If this PR does not include a visual change or does not add a new feature, you can delete this section. Consider instead demonstrating your changes in a release notes, docs, or a new example!
 
-- Help others understand the result of this PR by showcasing your awesome work!
-- If this PR adds a new feature or public API, consider adding a brief pseudo-code snippet of it in action
-- If this PR includes a visual change, consider adding a screenshot, GIF, or video
-  - If you want, you could even include a before/after comparison!
-- If the Migration Guide adequately covers the changes, you can delete this section
+## AI Disclosure
 
-While a showcase should aim to be brief and digestible, you can use a toggleable section to save space on longer showcases:
-
-<details>
-  <summary>Click to view showcase</summary>
-
-```rust
-println!("My super cool code.");
-```
-
-</details>
+> If you **did not** use AI, delete this section. Otherwise, please indicate whether you used AI, and if so, in what capacity. Make sure to read our [AI policy](https://bevy.org/learn/contribute/policies/ai/) **before** creating an AI-assisted PR.
