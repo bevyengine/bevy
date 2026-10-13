@@ -1092,7 +1092,9 @@ pub fn extract_shadow_caster_changes(
     let modified_meshes: HashSet<bevy_asset::AssetId<bevy_mesh::Mesh>> = mesh_events
         .read()
         .filter_map(|event| match event {
-            bevy_asset::AssetEvent::Modified { id } => Some(*id),
+            bevy_asset::AssetEvent::Modified { id }
+            | bevy_asset::AssetEvent::Added { id }
+            | bevy_asset::AssetEvent::LoadedWithDependencies { id } => Some(*id),
             _ => None,
         })
         .collect();
@@ -1153,9 +1155,14 @@ pub fn skip_unchanged_shadow_views(
     main_entities: Query<&MainEntity>,
     bindings: Query<&ViewShadowBindings>,
     changes: Res<ShadowCasterChanges>,
+    (phases, pipeline_cache): (Res<ViewBinnedRenderPhases<Shadow>>, Res<PipelineCache>),
     mut rendered: Local<HashMap<RetainedViewEntity, (u64, u64)>>,
 ) {
     use core::hash::{BuildHasher, Hash, Hasher};
+
+    // While pipelines are being compiled, a shadow map may have been rendered
+    // without some of its casters: none is kept until they are all ready.
+    let settled = pipeline_cache.waiting_pipelines().next().is_none();
 
     // The shadow map textures this frame (shared by all cameras); without them,
     // nothing can be known to be unchanged.
@@ -1180,6 +1187,12 @@ pub fn skip_unchanged_shadow_views(
         texture.hash(&mut hasher);
         shadow_view.pass_name.hash(&mut hasher);
         view.viewport.hash(&mut hasher);
+        // The casters queued to draw: one whose mesh, material or pipeline was
+        // not ready is not queued yet.
+        phases
+            .get(&retained)
+            .map(BinnedRenderPhase::entity_count)
+            .hash(&mut hasher);
         for value in view
             .world_from_view
             .to_matrix()
@@ -1195,7 +1208,8 @@ pub fn skip_unchanged_shadow_views(
             .get(light_entity)
             .ok()
             .and_then(|main| changes.0.get(main));
-        let unchanged = texture.is_some()
+        let unchanged = settled
+            && texture.is_some()
             && change.is_some_and(|change| {
                 !change.changed && rendered.get(&retained) == Some(&(view_key, change.casters))
             });

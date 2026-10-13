@@ -390,9 +390,9 @@ impl Plugin for PbrPlugin {
                     prepare_lights
                         .in_set(RenderSystems::CreateViews)
                         .after(sort_cameras),
-                    skip_unchanged_shadow_views
-                        .in_set(RenderSystems::CreateViews)
-                        .after(prepare_lights),
+                    // Once the shadow phases are queued: what they hold is part of
+                    // what a shadow map was rendered from.
+                    skip_unchanged_shadow_views.in_set(RenderSystems::PrepareResources),
                     prepare_clusters_for_cpu_clustering
                         .in_set(RenderSystems::PrepareResources)
                         .run_if(

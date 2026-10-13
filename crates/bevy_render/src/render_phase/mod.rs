@@ -1416,6 +1416,30 @@ where
             && self.non_mesh_items.is_empty()
     }
 
+    /// The number of entities queued in this phase, across all of its bins.
+    pub fn entity_count(&self) -> usize {
+        self.multidrawable_meshes
+            .values()
+            .flat_map(|batch_set| batch_set.bins.iter().flatten())
+            .map(|bin| bin.entity_to_binned_mesh_instance_index.len())
+            .sum::<usize>()
+            + self
+                .batchable_meshes
+                .values()
+                .map(|bin| bin.entities.len())
+                .sum::<usize>()
+            + self
+                .unbatchable_meshes
+                .values()
+                .map(|bin| bin.entities.len())
+                .sum::<usize>()
+            + self
+                .non_mesh_items
+                .values()
+                .map(|items| items.entities.len())
+                .sum::<usize>()
+    }
+
     pub fn prepare_for_new_frame(&mut self) {
         self.batch_sets.clear();
 
