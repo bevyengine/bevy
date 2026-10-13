@@ -54,8 +54,19 @@ impl BlasManager {
             .is_some_and(|mesh| !mesh.requires.contains(key.opacity.flag()))
     }
 
-    fn require(&mut self, mesh: AssetId<Mesh>, flags: MeshRaytracingFlags) {
-        self.blas.entry(mesh).or_default().requires = flags;
+    fn require(
+        &mut self,
+        mesh: AssetId<Mesh>,
+        flags: MeshRaytracingFlags,
+        index_format: IndexFormat,
+    ) {
+        let blas = self.blas.entry(mesh).or_default();
+        blas.requires = flags;
+        blas.index_format = index_format;
+    }
+
+    pub fn index_format(&self, mesh: &AssetId<Mesh>) -> Option<IndexFormat> {
+        self.blas.get(mesh).map(|blas| blas.index_format)
     }
 
     pub fn changed_meshes(&self) -> &[AssetId<Mesh>] {
@@ -98,6 +109,7 @@ impl BlasManager {
 
 struct MeshBlas {
     requires: MeshRaytracingFlags,
+    index_format: IndexFormat,
     opaque: Option<Blas>,
     non_opaque: Option<Blas>,
 }
@@ -106,6 +118,7 @@ impl Default for MeshBlas {
     fn default() -> Self {
         Self {
             requires: MeshRaytracingFlags::empty(),
+            index_format: IndexFormat::Uint32,
             opaque: None,
             non_opaque: None,
         }
@@ -191,8 +204,8 @@ pub fn prepare_raytracing_blas(
 
     // Record which BLAS added or changed meshes declare, even if none
     for (asset_id, mesh) in &extracted_meshes.extracted {
-        if is_mesh_raytracing_compatible(mesh) {
-            blas_manager.require(*asset_id, mesh.raytracing);
+        if let Some(index_format) = raytracing_index_format(mesh) {
+            blas_manager.require(*asset_id, mesh.raytracing, index_format);
         }
     }
 
@@ -200,18 +213,29 @@ pub fn prepare_raytracing_blas(
     let blas_resources = extracted_meshes
         .extracted
         .iter()
-        .filter(|(_, mesh)| is_mesh_raytracing_compatible(mesh))
-        .flat_map(|(asset_id, mesh)| {
-            BlasOpacity::declared(mesh.raytracing).map(|opacity| BlasKey {
-                mesh: *asset_id,
-                opacity,
+        .filter_map(|(asset_id, mesh)| Some((*asset_id, mesh, raytracing_index_format(mesh)?)))
+        .flat_map(|(asset_id, mesh, index_format)| {
+            BlasOpacity::declared(mesh.raytracing).map(move |opacity| {
+                (
+                    BlasKey {
+                        mesh: asset_id,
+                        opacity,
+                    },
+                    index_format,
+                )
             })
         })
-        .map(|key| {
+        .map(|(key, index_format)| {
             let vertex_slice = mesh_allocator.mesh_vertex_slice(&key.mesh).unwrap();
             let index_slice = mesh_allocator.mesh_index_slice(&key.mesh).unwrap();
 
-            let (blas, blas_size) = allocate_blas(&vertex_slice, &index_slice, key, &render_device);
+            let (blas, blas_size) = allocate_blas(
+                &vertex_slice,
+                &index_slice,
+                index_format,
+                key,
+                &render_device,
+            );
 
             blas_manager.insert(key, blas);
             blas_manager
@@ -316,13 +340,14 @@ pub fn delete_raytracing_blas(
 fn allocate_blas(
     vertex_slice: &MeshBufferSlice,
     index_slice: &MeshBufferSlice,
+    index_format: IndexFormat,
     key: BlasKey,
     render_device: &RenderDevice,
 ) -> (Blas, BlasTriangleGeometrySizeDescriptor) {
     let blas_size = BlasTriangleGeometrySizeDescriptor {
         vertex_format: Mesh::ATTRIBUTE_POSITION.format,
         vertex_count: vertex_slice.range.len() as u32,
-        index_format: Some(IndexFormat::Uint32),
+        index_format: Some(index_format),
         index_count: Some(index_slice.range.len() as u32),
         flags: key.opacity.geometry_flags(),
     };
@@ -344,7 +369,9 @@ fn allocate_blas(
     (blas, blas_size)
 }
 
-fn is_mesh_raytracing_compatible(mesh: &Mesh) -> bool {
+/// The index format of a raytracing compatible mesh, or `None` if the mesh is not raytracing
+/// compatible.
+fn raytracing_index_format(mesh: &Mesh) -> Option<IndexFormat> {
     let triangle_list = mesh.primitive_topology() == PrimitiveTopology::TriangleList;
     let vertex_attributes = mesh
         .attributes()
@@ -355,6 +382,11 @@ fn is_mesh_raytracing_compatible(mesh: &Mesh) -> bool {
             (Mesh::ATTRIBUTE_UV_0.id, Mesh::ATTRIBUTE_UV_0.format),
             (Mesh::ATTRIBUTE_TANGENT.id, Mesh::ATTRIBUTE_TANGENT.format),
         ]);
-    let indexed_32 = matches!(mesh.indices(), Some(Indices::U32(..)));
-    triangle_list && vertex_attributes && indexed_32
+    if !(triangle_list && vertex_attributes) {
+        return None;
+    }
+    match mesh.indices()? {
+        Indices::U16(_) => Some(IndexFormat::Uint16),
+        Indices::U32(_) => Some(IndexFormat::Uint32),
+    }
 }

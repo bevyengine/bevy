@@ -12,6 +12,8 @@ struct InstanceGeometryIds {
     triangle_count: u32,
 }
 
+const INDEX_BUFFER_OFFSET_U16 = 0x80000000u;
+
 struct VertexBuffer { vertices: array<PackedVertex> }
 
 struct IndexBuffer { indices: array<u32> }
@@ -259,8 +261,16 @@ fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -
     let index_buffer = &index_buffers[instance_geometry_ids.index_buffer_id].indices;
     let vertex_buffer = &vertex_buffers[instance_geometry_ids.vertex_buffer_id].vertices;
 
-    let indices_i = (triangle_id * 3u) + vec3(0u, 1u, 2u) + instance_geometry_ids.index_buffer_offset;
-    let indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]) + instance_geometry_ids.vertex_buffer_offset;
+    let index_offset = instance_geometry_ids.index_buffer_offset;
+    let indices_i = (triangle_id * 3u) + vec3(0u, 1u, 2u) + (index_offset & ~INDEX_BUFFER_OFFSET_U16);
+    var indices: vec3<u32>;
+    if (index_offset & INDEX_BUFFER_OFFSET_U16) != 0u {
+        let words = vec3((*index_buffer)[indices_i.x >> 1u], (*index_buffer)[indices_i.y >> 1u], (*index_buffer)[indices_i.z >> 1u]);
+        indices = (words >> ((indices_i & vec3(1u)) * 16u)) & vec3(0xFFFFu);
+    } else {
+        indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]);
+    }
+    indices += instance_geometry_ids.vertex_buffer_offset;
 
     return array<Vertex, 3>(
         unpack_vertex((*vertex_buffer)[indices.x]),
