@@ -5,7 +5,7 @@
 //! viewport of size WxH. It draws each *Z slice* as an axis aligned quad such
 //! that each fragment shader invocation represents a single cluster-object pair
 //! in the froxel grid. The fragment shader performs a finer test to see if the
-//! object might intersects the cluster and, if it succeeds, records the result.
+//! object might intersect the cluster and, if it succeeds, records the result.
 //! Because the result is written to storage buffers, color writes are disabled
 //! for this shader invocation.
 //!

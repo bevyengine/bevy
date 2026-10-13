@@ -85,7 +85,6 @@ use std::sync::mpsc;
 use tracing::info_span;
 use tracing::{error, warn};
 
-use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
     render::{
         morph::{
@@ -482,9 +481,8 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if camera.is_none_or(|camera| !camera.hdr)
+        if camera.is_some_and(|camera| camera.tonemap_in_shader)
             && let Some(tonemapping) = tonemapping
-            && tonemapping.is_enabled()
         {
             view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
             view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -885,12 +883,12 @@ impl_atomic_pod!(
     field(
         material_bindings_index: MaterialBindingId,
         material_bindings_index,
-        set_material_bindings_index
+        set_material_bindings_index,
     ),
     field(
         lightmap_slab_index: LightmapSlabIndexFlat,
         lightmap_slab_index_flat,
-        set_lightmap_slab_index_flat
+        set_lightmap_slab_index_flat,
     ),
     field(tag: u32, tag, set_tag),
     field(flags: RenderMeshInstanceFlags, flags, set_flags),
@@ -3670,7 +3668,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) && IRRADIANCE_VOLUMES_ARE_USABLE {
+        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
             shader_defs.push("IRRADIANCE_VOLUME".into());
         }
 
@@ -3728,10 +3726,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
             shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
-        }
-
-        if IRRADIANCE_VOLUMES_ARE_USABLE {
-            shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
         }
 
         if self.clustered_decals_are_usable {

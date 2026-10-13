@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocusVisible};
+use bevy_input_focus::{FocusGained, FocusLost, Focusable, FocusedInput, InputFocusVisible};
 use bevy_picking::events::PointerClick;
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Selectable, Selected};
@@ -32,7 +32,8 @@ use crate::{ScrollIntoView, ValueChange};
 #[derive(Component, Debug, Clone, Default)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::ListBox)),
-    ActiveDescendant
+    ActiveDescendant,
+    Focusable
 )]
 pub struct ListBox;
 

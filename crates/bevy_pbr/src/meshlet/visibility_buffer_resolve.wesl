@@ -36,7 +36,7 @@ struct PartialDerivatives {
 
 /// https://github.com/ConfettiFX/The-Forge/blob/9d43e69141a9cd0ce2ce2d2db5122234d3a2d5b5/Common_3/Renderer/VisibilityBuffer2/Shaders/FSL/vb_shading_utilities.h.fsl#L90-L150
 @if(MESHLET_MESH_MATERIAL_PASS)
-fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, half_screen_size: vec2<f32>) -> PartialDerivatives {
+fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, two_over_screen_size: vec2<f32>) -> PartialDerivatives {
     var result: PartialDerivatives;
 
     let vertex_clip_position_0 = position_world_to_clip(vertex_world_positions[0].xyz);
@@ -65,10 +65,10 @@ fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_
         interp_w * (delta_v.x * result.ddx.z + delta_v.y * result.ddy.z),
     );
 
-    result.ddx *= half_screen_size.x;
-    result.ddy *= half_screen_size.y;
-    ddx_sum *= half_screen_size.x;
-    ddy_sum *= half_screen_size.y;
+    result.ddx *= two_over_screen_size.x;
+    result.ddy *= two_over_screen_size.y;
+    ddx_sum *= two_over_screen_size.x;
+    ddy_sum *= two_over_screen_size.y;
 
     result.ddy *= -1.0;
     ddy_sum *= -1.0;
@@ -125,7 +125,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let partial_derivatives = compute_partial_derivatives(
         array(world_position_0, world_position_1, world_position_2),
         frag_coord_ndc,
-        view.viewport.zw / 2.0,
+        2.0 / view.viewport.zw,
     );
 
     let world_position = mat3x4(world_position_0, world_position_1, world_position_2) * partial_derivatives.barycentrics;
