@@ -59,6 +59,12 @@ pub trait Array: PartialReflect {
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
 
+    /// Swaps two elements in place.
+    ///
+    /// # Panics
+    /// Panics if `a` or `b` are out of bounds.
+    fn swap(&mut self, a: usize, b: usize);
+
     /// Returns the number of elements in the array.
     fn len(&self) -> usize;
 
@@ -300,6 +306,11 @@ impl Array for DynamicArray {
     #[inline]
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
         self.values.get_mut(index).map(|value| &mut **value)
+    }
+
+    #[inline]
+    fn swap(&mut self, a: usize, b: usize) {
+        self.values.swap(a, b);
     }
 
     #[inline]

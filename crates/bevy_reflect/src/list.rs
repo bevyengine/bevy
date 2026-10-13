@@ -77,7 +77,7 @@ pub trait List: PartialReflect {
     /// Panics if `index` is out of bounds.
     fn remove(&mut self, index: usize) -> Box<dyn PartialReflect>;
 
-    /// Swaps two elements in the slice.
+    /// Swaps two elements in place.
     ///
     /// # Panics
     /// Panics if `a` or `b` are out of bounds.
