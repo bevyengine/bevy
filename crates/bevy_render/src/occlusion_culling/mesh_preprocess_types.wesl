@@ -60,7 +60,7 @@ struct IndirectParametersNonIndexed {
 
 /// Information needed to construct indirect draw parameters for a single draw.
 ///
-/// Note that is per-*draw* (i.e. per-mesh), not per-mesh-instance or
+/// Note that this is per-*draw* (i.e. per-mesh), not per-mesh-instance or
 /// per-batch-set. A single multi-draw indirect call can perform multiple draws.
 ///
 /// Typically, the uniform allocation and mesh preprocessing phases fill in this

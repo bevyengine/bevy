@@ -21,6 +21,7 @@ criterion_group!(
     benches,
     empty_commands,
     spawn_commands,
+    despawn_commands,
     nonempty_spawn_commands,
     insert_commands,
     fake_commands,

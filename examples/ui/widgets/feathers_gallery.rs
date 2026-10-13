@@ -2,6 +2,7 @@
 
 use bevy::{
     color::palettes,
+    ecs::template::OptionTemplate,
     feathers::{
         constants::{fonts, icons},
         containers::*,
@@ -11,19 +12,22 @@ use bevy::{
         font_styles::InheritableFont,
         palette,
         rounded_corners::RoundedCorners,
-        theme::{ThemeBackgroundColor, UiTheme},
+        theme::{ThemeBackgroundColor, ThemeBorderColor, UiTheme},
         tokens, FeathersPlugins,
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
     picking::cursor::{EntityCursor, OverrideCursor},
     prelude::*,
     text::{EditableText, TextEdit, TextEditChange},
-    ui::{Checked, InteractionDisabled, Selected},
+    ui::{Checked, Expanded, InteractionDisabled, Selected},
     ui_widgets::{
         checkbox_self_update, listbox_update_selection,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-        radio_self_update, slider_self_update, Activate, ActivateOnPress, RadioGroup, RequestClose,
-        SliderPrecision, SliderStep, SliderValue, ValueChange,
+        radio_self_update, slider_self_update, split_pane_self_update, tablist_self_update,
+        tree_view_expand_self_update, tree_view_self_update, Activate, ActivateOnPress,
+        ControlOrientation, DragOverlayRoot, NumericRange, NumericValue, RadioGroup, RequestClose,
+        SelectedTab, SliderPrecision, SliderStep, SliderValue, Tab, TabDragMode, TabLocked,
+        TabMoved, TreeItemExpandChange, ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -60,6 +64,18 @@ struct DemoDialogToggle;
 struct DemoScalarField;
 
 #[derive(Component, Clone, Copy, Default)]
+struct DemoLazyBranch;
+
+#[derive(Component, Clone, Copy, Default)]
+struct DemoPopulated;
+
+#[derive(Component, Clone, Copy, Default)]
+struct DemoTabLabel(&'static str);
+
+#[derive(Component, Clone, Copy, Default)]
+struct DemoTabPanel;
+
+#[derive(Component, Clone, Copy, Default)]
 enum DemoVec3Field {
     #[default]
     X,
@@ -84,15 +100,15 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn! {
+    bsn_list! {
         Camera2d
         --
         @demo_root()
     }
 }
 
-fn demo_root() -> Box<dyn Scene> {
-    Box::new(bsn! {
+fn demo_root() -> impl Scene {
+    bsn! {
         Node {
             width: percent(100),
             height: percent(100),
@@ -103,6 +119,7 @@ fn demo_root() -> Box<dyn Scene> {
             column_gap: px(8),
         }
         TabGroup
+        DragOverlayRoot
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children [
             @demo_column_1()
@@ -111,7 +128,7 @@ fn demo_root() -> Box<dyn Scene> {
             --
             @demo_column_3()
         ]
-    })
+    }
 }
 
 #[derive(Component, Debug, Clone, Default, PartialEq)]
@@ -706,7 +723,7 @@ fn demo_column_1() -> impl Scene {
             @FeathersColorPlane::OkhslHueLightness
             on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
                 color.okhsl_color.hue = change.value.x * 360.0;
-                color.okhsl_color.lightness = 1.0 - change.value.y;
+                color.okhsl_color.lightness = change.value.y;
             })
             --
             @FeathersColorSlider {
@@ -749,7 +766,7 @@ fn demo_column_2() -> impl Scene {
             padding: px(8),
             row_gap: px(8),
             width: percent(30),
-            min_width: px(200),
+            min_width: px(360),
         }
         Children [
             @pane() Children [
@@ -909,7 +926,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -921,7 +938,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -932,7 +949,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -943,7 +960,7 @@ fn demo_column_2() -> impl Scene {
                                         }
                                         InteractionDisabled
                                         NumberInputPrecision(2)
-                                        HardLimit(NumberInputRange::F32(0.0..=1.0))
+                                        HardLimit(NumericRange::F32(0.0..=1.0))
                                         Node {
                                             flex_grow: 1.0,
                                         }
@@ -962,7 +979,7 @@ fn demo_column_2() -> impl Scene {
                 --
                 @subpane_body() Children [
                     @FeathersListView {
-                        @rows: bsn! {
+                        @rows: bsn_list! {
                             @FeathersListRow Children [ @caption("First World") ]
                             --
                             @FeathersListRow Selected Children [ @caption("Second Nature") ]
@@ -992,6 +1009,144 @@ fn demo_column_2() -> impl Scene {
                         max_height: px(130)
                     }
                     on(listbox_update_selection)
+                ]
+            ]
+            --
+            @subpane() Children [
+                @subpane_header() Children [
+                    @caption("Split Pane")
+                ]
+                --
+                @subpane_body() Children [
+                    @FeathersSplitPane
+                    Node {
+                        height: px(140)
+                    }
+                    on(split_pane_self_update)
+                    Children [
+                        @FeathersPane { @min_size: 40.0 }
+                        Node { padding: px(4) }
+                        Children [ @label("Left") ]
+                        --
+                        @FeathersSplitPaneHandle
+                        --
+                        @FeathersPane { @size: 2.0, @min_size: 60.0 }
+                        Children [
+                            @FeathersSplitPane { @orientation: ControlOrientation::Vertical }
+                            Node {
+                                flex_grow: 1.0
+                            }
+                            on(split_pane_self_update)
+                            Children [
+                                @FeathersPane { @min_size: 30.0 }
+                                Node { padding: px(4) }
+                                Children [ @label("Top") ]
+                                --
+                                @FeathersSplitPaneHandle
+                                --
+                                @FeathersPane { @min_size: 30.0 }
+                                Node { padding: px(4) }
+                                Children [ @label("Bottom") ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+            --
+            @subpane() Children [
+                @subpane_header() Children [
+                    @caption("Tabs")
+                ]
+                --
+                @subpane_body() Children [
+                    @FeathersSplitPane { @orientation: ControlOrientation::Vertical }
+                    Node {
+                        height: px(200)
+                    }
+                    on(split_pane_self_update)
+                    Children [
+                        @FeathersPane { @min_size: 80.0 }
+                        Children [
+                            @FeathersTabList {
+                                @drag: TabDragMode::Reorder,
+                                @selected: OptionTemplate::Some(#home_tab),
+                            }
+                            on(tablist_self_update)
+                            on(apply_tab_move)
+                            on(show_tab_panel)
+                            Children [
+                                @FeathersTabListStartAdornment
+                                Children [
+                                    @FeathersToolButton {
+                                        @variant: ButtonVariant::Plain,
+                                        @caption: bsn! { @icon(icons::CHEVRON_DOWN) }
+                                    }
+                                ]
+                                --
+                                #home_tab
+                                @demo_tab("Home (locked)")
+                                TabLocked
+                                --
+                                @demo_tab("Scene")
+                                --
+                                @demo_tab("Assets")
+                            ]
+                            --
+                            @demo_tab_panel()
+                            Children [
+                                @label_dim("Home (locked) panel")
+                                DemoTabPanel
+                            ]
+                        ]
+                        --
+                        @FeathersSplitPaneHandle
+                        --
+                        @FeathersPane { @min_size: 80.0 }
+                        Children [
+                            @FeathersSplitPane
+                            Node {
+                                flex_grow: 1.0
+                            }
+                            on(split_pane_self_update)
+                            Children [
+                                @FeathersPane { @min_size: 150.0 }
+                                Children [
+                                    @FeathersTabList {
+                                        @drag: TabDragMode::External,
+                                        @selected: OptionTemplate::Some(#console_tab),
+                                    }
+                                    on(tablist_self_update)
+                                    on(apply_tab_move)
+                                    Children [
+                                        #console_tab
+                                        @demo_tab("Console")
+                                        --
+                                        @demo_tab("Output")
+                                    ]
+                                    --
+                                    @demo_tab_panel()
+                                ]
+                                --
+                                @FeathersSplitPaneHandle
+                                --
+                                @FeathersPane { @min_size: 100.0 }
+                                Children [
+                                    @FeathersTabList {
+                                        @drag: TabDragMode::External,
+                                        @selected: OptionTemplate::Some(#inspector_tab),
+                                    }
+                                    on(tablist_self_update)
+                                    on(apply_tab_move)
+                                    Children [
+                                        #inspector_tab
+                                        @demo_tab("Inspector")
+                                    ]
+                                    --
+                                    @demo_tab_panel()
+                                ]
+                            ]
+                        ]
+                    ]
                 ]
             ]
         ]
@@ -1038,7 +1193,145 @@ fn demo_column_3() -> impl Scene {
                 ColorInputValue(palettes::tailwind::BLUE_800)
                 on(color_input_self_update)
             ]
+            --
+            @subpane() Children [
+                @subpane_header() Children [
+                    @caption("Tree")
+                ]
+                --
+                @subpane_body() Children [
+                    @FeathersTreeView {
+                        @selected: OptionTemplate::Some(#camera_row),
+                        @rows: bsn_list! {
+                            #camera_row
+                            @FeathersTreeItem {
+                                @label: bsn_list! { @caption("Camera") },
+                            }
+                            --
+                            @FeathersTreeItem {
+                                @expandable: true,
+                                @label: bsn_list! { @caption("Scene") },
+                                @children: bsn_list! {
+                                    @FeathersTreeItem {
+                                        @label: bsn_list! { @caption("Ground") },
+                                    }
+                                    --
+                                    @FeathersTreeItem {
+                                        @label: bsn_list! { @caption("Player") },
+                                    }
+                                },
+                            }
+                            Expanded
+                            --
+                            @FeathersTreeItem {
+                                @expandable: true,
+                                @label: bsn_list! { @caption("Assets") },
+                            }
+                            DemoLazyBranch
+                        }
+                    }
+                    Node {
+                        max_height: px(110)
+                    }
+                    on(tree_view_self_update)
+                    on(tree_view_expand_self_update)
+                    on(populate_demo_branch)
+                ]
+            ]
         ]
+    }
+}
+
+fn demo_tab(text: &'static str) -> impl Scene {
+    bsn! {
+        @FeathersTab {
+            @caption: bsn! { @caption(text) }
+        }
+        DemoTabLabel(text)
+    }
+}
+
+fn demo_tab_panel() -> impl Scene {
+    bsn! {
+        Node {
+            flex_grow: 1.0,
+            padding: px(8),
+            border: UiRect {
+                left: px(1),
+                right: px(1),
+                bottom: px(1),
+            },
+        }
+        ThemeBackgroundColor(tokens::PANE_BODY_BG)
+        ThemeBorderColor(tokens::TAB_STRIP_BG)
+    }
+}
+
+fn apply_tab_move(
+    moved: On<TabMoved>,
+    children: Query<&Children>,
+    tabs: Query<(), With<Tab>>,
+    mut commands: Commands,
+) {
+    let siblings = children
+        .get(moved.to_strip)
+        .map(|children| children.to_vec())
+        .unwrap_or_default();
+    let index = FeathersTabList::child_index(
+        &siblings,
+        |entity| tabs.contains(entity),
+        moved.tab,
+        moved.index,
+    );
+    let mut strip = commands.entity(moved.to_strip);
+    strip.insert_child(index, moved.tab);
+    if moved.to_strip != moved.from_strip {
+        strip.insert(SelectedTab(Some(moved.tab)));
+    }
+}
+
+fn show_tab_panel(
+    change: On<ValueChange<Option<Entity>>>,
+    labels: Query<&DemoTabLabel>,
+    mut panels: Query<&mut Text, With<DemoTabPanel>>,
+) {
+    let Some(label) = change.value.and_then(|tab| labels.get(tab).ok()) else {
+        return;
+    };
+    for mut text in &mut panels {
+        text.0 = format!("{} panel", label.0);
+    }
+}
+
+/// Spawns the child rows of the "Assets" row the first time it is expanded.
+fn populate_demo_branch(
+    change: On<TreeItemExpandChange>,
+    lazy: Query<&Children, (With<DemoLazyBranch>, Without<DemoPopulated>)>,
+    containers: Query<(), With<FeathersTreeItemChildren>>,
+    mut commands: Commands,
+) {
+    if !change.expanded {
+        return;
+    }
+    let Ok(row_children) = lazy.get(change.item) else {
+        return;
+    };
+    let Some(container) = row_children
+        .iter()
+        .find(|child| containers.contains(*child))
+    else {
+        return;
+    };
+    commands.entity(change.item).insert(DemoPopulated);
+    for index in 1..=12 {
+        let name = format!("Asset {index}");
+        commands
+            .spawn_scene(bsn! {
+                @FeathersTreeItem {
+                    @label: bsn_list! { @caption({name}) },
+                }
+            })
+            .insert(ChildOf(container));
     }
 }
 
@@ -1180,7 +1473,7 @@ fn update_colors(
         for scalar_input_ent in q_scalar_input.iter() {
             commands
                 .entity(scalar_input_ent)
-                .insert(NumberInputValue::F32(states.scalar_prop));
+                .insert(NumericValue::F32(states.scalar_prop));
         }
 
         for (vec3_input_ent, axis) in q_vec3_input.iter() {
@@ -1192,7 +1485,7 @@ fn update_colors(
 
             commands
                 .entity(vec3_input_ent)
-                .insert(NumberInputValue::F32(new_value));
+                .insert(NumericValue::F32(new_value));
         }
     }
 }
@@ -1213,10 +1506,10 @@ fn handle_hex_color_change(
 fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
     commands
         .entity(activate.event_target())
-        .queue_spawn_related_scenes::<Children>(bsn! {
+        .queue_spawn_related_scenes::<Children>(bsn_list! {
             @FeathersDialog {
                 @width: px(320),
-                @contents: bsn! {
+                @contents: bsn_list! {
                     @FeathersDialogHeader Children [
                         @caption("Quit Feathers Gallery")
                         --
@@ -1267,7 +1560,7 @@ fn toggle_demo_dialog(
             @FeathersFloatingDialog {
                 @title: {"Hello".to_string()},
                 @width: px(280),
-                @contents: bsn! {
+                @contents: bsn_list! {
                     @caption("Close this dialog to unset the toggle.")
                 }
             }

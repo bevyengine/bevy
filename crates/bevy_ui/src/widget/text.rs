@@ -19,9 +19,10 @@ use bevy_log::warn_once;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LetterSpacing, LineBreak,
-    LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
-    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection, TextWriter,
+    ComputedTextBlock, DefaultFontSource, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx,
+    LetterSpacing, LineBreak, LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError,
+    TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection,
+    TextWriter,
 };
 use taffy::{style::AvailableSpace, MaybeMath, ResolveOrZero};
 use tracing::error;
@@ -305,6 +306,7 @@ pub fn measure_text_system(
     mut font_system: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
     rem_size: Res<RemSize>,
+    default_font_source: Res<DefaultFontSource>,
 ) {
     for (
         entity,
@@ -340,6 +342,7 @@ pub fn measure_text_system(
             &mut layout_cx,
             computed_target.logical_size(),
             *rem_size,
+            &default_font_source.0,
         ) {
             Ok(measure) => {
                 if block.linebreak == LineBreak::NoWrap {

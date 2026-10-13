@@ -49,7 +49,7 @@ use bevy_input::{
 };
 use bevy_input_focus::{
     tab_navigation::{NavAction, TabGroup, TabNavigation},
-    FocusCause, FocusedInput, InputFocus, InputFocusSystems,
+    FocusCause, Focusable, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_log::warn;
 use bevy_picking::events::{
@@ -132,7 +132,7 @@ pub struct MenuPopup {
 
 /// Component that defines a menu item.
 #[derive(Component, Debug, Clone, Default)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::MenuItem)))]
+#[require(AccessibilityNode(accesskit::Node::new(Role::MenuItem)), Focusable)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct MenuItem;

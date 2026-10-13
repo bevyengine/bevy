@@ -89,10 +89,12 @@ fn fragment(
 
         // Fill in the sample bias so we can sample from textures.
         var bias: SampleBias;
-@if(MESHLET_MESH_MATERIAL_PASS)
-        bias.ddx_uv = in.ddx_uv;
-@if(MESHLET_MESH_MATERIAL_PASS)
-        bias.ddy_uv = in.ddy_uv;
+@if(MESHLET_MESH_MATERIAL_PASS) {
+        // Apply mip bias by scaling the gradients used by textureSampleGrad.
+        let mip_scale = exp2(view.mip_bias);
+        bias.ddx_uv = in.ddx_uv * mip_scale;
+        bias.ddy_uv = in.ddy_uv * mip_scale;
+}
 @if(!MESHLET_MESH_MATERIAL_PASS)
         bias.mip_bias = view.mip_bias;
 

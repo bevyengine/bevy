@@ -18,9 +18,10 @@ use bevy_platform::hash::FixedHasher;
 
 use bevy_text::{
     add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, scrollable_text_layout_width,
-    EditableText, EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting,
-    FontSize, GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize,
-    RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout, TextLayoutInfo, TextLineYBounds,
+    DefaultFontSource, EditableText, EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet,
+    FontCx, FontHinting, FontSize, GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph,
+    RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout, TextLayoutInfo,
+    TextLineYBounds,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
@@ -90,6 +91,7 @@ pub fn update_editable_text_content_size(
     fonts: Res<Assets<Font>>,
     mut font_cx: ResMut<FontCx>,
     rem_size: Res<RemSize>,
+    default_font_source: Res<DefaultFontSource>,
 ) {
     for (editable_text, text_font, line_height, target, mut content_size, mut size_state) in
         &mut text_input_query
@@ -116,7 +118,11 @@ pub fn update_editable_text_content_size(
                 .collection
                 .query(&mut font_context.source_cache);
 
-            match text_font.font.resolve_font_family(fonts.as_ref()).ok()? {
+            match text_font
+                .font
+                .resolve_font_family(fonts.as_ref(), &default_font_source.0)
+                .ok()?
+            {
                 parley::FontFamily::Source(source) => {
                     query.set_families(
                         parley::FontFamilyName::parse_css_list(&source)
@@ -199,6 +205,7 @@ pub fn update_editable_text_styles(
         Ref<TextLayout>,
     )>,
     rem_size: Res<RemSize>,
+    default_font_source: Res<DefaultFontSource>,
 ) {
     for (mut editable_text, text_font, line_height, target, text_layout) in
         editable_text_query.iter_mut()
@@ -223,7 +230,9 @@ pub fn update_editable_text_styles(
         }
 
         if text_font.is_changed()
-            && let Ok(resolved_family) = text_font.font.resolve_font_family(fonts.as_ref())
+            && let Ok(resolved_family) = text_font
+                .font
+                .resolve_font_family(fonts.as_ref(), &default_font_source.0)
         {
             let family = resolved_family.into_owned();
             let style_set = editable_text.editor.edit_styles();
