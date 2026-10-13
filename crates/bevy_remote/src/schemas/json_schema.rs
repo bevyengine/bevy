@@ -1,9 +1,8 @@
 //! Module with JSON Schema type for Bevy Registry Types.
 //!  It tries to follow this standard: <https://json-schema.org/specification>
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, collections::BTreeMap};
 use bevy_ecs::component::{Components, StorageType};
 use bevy_ecs::{component::ComponentInfo, relationship::RelationshipAccessor};
-use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     enums::VariantInfo, GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration,
     TypeRegistry,
@@ -101,8 +100,9 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata, &Components)> for JsonSchema
             TypeInfo::Struct(info) => {
                 typed_schema.properties = info
                     .iter()
-                    .map(|field| (field.name().to_owned(), field.ty().ref_type()))
-                    .collect::<HashMap<_, _>>();
+                    .enumerate()
+                    .map(|(index, field)| (field.name().to_owned(), field.property(index)))
+                    .collect();
                 typed_schema.required = info
                     .iter()
                     .filter(|field| !field.type_path().starts_with("core::option::Option"))
@@ -139,7 +139,8 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata, &Components)> for JsonSchema
                         "shortPath": v.name(),
                         "properties": v
                             .iter()
-                            .map(|field| (field.name().to_owned(), field.ref_type()))
+                            .enumerate()
+                            .map(|(index, field)| (field.name().to_owned(), field.property(index)))
                             .collect::<Map<_, _>>(),
                         "additionalProperties": false,
                         "required": v
@@ -262,8 +263,10 @@ pub struct JsonSchemaBevyType {
     /// Validation succeeds if, for each name that appears in both the instance and as a name
     /// within this keyword's value, the child instance for that name successfully validates
     /// against the corresponding schema.
-    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
-    pub properties: HashMap<String, Value>,
+    ///
+    /// Keys are sorted by name. Each property's `fieldIndex` gives its declaration order.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
+    pub properties: BTreeMap<String, Value>,
     /// An object instance is valid against this keyword if every item in the array is the name of a property in the instance.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub required: Vec<String>,
@@ -451,7 +454,21 @@ impl SchemaJsonReference for &bevy_reflect::UnnamedField {
 impl SchemaJsonReference for &NamedField {
     fn ref_type(self) -> Value {
         let type_path = self.type_path();
-        json!({"type": json!({ "$ref": format!("#/$defs/{type_path}") }), "typePath": self.name()})
+        json!({"type": json!({ "$ref": format!("#/$defs/{type_path}") }), "typePath": type_path})
+    }
+}
+
+/// Helper trait for building the schema of a struct property.
+trait SchemaJsonProperty {
+    /// Property schema, with `index` being the field's position in its declaration.
+    fn property(self, index: usize) -> Value;
+}
+
+impl SchemaJsonProperty for &NamedField {
+    fn property(self, index: usize) -> Value {
+        let mut value = self.ref_type();
+        value["fieldIndex"] = index.into();
+        value
     }
 }
 
@@ -715,7 +732,9 @@ mod tests {
             "a": {
               "type": {
                 "$ref": "#/$defs/f32"
-              }
+              },
+              "typePath": "f32",
+              "fieldIndex": 0
             },
           },
           "required": [
@@ -723,6 +742,54 @@ mod tests {
           ]
         });
         assert_normalized_values(schema_as_value, value);
+    }
+
+    #[test]
+    fn reflect_export_field_index() {
+        #[derive(Reflect)]
+        struct Unordered {
+            c: u8,
+            a: f32,
+            b: Option<u8>,
+        }
+
+        #[derive(Reflect)]
+        enum UnorderedEnum {
+            Variant { y: u8, x: i32 },
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Unordered>();
+            register.register::<UnorderedEnum>();
+        }
+        let type_registry = atr.read();
+        let export = |type_id| {
+            export_type(
+                type_registry.get(type_id).expect("SHOULD BE REGISTERED"),
+                &SchemaTypesMetadata::default(),
+                &Components::default(),
+            )
+            .1
+        };
+
+        let schema = export(TypeId::of::<Unordered>());
+        assert_eq!(
+            schema.properties.keys().collect::<Vec<_>>(),
+            ["a", "b", "c"],
+            "Properties should be sorted by name"
+        );
+        assert_eq!(schema.properties["c"]["fieldIndex"], 0);
+        assert_eq!(schema.properties["a"]["fieldIndex"], 1);
+        assert_eq!(schema.properties["b"]["fieldIndex"], 2);
+        assert_eq!(schema.properties["a"]["typePath"], "f32");
+
+        let schema = export(TypeId::of::<UnorderedEnum>());
+        let properties = &schema.one_of[0]["properties"];
+        assert_eq!(properties["y"]["fieldIndex"], 0);
+        assert_eq!(properties["x"]["fieldIndex"], 1);
+        assert_eq!(properties["x"]["typePath"], "i32");
     }
 
     /// This function exist to avoid false failures due to ordering differences between `serde_json` values.
