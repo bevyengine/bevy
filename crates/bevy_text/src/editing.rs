@@ -491,6 +491,7 @@ mod tests {
             &mut layout_context,
             &mut clipboard,
             |_| true,
+            None,
         );
 
         text.clear();
@@ -500,6 +501,7 @@ mod tests {
             &mut layout_context,
             &mut clipboard,
             |_| true,
+            None,
         );
         text.value().to_string()
     }
