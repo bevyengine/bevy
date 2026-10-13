@@ -493,7 +493,11 @@ pub fn clone_relationship_target<T: RelationshipTarget>(
         let collection = cloned.collection_mut_risky();
         for entity in component.iter() {
             collection.add(entity);
-            context.queue_entity_clone(entity);
+            // If an entity has already been cloned, a new different entity id is returned.
+            // We use this to avoid cloning entities multiple times.
+            if entity == context.entity_mapper().get_mapped(entity) {
+                context.queue_entity_clone(entity);
+            }
         }
     } else if context.moving() {
         let target = context.target();
@@ -914,6 +918,7 @@ mod tests {
     use core::marker::PhantomData;
     use core::sync::atomic::AtomicBool;
 
+    use crate::entity::EntityCloner;
     use crate::lifecycle::HookContext;
     use crate::prelude::{ChildOf, Children};
     use crate::relationship::{Relationship, RelationshipAccessor};
@@ -1416,19 +1421,115 @@ mod tests {
         assert!(world.get_entity(c).is_err());
     }
 
+    #[test]
+    fn clone_relationship() {
+        #[derive(Component, Clone)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(pub Entity);
+
+        #[derive(Component, Clone)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::default();
+        let a = world.spawn_empty().id();
+        let _ = world.spawn(Rel(a)).id();
+        let _ = world.spawn(Rel(a)).id();
+
+        let a_clone = world.spawn_empty().id();
+
+        EntityCloner::build_opt_out(&mut world)
+            .linked_cloning(true)
+            .clone_entity(a, a_clone);
+
+        assert_eq!(&*world.entity(a_clone).get::<RelTarget>().unwrap().0, &[]);
+    }
+
+    #[test]
+    fn clone_children() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn(ChildOf(a)).id();
+        let _ = world.spawn(ChildOf(b)).id();
+
+        let a_clone = world.spawn_empty().id();
+
+        EntityCloner::build_opt_out(&mut world)
+            .linked_cloning(true)
+            .clone_entity(a, a_clone);
+
+        let children = world.entity(a_clone).get::<Children>().unwrap();
+        assert_eq!(children.len(), 1);
+        let grand_children = world.entity(children[0]).get::<Children>().unwrap();
+        assert_eq!(grand_children.len(), 1);
+        assert!(world.entity(grand_children[0]).get::<Children>().is_none());
+    }
+
+    #[test]
+    fn move_parent() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn(ChildOf(a)).id();
+        let c = world.spawn(ChildOf(a)).id();
+
+        let a_clone = world.spawn_empty().id();
+
+        EntityCloner::build_opt_out(&mut world)
+            .move_components(true)
+            .clone_entity(a, a_clone);
+
+        let children = world.entity(a_clone).get::<Children>().unwrap();
+        assert_eq!(children[0], b);
+        assert_eq!(children[1], c);
+        assert_eq!(world.entity(b).get::<ChildOf>().unwrap().0, a_clone);
+        assert_eq!(world.entity(c).get::<ChildOf>().unwrap().0, a_clone);
+        // because it's moved, the original entity still exists, but is empty
+        assert!(world.entity(a).get::<Children>().is_none());
+    }
+
+    #[test]
+    fn clone_linked_custom() {
+        #[derive(Component, Clone)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(pub Entity);
+
+        #[derive(Component, Clone)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
+        struct RelTarget(Vec<Entity>);
+
+        use crate::entity::EntityCloner;
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn(Rel(a)).id();
+        let _ = world.spawn(Rel(b)).id();
+
+        let a_clone = world.spawn_empty().id();
+
+        EntityCloner::build_opt_out(&mut world)
+            .linked_cloning(true)
+            .clone_entity(a, a_clone);
+
+        let child = world.entity(a_clone).get::<RelTarget>().unwrap().0.clone();
+        assert_eq!(child.len(), 1);
+        let child = world.entity(child[0]).get::<RelTarget>().unwrap().0.clone();
+        assert_eq!(child.len(), 1);
+        assert!(world.entity(child[0]).get::<RelTarget>().is_none());
+    }
+
     mod many_to_many {
         use alloc::{vec, vec::Vec};
 
         use crate::{
+            entity::EntityCloner,
             prelude::{Component, Entity},
             world::World,
         };
 
-        #[derive(Component)]
+        #[derive(Component, Clone)]
         #[relationship(relationship_target = LikedBy)]
         struct Likes(pub Vec<Entity>);
 
-        #[derive(Component)]
+        #[derive(Component, Clone)]
         #[relationship_target(relationship = Likes)]
         struct LikedBy(Vec<Entity>);
 
@@ -1555,11 +1656,38 @@ mod tests {
             assert!(world.entity(c).get::<Likes>().is_none());
         }
 
-        #[derive(Component)]
+        #[test]
+        fn move_relationships() {
+            let mut world = World::new();
+            let a = world.spawn_empty().id();
+            let b = world.spawn(Likes(vec![a])).id();
+            let c = world.spawn(Likes(vec![a, b])).id();
+
+            let c_clone = world.spawn_empty().id();
+
+            EntityCloner::build_opt_out(&mut world)
+                .move_components(true)
+                .clone_entity(c, c_clone);
+
+            let targets = world.entity(c_clone).get::<Likes>().unwrap().0.clone();
+            assert!(world.entity(c_clone).get::<LikedBy>().is_none());
+            assert_eq!(&targets, &[a, b]);
+
+            assert_eq!(&world.entity(a).get::<LikedBy>().unwrap().0, &[b, c_clone]);
+            assert!(&world.entity(a).get::<Likes>().is_none());
+
+            assert_eq!(&world.entity(b).get::<Likes>().unwrap().0, &[a]);
+            assert_eq!(&world.entity(b).get::<LikedBy>().unwrap().0, &[c_clone]);
+
+            // all components of c have been removed.
+            assert!(&world.entity(c).get::<Likes>().is_none());
+        }
+
+        #[derive(Component, Clone)]
         #[relationship(relationship_target = RelTarget)]
         struct Rel(pub Vec<Entity>);
 
-        #[derive(Component)]
+        #[derive(Component, Clone)]
         #[relationship_target(relationship = Rel, linked_spawn)]
         struct RelTarget(Vec<Entity>);
 
@@ -1592,6 +1720,37 @@ mod tests {
             assert!(world.get_entity(a).is_err());
             assert!(world.get_entity(b).is_err());
             assert!(world.get_entity(c).is_err());
+        }
+
+        #[test]
+        fn clone_linked() {
+            let mut world = World::new();
+            let a = world.spawn_empty().id();
+            let b = world.spawn(Rel(vec![a])).id();
+            let _ = world.spawn(Rel(vec![a, b])).id();
+
+            let a_clone = world.spawn_empty().id();
+
+            EntityCloner::build_opt_out(&mut world)
+                .linked_cloning(true)
+                .clone_entity(a, a_clone);
+
+            let sources = world.entity(a_clone).get::<RelTarget>().unwrap().0.clone();
+            assert!(world.entity(a_clone).get::<Rel>().is_none());
+            assert_eq!(sources.len(), 2);
+            let (b_clone, c_clone) = (sources[0], sources[1]);
+
+            assert_eq!(&world.entity(b_clone).get::<Rel>().unwrap().0, &[a_clone]);
+            assert_eq!(
+                &world.entity(b_clone).get::<RelTarget>().unwrap().0,
+                &[c_clone]
+            );
+
+            assert_eq!(
+                &world.entity(c_clone).get::<Rel>().unwrap().0,
+                &[a_clone, b_clone]
+            );
+            assert!(&world.entity(c_clone).get::<RelTarget>().is_none());
         }
     }
 }
