@@ -31,13 +31,13 @@ fn ui() -> impl Scene {
         }
         Children [
             @button("Ok", #MainUI)
-            on(|event: On<PointerPress>| println!("Ok pressed! Im {:#?}", event.entity))
+            on(|event: On<PointerPress>| println!("Ok pressed! I'm {:#?}", event.entity))
             --
             @button("Cancel", #MainUI)
             on(|_event: On<PointerPress>| println!("Cancel pressed!"))
             BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
         ]
-        on(|event: On<Ready>,| {
+        on(|event: On<Ready>| {
             println!("I'm entity => {:#?}", event.entity);
         })
     }
