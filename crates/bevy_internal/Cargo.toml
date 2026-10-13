@@ -437,6 +437,7 @@ ghost_nodes = ["bevy_ui/ghost_nodes"]
 # supported platforms.
 std = [
   "bevy_a11y?/std",
+  "bevy_annotations/std",
   "bevy_app/std",
   "bevy_color?/std",
   "bevy_diagnostic/std",
@@ -520,6 +521,7 @@ bevy_settings = ["bevy-settings"]
 
 [dependencies]
 # bevy (no_std)
+bevy_annotations = { path = "../bevy_annotations", version = "0.20.0-dev", default-features = false }
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }
