@@ -108,10 +108,12 @@ impl AnimationTransitions {
 
 /// A system that alters the weight of currently-playing transitions based on
 /// the current time and decline amount.
-pub fn advance_transitions(
-    mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
-    time: Res<Time>,
-) {
+pub fn advance_transitions<T: Default, F: bevy_ecs::query::QueryFilter>(
+    mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer), F>,
+    time: Res<Time<T>>,
+) where
+    Time<T>: bevy_ecs::resource::Resource,
+{
     // We use a "greedy layer" system here. The top layer (most recent
     // transition) gets as much as weight as it wants, and the remaining amount
     // is divided between all the other layers, eventually culminating in the
