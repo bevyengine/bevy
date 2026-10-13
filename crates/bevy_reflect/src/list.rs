@@ -77,6 +77,12 @@ pub trait List: PartialReflect {
     /// Panics if `index` is out of bounds.
     fn remove(&mut self, index: usize) -> Box<dyn PartialReflect>;
 
+    /// Swaps two elements in the slice.
+    ///
+    /// # Panics
+    /// Panics if `a` or `b` are out of bounds.
+    fn swap(&mut self, a: usize, b: usize);
+
     /// Appends an element to the _back_ of the list.
     fn push(&mut self, value: Box<dyn PartialReflect>) {
         self.insert(self.len(), value);
@@ -254,6 +260,10 @@ impl List for DynamicList {
 
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
         core::mem::take(&mut self.values)
+    }
+
+    fn swap(&mut self, a: usize, b: usize) {
+        self.values.swap(a, b);
     }
 }
 
