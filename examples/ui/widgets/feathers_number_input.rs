@@ -120,6 +120,15 @@ fn demo_root() -> impl Scene {
             @demo_field_f32("in degrees", PI, bsn! {
                 NumberInputUnits::new(&AngleDegrees)
             })
+            --
+            @demo_field_f32_with_interior_label("interior label + soft limit", "Roughness", 0.5, bsn! {
+                SoftLimit(NumericRange::F32(0.0..=1.0))
+                NumberInputPrecision(2)
+            })
+            --
+            @demo_field_f32_with_interior_label("interior label", "Size", 2.0, bsn! {
+                NumberInputPrecision(1)
+            })
         ]
     }
 }
@@ -192,6 +201,53 @@ fn demo_field_f32_with_sigil(label_text: &str, value: f32, options: impl Scene) 
                 Node {
                     flex_grow: 1.0,
                     max_width: px(120),
+                }
+                on(
+                    |value_change: On<ValueChange<f32>>, mut commands: Commands| {
+                    commands.entity(value_change.event_target())
+                        .insert(NumericValue::F32(value_change.value));
+                })
+                --
+                #Output
+                @label("-")
+            ]
+        ]
+    }
+}
+
+fn demo_field_f32_with_interior_label(
+    label_text: &str,
+    interior_label_text: &'static str,
+    value: f32,
+    options: impl Scene,
+) -> impl Scene {
+    bsn! {
+        Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Start,
+            width: px(200),
+            row_gap: px(4),
+        }
+        Children [
+            @label(label_text)
+            --
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                align_self: AlignSelf::Stretch,
+                justify_content: JustifyContent::SpaceBetween,
+            }
+            Children [
+                @FeathersNumberInput {
+                    @interior_label_text: interior_label_text,
+                }
+                NumericValue::F32(value)
+                @{options}
+                Node {
+                    flex_grow: 1.0,
+                    max_width: px(160),
                 }
                 on(
                     |value_change: On<ValueChange<f32>>, mut commands: Commands| {

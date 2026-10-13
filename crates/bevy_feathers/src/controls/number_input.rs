@@ -30,7 +30,7 @@ use bevy_picking::{
     },
     hover::{Hovered, PointerCaptureMap},
     pointer::PointerButton,
-    PickingSystems,
+    Pickable, PickingSystems,
 };
 use bevy_platform::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
@@ -55,8 +55,8 @@ use crate::{
     display::icon,
     rounded_corners::RoundedCorners,
     theme::{
-        SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor, ThemeContext, ThemeTextColor,
-        ThemeToken, UiTheme,
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
+        ThemeContext, ThemeTextColor, ThemeToken, ThemedText, UiTheme,
     },
     tokens,
 };
@@ -107,6 +107,12 @@ pub struct FeathersNumberInputProps {
     /// A caption to be placed on the left side of the input, next to the colored stripe.
     /// Usually one of "X", "Y" or "Z".
     pub label_text: Option<&'static str>,
+    /// A caption to be placed inside the input, left-justified, with the value right-justified.
+    /// The caption is hidden while the value is being edited.
+    ///
+    /// This saves space in dense, compact layouts where there's no room for a separate label
+    /// next to each input, such as the property fields in Blender's node graph editor.
+    pub interior_label_text: Option<&'static str>,
 }
 
 impl Default for FeathersNumberInputProps {
@@ -114,9 +120,19 @@ impl Default for FeathersNumberInputProps {
         Self {
             sigil_color: tokens::TEXT_INPUT_LABEL_BG,
             label_text: None,
+            interior_label_text: None,
         }
     }
 }
+
+/// Horizontal inset of the interior label and value, which leaves room for the chevrons. This
+/// must be at least the width of a chevron (20px including its padding), plus a small gap.
+const INTERIOR_LABEL_INSET: f32 = 22.0;
+
+/// Marks the interior label of a number input.
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component)]
+struct NumberInputInteriorLabel;
 
 /// Marks the decrement (left-end) chevron of a number input.
 #[derive(Component, Clone, Default, Reflect)]
@@ -189,13 +205,27 @@ impl FeathersNumberInput {
                             RoundedCorners::All.to_border_radius(4.0)
                         }
                     },
+                    padding: {
+                        if props.interior_label_text.is_some() {
+                            UiRect::horizontal(px(INTERIOR_LABEL_INSET))
+                        } else {
+                            UiRect::DEFAULT
+                        }
+                    },
                 }
                 Hovered
                 LineHeight::Px(24.0) // TODO: Make const for this
                 TextLayout {
-                    justify: Justify::Center,
+                    justify: {
+                        if props.interior_label_text.is_some() {
+                            Justify::Right
+                        } else {
+                            Justify::Center
+                        }
+                    },
                 }
                 ThemeTextColor(tokens::TEXT_INPUT_TEXT)
+                InheritableThemeTextColor(tokens::TEXT_INPUT_TEXT)
                 // Use a gradient to draw the moving bar, this lets us round corners
                 BackgroundGradient(vec![Gradient::Linear(LinearGradient {
                     angle: PI * 0.5,
@@ -215,6 +245,27 @@ impl FeathersNumberInput {
                 on(number_input_hovered)
                 on(update_chevron_visibility)
                 Children [
+                    {
+                        // Interior label, overlaid on the left of the editable text and hidden
+                        // while editing.
+                        props.interior_label_text.map(|text| {
+                            bsn! {
+                                Text(text)
+                                Node {
+                                    position_type: PositionType::Absolute,
+                                    left: px(INTERIOR_LABEL_INSET),
+                                }
+                                TextFont {
+                                    font: FontSourceTemplate::Handle(fonts::REGULAR),
+                                    font_size: size::COMPACT_FONT,
+                                }
+                                ThemedText
+                                NumberInputInteriorLabel
+                                Pickable::IGNORE
+                            }
+                        })
+                    }
+                    --
                     // Invisible child on top of input field which intercepts drag
                     // events (conditionally) and handles scrubbing gestures.
                     Node {
@@ -682,6 +733,8 @@ fn number_input_on_enter_key(
         With<FeathersNumberInput>,
     >,
     mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    q_children: Query<&Children>,
+    mut q_label: Query<&mut Node, With<NumberInputInteriorLabel>>,
     units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
@@ -699,6 +752,7 @@ fn number_input_on_enter_key(
     {
         let text_value = editable_text.value().to_string();
         drag_state.mode = EditMode::Idle; // Boot us out of editing mode
+        show_interior_label(text_id, true, &q_children, &mut q_label);
         commands
             .entity(text_id)
             .insert(TextReadWriteMode::Static) // Hide selection
@@ -715,6 +769,24 @@ fn number_input_on_enter_key(
             &mut commands,
             true,
         );
+    }
+}
+
+/// Shows or hides the interior label, if there is one. It is hidden while editing.
+fn show_interior_label(
+    text_id: Entity,
+    visible: bool,
+    q_children: &Query<&Children>,
+    q_label: &mut Query<&mut Node, With<NumberInputInteriorLabel>>,
+) {
+    for child in q_children.iter_descendants(text_id) {
+        if let Ok(mut node) = q_label.get_mut(child) {
+            node.display = if visible {
+                Display::Flex
+            } else {
+                Display::None
+            };
+        }
     }
 }
 
@@ -740,6 +812,8 @@ fn number_input_on_focus_lost(
         With<FeathersNumberInput>,
     >,
     mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    q_children: Query<&Children>,
+    mut q_label: Query<&mut Node, With<NumberInputInteriorLabel>>,
     units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
@@ -762,6 +836,7 @@ fn number_input_on_focus_lost(
         );
 
         drag_state.mode = EditMode::Idle;
+        show_interior_label(editable_text_id, true, &q_children, &mut q_label);
 
         // Restore cursor and rwmode back to normal.
         commands
@@ -816,6 +891,8 @@ fn scrubber_on_release(
     )>,
     q_parent: Query<&ChildOf>,
     q_units: Query<(&NumericValue, Option<&NumberInputUnits>), Without<InteractionDisabled>>,
+    q_children: Query<&Children>,
+    mut q_label: Query<&mut Node, With<NumberInputInteriorLabel>>,
     ui_scale: Res<UiScale>,
     units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
@@ -854,6 +931,7 @@ fn scrubber_on_release(
             };
 
             drag_state.mode = EditMode::Editing;
+            show_interior_label(text_id, false, &q_children, &mut q_label);
             commands
                 .entity(text_id)
                 .insert(TextReadWriteMode::Editable)
@@ -1157,7 +1235,9 @@ fn set_slidebar_styles(
     commands
         .entity(slidebar_id)
         .try_insert(EntityCursor::System(cursor_shape))
-        .try_insert(ThemeTextColor(font_color_token));
+        .try_insert(ThemeTextColor(font_color_token.clone()))
+        // Also pass the color down to the interior label.
+        .try_insert(InheritableThemeTextColor(font_color_token));
 }
 
 fn emit_drag_value_change(
