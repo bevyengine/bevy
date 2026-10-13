@@ -10,7 +10,7 @@ use bevy_camera::visibility::{
 };
 use bevy_camera::{Camera, Camera3d, RenderTarget, ShadowLodOrigin};
 use bevy_color::ColorToComponents;
-use bevy_core_pipeline::schedule::RootNonCameraView;
+use bevy_core_pipeline::schedule::{RootNonCameraView, SkipRootViewRendering};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::system::SystemChangeTick;
@@ -1046,6 +1046,181 @@ pub enum LightEntity {
     Spot {
         light_entity: Entity,
     },
+}
+
+/// For each point and spot light, a hash of the meshes it can see this frame and
+/// whether any of them changed in a way that could change its shadow map.
+#[derive(Resource, Default)]
+pub struct ShadowCasterChanges(pub MainEntityHashMap<ShadowCasterChange>);
+
+/// The shadow casters a point or spot light sees this frame.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ShadowCasterChange {
+    /// A hash of the visible mesh entities.
+    pub casters: u64,
+    /// Whether any of them moved, changed mesh, or deforms (skinned or morphed).
+    pub changed: bool,
+}
+
+/// Records, for each point and spot light, which meshes it can see and whether
+/// any of them changed since the last extraction, so that shadow maps whose
+/// light and casters are unchanged needn't be rendered again.
+pub fn extract_shadow_caster_changes(
+    mut changes: ResMut<ShadowCasterChanges>,
+    lights: Extract<
+        Query<
+            (
+                Entity,
+                Option<&VisibleMeshEntities>,
+                Option<&CubemapVisibleEntities>,
+            ),
+            Or<(With<PointLight>, With<SpotLight>)>,
+        >,
+    >,
+    casters: Extract<
+        Query<(
+            Ref<GlobalTransform>,
+            Ref<Mesh3d>,
+            Has<bevy_mesh::skinning::SkinnedMesh>,
+            Has<bevy_mesh::morph::MeshMorphWeights>,
+        )>,
+    >,
+    mut mesh_events: Extract<MessageReader<bevy_asset::AssetEvent<bevy_mesh::Mesh>>>,
+) {
+    use core::hash::{BuildHasher, Hasher};
+
+    let modified_meshes: HashSet<bevy_asset::AssetId<bevy_mesh::Mesh>> = mesh_events
+        .read()
+        .filter_map(|event| match event {
+            bevy_asset::AssetEvent::Modified { id } => Some(*id),
+            _ => None,
+        })
+        .collect();
+
+    changes.0.clear();
+    let mut visible: Vec<Entity> = Vec::new();
+    for (light, spot_visible, point_visible) in &lights {
+        visible.clear();
+        if let Some(spot_visible) = spot_visible {
+            visible.extend(spot_visible.entities.iter().copied());
+        }
+        if let Some(point_visible) = point_visible {
+            for face in 0..6 {
+                visible.extend(point_visible.get(face).entities.iter().copied());
+            }
+        }
+        visible.sort_unstable();
+        visible.dedup();
+
+        let mut hasher = FixedHasher.build_hasher();
+        let mut changed = false;
+        for &entity in &visible {
+            hasher.write_u64(entity.to_bits());
+            if let Ok((transform, mesh, skinned, morphed)) = casters.get(entity) {
+                changed |= transform.is_changed()
+                    || mesh.is_changed()
+                    || skinned
+                    || morphed
+                    || modified_meshes.contains(&mesh.id());
+            }
+        }
+        changes.0.insert(
+            MainEntity::from(light),
+            ShadowCasterChange {
+                casters: hasher.finish(),
+                changed,
+            },
+        );
+    }
+}
+
+/// Marks the point and spot light shadow views whose shadow maps are still valid
+/// with [`SkipRootViewRendering`]: the same texture layer, light view and
+/// projection as when last rendered, and the same shadow casters, none of them
+/// changed.
+pub fn skip_unchanged_shadow_views(
+    mut commands: Commands,
+    views: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &ShadowView,
+            &LightEntity,
+            Has<SkipRootViewRendering>,
+        ),
+        With<RootNonCameraView>,
+    >,
+    main_entities: Query<&MainEntity>,
+    bindings: Query<&ViewShadowBindings>,
+    changes: Res<ShadowCasterChanges>,
+    mut rendered: Local<HashMap<RetainedViewEntity, (u64, u64)>>,
+) {
+    use core::hash::{BuildHasher, Hash, Hasher};
+
+    // The shadow map textures this frame (shared by all cameras); without them,
+    // nothing can be known to be unchanged.
+    let textures = bindings.iter().next().map(|bindings| {
+        (
+            bindings.point_light_depth_texture.id(),
+            bindings.directional_light_depth_texture.id(),
+        )
+    });
+    let mut live = HashSet::new();
+    for (view_entity, view, shadow_view, light, skipped) in &views {
+        let (light_entity, texture) = match *light {
+            LightEntity::Point { light_entity, .. } => (light_entity, textures.map(|t| t.0)),
+            LightEntity::Spot { light_entity } => (light_entity, textures.map(|t| t.1)),
+            LightEntity::Directional { .. } => continue,
+        };
+        let retained = view.retained_view_entity;
+        live.insert(retained);
+
+        let mut hasher = FixedHasher.build_hasher();
+        // The texture and, by the pass's name, the layer it renders to.
+        texture.hash(&mut hasher);
+        shadow_view.pass_name.hash(&mut hasher);
+        view.viewport.hash(&mut hasher);
+        for value in view
+            .world_from_view
+            .to_matrix()
+            .to_cols_array()
+            .into_iter()
+            .chain(view.clip_from_view.to_cols_array())
+        {
+            hasher.write_u32(value.to_bits());
+        }
+        let view_key = hasher.finish();
+
+        let change = main_entities
+            .get(light_entity)
+            .ok()
+            .and_then(|main| changes.0.get(main));
+        let unchanged = texture.is_some()
+            && change.is_some_and(|change| {
+                !change.changed && rendered.get(&retained) == Some(&(view_key, change.casters))
+            });
+
+        if unchanged {
+            if !skipped {
+                commands.entity(view_entity).insert(SkipRootViewRendering);
+            }
+        } else {
+            if skipped {
+                commands
+                    .entity(view_entity)
+                    .remove::<SkipRootViewRendering>();
+            }
+            match change {
+                Some(change) => {
+                    rendered.insert(retained, (view_key, change.casters));
+                }
+                None => {
+                    rendered.remove(&retained);
+                }
+            }
+        }
+    }
+    rendered.retain(|retained, _| live.contains(retained));
 }
 
 pub fn prepare_lights(

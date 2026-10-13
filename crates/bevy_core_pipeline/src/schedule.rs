@@ -149,6 +149,14 @@ struct CameraWindows(EntityHashSet);
 #[reflect(from_reflect = false)]
 pub struct RootNonCameraView(#[reflect(ignore)] pub InternedScheduleLabel);
 
+/// A render-world marker for a [`RootNonCameraView`] whose output from the last
+/// frame is still valid, so its schedule doesn't need to run this frame.
+///
+/// For example, a point or spot light shadow map whose light and shadow casters
+/// haven't changed.
+#[derive(Clone, Copy, Component, Debug, Default)]
+pub struct SkipRootViewRendering;
+
 /// The default entry point for camera driven rendering added to the root [`bevy_render::renderer::RenderGraph`]
 /// schedule. This system iterates over all cameras in the world, executing their associated
 /// rendering schedules defined by the [`bevy_render::camera::CameraRenderGraph`] component.
@@ -246,6 +254,12 @@ pub fn camera_driver(
                 let Some(root_view) = world.get::<RootNonCameraView>(auxiliary_view_entity) else {
                     continue;
                 };
+                if world
+                    .get::<SkipRootViewRendering>(auxiliary_view_entity)
+                    .is_some()
+                {
+                    continue;
+                }
 
                 view_entity = auxiliary_view_entity;
                 schedule = root_view.0;
