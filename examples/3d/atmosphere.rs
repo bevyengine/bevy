@@ -363,7 +363,14 @@ fn setup_camera_fog(
 
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // `ATMOSPHERE_VIEW=up|wide` picks an alternative camera for cloud screenshots.
+        match std::env::var("ATMOSPHERE_VIEW").as_deref() {
+            Ok("up") => Transform::from_xyz(-2.8, 0.045, 0.0)
+                .looking_at(Vec3::new(-1.8, 1.2, 0.3), Vec3::Y),
+            Ok("wide") => Transform::from_xyz(-2.8, 0.045, 0.0)
+                .looking_at(Vec3::new(-2.8, 0.25, -3.0), Vec3::Y),
+            _ => Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        },
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings {
             // Profiling override: `ATMOSPHERE_LUT_MODE=1` starts in `AtmosphereMode::LookupTexture`.
