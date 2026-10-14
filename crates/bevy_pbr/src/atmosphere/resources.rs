@@ -1018,13 +1018,16 @@ pub(super) fn prepare_cloud_shadow_temporal_params(
         light_dir.normalize_or_zero()
     };
     let prev_trace_dir = -prev_light_dir_to_light;
-    let prev_a = if prev_light_dir_to_light.dot(Vec3::Y).abs() > 0.999 {
+    // Build the previous basis from the trace direction exactly like the current one (and like
+    // `build_light_basis` in the shaders); building it from the direction *to* the light mirrors
+    // the X axis and reprojects the history to the wrong texels.
+    let prev_a = if prev_trace_dir.dot(Vec3::Y).abs() > 0.999 {
         Vec3::X
     } else {
         Vec3::Y
     };
-    let prev_basis_x = prev_a.cross(prev_light_dir_to_light).normalize_or_zero();
-    let prev_basis_y = prev_light_dir_to_light.cross(prev_basis_x);
+    let prev_basis_x = prev_a.cross(prev_trace_dir).normalize_or_zero();
+    let prev_basis_y = prev_trace_dir.cross(prev_basis_x);
 
     temporal_params_buffer
         .buffer
