@@ -91,7 +91,7 @@ use bevy_reflect::TypePath;
 
 use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
 
-use bevy_time::Fixed;
+use bevy_time::{run_fixed_main_schedule, Fixed};
 use bevy_utils::TypeIdIndexMap;
 use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore};
 use core::{any::TypeId, marker::PhantomData, mem};
@@ -161,15 +161,13 @@ impl AppGizmoBuilder for App {
             .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
             .add_systems(
                 RunFixedMainLoop,
-                start_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::RunFixedMainLoopSystems::BeforeFixedMainLoop),
+                start_gizmo_context::<Config, Fixed>.before(run_fixed_main_schedule),
             )
             .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
             .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
             .add_systems(
                 RunFixedMainLoop,
-                end_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::RunFixedMainLoopSystems::AfterFixedMainLoop),
+                end_gizmo_context::<Config, Fixed>.after(run_fixed_main_schedule),
             )
             .add_systems(
                 Last,

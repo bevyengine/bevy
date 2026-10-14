@@ -1,5 +1,9 @@
-use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
-use bevy_ecs::{message::Messages, schedule::IntoScheduleConfigs, world::FromWorld};
+use bevy_app::{App, Main, Plugin, PreStartup, PreUpdate, RunFixedMainLoop, StartupMain, SubApp};
+use bevy_ecs::{
+    message::Messages,
+    schedule::IntoScheduleConfigs,
+    world::{FromWorld, World},
+};
 use bevy_utils::once;
 use log::warn;
 
@@ -325,17 +329,29 @@ impl AppExtStates for App {
     }
 }
 
-/// Registers the [`StateTransition`] schedule in the [`MainScheduleOrder`] to enable state processing.
+/// Registers the [`StateTransition`] schedule in the [`Main`] schedule to enable state processing.
 #[derive(Default)]
 pub struct StatesPlugin;
 
 impl Plugin for StatesPlugin {
     fn build(&self, app: &mut App) {
-        let mut schedule = app.world_mut().resource_mut::<MainScheduleOrder>();
-        schedule.insert_after(PreUpdate, StateTransition);
-        schedule.insert_startup_before(PreStartup, StateTransition);
+        app.add_systems(
+            StartupMain,
+            run_state_transition_schedule.before(PreStartup),
+        )
+        .add_systems(
+            Main,
+            run_state_transition_schedule
+                .after(PreUpdate)
+                .before(RunFixedMainLoop),
+        );
         setup_state_transitions_in_world(app.world_mut());
     }
+}
+
+/// System to run the [`StateTransition`] schedule to update the states.
+pub fn run_state_transition_schedule(world: &mut World) {
+    let _ = world.try_run_schedule(StateTransition);
 }
 
 #[cfg(test)]

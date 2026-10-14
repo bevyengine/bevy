@@ -70,17 +70,17 @@
 //! - The player's visual representation is stored in Bevy's regular `Transform` component.
 //! - Every frame, we go through the following steps:
 //!   - Accumulate the player's input and set the current speed in the `handle_input` system.
-//!     This is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystems::BeforeFixedMainLoop`,
+//!     This is run in the `RunFixedMainLoop` schedule, ordered before `run_fixed_main_schedule`,
 //!     which runs before the fixed timestep loop. This is run every frame.
-//!   - Rotate the camera based on the player's input. This is also run in `RunFixedMainLoopSystems::BeforeFixedMainLoop`.
+//!   - Rotate the camera based on the player's input. This is also run before `run_fixed_main_schedule`.
 //!   - Advance the physics simulation by one fixed timestep in the `advance_physics` system.
 //!     Accumulated input is consumed here.
 //!     This is run in the `FixedUpdate` schedule, which runs zero or multiple times per frame.
 //!   - Update the player's visual representation in the `interpolate_rendered_transform` system.
 //!     This interpolates between the player's previous and current position in the physics simulation.
-//!     It is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystems::AfterFixedMainLoop`,
+//!     It is run in the `RunFixedMainLoop` schedule, ordered after `run_fixed_main_schedule`,
 //!     which runs after the fixed timestep loop. This is run every frame.
-//!   - Update the camera's translation to the player's interpolated translation. This is also run in `RunFixedMainLoopSystems::AfterFixedMainLoop`.
+//!   - Update the camera's translation to the player's interpolated translation. This is also run after `run_fixed_main_schedule`.
 //!
 //!
 //! ## Controls
@@ -95,7 +95,10 @@
 
 use std::f32::consts::FRAC_PI_2;
 
-use bevy::{color::palettes::tailwind, input::mouse::AccumulatedMouseMotion, prelude::*};
+use bevy::{
+    color::palettes::tailwind, input::mouse::AccumulatedMouseMotion, prelude::*,
+    time::run_fixed_main_schedule,
+};
 
 fn main() {
     App::new()
@@ -122,7 +125,7 @@ fn main() {
                     accumulate_input,
                 )
                     .chain()
-                    .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+                    .before(run_fixed_main_schedule),
                 (
                     // Clear our accumulated input after it was processed during the fixed timestep.
                     // By clearing the input *after* the fixed timestep, we can still use `AccumulatedInput` inside `FixedUpdate` if we need it.
@@ -135,7 +138,7 @@ fn main() {
                     translate_camera,
                 )
                     .chain()
-                    .in_set(RunFixedMainLoopSystems::AfterFixedMainLoop),
+                    .after(run_fixed_main_schedule),
             ),
         )
         .run();

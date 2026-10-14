@@ -1,8 +1,8 @@
 //! Demonstrates how to add custom schedules that run in Bevy's `Main` schedule, ordered relative to Bevy's built-in
-//! schedules such as `Update` or `Last`.
+//! system sets such as `Update` or `Last`.
 
 use bevy::{
-    app::MainScheduleOrder,
+    app::StartupMain,
     ecs::schedule::{ScheduleLabel, SingleThreadedExecutor},
     prelude::*,
 };
@@ -27,23 +27,26 @@ fn main() {
     app.add_schedule(custom_update_schedule);
 
     // Bevy `App`s have a `main_schedule_label` field that configures which schedule is run by the App's `runner`.
-    // By default, this is `Main`. The `Main` schedule is responsible for running Bevy's main schedules such as
-    // `Update`, `Startup` or `Last`.
+    // By default, this is `Main`. The `Main` schedule runs the bulk of Bevy's systems.
     //
-    // We can configure the `Main` schedule to run our custom update schedule relative to the existing ones by modifying
-    // the `MainScheduleOrder` resource.
-    //
-    // Note that we modify `MainScheduleOrder` directly in `main` and not in a startup system. The reason for this is
-    // that the `MainScheduleOrder` cannot be modified from systems that are run as part of the `Main` schedule.
-    let mut main_schedule_order = app.world_mut().resource_mut::<MainScheduleOrder>();
-    main_schedule_order.insert_after(Update, SingleThreadedUpdate);
+    // We can create an exclusive system to run our custom schedule and use system ordering to place
+    // that schedule where we need it to run.
+    fn run_single_threaded_update_schedule(world: &mut World) {
+        world.run_schedule(SingleThreadedUpdate);
+    }
+    app.add_systems(
+        Main,
+        run_single_threaded_update_schedule
+            .after(Update)
+            .before(PostUpdate),
+    );
 
-    // Adding a custom startup schedule works similarly, but needs to use `insert_startup_after`
-    // instead of `insert_after`.
+    // Adding a custom startup schedule works similarly, but with `StartupMain`.
     app.add_schedule(Schedule::new(CustomStartup));
-
-    let mut main_schedule_order = app.world_mut().resource_mut::<MainScheduleOrder>();
-    main_schedule_order.insert_startup_after(PreStartup, CustomStartup);
+    fn run_custom_startup(world: &mut World) {
+        world.run_schedule(CustomStartup);
+    }
+    app.add_systems(StartupMain, run_custom_startup.before(PreStartup));
 
     app.add_systems(SingleThreadedUpdate, single_threaded_update_system)
         .add_systems(CustomStartup, custom_startup_system)

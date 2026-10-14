@@ -1,7 +1,7 @@
 //! Convenience plugin for automatically performing serialization of schedules on boot.
 use std::{fs::File, io::Write, path::PathBuf};
 
-use bevy_app::{App, Main, Plugin};
+use bevy_app::{App, EntryPoint, Plugin};
 use bevy_ecs::{
     error::{BevyError, ResultSeverityExt, Severity},
     intern::Interned,
@@ -28,20 +28,23 @@ pub struct SerializeSchedulesPlugin {
     /// schedules. In order to run a schedule, Bevy removes it from the world, meaning if this
     /// system is added to schedule [`Update`](bevy_app::Update), that schedule and also [`Main`]
     /// will not be included in the [`AppData`]. The default is the [`Main`] schedule since usually
-    /// there is only one system ([`Main::run_main`]), so there's very little data to collect.
+    /// there is only one system ([`bevy_app::EntryPoint::run_main`]), so there's very little data
+    /// to collect.
     ///
     /// Avoid changing this field. This is intended for power-users who might not use the [`Main`]
     /// schedule at all. It may also be worth considering just calling [`AppData::from_schedules`]
     /// manually to ensure a particular schedule is present.
     ///
     /// Usually, this will be set using [`Self::in_schedule`].
+    ///
+    /// [`Main`]: bevy_app::Main
     pub schedule: Interned<dyn ScheduleLabel>,
 }
 
 impl Default for SerializeSchedulesPlugin {
     fn default() -> Self {
         Self {
-            schedule: Main.intern(),
+            schedule: EntryPoint.intern(),
         }
     }
 }
@@ -63,9 +66,9 @@ impl Plugin for SerializeSchedulesPlugin {
                 collect_system_data
                     .run_if(run_once)
                     .in_set(SerializeSchedulesSystems)
-                    // While we may not be in the `Main` schedule at all, the default is that, so we
+                    // While we may not be in the `EntryPoint` schedule at all, the default is that, so we
                     // should make this work properly in the default case.
-                    .before(Main::run_main),
+                    .before(EntryPoint::run_main),
             );
     }
 }
@@ -135,7 +138,7 @@ fn collect_system_data(world: &mut World) -> Result<(), BevyError> {
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::{App, PostUpdate, Update};
+    use bevy_app::{App, Main, SpawnScene};
 
     use crate::schedule_data::{
         plugin::collect_system_data_inner,
@@ -152,8 +155,8 @@ mod tests {
         fn a() {}
         fn b() {}
         fn c() {}
-        app.add_systems(Update, (a, b));
-        app.add_systems(PostUpdate, c);
+        app.add_systems(Main, (a, b));
+        app.add_systems(SpawnScene, c);
 
         // Normally users would use the plugin, but to avoid writing to disk in a test, we just call
         // the inner part of the system directly.
@@ -161,15 +164,15 @@ mod tests {
         remove_module_paths(&mut app_data);
         sort_app_data(&mut app_data);
 
-        assert_eq!(app_data.schedules.len(), 3);
-        let first = &app_data.schedules[0];
-        validate_message_update_system(first);
-        let post_update = &app_data.schedules[1];
-        assert_eq!(post_update.name, "PostUpdate");
-        assert_eq!(post_update.systems, [simple_system("c")]);
-        let update = &app_data.schedules[2];
-        assert_eq!(update.name, "Update");
-        assert_eq!(update.systems, [simple_system("a"), simple_system("b")]);
+        assert_eq!(app_data.schedules.len(), 2);
+        let main = &app_data.schedules[0];
+        validate_message_update_system(main);
+        assert_eq!(main.name, "Main");
+        assert!(main.systems.contains(&simple_system("a")));
+        assert!(main.systems.contains(&simple_system("b")));
+        let spawn_scene = &app_data.schedules[1];
+        assert_eq!(spawn_scene.name, "SpawnScene");
+        assert_eq!(spawn_scene.systems, [simple_system("c")]);
     }
 
     #[test]
@@ -184,8 +187,8 @@ mod tests {
         let mut app = App::empty();
 
         fn a() {}
-        app.add_systems(Update, a);
-        app.world_mut().run_schedule(Update);
+        app.add_systems(Main, a);
+        app.world_mut().run_schedule(Main);
 
         // Normally users would use the plugin, but to avoid writing to disk in a test, we just call
         // the inner part of the system directly.
@@ -195,6 +198,6 @@ mod tests {
 
         // If the schedule is missing, this would panic! This could happen if there was an error
         // extracting the schedule data, and we didn't hokey-pokey safely.
-        app.world_mut().schedule_scope(Update, |_, _| {});
+        app.world_mut().schedule_scope(Main, |_, _| {});
     }
 }

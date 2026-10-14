@@ -392,14 +392,15 @@ impl Plugin for PickingPlugin {
                     .in_set(PickingSystems::Backend),
             )
             .configure_sets(
-                First,
+                Main,
                 (PickingSystems::Input, PickingSystems::PostInput)
                     .after(bevy_time::TimeSystems)
                     .after(bevy_ecs::message::MessageUpdateSystems)
-                    .chain(),
+                    .chain()
+                    .in_set(First),
             )
             .configure_sets(
-                PreUpdate,
+                Main,
                 (
                     PickingSystems::ProcessInput.run_if(PickingSettings::input_should_run),
                     PickingSystems::Backend,
@@ -407,7 +408,8 @@ impl Plugin for PickingPlugin {
                     PickingSystems::PostHover,
                     PickingSystems::Last,
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(PreUpdate),
             );
     }
 }

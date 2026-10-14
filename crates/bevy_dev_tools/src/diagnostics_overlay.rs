@@ -250,7 +250,7 @@ pub struct DiagnosticsOverlayPlugin;
 impl Plugin for DiagnosticsOverlayPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DiagnosticsOverlayStyle>();
-        app.configure_sets(Update, DiagnosticsOverlaySystems::Rebuild);
+        app.configure_sets(Main, DiagnosticsOverlaySystems::Rebuild);
         app.add_systems(PreStartup, build_plane);
         app.add_systems(
             Update,

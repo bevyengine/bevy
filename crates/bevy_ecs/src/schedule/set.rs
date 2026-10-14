@@ -144,6 +144,36 @@ define_label!(
     /// // Adding multiple systems to a set.
     /// schedule.add_systems((player_damage_calculation, enemy_damage_calculation).in_set(CombatSystems::DamageCalculation));
     /// ```
+    ///
+    /// ## Default schedules
+    ///
+    /// The derive macro for system sets also includes a `default_schedule` attribute. Providing a
+    /// [`ScheduleLabel`] in this attribute allows the system set to be used in place of the
+    /// [`ScheduleLabel`] in a [`Schedules::add_systems()`] call.
+    ///
+    /// ```rust
+    /// use bevy_ecs::{prelude::*, schedule::{ScheduleLabel, SystemSet}};
+    ///
+    /// #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash)]
+    /// struct Main;
+    ///
+    /// #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+    /// #[default_schedule(Main)]
+    /// enum CombatSystems {
+    ///    TargetSelection,
+    ///    DamageCalculation,
+    ///    Cleanup,
+    /// }
+    ///
+    /// let mut schedules = Schedules::default();
+    ///
+    /// fn system() {}
+    ///
+    /// // `system` is added to the `Main` schedule, and is in the system set `CombatSystems::TargetSelection`.
+    /// schedules.add_systems(CombatSystems::TargetSelection, system);
+    /// ```
+    ///
+    /// [`Schedules::add_systems()`]: crate::schedule::Schedules::add_systems
     #[diagnostic::on_unimplemented(
         note = "consider annotating `{Self}` with `#[derive(SystemSet)]`"
     )]
@@ -291,6 +321,41 @@ where
     #[inline]
     fn into_system_set(self) -> Self::Set {
         SystemTypeSet::<F>::new()
+    }
+}
+
+/// Trait defining where systems should be placed according to this type.
+///
+/// This allows functions like [`Schedules::add_systems`] to support both [`ScheduleLabel`]s or
+/// types that have explicitly implemented this trait (usually through deriving [`SystemSet`] with
+/// the [`default_schedule`] attribute).
+///
+/// [`Schedules::add_systems`]: crate::schedule::Schedules::add_systems
+/// [`default_schedule`]: crate::schedule::SystemSet
+pub trait SystemLocation {
+    /// Returns the system location that this value represents.
+    ///
+    /// Systems will be added to the returned schedule, and also assigned the given system set (if
+    /// [`Some`]).
+    fn get_system_location(&self)
+        -> (Interned<dyn ScheduleLabel>, Option<Interned<dyn SystemSet>>);
+}
+
+impl<T: ScheduleLabel> SystemLocation for T {
+    fn get_system_location(
+        &self,
+    ) -> (Interned<dyn ScheduleLabel>, Option<Interned<dyn SystemSet>>) {
+        (self.intern(), None)
+    }
+}
+
+// Implementation for a tuple of the location. This allows calling
+// `SystemLocation::get_system_location` and then using that returned value as a system location.
+impl SystemLocation for (Interned<dyn ScheduleLabel>, Option<Interned<dyn SystemSet>>) {
+    fn get_system_location(
+        &self,
+    ) -> (Interned<dyn ScheduleLabel>, Option<Interned<dyn SystemSet>>) {
+        *self
     }
 }
 

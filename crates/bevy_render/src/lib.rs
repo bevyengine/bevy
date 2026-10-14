@@ -129,10 +129,7 @@ use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_app::{App, AppLabel, First, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
-use bevy_ecs::{
-    prelude::*,
-    schedule::{InternedScheduleLabel, ScheduleLabel},
-};
+use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bevy_extract::ExtractPlugin;
 use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
@@ -270,48 +267,20 @@ impl GpuResourceAppExt for SubApp {
     }
 }
 
-/// The render recovery schedule. This schedule runs the [`RenderScheduleOrder`] schedules if
-/// we are in [`RenderState::Ready`], and is otherwise hidden from users.
+/// The render entry schedule. This schedule runs the [`Render`] schedule if the
+/// renderer is ready, and is otherwise hidden from users.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-struct RenderRecovery;
+pub struct RenderEntryPoint;
 
-/// Defines the schedules to be run for the rendering, including their order.
+/// The systems sets of the [`RenderEntryPoint`] schedule.
 ///
-/// This is the same approach as [`MainScheduleOrder`](`bevy_app::MainScheduleOrder`).
-#[derive(Resource, Debug)]
-pub struct RenderScheduleOrder {
-    /// The labels to run for the rendering schedule (in the order they will be run).
-    pub labels: Vec<InternedScheduleLabel>,
-}
-
-impl Default for RenderScheduleOrder {
-    fn default() -> Self {
-        Self {
-            labels: vec![First.intern(), Render.intern()],
-        }
-    }
-}
-
-impl RenderScheduleOrder {
-    /// Adds the given `schedule` after the `after` schedule
-    pub fn insert_after(&mut self, after: impl ScheduleLabel, schedule: impl ScheduleLabel) {
-        let index = self
-            .labels
-            .iter()
-            .position(|current| (**current).eq(&after))
-            .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
-        self.labels.insert(index + 1, schedule.intern());
-    }
-
-    /// Adds the given `schedule` before the `before` schedule
-    pub fn insert_before(&mut self, before: impl ScheduleLabel, schedule: impl ScheduleLabel) {
-        let index = self
-            .labels
-            .iter()
-            .position(|current| (**current).eq(&before))
-            .unwrap_or_else(|| panic!("Expected {before:?} to exist"));
-        self.labels.insert(index, schedule.intern());
-    }
+/// These can be useful for ordering.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum RenderEntryPointSystems {
+    /// Runs the render recovery and render
+    RunRender,
+    /// Updates the main world with the render time
+    RenderTime,
 }
 
 /// The main render schedule.
@@ -331,6 +300,7 @@ impl Render {
 
         schedule.configure_sets(
             (
+                First,
                 ExtractCommands,
                 PrepareMeshes,
                 CreateViews,
@@ -428,7 +398,6 @@ impl Plugin for RenderPlugin {
         app.init_resource::<RenderAssetBytesPerFrame>()
             .init_resource::<RenderErrorHandler>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<RenderScheduleOrder>();
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
             render_app.init_gpu_resource::<renderer::PendingCommandBuffers>();
             render_app.insert_resource(sender);
@@ -458,10 +427,23 @@ impl Plugin for RenderPlugin {
                 .get_schedule_mut(RenderStartup)
                 .unwrap()
                 .set_executor(bevy_ecs::schedule::SingleThreadedExecutor::new());
-            render_app.update_schedule = Some(RenderRecovery.intern());
+            render_app.update_schedule = Some(RenderEntryPoint.intern());
+            render_app.configure_sets(
+                RenderEntryPoint,
+                (
+                    RenderEntryPointSystems::RunRender,
+                    RenderEntryPointSystems::RenderTime,
+                )
+                    .chain(),
+            );
             render_app.add_systems(
-                RenderRecovery,
-                (run_render_schedule.run_if(renderer_is_ready), send_time).chain(),
+                RenderEntryPoint,
+                (
+                    run_render_schedule
+                        .run_if(renderer_is_ready)
+                        .in_set(RenderEntryPointSystems::RunRender),
+                    send_time.in_set(RenderEntryPointSystems::RenderTime),
+                ),
             );
             render_app.add_systems(
                 Render,
@@ -511,12 +493,9 @@ fn renderer_is_ready(state: Res<RenderState>) -> bool {
     matches!(*state, RenderState::Ready)
 }
 
-fn run_render_schedule(world: &mut World) {
-    world.resource_scope(|world, order: Mut<RenderScheduleOrder>| {
-        for &label in &order.labels {
-            let _ = world.try_run_schedule(label);
-        }
-    });
+/// System for running the [`Render`] schedule.
+pub fn run_render_schedule(world: &mut World) {
+    let _ = world.try_run_schedule(Render);
 }
 
 fn send_time(time_sender: Res<TimeSender>) {

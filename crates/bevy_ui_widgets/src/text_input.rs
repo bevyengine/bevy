@@ -8,7 +8,7 @@
 
 use accesskit::Role;
 use bevy_a11y::{AccessibilityNode, AccessibilitySystems};
-use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
+use bevy_app::{App, Main, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy_input::{ButtonInput, InputSystems};
@@ -775,7 +775,7 @@ impl Plugin for TextInputPlugin {
             .add_observer(on_focus_lost)
             .add_observer(on_focus_select_all)
             .configure_sets(
-                PreUpdate,
+                Main,
                 (
                     ImeSystems::ToggleWindowIMEInput,
                     ImeSystems::HandleEvents,

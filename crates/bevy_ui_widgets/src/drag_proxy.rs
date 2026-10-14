@@ -199,7 +199,7 @@ fn cleanup_drag_proxies_on_escape(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_app::PreUpdate;
+    use bevy_app::Main;
     use bevy_camera::NormalizedRenderTarget;
     use bevy_ecs::hierarchy::{ChildOf, Children};
     use bevy_input::{keyboard::Key, InputPlugin};
@@ -280,7 +280,7 @@ mod tests {
             ))
             .id();
 
-        app.world_mut().run_schedule(PreUpdate);
+        app.world_mut().run_schedule(Main);
 
         assert_eq!(
             app.world()

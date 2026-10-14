@@ -83,7 +83,7 @@ impl Plugin for AudioPlugin {
         app.insert_resource(self.global_volume)
             .insert_resource(DefaultSpatialScale(self.default_spatial_scale))
             .configure_sets(
-                PostUpdate,
+                Main,
                 AudioPlaybackSystems
                     .run_if(audio_output_available)
                     .after(TransformSystems::Propagate), // For spatial audio transforms

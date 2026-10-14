@@ -531,7 +531,7 @@ mod tests {
         update::propagate_ui_target_cameras,
         ContentSize, LayoutContext,
     };
-    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
+    use bevy_app::{App, HierarchyPropagatePlugin, Main, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_math::{BVec2, Rect, UVec2, Vec2};
@@ -579,14 +579,14 @@ mod tests {
         );
 
         app.configure_sets(
-            PostUpdate,
+            Main,
             PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         );
 
         app.configure_sets(
-            PostUpdate,
+            Main,
             PropagateSet::<ComputedUiRenderTargetInfo>::default()
                 .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
@@ -1353,7 +1353,7 @@ mod tests {
         ));
 
         app.configure_sets(
-            PostUpdate,
+            Main,
             PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
