@@ -22,10 +22,10 @@ use crate::entity::UniqueEntityEquivalentSlice;
 use alloc::format;
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
-#[cfg(debug_assertions)]
-use core::any::TypeId;
 #[cfg(feature = "trace")]
 use bevy_utils::prelude::ShortName;
+#[cfg(debug_assertions)]
+use core::any::TypeId;
 use core::{fmt, ptr};
 use fixedbitset::FixedBitSet;
 use log::warn;
