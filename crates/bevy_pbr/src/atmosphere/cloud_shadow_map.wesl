@@ -12,6 +12,7 @@ import package::atmosphere::bindings::{atmosphere, settings, view, lights};
 import package::atmosphere::clouds::{
     cloud_layer_segment,
     get_cloud_medium_density_coarse,
+    get_cloud_medium_density_lod,
     get_cloud_scattering_coeff,
     get_cloud_absorption_coeff,
 };
@@ -114,6 +115,8 @@ fn cloud_shadow_interleave_slot(frame: u32, n: u32) -> vec2<u32> {
     }
     return vec2(0u);
 }
+
+const CLOUD_SHADOW_NOISE_MIP: f32 = 2.0;
 
 @compute
 @workgroup_size(16, 16, 1)
@@ -219,7 +222,13 @@ fn main(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         let t = t_start + (f32(i) + j) * dt;
         let p = ray_origin + trace_dir * t;
         let r = length(p);
-        let density = get_cloud_medium_density_coarse(r, p);
+        // Coarse (weather x profile) only gates empty space; the map integrates the real noise
+        // density at a coarse mip. Integrating the coarse proxy itself overestimated occlusion
+        // (63 % of the map below 1 % transmittance at 35 % coverage) -> black ground / dark haze.
+        var density = 0.0;
+        if (get_cloud_medium_density_coarse(r, p) > 0.0) {
+            density = get_cloud_medium_density_lod(r, p, CLOUD_SHADOW_NOISE_MIP);
+        }
         if (density > 0.0) {
             let extinction = density * sigma_t_per_density; // 1/m
             let od = extinction * dt;
