@@ -20,4 +20,4 @@
 
 ## AI Disclosure
 
-> If you **did not** use AI, delete this section. Otherwise, please indicate how AI was used in the making of this PR. Make sure to read our [AI policy](https://bevy.org/learn/contribute/policies/ai/) **before** creating an AI-assisted PR.
+> If you **did not** use AI, delete this section. Otherwise, please explain how you used AI in the making of this PR, to help reviewers understand any limitations and verify understanding. Make sure to read our [AI policy](https://bevy.org/learn/contribute/policies/ai/) **before** creating an AI-assisted PR.
