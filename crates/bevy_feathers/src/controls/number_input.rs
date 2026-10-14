@@ -20,7 +20,9 @@ use bevy_input::{
     keyboard::{Key, KeyCode, KeyboardInput},
     ButtonInput,
 };
-use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems};
+use bevy_input_focus::{
+    AcquireFocus, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
+};
 use bevy_log::{warn, warn_once};
 use bevy_math::{ops, Rot2};
 use bevy_picking::{
@@ -283,10 +285,13 @@ impl FeathersNumberInput {
                     on(scrubber_on_drag_cancel)
                     --
                     // The decrement chevron of a number input
+                    @number_input_chevron(if props.label_text.is_some() {
+                        RoundedCorners::None
+                    } else {
+                        RoundedCorners::Left
+                    })
                     Node {
-                        position_type: PositionType::Absolute,
-                        display: Display::None,
-                        left: px(4),
+                        left: px(0),
                     }
                     NumberInputDecrement
                     Children [
@@ -297,10 +302,9 @@ impl FeathersNumberInput {
                     ]
                     --
                     // The increment chevron of a number input
+                    @number_input_chevron(RoundedCorners::Right)
                     Node {
-                        position_type: PositionType::Absolute,
-                        display: Display::None,
-                        right: px(4),
+                        right: px(0),
                     }
                     NumberInputIncrement
                     Children [
@@ -309,6 +313,28 @@ impl FeathersNumberInput {
                 ]
             ]
         }
+    }
+}
+
+/// Common parts of the increment and decrement chevrons: a full-height clickable strip at one end
+/// of the input, hidden until the input is hovered.
+fn number_input_chevron(corners: RoundedCorners) -> impl Scene {
+    bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            display: Display::None,
+            top: px(0),
+            bottom: px(0),
+            padding: UiRect::axes(px(3), px(0)),
+            align_items: AlignItems::Center,
+            border_radius: {corners.to_border_radius(4.0)},
+        }
+        Hovered
+        ThemeBackgroundColor(tokens::BUTTON_PLAIN_BG)
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+        on(chevron_on_press)
+        on(chevron_on_acquire_focus)
+        on(chevron_on_hover)
     }
 }
 
@@ -1261,7 +1287,18 @@ fn emit_drag_value_change(
         value = precision.round(value);
     }
     // Hard limit is absolute and always applied last.
-    let value = match (wrap, hard_limit) {
+    let value = apply_hard_limit(value, hard_limit, wrap);
+
+    trigger_value_change(commands, value, source, is_final);
+}
+
+/// Clamp or wrap the value to the hard limit, if there is one.
+fn apply_hard_limit(
+    value: NumericValue,
+    hard_limit: Option<&HardLimit>,
+    wrap: Option<&NumberInputWrap>,
+) -> NumericValue {
+    match (wrap, hard_limit) {
         (Some(NumberInputWrap::Wrap), Some(HardLimit(range))) => range.wrap(value),
         (Some(NumberInputWrap::Wrap), None) => {
             warn_once!("NumberInputWrap::Wrap specified without a HardLimit; ignoring wrap");
@@ -1269,9 +1306,7 @@ fn emit_drag_value_change(
         }
         (_, Some(HardLimit(range))) => range.clamp(value),
         (_, None) => value,
-    };
-
-    trigger_value_change(commands, value, source, is_final);
+    }
 }
 
 fn emit_value_change(
@@ -1295,15 +1330,7 @@ fn emit_value_change(
         return;
     };
 
-    let value = match (wrap, hard_limit) {
-        (Some(NumberInputWrap::Wrap), Some(HardLimit(range))) => range.wrap(new_value),
-        (Some(NumberInputWrap::Wrap), None) => {
-            warn_once!("NumberInputWrap::Wrap specified without a HardLimit; ignoring wrap");
-            new_value
-        }
-        (_, Some(HardLimit(range))) => range.clamp(new_value),
-        (_, None) => new_value,
-    };
+    let value = apply_hard_limit(new_value, hard_limit, wrap);
 
     trigger_value_change(commands, value, source, is_final);
 }
@@ -1462,12 +1489,71 @@ fn update_chevron_visibility(
         if let Ok((mut node, is_dec, is_inc)) = q_chevron.get_mut(child) {
             let disabled_by_limit = (is_at_min && is_dec) || (is_at_max && is_inc);
             node.display = if base_visible && !disabled_by_limit {
-                Display::Block
+                Display::Flex
             } else {
                 Display::None
             };
         }
     }
+}
+
+// Increments or decrements the value by the step size when a chevron is pressed.
+fn chevron_on_press(
+    mut press: On<PointerPress>,
+    q_chevron: Query<Has<NumberInputIncrement>>,
+    q_parent: Query<&ChildOf>,
+    q_number_input: Query<
+        (
+            &NumericValue,
+            Option<&HardLimit>,
+            Option<&NumberInputStep>,
+            Option<&NumberInputWrap>,
+            Has<InteractionDisabled>,
+        ),
+        With<FeathersNumberInput>,
+    >,
+    mut commands: Commands,
+) {
+    // Don't let the press reach the text input or the scrubber.
+    press.propagate(false);
+    if press.button != PointerButton::Primary {
+        return;
+    }
+
+    let chevron_id = press.event_target();
+    if let Ok(is_increment) = q_chevron.get(chevron_id)
+        && let Ok(&ChildOf(text_id)) = q_parent.get(chevron_id)
+        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
+        && let Ok((&value, hard_limit, step, wrap, disabled)) = q_number_input.get(root_id)
+        && !disabled
+    {
+        let step = step.copied().unwrap_or_default().0;
+        let value = value.offset_by(if is_increment { step } else { -step });
+        let value = apply_hard_limit(value, hard_limit, wrap);
+        trigger_value_change(&mut commands, value, root_id, true);
+    }
+}
+
+// Highlights a chevron while the pointer is over it.
+fn chevron_on_hover(
+    hover: On<Insert<Hovered>>,
+    q_chevron: Query<&Hovered>,
+    mut commands: Commands,
+) {
+    if let Ok(&Hovered(hovered)) = q_chevron.get(hover.entity) {
+        commands
+            .entity(hover.entity)
+            .insert(ThemeBackgroundColor(if hovered {
+                tokens::BUTTON_PLAIN_BG_HOVER
+            } else {
+                tokens::BUTTON_PLAIN_BG
+            }));
+    }
+}
+
+// Prevents clicking a chevron from focusing the text input.
+fn chevron_on_acquire_focus(mut acquire_focus: On<AcquireFocus>) {
+    acquire_focus.propagate(false);
 }
 
 // Checks if the value is at the minimum limit of the range.
