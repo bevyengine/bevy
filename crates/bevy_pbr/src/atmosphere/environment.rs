@@ -35,6 +35,8 @@ use bevy_render::{
 use bevy_utils::default;
 use tracing::warn;
 
+use crate::curl_noise::CurlNoiseTexture;
+use crate::detail_noise::DetailNoiseTexture;
 use crate::fbm_noise::FbmNoiseTexture;
 use crate::perlin_worley_noise::PerlinWorleyNoiseTexture;
 use crate::GpuScatteringMedium;
@@ -146,11 +148,19 @@ pub fn init_atmosphere_probe_layout(mut commands: Commands) {
                 (
                     24,
                     texture_3d(TextureSampleType::Float { filterable: true }),
-                ), // perlin-worley
+                ), // perlin-worley shape
                 (
                     25,
                     texture_2d_array(TextureSampleType::Float { filterable: true }),
                 ), // STBN
+                (
+                    33,
+                    texture_3d(TextureSampleType::Float { filterable: true }),
+                ), // detail
+                (
+                    34,
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                ), // curl
                 // output 2D array texture
                 (
                     13,
@@ -184,6 +194,8 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
         cloud_layer_uniforms,
         fbm_noise_texture,
         perlin_worley_noise_texture,
+        detail_noise_texture,
+        curl_noise_texture,
         cloud_noise_sampler,
         (bluenoise, render_images, fallback_image),
         gpu_media,
@@ -199,6 +211,8 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
         Res<ComponentUniforms<CloudLayer>>,
         Res<FbmNoiseTexture>,
         Res<PerlinWorleyNoiseTexture>,
+        Res<DetailNoiseTexture>,
+        Res<CurlNoiseTexture>,
         Res<crate::resources::CloudNoiseSampler>,
         (
             Res<crate::Bluenoise>,
@@ -287,6 +301,8 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
                     (23, &textures.cloud_shadow_map.default_view),
                     (24, &perlin_worley_noise_texture.texture.default_view),
                     (25, stbn_view.as_ref()),
+                    (33, &detail_noise_texture.texture.default_view),
+                    (34, &curl_noise_texture.texture.default_view),
                     // output
                     (13, &textures.environment),
                 )),

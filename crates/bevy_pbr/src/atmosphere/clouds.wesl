@@ -23,6 +23,8 @@ struct CloudLayer {
 @group(0) @binding(21) var noise_texture_2d: texture_2d<f32>;
 @group(0) @binding(22) var noise_sampler_3d: sampler;
 @group(0) @binding(24) var perlin_worley_noise_3d: texture_3d<f32>;
+@group(0) @binding(33) var detail_worley_noise_3d: texture_3d<f32>;
+@group(0) @binding(34) var curl_noise_2d: texture_2d<f32>;
 
 fn safe_normalize(v: vec3<f32>) -> vec3<f32> {
     let l2 = dot(v, v);

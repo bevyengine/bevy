@@ -1,5 +1,5 @@
 use crate::{
-    fbm_noise::FbmNoiseTexture, perlin_worley_noise::PerlinWorleyNoiseTexture, Bluenoise,
+    curl_noise::CurlNoiseTexture, detail_noise::DetailNoiseTexture, fbm_noise::FbmNoiseTexture, perlin_worley_noise::PerlinWorleyNoiseTexture, Bluenoise,
     CloudLayer, ExtractedAtmosphere, ExtractedDirectionalLight, GpuLights, GpuScatteringMedium,
     LightMeta, ScatteringMediumSampler, ShadowSamplers, ViewShadowBindings,
 };
@@ -83,11 +83,12 @@ fn cloud_pass_output_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArr
     )
 }
 
-/// Placed at 20..=25 so they don't collide with the shadow map entries (14..=17).
-fn cloud_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<6> {
+/// Placed at 20..=25, 33..=34 so they don't collide with the shadow map entries (14..=17)
+/// or the clouds_reconstruct history/storage bindings (28..=32).
+fn cloud_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<8> {
     (
         (20, uniform_buffer::<CloudLayer>(true)), // cloud layer parameters
-        // 2D noise texture for cloud coverage
+        // 2D noise texture for cloud coverage / weather
         (
             21,
             texture_2d(TextureSampleType::Float { filterable: true }),
@@ -98,7 +99,7 @@ fn cloud_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<6>
             23,
             texture_2d(TextureSampleType::Float { filterable: true }),
         ),
-        // 3D Perlin–Worley noise texture for volumetric shaping
+        // 3D Perlin–Worley shape noise (128³ + mips)
         (
             24,
             texture_3d(TextureSampleType::Float { filterable: true }),
@@ -107,6 +108,16 @@ fn cloud_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<6>
         (
             25,
             texture_2d_array(TextureSampleType::Float { filterable: true }),
+        ),
+        // 3D Worley detail / erosion noise (32³ + mips)
+        (
+            33,
+            texture_3d(TextureSampleType::Float { filterable: true }),
+        ),
+        // 2D curl noise for distortion (128²)
+        (
+            34,
+            texture_2d(TextureSampleType::Float { filterable: true }),
         ),
     )
 }
@@ -260,7 +271,7 @@ impl AtmosphereBindGroupLayouts {
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
                     (22, sampler(SamplerBindingType::Filtering)),
-                    // 3D Perlin–Worley noise texture used by cloud density shaping
+                    // 3D Perlin–Worley shape noise
                     (
                         24,
                         texture_3d(TextureSampleType::Float { filterable: true }),
@@ -269,6 +280,15 @@ impl AtmosphereBindGroupLayouts {
                     (
                         25,
                         texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    ),
+                    // detail Worley + curl
+                    (
+                        33,
+                        texture_3d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    (
+                        34,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
                     (
                         13,
@@ -1332,10 +1352,12 @@ pub(super) fn prepare_atmosphere_bind_groups(
     gpu_media: Res<RenderAssets<GpuScatteringMedium>>,
     medium_sampler: Res<ScatteringMediumSampler>,
     pipeline_cache: Res<PipelineCache>,
-    (cloud_layer_uniforms, fbm_noise_texture, perlin_worley_noise_texture, temporal_params): (
+    (cloud_layer_uniforms, fbm_noise_texture, perlin_worley_noise_texture, detail_noise_texture, curl_noise_texture, temporal_params): (
         Res<ComponentUniforms<CloudLayer>>,
         Res<FbmNoiseTexture>,
         Res<PerlinWorleyNoiseTexture>,
+        Res<DetailNoiseTexture>,
+        Res<CurlNoiseTexture>,
         Res<CloudShadowTemporalParamsBuffer>,
     ),
     mut commands: Commands,
@@ -1539,6 +1561,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
                     (22, &**cloud_noise_sampler),
                     (24, &perlin_worley_noise_texture.texture.default_view),
                     (25, stbn_view.as_ref()),
+                    (33, &detail_noise_texture.texture.default_view),
+                    (34, &curl_noise_texture.texture.default_view),
                     (13, trace_storage),
                 )),
             )
@@ -1672,6 +1696,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (23, &textures.cloud_shadow_map.default_view),
                         (24, &perlin_worley_noise_texture.texture.default_view),
                         (25, stbn_view.as_ref()),
+                        (33, &detail_noise_texture.texture.default_view),
+                        (34, &curl_noise_texture.texture.default_view),
                         // clouds_raymarch outputs
                         (26, &textures.clouds.default_view),
                         (27, &textures.clouds_depth.default_view),
@@ -1707,6 +1733,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (23, &textures.cloud_shadow_map.default_view),
                         (24, &perlin_worley_noise_texture.texture.default_view),
                         (25, stbn_view.as_ref()),
+                        (33, &detail_noise_texture.texture.default_view),
+                        (34, &curl_noise_texture.texture.default_view),
                         (26, &textures.clouds_trace.default_view),
                         (27, &textures.clouds_trace_depth.default_view),
                     )),

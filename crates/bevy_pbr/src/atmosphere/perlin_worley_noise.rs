@@ -1,10 +1,12 @@
 //! Tileable 3D Perlin–Worley Noise Generation for Volumetric Clouds
 //!
-//! Generates a 3D texture (RGBA) similar to the reference Shadertoy:
+//! Generates a 3D texture (RGBA) similar to the reference Shadertoy / Nubis shape noise:
 //! - R: Perlin–Worley (remapped billowy Perlin by low-frequency Worley FBM)
 //! - G: Worley FBM (base frequency)
 //! - B: Worley FBM (2x frequency)
 //! - A: Worley FBM (4x frequency)
+//!
+//! Default size is 128³ with a full mip chain (box-filter downsampled) for LOD sampling.
 
 use bevy_asset::load_embedded_asset;
 use bevy_ecs::{
@@ -54,10 +56,16 @@ pub struct PerlinWorleyTextureSize {
 impl Default for PerlinWorleyTextureSize {
     fn default() -> Self {
         Self {
-            // Reference uses 128 slices; this is ~16MB at RGBA16F.
-            size: UVec3::new(16, 16, 16),
+            // Nubis/HZD shape noise: 128³ RGBA (design.md §1.3). RGBA16F keeps
+            // the existing storage/sample path; ~16 MB base + mips.
+            size: UVec3::new(128, 128, 128),
         }
     }
+}
+
+fn mip_count_for_size(size: UVec3) -> u32 {
+    let min_dim = size.x.min(size.y).min(size.z).max(1);
+    min_dim.ilog2() + 1
 }
 
 #[derive(Resource)]
@@ -75,7 +83,7 @@ impl FromWorld for PerlinWorleyNoiseBindGroupLayout {
                 ShaderStages::COMPUTE,
                 (
                     (
-                        // 3D noise texture storage
+                        // 3D noise texture storage (single mip)
                         13,
                         texture_storage_3d(
                             TextureFormat::Rgba16Float,
@@ -94,6 +102,40 @@ impl FromWorld for PerlinWorleyNoiseBindGroupLayout {
         let layout =
             render_device.create_bind_group_layout(descriptor.label.as_ref(), &descriptor.entries);
 
+        Self { layout, descriptor }
+    }
+}
+
+#[derive(Resource)]
+pub struct NoiseMipDownsampleBindGroupLayout {
+    pub layout: BindGroupLayout,
+    pub descriptor: BindGroupLayoutDescriptor,
+}
+
+impl FromWorld for NoiseMipDownsampleBindGroupLayout {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        let descriptor = BindGroupLayoutDescriptor::new(
+            "noise_mip_downsample_3d_bind_group_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::COMPUTE,
+                (
+                    (
+                        13,
+                        texture_3d(TextureSampleType::Float { filterable: false }),
+                    ),
+                    (
+                        14,
+                        texture_storage_3d(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
+                ),
+            ),
+        );
+        let layout =
+            render_device.create_bind_group_layout(descriptor.label.as_ref(), &descriptor.entries);
         Self { layout, descriptor }
     }
 }
@@ -119,11 +161,33 @@ impl FromWorld for PerlinWorleyNoisePipeline {
     }
 }
 
-/// The generated 3D Perlin–Worley texture.
+#[derive(Resource)]
+pub struct NoiseMipDownsamplePipeline {
+    pub pipeline: CachedComputePipelineId,
+}
+
+impl FromWorld for NoiseMipDownsamplePipeline {
+    fn from_world(world: &mut World) -> Self {
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let layout = world.resource::<NoiseMipDownsampleBindGroupLayout>();
+        let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("noise_mip_downsample_3d_pipeline".into()),
+            layout: vec![layout.descriptor.clone()],
+            shader: load_embedded_asset!(world, "noise_mip_downsample_3d.wesl"),
+            ..default()
+        });
+        Self { pipeline }
+    }
+}
+
+/// The generated 3D Perlin–Worley texture (full mip chain).
 #[derive(Resource)]
 pub struct PerlinWorleyNoiseTexture {
     pub texture: CachedTexture,
     pub size: UVec3,
+    pub mip_level_count: u32,
+    /// Per-mip storage/sample views (one level each) for generation and downsample.
+    pub mip_views: Vec<TextureView>,
 }
 
 #[derive(Resource)]
@@ -146,6 +210,7 @@ pub fn init_perlin_worley_noise_texture(
     mut commands: bevy_ecs::system::Commands,
 ) {
     let size = PerlinWorleyTextureSize::default();
+    let mip_level_count = mip_count_for_size(size.size);
 
     let texture_descriptor = TextureDescriptor {
         label: Some("perlin_worley_noise_3d_texture"),
@@ -154,7 +219,7 @@ pub fn init_perlin_worley_noise_texture(
             height: size.size.y,
             depth_or_array_layers: size.size.z,
         },
-        mip_level_count: 1,
+        mip_level_count,
         sample_count: 1,
         dimension: TextureDimension::D3,
         format: TextureFormat::Rgba16Float,
@@ -164,12 +229,26 @@ pub fn init_perlin_worley_noise_texture(
 
     let texture = render_device.create_texture(&texture_descriptor);
     let default_view = texture.create_view(&TextureViewDescriptor::default());
+    let mut mip_views = Vec::with_capacity(mip_level_count as usize);
+    for mip in 0..mip_level_count {
+        mip_views.push(texture.create_view(&TextureViewDescriptor {
+            label: Some(&format!("perlin_worley_noise_3d_mip{mip}")),
+            format: Some(TextureFormat::Rgba16Float),
+            dimension: Some(TextureViewDimension::D3),
+            aspect: TextureAspect::All,
+            base_mip_level: mip,
+            mip_level_count: Some(1),
+            ..default()
+        }));
+    }
     commands.insert_resource(PerlinWorleyNoiseTexture {
         texture: CachedTexture {
             texture,
             default_view,
         },
         size: size.size,
+        mip_level_count,
+        mip_views,
     });
 }
 
@@ -194,11 +273,12 @@ pub fn prepare_perlin_worley_noise_bind_group(
     texture: Res<PerlinWorleyNoiseTexture>,
     params_buffer: Res<PerlinWorleyNoiseParamsBuffer>,
 ) {
+    // Bind mip 0 for the base-frequency generation pass.
     let bind_group = render_device.create_bind_group(
         "perlin_worley_noise_bind_group",
         &layout.layout,
         &BindGroupEntries::with_indices((
-            (13, &texture.texture.default_view),
+            (13, &texture.mip_views[0]),
             (14, params_buffer.buffer.as_entire_binding()),
         )),
     );
@@ -215,13 +295,15 @@ pub fn get_3d_dispatch_size(texture_size: UVec3) -> UVec3 {
     )
 }
 
-/// Generate the Perlin–Worley 3D texture once (after the pipeline is ready).
+/// Generate the Perlin–Worley 3D texture once (after the pipeline is ready), then fill mips.
 pub fn generate_perlin_worley_noise_once(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
     pipeline: Res<PerlinWorleyNoisePipeline>,
+    mip_pipeline: Res<NoiseMipDownsamplePipeline>,
     bind_group: Option<Res<PerlinWorleyNoiseBindGroup>>,
+    mip_layout: Res<NoiseMipDownsampleBindGroupLayout>,
     texture: Res<PerlinWorleyNoiseTexture>,
     mut generated: ResMut<PerlinWorleyNoiseGenerated>,
 ) {
@@ -234,6 +316,9 @@ pub fn generate_perlin_worley_noise_once(
     };
 
     let Some(compute_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) else {
+        return;
+    };
+    let Some(mip_compute) = pipeline_cache.get_compute_pipeline(mip_pipeline.pipeline) else {
         return;
     };
 
@@ -252,6 +337,35 @@ pub fn generate_perlin_worley_noise_once(
 
         let dispatch_size = get_3d_dispatch_size(texture.size);
         compute_pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, dispatch_size.z);
+    }
+
+    // Box-filter mips 1..N from the previous level.
+    let mut mip_size = texture.size;
+    for mip in 1..texture.mip_level_count {
+        mip_size = UVec3::new(
+            (mip_size.x / 2).max(1),
+            (mip_size.y / 2).max(1),
+            (mip_size.z / 2).max(1),
+        );
+        let mip_label = format!("perlin_worley_mip_downsample_{mip}");
+        let mip_bind = render_device.create_bind_group(
+            mip_label.as_str(),
+            &mip_layout.layout,
+            &BindGroupEntries::with_indices((
+                (13, &texture.mip_views[(mip - 1) as usize]),
+                (14, &texture.mip_views[mip as usize]),
+            )),
+        );
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("perlin_worley_noise_mip_downsample"),
+                timestamp_writes: None,
+            });
+            compute_pass.set_pipeline(mip_compute);
+            compute_pass.set_bind_group(0, &mip_bind, &[]);
+            let dispatch_size = get_3d_dispatch_size(mip_size);
+            compute_pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, dispatch_size.z);
+        }
     }
 
     let command_buffer = encoder.finish();

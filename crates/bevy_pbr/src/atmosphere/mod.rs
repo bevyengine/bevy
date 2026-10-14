@@ -41,6 +41,8 @@ mod environment;
 pub mod fbm_noise;
 mod node;
 pub mod perlin_worley_noise;
+pub mod detail_noise;
+pub mod curl_noise;
 pub mod resources;
 
 use bevy_app::{App, Plugin};
@@ -91,6 +93,16 @@ use perlin_worley_noise::{
     init_perlin_worley_noise_texture, prepare_perlin_worley_noise_bind_group,
     PerlinWorleyNoiseBindGroupLayout, PerlinWorleyNoiseGenerated, PerlinWorleyNoisePipeline,
 };
+use detail_noise::{
+    generate_detail_noise_once, init_detail_noise_params_buffer, init_detail_noise_texture,
+    prepare_detail_noise_bind_group, DetailNoiseBindGroupLayout, DetailNoiseGenerated,
+    DetailNoisePipeline,
+};
+use curl_noise::{
+    generate_curl_noise_once, init_curl_noise_params_buffer, init_curl_noise_texture,
+    prepare_curl_noise_bind_group, CurlNoiseBindGroupLayout, CurlNoiseGenerated, CurlNoisePipeline,
+};
+use perlin_worley_noise::{NoiseMipDownsampleBindGroupLayout, NoiseMipDownsamplePipeline};
 use resources::{
     prepare_atmosphere_transforms, prepare_atmosphere_uniforms, queue_render_sky_pipelines,
     AtmosphereTransforms, GpuAtmosphere, RenderSkyBindGroupLayouts,
@@ -127,6 +139,9 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "environment.wesl");
         embedded_asset!(app, "fbm_noise_3d.wesl");
         embedded_asset!(app, "perlin_worley_noise_3d.wesl");
+        embedded_asset!(app, "detail_noise_3d.wesl");
+        embedded_asset!(app, "curl_noise_2d.wesl");
+        embedded_asset!(app, "noise_mip_downsample_3d.wesl");
         embedded_asset!(app, "cloud_shadow_map.wesl");
         embedded_asset!(app, "cloud_shadow_filter.wesl");
         embedded_asset!(app, "cloud_shadow_temporal.wesl");
@@ -196,6 +211,14 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<PerlinWorleyNoiseBindGroupLayout>()
             .init_resource::<PerlinWorleyNoisePipeline>()
             .init_resource::<PerlinWorleyNoiseGenerated>()
+            .init_resource::<NoiseMipDownsampleBindGroupLayout>()
+            .init_resource::<NoiseMipDownsamplePipeline>()
+            .init_resource::<DetailNoiseBindGroupLayout>()
+            .init_resource::<DetailNoisePipeline>()
+            .init_resource::<DetailNoiseGenerated>()
+            .init_resource::<CurlNoiseBindGroupLayout>()
+            .init_resource::<CurlNoisePipeline>()
+            .init_resource::<CurlNoiseGenerated>()
             .init_resource::<CloudShadowTemporalState>()
             .init_resource::<CloudShadowTemporalParamsBuffer>()
             .add_systems(
@@ -207,6 +230,10 @@ impl Plugin for AtmospherePlugin {
                     init_fbm_noise_params_buffer,
                     init_perlin_worley_noise_texture,
                     init_perlin_worley_noise_params_buffer,
+                    init_detail_noise_texture,
+                    init_detail_noise_params_buffer,
+                    init_curl_noise_texture,
+                    init_curl_noise_params_buffer,
                 )
                     .chain(),
             )
@@ -233,10 +260,18 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_fbm_noise_bind_group.in_set(RenderSystems::PrepareBindGroups),
                     prepare_perlin_worley_noise_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                    prepare_detail_noise_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                    prepare_curl_noise_bind_group.in_set(RenderSystems::PrepareBindGroups),
                     generate_fbm_noise_once
                         .in_set(RenderSystems::Render)
                         .after(RenderSystems::PrepareBindGroups),
                     generate_perlin_worley_noise_once
+                        .in_set(RenderSystems::Render)
+                        .after(RenderSystems::PrepareBindGroups),
+                    generate_detail_noise_once
+                        .in_set(RenderSystems::Render)
+                        .after(RenderSystems::PrepareBindGroups),
+                    generate_curl_noise_once
                         .in_set(RenderSystems::Render)
                         .after(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_buffers.in_set(RenderSystems::PrepareResources),
