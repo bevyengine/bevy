@@ -8,6 +8,7 @@ use bevy::{
     camera::Exposure,
     color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
@@ -25,7 +26,11 @@ use bevy::{
     },
     post_process::bloom::Bloom,
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderType},
+    render::{
+        diagnostic::RenderDiagnosticsPlugin,
+        render_resource::{AsBindGroup, ShaderType},
+        view::screenshot::{save_to_disk, Screenshot},
+    },
     shader::ShaderRef,
 };
 
@@ -51,8 +56,8 @@ struct AtmospherePresets {
 }
 
 fn main() {
-    App::new()
-        .insert_resource(DefaultOpaqueRendererMethod::deferred())
+    let mut app = App::new();
+    app.insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(GameState::default())
         .insert_resource(GlobalAmbientLight::NONE)
@@ -73,8 +78,69 @@ fn main() {
                 atmosphere_controls,
                 visibility_toggle.after(atmosphere_controls),
             ),
-        )
-        .run();
+        );
+
+    // Optional benchmarking hooks (used for profiling the atmosphere/cloud passes):
+    // - `ATMOSPHERE_DIAGNOSTICS=1` logs frame time and per-pass render timings once per second.
+    // - `ATMOSPHERE_SCREENSHOT=<path.png>` saves a screenshot after `ATMOSPHERE_SCREENSHOT_SECS` (default 8 s).
+    // - `ATMOSPHERE_EXIT_SECS=<secs>` exits the app after the given number of seconds.
+    let bench = BenchSettings::from_env();
+    if bench.diagnostics {
+        app.add_plugins((
+            FrameTimeDiagnosticsPlugin::default(),
+            RenderDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+        ));
+    }
+    if bench.screenshot.is_some() || bench.exit_secs.is_some() {
+        app.insert_resource(bench).add_systems(Update, bench_hooks);
+    }
+    app.run();
+}
+
+#[derive(Resource, Default)]
+struct BenchSettings {
+    diagnostics: bool,
+    screenshot: Option<String>,
+    screenshot_secs: f32,
+    exit_secs: Option<f32>,
+    screenshot_taken: bool,
+}
+
+impl BenchSettings {
+    fn from_env() -> Self {
+        let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
+        Self {
+            diagnostics: var("ATMOSPHERE_DIAGNOSTICS").is_some(),
+            screenshot: var("ATMOSPHERE_SCREENSHOT"),
+            screenshot_secs: var("ATMOSPHERE_SCREENSHOT_SECS")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(8.0),
+            exit_secs: var("ATMOSPHERE_EXIT_SECS").and_then(|v| v.parse().ok()),
+            screenshot_taken: false,
+        }
+    }
+}
+
+fn bench_hooks(
+    mut commands: Commands,
+    time: Res<Time<Real>>,
+    mut bench: ResMut<BenchSettings>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    let elapsed = time.elapsed_secs();
+    if !bench.screenshot_taken
+        && elapsed >= bench.screenshot_secs
+        && let Some(path) = bench.screenshot.clone()
+    {
+        bench.screenshot_taken = true;
+        commands
+            .spawn(Screenshot::primary_window())
+            .observe(save_to_disk(path));
+    }
+    if bench.exit_secs.is_some_and(|secs| elapsed >= secs) {
+        exit.write(AppExit::Success);
+    }
 }
 
 fn print_controls() {
