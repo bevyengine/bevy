@@ -5,7 +5,7 @@ import package::atmosphere::{
         sample_transmittance_lut,
         sample_sky_view_lut, direction_world_to_atmosphere,
         uv_to_ray_direction, uv_to_ndc, sample_aerial_view_lut,
-        sample_sun_radiance, ndc_to_camera_dist, raymarch_atmosphere, 
+        sample_sun_radiance, ndc_to_camera_dist, raymarch_atmosphere,
         get_view_position, max_atmosphere_distance
     },
 };
@@ -19,6 +19,12 @@ enable dual_source_blending;
 @group(0) @binding(13) var depth_texture: texture_depth_multisampled_2d;
 @else
 @group(0) @binding(13) var depth_texture: texture_depth_2d;
+
+@if(NO_CUBE_ARRAY_TEXTURES_SUPPORT)
+@group(0) @binding(14) var point_shadow_textures: texture_depth_cube;
+@else
+@group(0) @binding(14) var point_shadow_textures: texture_depth_cube_array;
+@group(0) @binding(15) var point_shadow_textures_comparison_sampler: sampler_comparison;
 
 struct RenderSkyOutput {
     @if(DUAL_SOURCE_BLENDING)

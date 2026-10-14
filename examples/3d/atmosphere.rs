@@ -30,6 +30,7 @@ use bevy::{
 #[derive(Resource, Default)]
 struct GameState {
     paused: bool,
+    planet_scale_view: bool,
 }
 
 #[derive(Resource)]
@@ -54,7 +55,14 @@ fn main() {
             Startup,
             (setup_camera_fog, setup_terrain_scene, print_controls),
         )
-        .add_systems(Update, (dynamic_scene, atmosphere_controls))
+        .add_systems(
+            Update,
+            (
+                dynamic_scene,
+                atmosphere_controls,
+                visibility_toggle.after(atmosphere_controls),
+            ),
+        )
         .run();
 }
 
@@ -64,6 +72,7 @@ fn print_controls() {
     println!("    2          - Switch to raymarched rendering method");
     println!("    3          - Switch to Earth atmosphere");
     println!("    4          - Switch to Mars atmosphere");
+    println!("    5          - Switch between normal and planet scale (space) view");
     println!("    Enter      - Pause/Resume sun motion");
     println!("    Up/Down    - Increase/Decrease exposure");
 }
@@ -114,6 +123,23 @@ fn atmosphere_controls(
         }
     }
 
+    if keyboard_input.just_pressed(KeyCode::Digit5) {
+        game_state.planet_scale_view = !game_state.planet_scale_view;
+        if game_state.planet_scale_view {
+            for mut settings in &mut camera_settings {
+                settings.aerial_view_lut_size = UVec3::new(160, 88, 64);
+                settings.aerial_view_lut_max_distance = 6.2e4;
+            }
+            println!("Switched to planet scale view");
+        } else {
+            for mut settings in &mut camera_settings {
+                settings.aerial_view_lut_size = UVec3::new(32, 32, 32);
+                settings.aerial_view_lut_max_distance = 3.2e4;
+            }
+            println!("Switched to normal view");
+        }
+    }
+
     if keyboard_input.just_pressed(KeyCode::Enter) {
         game_state.paused = !game_state.paused;
     }
@@ -128,6 +154,20 @@ fn atmosphere_controls(
         for mut exposure in &mut camera_exposure {
             exposure.ev100 += time.delta_secs() * 2.0;
         }
+    }
+}
+
+fn visibility_toggle(
+    game_state: Res<GameState>,
+    mut visibility_query: Query<&mut Visibility, Or<(With<WaterPlane>, With<FogVolume>)>>,
+) {
+    let visibility = if game_state.planet_scale_view {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
+    for mut v in &mut visibility_query {
+        *v = visibility;
     }
 }
 
@@ -182,6 +222,9 @@ fn setup_camera_fog(
 
 #[derive(Component)]
 struct Terrain;
+
+#[derive(Component)]
+struct WaterPlane;
 
 /// A custom [`ExtendedMaterial`] that creates animated water ripples.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
@@ -242,6 +285,7 @@ fn setup_terrain_scene(
     // spawn the fog volume
     commands.spawn((
         FogVolume::default(),
+        Visibility::default(),
         Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
     ));
 
@@ -272,6 +316,8 @@ fn spawn_water(
     water_materials: &mut Assets<ExtendedMaterial<StandardMaterial, Water>>,
 ) {
     commands.spawn((
+        WaterPlane,
+        Visibility::default(),
         Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
         MeshMaterial3d(
             water_materials.add(ExtendedMaterial {
