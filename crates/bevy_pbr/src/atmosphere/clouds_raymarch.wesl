@@ -51,8 +51,9 @@ const MS_B: f32 = 0.5; // extinction attenuation per octave
 const MS_C: f32 = 0.5; // phase eccentricity attenuation per octave
 // Short light taps toward the sun for near-surface self-shadowing detail (Nubis3 2:09:52: "the
 // first two samples are taken as before"; the cloud shadow map covers the long range).
-const LIGHT_TAP_COUNT: u32 = 2u;
-const LIGHT_TAP_STEP_M: f32 = 120.0;
+const LIGHT_TAP_COUNT: u32 = 6u;
+const LIGHT_TAP_STEP_M: f32 = 20.0; // 20,40,...,640 m → 1.26 km
+const LIGHT_LONG_TAP_M: f32 = 1500.0;
 // Sky-irradiance ambient (design.md §1.5 / RDR2 slide 36): replaces the MS-LUT placeholder.
 const CLOUD_AMBIENT_SCALE: f32 = 0.35;
 const CLOUD_GROUND_ALBEDO: f32 = 0.28;
@@ -224,14 +225,25 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 let mu_light = dot(l, up);
                 let t_atm = sample_transmittance_lut(r_p, mu_light)
                     * f32(!ray_intersects_ground(r_p, mu_light));
-                // Short light taps only in fine mode with density > 0 (already gated).
+                // Local light march through the real (fine) density (Nubis/HZD cone march): 6 taps with
+                // doubling step (~1.3 km) + one long tap, so billows self-shadow. The cloud shadow map
+                // (coarse density, 4x4 time-sliced, temporally filtered) is only used for the
+                // occlusion *beyond* the local march; using it at `p` replaced all per-billow detail
+                // with smooth weather-map blobs once it converged.
                 var light_od = 0.0;
+                var tap_t = 0.0;
+                var tap_dt = LIGHT_TAP_STEP_M;
                 for (var k = 0u; k < LIGHT_TAP_COUNT; k++) {
-                    let pk = p + l * ((f32(k) + 0.5) * LIGHT_TAP_STEP_M);
-                    light_od += get_cloud_medium_density_lod(length(pk), pk, mip + 1.0);
+                    let pk = p + l * (tap_t + 0.5 * tap_dt);
+                    light_od += get_cloud_medium_density_lod(length(pk), pk, mip + 0.5 * f32(k)) * tap_dt;
+                    tap_t += tap_dt;
+                    tap_dt *= 2.0;
                 }
-                let light_optical_depth = light_od * sigma_t_unit * LIGHT_TAP_STEP_M;
-                let t_cloud = sample_cloud_shadow_map(p, l, false) * exp(-light_optical_depth);
+                let p_far = p + l * (tap_t + LIGHT_LONG_TAP_M * 0.5);
+                light_od += get_cloud_medium_density_lod(length(p_far), p_far, mip + 3.0) * LIGHT_LONG_TAP_M;
+                let light_optical_depth = light_od * sigma_t_unit;
+                let p_beyond = p + l * (tap_t + LIGHT_LONG_TAP_M);
+                let t_cloud = sample_cloud_shadow_map(p_beyond, l, false) * exp(-light_optical_depth);
                 // Beer-Powder dark edges (HZD15 cheap fallback; design.md §1.5).
                 let powder = 1.0 - exp(-2.0 * light_optical_depth);
                 let dark_edge = mix(1.0, powder, CLOUD_DARK_EDGE_STRENGTH);
