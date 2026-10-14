@@ -89,7 +89,7 @@ pub fn atmosphere_luts(
 
     let command_encoder = ctx.command_encoder();
 
-    // Pass 1: build all LUTs (+ cloud shadow map tracing) in a single compute pass.
+    // Pass 1: build all atmosphere LUTs in a single compute pass.
     {
         let mut luts_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("atmosphere_luts"),
@@ -153,10 +153,19 @@ pub fn atmosphere_luts(
             ],
         );
         dispatch_2d(&mut luts_pass, settings.aerial_view_lut_size.xy());
+        pass_span.end(&mut luts_pass);
+    }
 
-        // Cloud shadow map (Unreal-style front depth + extinction stats)
-        // Only needed for the Raymarched mode.
-        if settings.rendering_method == 1 {
+    // Pass 2: cloud shadow map tracing (Unreal-style front depth + extinction stats).
+    // Only needed for the Raymarched mode. Kept in its own compute pass (and diagnostics span)
+    // so its GPU cost shows up separately from the atmosphere LUTs in profilers.
+    if settings.rendering_method == 1 {
+        let mut cloud_shadow_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("cloud_shadow_map"),
+            timestamp_writes: None,
+        });
+        let pass_span = diagnostics.pass_span(&mut cloud_shadow_pass, "cloud_shadow_map");
+        {
             if let (Some(cloud_shadow_map_pipeline), Some(_cloud_shadow_filter_pipeline)) =
                 (cloud_shadow_map_pipeline, cloud_shadow_filter_pipeline)
             {
@@ -164,8 +173,8 @@ pub fn atmosphere_luts(
                     cloud_layer_uniforms_offset.as_ref(),
                     bind_groups.cloud_shadow_map.as_ref(),
                 ) {
-                    luts_pass.set_pipeline(cloud_shadow_map_pipeline);
-                    luts_pass.set_bind_group(
+                    cloud_shadow_pass.set_pipeline(cloud_shadow_map_pipeline);
+                    cloud_shadow_pass.set_bind_group(
                         0,
                         cloud_shadow_map_bg,
                         &[
@@ -176,11 +185,11 @@ pub fn atmosphere_luts(
                             cloud_layer_uniforms_offset.index(),
                         ],
                     );
-                    dispatch_2d(&mut luts_pass, settings.cloud_shadow_map_size);
+                    dispatch_2d(&mut cloud_shadow_pass, settings.cloud_shadow_map_size);
                 }
             }
         }
-        pass_span.end(&mut luts_pass);
+        pass_span.end(&mut cloud_shadow_pass);
     }
 
     // IMPORTANT:
