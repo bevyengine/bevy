@@ -12,6 +12,12 @@ struct Atmosphere {
     atmosphere_to_world: mat4x4<f32>,
 }
 
+/// Per-view atmosphere data bound to PBR shading (`AtmosphereData` in `resources.rs`).
+struct AtmosphereData {
+    atmosphere: Atmosphere,
+    settings: AtmosphereSettings,
+}
+
 struct AtmosphereSettings {
     transmittance_lut_size: vec2<u32>,
     multiscattering_lut_size: vec2<u32>,

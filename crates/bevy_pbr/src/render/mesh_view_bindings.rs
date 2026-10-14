@@ -51,7 +51,7 @@ use crate::{
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
     irradiance_volume::{self, RenderViewIrradianceVolumeBindGroupEntries},
     prepass,
-    resources::{AtmosphereBuffer, AtmosphereSampler, AtmosphereTextures, GpuAtmosphere},
+    resources::{AtmosphereBuffer, AtmosphereData, AtmosphereSampler, AtmosphereTextures},
     Bluenoise, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta, GpuClusteredLights,
     GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform, MeshPipeline,
     MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
@@ -472,7 +472,12 @@ fn layout_entries(
             ),
             (32, sampler(SamplerBindingType::Filtering)),
             // atmosphere data buffer
-            (33, storage_buffer_read_only::<GpuAtmosphere>(false)),
+            (33, storage_buffer_read_only::<AtmosphereData>(false)),
+            // cloud shadow map
+            (
+                39,
+                texture_2d(TextureSampleType::Float { filterable: true }),
+            ),
         ));
     }
 
@@ -844,6 +849,7 @@ pub fn prepare_mesh_view_bind_groups(
                     (31, &atmosphere_textures.transmittance_lut.default_view),
                     (32, &***atmosphere_sampler),
                     (33, atmosphere_buffer_binding),
+                    (39, &atmosphere_textures.cloud_shadow_map.default_view),
                 ));
             }
 

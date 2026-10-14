@@ -926,9 +926,9 @@ color *= (*light).color.rgb * texture_sample;
 
 @if(ATMOSPHERE) {
     let P = (*input).P;
-    let atmosphere = view_bindings::atmosphere;
+    let atmosphere = view_bindings::atmosphere_data.atmosphere;
     let P_as = (
-        view_bindings::atmosphere.world_to_atmosphere * vec4(P, 1.0)
+        view_bindings::atmosphere_data.atmosphere.world_to_atmosphere * vec4(P, 1.0)
     ).xyz;
     let P_clamped = clamp_to_surface(atmosphere, P_as);
     let r = length(P_clamped);
@@ -940,7 +940,7 @@ color *= (*light).color.rgb * texture_sample;
     let sun_visibility = calculate_visible_sun_ratio(atmosphere, r, mu_light, (*light).sun_disk_angular_size);
 
     // Apply atmospheric effects
-    color *= transmittance * sun_visibility;
+    color *= transmittance * sun_visibility * sample_atmosphere_cloud_shadow(P_as, L);
 }
 
     return color;
@@ -1127,9 +1127,57 @@ fn rect_light(
 }
 
 
+/// Sun visibility through the atmosphere's volumetric clouds, from the cloud shadow map
+/// (same projection as `atmosphere::functions::sample_cloud_shadow_map`; design.md §1.6).
+/// Returns 1 when the view has no `CloudLayer` (the extent is zeroed on the CPU).
+@if(ATMOSPHERE)
+fn sample_atmosphere_cloud_shadow(P_as: vec3<f32>, L: vec3<f32>) -> f32 {
+    let settings = view_bindings::atmosphere_data.settings;
+    let extent = settings.cloud_shadow_map_extent;
+    if (extent <= 0.0) {
+        return 1.0;
+    }
+    let half_depth = extent * 2.0;
+    let trace_dir = normalize(-L);
+    let world_up = vec3(0.0, 1.0, 0.0);
+    let a = select(world_up, vec3(1.0, 0.0, 0.0), abs(dot(trace_dir, world_up)) > 0.999);
+    let basis_x = normalize(cross(a, trace_dir));
+    let basis_y = cross(trace_dir, basis_x);
+
+    // Anchor: camera position in atmosphere space, snapped to the shadow-map texel grid.
+    let atmosphere = view_bindings::atmosphere_data.atmosphere;
+    let camera_as = clamp_to_surface(
+        atmosphere,
+        (atmosphere.world_to_atmosphere * vec4(view_bindings::view.world_position, 1.0)).xyz,
+    );
+    let texel = 2.0 * extent / max(vec2<f32>(settings.cloud_shadow_map_size), vec2(1.0));
+    let ax = dot(camera_as, basis_x);
+    let ay = dot(camera_as, basis_y);
+    let anchor = camera_as + basis_x * (round(ax / texel.x) * texel.x - ax)
+        + basis_y * (round(ay / texel.y) * texel.y - ay);
+
+    let rel = P_as - anchor;
+    let x = dot(rel, basis_x);
+    let y = dot(rel, basis_y);
+    if (abs(x) > extent || abs(y) > extent) {
+        return 1.0;
+    }
+    let d_sample = dot(rel, trace_dir) + half_depth;
+    if (d_sample <= 0.0 || d_sample >= 2.0 * half_depth) {
+        return 1.0;
+    }
+    let uv = vec2(x, y) / (2.0 * extent) + vec2(0.5);
+    let data = textureSampleLevel(
+        view_bindings::atmosphere_cloud_shadow_map,
+        view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;
+    let front_depth = data.r * 1000.0;
+    let tau = min(data.g * max(0.0, d_sample - front_depth), data.b);
+    return exp(-tau);
+}
+
 @if(ATMOSPHERE)
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
-    let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere, r, mu);
+    let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere_data.atmosphere, r, mu);
     return textureSampleLevel(
         view_bindings::atmosphere_transmittance_texture,
         view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;

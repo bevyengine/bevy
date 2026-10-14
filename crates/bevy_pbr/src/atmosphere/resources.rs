@@ -1788,15 +1788,22 @@ pub(crate) fn prepare_atmosphere_buffers(
             &GpuAtmosphere,
             &GpuAtmosphereSettings,
             Option<&mut AtmosphereBuffer>,
+            bevy_ecs::query::Has<CloudLayer>,
         ),
         With<ExtractedAtmosphere>,
     >,
     mut commands: Commands,
 ) {
-    for (entity, atmosphere, settings, existing_buffer) in &mut views {
+    for (entity, atmosphere, settings, existing_buffer, has_clouds) in &mut views {
+        let mut settings = settings.clone();
+        if !has_clouds {
+            // PBR shading skips the cloud shadow map lookup when the extent is zero, so a
+            // stale map from a removed `CloudLayer` never darkens surfaces.
+            settings.cloud_shadow_map_extent = 0.0;
+        }
         let data = AtmosphereData {
             atmosphere: atmosphere.clone(),
-            settings: settings.clone(),
+            settings,
         };
         if let Some(mut atmosphere_buffer) = existing_buffer {
             atmosphere_buffer.buffer.set(data);
