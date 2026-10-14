@@ -78,5 +78,11 @@ bevy_remote = { path = ".", features = ["client"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--cfg",
+  "docsrs",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true
