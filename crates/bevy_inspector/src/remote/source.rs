@@ -107,6 +107,8 @@ pub enum RemoteConnectionState {
         app_name: String,
         /// The Bevy version the remote app reports.
         bevy_version: String,
+        /// The sub-app that answered, which is empty if the remote app did not report one.
+        sub_app: String,
     },
     /// The last request failed. The connection is retried after a short delay.
     Failed(String),
@@ -616,6 +618,7 @@ fn finish_call(
             connection.state = RemoteConnectionState::Connected {
                 app_name: info.app_name,
                 bevy_version: info.bevy_version,
+                sub_app: info.sub_app,
             };
             connection.next_poll = now;
             connection.next_full = now;
@@ -838,6 +841,7 @@ pub(crate) mod tests {
             state: RemoteConnectionState::Connected {
                 app_name: "demo".to_string(),
                 bevy_version: "0.20.0-dev".to_string(),
+                sub_app: "main".to_string(),
             },
             client: Some(BrpClient::localhost(1)),
             ..RemoteConnection::default()
@@ -1334,6 +1338,7 @@ pub(crate) mod tests {
             RemoteConnectionState::Connected {
                 app_name: "demo".to_string(),
                 bevy_version: "0.20.0-dev".to_string(),
+                sub_app: "main".to_string(),
             }
         );
     }

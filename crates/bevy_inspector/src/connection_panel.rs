@@ -156,7 +156,13 @@ fn status_text(source: &InspectorSource, connection: &RemoteConnection) -> Strin
         RemoteConnectionState::Connected {
             app_name,
             bevy_version,
-        } => format!("Connected to {app_name} ({bevy_version})"),
+            sub_app,
+        } if sub_app.is_empty() => format!("Connected to {app_name} ({bevy_version})"),
+        RemoteConnectionState::Connected {
+            app_name,
+            bevy_version,
+            sub_app,
+        } => format!("Connected to {app_name} ({bevy_version}), {sub_app}"),
         RemoteConnectionState::Failed(error) => {
             let mut shown: String = error.chars().take(ERROR_CHARS).collect();
             if shown.len() < error.len() {
@@ -223,10 +229,20 @@ mod tests {
         connection.state = RemoteConnectionState::Connected {
             app_name: "demo".to_string(),
             bevy_version: "0.20.0-dev".to_string(),
+            sub_app: String::new(),
         };
         assert_eq!(
             status_text(&remote, &connection),
             "Connected to demo (0.20.0-dev)"
+        );
+        connection.state = RemoteConnectionState::Connected {
+            app_name: "demo".to_string(),
+            bevy_version: "0.20.0-dev".to_string(),
+            sub_app: "render".to_string(),
+        };
+        assert_eq!(
+            status_text(&remote, &connection),
+            "Connected to demo (0.20.0-dev), render"
         );
         connection.state = RemoteConnectionState::Failed("refused".to_string());
         assert_eq!(
