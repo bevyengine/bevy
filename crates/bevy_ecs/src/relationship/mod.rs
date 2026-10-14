@@ -651,10 +651,12 @@ impl RelationshipTargetCloneBehaviorHierarchy
 pub enum RelationshipAccessorInitializer {
     /// Describes a [`Relationship`] component.
     Relationship {
-        /// Offset of the field containing [`Entity`] from the base of the component.
+        /// Function that returns an iterator over all [`Entity`]s of this [`RelationshipTarget`]'s collection.
         ///
-        /// Dynamic equivalent of [`Relationship::get`].
-        entity_field_offset: usize,
+        /// Dynamic equivalent of [`RelationshipTarget::iter`].
+        /// # Safety
+        /// Passed pointer must point to the value of the same component as the one that this accessor was registered to.
+        iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
         /// Value of [`RelationshipTarget::LINKED_SPAWN`] for the [`Relationship::RelationshipTarget`] of this [`Relationship`].
         linked_spawn: bool,
         /// Value of [`Relationship::ALLOW_SELF_REFERENTIAL`] of this [`Relationship`].
@@ -685,13 +687,13 @@ impl core::fmt::Debug for RelationshipAccessorInitializer {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Relationship {
-                entity_field_offset,
+                iter,
                 linked_spawn,
                 allow_self_referential,
                 relationship_target_getter: _,
             } => f
                 .debug_struct("Relationship")
-                .field("entity_field_offset", entity_field_offset)
+                .field("iter", iter)
                 .field("linked_spawn", linked_spawn)
                 .field("allow_self_referential", allow_self_referential)
                 .finish(),
@@ -755,14 +757,14 @@ impl MaybeRelationshipAccessor {
         };
         Some(match *initializer.as_ref() {
             RelationshipAccessorInitializer::Relationship {
-                entity_field_offset,
+                iter,
                 linked_spawn,
                 allow_self_referential,
                 ref relationship_target_getter,
             } => {
                 let relationship_target = mapper(relationship_target_getter.as_ref())?;
                 RelationshipAccessor::Relationship {
-                    entity_field_offset,
+                    iter,
                     linked_spawn,
                     allow_self_referential,
                     relationship_target,
@@ -800,10 +802,12 @@ impl From<Option<RelationshipAccessorInitializer>> for MaybeRelationshipAccessor
 pub enum RelationshipAccessor {
     /// This component is a [`Relationship`].
     Relationship {
-        /// Offset of the field containing [`Entity`] from the base of the component.
+        /// Function that returns an iterator over all [`Entity`]s of this [`RelationshipTarget`]'s collection.
         ///
-        /// Dynamic equivalent of [`Relationship::get`].
-        entity_field_offset: usize,
+        /// Dynamic equivalent of [`RelationshipTarget::iter`].
+        /// # Safety
+        /// Passed pointer must point to the value of the same component as the one that this accessor was registered to.
+        iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
         /// Value of [`RelationshipTarget::LINKED_SPAWN`] for the [`Relationship::RelationshipTarget`] of this [`Relationship`].
         linked_spawn: bool,
         /// Value of [`Relationship::ALLOW_SELF_REFERENTIAL`] of this [`Relationship`].
@@ -871,10 +875,7 @@ pub struct ComponentRelationshipAccessor<C: ?Sized> {
 
 impl<C> ComponentRelationshipAccessor<C> {
     /// Create a new [`ComponentRelationshipAccessor`] for a [`Relationship`] component.
-    /// # Safety
-    /// `entity_field_offset` should be the offset from the base of this component and point to a field that stores value of type [`Entity`].
-    /// This value can be obtained using the [`core::mem::offset_of`] macro.
-    pub unsafe fn relationship(entity_field_offset: usize) -> Self
+    pub fn relationship() -> Self
     where
         C: Relationship,
     {
@@ -883,7 +884,8 @@ impl<C> ComponentRelationshipAccessor<C> {
             Box::new(|components| components.get_id(TypeId::of::<C::RelationshipTarget>()));
         Self {
             initializer: RelationshipAccessorInitializer::Relationship {
-                entity_field_offset,
+                // Safety: caller ensures that `ptr` is of type `C`.
+                iter: |ptr| unsafe { Box::new(Relationship::iter(ptr.deref::<C>())) },
                 linked_spawn: C::RelationshipTarget::LINKED_SPAWN,
                 allow_self_referential: C::ALLOW_SELF_REFERENTIAL,
                 relationship_target_getter: Arc::from(getter),
@@ -1204,10 +1206,7 @@ mod tests {
         assert_eq!(children, alloc::vec![child]);
 
         let child_of_ptr = world.get_by_id(child, child_of_id).unwrap();
-        let RelationshipAccessor::Relationship {
-            entity_field_offset,
-            ..
-        } = world
+        let RelationshipAccessor::Relationship { iter, .. } = world
             .components()
             .get_info(child_of_id)
             .unwrap()
@@ -1216,11 +1215,8 @@ mod tests {
         else {
             unreachable!()
         };
-        // Safety:
-        // - offset is in bounds, aligned and has the same lifetime as the original pointer.
-        // - value at offset is guaranteed to be a valid Entity
-        let child_of_entity: Entity =
-            unsafe { *child_of_ptr.byte_add(*entity_field_offset).deref() };
+        // Safety: child_of_ptr points to a relationship component.
+        let child_of_entity: Entity = unsafe { iter(child_of_ptr) }.next().unwrap();
         assert_eq!(child_of_entity, parent);
     }
 
@@ -1251,12 +1247,20 @@ mod tests {
             .unwrap();
         match *likes_accessor {
             RelationshipAccessor::Relationship {
-                entity_field_offset,
+                iter,
                 linked_spawn,
                 allow_self_referential,
                 relationship_target,
             } => {
-                assert_eq!(entity_field_offset, core::mem::offset_of!(Likes, e));
+                let likes = Likes {
+                    _a: 10,
+                    e: world.spawn_empty().id(),
+                    _b: (-7, 13),
+                };
+                // SAFETY: likes is of type Likes
+                unsafe {
+                    assert_eq!(&iter((&likes).into()).collect::<Vec<_>>(), &[likes.e]);
+                }
                 assert!(!linked_spawn);
                 assert!(!allow_self_referential);
                 assert_eq!(relationship_target, liked_by_id);

@@ -14,3 +14,5 @@ In order to support many-to-many relationships, the `Relationship` trait has bee
 - Removed `Relationship::set_risky` as its function is now fully covered by `Relationship::get_mut_risky`.
 
 If needing to support only one-to-one or one-to-many relationships in trait bounds, specify `T: Relationship<Collection = Entity>`.
+
+For dynamic access: `RelationshipAccessorInitializer` and `RelationshipAccessor` have been changed to take a function pointer that returns an iterator over entities, instead of a field offset .

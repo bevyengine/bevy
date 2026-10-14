@@ -334,19 +334,11 @@ impl DeriveComponent {
                 struct_token,
                 ..
             }) = &ast.data
-            && let Ok(field) = relationship_field(fields, "Relationship", struct_token.span())
+            && let Ok(_) = relationship_field(fields, "Relationship", struct_token.span())
         {
-            let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
             if relationship.is_some() {
                 quote! {
-                    #FQOption::Some(
-                        // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
-                        unsafe {
-                            #bevy_ecs::relationship::ComponentRelationshipAccessor::<Self>::relationship(
-                                ::core::mem::offset_of!(Self, #relationship_member)
-                            )
-                        }
-                    )
+                    #FQOption::Some(#bevy_ecs::relationship::ComponentRelationshipAccessor::<Self>::relationship())
                 }
             } else {
                 quote! {
