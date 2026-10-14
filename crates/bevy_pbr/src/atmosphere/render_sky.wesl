@@ -1,5 +1,5 @@
 import package::atmosphere::{
-    bindings::{view, settings},
+    bindings::{view, settings, cloud_shadow_map, atmosphere_lut_sampler},
     bruneton_functions::sample_transmittance_lut_segment,
     functions::{
         sample_transmittance_lut,

@@ -14,12 +14,14 @@ use bevy::{
     },
     input::keyboard::KeyCode,
     light::{
-        atmosphere::ScatteringMedium, light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight,
-        FogVolume, SunDisk, VolumetricFog, VolumetricLight,
+        atmosphere::{Falloff, PhaseFunction, ScatteringMedium, ScatteringTerm},
+        light_consts::lux,
+        Atmosphere, AtmosphereEnvironmentMapLight, FogVolume, SunDisk, VolumetricFog,
+        VolumetricLight,
     },
     pbr::{
-        AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, ExtendedMaterial,
-        MaterialExtension, ScreenSpaceReflections,
+        AtmosphereMode, AtmosphereSettings, CloudLayer, DefaultOpaqueRendererMethod,
+        ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
@@ -27,10 +29,19 @@ use bevy::{
     shader::ShaderRef,
 };
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 struct GameState {
     paused: bool,
     planet_scale_view: bool,
+}
+
+impl Default for GameState {
+    fn default() -> Self {
+        Self {
+            paused: true,
+            planet_scale_view: false,
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -73,6 +84,8 @@ fn print_controls() {
     println!("    3          - Switch to Earth atmosphere");
     println!("    4          - Switch to Mars atmosphere");
     println!("    5          - Switch between normal and planet scale (space) view");
+    println!("    C          - Toggle cloud layer");
+    println!("    Left/Right - Decrease/Increase cloud density");
     println!("    Enter      - Pause/Resume sun motion");
     println!("    Up/Down    - Increase/Decrease exposure");
 }
@@ -82,6 +95,8 @@ fn atmosphere_controls(
     mut planet_atmosphere: Query<(&mut Atmosphere, &mut GlobalTransform)>,
     mut camera_settings: Query<&mut AtmosphereSettings, With<Camera3d>>,
     mut sun_disks: Query<&mut SunDisk, With<DirectionalLight>>,
+    mut atmosphere_entities: Query<(Entity, Option<&mut CloudLayer>), With<Atmosphere>>,
+    mut commands: Commands,
     atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
     mut camera_exposure: Query<&mut Exposure, With<Camera3d>>,
@@ -140,6 +155,47 @@ fn atmosphere_controls(
         }
     }
 
+    if keyboard_input.just_pressed(KeyCode::KeyC) {
+        let has_clouds = atmosphere_entities
+            .iter()
+            .any(|(_, cloud_layer)| cloud_layer.is_some());
+        let entities: Vec<Entity> = atmosphere_entities
+            .iter()
+            .map(|(entity, _)| entity)
+            .collect();
+        if has_clouds {
+            for entity in entities {
+                commands.entity(entity).remove::<CloudLayer>();
+            }
+            println!("Cloud layer disabled");
+        } else {
+            for entity in entities {
+                commands.entity(entity).insert(CloudLayer::default());
+            }
+            println!("Cloud layer enabled");
+        }
+    }
+
+    if keyboard_input.pressed(KeyCode::ArrowLeft) {
+        for (_, cloud_layer) in atmosphere_entities.iter_mut() {
+            if let Some(mut cloud_layer) = cloud_layer {
+                cloud_layer.cloud_density =
+                    (cloud_layer.cloud_density - time.delta_secs()).max(0.0);
+                println!("Cloud density: {:.2}", cloud_layer.cloud_density);
+            }
+        }
+    }
+
+    if keyboard_input.pressed(KeyCode::ArrowRight) {
+        for (_, cloud_layer) in atmosphere_entities.iter_mut() {
+            if let Some(mut cloud_layer) = cloud_layer {
+                cloud_layer.cloud_density =
+                    (cloud_layer.cloud_density + time.delta_secs()).min(100.0);
+                println!("Cloud density: {:.2}", cloud_layer.cloud_density);
+            }
+        }
+    }
+
     if keyboard_input.just_pressed(KeyCode::Enter) {
         game_state.paused = !game_state.paused;
     }
@@ -153,6 +209,13 @@ fn atmosphere_controls(
     if keyboard_input.pressed(KeyCode::ArrowDown) {
         for mut exposure in &mut camera_exposure {
             exposure.ev100 += time.delta_secs() * 2.0;
+        }
+    }
+
+    // Animate clouds by updating noise offset
+    for (_, cloud_layer) in atmosphere_entities.iter_mut() {
+        if let Some(_cloud_layer) = cloud_layer {
+            // _cloud_layer.noise_offset.x += time.delta_secs() * 100.0;
         }
     }
 }
@@ -176,7 +239,14 @@ fn setup_camera_fog(
     mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
     asset_server: Res<AssetServer>,
 ) {
-    let earth_medium = scattering_mediums.add(ScatteringMedium::earth(256, 256));
+    let mut medium = ScatteringMedium::earth(256, 256);
+    medium.terms.push(ScatteringTerm {
+        absorption: Vec3::splat(2e-5),
+        scattering: Vec3::splat(1e-4),
+        falloff: Falloff::Exponential { scale: 0.2 / 60.0 },
+        phase: PhaseFunction::Mie { asymmetry: 0.76 },
+    });
+    let earth_medium = scattering_mediums.add(medium);
     let mars_phase = asset_server.load("textures/mars_mie_phase.ktx2");
     let mars_medium = scattering_mediums.add(ScatteringMedium::mars(256, 256, mars_phase));
 
@@ -186,13 +256,39 @@ fn setup_camera_fog(
     });
 
     // Spawn earth atmosphere
-    commands.spawn(Atmosphere::earth(earth_medium));
+    commands.spawn((
+        Atmosphere::earth(earth_medium),
+        // Add a volumetric cloud layer using 3D FBM noise
+        // Physically realistic parameters (units: m^-1 per unit density):
+        // - Density is normalized to [0, 1] in the shader
+        // - cloud_scattering: 0.0008 m^-1 per unit density (physically correct for water droplets)
+        //   At max density (1.0): scattering_coeff = 0.0008
+        //   After phase amplification (~6.5x at forward angles): 0.0008 * 6.5 ≈ 0.005
+        //   This matches atmospheric scattering magnitudes (~0.001-0.01 range)
+        // - cloud_absorption: 0.00005 m^-1 per unit density (realistic for water clouds)
+        //   Single-scattering albedo ≈ 0.94 (typical water clouds have albedo 0.95-0.99)
+        CloudLayer {
+            cloud_layer_start: 6_362_000.0, // 2km above Earth's surface
+            cloud_layer_end: 6_364_000.0,   // 4km above Earth's surface (7km thick layer)
+            cloud_density: 1.0, // Used for enabling/disabling, actual density comes from noise (normalized [0, 1])
+            cloud_absorption: 0.00005, // Physically correct: ~0.00005 m^-1 per unit density
+            cloud_scattering: 0.0008, // Physically correct: ~0.0008 m^-1 per unit density
+            // Larger scale = larger cloud features (more “big cumulus”, less “small puffs”)
+            noise_scale: 64_000.0,
+            noise_offset: Vec3::ZERO,
+            detail_noise_scale: 16_000.0, // Smaller scale = higher-frequency breakup
+            detail_strength: 1.0,
+        },
+    ));
 
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // Can be adjusted to change the rendering quality
-        AtmosphereSettings::default(),
+        // Can be adjusted to change the scene scale and rendering quality
+        AtmosphereSettings {
+            rendering_method: AtmosphereMode::Raymarched,
+            ..default()
+        },
         // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
         // quite bright, so raising the exposure compensation helps
@@ -282,12 +378,11 @@ fn setup_terrain_scene(
         SunDisk::EARTH,
     ));
 
-    // spawn the fog volume
-    commands.spawn((
-        FogVolume::default(),
-        Visibility::default(),
-        Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
-    ));
+    // // spawn the fog volume
+    // commands.spawn((
+    //     FogVolume::default(),
+    //     Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
+    // ));
 
     // Terrain
     commands.spawn((
@@ -300,12 +395,12 @@ fn setup_terrain_scene(
             .with_rotation(Quat::from_rotation_y(PI / 2.0)),
     ));
 
-    spawn_water(
-        &mut commands,
-        &asset_server,
-        &mut meshes,
-        &mut water_materials,
-    );
+    // spawn_water(
+    //     &mut commands,
+    //     &asset_server,
+    //     &mut meshes,
+    //     &mut water_materials,
+    // );
 }
 
 // Spawns the water plane.
@@ -365,6 +460,6 @@ fn dynamic_scene(
     // Only rotate the sun if motion is not paused
     if !sun_motion_state.paused {
         suns.iter_mut()
-            .for_each(|mut tf| tf.rotate_x(-time.delta_secs() * PI / 10.0));
+            .for_each(|mut tf| tf.rotate_x(-time.delta_secs() * PI / 40.0));
     }
 }

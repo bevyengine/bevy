@@ -1,6 +1,7 @@
 use crate::{
-    ExtractedAtmosphere, GpuLights, GpuScatteringMedium, LightMeta, ScatteringMediumSampler,
-    ShadowSamplers, ViewShadowBindings,
+    fbm_noise::FbmNoiseTexture, perlin_worley_noise::PerlinWorleyNoiseTexture, Bluenoise,
+    CloudLayer, ExtractedAtmosphere, ExtractedDirectionalLight, GpuLights, GpuScatteringMedium,
+    LightMeta, ScatteringMediumSampler, ShadowSamplers, ViewShadowBindings,
 };
 use bevy_asset::{load_embedded_asset, AssetId, Handle};
 use bevy_camera::{Camera, Camera3d};
@@ -17,13 +18,13 @@ use bevy_ecs::{
 };
 use bevy_image::ToExtents;
 use bevy_light::atmosphere::ScatteringMedium;
-use bevy_math::{Affine3A, Mat4, Vec3, Vec3A};
+use bevy_math::{Affine3A, Mat4, UVec2, Vec2, Vec3, Vec3A};
 use bevy_render::{
     extract_component::ComponentUniforms,
     render_asset::RenderAssets,
-    render_resource::{binding_types::*, *},
+    render_resource::{binding_types::*, TextureViewDescriptor, TextureViewDimension, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{CachedTexture, TextureCache},
+    texture::{CachedTexture, FallbackImage, GpuImage, TextureCache},
     view::{ExtractedView, Msaa, ViewDepthStencilTexture, ViewUniform, ViewUniforms},
 };
 use bevy_shader::Shader;
@@ -67,18 +68,57 @@ fn shadow_map_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArr
     )
 }
 
+/// Cloud bind group layout entries (cloud layer uniform, noise textures, cloud shadow map, STBN).
+/// Placed at 20..=25 so they don't collide with the shadow map entries (14..=17).
+fn cloud_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<6> {
+    (
+        (20, uniform_buffer::<CloudLayer>(true)), // cloud layer parameters
+        // 2D noise texture for cloud coverage
+        (
+            21,
+            texture_2d(TextureSampleType::Float { filterable: true }),
+        ),
+        (22, sampler(SamplerBindingType::Filtering)), // noise sampler
+        // cloud shadow map
+        (
+            23,
+            texture_2d(TextureSampleType::Float { filterable: true }),
+        ),
+        // 3D Perlin–Worley noise texture for volumetric shaping
+        (
+            24,
+            texture_3d(TextureSampleType::Float { filterable: true }),
+        ),
+        // STBN for temporal stratification (different layer per frame)
+        (
+            25,
+            texture_2d_array(TextureSampleType::Float { filterable: true }),
+        ),
+    )
+}
+
 #[derive(Resource)]
 pub(crate) struct AtmosphereBindGroupLayouts {
     pub transmittance_lut: BindGroupLayoutDescriptor,
     pub multiscattering_lut: BindGroupLayoutDescriptor,
     pub sky_view_lut: BindGroupLayoutDescriptor,
     pub aerial_view_lut: BindGroupLayoutDescriptor,
+    pub cloud_shadow_map: BindGroupLayoutDescriptor,
+    // Accessed from the render-world graph; some tooling can miss the cross-module usage.
+    #[allow(dead_code)]
+    pub cloud_shadow_filter: BindGroupLayoutDescriptor,
+    pub cloud_shadow_temporal: BindGroupLayoutDescriptor,
 }
 
 #[derive(Resource)]
 pub(crate) struct RenderSkyBindGroupLayouts {
-    pub render_sky: BindGroupLayoutDescriptor,
-    pub render_sky_msaa: BindGroupLayoutDescriptor,
+    // Two variants:
+    // - *_clouds: includes CloudLayer + cloud noise + cloud shadow map bindings
+    // - *_no_clouds: omits cloud-related bindings (cheaper, and works when CloudLayer is removed)
+    pub render_sky_clouds: BindGroupLayoutDescriptor,
+    pub render_sky_msaa_clouds: BindGroupLayoutDescriptor,
+    pub render_sky_no_clouds: BindGroupLayoutDescriptor,
+    pub render_sky_msaa_no_clouds: BindGroupLayoutDescriptor,
     pub fullscreen_shader: FullscreenShader,
     pub fragment_shader: Handle<Shader>,
 }
@@ -189,74 +229,194 @@ impl AtmosphereBindGroupLayouts {
             &aerial_view_lut_entries,
         );
 
+        let cloud_shadow_map = BindGroupLayoutDescriptor::new(
+            "cloud_shadow_map_bind_group_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::COMPUTE,
+                (
+                    (0, uniform_buffer::<GpuAtmosphere>(true)),
+                    (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (3, uniform_buffer::<ViewUniform>(true)),
+                    (4, uniform_buffer::<GpuLights>(true)),
+                    (20, uniform_buffer::<CloudLayer>(true)),
+                    (
+                        21,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    (22, sampler(SamplerBindingType::Filtering)),
+                    // 3D Perlin–Worley noise texture used by cloud density shaping
+                    (
+                        24,
+                        texture_3d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    // STBN for temporal stratification (different layer per frame)
+                    (
+                        25,
+                        texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    ),
+                    (
+                        13,
+                        texture_storage_2d(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
+                ),
+            ),
+        );
+
+        // Cloud shadow spatial filter (ping-pong).
+        // Reads: sampled shadow map (rgba16f)
+        // Writes: storage shadow map (rgba16f)
+        let cloud_shadow_filter = BindGroupLayoutDescriptor::new(
+            "cloud_shadow_filter_bind_group_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::COMPUTE,
+                (
+                    (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (12, sampler(SamplerBindingType::Filtering)),
+                    (
+                        23,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    (
+                        13,
+                        texture_storage_2d(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
+                ),
+            ),
+        );
+
+        // Cloud shadow temporal filter.
+        // Reads: traced output (storage), history (sampled)
+        // Writes: output (storage)
+        let cloud_shadow_temporal = BindGroupLayoutDescriptor::new(
+            "cloud_shadow_temporal_bind_group_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::COMPUTE,
+                (
+                    (0, uniform_buffer::<CloudShadowTemporalParams>(false)),
+                    (
+                        1,
+                        texture_storage_2d(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::ReadOnly,
+                        ),
+                    ),
+                    (2, texture_2d(TextureSampleType::Float { filterable: true })),
+                    (3, sampler(SamplerBindingType::Filtering)),
+                    (
+                        4,
+                        texture_storage_2d(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
+                ),
+            ),
+        );
+
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            cloud_shadow_map,
+            cloud_shadow_filter,
+            cloud_shadow_temporal,
         }
     }
 }
 
+/// Parameters for the cloud shadow temporal filter pass.
+/// Used to reproject history from the previous frame.
+#[derive(Clone, Default, ShaderType)]
+pub struct CloudShadowTemporalParams {
+    pub curr_anchor: Vec3,
+    pub curr_light_dir: Vec3,
+    pub curr_basis_x: Vec3,
+    pub curr_basis_y: Vec3,
+    pub prev_anchor: Vec3,
+    pub prev_light_dir: Vec3,
+    pub prev_basis_x: Vec3,
+    pub prev_basis_y: Vec3,
+    pub extent: f32,
+    pub temporal_alpha: f32,
+    pub history_valid: u32,
+    pub anchor_moved: u32,
+    pub size: UVec2,
+}
+
+/// Per-view state for cloud shadow temporal filtering.
+/// Persists between frames to enable history reprojection.
+#[derive(Resource, Default)]
+pub struct CloudShadowTemporalState {
+    pub anchor: Vec3,
+    pub light_dir: Vec3,
+    pub basis_x: Vec3,
+    pub basis_y: Vec3,
+    pub initialized: bool,
+}
+
 impl FromWorld for RenderSkyBindGroupLayouts {
     fn from_world(world: &mut World) -> Self {
-        let render_sky_entries = DynamicBindGroupLayoutEntries::new_with_indices(
-            ShaderStages::FRAGMENT,
-            (
-                (0, uniform_buffer::<GpuAtmosphere>(true)),
-                (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
-                (2, uniform_buffer::<AtmosphereTransform>(true)),
-                (3, uniform_buffer::<ViewUniform>(true)),
-                (4, uniform_buffer::<GpuLights>(true)),
-                // scattering medium luts and sampler
-                (5, texture_2d(TextureSampleType::default())),
-                (6, texture_2d(TextureSampleType::default())),
-                (7, sampler(SamplerBindingType::Filtering)),
-                // atmosphere luts and sampler
-                (8, texture_2d(TextureSampleType::default())), // transmittance
-                (9, texture_2d(TextureSampleType::default())), // multiscattering
-                (10, texture_2d(TextureSampleType::default())), // sky view
-                (11, texture_3d(TextureSampleType::default())), // aerial view
-                (12, sampler(SamplerBindingType::Filtering)),
-                // view depth texture
-                (13, texture_2d(TextureSampleType::Depth)),
-            ),
-        )
-        .extend_with_indices(shadow_map_layout_entries());
-        let render_sky =
-            BindGroupLayoutDescriptor::new("render_sky_bind_group_layout", &render_sky_entries);
+        // Base render-sky entries (0..=13) + shadow map entries (14..=17).
+        let base_entries = |depth: BindGroupLayoutEntryBuilder| {
+            DynamicBindGroupLayoutEntries::new_with_indices(
+                ShaderStages::FRAGMENT,
+                (
+                    (0, uniform_buffer::<GpuAtmosphere>(true)),
+                    (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
+                    (3, uniform_buffer::<ViewUniform>(true)),
+                    (4, uniform_buffer::<GpuLights>(true)),
+                    // scattering medium luts and sampler
+                    (5, texture_2d(TextureSampleType::default())),
+                    (6, texture_2d(TextureSampleType::default())),
+                    (7, sampler(SamplerBindingType::Filtering)),
+                    // atmosphere luts and sampler
+                    (8, texture_2d(TextureSampleType::default())), // transmittance
+                    (9, texture_2d(TextureSampleType::default())), // multiscattering
+                    (10, texture_2d(TextureSampleType::default())), // sky view
+                    (11, texture_3d(TextureSampleType::default())), // aerial view
+                    (12, sampler(SamplerBindingType::Filtering)),
+                    // view depth texture
+                    (13, depth),
+                ),
+            )
+            .extend_with_indices(shadow_map_layout_entries())
+        };
 
-        let render_sky_msaa_entries = DynamicBindGroupLayoutEntries::new_with_indices(
-            ShaderStages::FRAGMENT,
-            (
-                (0, uniform_buffer::<GpuAtmosphere>(true)),
-                (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
-                (2, uniform_buffer::<AtmosphereTransform>(true)),
-                (3, uniform_buffer::<ViewUniform>(true)),
-                (4, uniform_buffer::<GpuLights>(true)),
-                // scattering medium luts and sampler
-                (5, texture_2d(TextureSampleType::default())),
-                (6, texture_2d(TextureSampleType::default())),
-                (7, sampler(SamplerBindingType::Filtering)),
-                // atmosphere luts and sampler
-                (8, texture_2d(TextureSampleType::default())), // transmittance
-                (9, texture_2d(TextureSampleType::default())), // multiscattering
-                (10, texture_2d(TextureSampleType::default())), // sky view
-                (11, texture_3d(TextureSampleType::default())), // aerial view
-                (12, sampler(SamplerBindingType::Filtering)),
-                // view depth texture
-                (13, texture_2d_multisampled(TextureSampleType::Depth)),
-            ),
-        )
-        .extend_with_indices(shadow_map_layout_entries());
-        let render_sky_msaa = BindGroupLayoutDescriptor::new(
-            "render_sky_msaa_bind_group_layout",
-            &render_sky_msaa_entries,
+        // Two variants:
+        // - *_clouds: base + CloudLayer + cloud noise + cloud shadow map + STBN (20..=25)
+        // - *_no_clouds: base only
+        let render_sky_no_clouds = BindGroupLayoutDescriptor::new(
+            "render_sky_bind_group_layout_no_clouds",
+            &base_entries(texture_2d(TextureSampleType::Depth)),
+        );
+        let render_sky_msaa_no_clouds = BindGroupLayoutDescriptor::new(
+            "render_sky_msaa_bind_group_layout_no_clouds",
+            &base_entries(texture_2d_multisampled(TextureSampleType::Depth)),
+        );
+        let render_sky_clouds = BindGroupLayoutDescriptor::new(
+            "render_sky_bind_group_layout_clouds",
+            &base_entries(texture_2d(TextureSampleType::Depth))
+                .extend_with_indices(cloud_layout_entries()),
+        );
+        let render_sky_msaa_clouds = BindGroupLayoutDescriptor::new(
+            "render_sky_msaa_bind_group_layout_clouds",
+            &base_entries(texture_2d_multisampled(TextureSampleType::Depth))
+                .extend_with_indices(cloud_layout_entries()),
         );
 
         Self {
-            render_sky,
-            render_sky_msaa,
+            render_sky_clouds,
+            render_sky_msaa_clouds,
+            render_sky_no_clouds,
+            render_sky_msaa_no_clouds,
             fullscreen_shader: world.resource::<FullscreenShader>().clone(),
             fragment_shader: load_embedded_asset!(world, "render_sky.wesl"),
         }
@@ -281,12 +441,38 @@ impl FromWorld for AtmosphereSampler {
     }
 }
 
+#[derive(Resource, Deref)]
+pub struct CloudNoiseSampler(Sampler);
+
+impl FromWorld for CloudNoiseSampler {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+
+        let sampler = render_device.create_sampler(&SamplerDescriptor {
+            address_mode_u: AddressMode::Repeat,
+            address_mode_v: AddressMode::Repeat,
+            address_mode_w: AddressMode::Repeat,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: MipmapFilterMode::Nearest,
+            ..Default::default()
+        });
+
+        Self(sampler)
+    }
+}
+
 #[derive(Resource)]
 pub(crate) struct AtmosphereLutPipelines {
     pub transmittance_lut: CachedComputePipelineId,
     pub multiscattering_lut: CachedComputePipelineId,
     pub sky_view_lut: CachedComputePipelineId,
     pub aerial_view_lut: CachedComputePipelineId,
+    pub cloud_shadow_map: CachedComputePipelineId,
+    // Accessed from the render-world graph; some tooling can miss the cross-module usage.
+    #[allow(dead_code)]
+    pub cloud_shadow_filter: CachedComputePipelineId,
+    pub cloud_shadow_temporal: CachedComputePipelineId,
 }
 
 impl FromWorld for AtmosphereLutPipelines {
@@ -313,6 +499,8 @@ impl FromWorld for AtmosphereLutPipelines {
             label: Some("sky_view_lut_pipeline".into()),
             layout: vec![layouts.sky_view_lut.clone()],
             shader: load_embedded_asset!(world, "sky_view_lut.wesl"),
+            // Note: Clouds disabled for sky_view_lut - too complex for precomputation
+            // Clouds are rendered in real-time raymarching instead
             ..default()
         });
 
@@ -323,11 +511,37 @@ impl FromWorld for AtmosphereLutPipelines {
             ..default()
         });
 
+        let cloud_shadow_map = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("cloud_shadow_map_pipeline".into()),
+            layout: vec![layouts.cloud_shadow_map.clone()],
+            shader: load_embedded_asset!(world, "cloud_shadow_map.wesl"),
+            ..default()
+        });
+
+        let cloud_shadow_filter =
+            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("cloud_shadow_filter_pipeline".into()),
+                layout: vec![layouts.cloud_shadow_filter.clone()],
+                shader: load_embedded_asset!(world, "cloud_shadow_filter.wesl"),
+                ..default()
+            });
+
+        let cloud_shadow_temporal =
+            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("cloud_shadow_temporal_pipeline".into()),
+                layout: vec![layouts.cloud_shadow_temporal.clone()],
+                shader: load_embedded_asset!(world, "cloud_shadow_temporal.wesl"),
+                ..default()
+            });
+
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            cloud_shadow_map,
+            cloud_shadow_filter,
+            cloud_shadow_temporal,
         }
     }
 }
@@ -339,6 +553,7 @@ pub(crate) struct RenderSkyPipelineId(pub CachedRenderPipelineId);
 pub(crate) struct RenderSkyPipelineKey {
     pub msaa_samples: u32,
     pub dual_source_blending: bool,
+    pub clouds_enabled: bool,
 }
 
 impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
@@ -354,6 +569,12 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             shader_defs.push("DUAL_SOURCE_BLENDING".into());
         }
 
+        // Enable cloud rendering only when a CloudLayer component is present.
+        if key.clouds_enabled {
+            shader_defs.push("CLOUDS_ENABLED".into());
+            shader_defs.push("CLOUD_SHADOW_SIMPLE_SAMPLING".into());
+        }
+
         let dst_factor = if key.dual_source_blending {
             BlendFactor::Src1
         } else {
@@ -362,10 +583,11 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
 
         RenderPipelineDescriptor {
             label: Some(format!("render_sky_pipeline_{}", key.msaa_samples).into()),
-            layout: vec![if key.msaa_samples == 1 {
-                self.render_sky.clone()
-            } else {
-                self.render_sky_msaa.clone()
+            layout: vec![match (key.msaa_samples == 1, key.clouds_enabled) {
+                (true, true) => self.render_sky_clouds.clone(),
+                (false, true) => self.render_sky_msaa_clouds.clone(),
+                (true, false) => self.render_sky_no_clouds.clone(),
+                (false, false) => self.render_sky_msaa_no_clouds.clone(),
             }],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
@@ -399,14 +621,14 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
 }
 
 pub(super) fn queue_render_sky_pipelines(
-    views: Query<(Entity, &Msaa), (With<Camera>, With<ExtractedAtmosphere>)>,
+    views: Query<(Entity, &Msaa, Option<&CloudLayer>), (With<Camera>, With<ExtractedAtmosphere>)>,
     pipeline_cache: Res<PipelineCache>,
     layouts: Res<RenderSkyBindGroupLayouts>,
     mut specializer: ResMut<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    for (entity, msaa) in &views {
+    for (entity, msaa, cloud_layer) in &views {
         let id = specializer.specialize(
             &pipeline_cache,
             &layouts,
@@ -415,6 +637,7 @@ pub(super) fn queue_render_sky_pipelines(
                 dual_source_blending: render_device
                     .features()
                     .contains(WgpuFeatures::DUAL_SOURCE_BLENDING),
+                clouds_enabled: cloud_layer.is_some(),
             },
         );
         commands.entity(entity).insert(RenderSkyPipelineId(id));
@@ -427,6 +650,9 @@ pub struct AtmosphereTextures {
     pub multiscattering_lut: CachedTexture,
     pub sky_view_lut: CachedTexture,
     pub aerial_view_lut: CachedTexture,
+    pub cloud_shadow_map: CachedTexture,
+    pub cloud_shadow_map_tmp: CachedTexture,
+    pub cloud_shadow_map_history: CachedTexture,
 }
 
 pub(super) fn prepare_atmosphere_textures(
@@ -492,12 +718,61 @@ pub(super) fn prepare_atmosphere_textures(
             },
         );
 
+        let cloud_shadow_map = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("cloud_shadow_map"),
+                size: lut_settings.cloud_shadow_map_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::COPY_SRC,
+                view_formats: &[],
+            },
+        );
+
+        let cloud_shadow_map_tmp = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("cloud_shadow_map_tmp"),
+                size: lut_settings.cloud_shadow_map_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        );
+
+        let cloud_shadow_map_history = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("cloud_shadow_map_history"),
+                size: lut_settings.cloud_shadow_map_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+        );
+
         commands.entity(entity).insert({
             AtmosphereTextures {
                 transmittance_lut,
                 multiscattering_lut,
                 sky_view_lut,
                 aerial_view_lut,
+                cloud_shadow_map,
+                cloud_shadow_map_tmp,
+                cloud_shadow_map_history,
             }
         });
     }
@@ -635,7 +910,17 @@ pub(crate) struct AtmosphereBindGroups {
     pub multiscattering_lut: BindGroup,
     pub sky_view_lut: BindGroup,
     pub aerial_view_lut: BindGroup,
-    pub render_sky: BindGroup,
+    pub cloud_shadow_map: Option<BindGroup>,
+    // Accessed from the render-world graph; some tooling can miss the cross-module usage.
+    #[allow(dead_code)]
+    pub cloud_shadow_filter_a_to_b: Option<BindGroup>,
+    // Accessed from the render-world graph; some tooling can miss the cross-module usage.
+    #[allow(dead_code)]
+    pub cloud_shadow_filter_b_to_a: Option<BindGroup>,
+    /// Temporal filter bind group; present when cloud_shadow_temporal_enabled.
+    pub cloud_shadow_temporal: Option<BindGroup>,
+    pub render_sky_clouds: Option<BindGroup>,
+    pub render_sky_no_clouds: BindGroup,
 }
 
 #[derive(Copy, Clone, Debug, thiserror::Error)]
@@ -654,6 +939,115 @@ enum AtmosphereBindGroupError {
     LightUniforms,
 }
 
+pub(super) fn prepare_cloud_shadow_temporal_params(
+    views: Query<
+        (&ExtractedView, &ExtractedAtmosphere, &GpuAtmosphereSettings),
+        (With<Camera3d>, With<ExtractedAtmosphere>),
+    >,
+    directional_lights: Query<&ExtractedDirectionalLight>,
+    mut temporal_state: ResMut<CloudShadowTemporalState>,
+    mut temporal_params_buffer: ResMut<CloudShadowTemporalParamsBuffer>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) {
+    let Some((view, atmosphere, settings)) = views.iter().next() else {
+        return;
+    };
+    if settings.rendering_method != 1 || settings.cloud_shadow_temporal_enabled == 0 {
+        return;
+    }
+    let light_dir = directional_lights
+        .iter()
+        .next()
+        .map(|light| Vec3::from(light.transform.back()))
+        .unwrap_or(Vec3::NEG_Y);
+
+    let extent = settings.cloud_shadow_map_extent;
+    let temporal_alpha = settings.cloud_shadow_temporal_alpha;
+    let light_rotation_cut_deg = settings.cloud_shadow_temporal_light_rotation_cut_deg;
+
+    let inner_radius = atmosphere.inner_radius;
+    let camera_pos = view.world_from_view.translation();
+    let world_pos = atmosphere.world_to_atmosphere.transform_point3(camera_pos);
+    let min_radius = inner_radius + 1.0;
+    let r = world_pos.length();
+    let anchor = if r < min_radius {
+        world_pos.normalize_or_zero() * min_radius
+    } else {
+        world_pos
+    };
+
+    let trace_dir = (-light_dir).normalize_or_zero();
+    let world_up = Vec3::Y;
+    let a = if trace_dir.dot(world_up).abs() > 0.999 {
+        Vec3::X
+    } else {
+        world_up
+    };
+    let basis_x = a.cross(trace_dir).normalize_or_zero();
+    let basis_y = trace_dir.cross(basis_x);
+
+    let size = settings.cloud_shadow_map_size;
+    let res = size.as_vec2();
+    let texel_size = (2.0 * extent) / res.max(Vec2::ONE);
+    let ax = anchor.dot(basis_x);
+    let ay = anchor.dot(basis_y);
+    let snapped_ax = (ax / texel_size.x).round() * texel_size.x;
+    let snapped_ay = (ay / texel_size.y).round() * texel_size.y;
+    let anchor = anchor + basis_x * (snapped_ax - ax) + basis_y * (snapped_ay - ay);
+
+    let prev_anchor = temporal_state.anchor;
+    let prev_light_dir = temporal_state.light_dir;
+    let anchor_moved = (anchor - prev_anchor).length_squared() > 1e-6;
+    let light_rot_cos = (light_rotation_cut_deg * std::f32::consts::PI / 180.0).cos();
+    let light_rotated = prev_light_dir.dot(light_dir.normalize_or_zero()) < light_rot_cos;
+    let history_valid = temporal_state.initialized && !light_rotated;
+
+    *temporal_state = CloudShadowTemporalState {
+        anchor,
+        light_dir: light_dir.normalize_or_zero(),
+        basis_x,
+        basis_y,
+        initialized: true,
+    };
+
+    let prev_anchor = if history_valid { prev_anchor } else { anchor };
+    let prev_light_dir_to_light = if history_valid {
+        prev_light_dir
+    } else {
+        light_dir.normalize_or_zero()
+    };
+    let prev_trace_dir = -prev_light_dir_to_light;
+    let prev_a = if prev_light_dir_to_light.dot(Vec3::Y).abs() > 0.999 {
+        Vec3::X
+    } else {
+        Vec3::Y
+    };
+    let prev_basis_x = prev_a.cross(prev_light_dir_to_light).normalize_or_zero();
+    let prev_basis_y = prev_light_dir_to_light.cross(prev_basis_x);
+
+    temporal_params_buffer
+        .buffer
+        .set(CloudShadowTemporalParams {
+            curr_anchor: anchor,
+            curr_light_dir: trace_dir,
+            curr_basis_x: basis_x,
+            curr_basis_y: basis_y,
+            prev_anchor,
+            prev_light_dir: prev_trace_dir,
+            prev_basis_x,
+            prev_basis_y,
+            extent,
+            temporal_alpha,
+            history_valid: history_valid as u32,
+            anchor_moved: anchor_moved as u32,
+            size,
+        });
+    temporal_params_buffer
+        .buffer
+        .write_buffer(&render_device, &render_queue);
+}
+
 pub(super) fn prepare_atmosphere_bind_groups(
     views: Query<
         (
@@ -663,14 +1057,24 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &ViewDepthStencilTexture,
             &ViewShadowBindings,
             &Msaa,
+            Option<&CloudLayer>,
+            Option<&GpuAtmosphereSettings>,
         ),
         (With<Camera3d>, With<ExtractedAtmosphere>),
     >,
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereBindGroupLayouts>,
     render_sky_layouts: Res<RenderSkyBindGroupLayouts>,
-    atmosphere_sampler: Res<AtmosphereSampler>,
-    shadow_samplers: Res<ShadowSamplers>,
+    (atmosphere_sampler, cloud_noise_sampler, shadow_samplers): (
+        Res<AtmosphereSampler>,
+        Res<CloudNoiseSampler>,
+        Res<ShadowSamplers>,
+    ),
+    (bluenoise, render_images, fallback_image): (
+        Res<Bluenoise>,
+        Res<RenderAssets<GpuImage>>,
+        Res<FallbackImage>,
+    ),
     view_uniforms: Res<ViewUniforms>,
     lights_uniforms: Res<LightMeta>,
     atmosphere_transforms: Res<AtmosphereTransforms>,
@@ -679,6 +1083,12 @@ pub(super) fn prepare_atmosphere_bind_groups(
     gpu_media: Res<RenderAssets<GpuScatteringMedium>>,
     medium_sampler: Res<ScatteringMediumSampler>,
     pipeline_cache: Res<PipelineCache>,
+    (cloud_layer_uniforms, fbm_noise_texture, perlin_worley_noise_texture, temporal_params): (
+        Res<ComponentUniforms<CloudLayer>>,
+        Res<FbmNoiseTexture>,
+        Res<PerlinWorleyNoiseTexture>,
+        Res<CloudShadowTemporalParamsBuffer>,
+    ),
     mut commands: Commands,
 ) -> Result<(), BevyError> {
     if views.iter().len() == 0 {
@@ -708,7 +1118,30 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .binding()
         .ok_or(AtmosphereBindGroupError::LightUniforms)?;
 
-    for (entity, atmosphere, textures, view_depth_texture, shadow_bindings, msaa) in &views {
+    // Optional: when no view has a CloudLayer component, the uniform buffer can be absent.
+    // We build no-cloud bind groups in that case.
+    let cloud_layer_binding = cloud_layer_uniforms.binding();
+
+    // STBN texture for temporal stratification; use fallback when not yet loaded.
+    let stbn_view: std::borrow::Cow<'_, TextureView> = match render_images.get(&bluenoise.texture) {
+        Some(gpu) => std::borrow::Cow::Owned(gpu.texture.create_view(&TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            ..Default::default()
+        })),
+        None => std::borrow::Cow::Borrowed(&fallback_image.d2_array.texture_view),
+    };
+
+    for (
+        entity,
+        atmosphere,
+        textures,
+        view_depth_texture,
+        shadow_bindings,
+        msaa,
+        cloud_layer,
+        settings,
+    ) in &views
+    {
         let Some(depth_view) = view_depth_texture
             .attachment
             .depth_stencil_views()
@@ -716,10 +1149,12 @@ pub(super) fn prepare_atmosphere_bind_groups(
         else {
             continue;
         };
+        let temporal_enabled = settings
+            .map(|s| s.rendering_method == 1 && s.cloud_shadow_temporal_enabled != 0)
+            .unwrap_or(false);
         let gpu_medium = gpu_media
             .get(atmosphere.medium)
             .ok_or(ScatteringMediumMissingError(atmosphere.medium))?;
-
         let transmittance_lut = render_device.create_bind_group(
             "transmittance_lut_bind_group",
             &pipeline_cache.get_bind_group_layout(&layouts.transmittance_lut),
@@ -810,12 +1245,111 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
-        let render_sky = render_device.create_bind_group(
-            "render_sky_bind_group",
+        // When temporal enabled: trace writes to tmp; filter reads tmp first.
+        // When temporal disabled: trace writes to cloud_shadow_map; filter reads cloud_shadow_map first.
+        let trace_storage = if temporal_enabled {
+            &textures.cloud_shadow_map_tmp.default_view
+        } else {
+            &textures.cloud_shadow_map.default_view
+        };
+        let (filter_read_a, filter_write_a) = if temporal_enabled {
+            (
+                &textures.cloud_shadow_map_tmp.default_view,
+                &textures.cloud_shadow_map.default_view,
+            )
+        } else {
+            (
+                &textures.cloud_shadow_map.default_view,
+                &textures.cloud_shadow_map_tmp.default_view,
+            )
+        };
+        let (filter_read_b, filter_write_b) = if temporal_enabled {
+            (
+                &textures.cloud_shadow_map.default_view,
+                &textures.cloud_shadow_map_tmp.default_view,
+            )
+        } else {
+            (
+                &textures.cloud_shadow_map_tmp.default_view,
+                &textures.cloud_shadow_map.default_view,
+            )
+        };
+
+        let cloud_shadow_map = cloud_layer_binding.as_ref().map(|cloud_layer_binding| {
+            render_device.create_bind_group(
+                "cloud_shadow_map_bind_group",
+                &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_map),
+                &BindGroupEntries::with_indices((
+                    (0, atmosphere_binding.clone()),
+                    (1, settings_binding.clone()),
+                    (3, view_binding.clone()),
+                    (4, lights_binding.clone()),
+                    (20, cloud_layer_binding.clone()),
+                    (21, &fbm_noise_texture.texture.default_view),
+                    (22, &**cloud_noise_sampler),
+                    (24, &perlin_worley_noise_texture.texture.default_view),
+                    (25, stbn_view.as_ref()),
+                    (13, trace_storage),
+                )),
+            )
+        });
+
+        // Cloud shadow spatial filter ping-pong bind groups.
+        // When temporal: A=tmp (trace output), B=cloud_shadow_map. When not: A=cloud_shadow_map, B=tmp.
+        let cloud_shadow_filter_a_to_b = cloud_shadow_map.as_ref().map(|_| {
+            render_device.create_bind_group(
+                "cloud_shadow_filter_a_to_b_bind_group",
+                &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_filter),
+                &BindGroupEntries::with_indices((
+                    (1, settings_binding.clone()),
+                    (12, &**atmosphere_sampler),
+                    (23, filter_read_a),
+                    (13, filter_write_a),
+                )),
+            )
+        });
+
+        let cloud_shadow_filter_b_to_a = cloud_shadow_map.as_ref().map(|_| {
+            render_device.create_bind_group(
+                "cloud_shadow_filter_b_to_a_bind_group",
+                &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_filter),
+                &BindGroupEntries::with_indices((
+                    (1, settings_binding.clone()),
+                    (12, &**atmosphere_sampler),
+                    (23, filter_read_b),
+                    (13, filter_write_b),
+                )),
+            )
+        });
+
+        // Temporal filter: curr=tmp (or cloud_shadow_map when no filter), prev=history, out=cloud_shadow_map.
+        let cloud_shadow_temporal = (cloud_shadow_map.is_some() && temporal_enabled)
+            .then(|| {
+                temporal_params
+                    .buffer
+                    .binding()
+                    .map(|temporal_params_binding| {
+                        render_device.create_bind_group(
+                            "cloud_shadow_temporal_bind_group",
+                            &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_temporal),
+                            &BindGroupEntries::with_indices((
+                                (0, temporal_params_binding),
+                                (1, &textures.cloud_shadow_map_tmp.default_view),
+                                (2, &textures.cloud_shadow_map_history.default_view),
+                                (3, &**atmosphere_sampler),
+                                (4, &textures.cloud_shadow_map.default_view),
+                            )),
+                        )
+                    })
+            })
+            .flatten();
+
+        let render_sky_no_clouds = render_device.create_bind_group(
+            "render_sky_bind_group_no_clouds",
             &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
-                &render_sky_layouts.render_sky
+                &render_sky_layouts.render_sky_no_clouds
             } else {
-                &render_sky_layouts.render_sky_msaa
+                &render_sky_layouts.render_sky_msaa_no_clouds
             }),
             &BindGroupEntries::with_indices((
                 // uniforms
@@ -844,12 +1378,65 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
+        // Only create clouds bind group for views that have CloudLayer; otherwise use no_clouds
+        // to avoid passing clouds layout to no_clouds pipeline when disabling clouds.
+        let render_sky_clouds = cloud_layer_binding
+            .as_ref()
+            .filter(|_| cloud_layer.is_some())
+            .map(|cloud_layer_binding| {
+                render_device.create_bind_group(
+                    "render_sky_bind_group_clouds",
+                    &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
+                        &render_sky_layouts.render_sky_clouds
+                    } else {
+                        &render_sky_layouts.render_sky_msaa_clouds
+                    }),
+                    &BindGroupEntries::with_indices((
+                        // uniforms
+                        (0, atmosphere_binding.clone()),
+                        (1, settings_binding.clone()),
+                        (2, transforms_binding.clone()),
+                        (3, view_binding.clone()),
+                        (4, lights_binding.clone()),
+                        // scattering medium luts and sampler
+                        (5, &gpu_medium.density_lut_view),
+                        (6, &gpu_medium.scattering_lut_view),
+                        (7, medium_sampler.sampler()),
+                        // atmosphere luts and sampler
+                        (8, &textures.transmittance_lut.default_view),
+                        (9, &textures.multiscattering_lut.default_view),
+                        (10, &textures.sky_view_lut.default_view),
+                        (11, &textures.aerial_view_lut.default_view),
+                        (12, &**atmosphere_sampler),
+                        // view depth texture
+                        (13, depth_view),
+                        // shadow maps
+                        (14, &shadow_bindings.point_light_depth_texture_view),
+                        (15, &shadow_samplers.point_light_comparison_sampler),
+                        (16, &shadow_bindings.directional_light_depth_texture_view),
+                        (17, &shadow_samplers.directional_light_comparison_sampler),
+                        // clouds
+                        (20, cloud_layer_binding.clone()),
+                        (21, &fbm_noise_texture.texture.default_view),
+                        (22, &**cloud_noise_sampler),
+                        (23, &textures.cloud_shadow_map.default_view),
+                        (24, &perlin_worley_noise_texture.texture.default_view),
+                        (25, stbn_view.as_ref()),
+                    )),
+                )
+            });
+
         commands.entity(entity).insert(AtmosphereBindGroups {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
-            render_sky,
+            cloud_shadow_map,
+            cloud_shadow_filter_a_to_b,
+            cloud_shadow_filter_b_to_a,
+            cloud_shadow_temporal,
+            render_sky_clouds,
+            render_sky_no_clouds,
         });
     }
 
@@ -866,6 +1453,19 @@ pub(crate) struct AtmosphereData {
 #[derive(Component)]
 pub struct AtmosphereBuffer {
     pub(crate) buffer: StorageBuffer<AtmosphereData>,
+}
+
+#[derive(Resource)]
+pub struct CloudShadowTemporalParamsBuffer {
+    pub(crate) buffer: UniformBuffer<CloudShadowTemporalParams>,
+}
+
+impl Default for CloudShadowTemporalParamsBuffer {
+    fn default() -> Self {
+        Self {
+            buffer: UniformBuffer::default(),
+        }
+    }
 }
 
 pub(crate) fn prepare_atmosphere_buffers(
