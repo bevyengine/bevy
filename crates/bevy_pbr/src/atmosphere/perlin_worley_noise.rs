@@ -348,8 +348,9 @@ pub fn generate_perlin_worley_noise_once(
         return;
     }
 
-    // One mip downsample per frame.
-    let mip = generated.0;
+    // Downsample the whole remaining mip chain in one submission: it is cheap (≤ 64³) and
+    // spreading it over frames let distant (high-mip) cloud samples read cleared mips.
+    for mip in generated.0..texture.mip_level_count {
     let mut mip_size = texture.size;
     for _ in 1..=mip {
         mip_size = UVec3::new(
@@ -378,7 +379,8 @@ pub fn generate_perlin_worley_noise_once(
         compute_pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, dispatch_size.z);
     }
 
+    }
     let command_buffer = encoder.finish();
     render_queue.submit([command_buffer]);
-    generated.0 = mip + 1;
+    generated.0 = texture.mip_level_count;
 }
