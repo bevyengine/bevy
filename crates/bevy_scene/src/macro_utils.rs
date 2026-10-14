@@ -1,7 +1,7 @@
-use std::sync::LazyLock;
-
 use bevy_platform::sync::atomic::AtomicU64;
 use bevy_platform::sync::atomic::Ordering;
+
+pub use bevy_platform::sync::LazyLock;
 
 /// This is used by the [`bsn!`](crate::bsn) macro to generate compile-time only references to symbols. Currently this is used
 /// to add IDE support for nested type names, as it allows us to pass the input Ident from the input to the output code.

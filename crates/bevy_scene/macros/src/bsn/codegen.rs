@@ -123,7 +123,7 @@ impl BsnTokenStream for BsnRoot {
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
         let unique_ids = if !ctx.entity_refs.refs.is_empty() {
             Some(quote! {
-                static _INVOCATION_ID: ::std::sync::LazyLock::<u64> =
+                static _INVOCATION_ID: #bevy_scene::macro_utils::LazyLock::<u64> =
                     #bevy_scene::macro_utils::get_lazy_invocation_id();
                 let _invocation_id = *_INVOCATION_ID;
                 static _CALL_ID: #bevy_scene::macro_utils::CallCounter =
@@ -166,7 +166,7 @@ impl BsnTokenStream for BsnListRoot {
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
         let unique_ids = if !ctx.entity_refs.refs.is_empty() {
             Some(quote! {
-                static _INVOCATION_ID: ::std::sync::LazyLock::<u64> =
+                static _INVOCATION_ID: #bevy_scene::macro_utils::LazyLock::<u64> =
                     #bevy_scene::macro_utils::get_lazy_invocation_id();
                 let _invocation_id = *_INVOCATION_ID;
                 static _CALL_ID: #bevy_scene::macro_utils::CallCounter =
