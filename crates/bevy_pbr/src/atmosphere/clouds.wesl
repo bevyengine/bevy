@@ -127,13 +127,13 @@ fn cloud_top_profile(h: f32, cloud_type: f32) -> f32 {
 /// dimensional_profile = vertical_profile(type, h) · coverage
 /// density = saturate(noise_composite − (1 − profile)) · density_scale
 /// with wispy/billowy blend, detail erosion, and curl distortion.
-fn sample_cumulus_shape(r: f32, world_pos: vec3<f32>) -> f32 {
+/// Shared prep for coarse/fine density: wind skew + weather + dimensional profile.
+/// Returns (sample_pos, h, dimensional_profile, density_scale, cloud_type).
+fn cloud_density_context(r: f32, world_pos: vec3<f32>) -> vec4<f32> {
     let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
     let height_in_layer = r - cloud_layer.cloud_layer_start;
     let h = clamp(height_in_layer / max(1.0, layer_thickness), 0.0, 1.0);
 
-    // Wind skew: displace XZ by height so towers lean with the wind (Nubis17).
-    // noise_offset.xz acts as wind direction × time for now (roadmap 2d).
     let wind_xz = cloud_layer.noise_offset.xz;
     let wind_len = length(wind_xz);
     let skew = select(vec2(0.0), normalize(wind_xz) * (h * min(wind_len, 8000.0) * 0.15), wind_len > 1e-3);
@@ -141,49 +141,82 @@ fn sample_cumulus_shape(r: f32, world_pos: vec3<f32>) -> f32 {
     sample_pos.x += skew.x;
     sample_pos.z += skew.y;
 
-    // Curl distortion (stronger near cloud tops / edges).
-    let curl = sample_curl(sample_pos);
-    let curl_str = 120.0 * (0.35 + 0.65 * h);
-    sample_pos.x += curl.x * curl_str;
-    sample_pos.z += curl.y * curl_str;
+    // Pack sample_pos into return via side channel is awkward in WESL; apply curl in fine path.
+    let weather = sample_weather(sample_pos, cloud_layer.noise_scale);
+    var coverage = clamp(weather.r, 0.0, 1.0);
+    let cloud_type = clamp(weather.g, 0.0, 1.0);
+    let density_scale = mix(0.35, 1.0, clamp(weather.b, 0.0, 1.0));
+    let bottom_profile = cloud_bottom_profile(h, cloud_type);
+    let top_profile = cloud_top_profile(h, cloud_type);
+    let vertical_profile = clamp(bottom_profile * top_profile, 0.0, 1.0);
+    coverage = max(coverage - pow(h, mix(8.0, 4.0, cloud_type)) * 0.35, 0.0);
+    let dimensional_profile = clamp(vertical_profile * coverage, 0.0, 1.0);
+    // Return profile, density_scale, h, cloud_type (sample_pos reconstructed by callers).
+    return vec4(dimensional_profile, density_scale, h, cloud_type);
+}
+
+fn cloud_sample_pos_with_wind_curl(world_pos: vec3<f32>, h: f32, apply_curl: bool) -> vec3<f32> {
+    let wind_xz = cloud_layer.noise_offset.xz;
+    let wind_len = length(wind_xz);
+    let skew = select(vec2(0.0), normalize(wind_xz) * (h * min(wind_len, 8000.0) * 0.15), wind_len > 1e-3);
+    var sample_pos = world_pos;
+    sample_pos.x += skew.x;
+    sample_pos.z += skew.y;
+    if (apply_curl) {
+        let curl = sample_curl(sample_pos);
+        let curl_str = 120.0 * (0.35 + 0.65 * h);
+        sample_pos.x += curl.x * curl_str;
+        sample_pos.z += curl.y * curl_str;
+    }
+    return sample_pos;
+}
+
+/// Coarse density: weather + vertical profile only (no 3D noise). Used for empty-space skipping.
+fn sample_cumulus_shape_coarse(r: f32, world_pos: vec3<f32>) -> f32 {
+    let ctx = cloud_density_context(r, world_pos);
+    // Soft threshold so coarse overestimates occupancy slightly (safer for step-back).
+    return clamp(ctx.x * ctx.y * 1.15, 0.0, 1.0);
+}
+
+/// Fine density with mip LOD (design.md §1.3 / §1.4).
+fn sample_cumulus_shape_lod(r: f32, world_pos: vec3<f32>, mip: f32) -> f32 {
+    let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
+    let height_in_layer = r - cloud_layer.cloud_layer_start;
+    let h = clamp(height_in_layer / max(1.0, layer_thickness), 0.0, 1.0);
+    let sample_pos = cloud_sample_pos_with_wind_curl(world_pos, h, true);
 
     let weather = sample_weather(sample_pos, cloud_layer.noise_scale);
     var coverage = clamp(weather.r, 0.0, 1.0);
     let cloud_type = clamp(weather.g, 0.0, 1.0);
     let density_scale = mix(0.35, 1.0, clamp(weather.b, 0.0, 1.0));
-
-    // Vertical / dimensional profile.
     let bottom_profile = cloud_bottom_profile(h, cloud_type);
     let top_profile = cloud_top_profile(h, cloud_type);
     let vertical_profile = clamp(bottom_profile * top_profile, 0.0, 1.0);
-    // Anvil-ish top cut for high type (Nubis).
     coverage = max(coverage - pow(h, mix(8.0, 4.0, cloud_type)) * 0.35, 0.0);
     let dimensional_profile = clamp(vertical_profile * coverage, 0.0, 1.0);
 
-    // Shape noise (Perlin-Worley + Worley FBM bands).
-    let mip = 0.0; // distance-adaptive mip lands with roadmap step 3
     let pw = sample_shape_noise(sample_pos, h, mip);
     let worley = pw.yzw;
     let wfbm = worley.x * 0.625 + worley.y * 0.125 + worley.z * 0.25;
     var shape_billowy = remap(pw.x, wfbm - 1.0, 1.0, 0.0, 1.0);
     shape_billowy = clamp(shape_billowy, 0.0, 1.0);
-    // Wispy from low-frequency shape; billowy from powered profile (Nubis3).
     let shape_wispy = clamp(pw.x, 0.0, 1.0);
     let billowy_gate = pow(dimensional_profile, 0.25);
     let shape_noise = mix(shape_wispy, shape_billowy, cloud_type) * mix(0.55, 1.0, billowy_gate);
 
-    // Erosion with detail Worley (stronger at edges / upper cloud).
     let detail = sample_detail_noise(sample_pos, h, mip);
     let detail_fbm = detail.r * 0.625 + detail.g * 0.25 + detail.b * 0.125;
     let erosion_strength = cloud_layer.detail_strength * mix(0.2, 0.65, h) * (1.0 - dimensional_profile * 0.5);
     let noise_composite = clamp(shape_noise - detail_fbm * erosion_strength, 0.0, 1.0);
 
-    // dens = saturate(noise − (1 − profile))
     var dens = saturate(noise_composite - (1.0 - dimensional_profile));
     dens *= density_scale;
-    // Slight near-camera sharpening proxy (constant for now; Nubis3 pow lerp).
     dens = pow(max(dens, 0.0), mix(0.85, 0.55, dimensional_profile));
     return clamp(dens, 0.0, 1.0);
+}
+
+fn sample_cumulus_shape(r: f32, world_pos: vec3<f32>) -> f32 {
+    return sample_cumulus_shape_lod(r, world_pos, 0.0);
 }
 
 /// Cloud shape / coverage term in [0, 1].
@@ -330,6 +363,31 @@ fn cloud_layer_segment(ray_origin: vec3<f32>, ray_dir: vec3<f32>) -> vec3<f32> {
 /// This is the normalized coverage term scaled by `cloud_layer.cloud_density`.
 fn get_cloud_medium_density(r: f32, world_pos: vec3<f32>) -> f32 {
     return get_cloud_coverage(r, world_pos) * cloud_layer.cloud_density;
+}
+
+fn get_cloud_medium_density_coarse(r: f32, world_pos: vec3<f32>) -> f32 {
+    if (r < cloud_layer.cloud_layer_start || r > cloud_layer.cloud_layer_end) {
+        return 0.0;
+    }
+    if (!CLOUD_USE_NOISE_SHAPE) {
+        return get_cloud_medium_density(r, world_pos);
+    }
+    return sample_cumulus_shape_coarse(r, world_pos) * cloud_layer.cloud_density;
+}
+
+fn get_cloud_medium_density_lod(r: f32, world_pos: vec3<f32>, mip: f32) -> f32 {
+    if (r < cloud_layer.cloud_layer_start || r > cloud_layer.cloud_layer_end) {
+        return 0.0;
+    }
+    if (!CLOUD_USE_NOISE_SHAPE) {
+        return get_cloud_medium_density(r, world_pos);
+    }
+    return sample_cumulus_shape_lod(r, world_pos, mip) * cloud_layer.cloud_density;
+}
+
+fn cloud_mip_from_distance(dist_m: f32) -> f32 {
+    // Nubis3: mip = log2(1 + dist · k). k chosen so ~mip 0 near, ~mip 4 at ~16 km.
+    return log2(1.0 + dist_m * (1.0 / 4000.0));
 }
 
 /// Raymarch through clouds towards the sun to compute volumetric shadow

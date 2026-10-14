@@ -21,7 +21,8 @@ import package::atmosphere::{
         hg_phase,
     },
     clouds::{
-        cloud_layer_segment, get_cloud_medium_density, get_cloud_scattering_coeff,
+        cloud_layer_segment, get_cloud_medium_density, get_cloud_medium_density_coarse,
+        get_cloud_medium_density_lod, cloud_mip_from_distance, get_cloud_scattering_coeff,
         get_cloud_absorption_coeff,
     },
 };
@@ -31,10 +32,14 @@ import package::atmosphere::{
 @group(0) @binding(27) var out_clouds_depth: texture_storage_2d<r32float, write>;
 
 // Hard caps for the first version of the pass; these become `VolumetricCloudSettings` (design §3.3).
-const CLOUD_MIN_STEPS: f32 = 16.0;
-const CLOUD_MAX_STEPS: f32 = 64.0;
-// Target step length in meters; long grazing segments clamp to CLOUD_MAX_STEPS.
-const CLOUD_TARGET_STEP_M: f32 = 200.0;
+const CLOUD_MAX_STEPS: f32 = 96.0;
+// Distance-adaptive step (Nubis3): near + far_offset · dist / 16384.
+const CLOUD_STEP_NEAR_M: f32 = 40.0;
+const CLOUD_STEP_FAR_OFFSET_M: f32 = 220.0;
+const CLOUD_STEP_FAR_REF_M: f32 = 16384.0;
+const CLOUD_COARSE_STEP_SCALE: f32 = 3.0;
+const CLOUD_FINE_EMPTY_TO_COARSE: u32 = 10u;
+const CLOUD_COARSE_DENSITY_EPS: f32 = 0.0005;
 // Grazing rays enter a 1.5-4 km shell ~140-230 km away, so keep the horizon covered.
 const CLOUD_MAX_DISTANCE_M: f32 = 350000.0;
 const CLOUD_MIN_TRANSMITTANCE: f32 = 0.01;
@@ -106,10 +111,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     if (seg.z > 0.5 && t_end > t_start) {
-        let seg_len = t_end - t_start;
-        let steps = clamp(ceil(seg_len / CLOUD_TARGET_STEP_M), CLOUD_MIN_STEPS, CLOUD_MAX_STEPS);
-        let dt = seg_len / steps;
-
         // Per-pixel jitter of the ray start (STBN when bound, IGN otherwise).
         let stbn_dims = textureDimensions(stbn_texture);
         var jitter: f32;
@@ -127,14 +128,54 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         var depth_sum = 0.0;
         var luminance = vec3(0.0);
 
-        for (var i = 0.0; i < steps; i += 1.0) {
-            let t = t_start + (i + jitter) * dt;
+        // Coarse/fine march (HZD15 / Nubis17 / design.md §1.4): large steps with weather+profile
+        // only; on hit, step back and switch to fine with full noise. After N empty fine samples
+        // return to coarse. Light taps only in fine mode with density > 0.
+        var t = t_start + jitter * CLOUD_STEP_NEAR_M;
+        var fine_mode = false;
+        var fine_empty: u32 = 0u;
+        var step_i: u32 = 0u;
+        let max_steps = u32(CLOUD_MAX_STEPS);
+
+        loop {
+            if (t >= t_end || step_i >= max_steps || transmittance < CLOUD_MIN_TRANSMITTANCE) {
+                break;
+            }
+            step_i += 1u;
+
+            let dist_step = CLOUD_STEP_NEAR_M
+                + CLOUD_STEP_FAR_OFFSET_M * clamp(t / CLOUD_STEP_FAR_REF_M, 0.0, 8.0);
+            let dt = select(dist_step, dist_step * CLOUD_COARSE_STEP_SCALE, !fine_mode);
             let p = ray_origin + ray_dir * t;
             let r_p = length(p);
-            let density = get_cloud_medium_density(r_p, p);
-            if (density <= 0.0) {
+            let mip = cloud_mip_from_distance(t);
+
+            var density = 0.0;
+            if (fine_mode) {
+                density = get_cloud_medium_density_lod(r_p, p, mip);
+                if (density <= 0.0) {
+                    fine_empty += 1u;
+                    if (fine_empty >= CLOUD_FINE_EMPTY_TO_COARSE) {
+                        fine_mode = false;
+                        fine_empty = 0u;
+                    }
+                    t += dt;
+                    continue;
+                }
+                fine_empty = 0u;
+            } else {
+                let coarse = get_cloud_medium_density_coarse(r_p, p);
+                if (coarse > CLOUD_COARSE_DENSITY_EPS) {
+                    // Step back and enter fine mode (Nubis17).
+                    t = max(t_start, t - dt);
+                    fine_mode = true;
+                    fine_empty = 0u;
+                    continue;
+                }
+                t += dt;
                 continue;
             }
+
             let sigma_t = density * sigma_t_unit;
             let sigma_s = density * sigma_s_unit;
             let up = p / r_p;
@@ -146,10 +187,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 let mu_light = dot(l, up);
                 let t_atm = sample_transmittance_lut(r_p, mu_light)
                     * f32(!ray_intersects_ground(r_p, mu_light));
+                // Short light taps only in fine mode with density > 0 (already gated).
                 var light_od = 0.0;
                 for (var k = 0u; k < LIGHT_TAP_COUNT; k++) {
                     let pk = p + l * ((f32(k) + 0.5) * LIGHT_TAP_STEP_M);
-                    light_od += get_cloud_medium_density(length(pk), pk);
+                    light_od += get_cloud_medium_density_lod(length(pk), pk, mip + 1.0);
                 }
                 let t_cloud = sample_cloud_shadow_map(p, l, false)
                     * exp(-light_od * sigma_t_unit * LIGHT_TAP_STEP_M);
@@ -164,27 +206,21 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     b *= MS_B;
                     c *= MS_C;
                 }
-                // Isotropic sky ambient approximated by the atmosphere multiple-scattering LUT
-                // (replaced by a sky-irradiance reduction in roadmap step 4a).
                 let ambient = sample_multiscattering_lut(r_p, mu_light) * CLOUD_AMBIENT_SCALE;
                 scattered += (*light).color.rgb * (t_atm * direct + ambient);
             }
             scattered *= sigma_s;
 
-            // Energy-conserving integration (FB16 §5.6.3 eq. 17).
             let step_t = exp(-sigma_t * dt);
             luminance += transmittance * (scattered - scattered * step_t) / max(sigma_t, 1e-9);
             let w = transmittance * (1.0 - step_t);
             depth_sum += w * t;
             depth_weight_sum += w;
             transmittance *= step_t;
-            if (transmittance < CLOUD_MIN_TRANSMITTANCE) {
-                break;
-            }
+            t += dt;
         }
 
         if (transmittance < CLOUD_MIN_TRANSMITTANCE) {
-            // Renormalize so the opaque cutoff doesn't leave the residual background visible.
             luminance /= max(1.0 - transmittance, 1e-4);
             transmittance = 0.0;
         }
