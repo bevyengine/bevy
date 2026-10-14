@@ -35,8 +35,8 @@ const CLOUD_MIN_STEPS: f32 = 16.0;
 const CLOUD_MAX_STEPS: f32 = 64.0;
 // Target step length in meters; long grazing segments clamp to CLOUD_MAX_STEPS.
 const CLOUD_TARGET_STEP_M: f32 = 200.0;
-// Beyond this distance clouds are fully hidden by aerial perspective anyway.
-const CLOUD_MAX_DISTANCE_M: f32 = 150000.0;
+// Grazing rays enter a 1.5-4 km shell ~140-230 km away, so keep the horizon covered.
+const CLOUD_MAX_DISTANCE_M: f32 = 350000.0;
 const CLOUD_MIN_TRANSMITTANCE: f32 = 0.01;
 
 // Multiple-scattering octaves (Wrenninge 2013; FB16 §5.8 eq. 19-20), with a <= b.
