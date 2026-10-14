@@ -130,6 +130,7 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "cloud_shadow_map.wesl");
         embedded_asset!(app, "cloud_shadow_filter.wesl");
         embedded_asset!(app, "cloud_shadow_temporal.wesl");
+        embedded_asset!(app, "clouds_raymarch.wesl");
 
         app.add_plugins((
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
@@ -521,9 +522,7 @@ impl GpuAtmosphereSettings {
     /// Whether the cloud shadow map goes through the temporal reprojection pass, either because
     /// temporal filtering is enabled or because the tracing is time-sliced.
     pub fn cloud_shadow_uses_temporal_pass(&self) -> bool {
-        self.rendering_method == 1
-            && (self.cloud_shadow_temporal_enabled != 0
-                || self.cloud_shadow_map_update_interleave > 1)
+        self.cloud_shadow_temporal_enabled != 0 || self.cloud_shadow_map_update_interleave > 1
     }
 }
 

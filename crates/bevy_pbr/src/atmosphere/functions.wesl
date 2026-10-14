@@ -305,10 +305,6 @@ fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, 
 /// and transmittance is computed from the stored optical depth only: T = exp(-optical_depth).
 @if(CLOUDS_ENABLED)
 fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>, use_optical_depth_only: bool) -> f32 {
-    // Only meaningful in raymarched mode.
-    if (settings.rendering_method != 1u) {
-        return 1.0;
-    }
 
     let extent = settings.cloud_shadow_map_extent;
     // Keep consumer consistent with producer: half-depth is derived from extent (Unreal-style).
@@ -399,14 +395,20 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         var scattering_coeff = sample_scattering_lut(local_r, neg_LdotV);
         
         @if(CLOUDS_ENABLED) {
+        // Compute volumetric shadow from clouds via the cloud shadow map (stable at grazing angles).
+        shadow_factor *= sample_cloud_shadow_map(world_pos, (*light).direction_to_light, false);
+        }
+
+        // With CLOUD_PASS (render_sky), clouds are integrated by the dedicated low-res
+        // `clouds_raymarch` pass and composited afterwards; only the env probe still
+        // integrates cloud media here.
+        @if(CLOUDS_ENABLED && !CLOUD_PASS) {
         // Sample cloud *medium density* at this point (includes `cloud_layer.cloud_density`)
         // so clouds respond consistently across scattering vs shadowing.
         let cloud_density = get_cloud_medium_density(local_r, world_pos);
         // NUBIS: Add volumetric cloud scattering with proper physical integration
         // Clouds contribute to inscattering via Henyey-Greenstein phase function
-        // Compute volumetric shadow from clouds via the cloud shadow map (stable at grazing angles).
-        shadow_factor *= sample_cloud_shadow_map(world_pos, (*light).direction_to_light, false);
-        
+
         // Cloud scattering coefficient: σ_s_cloud = density * scattering_coeff
         // Using physically correct coefficients (units: m^-1 per unit density)
         // Density is normalized [0, 1], coefficients represent actual physical values
@@ -702,7 +704,7 @@ fn raymarch_atmosphere(
     // Convert the sample count into a hard budget.
     let sample_budget = max(1u, u32(sample_count));
 
-    @if(CLOUDS_ENABLED) {
+    @if(CLOUDS_ENABLED && !CLOUD_PASS) {
     // Cloud-aware global stratification (no temporal noise):
     // Instead of using separate per-segment grids (which can introduce visible boundaries),
     // we stratify over [0,1] globally and map through a piecewise-linear CDF that allocates

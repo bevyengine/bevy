@@ -4,6 +4,7 @@ use crate::{
     LightMeta, ScatteringMediumSampler, ShadowSamplers, ViewShadowBindings,
 };
 use bevy_asset::{load_embedded_asset, AssetId, Handle};
+use bevy_render::camera::ExtractedCamera;
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::FullscreenShader;
 use bevy_derive::Deref;
@@ -70,6 +71,15 @@ fn shadow_map_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArr
 }
 
 /// Cloud bind group layout entries (cloud layer uniform, noise textures, cloud shadow map, STBN).
+/// Sampled outputs of the `clouds_raymarch` pass, read by `render_sky` (26: luminance and
+/// transmittance, 27: transmittance-weighted cloud depth).
+fn cloud_pass_output_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<2> {
+    (
+        (26, texture_2d(TextureSampleType::Float { filterable: true })),
+        (27, texture_2d(TextureSampleType::Float { filterable: false })),
+    )
+}
+
 /// Placed at 20..=25 so they don't collide with the shadow map entries (14..=17).
 fn cloud_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<6> {
     (
@@ -109,6 +119,7 @@ pub(crate) struct AtmosphereBindGroupLayouts {
     #[allow(dead_code)]
     pub cloud_shadow_filter: BindGroupLayoutDescriptor,
     pub cloud_shadow_temporal: BindGroupLayoutDescriptor,
+    pub clouds_raymarch: BindGroupLayoutDescriptor,
 }
 
 #[derive(Resource)]
@@ -320,6 +331,43 @@ impl AtmosphereBindGroupLayouts {
             ),
         );
 
+        // Dedicated low-res cloud raymarch (`clouds_raymarch.wesl`).
+        // Same bindings as `render_sky` (clouds variant, non-MSAA depth, no shadow maps) plus the
+        // storage outputs at 26 (rgba16f luminance/transmittance) and 27 (r32f weighted depth).
+        let clouds_raymarch = BindGroupLayoutDescriptor::new(
+            "clouds_raymarch_bind_group_layout",
+            &DynamicBindGroupLayoutEntries::new_with_indices(
+                ShaderStages::COMPUTE,
+                (
+                    (0, uniform_buffer::<GpuAtmosphere>(true)),
+                    (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
+                    (3, uniform_buffer::<ViewUniform>(true)),
+                    (4, uniform_buffer::<GpuLights>(true)),
+                    (5, texture_2d(TextureSampleType::default())),
+                    (6, texture_2d(TextureSampleType::default())),
+                    (7, sampler(SamplerBindingType::Filtering)),
+                    (8, texture_2d(TextureSampleType::default())),
+                    (9, texture_2d(TextureSampleType::default())),
+                    (10, texture_2d(TextureSampleType::default())),
+                    (11, texture_3d(TextureSampleType::default())),
+                    (12, sampler(SamplerBindingType::Filtering)),
+                    (13, texture_2d(TextureSampleType::Depth)),
+                ),
+            )
+            .extend_with_indices(cloud_layout_entries())
+            .extend_with_indices((
+                (
+                    26,
+                    texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
+                ),
+                (
+                    27,
+                    texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly),
+                ),
+            )),
+        );
+
         Self {
             transmittance_lut,
             multiscattering_lut,
@@ -328,6 +376,7 @@ impl AtmosphereBindGroupLayouts {
             cloud_shadow_map,
             cloud_shadow_filter,
             cloud_shadow_temporal,
+            clouds_raymarch,
         }
     }
 }
@@ -409,12 +458,14 @@ impl FromWorld for RenderSkyBindGroupLayouts {
         let render_sky_clouds = BindGroupLayoutDescriptor::new(
             "render_sky_bind_group_layout_clouds",
             &base_entries(texture_2d(TextureSampleType::Depth))
-                .extend_with_indices(cloud_layout_entries()),
+                .extend_with_indices(cloud_layout_entries())
+                .extend_with_indices(cloud_pass_output_entries()),
         );
         let render_sky_msaa_clouds = BindGroupLayoutDescriptor::new(
             "render_sky_msaa_bind_group_layout_clouds",
             &base_entries(texture_2d_multisampled(TextureSampleType::Depth))
-                .extend_with_indices(cloud_layout_entries()),
+                .extend_with_indices(cloud_layout_entries())
+                .extend_with_indices(cloud_pass_output_entries()),
         );
 
         Self {
@@ -478,6 +529,7 @@ pub(crate) struct AtmosphereLutPipelines {
     #[allow(dead_code)]
     pub cloud_shadow_filter: CachedComputePipelineId,
     pub cloud_shadow_temporal: CachedComputePipelineId,
+    pub clouds_raymarch: CachedComputePipelineId,
 }
 
 impl FromWorld for AtmosphereLutPipelines {
@@ -539,6 +591,18 @@ impl FromWorld for AtmosphereLutPipelines {
                 ..default()
             });
 
+        let clouds_raymarch = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("clouds_raymarch_pipeline".into()),
+            layout: vec![layouts.clouds_raymarch.clone()],
+            shader: load_embedded_asset!(world, "clouds_raymarch.wesl"),
+            shader_defs: vec![
+                "CLOUDS_ENABLED".into(),
+                "CLOUD_SHADOW_SIMPLE_SAMPLING".into(),
+                "ATMOSPHERE_NO_SHADOW_MAPS".into(),
+            ],
+            ..default()
+        });
+
         Self {
             transmittance_lut,
             multiscattering_lut,
@@ -547,6 +611,7 @@ impl FromWorld for AtmosphereLutPipelines {
             cloud_shadow_map,
             cloud_shadow_filter,
             cloud_shadow_temporal,
+            clouds_raymarch,
         }
     }
 }
@@ -578,6 +643,8 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
         if key.clouds_enabled {
             shader_defs.push("CLOUDS_ENABLED".into());
             shader_defs.push("CLOUD_SHADOW_SIMPLE_SAMPLING".into());
+            // Clouds come from the dedicated `clouds_raymarch` pass, not `raymarch_atmosphere`.
+            shader_defs.push("CLOUD_PASS".into());
         }
 
         let dst_factor = if key.dual_source_blending {
@@ -658,15 +725,22 @@ pub struct AtmosphereTextures {
     pub cloud_shadow_map: CachedTexture,
     pub cloud_shadow_map_tmp: CachedTexture,
     pub cloud_shadow_map_history: CachedTexture,
+    /// Low-res cloud raymarch output: rgb = pre-exposed luminance, a = transmittance.
+    pub clouds: CachedTexture,
+    /// Low-res transmittance-weighted cloud distance (m).
+    pub clouds_depth: CachedTexture,
 }
 
 pub(super) fn prepare_atmosphere_textures(
-    views: Query<(Entity, &GpuAtmosphereSettings), With<ExtractedAtmosphere>>,
+    views: Query<
+        (Entity, &GpuAtmosphereSettings, Option<&ExtractedCamera>),
+        With<ExtractedAtmosphere>,
+    >,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     mut commands: Commands,
 ) {
-    for (entity, lut_settings) in &views {
+    for (entity, lut_settings, camera) in &views {
         let transmittance_lut = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -769,6 +843,30 @@ pub(super) fn prepare_atmosphere_textures(
             },
         );
 
+        // Half-resolution cloud raymarch targets (design.md §1.2).
+        let full_size = camera
+            .and_then(|camera| camera.physical_viewport_size)
+            .unwrap_or(UVec2::ONE);
+        let clouds_size = (full_size / 2).max(UVec2::ONE);
+        let clouds_texture = |label: &'static str, format: TextureFormat| TextureDescriptor {
+            label: Some(label),
+            size: clouds_size.to_extents(),
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format,
+            usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
+        let clouds = texture_cache.get(
+            &render_device,
+            clouds_texture("clouds_raymarch", TextureFormat::Rgba16Float),
+        );
+        let clouds_depth = texture_cache.get(
+            &render_device,
+            clouds_texture("clouds_raymarch_depth", TextureFormat::R32Float),
+        );
+
         commands.entity(entity).insert({
             AtmosphereTextures {
                 transmittance_lut,
@@ -778,6 +876,8 @@ pub(super) fn prepare_atmosphere_textures(
                 cloud_shadow_map,
                 cloud_shadow_map_tmp,
                 cloud_shadow_map_history,
+                clouds,
+                clouds_depth,
             }
         });
     }
@@ -926,6 +1026,8 @@ pub(crate) struct AtmosphereBindGroups {
     pub cloud_shadow_temporal: Option<BindGroup>,
     pub render_sky_clouds: Option<BindGroup>,
     pub render_sky_no_clouds: BindGroup,
+    /// `clouds_raymarch` pass (only for non-MSAA views with a `CloudLayer`).
+    pub clouds_raymarch: Option<BindGroup>,
 }
 
 #[derive(Copy, Clone, Debug, thiserror::Error)]
@@ -1438,6 +1540,43 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (23, &textures.cloud_shadow_map.default_view),
                         (24, &perlin_worley_noise_texture.texture.default_view),
                         (25, stbn_view.as_ref()),
+                        // clouds_raymarch outputs
+                        (26, &textures.clouds.default_view),
+                        (27, &textures.clouds_depth.default_view),
+                    )),
+                )
+            });
+
+        let clouds_raymarch = cloud_layer_binding
+            .as_ref()
+            .filter(|_| cloud_layer.is_some() && *msaa == Msaa::Off)
+            .map(|cloud_layer_binding| {
+                render_device.create_bind_group(
+                    "clouds_raymarch_bind_group",
+                    &pipeline_cache.get_bind_group_layout(&layouts.clouds_raymarch),
+                    &BindGroupEntries::with_indices((
+                        (0, atmosphere_binding.clone()),
+                        (1, settings_binding.clone()),
+                        (2, transforms_binding.clone()),
+                        (3, view_binding.clone()),
+                        (4, lights_binding.clone()),
+                        (5, &gpu_medium.density_lut_view),
+                        (6, &gpu_medium.scattering_lut_view),
+                        (7, medium_sampler.sampler()),
+                        (8, &textures.transmittance_lut.default_view),
+                        (9, &textures.multiscattering_lut.default_view),
+                        (10, &textures.sky_view_lut.default_view),
+                        (11, &textures.aerial_view_lut.default_view),
+                        (12, &**atmosphere_sampler),
+                        (13, depth_view),
+                        (20, cloud_layer_binding.clone()),
+                        (21, &fbm_noise_texture.texture.default_view),
+                        (22, &**cloud_noise_sampler),
+                        (23, &textures.cloud_shadow_map.default_view),
+                        (24, &perlin_worley_noise_texture.texture.default_view),
+                        (25, stbn_view.as_ref()),
+                        (26, &textures.clouds.default_view),
+                        (27, &textures.clouds_depth.default_view),
                     )),
                 )
             });
@@ -1453,6 +1592,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             cloud_shadow_temporal,
             render_sky_clouds,
             render_sky_no_clouds,
+            clouds_raymarch,
         });
     }
 

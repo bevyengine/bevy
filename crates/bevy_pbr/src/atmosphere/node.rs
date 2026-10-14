@@ -157,9 +157,9 @@ pub fn atmosphere_luts(
     }
 
     // Pass 2: cloud shadow map tracing (Unreal-style front depth + extinction stats).
-    // Only needed for the Raymarched mode. Kept in its own compute pass (and diagnostics span)
+    // Needed whenever clouds exist (both atmosphere modes). Kept in its own compute pass (and diagnostics span)
     // so its GPU cost shows up separately from the atmosphere LUTs in profilers.
-    if settings.rendering_method == 1 {
+    if cloud_layer_uniforms_offset.is_some() {
         let mut cloud_shadow_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("cloud_shadow_map"),
             timestamp_writes: None,
@@ -204,8 +204,7 @@ pub fn atmosphere_luts(
     // We run the cloud shadow *filter* in a separate compute pass so the backend can insert the
     // required resource state transitions (storage-write -> sampled-read) between tracing and filtering.
     // Without this, the filter can appear to do nothing on some backends.
-    if settings.rendering_method == 1
-        && settings.cloud_shadow_map_spatial_filter_iterations > 0
+    if settings.cloud_shadow_map_spatial_filter_iterations > 0
         && settings.cloud_shadow_map_update_interleave <= 1
         && cloud_layer_uniforms_offset.is_some()
         && bind_groups.cloud_shadow_filter_a_to_b.is_some()
@@ -274,8 +273,10 @@ pub fn render_sky(
         Option<&DynamicUniformIndex<CloudLayer>>,
         &RenderSkyPipelineId,
         Option<&MainPassResolutionOverride>,
+        &AtmosphereTextures,
     )>,
     pipeline_cache: Res<PipelineCache>,
+    pipelines: Res<AtmosphereLutPipelines>,
     mut ctx: RenderContext,
 ) {
     let (
@@ -290,6 +291,7 @@ pub fn render_sky(
         cloud_layer_uniforms_offset,
         render_sky_pipeline_id,
         resolution_override,
+        textures,
     ) = view.into_inner();
 
     let Some(render_sky_pipeline) = pipeline_cache.get_render_pipeline(render_sky_pipeline_id.0)
@@ -301,6 +303,35 @@ pub fn render_sky(
     let diagnostics = diagnostics.as_deref();
 
     let command_encoder = ctx.command_encoder();
+
+    // Dedicated low-res cloud raymarch (design.md §1.2). Its output is composited by render_sky.
+    if let (Some(cloud_layer_offset), Some(bind_group), Some(pipeline)) = (
+        cloud_layer_uniforms_offset.as_ref(),
+        atmosphere_bind_groups.clouds_raymarch.as_ref(),
+        pipeline_cache.get_compute_pipeline(pipelines.clouds_raymarch),
+    ) {
+        let mut clouds_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("clouds_raymarch"),
+            timestamp_writes: None,
+        });
+        let pass_span = diagnostics.pass_span(&mut clouds_pass, "clouds_raymarch");
+        clouds_pass.set_pipeline(pipeline);
+        clouds_pass.set_bind_group(
+            0,
+            bind_group,
+            &[
+                atmosphere_uniforms_offset.index(),
+                settings_uniforms_offset.index(),
+                atmosphere_transforms_offset.index(),
+                view_uniforms_offset.offset,
+                lights_uniforms_offset.offset,
+                cloud_layer_offset.index(),
+            ],
+        );
+        let size = textures.clouds.texture.size();
+        clouds_pass.dispatch_workgroups(size.width.div_ceil(8), size.height.div_ceil(8), 1);
+        pass_span.end(&mut clouds_pass);
+    }
 
     let mut render_sky_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
         label: Some("render_sky"),
