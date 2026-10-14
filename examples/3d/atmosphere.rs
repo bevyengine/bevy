@@ -21,7 +21,8 @@ use bevy::{
         VolumetricLight,
     },
     pbr::{
-        AtmosphereMode, AtmosphereSettings, CloudLayer, DefaultOpaqueRendererMethod,
+        AtmosphereMode, AtmosphereSettings, CloudLayer, CloudWeather, DefaultOpaqueRendererMethod,
+        VolumetricCloudSettings,
         ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
@@ -105,6 +106,7 @@ struct BenchSettings {
     screenshot_secs: f32,
     exit_secs: Option<f32>,
     no_clouds: bool,
+    sunset: bool,
     screenshot_taken: bool,
 }
 
@@ -119,6 +121,7 @@ impl BenchSettings {
                 .unwrap_or(8.0),
             exit_secs: var("ATMOSPHERE_EXIT_SECS").and_then(|v| v.parse().ok()),
             no_clouds: var("ATMOSPHERE_NO_CLOUDS").is_some(),
+            sunset: var("ATMOSPHERE_SUNSET").is_some(),
             screenshot_taken: false,
         }
     }
@@ -131,6 +134,7 @@ fn bench_hooks(
     mut exit: MessageWriter<AppExit>,
     cloud_layers: Query<Entity, With<CloudLayer>>,
 ) {
+    let _sunset = bench.sunset; // sun tilt applied at spawn via ATMOSPHERE_SUNSET
     if bench.no_clouds {
         for entity in &cloud_layers {
             commands.entity(entity).remove::<CloudLayer>();
@@ -352,7 +356,9 @@ fn setup_camera_fog(
             noise_offset: Vec3::ZERO,
             detail_noise_scale: 16_000.0, // Smaller scale = higher-frequency breakup
             detail_strength: 1.0,
+            wind: Vec3::new(20.0, 0.0, 8.0),
         },
+        CloudWeather::default(),
     ));
 
     commands.spawn((
@@ -398,6 +404,7 @@ fn setup_camera_fog(
             ..default()
         },
         Msaa::Off,
+        VolumetricCloudSettings::MEDIUM,
         TemporalAntiAliasing::default(),
         ScreenSpaceReflections {
             min_perceptual_roughness: 0.0..0.0,
@@ -463,7 +470,12 @@ fn setup_terrain_scene(
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
-        Transform::from_xyz(1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(
+            1.0,
+            if std::env::var("ATMOSPHERE_SUNSET").is_ok() { 0.06 } else { 0.4 },
+            0.0,
+        )
+        .looking_at(Vec3::ZERO, Vec3::Y),
         VolumetricLight,
         SunDisk::EARTH,
     ));

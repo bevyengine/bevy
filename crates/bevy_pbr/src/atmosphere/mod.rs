@@ -45,8 +45,9 @@ pub mod detail_noise;
 pub mod curl_noise;
 pub mod resources;
 
-use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, AssetId};
+use bevy_app::{App, Plugin, Update};
+use bevy_asset::{embedded_asset, AssetId, Handle};
+use bevy_image::Image;
 use bevy_camera::{Camera3d, Hdr};
 use bevy_core_pipeline::{
     core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
@@ -57,7 +58,7 @@ use bevy_ecs::{
     entity::Entity,
     query::{Changed, With},
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
 use bevy_math::{Mat4, Quat, UVec2, UVec3, Vec2, Vec3};
@@ -75,6 +76,7 @@ use bevy_render::{
     renderer::RenderAdapter,
     Render, RenderApp, RenderSystems,
 };
+use bevy_time::Time;
 use bevy_transform::components::GlobalTransform;
 
 use bevy_shader::load_shader_library;
@@ -156,10 +158,14 @@ impl Plugin for AtmospherePlugin {
             UniformComponentPlugin::<CloudLayer>::default(),
         ))
         .add_observer(on_insert_atmosphere_environment_map_light)
-        .add_observer(on_remove_atmosphere_environment_map_light);
+        .add_observer(on_remove_atmosphere_environment_map_light)
+        .add_systems(Update, (advance_cloud_wind, apply_volumetric_cloud_settings));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(ExtractSchedule, extract_atmosphere);
+            render_app.add_systems(
+                ExtractSchedule,
+                (extract_atmosphere, extract_cloud_weather_regen),
+            );
         }
     }
 
@@ -659,6 +665,10 @@ pub struct CloudWeather {
     pub offset: Vec2,
     /// Meters/second advection of the weather UV offset (applied on the CPU later).
     pub offset_velocity: Vec2,
+    /// Optional painted weather map (RGBA: coverage, type, density scale, spare).
+    /// When set, the procedural GPU weather map is skipped and this image is bound
+    /// instead (design.md §3.2). Changing the handle or clearing it triggers a rebind.
+    pub texture: Option<Handle<Image>>,
 }
 
 impl Default for CloudWeather {
@@ -670,7 +680,69 @@ impl Default for CloudWeather {
             type_variation: 0.5,
             offset: Vec2::ZERO,
             offset_velocity: Vec2::ZERO,
+            texture: None,
         }
+    }
+}
+
+/// Per-camera volumetric cloud quality (design.md §3.3).
+///
+/// Insert on a camera to override defaults. Absent cameras get [`VolumetricCloudSettings::MEDIUM`].
+#[derive(Clone, Component, Reflect)]
+#[reflect(Clone, Default)]
+pub struct VolumetricCloudSettings {
+    /// Raymarch step budget for the dedicated cloud pass.
+    pub max_steps: u32,
+    /// Short light taps toward the sun (near-surface detail).
+    pub light_taps: u32,
+    /// Max cloud march distance in meters.
+    pub max_distance: f32,
+    /// Cloud shadow map update interleave (1 = full, 4 = 1/16 texels/frame).
+    pub shadow_update_interleave: u32,
+    /// Enable temporal accumulation on the cloud shadow map.
+    pub shadow_temporal: bool,
+    /// Temporal blend alpha for the cloud shadow map when temporal is enabled.
+    pub shadow_temporal_alpha: f32,
+}
+
+impl VolumetricCloudSettings {
+    pub const LOW: Self = Self {
+        max_steps: 48,
+        light_taps: 1,
+        max_distance: 200_000.0,
+        shadow_update_interleave: 4,
+        shadow_temporal: true,
+        shadow_temporal_alpha: 0.15,
+    };
+    pub const MEDIUM: Self = Self {
+        max_steps: 96,
+        light_taps: 2,
+        max_distance: 350_000.0,
+        shadow_update_interleave: 4,
+        shadow_temporal: true,
+        shadow_temporal_alpha: 0.1,
+    };
+    pub const HIGH: Self = Self {
+        max_steps: 128,
+        light_taps: 2,
+        max_distance: 400_000.0,
+        shadow_update_interleave: 2,
+        shadow_temporal: true,
+        shadow_temporal_alpha: 0.08,
+    };
+    pub const CINEMATIC: Self = Self {
+        max_steps: 160,
+        light_taps: 3,
+        max_distance: 500_000.0,
+        shadow_update_interleave: 1,
+        shadow_temporal: true,
+        shadow_temporal_alpha: 0.05,
+    };
+}
+
+impl Default for VolumetricCloudSettings {
+    fn default() -> Self {
+        Self::MEDIUM
     }
 }
 
@@ -680,6 +752,7 @@ impl Default for CloudWeather {
 /// that select that atmosphere.
 #[derive(Clone, Component, Reflect, ShaderType)]
 #[reflect(Clone, Default)]
+#[require(CloudWeather)]
 pub struct CloudLayer {
     /// Altitude at which the cloud layer starts (from planet center)
     /// units: m
@@ -701,7 +774,7 @@ pub struct CloudLayer {
     /// Scale of the noise texture in world space
     pub noise_scale: f32,
 
-    /// Offset for animating the noise texture
+    /// Accumulated noise/weather UV offset (meters). Advanced each frame by [`CloudLayer::wind`].
     pub noise_offset: Vec3,
 
     /// Scale of the detail noise in world space (smaller = higher frequency detail).
@@ -711,6 +784,9 @@ pub struct CloudLayer {
     /// Strength of the detail noise modulation in [0,1].
     /// 0 = disabled, 1 = full modulation.
     pub detail_strength: f32,
+
+    /// Wind velocity in m/s. Advects `noise_offset` on the CPU and drives height skew in the density sampler (design.md §1.3 / §3.1).
+    pub wind: Vec3,
 }
 
 impl Default for CloudLayer {
@@ -725,6 +801,7 @@ impl Default for CloudLayer {
             noise_offset: Vec3::ZERO,
             detail_noise_scale: 16_000.0,
             detail_strength: 1.0,
+            wind: Vec3::new(15.0, 0.0, 5.0),
         }
     }
 }
@@ -732,3 +809,39 @@ impl Default for CloudLayer {
 impl SyncComponent<RenderApp> for CloudLayer {
     type Target = Self;
 }
+
+/// Integrate [`CloudLayer::wind`] into [`CloudLayer::noise_offset`] each frame (design.md §1.3).
+pub fn advance_cloud_wind(time: Res<Time>, mut layers: Query<&mut CloudLayer>) {
+    let dt = time.delta_secs();
+    if dt <= 0.0 {
+        return;
+    }
+    for mut layer in &mut layers {
+        let wind = layer.wind; layer.noise_offset += wind * dt;
+    }
+}
+
+/// When [`CloudWeather`] changes (and no texture override), regenerate the procedural weather map.
+pub fn extract_cloud_weather_regen(
+    weathers: Extract<Query<&CloudWeather, Changed<CloudWeather>>>,
+    mut generated: ResMut<NoiseGenerated>,
+) {
+    for weather in &weathers {
+        if weather.texture.is_none() {
+            generated.0 = false;
+        }
+    }
+}
+
+/// Apply [`VolumetricCloudSettings`] from the camera onto [`AtmosphereSettings`] (design.md §3.3).
+pub fn apply_volumetric_cloud_settings(
+    mut cameras: Query<(&VolumetricCloudSettings, &mut AtmosphereSettings), With<Camera3d>>,
+) {
+    for (cloud_settings, mut atmosphere_settings) in &mut cameras {
+        atmosphere_settings.cloud_shadow_map_update_interleave =
+            cloud_settings.shadow_update_interleave;
+        atmosphere_settings.cloud_shadow_temporal_enabled = cloud_settings.shadow_temporal;
+        atmosphere_settings.cloud_shadow_temporal_alpha = cloud_settings.shadow_temporal_alpha;
+    }
+}
+

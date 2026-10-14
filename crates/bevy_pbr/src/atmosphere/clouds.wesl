@@ -17,6 +17,7 @@ struct CloudLayer {
     noise_offset: vec3<f32>,
     detail_noise_scale: f32,
     detail_strength: f32,
+    wind: vec3<f32>,
 }
 
 @group(0) @binding(20) var<uniform> cloud_layer: CloudLayer;
@@ -134,7 +135,7 @@ fn cloud_density_context(r: f32, world_pos: vec3<f32>) -> vec4<f32> {
     let height_in_layer = r - cloud_layer.cloud_layer_start;
     let h = clamp(height_in_layer / max(1.0, layer_thickness), 0.0, 1.0);
 
-    let wind_xz = cloud_layer.noise_offset.xz;
+    let wind_xz = cloud_layer.wind.xz;
     let wind_len = length(wind_xz);
     let skew = select(vec2(0.0), normalize(wind_xz) * (h * min(wind_len, 8000.0) * 0.15), wind_len > 1e-3);
     var sample_pos = world_pos;
@@ -156,7 +157,7 @@ fn cloud_density_context(r: f32, world_pos: vec3<f32>) -> vec4<f32> {
 }
 
 fn cloud_sample_pos_with_wind_curl(world_pos: vec3<f32>, h: f32, apply_curl: bool) -> vec3<f32> {
-    let wind_xz = cloud_layer.noise_offset.xz;
+    let wind_xz = cloud_layer.wind.xz;
     let wind_len = length(wind_xz);
     let skew = select(vec2(0.0), normalize(wind_xz) * (h * min(wind_len, 8000.0) * 0.15), wind_len > 1e-3);
     var sample_pos = world_pos;
