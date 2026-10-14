@@ -1,5 +1,7 @@
 //! A panel showing the components of the selected entity, and the systems that keep it in sync.
 
+use core::any::Any;
+
 use alloc::{
     borrow::Cow,
     format,
@@ -8,8 +10,8 @@ use alloc::{
 };
 
 use bevy_color::{
-    Color, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Okhsla, Okhsva, Okhwba, Oklaba, Oklcha, Srgba,
-    Xyza,
+    Color, ColorToComponents, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Okhsla, Okhsva, Okhwba,
+    Oklaba, Oklcha, Srgba, Xyza,
 };
 use bevy_dev_tools::inspection::{
     component_inspection::{ComponentDetailLevel, ComponentInspectionSettings},
@@ -40,7 +42,12 @@ use bevy_feathers::{
     display::caption,
     theme::ThemedText,
 };
-use bevy_log::warn;
+use bevy_input::{
+    keyboard::{KeyCode, KeyboardInput},
+    ButtonState,
+};
+use bevy_input_focus::{FocusLost, FocusedInput};
+use bevy_log::{warn, warn_once};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{
     enums::{DynamicEnum, DynamicVariant, VariantInfo, VariantType},
@@ -506,7 +513,8 @@ number_changed_observer!(inspector_field_i64_changed, i64, I64);
 /// Observer that turns a details panel text input edit into a [`FieldEdit`].
 ///
 /// Text equal to the value the input last showed is skipped, since it is the panel writing that
-/// value into the input.
+/// value into the input. Hexadecimal color inputs are committed by [`inspector_field_hex_entered`]
+/// and [`inspector_field_hex_focus_lost`] instead.
 pub(crate) fn inspector_field_text_changed(
     change: On<TextEditChange>,
     texts: Query<&EditableText>,
@@ -523,14 +531,93 @@ pub(crate) fn inspector_field_text_changed(
         widget,
         |current| match current {
             FieldValue::Text(current) if *current == text => None,
-            FieldValue::Color(color) if color_to_hex(*color) == text => None,
-            FieldValue::Color(_) => parse_hex_color(&text).map(FieldValue::Color),
+            FieldValue::Color(_) => None,
             _ => Some(FieldValue::Text(text)),
         },
         &fields,
         &mut index,
         &mut commands,
     );
+}
+
+/// Observer that commits a details panel hexadecimal color input when Enter is pressed.
+pub(crate) fn inspector_field_hex_entered(
+    key: On<FocusedInput<KeyboardInput>>,
+    texts: Query<&EditableText>,
+    fields: Query<&InspectorField>,
+    mut index: ResMut<DetailsIndex>,
+    mut commands: Commands,
+) {
+    if key.input.state != ButtonState::Pressed
+        || !matches!(key.input.key_code, KeyCode::Enter | KeyCode::NumpadEnter)
+    {
+        return;
+    }
+    commit_hex_color(
+        key.event_target(),
+        &texts,
+        &fields,
+        &mut index,
+        &mut commands,
+    );
+}
+
+/// Observer that commits a details panel hexadecimal color input when it loses focus.
+pub(crate) fn inspector_field_hex_focus_lost(
+    focus_lost: On<FocusLost>,
+    texts: Query<&EditableText>,
+    fields: Query<&InspectorField>,
+    mut index: ResMut<DetailsIndex>,
+    mut commands: Commands,
+) {
+    commit_hex_color(
+        focus_lost.event_target(),
+        &texts,
+        &fields,
+        &mut index,
+        &mut commands,
+    );
+}
+
+/// Emits a [`FieldEdit`] for the color typed into the hexadecimal input `widget`.
+///
+/// Text that does not parse, or that names the stored color, is replaced by the stored color's
+/// hexadecimal code.
+fn commit_hex_color(
+    widget: Entity,
+    texts: &Query<&EditableText>,
+    fields: &Query<&InspectorField>,
+    index: &mut DetailsIndex,
+    commands: &mut Commands,
+) {
+    let Ok(editable) = texts.get(widget) else {
+        return;
+    };
+    let text = editable.value().to_string();
+    let mut restore = None;
+    emit_field_edit(
+        widget,
+        |current| {
+            let FieldValue::Color(stored) = current else {
+                return None;
+            };
+            match parse_hex_color(&text) {
+                Some(color) if color_to_hex(color) != color_to_hex(*stored) => {
+                    edited_color(*stored, color)
+                }
+                _ => {
+                    restore = Some(color_to_hex(*stored));
+                    None
+                }
+            }
+        },
+        fields,
+        index,
+        commands,
+    );
+    if let Some(hex) = restore {
+        commands.queue(move |world: &mut World| replace_text(world, Some(widget), &hex));
+    }
 }
 
 /// Observer that turns a details panel color picker change into a [`FieldEdit`].
@@ -540,14 +627,35 @@ pub(crate) fn inspector_field_color_changed(
     mut index: ResMut<DetailsIndex>,
     mut commands: Commands,
 ) {
-    let value = FieldValue::Color(change.value);
+    let value = change.value;
     emit_field_edit(
         change.source,
-        |_| Some(value),
+        |current| match current {
+            FieldValue::Color(stored) => edited_color(*stored, value),
+            _ => Some(FieldValue::Color(value)),
+        },
         &fields,
         &mut index,
         &mut commands,
     );
+}
+
+/// The edit replacing `stored` with `color`, logging a warning once if `stored` is outside the
+/// `0..=1` range that the color picker and hexadecimal input are limited to.
+fn edited_color(stored: Color, color: Color) -> Option<FieldValue> {
+    if is_out_of_range(stored) {
+        warn_once!("Color values outside 0..=1 are clamped by the inspector color picker");
+    }
+    Some(FieldValue::Color(color))
+}
+
+/// Whether any sRGB channel of `color` is outside `0..=1`, allowing for rounding errors.
+fn is_out_of_range(color: Color) -> bool {
+    const TOLERANCE: f32 = 1e-4;
+    Srgba::from(color)
+        .to_f32_array()
+        .into_iter()
+        .any(|channel| !(-TOLERANCE..=1.0 + TOLERANCE).contains(&channel))
 }
 
 /// Observer that turns a details panel variant selection into a [`FieldEdit`].
@@ -822,21 +930,35 @@ fn write_color_field(field: &mut dyn PartialReflect, color: Color) -> FieldWrite
         return assign(target, value);
     }
 
-    macro_rules! write_as {
-        ($($type:ty),*) => {
-            $(
-                if let Some(target) = field.try_downcast_mut::<$type>() {
-                    return assign(target, <$type>::from(color));
-                }
-            )*
-        };
-    }
+    let writers: [fn(&mut dyn PartialReflect, Color) -> Option<FieldWrite>; 13] = [
+        write_color_as::<Srgba>,
+        write_color_as::<LinearRgba>,
+        write_color_as::<Hsla>,
+        write_color_as::<Hsva>,
+        write_color_as::<Hwba>,
+        write_color_as::<Laba>,
+        write_color_as::<Lcha>,
+        write_color_as::<Oklaba>,
+        write_color_as::<Oklcha>,
+        write_color_as::<Xyza>,
+        write_color_as::<Okhsla>,
+        write_color_as::<Okhsva>,
+        write_color_as::<Okhwba>,
+    ];
+    writers
+        .into_iter()
+        .find_map(|write| write(field, color))
+        .unwrap_or(FieldWrite::Rejected)
+}
 
-    write_as!(
-        Srgba, LinearRgba, Hsla, Hsva, Hwba, Laba, Lcha, Oklaba, Oklcha, Xyza, Okhsla, Okhsva,
-        Okhwba
-    );
-    FieldWrite::Rejected
+/// Writes `color` into `field` if it is a `T`.
+fn write_color_as<T: From<Color> + PartialEq + Any>(
+    field: &mut dyn PartialReflect,
+    color: Color,
+) -> Option<FieldWrite> {
+    field
+        .try_downcast_mut::<T>()
+        .map(|target| assign(target, T::from(color)))
 }
 
 /// Converts `color` into the color space of the `space` variant.
@@ -1429,6 +1551,10 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
                 },
             )?;
             let text = spawn_text_input(world, cell, Val::Auto, 1.0)?;
+            world
+                .entity_mut(text)
+                .observe(inspector_field_hex_entered)
+                .observe(inspector_field_hex_focus_lost);
             FieldWidget {
                 entity,
                 text: Some(text),
@@ -1558,7 +1684,7 @@ fn replace_text(world: &mut World, entity: Option<Entity>, text: &str) {
     if let Some(mut editable) = entity.and_then(|entity| world.get_mut::<EditableText>(entity))
         && editable.value() != text
     {
-        editable.queue_edit(TextEdit::SelectAll);
+        editable.clear();
         editable.queue_edit(TextEdit::Insert(text.into()));
     }
 }
@@ -4323,5 +4449,73 @@ mod tests {
         settle(&mut app);
         let color = app.world().get::<Kinds>(entity).unwrap().color;
         assert_eq!(color_to_hex(color), "#00FF00");
+    }
+
+    fn hex_input(app: &mut App, entity: Entity) -> Entity {
+        app.init_resource::<bevy_text::FontCx>()
+            .init_resource::<bevy_text::LayoutCx>()
+            .init_resource::<bevy_clipboard::Clipboard>()
+            .add_systems(bevy_app::Update, bevy_text::apply_text_edits);
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.update();
+        let mut inputs = app
+            .world_mut()
+            .query_filtered::<(Entity, &InspectorField), With<EditableText>>();
+        inputs
+            .iter(app.world())
+            .find(|(_, field)| field.path == "color")
+            .map(|(input, _)| input)
+            .unwrap()
+    }
+
+    fn type_text(app: &mut App, input: Entity, text: &str) {
+        replace_text(app.world_mut(), Some(input), text);
+        app.update();
+    }
+
+    fn input_text(app: &App, input: Entity) -> String {
+        app.world()
+            .get::<EditableText>(input)
+            .unwrap()
+            .value()
+            .to_string()
+    }
+
+    #[test]
+    fn hex_input_commits_on_focus_lost() {
+        let (mut app, entity) = kinds_app();
+        let input = hex_input(&mut app, entity);
+        let before = app.world().get::<Kinds>(entity).unwrap().color;
+
+        type_text(&mut app, input, "#00FF00");
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().color, before);
+
+        app.world_mut().trigger(FocusLost { entity: input });
+        app.update();
+        let color = app.world().get::<Kinds>(entity).unwrap().color;
+        assert_eq!(color_to_hex(color), "#00FF00");
+    }
+
+    #[test]
+    fn hex_input_restores_invalid_text() {
+        let (mut app, entity) = kinds_app();
+        let input = hex_input(&mut app, entity);
+        let before = app.world().get::<Kinds>(entity).unwrap().color;
+
+        type_text(&mut app, input, "#00FF");
+        app.world_mut().trigger(FocusLost { entity: input });
+        app.update();
+
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().color, before);
+        assert_eq!(input_text(&app, input), color_to_hex(before));
+    }
+
+    #[test]
+    fn detects_out_of_range_colors() {
+        assert!(!is_out_of_range(Color::WHITE));
+        assert!(!is_out_of_range(Color::hsla(0.0, 0.5, 0.5, 1.0)));
+        assert!(is_out_of_range(Color::linear_rgb(2.0, 1.0, 1.0)));
+        assert!(is_out_of_range(Color::srgb(-0.5, 0.0, 0.0)));
     }
 }
