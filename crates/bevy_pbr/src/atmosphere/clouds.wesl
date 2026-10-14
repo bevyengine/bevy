@@ -217,12 +217,15 @@ fn sample_cumulus_shape_lod(r: f32, world_pos: vec3<f32>, mip: f32) -> f32 {
 
     let detail = sample_detail_noise(sample_pos, h, mip);
     let detail_fbm = detail.r * 0.625 + detail.g * 0.25 + detail.b * 0.125;
-    let erosion_strength = cloud_layer.detail_strength * mix(0.2, 0.65, h) * (1.0 - dimensional_profile * 0.5);
+    // Nubis: erode edges with detail noise (wispy at base, billowy higher); keep cores intact
+    // via the dimensional-profile subtraction below rather than damping erosion.
+    let erosion_strength = cloud_layer.detail_strength * mix(0.35, 0.8, h);
     let noise_composite = clamp(shape_noise - detail_fbm * erosion_strength, 0.0, 1.0);
 
     var dens = saturate(noise_composite - (1.0 - dimensional_profile));
     dens *= density_scale;
-    dens = pow(max(dens, 0.0), mix(0.85, 0.55, dimensional_profile));
+    // Sharpen the edge falloff (soft gamma made every boundary a wide translucent fringe).
+    dens = clamp(dens * 2.0, 0.0, 1.0);
     return clamp(dens, 0.0, 1.0);
 }
 
