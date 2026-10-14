@@ -1,4 +1,6 @@
-import bevy_pbr::render::pbr_functions::calculate_tbn_mikktspace;
+import bevy_pbr::render::pbr_functions::{
+    calculate_tbn_mikktspace, dielectric_fresnel_ratio, dielectric_reflectance
+};
 import bevy_render::maths::affine3_to_square;
 
 enable wgpu_ray_query;
@@ -47,13 +49,16 @@ struct Material {
     perceptual_roughness: f32,
     emissive: vec3<f32>,
     metallic: f32,
-    reflectance: f32,
+    specular_tint: vec3<f32>,
+    ior: f32,
+    specular_weight: f32,
     flags: u32,
     uv_translation: vec2<f32>,
     uv_transform: mat2x2<f32>,
     alpha: f32,
     alpha_cutoff: f32,
-    _padding: vec2<f32>,
+    specular_texture_id: u32,
+    specular_tint_texture_id: u32,
 }
 
 const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
@@ -184,7 +189,12 @@ fn sample_texture(id: u32, uv: vec2<f32>) -> vec4<f32> {
 struct ResolvedMaterial {
     base_color: vec3<f32>,
     emissive: vec3<f32>,
-    reflectance: f32,
+    /// Reflectance of the dielectric specular lobe at normal incidence and at grazing angles,
+    /// before `specular_tint`.
+    F0_dielectric: f32,
+    F90_dielectric: f32,
+    /// The color that multiplies light reflected by the dielectric specular lobe.
+    specular_tint: vec3<f32>,
     perceptual_roughness: f32,
     roughness: f32,
     metallic: f32,
@@ -224,7 +234,19 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
         m.emissive = vec3(0.0);
     }
 
-    m.reflectance = material.reflectance;
+    m.specular_tint = material.specular_tint;
+    if material.specular_tint_texture_id != TEXTURE_MAP_NONE {
+        m.specular_tint *= sample_texture(material.specular_tint_texture_id, uv).rgb;
+    }
+    var specular_weight = material.specular_weight;
+    if material.specular_texture_id != TEXTURE_MAP_NONE {
+        specular_weight *= sample_texture(material.specular_texture_id, uv).a;
+    }
+    // The binder makes the IOR relative to the clearcoat.
+    let dielectric = dielectric_reflectance(
+        dielectric_fresnel_ratio(material.ior, 0.0, specular_weight));
+    m.F0_dielectric = dielectric.F0;
+    m.F90_dielectric = dielectric.F90;
 
     m.perceptual_roughness = material.perceptual_roughness;
     m.metallic = material.metallic;

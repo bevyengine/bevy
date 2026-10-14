@@ -34,7 +34,7 @@ use bevy_render::{
 };
 use bevy_shader::load_shader_library;
 use extract::extract_solari_lighting;
-use node::{init_solari_lighting_pipelines, solari_lighting};
+use node::{init_solari_lighting_pipelines, init_specular_tint_fallback, solari_lighting};
 use prepare::{
     prepare_solari_lighting_resources, setup_raytracing_scene_needs_previous_frame_data,
 };
@@ -88,7 +88,11 @@ impl Plugin for SolariLightingPlugin {
         app.sub_app_mut(RenderApp)
             .add_systems(
                 RenderStartup,
-                init_solari_lighting_pipelines.after(init_gpu_resource::<RaytracingSceneBindings>),
+                (
+                    init_solari_lighting_pipelines
+                        .after(init_gpu_resource::<RaytracingSceneBindings>),
+                    init_specular_tint_fallback,
+                ),
             )
             .add_systems(ExtractSchedule, extract_solari_lighting)
             .add_systems(

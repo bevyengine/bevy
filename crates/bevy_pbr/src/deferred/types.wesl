@@ -1,6 +1,7 @@
 import package::render::{
     mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT,
     pbr_types::{STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
+    rgb9e5::{vec3_to_rgb9e5_, rgb9e5_to_vec3_},
 };
 
 // Maximum of 8 bits available
@@ -50,42 +51,22 @@ fn unpack_flags(packed: u32) -> u32 {
     return (packed >> 24u) & 0xFFu;
 }
 
-// Pack ior and specular strength into 4 bits.
-// With so little space, specular is made binary, and all values except specular = 0.0 are mapped to 1
-// IOR values outside [1.33, 2.33] are clamped.
-@if(WEBGL2)
-fn pack_4bit_ior_specular(ior: f32, specular: f32) -> u32 {
-    var ior_remapped = saturate(ior - 1.33);
-    // give more range to lower values
-    ior_remapped = sqrt(ior_remapped);
-    let ior3 = u32(ior_remapped * 7.0 + 0.5);
-    return (u32(specular > 0.0) << 3u) | ior3;
+// The G-buffer stores the magnitude of the dielectric Fresnel ratio after the clearcoat and
+// specular weight, from `pbr_functions::dielectric_fresnel_ratio`, as a unorm on a power curve
+// that gives more codes to low values.
+
+/// The exponent of the Fresnel ratio curve, `log(0.2) / log(7 / 15)`. It puts 0.2, the ratio of
+/// the default IOR of 1.5, exactly on a 4-bit and an 8-bit code, since 7 / 15 = 119 / 255.
+const FRESNEL_RATIO_EXPONENT: f32 = 2.1117351;
+
+/// Encodes the magnitude of a Fresnel ratio as a unorm value.
+fn encode_fresnel_ratio(ratio: f32) -> f32 {
+    return pow(saturate(abs(ratio)), 1.0 / FRESNEL_RATIO_EXPONENT);
 }
 
-@if(WEBGL2)
-fn unpack_4bit_ior_specular(v: u32) -> vec2<f32> {
-    let specular = f32(v >> 3u);
-    var ior = f32(v & 0x7u) / 7.0;
-    ior = ior * ior + 1.33;
-    return vec2<f32>(ior, specular);
-}
-
-// Pack ior and specular strength into 8 bits. Allocation is IOR: 5 bits / specular: 3 bits
-// IOR values outside [1.0. 3.0] are clamped
-fn pack_8bit_ior_specular(ior: f32, specular: f32) -> u32 {
-    var ior_remapped = saturate((ior - 1.0) / 2.0);
-    // give more range to lower values
-    ior_remapped = sqrt(ior_remapped);
-    let ior5 = u32(ior_remapped * 31.0 + 0.5);
-    let specular3 = u32(saturate(specular) * 7.0 + 0.5);
-    return (specular3 << 5u) | ior5;
-}
-
-fn unpack_8bit_ior_specular(v: u32) -> vec2<f32> {
-    let specular = f32(v >> 5u) / 7.0;
-    var ior = f32(v & 0x1Fu) / 31.0;
-    ior = ior * ior * 2.0 + 1.0;
-    return vec2<f32>(ior, specular);
+/// Decodes a Fresnel ratio magnitude encoded by `encode_fresnel_ratio`.
+fn decode_fresnel_ratio(encoded: f32) -> f32 {
+    return pow(encoded, FRESNEL_RATIO_EXPONENT);
 }
 
 /// The builtin one didn't work in webgl.
@@ -122,4 +103,20 @@ fn unpack_unorm3x4_plus_unorm_20_(v: u32) -> vec4<f32> {
         f32((v >> 8u) & 0xFu) / 15.0,
         f32((v >> 12u) & 0xFFFFFFu) / U20MAXF,
     );
+}
+
+/// `vec3_to_rgb9e5_(vec3(1.0))`.
+const RGB9E5_WHITE: u32 = 0x84020100u;
+
+/// Packs a specular tint for the deferred specular tint texture.
+///
+/// The tint is stored as rgb9e5 XORed with the rgb9e5 encoding of white, so white packs to 0. The
+/// cleared texture and unwritten `FragmentOutput` fields are 0, so both decode to white.
+fn pack_specular_tint(specular_tint: vec3<f32>) -> u32 {
+    return vec3_to_rgb9e5_(specular_tint) ^ RGB9E5_WHITE;
+}
+
+/// Unpacks a specular tint packed by `pack_specular_tint`.
+fn unpack_specular_tint(packed: u32) -> vec3<f32> {
+    return rgb9e5_to_vec3_(packed ^ RGB9E5_WHITE);
 }

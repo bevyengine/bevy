@@ -43,19 +43,20 @@ pub struct GltfMaterial {
     /// Metallic and roughness maps, stored as a single texture.
     pub metallic_roughness_texture: Option<Handle<Image>>,
 
-    /// Specular strength for non-metals on a linear scale of `[0.0, 1.0]`.
+    /// The `specularFactor` of `KHR_materials_specular`, which scales the specular reflection of
+    /// non-metals on a linear scale of `[0.0, 1.0]`.
     pub specular: f32,
 
     /// The UV channel to use for the [`GltfMaterial::specular_texture`].
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_channel: UvChannel,
 
-    /// A map that specifies reflectance for non-metallic materials.
+    /// A map whose alpha channel scales [`GltfMaterial::specular`] for non-metallic materials.
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_texture: Option<Handle<Image>>,
 
-    /// A color with which to modulate the default reflectance at normal incidence (which is computed from [`GltfMaterial::ior`]).
-    /// Only affects non-metals.
+    /// The `specularColorFactor` of `KHR_materials_specular`, which multiplies the reflectance at
+    /// normal incidence of non-metals that [`GltfMaterial::ior`] sets.
     pub specular_tint: Color,
 
     /// The UV channel to use for the
@@ -92,7 +93,8 @@ pub struct GltfMaterial {
     #[cfg(feature = "pbr_transmission_textures")]
     pub thickness_texture: Option<Handle<Image>>,
 
-    /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
+    /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material,
+    /// relative to air even under a clearcoat, as in `KHR_materials_clearcoat`.
     pub ior: f32,
 
     /// How far, on average, light travels through the volume beneath the material's

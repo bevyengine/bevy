@@ -12,7 +12,7 @@
 //! | `A` / `S`          | Decrease / Increase Thickness                        |
 //! | `Z` / `X`          | Decrease / Increase IOR                              |
 //! | `E` / `R`          | Decrease / Increase Perceptual Roughness             |
-//! | `U` / `I`          | Decrease / Increase Specular strength                |
+//! | `U` / `I`          | Decrease / Increase Specular weight                  |
 //! | Arrow Keys         | Control Camera                                       |
 //! | `C`                | Randomize Colors                                     |
 //! | `H`                | Toggle HDR + Bloom                                   |
@@ -227,14 +227,14 @@ fn setup(
     // Chessboard Plane
     let black_material = materials.add(StandardMaterial {
         base_color: Color::BLACK,
-        specular: 0.85,
+        ior: 1.27,
         perceptual_roughness: 0.8,
         ..default()
     });
 
     let white_material = materials.add(StandardMaterial {
         base_color: Color::WHITE,
-        specular: 0.85,
+        ior: 1.27,
         perceptual_roughness: 0.8,
         ..default()
     });
@@ -265,7 +265,7 @@ fn setup(
             base_color: Color::WHITE,
             diffuse_transmission: 0.6,
             perceptual_roughness: 0.8,
-            specular_tint: Color::linear_rgb(4.0, 4.0, 4.0),
+            specular_weight: 4.0,
             double_sided: true,
             cull_mode: None,
             ..default()
@@ -354,7 +354,7 @@ struct ExampleState {
     thickness: f32,
     ior: f32,
     perceptual_roughness: f32,
-    specular: f32,
+    specular_weight: f32,
     auto_camera: bool,
 }
 
@@ -370,7 +370,7 @@ impl Default for ExampleState {
             thickness: 1.8,
             ior: 1.5,
             perceptual_roughness: 0.12,
-            specular: 1.0,
+            specular_weight: 1.0,
             auto_camera: true,
         }
     }
@@ -421,9 +421,9 @@ fn example_control_system(
     }
 
     if input.pressed(KeyCode::KeyI) {
-        state.specular = (state.specular + time.delta_secs()).min(1.0);
+        state.specular_weight = (state.specular_weight + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::KeyU) {
-        state.specular = (state.specular - time.delta_secs()).max(0.0);
+        state.specular_weight = (state.specular_weight - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyR) {
@@ -441,7 +441,7 @@ fn example_control_system(
             material.thickness = state.thickness;
             material.ior = state.ior;
             material.perceptual_roughness = state.perceptual_roughness;
-            material.specular = state.specular;
+            material.specular_weight = state.specular_weight;
         }
 
         if controls.diffuse_transmission {
@@ -571,7 +571,7 @@ fn example_control_system(
             "         A / S  Thickness: {:.2}\n",
             "         Z / X  IOR: {:.2}\n",
             "         E / R  Perceptual Roughness: {:.2}\n",
-            "         U / I  Specular: {:.2}\n",
+            "         U / I  Specular Weight: {:.2}\n",
             "    Arrow Keys  Control Camera\n",
             "             C  Randomize Colors\n",
             "             H  HDR + Bloom: {}\n",
@@ -586,7 +586,7 @@ fn example_control_system(
         state.thickness,
         state.ior,
         state.perceptual_roughness,
-        state.specular,
+        state.specular_weight,
         if hdr { "ON " } else { "OFF" },
         if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) {
             if depth_prepass.is_some() {

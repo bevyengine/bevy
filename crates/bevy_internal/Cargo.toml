@@ -193,6 +193,7 @@ experimental_pbr_pcss = ["bevy_pbr?/experimental_pbr_pcss"]
 pbr_specular_textures = [
   "bevy_pbr?/pbr_specular_textures",
   "bevy_gltf?/pbr_specular_textures",
+  "bevy_solari?/pbr_specular_textures",
 ]
 
 # Optimise for WebGL2

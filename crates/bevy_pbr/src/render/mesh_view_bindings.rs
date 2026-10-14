@@ -4,6 +4,7 @@ use crate::{
 };
 use arrayvec::ArrayVec;
 use bevy_core_pipeline::{
+    deferred::DeferredSpecularTintSupport,
     oit::{
         OitBuffers, OrderIndependentTransparencySettings,
         OrderIndependentTransparencySettingsOffset,
@@ -259,6 +260,7 @@ fn layout_entries(
         irradiance_volume_entries,
         clustered_decal_entries,
         is_oit_supported,
+        deferred_specular_tint_support,
     }: &MeshPipelineViewLayoutParams,
 ) -> [Vec<BindGroupLayoutEntry>; 2] {
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
@@ -415,9 +417,12 @@ fn layout_entries(
     if cfg!(any(feature = "webgpu", not(target_arch = "wasm32")))
         || !layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED)
     {
-        for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
-            .iter()
-            .zip([20, 21, 22, 23])
+        let deferred_specular_tint =
+            view_has_deferred_specular_tint(layout_key, &deferred_specular_tint_support);
+        for (entry, binding) in
+            prepass::get_bind_group_layout_entries(layout_key, deferred_specular_tint)
+                .iter()
+                .zip([20, 21, 22, 23, 39])
         {
             if let Some(entry) = entry {
                 entries = entries.extend_with_indices(((binding as u32, *entry),));
@@ -495,13 +500,7 @@ fn layout_entries(
     }
     // DFG LUT
     if cfg!(feature = "dfg_lut") {
-        entries = entries.extend_with_indices((
-            (
-                37,
-                texture_2d(TextureSampleType::Float { filterable: true }),
-            ),
-            (38, sampler(SamplerBindingType::Filtering)),
-        ));
+        entries = entries.extend_with_indices(DfgLut::bind_group_layout_entries());
     }
 
     let mut binding_array_entries = DynamicBindGroupLayoutEntries::new(ShaderStages::FRAGMENT);
@@ -533,6 +532,42 @@ fn layout_entries(
     [entries.to_vec(), binding_array_entries.to_vec()]
 }
 
+impl DfgLut {
+    /// Returns the layout entries of the LUT texture and sampler at their mesh view bind group
+    /// indices.
+    pub(crate) fn bind_group_layout_entries() -> (
+        (u32, BindGroupLayoutEntryBuilder),
+        (u32, BindGroupLayoutEntryBuilder),
+    ) {
+        (
+            (
+                37,
+                texture_2d(TextureSampleType::Float { filterable: true })
+                    .visibility(ShaderStages::FRAGMENT),
+            ),
+            (
+                38,
+                sampler(SamplerBindingType::Filtering).visibility(ShaderStages::FRAGMENT),
+            ),
+        )
+    }
+
+    /// Returns the bind group entries that match [`Self::bind_group_layout_entries`].
+    ///
+    /// They bind the 2D fallback image until the LUT image is loaded.
+    pub(crate) fn bind_group_entries<'a>(
+        &self,
+        images: &'a RenderAssets<GpuImage>,
+        fallback_image: &'a FallbackImage,
+    ) -> ((u32, &'a TextureView), (u32, &'a Sampler)) {
+        let (view, sampler) = images
+            .get(&self.texture)
+            .map(|image| (&image.texture_view, &image.sampler))
+            .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
+        ((37, view), (38, sampler))
+    }
+}
+
 /// Parameters needed by [`layout_entries`].
 #[derive(Clone, Copy)]
 struct MeshPipelineViewLayoutParams {
@@ -542,6 +577,7 @@ struct MeshPipelineViewLayoutParams {
     irradiance_volume_entries: [BindGroupLayoutEntryBuilder; 2],
     clustered_decal_entries: Option<[BindGroupLayoutEntryBuilder; 3]>,
     is_oit_supported: bool,
+    deferred_specular_tint_support: DeferredSpecularTintSupport,
 }
 
 /// Stores the view layouts entries for creating bind group layouts of pipeline keys.
@@ -554,6 +590,7 @@ pub fn init_mesh_pipeline_view_layouts(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_adapter: Res<RenderAdapter>,
+    deferred_specular_tint_support: Res<DeferredSpecularTintSupport>,
 ) {
     let clustered_forward_buffer_binding_type =
         render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
@@ -581,13 +618,33 @@ pub fn init_mesh_pipeline_view_layouts(
                 &render_device,
                 false,
             ),
+            deferred_specular_tint_support: *deferred_specular_tint_support,
         }),
     };
 
     commands.insert_resource(res);
 }
 
+fn view_has_deferred_specular_tint(
+    layout_key: MeshPipelineViewLayoutKey,
+    deferred_specular_tint_support: &DeferredSpecularTintSupport,
+) -> bool {
+    layout_key.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS)
+        && deferred_specular_tint_support.is_supported(
+            layout_key.contains(MeshPipelineViewLayoutKey::NORMAL_PREPASS),
+            layout_key.contains(MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS),
+        )
+}
+
 impl MeshPipelineViewLayouts {
+    /// Returns whether the view layout for the given key has the deferred specular tint binding.
+    ///
+    /// Pipelines that read the tint with `pbr_input_from_deferred_gbuffer` set the
+    /// `DEFERRED_SPECULAR_TINT` shader def when this returns `true`.
+    pub fn has_deferred_specular_tint(&self, layout_key: MeshPipelineViewLayoutKey) -> bool {
+        view_has_deferred_specular_tint(layout_key, &self.params.deferred_specular_tint_support)
+    }
+
     /// Get view bind group layout for the given key.
     pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> MeshPipelineViewLayout {
         let mut entries = layout_entries(layout_key, &self.params);
@@ -894,7 +951,7 @@ pub fn prepare_mesh_view_bind_groups(
                 for (binding, index) in prepass_bindings
                     .iter()
                     .map(Option::as_ref)
-                    .zip([20, 21, 22, 23])
+                    .zip([20, 21, 22, 23, 39])
                     .flat_map(|(b, i)| b.map(|b| (b, i)))
                 {
                     entries = entries.extend_with_indices(((index, binding),));
@@ -915,11 +972,8 @@ pub fn prepare_mesh_view_bind_groups(
 
             // DFG LUT
             if cfg!(feature = "dfg_lut") {
-                let (dfg_view, dfg_sampler) = images
-                    .get(&dfg_lut.texture)
-                    .map(|img| (&img.texture_view, &img.sampler))
-                    .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
-                entries = entries.extend_with_indices(((37, dfg_view), (38, dfg_sampler)));
+                entries = entries
+                    .extend_with_indices(dfg_lut.bind_group_entries(&images, &fallback_image));
             }
 
             let environment_map_bind_group_entries =
