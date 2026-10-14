@@ -13,7 +13,7 @@
 use core::ffi::{c_int, c_void};
 use serde::Deserialize;
 
-use super::{GltfError, KHR_MESHOPT_COMPRESSION, MESHOPT_COMPRESSION_EXTENSIONS};
+use crate::loader::{GltfError, KHR_MESHOPT_COMPRESSION, MESHOPT_COMPRESSION_EXTENSIONS};
 
 /// The meshopt compression block on a buffer view.
 #[derive(Deserialize)]
@@ -49,11 +49,27 @@ enum Filter {
     Color,
 }
 
+/// The meshopt compression extension on a glTF object and its value.
+fn meshopt_extension<'a>(
+    extension_value: impl Fn(&str) -> Option<&'a serde_json::Value>,
+) -> Option<(&'static str, &'a serde_json::Value)> {
+    MESHOPT_COMPRESSION_EXTENSIONS
+        .into_iter()
+        .find_map(|name| Some((name, extension_value(name)?)))
+}
+
+/// Whether `buffer` is a fallback buffer, which only compressed buffer views
+/// use and [`decode_buffer_views`] fills in.
+pub fn is_fallback_buffer(buffer: &gltf::Buffer) -> bool {
+    meshopt_extension(|name| buffer.extension_value(name))
+        .is_some_and(|(_, value)| value["fallback"] == true)
+}
+
 /// Decodes every buffer view that uses `KHR_meshopt_compression` or
 /// `EXT_meshopt_compression` into its fallback buffer.
 ///
-/// `buffer_data` holds one entry per glTF buffer, with URI-less fallback
-/// buffers allocated to their `byteLength`. Malformed extension data returns
+/// `buffer_data` holds one entry per glTF buffer, with fallback buffers
+/// allocated to their `byteLength`. Malformed extension data returns
 /// [`GltfError::InvalidMeshoptCompression`] before anything reaches the
 /// decoder.
 ///
@@ -66,10 +82,7 @@ pub fn decode_buffer_views(
     buffer_data: &mut [Vec<u8>],
 ) -> Result<(), GltfError> {
     for view in document.views() {
-        let Some((extension, value)) = MESHOPT_COMPRESSION_EXTENSIONS
-            .into_iter()
-            .find_map(|name| Some((name, view.extension_value(name)?)))
-        else {
+        let Some((extension, value)) = meshopt_extension(|name| view.extension_value(name)) else {
             continue;
         };
         decode_view(extension, value, &view, buffer_data).map_err(|message| {
@@ -100,27 +113,23 @@ fn decode_view(
         .get_disjoint_mut([ext.buffer, dst_buffer])
         .map_err(|_| format!("compressed buffer {} does not exist", ext.buffer))?;
 
-    let src_end = ext
-        .byte_offset
-        .checked_add(ext.byte_length)
-        .ok_or("compressed range overflows")?;
-    if src_end > src.len() {
-        return Err(format!(
-            "compressed range {}..{src_end} exceeds buffer {} of {} bytes",
-            ext.byte_offset,
-            ext.buffer,
-            src.len()
-        ));
-    }
+    let src = src
+        .get(ext.byte_offset..)
+        .and_then(|src| src.get(..ext.byte_length))
+        .ok_or_else(|| {
+            format!(
+                "compressed range of {} bytes at {} exceeds buffer {} of {} bytes",
+                ext.byte_length,
+                ext.byte_offset,
+                ext.buffer,
+                src.len()
+            )
+        })?;
 
     let stride = ext.byte_stride;
-    let decoded_len = ext
-        .count
-        .checked_mul(stride)
-        .ok_or("count * byteStride overflows")?;
-    if decoded_len != view.length() {
+    if ext.count.checked_mul(stride) != Some(view.length()) {
         return Err(format!(
-            "count {} * byteStride {stride} = {decoded_len} bytes but the buffer view holds {}",
+            "count {} * byteStride {stride} does not match the buffer view's {} bytes",
             ext.count,
             view.length()
         ));
@@ -132,17 +141,17 @@ fn decode_view(
             "buffer view byteStride {view_stride} does not match byteStride {stride}"
         ));
     }
-    let dst_end = view
-        .offset()
-        .checked_add(decoded_len)
-        .ok_or("buffer view range overflows")?;
-    if dst_end > dst.len() {
-        return Err(format!(
-            "buffer view range {}..{dst_end} exceeds buffer {dst_buffer} of {} bytes",
-            view.offset(),
-            dst.len()
-        ));
-    }
+    let dst_len = dst.len();
+    let dst = dst
+        .get_mut(view.offset()..)
+        .and_then(|dst| dst.get_mut(..view.length()))
+        .ok_or_else(|| {
+            format!(
+                "buffer view range of {} bytes at {} exceeds buffer {dst_buffer} of {dst_len} bytes",
+                view.length(),
+                view.offset()
+            )
+        })?;
 
     match ext.mode {
         Mode::Attributes if stride == 0 || !stride.is_multiple_of(4) || stride > 256 => {
@@ -186,9 +195,6 @@ fn decode_view(
         _ => {}
     }
 
-    let src = &src[ext.byte_offset..src_end];
-    let dst = &mut dst[view.offset()..dst_end];
-
     // The index decoders and filters store whole components, which glTF
     // aligns to their size.
     let align = match (ext.mode, ext.filter) {
@@ -212,7 +218,7 @@ fn decode_view(
         Mode::Triangles => ffi::meshopt_decodeIndexBuffer,
         Mode::Indices => ffi::meshopt_decodeIndexSequence,
     };
-    // SAFETY: `dst` is `count * stride` bytes and `src` is in bounds. The
+    // SAFETY: `dst` is `count * stride` bytes. The
     // stride, TRIANGLES count and alignment meet the decoder's preconditions,
     // and the decoders are safe for untrusted `src`.
     #[expect(unsafe_code, reason = "meshopt only exposes these decoders over FFI")]
@@ -251,7 +257,7 @@ fn decode_view(
 /// Meshopt-encoded geometry laid out like gltfpack output, shared with the
 /// loader tests.
 #[cfg(test)]
-pub(super) mod fixture {
+pub(crate) mod fixture {
     use core::ffi::c_int;
 
     use super::KHR_MESHOPT_COMPRESSION;
@@ -266,14 +272,6 @@ pub(super) mod fixture {
     pub fn indices(count: usize, vertex_count: usize) -> Vec<u32> {
         (0..count)
             .map(|i| ((i * 7) % vertex_count) as u32)
-            .collect()
-    }
-
-    pub fn position_bytes(positions: &[[f32; 3]]) -> Vec<u8> {
-        positions
-            .iter()
-            .flatten()
-            .flat_map(|f| f.to_le_bytes())
             .collect()
     }
 
@@ -320,16 +318,14 @@ pub(super) mod fixture {
     }
 
     /// A one-primitive document with positions in `bufferViews[0]` and u16
-    /// indices in `bufferViews[1]`, both in URI-less fallback buffer 1.
-    /// Buffer 0 (`mesh.bin`) holds `compressed`, with a gap before the
-    /// positions so their `byteOffset` is non-zero.
-    pub struct Fixture {
-        pub json: serde_json::Value,
-        pub compressed: Vec<u8>,
-        pub fallback_len: usize,
-    }
-
-    pub fn fixture(extension: &str, positions: &[[f32; 3]], indices: &[u32]) -> Fixture {
+    /// indices in `bufferViews[1]`, both in URI-less fallback buffer 1, and
+    /// the compressed data for buffer 0 (`mesh.bin`). The compressed data has
+    /// a gap before the positions so their `byteOffset` is non-zero.
+    pub fn fixture(
+        extension: &str,
+        positions: &[[f32; 3]],
+        indices: &[u32],
+    ) -> (serde_json::Value, Vec<u8>) {
         let encoded_indices = meshopt::encode_index_buffer(indices, positions.len()).unwrap();
         let encoded_positions = encode_vertices(extension, positions);
 
@@ -393,11 +389,7 @@ pub(super) mod fixture {
                 { "primitives": [{ "attributes": { "POSITION": 0 }, "indices": 1 }] }
             ]
         });
-        Fixture {
-            json,
-            compressed,
-            fallback_len,
-        }
+        (json, compressed)
     }
 }
 
@@ -407,6 +399,15 @@ mod tests {
     use super::*;
     use crate::loader::EXT_MESHOPT_COMPRESSION;
 
+    /// The document and buffers for `json` with `compressed` in buffer 0 and
+    /// zeroed fallback buffer 1.
+    fn parse(json: serde_json::Value, compressed: Vec<u8>) -> (gltf::Document, Vec<Vec<u8>>) {
+        let fallback_len = json["buffers"][1]["byteLength"].as_u64().unwrap() as usize;
+        let root: gltf::json::Root = serde_json::from_value(json).unwrap();
+        let document = gltf::Document::from_json_without_validation(root);
+        (document, vec![compressed, vec![0u8; fallback_len]])
+    }
+
     /// The fixture with `patch` applied to its JSON, and its buffers.
     fn document(
         extension: &str,
@@ -414,15 +415,37 @@ mod tests {
         indices: &[u32],
         patch: impl FnOnce(&mut serde_json::Value),
     ) -> (gltf::Document, Vec<Vec<u8>>) {
-        let Fixture {
-            mut json,
-            compressed,
-            fallback_len,
-        } = fixture(extension, positions, indices);
+        let (mut json, compressed) = fixture(extension, positions, indices);
         patch(&mut json);
-        let root: gltf::json::Root = serde_json::from_value(json).unwrap();
-        let document = gltf::Document::from_json_without_validation(root);
-        (document, vec![compressed, vec![0u8; fallback_len]])
+        parse(json, compressed)
+    }
+
+    type FilterEncoder = unsafe extern "C" fn(*mut c_void, usize, usize, c_int, *const f32);
+
+    /// `input` encoded by a meshopt filter encoder with `bits` per component.
+    /// `STRIDE` must be the stride the encoder requires for `bits`.
+    fn encode_filter<const STRIDE: usize>(
+        encoder: FilterEncoder,
+        bits: c_int,
+        input: &[[f32; 4]],
+    ) -> Vec<[u8; STRIDE]> {
+        let mut filtered = vec![[0u8; STRIDE]; input.len()];
+        #[expect(
+            unsafe_code,
+            reason = "meshopt only exposes the filter encoders over FFI"
+        )]
+        // SAFETY: `filtered` holds `STRIDE` bytes per vector and `input` four
+        // floats per vector.
+        unsafe {
+            encoder(
+                filtered.as_mut_ptr().cast(),
+                input.len(),
+                STRIDE,
+                bits,
+                input.as_ptr().cast(),
+            );
+        }
+        filtered
     }
 
     /// Compresses `filtered` into one `ATTRIBUTES` view with `filter` and
@@ -452,9 +475,7 @@ mod tests {
                 } }
             }]
         });
-        let root: gltf::json::Root = serde_json::from_value(json).unwrap();
-        let document = gltf::Document::from_json_without_validation(root);
-        let mut buffers = vec![compressed, vec![0u8; fallback_len]];
+        let (document, mut buffers) = parse(json, compressed);
 
         decode_buffer_views(&document, &mut buffers).unwrap();
         buffers[1].as_chunks::<STRIDE>().0.to_vec()
@@ -473,23 +494,7 @@ mod tests {
                 [v.x, v.y, v.z, 0.0]
             })
             .collect();
-        const STRIDE: usize = 8;
-        let mut filtered = vec![[0u8; STRIDE]; normals.len()];
-        #[expect(
-            unsafe_code,
-            reason = "meshopt only exposes the filter encoders over FFI"
-        )]
-        // SAFETY: `filtered` holds `count * 8` bytes, the stride the 16-bit
-        // encoding requires, and `normals` holds four floats per vector.
-        unsafe {
-            meshopt::ffi::meshopt_encodeFilterOct(
-                filtered.as_mut_ptr().cast(),
-                normals.len(),
-                STRIDE,
-                16,
-                normals.as_ptr().cast(),
-            );
-        }
+        let filtered = encode_filter::<8>(meshopt::ffi::meshopt_encodeFilterOct, 16, &normals);
 
         let decoded = decode_filtered(EXT_MESHOPT_COMPRESSION, "OCTAHEDRAL", &filtered);
 
@@ -513,23 +518,7 @@ mod tests {
                 [channel(3), channel(5), channel(7), channel(11)]
             })
             .collect();
-        const STRIDE: usize = 4;
-        let mut filtered = vec![[0u8; STRIDE]; colors.len()];
-        #[expect(
-            unsafe_code,
-            reason = "meshopt only exposes the filter encoders over FFI"
-        )]
-        // SAFETY: `filtered` holds `count * 4` bytes, the stride the 8-bit
-        // encoding requires, and `colors` holds four floats per color.
-        unsafe {
-            meshopt::ffi::meshopt_encodeFilterColor(
-                filtered.as_mut_ptr().cast(),
-                colors.len(),
-                STRIDE,
-                8,
-                colors.as_ptr().cast(),
-            );
-        }
+        let filtered = encode_filter::<4>(meshopt::ffi::meshopt_encodeFilterColor, 8, &colors);
 
         let decoded = decode_filtered(KHR_MESHOPT_COMPRESSION, "COLOR", &filtered);
 
@@ -565,7 +554,11 @@ mod tests {
 
             decode_buffer_views(&document, &mut buffers).unwrap();
 
-            let expected_positions = position_bytes(&positions);
+            let expected_positions: Vec<u8> = positions
+                .iter()
+                .flatten()
+                .flat_map(|f| f.to_le_bytes())
+                .collect();
             assert_eq!(
                 &buffers[1][..expected_positions.len()],
                 &expected_positions[..]
