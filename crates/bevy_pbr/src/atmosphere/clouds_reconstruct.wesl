@@ -62,7 +62,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
-    var result = center;
+    // Without history (first frame / resize) the 3 untraced pixels of each 2x2 quad would copy the
+    // nearest traced ray (blocky); interpolate the quarter-res trace instead.
+    let full_uv = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(size);
+    var result = select(center, textureSampleLevel(trace_texture, atmosphere_lut_sampler, full_uv, 0.0), !traced_now);
     var result_depth = center_depth;
 
     if (params.history_valid != 0u) {
@@ -91,6 +94,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
+    // NaN/Inf guard so one bad sample can't stick in the history forever.
+    if (any(result != result) || any(abs(result) > vec4(65000.0))) {
+        result = vec4(0.0, 0.0, 0.0, 1.0);
+    }
     textureStore(out_clouds, id.xy, result);
     textureStore(out_clouds_depth, id.xy, vec4(result_depth, 0.0, 0.0, 0.0));
 }
