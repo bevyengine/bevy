@@ -494,11 +494,18 @@ fn setup_terrain_scene(
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
-        Transform::from_xyz(
-            1.0,
-            if std::env::var("ATMOSPHERE_SUNSET").is_ok() { 0.06 } else { 0.4 },
-            0.0,
-        )
+        // `ATMOSPHERE_SUN_ELEV_DEG=<deg>` fixes the sun elevation (overrides ATMOSPHERE_SUNSET).
+        match std::env::var("ATMOSPHERE_SUN_ELEV_DEG")
+            .ok()
+            .and_then(|v| v.parse::<f32>().ok())
+        {
+            Some(deg) => Transform::from_xyz(deg.to_radians().cos(), deg.to_radians().sin(), 0.0),
+            None => Transform::from_xyz(
+                1.0,
+                if std::env::var("ATMOSPHERE_SUNSET").is_ok() { 0.06 } else { 0.4 },
+                0.0,
+            ),
+        }
         .looking_at(Vec3::ZERO, Vec3::Y),
         VolumetricLight,
         SunDisk::EARTH,
