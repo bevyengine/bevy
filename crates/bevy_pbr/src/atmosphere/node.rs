@@ -333,7 +333,7 @@ pub fn render_sky(
         pass_span.end(&mut clouds_pass);
         drop(clouds_pass);
 
-        // Checkerboard reconstruction into the half-res buffer, then keep it as history.
+        // Checkerboard reconstruction into this frame's half-res buffer (ping-pong with history).
         if let (Some(reconstruct_bind_group), Some(reconstruct_pipeline)) = (
             atmosphere_bind_groups.clouds_reconstruct.as_ref(),
             pipeline_cache.get_compute_pipeline(pipelines.clouds_reconstruct),
@@ -352,19 +352,6 @@ pub fn render_sky(
             let size = textures.clouds.texture.size();
             pass.dispatch_workgroups(size.width.div_ceil(8), size.height.div_ceil(8), 1);
             pass_span.end(&mut pass);
-            drop(pass);
-
-            let copy_size = textures.clouds.texture.size();
-            command_encoder.copy_texture_to_texture(
-                textures.clouds.texture.as_image_copy(),
-                textures.clouds_history.texture.as_image_copy(),
-                copy_size,
-            );
-            command_encoder.copy_texture_to_texture(
-                textures.clouds_depth.texture.as_image_copy(),
-                textures.clouds_depth_history.texture.as_image_copy(),
-                copy_size,
-            );
         }
     }
 

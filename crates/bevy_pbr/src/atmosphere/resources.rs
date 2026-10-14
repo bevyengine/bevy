@@ -822,7 +822,7 @@ pub struct AtmosphereTextures {
     pub clouds: CachedTexture,
     /// Low-res transmittance-weighted cloud distance (m).
     pub clouds_depth: CachedTexture,
-    /// Previous frame's [`Self::clouds`] / [`Self::clouds_depth`] (copied after reconstruction).
+    /// Previous frame's [`Self::clouds`] / [`Self::clouds_depth`] (ping-pong by frame parity).
     pub clouds_history: CachedTexture,
     pub clouds_depth_history: CachedTexture,
     /// Checkerboard trace targets (1 of each 2x2 half-res pixels per frame).
@@ -837,6 +837,7 @@ pub(super) fn prepare_atmosphere_textures(
     >,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
+    frame_count: Res<FrameCount>,
     mut commands: Commands,
 ) {
     for (entity, lut_settings, camera) in &views {
@@ -964,30 +965,19 @@ pub(super) fn prepare_atmosphere_textures(
         let mut get = |label, format, size, copy| {
             texture_cache.get(&render_device, clouds_texture(label, format, size, copy))
         };
-        let clouds = get(
-            "clouds",
-            TextureFormat::Rgba16Float,
-            clouds_size,
-            TextureUsages::COPY_SRC,
-        );
-        let clouds_depth = get(
-            "clouds_depth",
-            TextureFormat::R32Float,
-            clouds_size,
-            TextureUsages::COPY_SRC,
-        );
-        let clouds_history = get(
-            "clouds_history",
-            TextureFormat::Rgba16Float,
-            clouds_size,
-            TextureUsages::COPY_DST,
-        );
-        let clouds_depth_history = get(
-            "clouds_depth_history",
-            TextureFormat::R32Float,
-            clouds_size,
-            TextureUsages::COPY_DST,
-        );
+        // Ping-pong reconstruction targets: distinct labels keep the cached textures stable
+        // across frames, and the frame parity picks which one is written this frame.
+        let none = TextureUsages::empty();
+        let clouds_a = get("clouds_a", TextureFormat::Rgba16Float, clouds_size, none);
+        let clouds_b = get("clouds_b", TextureFormat::Rgba16Float, clouds_size, none);
+        let clouds_depth_a = get("clouds_depth_a", TextureFormat::R32Float, clouds_size, none);
+        let clouds_depth_b = get("clouds_depth_b", TextureFormat::R32Float, clouds_size, none);
+        let (clouds, clouds_history, clouds_depth, clouds_depth_history) =
+            if frame_count.0 % 2 == 0 {
+                (clouds_a, clouds_b, clouds_depth_a, clouds_depth_b)
+            } else {
+                (clouds_b, clouds_a, clouds_depth_b, clouds_depth_a)
+            };
         let clouds_trace = get(
             "clouds_trace",
             TextureFormat::Rgba16Float,
