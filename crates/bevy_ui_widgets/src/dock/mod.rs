@@ -43,6 +43,17 @@
 //! assert_eq!(tree.leaves().count(), 4);
 //! ```
 //!
+//! The above code produces this layout, where `O` is the outliner, `V` the viewport, `I/S` the
+//! inspector and settings tabs, and `A` the assets:
+//!
+//! ```text
+//! +---+---+-----+
+//! | O | V | I/S |
+//! |   +---+     |
+//! |   | A |     |
+//! +---+---+-----+
+//! ```
+//!
 //! [`ControlOrientation`]: crate::ControlOrientation
 //! [`Pane::size`]: crate::Pane::size
 
