@@ -18,7 +18,6 @@ fn get_occluder_depth(
     let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0));
     let depth_level = max(0, i32(ceil(log2(max(aabb_width_pixels, aabb_height_pixels))))); // TODO: Naga doesn't like this being a u32
     let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid, depth_level));
-    
     let max_texel = textureDimensions(depth_pyramid, depth_level) - 1u;
     let texel0 = min(vec2<u32>(aabb.xy * depth_pyramid_size), max_texel);
     let texel1 = min(texel0 + 1u, max_texel);
