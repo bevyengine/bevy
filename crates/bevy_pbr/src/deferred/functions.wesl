@@ -35,8 +35,16 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     let clearcoat = 0.0;
     @else
     let clearcoat = in.material.clearcoat;
+    var specular_weight = in.material.specular_weight;
+    var specular_tint = in.material.specular_tint;
+    // Without a specular tint target, the lighting pass uses a white tint, so the tint's brightest
+    // component scales the reflection instead.
+    @if(!DEFERRED_SPECULAR_TINT) {
+        specular_weight *= max(specular_tint.r, max(specular_tint.g, specular_tint.b));
+        specular_tint = vec3(1.0);
+    }
     let fresnel_ratio = pbr_functions::dielectric_fresnel_ratio(
-        in.material.ior, clearcoat, in.material.specular_weight);
+        in.material.ior, clearcoat, specular_weight);
     @if(WEBGL2) // More crunched for webgl so we can also fit depth.
     var props = deferred_types::pack_unorm3x4_plus_unorm_20_(vec4(
         deferred_types::encode_fresnel_ratio(fresnel_ratio),
@@ -88,7 +96,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     let multiscatter = lighting::compute_lobe_multiscatter(
         dielectric_reflectance.F0,
         dielectric_reflectance.F90,
-        in.material.specular_tint,
+        specular_tint,
         base_color,
         F_ab,
     );

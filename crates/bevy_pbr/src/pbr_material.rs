@@ -193,8 +193,8 @@ pub struct StandardMaterial {
     /// It tints reflection at all angles. The light it removes is lost rather than added to the
     /// diffuse reflection. Components are clamped to `[0.0, 1.0]`. Has no effect on metals.
     ///
-    /// The deferred renderer ignores this value when the device can't fit a specular tint
-    /// target. See
+    /// When the device can't fit a specular tint target, the deferred renderer applies only the
+    /// tint's brightest component, as a scale on [`StandardMaterial::specular_weight`]. See
     /// [`DeferredSpecularTintSupport`](bevy_core_pipeline::deferred::DeferredSpecularTintSupport)
     /// for the conditions.
     ///
@@ -489,9 +489,6 @@ pub struct StandardMaterial {
     /// The RGB values of this texture modulate the
     /// [`StandardMaterial::specular_tint`] value. See the documentation for
     /// that field for more information.
-    ///
-    /// The deferred renderer ignores this texture in the same cases as
-    /// [`StandardMaterial::specular_tint`].
     #[cfg_attr(feature = "pbr_specular_textures", texture(29))]
     #[cfg_attr(feature = "pbr_specular_textures", sampler(30))]
     #[cfg(feature = "pbr_specular_textures")]

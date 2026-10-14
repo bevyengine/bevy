@@ -34,7 +34,8 @@ pub(crate) fn add_gltf(app: &mut App) {
 ///
 /// glTF's specular and IOR parameters are converted to the OpenPBR model that
 /// [`StandardMaterial`] uses, so that the reflectance at normal incidence matches glTF's, except
-/// under a textured clearcoat.
+/// under a textured clearcoat. glTF's specular texture scales the weight, so where the texture is
+/// below 1, refraction and reflection at grazing angles differ from glTF.
 pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMaterial {
     let (specular_weight, specular_tint) =
         specular_from_gltf(material.specular, material.specular_tint);
@@ -116,22 +117,17 @@ pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> Standard
     }
 }
 
-/// Returns the specular weight and tint that give the reflectance at normal incidence of
-/// `KHR_materials_specular`'s `specularFactor` and `specularColorFactor`.
+/// Returns the specular weight and tint for `KHR_materials_specular`'s `specularFactor` and
+/// `specularColorFactor`.
 ///
-/// OpenPBR's specular color can't brighten reflection, so the color's brightest channel moves into
-/// the weight, as in the proposed `EXT_materials_specular_edge_color`. Reflection at grazing angles
-/// and refraction still differ from glTF.
+/// glTF's factor and color scale reflection without changing refraction, so they go into the tint,
+/// which does the same. Brightening that the tint can't express goes into the weight, which also
+/// changes refraction. Unlike glTF, the light the tint removes isn't added to diffuse reflection or
+/// transmission.
 fn specular_from_gltf(specular_factor: f32, specular_color: Color) -> (f32, Color) {
-    let color = LinearRgba::from(specular_color).to_vec3();
-    let max = color.max_element();
-    if max <= 0.0 {
-        return (0.0, Color::WHITE);
-    }
-    (
-        specular_factor * max,
-        LinearRgba::from_vec3(color / max).into(),
-    )
+    let color = specular_factor * LinearRgba::from(specular_color).to_vec3();
+    let weight = color.max_element().max(1.0);
+    (weight, LinearRgba::from_vec3(color / weight).into())
 }
 
 /// Returns the IOR that gives a base layer under a clearcoat of strength `clearcoat` the
@@ -234,13 +230,21 @@ mod tests {
     fn specular_from_gltf_keeps_f0() {
         assert_eq!(specular_from_gltf(1.0, Color::WHITE), (1.0, Color::WHITE));
         assert_eq!(
-            specular_from_gltf(0.5, Color::linear_rgb(0.0, 0.0, 0.0)),
-            (0.0, Color::WHITE)
+            specular_from_gltf(0.25, Color::WHITE),
+            (1.0, Color::linear_rgb(0.25, 0.25, 0.25))
         );
-
-        let (weight, tint) = specular_from_gltf(0.5, Color::linear_rgb(2.0, 1.0, 0.5));
-        assert_eq!(weight, 1.0);
-        assert_eq!(tint, Color::linear_rgb(1.0, 0.5, 0.25));
+        assert_eq!(
+            specular_from_gltf(0.5, Color::linear_rgb(0.0, 0.0, 0.0)),
+            (1.0, Color::BLACK)
+        );
+        assert_eq!(
+            specular_from_gltf(0.5, Color::linear_rgb(2.0, 1.0, 0.5)),
+            (1.0, Color::linear_rgb(1.0, 0.5, 0.25))
+        );
+        assert_eq!(
+            specular_from_gltf(1.0, Color::linear_rgb(4.0, 2.0, 1.0)),
+            (4.0, Color::linear_rgb(1.0, 0.5, 0.25))
+        );
     }
 
     #[test]
