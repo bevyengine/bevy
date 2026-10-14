@@ -96,10 +96,34 @@ fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, 
     return anchor + basis.x * dx + basis.y * dy;
 }
 
+
+// Time-slicing: the texel (within each N x N tile) traced on a given frame, in Bayer order so
+// that consecutive frames are spread out spatially. Must match `cloud_shadow_temporal.wesl`.
+fn cloud_shadow_interleave_slot(frame: u32, n: u32) -> vec2<u32> {
+    if (n >= 4u) {
+        // Inverse 4x4 Bayer matrix: rank -> packed (x + 4 * y).
+        const ORDER4 = array<u32, 16>(0u, 10u, 2u, 8u, 5u, 15u, 7u, 13u, 1u, 11u, 3u, 9u, 4u, 14u, 6u, 12u);
+        let packed = ORDER4[frame % 16u];
+        return vec2(packed % 4u, packed / 4u);
+    }
+    if (n == 2u) {
+        // Inverse 2x2 Bayer matrix: rank -> packed (x + 2 * y).
+        const ORDER2 = array<u32, 4>(0u, 3u, 1u, 2u);
+        let packed = ORDER2[frame % 4u];
+        return vec2(packed % 2u, packed / 2u);
+    }
+    return vec2(0u);
+}
+
 @compute
 @workgroup_size(16, 16, 1)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+fn main(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let size = settings.cloud_shadow_map_size;
+    // With time-slicing, each thread traces one texel of an N x N tile; the other texels are
+    // reprojected from history by the temporal pass.
+    let interleave = max(1u, settings.cloud_shadow_map_update_interleave);
+    let slot = cloud_shadow_interleave_slot(view.frame_count, interleave);
+    let gid = vec3<u32>(thread_id.xy * interleave + slot, thread_id.z);
     if (gid.x >= size.x || gid.y >= size.y) {
         return;
     }

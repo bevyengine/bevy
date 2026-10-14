@@ -353,6 +353,17 @@ fn setup_camera_fog(
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings {
             rendering_method: AtmosphereMode::Raymarched,
+            // Profiling override: `ATMOSPHERE_SHADOW_INTERLEAVE=1` traces the whole cloud shadow
+            // map every frame instead of time-slicing it.
+            cloud_shadow_map_update_interleave: std::env::var("ATMOSPHERE_SHADOW_INTERLEAVE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(AtmosphereSettings::default().cloud_shadow_map_update_interleave),
+            cloud_shadow_temporal_enabled: std::env::var("ATMOSPHERE_SHADOW_TEMPORAL_ALPHA").is_ok(),
+            cloud_shadow_temporal_alpha: std::env::var("ATMOSPHERE_SHADOW_TEMPORAL_ALPHA")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(AtmosphereSettings::default().cloud_shadow_temporal_alpha),
             ..default()
         },
         // The directional light illuminance used in this scene

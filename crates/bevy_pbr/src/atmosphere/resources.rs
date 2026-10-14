@@ -7,6 +7,7 @@ use bevy_asset::{load_embedded_asset, AssetId, Handle};
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::FullscreenShader;
 use bevy_derive::Deref;
+use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -348,6 +349,10 @@ pub struct CloudShadowTemporalParams {
     pub history_valid: u32,
     pub anchor_moved: u32,
     pub size: UVec2,
+    /// Time-slicing tile size (1 = every texel is traced each frame).
+    pub interleave: u32,
+    /// Frame index used to select the traced texel in each tile (matches `view.frame_count`).
+    pub frame_index: u32,
 }
 
 /// Per-view state for cloud shadow temporal filtering.
@@ -949,11 +954,12 @@ pub(super) fn prepare_cloud_shadow_temporal_params(
     mut temporal_params_buffer: ResMut<CloudShadowTemporalParamsBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    frame_count: Res<FrameCount>,
 ) {
     let Some((view, atmosphere, settings)) = views.iter().next() else {
         return;
     };
-    if settings.rendering_method != 1 || settings.cloud_shadow_temporal_enabled == 0 {
+    if !settings.cloud_shadow_uses_temporal_pass() {
         return;
     }
     let light_dir = directional_lights
@@ -963,7 +969,12 @@ pub(super) fn prepare_cloud_shadow_temporal_params(
         .unwrap_or(Vec3::NEG_Y);
 
     let extent = settings.cloud_shadow_map_extent;
-    let temporal_alpha = settings.cloud_shadow_temporal_alpha;
+    // When only time-slicing (no temporal filtering), traced texels replace history outright.
+    let temporal_alpha = if settings.cloud_shadow_temporal_enabled != 0 {
+        settings.cloud_shadow_temporal_alpha
+    } else {
+        1.0
+    };
     let light_rotation_cut_deg = settings.cloud_shadow_temporal_light_rotation_cut_deg;
 
     let inner_radius = atmosphere.inner_radius;
@@ -1045,6 +1056,8 @@ pub(super) fn prepare_cloud_shadow_temporal_params(
             history_valid: history_valid as u32,
             anchor_moved: anchor_moved as u32,
             size,
+            interleave: settings.cloud_shadow_map_update_interleave.max(1),
+            frame_index: frame_count.0,
         });
     temporal_params_buffer
         .buffer
@@ -1153,7 +1166,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             continue;
         };
         let temporal_enabled = settings
-            .map(|s| s.rendering_method == 1 && s.cloud_shadow_temporal_enabled != 0)
+            .map(GpuAtmosphereSettings::cloud_shadow_uses_temporal_pass)
             .unwrap_or(false);
         let gpu_medium = gpu_media
             .get(atmosphere.medium)

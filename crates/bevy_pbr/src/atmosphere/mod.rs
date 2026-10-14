@@ -428,6 +428,18 @@ pub struct AtmosphereSettings {
     /// Values above 4 are usually not worth it.
     pub cloud_shadow_map_spatial_filter_iterations: u32,
 
+    /// Time-slices the cloud shadow map tracing: each frame only one texel out of every
+    /// `N x N` tile is re-traced (in a Bayer order), and the remaining texels are reprojected
+    /// from the previous frame's map (see Bauer 2019, "Creating the Atmospheric World of RDR2":
+    /// the cloud shadow map updates 1 ray per 4x4 tile per frame).
+    ///
+    /// `1` traces every texel every frame. Values above `1` cut the tracing cost by roughly
+    /// `N * N` and implicitly enable the temporal reprojection pass (blending of the traced texels
+    /// with history is still controlled by [`Self::cloud_shadow_temporal_enabled`]). The spatial
+    /// filter is skipped while time-slicing, since it would repeatedly blur the reprojected texels.
+    /// Supported values: `1`, `2` and `4`.
+    pub cloud_shadow_map_update_interleave: u32,
+
     /// Enable temporal filtering for the cloud shadow map to reduce edge flickering.
     ///
     /// When enabled, the shadow map is blended with the previous frame's result,
@@ -470,6 +482,7 @@ impl Default for AtmosphereSettings {
             cloud_shadow_map_samples: 48,
             cloud_shadow_map_strength: 1.0,
             cloud_shadow_map_spatial_filter_iterations: 0,
+            cloud_shadow_map_update_interleave: 4,
             cloud_shadow_temporal_enabled: false,
             cloud_shadow_temporal_alpha: 0.15,
             cloud_shadow_temporal_light_rotation_cut_deg: 10.0,
@@ -498,9 +511,20 @@ pub struct GpuAtmosphereSettings {
     pub cloud_shadow_map_samples: u32,
     pub cloud_shadow_map_strength: f32,
     pub cloud_shadow_map_spatial_filter_iterations: u32,
+    pub cloud_shadow_map_update_interleave: u32,
     pub cloud_shadow_temporal_enabled: u32,
     pub cloud_shadow_temporal_alpha: f32,
     pub cloud_shadow_temporal_light_rotation_cut_deg: f32,
+}
+
+impl GpuAtmosphereSettings {
+    /// Whether the cloud shadow map goes through the temporal reprojection pass, either because
+    /// temporal filtering is enabled or because the tracing is time-sliced.
+    pub fn cloud_shadow_uses_temporal_pass(&self) -> bool {
+        self.rendering_method == 1
+            && (self.cloud_shadow_temporal_enabled != 0
+                || self.cloud_shadow_map_update_interleave > 1)
+    }
 }
 
 impl Default for GpuAtmosphereSettings {
@@ -531,6 +555,11 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
             cloud_shadow_map_strength: s.cloud_shadow_map_strength,
             cloud_shadow_map_spatial_filter_iterations: s
                 .cloud_shadow_map_spatial_filter_iterations,
+            cloud_shadow_map_update_interleave: match s.cloud_shadow_map_update_interleave {
+                0 | 1 => 1,
+                2 | 3 => 2,
+                _ => 4,
+            },
             cloud_shadow_temporal_enabled: s.cloud_shadow_temporal_enabled as u32,
             cloud_shadow_temporal_alpha: s.cloud_shadow_temporal_alpha,
             cloud_shadow_temporal_light_rotation_cut_deg: s

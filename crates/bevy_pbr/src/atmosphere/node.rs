@@ -185,7 +185,15 @@ pub fn atmosphere_luts(
                             cloud_layer_uniforms_offset.index(),
                         ],
                     );
-                    dispatch_2d(&mut cloud_shadow_pass, settings.cloud_shadow_map_size);
+                    // With time-slicing, one thread traces one texel per N x N tile.
+                    let interleave = settings.cloud_shadow_map_update_interleave.max(1);
+                    dispatch_2d(
+                        &mut cloud_shadow_pass,
+                        UVec2::new(
+                            settings.cloud_shadow_map_size.x.div_ceil(interleave),
+                            settings.cloud_shadow_map_size.y.div_ceil(interleave),
+                        ),
+                    );
                 }
             }
         }
@@ -198,6 +206,7 @@ pub fn atmosphere_luts(
     // Without this, the filter can appear to do nothing on some backends.
     if settings.rendering_method == 1
         && settings.cloud_shadow_map_spatial_filter_iterations > 0
+        && settings.cloud_shadow_map_update_interleave <= 1
         && cloud_layer_uniforms_offset.is_some()
         && bind_groups.cloud_shadow_filter_a_to_b.is_some()
         && bind_groups.cloud_shadow_filter_b_to_a.is_some()
@@ -228,10 +237,7 @@ pub fn atmosphere_luts(
 
     // Temporal filter: blend current (tmp) with history, write to cloud_shadow_map.
     // Then copy cloud_shadow_map -> history for next frame.
-    if settings.rendering_method == 1
-        && settings.cloud_shadow_temporal_enabled != 0
-        && cloud_layer_uniforms_offset.is_some()
-    {
+    if settings.cloud_shadow_uses_temporal_pass() && cloud_layer_uniforms_offset.is_some() {
         if let (Some(temporal_pipeline), Some(temporal_bg)) = (
             cloud_shadow_temporal_pipeline,
             bind_groups.cloud_shadow_temporal.as_ref(),
