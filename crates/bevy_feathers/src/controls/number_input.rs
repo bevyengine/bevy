@@ -127,9 +127,11 @@ impl Default for FeathersNumberInputProps {
     }
 }
 
-/// Horizontal inset of the interior label and value, which leaves room for the chevrons. This
-/// must be at least the width of a chevron (20px including its padding), plus a small gap.
-const INTERIOR_LABEL_INSET: f32 = 22.0;
+/// Width of the clickable strip for each step chevron.
+const CHEVRON_WIDTH: f32 = 16.0;
+
+/// Horizontal inset of the interior label and value, which leaves room for the chevrons.
+const INTERIOR_LABEL_INSET: f32 = CHEVRON_WIDTH + 4.0;
 
 /// Marks the interior label of a number input.
 #[derive(Component, Clone, Default, Reflect)]
@@ -325,8 +327,9 @@ fn number_input_chevron(corners: RoundedCorners) -> impl Scene {
             display: Display::None,
             top: px(0),
             bottom: px(0),
-            padding: UiRect::axes(px(3), px(0)),
+            width: px(CHEVRON_WIDTH),
             align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             border_radius: {corners.to_border_radius(4.0)},
         }
         Hovered
