@@ -37,13 +37,13 @@ use wgpu_types::TextureFormat;
 pub struct Atmosphere {
     /// Radius of the planet
     ///
-    /// units: m
+    /// units: meters
     pub inner_radius: f32,
 
     /// Radius at which we consider the atmosphere to 'end' for our
     /// calculations (from center of planet)
     ///
-    /// units: m
+    /// units: meters
     pub outer_radius: f32,
 
     /// An approximation of the average albedo (or color, roughly) of the
@@ -71,7 +71,7 @@ fn set_default_transform(mut world: DeferredWorld<'_>, HookContext { entity, .. 
 
 /// Height of [`Atmosphere::earth`], i.e. the distance between its inner and outer radius.
 ///
-/// units: m
+/// units: meters
 pub const EARTH_ATMOSPHERE_HEIGHT: f32 = 100_000.0;
 
 impl Atmosphere {
@@ -201,7 +201,8 @@ impl ScatteringMedium {
     /// - Mie (aerosol) scattering: [`Aerosol::default`]
     /// - Ozone absorption: a 30 km wide layer peaking at 25 km altitude
     ///
-    /// Use [`ScatteringMedium::earth_with_aerosol`] for hazier air.
+    /// Use [`ScatteringMedium::earth_with_aerosol`] for hazier air, such as
+    /// [`Aerosol::CONTINENTAL_AVERAGE`].
     ///
     /// [Bruneton 2017]: https://ebruneton.github.io/precomputed_atmospheric_scattering/
     /// [Hillaire 2020]: https://doi.org/10.1111/cgf.14050
@@ -299,10 +300,15 @@ impl ScatteringMedium {
 /// A layer of aerosols, such as haze, smoke or dust, whose density falls off
 /// exponentially with altitude.
 ///
-/// The [`Default`] matches the Mie term from [Hillaire 2020]. Its optical depth of
-/// about 0.005 is much lower than real air.
+/// The constants, such as [`Aerosol::CONTINENTAL_AVERAGE`], are aerosol types from
+/// [OPAC] at 80% relative humidity, with the Ångström exponent for 500 to 800 nm.
+/// Each scale height is OPAC's optical depth divided by its surface extinction coefficient.
 ///
-/// [Hillaire 2020]: https://doi.org/10.1111/cgf.14050
+/// The [`Default`] matches the Mie term from [Bruneton 2017]. Its optical depth of
+/// 0.005328 is about a twelfth of [`Aerosol::CONTINENTAL_CLEAN`].
+///
+/// [OPAC]: https://doi.org/10.1175/1520-0477(1998)079%3C0831:OPOAAC%3E2.0.CO;2
+/// [Bruneton 2017]: https://ebruneton.github.io/precomputed_atmospheric_scattering/
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Aerosol {
     /// Optical depth of the layer looking straight up, at 550 nm.
@@ -316,8 +322,11 @@ pub struct Aerosol {
     /// blue light than red. At wavelength `λ`, the optical depth is
     /// `optical_depth * (λ / 550 nm)^-angstrom_exponent`.
     ///
-    /// Around 1.3 for typical air over land, below 0.5 for sea salt and desert
-    /// dust, and up to 2 for smoke. Zero gives grey haze.
+    /// Raise it for bluer haze, which also turns the light passing through it
+    /// redder. Zero gives grey haze.
+    ///
+    /// Around 1.4 for typical air over land, below 0.5 for sea salt and desert
+    /// dust, and up to 2 for smoke.
     ///
     /// [Ångström exponent]: https://en.wikipedia.org/wiki/Angstrom_exponent
     pub angstrom_exponent: f32,
@@ -329,11 +338,13 @@ pub struct Aerosol {
     pub single_scattering_albedo: f32,
     /// Asymmetry of the layer's [`PhaseFunction::Mie`].
     ///
+    /// Around 0.7 over land and 0.77 over the ocean.
+    ///
     /// domain: [-1, 1]
     pub asymmetry: f32,
     /// Scale height of the layer's exponential density falloff.
     ///
-    /// units: m
+    /// units: meters
     pub scale_height: f32,
 }
 
@@ -350,6 +361,51 @@ impl Default for Aerosol {
 }
 
 impl Aerosol {
+    /// Remote continental air with little human influence.
+    pub const CONTINENTAL_CLEAN: Self = Self {
+        optical_depth: 0.064,
+        angstrom_exponent: 1.42,
+        single_scattering_albedo: 0.972,
+        asymmetry: 0.709,
+        scale_height: 2_500.0,
+    };
+
+    /// Continental air with typical human influence.
+    pub const CONTINENTAL_AVERAGE: Self = Self {
+        optical_depth: 0.151,
+        angstrom_exponent: 1.42,
+        single_scattering_albedo: 0.925,
+        asymmetry: 0.703,
+        scale_height: 2_000.0,
+    };
+
+    /// Heavily polluted air over a city.
+    pub const URBAN: Self = Self {
+        optical_depth: 0.643,
+        angstrom_exponent: 1.43,
+        single_scattering_albedo: 0.817,
+        asymmetry: 0.689,
+        scale_height: 1_800.0,
+    };
+
+    /// Desert air outside of dust storms.
+    pub const DESERT: Self = Self {
+        optical_depth: 0.286,
+        angstrom_exponent: 0.17,
+        single_scattering_albedo: 0.888,
+        asymmetry: 0.729,
+        scale_height: 2_000.0,
+    };
+
+    /// Air over the remote ocean.
+    pub const MARITIME_CLEAN: Self = Self {
+        optical_depth: 0.096,
+        angstrom_exponent: 0.08,
+        single_scattering_albedo: 0.997,
+        asymmetry: 0.772,
+        scale_height: 1_100.0,
+    };
+
     /// Returns the [`ScatteringTerm`] for this layer in an atmosphere
     /// `atmosphere_height` meters tall, such as [`EARTH_ATMOSPHERE_HEIGHT`].
     pub fn scattering_term(&self, atmosphere_height: f32) -> ScatteringTerm {
@@ -358,8 +414,10 @@ impl Aerosol {
         const REFERENCE_WAVELENGTH: f32 = 550.0;
 
         let scale = self.scale_height / atmosphere_height;
-        // Integral of `Falloff::Exponential { scale }` from the ground to the top
-        // of the atmosphere, in m.
+        // The optical depth is the extinction coefficient times the falloff integrated
+        // over altitude. With `a = e^(-1/scale)`, the `Falloff::Exponential` formula
+        // integrates over [0, 1] to `(scale * (1 - a) - a) / (1 - a)`, which is
+        // `scale - 1 / (e^(1/scale) - 1)`. Multiplying by `atmosphere_height` gives meters.
         let falloff_integral = atmosphere_height * (scale - 1.0 / ops::exp_m1(1.0 / scale));
         let wavelength_scale =
             (RGB_WAVELENGTHS / REFERENCE_WAVELENGTH).map(|x| ops::powf(x, -self.angstrom_exponent));
@@ -736,6 +794,9 @@ mod tests {
             let term = aerosol.scattering_term(EARTH_ATMOSPHERE_HEIGHT);
             let extinction_550 = term.scattering.y + term.absorption.y;
 
+            // The optical depth looking straight up is the extinction coefficient
+            // times the falloff integrated over altitude. Integrate the falloff with
+            // the midpoint rule to check the closed form in `scattering_term`.
             let falloff_integral = (0..SAMPLES)
                 .map(|i| term.falloff.sample((i as f32 + 0.5) / SAMPLES as f32))
                 .sum::<f32>()
