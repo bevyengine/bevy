@@ -29,14 +29,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Generate packed *tileable* cloud noise.
     // We work in "cell space" where the period matches the texture dimensions so wrapping with
     // sampler repeat is seamless (no hard seam/wall at the edges).
-    let p = uv * vec2<f32>(texture_size) * fbm_params.frequency;
-
-    // Weather map channels (design.md §1.3):
-    // R coverage, G cloud type (0 stratus → 0.5 stratocumulus → 1 cumulus),
-    // B density scale, A spare (precipitation / 2nd layer later).
-    let coverage = fbm_2d(p * 0.5);
-    let cloud_type = clamp(value_noise_2d(p * 0.10 + vec2(37.0, 11.0)) * 0.5 + 0.5, 0.0, 1.0);
-    let density_scale = clamp(fbm_2d(p * 0.35 + vec2(5.0, 71.0)), 0.0, 1.0);
+    // Lattice periods are expressed in cells per tile (not texels) so features have a sensible
+    // world size: with the default 32 km tile, period 16 → ~2 km base coverage cells, octaves down
+    // to ~250 m. (Previously the base lattice was 2 texels ≈ 125-250 m, i.e. near white noise,
+    // which bilinear filtering smeared into uniform overcast haze.)
+    let coverage_raw = fbm_tiled(uv, 16);
+    // Cumulus-style coverage: carve out clear sky between distinct cells (~45 % cover).
+    let coverage = smoothstep(0.42, 0.72, coverage_raw);
+    let cloud_type = clamp(smoothstep(0.3, 0.7, value_noise_tiled(uv * 4.0 + vec2(0.37, 0.11), 4) * 0.5 + 0.5) * 0.6 + 0.4, 0.0, 1.0);
+    let density_scale = fbm_tiled(uv + vec2(0.5, 0.21), 8);
     let spare = 0.0;
 
     textureStore(
@@ -96,3 +97,30 @@ fn hash_2d(p: vec2<f32>) -> f32 {
     return fract((p3.x + p3.y) * (p3.z + s));
 }
 
+
+// Value noise tileable with `period` lattice cells across the unit uv square.
+fn value_noise_tiled(uvc: vec2<f32>, period: i32) -> f32 {
+    let q = uvc * f32(period);
+    let i = floor(q);
+    let f = fract(q);
+    let u = f * f * (3.0 - 2.0 * f);
+    let n = vec2(period, period);
+    let a = hash_2d(wrap2(i + vec2(0.0, 0.0), n));
+    let b = hash_2d(wrap2(i + vec2(1.0, 0.0), n));
+    let c = hash_2d(wrap2(i + vec2(0.0, 1.0), n));
+    let d = hash_2d(wrap2(i + vec2(1.0, 1.0), n));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y) * 2.0 - 1.0;
+}
+
+// Tileable FBM in [0, 1]: base `period` cells per tile, doubling per octave.
+fn fbm_tiled(uvc: vec2<f32>, period: i32) -> f32 {
+    var value = 0.0;
+    var amp = 0.5;
+    var per = period;
+    for (var i = 0u; i < 4u; i++) {
+        value += amp * value_noise_tiled(uvc + vec2(f32(i) * 0.137, f32(i) * 0.291), per);
+        per *= 2;
+        amp *= 0.5;
+    }
+    return clamp(value / 0.9375 * 0.5 + 0.5, 0.0, 1.0);
+}
