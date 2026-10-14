@@ -381,6 +381,9 @@ fn setup_camera_fog(
         match std::env::var("ATMOSPHERE_VIEW").as_deref() {
             Ok("up") => Transform::from_xyz(-2.8, 0.045, 0.0)
                 .looking_at(Vec3::new(-1.8, 1.2, 0.3), Vec3::Y),
+            // Toward the sun (+X), tilted up; use with ATMOSPHERE_SUNSET=1 for a low sun.
+            Ok("sun") => Transform::from_xyz(-2.8, 0.045, 0.0)
+                .looking_at(Vec3::new(0.0, 0.5, 0.0), Vec3::Y),
             Ok("wide") => Transform::from_xyz(-2.8, 0.045, 0.0)
                 .looking_at(Vec3::new(-2.8, 0.25, -3.0), Vec3::Y),
             _ => Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
