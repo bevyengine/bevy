@@ -108,6 +108,8 @@ struct BenchSettings {
     no_clouds: bool,
     sunset: bool,
     screenshot_taken: bool,
+    startup_frames: Option<u32>,
+    frame: u32,
 }
 
 impl BenchSettings {
@@ -123,6 +125,8 @@ impl BenchSettings {
             no_clouds: var("ATMOSPHERE_NO_CLOUDS").is_some(),
             sunset: var("ATMOSPHERE_SUNSET").is_some(),
             screenshot_taken: false,
+            startup_frames: var("ATMOSPHERE_SCREENSHOT_FRAMES").and_then(|v| v.parse().ok()),
+            frame: 0,
         }
     }
 }
@@ -150,6 +154,16 @@ fn bench_hooks(
             .spawn(Screenshot::primary_window())
             .observe(save_to_disk(path));
     }
+    // `ATMOSPHERE_SCREENSHOT_FRAMES=<n>` + `ATMOSPHERE_SCREENSHOT=<dir/prefix>`: also capture each
+    // of the first n frames (startup convergence debugging) to `<prefix>_fNN.png`.
+    if let (Some(n), Some(prefix)) = (bench.startup_frames, bench.screenshot.clone())
+        && bench.frame < n
+    {
+        commands
+            .spawn(Screenshot::primary_window())
+            .observe(save_to_disk(format!("{prefix}_f{:02}.png", bench.frame)));
+    }
+    bench.frame += 1;
     if bench.exit_secs.is_some_and(|secs| elapsed >= secs) {
         exit.write(AppExit::Success);
     }
