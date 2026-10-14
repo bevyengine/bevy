@@ -25,11 +25,40 @@ use crate::{
 };
 use log::warn;
 
-/// A [`Component`] on a "source" [`Entity`] that references another target [`Entity`], creating a "relationship" between them. Every [`Relationship`]
+/// Trait voodoo that ensures a struct can't both implement [`Relationship`] and [`RelationshipTarget`].
+/// This makes the following into a compile time error:
+///
+/// ```ignore
+/// #[derive(Component)]
+/// #[relationship(relationship_target = Likes)]
+/// #[relationship_target(relationship = Likes)]
+/// struct Likes(Vec<Entity>);
+/// ```
+///
+/// It is not even possible to get around this restriction via a manual implementation of [`Relationship`] and [`RelationshipTarget`].
+/// The trait works because `Relationship` is a supertrait of `RelationshipBase<Side = Source>`, while `RelationshipTarget` is a supertrait of
+/// [`RelationshipBase<Side = Target`]. It's impossible to both implement `RelationshipBase<Side = Target>` and `RelationshipBase<Side = Source>`
+/// for any given struct, making it impossible for a type to both implement `Relationship` as well as `RelationshipTarget`.
+///
+/// The reason for this separation is that [`Relationship`] and [`RelationshipTarget`] serve fundamentally different purposes.
+/// The [`Relationship`] functions as the source of truth, while [`RelationshipTarget`] reflects that truth.
+/// Additionally, this is relied upon by unsafe code, which would otherwise result in unsoundness.
+pub trait RelationshipBase {
+    /// When `Side = Source`, this is a subtrait of `Relationship`, with `Side = Target`, this goes with `RelationshipTarget`
+    type Side;
+}
+
+/// Used with the [`RelationshipBase`] trait. Check the documentation for more information.
+pub struct Source;
+
+/// Used with the [`RelationshipBase`] trait. Check the documentation for more information.
+pub struct Target;
+
+/// A [`Component`] on a "source" [`Entity`] that references one or more target [`Entity`]s, creating a "relationship" between them. Every [`Relationship`]
 /// has a corresponding [`RelationshipTarget`] type (and vice-versa), which exists on the "target" entity of a relationship and contains the list of all
 /// "source" entities that relate to the given "target".
 ///
-/// A [`Relationship`] may only be one-to-many (or one-to-one): an [`Entity`] may point to at most one [`Entity`] through the [`Relationship`] component.
+/// A [`Relationship`] can be be one-to-one, one-to-many or many-to-many: an [`Entity`] may point to any positive number of [`Entity`]s through the [`Relationship`] component.
 ///
 /// The [`Relationship`] component is the "source of truth" and the [`RelationshipTarget`] component reflects that source of truth. When a [`Relationship`]
 /// component is inserted on an [`Entity`], the corresponding [`RelationshipTarget`] component is immediately inserted on the target component if it does
@@ -79,6 +108,21 @@ use log::warn;
 /// pub struct View(Entity);
 /// ```
 ///
+/// A many-to-many relationship can be created by putting both an entity collection in the [`Relationship`] as well
+/// as in the [`RelationshipTarget`].
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target = LikedBy)]
+/// pub struct Likes(pub Vec<Entity>);
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship = Liked)]
+/// pub struct LikedBy(Vec<Entity>);
+/// ```
+///
 /// When deriving [`RelationshipTarget`] you can specify the `#[relationship_target(linked_spawn)]` attribute to
 /// automatically despawn entities stored in an entity's [`RelationshipTarget`] when that entity is despawned:
 ///
@@ -101,28 +145,21 @@ use log::warn;
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
-/// #[relationship(relationship_target = PeopleILike, allow_self_referential)]
-/// pub struct LikedBy(pub Entity);
+/// #[relationship(relationship_target = LikedBy, allow_self_referential)]
+/// pub struct Likes(pub Vec<Entity>);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = LikedBy)]
-/// pub struct PeopleILike(Vec<Entity>);
+/// #[relationship_target(relationship = Likes)]
+/// pub struct LikedBy(Vec<Entity>);
 /// ```
 #[expect(
     clippy::len_without_is_empty,
     reason = "Relationships should never be empty"
 )]
-pub trait Relationship: Component + Sized {
+pub trait Relationship: Component + Sized + RelationshipBase<Side = Source> {
     /// The [`Component`] added to the "target" entities of this [`Relationship`], which contains the list of
     /// all "source" entities that relate to the "target".
-    ///
-    /// A struct cannot be both a [`Relationship`] as well as its [`RelationshipTarget`], because they serve
-    /// fundamentally different purposes. The [`Relationship`] functions as the source of truth, while
-    /// [`RelationshipTarget`] reflects that truth. If a struct can be both, hooks start conflicting with
-    /// potentially unsound results.
-    ///
-    /// Check out the [`IsNot`] documentation, to figure out how we guarantee this at compile time.
-    type RelationshipTarget: IsNot<Self, Key = Pass> + RelationshipTarget<Relationship = Self>;
+    type RelationshipTarget: RelationshipTarget<Relationship = Self>;
 
     /// The collection type that stores the "target" entities for this [`Relationship`] component.
     type Collection: RelationshipCollection;
@@ -174,7 +211,7 @@ pub trait Relationship: Component + Sized {
     fn on_insert(
         mut world: DeferredWorld,
         HookContext {
-            entity,
+            entity: source_entity,
             caller,
             relationship_hook_mode,
             ..
@@ -191,7 +228,7 @@ pub trait Relationship: Component + Sized {
         }
         let (entities, mut commands) = world.entities_and_commands();
         let target_entities = entities
-            .get(entity)
+            .get(source_entity)
             .unwrap()
             .get::<Self>()
             .unwrap()
@@ -200,19 +237,19 @@ pub trait Relationship: Component + Sized {
         // For many-to-many relationships, we don't want to leave empty collections
         // on the source side.
         if target_entities.is_empty() {
-            commands.entity(entity).try_remove::<Self>();
+            commands.entity(source_entity).try_remove::<Self>();
         }
 
-        if !Self::ALLOW_SELF_REFERENTIAL && target_entities.contains(entity) {
+        if !Self::ALLOW_SELF_REFERENTIAL && target_entities.contains(source_entity) {
             warn!(
-                "{}The {} relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.\nIf this is intended behavior self-referential relations can be enabled with the allow_self_referential attribute: #[relationship(allow_self_referential)]",
+                "{}The {} relationship on entity {source_entity:?} points to itself. The invalid {} relationship has been removed.\nIf this is intended behavior self-referential relations can be enabled with the allow_self_referential attribute: #[relationship(allow_self_referential)]",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                 DebugName::type_name::<Self>(),
                 DebugName::type_name::<Self>()
             );
             commands
-                .entity(entity)
-                .queue(remove_target_entity::<Self>(entity));
+                .entity(source_entity)
+                .queue(remove_target_entity::<Self>(source_entity));
             return;
         }
 
@@ -236,22 +273,24 @@ pub trait Relationship: Component + Sized {
                 entity_commands
                     .entry::<Self::RelationshipTarget>()
                     .and_modify(move |mut relationship_target| {
-                        relationship_target.collection_mut_risky().add(entity);
+                        relationship_target
+                            .collection_mut_risky()
+                            .add(source_entity);
                     })
                     .or_insert_with(move || {
                         let mut target = Self::RelationshipTarget::with_capacity(1);
-                        target.collection_mut_risky().add(entity);
+                        target.collection_mut_risky().add(source_entity);
                         target
                     });
             } else {
                 warn!(
-                    "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
+                    "{}The {}({target_entity:?}) relationship on entity {source_entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
                     caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                     DebugName::type_name::<Self>(),
                     DebugName::type_name::<Self>()
                 );
                 commands
-                    .entity(entity)
+                    .entity(source_entity)
                     .queue(remove_target_entity::<Self>(target_entity));
             }
         }
@@ -262,7 +301,7 @@ pub trait Relationship: Component + Sized {
     fn on_discard(
         mut world: DeferredWorld,
         HookContext {
-            entity,
+            entity: source_entity,
             relationship_hook_mode,
             ..
         }: HookContext,
@@ -279,29 +318,32 @@ pub trait Relationship: Component + Sized {
         // We need to access two entities simultaneously (one now, and another later),
         // which isn't possible via safe APIs currently.
         let world_cell = world.as_unsafe_world_cell();
-        let entity_cell = world_cell.get_entity(entity).unwrap();
-        // SAFETY: We're only accessing this entity's `Relationship` component currently, while accessing
-        // `RelationshipTarget` later. Due to the `IsNot` trait, they are guaranteed to be different components.
-        // So there's no conflicting access.
-        let target_entities = unsafe { entity_cell.get::<Self>() }.unwrap().collection();
+        let source_entity_cell = world_cell.get_entity(source_entity).unwrap();
+        // SAFETY: We're only accessing this entity's `Relationship` component here, while accessing `RelationshipTarget` later.
+        // Due to the `RelationshipBase` trait, they are guaranteed to be different components. There's no conflicting access.
+        let target_entities = unsafe { source_entity_cell.get::<Self>() }
+            .unwrap()
+            .collection();
         for target_entity in target_entities.iter() {
             if let Ok(target_entity_cell) = world_cell.get_entity(target_entity)
                 && let Some(mut relationship_target) =
-                    // SAFETY: Because `Relationship` and `RelationshipTarget` are guaranteed to be different components,
-                    // this call can't conflict with the previous access, avoiding violating safety invariants.
+                    // SAFETY: Because `Relationship` and `RelationshipTarget` are guaranteed to belong to different components
+                    // by `RelationshipBase`, this call can't conflict with the previous access, avoiding violating safety invariants.
                     unsafe { target_entity_cell.get_mut::<Self::RelationshipTarget>() }
             {
-                relationship_target.collection_mut_risky().remove(entity);
+                relationship_target
+                    .collection_mut_risky()
+                    .remove(source_entity);
                 if relationship_target.len() == 0 {
-                    let command = |mut entity: EntityWorldMut| {
+                    let command = |mut target_entity: EntityWorldMut| {
                         // this "remove" operation must check emptiness because in the event that an identical
                         // relationship is inserted on top, this despawn would result in the removal of that identical
                         // relationship ... not what we want!
-                        if entity
+                        if target_entity
                             .get::<Self::RelationshipTarget>()
                             .is_some_and(RelationshipTarget::is_empty)
                         {
-                            entity.remove::<Self::RelationshipTarget>();
+                            target_entity.remove::<Self::RelationshipTarget>();
                         }
                     };
 
@@ -328,37 +370,6 @@ impl<R: Relationship<Collection = Entity>> SingleTargetRelationship for R {
     }
 }
 
-/// Trait vodoo that ensures a relationships [`RelationshipTarget`] cannot be implemented on the same struct.
-/// This makes the following into a compile time error:
-///
-/// ```ignore
-/// #[derive(Component)]
-/// #[relationship(relationship_target = Likes)]
-/// #[relationship_target(relationship = Likes)]
-/// struct Likes(Vec<Entity>);
-/// ```
-///
-/// It is not even possible to get around this restriction via a manual implementation of `Relationship` and `RelationshipTarget`.
-/// The reasoning behind this design is further explained in the [`Relationship`] docs.
-///
-/// The trait vodoo works by implementing `IsNot<T>` for all `T` with the associated type `Key = Block`.
-/// If a user tries to implement `Relationship` for `Likes` with `RelationshipTarget = Likes`, `Likes` *needs* to implement `IsNot<Likes>` with `Key = Pass`.
-/// However, `IsNot<Likes>` is already implemented for `Likes` with `Key = Block`, which cannot be overwritten. This prevents users from using the same struct as the relationship and the target.
-pub trait IsNot<T: ?Sized> {
-    /// When implemented with `Key = Block`, it cannot be used as the [`RelationshipTarget`] of a relationship.
-    type Key;
-}
-
-/// Used with the [`IsNot`] trait. Check the documentation for more information.
-pub struct Pass;
-
-/// Used with the [`IsNot`] trait. Check the documentation for more information.
-pub struct Block;
-
-impl<T: ?Sized> IsNot<T> for T {
-    type Key = Block;
-}
-
 /// The iterator type for the source entities in a [`RelationshipTarget`] collection,
 /// as defined in the [`RelationshipCollection`] trait.
 pub type SourceIter<'w, R> =
@@ -370,7 +381,9 @@ pub type TargetIter<'w, R> = <<R as Relationship>::Collection as RelationshipCol
 
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
-pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
+pub trait RelationshipTarget:
+    Component<Mutability = Mutable> + Sized + RelationshipBase<Side = Target>
+{
     /// If this is true, when despawning or cloning (when [linked cloning is enabled](crate::entity::EntityClonerBuilder::linked_cloning)), the related entities targeting this entity will also be despawned or cloned.
     ///
     /// For example, this is set to `true` for Bevy's built-in parent-child relation, defined by [`ChildOf`](crate::prelude::ChildOf) and [`Children`](crate::prelude::Children).
@@ -410,7 +423,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     fn on_discard(
         mut world: DeferredWorld,
         HookContext {
-            entity,
+            entity: target_entity,
             relationship_hook_mode,
             ..
         }: HookContext,
@@ -421,10 +434,11 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
             RelationshipHookMode::Skip | RelationshipHookMode::RunIfNotLinked => return,
         }
         let (entities, mut commands) = world.entities_and_commands();
-        let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
+        let relationship_target = entities.get(target_entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
             commands.queue_silenced(
-                remove_target_entity::<Self::Relationship>(entity).with_entity(source_entity),
+                remove_target_entity::<Self::Relationship>(target_entity)
+                    .with_entity(source_entity),
             );
         }
     }
@@ -432,9 +446,15 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// The `on_despawn` component hook that despawns entities stored in an entity's [`RelationshipTarget`] when
     /// that entity is despawned.
     // note: think of this as "on_drop"
-    fn on_despawn(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    fn on_despawn(
+        mut world: DeferredWorld,
+        HookContext {
+            entity: target_entity,
+            ..
+        }: HookContext,
+    ) {
         let (entities, mut commands) = world.entities_and_commands();
-        let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
+        let relationship_target = entities.get(target_entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
             let command = move |source_entity_mut: EntityWorldMut| {
                 if let Some(relationship) = source_entity_mut.get::<Self::Relationship>() {
@@ -444,7 +464,8 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                     // If this is the case, despawning this entity severs the last connection and the source entity
                     // should be removed.
                     if relationship.iter().all(|e| {
-                        e == entity || !source_entity_mut.world().entities().contains_spawned(e)
+                        e == target_entity
+                            || !source_entity_mut.world().entities().contains_spawned(e)
                     }) {
                         source_entity_mut.despawn();
                     }
@@ -480,16 +501,16 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     }
 }
 
-fn remove_target_entity<R: Relationship>(target: Entity) -> impl EntityCommand {
-    move |mut entity_mut: EntityWorldMut| {
-        let Some(relationship) = entity_mut.get::<R>() else {
+fn remove_target_entity<R: Relationship>(target_entity: Entity) -> impl EntityCommand {
+    move |mut source_entity_mut: EntityWorldMut| {
+        let Some(relationship) = source_entity_mut.get::<R>() else {
             return;
         };
-        if relationship.collection().contains(target) && relationship.len() == 1 {
-            entity_mut.remove::<R>();
+        if relationship.collection().contains(target_entity) && relationship.len() == 1 {
+            source_entity_mut.remove::<R>();
         } else {
-            entity_mut.modify_component(|relationship: &mut R| {
-                relationship.collection_mut_risky().remove(target);
+            source_entity_mut.modify_component(|relationship: &mut R| {
+                relationship.collection_mut_risky().remove(target_entity);
             });
         }
     }
@@ -508,27 +529,27 @@ pub fn clone_relationship_target<T: RelationshipTarget>(
 ) {
     if context.linked_cloning() && T::LINKED_SPAWN {
         let collection = cloned.collection_mut_risky();
-        for entity in component.iter() {
-            collection.add(entity);
+        for source_entity in component.iter() {
+            collection.add(source_entity);
             // If an entity has already been cloned, a new different entity id is returned.
             // We use this to avoid cloning entities multiple times.
-            if entity == context.entity_mapper().get_mapped(entity) {
-                context.queue_entity_clone(entity);
+            if source_entity == context.entity_mapper().get_mapped(source_entity) {
+                context.queue_entity_clone(source_entity);
             }
         }
     } else if context.moving() {
-        let target = context.target();
+        let entity_target = context.target();
         let collection = cloned.collection_mut_risky();
-        for entity in component.iter() {
-            collection.add(entity);
+        for source_entity in component.iter() {
+            collection.add(source_entity);
             context.queue_deferred(move |world, _mapper| {
                 // We don't want relationships hooks to run because we are manually constructing the collection here
                 _ = DeferredWorld::from(world)
                     .modify_component_with_relationship_hook_mode::<T::Relationship, ()>(
-                        entity,
+                        source_entity,
                         RelationshipHookMode::Skip,
                         |r| {
-                            let _ = r.collection_mut_risky().add(target);
+                            let _ = r.collection_mut_risky().add(entity_target);
                         },
                     );
             });
@@ -668,7 +689,7 @@ impl RelationshipTargetCloneBehaviorHierarchy
 pub enum RelationshipAccessorInitializer {
     /// Describes a [`Relationship`] component.
     Relationship {
-        /// Function that returns an iterator over all [`Entity`]s of this [`RelationshipTarget`]'s collection.
+        /// Function that returns an iterator over all [`Entity`]s of this [`Relationship`]'s collection.
         ///
         /// Dynamic equivalent of [`RelationshipTarget::iter`].
         /// # Safety
@@ -819,7 +840,7 @@ impl From<Option<RelationshipAccessorInitializer>> for MaybeRelationshipAccessor
 pub enum RelationshipAccessor {
     /// This component is a [`Relationship`].
     Relationship {
-        /// Function that returns an iterator over all [`Entity`]s of this [`RelationshipTarget`]'s collection.
+        /// Function that returns an iterator over all [`Entity`]s of this [`Relationship`]'s collection.
         ///
         /// Dynamic equivalent of [`RelationshipTarget::iter`].
         /// # Safety

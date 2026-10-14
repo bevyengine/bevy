@@ -421,6 +421,10 @@ impl DeriveComponent {
         let fqdefault = FQDefault.into_token_stream();
 
         Ok(Some(quote! {
+            impl #impl_generics #bevy_ecs::relationship::RelationshipBase for #struct_name #type_generics #where_clause {
+                type Side = #bevy_ecs::relationship::Source;
+            }
+
             impl #impl_generics #bevy_ecs::relationship::Relationship for #struct_name #type_generics #where_clause {
                 type RelationshipTarget = #relationship_target;
                 type Collection = #collection;
@@ -485,8 +489,8 @@ impl DeriveComponent {
         let linked_spawn = relationship_target.linked_spawn;
         let fqdefault = FQDefault.into_token_stream();
         Ok(Some(quote! {
-            impl #impl_generics #bevy_ecs::relationship::IsNot<#relationship> for #struct_name #type_generics #where_clause {
-                type Key = #bevy_ecs::relationship::Pass;
+            impl #impl_generics #bevy_ecs::relationship::RelationshipBase for #struct_name #type_generics #where_clause {
+                type Side = #bevy_ecs::relationship::Target;
             }
 
             impl #impl_generics #bevy_ecs::relationship::RelationshipTarget for #struct_name #type_generics #where_clause {
