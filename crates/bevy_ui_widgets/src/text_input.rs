@@ -13,7 +13,7 @@ use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy_input::{ButtonInput, InputSystems};
 use bevy_input_focus::{
-    FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
+    FocusCause, FocusGained, FocusLost, Focusable, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_math::Vec2;
 use bevy_picking::events::{PointerDrag, PointerPress, PointerRelease, PointerState};
@@ -68,7 +68,11 @@ fn mac_host() -> bool {
 
 /// Editable text widget.
 #[derive(Component, Clone, Default, Reflect)]
-#[require(EditableText, AccessibilityNode(accesskit::Node::new(Role::TextInput)))]
+#[require(
+    EditableText,
+    AccessibilityNode(accesskit::Node::new(Role::TextInput)),
+    Focusable
+)]
 #[reflect(Component)]
 pub struct TextInput;
 

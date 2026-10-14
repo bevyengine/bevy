@@ -137,12 +137,12 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// }
 /// ```
 ///
-/// In WGSL shaders, the material's binding would look like this:
+/// In WESL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(2) var color_sampler: sampler;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -1095,6 +1095,10 @@ pub(crate) fn specialize_material_meshes(
                     continue;
                 };
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
+                    // Retry specialization once the mesh is ready.
+                    view_pending_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
@@ -1387,6 +1391,14 @@ pub fn queue_material_meshes(
                 }
                 // Alpha mask
                 RenderPhaseType::AlphaMask => {
+                    if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                        // Even though we aren't going to insert the entity into
+                        // a bin, we still want to update its cache entry. That
+                        // way, we know we don't need to re-examine it in future
+                        // frames.
+                        alpha_mask_phase.update_cache(*visible_entity, None);
+                        continue;
+                    }
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassAlphaMaskDrawFunction)

@@ -18,10 +18,14 @@ use crate::{
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 use crate::entity::UniqueEntityEquivalentSlice;
 
+#[cfg(feature = "trace")]
+use alloc::format;
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
 #[cfg(debug_assertions)]
 use core::any::TypeId;
+#[cfg(feature = "trace")]
+use bevy_utils::prelude::ShortName;
 use core::{fmt, ptr};
 use fixedbitset::FixedBitSet;
 use log::warn;
@@ -316,8 +320,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
-                query = core::any::type_name::<D>(),
-                filter = core::any::type_name::<F>(),
+                query = format!("{}", ShortName(core::any::type_name::<D>())),
+                filter = format!("{}", ShortName(core::any::type_name::<F>())),
             ),
         }
     }
@@ -359,8 +363,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
-                data = core::any::type_name::<D>(),
-                filter = core::any::type_name::<F>(),
+                query = format!("{}", ShortName(core::any::type_name::<D>())),
+                filter = format!("{}", ShortName(core::any::type_name::<F>())),
             ),
         };
         state.assert_no_conflicts_with_nested_queries(builder.world().into());
@@ -808,8 +812,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
-                query = core::any::type_name::<NewD>(),
-                filter = core::any::type_name::<NewF>(),
+                query = format!("{}", ShortName(core::any::type_name::<D>())),
+                filter = format!("{}", ShortName(core::any::type_name::<F>())),
             ),
         }
     }
@@ -956,8 +960,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
-                query = core::any::type_name::<NewD>(),
-                filter = core::any::type_name::<NewF>(),
+                query = format!("{}", ShortName(core::any::type_name::<D>())),
+                filter = format!("{}", ShortName(core::any::type_name::<F>())),
             ),
         }
     }

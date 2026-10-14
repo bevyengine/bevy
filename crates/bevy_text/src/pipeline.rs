@@ -2,7 +2,6 @@ use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_ecs::{
     component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
-    system::ResMut,
 };
 use bevy_image::prelude::*;
 use bevy_log::warn_once;
@@ -633,14 +632,4 @@ fn buffer_dimensions(buffer: &Layout<TextBrush>) -> Vec2 {
     } else {
         Vec2::ZERO
     }
-}
-
-/// Discards stale data cached in the font system.
-pub(crate) fn trim_source_cache(mut font_cx: ResMut<FontCx>) {
-    // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic text.
-    // See https://github.com/bevyengine/bevy/pull/15037
-    //
-    // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
-    // text that is dynamically measured for UI).
-    font_cx.source_cache.prune(2, false);
 }
