@@ -101,15 +101,19 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     if clouds.a < 0.999 && cloud_t > 0.0 && cloud_t < scene_t {
         let t_c = clouds.a;
         let transmittance_to_cloud = sample_transmittance_lut_segment(r, mu, cloud_t);
-        var inscattering_to_cloud: vec3<f32>;
-        if depth == 0.0 && cloud_t > settings.aerial_view_lut_max_distance {
-            // Beyond the aerial-view LUT range: assume the in-scattering is distributed along
-            // the ray like the optical depth.
-            let sky_inscattering = inscattering - sun_radiance * transmittance * view.exposure;
-            let frac = (1.0 - transmittance_to_cloud) / max(vec3(1.0) - transmittance, vec3(1e-4));
-            inscattering_to_cloud = sky_inscattering * saturate(frac);
-        } else {
-            inscattering_to_cloud = sample_aerial_view_lut(in.uv, cloud_t) * view.exposure;
+        var inscattering_to_cloud = sample_aerial_view_lut(in.uv, cloud_t) * view.exposure;
+        if depth == 0.0 {
+            // Towards and beyond the end of the aerial-view LUT range, fade to assuming the sky
+            // in-scattering is distributed along the ray like the optical depth (no hard seam).
+            let ap_max = settings.aerial_view_lut_max_distance;
+            let w = smoothstep(0.5 * ap_max, ap_max, cloud_t);
+            if w > 0.0 {
+                let sky_inscattering = inscattering - sun_radiance * transmittance * view.exposure;
+                let frac = (1.0 - transmittance_to_cloud)
+                    / max(vec3(1.0) - transmittance, vec3(1e-4));
+                inscattering_to_cloud =
+                    mix(inscattering_to_cloud, sky_inscattering * saturate(frac), w);
+            }
         }
         inscattering = inscattering * t_c + (1.0 - t_c) * inscattering_to_cloud
             + transmittance_to_cloud * clouds.rgb;
