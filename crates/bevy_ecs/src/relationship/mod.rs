@@ -274,16 +274,16 @@ pub trait Relationship: Component + Sized {
         // We need to access two entities simultaneously (one now, and another later),
         // which isn't possible via safe APIs currently.
         let world_cell = world.as_unsafe_world_cell();
-        // SAFETY: We're only accessing this entity's `Relationship` component currently,
-        // which doesn't violate any safety invariants.
-        let target_entities = unsafe { world_cell.get_entity(entity).unwrap().get::<Self>() }
-            .unwrap()
-            .get();
+        let entity_cell = world_cell.get_entity(entity).unwrap();
+        // SAFETY: We're only accessing this entity's `Relationship` component currently, while accessing
+        // `RelationshipTarget` later. Due to the `IsNot` trait, they are guaranteed to be different components.
+        // So there's no conflicting access.
+        let target_entities = unsafe { entity_cell.get::<Self>() }.unwrap().get();
         for target_entity in target_entities.iter() {
             if let Ok(target_entity_cell) = world_cell.get_entity(target_entity)
                 && let Some(mut relationship_target) =
                     // SAFETY: Because `Relationship` and `RelationshipTarget` are guaranteed to be different components,
-                    // this call can't conflict with any other hooks, avoiding violating safety invariants.
+                    // this call can't conflict with the previous access, avoiding violating safety invariants.
                     unsafe { target_entity_cell.get_mut::<Self::RelationshipTarget>() }
             {
                 relationship_target.collection_mut_risky().remove(entity);
