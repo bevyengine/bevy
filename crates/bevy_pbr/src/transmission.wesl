@@ -65,7 +65,7 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     // Dot product of the refracted direction with the exit normal (Note: We assume the exit normal is the entry normal but inverted)
     let MinusNdotT = dot(-N, T);
 
-    // Calculate 1.0 - fresnel factor (how much light is _NOT_ reflected, i.e. how much is transmitted)
+    // Fraction of light that isn't reflected, from the untinted dielectric Fresnel.
     let F = 1.0 - lighting::F_Schlick(F0, F90, MinusNdotT);
 
     // Calculate final color by applying fresnel multiplied specular transmissive color to a mix of background color and transmitted specular environment light
