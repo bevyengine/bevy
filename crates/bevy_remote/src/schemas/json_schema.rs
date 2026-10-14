@@ -40,9 +40,7 @@ impl TypeRegistrySchemaReader for TypeRegistry {
         components: &Components,
     ) -> Option<JsonSchemaBevyType> {
         let type_reg = self.get(type_id)?;
-        let mut schema: JsonSchemaBevyType = (type_reg, extra_info, components).into();
-        schema.default = default_value(type_reg, self);
-        Some(schema)
+        Some((type_reg, extra_info, components, self).into())
     }
 }
 
@@ -53,9 +51,10 @@ pub fn export_type(
     components: &Components,
     registry: &TypeRegistry,
 ) -> (Cow<'static, str>, JsonSchemaBevyType) {
-    let mut schema: JsonSchemaBevyType = (reg, metadata, components).into();
-    schema.default = default_value(reg, registry);
-    (reg.type_info().type_path().into(), schema)
+    (
+        reg.type_info().type_path().into(),
+        (reg, metadata, components, registry).into(),
+    )
 }
 
 /// Serializes the [`ReflectDefault`] value of a type, if it has one and it can be serialized.
@@ -68,9 +67,23 @@ fn default_value(reg: &TypeRegistration, registry: &TypeRegistry) -> Option<Valu
     .ok()
 }
 
-impl From<(&TypeRegistration, &SchemaTypesMetadata, &Components)> for JsonSchemaBevyType {
-    fn from(value: (&TypeRegistration, &SchemaTypesMetadata, &Components)) -> Self {
-        let (reg, metadata, components) = value;
+impl
+    From<(
+        &TypeRegistration,
+        &SchemaTypesMetadata,
+        &Components,
+        &TypeRegistry,
+    )> for JsonSchemaBevyType
+{
+    fn from(
+        value: (
+            &TypeRegistration,
+            &SchemaTypesMetadata,
+            &Components,
+            &TypeRegistry,
+        ),
+    ) -> Self {
+        let (reg, metadata, components, registry) = value;
         let t = reg.type_info();
         let binding = t.type_path_table();
 
@@ -82,6 +95,7 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata, &Components)> for JsonSchema
             type_path: type_path.to_owned(),
             crate_name: binding.crate_name().map(str::to_owned),
             module_path: binding.module_path().map(str::to_owned),
+            default: default_value(reg, registry),
             ..Default::default()
         };
         let component_info: Option<&ComponentInfo> = components
