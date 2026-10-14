@@ -2,7 +2,7 @@
 //! the way an inspector or editor would.
 
 use bevy::{
-    annotations::{DisplayName, Range, ReadOnly, Step, Tooltip, Unit},
+    annotations::{DisplayName, ReadOnly, Step, Tooltip, Unit, ValueRange},
     prelude::*,
     reflect::{TypeInfo, TypeRegistration, TypeRegistry, Typed},
 };
@@ -10,7 +10,7 @@ use bevy::{
 #[derive(Component, Reflect)]
 #[reflect(Component, @Tooltip("Movement settings for a character"))]
 struct Movement {
-    #[reflect(@Range(0.0..=20.0), @Step(0.5), @Unit("m/s"))]
+    #[reflect(@ValueRange(0.0..=20.0), @Step(0.5), @Unit("m/s"))]
     speed: f32,
     #[reflect(@DisplayName("Jump Height"), @Tooltip("Peak height of a jump"))]
     jump: f32,
@@ -52,7 +52,7 @@ fn describe<T: Typed>(registry: &TypeRegistry) {
             .map_or(field.name(), |display| display.0);
         println!("- {name}");
 
-        if let Some(range) = Range::from_attributes(field.custom_attributes()) {
+        if let Some(range) = ValueRange::from_attributes(field.custom_attributes()) {
             println!("    range: {}..={}", range.min(), range.max());
         }
         if let Some(step) = field.get_attribute::<Step>() {
