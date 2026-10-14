@@ -427,12 +427,12 @@ impl DeriveComponent {
                 const ALLOW_SELF_REFERENTIAL: bool = #allow_self_referential;
 
                 #[inline(always)]
-                fn get(&self) -> &Self::Collection {
+                fn collection(&self) -> &Self::Collection {
                     &self.#relationship_member
                 }
 
                 #[inline(always)]
-                fn get_mut_risky(&mut self) -> &mut Self::Collection {
+                fn collection_mut_risky(&mut self) -> &mut Self::Collection {
                     &mut self.#relationship_member
                 }
 

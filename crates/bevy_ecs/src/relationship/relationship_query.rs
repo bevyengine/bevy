@@ -1,7 +1,7 @@
 use crate::{
     entity::Entity,
     query::{QueryData, QueryFilter},
-    relationship::{Relationship, RelationshipTarget},
+    relationship::{Relationship, RelationshipTarget, SingleTargetRelationship},
     system::Query,
 };
 use alloc::collections::VecDeque;
@@ -40,13 +40,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For relationship graphs that contain loops, this could loop infinitely.
     /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter a duplicate entity.
-    pub fn root_ancestor<R: Relationship<Collection = Entity>>(&'w self, entity: Entity) -> Entity
+    pub fn root_ancestor<R: SingleTargetRelationship>(&'w self, entity: Entity) -> Entity
     where
         <D as QueryData>::ReadOnly: QueryData<Item<'w, 's> = &'w R>,
     {
         // Recursively search up the tree until we're out of parents
         match self.get(entity) {
-            Ok(parent) => self.root_ancestor(*parent.get()),
+            Ok(parent) => self.root_ancestor(parent.get()),
             Err(_) => entity,
         }
     }
@@ -75,7 +75,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Iterates all sibling entities that also have the `R` [`Relationship`] with the same target entity.
-    pub fn iter_siblings<R: Relationship<Collection = Entity>>(
+    pub fn iter_siblings<R: SingleTargetRelationship>(
         &'w self,
         entity: Entity,
     ) -> impl Iterator<Item = Entity> + 'w
@@ -85,7 +85,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.get(entity)
             .ok()
             .and_then(|(maybe_parent, _)| maybe_parent.map(R::get))
-            .and_then(|&parent| self.get(parent).ok())
+            .and_then(|parent| self.get(parent).ok())
             .and_then(|(_, maybe_children)| maybe_children)
             .into_iter()
             .flat_map(move |children| children.iter().filter(move |child| *child != entity))
@@ -259,7 +259,7 @@ where
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, R: Relationship<Collection = Entity>> Iterator
+impl<'w, 's, D: QueryData, F: QueryFilter, R: SingleTargetRelationship> Iterator
     for AncestorIter<'w, 's, D, F, R>
 where
     D::ReadOnly: QueryData<Item<'w, 's> = &'w R>,
@@ -267,7 +267,7 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next = self.parent_query.get(self.next?).ok().map(R::get).copied();
+        self.next = self.parent_query.get(self.next?).ok().map(R::get);
         self.next
     }
 }

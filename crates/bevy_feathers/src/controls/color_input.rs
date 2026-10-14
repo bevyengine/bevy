@@ -13,7 +13,7 @@ use bevy_ecs::{
     observer::On,
     query::{Changed, With},
     reflect::ReflectComponent,
-    relationship::Relationship,
+    relationship::SingleTargetRelationship,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -1137,7 +1137,7 @@ fn popup_despawn(
     };
 
     // The color input is gone too if the whole widget is being torn down.
-    let Ok(ColorInputValue(value)) = q_color_input.get(*parent.get()) else {
+    let Ok(ColorInputValue(value)) = q_color_input.get(parent.get()) else {
         return;
     };
 
@@ -1159,7 +1159,7 @@ fn popup_ready(
         return;
     };
 
-    let Ok((ColorInputValue(value), mut state)) = q_color_input.get_mut(*parent.get()) else {
+    let Ok((ColorInputValue(value), mut state)) = q_color_input.get_mut(parent.get()) else {
         warn!("Could not locate popup parent");
         return;
     };

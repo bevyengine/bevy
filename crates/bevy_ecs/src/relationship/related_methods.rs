@@ -94,7 +94,7 @@ impl<'w> EntityWorldMut<'w> {
                 let index = index.saturating_add(offset);
                 if world
                     .get::<R>(*related)
-                    .is_some_and(|relationship| relationship.get().contains(id))
+                    .is_some_and(|relationship| relationship.collection().contains(id))
                 {
                     world
                         .get_mut::<R::RelationshipTarget>(id)
@@ -127,7 +127,7 @@ impl<'w> EntityWorldMut<'w> {
             for related in related {
                 if world
                     .get::<R>(*related)
-                    .is_some_and(|relationship| relationship.get().contains(id))
+                    .is_some_and(|relationship| relationship.collection().contains(id))
                 {
                     world.entity_mut(*related).remove::<R>();
                 }
@@ -388,7 +388,7 @@ impl<'w> EntityWorldMut<'w> {
                         this,
                         relationship_hook_mode,
                         |r| {
-                            let _ = r.get_mut_risky().add(entity);
+                            let _ = r.collection_mut_risky().add(entity);
                         },
                     )
                     .expect("entity access must be valid")

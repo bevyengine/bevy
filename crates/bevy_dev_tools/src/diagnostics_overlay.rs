@@ -8,7 +8,7 @@ use core::time::Duration;
 use bevy_app::prelude::*;
 use bevy_color::{palettes, prelude::*};
 use bevy_diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore, FrameTimeDiagnosticsPlugin};
-use bevy_ecs::{prelude::*, relationship::Relationship};
+use bevy_ecs::{prelude::*, relationship::SingleTargetRelationship};
 use bevy_pbr::{diagnostic::MaterialAllocatorDiagnosticPlugin, StandardMaterial};
 use bevy_picking::prelude::*;
 use bevy_render::diagnostic::MeshAllocatorDiagnosticPlugin;
@@ -302,7 +302,7 @@ fn rebuild_diagnostics_list(
     for (entity, child_of) in diagnostics_overlay_contents {
         commands.entity(entity).despawn_children();
 
-        let Ok(diagnostics_overlay) = diagnostics_overlays.get(*child_of.get()) else {
+        let Ok(diagnostics_overlay) = diagnostics_overlays.get(child_of.get()) else {
             panic!("DiagnosticsOverlayContents has been tempered with. Parent was not a DiagnosticsOverlay.");
         };
 
@@ -435,7 +435,7 @@ fn drag_by_header(
     let entity = event.entity;
     if let Ok(child_of) = diagnostics_overlay_headers.get(entity) {
         event.propagate(false);
-        let Ok(mut node) = diagnostics_overlays.get_mut(*child_of.get()) else {
+        let Ok(mut node) = diagnostics_overlays.get_mut(child_of.get()) else {
             panic!("DiagnosticsOverlayHeader has been tempered with. Parent was not a DiagnosticsOverlay.");
         };
         let delta = event.delta;
@@ -468,7 +468,7 @@ fn collapse_on_click_to_header(
     if let Ok(child_of) = diagnostics_overlay_header.get(entity) {
         event.propagate(false);
 
-        let Ok(children) = diagnostics_overlays.get_mut(*child_of.get()) else {
+        let Ok(children) = diagnostics_overlays.get_mut(child_of.get()) else {
             unreachable!("DiagnosticsOverlay has been tempered with. Do not despawn its children.");
         };
         let mut lists_iter = diagnostics_overlay_contents

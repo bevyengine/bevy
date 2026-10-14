@@ -128,7 +128,7 @@ pub trait Relationship: Component + Sized {
     type Collection: RelationshipCollection;
 
     /// Gets the [`Entity`] IDs of the related entities.
-    fn get(&self) -> &Self::Collection;
+    fn collection(&self) -> &Self::Collection;
 
     /// Gets a mutable reference to the [`Entity`] IDs of the related entities.
     ///
@@ -140,7 +140,7 @@ pub trait Relationship: Component + Sized {
     /// This happens automatically when this method is called with [`EntityWorldMut::modify_component`].
     ///
     /// Prefer to use regular means of insertions when possible.
-    fn get_mut_risky(&mut self) -> &mut Self::Collection;
+    fn collection_mut_risky(&mut self) -> &mut Self::Collection;
 
     /// If `true`, a relationship is allowed to point to its own entity.
     ///
@@ -161,13 +161,13 @@ pub trait Relationship: Component + Sized {
     /// Iterates the related entities stored in this collection.
     #[inline]
     fn iter(&self) -> TargetIter<'_, Self> {
-        self.get().iter()
+        self.collection().iter()
     }
 
     /// Returns the number of related entities in this collection.
     #[inline]
     fn len(&self) -> usize {
-        self.get().len()
+        self.collection().len()
     }
 
     /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
@@ -190,7 +190,12 @@ pub trait Relationship: Component + Sized {
             }
         }
         let (entities, mut commands) = world.entities_and_commands();
-        let target_entities = entities.get(entity).unwrap().get::<Self>().unwrap().get();
+        let target_entities = entities
+            .get(entity)
+            .unwrap()
+            .get::<Self>()
+            .unwrap()
+            .collection();
 
         // For many-to-many relationships, we don't want to leave empty collections
         // on the source side.
@@ -278,7 +283,7 @@ pub trait Relationship: Component + Sized {
         // SAFETY: We're only accessing this entity's `Relationship` component currently, while accessing
         // `RelationshipTarget` later. Due to the `IsNot` trait, they are guaranteed to be different components.
         // So there's no conflicting access.
-        let target_entities = unsafe { entity_cell.get::<Self>() }.unwrap().get();
+        let target_entities = unsafe { entity_cell.get::<Self>() }.unwrap().collection();
         for target_entity in target_entities.iter() {
             if let Ok(target_entity_cell) = world_cell.get_entity(target_entity)
                 && let Some(mut relationship_target) =
@@ -308,6 +313,18 @@ pub trait Relationship: Component + Sized {
                 }
             }
         }
+    }
+}
+
+/// Subtrait of `Relationship` for relationships where the `Collection` is a single `Entity`.
+pub trait SingleTargetRelationship: Relationship<Collection = Entity> {
+    /// Gets the [`Entity`] ID for the related entity.
+    fn get(&self) -> Entity;
+}
+
+impl<R: Relationship<Collection = Entity>> SingleTargetRelationship for R {
+    fn get(&self) -> Entity {
+        *self.collection()
     }
 }
 
@@ -468,11 +485,11 @@ fn remove_target_entity<R: Relationship>(target: Entity) -> impl EntityCommand {
         let Some(relationship) = entity_mut.get::<R>() else {
             return;
         };
-        if relationship.get().contains(target) && relationship.len() == 1 {
+        if relationship.collection().contains(target) && relationship.len() == 1 {
             entity_mut.remove::<R>();
         } else {
             entity_mut.modify_component(|relationship: &mut R| {
-                relationship.get_mut_risky().remove(target);
+                relationship.collection_mut_risky().remove(target);
             });
         }
     }
@@ -511,7 +528,7 @@ pub fn clone_relationship_target<T: RelationshipTarget>(
                         entity,
                         RelationshipHookMode::Skip,
                         |r| {
-                            let _ = r.get_mut_risky().add(target);
+                            let _ = r.collection_mut_risky().add(target);
                         },
                     );
             });
@@ -977,7 +994,7 @@ mod tests {
         world.entity_mut(a).insert(Rel(a));
         assert!(world.entity(a).contains::<Rel>());
         assert!(world.entity(a).contains::<RelTarget>());
-        assert_eq!(*world.entity(a).get::<Rel>().unwrap().get(), a);
+        assert_eq!(*world.entity(a).get::<Rel>().unwrap().collection(), a);
         assert_eq!(&*world.entity(a).get::<RelTarget>().unwrap().0, &[a]);
     }
 

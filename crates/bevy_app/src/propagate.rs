@@ -13,7 +13,7 @@ use bevy_ecs::{
     lifecycle::{Insert, Remove, RemovedComponents},
     observer::On,
     query::{Changed, Has, Or, QueryFilter, With, Without},
-    relationship::{Relationship, RelationshipTarget},
+    relationship::{RelationshipTarget, SingleTargetRelationship},
     schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, Local, Query},
     template::{FromTemplate, Template},
@@ -44,13 +44,13 @@ use bevy_reflect::Reflect;
 pub struct HierarchyPropagatePlugin<
     C: Component + Clone + PartialEq,
     F: QueryFilter = (),
-    R: Relationship = ChildOf,
+    R: SingleTargetRelationship = ChildOf,
 > {
     schedule: Interned<dyn ScheduleLabel>,
     _marker: PhantomData<fn() -> (C, F, R)>,
 }
 
-impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship<Collection = Entity>>
+impl<C: Component + Clone + PartialEq, F: QueryFilter, R: SingleTargetRelationship>
     HierarchyPropagatePlugin<C, F, R>
 {
     /// Construct the plugin. The propagation systems will be placed in the specified schedule.
@@ -175,11 +175,8 @@ impl<C: Component + Clone + PartialEq> Default for PropagateSet<C> {
     }
 }
 
-impl<
-        C: Component + Clone + PartialEq,
-        F: QueryFilter + 'static,
-        R: Relationship<Collection = Entity>,
-    > Plugin for HierarchyPropagatePlugin<C, F, R>
+impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: SingleTargetRelationship> Plugin
+    for HierarchyPropagatePlugin<C, F, R>
 {
     fn build(&self, app: &mut App) {
         app.add_systems(
@@ -202,7 +199,7 @@ impl<
 pub fn update_source<
     C: Component + Clone + PartialEq,
     F: QueryFilter,
-    R: Relationship<Collection = Entity>,
+    R: SingleTargetRelationship,
 >(
     mut commands: Commands,
     changed: Query<(Entity, &Propagate<C>), (Or<(Changed<Propagate<C>>, Without<Inherited<C>>)>,)>,
@@ -225,7 +222,7 @@ pub fn update_source<
             if let Some(inherited) = relationship
                 .get(removed)
                 .ok()
-                .and_then(|r| relations.get(*r.get()).ok())
+                .and_then(|r| relations.get(r.get()).ok())
             {
                 commands.insert(inherited.clone());
             } else {
@@ -239,7 +236,7 @@ pub fn update_source<
 pub fn on_r_inserted<
     C: Component + Clone + PartialEq,
     F: QueryFilter + 'static,
-    R: Relationship<Collection = Entity>,
+    R: SingleTargetRelationship,
 >(
     event: On<Insert<R>>,
     mut commands: Commands,
@@ -249,7 +246,7 @@ pub fn on_r_inserted<
     let Ok((relation, has_inherited)) = query.get(event.entity) else {
         return;
     };
-    if let Ok(inherited) = relations.get(*relation.get()) {
+    if let Ok(inherited) = relations.get(relation.get()) {
         commands.entity(event.entity).try_insert(inherited.clone());
     } else if has_inherited {
         commands.entity(event.entity).try_remove::<Inherited<C>>();
@@ -260,7 +257,7 @@ pub fn on_r_inserted<
 pub fn on_r_removed<
     C: Component + Clone + PartialEq,
     F: QueryFilter + 'static,
-    R: Relationship<Collection = Entity>,
+    R: SingleTargetRelationship,
 >(
     event: On<Remove<R>>,
     mut commands: Commands,
@@ -275,7 +272,7 @@ pub fn on_r_removed<
 pub fn update_removed_limit<
     C: Component + Clone + PartialEq,
     F: QueryFilter,
-    R: Relationship<Collection = Entity>,
+    R: SingleTargetRelationship,
 >(
     mut inherited: Query<&mut Inherited<C>>,
     mut removed_skip: RemovedComponents<PropagateOver<C>>,
@@ -297,7 +294,7 @@ pub fn update_removed_limit<
 pub fn propagate_inherited<
     C: Component + Clone + PartialEq,
     F: QueryFilter,
-    R: Relationship<Collection = Entity>,
+    R: SingleTargetRelationship,
 >(
     mut commands: Commands,
     changed: Query<
