@@ -116,7 +116,7 @@ variadics_please = "2.0"
 tracy-client = { version = "0.19.0", optional = true }
 indexmap = { version = "2" }
 bitflags = "2"
-itertools = "0.14"
+itertools = "0.15"
 weak-table = "0.4"
 tracing = "0.1"
 static_assertions = "1"
