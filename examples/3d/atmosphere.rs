@@ -104,6 +104,7 @@ struct BenchSettings {
     screenshot: Option<String>,
     screenshot_secs: f32,
     exit_secs: Option<f32>,
+    no_clouds: bool,
     screenshot_taken: bool,
 }
 
@@ -117,6 +118,7 @@ impl BenchSettings {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(8.0),
             exit_secs: var("ATMOSPHERE_EXIT_SECS").and_then(|v| v.parse().ok()),
+            no_clouds: var("ATMOSPHERE_NO_CLOUDS").is_some(),
             screenshot_taken: false,
         }
     }
@@ -127,7 +129,13 @@ fn bench_hooks(
     time: Res<Time<Real>>,
     mut bench: ResMut<BenchSettings>,
     mut exit: MessageWriter<AppExit>,
+    cloud_layers: Query<Entity, With<CloudLayer>>,
 ) {
+    if bench.no_clouds {
+        for entity in &cloud_layers {
+            commands.entity(entity).remove::<CloudLayer>();
+        }
+    }
     let elapsed = time.elapsed_secs();
     if !bench.screenshot_taken
         && elapsed >= bench.screenshot_secs
