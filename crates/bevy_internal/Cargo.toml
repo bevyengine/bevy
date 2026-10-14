@@ -437,7 +437,6 @@ ghost_nodes = ["bevy_ui/ghost_nodes"]
 # supported platforms.
 std = [
   "bevy_a11y?/std",
-  "bevy_annotations/std",
   "bevy_app/std",
   "bevy_color?/std",
   "bevy_diagnostic/std",

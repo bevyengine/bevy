@@ -8,14 +8,6 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
-[features]
-default = ["std"]
-
-# Platform Compatibility
-
-## Allows access to the `std` crate.
-std = ["bevy_reflect/std"]
-
 [dependencies]
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-features = false }
 
