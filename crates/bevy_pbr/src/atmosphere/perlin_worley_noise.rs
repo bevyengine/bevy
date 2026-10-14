@@ -201,8 +201,13 @@ pub struct PerlinWorleyNoiseParamsBuffer {
 }
 
 /// Tracks if the 3D noise has been generated.
+/// Progressive generation stage for the 128³ shape noise.
+///
+/// `0` = generate base mip; `1..mip_level_count-1` = downsample that mip;
+/// `>= mip_level_count` = finished. Spreads the one-time stall across frames
+/// (design.md revisions / progress known issues).
 #[derive(Resource, Default)]
-pub struct PerlinWorleyNoiseGenerated(pub bool);
+pub struct PerlinWorleyNoiseGenerated(pub u32);
 
 /// Allocates GPU memory directly for the same reason as `init_fbm_noise_texture` in `fbm_noise`.
 pub fn init_perlin_worley_noise_texture(
@@ -307,7 +312,8 @@ pub fn generate_perlin_worley_noise_once(
     texture: Res<PerlinWorleyNoiseTexture>,
     mut generated: ResMut<PerlinWorleyNoiseGenerated>,
 ) {
-    if generated.0 {
+    // Stage 0 = base; 1..mip_count-1 = that mip; >= mip_count = done.
+    if generated.0 >= texture.mip_level_count {
         return;
     }
 
@@ -326,49 +332,53 @@ pub fn generate_perlin_worley_noise_once(
         label: Some("perlin_worley_noise_generation"),
     });
 
-    {
+    if generated.0 == 0 {
         let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("perlin_worley_noise_3d_pass"),
             timestamp_writes: None,
         });
-
         compute_pass.set_pipeline(compute_pipeline);
         compute_pass.set_bind_group(0, &bind_group.bind_group, &[]);
-
         let dispatch_size = get_3d_dispatch_size(texture.size);
         compute_pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, dispatch_size.z);
+        drop(compute_pass);
+        let command_buffer = encoder.finish();
+        render_queue.submit([command_buffer]);
+        generated.0 = 1;
+        return;
     }
 
-    // Box-filter mips 1..N from the previous level.
+    // One mip downsample per frame.
+    let mip = generated.0;
     let mut mip_size = texture.size;
-    for mip in 1..texture.mip_level_count {
+    for _ in 1..=mip {
         mip_size = UVec3::new(
             (mip_size.x / 2).max(1),
             (mip_size.y / 2).max(1),
             (mip_size.z / 2).max(1),
         );
-        let mip_label = format!("perlin_worley_mip_downsample_{mip}");
-        let mip_bind = render_device.create_bind_group(
-            mip_label.as_str(),
-            &mip_layout.layout,
-            &BindGroupEntries::with_indices((
-                (13, &texture.mip_views[(mip - 1) as usize]),
-                (14, &texture.mip_views[mip as usize]),
-            )),
-        );
-        {
-            let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("perlin_worley_noise_mip_downsample"),
-                timestamp_writes: None,
-            });
-            compute_pass.set_pipeline(mip_compute);
-            compute_pass.set_bind_group(0, &mip_bind, &[]);
-            let dispatch_size = get_3d_dispatch_size(mip_size);
-            compute_pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, dispatch_size.z);
-        }
+    }
+    let mip_label = format!("perlin_worley_mip_downsample_{mip}");
+    let mip_bind = render_device.create_bind_group(
+        mip_label.as_str(),
+        &mip_layout.layout,
+        &BindGroupEntries::with_indices((
+            (13, &texture.mip_views[(mip - 1) as usize]),
+            (14, &texture.mip_views[mip as usize]),
+        )),
+    );
+    {
+        let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("perlin_worley_noise_mip_downsample"),
+            timestamp_writes: None,
+        });
+        compute_pass.set_pipeline(mip_compute);
+        compute_pass.set_bind_group(0, &mip_bind, &[]);
+        let dispatch_size = get_3d_dispatch_size(mip_size);
+        compute_pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, dispatch_size.z);
     }
 
     let command_buffer = encoder.finish();
     render_queue.submit([command_buffer]);
-    generated.0 = true;
+    generated.0 = mip + 1;
 }
