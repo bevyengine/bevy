@@ -277,6 +277,11 @@ pub fn render_sky(
     )>,
     pipeline_cache: Res<PipelineCache>,
     pipelines: Res<AtmosphereLutPipelines>,
+    noise_dump: (
+        Option<Res<super::perlin_worley_noise::PerlinWorleyNoiseTexture>>,
+        Option<Res<super::detail_noise::DetailNoiseTexture>>,
+        Option<Res<super::fbm_noise::FbmNoiseTexture>>,
+    ),
     mut ctx: RenderContext,
 ) {
     let (
@@ -302,7 +307,36 @@ pub fn render_sky(
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
 
+    let dump_device = ctx.render_device().clone();
     let command_encoder = ctx.command_encoder();
+
+    // Debug readback (CLOUD_DUMP_DIR): textures as they are when this frame's sky starts, i.e.
+    // this frame's shadow map / noise and the *previous* frame's cloud trace + reconstruct.
+    if let Some(frame) = super::debug_dump::begin_frame() {
+        use bevy_math::UVec3;
+        let d = |enc: &mut _, name: &str, tex: &bevy_render::render_resource::Texture, mip: u32, size: UVec3, bpt: u32, ext: &str| {
+            super::debug_dump::dump(&dump_device, enc, frame, name, tex, mip, size, bpt, ext);
+        };
+        let s2 = |t: &bevy_render::render_resource::Texture| UVec3::new(t.width(), t.height(), 1);
+        for (name, t) in [
+            ("shadow_map", &textures.cloud_shadow_map.texture),
+            ("shadow_raw", &textures.cloud_shadow_map_tmp.texture),
+            ("clouds_trace_prev", &textures.clouds_trace.texture),
+            ("clouds_recon_prev", &textures.clouds.texture),
+        ] {
+            d(command_encoder, name, t, 0, s2(t), 8, "rgba16f");
+        }
+        let (pw, det, wx) = &noise_dump;
+        if let Some(pw) = pw {
+            d(command_encoder, "shape_noise_mip0", &pw.texture.texture, 0, pw.size, 8, "rgba16f");
+        }
+        if let Some(det) = det {
+            d(command_encoder, "detail_noise_mip0", &det.texture.texture, 0, det.size, 8, "rgba16f");
+        }
+        if let Some(wx) = wx {
+            d(command_encoder, "weather", &wx.texture.texture, 0, UVec3::new(wx.size.x, wx.size.y, 1), 8, "rgba16f");
+        }
+    }
 
     // Dedicated low-res cloud raymarch (design.md §1.2). Its output is composited by render_sky.
     if let (Some(cloud_layer_offset), Some(bind_group), Some(pipeline)) = (

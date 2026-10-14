@@ -164,7 +164,7 @@ pub fn init_fbm_noise_texture(
         dimension: TextureDimension::D2,
         // Weather map (coverage, type, density scale, spare).
         format: TextureFormat::Rgba16Float,
-        usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+        usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
         view_formats: &[],
     };
 

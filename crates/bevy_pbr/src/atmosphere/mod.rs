@@ -39,6 +39,7 @@
 
 mod environment;
 pub mod fbm_noise;
+mod debug_dump;
 mod node;
 pub mod perlin_worley_noise;
 pub mod detail_noise;

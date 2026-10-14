@@ -870,7 +870,7 @@ pub(super) fn prepare_atmosphere_textures(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
                 view_formats: &[],
             },
         );
@@ -884,7 +884,7 @@ pub(super) fn prepare_atmosphere_textures(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
                 view_formats: &[],
             },
         );
@@ -898,7 +898,7 @@ pub(super) fn prepare_atmosphere_textures(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
                 view_formats: &[],
             },
         );
@@ -912,7 +912,7 @@ pub(super) fn prepare_atmosphere_textures(
                 sample_count: 1,
                 dimension: TextureDimension::D3,
                 format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
                 view_formats: &[],
             },
         );
@@ -942,7 +942,7 @@ pub(super) fn prepare_atmosphere_textures(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
                 view_formats: &[],
             },
         );
@@ -978,7 +978,7 @@ pub(super) fn prepare_atmosphere_textures(
                     sample_count: 1,
                     dimension: TextureDimension::D2,
                     format,
-                    usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING | copy,
+                    usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC | copy,
                     view_formats: &[],
                 }
             };
