@@ -284,21 +284,6 @@ where
 /// ```
 pub struct TemplatePatch<F: FnOnce(&mut T, &mut ResolveContext), T>(pub F, pub PhantomData<T>);
 
-/// Returns a [`Scene`] that completely overwrites the current value of a [`Template`] `T` with the given `value`.
-/// The `value` is cloned each time the [`Template`] is built.
-#[deprecated(
-    since = "0.20.0",
-    note = "You can generally just remove the template_value wrapper function now. If that doesn't work, wrap it in `~{}`"
-)]
-pub fn template_value<T: Template<Output: Component> + Send + Sync + 'static>(
-    value: T,
-) -> InsertTemplate {
-    InsertTemplate {
-        type_id: TypeId::of::<T>(),
-        template: Box::new(value),
-    }
-}
-
 /// A helper function that returns a [`TemplatePatch`] [`Scene`] for something that implements [`FromTemplate`].
 /// It will use [`FromTemplate::Template`] as the "patched template".
 pub trait PatchFromTemplate {
