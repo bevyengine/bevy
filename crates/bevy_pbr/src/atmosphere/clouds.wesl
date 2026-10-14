@@ -34,36 +34,47 @@ fn safe_normalize(v: vec3<f32>) -> vec3<f32> {
     return v * inverseSqrt(l2);
 }
 
-// Sample packed cloud noise (RGBA) at a given scale.
-// - R: coverage (macro placement)
-// - G: bottom type (vertical profile shaping)
-// - B: top type (vertical profile shaping)
-// - A: detail (erosion / "up-rez")
-fn sample_cloud_noise_rgba_at_scale(world_pos: vec3<f32>, noise_scale: f32) -> vec4<f32> {
-    // Convert world position to noise texture coordinates in XZ.
-    // Apply a small rotation to break up axis-aligned stretching artifacts.
+// Sample weather map (RGBA) at a given world-space scale.
+// - R: coverage
+// - G: cloud type (0 stratus → 0.5 stratocumulus → 1 cumulus)
+// - B: density scale
+// - A: spare
+fn sample_weather(world_pos: vec3<f32>, weather_scale: f32) -> vec4<f32> {
     let rot = mat2x2<f32>(
         0.8660254, -0.5,
         0.5, 0.8660254
     ); // 30 degrees
     let xz = rot * world_pos.xz;
-    let uv = (xz + cloud_layer.noise_offset.xz) / noise_scale;
+    let uv = (xz + cloud_layer.noise_offset.xz) / max(1.0, weather_scale);
     return textureSampleLevel(noise_texture_2d, noise_sampler_3d, uv, 0.0);
 }
 
-fn sample_perlin_worley_3d(world_pos: vec3<f32>, h: f32) -> vec4<f32> {
-    // Map world XZ into texture space, and use normalized layer height as the 3rd dimension.
-    // A small rotation helps break up axis-aligned repetition.
+fn sample_shape_noise(world_pos: vec3<f32>, h: f32, mip: f32) -> vec4<f32> {
     let rot = mat2x2<f32>(
         0.8660254, -0.5,
         0.5, 0.8660254
     );
-    let xz = rot * world_pos.xz;
-    // Scale is tied to the existing noise scale for now to keep tuning surface area small.
-    let uv = (xz + cloud_layer.noise_offset.xz) / 1000.0;
-    let w = h + cloud_layer.noise_offset.y * 1e-5;
-    let uvw = vec3<f32>(uv, w);
-    return textureSampleLevel(perlin_worley_noise_3d, noise_sampler_3d, uvw, 0.0);
+    let xz = rot * (world_pos.xz + cloud_layer.noise_offset.xz);
+    // Shape tiles at noise_scale; height uses normalized layer height + slow vertical scroll.
+    let uv = xz / max(1.0, cloud_layer.noise_scale * 0.25);
+    let w = h * 0.85 + cloud_layer.noise_offset.y * 1e-5;
+    return textureSampleLevel(perlin_worley_noise_3d, noise_sampler_3d, vec3(uv, w), mip);
+}
+
+fn sample_detail_noise(world_pos: vec3<f32>, h: f32, mip: f32) -> vec4<f32> {
+    let rot = mat2x2<f32>(
+        0.8660254, -0.5,
+        0.5, 0.8660254
+    );
+    let xz = rot * (world_pos.xz + cloud_layer.noise_offset.xz * 1.7);
+    let uv = xz / max(1.0, cloud_layer.detail_noise_scale);
+    let w = h + cloud_layer.noise_offset.y * 2e-5;
+    return textureSampleLevel(detail_worley_noise_3d, noise_sampler_3d, vec3(uv, w), mip);
+}
+
+fn sample_curl(world_pos: vec3<f32>) -> vec2<f32> {
+    let uv = (world_pos.xz + cloud_layer.noise_offset.xz * 0.5) / max(1.0, cloud_layer.noise_scale * 0.5);
+    return textureSampleLevel(curl_noise_2d, noise_sampler_3d, uv, 0.0).xy;
 }
 
 /// Get cloud scattering coefficient per unit density
@@ -77,138 +88,102 @@ fn get_cloud_absorption_coeff() -> f32 {
 }
 
 // PERF/DEBUG: Hardcoded repeating sphere SDF volume (no texture fetches).
-//
-// This is intended for debugging raymarching performance and lighting/shadowing:
-// - Deterministic shape
-// - Cheap evaluation
-// - Soft boundary (stable under undersampling)
-//
-// All parameters are intentionally hardcoded in shader code.
-
-const CELL_SIZE_M: f32 = 4000.0;     // spacing between sphere centers (meters)
-const RADIUS_M: f32 = 750.0;        // sphere radius (meters)
-const SOFTNESS_M: f32 = 10.0;       // boundary softness (meters)
-
-// Debug toggle: when enabled, use a single sphere centered in the middle of the cloud layer
-// instead of a repeating cell volume. This is useful to validate coordinate systems and
-// shadow-map alignment.
+const CELL_SIZE_M: f32 = 4000.0;
+const RADIUS_M: f32 = 750.0;
+const SOFTNESS_M: f32 = 10.0;
 const CLOUD_DEBUG_SINGLE_SPHERE: bool = false;
-
-// Primary cloud shape toggle:
-// - false: use the debug sphere SDF volume (single/repeating) for lighting/debugging
-// - true : use noise-based cumulus shaping (envelope + FBM erosion)
+// Primary cloud shape toggle (debug spheres vs Nubis density). Keep a debug path (roadmap 2e).
 const CLOUD_USE_NOISE_SHAPE: bool = true;
-
-// --- Cumulus tuning knobs (shader constants for now) ---
-// Increase density and sharpen cloud borders by tightening the coverage threshold band
-// and applying a contrast curve.
-const CUMULUS_EDGE_THRESHOLD: f32 = 0.75; // higher => fewer, more isolated clouds
-const CUMULUS_EDGE_WIDTH: f32 = 0.01;     // smaller => sharper border
-const CUMULUS_EDGE_SHARPNESS: f32 = 1.0;  // >1 => steeper transition to "fully inside cloud"
+const CLOUD_DEBUG_GRADIENT_SUBSTEPS: bool = false;
 
 fn debug_sphere_center() -> vec3<f32> {
-    // Place the sphere at scene "origin" in XZ, and centered vertically in the cloud layer.
-    // Note: the atmosphere coordinate system is planet-centered; y points "up" locally.
     let center_r = 0.5 * (cloud_layer.cloud_layer_start + cloud_layer.cloud_layer_end);
     return vec3(0.0, center_r, 0.0);
 }
-
-// --- Noise-based cumulus shaping (NUBIS-like envelope method) ---
-//
-// We use:
-// - a 2D "coverage" field (noise texture) mapped over XZ
-// - an envelope profile over height (bottom/top gradients)
-// - FBM-like erosion/detail sampled from the same 2D noise with different scales/warps
-//
-// This keeps the binding footprint unchanged while producing much more cloud-like shapes
-// than the sphere debug volume.
 
 fn remap(x: f32, a: f32, b: f32, c: f32, d: f32) -> f32 {
     let t = clamp((x - a) / max(1e-6, b - a), 0.0, 1.0);
     return mix(c, d, t);
 }
 
-// --- Vertical profile method (NUBIS-style) ---
-//
-// In Nubis/UE the "top type" and "bottom type" are used to sample 2D profile lookup textures:
-// - x axis: type
-// - y axis: height in layer
-//
-// We don't have those LUT textures bound yet, so we approximate them with analytic curves that are:
-// - distinct for top vs bottom
-// - smoothly varying with type
-//
-// If/when we add real LUT textures, these become simple texture samples.
-fn cloud_bottom_profile(h: f32, bottom_type: f32) -> f32 {
-    // Bottom profile: controls how quickly density builds from the base.
-    // Type 0: thin base / slow build.
-    // Type 1: thick base / fast build.
-    let knee = mix(0.35, 0.08, bottom_type);
+// Analytic vertical profiles (stand-in for a 1×128 height LUT; design.md §1.3).
+fn cloud_bottom_profile(h: f32, cloud_type: f32) -> f32 {
+    // Type 0 (stratus): thin, low; type 1 (cumulus): thick base build-up.
+    let knee = mix(0.25, 0.08, cloud_type);
     let x = smoothstep(0.0, knee, h);
-    let exp = mix(2.4, 0.75, bottom_type);
+    let exp = mix(2.0, 0.7, cloud_type);
     return pow(x, exp);
 }
 
-fn cloud_top_profile(h: f32, top_type: f32) -> f32 {
-    // Top profile: controls how quickly density fades near the cap.
-    // Type 0: hard cap (more anvil-ish)
-    // Type 1: soft, billowy fade
+fn cloud_top_profile(h: f32, cloud_type: f32) -> f32 {
     let t = 1.0 - h;
-    let knee = mix(0.10, 0.45, top_type);
+    let knee = mix(0.12, 0.40, cloud_type);
     let x = smoothstep(0.0, knee, t);
-    let exp = mix(0.9, 3.2, top_type);
+    let exp = mix(1.1, 2.8, cloud_type);
     return pow(x, exp);
 }
 
+/// Nubis-style density (design.md §1.3):
+/// dimensional_profile = vertical_profile(type, h) · coverage
+/// density = saturate(noise_composite − (1 − profile)) · density_scale
+/// with wispy/billowy blend, detail erosion, and curl distortion.
 fn sample_cumulus_shape(r: f32, world_pos: vec3<f32>) -> f32 {
-    // Cloud layer normalized height.
     let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
     let height_in_layer = r - cloud_layer.cloud_layer_start;
     let h = clamp(height_in_layer / max(1.0, layer_thickness), 0.0, 1.0);
 
-    // NUBIS-like Vertical Profile Method
-    // We start with 2D NDF-style fields:
-    // - coverage: controls where clouds form
-    // - bottom_type/top_type: controls the vertical profile shape
-    //
-    // Then:
-    // dimensional_profile = vertical_profile * coverage
-    let macro_noise = sample_cloud_noise_rgba_at_scale(world_pos, cloud_layer.noise_scale);
-    var cov = macro_noise.r;
-    let bottom_type = macro_noise.g;
-    let top_type = macro_noise.b;
+    // Wind skew: displace XZ by height so towers lean with the wind (Nubis17).
+    // noise_offset.xz acts as wind direction × time for now (roadmap 2d).
+    let wind_xz = cloud_layer.noise_offset.xz;
+    let wind_len = length(wind_xz);
+    let skew = select(vec2(0.0), normalize(wind_xz) * (h * min(wind_len, 8000.0) * 0.15), wind_len > 1e-3);
+    var sample_pos = world_pos;
+    sample_pos.x += skew.x;
+    sample_pos.z += skew.y;
 
-    // Vertical profile (height-dependent density envelope).
-    let bottom_profile = cloud_bottom_profile(h, bottom_type);
-    let top_profile = cloud_top_profile(h, top_type);
+    // Curl distortion (stronger near cloud tops / edges).
+    let curl = sample_curl(sample_pos);
+    let curl_str = 120.0 * (0.35 + 0.65 * h);
+    sample_pos.x += curl.x * curl_str;
+    sample_pos.z += curl.y * curl_str;
+
+    let weather = sample_weather(sample_pos, cloud_layer.noise_scale);
+    var coverage = clamp(weather.r, 0.0, 1.0);
+    let cloud_type = clamp(weather.g, 0.0, 1.0);
+    let density_scale = mix(0.35, 1.0, clamp(weather.b, 0.0, 1.0));
+
+    // Vertical / dimensional profile.
+    let bottom_profile = cloud_bottom_profile(h, cloud_type);
+    let top_profile = cloud_top_profile(h, cloud_type);
     let vertical_profile = clamp(bottom_profile * top_profile, 0.0, 1.0);
-    cov -= pow(h, 6.0 * top_type);
+    // Anvil-ish top cut for high type (Nubis).
+    coverage = max(coverage - pow(h, mix(8.0, 4.0, cloud_type)) * 0.35, 0.0);
+    let dimensional_profile = clamp(vertical_profile * coverage, 0.0, 1.0);
 
-    // // Keep the existing 2D detail channel for edge modulation / small-scale erosion.
-    let micro = sample_cloud_noise_rgba_at_scale(world_pos, cloud_layer.detail_noise_scale);
-    let detail_n = micro.a;
-    let edge_mod = (detail_n - 0.5) * smoothstep(0.0, 1.0, h);
-    cov += edge_mod * 1.0;
-
-    // 3D Perlin–Worley shaping: gives true volumetric breakup and avoids the "vertical walls"
-    // you get from purely 2D coverage fields.
-    let pw = sample_perlin_worley_3d(world_pos, h);
+    // Shape noise (Perlin-Worley + Worley FBM bands).
+    let mip = 0.0; // distance-adaptive mip lands with roadmap step 3
+    let pw = sample_shape_noise(sample_pos, h, mip);
     let worley = pw.yzw;
-    // Combine Worley FBM bands (matches the reference weights).
     let wfbm = worley.x * 0.625 + worley.y * 0.125 + worley.z * 0.25;
-    var shape3 = remap(pw.x, wfbm - 1.0, 1.0, 0.0, 1.0);
-    shape3 = remap(shape3, 0.85, 1.0, 0.0, 1.0);
-    shape3 = clamp(shape3, 0.0, 1.0);
-    cov += shape3 * 0.2;
+    var shape_billowy = remap(pw.x, wfbm - 1.0, 1.0, 0.0, 1.0);
+    shape_billowy = clamp(shape_billowy, 0.0, 1.0);
+    // Wispy from low-frequency shape; billowy from powered profile (Nubis3).
+    let shape_wispy = clamp(pw.x, 0.0, 1.0);
+    let billowy_gate = pow(dimensional_profile, 0.25);
+    let shape_noise = mix(shape_wispy, shape_billowy, cloud_type) * mix(0.55, 1.0, billowy_gate);
 
-    // fake cov value for testing (xy sine wave)
-    // let cov_fake = sin(world_pos.x * 0.0003) * sin(world_pos.z * 0.0003);
-    
-    // Coverage mask with height-varying threshold modulation
-    let edge0 = CUMULUS_EDGE_THRESHOLD - CUMULUS_EDGE_WIDTH;
-    let edge1 = CUMULUS_EDGE_THRESHOLD + CUMULUS_EDGE_WIDTH;
-    let edge = pow(smoothstep(edge0, edge1, cov), CUMULUS_EDGE_SHARPNESS);
-    return edge;
+    // Erosion with detail Worley (stronger at edges / upper cloud).
+    let detail = sample_detail_noise(sample_pos, h, mip);
+    let detail_fbm = detail.r * 0.625 + detail.g * 0.25 + detail.b * 0.125;
+    let erosion_strength = cloud_layer.detail_strength * mix(0.2, 0.65, h) * (1.0 - dimensional_profile * 0.5);
+    let noise_composite = clamp(shape_noise - detail_fbm * erosion_strength, 0.0, 1.0);
+
+    // dens = saturate(noise − (1 − profile))
+    var dens = saturate(noise_composite - (1.0 - dimensional_profile));
+    dens *= density_scale;
+    // Slight near-camera sharpening proxy (constant for now; Nubis3 pow lerp).
+    dens = pow(max(dens, 0.0), mix(0.85, 0.55, dimensional_profile));
+    return clamp(dens, 0.0, 1.0);
 }
 
 /// Cloud shape / coverage term in [0, 1].
@@ -253,18 +228,18 @@ fn sample_cloud_field_density_and_grad(r: f32, world_pos: vec3<f32>) -> vec2<f32
         return vec2(0.0, 0.0);
     }
 
-    // If we are using the noise shape, approximate gradient magnitude with finite differences
-    // in XZ (cheap-ish and good enough for adaptive substepping decisions).
+    // Noise shape: skip expensive finite-diff gradient unless debug flag is on (roadmap 2e).
     if (CLOUD_USE_NOISE_SHAPE) {
         let d0 = sample_cumulus_shape(r, world_pos);
+        if (!CLOUD_DEBUG_GRADIENT_SUBSTEPS) {
+            return vec2(d0, 0.0);
+        }
         const EPS_M: f32 = 500.0;
-        // Sample along local tangent directions to avoid directional bias / skew.
         let up = safe_normalize(world_pos);
         let east = safe_normalize(vec3(-up.z, 0.0, up.x));
         let north = safe_normalize(cross(up, east));
         let dx = sample_cumulus_shape(r, world_pos + east * EPS_M);
         let dz = sample_cumulus_shape(r, world_pos + north * EPS_M);
-        // |∇density| ≈ sqrt((dd/dx)^2 + (dd/dz)^2)
         let ddx = abs(dx - d0) / EPS_M;
         let ddz = abs(dz - d0) / EPS_M;
         let grad_mag = sqrt(ddx * ddx + ddz * ddz);
