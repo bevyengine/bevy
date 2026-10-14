@@ -448,7 +448,7 @@ impl Plugin for ColorPlanePlugin {
         app.add_plugins(UiMaterialPlugin::<ColorPlaneMaterial>::default());
         app.add_systems(
             PostUpdate,
-            (update_plane_color, update_plane_thumb_position).before(UiSystems::Layout),
+            (update_plane_color, update_plane_thumb_position).in_set(UiSystems::Content),
         );
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)

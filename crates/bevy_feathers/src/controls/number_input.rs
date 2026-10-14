@@ -685,7 +685,10 @@ fn number_input_on_enter_key(
     units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
-    if key_input.input.key_code != KeyCode::Enter {
+    if !matches!(
+        key_input.input.key_code,
+        KeyCode::Enter | KeyCode::NumpadEnter
+    ) {
         return;
     }
 
