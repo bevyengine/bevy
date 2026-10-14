@@ -16,6 +16,18 @@ struct UncompressedVertex {
     @location(6) joint_indices: vec4<u32>,
     @if(SKINNED)
     @location(7) joint_weights: vec4<f32>,
+    @if(SKINNED_8)
+    @location(8) joint_indices_b: vec4<u32>,
+    @if(SKINNED_8)
+    @location(9) joint_weights_b: vec4<f32>,
+    @if(SKINNED_12 || SKINNED_16)
+    @location(10) joint_indices_c: vec4<u32>,
+    @if(SKINNED_12 || SKINNED_16)
+    @location(11) joint_weights_c: vec4<f32>,
+    @if(SKINNED_16)
+    @location(12) joint_indices_d: vec4<u32>,
+    @if(SKINNED_16)
+    @location(13) joint_weights_d: vec4<f32>,
     @if(MORPH_TARGETS)
     @builtin(vertex_index) index: u32,
 };
@@ -48,6 +60,18 @@ struct Vertex {
     @location(6) joint_indices: vec4<u32>,
     @if(SKINNED)
     @location(7) joint_weights: vec4<f32>,
+    @if(SKINNED_8)
+    @location(8) joint_indices_b: vec4<u32>,
+    @if(SKINNED_8)
+    @location(9) joint_weights_b: vec4<f32>,
+    @if(SKINNED_12 || SKINNED_16)
+    @location(10) joint_indices_c: vec4<u32>,
+    @if(SKINNED_12 || SKINNED_16)
+    @location(11) joint_weights_c: vec4<f32>,
+    @if(SKINNED_16)
+    @location(12) joint_indices_d: vec4<u32>,
+    @if(SKINNED_16)
+    @location(13) joint_weights_d: vec4<f32>,
     @if(MORPH_TARGETS)
     @builtin(vertex_index) index: u32,
 };
@@ -89,6 +113,18 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
 @if(SKINNED) {
     uncompressed_vertex.joint_indices = vertex_in.joint_indices;
     uncompressed_vertex.joint_weights = vertex_in.joint_weights;
+}
+@if(SKINNED_8) {
+    uncompressed_vertex.joint_indices_b = vertex_in.joint_indices_b;
+    uncompressed_vertex.joint_weights_b = vertex_in.joint_weights_b;
+}
+@if(SKINNED_12 || SKINNED_16) {
+    uncompressed_vertex.joint_indices_c = vertex_in.joint_indices_c;
+    uncompressed_vertex.joint_weights_c = vertex_in.joint_weights_c;
+}
+@if(SKINNED_16) {
+    uncompressed_vertex.joint_indices_d = vertex_in.joint_indices_d;
+    uncompressed_vertex.joint_weights_d = vertex_in.joint_weights_d;
 }
 @if(MORPH_TARGETS)
     uncompressed_vertex.index = vertex_in.index;

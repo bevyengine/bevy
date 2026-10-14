@@ -78,7 +78,43 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
     let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
 
-@if(SKINNED)
+@if(SKINNED_16)
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416
+    var world_from_local = skinning::skin_model_16(
+        vertex.joint_indices,
+        vertex.joint_weights,
+        vertex.joint_indices_b,
+        vertex.joint_weights_b,
+        vertex.joint_indices_c,
+        vertex.joint_weights_c,
+        vertex.joint_indices_d,
+        vertex.joint_weights_d,
+        vertex_no_morph.instance_index
+    );
+@elif(SKINNED_12)
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416
+    var world_from_local = skinning::skin_model_12(
+        vertex.joint_indices,
+        vertex.joint_weights,
+        vertex.joint_indices_b,
+        vertex.joint_weights_b,
+        vertex.joint_indices_c,
+        vertex.joint_weights_c,
+        vertex_no_morph.instance_index
+    );
+@elif(SKINNED_8)
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416
+    var world_from_local = skinning::skin_model_8(
+        vertex.joint_indices,
+        vertex.joint_weights,
+        vertex.joint_indices_b,
+        vertex.joint_weights_b,
+        vertex_no_morph.instance_index
+    );
+@elif(SKINNED)
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
     var world_from_local = skinning::skin_model(
@@ -139,7 +175,37 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     let prev_vertex = uncompressed_vertex_no_morph;
 
     // Take skinning into account.
-@if(SKINNED && HAS_PREVIOUS_SKIN)
+@if(SKINNED_16 && HAS_PREVIOUS_SKIN)
+    let prev_model = skinning::skin_prev_model_16(
+        prev_vertex.joint_indices,
+        prev_vertex.joint_weights,
+        prev_vertex.joint_indices_b,
+        prev_vertex.joint_weights_b,
+        prev_vertex.joint_indices_c,
+        prev_vertex.joint_weights_c,
+        prev_vertex.joint_indices_d,
+        prev_vertex.joint_weights_d,
+        vertex_no_morph.instance_index
+    );
+@elif(SKINNED_12 && HAS_PREVIOUS_SKIN)
+    let prev_model = skinning::skin_prev_model_12(
+        prev_vertex.joint_indices,
+        prev_vertex.joint_weights,
+        prev_vertex.joint_indices_b,
+        prev_vertex.joint_weights_b,
+        prev_vertex.joint_indices_c,
+        prev_vertex.joint_weights_c,
+        vertex_no_morph.instance_index
+    );
+@elif(SKINNED_8 && HAS_PREVIOUS_SKIN)
+    let prev_model = skinning::skin_prev_model_8(
+        prev_vertex.joint_indices,
+        prev_vertex.joint_weights,
+        prev_vertex.joint_indices_b,
+        prev_vertex.joint_weights_b,
+        vertex_no_morph.instance_index
+    );
+@elif(SKINNED && HAS_PREVIOUS_SKIN)
     let prev_model = skinning::skin_prev_model(
         prev_vertex.joint_indices,
         prev_vertex.joint_weights,
