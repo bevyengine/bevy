@@ -54,9 +54,9 @@ pub struct NoiseTextureSize {
 impl Default for NoiseTextureSize {
     fn default() -> Self {
         Self {
-            // Higher resolution reduces visible repetition in cloud coverage.
-            // This is still cheap to generate once at startup.
-            size: UVec2::new(32, 32),
+            // Procedural weather map (design.md §1.3 / §3.2): 512² RGBA.
+            // R coverage, G type, B density scale, A spare.
+            size: UVec2::new(512, 512),
         }
     }
 }
@@ -80,7 +80,7 @@ impl FromWorld for FbmNoiseBindGroupLayout {
                         // 2D noise texture storage
                         13,
                         texture_storage_2d(
-                            // Packed cloud noise (coverage + type controls + detail).
+                            // Weather map (coverage, type, density scale, spare).
                             TextureFormat::Rgba16Float,
                             StorageTextureAccess::WriteOnly,
                         ),
@@ -153,7 +153,7 @@ pub fn init_fbm_noise_texture(
     let size = NoiseTextureSize::default();
 
     let texture_descriptor = TextureDescriptor {
-        label: Some("fbm_noise_2d_texture"),
+        label: Some("cloud_weather_map_texture"),
         size: Extent3d {
             width: size.size.x,
             height: size.size.y,
@@ -162,7 +162,7 @@ pub fn init_fbm_noise_texture(
         mip_level_count: 1,
         sample_count: 1,
         dimension: TextureDimension::D2,
-        // Packed cloud noise (coverage + type controls + detail).
+        // Weather map (coverage, type, density scale, spare).
         format: TextureFormat::Rgba16Float,
         usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
         view_formats: &[],

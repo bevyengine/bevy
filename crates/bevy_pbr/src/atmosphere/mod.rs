@@ -60,7 +60,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
-use bevy_math::{Mat4, Quat, UVec2, UVec3, Vec3};
+use bevy_math::{Mat4, Quat, UVec2, UVec3, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
@@ -636,6 +636,42 @@ pub enum AtmosphereMode {
     /// Best for cinematic shots, planets seen from orbit, and scenes requiring
     /// accurate long-distance lighting.
     Raymarched = 1,
+}
+
+/// Procedural / painted weather input for volumetric clouds (design.md §3.2).
+///
+/// Both modes resolve to the same GPU weather map binding (512² RGBA:
+/// coverage, type, density scale, spare). Procedural is the default and is
+/// generated once on the GPU at startup; a `Texture` override can be wired
+/// later without changing the density sampler.
+#[derive(Clone, Component, Reflect)]
+#[reflect(Clone, Default)]
+pub struct CloudWeather {
+    /// World-space extent covered by one weather-map tile, in meters.
+    pub scale: f32,
+    /// Seed for procedural generation (reserved; current generator is fixed).
+    pub seed: u32,
+    /// Base cloud type in [0, 1] (0 stratus → 1 cumulus), blended with the map's G.
+    pub cloud_type: f32,
+    /// How much the weather-map type channel can deviate from `cloud_type`.
+    pub type_variation: f32,
+    /// UV offset applied when sampling the weather map.
+    pub offset: Vec2,
+    /// Meters/second advection of the weather UV offset (applied on the CPU later).
+    pub offset_velocity: Vec2,
+}
+
+impl Default for CloudWeather {
+    fn default() -> Self {
+        Self {
+            scale: 32_000.0,
+            seed: 0,
+            cloud_type: 0.5,
+            type_variation: 0.5,
+            offset: Vec2::ZERO,
+            offset_velocity: Vec2::ZERO,
+        }
+    }
 }
 
 /// Component that adds a volumetric cloud layer to the atmosphere.

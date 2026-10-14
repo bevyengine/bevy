@@ -31,22 +31,18 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // sampler repeat is seamless (no hard seam/wall at the edges).
     let p = uv * vec2<f32>(texture_size) * fbm_params.frequency;
 
-    // R: coverage (macro placement)
+    // Weather map channels (design.md §1.3):
+    // R coverage, G cloud type (0 stratus → 0.5 stratocumulus → 1 cumulus),
+    // B density scale, A spare (precipitation / 2nd layer later).
     let coverage = fbm_2d(p * 0.5);
-
-    // G/B: "type" controls used to shape the vertical profile (NUBIS-style top/bottom types).
-    // Use low-frequency tileable noise so types vary slowly over the world.
-    let bottom_type = clamp(value_noise_2d(p * 0.12 + vec2(37.0, 11.0)) * 0.5 + 0.5, 0.0, 1.0);
-    let top_type = clamp(value_noise_2d(p * 0.09 + vec2(5.0, 71.0)) * 0.5 + 0.5, 0.0, 1.0);
-
-    // A: detail noise (used for erosion / "up-rez").
-    // Higher frequency, but still tileable due to wrapped lattice.
-    let detail = clamp(fbm_2d(p * 4.0 + vec2(13.0, 53.0)), 0.0, 1.0);
+    let cloud_type = clamp(value_noise_2d(p * 0.10 + vec2(37.0, 11.0)) * 0.5 + 0.5, 0.0, 1.0);
+    let density_scale = clamp(fbm_2d(p * 0.35 + vec2(5.0, 71.0)), 0.0, 1.0);
+    let spare = 0.0;
 
     textureStore(
         noise_texture_out,
         vec2<i32>(gid.xy),
-        vec4(coverage, bottom_type, top_type, detail),
+        vec4(coverage, cloud_type, density_scale, spare),
     );
 }
 
