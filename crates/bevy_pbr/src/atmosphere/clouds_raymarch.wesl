@@ -1,5 +1,7 @@
 // Dedicated low-resolution volumetric cloud raymarch (design.md §1.2, roadmap step 1b).
 //
+// Traces 1 of every 2x2 half-res pixels per frame (checkerboard order from `view.frame_count`,
+// RDR2 slides 51-55); `clouds_reconstruct.wesl` fills the rest from reprojected history.
 // Runs at a fraction of the view resolution (half res by default) as its own compute pass, so the
 // cloud cost is decoupled from `render_sky` and from the atmosphere `AtmosphereMode`.
 // Outputs:
@@ -45,6 +47,11 @@ const MS_C: f32 = 0.5; // phase eccentricity attenuation per octave
 // Sky ambient scale on top of the atmosphere multiple-scattering LUT term.
 const CLOUD_AMBIENT_SCALE: f32 = 1.0;
 
+// Order in which the 4 pixels of each 2x2 half-res block are traced (shared with reconstruct).
+const CHECKER_OFFSETS: array<vec2<u32>, 4> = array(
+    vec2(0u, 0u), vec2(1u, 1u), vec2(1u, 0u), vec2(0u, 1u)
+);
+
 fn cloud_phase(cos_theta: f32, g_scale: f32) -> f32 {
     // Dual-lobe HG, same lobes as the previous in-atmosphere integration.
     return mix(hg_phase(cos_theta, 0.85 * g_scale), hg_phase(cos_theta, -0.2 * g_scale), 0.5);
@@ -52,18 +59,21 @@ fn cloud_phase(cos_theta: f32, g_scale: f32) -> f32 {
 
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
-    let size = textureDimensions(out_clouds);
-    if (any(id.xy >= size)) {
+    let trace_size = textureDimensions(out_clouds);
+    if (any(id.xy >= trace_size)) {
         return;
     }
-    let uv = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(size);
-    let full_size = vec2<f32>(textureDimensions(depth_texture));
-    let full_px = vec2<i32>(min(uv * full_size, full_size - 1.0));
+    let full_size_u = textureDimensions(depth_texture);
+    let full_size = vec2<f32>(full_size_u);
+    // Half-res pixel traced by this invocation this frame.
+    let half_size = max(full_size_u / 2u, vec2(1u));
+    let half_px = min(id.xy * 2u + CHECKER_OFFSETS[view.frame_count % 4u], half_size - 1u);
+    let uv = (vec2<f32>(half_px) + 0.5) / vec2<f32>(half_size);
 
     // Conservative scene depth over the low-res footprint: the farthest of the covered texels
     // (reverse-Z: smallest depth), so thin occluders don't punch holes into the reconstruction.
-    let ratio = max(1, i32(round(full_size.x / f32(size.x))));
-    let base_px = vec2<i32>(id.xy) * ratio;
+    let ratio = 2;
+    let base_px = vec2<i32>(half_px) * ratio;
     var depth = 1.0;
     for (var y = 0; y < ratio; y++) {
         for (var x = 0; x < ratio; x++) {
@@ -101,9 +111,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         var jitter: f32;
         if (all(stbn_dims > vec2(1u))) {
             let layer = i32(view.frame_count % u32(textureNumLayers(stbn_texture)));
-            jitter = textureLoad(stbn_texture, vec2<i32>(id.xy) % vec2<i32>(stbn_dims), layer, 0).r;
+            jitter = textureLoad(stbn_texture, vec2<i32>(half_px) % vec2<i32>(stbn_dims), layer, 0).r;
         } else {
-            jitter = interleaved_gradient_noise(vec2<f32>(id.xy), view.frame_count % 64u);
+            jitter = interleaved_gradient_noise(vec2<f32>(half_px), view.frame_count % 64u);
         }
 
         let sigma_s_unit = get_cloud_scattering_coeff();

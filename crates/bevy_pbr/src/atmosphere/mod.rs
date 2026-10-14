@@ -101,7 +101,7 @@ use crate::resources::prepare_atmosphere_buffers;
 
 use self::resources::{
     prepare_atmosphere_bind_groups, prepare_atmosphere_textures,
-    prepare_cloud_shadow_temporal_params, AtmosphereBindGroupLayouts, AtmosphereBindGroups,
+    prepare_cloud_shadow_temporal_params, prepare_clouds_temporal_params, AtmosphereBindGroupLayouts, AtmosphereBindGroups,
     AtmosphereLutPipelines, AtmosphereSampler, AtmosphereTextures, AtmosphereTransformsOffset,
     CloudNoiseSampler, CloudShadowTemporalParamsBuffer, CloudShadowTemporalState,
     RenderSkyPipelineId,
@@ -131,6 +131,7 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "cloud_shadow_filter.wesl");
         embedded_asset!(app, "cloud_shadow_temporal.wesl");
         embedded_asset!(app, "clouds_raymarch.wesl");
+        embedded_asset!(app, "clouds_reconstruct.wesl");
 
         app.add_plugins((
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
@@ -224,6 +225,9 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_cloud_shadow_temporal_params
+                        .in_set(RenderSystems::PrepareBindGroups)
+                        .before(prepare_atmosphere_bind_groups),
+                    prepare_clouds_temporal_params
                         .in_set(RenderSystems::PrepareBindGroups)
                         .before(prepare_atmosphere_bind_groups),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),

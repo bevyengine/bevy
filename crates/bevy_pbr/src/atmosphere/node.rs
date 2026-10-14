@@ -328,9 +328,44 @@ pub fn render_sky(
                 cloud_layer_offset.index(),
             ],
         );
-        let size = textures.clouds.texture.size();
+        let size = textures.clouds_trace.texture.size();
         clouds_pass.dispatch_workgroups(size.width.div_ceil(8), size.height.div_ceil(8), 1);
         pass_span.end(&mut clouds_pass);
+        drop(clouds_pass);
+
+        // Checkerboard reconstruction into the half-res buffer, then keep it as history.
+        if let (Some(reconstruct_bind_group), Some(reconstruct_pipeline)) = (
+            atmosphere_bind_groups.clouds_reconstruct.as_ref(),
+            pipeline_cache.get_compute_pipeline(pipelines.clouds_reconstruct),
+        ) {
+            let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("clouds_reconstruct"),
+                timestamp_writes: None,
+            });
+            let pass_span = diagnostics.pass_span(&mut pass, "clouds_reconstruct");
+            pass.set_pipeline(reconstruct_pipeline);
+            pass.set_bind_group(
+                0,
+                reconstruct_bind_group,
+                &[atmosphere_uniforms_offset.index(), view_uniforms_offset.offset],
+            );
+            let size = textures.clouds.texture.size();
+            pass.dispatch_workgroups(size.width.div_ceil(8), size.height.div_ceil(8), 1);
+            pass_span.end(&mut pass);
+            drop(pass);
+
+            let copy_size = textures.clouds.texture.size();
+            command_encoder.copy_texture_to_texture(
+                textures.clouds.texture.as_image_copy(),
+                textures.clouds_history.texture.as_image_copy(),
+                copy_size,
+            );
+            command_encoder.copy_texture_to_texture(
+                textures.clouds_depth.texture.as_image_copy(),
+                textures.clouds_depth_history.texture.as_image_copy(),
+                copy_size,
+            );
+        }
     }
 
     let mut render_sky_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
