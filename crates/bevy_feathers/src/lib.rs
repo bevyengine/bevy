@@ -35,6 +35,7 @@ use bevy_ui_render::{ImageNodeAssetChangedSystems, UiMaterialPlugin};
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
+    display::popover::FeathersPopoverPlugin,
     theme::{ThemeContext, ThemedText, UiTheme},
 };
 
@@ -75,9 +76,11 @@ impl Plugin for FeathersCorePlugin {
         embedded_asset!(app, "assets/shaders/alpha_pattern.wesl");
         embedded_asset!(app, "assets/shaders/color_plane.wesl");
         embedded_asset!(app, "assets/shaders/color_wheel.wesl");
+        embedded_asset!(app, "assets/shaders/popover_arrow.wesl");
 
         app.add_plugins((
             ControlsPlugin,
+            FeathersPopoverPlugin,
             CursorIconPlugin,
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
