@@ -17,13 +17,13 @@ import package::atmosphere::{
     bruneton_functions::ray_intersects_ground,
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
-        sample_transmittance_lut, sample_multiscattering_lut, sample_cloud_shadow_map,
+        sample_transmittance_lut, sample_sky_view_lut, sample_cloud_shadow_map,
         hg_phase,
     },
     clouds::{
-        cloud_layer_segment, get_cloud_medium_density, get_cloud_medium_density_coarse,
+        cloud_layer_segment, get_cloud_medium_density_coarse,
         get_cloud_medium_density_lod, cloud_mip_from_distance, get_cloud_scattering_coeff,
-        get_cloud_absorption_coeff,
+        get_cloud_absorption_coeff, cloud_density_context,
     },
 };
 
@@ -45,7 +45,7 @@ const CLOUD_MAX_DISTANCE_M: f32 = 350000.0;
 const CLOUD_MIN_TRANSMITTANCE: f32 = 0.01;
 
 // Multiple-scattering octaves (Wrenninge 2013; FB16 §5.8 eq. 19-20), with a <= b.
-const MS_OCTAVES: u32 = 2u;
+const MS_OCTAVES: u32 = 3u;
 const MS_A: f32 = 0.5; // scattering attenuation per octave
 const MS_B: f32 = 0.5; // extinction attenuation per octave
 const MS_C: f32 = 0.5; // phase eccentricity attenuation per octave
@@ -53,8 +53,12 @@ const MS_C: f32 = 0.5; // phase eccentricity attenuation per octave
 // first two samples are taken as before"; the cloud shadow map covers the long range).
 const LIGHT_TAP_COUNT: u32 = 2u;
 const LIGHT_TAP_STEP_M: f32 = 120.0;
-// Sky ambient scale on top of the atmosphere multiple-scattering LUT term.
-const CLOUD_AMBIENT_SCALE: f32 = 1.0;
+// Sky-irradiance ambient (design.md §1.5 / RDR2 slide 36): replaces the MS-LUT placeholder.
+const CLOUD_AMBIENT_SCALE: f32 = 0.35;
+const CLOUD_GROUND_ALBEDO: f32 = 0.28;
+const CLOUD_DARK_EDGE_STRENGTH: f32 = 0.75;
+// Extinction scale for the Lambert back-scatter clamp (RDR2 slide 30).
+const CLOUD_BACK_SCATTER_EXT_SCALE: f32 = 2500.0;
 
 // Order in which the 4 pixels of each 2x2 half-res block are traced (shared with reconstruct).
 const CHECKER_OFFSETS: array<vec2<u32>, 4> = array(
@@ -64,6 +68,33 @@ const CHECKER_OFFSETS: array<vec2<u32>, 4> = array(
 fn cloud_phase(cos_theta: f32, g_scale: f32) -> f32 {
     // Dual-lobe HG, same lobes as the previous in-atmosphere integration.
     return mix(hg_phase(cos_theta, 0.85 * g_scale), hg_phase(cos_theta, -0.2 * g_scale), 0.5);
+}
+
+/// Cheap sky-irradiance stand-in: average a few sky-view LUT directions (upper hemisphere)
+/// plus a Lambertian ground bounce (design.md §1.5; RDR2 slide 36 / FB16 §5.5.1).
+fn sample_sky_irradiance(r: f32) -> vec3<f32> {
+    var sum = sample_sky_view_lut(r, vec3(0.0, 1.0, 0.0));
+    let elev = 0.45;
+    let dirs = array(
+        vec3(1.0, elev, 0.0),
+        vec3(-1.0, elev, 0.0),
+        vec3(0.0, elev, 1.0),
+        vec3(0.0, elev, -1.0),
+        vec3(0.707, elev, 0.707),
+        vec3(-0.707, elev, -0.707),
+    );
+    for (var i = 0u; i < 6u; i++) {
+        sum += sample_sky_view_lut(r, normalize(dirs[i]));
+    }
+    return sum / 7.0;
+}
+
+fn cloud_ambient_term(sky_irr: vec3<f32>, h: f32, dimensional_profile: f32) -> vec3<f32> {
+    // Height blend bottom→top (FB16 §5.5.1) and Nubis3 profile ambient pow(1-profile, 0.5).
+    let ground = sky_irr * CLOUD_GROUND_ALBEDO;
+    let height_ambient = mix(ground, sky_irr, clamp(h, 0.0, 1.0));
+    let profile_term = pow(max(1.0 - dimensional_profile, 0.0), 0.5);
+    return height_ambient * profile_term * CLOUD_AMBIENT_SCALE;
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -127,6 +158,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         var depth_weight_sum = 0.0;
         var depth_sum = 0.0;
         var luminance = vec3(0.0);
+        // Sky irradiance once per ray (reduction stand-in); height/profile modulate per sample.
+        let sky_irr = sample_sky_irradiance(r);
 
         // Coarse/fine march (HZD15 / Nubis17 / design.md §1.4): large steps with weather+profile
         // only; on hit, step back and switch to fine with full noise. After N empty fine samples
@@ -179,8 +212,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let sigma_t = density * sigma_t_unit;
             let sigma_s = density * sigma_s_unit;
             let up = p / r_p;
+            let dens_ctx = cloud_density_context(r_p, p);
+            let dimensional_profile = dens_ctx.x;
+            let h_frac = dens_ctx.z;
+            let ambient = cloud_ambient_term(sky_irr, h_frac, dimensional_profile);
 
-            var scattered = vec3(0.0);
+            var direct_sum = vec3(0.0);
             for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
                 let light = &lights.directional_lights[light_i];
                 let l = (*light).direction_to_light;
@@ -193,23 +230,29 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     let pk = p + l * ((f32(k) + 0.5) * LIGHT_TAP_STEP_M);
                     light_od += get_cloud_medium_density_lod(length(pk), pk, mip + 1.0);
                 }
-                let t_cloud = sample_cloud_shadow_map(p, l, false)
-                    * exp(-light_od * sigma_t_unit * LIGHT_TAP_STEP_M);
+                let light_optical_depth = light_od * sigma_t_unit * LIGHT_TAP_STEP_M;
+                let t_cloud = sample_cloud_shadow_map(p, l, false) * exp(-light_optical_depth);
+                // Beer-Powder dark edges (HZD15 cheap fallback; design.md §1.5).
+                let powder = 1.0 - exp(-2.0 * light_optical_depth);
+                let dark_edge = mix(1.0, powder, CLOUD_DARK_EDGE_STRENGTH);
                 let cos_theta = dot(l, ray_dir);
                 var direct = 0.0;
                 var a = 1.0;
                 var b = 1.0;
                 var c = 1.0;
+                // Extinction-driven Lambert floor on the phase (RDR2 slide 30).
+                let phase_floor = (1.0 / PI) * saturate(sigma_t * CLOUD_BACK_SCATTER_EXT_SCALE);
                 for (var o = 0u; o < MS_OCTAVES; o++) {
-                    direct += a * pow(t_cloud, b) * cloud_phase(cos_theta, c);
+                    let phase = max(cloud_phase(cos_theta, c), phase_floor);
+                    direct += a * pow(t_cloud, b) * phase * dark_edge;
                     a *= MS_A;
                     b *= MS_B;
                     c *= MS_C;
                 }
-                let ambient = sample_multiscattering_lut(r_p, mu_light) * CLOUD_AMBIENT_SCALE;
-                scattered += (*light).color.rgb * (t_atm * direct + ambient);
+                direct_sum += (*light).color.rgb * t_atm * direct;
             }
-            scattered *= sigma_s;
+            // Ambient is sky irradiance (once), not the MS-LUT placeholder.
+            let scattered = (direct_sum + ambient) * sigma_s;
 
             let step_t = exp(-sigma_t * dt);
             luminance += transmittance * (scattered - scattered * step_t) / max(sigma_t, 1e-9);
