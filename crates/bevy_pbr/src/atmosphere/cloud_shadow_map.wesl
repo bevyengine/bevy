@@ -11,7 +11,7 @@
 import package::atmosphere::bindings::{atmosphere, settings, view, lights};
 import package::atmosphere::clouds::{
     cloud_layer_segment,
-    get_cloud_medium_density,
+    get_cloud_medium_density_coarse,
     get_cloud_scattering_coeff,
     get_cloud_absorption_coeff,
 };
@@ -219,7 +219,7 @@ fn main(@builtin(global_invocation_id) thread_id: vec3<u32>) {
         let t = t_start + (f32(i) + j) * dt;
         let p = ray_origin + trace_dir * t;
         let r = length(p);
-        let density = get_cloud_medium_density(r, p);
+        let density = get_cloud_medium_density_coarse(r, p);
         if (density > 0.0) {
             let extinction = density * sigma_t_per_density; // 1/m
             let od = extinction * dt;
