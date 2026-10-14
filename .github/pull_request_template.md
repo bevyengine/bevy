@@ -16,7 +16,7 @@
 
 ## Showcase
 
-> This section is optional. If this PR does not include a visual change or does not add a new feature, you can delete this section. Consider instead demonstrating your changes in a release note, docs, or a new example!
+> This section is optional. If this PR does not include a visual change or does not add a new feature, you can delete this section. Consider demonstrating your changes in a release note, docs, or a new example instead!
 
 ## AI Disclosure
 
