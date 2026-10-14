@@ -44,6 +44,10 @@ const MS_OCTAVES: u32 = 2u;
 const MS_A: f32 = 0.5; // scattering attenuation per octave
 const MS_B: f32 = 0.5; // extinction attenuation per octave
 const MS_C: f32 = 0.5; // phase eccentricity attenuation per octave
+// Short light taps toward the sun for near-surface self-shadowing detail (Nubis3 2:09:52: "the
+// first two samples are taken as before"; the cloud shadow map covers the long range).
+const LIGHT_TAP_COUNT: u32 = 2u;
+const LIGHT_TAP_STEP_M: f32 = 120.0;
 // Sky ambient scale on top of the atmosphere multiple-scattering LUT term.
 const CLOUD_AMBIENT_SCALE: f32 = 1.0;
 
@@ -142,7 +146,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 let mu_light = dot(l, up);
                 let t_atm = sample_transmittance_lut(r_p, mu_light)
                     * f32(!ray_intersects_ground(r_p, mu_light));
-                let t_cloud = sample_cloud_shadow_map(p, l, false);
+                var light_od = 0.0;
+                for (var k = 0u; k < LIGHT_TAP_COUNT; k++) {
+                    let pk = p + l * ((f32(k) + 0.5) * LIGHT_TAP_STEP_M);
+                    light_od += get_cloud_medium_density(length(pk), pk);
+                }
+                let t_cloud = sample_cloud_shadow_map(p, l, false)
+                    * exp(-light_od * sigma_t_unit * LIGHT_TAP_STEP_M);
                 let cos_theta = dot(l, ray_dir);
                 var direct = 0.0;
                 var a = 1.0;
