@@ -771,7 +771,8 @@ pub struct CloudLayer {
     /// Scattering coefficient for clouds
     pub cloud_scattering: f32,
 
-    /// Scale of the noise texture in world space
+    /// World-space size (m) of one weather-map tile. The 128³ shape noise repeats every
+    /// `noise_scale / 8` m (isotropic) and curl every `noise_scale / 8` m.
     pub noise_scale: f32,
 
     /// Accumulated noise/weather UV offset (meters). Advanced each frame by [`CloudLayer::wind`].
@@ -792,14 +793,14 @@ pub struct CloudLayer {
 impl Default for CloudLayer {
     fn default() -> Self {
         Self {
-            cloud_layer_start: 6_362_000.0, // 1km above Earth's surface
-            cloud_layer_end: 6_363_000.0,   // 5km above Earth's surface
+            cloud_layer_start: 6_361_500.0, // cloud base 1.5 km above the surface
+            cloud_layer_end: 6_364_000.0,   // tops 4 km (2.5 km thick layer)
             cloud_density: 1.0,
-            cloud_absorption: 0.00005, // Physically correct: ~0.00005 m^-1 per unit density
-            cloud_scattering: 0.0008,  // Physically correct: ~0.0008 m^-1 per unit density
-            noise_scale: 64_000.0,
+            cloud_absorption: 0.000_02, // single-scattering albedo ~0.999
+            cloud_scattering: 0.02, // ~50 m mean free path at full density (cumulus 0.02-0.1 m^-1)
+            noise_scale: 32_000.0, // weather tile; shape noise period = 1/8 (4 km)
             noise_offset: Vec3::ZERO,
-            detail_noise_scale: 16_000.0,
+            detail_noise_scale: 600.0,
             detail_strength: 1.0,
             wind: Vec3::new(15.0, 0.0, 5.0),
         }

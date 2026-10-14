@@ -57,8 +57,11 @@ fn sample_shape_noise(world_pos: vec3<f32>, h: f32, mip: f32) -> vec4<f32> {
     );
     let xz = rot * (world_pos.xz + cloud_layer.noise_offset.xz);
     // Shape tiles at noise_scale; height uses normalized layer height + slow vertical scroll.
-    let uv = xz / max(1.0, cloud_layer.noise_scale * 0.25);
-    let w = h * 0.85 + cloud_layer.noise_offset.y * 1e-5;
+    // Isotropic period in meters (Nubis: 128³ shape tile spans a few km). Using normalized
+    // layer height for w made the vertical period ≈ layer thickness while xz spanned 16 km.
+    let period = max(1.0, cloud_layer.noise_scale * 0.125);
+    let uv = xz / period;
+    let w = (h * cloud_layer_thickness_m() + cloud_layer.noise_offset.y) / period;
     return textureSampleLevel(perlin_worley_noise_3d, noise_sampler_3d, vec3(uv, w), mip);
 }
 
@@ -68,13 +71,18 @@ fn sample_detail_noise(world_pos: vec3<f32>, h: f32, mip: f32) -> vec4<f32> {
         0.5, 0.8660254
     );
     let xz = rot * (world_pos.xz + cloud_layer.noise_offset.xz * 1.7);
-    let uv = xz / max(1.0, cloud_layer.detail_noise_scale);
-    let w = h + cloud_layer.noise_offset.y * 2e-5;
+    let period = max(1.0, cloud_layer.detail_noise_scale);
+    let uv = xz / period;
+    let w = (h * cloud_layer_thickness_m() + cloud_layer.noise_offset.y * 2.0) / period;
     return textureSampleLevel(detail_worley_noise_3d, noise_sampler_3d, vec3(uv, w), mip);
 }
 
+fn cloud_layer_thickness_m() -> f32 {
+    return max(1.0, cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start);
+}
+
 fn sample_curl(world_pos: vec3<f32>) -> vec2<f32> {
-    let uv = (world_pos.xz + cloud_layer.noise_offset.xz * 0.5) / max(1.0, cloud_layer.noise_scale * 0.5);
+    let uv = (world_pos.xz + cloud_layer.noise_offset.xz * 0.5) / max(1.0, cloud_layer.noise_scale * 0.125);
     return textureSampleLevel(curl_noise_2d, noise_sampler_3d, uv, 0.0).xy;
 }
 
@@ -117,8 +125,10 @@ fn cloud_bottom_profile(h: f32, cloud_type: f32) -> f32 {
 }
 
 fn cloud_top_profile(h: f32, cloud_type: f32) -> f32 {
-    let t = 1.0 - h;
-    let knee = mix(0.12, 0.40, cloud_type);
+    // Top of the cloud: stratus ~30 % of the layer, cumulus the full layer.
+    let top_h = mix(0.3, 1.0, cloud_type);
+    let t = top_h - h;
+    let knee = mix(0.12, 0.40, cloud_type) * top_h;
     let x = smoothstep(0.0, knee, t);
     let exp = mix(1.1, 2.8, cloud_type);
     return pow(x, exp);

@@ -346,15 +346,15 @@ fn setup_camera_fog(
         // - cloud_absorption: 0.00005 m^-1 per unit density (realistic for water clouds)
         //   Single-scattering albedo ≈ 0.94 (typical water clouds have albedo 0.95-0.99)
         CloudLayer {
-            cloud_layer_start: 6_362_000.0, // 2km above Earth's surface
-            cloud_layer_end: 6_364_000.0,   // 4km above Earth's surface (7km thick layer)
+            cloud_layer_start: 6_361_500.0, // cloud base 1.5 km above the surface
+            cloud_layer_end: 6_364_000.0,   // tops 4 km (2.5 km thick layer)
             cloud_density: 1.0, // Used for enabling/disabling, actual density comes from noise (normalized [0, 1])
-            cloud_absorption: 0.00005, // Physically correct: ~0.00005 m^-1 per unit density
-            cloud_scattering: 0.0008, // Physically correct: ~0.0008 m^-1 per unit density
+            cloud_absorption: 0.000_02, // single-scattering albedo ~0.999
+            cloud_scattering: 0.02, // ~50 m mean free path at full density (cumulus 0.02-0.1 m^-1)
             // Larger scale = larger cloud features (more “big cumulus”, less “small puffs”)
-            noise_scale: 64_000.0,
+            noise_scale: 32_000.0, // weather tile; shape noise period = 1/8 (4 km)
             noise_offset: Vec3::ZERO,
-            detail_noise_scale: 16_000.0, // Smaller scale = higher-frequency breakup
+            detail_noise_scale: 600.0, // Smaller scale = higher-frequency breakup
             detail_strength: 1.0,
             wind: Vec3::new(20.0, 0.0, 8.0),
         },
