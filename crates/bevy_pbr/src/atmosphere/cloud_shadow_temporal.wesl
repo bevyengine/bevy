@@ -135,6 +135,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let traced_this_frame = all((gid.xy % vec2(interleave)) == slot);
 
     var filtered_data = curr_data;
+    // Untraced texels of a time-sliced map hold whatever was traced N² frames ago, which is the
+    // cleared (zero optical depth = fully lit) texture right after startup / a history cut. Fill
+    // them from the texel of the same N×N tile that *was* traced this frame instead.
+    if (!traced_this_frame) {
+        let size_i = vec2<i32>(size);
+        let tile_coord = min(coord - (coord % vec2<i32>(i32(interleave))) + vec2<i32>(slot), size_i - 1);
+        filtered_data = textureLoad(curr_cloud_shadow, tile_coord).rgb;
+    }
 
     if (temporal_params.history_valid != 0u && !traced_this_frame) {
         // Not traced this frame: reproject the previous filtered result (falls back to the
