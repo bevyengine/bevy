@@ -39,7 +39,8 @@ pub struct GpuInstanceGeometryIds {
     triangle_count: u32,
 }
 
-const INDEX_BUFFER_OFFSET_U16: u32 = 1 << 31;
+/// Set in `index_buffer_offset` when the indices are 16-bit.
+const INDEX_BUFFER_FLAG_U16: u32 = 1 << 31;
 
 /// A world-from-local affine transform, stored transposed as three rows.
 #[derive(Clone, Copy, Default, PartialEq, Pod, Zeroable)]
@@ -393,7 +394,7 @@ impl InstanceState {
 
         let triangle_count = (index_slice.range.len() / 3) as u32;
         let index_format_flag = match index_format {
-            IndexFormat::Uint16 => INDEX_BUFFER_OFFSET_U16,
+            IndexFormat::Uint16 => INDEX_BUFFER_FLAG_U16,
             IndexFormat::Uint32 => 0,
         };
         self.geometry_ids.grow_and_set(
