@@ -16,8 +16,8 @@
 
 ## Showcase
 
-> This section is optional. If this PR does not include a visual change or does not add a new feature, you can delete this section. Consider instead demonstrating your changes in a release notes, docs, or a new example!
+> This section is optional. If this PR does not include a visual change or does not add a new feature, you can delete this section. Consider instead demonstrating your changes in a release note, docs, or a new example!
 
 ## AI Disclosure
 
-> If you **did not** use AI, delete this section. Otherwise, please indicate whether you used AI, and if so, in what capacity. Make sure to read our [AI policy](https://bevy.org/learn/contribute/policies/ai/) **before** creating an AI-assisted PR.
+> If you **did not** use AI, delete this section. Otherwise, please indicate how AI was used in the making of this PR. Make sure to read our [AI policy](https://bevy.org/learn/contribute/policies/ai/) **before** creating an AI-assisted PR.
