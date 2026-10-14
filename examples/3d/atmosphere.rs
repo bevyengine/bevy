@@ -360,7 +360,12 @@ fn setup_camera_fog(
         Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings {
-            rendering_method: AtmosphereMode::Raymarched,
+            // Profiling override: `ATMOSPHERE_LUT_MODE=1` starts in `AtmosphereMode::LookupTexture`.
+            rendering_method: if std::env::var("ATMOSPHERE_LUT_MODE").is_ok() {
+                AtmosphereMode::LookupTexture
+            } else {
+                AtmosphereMode::Raymarched
+            },
             // Profiling override: `ATMOSPHERE_SHADOW_INTERLEAVE=1` traces the whole cloud shadow
             // map every frame instead of time-slicing it.
             cloud_shadow_map_update_interleave: std::env::var("ATMOSPHERE_SHADOW_INTERLEAVE")
