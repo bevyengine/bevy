@@ -451,13 +451,6 @@ impl SchemaJsonReference for &bevy_reflect::UnnamedField {
     }
 }
 
-impl SchemaJsonReference for &NamedField {
-    fn ref_type(self) -> Value {
-        let type_path = self.type_path();
-        json!({"type": json!({ "$ref": format!("#/$defs/{type_path}") }), "typePath": type_path})
-    }
-}
-
 /// Helper trait for building the schema of a struct property.
 trait SchemaJsonProperty {
     /// Property schema, with `index` being the field's position in its declaration.
@@ -466,9 +459,11 @@ trait SchemaJsonProperty {
 
 impl SchemaJsonProperty for &NamedField {
     fn property(self, index: usize) -> Value {
-        let mut value = self.ref_type();
-        value["fieldIndex"] = index.into();
-        value
+        let type_path = self.type_path();
+        json!({
+            "type": { "$ref": format!("#/$defs/{type_path}") },
+            "fieldIndex": index,
+        })
     }
 }
 
@@ -733,7 +728,6 @@ mod tests {
               "type": {
                 "$ref": "#/$defs/f32"
               },
-              "typePath": "f32",
               "fieldIndex": 0
             },
           },
@@ -783,13 +777,17 @@ mod tests {
         assert_eq!(schema.properties["c"]["fieldIndex"], 0);
         assert_eq!(schema.properties["a"]["fieldIndex"], 1);
         assert_eq!(schema.properties["b"]["fieldIndex"], 2);
-        assert_eq!(schema.properties["a"]["typePath"], "f32");
+        assert_eq!(
+            schema.properties["a"]["type"]["$ref"], "#/$defs/f32",
+            "Properties should reference their field type"
+        );
+        assert!(schema.properties["a"].get("typePath").is_none());
 
         let schema = export(TypeId::of::<UnorderedEnum>());
         let properties = &schema.one_of[0]["properties"];
         assert_eq!(properties["y"]["fieldIndex"], 0);
         assert_eq!(properties["x"]["fieldIndex"], 1);
-        assert_eq!(properties["x"]["typePath"], "i32");
+        assert_eq!(properties["x"]["type"]["$ref"], "#/$defs/i32");
     }
 
     /// This function exist to avoid false failures due to ordering differences between `serde_json` values.
