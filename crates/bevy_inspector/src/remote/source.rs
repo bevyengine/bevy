@@ -107,7 +107,7 @@ pub enum RemoteConnectionState {
         app_name: String,
         /// The Bevy version the remote app reports.
         bevy_version: String,
-        /// The sub-app that answered, which is empty if the remote app did not report one.
+        /// The sub-app the inspector is connected to, which is empty if the remote app did not report one.
         sub_app: String,
     },
     /// The last request failed. The connection is retried after a short delay.

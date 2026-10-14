@@ -1,4 +1,4 @@
-//! A bar choosing the source the inspector reads from, and showing the state of the connection to
+//! A bar that chooses the source the inspector reads from, and shows the state of the connection to
 //! a remote app.
 
 use alloc::{
