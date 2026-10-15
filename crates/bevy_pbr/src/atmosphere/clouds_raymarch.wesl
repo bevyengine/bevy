@@ -719,8 +719,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     let k_ms = mix(0.25, k_dist, saturate(cos_theta / 0.9));
                     var ms_att = exp(-light_sum * k_ms);
                     @if(ATM_DBG_NUBIS_OD) { ms_att = exp(-light_optical_depth * k_ms); }
-                    let ms_vol = prof * ms_att
-                        * pow(t_far, CLOUD_FAR_SHADOW_MIN_EXP);
+                    // Nubis has no separate far-shadow factor (long-distance shadows come from the
+                    // voxel summed density); ATM_DBG_NUBIS_NOFAR drops ours to test that.
+                    var ms_far = pow(t_far, CLOUD_FAR_SHADOW_MIN_EXP);
+                    @if(ATM_DBG_NUBIS_NOFAR) { ms_far = 1.0; }
+                    let ms_vol = prof * ms_att * ms_far;
                     direct = ss + ms_vol * (MS_A / (1.0 - MS_A)) * (0.25 / PI);
                 }
                 direct_sum += (*light).color.rgb * t_atm * direct;
