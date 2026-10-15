@@ -400,42 +400,43 @@ pub fn update_editable_text_layout(
                             };
 
                             for glyph in glyph_run.positioned_glyphs() {
+                                let (cache_key, glyph_pos) = GlyphCacheKey::new(
+                                    glyph.id as u16,
+                                    Vec2::new(glyph.x, glyph.y),
+                                    brush.font_smoothing,
+                                );
                                 let font_atlases =
                                     font_atlas_set.entry(font_atlas_key).or_default();
-                                let Ok(atlas_info) = get_glyph_atlas_info(
-                                    font_atlases,
-                                    GlyphCacheKey {
-                                        glyph_id: glyph.id as u16,
-                                    },
-                                )
-                                .map(Ok)
-                                .unwrap_or_else(|| {
-                                    let font_ref = FontRef::from_index(
-                                        font_data.data.as_ref(),
-                                        font_data.index as usize,
-                                    )
-                                    .unwrap();
-                                    let font_id = [font_data.data.id(), font_data.index.into()];
+                                let Ok(atlas_info) = get_glyph_atlas_info(font_atlases, cache_key)
+                                    .map(Ok)
+                                    .unwrap_or_else(|| {
+                                        let font_ref = FontRef::from_index(
+                                            font_data.data.as_ref(),
+                                            font_data.index as usize,
+                                        )
+                                        .unwrap();
+                                        let font_id = [font_data.data.id(), font_data.index.into()];
 
-                                    let mut scaler = scale_cx
-                                        .builder_with_id(font_ref, font_id)
-                                        .size(font_size)
-                                        .hint(matches!(*hinting, FontHinting::Enabled))
-                                        .normalized_coords(coords)
-                                        .build();
-                                    add_glyph_to_atlas(
-                                        font_atlases,
-                                        textures.as_mut(),
-                                        &mut scaler,
-                                        text_font.font_smoothing,
-                                        glyph.id as u16,
-                                    )
-                                }) else {
+                                        let mut scaler = scale_cx
+                                            .builder_with_id(font_ref, font_id)
+                                            .size(font_size)
+                                            .hint(matches!(*hinting, FontHinting::Enabled))
+                                            .normalized_coords(coords)
+                                            .build();
+                                        add_glyph_to_atlas(
+                                            font_atlases,
+                                            textures.as_mut(),
+                                            &mut scaler,
+                                            text_font.font_smoothing,
+                                            cache_key,
+                                        )
+                                    })
+                                else {
                                     continue;
                                 };
 
                                 info.glyphs.push(PositionedGlyph {
-                                    position: Vec2::new(glyph.x, glyph.y)
+                                    position: glyph_pos
                                         + atlas_info.rect.size() / 2.
                                         + atlas_info.offset,
                                     atlas_info,
