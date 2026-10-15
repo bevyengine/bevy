@@ -1,4 +1,4 @@
-import bevy_pbr::deferred::types::unpack_24bit_normal;
+import bevy_pbr::deferred::types::{unpack_24bit_normal, unpack_flags, DEFERRED_FLAGS_UNLIT_BIT};
 import bevy_pbr::render::rgb9e5::rgb9e5_to_vec3_;
 import bevy_render::utils::octahedral_decode;
 import bevy_render::view::{View, depth_ndc_to_view_z};
@@ -8,6 +8,7 @@ struct ResolvedGPixel {
     world_position: vec3<f32>,
     world_normal: vec3<f32>,
     material: ResolvedMaterial,
+    unlit: bool,
 }
 
 fn gpixel_resolve(gpixel: vec4<u32>, depth: f32, pixel_id: vec2<u32>, view_size: vec2<f32>, world_from_clip: mat4x4<f32>) -> ResolvedGPixel {
@@ -24,7 +25,8 @@ fn gpixel_resolve(gpixel: vec4<u32>, depth: f32, pixel_id: vec2<u32>, view_size:
     let emissive = rgb9e5_to_vec3_(gpixel.g);
     let material = ResolvedMaterial(base_color, emissive, reflectance, perceptual_roughness, roughness, metallic, false);
 
-    return ResolvedGPixel(world_position, world_normal, material);
+    let unlit = (unpack_flags(gpixel.a) & DEFERRED_FLAGS_UNLIT_BIT) != 0u;
+    return ResolvedGPixel(world_position, world_normal, material, unlit);
 }
 
 fn reconstruct_world_position(pixel_id: vec2<u32>, depth: f32, view_size: vec2<f32>, world_from_clip: mat4x4<f32>) -> vec3<f32> {
