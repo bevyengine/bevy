@@ -83,9 +83,6 @@ const LIGHT_TAP_STEP_M: f32 = 20.0;
 const LIGHT_TAP_GROWTH: f32 = 1.4;
 const LIGHT_TAP_LOD: f32 = 0.25;
 const LIGHT_LONG_TAP_M: f32 = 1500.0;
-// Sky-irradiance ambient (design.md §1.5 / RDR2 slide 36): replaces the MS-LUT placeholder.
-// Extinction scale for diffuse (ambient) light inside the cloud.
-const CLOUD_AMBIENT_EXT_SCALE: f32 = 0.05;
 const CLOUD_GROUND_ALBEDO: f32 = 0.28;
 const CLOUD_DARK_EDGE_STRENGTH: f32 = 0.5;
 // Extinction scale for the Lambert back-scatter clamp (RDR2 slide 30).
@@ -117,17 +114,12 @@ fn sample_sky_irradiance(r: f32) -> vec3<f32> {
 }
 
 /// Isotropic ambient in-scatter radiance (per unit sigma_s): the average incident radiance over
-/// the sphere, i.e. 1/2 sky hemisphere (`sky_rad`, mean sky radiance) attenuated by the cloud
-/// above + 1/2 ground hemisphere (`ground_rad`, Lambertian bounce of sun + sky) attenuated by the
-/// cloud below (FB16 §5.5.1 top/bottom ambient; RDR2 slide 36 sky + ground). Attenuation uses the
-/// in-layer distance to the top/bottom with a reduced, diffusion-like extinction (Wrenninge
-/// octave-style `b` scaling) instead of the previous 0.35 x pow(1-profile, 0.5) double darkening.
-fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t: f32, thickness: f32) -> vec3<f32> {
-    var k = sigma_t * CLOUD_AMBIENT_EXT_SCALE;
-    let vis_up = exp(-k * (1.0 - h) * thickness);
-    let vis_down = exp(-k * h * thickness);
-    // Unit gain (Nubis Cubed); the height falloff is applied by the caller.
-    return 0.5 * (sky_rad * vis_up + ground_rad * vis_down);
+/// the sphere, 1/2 sky hemisphere (`sky_rad`, mean sky radiance) + 1/2 ground hemisphere
+/// (`ground_rad`, Lambertian bounce of sun + sky) (FB16 §5.5.1 top/bottom ambient; RDR2 slide 36
+/// sky + ground). Unit gain and no in-cloud visibility term (Nubis Cubed): the caller's
+/// pow(1 - dimensional_profile, 0.5) is the only in-cloud attenuation.
+fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>) -> vec3<f32> {
+    return 0.5 * (sky_rad + ground_rad);
 }
 
 /// Cloud shadow on the ground point below a cloud sample (ground-bounce ambient). Uses the
@@ -575,7 +567,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let up = p / r_p;
             let dens_ctx = cloud_density_context(r_p, p);
             let dimensional_profile = dens_ctx.x;
-            let h_frac = dens_ctx.z;
             var ground_rad = sky_irr * CLOUD_GROUND_ALBEDO;
 
             var direct_sum = vec3(0.0);
@@ -660,8 +651,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
                 direct_sum += (*light).color.rgb * t_atm * direct;
             }
-            var ambient = cloud_ambient_term(sky_irr, ground_rad, h_frac, sigma_t,
-                cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start);
+            var ambient = cloud_ambient_term(sky_irr, ground_rad);
             // Nubis Cubed ambient scattering approximation: pow(1 - dimensional_profile, 0.5).
             ambient *= sqrt(saturate(1.0 - dimensional_profile));
             // Validation term toggles (CLOUD_TERMS=s1|sun|amb, see resources.rs).
