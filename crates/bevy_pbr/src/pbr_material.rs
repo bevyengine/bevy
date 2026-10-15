@@ -191,7 +191,8 @@ pub struct StandardMaterial {
     /// `specular_color`.
     ///
     /// It tints reflection at all angles. The light it removes is lost rather than added to the
-    /// diffuse reflection. Components are clamped to `[0.0, 1.0]`. Has no effect on metals.
+    /// diffuse reflection. Components are clamped to `[0.0, 1.0]` before they're multiplied by
+    /// [`StandardMaterial::specular_tint_texture`], which isn't clamped. Has no effect on metals.
     ///
     /// When the device can't fit a specular tint target, the deferred renderer applies only the
     /// tint's brightest component, as a scale on [`StandardMaterial::specular_weight`]. See
