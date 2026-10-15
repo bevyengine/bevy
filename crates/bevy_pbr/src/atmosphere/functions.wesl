@@ -304,6 +304,35 @@ fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, 
 /// When `use_optical_depth_only` is true (e.g. for ground illuminance), front depth is ignored
 /// and transmittance is computed from the stored optical depth only: T = exp(-optical_depth).
 @if(CLOUDS_ENABLED)
+/// Cloud transmittance toward the light for points outside the shadow-map volume (far,
+/// grazing-sun lookups). Returning 1 there lit the air under the cloud deck near the horizon
+/// (3-4x too bright at 3 deg sun). Short stratified density march along the light.
+const CLOUD_FAR_SAMPLES: u32 = 6u;
+const CLOUD_FAR_MAX_M: f32 = 80000.0;
+@if(CLOUDS_ENABLED)
+fn cloud_far_transmittance(world_pos: vec3<f32>, direction_to_light: vec3<f32>, use_optical_depth_only: bool) -> f32 {
+    var od = 0.0;
+    @if(CLOUDS_ENABLED) {
+    let seg = cloud_layer_segment(world_pos, direction_to_light);
+    if (seg.z > 0.5) {
+        let t0 = max(seg.x, 0.0);
+        let t1 = min(seg.y, t0 + CLOUD_FAR_MAX_M);
+        let dt = (t1 - t0) / f32(CLOUD_FAR_SAMPLES);
+        let sigma_t = get_cloud_scattering_coeff() + get_cloud_absorption_coeff();
+        for (var i = 0u; i < CLOUD_FAR_SAMPLES; i++) {
+            let q = world_pos + direction_to_light * (t0 + (f32(i) + 0.5) * dt);
+            od += get_cloud_medium_density(length(q), q) * sigma_t * dt;
+        }
+    }
+    }
+    od *= settings.cloud_shadow_map_strength;
+    if (use_optical_depth_only) {
+        return exp(-od);
+    }
+    return exp(-od);
+}
+
+@if(CLOUDS_ENABLED)
 fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>, use_optical_depth_only: bool) -> f32 {
 
     let extent = settings.cloud_shadow_map_extent;
@@ -327,7 +356,7 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
     let x = dot(rel, basis.x);
     let y = dot(rel, basis.y);
     if (abs(x) > extent || abs(y) > extent) {
-        return 1.0;
+        return cloud_far_transmittance(world_pos, direction_to_light, use_optical_depth_only);
     }
 
     // Depth from near plane along light direction.
@@ -335,7 +364,7 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
     let d_sample = dot(rel, trace_dir) + half_depth;
     let max_t = 2.0 * half_depth;
     if (d_sample <= 0.0 || d_sample >= max_t) {
-        return 1.0;
+        return cloud_far_transmittance(world_pos, direction_to_light, use_optical_depth_only);
     }
 
     let uv = vec2(x, y) / (2.0 * extent) + vec2(0.5);
@@ -394,9 +423,11 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         var shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
         var scattering_coeff = sample_scattering_lut(local_r, neg_LdotV);
         
+        var cloud_sun_t = 1.0;
         @if(CLOUDS_ENABLED && !ATM_DBG_NOSHADOW) {
         // Compute volumetric shadow from clouds via the cloud shadow map (stable at grazing angles).
-        shadow_factor *= sample_cloud_shadow_map(world_pos, (*light).direction_to_light, false);
+        cloud_sun_t = sample_cloud_shadow_map(world_pos, (*light).direction_to_light, false);
+        shadow_factor *= cloud_sun_t;
         }
 
         // With CLOUD_PASS (render_sky), clouds are integrated by the dedicated low-res
@@ -451,6 +482,8 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         // Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
         var multiscattering_factor = psi_ms * local_scattering;
+        @if(ATM_DBG_MS_SHADOW) { multiscattering_factor *= cloud_sun_t; }
+        @if(ATM_DBG_MS_SHADOW_HALF) { multiscattering_factor *= mix(1.0, cloud_sun_t, 0.5); }
         @if(ATM_DBG_NOMS) { multiscattering_factor = vec3(0.0); }
         @if(ATM_DBG_MSONLY) { inscattering += (*light).color.rgb * multiscattering_factor; continue; }
 

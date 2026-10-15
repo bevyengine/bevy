@@ -111,6 +111,7 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
 // energy-conserving) integral of that segment; only the cloud-shadow visibility is assumed constant
 // per segment and taken at a blue-noise jittered position. Segments follow the LUT's squared depth
 // distribution and scale with distance; the half-res reconstruct accumulates the jitter.
+const HAZE_FAR_MS_FLOOR: f32 = 0.5;
 fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: f32, r: f32, mu: f32, j: f32) -> vec3<f32> {
     let n = u32(clamp(ceil(d / 400.0), 16.0, 64.0));
     var l = vec3(0.0, 1.0, 0.0);
@@ -140,8 +141,18 @@ fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: 
         let t_to = sample_transmittance_lut_segment(r, mu, d);
         let sky = sample_sky_view_lut(r, ray_dir);
         let frac = (1.0 - t_to) / max(vec3(1.0) - t_full, vec3(1e-4));
-        // Beyond the LUT the haze is mostly outside the cloud shadow map extent: keep it unshadowed.
-        acc = mix(acc, sky * saturate(frac), w);
+        // Shadow the far haze too (the shadow-map lookup falls back to a short density march
+        // outside its volume). Unshadowed, the haze under the cloud deck glowed orange near the
+        // horizon at low sun (3-4x the reference). A floor keeps the multiple-scattered part.
+        var vis_far = 1.0;
+        if (has_light) {
+            vis_far = 0.0;
+            for (var k = 0u; k < 4u; k++) {
+                let tk = mix(0.5 * ap_max, d, (f32(k) + j) / 4.0);
+                vis_far += 0.25 * sample_cloud_shadow_map(origin + ray_dir * tk, l, false);
+            }
+        }
+        acc = mix(acc, sky * saturate(frac) * mix(HAZE_FAR_MS_FLOOR, 1.0, vis_far), w);
     }
     return acc;
 }
