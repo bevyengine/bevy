@@ -17,7 +17,7 @@ import package::atmosphere::{
     bruneton_functions::{ray_intersects_ground, sample_transmittance_lut_segment, distance_to_top_atmosphere_boundary},
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
-        sample_transmittance_lut, sample_sky_view_lut, sample_cloud_shadow_map,
+        sample_transmittance_lut, sample_sky_view_lut, sample_cloud_shadow_map, cloud_far_transmittance,
         hg_phase, sample_aerial_view_lut, sample_density_lut, sample_scattering_lut,
         ABSORPTION_DENSITY, SCATTERING_DENSITY,
     },
@@ -113,6 +113,15 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
 // per segment and taken at a blue-noise jittered position. Segments follow the LUT's squared depth
 // distribution and scale with distance; the half-res reconstruct accumulates the jitter.
 const HAZE_FAR_MS_FLOOR: f32 = 0.5;
+/// Cloud shadow on the ground point below a cloud sample (ground-bounce ambient). Uses the
+/// direct coarse march rather than the shadow map: the map's ground lookups disagreed with the
+/// out-of-volume fallback, so the map's xy boundary showed up as a hard straight edge in the
+/// cloud ambient (up:35). `ATM_DBG_GROUND_MAP` restores the old lookup for comparison.
+fn ground_cloud_shadow(p_g: vec3<f32>, l: vec3<f32>) -> f32 {
+    @if(ATM_DBG_GROUND_MAP) { return sample_cloud_shadow_map(p_g, l, false); }
+    return cloud_far_transmittance(p_g, l, false);
+}
+
 fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: f32, r: f32, mu: f32, j: f32) -> vec3<f32> {
     let n = u32(clamp(ceil(d / 400.0), 16.0, 64.0));
     var l = vec3(0.0, 1.0, 0.0);
@@ -601,7 +610,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     let p_g = up * r_g;
                     let mu_g = dot(l, up);
                     let e_sun = (*light).color.rgb * sample_transmittance_lut(r_g, mu_g) * max(mu_g, 0.0)
-                        * sample_cloud_shadow_map(p_g, l, false);
+                        * ground_cloud_shadow(p_g, l);
                     ground_rad = CLOUD_GROUND_ALBEDO * (e_sun / PI + sky_irr);
                 }
                 var direct = 0.0;
