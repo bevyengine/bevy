@@ -18,4 +18,4 @@ Rust API:
 linear, transmission, atmosphere, area-light LUT, DFG LUT samplers) are gone, replaced by
 `linear_sampler` at binding 22; `shadow_textures_comparison_sampler` (binding 3) is now shared by
 point and directional shadows; and every binding after the removed ones shifted down (e.g.
-tonemapping LUT `18`/`19` → `15`/`16`). 
+tonemapping LUT `18`/`19` → `15`/`16`).
