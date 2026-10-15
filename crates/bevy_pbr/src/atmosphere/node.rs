@@ -32,8 +32,10 @@ pub fn atmosphere_luts(
         &ViewUniformOffset,
         &ViewLightsUniformOffset,
         Option<&DynamicUniformIndex<CloudLayer>>,
+        &super::ExtractedAtmosphere,
     )>,
     pipelines: Res<AtmosphereLutPipelines>,
+    mut lut_cache: bevy_ecs::system::Local<(u64, u32)>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
@@ -47,6 +49,7 @@ pub fn atmosphere_luts(
         view_uniforms_offset,
         lights_uniforms_offset,
         cloud_layer_uniforms_offset,
+        extracted_atmosphere,
     ) = view.into_inner();
 
     let (
@@ -98,33 +101,76 @@ pub fn atmosphere_luts(
         });
         let pass_span = diagnostics.pass_span(&mut luts_pass, "atmosphere_luts");
 
-        // Transmittance LUT
-        luts_pass.set_pipeline(transmittance_lut_pipeline);
-        luts_pass.set_bind_group(
-            0,
-            &bind_groups.transmittance_lut,
-            &[
-                atmosphere_uniforms_offset.index(),
-                settings_uniforms_offset.index(),
-            ],
-        );
-        dispatch_2d(&mut luts_pass, settings.transmittance_lut_size);
+        // Transmittance + multiscattering LUTs depend only on the atmosphere/medium and LUT
+        // settings, not on the view or sun: rebuild them only when those inputs (or the LUT
+        // textures) change. A periodic refresh bounds staleness for in-place medium edits.
+        let lut_key = {
+            use core::hash::{Hash, Hasher};
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            let a = extracted_atmosphere;
+            for f in [
+                a.inner_radius,
+                a.outer_radius,
+                a.ground_albedo.x,
+                a.ground_albedo.y,
+                a.ground_albedo.z,
+            ] {
+                f.to_bits().hash(&mut h);
+            }
+            a.medium.hash(&mut h);
+            (
+                settings.transmittance_lut_size,
+                settings.multiscattering_lut_size,
+            )
+                .hash(&mut h);
+            (
+                settings.transmittance_lut_samples,
+                settings.multiscattering_lut_dirs,
+                settings.multiscattering_lut_samples,
+            )
+                .hash(&mut h);
+            textures.transmittance_lut.texture.id().hash(&mut h);
+            textures.multiscattering_lut.texture.id().hash(&mut h);
+            h.finish()
+        };
+        let lut_static_dirty = lut_cache.0 != lut_key
+            || lut_cache.1 >= 240
+            || std::env::var_os("ATMOSPHERE_LUT_ALWAYS").is_some();
+        if lut_static_dirty {
+            *lut_cache = (lut_key, 0);
+        } else {
+            lut_cache.1 += 1;
+        }
 
-        // Multiscattering LUT
-        luts_pass.set_pipeline(multiscattering_lut_pipeline);
-        luts_pass.set_bind_group(
-            0,
-            &bind_groups.multiscattering_lut,
-            &[
-                atmosphere_uniforms_offset.index(),
-                settings_uniforms_offset.index(),
-            ],
-        );
-        luts_pass.dispatch_workgroups(
-            settings.multiscattering_lut_size.x,
-            settings.multiscattering_lut_size.y,
-            1,
-        );
+        if lut_static_dirty {
+            // Transmittance LUT
+            luts_pass.set_pipeline(transmittance_lut_pipeline);
+            luts_pass.set_bind_group(
+                0,
+                &bind_groups.transmittance_lut,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                ],
+            );
+            dispatch_2d(&mut luts_pass, settings.transmittance_lut_size);
+
+            // Multiscattering LUT
+            luts_pass.set_pipeline(multiscattering_lut_pipeline);
+            luts_pass.set_bind_group(
+                0,
+                &bind_groups.multiscattering_lut,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                ],
+            );
+            luts_pass.dispatch_workgroups(
+                settings.multiscattering_lut_size.x,
+                settings.multiscattering_lut_size.y,
+                1,
+            );
+        }
 
         // Sky View LUT
         luts_pass.set_pipeline(sky_view_lut_pipeline);
@@ -244,7 +290,10 @@ pub fn atmosphere_luts(
         ) {
             let mut temporal_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("cloud_shadow_temporal"),
-                timestamp_writes: super::gpu_timing::compute(&timing_device, "cloud_shadow_temporal"),
+                timestamp_writes: super::gpu_timing::compute(
+                    &timing_device,
+                    "cloud_shadow_temporal",
+                ),
             });
             temporal_pass.set_pipeline(temporal_pipeline);
             temporal_pass.set_bind_group(0, temporal_bg, &[]);
@@ -317,7 +366,13 @@ pub fn render_sky(
     let dump_frame = super::debug_dump::begin_frame();
     if let Some(frame) = dump_frame {
         use bevy_math::UVec3;
-        let d = |enc: &mut _, name: &str, tex: &bevy_render::render_resource::Texture, mip: u32, size: UVec3, bpt: u32, ext: &str| {
+        let d = |enc: &mut _,
+                 name: &str,
+                 tex: &bevy_render::render_resource::Texture,
+                 mip: u32,
+                 size: UVec3,
+                 bpt: u32,
+                 ext: &str| {
             super::debug_dump::dump(&dump_device, enc, frame, name, tex, mip, size, bpt, ext);
         };
         let s2 = |t: &bevy_render::render_resource::Texture| UVec3::new(t.width(), t.height(), 1);
@@ -331,13 +386,37 @@ pub fn render_sky(
         }
         let (pw, det, wx) = &noise_dump;
         if let Some(pw) = pw {
-            d(command_encoder, "shape_noise_mip0", &pw.texture.texture, 0, pw.size, 8, "rgba16f");
+            d(
+                command_encoder,
+                "shape_noise_mip0",
+                &pw.texture.texture,
+                0,
+                pw.size,
+                8,
+                "rgba16f",
+            );
         }
         if let Some(det) = det {
-            d(command_encoder, "detail_noise_mip0", &det.texture.texture, 0, det.size, 8, "rgba16f");
+            d(
+                command_encoder,
+                "detail_noise_mip0",
+                &det.texture.texture,
+                0,
+                det.size,
+                8,
+                "rgba16f",
+            );
         }
         if let Some(wx) = wx {
-            d(command_encoder, "weather", &wx.texture.texture, 0, UVec3::new(wx.size.x, wx.size.y, 1), 8, "rgba16f");
+            d(
+                command_encoder,
+                "weather",
+                &wx.texture.texture,
+                0,
+                UVec3::new(wx.size.x, wx.size.y, 1),
+                8,
+                "rgba16f",
+            );
         }
     }
 
@@ -384,7 +463,10 @@ pub fn render_sky(
             pass.set_bind_group(
                 0,
                 reconstruct_bind_group,
-                &[atmosphere_uniforms_offset.index(), view_uniforms_offset.offset],
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    view_uniforms_offset.offset,
+                ],
             );
             let size = textures.clouds.texture.size();
             pass.dispatch_workgroups(size.width.div_ceil(8), size.height.div_ceil(8), 1);
@@ -456,8 +538,17 @@ pub fn render_sky(
     // Debug readback of the final linear (pre-TAA, pre-tonemap) scene color.
     if let Some(frame) = dump_frame {
         let t = view_target.main_texture();
-        super::debug_dump::dump(&dump_device, command_encoder, frame, "scene_hdr", t, 0,
-            bevy_math::UVec3::new(t.width(), t.height(), 1), 8, "rgba16f");
+        super::debug_dump::dump(
+            &dump_device,
+            command_encoder,
+            frame,
+            "scene_hdr",
+            t,
+            0,
+            bevy_math::UVec3::new(t.width(), t.height(), 1),
+            8,
+            "rgba16f",
+        );
     }
     super::gpu_timing::end_frame(&timing_device, command_encoder);
 }
