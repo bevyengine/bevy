@@ -53,8 +53,12 @@ const MS_B: f32 = 0.5; // extinction attenuation per octave (0.3 lit cloud bases
 const MS_C: f32 = 0.2; // phase eccentricity attenuation per octave (higher octaves ~isotropic)
 // Short light taps toward the sun for near-surface self-shadowing detail (Nubis3 2:09:52: "the
 // first two samples are taken as before"; the cloud shadow map covers the long range).
-const LIGHT_TAP_COUNT: u32 = 6u;
-const LIGHT_TAP_STEP_M: f32 = 20.0; // 20,40,...,640 m → 1.26 km
+// 12 taps growing x1.4 from 20 m (~2.8 km) with a gentler LOD ramp: the old 6 doubling taps
+// (1.26 km) under-estimated sun optical depth (single scatter +25-40% vs CLOUD_REFERENCE).
+const LIGHT_TAP_COUNT: u32 = 12u;
+const LIGHT_TAP_STEP_M: f32 = 20.0;
+const LIGHT_TAP_GROWTH: f32 = 1.4;
+const LIGHT_TAP_LOD: f32 = 0.25;
 const LIGHT_LONG_TAP_M: f32 = 1500.0;
 // Sky-irradiance ambient (design.md §1.5 / RDR2 slide 36): replaces the MS-LUT placeholder.
 // Extinction scale for diffuse (ambient) light inside the cloud.
@@ -62,7 +66,7 @@ const CLOUD_AMBIENT_EXT_SCALE: f32 = 0.05;
 // Ambient (sky + ground) in-scatter gain, calibrated against CLOUD_REFERENCE (sun:3/hero:35/up:35):
 // the single isotropic ambient bounce misses sky light multiply scattered inside the cloud; at 1.0
 // thick clouds were ~25-40% short in blue (too red at low sun).
-const CLOUD_AMBIENT_SCALE: f32 = 2.0;
+const CLOUD_AMBIENT_SCALE: f32 = 2.2; // 2.0 before the longer light march (pairs with its lower single scatter)
 const CLOUD_GROUND_ALBEDO: f32 = 0.28;
 const CLOUD_DARK_EDGE_STRENGTH: f32 = 0.5;
 // Extinction scale for the Lambert back-scatter clamp (RDR2 slide 30).
@@ -110,9 +114,10 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
     let k = sigma_t * CLOUD_AMBIENT_EXT_SCALE;
     let vis_up = exp(-k * (1.0 - h) * thickness);
     let vis_down = exp(-k * h * thickness);
-    var g_scale = CLOUD_AMBIENT_SCALE;
+    var a_scale = CLOUD_AMBIENT_SCALE;
+    var g_scale = a_scale;
     @if(ATM_DBG_AMB_GROUND1) { g_scale = 1.0; }
-    return 0.5 * (CLOUD_AMBIENT_SCALE * sky_rad * vis_up + g_scale * ground_rad * vis_down);
+    return 0.5 * (a_scale * sky_rad * vis_up + g_scale * ground_rad * vis_down);
 }
 
 // Aerial perspective between the camera and the cloud (at the transmittance-weighted depth d),
@@ -622,11 +627,15 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 var light_od = 0.0;
                 var tap_t = 0.0;
                 var tap_dt = LIGHT_TAP_STEP_M;
-                for (var k = 0u; k < LIGHT_TAP_COUNT; k++) {
+                var n_taps = LIGHT_TAP_COUNT;
+                var tap_growth = LIGHT_TAP_GROWTH;
+                var tap_lod = LIGHT_TAP_LOD;
+                @if(ATM_DBG_LT_OLD) { n_taps = 6u; tap_growth = 2.0; tap_lod = 0.5; }
+                for (var k = 0u; k < n_taps; k++) {
                     let pk = p + l * (tap_t + 0.5 * tap_dt);
-                    light_od += get_cloud_medium_density_lod(length(pk), pk, mip + 0.5 * f32(k)) * tap_dt;
+                    light_od += get_cloud_medium_density_lod(length(pk), pk, mip + tap_lod * f32(k)) * tap_dt;
                     tap_t += tap_dt;
-                    tap_dt *= 2.0;
+                    tap_dt *= tap_growth;
                 }
                 let p_far = p + l * (tap_t + LIGHT_LONG_TAP_M * 0.5);
                 light_od += get_cloud_medium_density_lod(length(p_far), p_far, mip + 3.0) * LIGHT_LONG_TAP_M;
@@ -667,6 +676,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 @if(ATM_DBG_OCT_PROFILE) { oct_w = saturate(dimensional_profile); }
                 @if(ATM_DBG_OCT_PROFILE_SQRT) { oct_w = sqrt(saturate(dimensional_profile)); }
                 var ms_a = MS_A;
+                @if(ATM_DBG_MSA7) { ms_a = 0.72; }
                 @if(ATM_DBG_MSA5) { ms_a = 0.5; }
                 var n_oct = MS_OCTAVES;
                 @if(CLOUD_TERM_S1) { n_oct = 1u; }
