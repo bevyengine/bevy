@@ -18,7 +18,7 @@ import package::atmosphere::{
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
         sample_transmittance_lut, sample_multiscattering_lut, sample_sky_view_lut, direction_world_to_atmosphere, sample_cloud_shadow_map, cloud_far_transmittance,
-        hg_phase, sample_aerial_view_lut, sample_density_lut, sample_scattering_lut,
+        hg_phase, sample_aerial_view_lut, raymarch_atmosphere, sample_density_lut, sample_scattering_lut,
         ABSORPTION_DENSITY, SCATTERING_DENSITY,
     },
     clouds::{
@@ -144,19 +144,16 @@ fn ground_cloud_shadow(p_g: vec3<f32>, l: vec3<f32>) -> f32 {
 // the SkyAtmosphere): low-frequency and temporally stable. The former per-pixel shadow-map march
 // along the ray was noisy at the horizon and blue-shifted it (purple line).
 fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: f32, r: f32, mu: f32, j: f32) -> vec3<f32> {
-    var acc = sample_aerial_view_lut(uv, d);
-    // Towards and beyond the end of the aerial-view LUT range, fade to the sky-view in-scattering
-    // distributed along the ray like the optical depth.
+    // Composited by the caller as L = T_ap * L_cloud + (1 - T_cloud) * L_ap (Hillaire 2020 §5.2):
+    // the cloud is never replaced by sky colour. Inside the froxel range L_ap comes from the AP
+    // LUT; beyond it the AP LUT would clamp at its far slice (under-hazing far clouds), so the
+    // segment is integrated with the same atmosphere raymarch the sky uses (cloud-shadowed via
+    // sample_local_inscattering), as UE5 does past the AP volume depth.
     let ap_max = settings.aerial_view_lut_max_distance;
-    let w = smoothstep(0.5 * ap_max, ap_max, d);
-    if (w > 0.0) {
-        let t_full = sample_transmittance_lut(r, mu);
-        let t_to = sample_transmittance_lut_segment(r, mu, d);
-        let sky = sample_sky_view_lut(r, direction_world_to_atmosphere(ray_dir));
-        let frac = (1.0 - t_to) / max(vec3(1.0) - t_full, vec3(1e-4));
-        acc = mix(acc, sky * saturate(frac), w);
+    if (d <= ap_max) {
+        return sample_aerial_view_lut(uv, d);
     }
-    return acc;
+    return raymarch_atmosphere(origin, ray_dir, d, settings.sky_max_samples, uv, false).inscattering;
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -751,7 +751,6 @@ impl FromWorld for AtmosphereLutPipelines {
         let lut_cloud_defs = || -> Vec<bevy_shader::ShaderDefVal> {
             vec![
                 "CLOUDS_ENABLED".into(),
-                "CLOUD_SHADOW_SIMPLE_SAMPLING".into(),
                 "CLOUD_PASS".into(),
                 "ATMOSPHERE_LUT_CLOUD_SHADOW".into(),
             ]

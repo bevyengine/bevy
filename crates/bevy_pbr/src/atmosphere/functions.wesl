@@ -408,7 +408,11 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
     // Samples are offset by ±0.25 texels so the 2x2 footprint covers the sampling area.
     let size = vec2<f32>(settings.cloud_shadow_map_size);
     let texel = vec2(1.0 / max(size.x, 1.0), 1.0 / max(size.y, 1.0));
-    let o = 0.25 * texel;
+    // LUT passes (AP froxels, sky-view) sample the map sparsely along each ray, so they use a
+    // wider 2x2 bilinear footprint (= 4x4-texel tent), UE5-style cloud shadow-map spatial filtering;
+    // otherwise the map's texel grid aliases into a checker in the far haze.
+    var o = 0.25 * texel;
+    @if(ATMOSPHERE_LUT_CLOUD_SHADOW) { o = 1.0 * texel; }
 
     let d00 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(-o.x, -o.y), 0.0).rgb;
     let d10 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(o.x, -o.y), 0.0).rgb;
