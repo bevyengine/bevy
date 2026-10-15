@@ -508,6 +508,15 @@ fn setup_camera_fog(
             // Sunset undersides: steeply up toward the sun azimuth (cloud bases over the camera).
             Ok("under") => Transform::from_xyz(-2.8, 0.045, 0.0)
                 .looking_at(Vec3::new(-2.2, 1.6, 0.0), Vec3::Y),
+            // Inside the cloud slab (2.6 km; world units are metres) looking along it: near-field / step-budget clipping.
+            Ok("inslab") => Transform::from_xyz(-2.8, 2600.0, 0.0)
+                .looking_at(Vec3::new(5000.0, 2700.0, 0.0), Vec3::Y),
+            // Grazing toward the horizon from the ground: far-distance precision / convergence.
+            Ok("horizon") => Transform::from_xyz(-2.8, 0.045, 0.0)
+                .looking_at(Vec3::new(5.0, 0.12, 0.0), Vec3::Y),
+            // Down at the ground from 1 km: cloud shadow map stability.
+            Ok("ground") => Transform::from_xyz(-2.8, 1000.0, 0.0)
+                .looking_at(Vec3::new(0.0, 0.0, 1500.0), Vec3::Y),
             Ok("wide") => Transform::from_xyz(-2.8, 0.045, 0.0)
                 .looking_at(Vec3::new(-2.8, 0.25, -3.0), Vec3::Y),
             _ => Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
