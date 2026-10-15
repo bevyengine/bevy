@@ -23,7 +23,7 @@ import package::atmosphere::{
     clouds::{
         cloud_layer_segment, get_cloud_medium_density_coarse,
         get_cloud_medium_density_lod, cloud_mip_from_distance, get_cloud_scattering_coeff,
-        get_cloud_absorption_coeff, cloud_density_context,
+        get_cloud_absorption_coeff, cloud_density_context, cloud_layer,
     },
 };
 
@@ -55,7 +55,8 @@ const LIGHT_TAP_COUNT: u32 = 6u;
 const LIGHT_TAP_STEP_M: f32 = 20.0; // 20,40,...,640 m → 1.26 km
 const LIGHT_LONG_TAP_M: f32 = 1500.0;
 // Sky-irradiance ambient (design.md §1.5 / RDR2 slide 36): replaces the MS-LUT placeholder.
-const CLOUD_AMBIENT_SCALE: f32 = 0.35;
+// Extinction scale for diffuse (ambient) light inside the cloud.
+const CLOUD_AMBIENT_EXT_SCALE: f32 = 0.1;
 const CLOUD_GROUND_ALBEDO: f32 = 0.28;
 const CLOUD_DARK_EDGE_STRENGTH: f32 = 0.75;
 // Extinction scale for the Lambert back-scatter clamp (RDR2 slide 30).
@@ -90,12 +91,17 @@ fn sample_sky_irradiance(r: f32) -> vec3<f32> {
     return sum / 7.0;
 }
 
-fn cloud_ambient_term(sky_irr: vec3<f32>, h: f32, dimensional_profile: f32) -> vec3<f32> {
-    // Height blend bottom→top (FB16 §5.5.1) and Nubis3 profile ambient pow(1-profile, 0.5).
-    let ground = sky_irr * CLOUD_GROUND_ALBEDO;
-    let height_ambient = mix(ground, sky_irr, clamp(h, 0.0, 1.0));
-    let profile_term = pow(max(1.0 - dimensional_profile, 0.0), 0.5);
-    return height_ambient * profile_term * CLOUD_AMBIENT_SCALE;
+/// Isotropic ambient in-scatter radiance (per unit sigma_s): the average incident radiance over
+/// the sphere, i.e. 1/2 sky hemisphere (`sky_rad`, mean sky radiance) attenuated by the cloud
+/// above + 1/2 ground hemisphere (`ground_rad`, Lambertian bounce of sun + sky) attenuated by the
+/// cloud below (FB16 §5.5.1 top/bottom ambient; RDR2 slide 36 sky + ground). Attenuation uses the
+/// in-layer distance to the top/bottom with a reduced, diffusion-like extinction (Wrenninge
+/// octave-style `b` scaling) instead of the previous 0.35 x pow(1-profile, 0.5) double darkening.
+fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t: f32, thickness: f32) -> vec3<f32> {
+    let k = sigma_t * CLOUD_AMBIENT_EXT_SCALE;
+    let vis_up = exp(-k * (1.0 - h) * thickness);
+    let vis_down = exp(-k * h * thickness);
+    return 0.5 * (sky_rad * vis_up + ground_rad * vis_down);
 }
 
 // Aerial perspective between the camera and the cloud (at the transmittance-weighted depth d),
@@ -257,7 +263,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let dens_ctx = cloud_density_context(r_p, p);
             let dimensional_profile = dens_ctx.x;
             let h_frac = dens_ctx.z;
-            let ambient = cloud_ambient_term(sky_irr, h_frac, dimensional_profile);
+            var ground_rad = sky_irr * CLOUD_GROUND_ALBEDO;
 
             var direct_sum = vec3(0.0);
             for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
@@ -285,26 +291,42 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 let light_optical_depth = light_od * sigma_t_unit;
                 let p_beyond = p + l * (tap_t + LIGHT_LONG_TAP_M);
                 let t_cloud = sample_cloud_shadow_map(p_beyond, l, false) * exp(-light_optical_depth);
-                // Beer-Powder dark edges (HZD15 cheap fallback; design.md §1.5).
-                let powder = 1.0 - exp(-2.0 * light_optical_depth);
-                let dark_edge = mix(1.0, powder, CLOUD_DARK_EDGE_STRENGTH);
                 let cos_theta = dot(l, ray_dir);
+                // Beer-Powder (HZD15): dark edges only when looking away from the sun, and only on
+                // the single-scatter octave (it models missing in-scatter near the surface, so it
+                // must not also kill the multi-scatter octaves or sun-facing edges).
+                let powder = 1.0 - exp(-2.0 * light_optical_depth);
+                let away = saturate(0.5 - 0.5 * cos_theta);
+                let dark_edge = mix(1.0, powder, CLOUD_DARK_EDGE_STRENGTH * away);
+                // Sunlit ground below this sample (Lambert, albedo): sun irradiance through the
+                // atmosphere and the cloud shadow map at the ground point.
+                if (light_i == 0u) {
+                    let r_g = atmosphere.inner_radius;
+                    let p_g = up * r_g;
+                    let mu_g = dot(l, up);
+                    let e_sun = (*light).color.rgb * sample_transmittance_lut(r_g, mu_g) * max(mu_g, 0.0)
+                        * sample_cloud_shadow_map(p_g, l, false);
+                    ground_rad = CLOUD_GROUND_ALBEDO * (e_sun / PI + sky_irr);
+                }
                 var direct = 0.0;
                 var a = 1.0;
                 var b = 1.0;
                 var c = 1.0;
                 // Extinction-driven Lambert floor on the phase (RDR2 slide 30).
-                let phase_floor = (1.0 / PI) * saturate(sigma_t * CLOUD_BACK_SCATTER_EXT_SCALE);
+                // Isotropic (1/4pi) floor: the old 1/pi floor saturated at the current extinction
+                // and over-counted back-scatter 4x.
+                let phase_floor = (0.25 / PI) * saturate(sigma_t * CLOUD_BACK_SCATTER_EXT_SCALE);
                 for (var o = 0u; o < MS_OCTAVES; o++) {
                     let phase = max(cloud_phase(cos_theta, c), phase_floor);
-                    direct += a * pow(t_cloud, b) * phase * dark_edge;
+                    direct += a * pow(t_cloud, b) * phase * select(1.0, dark_edge, o == 0u);
                     a *= MS_A;
                     b *= MS_B;
                     c *= MS_C;
                 }
                 direct_sum += (*light).color.rgb * t_atm * direct;
             }
-            // Ambient is sky irradiance (once), not the MS-LUT placeholder.
+            let ambient = cloud_ambient_term(sky_irr, ground_rad, h_frac, sigma_t,
+                cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start);
             let scattered = (direct_sum + ambient) * sigma_s;
 
             let step_t = exp(-sigma_t * dt);
