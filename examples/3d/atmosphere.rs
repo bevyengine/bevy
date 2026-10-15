@@ -95,7 +95,8 @@ fn main() {
     }
     // `ATMOSPHERE_FREEZE=1`: pause virtual time (sun motion, wind/noise offsets, animations) so
     // realtime and reference renders see identical clouds.
-    if std::env::var("ATMOSPHERE_FREEZE").is_ok() {
+    // Cloud motion is paused by default for now; `ATMOSPHERE_ANIMATE=1` re-enables it.
+    if std::env::var("ATMOSPHERE_FREEZE").is_ok() || std::env::var("ATMOSPHERE_ANIMATE").is_err() {
         app.add_systems(Startup, |mut time: ResMut<Time<Virtual>>| time.pause());
     }
     if bench.screenshot.is_some() || bench.exit_secs.is_some() {
