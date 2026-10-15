@@ -338,6 +338,14 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("AREA_LIGHT_LUTS".into());
         }
 
+        if self
+            .mesh_pipeline
+            .view_layouts
+            .has_deferred_specular_tint(key.into())
+        {
+            shader_defs.push("DEFERRED_SPECULAR_TINT".into());
+        }
+
         let layout = self.mesh_pipeline.get_view_layout(key.into());
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),

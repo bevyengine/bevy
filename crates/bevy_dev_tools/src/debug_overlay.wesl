@@ -6,6 +6,7 @@ import bevy_pbr::render::mesh_view_bindings::deferred_prepass_texture;
 import bevy_pbr::render::view_transformations::depth_ndc_to_view_z;
 import bevy_pbr::deferred::types::unpack_24bit_normal;
 import bevy_pbr::deferred::types::unpack_unorm4x8_;
+import bevy_pbr::deferred::types::decode_fresnel_ratio;
 import bevy_pbr::deferred::types::unpack_unorm3x4_plus_unorm_20_;
 import bevy_pbr::render::rgb9e5::rgb9e5_to_vec3_;
 import bevy_render::utils::octahedral_decode;
@@ -107,8 +108,10 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
         let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
         let base_rough = unpack_unorm4x8_(deferred.x);
         let props = unpack_unorm4x8_(deferred.z);
-        // R: Reflectance, G: Metallic, B: Occlusion, A: Perceptual Roughness
-        output_color = vec4(props.r, props.g, props.b, base_rough.a);
+        let fresnel_ratio = decode_fresnel_ratio(props.r);
+        // R: Dielectric reflectance at normal incidence, G: Metallic, B: Occlusion,
+        // A: Perceptual Roughness
+        output_color = vec4(fresnel_ratio * fresnel_ratio, props.g, props.b, base_rough.a);
     }
     @else {
         output_color = vec4(1.0, 0.0, 1.0, 1.0);

@@ -3,10 +3,12 @@ use bevy_gltf::{
     gltf, GltfAssetLabel, GltfMaterial,
 };
 
-use crate::{MeshMaterial3d, StandardMaterial};
+use crate::{base_layer_relative_ior, MeshMaterial3d, StandardMaterial, CLEARCOAT_IOR};
 use bevy_app::App;
 use bevy_asset::Handle;
+use bevy_color::{Color, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
+use bevy_math::{ops::FloatPow, Vec3};
 
 use bevy_asset::LoadContext;
 
@@ -30,7 +32,33 @@ pub(crate) fn add_gltf(app: &mut App) {
 }
 
 /// Converts a [`GltfMaterial`] to a [`StandardMaterial`]
+///
+/// glTF's specular and IOR parameters are converted to the OpenPBR model that
+/// [`StandardMaterial`] uses, so that the reflectance at normal incidence matches glTF's, except
+/// under a textured clearcoat or where a specular color texture meets a saturated reflectance.
+///
+/// Reflection at grazing angles differs from glTF's: the specular color tints it, and it drops
+/// below an IOR of about 1.42. glTF's specular texture scales the weight, so where the texture is
+/// below 1, refraction differs too.
 pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMaterial {
+    // A clearcoat texture varies the clearcoat per texel, so a single IOR can't match glTF's
+    // reflectance everywhere. Leaving the IOR alone keeps the uncoated texels correct.
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    let clearcoat_textured = material.clearcoat_texture.is_some();
+    #[cfg(not(feature = "pbr_multi_layer_material_textures"))]
+    let clearcoat_textured = false;
+    let base_clearcoat = if clearcoat_textured {
+        0.0
+    } else {
+        material.clearcoat
+    };
+    let ior = ior_under_clearcoat_from_gltf(material.ior, base_clearcoat);
+    let (specular_weight, specular_tint) = specular_from_gltf(
+        material.specular,
+        material.specular_tint,
+        f0(material.ior),
+        f0(base_layer_relative_ior(ior, base_clearcoat)),
+    );
     StandardMaterial {
         base_color: material.base_color,
         base_color_channel: material.base_color_channel.clone(),
@@ -42,8 +70,8 @@ pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> Standard
         metallic: material.metallic,
         metallic_roughness_channel: material.metallic_roughness_channel.clone(),
         metallic_roughness_texture: material.metallic_roughness_texture.clone(),
-        reflectance: material.reflectance,
-        specular_tint: material.specular_tint,
+        specular_weight,
+        specular_tint,
         specular_transmission: material.specular_transmission,
         #[cfg(feature = "pbr_transmission_textures")]
         specular_transmission_channel: material.specular_transmission_channel.clone(),
@@ -54,7 +82,7 @@ pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> Standard
         thickness_channel: material.thickness_channel.clone(),
         #[cfg(feature = "pbr_transmission_textures")]
         thickness_texture: material.thickness_texture.clone(),
-        ior: material.ior,
+        ior,
         attenuation_distance: material.attenuation_distance,
         attenuation_color: material.attenuation_color,
         normal_map_channel: material.normal_map_channel.clone(),
@@ -96,6 +124,67 @@ pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> Standard
         uv_transform: material.uv_transform,
         ..Default::default()
     }
+}
+
+/// Returns the specular weight and tint for `KHR_materials_specular`'s `specularFactor` and
+/// `specularColorFactor`.
+///
+/// `gltf_f0` is glTF's reflectance at normal incidence from the IOR, and `base_f0` is the
+/// reflectance that the converted material has before the weight.
+///
+/// glTF's factor and color scale reflection without changing refraction, so they go into the tint,
+/// which does the same. Brightening that the tint can't express goes into the weight, which also
+/// changes refraction. Unlike glTF, the light the tint removes isn't added to diffuse reflection or
+/// transmission.
+fn specular_from_gltf(
+    specular_factor: f32,
+    specular_color: Color,
+    gltf_f0: f32,
+    base_f0: f32,
+) -> (f32, Color) {
+    // glTF clamps each channel before applying the factor.
+    let target = (gltf_f0 * LinearRgba::from(specular_color).to_vec3()).min(Vec3::ONE);
+    // `base_f0` is 0 only when `gltf_f0` is, so the guard only avoids dividing 0 by 0.
+    let base_f0 = base_f0.max(f32::MIN_POSITIVE);
+    let weight = (target.max_element() / base_f0).max(1.0);
+    let tint = specular_factor * target / (weight * base_f0);
+    (weight, LinearRgba::from_vec3(tint).into())
+}
+
+/// Returns the reflectance at normal incidence of a dielectric with the given relative IOR.
+fn f0(ior: f32) -> f32 {
+    ((ior - 1.0) / (ior + 1.0)).squared()
+}
+
+/// Returns the IOR that gives a base layer under a clearcoat of strength `clearcoat` the
+/// reflectance at normal incidence that `ior` gives it in glTF.
+///
+/// `KHR_materials_clearcoat` leaves the base layer's IOR relative to air, but
+/// [`StandardMaterial::ior`] is relative to the clearcoat. When no IOR gives the same
+/// reflectance, this returns the closest one. Refraction also uses the returned IOR.
+fn ior_under_clearcoat_from_gltf(ior: f32, clearcoat: f32) -> f32 {
+    // glTF only allows an IOR below 1 when it is 0, which reflects all light under any clearcoat.
+    if clearcoat <= 0.0 || ior < 1.0 {
+        return ior;
+    }
+    let c = clearcoat.min(1.0);
+
+    // At or above the clearcoat's IOR, the relative IOR is `x * lerp(1, 1 / CLEARCOAT_IOR, c)`.
+    let above = ior / (1.0 - c + c / CLEARCOAT_IOR);
+    if above >= CLEARCOAT_IOR {
+        return above;
+    }
+
+    // Below it, the relative IOR is `(1 - c) * x + c * CLEARCOAT_IOR / x`, with `c` below 1. Take
+    // the root closest to `CLEARCOAT_IOR`, or the minimum when there's no root. The shader treats
+    // IORs below 1 as their reciprocals, so the result is at least 1.
+    let discriminant = ior * ior - 4.0 * (1.0 - c) * c * CLEARCOAT_IOR;
+    let x = if discriminant >= 0.0 {
+        (ior + discriminant.sqrt()) / (2.0 * (1.0 - c))
+    } else {
+        (c * CLEARCOAT_IOR / (1.0 - c)).sqrt()
+    };
+    x.clamp(1.0, CLEARCOAT_IOR)
 }
 
 #[derive(Default, Clone)]
@@ -150,5 +239,71 @@ impl GltfExtensionHandler for GltfExtensionHandlerPbr {
         let handle = load_context.get_label_handle::<StandardMaterial>(std_label);
 
         entity.insert(MeshMaterial3d(handle));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn standard_material_from_gltf_material_keeps_f0() {
+        let colors = [
+            Vec3::ONE,
+            Vec3::ZERO,
+            Vec3::new(1.0, 1.0, 0.0),
+            Vec3::new(0.5, 0.25, 0.1),
+            Vec3::new(2.0, 1.0, 0.5),
+            Vec3::splat(25.0),
+            Vec3::new(50.0, 10.0, 1.0),
+            Vec3::splat(100.0),
+        ];
+        for clearcoat in [0.0, 0.1, 0.5, 1.0] {
+            for ior in [1.0, 1.05, 1.33, 1.5, 2.42] {
+                for specular in [0.0, 0.25, 1.0] {
+                    for color in colors {
+                        let material = standard_material_from_gltf_material(&GltfMaterial {
+                            ior,
+                            clearcoat,
+                            specular,
+                            specular_tint: LinearRgba::from_vec3(color).into(),
+                            ..Default::default()
+                        });
+                        let base_f0 = f0(base_layer_relative_ior(material.ior, clearcoat));
+                        let tint = LinearRgba::from(material.specular_tint).to_vec3();
+                        let expected = (f0(ior) * color).min(Vec3::ONE) * specular;
+                        let actual = (material.specular_weight * base_f0).min(1.0) * tint;
+                        assert!(
+                            tint.cmple(Vec3::ONE + 1e-5).all() && actual.abs_diff_eq(expected, 1e-5),
+                            "ior {ior}, clearcoat {clearcoat}, specular {specular}, color {color}: \
+                            tint {tint}, F0 {actual}, expected {expected}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn ior_under_clearcoat_from_gltf_keeps_f0() {
+        assert_eq!(ior_under_clearcoat_from_gltf(1.5, 0.0), 1.5);
+        assert_eq!(ior_under_clearcoat_from_gltf(0.0, 1.0), 0.0);
+
+        for clearcoat in [0.01, 0.1, 0.25, 0.5, 0.75, 1.0] {
+            for ior in [1.0, 1.1, 1.33, 1.5, 2.0, 2.42] {
+                let converted = ior_under_clearcoat_from_gltf(ior, clearcoat);
+                let expected = f0(ior);
+                let actual = f0(base_layer_relative_ior(converted, clearcoat));
+                // Some combinations have no exact match. They give the closest reflectance.
+                let closest = (0..=3000)
+                    .map(|i| f0(base_layer_relative_ior(i as f32 * 0.001, clearcoat)))
+                    .map(|f| (f - expected).abs())
+                    .fold(f32::INFINITY, f32::min);
+                assert!(
+                    (actual - expected).abs() <= closest + 1e-4,
+                    "ior {ior}, clearcoat {clearcoat}: F0 {actual}, expected {expected}"
+                );
+            }
+        }
     }
 }
