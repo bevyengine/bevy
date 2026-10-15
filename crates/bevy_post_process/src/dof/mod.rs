@@ -92,8 +92,12 @@ pub struct DepthOfField {
     /// Focal length is derived from the FOV and this value. The default is
     /// 18.66mm, matching the [Super 35] format, which is popular in cinema.
     ///
-    /// For an orthographic camera, blur is proportional to `sensor_height /
-    /// aperture_f_stops`.
+    /// An orthographic camera can be thought of as a perspective camera with an infinite focal length,
+    /// pulled back to infinity while its FOV shrinks so that its view height at the focal plane stays
+    /// equal to the orthographic view height.
+    /// Blurring an orthographic camera works in this way works the same as a perspective camera:
+    /// `sensor_height` and `aperture_f_stops` are applied in the same fashion.
+    /// If the view height is at or below `sensor_height`, everything out of focus will get the maximum blur.
     ///
     /// [image sensor format]: https://en.wikipedia.org/wiki/Image_sensor_format
     ///
@@ -102,11 +106,6 @@ pub struct DepthOfField {
 
     /// Along with the focal length, controls how much objects not in focus are
     /// blurred.
-    ///
-    /// **Tip:** For an orthographic camera, set `sensor_height` to the height
-    /// of the view in world units. Then `aperture_f_stops` is precisely the
-    /// distance, in world units, from the focal plane at which the blur is one
-    /// world unit in diameter.
     pub aperture_f_stops: f32,
 
     /// The maximum diameter, in pixels, that we allow a circle of confusion to be.
@@ -120,12 +119,17 @@ pub struct DepthOfField {
     /// Objects are never considered to be farther away than this distance as
     /// far as depth of field is concerned, even if they actually are.
     ///
-    /// This is primarily useful for skyboxes and background colors. The Bevy
-    /// renderer considers them to be infinitely far away. Without this value,
-    /// that would cause the circle of confusion to be infinitely large, capped
-    /// only by the `max_circle_of_confusion_diameter`. As that's unsightly,
-    /// this value can be used to essentially adjust how "far away" the skybox
-    /// or background are.
+    /// This is primarily useful to control the blur on backgrounds, such as skyboxes.
+    ///
+    /// These are treated as being very far away:
+    ///  - when using a perspective camera, the sky box is considered to be at infinity
+    ///  - when using an orthographic camera, the sky box is considered to be at the far plane
+    ///
+    /// In both cases, their circle of confusion can be very large, capped only by
+    /// the `max_circle_of_confusion_diameter`, resulting in an extremely strong blur.
+    ///
+    /// This value caps the strength of the blur, by controlling the maximum "perceived" depth,
+    /// allowing it to be used to essentially adjust how "far away" the skybox or background appear.
     pub max_depth: f32,
 }
 
@@ -157,20 +161,14 @@ pub struct DepthOfFieldUniform {
     /// The distance in meters to the location in focus.
     focal_distance: f32,
 
-    /// The focal length. See the comment in `DepthOfFieldParams` in `dof.wesl`
-    /// for more information.
-    focal_length: f32,
-
     /// The premultiplied factor that we scale the circle of confusion by.
     ///
-    /// For a perspective camera, this is calculated as:
+    /// This is calculated as:
     /// ```text
-    /// focal_length² / (sensor_height * aperture_f_stops)
+    /// sensor_height / (aperture_f_stops * view_height * (view_height - sensor_height))
     /// ```
-    /// For an orthographic camera:
-    /// ```text
-    /// sensor_height / (aperture_f_stops * view_height²)
-    /// ```
+    /// `view_height` is the height of the view at the focal plane. See
+    /// `calculate_circle_of_confusion` in `dof.wesl` for the derivation.
     coc_scale_factor: f32,
 
     /// The maximum circle of confusion diameter in pixels. See the comment in
@@ -180,13 +178,6 @@ pub struct DepthOfFieldUniform {
     /// The depth value that we clamp distant objects to. See the comment in
     /// [`DepthOfField`] for more information.
     max_depth: f32,
-
-    /// Padding.
-    pad_a: u32,
-    /// Padding.
-    pad_b: u32,
-    /// Padding.
-    pad_c: u32,
 }
 
 /// A key that uniquely identifies depth of field pipelines.
@@ -697,25 +688,17 @@ fn extract_depth_of_field_settings(
             .get_entity(entity)
             .expect("Depth of field entity wasn't synced.");
 
-        let (focal_length, coc_scale_factor) = match projection {
+        // The height of the view at the focal plane. Perspective and
+        // orthographic cameras with the same view height there, sensor height
+        // and f-stops get the same scale factor, so switching between them
+        // doesn't change the blur at the focal plane. See
+        // `calculate_circle_of_confusion` in `dof.wesl`.
+        let view_height = match projection {
             Projection::Perspective(perspective_projection) => {
-                let focal_length = calculate_focal_length(
-                    depth_of_field.sensor_height,
-                    perspective_projection.fov,
-                );
-                let coc_scale_factor = focal_length * focal_length
-                    / (depth_of_field.sensor_height * depth_of_field.aperture_f_stops);
-                (focal_length, coc_scale_factor)
+                2.0 * depth_of_field.focal_distance * ops::tan(0.5 * perspective_projection.fov)
             }
-            // For an orthographic camera, scale the circle of confusion so that
-            // its blur is a fraction of the view height (as per the perspective
-            // formula). This creates an effect similar to a distant perspective
-            // camera with a very narrow FOV.
             Projection::Orthographic(orthographic_projection) => {
-                let view_height = orthographic_projection.area.height();
-                let coc_scale_factor = depth_of_field.sensor_height
-                    / (depth_of_field.aperture_f_stops * view_height * view_height);
-                (0.0, coc_scale_factor)
+                orthographic_projection.area.height()
             }
             // Depth of field is nonsensical for other projections.
             Projection::Custom(_) => {
@@ -728,18 +711,23 @@ fn extract_depth_of_field_settings(
             }
         };
 
+        // At or below the sensor height, a perspective camera would be focused
+        // inside its focal length, where its blur diverges. The `max` clamps
+        // the scale to a large finite value, which saturates at
+        // `max_circle_of_confusion_diameter`.
+        let coc_scale_factor = depth_of_field.sensor_height
+            / (depth_of_field.aperture_f_stops
+                * view_height
+                * (view_height - depth_of_field.sensor_height).max(f32::EPSILON));
+
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
         entity_commands.insert((
             *depth_of_field,
             DepthOfFieldUniform {
                 focal_distance: depth_of_field.focal_distance,
-                focal_length,
                 coc_scale_factor,
                 max_circle_of_confusion_diameter: depth_of_field.max_circle_of_confusion_diameter,
                 max_depth: depth_of_field.max_depth,
-                pad_a: 0,
-                pad_b: 0,
-                pad_c: 0,
             },
         ));
     }
