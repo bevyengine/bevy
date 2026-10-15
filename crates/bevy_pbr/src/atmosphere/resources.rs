@@ -134,6 +134,8 @@ pub(crate) struct AtmosphereBindGroupLayouts {
     pub multiscattering_lut: BindGroupLayoutDescriptor,
     pub sky_view_lut: BindGroupLayoutDescriptor,
     pub aerial_view_lut: BindGroupLayoutDescriptor,
+    pub sky_view_lut_clouds: BindGroupLayoutDescriptor,
+    pub aerial_view_lut_clouds: BindGroupLayoutDescriptor,
     pub cloud_shadow_map: BindGroupLayoutDescriptor,
     // Accessed from the render-world graph; some tooling can miss the cross-module usage.
     #[allow(dead_code)]
@@ -210,7 +212,7 @@ impl AtmosphereBindGroupLayouts {
             ),
         );
 
-        let sky_view_lut_entries = DynamicBindGroupLayoutEntries::new_with_indices(
+        let sky_view_lut_entries = || DynamicBindGroupLayoutEntries::new_with_indices(
             ShaderStages::COMPUTE,
             (
                 (0, uniform_buffer::<GpuAtmosphere>(true)),
@@ -234,10 +236,16 @@ impl AtmosphereBindGroupLayouts {
             ),
         )
         .extend_with_indices(shadow_map_layout_entries());
+        // Cloud-shadowed variants (Hillaire 2020 / UE5: the volumetric cloud shadow map darkens
+        // the sky-view and aerial-perspective LUT in-scattering).
+        let sky_view_lut_clouds = BindGroupLayoutDescriptor::new(
+            "sky_view_lut_clouds_bind_group_layout",
+            &sky_view_lut_entries().extend_with_indices(cloud_layout_entries()),
+        );
         let sky_view_lut =
-            BindGroupLayoutDescriptor::new("sky_view_lut_bind_group_layout", &sky_view_lut_entries);
+            BindGroupLayoutDescriptor::new("sky_view_lut_bind_group_layout", &sky_view_lut_entries());
 
-        let aerial_view_lut_entries = DynamicBindGroupLayoutEntries::new_with_indices(
+        let aerial_view_lut_entries = || DynamicBindGroupLayoutEntries::new_with_indices(
             ShaderStages::COMPUTE,
             (
                 (0, uniform_buffer::<GpuAtmosphere>(true)),
@@ -260,9 +268,13 @@ impl AtmosphereBindGroupLayouts {
             ),
         )
         .extend_with_indices(shadow_map_layout_entries());
+        let aerial_view_lut_clouds = BindGroupLayoutDescriptor::new(
+            "aerial_view_lut_clouds_bind_group_layout",
+            &aerial_view_lut_entries().extend_with_indices(cloud_layout_entries()),
+        );
         let aerial_view_lut = BindGroupLayoutDescriptor::new(
             "aerial_view_lut_bind_group_layout",
-            &aerial_view_lut_entries,
+            &aerial_view_lut_entries(),
         );
 
         let cloud_shadow_map = BindGroupLayoutDescriptor::new(
@@ -444,6 +456,8 @@ impl AtmosphereBindGroupLayouts {
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            sky_view_lut_clouds,
+            aerial_view_lut_clouds,
             cloud_shadow_map,
             cloud_shadow_filter,
             cloud_shadow_temporal,
@@ -679,6 +693,8 @@ pub(crate) struct AtmosphereLutPipelines {
     pub multiscattering_lut: CachedComputePipelineId,
     pub sky_view_lut: CachedComputePipelineId,
     pub aerial_view_lut: CachedComputePipelineId,
+    pub sky_view_lut_clouds: CachedComputePipelineId,
+    pub aerial_view_lut_clouds: CachedComputePipelineId,
     pub cloud_shadow_map: CachedComputePipelineId,
     // Accessed from the render-world graph; some tooling can miss the cross-module usage.
     #[allow(dead_code)]
@@ -729,6 +745,29 @@ impl FromWorld for AtmosphereLutPipelines {
             layout: vec![layouts.aerial_view_lut.clone()],
             shader: load_embedded_asset!(world, "aerial_view_lut.wesl"),
             shader_defs: atm_dbg_defs(),
+            ..default()
+        });
+
+        let lut_cloud_defs = || -> Vec<bevy_shader::ShaderDefVal> {
+            vec![
+                "CLOUDS_ENABLED".into(),
+                "CLOUD_SHADOW_SIMPLE_SAMPLING".into(),
+                "CLOUD_PASS".into(),
+                "ATMOSPHERE_LUT_CLOUD_SHADOW".into(),
+            ]
+        };
+        let sky_view_lut_clouds = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("sky_view_lut_clouds_pipeline".into()),
+            layout: vec![layouts.sky_view_lut_clouds.clone()],
+            shader: load_embedded_asset!(world, "sky_view_lut.wesl"),
+            shader_defs: [atm_dbg_defs(), vec!["SKY_VIEW_LUT_PASS".into()], lut_cloud_defs()].concat(),
+            ..default()
+        });
+        let aerial_view_lut_clouds = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("aerial_view_lut_clouds_pipeline".into()),
+            layout: vec![layouts.aerial_view_lut_clouds.clone()],
+            shader: load_embedded_asset!(world, "aerial_view_lut.wesl"),
+            shader_defs: [atm_dbg_defs(), lut_cloud_defs()].concat(),
             ..default()
         });
 
@@ -800,6 +839,8 @@ impl FromWorld for AtmosphereLutPipelines {
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            sky_view_lut_clouds,
+            aerial_view_lut_clouds,
             cloud_shadow_map,
             cloud_shadow_filter,
             cloud_shadow_temporal,
@@ -1282,6 +1323,9 @@ pub(crate) struct AtmosphereBindGroups {
     pub multiscattering_lut: BindGroup,
     pub sky_view_lut: BindGroup,
     pub aerial_view_lut: BindGroup,
+    /// Cloud-shadowed LUT bind groups (views with a `CloudLayer`).
+    pub sky_view_lut_clouds: Option<BindGroup>,
+    pub aerial_view_lut_clouds: Option<BindGroup>,
     pub cloud_shadow_map: Option<BindGroup>,
     // Accessed from the render-world graph; some tooling can miss the cross-module usage.
     #[allow(dead_code)]
@@ -1910,11 +1954,83 @@ pub(super) fn prepare_atmosphere_bind_groups(
             ]
         });
 
+        let sky_view_lut_clouds = cloud_layer_binding
+            .as_ref()
+            .filter(|_| cloud_layer.is_some())
+            .map(|cloud_layer_binding| {
+                render_device.create_bind_group(
+                    "sky_view_lut_clouds_bind_group",
+                    &pipeline_cache.get_bind_group_layout(&layouts.sky_view_lut_clouds),
+                    &BindGroupEntries::with_indices((
+                        (0, atmosphere_binding.clone()),
+                        (1, settings_binding.clone()),
+                        (2, transforms_binding.clone()),
+                        (3, view_binding.clone()),
+                        (4, lights_binding.clone()),
+                        (5, &gpu_medium.density_lut_view),
+                        (6, &gpu_medium.scattering_lut_view),
+                        (7, medium_sampler.sampler()),
+                        (8, &textures.transmittance_lut.default_view),
+                        (9, &textures.multiscattering_lut.default_view),
+                        (12, &**atmosphere_sampler),
+                        (13, &textures.sky_view_lut.default_view),
+                        (14, &shadow_bindings.point_light_depth_texture_view),
+                        (15, &shadow_samplers.point_light_comparison_sampler),
+                        (16, &shadow_bindings.directional_light_depth_texture_view),
+                        (17, &shadow_samplers.directional_light_comparison_sampler),
+                        (20, cloud_layer_binding.clone()),
+                        (21, &fbm_noise_texture.texture.default_view),
+                        (22, &**cloud_noise_sampler),
+                        (23, &textures.cloud_shadow_map.default_view),
+                        (24, &perlin_worley_noise_texture.texture.default_view),
+                        (25, stbn_view.as_ref()),
+                        (33, &detail_noise_texture.texture.default_view),
+                        (34, &curl_noise_texture.texture.default_view),
+                    )),
+                )
+            });
+        let aerial_view_lut_clouds = cloud_layer_binding
+            .as_ref()
+            .filter(|_| cloud_layer.is_some())
+            .map(|cloud_layer_binding| {
+                render_device.create_bind_group(
+                    "aerial_view_lut_clouds_bind_group",
+                    &pipeline_cache.get_bind_group_layout(&layouts.aerial_view_lut_clouds),
+                    &BindGroupEntries::with_indices((
+                        (0, atmosphere_binding.clone()),
+                        (1, settings_binding.clone()),
+                        (3, view_binding.clone()),
+                        (4, lights_binding.clone()),
+                        (5, &gpu_medium.density_lut_view),
+                        (6, &gpu_medium.scattering_lut_view),
+                        (7, medium_sampler.sampler()),
+                        (8, &textures.transmittance_lut.default_view),
+                        (9, &textures.multiscattering_lut.default_view),
+                        (12, &**atmosphere_sampler),
+                        (13, &textures.aerial_view_lut.default_view),
+                        (14, &shadow_bindings.point_light_depth_texture_view),
+                        (15, &shadow_samplers.point_light_comparison_sampler),
+                        (16, &shadow_bindings.directional_light_depth_texture_view),
+                        (17, &shadow_samplers.directional_light_comparison_sampler),
+                        (20, cloud_layer_binding.clone()),
+                        (21, &fbm_noise_texture.texture.default_view),
+                        (22, &**cloud_noise_sampler),
+                        (23, &textures.cloud_shadow_map.default_view),
+                        (24, &perlin_worley_noise_texture.texture.default_view),
+                        (25, stbn_view.as_ref()),
+                        (33, &detail_noise_texture.texture.default_view),
+                        (34, &curl_noise_texture.texture.default_view),
+                    )),
+                )
+            });
+
         commands.entity(entity).insert(AtmosphereBindGroups {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            sky_view_lut_clouds,
+            aerial_view_lut_clouds,
             cloud_shadow_map,
             cloud_shadow_filter_a_to_b,
             cloud_shadow_filter_b_to_a,
@@ -2018,7 +2134,6 @@ fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
 /// (`ATMOSPHERE_DBG=ATM_DBG_NOMS,ATM_DBG_TAP_ONE`). Supported debug defs:
 /// - `ATM_DBG_NOSHADOW`: no cloud shadow on the atmosphere in-scatter.
 /// - `ATM_DBG_NOMS`: no atmosphere multiple scattering (single scatter only).
-/// - `ATM_DBG_HAZE_NOSHADOW`: unshadowed aerial perspective in front of clouds.
 /// - `ATM_DBG_AP_BAL`: ballistic (non-similarity) aerial-perspective transmittance.
 /// - `ATM_DBG_TAP_ONE`: no aerial-perspective transmittance on cloud luminance (term split).
 /// - `ATM_DBG_NO_FAR_SHADOW`: drop the cloud shadow map beyond the local light march.

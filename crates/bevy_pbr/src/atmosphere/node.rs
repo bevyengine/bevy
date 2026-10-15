@@ -173,33 +173,74 @@ pub fn atmosphere_luts(
             );
         }
 
-        // Sky View LUT
-        luts_pass.set_pipeline(sky_view_lut_pipeline);
-        luts_pass.set_bind_group(
-            0,
-            &bind_groups.sky_view_lut,
-            &[
-                atmosphere_uniforms_offset.index(),
-                settings_uniforms_offset.index(),
-                atmosphere_transforms_offset.index(),
-                view_uniforms_offset.offset,
-                lights_uniforms_offset.offset,
-            ],
-        );
+        // Sky View / Aerial View LUTs. With a CloudLayer, the cloud-shadowed variants (the cloud
+        // shadow map darkens their sun in-scattering; it is last frame's map, traced below).
+        let cloud_luts = match (
+            cloud_layer_uniforms_offset.as_ref(),
+            bind_groups.sky_view_lut_clouds.as_ref(),
+            bind_groups.aerial_view_lut_clouds.as_ref(),
+            pipeline_cache.get_compute_pipeline(pipelines.sky_view_lut_clouds),
+            pipeline_cache.get_compute_pipeline(pipelines.aerial_view_lut_clouds),
+        ) {
+            (Some(o), Some(sbg), Some(abg), Some(sp), Some(ap)) => Some((o.index(), sbg, abg, sp, ap)),
+            _ => None,
+        };
+        if let Some((cloud_off, sbg, _, sp, _)) = cloud_luts {
+            luts_pass.set_pipeline(sp);
+            luts_pass.set_bind_group(
+                0,
+                sbg,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                    atmosphere_transforms_offset.index(),
+                    view_uniforms_offset.offset,
+                    lights_uniforms_offset.offset,
+                    cloud_off,
+                ],
+            );
+        } else {
+            luts_pass.set_pipeline(sky_view_lut_pipeline);
+            luts_pass.set_bind_group(
+                0,
+                &bind_groups.sky_view_lut,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                    atmosphere_transforms_offset.index(),
+                    view_uniforms_offset.offset,
+                    lights_uniforms_offset.offset,
+                ],
+            );
+        }
         dispatch_2d(&mut luts_pass, settings.sky_view_lut_size);
 
-        // Aerial View LUT
-        luts_pass.set_pipeline(aerial_view_lut_pipeline);
-        luts_pass.set_bind_group(
-            0,
-            &bind_groups.aerial_view_lut,
-            &[
-                atmosphere_uniforms_offset.index(),
-                settings_uniforms_offset.index(),
-                view_uniforms_offset.offset,
-                lights_uniforms_offset.offset,
-            ],
-        );
+        if let Some((cloud_off, _, abg, _, ap)) = cloud_luts {
+            luts_pass.set_pipeline(ap);
+            luts_pass.set_bind_group(
+                0,
+                abg,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                    view_uniforms_offset.offset,
+                    lights_uniforms_offset.offset,
+                    cloud_off,
+                ],
+            );
+        } else {
+            luts_pass.set_pipeline(aerial_view_lut_pipeline);
+            luts_pass.set_bind_group(
+                0,
+                &bind_groups.aerial_view_lut,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                    view_uniforms_offset.offset,
+                    lights_uniforms_offset.offset,
+                ],
+            );
+        }
         dispatch_2d(&mut luts_pass, settings.aerial_view_lut_size.xy());
         pass_span.end(&mut luts_pass);
     }

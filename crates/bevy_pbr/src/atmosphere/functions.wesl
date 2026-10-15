@@ -939,7 +939,8 @@ fn raymarch_atmosphere(
         // Skylight on the ground (Lambert): dominant at low sun and missing before
         // (ground was 3-50x too dark in blue at 3 deg sun elevation).
         var e_sky = ground_sky_irradiance(sphere_point, pixel_coords);
-        @if(CLOUDS_ENABLED) {
+        // (Not in the sky-view LUT pass itself: it cannot read the LUT it writes.)
+        @if(CLOUDS_ENABLED && !SKY_VIEW_LUT_PASS) {
             // The sky-view LUT has no clouds: per skylight direction, replace the clear sky by
             // dimmer cloud bases using the cloud transmittance along it (floor = light the clouds
             // scatter down).

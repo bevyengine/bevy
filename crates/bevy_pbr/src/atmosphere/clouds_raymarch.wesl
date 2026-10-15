@@ -130,12 +130,6 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
     return 0.5 * (sky_rad * vis_up + ground_rad * vis_down);
 }
 
-// Aerial perspective between the camera and the cloud (at the transmittance-weighted depth d),
-// shadowed by the clouds (RDR2 / Bauer 2019). The aerial-view LUT holds the unshadowed in-scatter
-// integral L(0..t), so each segment's increment L(t_i) - L(t_{i-1}) is already the exact (Frostbite
-// energy-conserving) integral of that segment; only the cloud-shadow visibility is assumed constant
-// per segment and taken at a blue-noise jittered position. Segments follow the LUT's squared depth
-// distribution and scale with distance; the half-res reconstruct accumulates the jitter.
 /// Cloud shadow on the ground point below a cloud sample (ground-bounce ambient). Uses the
 /// direct coarse march rather than the shadow map: the map's ground lookups disagreed with the
 /// out-of-volume fallback, so the map's xy boundary showed up as a hard straight edge in the
@@ -144,29 +138,15 @@ fn ground_cloud_shadow(p_g: vec3<f32>, l: vec3<f32>) -> f32 {
     return cloud_far_transmittance(p_g, l, false);
 }
 
+// Aerial perspective between the camera and the cloud (at the transmittance-weighted depth d).
+// The cloud shadow is baked into the aerial-perspective froxel LUT and the sky-view LUT (Hillaire
+// 2020 AP volume; RDR2 / Bauer 2019 froxel fog with cloud shadows; UE5 volumetric cloud shadow on
+// the SkyAtmosphere): low-frequency and temporally stable. The former per-pixel shadow-map march
+// along the ray was noisy at the horizon and blue-shifted it (purple line).
 fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: f32, r: f32, mu: f32, j: f32) -> vec3<f32> {
-    let n = u32(clamp(ceil(d / 400.0), 16.0, 64.0));
-    var l = vec3(0.0, 1.0, 0.0);
-    let has_light = lights.n_directional_lights > 0u;
-    if (has_light) {
-        l = lights.directional_lights[0].direction_to_light;
-    }
-    var prev = vec3(0.0);
-    var acc = vec3(0.0);
-    for (var i = 1u; i <= n; i++) {
-        let x = f32(i) / f32(n);
-        let xj = (f32(i) - 1.0 + j) / f32(n);
-        let cur = sample_aerial_view_lut(uv, d * x * x);
-        var vis = 1.0;
-        if (has_light) {
-            vis = sample_cloud_shadow_map(origin + ray_dir * (d * xj * xj), l, false);
-        }
-        @if(ATM_DBG_HAZE_NOSHADOW) { vis = 1.0; }
-        acc += max(cur - prev, vec3(0.0)) * vis;
-        prev = cur;
-    }
+    var acc = sample_aerial_view_lut(uv, d);
     // Towards and beyond the end of the aerial-view LUT range, fade to the sky-view in-scattering
-    // distributed along the ray like the optical depth (as render_sky did).
+    // distributed along the ray like the optical depth.
     let ap_max = settings.aerial_view_lut_max_distance;
     let w = smoothstep(0.5 * ap_max, ap_max, d);
     if (w > 0.0) {
@@ -174,40 +154,7 @@ fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: 
         let t_to = sample_transmittance_lut_segment(r, mu, d);
         let sky = sample_sky_view_lut(r, direction_world_to_atmosphere(ray_dir));
         let frac = (1.0 - t_to) / max(vec3(1.0) - t_full, vec3(1e-4));
-        // Shadow the far haze too (the shadow-map lookup falls back to a short density march
-        // outside its volume). Unshadowed, the haze under the cloud deck glowed orange near the
-        // horizon at low sun (3-4x the reference). A floor keeps the multiple-scattered part.
-        var vis_far = 1.0;
-        if (has_light) {
-            vis_far = 0.0;
-            for (var k = 0u; k < 4u; k++) {
-                let tk = mix(0.5 * ap_max, d, (f32(k) + j) / 4.0);
-                vis_far += 0.25 * sample_cloud_shadow_map(origin + ray_dir * tk, l, false);
-            }
-        }
-        @if(ATM_DBG_HAZE_NOSHADOW) { vis_far = 1.0; }
-        let sky_seg = sky * saturate(frac);
-        // Only the single-scattered part is shadowed by the clouds; the multiple-scattered part
-        // (sigma_s * psi_ms * E_sun, transmitted to the camera) is kept. Estimated along [0, d].
-        var ms = vec3(0.0);
-        if (has_light) {
-            let e_sun = lights.directional_lights[0].color.rgb;
-            let dt = d / 8.0;
-            for (var k = 0u; k < 8u; k++) {
-                let tk = (f32(k) + 0.5) * dt;
-                let pk = origin + ray_dir * tk;
-                let rk = length(pk);
-                let mu_l = dot(l, pk / rk);
-                let sig_s = sample_density_lut(rk, SCATTERING_DENSITY);
-                ms += sig_s * sample_multiscattering_lut(rk, mu_l) * sample_transmittance_lut_segment(r, mu, tk) * dt;
-            }
-            ms = min(ms * e_sun, sky_seg);
-            // psi_ms assumes lit surroundings; under the deck about half of its sources are in
-            // the cloud shadow too (sun:3 / hero:35 vs reference: none +34/-6, half -12/-10, full -58/-14).
-            ms *= mix(1.0, vis_far, 0.5);
-        }
-        var far = (sky_seg - ms) * vis_far + ms;
-        acc = mix(acc, far, w);
+        acc = mix(acc, sky * saturate(frac), w);
     }
     return acc;
 }
