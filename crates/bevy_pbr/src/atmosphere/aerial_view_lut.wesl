@@ -31,7 +31,6 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let r = length(world_pos);
     let t_max = settings.aerial_view_lut_max_distance;
 
-    var prev_t = 0.0;
     var total_inscattering = vec3(0.0);
     var throughput = vec3(1.0);
 
@@ -39,11 +38,13 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let num_s = f32(settings.aerial_view_lut_samples);
     for (var slice_i: u32 = 0; slice_i < settings.aerial_view_lut_size.z; slice_i++) {
         for (var step_i: u32 = 0; step_i < settings.aerial_view_lut_samples; step_i++) {
-            // Squared depth mapping
-            let u_i = (f32(slice_i) + (f32(step_i) + MIDPOINT_RATIO) / num_s) / num_z;
-            let t_i = t_max * u_i * u_i;
-            let dt = (t_i - prev_t);
-            prev_t = t_i;
+            // Squared depth mapping; segments end exactly at each slice boundary.
+            let ua = (f32(slice_i) + f32(step_i) / num_s) / num_z;
+            let ub = (f32(slice_i) + f32(step_i + 1u) / num_s) / num_z;
+            let ta = t_max * ua * ua;
+            let tb = t_max * ub * ub;
+            let t_i = 0.5 * (ta + tb);
+            let dt = tb - ta;
 
             let sample_pos = world_pos + ray_dir * t_i;
             let local_r = length(sample_pos);
