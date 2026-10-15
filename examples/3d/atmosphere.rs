@@ -385,6 +385,23 @@ fn setup_camera_fog(
     });
     commands.insert_resource(OffscreenTarget(offscreen.clone()));
     let mut medium = ScatteringMedium::earth(256, 256);
+    // Bruneton 2017 Earth Mie is τ≈0.005 (very clear). Real continental AOD is
+    // ~0.05–0.2; with τ≈0.005 the clear-sky anti-sun L/Lz is 1.5–2.3× steeper than
+    // CIE S 011/E:2003 type 12 and Poly Haven HDRs (validation/sky/pref_mie_*.log).
+    // Scale the Earth Mie term only (asymmetry 0.8); leave the local haze term alone.
+    // ATMOSPHERE_MIE_SCALE=1 restores Bruneton-clear. Default 15 → τ≈0.075.
+    let mie_scale: f32 = std::env::var("ATMOSPHERE_MIE_SCALE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(15.0);
+    for term in &mut medium.terms {
+        if let PhaseFunction::Mie { asymmetry } = term.phase {
+            if (asymmetry - 0.8).abs() < 0.01 {
+                term.scattering *= mie_scale;
+                term.absorption *= mie_scale;
+            }
+        }
+    }
     medium.terms.push(ScatteringTerm {
         absorption: Vec3::splat(2e-5),
         scattering: Vec3::splat(1e-4),
