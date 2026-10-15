@@ -184,7 +184,9 @@ fn cloud_sample_pos_with_wind_curl(world_pos: vec3<f32>, h: f32, apply_curl: boo
     sample_pos.z += skew.y;
     if (apply_curl) {
         let curl = sample_curl(sample_pos);
-        let curl_str = 120.0 * (0.35 + 0.65 * h);
+        // Curl distortion strongest at the base where wisps form (Nubis³: curly distortion where
+        // density decreases; HZD15 base wisps), weaker on the billowy tops.
+        let curl_str = 160.0 * (1.0 - 0.6 * h);
         sample_pos.x += curl.x * curl_str;
         sample_pos.z += curl.y * curl_str;
     }
@@ -221,7 +223,13 @@ fn sample_cumulus_shape_lod(r: f32, world_pos: vec3<f32>, mip: f32) -> f32 {
     let shape_noise = mix(shape_wispy, shape_billowy, cloud_type) * mix(0.55, 1.0, billowy_gate);
 
     let detail = sample_detail_noise(sample_pos, h, mip);
-    let detail_fbm = detail.r * 0.625 + detail.g * 0.25 + detail.b * 0.125;
+    // Nubis³ (Advances 2023, 2:04-2:05): low-frequency detail toward the core, high-frequency at
+    // the edges, blended over the dimensional profile.
+    let detail_hi = detail.g * 0.5 + detail.b * 0.5;
+    let detail_lo = detail.r * 0.75 + detail.g * 0.25;
+    let detail_raw = mix(detail_hi, detail_lo, saturate(dimensional_profile * 1.5));
+    // HZD15 / Nubis17: wispy (Worley) erosion at the base, inverted (billowy) higher up.
+    let detail_fbm = mix(detail_raw, 1.0 - detail_raw, saturate(h * 4.0));
     // Nubis: erode edges with detail noise (wispy at base, billowy higher); keep cores intact
     // via the dimensional-profile subtraction below rather than damping erosion.
     let erosion_strength = cloud_layer.detail_strength * mix(0.35, 0.8, h);
