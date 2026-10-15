@@ -351,9 +351,10 @@ fn load_mip_0(x: u32, y: u32) -> f32 {
 /// `uv * textureDimensions(mip_0).xy`.
 @if(MESHLET)
 fn load_mip_0_meshlet(st: vec2<f32>, shift: u32) -> vec4<f32> {
-    let max_st = textureDimensions(mip_0) - 1u;
-    let st0 = min(vec2<u32>(floor(st - 0.5)), max_st);
-    let st1 = min(st0 + 1u, max_st);
+    let max_st = vec2<f32>(textureDimensions(mip_0) - 1u);
+    let st0_f = floor(st - 0.5);
+    let st0 = vec2<u32>(clamp(st0_f, vec2(0.0), max_st));
+    let st1 = vec2<u32>(clamp(st0_f + 1.0, vec2(0.0), max_st));
     return vec4<f32>(
         bitcast<f32>(u32(textureLoad(mip_0, vec2<u32>(st0.x, st0.y)).r) >> shift),
         bitcast<f32>(u32(textureLoad(mip_0, vec2<u32>(st0.x, st1.y)).r) >> shift),
@@ -369,9 +370,10 @@ fn load_mip_0_meshlet(st: vec2<f32>, shift: u32) -> vec4<f32> {
 /// `uv * textureDimensions(mip_0).xy`.
 @if(MULTISAMPLE)
 fn load_mip_0_single_sample(st: vec2<f32>, sample: i32) -> f32 {
-    let max_st = textureDimensions(mip_0) - 1u;
-    let st0 = min(vec2<u32>(floor(st - 0.5)), max_st);
-    let st1 = min(st0 + 1u, max_st);
+    let max_st = vec2<f32>(textureDimensions(mip_0) - 1u);
+    let st0_f = floor(st - 0.5);
+    let st0 = vec2<u32>(clamp(st0_f, vec2(0.0), max_st));
+    let st1 = vec2<u32>(clamp(st0_f + 1.0, vec2(0.0), max_st));
     let v = vec4<f32>(
         textureLoad(mip_0, vec2<u32>(st0.x, st0.y), sample),
         textureLoad(mip_0, vec2<u32>(st0.x, st1.y), sample),
