@@ -73,11 +73,8 @@ const CLOUD_MAX_DISTANCE_M: f32 = 350000.0;
 const CLOUD_MIN_TRANSMITTANCE: f32 = 0.01;
 
 // Multiple-scattering octaves (Wrenninge 2013; FB16 §5.8 eq. 19-20), with a <= b.
-const MS_OCTAVES: u32 = 5u;
 const CLOUD_FAR_SHADOW_MIN_EXP: f32 = 0.5;
 const MS_A: f32 = 0.65; // scattering attenuation per octave
-const MS_B: f32 = 0.5; // extinction attenuation per octave (0.3 lit cloud bases ~30% too bright vs CLOUD_REFERENCE)
-const MS_C: f32 = 0.2; // phase eccentricity attenuation per octave (higher octaves ~isotropic)
 // Short light taps toward the sun for near-surface self-shadowing detail (Nubis3 2:09:52: "the
 // first two samples are taken as before"; the cloud shadow map covers the long range).
 // 12 taps growing x1.4 from 20 m (~2.8 km) with a gentler LOD ramp: the old 6 doubling taps
@@ -90,12 +87,6 @@ const LIGHT_LONG_TAP_M: f32 = 1500.0;
 // Sky-irradiance ambient (design.md §1.5 / RDR2 slide 36): replaces the MS-LUT placeholder.
 // Extinction scale for diffuse (ambient) light inside the cloud.
 const CLOUD_AMBIENT_EXT_SCALE: f32 = 0.05;
-// Ambient (sky + ground) in-scatter gain. NOT PUBLISHED (design.md audit "CLOUD_AMBIENT_SCALE"):
-// an empirical gain fitted to CLOUD_REFERENCE (sun:3/hero:35/up:35). The single isotropic ambient
-// bounce (Hillaire 2016 / RDR2 slide 36) misses sky light multiply scattered inside the cloud; at
-// 1.0 thick clouds were ~25-40% short in blue. Nubis Cubed uses 1.0 with pow(1 - profile, 0.5)
-// (ATM_DBG_NUBIS_MS). Kept until a research-backed sky-light MS term replaces it.
-const CLOUD_AMBIENT_SCALE: f32 = 2.2;
 const CLOUD_GROUND_ALBEDO: f32 = 0.28;
 const CLOUD_DARK_EDGE_STRENGTH: f32 = 0.5;
 // Extinction scale for the Lambert back-scatter clamp (RDR2 slide 30).
@@ -136,10 +127,8 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
     var k = sigma_t * CLOUD_AMBIENT_EXT_SCALE;
     let vis_up = exp(-k * (1.0 - h) * thickness);
     let vis_down = exp(-k * h * thickness);
-    var a_scale = CLOUD_AMBIENT_SCALE;
-    @if(ATM_DBG_NUBIS_MS) { a_scale = 1.0; }
-    var g_scale = a_scale;
-    return 0.5 * (a_scale * sky_rad * vis_up + g_scale * ground_rad * vis_down);
+    // Unit gain (Nubis Cubed); the height falloff is applied by the caller.
+    return 0.5 * (sky_rad * vis_up + ground_rad * vis_down);
 }
 
 // Aerial perspective between the camera and the cloud (at the transmittance-weighted depth d),
@@ -701,61 +690,37 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                         * ground_cloud_shadow(p_g, l);
                     ground_rad = CLOUD_GROUND_ALBEDO * (e_sun / PI + sky_irr);
                 }
-                var direct = 0.0;
-                var a = 1.0;
-                var b = 1.0;
-                var c = 1.0;
-                // Extinction-driven Lambert floor on the phase (RDR2 slide 30).
-                // Isotropic (1/4pi) floor: the old 1/pi floor saturated at the current extinction
-                // and over-counted back-scatter 4x.
+                // Extinction-driven Lambert floor on the phase (RDR2 slide 30), isotropic 1/4pi.
                 let phase_floor = (0.25 / PI) * saturate(sigma_t * CLOUD_BACK_SCATTER_EXT_SCALE);
-                let ms_a = MS_A;
-                var n_oct = MS_OCTAVES;
-                @if(CLOUD_TERM_S1) { n_oct = 1u; }
-                for (var o = 0u; o < n_oct; o++) {
-                    let phase = max(cloud_phase(cos_theta, c), phase_floor);
-                    // Octave softening (b < 1) only on the local march: applied to the far
-                    // shadow-map part it let tens of km of cloud deck transmit light at low sun.
-                    direct += a * pow(t_local, b) * pow(t_far, max(b, CLOUD_FAR_SHADOW_MIN_EXP)) * phase
-                        * select(1.0, dark_edge, o == 0u);
-                    a *= ms_a;
-                    b *= MS_B;
-                    c *= MS_C;
-                }
-                // Nubis Cubed (Advances 2023, "Light Energy = Direct + Ambient + Secondary
-                // Scattering"): secondary scattering as a probability field
-                // ms_volume = dimensional_profile * exp(-sun_od * Remap(sun_dod, 0, 0.9, 0.25,
-                // Remap(cloud_distance, -128, 0, 0.05, 0.25))), replacing octaves 1..n. The profile
-                // stands in for the voxel cloud distance (deep inside -> 0.05). Energy keeps the
-                // Wrenninge series of the replaced octaves: sum_{i>=1} a^i = a / (1 - a), isotropic.
-                @if(ATM_DBG_NUBIS_MS) {
-                    let prof = saturate(dimensional_profile);
-                    let ss = t_local * t_far * max(cloud_phase(cos_theta, 1.0), phase_floor) * dark_edge;
-                    // Published form: Remap(sun_dod, 0, 0.9, 0.25, Remap(cloud_distance, -128, 0,
-                    // 0.05, 0.25)) on the summed density samples. Outside the SDF grid the profile
-                    // stands in for the distance (-128 m deep inside).
+                // Nubis Cubed (Schneider, Advances 2023, "Light Energy = Direct + Ambient +
+                // Secondary Scattering"). Direct: single scattering. Secondary scattering as a
+                // probability field ms_volume = dimensional_profile * exp(-summed_density *
+                // Remap(sun_dod, 0, 0.9, 0.25, Remap(cloud_distance, -128, 0, 0.05, 0.25))).
+                // Its energy keeps the Wrenninge series of the replaced octaves, a / (1 - a),
+                // isotropic.
+                let prof = saturate(dimensional_profile);
+                var direct = t_local * t_far * max(cloud_phase(cos_theta, 1.0), phase_floor) * dark_edge;
+                @if(!CLOUD_TERM_S1) {
+                    // Cloud distance from the SDF; outside the grid the profile stands in
+                    // (-128 m deep inside).
                     var c_dist = cloud_distance(p, ray_origin);
                     if (c_dist >= CLOUD_DIST_UNKNOWN) { c_dist = -NUBIS_MS_DIST_RANGE_M * prof; }
                     let k_dist = mix(NUBIS_MS_K_DEEP, NUBIS_MS_K_EDGE,
                         saturate((c_dist + NUBIS_MS_DIST_RANGE_M) / NUBIS_MS_DIST_RANGE_M));
                     let k_ms = mix(NUBIS_MS_K_EDGE, k_dist, saturate(cos_theta / NUBIS_MS_DOT_RANGE));
-                    var ms_att = exp(-light_sum * k_ms);
-                    @if(ATM_DBG_NUBIS_OD) { ms_att = exp(-light_optical_depth * k_ms); }
-                    // Nubis has no separate far-shadow factor (long-distance shadows come from the
-                    // voxel summed density); ATM_DBG_NUBIS_NOFAR drops ours to test that.
+                    // Nubis has no separate far-shadow factor (its voxel summed density carries
+                    // long shadows); ours is kept (design.md audit), ATM_DBG_NUBIS_NOFAR drops it.
                     var ms_far = pow(t_far, CLOUD_FAR_SHADOW_MIN_EXP);
                     @if(ATM_DBG_NUBIS_NOFAR) { ms_far = 1.0; }
-                    let ms_vol = prof * ms_att * ms_far;
-                    direct = ss + ms_vol * (MS_A / (1.0 - MS_A)) * (0.25 / PI);
+                    let ms_vol = prof * exp(-light_sum * k_ms) * ms_far;
+                    direct += ms_vol * (MS_A / (1.0 - MS_A)) * (0.25 / PI);
                 }
                 direct_sum += (*light).color.rgb * t_atm * direct;
             }
             var ambient = cloud_ambient_term(sky_irr, ground_rad, h_frac, sigma_t,
                 cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start);
             // Nubis Cubed ambient scattering approximation: pow(1 - dimensional_profile, 0.5).
-            @if(ATM_DBG_NUBIS_MS) {
-                ambient *= sqrt(saturate(1.0 - dimensional_profile));
-            }
+            ambient *= sqrt(saturate(1.0 - dimensional_profile));
             // Validation term toggles (CLOUD_TERMS=s1|sun|amb, see resources.rs).
             @if(CLOUD_TERM_NO_AMB) { ambient = vec3(0.0); }
             @if(CLOUD_TERM_NO_SUN) { direct_sum = vec3(0.0); }
