@@ -144,6 +144,7 @@ pub enum BsnValue {
 
 #[derive(Debug)]
 pub enum BsnFnArg {
+    Array(Vec<BsnValue>),
     EntityName(Ident),
     Tokens(TokenStream),
 }

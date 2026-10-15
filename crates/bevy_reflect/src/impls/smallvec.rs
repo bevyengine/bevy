@@ -47,6 +47,10 @@ where
         Box::new(self.remove(index))
     }
 
+    fn swap(&mut self, a: usize, b: usize) {
+        self.as_mut_slice().swap(a, b);
+    }
+
     fn push(&mut self, value: Box<dyn PartialReflect>) {
         let value = value.try_take::<T::Item>().unwrap_or_else(|value| {
             <T as SmallArray>::Item::from_reflect(&*value).unwrap_or_else(|| {
