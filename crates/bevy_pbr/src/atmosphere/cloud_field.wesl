@@ -13,7 +13,8 @@ import package::atmosphere::clouds::{
     get_cloud_medium_density_lod,
     get_cloud_scattering_coeff,
     get_cloud_absorption_coeff,
-    cloud_field_origin,
+    cloud_field_origin_from_cell,
+    cloud_field_cell,
     cloud_field_voxel_m,
     CLOUD_FIELD_RES_XY,
     CLOUD_FIELD_RES_Z,
@@ -47,7 +48,8 @@ fn init(@builtin(global_invocation_id) id: vec3<u32>) {
     let vox = cloud_field_voxel_m();
     let thick = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
     let dz = thick / f32(CLOUD_FIELD_RES_Z);
-    let xz = cloud_field_origin(view_position()) + (vec2<f32>(id.xy) + 0.5) * vox;
+    let cell = cloud_field_cell(view_position());
+    let xz = cloud_field_origin_from_cell(cell) + (vec2<f32>(id.xy) + 0.5) * vox;
     let r = cloud_layer.cloud_layer_start + (f32(id.z) + 0.5) * dz;
     let p = vec3(xz.x, sqrt(max(r * r - dot(xz, xz), 0.0)), xz.y);
     let coarse = get_cloud_medium_density_coarse(length(p), p);
@@ -60,13 +62,16 @@ fn init(@builtin(global_invocation_id) id: vec3<u32>) {
             * (get_cloud_scattering_coeff() + get_cloud_absorption_coeff()) * dz;
     }
     // r: squared distance to the nearest inside voxel, g: to the nearest outside voxel.
-    textureStore(out_field_init, id, vec4(select(BIG, 0.0, inside), select(0.0, BIG, inside), dz / vox, od));
+    // b: the build cell (x at z = 0, z at z = 1) and dz / vox (z >= 2) travel to edt_z.
+    let cell_c = select(select(dz / vox, cell.y, id.z == 1u), cell.x, id.z == 0u);
+    textureStore(out_field_init, id, vec4(select(BIG, 0.0, inside), select(0.0, BIG, inside), cell_c, od));
 }
 
 // One workgroup per grid line: the line is loaded into workgroup memory once, so each voxel's
 // windowed min reads shared memory instead of 2*WIN+1 global texels (was ~5.7 ms, bandwidth bound).
 var<workgroup> line: array<vec2<f32>, 256>;
 var<workgroup> line_od: array<f32, 256>;
+var<workgroup> line_cell: array<f32, 32>;
 
 // Cloud AO (UE5 volumetric clouds: a top-down cloud optical-depth map, blurred, occludes the
 // sky light on the ground). Gaussian blur of the voxel optical depth along x and y, sigma in
@@ -126,7 +131,9 @@ fn edt_y(@builtin(local_invocation_index) lane: u32, @builtin(workgroup_id) wg: 
 fn edt_z(@builtin(local_invocation_index) lane: u32, @builtin(workgroup_id) wg: vec3<u32>) {
     let q = vec3<i32>(i32(wg.x), i32(wg.y), i32(lane));
     let v4 = textureLoad(in_field, q, 0);
-    let dz = v4.z;
+    line_cell[lane] = v4.z;
+    workgroupBarrier();
+    let dz = line_cell[2];
     line[lane] = v4.xy;
     line_od[lane] = v4.w;
     workgroupBarrier();
@@ -143,5 +150,5 @@ fn edt_z(@builtin(local_invocation_index) lane: u32, @builtin(workgroup_id) wg: 
     let d_out = min(sqrt(v.x), f32(WIN_XY));
     let d_in = min(sqrt(v.y), f32(WIN_XY));
     let sdf = select(d_out - half, half - d_in, v.x == 0.0) * vox;
-    textureStore(out_field_sdf, q, vec4(sdf, column_od, 0.0, 1.0));
+    textureStore(out_field_sdf, q, vec4(sdf, column_od, line_cell[0], line_cell[1]));
 }

@@ -4,7 +4,7 @@
 //! - Scene: `ATMOSPHERE_VIEW=hero|sun|up|under`, `ATMOSPHERE_CAM`, `ATMOSPHERE_SUN_ELEV_DEG`,
 //!   `ATMOSPHERE_SUNSET`, `ATMOSPHERE_TERRAIN`, `ATMOSPHERE_NO_CLOUDS`, `ATMOSPHERE_MIE_SCALE`,
 //!   `ATMOSPHERE_LUT_MODE`.
-//! - Time: `ATMOSPHERE_FREEZE`, `ATMOSPHERE_ANIMATE`, `ATMOSPHERE_FIXED_DT`.
+//! - Time: `ATMOSPHERE_CAM_STEP`, `ATMOSPHERE_FREEZE`, `ATMOSPHERE_ANIMATE`, `ATMOSPHERE_FIXED_DT`.
 //! - Cloud shadows: `ATMOSPHERE_SHADOW_INTERLEAVE`, `ATMOSPHERE_SHADOW_SAMPLES`,
 //!   `ATMOSPHERE_SHADOW_TEMPORAL_ALPHA`.
 //! - Capture / runs: `ATMOSPHERE_BACKGROUND`, `ATMOSPHERE_SCREENSHOT`, `ATMOSPHERE_SCREENSHOT_SECS`,
@@ -161,6 +161,18 @@ fn main() {
         app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
             core::time::Duration::from_secs_f64(1.0 / 60.0),
         ));
+    }
+    // `ATMOSPHERE_CAM_STEP=x,y,z`: move the camera by this many metres every frame (independent
+    // of time, so frozen runs still move); used to test shadow-map / field recentering.
+    if let Some(step) = std::env::var("ATMOSPHERE_CAM_STEP").ok().and_then(|v| {
+        let c: Vec<f32> = v.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+        (c.len() == 3).then(|| Vec3::new(c[0], c[1], c[2]))
+    }) {
+        app.add_systems(Update, move |mut cams: Query<&mut Transform, With<Camera3d>>| {
+            for mut t in &mut cams {
+                t.translation += step;
+            }
+        });
     }
     if bench.screenshot.is_some() || bench.exit_secs.is_some() || bench.exit_frame.is_some() {
         app.insert_resource(bench).add_systems(Update, bench_hooks);

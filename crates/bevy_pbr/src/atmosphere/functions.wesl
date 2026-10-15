@@ -999,7 +999,7 @@ fn cloud_column_optical_depth(p: vec3<f32>) -> f32 {
     let n = normalize(p);
     var tau = -log(max(cloud_far_transmittance(p, n, true), 1e-6));
     @if(CLOUD_FIELD_BOUND) {
-        let uvw = cloud_field_uvw(p, get_view_position());
+        let uvw = cloud_field_uvw(p, textureLoad(cloud_field_sdf, vec3(0), 0).ba);
         if (all(uvw.xy >= vec2(0.0)) && all(uvw.xy <= vec2(1.0))) {
             let field = textureSampleLevel(cloud_field_sdf, atmosphere_lut_sampler, vec3(uvw.xy, 0.5), 0.0).g;
             // Fade to the march over the outer 10 % of the field.

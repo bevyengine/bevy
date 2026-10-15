@@ -531,14 +531,24 @@ fn cloud_field_voxel_m() -> f32 {
 }
 
 /// Grid origin (min corner, atmosphere-space x/z), snapped to whole voxels so it does not swim.
+/// Field cell of the camera: integer voxel index (stored in the field so consumers use the
+/// origin the field was actually built with; the build is spread over several frames).
+fn cloud_field_cell(cam: vec3<f32>) -> vec2<f32> {
+    return floor(cam.xz / cloud_field_voxel_m());
+}
+
+fn cloud_field_origin_from_cell(cell: vec2<f32>) -> vec2<f32> {
+    return cell * cloud_field_voxel_m() - 0.5 * CLOUD_FIELD_EXTENT_M;
+}
+
 fn cloud_field_origin(cam: vec3<f32>) -> vec2<f32> {
-    let vox = cloud_field_voxel_m();
-    return floor(cam.xz / vox) * vox - 0.5 * CLOUD_FIELD_EXTENT_M;
+    return cloud_field_origin_from_cell(cloud_field_cell(cam));
 }
 
 /// Normalised field coordinate of an atmosphere-space point; outside [0,1]^3 = not covered.
-fn cloud_field_uvw(p: vec3<f32>, cam: vec3<f32>) -> vec3<f32> {
-    let uv = (p.xz - cloud_field_origin(cam)) / CLOUD_FIELD_EXTENT_M;
+/// `cell` is the stored build cell (`cloud_field_sdf.ba`).
+fn cloud_field_uvw(p: vec3<f32>, cell: vec2<f32>) -> vec3<f32> {
+    let uv = (p.xz - cloud_field_origin_from_cell(cell)) / CLOUD_FIELD_EXTENT_M;
     let w = (length(p) - cloud_layer.cloud_layer_start)
         / max(cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start, 1.0);
     return vec3(uv, w);

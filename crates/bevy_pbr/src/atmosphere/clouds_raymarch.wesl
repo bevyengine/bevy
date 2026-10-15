@@ -48,7 +48,7 @@ const NUBIS_MS_DOT_RANGE: f32 = 0.9;
 /// (cloud_field.wesl). Outside the grid: CLOUD_DIST_UNKNOWN. Positive distances are capped by
 /// the distance to the grid's side so clouds beyond the grid are never skipped over.
 fn cloud_distance(p: vec3<f32>, cam: vec3<f32>) -> f32 {
-    let uvw = cloud_field_uvw(p, cam);
+    let uvw = cloud_field_uvw(p, textureLoad(cloud_field_sdf, vec3(0), 0).ba);
     if (any(uvw.xy < vec2(0.0)) || any(uvw.xy > vec2(1.0))) {
         return CLOUD_DIST_UNKNOWN;
     }
