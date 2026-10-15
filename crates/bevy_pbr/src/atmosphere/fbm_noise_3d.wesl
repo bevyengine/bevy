@@ -33,11 +33,17 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // world size: with the default 32 km tile, period 16 → ~2 km base coverage cells, octaves down
     // to ~250 m. (Previously the base lattice was 2 texels ≈ 125-250 m, i.e. near white noise,
     // which bilinear filtering smeared into uniform overcast haze.)
-    let coverage_raw = fbm_tiled(uv, 16);
-    // Cumulus-style coverage: carve out clear sky between distinct cells (~45 % cover).
-    let coverage = smoothstep(0.42, 0.72, coverage_raw);
-    let cloud_type = clamp(smoothstep(0.3, 0.7, value_noise_tiled(uv * 4.0 + vec2(0.37, 0.11), 4) * 0.5 + 0.5) * 0.6 + 0.4, 0.0, 1.0);
-    let density_scale = fbm_tiled(uv + vec2(0.5, 0.21), 8);
+    // Tileable gradient (Perlin) FBM with a light domain warp: rounded, non-axis-aligned cells.
+    // The previous value noise (weak float hash on small lattice ints) gave boxy coverage edges,
+    // and `value_noise_tiled(uv * 4, 4)` repeated the cloud-type pattern 4x4 with sharp ramps,
+    // which stepped cloud heights between cells (blocky slabs / dark rectangular patches).
+    let warp = vec2(perlin_fbm_tiled(uv + vec2(0.31, 0.77), 8, 3), perlin_fbm_tiled(uv + vec2(0.63, 0.19), 8, 3)) - 0.5;
+    let coverage_raw = perlin_fbm_tiled(uv + warp * 0.03, 8, 4);
+    // Cumulus-style coverage: carve out clear sky between distinct cells.
+    let coverage = smoothstep(0.40, 0.75, coverage_raw);
+    // Cloud type varies smoothly over ~8 km.
+    let cloud_type = clamp(smoothstep(0.3, 0.7, perlin_fbm_tiled(uv + vec2(0.37, 0.11), 4, 2)) * 0.6 + 0.4, 0.0, 1.0);
+    let density_scale = perlin_fbm_tiled(uv + vec2(0.5, 0.21), 8, 3);
     let spare = 0.0;
 
     textureStore(
@@ -123,4 +129,45 @@ fn fbm_tiled(uvc: vec2<f32>, period: i32) -> f32 {
         amp *= 0.5;
     }
     return clamp(value / 0.9375 * 0.5 + 0.5, 0.0, 1.0);
+}
+
+fn pcg2(v: vec2<u32>) -> u32 {
+    var x = v.x * 1664525u + v.y * 1013904223u + 0x9e3779b9u;
+    x ^= x >> 16u; x *= 0x7feb352du; x ^= x >> 15u; x *= 0x846ca68bu; x ^= x >> 16u;
+    return x;
+}
+
+fn grad_tiled(i: vec2<i32>, period: i32, seed: u32) -> vec2<f32> {
+    let w = ((i % vec2(period)) + vec2(period)) % vec2(period);
+    let h = pcg2(vec2<u32>(u32(w.x), u32(w.y) ^ (seed * 0x27d4eb2du)));
+    let a = f32(h & 0xffffu) / 65535.0 * 6.2831853;
+    return vec2(cos(a), sin(a));
+}
+
+// Tileable 2D gradient noise in about [-0.7, 0.7]; `period` lattice cells across the unit square.
+fn perlin_tiled(uvc: vec2<f32>, period: i32, seed: u32) -> f32 {
+    let q = uvc * f32(period);
+    let i = vec2<i32>(floor(q));
+    let f = fract(q);
+    let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    let a = dot(grad_tiled(i, period, seed), f);
+    let b = dot(grad_tiled(i + vec2(1, 0), period, seed), f - vec2(1.0, 0.0));
+    let c = dot(grad_tiled(i + vec2(0, 1), period, seed), f - vec2(0.0, 1.0));
+    let d = dot(grad_tiled(i + vec2(1, 1), period, seed), f - vec2(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+// Tileable Perlin FBM remapped to roughly [0, 1].
+fn perlin_fbm_tiled(uvc: vec2<f32>, period: i32, octaves: u32) -> f32 {
+    var value = 0.0;
+    var amp = 0.5;
+    var norm = 0.0;
+    var per = period;
+    for (var o = 0u; o < octaves; o++) {
+        value += amp * perlin_tiled(uvc, per, o + u32(period) * 7u);
+        norm += amp;
+        per *= 2;
+        amp *= 0.5;
+    }
+    return clamp(value / norm * 0.9 + 0.5, 0.0, 1.0);
 }
