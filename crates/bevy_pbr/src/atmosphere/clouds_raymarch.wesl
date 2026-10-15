@@ -111,10 +111,13 @@ fn sample_sky_irradiance(r: f32) -> vec3<f32> {
 /// in-layer distance to the top/bottom with a reduced, diffusion-like extinction (Wrenninge
 /// octave-style `b` scaling) instead of the previous 0.35 x pow(1-profile, 0.5) double darkening.
 fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t: f32, thickness: f32) -> vec3<f32> {
-    let k = sigma_t * CLOUD_AMBIENT_EXT_SCALE;
+    var k = sigma_t * CLOUD_AMBIENT_EXT_SCALE;
+    @if(ATM_DBG_AMBEXT2) { k *= 2.0; }
+    @if(ATM_DBG_AMBEXT4) { k *= 4.0; }
     let vis_up = exp(-k * (1.0 - h) * thickness);
     let vis_down = exp(-k * h * thickness);
     var a_scale = CLOUD_AMBIENT_SCALE;
+    @if(ATM_DBG_AMB_UP10) { a_scale *= 1.1; }
     var g_scale = a_scale;
     @if(ATM_DBG_AMB_GROUND1) { g_scale = 1.0; }
     return 0.5 * (a_scale * sky_rad * vis_up + g_scale * ground_rad * vis_down);
@@ -127,6 +130,7 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
 // per segment and taken at a blue-noise jittered position. Segments follow the LUT's squared depth
 // distribution and scale with distance; the half-res reconstruct accumulates the jitter.
 const HAZE_FAR_MS_FLOOR: f32 = 0.05;
+const CLOUD_DECK_INSCATTER: f32 = 0.15;
 /// Cloud shadow on the ground point below a cloud sample (ground-bounce ambient). Uses the
 /// direct coarse march rather than the shadow map: the map's ground lookups disagreed with the
 /// out-of-volume fallback, so the map's xy boundary showed up as a hard straight edge in the
@@ -746,14 +750,34 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     if (lights.n_directional_lights > 0u) {
                         let cos_s = saturate(dot(ray_dir, lights.directional_lights[0].direction_to_light));
                         w_sim = saturate((0.98 - cos_s) / 0.06);
+                        // The sun cone predates the atmosphere-space haze fix; with the deck
+                        // in-scatter it left bases toward the sun too dark (sun:3 0.77x vs 0.93x).
+                        @if(!ATM_DBG_SIM_CONE) { w_sim = 1.0; }
                     }
-                    w_sim *= saturate(1.0 - max(mu, 0.0) / 0.20);
+                    @if(!ATM_DBG_SIM_NOMU) { w_sim *= saturate(1.0 - max(mu, 0.0) / 0.20); }
                     t_ap = t_ap * exp(tau_red * w_sim);
                 }
             }
             var haze = cloud_shadowed_haze(uv, ray_origin, ray_dir, weighted_depth, r, mu, j);
             @if(ATM_DBG_HAZE_SKY) { haze = sample_sky_view_lut(r, direction_world_to_atmosphere(ray_dir)) * (1.0 - sample_transmittance_lut_segment(r, mu, weighted_depth)); }
             @if(ATM_DBG_TAP_ONE) { t_ap = vec3(1.0); }
+            // Overcast in-scatter: under a sunlit-from-above deck the air between the camera and
+            // a distant cloud base is lit by the deck itself (radiance ~ the cloud's own), so the
+            // light Rayleigh/Mie scatter out of the view ray is largely replaced (radiative
+            // equilibrium: uniform surround L gives L*T + L*(1-T)). Without it, distant bases
+            // under the deck at sunset were 0.6x and red vs CLOUD_REFERENCE (sun:3). Weight by
+            // how shadowed (= under cloud) the ray midpoint is; half the surround is ground.
+            @if(!ATM_DBG_NO_DECK_INSCATTER) {
+                if (lights.n_directional_lights > 0u) {
+                    let l0 = lights.directional_lights[0].direction_to_light;
+                    let vis_mid = sample_cloud_shadow_map(ray_origin + ray_dir * (0.5 * weighted_depth), l0, false);
+                    // Low sun only: with a high sun the sky-view haze already carries the lit
+                    // surround and broken cloud gave +15% (up:35).
+                    let mu_s = dot(l0, normalize(ray_origin));
+                    let deck = CLOUD_DECK_INSCATTER * (1.0 - vis_mid) * saturate(1.0 - mu_s / 0.25);
+                    t_ap = t_ap + (vec3(1.0) - t_ap) * deck;
+                }
+            }
             lum = t_ap * luminance + (1.0 - transmittance) * haze;
         }
         result = vec4(lum * view.exposure, transmittance);
