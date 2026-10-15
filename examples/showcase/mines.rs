@@ -31,6 +31,12 @@ struct MineField {
     tiles: Vec<Tile>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RevealResult {
+    Success,
+    HitBomb,
+}
+
 impl MineField {
     fn xs(&self) -> Range<i32> {
         0..self.width
@@ -92,7 +98,12 @@ impl MineField {
             .count()
     }
 
-    fn reveal(&mut self, target: IVec2) {
+    /// Reveals the tiles around the `target`.
+    fn reveal(&mut self, target: IVec2) -> RevealResult {
+        if self[target].mined {
+            return RevealResult::HitBomb;
+        }
+
         let mut open = vec![target];
         while let Some(current) = open.pop() {
             if !self[current].revealed {
@@ -103,17 +114,20 @@ impl MineField {
                 }
             }
         }
+
+        RevealResult::Success
     }
 
-    fn reveal_flagged(&mut self, target: IVec2) -> bool {
+    /// Reveals the tiles around the `target` if it's surrounded by as many flags as bombs.
+    fn reveal_flagged(&mut self, target: IVec2) -> RevealResult {
         if self.count_adjacent_flags(target) != self.count_adjacent_mines(target) {
-            return false;
+            return RevealResult::Success;
         }
 
         let mut open = vec![];
         for adjacent in self.get_adjacent(target) {
             if self[adjacent].mined && !self[adjacent].flagged {
-                return true;
+                return RevealResult::HitBomb;
             } else if self[adjacent].flagged {
                 continue;
             }
@@ -131,7 +145,7 @@ impl MineField {
             }
         }
 
-        false
+        RevealResult::Success
     }
 
     fn iter(&self) -> impl Iterator<Item = (IVec2, Tile)> + '_ {
@@ -527,11 +541,7 @@ fn on_tile_click(
 
     match click.button {
         PointerButton::Primary => {
-            if game.field[position].mined {
-                game.game_over = true;
-            } else {
-                game.field.reveal(position);
-            }
+            game.game_over = game.field.reveal(position) == RevealResult::HitBomb;
         }
         PointerButton::Secondary => {
             if game.field[position].flagged {
@@ -561,7 +571,7 @@ fn on_number_tile_click(
     };
 
     if click.button == PointerButton::Primary {
-        game.game_over = game.field.reveal_flagged(position);
+        game.game_over = game.field.reveal_flagged(position) == RevealResult::HitBomb;
 
         rebuild_game_ui(&mut commands, *game_root, &game, &assets);
     }
