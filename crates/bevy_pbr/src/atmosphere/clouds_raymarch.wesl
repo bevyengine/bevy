@@ -14,11 +14,11 @@ import bevy_render::maths::{PI, ray_sphere_intersect};
 import package::render::utils::interleaved_gradient_noise;
 import package::atmosphere::{
     bindings::{atmosphere, settings, view, lights, stbn_texture},
-    bruneton_functions::ray_intersects_ground,
+    bruneton_functions::{ray_intersects_ground, sample_transmittance_lut_segment},
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
         sample_transmittance_lut, sample_sky_view_lut, sample_cloud_shadow_map,
-        hg_phase,
+        hg_phase, sample_aerial_view_lut,
     },
     clouds::{
         cloud_layer_segment, get_cloud_medium_density_coarse,
@@ -96,6 +96,47 @@ fn cloud_ambient_term(sky_irr: vec3<f32>, h: f32, dimensional_profile: f32) -> v
     let height_ambient = mix(ground, sky_irr, clamp(h, 0.0, 1.0));
     let profile_term = pow(max(1.0 - dimensional_profile, 0.0), 0.5);
     return height_ambient * profile_term * CLOUD_AMBIENT_SCALE;
+}
+
+// Aerial perspective between the camera and the cloud (at the transmittance-weighted depth d),
+// shadowed by the clouds (RDR2 / Bauer 2019). The aerial-view LUT holds the unshadowed in-scatter
+// integral L(0..t), so each segment's increment L(t_i) - L(t_{i-1}) is already the exact (Frostbite
+// energy-conserving) integral of that segment; only the cloud-shadow visibility is assumed constant
+// per segment and taken at a blue-noise jittered position. Segments follow the LUT's squared depth
+// distribution and scale with distance; the half-res reconstruct accumulates the jitter.
+fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: f32, r: f32, mu: f32, j: f32) -> vec3<f32> {
+    let n = u32(clamp(ceil(d / 400.0), 16.0, 64.0));
+    var l = vec3(0.0, 1.0, 0.0);
+    let has_light = lights.n_directional_lights > 0u;
+    if (has_light) {
+        l = lights.directional_lights[0].direction_to_light;
+    }
+    var prev = vec3(0.0);
+    var acc = vec3(0.0);
+    for (var i = 1u; i <= n; i++) {
+        let x = f32(i) / f32(n);
+        let xj = (f32(i) - 1.0 + j) / f32(n);
+        let cur = sample_aerial_view_lut(uv, d * x * x);
+        var vis = 1.0;
+        if (has_light) {
+            vis = sample_cloud_shadow_map(origin + ray_dir * (d * xj * xj), l, false);
+        }
+        acc += max(cur - prev, vec3(0.0)) * vis;
+        prev = cur;
+    }
+    // Towards and beyond the end of the aerial-view LUT range, fade to the sky-view in-scattering
+    // distributed along the ray like the optical depth (as render_sky did).
+    let ap_max = settings.aerial_view_lut_max_distance;
+    let w = smoothstep(0.5 * ap_max, ap_max, d);
+    if (w > 0.0) {
+        let t_full = sample_transmittance_lut(r, mu);
+        let t_to = sample_transmittance_lut_segment(r, mu, d);
+        let sky = sample_sky_view_lut(r, ray_dir);
+        let frac = (1.0 - t_to) / max(vec3(1.0) - t_full, vec3(1e-4));
+        // Beyond the LUT the haze is mostly outside the cloud shadow map extent: keep it unshadowed.
+        acc = mix(acc, sky * saturate(frac), w);
+    }
+    return acc;
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -279,8 +320,18 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             luminance /= max(1.0 - transmittance, 1e-4);
             transmittance = 0.0;
         }
-        result = vec4(luminance * view.exposure, transmittance);
         weighted_depth = select(0.0, depth_sum / depth_weight_sum, depth_weight_sum > 0.0);
+        // Pre-composite the aerial perspective in front of the cloud here (half-res, jittered,
+        // temporally reconstructed) instead of in the full-res render_sky pass:
+        //   rgb = T_ap(0..d) * L_c + (1 - T_c) * L_ap_shadowed(0..d)
+        var lum = luminance;
+        if (transmittance < 0.999 && weighted_depth > 0.0) {
+            let j = fract(jitter + f32(view.frame_count % 64u) * 0.61803398875);
+            let t_ap = sample_transmittance_lut_segment(r, mu, weighted_depth);
+            let haze = cloud_shadowed_haze(uv, ray_origin, ray_dir, weighted_depth, r, mu, j);
+            lum = t_ap * luminance + (1.0 - transmittance) * haze;
+        }
+        result = vec4(lum * view.exposure, transmittance);
     }
 
     textureStore(out_clouds, id.xy, result);

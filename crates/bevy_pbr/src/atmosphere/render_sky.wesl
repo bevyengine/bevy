@@ -12,8 +12,6 @@ import package::atmosphere::{
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
-@if(CLOUDS_ENABLED)
-import package::atmosphere::{bindings::lights, functions::sample_cloud_shadow_map};
 
 
 @if(DUAL_SOURCE_BLENDING)
@@ -46,29 +44,6 @@ struct RenderSkyOutput {
     @location(0) inscattering: vec4<f32>,
 }
 
-// Aerial perspective over [0, d] with cloud volumetric shadowing (RDR2 / Bauer 2019: the cloud
-// shadow map shadows atmosphere in-scattering). The aerial-view LUT is unshadowed, so split the
-// segment into N pieces along the LUT's squared depth distribution and scale each piece's
-// in-scatter increment by the cloud-shadow transmittance (sun light 0) at its midpoint.
-@if(CLOUDS_ENABLED)
-fn cloud_shadowed_aerial_perspective(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: f32) -> vec3<f32> {
-    if (lights.n_directional_lights == 0u) {
-        return sample_aerial_view_lut(uv, d);
-    }
-    let l = lights.directional_lights[0].direction_to_light;
-    const N: u32 = 8u;
-    var prev = vec3(0.0);
-    var acc = vec3(0.0);
-    for (var i = 1u; i <= N; i++) {
-        let x = f32(i) / f32(N);
-        let xm = (f32(i) - 0.5) / f32(N);
-        let cur = sample_aerial_view_lut(uv, d * x * x);
-        let vis = sample_cloud_shadow_map(origin + ray_dir * (d * xm * xm), l, false);
-        acc += max(cur - prev, vec3(0.0)) * vis;
-        prev = cur;
-    }
-    return acc;
-}
 
 @fragment
 fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
@@ -148,24 +123,10 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     }
     cloud_t = cloud_t / max(cloud_w_sum, 1e-6);
     if clouds.a < 0.999 && cloud_t > 0.0 && cloud_t < scene_t {
+        // The cloud pass already applied the (cloud-shadowed) aerial perspective in front of
+        // the cloud: clouds.rgb = T_ap * L_c + (1 - T_c) * L_ap.
         let t_c = clouds.a;
-        let transmittance_to_cloud = sample_transmittance_lut_segment(r, mu, cloud_t);
-        var inscattering_to_cloud = cloud_shadowed_aerial_perspective(in.uv, world_pos, ray_dir_ws, cloud_t) * view.exposure;
-        if depth == 0.0 {
-            // Towards and beyond the end of the aerial-view LUT range, fade to assuming the sky
-            // in-scattering is distributed along the ray like the optical depth (no hard seam).
-            let ap_max = settings.aerial_view_lut_max_distance;
-            let w = smoothstep(0.5 * ap_max, ap_max, cloud_t);
-            if w > 0.0 {
-                let sky_inscattering = inscattering - sun_radiance * transmittance * view.exposure;
-                let frac = (1.0 - transmittance_to_cloud)
-                    / max(vec3(1.0) - transmittance, vec3(1e-4));
-                inscattering_to_cloud =
-                    mix(inscattering_to_cloud, sky_inscattering * saturate(frac), w);
-            }
-        }
-        inscattering = inscattering * t_c + (1.0 - t_c) * inscattering_to_cloud
-            + transmittance_to_cloud * clouds.rgb;
+        inscattering = inscattering * t_c + clouds.rgb;
         transmittance *= t_c;
     }
     }
