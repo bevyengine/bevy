@@ -142,6 +142,13 @@ fn main() {
     if std::env::var("ATMOSPHERE_FREEZE").is_ok() || std::env::var("ATMOSPHERE_ANIMATE").is_err() {
         app.add_systems(Startup, |mut time: ResMut<Time<Virtual>>| time.pause());
     }
+    // `ATMOSPHERE_FIXED_DT=1`: advance time by exactly 1/60 s per frame, so animated captures at
+    // a given frame are reproducible regardless of GPU speed.
+    if std::env::var("ATMOSPHERE_FIXED_DT").is_ok() {
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            core::time::Duration::from_secs_f64(1.0 / 60.0),
+        ));
+    }
     if bench.screenshot.is_some() || bench.exit_secs.is_some() || bench.exit_frame.is_some() {
         app.insert_resource(bench).add_systems(Update, bench_hooks);
     }
