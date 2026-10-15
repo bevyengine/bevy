@@ -49,8 +49,8 @@ const CLOUD_MIN_TRANSMITTANCE: f32 = 0.01;
 const MS_OCTAVES: u32 = 5u;
 const CLOUD_FAR_SHADOW_MIN_EXP: f32 = 0.5;
 const MS_A: f32 = 0.65; // scattering attenuation per octave
-const MS_B: f32 = 0.3; // extinction attenuation per octave
-const MS_C: f32 = 0.5; // phase eccentricity attenuation per octave
+const MS_B: f32 = 0.5; // extinction attenuation per octave (0.3 lit cloud bases ~30% too bright vs CLOUD_REFERENCE)
+const MS_C: f32 = 0.2; // phase eccentricity attenuation per octave (higher octaves ~isotropic)
 // Short light taps toward the sun for near-surface self-shadowing detail (Nubis3 2:09:52: "the
 // first two samples are taken as before"; the cloud shadow map covers the long range).
 const LIGHT_TAP_COUNT: u32 = 6u;
@@ -59,6 +59,10 @@ const LIGHT_LONG_TAP_M: f32 = 1500.0;
 // Sky-irradiance ambient (design.md §1.5 / RDR2 slide 36): replaces the MS-LUT placeholder.
 // Extinction scale for diffuse (ambient) light inside the cloud.
 const CLOUD_AMBIENT_EXT_SCALE: f32 = 0.05;
+// Ambient (sky + ground) in-scatter gain, calibrated against CLOUD_REFERENCE (sun:3/hero:35/up:35):
+// the single isotropic ambient bounce misses sky light multiply scattered inside the cloud; at 1.0
+// thick clouds were ~25-40% short in blue (too red at low sun).
+const CLOUD_AMBIENT_SCALE: f32 = 2.0;
 const CLOUD_GROUND_ALBEDO: f32 = 0.28;
 const CLOUD_DARK_EDGE_STRENGTH: f32 = 0.5;
 // Extinction scale for the Lambert back-scatter clamp (RDR2 slide 30).
@@ -103,7 +107,7 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
     let k = sigma_t * CLOUD_AMBIENT_EXT_SCALE;
     let vis_up = exp(-k * (1.0 - h) * thickness);
     let vis_down = exp(-k * h * thickness);
-    return 0.5 * (sky_rad * vis_up + ground_rad * vis_down);
+    return CLOUD_AMBIENT_SCALE * 0.5 * (sky_rad * vis_up + ground_rad * vis_down);
 }
 
 // Aerial perspective between the camera and the cloud (at the transmittance-weighted depth d),
