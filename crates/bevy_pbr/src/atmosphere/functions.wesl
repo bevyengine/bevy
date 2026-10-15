@@ -41,7 +41,7 @@ import package::atmosphere::{
         get_cloud_coverage,
         get_cloud_medium_density,
         sample_cloud_field_density_and_grad,
-        cloud_layer_segment, cloud_layer, get_cloud_medium_density_lod,
+        cloud_layer_segment, cloud_layer, get_cloud_medium_density_lod, get_cloud_medium_density_coarse,
         get_cloud_absorption_coeff,
         get_cloud_scattering_coeff,
         sample_cloud_contribution,
@@ -307,8 +307,13 @@ fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, 
 /// Cloud transmittance toward the light for points outside the shadow-map volume (far,
 /// grazing-sun lookups). Returning 1 there lit the air under the cloud deck near the horizon
 /// (3-4x too bright at 3 deg sun). Short stratified density march along the light.
-const CLOUD_FAR_SAMPLES: u32 = 4u;
+/// 2 samples (4 -> 2: clouds_raymarch -18..-25 %, total -1.4 ms hero:35). render_sky (ground,
+/// far haze) marches the mip-3 noise density: the coarse envelope left distant ground ~27 % too
+/// bright vs CLOUD_REFERENCE (hero:35), the fine density matches (-2 %). The cloud pass keeps the
+/// cheaper coarse envelope at half strength (fine there over-brightened up:35 by up to +36 %).
+const CLOUD_FAR_SAMPLES: u32 = 2u;
 const CLOUD_FAR_MAX_M: f32 = 80000.0;
+const CLOUD_FAR_COARSE_SCALE: f32 = 0.5;
 @if(CLOUDS_ENABLED)
 fn cloud_far_transmittance(world_pos: vec3<f32>, direction_to_light: vec3<f32>, use_optical_depth_only: bool) -> f32 {
     var od = 0.0;
@@ -321,7 +326,9 @@ fn cloud_far_transmittance(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
         let sigma_t = get_cloud_scattering_coeff() + get_cloud_absorption_coeff();
         for (var i = 0u; i < CLOUD_FAR_SAMPLES; i++) {
             let q = world_pos + direction_to_light * (t0 + (f32(i) + 0.5) * dt);
-            od += get_cloud_medium_density_lod(length(q), q, 3.0) * sigma_t * dt;
+            var dq = get_cloud_medium_density_lod(length(q), q, 3.0);
+            @if(!ATM_DBG_FAR_FINE && !CLOUD_PASS) { dq = get_cloud_medium_density_coarse(length(q), q) * CLOUD_FAR_COARSE_SCALE; }
+            od += dq * sigma_t * dt;
         }
     }
     }

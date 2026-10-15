@@ -116,7 +116,7 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
 // energy-conserving) integral of that segment; only the cloud-shadow visibility is assumed constant
 // per segment and taken at a blue-noise jittered position. Segments follow the LUT's squared depth
 // distribution and scale with distance; the half-res reconstruct accumulates the jitter.
-const HAZE_FAR_MS_FLOOR: f32 = 0.5;
+const HAZE_FAR_MS_FLOOR: f32 = 0.2;
 /// Cloud shadow on the ground point below a cloud sample (ground-bounce ambient). Uses the
 /// direct coarse march rather than the shadow map: the map's ground lookups disagreed with the
 /// out-of-volume fallback, so the map's xy boundary showed up as a hard straight edge in the
