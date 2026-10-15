@@ -521,10 +521,6 @@ fn on_tile_click(
     game_root: Single<Entity, With<GameRoot>>,
     assets: Res<AssetServer>,
 ) {
-    if game.game_over || game.field.is_cleared() {
-        return;
-    }
-
     let Ok(&TileCell(position)) = tiles.get(click.event_target()) else {
         return;
     };
@@ -560,10 +556,6 @@ fn on_number_tile_click(
     game_root: Single<Entity, With<GameRoot>>,
     assets: Res<AssetServer>,
 ) {
-    if game.game_over || game.field.is_cleared() {
-        return;
-    }
-
     let Ok(&NumberCell(position)) = tiles.get(click.event_target()) else {
         return;
     };
@@ -573,6 +565,10 @@ fn on_number_tile_click(
 
         rebuild_game_ui(&mut commands, *game_root, &game, &assets);
     }
+}
+
+fn game_still_running(game: Res<Game>) -> bool {
+    !game.game_over && !game.field.is_cleared()
 }
 
 fn main() {
@@ -586,9 +582,9 @@ fn main() {
         .add_observer(on_button_click)
         .add_observer(on_button_over)
         .add_observer(on_button_out)
-        .add_observer(on_tile_click)
+        .add_observer(on_tile_click.run_if(game_still_running))
+        .add_observer(on_number_tile_click.run_if(game_still_running))
         .add_observer(on_tile_over)
         .add_observer(on_tile_out)
-        .add_observer(on_number_tile_click)
         .run();
 }
