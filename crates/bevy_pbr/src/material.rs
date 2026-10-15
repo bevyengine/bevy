@@ -551,6 +551,8 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             .layout
             .insert(3, self.properties.material_layout.as_ref().unwrap().clone());
 
+        descriptor.primitive.cull_mode = self.properties.cull_mode;
+
         if key
             .mesh_key
             .downcast::<MeshPipelineKey>()
