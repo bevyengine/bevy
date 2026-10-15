@@ -463,6 +463,11 @@ fn setup_camera_fog(
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(AtmosphereSettings::default().cloud_shadow_map_update_interleave),
+            // Profiling override: `ATMOSPHERE_SHADOW_SAMPLES=<n>` density samples per shadow ray.
+            cloud_shadow_map_samples: std::env::var("ATMOSPHERE_SHADOW_SAMPLES")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(AtmosphereSettings::default().cloud_shadow_map_samples),
             cloud_shadow_temporal_enabled: std::env::var("ATMOSPHERE_SHADOW_TEMPORAL_ALPHA").is_ok(),
             cloud_shadow_temporal_alpha: std::env::var("ATMOSPHERE_SHADOW_TEMPORAL_ALPHA")
                 .ok()
