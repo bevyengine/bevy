@@ -37,7 +37,7 @@ use log::warn;
 ///
 /// It is not even possible to get around this restriction via a manual implementation of [`Relationship`] and [`RelationshipTarget`].
 /// The trait works because `Relationship` is a supertrait of `RelationshipBase<Side = Source>`, while `RelationshipTarget` is a supertrait of
-/// [`RelationshipBase<Side = Target`]. It's impossible to both implement `RelationshipBase<Side = Target>` and `RelationshipBase<Side = Source>`
+/// [`RelationshipBase<Side = Target>`]. It's impossible to both implement `RelationshipBase<Side = Target>` and `RelationshipBase<Side = Source>`
 /// for any given struct, making it impossible for a type to both implement `Relationship` as well as `RelationshipTarget`.
 ///
 /// The reason for this separation is that [`Relationship`] and [`RelationshipTarget`] serve fundamentally different purposes.
