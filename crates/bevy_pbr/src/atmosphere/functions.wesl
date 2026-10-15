@@ -41,7 +41,7 @@ import package::atmosphere::{
         get_cloud_coverage,
         get_cloud_medium_density,
         sample_cloud_field_density_and_grad,
-        cloud_layer_segment, cloud_layer,
+        cloud_layer_segment, cloud_layer, get_cloud_medium_density_lod,
         get_cloud_absorption_coeff,
         get_cloud_scattering_coeff,
         sample_cloud_contribution,
@@ -307,7 +307,7 @@ fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, 
 /// Cloud transmittance toward the light for points outside the shadow-map volume (far,
 /// grazing-sun lookups). Returning 1 there lit the air under the cloud deck near the horizon
 /// (3-4x too bright at 3 deg sun). Short stratified density march along the light.
-const CLOUD_FAR_SAMPLES: u32 = 6u;
+const CLOUD_FAR_SAMPLES: u32 = 4u;
 const CLOUD_FAR_MAX_M: f32 = 80000.0;
 @if(CLOUDS_ENABLED)
 fn cloud_far_transmittance(world_pos: vec3<f32>, direction_to_light: vec3<f32>, use_optical_depth_only: bool) -> f32 {
@@ -321,7 +321,7 @@ fn cloud_far_transmittance(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
         let sigma_t = get_cloud_scattering_coeff() + get_cloud_absorption_coeff();
         for (var i = 0u; i < CLOUD_FAR_SAMPLES; i++) {
             let q = world_pos + direction_to_light * (t0 + (f32(i) + 0.5) * dt);
-            od += get_cloud_medium_density(length(q), q) * sigma_t * dt;
+            od += get_cloud_medium_density_lod(length(q), q, 3.0) * sigma_t * dt;
         }
     }
     }
