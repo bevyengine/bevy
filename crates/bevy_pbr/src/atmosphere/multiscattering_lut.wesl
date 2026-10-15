@@ -41,7 +41,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var uv = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(settings.multiscattering_lut_size);
 
     let r_mu = multiscattering_lut_uv_to_r_mu(uv);
-    let light_dir = normalize(vec3(0.0, r_mu.y, -1.0));
+    // Unit vector at zenith cosine mu (was normalize(0, mu, -1): mu = 1 mapped to 45 deg).
+    let light_dir = vec3(0.0, r_mu.y, -sqrt(max(0.0, 1.0 - r_mu.y * r_mu.y)));
 
     let ray_dir = uv_to_sphere(s2_sequence(global_id.z));
     let ms_sample = sample_multiscattering_dir(r_mu.x, ray_dir, light_dir);
@@ -86,14 +87,18 @@ fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) 
     let mu_view = ray_dir.y;
     let t_max = max_atmosphere_distance(r, mu_view);
 
-    let dt = t_max / f32(settings.multiscattering_lut_samples);
+    let n_s = f32(settings.multiscattering_lut_samples);
     var optical_depth = vec3<f32>(0.0);
 
     var l_2 = vec3(0.0);
     var f_ms = vec3(0.0);
     var throughput = vec3(1.0);
     for (var i: u32 = 0u; i < settings.multiscattering_lut_samples; i++) {
-        let t_i = dt * (f32(i) + 0.5);
+        // Quadratic segments: resolve the thin near-surface Mie/haze layers.
+        let ta = t_max * (f32(i) / n_s) * (f32(i) / n_s);
+        let tb = t_max * (f32(i + 1u) / n_s) * (f32(i + 1u) / n_s);
+        let t_i = 0.5 * (ta + tb);
+        let dt = tb - ta;
         let local_r = get_local_r(r, mu_view, t_i);
         let local_up = get_local_up(r, t_i, ray_dir);
 
