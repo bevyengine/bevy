@@ -2026,6 +2026,10 @@ impl<T: Component> ContiguousQueryData for &T {
         entities: &'w [Entity],
         range: Range<u32>,
     ) -> Self::Contiguous<'w, 's> {
+        // `entities` covers the whole table; `range` may cover only part of it.
+        debug_assert!(range.start < range.end);
+        debug_assert!(range.end as usize <= entities.len());
+
         fetch.components.extract(
             |table| {
                 // SAFETY: The caller ensures `set_table` was previously called
@@ -2035,13 +2039,11 @@ impl<T: Component> ContiguousQueryData for &T {
                 // - `UnsafeCell<T>` has the same layout as `T`
                 // - `range` refers to a valid range of the table
                 // - `range.start` is less than or equal to `range.end`
-                let slice = unsafe {
+                unsafe {
                     table
                         .cast()
                         .slice_unchecked((range.start as usize)..(range.end as usize))
-                };
-                debug_assert_eq!(slice.len(), entities.len());
-                slice
+                }
             },
             |_| {
                 #[cfg(debug_assertions)]
@@ -2314,6 +2316,10 @@ impl<T: Component> ContiguousQueryData for Ref<'_, T> {
         entities: &'w [Entity],
         range: Range<u32>,
     ) -> Self::Contiguous<'w, 's> {
+        // `entities` covers the whole table; `range` may cover only part of it.
+        debug_assert!(range.start < range.end);
+        debug_assert!(range.end as usize <= entities.len());
+
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
@@ -2322,7 +2328,7 @@ impl<T: Component> ContiguousQueryData for Ref<'_, T> {
 
                 let range = (range.start as usize)..(range.end as usize);
 
-                let contiguous_ref = ContiguousRef {
+                ContiguousRef {
                     // SAFETY: `entities` has the same length as the rows in the set table.
                     value: unsafe { table_components.cast().slice_unchecked(range.clone()) },
                     // SAFETY:
@@ -2340,11 +2346,7 @@ impl<T: Component> ContiguousQueryData for Ref<'_, T> {
                             fetch.last_run,
                         )
                     },
-                };
-
-                debug_assert_eq!(entities.len(), contiguous_ref.value.len());
-
-                contiguous_ref
+                }
             },
             |_| {
                 #[cfg(debug_assertions)]
