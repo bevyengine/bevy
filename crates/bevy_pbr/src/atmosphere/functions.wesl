@@ -41,7 +41,7 @@ import package::atmosphere::{
         get_cloud_coverage,
         get_cloud_medium_density,
         sample_cloud_field_density_and_grad,
-        cloud_layer_segment,
+        cloud_layer_segment, cloud_layer,
         get_cloud_absorption_coeff,
         get_cloud_scattering_coeff,
         sample_cloud_contribution,
@@ -913,7 +913,13 @@ fn raymarch_atmosphere(
         // Skylight on the ground (Lambert): dominant at low sun and missing before
         // (ground was 3-50x too dark in blue at 3 deg sun elevation).
         @if(!ATM_DBG_NO_GROUND_SKY) {
-        let e_sky = ground_sky_irradiance(sphere_point, pixel_coords);
+        var e_sky = ground_sky_irradiance(sphere_point, pixel_coords);
+        @if(CLOUDS_ENABLED) {
+        // The sky-view LUT has no clouds: per skylight direction, replace the clear sky by
+        // dimmer cloud bases using the cloud transmittance along it (floor = light the clouds
+        // scatter down).
+        e_sky = ground_sky_irradiance_clouds(sphere_point);
+        }
         result.inscattering += exp(-optical_depth) * atmosphere.ground_albedo / PI * e_sky;
         }
     }
@@ -923,6 +929,33 @@ fn raymarch_atmosphere(
 
 /// Sky irradiance on a horizontal ground point: cosine-weighted directions (E = pi * mean(L)),
 /// each a short quadratically spaced single + LUT-multiple scattering march.
+@if(CLOUDS_ENABLED)
+fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
+    let n = normalize(p);
+    let tx = normalize(select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(n.x) > 0.9) - n * dot(n, select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(n.x) > 0.9)));
+    let ty = cross(n, tx);
+    let r_cam = length(get_view_position());
+    // Sunlight diffusely transmitted through a cloud of optical thickness tau (two-stream,
+    // g = 0.85): T_diff ~ 1 / (1 + 0.75 (1 - g) tau), seen from below as Lambertian radiance.
+    var e_top = vec3(0.0);
+    if (lights.n_directional_lights > 0u) {
+        let l = lights.directional_lights[0].direction_to_light;
+        let mu_l = dot(l, n);
+        e_top = lights.directional_lights[0].color.rgb * max(mu_l, 0.0)
+            * sample_transmittance_lut(cloud_layer.cloud_layer_end, mu_l) / PI;
+    }
+    var sum = vec3(0.0);
+    for (var k = 0u; k < GROUND_SKY_DIRS; k++) {
+        let u = (f32(k) + 0.5) / f32(GROUND_SKY_DIRS);
+        let phi = f32(k) * 2.399963;
+        let d = normalize(n * sqrt(1.0 - u) + (tx * cos(phi) + ty * sin(phi)) * sqrt(u));
+        let t_c = max(cloud_far_transmittance(p, d, true), 1e-6);
+        let tau = -log(t_c);
+        let l_base = e_top / (1.0 + 0.1125 * tau);
+        sum += sample_sky_view_lut(r_cam, direction_world_to_atmosphere(d)) * t_c + (1.0 - t_c) * l_base;
+    }
+    return PI * sum / f32(GROUND_SKY_DIRS);
+}
 const GROUND_SKY_DIRS: u32 = 6u;
 const GROUND_SKY_STEPS: u32 = 6u;
 fn ground_sky_irradiance(p: vec3<f32>, pixel_coords: vec2<f32>) -> vec3<f32> {
