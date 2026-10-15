@@ -431,9 +431,10 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         }
 
         // With CLOUD_PASS (render_sky), clouds are integrated by the dedicated low-res
-        // `clouds_raymarch` pass and composited afterwards; only the env probe still
+        // `clouds_raymarch` pass and composited afterwards (the sky-view/aerial LUTs and the cloud
+        // pass must not add them again); only the env probe still
         // integrates cloud media here.
-        @if(CLOUDS_ENABLED && !CLOUD_PASS) {
+        @if(CLOUDS_ENABLED && ATMOSPHERE_ENV_PROBE) {
         // Sample cloud *medium density* at this point (includes `cloud_layer.cloud_density`)
         // so clouds respond consistently across scattering vs shadowing.
         let cloud_density = get_cloud_medium_density(local_r, world_pos);
@@ -739,7 +740,7 @@ fn raymarch_atmosphere(
     // Convert the sample count into a hard budget.
     let sample_budget = max(1u, u32(sample_count));
 
-    @if(CLOUDS_ENABLED && !CLOUD_PASS) {
+    @if(CLOUDS_ENABLED && ATMOSPHERE_ENV_PROBE) {
     // Cloud-aware global stratification (no temporal noise):
     // Instead of using separate per-segment grids (which can introduce visible boundaries),
     // we stratify over [0,1] globally and map through a piecewise-linear CDF that allocates

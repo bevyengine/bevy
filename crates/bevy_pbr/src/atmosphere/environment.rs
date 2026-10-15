@@ -366,7 +366,7 @@ pub fn init_atmosphere_probe_pipeline(
         label: Some("environment_pipeline_clouds".into()),
         layout: vec![layouts.environment_clouds.clone()],
         shader: load_embedded_asset!(asset_server.as_ref(), "environment.wesl"),
-        shader_defs: vec!["CLOUDS_ENABLED".into(), "ATMOSPHERE_NO_SHADOW_MAPS".into()],
+        shader_defs: vec!["CLOUDS_ENABLED".into(), "ATMOSPHERE_NO_SHADOW_MAPS".into(), "ATMOSPHERE_ENV_PROBE".into()],
         ..default()
     });
 
