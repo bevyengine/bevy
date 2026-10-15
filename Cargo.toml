@@ -157,9 +157,8 @@ ui = [
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
 dev = [
-  "debug",            # TODO: rename this to something more specific ... this is a "debug ECS names" feature
+  "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
   "bevy_dev_tools",
-  "render_dev_tools",
   "file_watcher",
 ]
 
@@ -588,9 +587,6 @@ android-game-activity = ["bevy_internal/android-game-activity"]
 
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
-
-# Enable systems that allow for renderable dev tools
-render_dev_tools = ["bevy_internal/render_dev_tools"]
 
 # Enable glTF animation loading
 gltf_animation = ["bevy_internal/gltf_animation"]
@@ -3750,7 +3746,7 @@ wasm = false
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
 doc-scrape-examples = true
-required-features = ["free_camera", "bevy_dev_tools", "render_dev_tools"]
+required-features = ["free_camera", "bevy_dev_tools"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -4498,7 +4494,7 @@ hidden = true
 name = "desktop_request_redraw"
 path = "tests/window/desktop_request_redraw.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools", "render_dev_tools"]
+required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.desktop_request_redraw]
 hidden = true
@@ -4829,7 +4825,7 @@ wasm = true
 name = "fps_overlay"
 path = "examples/dev_tools/fps_overlay.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools", "render_dev_tools"]
+required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
@@ -4853,7 +4849,7 @@ wasm = false
 name = "infinite_grid"
 path = "examples/dev_tools/infinite_grid.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools", "free_camera", "render_dev_tools"]
+required-features = ["bevy_dev_tools", "free_camera"]
 
 [package.metadata.example.infinite_grid]
 name = "Infinite grid"
