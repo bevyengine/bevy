@@ -58,12 +58,27 @@ struct AtmospherePresets {
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(DefaultOpaqueRendererMethod::deferred())
+    app.insert_resource(bevy::winit::WinitSettings {
+        focused_mode: bevy::winit::UpdateMode::Continuous,
+        unfocused_mode: bevy::winit::UpdateMode::Continuous,
+    })
+    .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(GameState::default())
         .insert_resource(GlobalAmbientLight::NONE)
         .add_plugins((
-            DefaultPlugins,
+            // `ATMOSPHERE_BACKGROUND=1` (used by the test scripts): start unfocused so macOS does
+            // not activate the app / steal focus; rendering stays continuous when unfocused.
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    focused: std::env::var("ATMOSPHERE_BACKGROUND").is_err(),
+                    // Fixed 1280x720 physical pixels so dumps match across displays (retina = 2x).
+                    resolution: bevy::window::WindowResolution::new(1280, 720)
+                        .with_scale_factor_override(1.0),
+                    ..default()
+                }),
+                ..default()
+            }),
             #[cfg(feature = "free_camera")]
             FreeCameraPlugin,
         ))
