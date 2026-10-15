@@ -951,6 +951,12 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
         let mu_l = dot(l, n);
         e_top = lights.directional_lights[0].color.rgb * max(mu_l, 0.0)
             * sample_transmittance_lut(cloud_layer.cloud_layer_end, mu_l) / PI;
+        // Diffuse transmission depends on the sun's incidence at the cloud top: Monte Carlo slab
+        // (HG 0.85, conservative, validation/sky/slab_t.py) fits T ~ (0.35 + 0.9 mu0) / (1 + 0.1125 tau)
+        // within ~8 % for tau >= 5; at grazing sun (mu0 0.05) that is 0.4x the mu0-free form.
+        @if(!ATM_DBG_GSKY_NO_MU0) {
+        e_top *= 0.35 + 0.9 * max(mu_l, 0.0);
+        }
     }
     var sum = vec3(0.0);
     for (var k = 0u; k < GROUND_SKY_DIRS; k++) {
