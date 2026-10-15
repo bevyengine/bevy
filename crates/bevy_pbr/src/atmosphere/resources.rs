@@ -2139,7 +2139,7 @@ fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
 /// - `ATM_DBG_MIP0`: full-resolution cloud noise at any distance.
 /// - `ATM_DBG_OUT_H`: write height-in-layer / profile / depth instead of cloud colour.
 /// - `ATM_DBG_NO_SDF_SKIP`: disable cloud-SDF empty-space skipping.
-/// - `ATM_DBG_NUBIS_NOFAR`: drop the far-shadow factor from Nubis secondary scattering
+/// - `ATM_DBG_NUBIS_SAMPLE2X`: Nubis summed-density sample spacing 51.2 m instead of 25.6 m
 ///   (under investigation, see design.md).
 /// See also `CLOUD_TERMS=s1|sun|amb` and `CLOUD_REFERENCE=1`.
 fn atm_dbg_defs() -> Vec<bevy_shader::ShaderDefVal> {

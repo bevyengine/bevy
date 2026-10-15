@@ -44,6 +44,8 @@ const NUBIS_MS_DIST_RANGE_M: f32 = 128.0;
 const NUBIS_MS_K_DEEP: f32 = 0.05;
 const NUBIS_MS_K_EDGE: f32 = 0.25;
 const NUBIS_MS_DOT_RANGE: f32 = 0.9;
+/// Nubis Cubed light-march sample spacing ("256 meter, ten sample light ray march", 2:11:00).
+const NUBIS_LIGHT_SAMPLE_M: f32 = 25.6;
 /// Nubis Cubed GetVoxelCloudDistance: signed distance (m, negative inside) from the coarse SDF
 /// (cloud_field.wesl). Outside the grid: CLOUD_DIST_UNKNOWN. Positive distances are capped by
 /// the distance to the grid's side so clouds beyond the grid are never skipped over.
@@ -72,7 +74,6 @@ const CLOUD_MAX_DISTANCE_M: f32 = 350000.0;
 const CLOUD_MIN_TRANSMITTANCE: f32 = 0.01;
 
 // Multiple-scattering octaves (Wrenninge 2013; FB16 §5.8 eq. 19-20), with a <= b.
-const CLOUD_FAR_SHADOW_MIN_EXP: f32 = 0.5;
 const MS_A: f32 = 0.65; // scattering attenuation per octave
 // Short light taps toward the sun for near-surface self-shadowing detail (Nubis3 2:09:52: "the
 // first two samples are taken as before"; the cloud shadow map covers the long range).
@@ -582,8 +583,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 // occlusion *beyond* the local march; using it at `p` replaced all per-billow detail
                 // with smooth weather-map blobs once it converged.
                 var light_od = 0.0;
-                // Nubis Cubed inSunLightSummedDensitySamples (normalised density summed per tap).
-                var light_sum = 0.0;
                 var tap_t = 0.0;
                 var tap_dt = LIGHT_TAP_STEP_M;
                 var n_taps = LIGHT_TAP_COUNT;
@@ -593,14 +592,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     let pk = p + l * (tap_t + 0.5 * tap_dt);
                     let dk = get_cloud_medium_density_lod(length(pk), pk, mip + tap_lod * f32(k));
                     light_od += dk * tap_dt;
-                    light_sum += dk / max(cloud_layer.cloud_density, 1e-6);
                     tap_t += tap_dt;
                     tap_dt *= tap_growth;
                 }
                 let p_far = p + l * (tap_t + LIGHT_LONG_TAP_M * 0.5);
                 let d_far = get_cloud_medium_density_lod(length(p_far), p_far, mip + 3.0);
                 light_od += d_far * LIGHT_LONG_TAP_M;
-                light_sum += d_far / max(cloud_layer.cloud_density, 1e-6);
                 let light_optical_depth = light_od * sigma_t_unit;
                 let p_beyond = p + l * (tap_t + LIGHT_LONG_TAP_M);
                 var t_far = sample_cloud_shadow_map(p_beyond, l, false);
@@ -642,11 +639,20 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     let k_dist = mix(NUBIS_MS_K_DEEP, NUBIS_MS_K_EDGE,
                         saturate((c_dist + NUBIS_MS_DIST_RANGE_M) / NUBIS_MS_DIST_RANGE_M));
                     let k_ms = mix(NUBIS_MS_K_EDGE, k_dist, saturate(cos_theta / NUBIS_MS_DOT_RANGE));
-                    // Nubis has no separate far-shadow factor (its voxel summed density carries
-                    // long shadows); ours is kept (design.md audit), ATM_DBG_NUBIS_NOFAR drops it.
-                    var ms_far = pow(t_far, CLOUD_FAR_SHADOW_MIN_EXP);
-                    @if(ATM_DBG_NUBIS_NOFAR) { ms_far = 1.0; }
-                    let ms_vol = prof * exp(-light_sum * k_ms) * ms_far;
+                    // inSunLightSummedDensitySamples: normalised density summed per light sample.
+                    // Nubis Cubed (2:11:00) replaced a "256 meter, ten sample light ray march" with
+                    // precomputed voxel density toward the sun (which also carries the long-distance
+                    // shadows), so one sample ~ 25.6 m: sum = integral(rho_n ds) / 25.6 m. The local
+                    // march gives the near integral; the cloud shadow map (our precomputed
+                    // light-space density) gives the rest, recovered from its optical depth. No
+                    // separate far-shadow factor (Nubis has none).
+                    let rho_unit = max(cloud_layer.cloud_density, 1e-6);
+                    let near_len = light_od / rho_unit;
+                    let far_len = -log(max(t_far, 1e-6)) / max(sigma_t_unit * rho_unit, 1e-9);
+                    var sample_m = NUBIS_LIGHT_SAMPLE_M;
+                    @if(ATM_DBG_NUBIS_SAMPLE2X) { sample_m *= 2.0; }
+                    let summed = (near_len + far_len) / sample_m;
+                    let ms_vol = prof * exp(-summed * k_ms);
                     direct += ms_vol * (MS_A / (1.0 - MS_A)) * (0.25 / PI);
                 }
                 direct_sum += (*light).color.rgb * t_atm * direct;
