@@ -659,6 +659,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 // Isotropic (1/4pi) floor: the old 1/pi floor saturated at the current extinction
                 // and over-counted back-scatter 4x.
                 let phase_floor = (0.25 / PI) * saturate(sigma_t * CLOUD_BACK_SCATTER_EXT_SCALE);
+                // Higher octaves need light to scatter again: scale them by the local cloud depth
+                // (Nubis dimensional profile, 0 at the edge -> 1 inside; Nubis3 1:40:50).
+                var oct_w = 1.0;
+                @if(ATM_DBG_OCT_PROFILE) { oct_w = saturate(dimensional_profile); }
+                @if(ATM_DBG_OCT_PROFILE_SQRT) { oct_w = sqrt(saturate(dimensional_profile)); }
+                var ms_a = MS_A;
+                @if(ATM_DBG_MSA5) { ms_a = 0.5; }
                 var n_oct = MS_OCTAVES;
                 @if(CLOUD_TERM_S1) { n_oct = 1u; }
                 for (var o = 0u; o < n_oct; o++) {
@@ -666,10 +673,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     // Octave softening (b < 1) only on the local march: applied to the far
                     // shadow-map part it let tens of km of cloud deck transmit light at low sun.
                     direct += a * pow(t_local, b) * pow(t_far, max(b, CLOUD_FAR_SHADOW_MIN_EXP)) * phase
-                        * select(1.0, dark_edge, o == 0u);
-                    a *= MS_A;
+                        * select(oct_w, dark_edge, o == 0u);
+                    a *= ms_a;
                     b *= MS_B;
                     c *= MS_C;
+                }
+                // Forward deep scatter: diffusion through a lot of cloud stays forward-peaked
+                // (backlit cloud bodies, hero:35); only where the sun optical depth is high.
+                @if(ATM_DBG_DEEP_FWD) {
+                    let deep = (1.0 - exp(-0.5 * light_optical_depth)) * pow(max(t_cloud, 1e-6), 0.1);
+                    direct += 0.5 * deep * hg_phase(cos_theta, 0.6);
                 }
                 direct_sum += (*light).color.rgb * t_atm * direct;
             }
