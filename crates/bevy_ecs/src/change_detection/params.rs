@@ -3,6 +3,7 @@ use crate::{
     component::Mutable,
     ptr::PtrMut,
     resource::Resource,
+    schedule::InternedSystemSet,
 };
 use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use core::{
@@ -665,6 +666,101 @@ impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for Mut<'w, T> {
         }
     }
 }
+
+/// Readonly borrow of a [`Resource`] shared between all systems in a [`SystemSet`].
+///
+/// Before using `SetLocal<T>` on a system, the resource must be inserted for the set with
+/// [`World::init_set_local`](crate::world::World::init_set_local) or
+/// [`World::insert_set_local`](crate::world::World::insert_set_local).
+/// Multiple instances of [`Resource`] may be inserted for different system sets.
+/// The system must be included in exactly one set with a value of `T`,
+/// either directly or indirectly.
+///
+/// Like [`Res`], this only declares read access to that particular instance of the
+/// resource for the set. If you need a mutable borrow, use [`SetLocalMut`] instead.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Resource, Default)]
+/// struct Score(u32);
+///
+/// #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+/// enum Team {
+///     Red,
+///     Blue,
+/// }
+///
+/// // These systems don't know which team they belong to.
+/// fn score(mut score: SetLocalMut<Score>) {
+///     score.0 += 1;
+/// }
+///
+/// fn report(score: SetLocal<Score>) {
+///     println!("{:?} has {} points", score.set(), score.0);
+/// }
+///
+/// let mut world = World::new();
+/// world.init_set_local::<Score>(Team::Red);
+/// world.init_set_local::<Score>(Team::Blue);
+///
+/// let mut schedule = Schedule::default();
+/// schedule.add_systems((
+///     (score, report).chain().in_set(Team::Red),
+///     (score, score, report).chain().in_set(Team::Blue),
+/// ));
+/// schedule.run(&mut world);
+/// ```
+///
+///
+/// [`SystemSet`]: crate::schedule::SystemSet
+pub struct SetLocal<'w, T: ?Sized + Resource> {
+    pub(crate) value: &'w T,
+    pub(crate) ticks: ComponentTicksRef<'w>,
+    pub(crate) set: InternedSystemSet,
+}
+
+impl<'w, T: ?Sized + Resource> SetLocal<'w, T> {
+    /// Returns the system set that this value belongs to.
+    pub fn set(&self) -> InternedSystemSet {
+        self.set
+    }
+}
+
+change_detection_impl!(SetLocal<'w, T>, T, Resource);
+impl_debug!(SetLocal<'w, T>, Resource);
+
+/// Mutable borrow of a [`Resource`] shared between all systems in a [`SystemSet`].
+///
+/// Before using `SetLocalMut<T>` on a system, the resource must be inserted for the set with
+/// [`World::init_set_local`](crate::world::World::init_set_local) or
+/// [`World::insert_set_local`](crate::world::World::insert_set_local).
+/// Multiple instances of [`Resource`] may be inserted for different system sets.
+/// The system must be included in exactly one set with a value of `T`,
+/// either directly or indirectly.
+///
+/// Like [`ResMut`], this declares mutable access to that particular instance of the
+/// resource for the set. If you only need a shared borrow, use [`SetLocal`] instead.
+///
+/// [`SystemSet`]: crate::schedule::SystemSet
+pub struct SetLocalMut<'w, T: ?Sized + Resource<Mutability = Mutable>> {
+    pub(crate) value: &'w mut T,
+    pub(crate) ticks: ComponentTicksMut<'w>,
+    pub(crate) set: InternedSystemSet,
+}
+
+impl<'w, T: ?Sized + Resource<Mutability = Mutable>> SetLocalMut<'w, T> {
+    /// Returns the system set that this value belongs to.
+    pub fn set(&self) -> InternedSystemSet {
+        self.set
+    }
+}
+
+change_detection_impl!(SetLocalMut<'w, T>, T, Resource<Mutability = Mutable>);
+change_detection_mut_impl!(SetLocalMut<'w, T>, T, Resource<Mutability = Mutable>);
+impl_methods!(SetLocalMut<'w, T>, T, Resource<Mutability = Mutable>);
+impl_debug!(SetLocalMut<'w, T>, Resource<Mutability = Mutable>);
 
 /// Shared borrow of a non-[`Send`] resource.
 ///
