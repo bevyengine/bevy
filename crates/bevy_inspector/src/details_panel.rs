@@ -1,6 +1,6 @@
 //! A panel showing the components of the selected entity, and the systems that keep it in sync.
 
-use core::any::Any;
+use core::{any::Any, borrow::Borrow};
 
 use alloc::{
     borrow::Cow,
@@ -48,7 +48,10 @@ use bevy_input::{
 };
 use bevy_input_focus::{FocusLost, FocusedInput};
 use bevy_log::{warn, warn_once};
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use bevy_reflect::{
     enums::{DynamicEnum, DynamicVariant, VariantInfo, VariantType},
     prelude::ReflectDefault,
@@ -64,7 +67,7 @@ use bevy_ui::{
     PositionType, UiRect, Val,
 };
 use bevy_ui_widgets::{ControlOrientation, NumericRange, NumericValue, ScrollArea, ValueChange};
-use bevy_utils::prelude::ShortName;
+use bevy_utils::prelude::{DebugName, ShortName};
 
 use crate::{
     column_split::{ColumnSplit, ColumnSplitLeading},
@@ -97,10 +100,51 @@ pub struct InspectorDetailsBody;
 #[reflect(Component, Debug, Default, Clone)]
 pub struct InspectorDetailsFields;
 
-/// The [`ComponentId`] of the component a group's toggle or field container belongs to.
-#[derive(Component, Debug, Clone, Copy, Reflect)]
+/// Identifies a component in the details panel, independently of the world it lives in.
+///
+/// This is the full type path of the component, so it is the same for every entity and across
+/// runs. Components without a type registration use [`ComponentInfo::name`] instead, or their
+/// [`ComponentId`] when the `debug` feature of `bevy_utils` is disabled and no name is recorded.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect)]
+#[reflect(Debug, Clone, PartialEq, Hash)]
+pub struct ComponentKey(pub Arc<str>);
+
+impl ComponentKey {
+    /// The key of the component `id` in `world`.
+    pub fn of(world: &World, id: ComponentId) -> Self {
+        let Some(info) = world.components().get_info(id) else {
+            return Self::from(format!("{id:?}").as_str());
+        };
+        let registered = info.type_id().and_then(|type_id| {
+            let registry = world.get_resource::<AppTypeRegistry>()?.read();
+            Some(Self::from(registry.get(type_id)?.type_info().type_path()))
+        });
+        registered.unwrap_or_else(|| {
+            if DebugName::ENABLED {
+                Self::from(&*ComponentInfo::name(info))
+            } else {
+                Self::from(format!("{id:?}").as_str())
+            }
+        })
+    }
+}
+
+impl From<&str> for ComponentKey {
+    fn from(path: &str) -> Self {
+        Self(Arc::from(path))
+    }
+}
+
+impl Borrow<str> for ComponentKey {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+/// The [`ComponentKey`] of the component a group's toggle or field container belongs to.
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Clone)]
-pub struct InspectorDetailsComponent(pub ComponentId);
+pub struct InspectorDetailsComponent(pub ComponentKey);
 
 /// The kind of widget a field value is rendered with, as returned by [`FieldValue::kind`].
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
@@ -181,10 +225,8 @@ pub struct FieldEdit {
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Clone)]
 pub struct InspectorField {
-    /// The component, as used to key [`DetailsIndex`].
-    pub component: ComponentId,
-    /// The full type path of the component.
-    pub type_path: String,
+    /// The component, whose key is its full type path.
+    pub component: ComponentKey,
     /// The path of the field within the component, in [`bevy_reflect::GetPath`] syntax.
     pub path: String,
 }
@@ -217,10 +259,9 @@ struct FieldWidget {
 /// A component of the inspected entity, with its fields flattened into rows.
 #[derive(Debug, Clone)]
 pub(crate) struct ComponentDetails {
-    pub(crate) id: ComponentId,
+    pub(crate) key: ComponentKey,
     /// The name shown in the group header, a [`ShortName`] of the component type.
     pub(crate) name: String,
-    pub(crate) type_path: String,
     pub(crate) memory: String,
     pub(crate) fields: Vec<FieldEntry>,
 }
@@ -285,24 +326,25 @@ impl EmptyState {
 /// Maps the components and fields shown by the details panel to the widgets displaying them.
 #[derive(Resource, Debug, Default)]
 pub struct DetailsIndex {
-    fields: HashMap<(ComponentId, String), FieldWidget>,
-    groups: HashMap<ComponentId, GroupWidget>,
+    fields: HashMap<(ComponentKey, String), FieldWidget>,
+    groups: HashMap<ComponentKey, GroupWidget>,
     body: Option<Entity>,
     selection: Option<Entity>,
     empty: Option<EmptyState>,
 }
 
 impl DetailsIndex {
-    /// The widget displaying the field at `path` of `component`, if one exists.
-    pub fn widget(&self, component: ComponentId, path: &str) -> Option<Entity> {
+    /// The widget displaying the field at `path` of the component with the type path
+    /// `component`, if one exists.
+    pub fn widget(&self, component: &str, path: &str) -> Option<Entity> {
         self.fields
-            .get(&(component, path.to_string()))
+            .get(&(ComponentKey::from(component), path.to_string()))
             .map(|widget| widget.entity)
     }
 
-    /// The group entity of `component`, if one is shown.
-    pub(crate) fn group(&self, component: ComponentId) -> Option<Entity> {
-        self.groups.get(&component).map(|group| group.entity)
+    /// The group entity of the component with the type path `component`, if one is shown.
+    pub(crate) fn group(&self, component: &str) -> Option<Entity> {
+        self.groups.get(component).map(|group| group.entity)
     }
 
     /// The number of fields currently tracked.
@@ -319,12 +361,12 @@ impl DetailsIndex {
 /// The components whose field lists are collapsed.
 #[derive(Resource, Debug, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
-pub struct DetailsCollapsed(pub HashSet<ComponentId>);
+pub struct DetailsCollapsed(pub HashSet<ComponentKey>);
 
 /// The [`ColumnSplit::fraction`] of each component's field rows, kept while groups respawn.
 #[derive(Resource, Debug, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
-pub struct DetailsColumnSplits(pub HashMap<ComponentId, f32>);
+pub struct DetailsColumnSplits(pub HashMap<ComponentKey, f32>);
 
 /// Records the column split of each component group in [`DetailsColumnSplits`].
 pub fn store_column_splits(
@@ -332,7 +374,7 @@ pub fn store_column_splits(
     mut stored: ResMut<DetailsColumnSplits>,
 ) {
     for (split, component) in &splits {
-        stored.0.insert(component.0, split.fraction);
+        stored.0.insert(component.0.clone(), split.fraction);
     }
 }
 
@@ -425,7 +467,7 @@ pub fn inspector_details_toggled(
     if change.value {
         collapsed.0.remove(&component.0);
     } else {
-        collapsed.0.insert(component.0);
+        collapsed.0.insert(component.0.clone());
     }
     sync.set_dirty();
 }
@@ -449,7 +491,10 @@ fn emit_field_edit(
     let Some(entity) = index.selection else {
         return;
     };
-    let Some(stored) = index.fields.get_mut(&(field.component, field.path.clone())) else {
+    let Some(stored) = index
+        .fields
+        .get_mut(&(field.component.clone(), field.path.clone()))
+    else {
         return;
     };
     let Some(value) = value(&stored.value) else {
@@ -461,7 +506,7 @@ fn emit_field_edit(
     commands.queue(move |world: &mut World| apply_value(world, &displayed, &displayed.value));
     commands.trigger(FieldEdit {
         entity,
-        component: field.type_path.clone(),
+        component: field.component.0.to_string(),
         path: field.path.clone(),
         value,
     });
@@ -1151,14 +1196,8 @@ pub(crate) fn inspect_components(
                     .collect();
             }
             ComponentDetails {
-                id: component.component_id,
+                key: ComponentKey::of(world, component.component_id),
                 name: crate::component_short_name(world, component.component_id),
-                type_path: component
-                    .reflected_value
-                    .as_deref()
-                    .and_then(PartialReflect::get_represented_type_info)
-                    .map(|info| info.type_path().to_string())
-                    .unwrap_or_default(),
                 memory: component.memory_size.to_string(),
                 fields,
             }
@@ -1166,9 +1205,10 @@ pub(crate) fn inspect_components(
         .collect();
     #[cfg(feature = "remote")]
     if let Some(record) = world.component_id::<crate::remote::RemoteComponents>() {
-        components.retain(|component| component.id != record);
+        let record = ComponentKey::of(world, record);
+        components.retain(|component| component.key != record);
     }
-    components.sort_by(|left, right| (&left.name, left.id).cmp(&(&right.name, right.id)));
+    components.sort_by(|left, right| (&left.name, &left.key).cmp(&(&right.name, &right.key)));
     components
 }
 
@@ -1221,32 +1261,33 @@ fn reset_body(
 /// respawned or despawned. The remaining groups have their widget values updated in place.
 fn sync_groups(world: &mut World, body: Entity, components: &[ComponentDetails]) {
     let collapsed = world.resource::<DetailsCollapsed>().0.clone();
-    let present: HashSet<ComponentId> = components.iter().map(|component| component.id).collect();
-    let stale: Vec<ComponentId> = world
+    let present: HashSet<&ComponentKey> =
+        components.iter().map(|component| &component.key).collect();
+    let stale: Vec<ComponentKey> = world
         .resource::<DetailsIndex>()
         .groups
         .iter()
-        .filter(|(id, group)| !present.contains(*id) || group.expanded == collapsed.contains(*id))
-        .map(|(id, _)| *id)
+        .filter(|(key, group)| !present.contains(key) || group.expanded == collapsed.contains(*key))
+        .map(|(key, _)| key.clone())
         .collect();
 
     let mut reordered = !stale.is_empty();
-    for id in stale {
-        despawn_group(world, id);
+    for key in stale {
+        despawn_group(world, &key);
     }
 
     for component in components {
         if world
             .resource::<DetailsIndex>()
             .groups
-            .contains_key(&component.id)
+            .contains_key(&component.key)
         {
             if update_in_place(world, component) {
                 continue;
             }
-            despawn_group(world, component.id);
+            despawn_group(world, &component.key);
         }
-        let expanded = !collapsed.contains(&component.id);
+        let expanded = !collapsed.contains(&component.key);
         spawn_group(world, body, component, expanded);
         reordered = true;
     }
@@ -1264,7 +1305,7 @@ fn update_in_place(world: &mut World, component: &ComponentDetails) -> bool {
     let mut updates = Vec::new();
     {
         let index = world.resource::<DetailsIndex>();
-        let Some(group) = index.groups.get(&component.id) else {
+        let Some(group) = index.groups.get(&component.key) else {
             return false;
         };
         if !group.expanded {
@@ -1280,7 +1321,7 @@ fn update_in_place(world: &mut World, component: &ComponentDetails) -> bool {
             return false;
         }
         for entry in &component.fields {
-            let key = (component.id, entry.path.clone());
+            let key = (component.key.clone(), entry.path.clone());
             let Some(widget) = index.fields.get(&key) else {
                 return false;
             };
@@ -1304,10 +1345,10 @@ fn update_in_place(world: &mut World, component: &ComponentDetails) -> bool {
 }
 
 /// Despawns the group of `component` and forgets its field widgets.
-fn despawn_group(world: &mut World, component: ComponentId) {
+fn despawn_group(world: &mut World, component: &ComponentKey) {
     let mut index = world.resource_mut::<DetailsIndex>();
-    let group = index.groups.remove(&component);
-    index.fields.retain(|(id, _), _| *id != component);
+    let group = index.groups.remove(component);
+    index.fields.retain(|(key, _), _| key != component);
     if let Some(group) = group
         && let Ok(entity) = world.get_entity_mut(group.entity)
     {
@@ -1321,7 +1362,7 @@ fn order_groups(world: &mut World, body: Entity, components: &[ComponentDetails]
     let order: HashMap<Entity, usize> = components
         .iter()
         .enumerate()
-        .filter_map(|(position, component)| Some((index.group(component.id)?, position)))
+        .filter_map(|(position, component)| Some((index.group(&component.key.0)?, position)))
         .collect();
     if let Some(mut children) = world.get_mut::<Children>(body) {
         children.sort_by_key(|child| order.get(child).copied().unwrap_or(usize::MAX));
@@ -1339,7 +1380,7 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
         return;
     };
     world.resource_mut::<DetailsIndex>().groups.insert(
-        component.id,
+        component.key.clone(),
         GroupWidget {
             entity: group,
             expanded,
@@ -1349,7 +1390,7 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
 
     if let Some(toggle) = descendant_with::<FeathersDisclosureToggle>(world, group) {
         let mut toggle = world.entity_mut(toggle);
-        toggle.insert(InspectorDetailsComponent(component.id));
+        toggle.insert(InspectorDetailsComponent(component.key.clone()));
         if expanded {
             toggle.insert(Checked);
         }
@@ -1364,12 +1405,16 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
     };
     if !component.fields.is_empty() {
         let mut split = ColumnSplit::default();
-        if let Some(&fraction) = world.resource::<DetailsColumnSplits>().0.get(&component.id) {
+        if let Some(&fraction) = world
+            .resource::<DetailsColumnSplits>()
+            .0
+            .get(&component.key)
+        {
             split.fraction = fraction;
         }
         world
             .entity_mut(container)
-            .insert((InspectorDetailsComponent(component.id), split));
+            .insert((InspectorDetailsComponent(component.key.clone()), split));
     }
 
     for entry in &component.fields {
@@ -1377,7 +1422,7 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
             world
                 .resource_mut::<DetailsIndex>()
                 .fields
-                .insert((component.id, entry.path.clone()), widget);
+                .insert((component.key.clone(), entry.path.clone()), widget);
         }
     }
 }
@@ -1463,8 +1508,7 @@ fn spawn_field_row(
             continue;
         };
         entity.insert(InspectorField {
-            component: component.id,
-            type_path: component.type_path.clone(),
+            component: component.key.clone(),
             path: entry.path.clone(),
         });
     }
@@ -2727,7 +2771,7 @@ mod tests {
         app.world_mut().resource_mut::<InspectorSelection>().0 = Some(subject);
         app.update();
 
-        let component = app.world().component_id::<Subject>().unwrap();
+        let component = Subject::type_path();
         let index = app.world().resource::<DetailsIndex>();
         let scale = index.widget(component, "scale").unwrap();
         let enabled = index.widget(component, "enabled").unwrap();
@@ -2865,7 +2909,7 @@ mod tests {
         }
     }
 
-    fn fields_container(app: &App, component: ComponentId) -> Entity {
+    fn fields_container(app: &App, component: &str) -> Entity {
         let world = app.world();
         let group = world.resource::<DetailsIndex>().group(component).unwrap();
         descendant_with::<InspectorDetailsFields>(world, group).unwrap()
@@ -2876,8 +2920,8 @@ mod tests {
         let mut app = test_app();
         app.register_type::<Wrapper>();
         inspect(&mut app, (Subject::default(), Wrapper::default()));
-        let subject = app.world().component_id::<Subject>().unwrap();
-        let wrapper = app.world().component_id::<Wrapper>().unwrap();
+        let subject = Subject::type_path();
+        let wrapper = Wrapper::type_path();
 
         let container = fields_container(&app, subject);
         app.world_mut()
@@ -2889,12 +2933,12 @@ mod tests {
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
             .0
-            .insert(subject);
+            .insert(subject.into());
         refresh(&mut app);
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
             .0
-            .remove(&subject);
+            .remove(subject);
         refresh(&mut app);
 
         let respawned = fields_container(&app, subject);
@@ -2902,6 +2946,62 @@ mod tests {
         let fraction = |entity| app.world().get::<ColumnSplit>(entity).unwrap().fraction;
         assert_eq!(fraction(respawned), 0.6);
         assert_eq!(fraction(fields_container(&app, wrapper)), 0.4);
+    }
+
+    #[test]
+    fn keeps_collapsed_and_column_split_state_across_selections() {
+        let mut app = test_app();
+        app.register_type::<Wrapper>();
+        inspect(&mut app, (Subject::default(), Wrapper::default()));
+        let subject = Subject::type_path();
+        let wrapper = Wrapper::type_path();
+
+        let container = fields_container(&app, wrapper);
+        app.world_mut()
+            .get_mut::<ColumnSplit>(container)
+            .unwrap()
+            .fraction = 0.7;
+        app.update();
+        app.world_mut()
+            .resource_mut::<DetailsCollapsed>()
+            .0
+            .insert(subject.into());
+        refresh(&mut app);
+
+        let other = app
+            .world_mut()
+            .spawn((Subject::default(), Wrapper::default()))
+            .id();
+        select(&mut app, Some(other));
+
+        let index = app.world().resource::<DetailsIndex>();
+        assert!(index.group(subject).is_some());
+        assert!(index.widget(subject, "scale").is_none());
+        let respawned = fields_container(&app, wrapper);
+        assert_ne!(respawned, container);
+        assert_eq!(
+            app.world().get::<ColumnSplit>(respawned).unwrap().fraction,
+            0.7
+        );
+    }
+
+    #[test]
+    fn shows_an_unreflected_component_under_a_name_based_key() {
+        let mut app = test_app();
+        inspect(&mut app, (Subject::default(), Marker));
+        let id = app.world().component_id::<Marker>().unwrap();
+
+        let key = ComponentKey::of(app.world(), id);
+        let expected = if DebugName::ENABLED {
+            core::any::type_name::<Marker>().to_string()
+        } else {
+            format!("{id:?}")
+        };
+        assert_eq!(&*key.0, expected);
+        let index = app.world().resource::<DetailsIndex>();
+        assert!(index.group(&key.0).is_some());
+        assert!(index.group(Subject::type_path()).is_some());
+        assert_eq!(body_children(&mut app).len(), 2);
     }
 
     #[derive(Reflect, Debug, Clone, PartialEq)]
@@ -3318,11 +3418,17 @@ mod tests {
             .world_mut()
             .spawn((first::Duplicate::default(), second::Duplicate::default()))
             .id();
-        let first = app.world().component_id::<first::Duplicate>().unwrap();
-        let second = app.world().component_id::<second::Duplicate>().unwrap();
+        let first = first::Duplicate::type_path();
+        let second = second::Duplicate::type_path();
         assert_eq!(
-            crate::component_short_name(app.world(), first),
-            crate::component_short_name(app.world(), second)
+            crate::component_short_name(
+                app.world(),
+                app.world().component_id::<first::Duplicate>().unwrap()
+            ),
+            crate::component_short_name(
+                app.world(),
+                app.world().component_id::<second::Duplicate>().unwrap()
+            )
         );
 
         select(&mut app, Some(subject));
@@ -3336,7 +3442,7 @@ mod tests {
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
             .0
-            .insert(first);
+            .insert(first.into());
         refresh(&mut app);
 
         let index = app.world().resource::<DetailsIndex>();
@@ -3716,9 +3822,9 @@ mod tests {
         }
 
         assert_eq!(app.world().resource::<EditCount>().0, 0);
-        let component = app.world().component_id::<Kinds>().unwrap();
+        let component = Kinds::type_path();
         let index = app.world().resource::<DetailsIndex>();
-        let color = &index.fields[&(component, "color".to_string())];
+        let color = &index.fields[&(component.into(), "color".to_string())];
         assert!(app
             .world()
             .get::<InspectorField>(color.text.unwrap())
@@ -3825,7 +3931,7 @@ mod tests {
         app.register_type::<Holder>();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn(Subject::default()).id();
-        let subject_id = app.world().component_id::<Subject>().unwrap();
+        let subject_id = Subject::type_path();
         select(&mut app, Some(subject));
         let group = app
             .world()
@@ -3843,7 +3949,7 @@ mod tests {
             .insert(Holder(Arc::new(StrongHandle)));
         refresh(&mut app);
 
-        let holder_id = app.world().component_id::<Holder>().unwrap();
+        let holder_id = Holder::type_path();
         let index = app.world().resource::<DetailsIndex>();
         let holder = index.group(holder_id).unwrap();
         assert_eq!(index.group(subject_id), Some(group));
@@ -4068,7 +4174,7 @@ mod tests {
         let mut app = test_app();
         app.register_type::<Frozen>();
         let entity = inspect(&mut app, Frozen::default());
-        let component = app.world().component_id::<Frozen>().unwrap();
+        let component = Frozen::type_path();
 
         let index = app.world().resource::<DetailsIndex>();
         assert!(!index.is_empty());
@@ -4079,7 +4185,7 @@ mod tests {
         let mut fields = app.world_mut().query::<&InspectorField>();
         assert!(fields
             .iter(app.world())
-            .all(|field| field.component != component));
+            .all(|field| &*field.component.0 != component));
 
         edit_component::<Frozen>(&mut app, entity, "flag", FieldValue::Bool(true));
         refresh(&mut app);
@@ -4340,7 +4446,7 @@ mod tests {
         let mut app = test_app();
         app.register_type::<Level>();
         let entity = inspect(&mut app, Level::Low);
-        let component = app.world().component_id::<Level>().unwrap();
+        let component = Level::type_path();
         assert_eq!(tracked_paths(&app), alloc::vec![String::new()]);
 
         edit_component::<Level>(&mut app, entity, "", variant(&["Low", "High"], 1));
@@ -4349,7 +4455,7 @@ mod tests {
         assert_eq!(app.world().get::<Level>(entity), Some(&Level::High));
         let index = app.world().resource::<DetailsIndex>();
         assert_eq!(
-            index.fields[&(component, String::new())].value,
+            index.fields[&(component.into(), String::new())].value,
             variant(&["Low", "High"], 1)
         );
     }
@@ -4366,7 +4472,7 @@ mod tests {
                     .collect(),
             ),
         );
-        let component = app.world().component_id::<Lookup>().unwrap();
+        let component = Lookup::type_path();
         let group = app
             .world()
             .resource::<DetailsIndex>()
