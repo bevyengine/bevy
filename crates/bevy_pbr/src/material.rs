@@ -188,15 +188,16 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         false
     }
 
-    #[inline]
     /// Returns which faces of the mesh this material culls. `None` draws both
-    /// sides. Defaults to `None`; [`StandardMaterial`] overrides this with its
-    /// own `cull_mode`.
+    /// sides. Defaults to `Some(Face::Back)`, matching `StandardMaterial`'s
+    /// default; materials can override it (as `StandardMaterial` does with its
+    /// own `cull_mode`).
     ///
-    /// Surfaced on [`MaterialProperties`] so render phases that build their own
+    /// Surfaced on `MaterialProperties` so render phases that build their own
     /// pipelines can honor the material's culling.
+    #[inline]
     fn cull_mode(&self) -> Option<Face> {
-        None
+        Some(Face::Back)
     }
 
     /// Controls if the prepass is enabled for the Material.
