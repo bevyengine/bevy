@@ -18,7 +18,6 @@ use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     gltf::Gltf,
     math::ops,
-    mesh::Indices,
     platform::collections::{HashMap, HashSet},
     post_process::bloom::Bloom,
     prelude::*,
@@ -517,15 +516,10 @@ fn setup_flythrough_camera(
     p.near = film.near;
 }
 
-/// Adds `RaytracingMesh3d` to each mesh and widens 16-bit indices to 32-bit, which the
-/// Solari BLAS build needs. The conversion script prepares the rest of the mesh layout,
-/// but it can't set the index width because the glTF exporter always writes the smallest
-/// sufficient index type.
 fn setup_raytracing_meshes(
     scene_ready: On<WorldInstanceReady>,
     children: Query<&Children>,
     mesh_query: Query<&Mesh3d>,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
 ) {
     for descendant in children.iter_descendants(scene_ready.entity) {
@@ -535,19 +529,6 @@ fn setup_raytracing_meshes(
         commands
             .entity(descendant)
             .insert(RaytracingMesh3d(mesh_handle.clone()));
-
-        // Check with `get`, since `get_mut` would mark the mesh Modified and trigger a
-        // re-upload and BLAS rebuild.
-        let needs_widening = matches!(
-            meshes.get(mesh_handle).and_then(Mesh::indices),
-            Some(Indices::U16(_))
-        );
-        if needs_widening
-            && let Some(mut mesh) = meshes.get_mut(mesh_handle)
-            && let Some(indices) = mesh.indices_mut()
-        {
-            *indices = Indices::U32(indices.iter().map(|i| i as u32).collect());
-        }
     }
 }
 
