@@ -36,6 +36,7 @@ pub fn atmosphere_luts(
     )>,
     pipelines: Res<AtmosphereLutPipelines>,
     mut lut_cache: bevy_ecs::system::Local<(u64, u32)>,
+    mut field_frame: bevy_ecs::system::Local<u32>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
@@ -267,14 +268,20 @@ pub fn atmosphere_luts(
                 super::resources::CLOUD_FIELD_RES_XY.div_ceil(8),
                 super::resources::CLOUD_FIELD_RES_Z,
             );
+            // Amortised rebuild: one stage per frame (init, x, y, z), then 4 idle frames, so the
+            // field follows weather/wind within 8 frames at ~1/8 of the full cost per frame.
+            let stage = (*field_frame % 8) as usize;
+            *field_frame = field_frame.wrapping_add(1);
             for (i, pipeline) in resolved.into_iter().enumerate() {
+                if i != stage {
+                    continue;
+                }
                 let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
                     label: Some("cloud_field"),
-                    timestamp_writes: if i == 0 {
-                        super::gpu_timing::compute(&timing_device, "cloud_field")
-                    } else {
-                        None
-                    },
+                    timestamp_writes: super::gpu_timing::compute(
+                        &timing_device,
+                        ["cloud_field", "cloud_field_edt_x", "cloud_field_edt_y", "cloud_field_edt_z"][i],
+                    ),
                 });
                 pass.set_pipeline(pipeline);
                 if i == 0 {
@@ -292,7 +299,14 @@ pub fn atmosphere_luts(
                 } else {
                     pass.set_bind_group(0, &edt_bgs[i - 1], &[]);
                 }
-                pass.dispatch_workgroups(groups.x, groups.y, groups.z);
+                // init: 8x8x1 groups; edt_x/y/z: one workgroup per grid line (cloud_field.wesl).
+                let (n_xy, n_z) = (groups.x * 8, groups.z);
+                match i {
+                    0 => pass.dispatch_workgroups(groups.x, groups.y, groups.z),
+                    1 => pass.dispatch_workgroups(1, n_xy, n_z),
+                    2 => pass.dispatch_workgroups(n_xy, 1, n_z),
+                    _ => pass.dispatch_workgroups(n_xy, n_xy, 1),
+                }
             }
         }
     }

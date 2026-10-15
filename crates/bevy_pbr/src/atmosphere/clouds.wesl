@@ -522,7 +522,7 @@ fn sample_cloud_contribution(
 // marching). Here it is generated each frame from the coarse (weather + height profile + shape)
 // density over a camera-centred grid (`cloud_field.wesl`): x/z horizontal in atmosphere space,
 // z slices span the cloud layer radially.
-const CLOUD_FIELD_RES_XY: u32 = 256u;
+const CLOUD_FIELD_RES_XY: u32 = 128u;
 const CLOUD_FIELD_RES_Z: u32 = 32u;
 const CLOUD_FIELD_EXTENT_M: f32 = 24000.0;
 

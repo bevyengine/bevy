@@ -16,16 +16,17 @@ import package::atmosphere::clouds::{
     CLOUD_FIELD_RES_Z,
 };
 
-@group(0) @binding(40) var out_field_init: texture_storage_3d<rgba32float, write>;
+@group(0) @binding(40) var out_field_init: texture_storage_3d<rgba16float, write>;
 @group(0) @binding(41) var in_field: texture_3d<f32>;
-@group(0) @binding(42) var out_field: texture_storage_3d<rgba32float, write>;
+@group(0) @binding(42) var out_field: texture_storage_3d<rgba16float, write>;
 @group(0) @binding(43) var out_field_sdf: texture_storage_3d<rgba16float, write>;
 
-const BIG: f32 = 1e12;
+// Squared distances are stored in xy-voxel units (fp16-safe: < 2048 within the windows).
+const BIG: f32 = 60000.0;
 // Same threshold as the raymarch's coarse -> fine switch (clouds_raymarch.wesl).
 const INSIDE_EPS: f32 = 1e-4;
 // Search windows (voxels): ~1.5 km horizontally, the whole layer vertically.
-const WIN_XY: i32 = 16;
+const WIN_XY: i32 = 8;
 const WIN_Z: i32 = 31;
 
 fn view_position() -> vec3<f32> {
@@ -48,51 +49,61 @@ fn init(@builtin(global_invocation_id) id: vec3<u32>) {
     let p = vec3(xz.x, sqrt(max(r * r - dot(xz, xz), 0.0)), xz.y);
     let inside = get_cloud_medium_density_coarse(length(p), p) > INSIDE_EPS;
     // r: squared distance to the nearest inside voxel, g: to the nearest outside voxel.
-    textureStore(out_field_init, id, vec4(select(BIG, 0.0, inside), select(0.0, BIG, inside), dz, 0.0));
+    textureStore(out_field_init, id, vec4(select(BIG, 0.0, inside), select(0.0, BIG, inside), dz / vox, 0.0));
 }
 
-fn edt_1d(id: vec3<u32>, axis: u32, win: i32, n: i32, s: f32) -> vec2<f32> {
+// One workgroup per grid line: the line is loaded into workgroup memory once, so each voxel's
+// windowed min reads shared memory instead of 2*WIN+1 global texels (was ~5.7 ms, bandwidth bound).
+var<workgroup> line: array<vec2<f32>, 256>;
+
+fn edt_line(lane: u32, n: u32, win: i32, s: f32) -> vec2<f32> {
     var best = vec2(BIG);
-    let c = i32(id[axis]);
+    let c = i32(lane);
     for (var k = -win; k <= win; k++) {
         let j = c + k;
-        if (j < 0 || j >= n) { continue; }
-        var q = vec3<i32>(id);
-        q[axis] = j;
-        let v = textureLoad(in_field, q, 0).xy;
+        if (j < 0 || j >= i32(n)) { continue; }
         let d = f32(k) * s;
-        best = min(best, v + vec2(d * d));
+        best = min(best, line[j] + vec2(d * d));
     }
     return best;
 }
 
-@compute @workgroup_size(8, 8, 1)
-fn edt_x(@builtin(global_invocation_id) id: vec3<u32>) {
-    if (id.x >= CLOUD_FIELD_RES_XY || id.y >= CLOUD_FIELD_RES_XY || id.z >= CLOUD_FIELD_RES_Z) { return; }
-    let dz = textureLoad(in_field, vec3<i32>(id), 0).z;
-    let v = edt_1d(id, 0u, WIN_XY, i32(CLOUD_FIELD_RES_XY), cloud_field_voxel_m());
-    textureStore(out_field, id, vec4(v, dz, 0.0));
+// Dispatch (1, RES_XY, RES_Z): lane = x.
+@compute @workgroup_size(128, 1, 1)
+fn edt_x(@builtin(local_invocation_index) lane: u32, @builtin(workgroup_id) wg: vec3<u32>) {
+    let q = vec3<i32>(i32(lane), i32(wg.y), i32(wg.z));
+    let v = textureLoad(in_field, q, 0);
+    line[lane] = v.xy;
+    workgroupBarrier();
+    textureStore(out_field, q, vec4(edt_line(lane, CLOUD_FIELD_RES_XY, WIN_XY, 1.0), v.z, 0.0));
 }
 
-@compute @workgroup_size(8, 8, 1)
-fn edt_y(@builtin(global_invocation_id) id: vec3<u32>) {
-    if (id.x >= CLOUD_FIELD_RES_XY || id.y >= CLOUD_FIELD_RES_XY || id.z >= CLOUD_FIELD_RES_Z) { return; }
-    let dz = textureLoad(in_field, vec3<i32>(id), 0).z;
-    let v = edt_1d(id, 1u, WIN_XY, i32(CLOUD_FIELD_RES_XY), cloud_field_voxel_m());
-    textureStore(out_field, id, vec4(v, dz, 0.0));
+// Dispatch (RES_XY, 1, RES_Z): lane = y.
+@compute @workgroup_size(128, 1, 1)
+fn edt_y(@builtin(local_invocation_index) lane: u32, @builtin(workgroup_id) wg: vec3<u32>) {
+    let q = vec3<i32>(i32(wg.x), i32(lane), i32(wg.z));
+    let v = textureLoad(in_field, q, 0);
+    line[lane] = v.xy;
+    workgroupBarrier();
+    textureStore(out_field, q, vec4(edt_line(lane, CLOUD_FIELD_RES_XY, WIN_XY, 1.0), v.z, 0.0));
 }
 
-@compute @workgroup_size(8, 8, 1)
-fn edt_z(@builtin(global_invocation_id) id: vec3<u32>) {
-    if (id.x >= CLOUD_FIELD_RES_XY || id.y >= CLOUD_FIELD_RES_XY || id.z >= CLOUD_FIELD_RES_Z) { return; }
-    let dz = textureLoad(in_field, vec3<i32>(id), 0).z;
-    let v = edt_1d(id, 2u, WIN_Z, i32(CLOUD_FIELD_RES_Z), dz);
+// Dispatch (RES_XY, RES_XY, 1): lane = z.
+@compute @workgroup_size(32, 1, 1)
+fn edt_z(@builtin(local_invocation_index) lane: u32, @builtin(workgroup_id) wg: vec3<u32>) {
+    let q = vec3<i32>(i32(wg.x), i32(wg.y), i32(lane));
+    let v4 = textureLoad(in_field, q, 0);
+    let dz = v4.z;
+    line[lane] = v4.xy;
+    workgroupBarrier();
+    let v = edt_line(lane, CLOUD_FIELD_RES_Z, WIN_Z, dz) ;
+    let vox = cloud_field_voxel_m();
     // Voxel centres -> surface: the boundary lies half a voxel between an inside and an outside
     // centre (smallest voxel axis).
-    let half = 0.5 * min(cloud_field_voxel_m(), dz);
+    let half = 0.5 * min(1.0, dz);
     // Nothing found inside the window: the window radius is a safe lower bound.
-    let d_out = min(sqrt(v.x), f32(WIN_XY) * cloud_field_voxel_m());
-    let d_in = min(sqrt(v.y), f32(WIN_XY) * cloud_field_voxel_m());
-    let sdf = select(d_out - half, half - d_in, v.x == 0.0);
-    textureStore(out_field_sdf, id, vec4(sdf, 0.0, 0.0, 1.0));
+    let d_out = min(sqrt(v.x), f32(WIN_XY));
+    let d_in = min(sqrt(v.y), f32(WIN_XY));
+    let sdf = select(d_out - half, half - d_in, v.x == 0.0) * vox;
+    textureStore(out_field_sdf, q, vec4(sdf, 0.0, 0.0, 1.0));
 }

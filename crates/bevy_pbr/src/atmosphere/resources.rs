@@ -38,7 +38,7 @@ use bevy_utils::default;
 use super::GpuAtmosphereSettings;
 
 /// Cloud SDF grid (must match `clouds.wesl` CLOUD_FIELD_RES_*).
-pub(crate) const CLOUD_FIELD_RES_XY: u32 = 256;
+pub(crate) const CLOUD_FIELD_RES_XY: u32 = 128;
 pub(crate) const CLOUD_FIELD_RES_Z: u32 = 32;
 
 /// Shadow map bind group layout entries
@@ -301,7 +301,7 @@ impl AtmosphereBindGroupLayouts {
                     (
                         40,
                         texture_storage_3d(
-                            TextureFormat::Rgba32Float,
+                            TextureFormat::Rgba16Float,
                             StorageTextureAccess::WriteOnly,
                         ),
                     ),
@@ -455,7 +455,7 @@ impl AtmosphereBindGroupLayouts {
                         (41, texture_3d(TextureSampleType::Float { filterable: false })),
                         (
                             42,
-                            texture_storage_3d(TextureFormat::Rgba32Float, StorageTextureAccess::WriteOnly),
+                            texture_storage_3d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
                         ),
                     ),
                 ),
@@ -1018,8 +1018,8 @@ pub(super) fn prepare_atmosphere_textures(
                 },
             )
         };
-        let cloud_field_a = field_tex("cloud_field_a", TextureFormat::Rgba32Float);
-        let cloud_field_b = field_tex("cloud_field_b", TextureFormat::Rgba32Float);
+        let cloud_field_a = field_tex("cloud_field_a", TextureFormat::Rgba16Float);
+        let cloud_field_b = field_tex("cloud_field_b", TextureFormat::Rgba16Float);
         let cloud_field_sdf = field_tex("cloud_field_sdf", TextureFormat::Rgba16Float);
 
         let cloud_shadow_map = texture_cache.get(

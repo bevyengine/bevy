@@ -621,12 +621,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     continue;
                 }
                 // Nubis Cubed SDF ray march: step = max(sdf_cloud_distance, adaptive_step).
-                // Margin: trilinear SDF error ~ half a voxel diagonal.
+                // Margin: trilinear SDF error (~half a voxel diagonal) plus up to one voxel of
+                // camera-snap offset, since the field is rebuilt over 4 of every 8 frames.
                 var skip = dt;
                 @if(!ATM_DBG_NO_SDF_SKIP) {
                     let d_sdf = cloud_distance(p, ray_origin);
                     if (d_sdf < CLOUD_DIST_UNKNOWN) {
-                        skip = max(dt, d_sdf - 1.5 * cloud_field_voxel_m());
+                        skip = max(dt, d_sdf - 2.5 * cloud_field_voxel_m());
                     }
                 }
                 t += skip;
