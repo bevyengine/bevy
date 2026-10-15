@@ -611,7 +611,7 @@ pub fn render_sky(
             "scene_hdr",
             t,
             0,
-            bevy_math::UVec3::new(t.width(), t.height(), 1),
+            UVec3::new(t.width(), t.height(), 1),
             8,
             "rgba16f",
         );

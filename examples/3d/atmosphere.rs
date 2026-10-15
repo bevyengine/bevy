@@ -1,4 +1,17 @@
 //! This example showcases pbr atmospheric scattering
+//!
+//! Environment variables (all optional; used by the cloud validation scripts):
+//! - Scene: `ATMOSPHERE_VIEW=hero|sun|up|under`, `ATMOSPHERE_CAM`, `ATMOSPHERE_SUN_ELEV_DEG`,
+//!   `ATMOSPHERE_SUNSET`, `ATMOSPHERE_TERRAIN`, `ATMOSPHERE_NO_CLOUDS`, `ATMOSPHERE_MIE_SCALE`,
+//!   `ATMOSPHERE_LUT_MODE`.
+//! - Time: `ATMOSPHERE_FREEZE`, `ATMOSPHERE_ANIMATE`, `ATMOSPHERE_FIXED_DT`.
+//! - Cloud shadows: `ATMOSPHERE_SHADOW_INTERLEAVE`, `ATMOSPHERE_SHADOW_SAMPLES`,
+//!   `ATMOSPHERE_SHADOW_TEMPORAL_ALPHA`.
+//! - Capture / runs: `ATMOSPHERE_BACKGROUND`, `ATMOSPHERE_SCREENSHOT`, `ATMOSPHERE_SCREENSHOT_SECS`,
+//!   `ATMOSPHERE_SCREENSHOT_FRAMES`, `ATMOSPHERE_EXIT_SECS`, `ATMOSPHERE_EXIT_FRAME`,
+//!   `ATMOSPHERE_DIAGNOSTICS`, `ATMOSPHERE_CLEAR`.
+//! - Read by `bevy_pbr`: `ATMOSPHERE_DBG` (comma-separated `ATM_DBG_*` shader defs, see
+//!   `atmosphere/resources.rs`), `ATMOSPHERE_GPU_TIMING` (per-pass CSV).
 #[cfg(feature = "free_camera")]
 use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use std::f32::consts::PI;
@@ -90,11 +103,11 @@ fn main() {
             // not activate the app / steal focus; rendering stays continuous when unfocused.
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    focused: std::env::var("ATMOSPHERE_BACKGROUND").is_err(),
-                    visible: std::env::var("ATMOSPHERE_BACKGROUND").is_err(),
+                    focused: !background,
+                    visible: !background,
                     // No vsync in background runs: an occluded window's drawables are not
                     // display-synced, so acquisition doesn't stall.
-                    present_mode: if std::env::var("ATMOSPHERE_BACKGROUND").is_ok() {
+                    present_mode: if background {
                         bevy::window::PresentMode::AutoNoVsync
                     } else {
                         bevy::window::PresentMode::AutoVsync

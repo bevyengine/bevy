@@ -2045,10 +2045,10 @@ fn cloud_term_defs() -> Vec<bevy_shader::ShaderDefVal> {
 /// on resize; tiny when `CLOUD_REFERENCE` is off.
 fn reference_accumulator(
     device: &RenderDevice,
-    size: bevy_render::render_resource::Extent3d,
-) -> bevy_render::render_resource::Buffer {
+    size: Extent3d,
+) -> Buffer {
     use std::sync::Mutex;
-    static ACC: Mutex<Option<(bevy_render::render_resource::Buffer, u64)>> = Mutex::new(None);
+    static ACC: Mutex<Option<(Buffer, u64)>> = Mutex::new(None);
     let bytes = if std::env::var("CLOUD_REFERENCE").is_ok() {
         (size.width as u64 * size.height as u64 * 32).max(32)
     } else {
@@ -2058,10 +2058,10 @@ fn reference_accumulator(
     if let Some((buffer, b)) = acc.as_ref() && *b == bytes {
         return buffer.clone();
     }
-    let buffer = device.create_buffer(&bevy_render::render_resource::BufferDescriptor {
+    let buffer = device.create_buffer(&BufferDescriptor {
         label: Some("cloud_reference_accumulator"),
         size: bytes,
-        usage: bevy_render::render_resource::BufferUsages::STORAGE,
+        usage: BufferUsages::STORAGE,
         mapped_at_creation: false,
     });
     *acc = Some((buffer.clone(), bytes));
