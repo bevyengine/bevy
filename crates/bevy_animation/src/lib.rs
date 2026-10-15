@@ -214,13 +214,46 @@ impl Hash for AnimationTargetId {
 #[reflect(Component, Clone)]
 pub struct AnimatedBy(#[entities] pub Entity);
 
+/// A read-only projection of an animation event.
+///
+/// Use this when you need to manually inspect animation events and run their designated functions
+/// outside of the standard animation playback system.
+pub struct AnimationEventView {
+    /// The target bone or entity associated with the event.
+    /// [`None`] means no specific bone was targeted.
+    pub animation_target_id: Option<AnimationTargetId>,
+    /// The timestamp (in seconds) at which this event is configured to trigger.
+    pub trigger_time: f32,
+    /// The function that this animation event would run
+    pub trigger_fn: Arc<dyn Fn(&mut Commands, Entity, f32, f32) + Send + Sync>,
+}
+
 impl AnimationClip {
     #[inline]
     /// [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
     pub fn curves(&self) -> &AnimationCurves {
         &self.curves
     }
-
+    /// Returns an iterator over all animation events in this clip.
+    ///
+    /// Generally should not be used unless existing animation events need to be manually triggered
+    /// for some reason.
+    ///
+    /// The iterator yields [`AnimationEventView`], which provide access
+    /// to the target, timing, and trigger function of each event.
+    pub fn events_iter(&self) -> impl Iterator<Item = AnimationEventView> + '_ {
+        self.events.iter().flat_map(|(k, events)| {
+            let id = match k {
+                AnimationEventTarget::Root => None,
+                AnimationEventTarget::Node(node) => Some(*node),
+            };
+            events.iter().map(move |event| AnimationEventView {
+                animation_target_id: id,
+                trigger_time: event.time,
+                trigger_fn: event.event.trigger.0.clone(),
+            })
+        })
+    }
     #[inline]
     /// Get mutable references of [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
     pub fn curves_mut(&mut self) -> &mut AnimationCurves {
