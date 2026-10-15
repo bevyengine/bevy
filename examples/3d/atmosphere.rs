@@ -439,7 +439,15 @@ fn setup_camera_fog(
     camera.insert((
         Camera3d::default(),
         // `ATMOSPHERE_VIEW=up|wide` picks an alternative camera for cloud screenshots.
-        match std::env::var("ATMOSPHERE_VIEW").as_deref() {
+        // `ATMOSPHERE_CAM=x,y,z,tx,ty,tz` overrides the camera position and look-at target.
+        match std::env::var("ATMOSPHERE_CAM")
+            .ok()
+            .map(|v| v.split(',').filter_map(|x| x.trim().parse::<f32>().ok()).collect::<Vec<_>>())
+            .filter(|v| v.len() == 6)
+        {
+            Some(v) => Transform::from_xyz(v[0], v[1], v[2])
+                .looking_at(Vec3::new(v[3], v[4], v[5]), Vec3::Y),
+            None => match std::env::var("ATMOSPHERE_VIEW").as_deref() {
             Ok("up") => Transform::from_xyz(-2.8, 0.045, 0.0)
                 .looking_at(Vec3::new(-1.8, 1.2, 0.3), Vec3::Y),
             // Toward the sun (+X), tilted up; use with ATMOSPHERE_SUNSET=1 for a low sun.
@@ -448,6 +456,7 @@ fn setup_camera_fog(
             Ok("wide") => Transform::from_xyz(-2.8, 0.045, 0.0)
                 .looking_at(Vec3::new(-2.8, 0.25, -3.0), Vec3::Y),
             _ => Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            },
         },
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings {
