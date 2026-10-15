@@ -126,9 +126,9 @@ impl BsnTokenStream for BsnRoot {
                 static _INVOCATION_ID: #bevy_scene::macro_utils::LazyLock::<u64> =
                     #bevy_scene::macro_utils::get_lazy_invocation_id();
                 let _invocation_id = *_INVOCATION_ID;
-                static _CALL_ID: #bevy_scene::macro_utils::CallCounter =
-                    #bevy_scene::macro_utils::CallCounter::new();
-                let _call_id = _CALL_ID.increment();
+                static _CALL_COUNTER: #bevy_scene::macro_utils::IdCounter =
+                    #bevy_scene::macro_utils::IdCounter::new();
+                let _call_id = _CALL_COUNTER.next();
             })
         } else {
             None
@@ -169,9 +169,9 @@ impl BsnTokenStream for BsnListRoot {
                 static _INVOCATION_ID: #bevy_scene::macro_utils::LazyLock::<u64> =
                     #bevy_scene::macro_utils::get_lazy_invocation_id();
                 let _invocation_id = *_INVOCATION_ID;
-                static _CALL_ID: #bevy_scene::macro_utils::CallCounter =
-                    #bevy_scene::macro_utils::CallCounter::new();
-                let _call_id = _CALL_ID.increment();
+                static _CALL_COUNTER: #bevy_scene::macro_utils::IdCounter =
+                    #bevy_scene::macro_utils::IdCounter::new();
+                let _call_id = _CALL_COUNTER.next();
             })
         } else {
             None
