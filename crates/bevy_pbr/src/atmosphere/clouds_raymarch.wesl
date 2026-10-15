@@ -60,6 +60,7 @@ fn cloud_distance(p: vec3<f32>, cam: vec3<f32>) -> f32 {
 
 // Hard caps for the first version of the pass; these become `VolumetricCloudSettings` (design §3.3).
 const CLOUD_MAX_STEPS: f32 = 96.0;
+const CLOUD_MAX_STEPS_IN_LAYER: f32 = 1024.0;
 // Distance-adaptive step (Nubis3): near + far_offset · dist / 16384.
 const CLOUD_STEP_NEAR_M: f32 = 40.0;
 const CLOUD_STEP_FAR_OFFSET_M: f32 = 220.0;
@@ -577,7 +578,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         var fine_mode = false;
         var fine_empty: u32 = 0u;
         var step_i: u32 = 0u;
-        let max_steps = u32(CLOUD_MAX_STEPS);
+        // Inside the layer every ray is a long in-slab path (UE5 volumetric clouds scale the view
+        // sample count with the traced in-layer distance up to a maximum).
+        let in_layer = r > cloud_layer.cloud_layer_start && r < cloud_layer.cloud_layer_end;
+        let max_steps = select(u32(CLOUD_MAX_STEPS), u32(CLOUD_MAX_STEPS_IN_LAYER), in_layer);
         let step_far = CLOUD_STEP_FAR_OFFSET_M;
 
         loop {
@@ -586,9 +590,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             }
             step_i += 1u;
 
+            // Never let the step budget end before the segment does (Hillaire 2016 / UE5: the
+            // sample count is spread over the in-layer segment): inside the slab a grazing ray
+            // spends its budget on near wisps and distant clouds were clipped away.
+            // Only empty-space (coarse) steps stretch; in-cloud steps keep their spacing.
+            let remaining = max(t_end - t, 0.0) / f32(max_steps - step_i + 1u);
             let dist_step = CLOUD_STEP_NEAR_M
                 + step_far * clamp(t / CLOUD_STEP_FAR_REF_M, 0.0, 8.0);
-            let dt = select(dist_step, dist_step * CLOUD_COARSE_STEP_SCALE, !fine_mode);
+            let dt = select(dist_step, max(dist_step * CLOUD_COARSE_STEP_SCALE, remaining), !fine_mode);
             let p = ray_origin + ray_dir * t;
             let r_p = length(p);
             let mip = cloud_mip_from_distance(t);
