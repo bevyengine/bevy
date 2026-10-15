@@ -30,10 +30,10 @@ fn ui() -> impl Scene {
             column_gap: px(5),
         }
         Children [
-            @button("Ok", #MainUI)
+            @button("Ok", #RootUI)
             on(|_event: On<PointerPress>| println!("Ok pressed!"))
             --
-            @button("Cancel", #MainUI)
+            @button("Cancel", #RootUI)
             on(|_event: On<PointerPress>| println!("Cancel pressed!"))
             BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
         ]
