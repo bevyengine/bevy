@@ -22,7 +22,7 @@ pub mod upscaling;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 pub use bevy_light::Skybox;
 pub use fullscreen_vertex_shader::FullscreenShader;
-pub use schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
+pub use schedule::{Core2d, Core2dSystems, Core3d, Core3dShadows, Core3dSystems};
 
 mod fullscreen_vertex_shader;
 
