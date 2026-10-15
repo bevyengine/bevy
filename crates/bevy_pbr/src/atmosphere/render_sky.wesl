@@ -1,6 +1,6 @@
 import package::atmosphere::{
     bindings::{view, settings, cloud_shadow_map, atmosphere_lut_sampler},
-    bruneton_functions::sample_transmittance_lut_segment,
+    bruneton_functions::{sample_transmittance_lut_segment, ray_intersects_ground},
     functions::{
         sample_transmittance_lut,
         sample_sky_view_lut, direction_world_to_atmosphere,
@@ -73,6 +73,11 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
             transmittance = result.transmittance;
         }
         inscattering += sun_radiance * transmittance;
+        // The planet surface is opaque: its radiance is already in `inscattering`, so nothing
+        // behind it (clear color, skybox) may show through via the transmittance blend.
+        if ray_intersects_ground(r, mu) {
+            transmittance = vec3(0.0);
+        }
     } else {
         let t = ndc_to_camera_dist(vec3(uv_to_ndc(in.uv), depth));
         inscattering = sample_aerial_view_lut(in.uv, t);
@@ -142,6 +147,9 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     }
     }
     
+    // Debug: ignore the destination (cleared background) behind sky pixels, to test whether a
+    // non-black background leaks through `transmittance` (dual-source blend dst * T).
+    @if(ATM_DBG_SKY_NO_DST) { if depth == 0.0 { transmittance = vec3(0.0); } }
     @if(DUAL_SOURCE_BLENDING)
     return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));
     @if(!DUAL_SOURCE_BLENDING)
