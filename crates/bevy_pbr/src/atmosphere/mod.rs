@@ -40,6 +40,7 @@
 mod environment;
 pub mod fbm_noise;
 mod debug_dump;
+mod gpu_timing;
 mod node;
 pub mod perlin_worley_noise;
 pub mod detail_noise;

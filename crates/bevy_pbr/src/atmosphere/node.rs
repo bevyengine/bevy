@@ -87,13 +87,14 @@ pub fn atmosphere_luts(
         compute_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1);
     }
 
+    let timing_device = ctx.render_device().clone();
     let command_encoder = ctx.command_encoder();
 
     // Pass 1: build all atmosphere LUTs in a single compute pass.
     {
         let mut luts_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("atmosphere_luts"),
-            timestamp_writes: None,
+            timestamp_writes: super::gpu_timing::compute(&timing_device, "atmosphere_luts"),
         });
         let pass_span = diagnostics.pass_span(&mut luts_pass, "atmosphere_luts");
 
@@ -162,7 +163,7 @@ pub fn atmosphere_luts(
     if cloud_layer_uniforms_offset.is_some() {
         let mut cloud_shadow_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("cloud_shadow_map"),
-            timestamp_writes: None,
+            timestamp_writes: super::gpu_timing::compute(&timing_device, "cloud_shadow_map"),
         });
         let pass_span = diagnostics.pass_span(&mut cloud_shadow_pass, "cloud_shadow_map");
         {
@@ -243,7 +244,7 @@ pub fn atmosphere_luts(
         ) {
             let mut temporal_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("cloud_shadow_temporal"),
-                timestamp_writes: None,
+                timestamp_writes: super::gpu_timing::compute(&timing_device, "cloud_shadow_temporal"),
             });
             temporal_pass.set_pipeline(temporal_pipeline);
             temporal_pass.set_bind_group(0, temporal_bg, &[]);
@@ -308,6 +309,7 @@ pub fn render_sky(
     let diagnostics = diagnostics.as_deref();
 
     let dump_device = ctx.render_device().clone();
+    let timing_device = ctx.render_device().clone();
     let command_encoder = ctx.command_encoder();
 
     // Debug readback (CLOUD_DUMP_DIR): textures as they are when this frame's sky starts, i.e.
@@ -346,7 +348,7 @@ pub fn render_sky(
     ) {
         let mut clouds_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("clouds_raymarch"),
-            timestamp_writes: None,
+            timestamp_writes: super::gpu_timing::compute(&timing_device, "clouds_raymarch"),
         });
         let pass_span = diagnostics.pass_span(&mut clouds_pass, "clouds_raymarch");
         clouds_pass.set_pipeline(pipeline);
@@ -374,7 +376,7 @@ pub fn render_sky(
         ) {
             let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("clouds_reconstruct"),
-                timestamp_writes: None,
+                timestamp_writes: super::gpu_timing::compute(&timing_device, "clouds_reconstruct"),
             });
             let pass_span = diagnostics.pass_span(&mut pass, "clouds_reconstruct");
             pass.set_pipeline(reconstruct_pipeline);
@@ -393,7 +395,7 @@ pub fn render_sky(
         label: Some("render_sky"),
         color_attachments: &[Some(view_target.get_color_attachment())],
         depth_stencil_attachment: None,
-        timestamp_writes: None,
+        timestamp_writes: super::gpu_timing::render(&timing_device, "render_sky"),
         occlusion_query_set: None,
         multiview_mask: None,
     });
@@ -449,4 +451,6 @@ pub fn render_sky(
     }
     render_sky_pass.draw(0..3, 0..1);
     pass_span.end(&mut render_sky_pass);
+    drop(render_sky_pass);
+    super::gpu_timing::end_frame(&timing_device, command_encoder);
 }

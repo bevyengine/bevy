@@ -35,6 +35,7 @@ pub use uniform_buffer::*;
 
 // TODO: decide where re-exports should go
 pub use wgpu::{
+    ComputePassTimestampWrites, QuerySet, QuerySetDescriptor, QueryType, RenderPassTimestampWrites,
     util::{
         BufferInitDescriptor, DispatchIndirectArgs, DrawIndexedIndirectArgs, DrawIndirectArgs,
         TextureDataOrder,
