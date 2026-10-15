@@ -671,7 +671,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         @if(CLOUD_NO_HAZE) { haze_on = false; }
         if (haze_on && transmittance < 0.999 && weighted_depth > 0.0) {
             let j = fract(jitter + f32(view.frame_count % 64u) * 0.61803398875);
-            let t_ap = sample_transmittance_lut_segment(r, mu, weighted_depth);
+            var t_ap = sample_transmittance_lut_segment(r, mu, weighted_depth);
+            // ATM_DBG_AP_SIM: similarity-scale the AP transmittance applied to the *cloud*
+            // (extended bright background). For the local haze term (g=0.76, ω≈0.83),
+            // T_sim = T ^ ((σ_a+(1-g)σ_s)/(σ_s+σ_a)) ≈ T^0.37 (validation/sky run-10 MC).
+            // Proper fix stores τ_mie in the transmittance LUT alpha; this probes the effect.
+            @if(ATM_DBG_AP_SIM) { t_ap = pow(t_ap, vec3(0.37)); }
             let haze = cloud_shadowed_haze(uv, ray_origin, ray_dir, weighted_depth, r, mu, j);
             lum = t_ap * luminance + (1.0 - transmittance) * haze;
         }
