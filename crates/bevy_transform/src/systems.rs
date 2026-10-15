@@ -3,7 +3,111 @@ use crate::{
     helper::TransformHelper,
 };
 
-use bevy_ecs::{prelude::*, query::QueryFilter};
+use bevy_ecs::{
+    change_detection::Tick,
+    component::{ComponentId, ComponentIdFor},
+    lifecycle::{RemovedComponentMessages, RemovedComponentReader},
+    prelude::*,
+    query::QueryFilter,
+    system::SystemChangeTick,
+};
+
+/// Stores state for [`mark_dirty_trees`] systems that needs to be reused for every copy.
+// This works around the fact that system states **aren't** shared between copies of the same
+// system - meaning if a third-party plugin wants to add another transform propagation step, normal
+// change detection and message reading would detect the change/message in both copies of
+// [`mark_dirty_trees`].
+#[derive(Resource)]
+pub struct MarkDirtyTreesSharedState {
+    /// The last time a [`mark_dirty_trees`] system ran.
+    ///
+    /// This is reused so we only mark transforms changed if they've changed since the last
+    /// [`mark_dirty_trees`] system ran.
+    last_run: Tick,
+    /// The reader for removed [`ChildOf`] components (i.e., entities that have become orphaned).
+    ///
+    /// This is reused so we only update entities that have removed this component since the last
+    /// [`mark_dirty_trees`] system ran.
+    orphaned_reader: RemovedComponentReader<ChildOf>,
+}
+
+impl MarkDirtyTreesSharedState {
+    /// Creates an instance for the initial "everything changed" state.
+    ///
+    /// This method is private so users can't do weird things like replace their world's resource
+    /// with a new one.
+    pub(crate) fn new() -> Self {
+        Self {
+            last_run: Default::default(),
+            orphaned_reader: Default::default(),
+        }
+    }
+}
+
+/// Stores state for [`propagate_parent_transforms`] systems that needs to be reused for every copy.
+// This works around the fact that system states **aren't** shared between copies of the same
+// system - meaning if a third-party plugin wants to add another transform propagation step, normal
+// change detection and message reading would detect the change/message in both copies of
+// [`propagate_parent_transforms`].
+#[derive(Resource)]
+pub struct PropagateParentTransformsSharedState {
+    /// The last time a [`propagate_parent_transforms`] system ran.
+    ///
+    /// This is reused so we only mark transforms changed if they've changed since the last
+    /// [`propagate_parent_transforms`] system ran.
+    last_run: Tick,
+    #[cfg(not(feature = "multi_threaded"))]
+    /// The reader for removed [`ChildOf`] components (i.e., entities that have become orphaned).
+    ///
+    /// This is reused so we only update entities that have removed this component since the last
+    /// [`propagate_parent_transforms`] system ran.
+    orphaned_reader: RemovedComponentReader<ChildOf>,
+}
+
+impl PropagateParentTransformsSharedState {
+    /// Creates an instance for the initial "everything changed" state.
+    ///
+    /// This method is private so users can't do weird things like replace their world's resource
+    /// with a new one.
+    pub(crate) fn new() -> Self {
+        Self {
+            last_run: Default::default(),
+            #[cfg(not(feature = "multi_threaded"))]
+            orphaned_reader: Default::default(),
+        }
+    }
+}
+
+/// Stores state for [`sync_simple_transforms`] systems that needs to be reused for every copy.
+// This works around the fact that system states **aren't** shared between copies of the same
+// system - meaning if a third-party plugin wants to add another transform propagation step, normal
+// message reading would detect the message in both copies of [`sync_simple_transforms`].
+#[derive(Resource)]
+pub struct SyncSimpleTransformsSharedState {
+    /// The last time a [`sync_simple_transfomrs`] system ran.
+    ///
+    /// This is reused so we only sync transforms if they've changed since the last
+    /// [`sync_simple_transforms`] system ran.
+    last_run: Tick,
+    /// The reader for removed [`ChildOf`] components (i.e., entities that have become orphaned).
+    ///
+    /// This is reused so we only update entities that have removed this component since the last
+    /// [`sync_simple_transforms`] system ran.
+    orphaned_reader: RemovedComponentReader<ChildOf>,
+}
+
+impl SyncSimpleTransformsSharedState {
+    /// Creates an instance for the initial "everything changed" state.
+    ///
+    /// This method is private so users can't do weird things like replace their world's resource
+    /// with a new one.
+    pub(crate) fn new() -> Self {
+        Self {
+            last_run: Default::default(),
+            orphaned_reader: Default::default(),
+        }
+    }
+}
 
 /// Generic system that propagates transforms,
 /// using [`TransformHelper`] for any entity matching the filter `F`.
@@ -40,39 +144,44 @@ pub use serial::propagate_parent_transforms;
 /// Third party plugins should ensure that this is used in concert with
 /// [`propagate_parent_transforms`] and [`mark_dirty_trees`].
 pub fn sync_simple_transforms(
-    mut query: ParamSet<(
-        Query<
-            (&Transform, &mut GlobalTransform),
-            (
-                Or<(Changed<Transform>, Added<GlobalTransform>)>,
-                Without<ChildOf>,
-                Without<Children>,
-            ),
-        >,
-        Query<(Ref<Transform>, &mut GlobalTransform), (Without<ChildOf>, Without<Children>)>,
-    )>,
-    mut orphaned: RemovedComponents<ChildOf>,
+    mut query: Query<(Ref<Transform>, &mut GlobalTransform), (Without<ChildOf>, Without<Children>)>,
+    removed_components: &RemovedComponentMessages,
+    child_of_id: ComponentIdFor<ChildOf>,
+    mut shared_state: ResMut<SyncSimpleTransformsSharedState>,
+    system_change_tick: SystemChangeTick,
 ) {
-    // Update changed entities.
+    // Store the last change tick, and replace it with the current one.
+    let last_run_change_tick =
+        core::mem::replace(&mut shared_state.last_run, system_change_tick.this_run());
+
     #[cfg(feature = "multi_threaded")]
-    query
-        .p0()
-        .par_iter_mut()
-        .for_each(|(transform, mut global_transform)| {
-            *global_transform = GlobalTransform::from(*transform);
-        });
+    let iter = query.par_iter_mut();
     #[cfg(not(feature = "multi_threaded"))]
-    query
-        .p0()
-        .iter_mut()
-        .for_each(|(transform, mut global_transform)| {
-            *global_transform = GlobalTransform::from(*transform);
-        });
+    let iter = query.iter_mut();
+
+    // Update changed entities.
+    iter.for_each(move |(transform, mut global_transform)| {
+        // Skip if the entity hasn't changed since the last run.
+        if !transform.is_changed_after(last_run_change_tick)
+            && !global_transform.is_added_after(last_run_change_tick)
+        {
+            return;
+        }
+        *global_transform = GlobalTransform::from(*transform);
+    });
+
+    let orphaned = get_orphaned_entities(
+        removed_components,
+        child_of_id.into(),
+        &mut shared_state.orphaned_reader,
+    );
+
     // Update orphaned entities.
-    let mut query = query.p1();
-    let mut iter = query.iter_many_mut(orphaned.read()).matched();
+    let mut iter = query.iter_many_mut(orphaned).matched();
     while let Some((transform, mut global_transform)) = iter.fetch_next() {
-        if !transform.is_changed() && !global_transform.is_added() {
+        if !transform.is_changed_after(last_run_change_tick)
+            && !global_transform.is_added_after(last_run_change_tick)
+        {
             *global_transform = GlobalTransform::from(*transform);
         }
     }
@@ -109,11 +218,14 @@ impl StaticTransformOptimizations {
 ///
 /// Configure behavior with [`StaticTransformOptimizations`].
 pub fn mark_dirty_trees(
-    changed: Query<Entity, Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>>,
-    mut orphaned: RemovedComponents<ChildOf>,
+    changed: Query<(Entity, Ref<Transform>, Ref<ChildOf>, Ref<GlobalTransform>)>,
+    removed_components: &RemovedComponentMessages,
+    child_of_id: ComponentIdFor<ChildOf>,
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
     static_optimizations: Res<StaticTransformOptimizations>,
+    mut shared_state: ResMut<MarkDirtyTreesSharedState>,
+    system_change_tick: SystemChangeTick,
     // Cached allocations for multi-threaded parallel implementation
     #[cfg(feature = "multi_threaded")] mut shared_bitset: Local<
         alloc::vec::Vec<core::sync::atomic::AtomicU64>,
@@ -132,12 +244,40 @@ pub fn mark_dirty_trees(
         return;
     }
 
+    // Store the last change tick, and replace it with the current one.
+    let last_run_change_tick =
+        core::mem::replace(&mut shared_state.last_run, system_change_tick.this_run());
+
+    let filter_map_changed = move |(entity, transform, child_of, global_transform): (
+        Entity,
+        Ref<Transform>,
+        Ref<ChildOf>,
+        Ref<GlobalTransform>,
+    )| {
+        (transform.is_changed_after(last_run_change_tick)
+            || child_of.is_changed_after(last_run_change_tick)
+            || global_transform.is_added_after(last_run_change_tick))
+        .then_some(entity)
+    };
+
+    let orphaned = get_orphaned_entities(
+        removed_components,
+        child_of_id.into(),
+        &mut shared_state.orphaned_reader,
+    );
+
     // Simple serial implementation that iterates changed entities and traverses the tree.
     #[cfg(not(feature = "multi_threaded"))]
-    for entity in changed.iter().chain(orphaned.read()) {
+    for entity in changed
+        .iter()
+        .filter_map(filter_map_changed)
+        .chain(orphaned)
+    {
         let mut next = entity;
         while let Ok(mut tree) = transforms.get_mut(next) {
-            if tree.is_changed() && !tree.is_added() {
+            if tree.is_changed_after(last_run_change_tick)
+                && !tree.is_added_after(last_run_change_tick)
+            {
                 // If the component was changed, this part of the tree has already been processed.
                 // Ignore this if the change was caused by the component being added.
                 break;
@@ -265,22 +405,26 @@ pub fn mark_dirty_trees(
             // Note that we send the entity directly to the consumer as well, we do this to start
             // feeding it work as soon as possible. The traversal worker should skip sending these
             // leaves to the consumer because it has already been sent here.
-            let mut producer = move || {
-                for entity in orphaned.read() {
+            let producer = move || {
+                for entity in orphaned {
                     let _ = traversal_tx.send_blocking(entity);
                     let _ = consumer_tx.send_blocking(entity);
                 }
                 // Changed<> table scans are slow, so we parallelize them to improve performance.
                 changed.par_iter().for_each_init(
                     || (traversal_tx.clone(), consumer_tx.clone()),
-                    |(traversal_tx, consumer_tx), entity| {
+                    |(traversal_tx, consumer_tx), tuple| {
+                        // Ignore entities that haven't changed.
+                        let Some(entity) = filter_map_changed(tuple) else {
+                            return;
+                        };
                         let _ = traversal_tx.send_blocking(entity);
                         let _ = consumer_tx.send_blocking(entity);
                     },
                 );
             };
             #[cfg(feature = "trace")]
-            info_span!("producer_mark_dirty").in_scope(&mut producer);
+            info_span!("producer_mark_dirty").in_scope(producer);
             #[cfg(not(feature = "trace"))]
             producer();
         });
@@ -305,6 +449,19 @@ pub fn mark_dirty_trees(
     }
 }
 
+fn get_orphaned_entities<'a>(
+    removed_components: &'a RemovedComponentMessages,
+    child_of_id: ComponentId,
+    orphaned_reader: &'a mut RemovedComponentReader<ChildOf>,
+) -> impl Iterator<Item = Entity> + use<'a> {
+    removed_components
+        .get(child_of_id)
+        .map(|messages| orphaned_reader.read(messages).cloned())
+        .into_iter()
+        .flatten()
+        .map(|entity| Entity::from(entity))
+}
+
 // TODO: This serial implementation isn't actually serial, it parallelizes across the roots.
 // Additionally, this couples "no_std" with "single_threaded" when these two features should be
 // independent.
@@ -322,9 +479,13 @@ pub fn mark_dirty_trees(
 /// Serial hierarchy traversal. Useful in `no_std` or single threaded contexts.
 #[cfg(not(feature = "multi_threaded"))]
 mod serial {
+    use super::{get_orphaned_entities, PropagateParentTransformsSharedState};
     use crate::prelude::*;
     use alloc::vec::Vec;
-    use bevy_ecs::prelude::*;
+    use bevy_ecs::{
+        change_detection::Tick, component::ComponentIdFor, lifecycle::RemovedComponentMessages,
+        prelude::*, system::SystemChangeTick,
+    };
 
     /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
     /// component.
@@ -337,20 +498,32 @@ mod serial {
             (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
             Without<ChildOf>,
         >,
-        mut orphaned: RemovedComponents<ChildOf>,
+        removed_components: &RemovedComponentMessages,
+        child_of_id: ComponentIdFor<ChildOf>,
         transform_query: Query<
             (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
             With<ChildOf>,
         >,
         child_query: Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
+        mut shared_state: ResMut<PropagateParentTransformsSharedState>,
+        system_change_tick: SystemChangeTick,
         mut orphaned_entities: Local<Vec<Entity>>,
     ) {
         orphaned_entities.clear();
-        orphaned_entities.extend(orphaned.read());
+        orphaned_entities.extend(get_orphaned_entities(
+            removed_components,
+            child_of_id.into(),
+            &mut shared_state.orphaned_reader,
+        ));
         orphaned_entities.sort_unstable();
+
+        // Store the last change tick, and replace it with the current one.
+        let last_run_change_tick =
+            core::mem::replace(&mut shared_state.last_run, system_change_tick.this_run());
+
         root_query.par_iter_mut().for_each(
         |(entity, children, transform, mut global_transform)| {
-            let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
+            let changed = transform.is_changed_after(last_run_change_tick) || global_transform.is_added_after(last_run_change_tick) || orphaned_entities.binary_search(&entity).is_ok();
             if changed {
                 *global_transform = GlobalTransform::from(*transform);
             }
@@ -379,7 +552,8 @@ mod serial {
                         &transform_query,
                         &child_query,
                         child,
-                        changed || child_of.is_changed(),
+                        last_run_change_tick,
+                        changed || child_of.is_changed_after(last_run_change_tick),
                     );
                 }
             }
@@ -412,6 +586,7 @@ mod serial {
         >,
         child_query: &Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
         entity: Entity,
+        last_run_change_tick: Tick,
         mut changed: bool,
     ) {
         let (global_matrix, children) = {
@@ -447,7 +622,8 @@ mod serial {
                 return;
             };
 
-            changed |= transform.is_changed() || global_transform.is_added();
+            changed |= transform.is_changed_after(last_run_change_tick)
+                || global_transform.is_added_after(last_run_change_tick);
             if changed {
                 *global_transform = parent.mul_transform(*transform);
             }
@@ -471,7 +647,8 @@ mod serial {
                     transform_query,
                     child_query,
                     child,
-                    changed || child_of.is_changed(),
+                    last_run_change_tick,
+                    changed || child_of.is_changed_after(last_run_change_tick),
                 );
             }
         }
@@ -486,9 +663,12 @@ mod serial {
 mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
-    use crate::systems::StaticTransformOptimizations;
+    use crate::systems::{PropagateParentTransformsSharedState, StaticTransformOptimizations};
     use alloc::{sync::Arc, vec::Vec};
-    use bevy_ecs::{entity::UniqueEntitySlice, prelude::*, system::lifetimeless::Read};
+    use bevy_ecs::{
+        change_detection::Tick, entity::UniqueEntitySlice, prelude::*, system::lifetimeless::Read,
+        system::SystemChangeTick,
+    };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
@@ -516,13 +696,21 @@ mod parallel {
             Without<ChildOf>,
         >,
         nodes: NodeQuery,
+        mut shared_state: ResMut<PropagateParentTransformsSharedState>,
+        system_change_tick: SystemChangeTick,
         static_optimizations: Res<StaticTransformOptimizations>,
     ) {
+        // Store the last change tick, and replace it with the current one.
+        let last_run_change_tick =
+            core::mem::replace(&mut shared_state.last_run, system_change_tick.this_run());
+
         // Process roots in parallel, seeding the work queue
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children, transform_tree)| {
-                if static_optimizations.is_enabled() && !transform_tree.is_changed() {
+                if static_optimizations.is_enabled()
+                    && !transform_tree.is_changed_after(last_run_change_tick)
+                {
                     // Early exit if the subtree is static and the optimization is enabled.
                     return;
                 }
@@ -542,6 +730,7 @@ mod parallel {
                         outbox,
                         &queue,
                         &static_optimizations,
+                        last_run_change_tick,
                         // Need to revisit this single-max-depth by profiling more representative
                         // scenes. It's possible that it is actually beneficial to go deep into the
                         // hierarchy to build up a good task queue before starting the workers.
@@ -574,9 +763,16 @@ mod parallel {
         task_pool.scope(|s| {
             (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
                 .for_each(|_| {
-                    s.spawn(async { propagation_worker(&queue, &nodes, &static_optimizations) });
+                    s.spawn(async {
+                        propagation_worker(
+                            &queue,
+                            &nodes,
+                            &static_optimizations,
+                            last_run_change_tick,
+                        )
+                    });
                 });
-            propagation_worker(&queue, &nodes, &static_optimizations);
+            propagation_worker(&queue, &nodes, &static_optimizations, last_run_change_tick);
         });
     }
 
@@ -587,6 +783,7 @@ mod parallel {
         queue: &WorkQueue,
         nodes: &NodeQuery,
         static_optimizations: &StaticTransformOptimizations,
+        last_run_change_tick: Tick,
     ) {
         #[cfg(feature = "trace")]
         let _span = tracing::info_span!("transform propagation worker").entered();
@@ -643,6 +840,7 @@ mod parallel {
                         &mut outbox,
                         queue,
                         static_optimizations,
+                        last_run_change_tick,
                         // Only affects performance. Trees deeper than this will still be fully
                         // propagated, but the work will be broken into multiple tasks. This number
                         // was chosen to be larger than any reasonable tree depth, while not being
@@ -684,6 +882,7 @@ mod parallel {
         outbox: &mut Vec<Entity>,
         queue: &WorkQueue,
         static_optimizations: &StaticTransformOptimizations,
+        last_run_change_tick: Tick,
         max_depth: usize,
     ) {
         // Create mutable copies of the input variables, used for iterative depth-first traversal.
@@ -706,8 +905,8 @@ mod parallel {
             let new_children = children_iter.filter_map(
                 |(child, (transform, mut global_transform, tree), (children, child_of))| {
                     if static_optimizations.is_enabled()
-                        && !tree.is_changed()
-                        && !p_global_transform.is_changed()
+                        && !tree.is_changed_after(last_run_change_tick)
+                        && !p_global_transform.is_changed_after(last_run_change_tick)
                     {
                         // Static scene optimization
                         return None;
@@ -841,6 +1040,9 @@ mod test {
                 .chain(),
         );
         world.insert_resource(StaticTransformOptimizations::default());
+        world.insert_resource(MarkDirtyTreesSharedState::new());
+        world.insert_resource(PropagateParentTransformsSharedState::new());
+        world.insert_resource(SyncSimpleTransformsSharedState::new());
 
         let mut command_queue = CommandQueue::default();
         let mut commands = Commands::new(&mut command_queue, &world);
@@ -900,6 +1102,9 @@ mod test {
                 .chain(),
         );
         world.insert_resource(StaticTransformOptimizations::default());
+        world.insert_resource(MarkDirtyTreesSharedState::new());
+        world.insert_resource(PropagateParentTransformsSharedState::new());
+        world.insert_resource(SyncSimpleTransformsSharedState::new());
 
         // Root entity
         world.spawn(Transform::from_xyz(1.0, 0.0, 0.0));
@@ -938,6 +1143,9 @@ mod test {
                 .chain(),
         );
         world.insert_resource(StaticTransformOptimizations::default());
+        world.insert_resource(MarkDirtyTreesSharedState::new());
+        world.insert_resource(PropagateParentTransformsSharedState::new());
+        world.insert_resource(SyncSimpleTransformsSharedState::new());
 
         // Root entity
         let mut queue = CommandQueue::default();
@@ -978,6 +1186,9 @@ mod test {
                 .chain(),
         );
         world.insert_resource(StaticTransformOptimizations::default());
+        world.insert_resource(MarkDirtyTreesSharedState::new());
+        world.insert_resource(PropagateParentTransformsSharedState::new());
+        world.insert_resource(SyncSimpleTransformsSharedState::new());
 
         // Add parent entities
         let mut children = Vec::new();
@@ -1058,7 +1269,10 @@ mod test {
             )
                 .chain(),
         )
-        .insert_resource(StaticTransformOptimizations::default());
+        .insert_resource(StaticTransformOptimizations::default())
+        .insert_resource(MarkDirtyTreesSharedState::new())
+        .insert_resource(PropagateParentTransformsSharedState::new())
+        .insert_resource(SyncSimpleTransformsSharedState::new());
 
         let translation = vec3(1.0, 0.0, 0.0);
 
@@ -1179,6 +1393,9 @@ mod test {
                 .chain(),
         );
         world.insert_resource(StaticTransformOptimizations::default());
+        world.insert_resource(MarkDirtyTreesSharedState::new());
+        world.insert_resource(PropagateParentTransformsSharedState::new());
+        world.insert_resource(SyncSimpleTransformsSharedState::new());
 
         // Spawn a `Transform` entity with a local translation of `Vec3::ONE`
         let mut spawn_transform_bundle =
