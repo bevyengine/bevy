@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.96.0"
+rust-version = "1.97.1"
 
 [workspace]
 resolver = "3"
@@ -336,6 +336,9 @@ bevy_world_serialization = ["bevy_internal/bevy_world_serialization"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene"]
+
+# Provides BSN AST / parsing functionality
+bevy_bsn = ["bevy_internal/bevy_bsn"]
 
 # Provides raytraced lighting (experimental)
 bevy_solari = ["bevy_internal/bevy_solari"]
@@ -728,9 +731,6 @@ reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
-
-# Experimental support for nodes that are ignored for UI layouting
-ghost_nodes = ["bevy_internal/ghost_nodes"]
 
 # Uses `async-executor` as a task execution backend.
 async_executor = ["std", "bevy_internal/async_executor"]
@@ -4170,7 +4170,6 @@ wasm = true
 name = "ghost_nodes"
 path = "examples/ui/layout/ghost_nodes.rs"
 doc-scrape-examples = true
-required-features = ["ghost_nodes"]
 
 [package.metadata.example.ghost_nodes]
 name = "Ghost Nodes"
@@ -4882,6 +4881,18 @@ name = "Local Inspector"
 description = "Inspects the app's own world with the bevy_inspector entity tree panel"
 category = "Dev tools"
 wasm = true
+
+[[example]]
+name = "remote_inspector"
+path = "examples/inspector/remote_inspector.rs"
+doc-scrape-examples = true
+required-features = ["bevy_inspector", "bevy_remote_client"]
+
+[package.metadata.example.remote_inspector]
+name = "Remote Inspector"
+description = "Inspects a separate running app with the bevy_inspector panels over the Bevy Remote Protocol"
+category = "Dev tools"
+wasm = false
 
 [[example]]
 name = "2d_top_down_camera"

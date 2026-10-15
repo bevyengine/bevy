@@ -135,6 +135,7 @@ serialize = [
   "bevy_time/serialize",
   "bevy_transform/serialize",
   "bevy_ui?/serialize",
+  "bevy_ui_widgets?/serialize",
   "bevy_utils/serialize",
   "bevy_window?/serialize",
   "bevy_winit?/serialize",
@@ -347,6 +348,7 @@ meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["dep:bevy_dev_tools"]
+bevy_audio = ["dep:bevy_audio", "bevy_dev_tools?/bevy_audio"]
 
 # Provides a collection of prebuilt camera controllers
 bevy_camera_controller = ["dep:bevy_camera_controller"]
@@ -364,7 +366,11 @@ pan_orbit_gizmo = [
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
-bevy_remote_client = ["bevy_remote", "bevy_remote/client"]
+bevy_remote_client = [
+  "bevy_remote",
+  "bevy_remote/client",
+  "bevy_inspector?/remote",
+]
 
 # Provides picking functionality without any backend
 bevy_picking = ["dep:bevy_picking"]
@@ -424,9 +430,6 @@ custom_cursor = [
   "bevy_winit/custom_cursor",
   "bevy_picking/custom_cursor",
 ]
-
-# Experimental support for nodes that are ignored for UI layouting
-ghost_nodes = ["bevy_ui/ghost_nodes"]
 
 # Allows access to the `std` crate. Enabling this feature will prevent compilation
 # on `no_std` targets, but provides access to certain additional features on
@@ -512,7 +515,7 @@ screenrecording = ["bevy_dev_tools/screenrecording"]
 schedule_data = ["bevy_dev_tools/schedule_data"]
 
 # Keep feature for bevy-settings as bevy_settings
-bevy_settings = ["bevy-settings"]
+bevy_settings = ["bevy-settings", "bevy_feathers?/bevy_settings"]
 
 [dependencies]
 # bevy (no_std)
@@ -566,6 +569,7 @@ bevy_curve = { path = "../bevy_curve", optional = true, version = "0.20.0-dev", 
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.20.0-dev" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.20.0-dev" }
+bevy_bsn = { path = "../bevy_bsn", optional = true, version = "0.20.0-dev" }
 bevy_color = { path = "../bevy_color", optional = true, version = "0.20.0-dev", default-features = false, features = [
   "alloc",
   "bevy_reflect",
