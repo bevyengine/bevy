@@ -47,8 +47,9 @@ struct DepthOfFieldParams {
     /// ```
     /// For an orthographic camera:
     /// ```text
-    /// sensor_height / (aperture_f_stops * view_height²)
+    /// sensor_height / (aperture_f_stops * view_height * (view_height - sensor_height))
     /// ```
+    /// See `calculate_circle_of_confusion` below for the derivation.
     coc_scale_factor: f32,
 
     /// The maximum diameter, in pixels, that we allow a circle of confusion to be.
@@ -138,8 +139,31 @@ fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
     // [1]: https://en.wikipedia.org/wiki/Circle_of_confusion#Determining_a_circle_of_confusion_diameter_from_the_object_field
     var candidate_coc: f32;
     if (view.clip_from_view[3][3] == 1.0) {
-        // For orthographic projection, the blur grows linearly with distance
-        // from the focal plane.
+        // For orthographic projection, use the limit of the perspective
+        // formula below, so that switching projections doesn't change the
+        // blur.
+        //
+        // Let h be the sensor height, N the f-stops, s the focal distance,
+        // d the depth, and δ = d - s. The perspective formula is:
+        //
+        //     coc = f² |δ| / (h N d (s - f)),  where f = h / (2 tan(fov / 2))
+        //
+        // Let the FOV go to zero while the camera pulls back (s → ∞) with
+        // the view height V at the focal plane held fixed. The focal plane
+        // stays fixed in the world, so δ is the same as the orthographic
+        // camera's `depth - focus`. Then
+        // V = 2 s tan(fov / 2) = s h / f, so f = s h / V. Substituting, with
+        // d = s + δ:
+        //
+        //     coc = h |δ| s / (N V² (s + δ) (1 - h / V))
+        //
+        // As s → ∞, s / (s + δ) → 1, leaving:
+        //
+        //     coc = h |δ| / (N V (V - h))
+        //
+        // As in the perspective case, `coc` is a fraction of the view height.
+        // The blur is linear in |δ|, and `scale` is h / (N V (V - h)), with V
+        // taken from the orthographic projection's area.
         candidate_coc = scale * abs(depth - focus);
     } else {
         candidate_coc = scale * abs(depth - focus) / (depth * max(focus - f, EPSILON));
