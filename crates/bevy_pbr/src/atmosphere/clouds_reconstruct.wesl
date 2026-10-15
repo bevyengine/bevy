@@ -35,6 +35,8 @@ const CHECKER_OFFSETS: array<vec2<u32>, 4> = array(
     vec2(0u, 0u), vec2(1u, 1u), vec2(1u, 0u), vec2(0u, 1u)
 );
 // Distance used to reproject pixels whose rays saw no cloud (rotation-only reprojection).
+// Salvi 2016 variance clipping width.
+const RECON_VARIANCE_GAMMA: f32 = 1.25;
 const NO_CLOUD_REPROJECTION_DISTANCE_M: f32 = 100000.0;
 
 @compute @workgroup_size(8, 8, 1)
@@ -50,9 +52,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let center = textureLoad(trace_texture, q, 0);
     let center_depth = textureLoad(trace_depth_texture, q, 0).r;
 
-    // 3x3 neighbourhood AABB of the fresh trace in (L, T).
+    // 3x3 neighbourhood statistics of the fresh trace in (L, T): variance clipping box
+    // (Salvi 2016, mean +- gamma * sigma) instead of the min/max AABB, which with a noisy trace
+    // is as wide as the noise and let it through un-averaged (far / horizon clouds).
     var c_min = center;
     var c_max = center;
+    var m1 = vec4(0.0);
+    var m2 = vec4(0.0);
     var d_max = center_depth;
     for (var y = -1; y <= 1; y++) {
         for (var x = -1; x <= 1; x++) {
@@ -60,9 +66,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let c = textureLoad(trace_texture, p, 0);
             c_min = min(c_min, c);
             c_max = max(c_max, c);
+            m1 += c;
+            m2 += c * c;
             d_max = max(d_max, textureLoad(trace_depth_texture, p, 0).r);
         }
     }
+
+    let mean = m1 / 9.0;
+    let sigma = sqrt(max(m2 / 9.0 - mean * mean, vec4(0.0)));
+    c_min = max(c_min, mean - RECON_VARIANCE_GAMMA * sigma);
+    c_max = min(c_max, mean + RECON_VARIANCE_GAMMA * sigma);
 
     // Without history (first frame / resize) the 3 untraced pixels of each 2x2 quad would copy the
     // nearest traced ray (blocky); interpolate the quarter-res trace instead.

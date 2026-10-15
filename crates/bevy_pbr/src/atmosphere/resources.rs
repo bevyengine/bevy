@@ -477,6 +477,12 @@ impl AtmosphereBindGroupLayouts {
     }
 }
 
+/// Exponential history weight of a freshly traced cloud pixel (each pixel is traced every 4th
+/// frame). Hillaire 2016 (Frostbite) blends 5 % per frame, HZD (Schneider 2015) reprojects over
+/// 16 frames; 0.5 averaged almost nothing, so far/horizon clouds never converged. Ghosting is
+/// bounded by variance clipping in `clouds_reconstruct.wesl`.
+const CLOUD_RECON_NEW_SAMPLE_WEIGHT: f32 = 0.1;
+
 /// Reprojection parameters for the checkerboarded cloud reconstruction pass.
 #[derive(Clone, Copy, ShaderType)]
 pub struct CloudsTemporalParams {
@@ -515,7 +521,7 @@ pub(super) fn prepare_clouds_temporal_params(
         let mut buffer = UniformBuffer::from(CloudsTemporalParams {
             prev_clip_from_world,
             history_valid,
-            new_sample_weight: 0.5,
+            new_sample_weight: CLOUD_RECON_NEW_SAMPLE_WEIGHT,
             _pad0: 0.0,
             _pad1: 0.0,
         });
