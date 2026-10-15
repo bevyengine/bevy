@@ -646,6 +646,7 @@ impl FromWorld for AtmosphereLutPipelines {
             label: Some("transmittance_lut_pipeline".into()),
             layout: vec![layouts.transmittance_lut.clone()],
             shader: load_embedded_asset!(world, "transmittance_lut.wesl"),
+            shader_defs: atm_dbg_defs(),
             ..default()
         });
 
@@ -654,6 +655,7 @@ impl FromWorld for AtmosphereLutPipelines {
                 label: Some("multi_scattering_lut_pipeline".into()),
                 layout: vec![layouts.multiscattering_lut.clone()],
                 shader: load_embedded_asset!(world, "multiscattering_lut.wesl"),
+            shader_defs: atm_dbg_defs(),
                 ..default()
             });
 
@@ -661,6 +663,7 @@ impl FromWorld for AtmosphereLutPipelines {
             label: Some("sky_view_lut_pipeline".into()),
             layout: vec![layouts.sky_view_lut.clone()],
             shader: load_embedded_asset!(world, "sky_view_lut.wesl"),
+            shader_defs: atm_dbg_defs(),
             // Note: Clouds disabled for sky_view_lut - too complex for precomputation
             // Clouds are rendered in real-time raymarching instead
             ..default()
@@ -670,6 +673,7 @@ impl FromWorld for AtmosphereLutPipelines {
             label: Some("aerial_view_lut_pipeline".into()),
             layout: vec![layouts.aerial_view_lut.clone()],
             shader: load_embedded_asset!(world, "aerial_view_lut.wesl"),
+            shader_defs: atm_dbg_defs(),
             ..default()
         });
 
@@ -768,6 +772,8 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             // Clouds come from the dedicated `clouds_raymarch` pass, not `raymarch_atmosphere`.
             shader_defs.push("CLOUD_PASS".into());
             shader_defs.extend(cloud_reference_def());
+        } else {
+            shader_defs.extend(atm_dbg_defs());
         }
 
         let dst_factor = if key.dual_source_blending {
@@ -1873,7 +1879,15 @@ fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
     if std::env::var("CLOUD_REF_NO_CLOUDS").is_ok() {
         defs.push("CLOUD_REF_NO_CLOUDS".into());
     }
+    defs.extend(atm_dbg_defs());
     defs
+}
+
+/// Debug: arbitrary extra defs for the atmosphere shaders, e.g. `ATMOSPHERE_DBG=ATM_DBG_NOMS`.
+fn atm_dbg_defs() -> Vec<bevy_shader::ShaderDefVal> {
+    std::env::var("ATMOSPHERE_DBG")
+        .map(|v| v.split(',').filter(|d| !d.is_empty()).map(|d| d.to_string().into()).collect())
+        .unwrap_or_default()
 }
 
 /// Debug: lighting-term isolation for validation (realtime and reference alike).

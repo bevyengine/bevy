@@ -394,7 +394,7 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         var shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
         var scattering_coeff = sample_scattering_lut(local_r, neg_LdotV);
         
-        @if(CLOUDS_ENABLED) {
+        @if(CLOUDS_ENABLED && !ATM_DBG_NOSHADOW) {
         // Compute volumetric shadow from clouds via the cloud shadow map (stable at grazing angles).
         shadow_factor *= sample_cloud_shadow_map(world_pos, (*light).direction_to_light, false);
         }
@@ -439,7 +439,7 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         var shadow_map_factor: f32 = 1.0;
         // Pipelines without shadow map bindings (e.g. the clouds environment probe) set
         // ATMOSPHERE_NO_SHADOW_MAPS to compile the shadow map lookup out.
-        @if(!ATMOSPHERE_NO_SHADOW_MAPS) {
+        @if(!ATMOSPHERE_NO_SHADOW_MAPS && !ATM_DBG_NOSHADOW) {
             if (settings.shadows_enabled != 0u) {
                 shadow_map_factor = fetch_directional_shadow(light_i, vec4(world_pos, 1.0), vec3(0.0));
             }
@@ -450,7 +450,9 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
 
         // Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
-        let multiscattering_factor = psi_ms * local_scattering;
+        var multiscattering_factor = psi_ms * local_scattering;
+        @if(ATM_DBG_NOMS) { multiscattering_factor = vec3(0.0); }
+        @if(ATM_DBG_MSONLY) { inscattering += (*light).color.rgb * multiscattering_factor; continue; }
 
         inscattering += (*light).color.rgb * (scattering_factor + multiscattering_factor);
     }
@@ -821,13 +823,18 @@ fn raymarch_atmosphere(
         }
     }
     } @else {
-    // Default uniform stepping when clouds are disabled.
-    var prev_t = t_start;
-    for (var s = 0.0; s < sample_count; s += 1.0) {
-        let jitter = interleaved_gradient_noise(pixel_coords, u32(s)); // [0, 1]
-        let t_i = t_start + t_total * (s + jitter) / sample_count;
-        let dt_i = (t_i - prev_t);
-        prev_t = t_i;
+    // Quadratically spaced segments with a jittered sample inside each one. Uniform steps
+    // (thousands of meters long on sky rays) skipped the dense near-surface Mie/haze layers and
+    // dropped the last segment, leaving the sky 2-3x too dark and blue-shifted.
+    let n_steps = max(1u, u32(sample_count));
+    for (var s = 0u; s < n_steps; s += 1u) {
+        let jitter = interleaved_gradient_noise(pixel_coords, s); // [0, 1]
+        let u0 = f32(s) / f32(n_steps);
+        let u1 = f32(s + 1u) / f32(n_steps);
+        let t0 = t_start + t_total * u0 * u0;
+        let t1 = t_start + t_total * u1 * u1;
+        let t_i = mix(t0, t1, jitter);
+        let dt_i = t1 - t0;
 
         let sample_pos = pos + ray_dir * t_i;
         let local_r = length(sample_pos);
@@ -874,3 +881,4 @@ fn raymarch_atmosphere(
 
     return result;
 }
+
