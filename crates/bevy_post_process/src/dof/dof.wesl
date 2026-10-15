@@ -49,15 +49,6 @@ struct DepthOfFieldParams {
     /// The depth value that we clamp distant objects to. See the comment in
     /// [`DepthOfField`] for more information.
     max_depth: f32,
-
-    /// Padding.
-    pad_a: u32,
-    /// Padding.
-    pad_b: u32,
-    /// Padding.
-    pad_c: u32,
-    /// Padding.
-    pad_d: u32,
 }
 
 /// The first bokeh pass outputs to two render targets. We declare them here.

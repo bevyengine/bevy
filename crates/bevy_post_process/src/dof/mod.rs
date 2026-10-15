@@ -178,15 +178,6 @@ pub struct DepthOfFieldUniform {
     /// The depth value that we clamp distant objects to. See the comment in
     /// [`DepthOfField`] for more information.
     max_depth: f32,
-
-    /// Padding.
-    pad_a: u32,
-    /// Padding.
-    pad_b: u32,
-    /// Padding.
-    pad_c: u32,
-    /// Padding.
-    pad_d: u32,
 }
 
 /// A key that uniquely identifies depth of field pipelines.
@@ -737,10 +728,6 @@ fn extract_depth_of_field_settings(
                 coc_scale_factor,
                 max_circle_of_confusion_diameter: depth_of_field.max_circle_of_confusion_diameter,
                 max_depth: depth_of_field.max_depth,
-                pad_a: 0,
-                pad_b: 0,
-                pad_c: 0,
-                pad_d: 0,
             },
         ));
     }
