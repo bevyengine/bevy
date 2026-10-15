@@ -94,14 +94,8 @@ impl Column {
         last_element_index: usize,
         row: TableRow,
     ) {
-        if DROP {
-            self.data
-                .swap_remove_and_drop_unchecked(row.index(), last_element_index);
-        } else {
-            _ = self
-                .data
-                .swap_remove_unchecked(row.index(), last_element_index);
-        }
+        self.data
+            .swap_remove_unchecked::<DROP>(row.index(), last_element_index);
         self.added_ticks
             .swap_remove_unchecked(row.index(), last_element_index);
         self.changed_ticks
@@ -118,14 +112,14 @@ impl Column {
     /// - `last_element_index` = `len - 1`
     /// - `last_element_index` != `row.as_usize()`
     /// -   The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
-    pub(crate) unsafe fn swap_remove_and_forget_unchecked_nonoverlapping(
+    pub(crate) unsafe fn swap_remove_take_unchecked_nonoverlapping(
         &mut self,
         last_element_index: usize,
         row: TableRow,
     ) -> OwningPtr<'_> {
         let data = self
             .data
-            .swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
+            .swap_remove_take_unchecked_nonoverlapping(row.index(), last_element_index);
         self.added_ticks
             .swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
         self.changed_ticks
