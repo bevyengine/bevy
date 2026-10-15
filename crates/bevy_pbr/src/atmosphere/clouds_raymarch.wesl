@@ -17,7 +17,7 @@ import package::atmosphere::{
     bruneton_functions::{ray_intersects_ground, sample_transmittance_lut_segment, sample_transmittance_lut_segment_tau_red, distance_to_top_atmosphere_boundary},
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
-        sample_transmittance_lut, sample_sky_view_lut, direction_world_to_atmosphere, sample_cloud_shadow_map, cloud_far_transmittance,
+        sample_transmittance_lut, sample_multiscattering_lut, sample_sky_view_lut, direction_world_to_atmosphere, sample_cloud_shadow_map, cloud_far_transmittance,
         hg_phase, sample_aerial_view_lut, sample_density_lut, sample_scattering_lut,
         ABSORPTION_DENSITY, SCATTERING_DENSITY,
     },
@@ -172,7 +172,30 @@ fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: 
             }
         }
         @if(ATM_DBG_HAZE_NOSHADOW) { vis_far = 1.0; }
-        acc = mix(acc, sky * saturate(frac) * mix(HAZE_FAR_MS_FLOOR, 1.0, vis_far), w);
+        let sky_seg = sky * saturate(frac);
+        // Only the single-scattered part is shadowed by the clouds; the multiple-scattered part
+        // (sigma_s * psi_ms * E_sun, transmitted to the camera) is kept. Estimated along [0, d].
+        var ms = vec3(0.0);
+        if (has_light) {
+            let e_sun = lights.directional_lights[0].color.rgb;
+            let dt = d / 8.0;
+            for (var k = 0u; k < 8u; k++) {
+                let tk = (f32(k) + 0.5) * dt;
+                let pk = origin + ray_dir * tk;
+                let rk = length(pk);
+                let mu_l = dot(l, pk / rk);
+                let sig_s = sample_density_lut(rk, SCATTERING_DENSITY);
+                ms += sig_s * sample_multiscattering_lut(rk, mu_l) * sample_transmittance_lut_segment(r, mu, tk) * dt;
+            }
+            ms = min(ms * e_sun, sky_seg);
+            // psi_ms assumes lit surroundings; under the deck about half of its sources are in
+            // the cloud shadow too (sun:3 / hero:35 vs reference: none +34/-6, half -12/-10, full -58/-14).
+            @if(!ATM_DBG_FAR_MS_NOSHADOW && !ATM_DBG_FAR_MS_SHADOW) { ms *= mix(1.0, vis_far, 0.5); }
+            @if(ATM_DBG_FAR_MS_SHADOW) { ms *= vis_far; }
+        }
+        var far = (sky_seg - ms) * vis_far + ms;
+        @if(ATM_DBG_HAZE_FLOOR_CONST) { far = sky_seg * mix(HAZE_FAR_MS_FLOOR, 1.0, vis_far); }
+        acc = mix(acc, far, w);
     }
     return acc;
 }
