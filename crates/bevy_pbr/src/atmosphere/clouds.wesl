@@ -134,6 +134,19 @@ fn cloud_top_profile(h: f32, cloud_type: f32) -> f32 {
     return pow(x, exp);
 }
 
+/// Dimensional profile with coverage-dependent cloud height (Nubis "height ~ coverage"): the
+/// top scales with coverage, so cells taper from a tall core to low edges and get rounded,
+/// domed tops instead of the 2D weather map extruded into vertical columns. Bases stay flat.
+fn cloud_dimensional_profile(h: f32, coverage: f32, cloud_type: f32) -> f32 {
+    let top_scale = mix(0.25, 1.0, sqrt(coverage));
+    let hs = h / max(top_scale, 1e-3);
+    let vertical_profile = clamp(cloud_bottom_profile(h, cloud_type) * cloud_top_profile(min(hs, 1.0), cloud_type), 0.0, 1.0)
+        * f32(hs < 1.0);
+    // Edge gradient: thin out the low-coverage rim more at altitude (anvil-like taper).
+    let cov = max(coverage - pow(h, mix(8.0, 4.0, cloud_type)) * 0.35, 0.0);
+    return clamp(vertical_profile * cov, 0.0, 1.0);
+}
+
 /// Nubis-style density (design.md §1.3):
 /// dimensional_profile = vertical_profile(type, h) · coverage
 /// density = saturate(noise_composite − (1 − profile)) · density_scale
@@ -157,11 +170,7 @@ fn cloud_density_context(r: f32, world_pos: vec3<f32>) -> vec4<f32> {
     var coverage = clamp(weather.r, 0.0, 1.0);
     let cloud_type = clamp(weather.g, 0.0, 1.0);
     let density_scale = mix(0.35, 1.0, clamp(weather.b, 0.0, 1.0));
-    let bottom_profile = cloud_bottom_profile(h, cloud_type);
-    let top_profile = cloud_top_profile(h, cloud_type);
-    let vertical_profile = clamp(bottom_profile * top_profile, 0.0, 1.0);
-    coverage = max(coverage - pow(h, mix(8.0, 4.0, cloud_type)) * 0.35, 0.0);
-    let dimensional_profile = clamp(vertical_profile * coverage, 0.0, 1.0);
+    let dimensional_profile = cloud_dimensional_profile(h, coverage, cloud_type);
     // Return profile, density_scale, h, cloud_type (sample_pos reconstructed by callers).
     return vec4(dimensional_profile, density_scale, h, cloud_type);
 }
@@ -200,11 +209,7 @@ fn sample_cumulus_shape_lod(r: f32, world_pos: vec3<f32>, mip: f32) -> f32 {
     var coverage = clamp(weather.r, 0.0, 1.0);
     let cloud_type = clamp(weather.g, 0.0, 1.0);
     let density_scale = mix(0.35, 1.0, clamp(weather.b, 0.0, 1.0));
-    let bottom_profile = cloud_bottom_profile(h, cloud_type);
-    let top_profile = cloud_top_profile(h, cloud_type);
-    let vertical_profile = clamp(bottom_profile * top_profile, 0.0, 1.0);
-    coverage = max(coverage - pow(h, mix(8.0, 4.0, cloud_type)) * 0.35, 0.0);
-    let dimensional_profile = clamp(vertical_profile * coverage, 0.0, 1.0);
+    let dimensional_profile = cloud_dimensional_profile(h, coverage, cloud_type);
 
     let pw = sample_shape_noise(sample_pos, h, mip);
     let worley = pw.yzw;
