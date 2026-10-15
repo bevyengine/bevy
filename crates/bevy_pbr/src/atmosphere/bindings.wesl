@@ -28,6 +28,10 @@ import package::{
 // - B: max optical depth (unitless)
 @group(0) @binding(23) var cloud_shadow_map: texture_2d<f32>;
 
+// Cloud field (`cloud_field.wesl`): r = signed distance (m), g = blurred cloud column optical
+// depth (cloud AO for ground skylight).
+@group(0) @binding(44) var cloud_field_sdf: texture_3d<f32>;
+
 // Spatio-temporal blue noise for per-frame stratification
 @if(CLOUDS_ENABLED)
 @group(0) @binding(25) var stbn_texture: texture_2d_array<f32>;

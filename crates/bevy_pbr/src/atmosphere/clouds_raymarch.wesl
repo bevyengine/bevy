@@ -13,7 +13,7 @@
 import bevy_render::maths::{PI, ray_sphere_intersect};
 import package::render::utils::interleaved_gradient_noise;
 import package::atmosphere::{
-    bindings::{atmosphere, settings, view, lights, stbn_texture, atmosphere_lut_sampler},
+    bindings::{atmosphere, settings, view, lights, stbn_texture, atmosphere_lut_sampler, cloud_field_sdf},
     bruneton_functions::{ray_intersects_ground, sample_transmittance_lut_segment, sample_transmittance_lut_segment_tau_red, distance_to_top_atmosphere_boundary},
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
@@ -32,7 +32,6 @@ import package::atmosphere::{
 @group(0) @binding(13) var depth_texture: texture_depth_2d;
 @group(0) @binding(26) var out_clouds: texture_storage_2d<rgba16float, write>;
 @group(0) @binding(27) var out_clouds_depth: texture_storage_2d<r32float, write>;
-@group(0) @binding(44) var cloud_field_sdf: texture_3d<f32>;
 
 const CLOUD_DIST_UNKNOWN: f32 = 1e9;
 // SDF empty-space skip safety margin in voxels: the windowed EDT is exact only to ~1 voxel and

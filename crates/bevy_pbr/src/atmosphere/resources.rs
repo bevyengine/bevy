@@ -80,10 +80,12 @@ fn shadow_map_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArr
 /// Cloud bind group layout entries (cloud layer uniform, noise textures, cloud shadow map, STBN).
 /// Sampled outputs of the `clouds_raymarch` pass, read by `render_sky` (26: luminance and
 /// transmittance, 27: transmittance-weighted cloud depth).
-fn cloud_pass_output_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<2> {
+fn cloud_pass_output_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<3> {
     (
         (26, texture_2d(TextureSampleType::Float { filterable: true })),
         (27, texture_2d(TextureSampleType::Float { filterable: false })),
+        // Cloud field: SDF (r) + blurred column optical depth (g), `cloud_field.wesl`.
+        (44, texture_3d(TextureSampleType::Float { filterable: true })),
     )
 }
 
@@ -761,6 +763,7 @@ impl FromWorld for AtmosphereLutPipelines {
                 "CLOUDS_ENABLED".into(),
                 "CLOUD_SHADOW_SIMPLE_SAMPLING".into(),
                 "ATMOSPHERE_NO_SHADOW_MAPS".into(),
+                "CLOUD_FIELD_BOUND".into(),
             ]
             .into_iter()
             .chain(cloud_reference_def())
@@ -839,6 +842,8 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             shader_defs.push("CLOUD_SHADOW_SIMPLE_SAMPLING".into());
             // Clouds come from the dedicated `clouds_raymarch` pass, not `raymarch_atmosphere`.
             shader_defs.push("CLOUD_PASS".into());
+            // The cloud field (SDF + blurred column optical depth) is bound at 44.
+            shader_defs.push("CLOUD_FIELD_BOUND".into());
             shader_defs.extend(cloud_reference_def());
         } else {
             shader_defs.extend(atm_dbg_defs());
@@ -1818,6 +1823,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         // clouds_raymarch outputs
                         (26, &textures.clouds.default_view),
                         (27, &textures.clouds_depth.default_view),
+                        (44, &textures.cloud_field_sdf.default_view),
                     )),
                 )
             });

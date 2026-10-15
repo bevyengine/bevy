@@ -25,7 +25,7 @@ import package::atmosphere::{
         atmosphere, settings, view, lights, transmittance_lut, atmosphere_lut_sampler,
         multiscattering_lut, sky_view_lut, aerial_view_lut, atmosphere_transforms,
         medium_density_lut, medium_scattering_lut, medium_sampler,
-        cloud_shadow_map,
+        cloud_shadow_map, cloud_field_sdf,
     },
     bruneton_functions::{
         transmittance_lut_r_mu_to_uv, ray_intersects_ground,
@@ -39,6 +39,7 @@ import package::atmosphere::{
     bindings::stbn_texture,
     clouds::{
         get_cloud_coverage,
+        cloud_field_uvw,
         get_cloud_medium_density,
         sample_cloud_field_density_and_grad,
         cloud_layer_segment, cloud_layer, get_cloud_medium_density_lod, get_cloud_medium_density_coarse,
@@ -971,17 +972,42 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
         // within ~8 % for tau >= 5; at grazing sun (mu0 0.05) that is 0.4x the mu0-free form.
         e_top *= 0.35 + 0.9 * max(mu_l, 0.0);
     }
-    var sum = vec3(0.0);
+    // Clear-sky irradiance from the sky-view LUT (cosine-weighted directions).
+    var sky = vec3(0.0);
     for (var k = 0u; k < GROUND_SKY_DIRS; k++) {
         let u = (f32(k) + 0.5) / f32(GROUND_SKY_DIRS);
         let phi = f32(k) * 2.399963;
         let d = normalize(n * sqrt(1.0 - u) + (tx * cos(phi) + ty * sin(phi)) * sqrt(u));
-        let t_c = max(cloud_far_transmittance(p, d, true), 1e-6);
-        let tau = -log(t_c);
-        let l_base = e_top / (1.0 + 0.1125 * tau);
-        sum += sample_sky_view_lut(r_cam, direction_world_to_atmosphere(d)) * t_c + (1.0 - t_c) * l_base;
+        sky += sample_sky_view_lut(r_cam, direction_world_to_atmosphere(d));
     }
-    return PI * sum / f32(GROUND_SKY_DIRS);
+    sky *= PI / f32(GROUND_SKY_DIRS);
+    // Cloud AO (UE5 volumetric clouds): sky visibility from the blurred column optical depth of
+    // the cloud field above the point, exp(-tau). Outside the field, a vertical density march.
+    // Hemispherical (diffuse) transmittance of a slab of vertical optical depth tau: the
+    // diffusivity approximation T_diff ~ exp(-1.66 tau) (Elsasser 1942; standard two-stream
+    // radiative transfer), since skylight arrives along slant paths.
+    let tau = cloud_column_optical_depth(p);
+    let v = exp(-CLOUD_AO_DIFFUSIVITY * tau);
+    // Occluded part: cloud bases lit by diffusely transmitted sunlight (Lambertian, PI * L).
+    return sky * v + (1.0 - v) * PI * e_top / (1.0 + 0.1125 * tau);
+}
+const CLOUD_AO_DIFFUSIVITY: f32 = 1.66;
+
+/// Blurred cloud column optical depth above an atmosphere-space point (cloud AO).
+@if(CLOUDS_ENABLED)
+fn cloud_column_optical_depth(p: vec3<f32>) -> f32 {
+    let n = normalize(p);
+    var tau = -log(max(cloud_far_transmittance(p, n, true), 1e-6));
+    @if(CLOUD_FIELD_BOUND) {
+        let uvw = cloud_field_uvw(p, get_view_position());
+        if (all(uvw.xy >= vec2(0.0)) && all(uvw.xy <= vec2(1.0))) {
+            let field = textureSampleLevel(cloud_field_sdf, atmosphere_lut_sampler, vec3(uvw.xy, 0.5), 0.0).g;
+            // Fade to the march over the outer 10 % of the field.
+            let e = min(min(uvw.x, 1.0 - uvw.x), min(uvw.y, 1.0 - uvw.y));
+            tau = mix(tau, field * settings.cloud_shadow_map_strength, saturate(e / 0.1));
+        }
+    }
+    return tau;
 }
 const GROUND_SKY_DIRS: u32 = 6u;
 const GROUND_SKY_STEPS: u32 = 6u;
