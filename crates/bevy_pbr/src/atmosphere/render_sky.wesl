@@ -122,6 +122,17 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         cloud_w_sum += bw * opacity;
     }
     cloud_t = cloud_t / max(cloud_w_sum, 1e-6);
+    // Reference path tracer: the cloud texture holds the whole path-traced in-scattering (air +
+    // clouds, sun only) and the camera-ray transmittance; replace the LUT sky/aerial perspective.
+    @if(CLOUD_REFERENCE) {
+    let ref_c = textureSampleLevel(cloud_texture, atmosphere_lut_sampler, in.uv, 0.0);
+    var sun_term = vec3(0.0);
+    if depth == 0.0 { sun_term = sun_radiance * sample_transmittance_lut(r, mu) * ref_c.a * view.exposure; }
+    @if(DUAL_SOURCE_BLENDING)
+    return RenderSkyOutput(vec4(ref_c.rgb + sun_term, 0.0), vec4(vec3(ref_c.a), 1.0));
+    @if(!DUAL_SOURCE_BLENDING)
+    return RenderSkyOutput(vec4(ref_c.rgb + sun_term, ref_c.a));
+    }
     if clouds.a < 0.999 && cloud_t > 0.0 && cloud_t < scene_t {
         // The cloud pass already applied the (cloud-shadowed) aerial perspective in front of
         // the cloud: clouds.rgb = T_ap * L_c + (1 - T_c) * L_ap.

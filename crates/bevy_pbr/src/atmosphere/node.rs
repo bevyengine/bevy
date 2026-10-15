@@ -314,7 +314,8 @@ pub fn render_sky(
 
     // Debug readback (CLOUD_DUMP_DIR): textures as they are when this frame's sky starts, i.e.
     // this frame's shadow map / noise and the *previous* frame's cloud trace + reconstruct.
-    if let Some(frame) = super::debug_dump::begin_frame() {
+    let dump_frame = super::debug_dump::begin_frame();
+    if let Some(frame) = dump_frame {
         use bevy_math::UVec3;
         let d = |enc: &mut _, name: &str, tex: &bevy_render::render_resource::Texture, mip: u32, size: UVec3, bpt: u32, ext: &str| {
             super::debug_dump::dump(&dump_device, enc, frame, name, tex, mip, size, bpt, ext);
@@ -452,5 +453,11 @@ pub fn render_sky(
     render_sky_pass.draw(0..3, 0..1);
     pass_span.end(&mut render_sky_pass);
     drop(render_sky_pass);
+    // Debug readback of the final linear (pre-TAA, pre-tonemap) scene color.
+    if let Some(frame) = dump_frame {
+        let t = view_target.main_texture();
+        super::debug_dump::dump(&dump_device, command_encoder, frame, "scene_hdr", t, 0,
+            bevy_math::UVec3::new(t.width(), t.height(), 1), 8, "rgba16f");
+    }
     super::gpu_timing::end_frame(&timing_device, command_encoder);
 }

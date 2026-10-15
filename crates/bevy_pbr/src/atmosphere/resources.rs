@@ -705,6 +705,7 @@ impl FromWorld for AtmosphereLutPipelines {
             ]
             .into_iter()
             .chain(cloud_reference_def())
+            .chain(cloud_term_defs())
             .collect(),
             ..default()
         });
@@ -764,6 +765,7 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             shader_defs.push("CLOUD_SHADOW_SIMPLE_SAMPLING".into());
             // Clouds come from the dedicated `clouds_raymarch` pass, not `raymarch_atmosphere`.
             shader_defs.push("CLOUD_PASS".into());
+            shader_defs.extend(cloud_reference_def());
         }
 
         let dst_factor = if key.dual_source_blending {
@@ -1853,8 +1855,31 @@ pub(crate) fn prepare_atmosphere_buffers(
 /// Debug: `CLOUD_REFERENCE=1` swaps the realtime cloud march for a progressive volumetric path
 /// tracer (delta/ratio tracking, full multiple scattering) over the same density field, for
 /// ground-truth comparisons. Read once at pipeline creation.
-fn cloud_reference_def() -> Option<bevy_shader::ShaderDefVal> {
-    std::env::var("CLOUD_REFERENCE")
-        .ok()
-        .map(|_| "CLOUD_REFERENCE".into())
+fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
+    let mut defs: Vec<bevy_shader::ShaderDefVal> = Vec::new();
+    if std::env::var("CLOUD_REFERENCE").is_ok() {
+        defs.push("CLOUD_REFERENCE".into());
+    }
+    // Clear-sky validation of the reference against the LUT sky (realtime: ATMOSPHERE_NO_CLOUDS).
+    if std::env::var("CLOUD_REF_NO_CLOUDS").is_ok() {
+        defs.push("CLOUD_REF_NO_CLOUDS".into());
+    }
+    defs
+}
+
+/// Debug: lighting-term isolation for validation (realtime and reference alike).
+/// `CLOUD_TERMS=s1` sun single scatter only, `sun` sun incl. multiple scattering, `amb` sky+ground
+/// only; `CLOUD_NO_HAZE=1` skips the aerial perspective in front of the clouds.
+fn cloud_term_defs() -> Vec<bevy_shader::ShaderDefVal> {
+    let mut defs: Vec<bevy_shader::ShaderDefVal> = Vec::new();
+    match std::env::var("CLOUD_TERMS").as_deref() {
+        Ok("s1") => defs.extend(["CLOUD_TERM_S1".into(), "CLOUD_TERM_NO_AMB".into()]),
+        Ok("sun") => defs.push("CLOUD_TERM_NO_AMB".into()),
+        Ok("amb") => defs.push("CLOUD_TERM_NO_SUN".into()),
+        _ => {}
+    }
+    if std::env::var("CLOUD_NO_HAZE").is_ok() {
+        defs.push("CLOUD_NO_HAZE".into());
+    }
+    defs
 }
