@@ -163,6 +163,11 @@ fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: 
 struct RefOut { c: vec4<f32>, d: f32 }
 
 var<private> ref_rng: u32;
+fn ref_hash(v: u32) -> u32 {
+    let st = v * 747796405u + 2891336453u;
+    let w = ((st >> ((st >> 28u) + 4u)) ^ st) * 277803737u;
+    return (w >> 22u) ^ w;
+}
 fn ref_rand() -> f32 {
     ref_rng = ref_rng * 747796405u + 2891336453u;
     var w = ((ref_rng >> ((ref_rng >> 28u) + 4u)) ^ ref_rng) * 277803737u;
@@ -304,8 +309,10 @@ fn ref_sun_vis(p: vec3<f32>, l: vec3<f32>, ch: u32) -> f32 {
 
 fn cloud_reference_trace(origin: vec3<f32>, view_dir: vec3<f32>, t_scene: f32, px: vec2<u32>) -> RefOut {
     let sample_index = view.frame_count / 4u;
-    ref_rng = (px.x * 1973u + px.y * 9277u + view.frame_count * 26699u) | 1u;
-    for (var i = 0u; i < 4u; i++) { let _x = ref_rand(); }
+    // Decorrelated per pixel and per frame (nested PCG hashes; a linear seed correlates).
+    var salt = 0u;
+    @if(CLOUD_REF_SEED2) { salt = 0x9e3779b9u; }
+    ref_rng = ref_hash(px.x ^ ref_hash(px.y ^ ref_hash(view.frame_count ^ salt)));
     let ch = (sample_index + px.x * 7u + px.y * 13u) % 3u;
     var lum_w = array<f32, 3>(0.2126, 0.7152, 0.0722);
 
@@ -349,9 +356,9 @@ fn cloud_reference_trace(origin: vec3<f32>, view_dir: vec3<f32>, t_scene: f32, p
             let n = normalize(p);
             p = n * (atmosphere.inner_radius + 0.5);
             if (has_light) {
-                L += thr * CLOUD_GROUND_ALBEDO / PI * sun * max(dot(l, n), 0.0) * ref_sun_vis(p, l, ch);
+                L += thr * atmosphere.ground_albedo[ch] / PI * sun * max(dot(l, n), 0.0) * ref_sun_vis(p, l, ch);
             }
-            thr *= CLOUD_GROUND_ALBEDO;
+            thr *= atmosphere.ground_albedo[ch];
             // cosine-weighted hemisphere
             let u1 = ref_rand();
             d = ref_dir_around(n, sqrt(u1));

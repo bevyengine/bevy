@@ -414,6 +414,8 @@ impl AtmosphereBindGroupLayouts {
                         32,
                         texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly),
                     ),
+                    // CLOUD_REFERENCE progressive accumulator (f32 sums + sample counts).
+                    (33, storage_buffer_sized(false, None)),
                 ),
             ),
         );
@@ -1767,6 +1769,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (30, params_binding),
                         (31, &textures.clouds.default_view),
                         (32, &textures.clouds_depth.default_view),
+                        (33, reference_accumulator(&render_device, textures.clouds.texture.size()).as_entire_binding()),
                     )),
                 )
             });
@@ -1861,6 +1864,9 @@ fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
         defs.push("CLOUD_REFERENCE".into());
     }
     // Clear-sky validation of the reference against the LUT sky (realtime: ATMOSPHERE_NO_CLOUDS).
+    if std::env::var("CLOUD_REF_SEED2").is_ok() {
+        defs.push("CLOUD_REF_SEED2".into());
+    }
     if std::env::var("CLOUD_REF_NO_CLOUDS").is_ok() {
         defs.push("CLOUD_REF_NO_CLOUDS".into());
     }
@@ -1882,4 +1888,33 @@ fn cloud_term_defs() -> Vec<bevy_shader::ShaderDefVal> {
         defs.push("CLOUD_NO_HAZE".into());
     }
     defs
+}
+
+/// f32 running-sum accumulator for the reference path tracer (2 x vec4 per half-res pixel:
+/// sum(rgb, T), (count, first-hit distance sum, 0, 0)). The 16-bit cloud history cannot hold a
+/// true running mean (increments drop below the f16 ulp after ~1-2k samples). Recreated (zeroed)
+/// on resize; tiny when `CLOUD_REFERENCE` is off.
+fn reference_accumulator(
+    device: &RenderDevice,
+    size: bevy_render::render_resource::Extent3d,
+) -> bevy_render::render_resource::Buffer {
+    use std::sync::Mutex;
+    static ACC: Mutex<Option<(bevy_render::render_resource::Buffer, u64)>> = Mutex::new(None);
+    let bytes = if std::env::var("CLOUD_REFERENCE").is_ok() {
+        (size.width as u64 * size.height as u64 * 32).max(32)
+    } else {
+        32
+    };
+    let mut acc = ACC.lock().unwrap();
+    if let Some((buffer, b)) = acc.as_ref() && *b == bytes {
+        return buffer.clone();
+    }
+    let buffer = device.create_buffer(&bevy_render::render_resource::BufferDescriptor {
+        label: Some("cloud_reference_accumulator"),
+        size: bytes,
+        usage: bevy_render::render_resource::BufferUsages::STORAGE,
+        mapped_at_creation: false,
+    });
+    *acc = Some((buffer.clone(), bytes));
+    buffer
 }

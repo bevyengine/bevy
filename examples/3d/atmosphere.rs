@@ -354,7 +354,11 @@ fn setup_camera_fog(
 
     // Spawn earth atmosphere
     commands.spawn((
-        Atmosphere::earth(earth_medium),
+        // Ground albedo 0.28 to match the cloud ground bounce (CLOUD_GROUND_ALBEDO) and the reference.
+        Atmosphere {
+            ground_albedo: Vec3::splat(0.28),
+            ..Atmosphere::earth(earth_medium)
+        },
         // Add a volumetric cloud layer using 3D FBM noise
         // Physically realistic parameters (units: m^-1 per unit density):
         // - Density is normalized to [0, 1] in the shader
@@ -522,7 +526,11 @@ fn setup_terrain_scene(
     //     Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
     // ));
 
-    // Terrain
+    // Terrain: temporarily off by default while tuning clouds + atmosphere (the planet ground
+    // sphere still renders); `ATMOSPHERE_TERRAIN=1` brings it back.
+    if std::env::var("ATMOSPHERE_TERRAIN").is_err() {
+        return;
+    }
     commands.spawn((
         Terrain,
         WorldAssetRoot(

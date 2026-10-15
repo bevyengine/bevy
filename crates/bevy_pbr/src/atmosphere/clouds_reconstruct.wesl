@@ -28,6 +28,8 @@ struct CloudsTemporalParams {
 @group(0) @binding(30) var<uniform> params: CloudsTemporalParams;
 @group(0) @binding(31) var out_clouds: texture_storage_2d<rgba16float, write>;
 @group(0) @binding(32) var out_clouds_depth: texture_storage_2d<r32float, write>;
+@if(CLOUD_REFERENCE)
+@group(0) @binding(33) var<storage, read_write> ref_accum: array<vec4<f32>>;
 
 const CHECKER_OFFSETS: array<vec2<u32>, 4> = array(
     vec2(0u, 0u), vec2(1u, 1u), vec2(1u, 0u), vec2(0u, 1u)
@@ -96,16 +98,26 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // Reference path tracer: progressive average per pixel (each traced every 4th frame) once
     // the noise/shadow map have settled; no clamping.
+    // Reference path tracer: exact running mean in an f32 accumulator (sum + count), started
+    // once the noise/shadow map have settled. No clamping, no history blending.
     @if(CLOUD_REFERENCE) {
         const REF_START: u32 = 120u;
-        if (params.history_valid != 0u && view.frame_count >= REF_START) {
-            let prev = textureLoad(history_texture, vec2<i32>(id.xy), 0);
-            result = prev;
-            result_depth = textureLoad(history_depth_texture, vec2<i32>(id.xy), 0).r;
-            if (traced_now) {
-                let n = f32((view.frame_count - REF_START) / 4u + 1u);
-                result = mix(prev, center, 1.0 / n);
-                result_depth = center_depth;
+        let k = 2u * (id.y * size.x + id.x);
+        if (view.frame_count < REF_START) {
+            ref_accum[k] = vec4(0.0);
+            ref_accum[k + 1u] = vec4(0.0);
+        } else {
+            var sum = ref_accum[k];
+            var cnt = ref_accum[k + 1u];
+            if (traced_now && all(center == center)) {
+                sum += center;
+                cnt += vec4(1.0, center_depth, 0.0, 0.0);
+                ref_accum[k] = sum;
+                ref_accum[k + 1u] = cnt;
+            }
+            if (cnt.x > 0.0) {
+                result = sum / cnt.x;
+                result_depth = cnt.y / cnt.x;
             }
         }
     }
