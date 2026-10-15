@@ -69,11 +69,16 @@ fn set_default_transform(mut world: DeferredWorld<'_>, HookContext { entity, .. 
     }
 }
 
+/// Height of [`Atmosphere::earth`], i.e. the distance between its inner and outer radius.
+///
+/// units: m
+pub const EARTH_ATMOSPHERE_HEIGHT: f32 = 100_000.0;
+
 impl Atmosphere {
     /// An atmosphere like that of earth. Use this with a [`ScatteringMedium::earth`] handle.
     pub fn earth(medium: Handle<ScatteringMedium>) -> Self {
         const EARTH_INNER_RADIUS: f32 = 6_360_000.0;
-        const EARTH_OUTER_RADIUS: f32 = 6_460_000.0;
+        const EARTH_OUTER_RADIUS: f32 = EARTH_INNER_RADIUS + EARTH_ATMOSPHERE_HEIGHT;
         const EARTH_ALBEDO: Vec3 = Vec3::splat(0.3);
         Self {
             inner_radius: EARTH_INNER_RADIUS,
@@ -188,13 +193,22 @@ impl ScatteringMedium {
         self
     }
 
-    /// Returns a scattering medium representing an earth atmosphere.
+    /// Returns a scattering medium representing an earth atmosphere, for use with
+    /// [`Atmosphere::earth`].
     ///
-    /// Uses physically-based scale heights from Earth's atmosphere, assuming
-    /// a 60 km atmosphere height:
+    /// Uses the parameters from [Bruneton 2017] and [Hillaire 2020]:
     /// - Rayleigh (molecular) scattering: 8 km scale height
     /// - Mie (aerosol) scattering: 1.2 km scale height
+    /// - Ozone absorption: a 30 km wide layer peaking at 25 km altitude
+    ///
+    /// [Bruneton 2017]: https://ebruneton.github.io/precomputed_atmospheric_scattering/
+    /// [Hillaire 2020]: https://doi.org/10.1111/cgf.14050
     pub fn earth(falloff_resolution: u32, phase_resolution: u32) -> Self {
+        const RAYLEIGH_SCALE_HEIGHT: f32 = 8_000.0;
+        const MIE_SCALE_HEIGHT: f32 = 1_200.0;
+        const OZONE_PEAK_ALTITUDE: f32 = 25_000.0;
+        const OZONE_LAYER_WIDTH: f32 = 30_000.0;
+
         Self::new(
             falloff_resolution,
             phase_resolution,
@@ -203,14 +217,18 @@ impl ScatteringMedium {
                 ScatteringTerm {
                     absorption: Vec3::ZERO,
                     scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
-                    falloff: Falloff::Exponential { scale: 8.0 / 60.0 },
+                    falloff: Falloff::Exponential {
+                        scale: RAYLEIGH_SCALE_HEIGHT / EARTH_ATMOSPHERE_HEIGHT,
+                    },
                     phase: PhaseFunction::Rayleigh,
                 },
                 // Mie scattering Term
                 ScatteringTerm {
-                    absorption: Vec3::splat(3.996e-6),
-                    scattering: Vec3::splat(0.444e-6),
-                    falloff: Falloff::Exponential { scale: 1.2 / 60.0 },
+                    absorption: Vec3::splat(0.444e-6),
+                    scattering: Vec3::splat(3.996e-6),
+                    falloff: Falloff::Exponential {
+                        scale: MIE_SCALE_HEIGHT / EARTH_ATMOSPHERE_HEIGHT,
+                    },
                     phase: PhaseFunction::Mie { asymmetry: 0.8 },
                 },
                 // Ozone scattering Term
@@ -218,8 +236,8 @@ impl ScatteringMedium {
                     absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
                     scattering: Vec3::ZERO,
                     falloff: Falloff::Tent {
-                        center: 0.75,
-                        width: 0.3,
+                        center: 1.0 - OZONE_PEAK_ALTITUDE / EARTH_ATMOSPHERE_HEIGHT,
+                        width: OZONE_LAYER_WIDTH / EARTH_ATMOSPHERE_HEIGHT,
                     },
                     phase: PhaseFunction::Isotropic,
                 },
@@ -332,11 +350,13 @@ pub enum Falloff {
     /// When paired with an absolute "falloff distance" like the distance from
     /// Earth's surface to the edge of space, this is analogous to the "height
     /// scale" value common in atmospheric scattering literature, though it will
-    /// diverge from this for large or negative `scale` values.
+    /// diverge from this for large or negative `scale` values. For an
+    /// [`Atmosphere`], `scale` is the scale height divided by
+    /// `outer_radius - inner_radius`.
     ///
     /// f(1) = 1
     /// f(0) = 0
-    /// f(p) = (e^((1-p)/s) - e^(1/s))/(e - e^(1/s))
+    /// f(p) = (e^(-(1-p)/s) - e^(-1/s))/(1 - e^(-1/s))
     Exponential {
         /// The "scale" of the exponential falloff. Values closer to zero will
         /// produce steeper falloff, and values farther from zero will produce
