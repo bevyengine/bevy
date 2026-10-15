@@ -583,7 +583,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 light_od += get_cloud_medium_density_lod(length(p_far), p_far, mip + 3.0) * LIGHT_LONG_TAP_M;
                 let light_optical_depth = light_od * sigma_t_unit;
                 let p_beyond = p + l * (tap_t + LIGHT_LONG_TAP_M);
-                let t_far = sample_cloud_shadow_map(p_beyond, l, false);
+                var t_far = sample_cloud_shadow_map(p_beyond, l, false);
+                @if(ATM_DBG_NO_FAR_SHADOW) { t_far = 1.0; }
                 let t_local = exp(-light_optical_depth);
                 let t_cloud = t_far * t_local;
                 let cos_theta = dot(l, ray_dir);
