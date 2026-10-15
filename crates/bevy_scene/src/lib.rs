@@ -155,12 +155,14 @@
 //!
 //! The `#Name` syntax assigns a [`Name`] to an entity and registers it for cross-referencing within the same macro invocation.
 //! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`],
-//! which is a [`Template`] that resolves to an [`Entity`]:
+//! which is a [`Template`] that resolves to an [`Entity`]. 
+//!
+//! Note that a "child entity" can reference its ancestors using the #Name declared in the "root entity".
 //!
 //! ```ignore
 //! bsn! {
 //!     #Name
-//!     my_scene(#Name)
+//!     @my_scene(#Name)
 //!     ComponentA(#Name)
 //!     ComponentB { entity: #Name }
 //!     Children [
@@ -169,8 +171,7 @@
 //! }
 //! ```
 //!
-//! Notice that the "child entity" was able to access the parent entity via `#Name`. It is also possible for ancestors to access
-//! their descendants:
+//! It is also possible for ancestors to access their descendants:
 //!
 //! ```ignore
 //! bsn! {
@@ -180,6 +181,7 @@
 //!     ]
 //! }
 //! ```
+//!
 //! [`Component`]s with [`Entity`] fields should generally derive [`FromTemplate`], because [`Entity`] uses [`FromTemplate`] to map to [`EntityTemplate`].
 //!
 //! ```rust
