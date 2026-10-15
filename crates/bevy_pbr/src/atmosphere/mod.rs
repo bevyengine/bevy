@@ -511,7 +511,7 @@ impl Default for AtmosphereSettings {
     fn default() -> Self {
         Self {
             transmittance_lut_size: UVec2::new(256, 128),
-            transmittance_lut_samples: 40,
+            transmittance_lut_samples: 64,
             multiscattering_lut_size: UVec2::new(32, 32),
             multiscattering_lut_dirs: 64,
             multiscattering_lut_samples: 20,

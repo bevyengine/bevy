@@ -14,7 +14,7 @@ import bevy_render::maths::{PI, ray_sphere_intersect};
 import package::render::utils::interleaved_gradient_noise;
 import package::atmosphere::{
     bindings::{atmosphere, settings, view, lights, stbn_texture},
-    bruneton_functions::{ray_intersects_ground, sample_transmittance_lut_segment},
+    bruneton_functions::{ray_intersects_ground, sample_transmittance_lut_segment, distance_to_top_atmosphere_boundary},
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
         sample_transmittance_lut, sample_sky_view_lut, sample_cloud_shadow_map,
@@ -291,6 +291,20 @@ fn ref_sun_vis(p: vec3<f32>, l: vec3<f32>, ch: u32) -> f32 {
     let mu = dot(l, p / r);
     if (ray_intersects_ground(r, mu)) { return 0.0; }
     var v = sample_transmittance_lut(r, mu)[ch];
+    @if(CLOUD_REF_QUAD_T) {
+    // Direct quadrature of the density LUT (bypasses the transmittance LUT).
+    let t_top = distance_to_top_atmosphere_boundary(atmosphere, r, mu);
+    var od = 0.0;
+    let n = 256u;
+    for (var i = 0u; i < n; i++) {
+        let u0 = f32(i) / f32(n); let u1 = f32(i + 1u) / f32(n);
+        let ta = t_top * u0 * u0; let tb = t_top * u1 * u1;
+        let q = p + l * (0.5 * (ta + tb));
+        let m = ref_air(length(q));
+        od += (m[0][ch] + m[1][ch]) * (tb - ta);
+    }
+    v = exp(-od);
+    }
     @if(!CLOUD_REF_NO_CLOUDS) {
     let seg = cloud_layer_segment(p, l);
     if (seg.z > 0.5 && v > 0.0) {

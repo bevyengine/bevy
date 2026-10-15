@@ -30,12 +30,16 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 fn ray_optical_depth(r: f32, mu: f32, sample_count: u32) -> vec3<f32> {
     let t_max = max_atmosphere_distance(r, mu);
     var optical_depth = vec3<f32>(0.0f);
-    var prev_t = 0.0f;
-
+    // Quadratically spaced segments, sampled at their midpoints: the dense near-surface layers
+    // dominate grazing paths, and uniform steps (first sample ~0.3 * t_max / n away) skip them,
+    // overestimating low-sun transmittance by up to 2x (blue, 3 deg elevation).
     for (var i = 0u; i < sample_count; i++) {
-        let t_i = t_max * (f32(i) + MIDPOINT_RATIO) / f32(sample_count);
-        let dt = t_i - prev_t;
-        prev_t = t_i;
+        let u0 = f32(i) / f32(sample_count);
+        let u1 = f32(i + 1u) / f32(sample_count);
+        let t0 = t_max * u0 * u0;
+        let t1 = t_max * u1 * u1;
+        let t_i = 0.5 * (t0 + t1);
+        let dt = t1 - t0;
 
         let r_i = get_local_r(r, mu, t_i);
 

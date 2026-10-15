@@ -1867,6 +1867,9 @@ fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
     if std::env::var("CLOUD_REF_SEED2").is_ok() {
         defs.push("CLOUD_REF_SEED2".into());
     }
+    if std::env::var("CLOUD_REF_QUAD_T").is_ok() {
+        defs.push("CLOUD_REF_QUAD_T".into());
+    }
     if std::env::var("CLOUD_REF_NO_CLOUDS").is_ok() {
         defs.push("CLOUD_REF_NO_CLOUDS".into());
     }
