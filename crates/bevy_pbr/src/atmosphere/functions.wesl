@@ -328,10 +328,14 @@ fn cloud_far_transmittance(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
     let seg = cloud_layer_segment(world_pos, direction_to_light);
     if (seg.z > 0.5) {
         let t0 = max(seg.x, 0.0);
-        let t1 = min(seg.y, t0 + CLOUD_FAR_MAX_M);
-        let dt = (t1 - t0) / f32(CLOUD_FAR_SAMPLES);
+        var far_max = CLOUD_FAR_MAX_M;
+        @if(ATM_DBG_FAR_LONG) { far_max = 400000.0; }
+        let t1 = min(seg.y, t0 + far_max);
+        let dt = (t1 - t0) / f32(select(CLOUD_FAR_SAMPLES, 16u, far_max > CLOUD_FAR_MAX_M));
         let sigma_t = get_cloud_scattering_coeff() + get_cloud_absorption_coeff();
-        for (var i = 0u; i < CLOUD_FAR_SAMPLES; i++) {
+        var n_far = CLOUD_FAR_SAMPLES;
+        @if(ATM_DBG_FAR_LONG) { n_far = 16u; }
+        for (var i = 0u; i < n_far; i++) {
             let q = world_pos + direction_to_light * (t0 + (f32(i) + 0.5) * dt);
             var dq = get_cloud_medium_density_lod(length(q), q, 3.0);
             @if(!ATM_DBG_FAR_FINE && !CLOUD_PASS) { dq = get_cloud_medium_density_coarse(length(q), q) * CLOUD_FAR_COARSE_SCALE; }

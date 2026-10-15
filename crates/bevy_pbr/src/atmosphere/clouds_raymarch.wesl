@@ -556,7 +556,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         var fine_mode = false;
         var fine_empty: u32 = 0u;
         var step_i: u32 = 0u;
-        let max_steps = u32(CLOUD_MAX_STEPS);
+        var max_steps = u32(CLOUD_MAX_STEPS);
+        var step_far = CLOUD_STEP_FAR_OFFSET_M;
+        @if(ATM_DBG_STEP_FINE) { max_steps *= 4u; step_far *= 0.25; }
 
         loop {
             if (t >= t_end || step_i >= max_steps || transmittance < CLOUD_MIN_TRANSMITTANCE) {
@@ -565,7 +567,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             step_i += 1u;
 
             let dist_step = CLOUD_STEP_NEAR_M
-                + CLOUD_STEP_FAR_OFFSET_M * clamp(t / CLOUD_STEP_FAR_REF_M, 0.0, 8.0);
+                + step_far * clamp(t / CLOUD_STEP_FAR_REF_M, 0.0, 8.0);
             let dt = select(dist_step, dist_step * CLOUD_COARSE_STEP_SCALE, !fine_mode);
             let p = ray_origin + ray_dir * t;
             let r_p = length(p);
