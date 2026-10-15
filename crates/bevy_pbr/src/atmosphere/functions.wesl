@@ -481,7 +481,7 @@ fn raymarch_atmosphere(
             let sphere_point = pos + ray_dir * t_end;
             let sphere_normal = normalize(sphere_point);
             let mu_light = dot(light_dir, sphere_normal);
-            let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
+            let transmittance_to_light = sample_transmittance_lut(atmosphere.inner_radius, mu_light);
             let light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
             // Normalized Lambert BRDF
             let ground_luminance = transmittance_to_ground * atmosphere.ground_albedo / PI;
