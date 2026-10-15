@@ -64,7 +64,7 @@ async-lock = { version = "3.0", default-features = false }
 thiserror = { version = "2", default-features = false }
 base64 = { version = "0.23.0", default-features = false, features = ["std"] }
 fixedbitset = "0.5"
-itertools = "0.14"
+itertools = "0.15"
 meshopt = { version = "0.6.2", optional = true }
 percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }
