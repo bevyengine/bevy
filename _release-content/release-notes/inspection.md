@@ -23,3 +23,4 @@ This note will be completed once the rest of the series lands.
 - Added `type_path` to `ComponentInspection` and `ComponentTypeMetadata`, so remote inspectors can match results to schema types
 - `registry.schema` now includes each type's default value when it registers `ReflectDefault`
 - Added a connection panel to the `bevy_inspector` remote source
+- Added `SchemaRegistry` to `bevy_remote`, an index over `registry.schema` schemas that resolves field, item and map types, so local and remote inspectors can read type structure the same way
