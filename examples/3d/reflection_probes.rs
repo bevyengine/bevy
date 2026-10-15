@@ -121,7 +121,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 // Spawns the camera.
 fn spawn_camera(commands: &mut Commands) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Hdr,
         Exposure { ev100: 11.0 },
         Tonemapping::AcesFitted,

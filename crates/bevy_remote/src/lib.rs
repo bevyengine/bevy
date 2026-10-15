@@ -203,11 +203,12 @@
 //! ```json
 //! {
 //!   "components": {
-//!     "bevy_camera::Camera3d": {
-//!       "depth_load_op": {
+//!     "bevy_camera::Camera3d": {},
+//!     "bevy_camera::CameraDepthTexture": {
+//!       "load_op": {
 //!         "Clear": 0.0
 //!       },
-//!       "depth_texture_usages": 16,
+//!       "texture_usages": 16,
 //!     },
 //!     "bevy_render::view::DebandDither": "Enabled",
 //!     "bevy_render::view::Tonemapping": "TonyMcMapface",

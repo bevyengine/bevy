@@ -139,7 +139,7 @@ fn setup_pica_pica(
     ));
 
     let mut camera = commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Camera {
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
@@ -316,7 +316,7 @@ fn setup_many_lights(
     }
 
     let mut camera = commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Camera {
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()

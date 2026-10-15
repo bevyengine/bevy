@@ -207,7 +207,7 @@ fn setup(
     // Camera
     let mut cam = commands.spawn((
         Msaa::Off,
-        Camera3d::default(),
+        Camera3d,
         Hdr,
         positions[0],
         Projection::Perspective(PerspectiveProjection {

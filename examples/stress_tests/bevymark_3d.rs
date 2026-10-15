@@ -219,7 +219,7 @@ fn setup(
     };
 
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_translation(VOLUME_SIZE * 1.3).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 

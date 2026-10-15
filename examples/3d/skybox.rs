@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let skybox_handle = asset_server.load(CUBEMAPS[0].0);
     // camera
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Msaa::Off,
         #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
         TemporalAntiAliasing::default(),

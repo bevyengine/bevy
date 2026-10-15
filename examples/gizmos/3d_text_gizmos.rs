@@ -13,7 +13,7 @@ fn main() {
 
 fn setup_camera(mut commands: Commands, mut gizmo_config_store: ResMut<GizmoConfigStore>) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
     ));
 

@@ -53,7 +53,7 @@ fn setup(
 ) {
     commands.spawn((
         Name::new("Camera"),
-        Camera3d::default(),
+        Camera3d,
         Projection::from(OrthographicProjection {
             // We can set the scaling mode to FixedVertical to keep the viewport height constant as its aspect ratio changes.
             // The viewport height is the height of the camera's view in world units when the scale is 1.

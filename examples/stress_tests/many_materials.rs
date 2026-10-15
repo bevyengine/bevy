@@ -60,7 +60,7 @@ fn setup(
     // Camera
     let w = n as f32;
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(w * 1.25, w + 1.0, w * 1.25)
             .looking_at(Vec3::new(0.0, (w * -1.1) + 1.0, 0.0), Vec3::Y),
     ));
