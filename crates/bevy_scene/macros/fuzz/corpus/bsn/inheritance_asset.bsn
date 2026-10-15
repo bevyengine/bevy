@@ -1,0 +1,2 @@
+:"enemy.bsn"
+Health { max: 500 }
