@@ -1542,8 +1542,8 @@ pub trait UnitsFormat: Send + Sync {
     /// `length_meters`, `time_seconds`, or `angle_degrees`.
     fn id(&self) -> &'static str;
 
-    /// Convert a value in canonical units to display units. This must be monotonically
-    /// increasing. The default is the identity.
+    /// Convert a value in canonical units to display units. This conversion must be a monotonically
+    /// increasing function: higher input values must lead to a higher return value. The default conversion function is the identity function, returning the input `value` directly.
     fn canonical_to_display(&self, value: f64) -> f64 {
         value
     }
