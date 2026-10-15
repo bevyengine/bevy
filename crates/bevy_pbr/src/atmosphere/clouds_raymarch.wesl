@@ -14,7 +14,7 @@ import bevy_render::maths::{PI, ray_sphere_intersect};
 import package::render::utils::interleaved_gradient_noise;
 import package::atmosphere::{
     bindings::{atmosphere, settings, view, lights, stbn_texture},
-    bruneton_functions::{ray_intersects_ground, sample_transmittance_lut_segment, distance_to_top_atmosphere_boundary},
+    bruneton_functions::{ray_intersects_ground, sample_transmittance_lut_segment, sample_transmittance_lut_segment_tau_red, distance_to_top_atmosphere_boundary},
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
         sample_transmittance_lut, sample_sky_view_lut, sample_cloud_shadow_map, cloud_far_transmittance,
@@ -672,11 +672,29 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         if (haze_on && transmittance < 0.999 && weighted_depth > 0.0) {
             let j = fract(jitter + f32(view.frame_count % 64u) * 0.61803398875);
             var t_ap = sample_transmittance_lut_segment(r, mu, weighted_depth);
-            // ATM_DBG_AP_SIM: similarity-scale the AP transmittance applied to the *cloud*
-            // (extended bright background). For the local haze term (g=0.76, ω≈0.83),
-            // T_sim = T ^ ((σ_a+(1-g)σ_s)/(σ_s+σ_a)) ≈ T^0.37 (validation/sky run-10 MC).
-            // Proper fix stores τ_mie in the transmittance LUT alpha; this probes the effect.
-            @if(ATM_DBG_AP_SIM) { t_ap = pow(t_ap, vec3(0.37)); }
+            // Similarity-scaled AP transmittance for extended sources (clouds behind haze/Mie):
+            // T_sim = exp(-(τ_a + τ_s_ray + (1-g)τ_s_mie)) = T_bal · exp(τ_red),
+            // τ_red = ∫ g·σ_s_mie from the transmittance LUT alpha (Rayleigh stays ballistic).
+            // Homogeneous-haze MC: τ=1.2 T_bal 0.30 vs MC vis 0.73; T_sim 0.64 (progress run 10).
+            // Optional ATM_DBG_AP_BAL keeps ballistic T; ATM_DBG_AP_SIM retains the old T^0.37 probe.
+            let tau_red = sample_transmittance_lut_segment_tau_red(r, mu, weighted_depth);
+            @if(ATM_DBG_AP_SIM) {
+                t_ap = pow(t_ap, vec3(0.37));
+            } @else {
+                @if(!ATM_DBG_AP_BAL) {
+                    // View-dependent weight: similarity is for extended sources seen through
+                    // forward-scattering media, not for the solar forward lobe (over-brightens
+                    // sun:3) or steep up-looks (little haze OD, still lifted L_c). Fade out
+                    // inside ~cos>0.92 of the sun and for mu≳0.2 (elev≳11°).
+                    var w_sim = 1.0;
+                    if (lights.n_directional_lights > 0u) {
+                        let cos_s = saturate(dot(ray_dir, lights.directional_lights[0].direction_to_light));
+                        w_sim = saturate((0.98 - cos_s) / 0.06);
+                    }
+                    w_sim *= saturate(1.0 - max(mu, 0.0) / 0.20);
+                    t_ap = t_ap * exp(tau_red * w_sim);
+                }
+            }
             let haze = cloud_shadowed_haze(uv, ray_origin, ray_dir, weighted_depth, r, mu, j);
             lum = t_ap * luminance + (1.0 - transmittance) * haze;
         }

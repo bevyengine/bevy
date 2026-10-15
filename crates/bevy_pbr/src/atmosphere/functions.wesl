@@ -150,6 +150,13 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     return textureSampleLevel(transmittance_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
+/// Reducible Mie/haze optical depth (∫ g·σ_s dt) from (r, mu) to the top of atmosphere.
+/// Packed in the transmittance LUT alpha; used for similarity-scaled AP: T_sim = T · exp(τ_red).
+fn sample_transmittance_lut_tau_red(r: f32, mu: f32) -> f32 {
+    let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
+    return textureSampleLevel(transmittance_lut, atmosphere_lut_sampler, uv, 0.0).a;
+}
+
 fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = multiscattering_lut_r_mu_to_uv(r, mu);
     return textureSampleLevel(multiscattering_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
