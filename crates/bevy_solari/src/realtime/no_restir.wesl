@@ -18,7 +18,7 @@ fn initial_and_shade(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(gl
 
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
-    let path = generate_initial_path(surface.world_position, surface.world_normal, surface.material, workgroup_id.xy, global_id.xy, &rng);
+    let path = generate_initial_path(surface.world_position, surface.world_normal, surface.material, workgroup_id.xy, &rng);
 
     var pixel_color = path.radiance;
     pixel_color += surface.material.emissive;
