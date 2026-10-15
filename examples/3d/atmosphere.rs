@@ -127,6 +127,7 @@ fn main() {
     // - `ATMOSPHERE_DIAGNOSTICS=1` logs frame time and per-pass render timings once per second.
     // - `ATMOSPHERE_SCREENSHOT=<path.png>` saves a screenshot after `ATMOSPHERE_SCREENSHOT_SECS` (default 8 s).
     // - `ATMOSPHERE_EXIT_SECS=<secs>` exits the app after the given number of seconds.
+    // - `ATMOSPHERE_EXIT_FRAME=<n>` exits after n frames (e.g. just past the last dump frame).
     let bench = BenchSettings::from_env();
     if bench.diagnostics {
         app.add_plugins((
@@ -141,7 +142,7 @@ fn main() {
     if std::env::var("ATMOSPHERE_FREEZE").is_ok() || std::env::var("ATMOSPHERE_ANIMATE").is_err() {
         app.add_systems(Startup, |mut time: ResMut<Time<Virtual>>| time.pause());
     }
-    if bench.screenshot.is_some() || bench.exit_secs.is_some() {
+    if bench.screenshot.is_some() || bench.exit_secs.is_some() || bench.exit_frame.is_some() {
         app.insert_resource(bench).add_systems(Update, bench_hooks);
     }
     app.run();
@@ -153,6 +154,7 @@ struct BenchSettings {
     screenshot: Option<String>,
     screenshot_secs: f32,
     exit_secs: Option<f32>,
+    exit_frame: Option<u32>,
     no_clouds: bool,
     sunset: bool,
     screenshot_taken: bool,
@@ -170,6 +172,7 @@ impl BenchSettings {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(8.0),
             exit_secs: var("ATMOSPHERE_EXIT_SECS").and_then(|v| v.parse().ok()),
+            exit_frame: var("ATMOSPHERE_EXIT_FRAME").and_then(|v| v.parse().ok()),
             no_clouds: var("ATMOSPHERE_NO_CLOUDS").is_some(),
             sunset: var("ATMOSPHERE_SUNSET").is_some(),
             screenshot_taken: false,
@@ -214,7 +217,9 @@ fn bench_hooks(
             .observe(save_to_disk(format!("{prefix}_f{:02}.png", bench.frame)));
     }
     bench.frame += 1;
-    if bench.exit_secs.is_some_and(|secs| elapsed >= secs) {
+    if bench.exit_secs.is_some_and(|secs| elapsed >= secs)
+        || bench.exit_frame.is_some_and(|f| bench.frame >= f)
+    {
         exit.write(AppExit::Success);
     }
 }
@@ -480,6 +485,9 @@ fn setup_camera_fog(
             // Toward the sun (+X), tilted up; use with ATMOSPHERE_SUNSET=1 for a low sun.
             Ok("sun") => Transform::from_xyz(-2.8, 0.045, 0.0)
                 .looking_at(Vec3::new(0.0, 0.5, 0.0), Vec3::Y),
+            // Sunset undersides: steeply up toward the sun azimuth (cloud bases over the camera).
+            Ok("under") => Transform::from_xyz(-2.8, 0.045, 0.0)
+                .looking_at(Vec3::new(-2.2, 1.6, 0.0), Vec3::Y),
             Ok("wide") => Transform::from_xyz(-2.8, 0.045, 0.0)
                 .looking_at(Vec3::new(-2.8, 0.25, -3.0), Vec3::Y),
             _ => Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),

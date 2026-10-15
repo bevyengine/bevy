@@ -118,6 +118,7 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
     let vis_down = exp(-k * h * thickness);
     var a_scale = CLOUD_AMBIENT_SCALE;
     @if(ATM_DBG_AMB_UP10) { a_scale *= 1.1; }
+    @if(ATM_DBG_AMB_PHYS) { a_scale = 1.0; }
     var g_scale = a_scale;
     @if(ATM_DBG_AMB_GROUND1) { g_scale = 1.0; }
     return 0.5 * (a_scale * sky_rad * vis_up + g_scale * ground_rad * vis_down);
@@ -702,8 +703,37 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
                 direct_sum += (*light).color.rgb * t_atm * direct;
             }
-            var ambient = cloud_ambient_term(sky_irr, ground_rad, h_frac, sigma_t,
+            var sky_up = sky_irr;
+            @if(ATM_DBG_AMB_TOPSUN) {
+                if (lights.n_directional_lights > 0u) {
+                    let l0 = lights.directional_lights[0].direction_to_light;
+                    let mu0 = dot(l0, up);
+                    sky_up += lights.directional_lights[0].color.rgb * sample_transmittance_lut(r_p, mu0)
+                        * max(mu0, 0.0) / PI;
+                }
+            }
+            var ambient = cloud_ambient_term(sky_up, ground_rad, h_frac, sigma_t,
                 cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start);
+            // Nubis3 ambient: attenuate the sky hemisphere by the density actually summed along a
+            // short upward probe (exp(-summed_ambient_density)), not the local density x distance
+            // to the layer top (bright wispy bases under thick bodies).
+            @if(ATM_DBG_AMB_PROBE) {
+                var od_up = 0.0;
+                var pt = 0.0;
+                var pdt = 60.0;
+                for (var k = 0u; k < 5u; k++) {
+                    let pk = p + up * (pt + 0.5 * pdt);
+                    od_up += get_cloud_medium_density_lod(length(pk), pk, mip + 1.0 + 0.5 * f32(k)) * pdt;
+                    pt += pdt;
+                    pdt *= 2.0;
+                }
+                var k_amb = CLOUD_AMBIENT_EXT_SCALE;
+                @if(ATM_DBG_AMB_PROBE_SIM) { k_amb = 0.15; }
+                let vis_up_p = exp(-k_amb * od_up * sigma_t_unit);
+                let ground_part = cloud_ambient_term(vec3(0.0), ground_rad, h_frac, sigma_t,
+                    cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start);
+                ambient = ground_part + 0.5 * CLOUD_AMBIENT_SCALE * sky_up * vis_up_p;
+            }
             // Validation term toggles (CLOUD_TERMS=s1|sun|amb, see resources.rs).
             @if(CLOUD_TERM_NO_AMB) { ambient = vec3(0.0); }
             @if(CLOUD_TERM_NO_SUN) { direct_sum = vec3(0.0); }
@@ -761,6 +791,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             var haze = cloud_shadowed_haze(uv, ray_origin, ray_dir, weighted_depth, r, mu, j);
             @if(ATM_DBG_HAZE_SKY) { haze = sample_sky_view_lut(r, direction_world_to_atmosphere(ray_dir)) * (1.0 - sample_transmittance_lut_segment(r, mu, weighted_depth)); }
             @if(ATM_DBG_TAP_ONE) { t_ap = vec3(1.0); }
+            var deck_in = vec3(0.0);
             // Overcast in-scatter: under a sunlit-from-above deck the air between the camera and
             // a distant cloud base is lit by the deck itself (radiance ~ the cloud's own), so the
             // light Rayleigh/Mie scatter out of the view ray is largely replaced (radiative
@@ -774,13 +805,23 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     // Low sun only: with a high sun the sky-view haze already carries the lit
                     // surround and broken cloud gave +15% (up:35).
                     let mu_s = dot(l0, normalize(ray_origin));
-                    let deck = CLOUD_DECK_INSCATTER * (1.0 - vis_mid) * saturate(1.0 - mu_s / 0.25);
-                    t_ap = t_ap + (vec3(1.0) - t_ap) * deck;
+                    var deck = CLOUD_DECK_INSCATTER * (1.0 - vis_mid) * saturate(1.0 - mu_s / 0.25);
+                    @if(ATM_DBG_DECK_HALF) { deck = 0.5 * (1.0 - vis_mid) * saturate(1.0 - mu_s / 0.25); }
+                    @if(!ATM_DBG_DECK_AMB) { t_ap = t_ap + (vec3(1.0) - t_ap) * deck; }
+                    @if(ATM_DBG_DECK_AMB) {
+                        let l_deck = cloud_ambient_term(sky_irr, sky_irr * CLOUD_GROUND_ALBEDO, 0.0, 0.0, 1.0);
+                        deck_in = (vec3(1.0) - t_ap) * (0.5 * (1.0 - vis_mid) * saturate(1.0 - mu_s / 0.25)) * l_deck;
+                    }
                 }
             }
-            lum = t_ap * luminance + (1.0 - transmittance) * haze;
+            lum = t_ap * luminance + (1.0 - transmittance) * (haze + deck_in);
         }
         result = vec4(lum * view.exposure, transmittance);
+        @if(ATM_DBG_OUT_H) {
+            let ph = ray_origin + ray_dir * weighted_depth;
+            let ch = cloud_density_context(length(ph), ph);
+            result = vec4(ch.z, ch.x, weighted_depth * 1e-4, transmittance);
+        }
     }
 
     }
