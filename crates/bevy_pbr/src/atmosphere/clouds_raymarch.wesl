@@ -428,6 +428,9 @@ fn cloud_reference_trace(origin: vec3<f32>, view_dir: vec3<f32>, t_scene: f32, p
             thr *= (sample_scattering_lut(r, cs)[ch] / s_air) / pdf;
             d = nd;
         }
+        // CLOUD_TERMS=s1: single scattering only (sun NEE at the first event), to validate the
+        // realtime single-scatter octave in isolation.
+        @if(CLOUD_TERM_S1) { break; }
         if (bounce > 3u) {
             let q = clamp(thr, 0.05, 1.0);
             if (ref_rand() > q) { break; }
