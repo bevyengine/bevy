@@ -182,14 +182,22 @@
 //! ```
 //! [`Component`]s with [`Entity`] fields should generally derive [`FromTemplate`], because [`Entity`] uses [`FromTemplate`] to map to [`EntityTemplate`].
 //!
-//! ```rust, ignore
+//! ```rust
+//! # use bevy::ecs::template::FromTemplate;
+//! # use bevy::ecs::Component;
 //! #[derive(FromTemplate, Component)]
 //! struct Reference(Entity)
 //! ```
 //!
 //! You can pass it to functions by accepting a [`EntityTemplate`] argument:
 //!
-//! ```rust, ignore
+//! ```rust
+//! # use bevy::ecs::template::{EntityTemplate, FromTemplate};
+//! # use bevy::scene::Scene
+//! # use bevy::ecs::template::FromTemplate;
+//! # use bevy::ecs::Component;
+//! # #[derive(FromTemplate, Component)]
+//! # struct Reference(Entity)
 //! fn outer_scene() -> impl Scene {
 //!     bsn! {
 //!         #Outer

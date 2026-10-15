@@ -31,25 +31,25 @@ fn ui() -> impl Scene {
         }
         Children [
             @button("Ok", #MainUI)
-            on(|event: On<PointerPress>| println!("Ok pressed! I'm {:#?}", event.entity))
+            on(|_event: On<PointerPress>| println!("Ok pressed!"))
             --
             @button("Cancel", #MainUI)
             on(|_event: On<PointerPress>| println!("Cancel pressed!"))
             BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
         ]
         on(|event: On<Ready>| {
-            println!("I'm entity => {:#?}", event.entity);
+            println!("I'm the root entity => {:#?}", event.entity);
         })
     }
 }
 
 #[derive(FromTemplate, Component)]
-struct Reference(Entity);
+struct RootUi(Entity);
 
-fn button(label: &str, ui_entity: EntityTemplate) -> impl Scene {
+fn button(label: &str, root_entity: EntityTemplate) -> impl Scene {
     bsn! {
         Button
-        Reference( ui_entity )
+        RootUi( root_entity )
         Node {
             width: px(150),
             height: px(65),
@@ -60,9 +60,9 @@ fn button(label: &str, ui_entity: EntityTemplate) -> impl Scene {
         }
         BorderColor::from(Color::BLACK)
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
-        on(|event: On<PointerPress>, q_reference: Query<&Reference> |{
-            let ui_holder = q_reference.get(event.entity).expect("We are sure it exists");
-            println!("I have a reference to this entity => {:#?}", ui_holder.0);
+        on(|event: On<PointerPress>, q_root_ui: Query<&RootUi> |{
+            let root_ui = q_root_ui.get(event.entity).expect("We are sure it exists");
+            println!("This is my Root => {:#?}", root_ui.0);
 
         })
         Children [
