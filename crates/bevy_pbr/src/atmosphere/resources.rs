@@ -663,7 +663,7 @@ impl FromWorld for AtmosphereLutPipelines {
             label: Some("sky_view_lut_pipeline".into()),
             layout: vec![layouts.sky_view_lut.clone()],
             shader: load_embedded_asset!(world, "sky_view_lut.wesl"),
-            shader_defs: atm_dbg_defs(),
+            shader_defs: [atm_dbg_defs(), vec!["SKY_VIEW_LUT_PASS".into()]].concat(),
             // Note: Clouds disabled for sky_view_lut - too complex for precomputation
             // Clouds are rendered in real-time raymarching instead
             ..default()

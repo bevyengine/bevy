@@ -890,14 +890,28 @@ fn raymarch_atmosphere(
 
 /// Sky irradiance on a horizontal ground point: cosine-weighted directions (E = pi * mean(L)),
 /// each a short quadratically spaced single + LUT-multiple scattering march.
-const GROUND_SKY_DIRS: u32 = 8u;
-const GROUND_SKY_STEPS: u32 = 8u;
+const GROUND_SKY_DIRS: u32 = 6u;
+const GROUND_SKY_STEPS: u32 = 6u;
 fn ground_sky_irradiance(p: vec3<f32>, pixel_coords: vec2<f32>) -> vec3<f32> {
     let n = normalize(p);
     let r = length(p);
     let tx = normalize(select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(n.x) > 0.9) - n * dot(n, select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(n.x) > 0.9)));
     let ty = cross(n, tx);
     var sum = vec3(0.0);
+    @if(!SKY_VIEW_LUT_PASS) {
+    // Cheap path: 8 fetches of this frame's sky-view LUT (sky as seen from the camera, a good
+    // proxy for nearby ground). The 64-sample march below cost 3-5 ms of render_sky.
+    let r_cam = length(get_view_position());
+    for (var k = 0u; k < GROUND_SKY_DIRS; k++) {
+        let u = (f32(k) + 0.5) / f32(GROUND_SKY_DIRS);
+        let phi = f32(k) * 2.399963;
+        let st = sqrt(u);
+        let ct = sqrt(1.0 - u);
+        let d = normalize(n * ct + (tx * cos(phi) + ty * sin(phi)) * st);
+        sum += sample_sky_view_lut(r_cam, direction_world_to_atmosphere(d));
+    }
+    return PI * sum / f32(GROUND_SKY_DIRS);
+    }
     for (var k = 0u; k < GROUND_SKY_DIRS; k++) {
         let u = (f32(k) + 0.5) / f32(GROUND_SKY_DIRS);
         let phi = f32(k) * 2.399963; // golden angle
