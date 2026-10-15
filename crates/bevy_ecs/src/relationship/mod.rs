@@ -119,7 +119,7 @@ pub struct Target;
 /// pub struct Likes(pub Vec<Entity>);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = Liked)]
+/// #[relationship_target(relationship = Likes)]
 /// pub struct LikedBy(Vec<Entity>);
 /// ```
 ///
