@@ -35,6 +35,16 @@ import package::atmosphere::{
 @group(0) @binding(44) var cloud_field_sdf: texture_3d<f32>;
 
 const CLOUD_DIST_UNKNOWN: f32 = 1e9;
+// SDF empty-space skip safety margin in voxels: the windowed EDT is exact only to ~1 voxel and
+// trilinear filtering of a distance field under-/over-shoots by up to ~1 voxel (Hart 1996 sphere
+// tracing needs a conservative bound), plus 0.5 voxel for the coarse-density seed threshold.
+const CLOUD_SDF_SKIP_MARGIN_VOXELS: f32 = 2.5;
+// Nubis Cubed (Schneider, SIGGRAPH 2023) secondary-scattering remap ranges:
+// Remap(sun_dod, 0, 0.9, 0.25, Remap(cloud_distance, -128, 0, 0.05, 0.25)).
+const NUBIS_MS_DIST_RANGE_M: f32 = 128.0;
+const NUBIS_MS_K_DEEP: f32 = 0.05;
+const NUBIS_MS_K_EDGE: f32 = 0.25;
+const NUBIS_MS_DOT_RANGE: f32 = 0.9;
 /// Nubis Cubed GetVoxelCloudDistance: signed distance (m, negative inside) from the coarse SDF
 /// (cloud_field.wesl). Outside the grid: CLOUD_DIST_UNKNOWN. Positive distances are capped by
 /// the distance to the grid's side so clouds beyond the grid are never skipped over.
@@ -79,10 +89,12 @@ const LIGHT_LONG_TAP_M: f32 = 1500.0;
 // Sky-irradiance ambient (design.md §1.5 / RDR2 slide 36): replaces the MS-LUT placeholder.
 // Extinction scale for diffuse (ambient) light inside the cloud.
 const CLOUD_AMBIENT_EXT_SCALE: f32 = 0.05;
-// Ambient (sky + ground) in-scatter gain, calibrated against CLOUD_REFERENCE (sun:3/hero:35/up:35):
-// the single isotropic ambient bounce misses sky light multiply scattered inside the cloud; at 1.0
-// thick clouds were ~25-40% short in blue (too red at low sun).
-const CLOUD_AMBIENT_SCALE: f32 = 2.2; // 2.0 before the longer light march (pairs with its lower single scatter)
+// Ambient (sky + ground) in-scatter gain. NOT PUBLISHED (design.md audit "CLOUD_AMBIENT_SCALE"):
+// an empirical gain fitted to CLOUD_REFERENCE (sun:3/hero:35/up:35). The single isotropic ambient
+// bounce (Hillaire 2016 / RDR2 slide 36) misses sky light multiply scattered inside the cloud; at
+// 1.0 thick clouds were ~25-40% short in blue. Nubis Cubed uses 1.0 with pow(1 - profile, 0.5)
+// (ATM_DBG_NUBIS_MS). Kept until a research-backed sky-light MS term replaces it.
+const CLOUD_AMBIENT_SCALE: f32 = 2.2;
 const CLOUD_GROUND_ALBEDO: f32 = 0.28;
 const CLOUD_DARK_EDGE_STRENGTH: f32 = 0.5;
 // Extinction scale for the Lambert back-scatter clamp (RDR2 slide 30).
@@ -610,7 +622,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 @if(!ATM_DBG_NO_SDF_SKIP) {
                     let d_sdf = cloud_distance(p, ray_origin);
                     if (d_sdf < CLOUD_DIST_UNKNOWN) {
-                        skip = max(dt, d_sdf - 2.5 * cloud_field_voxel_m());
+                        skip = max(dt, d_sdf - CLOUD_SDF_SKIP_MARGIN_VOXELS * cloud_field_voxel_m());
                     }
                 }
                 t += skip;
@@ -714,9 +726,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     // 0.05, 0.25)) on the summed density samples. Outside the SDF grid the profile
                     // stands in for the distance (-128 m deep inside).
                     var c_dist = cloud_distance(p, ray_origin);
-                    if (c_dist >= CLOUD_DIST_UNKNOWN) { c_dist = -128.0 * prof; }
-                    let k_dist = mix(0.05, 0.25, saturate((c_dist + 128.0) / 128.0));
-                    let k_ms = mix(0.25, k_dist, saturate(cos_theta / 0.9));
+                    if (c_dist >= CLOUD_DIST_UNKNOWN) { c_dist = -NUBIS_MS_DIST_RANGE_M * prof; }
+                    let k_dist = mix(NUBIS_MS_K_DEEP, NUBIS_MS_K_EDGE,
+                        saturate((c_dist + NUBIS_MS_DIST_RANGE_M) / NUBIS_MS_DIST_RANGE_M));
+                    let k_ms = mix(NUBIS_MS_K_EDGE, k_dist, saturate(cos_theta / NUBIS_MS_DOT_RANGE));
                     var ms_att = exp(-light_sum * k_ms);
                     @if(ATM_DBG_NUBIS_OD) { ms_att = exp(-light_optical_depth * k_ms); }
                     // Nubis has no separate far-shadow factor (long-distance shadows come from the
