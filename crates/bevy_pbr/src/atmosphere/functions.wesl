@@ -320,6 +320,9 @@ fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, 
 /// cheaper coarse envelope at half strength (fine there over-brightened up:35 by up to +36 %).
 const CLOUD_FAR_SAMPLES: u32 = 2u;
 const CLOUD_FAR_MAX_M: f32 = 80000.0;
+const CLOUD_FAR_TAP_M: f32 = 1500.0;
+const CLOUD_FAR_LONG_SAMPLES: u32 = 16u;
+const CLOUD_FAR_GRAZING_MU: f32 = 0.2; // sun below ~11.5 deg
 const CLOUD_FAR_COARSE_SCALE: f32 = 0.5;
 @if(CLOUDS_ENABLED)
 fn cloud_far_transmittance(world_pos: vec3<f32>, direction_to_light: vec3<f32>, use_optical_depth_only: bool) -> f32 {
@@ -328,16 +331,25 @@ fn cloud_far_transmittance(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
     let seg = cloud_layer_segment(world_pos, direction_to_light);
     if (seg.z > 0.5) {
         let t0 = max(seg.x, 0.0);
+        // Grazing sun: long paths through the layer need more taps, or distant cloud saw no
+        // occluder and lit up (sun:3 horizon specks).
+        let full = seg.y - t0;
         var far_max = CLOUD_FAR_MAX_M;
-        @if(ATM_DBG_FAR_LONG) { far_max = 400000.0; }
-        let t1 = min(seg.y, t0 + far_max);
-        let dt = (t1 - t0) / f32(select(CLOUD_FAR_SAMPLES, 16u, far_max > CLOUD_FAR_MAX_M));
-        let sigma_t = get_cloud_scattering_coeff() + get_cloud_absorption_coeff();
         var n_far = CLOUD_FAR_SAMPLES;
-        @if(ATM_DBG_FAR_LONG) { n_far = 16u; }
+        var far_mip = 3.0;
+        @if(!ATM_DBG_FAR_SHORT) {
+            // ~1.5 km tap spacing (2 taps over a 10+ km grazing path skipped whole clouds).
+            if (dot(direction_to_light, normalize(world_pos)) < CLOUD_FAR_GRAZING_MU) {
+            n_far = u32(clamp(ceil(min(full, CLOUD_FAR_MAX_M) / CLOUD_FAR_TAP_M), f32(CLOUD_FAR_SAMPLES), f32(CLOUD_FAR_LONG_SAMPLES)));
+            }
+        }
+        @if(ATM_DBG_FAR_LONG) { far_max = 400000.0; n_far = 16u; }
+        let t1 = min(seg.y, t0 + far_max);
+        let dt = (t1 - t0) / f32(n_far);
+        let sigma_t = get_cloud_scattering_coeff() + get_cloud_absorption_coeff();
         for (var i = 0u; i < n_far; i++) {
             let q = world_pos + direction_to_light * (t0 + (f32(i) + 0.5) * dt);
-            var dq = get_cloud_medium_density_lod(length(q), q, 3.0);
+            var dq = get_cloud_medium_density_lod(length(q), q, far_mip);
             @if(!ATM_DBG_FAR_FINE && !CLOUD_PASS) { dq = get_cloud_medium_density_coarse(length(q), q) * CLOUD_FAR_COARSE_SCALE; }
             od += dq * sigma_t * dt;
         }
