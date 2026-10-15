@@ -81,6 +81,10 @@ pub struct DepthOfField {
     pub mode: DepthOfFieldMode,
 
     /// The distance in meters to the location in focus.
+    ///
+    /// Note that this also applies to an orthographic camera. Moving the camera
+    /// along its view direction moves the focal plane, whereas it normally
+    /// only affects the near and far clipping planes.
     pub focal_distance: f32,
 
     /// The height of the [image sensor format] in meters.
