@@ -967,7 +967,7 @@ mod tests {
     use bevy_ecs::lifecycle::HookContext;
     use bevy_ecs::name::Name;
     use bevy_ecs::prelude::*;
-    use bevy_ecs::relationship::Relationship;
+    use bevy_ecs::relationship::SingleTargetRelationship;
     use bevy_ecs::system::{system_value, SystemHandle};
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;

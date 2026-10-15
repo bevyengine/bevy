@@ -13,7 +13,7 @@ use bevy_ecs::{
     observer::On,
     query::{Changed, With},
     reflect::{ReflectComponent, ReflectResource},
-    relationship::Relationship,
+    relationship::{RelationshipTarget, SingleTargetRelationship},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -929,7 +929,7 @@ fn color_input_value_change(
 
         if let Some(refs) = children
             .iter()
-            .find_map(|child_id| q_popup.get(*child_id).ok())
+            .find_map(|child_id| q_popup.get(child_id).ok())
         {
             update_controls(
                 &mut q_color_wheel,
