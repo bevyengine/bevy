@@ -1867,6 +1867,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     }
 
                     // Can the remaining rows fill the batch?
+                    // Submit exact fits too, so the next table cannot add an empty range
+                    // to a full batch.
                     if queue_entity_count + row_count - row_start_offset >= batch_size {
                         // Push enough rows to fill the batch.
                         let row_end_offset = row_start_offset + (batch_size - queue_entity_count);
