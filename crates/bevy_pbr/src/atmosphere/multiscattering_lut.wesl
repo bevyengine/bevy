@@ -136,6 +136,13 @@ fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) 
         let transmittance_to_light = sample_transmittance_lut(atmosphere.inner_radius, mu_light);
         let ground_luminance = transmittance_to_light * transmittance_to_ground * max(mu_light, 0.0) * atmosphere.ground_albedo / PI;
         l_2 += ground_luminance;
+        // The ground also returns the (assumed isotropic, unit) multiple-scattered sky radiance: a
+        // Lambertian albedo-rho floor reflects rho * L_iso, so it joins the transfer factor f_ms like
+        // a scattering event. Hillaire 2020 only reflects the direct sun here; without this term the
+        // low-sun MS is ~0.6-0.7x a Monte Carlo reference (validation/sky/ms_iter_g.py).
+        @if(!ATM_DBG_MS_NO_GROUND_FMS) {
+        f_ms += transmittance_to_ground * atmosphere.ground_albedo;
+        }
     }
 
     return MultiscatteringSample(l_2, f_ms);
