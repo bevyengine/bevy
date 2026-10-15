@@ -382,7 +382,7 @@ pub fn prepare_view_tonemapping_pipelines(
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ViewTonemappingPipeline>,
-            Option<&ExtractedCamera>,
+            &ExtractedCamera,
         ),
         With<ViewTarget>,
     >,
@@ -392,10 +392,9 @@ pub fn prepare_view_tonemapping_pipelines(
     {
         let method = *tonemapping.unwrap_or(&Tonemapping::None);
 
-        // `Tonemapping::None` views and views that tonemap in their material shaders
-        // don't run the pass. Render world entities persist across frames, so remove a
-        // pipeline left from an earlier frame.
-        if !method.is_enabled() || camera.is_some_and(|camera| camera.tonemap_in_shader) {
+        // Render world entities persist across frames, so remove a pipeline left from
+        // an earlier frame when the pass no longer runs.
+        if !camera.runs_tonemapping_pass {
             if existing_pipeline.is_some() {
                 commands.entity(entity).remove::<ViewTonemappingPipeline>();
             }
