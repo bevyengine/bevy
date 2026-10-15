@@ -6,7 +6,7 @@
 )]
 #![no_std]
 
-//! Well-known reflection annotations for tools such as inspectors and editors.
+//! Standard ("well-known") reflection annotations for tools such as inspectors and editors.
 //!
 //! The mechanism lives in [`bevy_reflect`]: custom attributes are attached with
 //! `#[reflect(@...)]` on types, fields and variants, and read back with
