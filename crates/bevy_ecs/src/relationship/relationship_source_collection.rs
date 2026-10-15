@@ -1,5 +1,6 @@
 use alloc::collections::{btree_set, vec_deque, BTreeSet, VecDeque};
 use core::{
+    convert,
     hash::BuildHasher,
     ops::{Deref, DerefMut},
 };
@@ -690,7 +691,7 @@ impl OrderedRelationshipSourceCollection for VecDeque<Entity> {
     fn insert_sorted(&mut self, entity: Entity) {
         let index = self
             .binary_search(&entity)
-            .unwrap_or_else(std::convert::identity);
+            .unwrap_or_else(convert::identity);
         self.insert_stable(index, entity);
     }
 
