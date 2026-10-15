@@ -145,6 +145,151 @@ fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: 
     return acc;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Reference volumetric path tracer (CLOUD_REFERENCE): ground truth for the realtime lighting.
+// Same density (get_cloud_medium_density_lod at mip 0), same sigma_s/sigma_t, same dual-lobe HG
+// phase (importance sampled exactly), sun through the transmittance LUT, sky from the sky-view
+// LUT on escape, Lambertian ground (CLOUD_GROUND_ALBEDO) lit by sun (ratio-tracked through the
+// clouds) + sky. Delta tracking for free flights, ratio tracking for sun visibility; unbounded
+// multiple scattering with Russian roulette.
+struct RefOut { c: vec4<f32>, d: f32 }
+
+var<private> ref_rng: u32;
+fn ref_rand() -> f32 {
+    ref_rng = ref_rng * 747796405u + 2891336453u;
+    var w = ((ref_rng >> ((ref_rng >> 28u) + 4u)) ^ ref_rng) * 277803737u;
+    w = (w >> 22u) ^ w;
+    return f32(w) * (1.0 / 4294967296.0);
+}
+
+fn ref_density(p: vec3<f32>) -> f32 {
+    return get_cloud_medium_density_lod(length(p), p, 0.0);
+}
+
+// Ratio-tracked transmittance through the cloud layer along `dir` from `p`.
+fn ref_transmittance(p: vec3<f32>, dir: vec3<f32>, sigma_max: f32) -> f32 {
+    let seg = cloud_layer_segment(p, dir);
+    if (seg.z < 0.5) { return 1.0; }
+    var t = max(seg.x, 0.0);
+    let t_end = min(seg.y, CLOUD_MAX_DISTANCE_M);
+    var tr = 1.0;
+    for (var i = 0u; i < 4096u; i++) {
+        t += -log(1.0 - ref_rand()) / sigma_max;
+        if (t >= t_end || tr < 1e-4) { break; }
+        tr *= 1.0 - ref_density(p + dir * t);
+    }
+    return tr;
+}
+
+fn ref_sample_hg(g: f32) -> f32 {
+    let u = ref_rand();
+    if (abs(g) < 1e-3) { return 1.0 - 2.0 * u; }
+    let s = (1.0 - g * g) / (1.0 - g + 2.0 * g * u);
+    return (1.0 + g * g - s * s) / (2.0 * g);
+}
+
+fn ref_scatter_dir(d: vec3<f32>) -> vec3<f32> {
+    // Dual lobe = 0.5 HG(0.85) + 0.5 HG(-0.2) (cloud_phase with g_scale 1).
+    let g = select(-0.2, 0.85, ref_rand() < 0.5);
+    let cos_t = clamp(ref_sample_hg(g), -1.0, 1.0);
+    let sin_t = sqrt(max(0.0, 1.0 - cos_t * cos_t));
+    let phi = 2.0 * PI * ref_rand();
+    let a = select(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), abs(d.x) > 0.9);
+    let x = normalize(cross(a, d));
+    let y = cross(d, x);
+    return normalize(x * (cos(phi) * sin_t) + y * (sin(phi) * sin_t) + d * cos_t);
+}
+
+fn ref_sun_radiance(p: vec3<f32>, l: vec3<f32>, color: vec3<f32>) -> vec3<f32> {
+    let r = length(p);
+    let mu = dot(l, p / r);
+    return color * sample_transmittance_lut(r, mu) * f32(!ray_intersects_ground(r, mu));
+}
+
+fn cloud_reference_trace(origin: vec3<f32>, view_dir: vec3<f32>, t0: f32, t1: f32, px: vec2<u32>, sky_irr: vec3<f32>) -> RefOut {
+    ref_rng = (px.x * 1973u + px.y * 9277u + view.frame_count * 26699u) | 1u;
+    let sigma_s_unit = get_cloud_scattering_coeff();
+    let sigma_t_unit = sigma_s_unit + get_cloud_absorption_coeff();
+    let albedo = sigma_s_unit / sigma_t_unit;
+    let has_light = lights.n_directional_lights > 0u;
+    var l = vec3(0.0, 1.0, 0.0);
+    var sun_color = vec3(0.0);
+    if (has_light) {
+        l = lights.directional_lights[0].direction_to_light;
+        sun_color = lights.directional_lights[0].color.rgb;
+    }
+
+    // Camera-ray transmittance + weighted depth by ratio tracking (low variance alpha).
+    var t = t0;
+    var tr = 1.0;
+    var dsum = 0.0;
+    var wsum = 0.0;
+    for (var i = 0u; i < 4096u; i++) {
+        t += -log(1.0 - ref_rand()) / sigma_t_unit;
+        if (t >= t1 || tr < 1e-4) { break; }
+        let ntr = tr * (1.0 - ref_density(origin + view_dir * t));
+        dsum += (tr - ntr) * t;
+        wsum += tr - ntr;
+        tr = ntr;
+    }
+
+    // Radiance by delta tracking.
+    var L = vec3(0.0);
+    var thr = vec3(1.0);
+    var p = origin;
+    var d = view_dir;
+    var seg_t0 = t0;
+    var seg_t1 = t1;
+    for (var bounce = 0u; bounce < 256u; bounce++) {
+        var tt = seg_t0;
+        var collided = false;
+        for (var i = 0u; i < 4096u; i++) {
+            tt += -log(1.0 - ref_rand()) / sigma_t_unit;
+            if (tt >= seg_t1) { break; }
+            if (ref_rand() < ref_density(p + d * tt)) { collided = true; break; }
+        }
+        if (!collided) {
+            if (bounce == 0u) { break; } // camera ray: background handled by compositing
+            let r = length(p);
+            let mu = dot(d, p / r);
+            if (ray_intersects_ground(r, mu)) {
+                // Lambertian ground: sun (through clouds) + sky irradiance (pi * mean sky radiance).
+                let hit = p + d * ray_sphere_intersect(r, mu, atmosphere.inner_radius).x;
+                let n = normalize(hit);
+                var e = PI * sky_irr;
+                if (has_light) {
+                    let ml = max(dot(l, n), 0.0);
+                    e += ref_sun_radiance(hit, l, sun_color) * ml * ref_transmittance(hit, l, sigma_t_unit);
+                }
+                L += thr * CLOUD_GROUND_ALBEDO / PI * e;
+            } else {
+                L += thr * sample_sky_view_lut(r, d);
+            }
+            break;
+        }
+        p = p + d * tt;
+        thr *= albedo;
+        // Next-event estimation toward the sun.
+        if (has_light) {
+            let ph = cloud_phase(dot(l, d), 1.0);
+            L += thr * ph * ref_sun_radiance(p, l, sun_color) * ref_transmittance(p, l, sigma_t_unit);
+        }
+        d = ref_scatter_dir(d);
+        let s2 = cloud_layer_segment(p, d);
+        seg_t0 = max(s2.x, 0.0);
+        seg_t1 = select(0.0, min(s2.y, CLOUD_MAX_DISTANCE_M), s2.z > 0.5);
+        if (bounce > 4u) {
+            let q = clamp(max(thr.x, max(thr.y, thr.z)), 0.05, 1.0);
+            if (ref_rand() > q) { break; }
+            thr /= q;
+        }
+    }
+    var o: RefOut;
+    o.c = vec4(L, tr);
+    o.d = select(0.0, dsum / wsum, wsum > 0.0);
+    return o;
+}
+
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let trace_size = textureDimensions(out_clouds);
@@ -189,6 +334,21 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         t_end = min(t_end, ndc_to_camera_dist(vec3(uv_to_ndc(uv), depth)));
     }
 
+    @if(CLOUD_REFERENCE) {
+    if (seg.z > 0.5 && t_end > t_start) {
+        let rp = cloud_reference_trace(ray_origin, ray_dir, t_start, t_end, half_px, sample_sky_irradiance(r));
+        weighted_depth = rp.d;
+        var lum = rp.c.rgb;
+        if (rp.c.a < 0.999 && weighted_depth > 0.0) {
+            let jr = fract(interleaved_gradient_noise(vec2<f32>(half_px), view.frame_count % 64u) + 0.37);
+            let t_ap = sample_transmittance_lut_segment(r, mu, weighted_depth);
+            let haze = cloud_shadowed_haze(uv, ray_origin, ray_dir, weighted_depth, r, mu, jr);
+            lum = t_ap * rp.c.rgb + (1.0 - rp.c.a) * haze;
+        }
+        result = vec4(lum * view.exposure, rp.c.a);
+    }
+    }
+    @if(!CLOUD_REFERENCE) {
     if (seg.z > 0.5 && t_end > t_start) {
         // Per-pixel jitter of the ray start (STBN when bound, IGN otherwise).
         let stbn_dims = textureDimensions(stbn_texture);
@@ -356,6 +516,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         result = vec4(lum * view.exposure, transmittance);
     }
 
+    }
     textureStore(out_clouds, id.xy, result);
     textureStore(out_clouds_depth, id.xy, vec4(weighted_depth, 0.0, 0.0, 0.0));
 }

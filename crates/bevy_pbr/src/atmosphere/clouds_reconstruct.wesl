@@ -94,6 +94,21 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
+    // Reference path tracer: progressive average per pixel (each traced every 4th frame) once
+    // the noise/shadow map have settled; no clamping.
+    @if(CLOUD_REFERENCE) {
+        const REF_START: u32 = 120u;
+        if (params.history_valid != 0u && view.frame_count >= REF_START) {
+            let prev = textureLoad(history_texture, vec2<i32>(id.xy), 0);
+            result = prev;
+            result_depth = textureLoad(history_depth_texture, vec2<i32>(id.xy), 0).r;
+            if (traced_now) {
+                let n = f32((view.frame_count - REF_START) / 4u + 1u);
+                result = mix(prev, center, 1.0 / n);
+                result_depth = center_depth;
+            }
+        }
+    }
     // NaN/Inf guard so one bad sample can't stick in the history forever.
     if (any(result != result) || any(abs(result) > vec4(65000.0))) {
         result = vec4(0.0, 0.0, 0.0, 1.0);

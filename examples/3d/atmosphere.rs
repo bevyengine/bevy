@@ -93,6 +93,11 @@ fn main() {
             LogDiagnosticsPlugin::default(),
         ));
     }
+    // `ATMOSPHERE_FREEZE=1`: pause virtual time (sun motion, wind/noise offsets, animations) so
+    // realtime and reference renders see identical clouds.
+    if std::env::var("ATMOSPHERE_FREEZE").is_ok() {
+        app.add_systems(Startup, |mut time: ResMut<Time<Virtual>>| time.pause());
+    }
     if bench.screenshot.is_some() || bench.exit_secs.is_some() {
         app.insert_resource(bench).add_systems(Update, bench_hooks);
     }

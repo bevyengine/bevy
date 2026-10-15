@@ -702,7 +702,10 @@ impl FromWorld for AtmosphereLutPipelines {
                 "CLOUDS_ENABLED".into(),
                 "CLOUD_SHADOW_SIMPLE_SAMPLING".into(),
                 "ATMOSPHERE_NO_SHADOW_MAPS".into(),
-            ],
+            ]
+            .into_iter()
+            .chain(cloud_reference_def())
+            .collect(),
             ..default()
         });
 
@@ -711,7 +714,10 @@ impl FromWorld for AtmosphereLutPipelines {
                 label: Some("clouds_reconstruct_pipeline".into()),
                 layout: vec![layouts.clouds_reconstruct.clone()],
                 shader: load_embedded_asset!(world, "clouds_reconstruct.wesl"),
-                shader_defs: vec!["ATMOSPHERE_NO_SHADOW_MAPS".into()],
+                shader_defs: vec!["ATMOSPHERE_NO_SHADOW_MAPS".into()]
+                    .into_iter()
+                    .chain(cloud_reference_def())
+                    .collect(),
                 ..default()
             });
 
@@ -1842,4 +1848,13 @@ pub(crate) fn prepare_atmosphere_buffers(
             commands.entity(entity).insert(AtmosphereBuffer { buffer });
         }
     }
+}
+
+/// Debug: `CLOUD_REFERENCE=1` swaps the realtime cloud march for a progressive volumetric path
+/// tracer (delta/ratio tracking, full multiple scattering) over the same density field, for
+/// ground-truth comparisons. Read once at pipeline creation.
+fn cloud_reference_def() -> Option<bevy_shader::ShaderDefVal> {
+    std::env::var("CLOUD_REFERENCE")
+        .ok()
+        .map(|_| "CLOUD_REFERENCE".into())
 }
