@@ -39,7 +39,10 @@ impl Plugin for DockPlugin {
             .add_observer(forward_tab_move)
             .add_systems(
                 PostUpdate,
-                build_dock_ui.in_set(DockSystems).before(UiSystems::Prepare),
+                build_dock_ui
+                    .in_set(DockSystems)
+                    .before(crate::split_pane::update_split_pane_layout)
+                    .before(UiSystems::Prepare),
             );
     }
 }
@@ -1183,5 +1186,32 @@ mod tests {
         assert_eq!(app.world().get::<DockTree>(first).unwrap(), &tree);
         assert_eq!(app.world().get::<DockTree>(second).unwrap(), &tree);
         assert_eq!(parent(app.world(), header), from_strip);
+    }
+
+    #[test]
+    fn split_layout_is_applied_in_the_same_frame() {
+        let mut app = app();
+        app.add_plugins(crate::SplitPanePlugin);
+        let (tree, _, center, _) = three_way();
+        let dock = spawn_dock(&mut app, tree);
+        let layout = |app: &mut App| {
+            let world = app.world_mut();
+            let mut query = world.query::<(Entity, &Node)>();
+            let mut nodes: Vec<_> = query
+                .iter(world)
+                .map(|(entity, node)| {
+                    (entity, node.flex_grow, node.flex_basis, node.flex_direction)
+                })
+                .collect();
+            nodes.sort_by_key(|(entity, ..)| *entity);
+            nodes
+        };
+
+        edit(&mut app, dock, |tree| {
+            tree.split(center, DockEdge::Bottom, "e").unwrap();
+        });
+        let after_split = layout(&mut app);
+        app.update();
+        assert_eq!(after_split, layout(&mut app));
     }
 }
