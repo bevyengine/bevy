@@ -339,19 +339,14 @@ impl BsnEntry {
                     },
                 dot_expression,
             } => EntryResult::CombinedSceneFunction({
-                let args = args.into_tokens(ctx);
-                let generics_tokens = if let Some(function_generics) = function_generics {
-                    quote! { #function_generics }
-                } else {
-                    quote! {}
-                };
+                let args = args.into_tokens(ctx)?;
                 if let Some(dot_expr) = dot_expression {
                     quote! {
-                        _scene.insert_template::<#type_path>(#type_path::#function #generics_tokens #args #dot_expr);
+                        _scene.insert_template::<#type_path>(#type_path::#function #function_generics #args #dot_expr);
                     }
                 } else {
                     quote! {
-                        _scene.insert_template::<#type_path>(#type_path::#function #generics_tokens #args);
+                        _scene.insert_template::<#type_path>(#type_path::#function #function_generics #args);
                     }
                 }
             }),
@@ -365,19 +360,14 @@ impl BsnEntry {
                     },
                 dot_expression,
             } => EntryResult::CombinedSceneFunction({
-                let args = args.into_tokens(ctx);
-                let generics_tokens = if let Some(function_generics) = function_generics {
-                    quote! { #function_generics }
-                } else {
-                    quote! {}
-                };
+                let args = args.into_tokens(ctx)?;
                 if let Some(dot_expr) = dot_expression {
                     quote! {
-                        _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #generics_tokens #args #dot_expr);
+                        _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #function_generics #args #dot_expr);
                     }
                 } else {
                     quote! {
-                        _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #generics_tokens #args);
+                        _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #function_generics #args);
                     }
                 }
             }),
