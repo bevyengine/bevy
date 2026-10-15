@@ -147,6 +147,7 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "curl_noise_2d.wesl");
         embedded_asset!(app, "noise_mip_downsample_3d.wesl");
         embedded_asset!(app, "cloud_shadow_map.wesl");
+        embedded_asset!(app, "cloud_field.wesl");
         embedded_asset!(app, "cloud_shadow_filter.wesl");
         embedded_asset!(app, "cloud_shadow_temporal.wesl");
         embedded_asset!(app, "clouds_raymarch.wesl");

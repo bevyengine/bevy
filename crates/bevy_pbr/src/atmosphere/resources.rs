@@ -37,6 +37,10 @@ use bevy_utils::default;
 
 use super::GpuAtmosphereSettings;
 
+/// Cloud SDF grid (must match `clouds.wesl` CLOUD_FIELD_RES_*).
+pub(crate) const CLOUD_FIELD_RES_XY: u32 = 256;
+pub(crate) const CLOUD_FIELD_RES_Z: u32 = 32;
+
 /// Shadow map bind group layout entries
 fn shadow_map_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<4> {
     (
@@ -135,6 +139,9 @@ pub(crate) struct AtmosphereBindGroupLayouts {
     pub cloud_shadow_temporal: BindGroupLayoutDescriptor,
     pub clouds_raymarch: BindGroupLayoutDescriptor,
     pub clouds_reconstruct: BindGroupLayoutDescriptor,
+    /// Cloud SDF separable distance-transform passes (`cloud_field.wesl`).
+    pub cloud_field_edt: BindGroupLayoutDescriptor,
+    pub cloud_field_final: BindGroupLayoutDescriptor,
 }
 
 #[derive(Resource)]
@@ -290,6 +297,14 @@ impl AtmosphereBindGroupLayouts {
                         34,
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
+                    // Cloud SDF seeds (`cloud_field.wesl` init entry point).
+                    (
+                        40,
+                        texture_storage_3d(
+                            TextureFormat::Rgba32Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
                     (
                         13,
                         texture_storage_2d(
@@ -389,6 +404,8 @@ impl AtmosphereBindGroupLayouts {
                     27,
                     texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly),
                 ),
+                // Cloud signed-distance field (`cloud_field.wesl`).
+                (44, texture_3d(TextureSampleType::Float { filterable: true })),
             )),
         );
 
@@ -430,6 +447,32 @@ impl AtmosphereBindGroupLayouts {
             cloud_shadow_temporal,
             clouds_raymarch,
             clouds_reconstruct,
+            cloud_field_edt: BindGroupLayoutDescriptor::new(
+                "cloud_field_edt_bind_group_layout",
+                &BindGroupLayoutEntries::with_indices(
+                    ShaderStages::COMPUTE,
+                    (
+                        (41, texture_3d(TextureSampleType::Float { filterable: false })),
+                        (
+                            42,
+                            texture_storage_3d(TextureFormat::Rgba32Float, StorageTextureAccess::WriteOnly),
+                        ),
+                    ),
+                ),
+            ),
+            cloud_field_final: BindGroupLayoutDescriptor::new(
+                "cloud_field_final_bind_group_layout",
+                &BindGroupLayoutEntries::with_indices(
+                    ShaderStages::COMPUTE,
+                    (
+                        (41, texture_3d(TextureSampleType::Float { filterable: false })),
+                        (
+                            43,
+                            texture_storage_3d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
+                        ),
+                    ),
+                ),
+            ),
         }
     }
 }
@@ -635,6 +678,10 @@ pub(crate) struct AtmosphereLutPipelines {
     pub cloud_shadow_temporal: CachedComputePipelineId,
     pub clouds_raymarch: CachedComputePipelineId,
     pub clouds_reconstruct: CachedComputePipelineId,
+    pub cloud_field_init: CachedComputePipelineId,
+    pub cloud_field_edt_x: CachedComputePipelineId,
+    pub cloud_field_edt_y: CachedComputePipelineId,
+    pub cloud_field_edt_z: CachedComputePipelineId,
 }
 
 impl FromWorld for AtmosphereLutPipelines {
@@ -729,6 +776,16 @@ impl FromWorld for AtmosphereLutPipelines {
                 ..default()
             });
 
+        let field = |label: &'static str, layout: &BindGroupLayoutDescriptor, entry: &'static str| {
+            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some(label.into()),
+                layout: vec![layout.clone()],
+                shader: load_embedded_asset!(world, "cloud_field.wesl"),
+                entry_point: Some(entry.into()),
+                ..default()
+            })
+        };
+
         Self {
             transmittance_lut,
             multiscattering_lut,
@@ -739,6 +796,10 @@ impl FromWorld for AtmosphereLutPipelines {
             cloud_shadow_temporal,
             clouds_raymarch,
             clouds_reconstruct,
+            cloud_field_init: field("cloud_field_init_pipeline", &layouts.cloud_shadow_map, "init"),
+            cloud_field_edt_x: field("cloud_field_edt_x_pipeline", &layouts.cloud_field_edt, "edt_x"),
+            cloud_field_edt_y: field("cloud_field_edt_y_pipeline", &layouts.cloud_field_edt, "edt_y"),
+            cloud_field_edt_z: field("cloud_field_edt_z_pipeline", &layouts.cloud_field_final, "edt_z"),
         }
     }
 }
@@ -865,6 +926,10 @@ pub struct AtmosphereTextures {
     /// Checkerboard trace targets (1 of each 2x2 half-res pixels per frame).
     pub clouds_trace: CachedTexture,
     pub clouds_trace_depth: CachedTexture,
+    /// Cloud SDF ping-pong (rgba32f: squared distances + voxel height) and result (r = metres).
+    pub cloud_field_a: CachedTexture,
+    pub cloud_field_b: CachedTexture,
+    pub cloud_field_sdf: CachedTexture,
 }
 
 pub(super) fn prepare_atmosphere_textures(
@@ -933,6 +998,29 @@ pub(super) fn prepare_atmosphere_textures(
                 view_formats: &[],
             },
         );
+
+        let mut field_tex = |label: &'static str, format: TextureFormat| {
+            texture_cache.get(
+                &render_device,
+                TextureDescriptor {
+                    label: Some(label),
+                    size: Extent3d {
+                        width: CLOUD_FIELD_RES_XY,
+                        height: CLOUD_FIELD_RES_XY,
+                        depth_or_array_layers: CLOUD_FIELD_RES_Z,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D3,
+                    format,
+                    usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                },
+            )
+        };
+        let cloud_field_a = field_tex("cloud_field_a", TextureFormat::Rgba32Float);
+        let cloud_field_b = field_tex("cloud_field_b", TextureFormat::Rgba32Float);
+        let cloud_field_sdf = field_tex("cloud_field_sdf", TextureFormat::Rgba16Float);
 
         let cloud_shadow_map = texture_cache.get(
             &render_device,
@@ -1043,6 +1131,9 @@ pub(super) fn prepare_atmosphere_textures(
                 clouds_depth_history,
                 clouds_trace,
                 clouds_trace_depth,
+                cloud_field_a,
+                cloud_field_b,
+                cloud_field_sdf,
             }
         });
     }
@@ -1195,6 +1286,8 @@ pub(crate) struct AtmosphereBindGroups {
     pub clouds_raymarch: Option<BindGroup>,
     /// `clouds_reconstruct` pass (same conditions as `clouds_raymarch`).
     pub clouds_reconstruct: Option<BindGroup>,
+    /// Cloud SDF passes: x (a->b), y (b->a), z (a->sdf).
+    pub cloud_field_edt: Option<[BindGroup; 3]>,
 }
 
 #[derive(Copy, Clone, Debug, thiserror::Error)]
@@ -1581,6 +1674,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                     (33, &detail_noise_texture.texture.default_view),
                     (34, &curl_noise_texture.texture.default_view),
                     (13, trace_storage),
+                    (40, &textures.cloud_field_a.default_view),
                 )),
             )
         });
@@ -1754,6 +1848,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (34, &curl_noise_texture.texture.default_view),
                         (26, &textures.clouds_trace.default_view),
                         (27, &textures.clouds_trace_depth.default_view),
+                        (44, &textures.cloud_field_sdf.default_view),
                     )),
                 )
             });
@@ -1781,6 +1876,28 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 )
             });
 
+        let cloud_field_edt = cloud_shadow_map.as_ref().map(|_| {
+            let edt = |label: &'static str, src: &TextureView, dst: &TextureView| {
+                render_device.create_bind_group(
+                    label,
+                    &pipeline_cache.get_bind_group_layout(&layouts.cloud_field_edt),
+                    &BindGroupEntries::with_indices(((41, src), (42, dst))),
+                )
+            };
+            [
+                edt("cloud_field_edt_x_bind_group", &textures.cloud_field_a.default_view, &textures.cloud_field_b.default_view),
+                edt("cloud_field_edt_y_bind_group", &textures.cloud_field_b.default_view, &textures.cloud_field_a.default_view),
+                render_device.create_bind_group(
+                    "cloud_field_edt_z_bind_group",
+                    &pipeline_cache.get_bind_group_layout(&layouts.cloud_field_final),
+                    &BindGroupEntries::with_indices((
+                        (41, &textures.cloud_field_a.default_view),
+                        (43, &textures.cloud_field_sdf.default_view),
+                    )),
+                ),
+            ]
+        });
+
         commands.entity(entity).insert(AtmosphereBindGroups {
             transmittance_lut,
             multiscattering_lut,
@@ -1794,6 +1911,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             render_sky_no_clouds,
             clouds_raymarch,
             clouds_reconstruct,
+            cloud_field_edt,
         });
     }
 

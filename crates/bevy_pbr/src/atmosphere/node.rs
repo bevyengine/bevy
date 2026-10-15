@@ -1,7 +1,7 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::system::Res;
 use bevy_image::ToExtents;
-use bevy_math::{UVec2, Vec3Swizzles};
+use bevy_math::{UVec2, UVec3, Vec3Swizzles};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -245,6 +245,56 @@ pub fn atmosphere_luts(
             }
         }
         pass_span.end(&mut cloud_shadow_pass);
+    }
+
+    // Cloud SDF (Nubis Cubed voxel cloud distance): seeds from the coarse density, then a
+    // separable Euclidean distance transform. One pass per step for the storage->sampled barriers.
+    if let (Some(cloud_layer_uniforms_offset), Some(shadow_bg), Some(edt_bgs)) = (
+        cloud_layer_uniforms_offset.as_ref(),
+        bind_groups.cloud_shadow_map.as_ref(),
+        bind_groups.cloud_field_edt.as_ref(),
+    ) {
+        let ids = [
+            pipelines.cloud_field_init,
+            pipelines.cloud_field_edt_x,
+            pipelines.cloud_field_edt_y,
+            pipelines.cloud_field_edt_z,
+        ];
+        let resolved: Option<Vec<_>> = ids.iter().map(|id| pipeline_cache.get_compute_pipeline(*id)).collect();
+        if let Some(resolved) = resolved {
+            let groups = UVec3::new(
+                super::resources::CLOUD_FIELD_RES_XY.div_ceil(8),
+                super::resources::CLOUD_FIELD_RES_XY.div_ceil(8),
+                super::resources::CLOUD_FIELD_RES_Z,
+            );
+            for (i, pipeline) in resolved.into_iter().enumerate() {
+                let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                    label: Some("cloud_field"),
+                    timestamp_writes: if i == 0 {
+                        super::gpu_timing::compute(&timing_device, "cloud_field")
+                    } else {
+                        None
+                    },
+                });
+                pass.set_pipeline(pipeline);
+                if i == 0 {
+                    pass.set_bind_group(
+                        0,
+                        shadow_bg,
+                        &[
+                            atmosphere_uniforms_offset.index(),
+                            settings_uniforms_offset.index(),
+                            view_uniforms_offset.offset,
+                            lights_uniforms_offset.offset,
+                            cloud_layer_uniforms_offset.index(),
+                        ],
+                    );
+                } else {
+                    pass.set_bind_group(0, &edt_bgs[i - 1], &[]);
+                }
+                pass.dispatch_workgroups(groups.x, groups.y, groups.z);
+            }
+        }
     }
 
     // IMPORTANT:

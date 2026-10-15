@@ -13,7 +13,7 @@
 import bevy_render::maths::{PI, ray_sphere_intersect};
 import package::render::utils::interleaved_gradient_noise;
 import package::atmosphere::{
-    bindings::{atmosphere, settings, view, lights, stbn_texture},
+    bindings::{atmosphere, settings, view, lights, stbn_texture, atmosphere_lut_sampler},
     bruneton_functions::{ray_intersects_ground, sample_transmittance_lut_segment, sample_transmittance_lut_segment_tau_red, distance_to_top_atmosphere_boundary},
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
@@ -25,12 +25,28 @@ import package::atmosphere::{
         cloud_layer_segment, get_cloud_medium_density_coarse,
         get_cloud_medium_density_lod, cloud_mip_from_distance, get_cloud_scattering_coeff,
         get_cloud_absorption_coeff, cloud_density_context, cloud_layer,
+        cloud_field_uvw, cloud_field_voxel_m, CLOUD_FIELD_EXTENT_M,
     },
 };
 
 @group(0) @binding(13) var depth_texture: texture_depth_2d;
 @group(0) @binding(26) var out_clouds: texture_storage_2d<rgba16float, write>;
 @group(0) @binding(27) var out_clouds_depth: texture_storage_2d<r32float, write>;
+@group(0) @binding(44) var cloud_field_sdf: texture_3d<f32>;
+
+const CLOUD_DIST_UNKNOWN: f32 = 1e9;
+/// Nubis Cubed GetVoxelCloudDistance: signed distance (m, negative inside) from the coarse SDF
+/// (cloud_field.wesl). Outside the grid: CLOUD_DIST_UNKNOWN. Positive distances are capped by
+/// the distance to the grid's side so clouds beyond the grid are never skipped over.
+fn cloud_distance(p: vec3<f32>, cam: vec3<f32>) -> f32 {
+    let uvw = cloud_field_uvw(p, cam);
+    if (any(uvw.xy < vec2(0.0)) || any(uvw.xy > vec2(1.0))) {
+        return CLOUD_DIST_UNKNOWN;
+    }
+    let d = textureSampleLevel(cloud_field_sdf, atmosphere_lut_sampler, saturate(uvw), 0.0).r;
+    let border = min(min(uvw.x, 1.0 - uvw.x), min(uvw.y, 1.0 - uvw.y)) * CLOUD_FIELD_EXTENT_M;
+    return select(d, min(d, border), d > 0.0);
+}
 
 // Hard caps for the first version of the pass; these become `VolumetricCloudSettings` (design §3.3).
 const CLOUD_MAX_STEPS: f32 = 96.0;
@@ -604,7 +620,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     fine_empty = 0u;
                     continue;
                 }
-                t += dt;
+                // Nubis Cubed SDF ray march: step = max(sdf_cloud_distance, adaptive_step).
+                // Margin: trilinear SDF error ~ half a voxel diagonal.
+                var skip = dt;
+                @if(!ATM_DBG_NO_SDF_SKIP) {
+                    let d_sdf = cloud_distance(p, ray_origin);
+                    if (d_sdf < CLOUD_DIST_UNKNOWN) {
+                        skip = max(dt, d_sdf - 1.5 * cloud_field_voxel_m());
+                    }
+                }
+                t += skip;
                 continue;
             }
 
@@ -629,6 +654,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 // occlusion *beyond* the local march; using it at `p` replaced all per-billow detail
                 // with smooth weather-map blobs once it converged.
                 var light_od = 0.0;
+                // Nubis Cubed inSunLightSummedDensitySamples (normalised density summed per tap).
+                var light_sum = 0.0;
                 var tap_t = 0.0;
                 var tap_dt = LIGHT_TAP_STEP_M;
                 var n_taps = LIGHT_TAP_COUNT;
@@ -637,12 +664,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 @if(ATM_DBG_LT_OLD) { n_taps = 6u; tap_growth = 2.0; tap_lod = 0.5; }
                 for (var k = 0u; k < n_taps; k++) {
                     let pk = p + l * (tap_t + 0.5 * tap_dt);
-                    light_od += get_cloud_medium_density_lod(length(pk), pk, mip + tap_lod * f32(k)) * tap_dt;
+                    let dk = get_cloud_medium_density_lod(length(pk), pk, mip + tap_lod * f32(k));
+                    light_od += dk * tap_dt;
+                    light_sum += dk / max(cloud_layer.cloud_density, 1e-6);
                     tap_t += tap_dt;
                     tap_dt *= tap_growth;
                 }
                 let p_far = p + l * (tap_t + LIGHT_LONG_TAP_M * 0.5);
-                light_od += get_cloud_medium_density_lod(length(p_far), p_far, mip + 3.0) * LIGHT_LONG_TAP_M;
+                let d_far = get_cloud_medium_density_lod(length(p_far), p_far, mip + 3.0);
+                light_od += d_far * LIGHT_LONG_TAP_M;
+                light_sum += d_far / max(cloud_layer.cloud_density, 1e-6);
                 let light_optical_depth = light_od * sigma_t_unit;
                 let p_beyond = p + l * (tap_t + LIGHT_LONG_TAP_M);
                 var t_far = sample_cloud_shadow_map(p_beyond, l, false);
@@ -703,8 +734,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 @if(ATM_DBG_NUBIS_MS) {
                     let prof = saturate(dimensional_profile);
                     let ss = t_local * t_far * max(cloud_phase(cos_theta, 1.0), phase_floor) * dark_edge;
-                    let k_ms = mix(0.25, mix(0.25, 0.05, prof), saturate(cos_theta / 0.9));
-                    let ms_vol = prof * exp(-light_optical_depth * k_ms)
+                    // Published form: Remap(sun_dod, 0, 0.9, 0.25, Remap(cloud_distance, -128, 0,
+                    // 0.05, 0.25)) on the summed density samples. Outside the SDF grid the profile
+                    // stands in for the distance (-128 m deep inside).
+                    var c_dist = cloud_distance(p, ray_origin);
+                    if (c_dist >= CLOUD_DIST_UNKNOWN) { c_dist = -128.0 * prof; }
+                    let k_dist = mix(0.05, 0.25, saturate((c_dist + 128.0) / 128.0));
+                    let k_ms = mix(0.25, k_dist, saturate(cos_theta / 0.9));
+                    var ms_att = exp(-light_sum * k_ms);
+                    @if(ATM_DBG_NUBIS_OD) { ms_att = exp(-light_optical_depth * k_ms); }
+                    let ms_vol = prof * ms_att
                         * pow(t_far, CLOUD_FAR_SHADOW_MIN_EXP);
                     direct = ss + ms_vol * (MS_A / (1.0 - MS_A)) * (0.25 / PI);
                     // Diffusion limit: deep in an optically thick, near-conservative medium the

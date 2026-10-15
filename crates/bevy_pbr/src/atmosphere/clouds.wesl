@@ -515,3 +515,31 @@ fn sample_cloud_contribution(
     
     return vec2(in_scatter, transmittance);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Coarse cloud signed-distance field (Nubis Cubed, Advances 2023: "SDF", 512x512x64 voxels,
+// -256 m .. 4096 m; GetVoxelCloudDistance feeds the secondary-scattering remap and SDF ray
+// marching). Here it is generated each frame from the coarse (weather + height profile + shape)
+// density over a camera-centred grid (`cloud_field.wesl`): x/z horizontal in atmosphere space,
+// z slices span the cloud layer radially.
+const CLOUD_FIELD_RES_XY: u32 = 256u;
+const CLOUD_FIELD_RES_Z: u32 = 32u;
+const CLOUD_FIELD_EXTENT_M: f32 = 24000.0;
+
+fn cloud_field_voxel_m() -> f32 {
+    return CLOUD_FIELD_EXTENT_M / f32(CLOUD_FIELD_RES_XY);
+}
+
+/// Grid origin (min corner, atmosphere-space x/z), snapped to whole voxels so it does not swim.
+fn cloud_field_origin(cam: vec3<f32>) -> vec2<f32> {
+    let vox = cloud_field_voxel_m();
+    return floor(cam.xz / vox) * vox - 0.5 * CLOUD_FIELD_EXTENT_M;
+}
+
+/// Normalised field coordinate of an atmosphere-space point; outside [0,1]^3 = not covered.
+fn cloud_field_uvw(p: vec3<f32>, cam: vec3<f32>) -> vec3<f32> {
+    let uv = (p.xz - cloud_field_origin(cam)) / CLOUD_FIELD_EXTENT_M;
+    let w = (length(p) - cloud_layer.cloud_layer_start)
+        / max(cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start, 1.0);
+    return vec3(uv, w);
+}
