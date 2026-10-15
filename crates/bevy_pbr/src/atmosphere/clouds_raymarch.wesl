@@ -45,9 +45,9 @@ const CLOUD_MAX_DISTANCE_M: f32 = 350000.0;
 const CLOUD_MIN_TRANSMITTANCE: f32 = 0.01;
 
 // Multiple-scattering octaves (Wrenninge 2013; FB16 §5.8 eq. 19-20), with a <= b.
-const MS_OCTAVES: u32 = 3u;
+const MS_OCTAVES: u32 = 5u;
 const MS_A: f32 = 0.5; // scattering attenuation per octave
-const MS_B: f32 = 0.5; // extinction attenuation per octave
+const MS_B: f32 = 0.3; // extinction attenuation per octave
 const MS_C: f32 = 0.5; // phase eccentricity attenuation per octave
 // Short light taps toward the sun for near-surface self-shadowing detail (Nubis3 2:09:52: "the
 // first two samples are taken as before"; the cloud shadow map covers the long range).
@@ -56,9 +56,9 @@ const LIGHT_TAP_STEP_M: f32 = 20.0; // 20,40,...,640 m → 1.26 km
 const LIGHT_LONG_TAP_M: f32 = 1500.0;
 // Sky-irradiance ambient (design.md §1.5 / RDR2 slide 36): replaces the MS-LUT placeholder.
 // Extinction scale for diffuse (ambient) light inside the cloud.
-const CLOUD_AMBIENT_EXT_SCALE: f32 = 0.1;
+const CLOUD_AMBIENT_EXT_SCALE: f32 = 0.05;
 const CLOUD_GROUND_ALBEDO: f32 = 0.28;
-const CLOUD_DARK_EDGE_STRENGTH: f32 = 0.75;
+const CLOUD_DARK_EDGE_STRENGTH: f32 = 0.5;
 // Extinction scale for the Lambert back-scatter clamp (RDR2 slide 30).
 const CLOUD_BACK_SCATTER_EXT_SCALE: f32 = 2500.0;
 
