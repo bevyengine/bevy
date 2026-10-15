@@ -719,6 +719,9 @@ fn extract_depth_of_field_settings(
             }
             // Depth of field is nonsensical for other projections.
             Projection::Custom(_) => {
+                once!(warn!(
+                    "Disabling depth of field because it doesn't support custom projections"
+                ));
                 entity_commands.remove::<<DepthOfField as SyncComponent<RenderApp>>::Target>();
 
                 continue;
