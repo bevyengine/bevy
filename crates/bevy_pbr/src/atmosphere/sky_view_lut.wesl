@@ -1,6 +1,6 @@
 import package::{
     atmosphere::{
-        bindings::settings,
+        bindings::{settings, view},
         functions::{
             get_view_position, raymarch_atmosphere,
             max_atmosphere_distance, direction_atmosphere_to_world,
@@ -36,5 +36,6 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
     let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, settings.sky_view_lut_samples, uv, true);
 
-    textureStore(sky_view_lut_out, idx.xy, vec4(result.inscattering, 1.0));
+    // Pre-exposed, so a night sky of 1e-6 cd/m² stays out of f16's subnormals.
+    textureStore(sky_view_lut_out, idx.xy, vec4(result.inscattering * view.exposure, 1.0));
 }

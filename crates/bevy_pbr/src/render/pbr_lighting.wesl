@@ -1130,7 +1130,8 @@ fn rect_light(
 @if(ATMOSPHERE)
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere, r, mu);
-    return textureSampleLevel(
+    // The LUT stores optical depth.
+    return exp(-textureSampleLevel(
         view_bindings::atmosphere_transmittance_texture,
-        view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;
+        view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb);
 }

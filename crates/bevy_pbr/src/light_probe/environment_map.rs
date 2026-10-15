@@ -46,12 +46,14 @@
 use bevy_asset::AssetId;
 use bevy_ecs::{
     query::{QueryData, QueryItem},
-    system::lifetimeless::Read,
+    resource::Resource,
+    system::{lifetimeless::Read, Res, ResMut},
 };
 use bevy_extract::extract_instances::ExtractInstance;
 use bevy_image::Image;
 use bevy_light::{EnvironmentMapLight, ParallaxCorrection};
 use bevy_math::{Affine3A, Quat, Vec3};
+use bevy_platform::collections::HashMap;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
@@ -82,6 +84,37 @@ pub struct EnvironmentMapIds {
     /// The typically-sharper, mipmapped image that represents specular radiance
     /// surrounding a region.
     pub specular: AssetId<Image>,
+}
+
+/// The exposure that GPU-rendered environment maps store their radiance multiplied by, keyed by
+/// image. Images without an entry store absolute radiance.
+///
+/// Pre-exposure keeps dim scenes within `Rgba16Float` precision. A pass that writes a pre-exposed
+/// environment map records its exposure here before [`RenderSystems::PrepareResources`]; readers
+/// divide it out.
+///
+/// [`RenderSystems::PrepareResources`]: bevy_render::RenderSystems::PrepareResources
+#[derive(Resource, Default, Debug)]
+pub struct EnvironmentMapExposures(HashMap<AssetId<Image>, f32>);
+
+impl EnvironmentMapExposures {
+    /// Records that `image` stores radiance multiplied by `exposure`.
+    pub fn insert(&mut self, image: AssetId<Image>, exposure: f32) {
+        self.0.insert(image, exposure);
+    }
+
+    /// Returns the exposure `image` stores radiance multiplied by, `1.0` for absolute radiance.
+    pub fn get(&self, image: AssetId<Image>) -> f32 {
+        self.0.get(&image).copied().unwrap_or(1.0)
+    }
+}
+
+/// Drops the exposures of images that no longer exist.
+pub(crate) fn retain_environment_map_exposures(
+    mut exposures: ResMut<EnvironmentMapExposures>,
+    images: Res<RenderAssets<GpuImage>>,
+) {
+    exposures.0.retain(|image, _| images.get(*image).is_some());
 }
 
 /// All the bind group entries necessary for PBR shaders to access the
