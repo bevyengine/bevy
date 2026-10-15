@@ -877,8 +877,51 @@ fn raymarch_atmosphere(
             let ground_luminance = transmittance_to_ground * atmosphere.ground_albedo / PI;
             result.inscattering += ground_luminance * light_luminance;
         }
+        // Skylight on the ground (Lambert): dominant at low sun and missing before
+        // (ground was 3-50x too dark in blue at 3 deg sun elevation).
+        @if(!ATM_DBG_NO_GROUND_SKY) {
+        let e_sky = ground_sky_irradiance(sphere_point, pixel_coords);
+        result.inscattering += exp(-optical_depth) * atmosphere.ground_albedo / PI * e_sky;
+        }
     }
 
     return result;
 }
 
+/// Sky irradiance on a horizontal ground point: cosine-weighted directions (E = pi * mean(L)),
+/// each a short quadratically spaced single + LUT-multiple scattering march.
+const GROUND_SKY_DIRS: u32 = 8u;
+const GROUND_SKY_STEPS: u32 = 8u;
+fn ground_sky_irradiance(p: vec3<f32>, pixel_coords: vec2<f32>) -> vec3<f32> {
+    let n = normalize(p);
+    let r = length(p);
+    let tx = normalize(select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(n.x) > 0.9) - n * dot(n, select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(n.x) > 0.9)));
+    let ty = cross(n, tx);
+    var sum = vec3(0.0);
+    for (var k = 0u; k < GROUND_SKY_DIRS; k++) {
+        let u = (f32(k) + 0.5) / f32(GROUND_SKY_DIRS);
+        let phi = f32(k) * 2.399963; // golden angle
+        let st = sqrt(u);
+        let ct = sqrt(1.0 - u);
+        let d = normalize(n * ct + (tx * cos(phi) + ty * sin(phi)) * st);
+        let t_end = distance_to_top_atmosphere_boundary(atmosphere, r, ct);
+        var tr = vec3(1.0);
+        var l = vec3(0.0);
+        for (var i = 0u; i < GROUND_SKY_STEPS; i++) {
+            let ua = f32(i) / f32(GROUND_SKY_STEPS);
+            let ub = f32(i + 1u) / f32(GROUND_SKY_STEPS);
+            let ta = t_end * ua * ua;
+            let tb = t_end * ub * ub;
+            let q = p + d * (0.5 * (ta + tb));
+            let rq = length(q);
+            let scattering = sample_density_lut(rq, SCATTERING_DENSITY);
+            let extinction = sample_density_lut(rq, ABSORPTION_DENSITY) + scattering;
+            let st_i = exp(-extinction * (tb - ta));
+            let ins = sample_local_inscattering(scattering, d, q, pixel_coords);
+            l += tr * (ins - ins * st_i) / max(extinction, MIN_EXTINCTION);
+            tr *= st_i;
+        }
+        sum += l;
+    }
+    return PI * sum / f32(GROUND_SKY_DIRS);
+}
