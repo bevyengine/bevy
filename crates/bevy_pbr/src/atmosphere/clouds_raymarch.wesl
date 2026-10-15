@@ -47,7 +47,8 @@ const CLOUD_MIN_TRANSMITTANCE: f32 = 0.01;
 
 // Multiple-scattering octaves (Wrenninge 2013; FB16 §5.8 eq. 19-20), with a <= b.
 const MS_OCTAVES: u32 = 5u;
-const MS_A: f32 = 0.5; // scattering attenuation per octave
+const CLOUD_FAR_SHADOW_MIN_EXP: f32 = 0.5;
+const MS_A: f32 = 0.65; // scattering attenuation per octave
 const MS_B: f32 = 0.3; // extinction attenuation per octave
 const MS_C: f32 = 0.5; // phase eccentricity attenuation per octave
 // Short light taps toward the sun for near-surface self-shadowing detail (Nubis3 2:09:52: "the
@@ -582,7 +583,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 light_od += get_cloud_medium_density_lod(length(p_far), p_far, mip + 3.0) * LIGHT_LONG_TAP_M;
                 let light_optical_depth = light_od * sigma_t_unit;
                 let p_beyond = p + l * (tap_t + LIGHT_LONG_TAP_M);
-                let t_cloud = sample_cloud_shadow_map(p_beyond, l, false) * exp(-light_optical_depth);
+                let t_far = sample_cloud_shadow_map(p_beyond, l, false);
+                let t_local = exp(-light_optical_depth);
+                let t_cloud = t_far * t_local;
                 let cos_theta = dot(l, ray_dir);
                 // Beer-Powder (HZD15): dark edges only when looking away from the sun, and only on
                 // the single-scatter octave (it models missing in-scatter near the surface, so it
@@ -612,7 +615,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 @if(CLOUD_TERM_S1) { n_oct = 1u; }
                 for (var o = 0u; o < n_oct; o++) {
                     let phase = max(cloud_phase(cos_theta, c), phase_floor);
-                    direct += a * pow(t_cloud, b) * phase * select(1.0, dark_edge, o == 0u);
+                    // Octave softening (b < 1) only on the local march: applied to the far
+                    // shadow-map part it let tens of km of cloud deck transmit light at low sun.
+                    direct += a * pow(t_local, b) * pow(t_far, max(b, CLOUD_FAR_SHADOW_MIN_EXP)) * phase
+                        * select(1.0, dark_edge, o == 0u);
                     a *= MS_A;
                     b *= MS_B;
                     c *= MS_C;
