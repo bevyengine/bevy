@@ -649,6 +649,7 @@ unsafe impl<F: QueryFilter + 'static> ReadOnlySystemParam for SkipIfAny<F> {}
 /// which is not allowed due to rust's mutability rules.
 ///
 /// ```should_panic
+/// # use bevy_ecs::system::SystemInitContext;
 /// # use bevy_ecs::prelude::*;
 /// #
 /// # #[derive(Component)]
@@ -670,7 +671,7 @@ unsafe impl<F: QueryFilter + 'static> ReadOnlySystemParam for SkipIfAny<F> {}
 /// #
 /// # let mut bad_system_system = IntoSystem::into_system(bad_system);
 /// # let mut world = World::new();
-/// # bad_system_system.initialize(&mut world);
+/// # bad_system_system.initialize(&mut world, &SystemInitContext::default());
 /// # bad_system_system.run((), &mut world);
 /// ```
 ///
@@ -1083,6 +1084,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// # Examples
 ///
 /// ```
+/// # use bevy_ecs::system::SystemInitContext;
 /// # use bevy_ecs::prelude::*;
 /// # let world = &mut World::default();
 /// fn counter(mut count: Local<u32>) -> u32 {
@@ -1090,7 +1092,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 ///     *count
 /// }
 /// let mut counter_system = IntoSystem::into_system(counter);
-/// counter_system.initialize(world);
+/// counter_system.initialize(world, &SystemInitContext::default());
 ///
 /// // Counter is initialized to u32's default value of 0, and increases to 1 on first run.
 /// assert_eq!(counter_system.run((), world).unwrap(), 1);
@@ -1101,6 +1103,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// A simple way to set a different default value for a local is by wrapping the value with an Option.
 ///
 /// ```
+/// # use bevy_ecs::system::SystemInitContext;
 /// # use bevy_ecs::prelude::*;
 /// # let world = &mut World::default();
 /// fn counter_from_10(mut count: Local<Option<u32>>) -> u32 {
@@ -1109,7 +1112,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 ///     *count
 /// }
 /// let mut counter_system = IntoSystem::into_system(counter_from_10);
-/// counter_system.initialize(world);
+/// counter_system.initialize(world, &SystemInitContext::default());
 ///
 /// // Counter is initialized at 10, and increases to 11 on first run.
 /// assert_eq!(counter_system.run((), world).unwrap(), 11);
@@ -1120,6 +1123,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// A system can have multiple `Local` values with the same type, each with distinct values.
 ///
 /// ```
+/// # use bevy_ecs::system::SystemInitContext;
 /// # use bevy_ecs::prelude::*;
 /// # let world = &mut World::default();
 /// fn double_counter(mut count: Local<u32>, mut double_count: Local<u32>) -> (u32, u32) {
@@ -1128,7 +1132,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 ///     (*count, *double_count)
 /// }
 /// let mut counter_system = IntoSystem::into_system(double_counter);
-/// counter_system.initialize(world);
+/// counter_system.initialize(world, &SystemInitContext::default());
 ///
 /// assert_eq!(counter_system.run((), world).unwrap(), (1, 2));
 /// assert_eq!(counter_system.run((), world).unwrap(), (2, 4));
@@ -1137,6 +1141,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// This example shows that two systems using the same type for their own `Local` get distinct locals.
 ///
 /// ```
+/// # use bevy_ecs::system::SystemInitContext;
 /// # use bevy_ecs::prelude::*;
 /// # let world = &mut World::default();
 /// fn write_to_local(mut local: Local<usize>) {
@@ -1147,8 +1152,8 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// }
 /// let mut write_system = IntoSystem::into_system(write_to_local);
 /// let mut read_system = IntoSystem::into_system(read_from_local);
-/// write_system.initialize(world);
-/// read_system.initialize(world);
+/// write_system.initialize(world, &SystemInitContext::default());
+/// read_system.initialize(world, &SystemInitContext::default());
 ///
 /// assert_eq!(read_system.run((), world).unwrap(), 0);
 /// write_system.run((), world);
@@ -2944,6 +2949,7 @@ impl Display for SystemParamValidationError {
 
 #[cfg(test)]
 mod tests {
+    use crate::system::SystemInitContext;
     use bevy_ecs_macros::Component;
 
     use super::*;
@@ -3546,7 +3552,7 @@ mod tests {
 
         let mut world = World::new();
         let mut system = IntoSystem::into_system(test_system);
-        system.initialize(&mut world);
+        system.initialize(&mut world, &SystemInitContext::default());
 
         assert!(!system.is_send());
     }

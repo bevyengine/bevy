@@ -20,6 +20,31 @@ use core::any::{Any, TypeId};
 
 use super::{IntoSystem, SystemParamValidationError};
 
+/// Information passed to a [`System`] during [`System::initialize`].
+///
+/// A [`Schedule`](crate::schedule::Schedule) fills this in for the systems it initializes.
+/// Systems initialized anywhere else, such as one-shot systems and observers, receive
+/// [`SystemInitContext::default`].
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SystemInitContext<'a> {
+    system_sets: &'a [InternedSystemSet],
+}
+
+impl<'a> SystemInitContext<'a> {
+    /// Sets the system sets that the system belongs to.
+    pub fn with_system_sets(mut self, system_sets: &'a [InternedSystemSet]) -> Self {
+        self.system_sets = system_sets;
+        self
+    }
+
+    /// Returns the system sets that the system belongs to, either directly or indirectly.
+    ///
+    /// This is empty if the system was not initialized by a schedule.
+    pub fn system_sets(&self) -> &'a [InternedSystemSet] {
+        self.system_sets
+    }
+}
+
 bitflags! {
     /// Bitflags representing system states and requirements.
     #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -138,7 +163,7 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     ///
     /// Returns a [`SystemAccess`] with the access required to run the system.
-    fn initialize(&mut self, _world: &mut World) -> SystemAccess;
+    fn initialize(&mut self, world: &mut World, context: &SystemInitContext) -> SystemAccess;
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
@@ -359,7 +384,7 @@ impl RunSystemOnce for &mut World {
         In: SystemInput,
     {
         let mut system: T::System = IntoSystem::into_system(system);
-        system.initialize(self);
+        system.initialize(self, &SystemInitContext::default());
         system.run(input, self)
     }
 }

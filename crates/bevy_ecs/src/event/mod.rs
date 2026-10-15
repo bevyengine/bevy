@@ -464,6 +464,7 @@ impl EventKey {
 
 #[cfg(test)]
 mod tests {
+    use crate::system::SystemInitContext;
     use alloc::{vec, vec::Vec};
     use bevy_ecs::{message::*, system::assert_is_read_only_system};
     use bevy_ecs_macros::Message;
@@ -955,7 +956,7 @@ mod tests {
                 events.read().last().copied()
             },
         );
-        reader.initialize(&mut world);
+        reader.initialize(&mut world, &SystemInitContext::default());
 
         let last = reader.run((), &mut world).unwrap();
         assert!(last.is_none(), "MessageReader should be empty");
@@ -986,7 +987,7 @@ mod tests {
                 events.read().last().copied()
             },
         );
-        mutator.initialize(&mut world);
+        mutator.initialize(&mut world, &SystemInitContext::default());
 
         let last = mutator.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventMutator should be empty");

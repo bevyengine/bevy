@@ -80,6 +80,7 @@ mod tests {
     }
 
     mod system_execution {
+        use crate::system::SystemInitContext;
         use crate::{
             change_detection::DetectChanges,
             error::BevyError,
@@ -160,7 +161,7 @@ mod tests {
             world.init_resource::<ChangeHistory>();
 
             let mut system = IntoSystem::<(), (), _>::into_system(fallible_system);
-            system.initialize(&mut world);
+            system.initialize(&mut world, &SystemInitContext::default());
 
             let _ = system.run((), &mut world);
             let _ = system.run((), &mut world);

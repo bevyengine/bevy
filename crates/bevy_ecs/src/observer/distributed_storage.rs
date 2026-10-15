@@ -467,7 +467,7 @@ fn hook_on_add<E: EventPattern, S: ObserverSystem<E>>(
 
         let system: &mut dyn Any = boxed_system.as_mut();
         let system = system.downcast_mut::<S>().unwrap();
-        let access = system.initialize(world);
+        let access = system.initialize(world, &crate::system::SystemInitContext::default());
         assert!(
             !access.is_exclusive(),
             concat!(

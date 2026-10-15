@@ -23,6 +23,7 @@ use crate::{event::EventPattern, prelude::On, system::System};
 /// ## Tuples of [`SystemInput`]s
 ///
 /// ```
+/// # use bevy_ecs::system::SystemInitContext;
 /// use bevy_ecs::prelude::*;
 ///
 /// fn add((InMut(a), In(b)): (InMut<usize>, In<usize>)) {
@@ -30,7 +31,7 @@ use crate::{event::EventPattern, prelude::On, system::System};
 /// }
 /// # let mut world = World::new();
 /// # let mut add = IntoSystem::into_system(add);
-/// # add.initialize(&mut world);
+/// # add.initialize(&mut world, &SystemInitContext::default());
 /// # let mut a = 12;
 /// # let b = 24;
 /// # add.run((&mut a, b), &mut world);
@@ -95,6 +96,7 @@ impl<'a, In: SystemInput> FromInput<In> for StaticSystemInput<'a, In> {
 /// Here is a simple example of a system that takes a [`usize`] and returns the square of it.
 ///
 /// ```
+/// # use bevy_ecs::system::SystemInitContext;
 /// # use bevy_ecs::prelude::*;
 /// #
 /// fn square(In(input): In<usize>) -> usize {
@@ -103,7 +105,7 @@ impl<'a, In: SystemInput> FromInput<In> for StaticSystemInput<'a, In> {
 ///
 /// let mut world = World::new();
 /// let mut square_system = IntoSystem::into_system(square);
-/// square_system.initialize(&mut world);
+/// square_system.initialize(&mut world, &SystemInitContext::default());
 ///
 /// assert_eq!(square_system.run(12, &mut world).unwrap(), 144);
 /// ```
@@ -149,6 +151,7 @@ impl<T> DerefMut for In<T> {
 /// Here is a simple example of a system that logs the passed in message.
 ///
 /// ```
+/// # use bevy_ecs::system::SystemInitContext;
 /// # use bevy_ecs::prelude::*;
 /// # use std::fmt::Write as _;
 /// #
@@ -162,7 +165,7 @@ impl<T> DerefMut for In<T> {
 /// let mut world = World::new();
 /// world.init_resource::<Log>();
 /// let mut log_system = IntoSystem::into_system(log);
-/// log_system.initialize(&mut world);
+/// log_system.initialize(&mut world, &SystemInitContext::default());
 ///
 /// log_system.run("Hello, world!", &mut world);
 /// # assert_eq!(world.get_resource::<Log>().unwrap().0, "Hello, world!\n");
@@ -202,6 +205,7 @@ impl<'i, T: ?Sized> Deref for InRef<'i, T> {
 /// Here is a simple example of a system that takes a `&mut usize` and squares it.
 ///
 /// ```
+/// # use bevy_ecs::system::SystemInitContext;
 /// # use bevy_ecs::prelude::*;
 /// #
 /// fn square(InMut(input): InMut<usize>) {
@@ -210,7 +214,7 @@ impl<'i, T: ?Sized> Deref for InRef<'i, T> {
 ///
 /// let mut world = World::new();
 /// let mut square_system = IntoSystem::into_system(square);
-/// square_system.initialize(&mut world);
+/// square_system.initialize(&mut world, &SystemInitContext::default());
 ///     
 /// let mut value = 12;
 /// square_system.run(&mut value, &mut world);
@@ -323,6 +327,7 @@ all_tuples!(
 
 #[cfg(test)]
 mod tests {
+    use crate::system::SystemInitContext;
     use crate::{
         system::{assert_is_system, In, InMut, InRef, IntoSystem, StaticSystemInput, System},
         world::World,
@@ -345,9 +350,9 @@ mod tests {
         let mut by_ref = IntoSystem::into_system(by_ref);
         let mut by_mut = IntoSystem::into_system(by_mut);
 
-        by_value.initialize(&mut world);
-        by_ref.initialize(&mut world);
-        by_mut.initialize(&mut world);
+        by_value.initialize(&mut world, &SystemInitContext::default());
+        by_ref.initialize(&mut world, &SystemInitContext::default());
+        by_mut.initialize(&mut world, &SystemInitContext::default());
 
         let mut a = 12;
         let b = 24;
@@ -382,7 +387,7 @@ mod tests {
         let mut world = World::new();
 
         let mut system = IntoSystem::into_system(takes_option_mut);
-        system.initialize(&mut world);
+        system.initialize(&mut world, &SystemInitContext::default());
 
         let mut value = 12;
         assert_eq!(system.run(Some(&mut value), &mut world).unwrap(), 12);
