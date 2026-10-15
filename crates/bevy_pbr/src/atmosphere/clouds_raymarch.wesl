@@ -118,7 +118,7 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
     let vis_down = exp(-k * h * thickness);
     var a_scale = CLOUD_AMBIENT_SCALE;
     @if(ATM_DBG_AMB_UP10) { a_scale *= 1.1; }
-    @if(ATM_DBG_AMB_PHYS) { a_scale = 1.0; }
+    @if(ATM_DBG_AMB_PHYS || ATM_DBG_NUBIS_MS) { a_scale = 1.0; }
     var g_scale = a_scale;
     @if(ATM_DBG_AMB_GROUND1) { g_scale = 1.0; }
     return 0.5 * (a_scale * sky_rad * vis_up + g_scale * ground_rad * vis_down);
@@ -131,7 +131,6 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
 // per segment and taken at a blue-noise jittered position. Segments follow the LUT's squared depth
 // distribution and scale with distance; the half-res reconstruct accumulates the jitter.
 const HAZE_FAR_MS_FLOOR: f32 = 0.05;
-const CLOUD_DECK_INSCATTER: f32 = 0.15;
 /// Cloud shadow on the ground point below a cloud sample (ground-bounce ambient). Uses the
 /// direct coarse march rather than the shadow map: the map's ground lookups disagreed with the
 /// out-of-volume fallback, so the map's xy boundary showed up as a hard straight edge in the
@@ -695,6 +694,23 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     b *= MS_B;
                     c *= MS_C;
                 }
+                // Nubis Cubed (Advances 2023, "Light Energy = Direct + Ambient + Secondary
+                // Scattering"): secondary scattering as a probability field
+                // ms_volume = dimensional_profile * exp(-sun_od * Remap(sun_dod, 0, 0.9, 0.25,
+                // Remap(cloud_distance, -128, 0, 0.05, 0.25))), replacing octaves 1..n. The profile
+                // stands in for the voxel cloud distance (deep inside -> 0.05). Energy keeps the
+                // Wrenninge series of the replaced octaves: sum_{i>=1} a^i = a / (1 - a), isotropic.
+                @if(ATM_DBG_NUBIS_MS) {
+                    let prof = saturate(dimensional_profile);
+                    let ss = t_local * t_far * max(cloud_phase(cos_theta, 1.0), phase_floor) * dark_edge;
+                    let k_ms = mix(0.25, mix(0.25, 0.05, prof), saturate(cos_theta / 0.9));
+                    let ms_vol = prof * exp(-light_optical_depth * k_ms)
+                        * pow(t_far, CLOUD_FAR_SHADOW_MIN_EXP);
+                    direct = ss + ms_vol * (MS_A / (1.0 - MS_A)) * (0.25 / PI);
+                    // Diffusion limit: deep in an optically thick, near-conservative medium the
+                    // radiance is ~isotropic with flux ~ the incident flux, L ~ F / pi.
+                    @if(ATM_DBG_NUBIS_DIFF) { direct = ss + ms_vol / PI; }
+                }
                 // Forward deep scatter: diffusion through a lot of cloud stays forward-peaked
                 // (backlit cloud bodies, hero:35); only where the sun optical depth is high.
                 @if(ATM_DBG_DEEP_FWD) {
@@ -733,6 +749,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 let ground_part = cloud_ambient_term(vec3(0.0), ground_rad, h_frac, sigma_t,
                     cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start);
                 ambient = ground_part + 0.5 * CLOUD_AMBIENT_SCALE * sky_up * vis_up_p;
+            }
+            // Nubis Cubed ambient scattering approximation: pow(1 - dimensional_profile, 0.5).
+            @if(ATM_DBG_NUBIS_MS && !ATM_DBG_NUBIS_NOAMBP) {
+                ambient *= sqrt(saturate(1.0 - dimensional_profile));
             }
             // Validation term toggles (CLOUD_TERMS=s1|sun|amb, see resources.rs).
             @if(CLOUD_TERM_NO_AMB) { ambient = vec3(0.0); }
@@ -791,30 +811,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             var haze = cloud_shadowed_haze(uv, ray_origin, ray_dir, weighted_depth, r, mu, j);
             @if(ATM_DBG_HAZE_SKY) { haze = sample_sky_view_lut(r, direction_world_to_atmosphere(ray_dir)) * (1.0 - sample_transmittance_lut_segment(r, mu, weighted_depth)); }
             @if(ATM_DBG_TAP_ONE) { t_ap = vec3(1.0); }
-            var deck_in = vec3(0.0);
-            // Overcast in-scatter: under a sunlit-from-above deck the air between the camera and
-            // a distant cloud base is lit by the deck itself (radiance ~ the cloud's own), so the
-            // light Rayleigh/Mie scatter out of the view ray is largely replaced (radiative
-            // equilibrium: uniform surround L gives L*T + L*(1-T)). Without it, distant bases
-            // under the deck at sunset were 0.6x and red vs CLOUD_REFERENCE (sun:3). Weight by
-            // how shadowed (= under cloud) the ray midpoint is; half the surround is ground.
-            @if(!ATM_DBG_NO_DECK_INSCATTER) {
-                if (lights.n_directional_lights > 0u) {
-                    let l0 = lights.directional_lights[0].direction_to_light;
-                    let vis_mid = sample_cloud_shadow_map(ray_origin + ray_dir * (0.5 * weighted_depth), l0, false);
-                    // Low sun only: with a high sun the sky-view haze already carries the lit
-                    // surround and broken cloud gave +15% (up:35).
-                    let mu_s = dot(l0, normalize(ray_origin));
-                    var deck = CLOUD_DECK_INSCATTER * (1.0 - vis_mid) * saturate(1.0 - mu_s / 0.25);
-                    @if(ATM_DBG_DECK_HALF) { deck = 0.5 * (1.0 - vis_mid) * saturate(1.0 - mu_s / 0.25); }
-                    @if(!ATM_DBG_DECK_AMB) { t_ap = t_ap + (vec3(1.0) - t_ap) * deck; }
-                    @if(ATM_DBG_DECK_AMB) {
-                        let l_deck = cloud_ambient_term(sky_irr, sky_irr * CLOUD_GROUND_ALBEDO, 0.0, 0.0, 1.0);
-                        deck_in = (vec3(1.0) - t_ap) * (0.5 * (1.0 - vis_mid) * saturate(1.0 - mu_s / 0.25)) * l_deck;
-                    }
-                }
-            }
-            lum = t_ap * luminance + (1.0 - transmittance) * (haze + deck_in);
+            lum = t_ap * luminance + (1.0 - transmittance) * haze;
         }
         result = vec4(lum * view.exposure, transmittance);
         @if(ATM_DBG_OUT_H) {
