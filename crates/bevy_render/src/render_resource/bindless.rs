@@ -21,14 +21,14 @@ use bevy_material::bind_group_layout_entries::binding_types::{
 ///
 /// See the documentation for [`BindlessSlabResourceLimit`] for more
 /// information.
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "tvos"))]
 pub const AUTO_BINDLESS_SLAB_RESOURCE_LIMIT: u32 = 64;
 /// The default value for the number of resources that can be stored in a slab
 /// on this platform.
 ///
 /// See the documentation for [`BindlessSlabResourceLimit`] for more
 /// information.
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "tvos")))]
 pub const AUTO_BINDLESS_SLAB_RESOURCE_LIMIT: u32 = 2048;
 
 /// The binding numbers for the built-in binding arrays of each bindless
