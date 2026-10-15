@@ -52,12 +52,14 @@ use bevy_render::mesh::MeshMetadataFallbackBuffer;
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
-            self, GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
-            IndirectParametersIndexed, IndirectParametersMetadata, IndirectParametersNonIndexed,
-            InstanceInputUniformBuffer, UntypedPhaseIndirectParametersBuffers,
+            self, GpuPreprocessingMode, GpuPreprocessingSupport, IndirectBatchSet,
+            IndirectParametersBuffers, IndirectParametersIndexed, IndirectParametersMetadata,
+            IndirectParametersNonIndexed, InstanceInputUniformBuffer,
+            UntypedPhaseIndirectParametersBuffers,
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
+    init_gpu_resource,
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
@@ -297,6 +299,11 @@ impl Plugin for MeshRenderPlugin {
             } else {
                 render_app
                     .init_gpu_resource::<no_gpu_preprocessing::BatchedInstanceBuffer<MeshUniform>>()
+                    .add_systems(
+                        RenderStartup,
+                        disable_gpu_preprocessing
+                            .after(init_gpu_resource::<GpuPreprocessingSupport>),
+                    )
                     .add_systems(
                         ExtractSchedule,
                         extract_meshes_for_cpu_building.in_set(MeshExtractionSystems),
@@ -1197,6 +1204,17 @@ impl RenderMeshInstanceSharedFlat {
             current_uniform_index: 0,
         }
     }
+}
+
+/// Caps [`GpuPreprocessingSupport`] to [`GpuPreprocessingMode::None`] after
+/// [`RenderStartup`] recreates it from the device.
+///
+/// Views and phases read [`GpuPreprocessingSupport`] to choose how they batch,
+/// so it must be the same with what the CPU instance buffer builder that
+/// [`MeshRenderPlugin`] selected, like when
+/// [`crate::PbrPlugin::use_gpu_instance_buffer_builder`] is `false`.
+fn disable_gpu_preprocessing(mut gpu_preprocessing_support: ResMut<GpuPreprocessingSupport>) {
+    gpu_preprocessing_support.max_supported_mode = GpuPreprocessingMode::None;
 }
 
 /// Information that the render world keeps about each entity that contains a
