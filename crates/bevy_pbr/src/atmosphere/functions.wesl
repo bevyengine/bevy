@@ -326,15 +326,6 @@ const CLOUD_FAR_GRAZING_MU: f32 = 0.2; // sun below ~11.5 deg
 const CLOUD_FAR_COARSE_SCALE: f32 = 0.5;
 @if(CLOUDS_ENABLED)
 fn cloud_far_transmittance(world_pos: vec3<f32>, direction_to_light: vec3<f32>, use_optical_depth_only: bool) -> f32 {
-    return cloud_far_transmittance_jittered(world_pos, direction_to_light, 0.5);
-}
-
-/// `cloud_far_transmittance` with the tap offset within each stratum given by `jitter` in [0, 1).
-/// Fixed mid-stratum taps project each cloud's outline once per tap height, so few-tap lookups
-/// show stacked, offset copies of the cloud edges; a per-pixel, per-frame jitter turns that into
-/// noise that temporal accumulation (TAA) integrates (stratified Monte Carlo).
-@if(CLOUDS_ENABLED)
-fn cloud_far_transmittance_jittered(world_pos: vec3<f32>, direction_to_light: vec3<f32>, jitter: f32) -> f32 {
     var od = 0.0;
     @if(CLOUDS_ENABLED) {
     let seg = cloud_layer_segment(world_pos, direction_to_light);
@@ -354,7 +345,7 @@ fn cloud_far_transmittance_jittered(world_pos: vec3<f32>, direction_to_light: ve
         let dt = (t1 - t0) / f32(n_far);
         let sigma_t = get_cloud_scattering_coeff() + get_cloud_absorption_coeff();
         for (var i = 0u; i < n_far; i++) {
-            let q = world_pos + direction_to_light * (t0 + (f32(i) + jitter) * dt);
+            let q = world_pos + direction_to_light * (t0 + (f32(i) + 0.5) * dt);
             var dq = get_cloud_medium_density_lod(length(q), q, far_mip);
             @if(!CLOUD_PASS) { dq = get_cloud_medium_density_coarse(length(q), q) * CLOUD_FAR_COARSE_SCALE; }
             od += dq * sigma_t * dt;
@@ -362,6 +353,9 @@ fn cloud_far_transmittance_jittered(world_pos: vec3<f32>, direction_to_light: ve
     }
     }
     od *= settings.cloud_shadow_map_strength;
+    if (use_optical_depth_only) {
+        return exp(-od);
+    }
     return exp(-od);
 }
 
@@ -948,7 +942,7 @@ fn raymarch_atmosphere(
             // The sky-view LUT has no clouds: per skylight direction, replace the clear sky by
             // dimmer cloud bases using the cloud transmittance along it (floor = light the clouds
             // scatter down).
-            e_sky = ground_sky_irradiance_clouds(sphere_point, pixel_coords);
+            e_sky = ground_sky_irradiance_clouds(sphere_point);
         }
         result.inscattering += exp(-optical_depth) * atmosphere.ground_albedo / PI * e_sky;
     }
@@ -959,7 +953,7 @@ fn raymarch_atmosphere(
 /// Sky irradiance on a horizontal ground point: cosine-weighted directions (E = pi * mean(L)),
 /// each a short quadratically spaced single + LUT-multiple scattering march.
 @if(CLOUDS_ENABLED)
-fn ground_sky_irradiance_clouds(p: vec3<f32>, pixel_coords: vec2<f32>) -> vec3<f32> {
+fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
     let n = normalize(p);
     let tx = normalize(select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(n.x) > 0.9) - n * dot(n, select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(n.x) > 0.9)));
     let ty = cross(n, tx);
@@ -978,17 +972,11 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>, pixel_coords: vec2<f32>) -> vec3<f
         e_top *= 0.35 + 0.9 * max(mu_l, 0.0);
     }
     var sum = vec3(0.0);
-    // Stratified cosine-weighted directions, randomly rotated and jittered per pixel and frame
-    // (the fixed set drew 6 x 2 offset copies of every cloud outline on the ground); TAA
-    // accumulates the estimate.
-    let rot = interleaved_gradient_noise(pixel_coords, view.frame_count % 64u) * PI_2;
-    let ju = interleaved_gradient_noise(pixel_coords, 32u + view.frame_count % 64u);
     for (var k = 0u; k < GROUND_SKY_DIRS; k++) {
-        let u = (f32(k) + ju) / f32(GROUND_SKY_DIRS);
-        let phi = f32(k) * 2.399963 + rot;
+        let u = (f32(k) + 0.5) / f32(GROUND_SKY_DIRS);
+        let phi = f32(k) * 2.399963;
         let d = normalize(n * sqrt(1.0 - u) + (tx * cos(phi) + ty * sin(phi)) * sqrt(u));
-        let jt = fract(ju + f32(k) * 0.618034);
-        let t_c = max(cloud_far_transmittance_jittered(p, d, jt), 1e-6);
+        let t_c = max(cloud_far_transmittance(p, d, true), 1e-6);
         let tau = -log(t_c);
         let l_base = e_top / (1.0 + 0.1125 * tau);
         sum += sample_sky_view_lut(r_cam, direction_world_to_atmosphere(d)) * t_c + (1.0 - t_c) * l_base;
