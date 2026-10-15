@@ -58,9 +58,18 @@ struct AtmospherePresets {
 
 fn main() {
     let mut app = App::new();
+    // Continuous mode waits for the OS redraw callback, which macOS stops delivering for occluded
+    // windows (the app then freezes in the background). In background test runs drive updates
+    // from the event loop instead (reactive with ~0 wait => ControlFlow::Poll).
+    let background = std::env::var("ATMOSPHERE_BACKGROUND").is_ok();
+    let update_mode = if background {
+        bevy::winit::UpdateMode::reactive(core::time::Duration::from_micros(100))
+    } else {
+        bevy::winit::UpdateMode::Continuous
+    };
     app.insert_resource(bevy::winit::WinitSettings {
-        focused_mode: bevy::winit::UpdateMode::Continuous,
-        unfocused_mode: bevy::winit::UpdateMode::Continuous,
+        focused_mode: update_mode,
+        unfocused_mode: update_mode,
     })
     .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(ClearColor(Color::BLACK))
@@ -72,6 +81,14 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     focused: std::env::var("ATMOSPHERE_BACKGROUND").is_err(),
+                    visible: std::env::var("ATMOSPHERE_BACKGROUND").is_err(),
+                    // No vsync in background runs: an occluded window's drawables are not
+                    // display-synced, so acquisition doesn't stall.
+                    present_mode: if std::env::var("ATMOSPHERE_BACKGROUND").is_ok() {
+                        bevy::window::PresentMode::AutoNoVsync
+                    } else {
+                        bevy::window::PresentMode::AutoVsync
+                    },
                     // Fixed 1280x720 physical pixels so dumps match across displays (retina = 2x).
                     resolution: bevy::window::WindowResolution::new(1280, 720)
                         .with_scale_factor_override(1.0),
@@ -158,7 +175,9 @@ fn bench_hooks(
     mut bench: ResMut<BenchSettings>,
     mut exit: MessageWriter<AppExit>,
     cloud_layers: Query<Entity, With<CloudLayer>>,
+    offscreen: Option<Res<OffscreenTarget>>,
 ) {
+    let offscreen = OffscreenTarget(offscreen.and_then(|o| o.0.clone()));
     let _sunset = bench.sunset; // sun tilt applied at spawn via ATMOSPHERE_SUNSET
     if bench.no_clouds {
         for entity in &cloud_layers {
@@ -172,7 +191,7 @@ fn bench_hooks(
     {
         bench.screenshot_taken = true;
         commands
-            .spawn(Screenshot::primary_window())
+            .spawn(offscreen.0.clone().map_or_else(Screenshot::primary_window, Screenshot::image))
             .observe(save_to_disk(path));
     }
     // `ATMOSPHERE_SCREENSHOT_FRAMES=<n>` + `ATMOSPHERE_SCREENSHOT=<dir/prefix>`: also capture each
@@ -181,7 +200,7 @@ fn bench_hooks(
         && bench.frame < n
     {
         commands
-            .spawn(Screenshot::primary_window())
+            .spawn(offscreen.0.clone().map_or_else(Screenshot::primary_window, Screenshot::image))
             .observe(save_to_disk(format!("{prefix}_f{:02}.png", bench.frame)));
     }
     bench.frame += 1;
@@ -350,8 +369,21 @@ fn visibility_toggle(
 fn setup_camera_fog(
     mut commands: Commands,
     mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+    mut images: ResMut<Assets<Image>>,
     asset_server: Res<AssetServer>,
 ) {
+    // `ATMOSPHERE_BACKGROUND=1`: render the camera into an offscreen 1280x720 image instead of the
+    // window. macOS stops redraws/drawables for occluded windows, so a window-backed run freezes
+    // when it is behind other windows; the window itself stays hidden and unfocused.
+    let offscreen = std::env::var("ATMOSPHERE_BACKGROUND").is_ok().then(|| {
+        images.add(Image::new_target_texture(
+            1280,
+            720,
+            bevy::render::render_resource::TextureFormat::Rgba8Unorm,
+            Some(bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb),
+        ))
+    });
+    commands.insert_resource(OffscreenTarget(offscreen.clone()));
     let mut medium = ScatteringMedium::earth(256, 256);
     medium.terms.push(ScatteringTerm {
         absorption: Vec3::splat(2e-5),
@@ -400,7 +432,11 @@ fn setup_camera_fog(
         CloudWeather::default(),
     ));
 
-    commands.spawn((
+    let mut camera = commands.spawn_empty();
+    if let Some(image) = offscreen {
+        camera.insert(bevy::camera::RenderTarget::Image(image.into()));
+    }
+    camera.insert((
         Camera3d::default(),
         // `ATMOSPHERE_VIEW=up|wide` picks an alternative camera for cloud screenshots.
         match std::env::var("ATMOSPHERE_VIEW").as_deref() {
@@ -625,3 +661,7 @@ fn dynamic_scene(
             .for_each(|mut tf| tf.rotate_x(-time.delta_secs() * PI / 40.0));
     }
 }
+
+/// Offscreen render target used by `ATMOSPHERE_BACKGROUND=1` runs.
+#[derive(Resource)]
+struct OffscreenTarget(Option<Handle<Image>>);
