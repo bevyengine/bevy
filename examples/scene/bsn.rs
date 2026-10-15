@@ -21,7 +21,7 @@ fn scene() -> impl SceneList {
 
 fn ui() -> impl Scene {
     bsn! {
-        #MainUI
+        #RootUI
         Node {
             width: percent(100),
             height: percent(100),
@@ -49,7 +49,7 @@ struct RootUi(Entity);
 fn button(label: &str, root_entity: EntityTemplate) -> impl Scene {
     bsn! {
         Button
-        RootUi( root_entity )
+        RootUi(root_entity)
         Node {
             width: px(150),
             height: px(65),
