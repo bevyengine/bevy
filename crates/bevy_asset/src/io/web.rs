@@ -5,6 +5,7 @@
 use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
 use crate::{AssetApp, AssetPlugin};
 use alloc::boxed::Box;
+use atomicow::CowArc;
 use bevy_app::{App, Plugin};
 use bevy_tasks::ConditionalSendFuture;
 use std::path::{Path, PathBuf};
@@ -198,13 +199,16 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 impl AssetReader for WebAssetReader {
     fn read<'a>(
         &'a self,
-        path: &'a Path,
+        path: CowArc<'a, Path>,
     ) -> impl ConditionalSendFuture<Output = Result<Box<dyn Reader>, AssetReaderError>> {
-        get(self.make_uri(path))
+        get(self.make_uri(&path))
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<dyn Reader>, AssetReaderError> {
-        let uri = self.make_meta_uri(path);
+    async fn read_meta<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<Box<dyn Reader>, AssetReaderError> {
+        let uri = self.make_meta_uri(&path);
         get(uri).await
     }
 
