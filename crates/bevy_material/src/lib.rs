@@ -73,8 +73,7 @@ pub struct MaterialProperties {
     /// [`Transmissive3d`](https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.Transmissive3d.html) pass.
     pub reads_view_transmission_texture: bool,
     pub render_phase_type: RenderPhaseType,
-    /// Which faces of the mesh are culled, inherited from the material (e.g.
-    /// [`StandardMaterial::cull_mode`]). `None` means both sides are drawn.
+    /// Which faces of the mesh are culled, inherited from the material
     ///
     /// Exposed here so render phases that build their own pipelines can honor
     /// the material's culling.
