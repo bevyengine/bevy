@@ -27,6 +27,8 @@ pub use bevy_app as app;
 pub use bevy_asset as asset;
 #[cfg(feature = "bevy_audio")]
 pub use bevy_audio as audio;
+#[cfg(feature = "bevy_bsn")]
+pub use bevy_bsn as bsn;
 #[cfg(feature = "bevy_camera")]
 pub use bevy_camera as camera;
 #[cfg(feature = "bevy_camera_controller")]
@@ -60,6 +62,8 @@ pub use bevy_image as image;
 pub use bevy_input as input;
 #[cfg(feature = "bevy_input_focus")]
 pub use bevy_input_focus as input_focus;
+#[cfg(feature = "bevy_inspector")]
+pub use bevy_inspector as inspector;
 #[cfg(feature = "bevy_light")]
 pub use bevy_light as light;
 #[cfg(feature = "bevy_log")]

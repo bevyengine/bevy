@@ -114,7 +114,7 @@
 //! | `KHR_materials_unlit`             | ✅        |                                     |
 //! | `KHR_materials_variants`          | ❌        |                                     |
 //! | `KHR_materials_volume`            | ✅        |                                     |
-//! | `KHR_mesh_quantization`           | ❌        |                                     |
+//! | `KHR_mesh_quantization`           | ✅        |                                     |
 //! | `KHR_meshopt_compression`         | ✅        | `meshopt`                           |
 //! | `KHR_node_hoverability`           | ❌        |                                     |
 //! | `KHR_node_selectability`          | ❌        |                                     |
