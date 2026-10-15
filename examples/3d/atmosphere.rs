@@ -72,7 +72,17 @@ fn main() {
         unfocused_mode: update_mode,
     })
     .insert_resource(DefaultOpaqueRendererMethod::deferred())
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(
+            // Debug: `ATMOSPHERE_CLEAR=r,g,b` (linear) to test background leakage through the
+            // sky's dual-source transmittance blend.
+            std::env::var("ATMOSPHERE_CLEAR")
+                .ok()
+                .and_then(|v| {
+                    let c: Vec<f32> = v.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                    (c.len() == 3).then(|| Color::linear_rgb(c[0], c[1], c[2]))
+                })
+                .unwrap_or(Color::BLACK),
+        ))
         .insert_resource(GameState::default())
         .insert_resource(GlobalAmbientLight::NONE)
         .add_plugins((
