@@ -1,4 +1,5 @@
 import bevy_sprite_render::mesh2d::vertex_output::VertexOutput;
+import bevy_render::writer_encode::writer_encode;
 // we can import items from shader modules in the assets folder with a relative path
 import super::custom_material_import::COLOR_MULTIPLIER;
 
@@ -8,5 +9,6 @@ import super::custom_material_import::COLOR_MULTIPLIER;
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
-    return material_color * textureSample(base_color_texture, base_color_sampler, mesh.uv) * COLOR_MULTIPLIER;
+    let color = material_color * textureSample(base_color_texture, base_color_sampler, mesh.uv) * COLOR_MULTIPLIER;
+    return writer_encode(color);
 }
