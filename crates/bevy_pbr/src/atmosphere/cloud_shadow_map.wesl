@@ -186,8 +186,10 @@ fn main(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let base_n = max(1u, settings.cloud_shadow_map_samples);
     let anchor_up = safe_normalize(anchor);
     let mu = abs(dot(anchor_up, trace_dir));
-    let horizon_factor = clamp(0.2 / max(mu, 1e-3), 0.0, 1.0);
-    const HORIZON_MULT: f32 = 2.0;
+    // Only grazing rays need many samples (hero/up views were unchanged down to 16 samples;
+    // sun:3 degraded below ~96).
+    let horizon_factor = clamp(0.08 / max(mu, 1e-3), 0.0, 1.0);
+    const HORIZON_MULT: f32 = 4.0;
     let n = min(512u, max(1u, u32(ceil(f32(base_n) * mix(1.0, HORIZON_MULT, horizon_factor)))));
     // let n = 24u;
     let dt = (t_end - t_start) / f32(n);
