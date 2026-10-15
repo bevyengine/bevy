@@ -72,7 +72,7 @@ impl Plugin for SolariLightingPlugin {
         if !features.contains(SolariPlugins::required_wgpu_features()) {
             warn!(
                 "SolariLightingPlugin not loaded. GPU lacks support for required features: {:?}.",
-                SolariPlugins::required_wgpu_features().difference(features)
+                SolariPlugins::required_wgpu_features().difference(*features)
             );
             return;
         }
