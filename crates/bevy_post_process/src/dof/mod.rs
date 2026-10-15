@@ -92,7 +92,8 @@ pub struct DepthOfField {
     /// Focal length is derived from the FOV and this value. The default is
     /// 18.66mm, matching the [Super 35] format, which is popular in cinema.
     ///
-    /// Unused in orthographic projection.
+    /// For an orthographic camera, blur is proportional to `sensor_height /
+    /// aperture_f_stops`.
     ///
     /// [image sensor format]: https://en.wikipedia.org/wiki/Image_sensor_format
     ///
@@ -102,9 +103,10 @@ pub struct DepthOfField {
     /// Along with the focal length, controls how much objects not in focus are
     /// blurred.
     ///
-    /// For an orthographic projection, this defines the distance from the focal
-    /// plane, in world units, at which the blur is one world unit in diameter.
-    /// The blur grows linearly with that distance.
+    /// **Tip:** For an orthographic camera, set `sensor_height` to the height
+    /// of the view in world units. Then `aperture_f_stops` is precisely the
+    /// distance, in world units, from the focal plane at which the blur is one
+    /// world unit in diameter.
     pub aperture_f_stops: f32,
 
     /// The maximum diameter, in pixels, that we allow a circle of confusion to be.
@@ -161,9 +163,14 @@ pub struct DepthOfFieldUniform {
 
     /// The premultiplied factor that we scale the circle of confusion by.
     ///
-    /// This is calculated as `focal_length² / (sensor_height *
-    /// aperture_f_stops)`, or for an orthographic projection as
-    /// `1 / (aperture_f_stops * view_height)`.
+    /// For a perspective camera, this is calculated as:
+    /// ```text
+    /// focal_length² / (sensor_height * aperture_f_stops)
+    /// ```
+    /// For an orthographic camera:
+    /// ```text
+    /// sensor_height / (aperture_f_stops * view_height²)
+    /// ```
     coc_scale_factor: f32,
 
     /// The maximum circle of confusion diameter in pixels. See the comment in
@@ -700,13 +707,14 @@ fn extract_depth_of_field_settings(
                     / (depth_of_field.sensor_height * depth_of_field.aperture_f_stops);
                 (focal_length, coc_scale_factor)
             }
-            // Orthographic blur's diameter grows linearly with distance from
-            // the focal plane, by one world unit per `aperture_f_stops` units
-            // of depth. Dividing by the view's height makes it a fraction of
-            // the view, consistent with perspective.
+            // For an orthographic camera, scale the circle of confusion so that
+            // its blur is a fraction of the view height (as per the perspective
+            // formula). This creates an effect similar to a distant perspective
+            // camera with a very narrow FOV.
             Projection::Orthographic(orthographic_projection) => {
-                let coc_scale_factor =
-                    1.0 / (depth_of_field.aperture_f_stops * orthographic_projection.area.height());
+                let view_height = orthographic_projection.area.height();
+                let coc_scale_factor = depth_of_field.sensor_height
+                    / (depth_of_field.aperture_f_stops * view_height * view_height);
                 (0.0, coc_scale_factor)
             }
             // Depth of field is nonsensical for other projections.

@@ -41,8 +41,14 @@ struct DepthOfFieldParams {
 
     /// The premultiplied factor that we scale the circle of confusion by.
     ///
-    /// This is calculated as `focal_length² / (sensor_height * aperture_f_stops)`,
-    /// or for an orthographic projection as `1 / (aperture_f_stops * view_height)`.
+    /// For a perspective camera, this is calculated as:
+    /// ```text
+    /// focal_length² / (sensor_height * aperture_f_stops)
+    /// ```
+    /// For an orthographic camera:
+    /// ```text
+    /// sensor_height / (aperture_f_stops * view_height²)
+    /// ```
     coc_scale_factor: f32,
 
     /// The maximum diameter, in pixels, that we allow a circle of confusion to be.
