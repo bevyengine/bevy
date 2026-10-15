@@ -99,8 +99,8 @@ pub struct DepthOfField {
     /// blurred.
     ///
     /// For an orthographic projection, this defines the distance from the focal
-    /// plane, in world units, at which the blur is one world unit across. The
-    /// blur grows linearly with that distance.
+    /// plane, in world units, at which the blur is one world unit in diameter.
+    /// The blur grows linearly with that distance.
     pub aperture_f_stops: f32,
 
     /// The maximum diameter, in pixels, that we allow a circle of confusion to be.
