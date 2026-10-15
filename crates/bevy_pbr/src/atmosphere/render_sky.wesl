@@ -147,9 +147,6 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     }
     }
     
-    // Debug: ignore the destination (cleared background) behind sky pixels, to test whether a
-    // non-black background leaks through `transmittance` (dual-source blend dst * T).
-    @if(ATM_DBG_SKY_NO_DST) { if depth == 0.0 { transmittance = vec3(0.0); } }
     @if(DUAL_SOURCE_BLENDING)
     return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));
     @if(!DUAL_SOURCE_BLENDING)

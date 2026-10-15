@@ -337,20 +337,17 @@ fn cloud_far_transmittance(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
         var far_max = CLOUD_FAR_MAX_M;
         var n_far = CLOUD_FAR_SAMPLES;
         var far_mip = 3.0;
-        @if(!ATM_DBG_FAR_SHORT) {
-            // ~1.5 km tap spacing (2 taps over a 10+ km grazing path skipped whole clouds).
-            if (dot(direction_to_light, normalize(world_pos)) < CLOUD_FAR_GRAZING_MU) {
+        // ~1.5 km tap spacing (2 taps over a 10+ km grazing path skipped whole clouds).
+        if (dot(direction_to_light, normalize(world_pos)) < CLOUD_FAR_GRAZING_MU) {
             n_far = u32(clamp(ceil(min(full, CLOUD_FAR_MAX_M) / CLOUD_FAR_TAP_M), f32(CLOUD_FAR_SAMPLES), f32(CLOUD_FAR_LONG_SAMPLES)));
-            }
         }
-        @if(ATM_DBG_FAR_LONG) { far_max = 400000.0; n_far = 16u; }
         let t1 = min(seg.y, t0 + far_max);
         let dt = (t1 - t0) / f32(n_far);
         let sigma_t = get_cloud_scattering_coeff() + get_cloud_absorption_coeff();
         for (var i = 0u; i < n_far; i++) {
             let q = world_pos + direction_to_light * (t0 + (f32(i) + 0.5) * dt);
             var dq = get_cloud_medium_density_lod(length(q), q, far_mip);
-            @if(!ATM_DBG_FAR_FINE && !CLOUD_PASS) { dq = get_cloud_medium_density_coarse(length(q), q) * CLOUD_FAR_COARSE_SCALE; }
+            @if(!CLOUD_PASS) { dq = get_cloud_medium_density_coarse(length(q), q) * CLOUD_FAR_COARSE_SCALE; }
             od += dq * sigma_t * dt;
         }
     }
@@ -513,10 +510,7 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         // Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
         var multiscattering_factor = psi_ms * local_scattering;
-        @if(ATM_DBG_MS_SHADOW) { multiscattering_factor *= cloud_sun_t; }
-        @if(ATM_DBG_MS_SHADOW_HALF) { multiscattering_factor *= mix(1.0, cloud_sun_t, 0.5); }
         @if(ATM_DBG_NOMS) { multiscattering_factor = vec3(0.0); }
-        @if(ATM_DBG_MSONLY) { inscattering += (*light).color.rgb * multiscattering_factor; continue; }
 
         inscattering += (*light).color.rgb * (scattering_factor + multiscattering_factor);
     }
@@ -943,16 +937,14 @@ fn raymarch_atmosphere(
         }
         // Skylight on the ground (Lambert): dominant at low sun and missing before
         // (ground was 3-50x too dark in blue at 3 deg sun elevation).
-        @if(!ATM_DBG_NO_GROUND_SKY) {
         var e_sky = ground_sky_irradiance(sphere_point, pixel_coords);
         @if(CLOUDS_ENABLED) {
-        // The sky-view LUT has no clouds: per skylight direction, replace the clear sky by
-        // dimmer cloud bases using the cloud transmittance along it (floor = light the clouds
-        // scatter down).
-        e_sky = ground_sky_irradiance_clouds(sphere_point);
+            // The sky-view LUT has no clouds: per skylight direction, replace the clear sky by
+            // dimmer cloud bases using the cloud transmittance along it (floor = light the clouds
+            // scatter down).
+            e_sky = ground_sky_irradiance_clouds(sphere_point);
         }
         result.inscattering += exp(-optical_depth) * atmosphere.ground_albedo / PI * e_sky;
-        }
     }
 
     return result;
@@ -977,9 +969,7 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
         // Diffuse transmission depends on the sun's incidence at the cloud top: Monte Carlo slab
         // (HG 0.85, conservative, validation/sky/slab_t.py) fits T ~ (0.35 + 0.9 mu0) / (1 + 0.1125 tau)
         // within ~8 % for tau >= 5; at grazing sun (mu0 0.05) that is 0.4x the mu0-free form.
-        @if(!ATM_DBG_GSKY_NO_MU0) {
         e_top *= 0.35 + 0.9 * max(mu_l, 0.0);
-        }
     }
     var sum = vec3(0.0);
     for (var k = 0u; k < GROUND_SKY_DIRS; k++) {

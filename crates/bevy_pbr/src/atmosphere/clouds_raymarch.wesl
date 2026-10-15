@@ -106,13 +106,6 @@ fn sample_sky_irradiance(r: f32) -> vec3<f32> {
     // non-uniform azimuth set relative to the sun.
     var sum = 2.0 * sample_sky_view_lut(r, vec3(0.0, 1.0, 0.0));
     let elev = 0.45;
-    @if(ATM_DBG_IRR_WORLD) {
-        let dirs = array(vec3(1.0, elev, 0.0), vec3(-1.0, elev, 0.0), vec3(0.0, elev, 1.0),
-            vec3(0.0, elev, -1.0), vec3(0.707, elev, 0.707), vec3(-0.707, elev, -0.707));
-        var s0 = sample_sky_view_lut(r, vec3(0.0, 1.0, 0.0));
-        for (var i = 0u; i < 6u; i++) { s0 += sample_sky_view_lut(r, normalize(dirs[i])); }
-        return s0 / 7.0;
-    }
     for (var i = 0u; i < 8u; i++) {
         let a = f32(i) * 0.7853982;
         sum += sample_sky_view_lut(r, normalize(vec3(sin(a), elev, -cos(a))));
@@ -128,15 +121,11 @@ fn sample_sky_irradiance(r: f32) -> vec3<f32> {
 /// octave-style `b` scaling) instead of the previous 0.35 x pow(1-profile, 0.5) double darkening.
 fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t: f32, thickness: f32) -> vec3<f32> {
     var k = sigma_t * CLOUD_AMBIENT_EXT_SCALE;
-    @if(ATM_DBG_AMBEXT2) { k *= 2.0; }
-    @if(ATM_DBG_AMBEXT4) { k *= 4.0; }
     let vis_up = exp(-k * (1.0 - h) * thickness);
     let vis_down = exp(-k * h * thickness);
     var a_scale = CLOUD_AMBIENT_SCALE;
-    @if(ATM_DBG_AMB_UP10) { a_scale *= 1.1; }
-    @if(ATM_DBG_AMB_PHYS || ATM_DBG_NUBIS_MS) { a_scale = 1.0; }
+    @if(ATM_DBG_NUBIS_MS) { a_scale = 1.0; }
     var g_scale = a_scale;
-    @if(ATM_DBG_AMB_GROUND1) { g_scale = 1.0; }
     return 0.5 * (a_scale * sky_rad * vis_up + g_scale * ground_rad * vis_down);
 }
 
@@ -146,13 +135,11 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
 // energy-conserving) integral of that segment; only the cloud-shadow visibility is assumed constant
 // per segment and taken at a blue-noise jittered position. Segments follow the LUT's squared depth
 // distribution and scale with distance; the half-res reconstruct accumulates the jitter.
-const HAZE_FAR_MS_FLOOR: f32 = 0.05;
 /// Cloud shadow on the ground point below a cloud sample (ground-bounce ambient). Uses the
 /// direct coarse march rather than the shadow map: the map's ground lookups disagreed with the
 /// out-of-volume fallback, so the map's xy boundary showed up as a hard straight edge in the
-/// cloud ambient (up:35). `ATM_DBG_GROUND_MAP` restores the old lookup for comparison.
+/// cloud ambient (up:35).
 fn ground_cloud_shadow(p_g: vec3<f32>, l: vec3<f32>) -> f32 {
-    @if(ATM_DBG_GROUND_MAP) { return sample_cloud_shadow_map(p_g, l, false); }
     return cloud_far_transmittance(p_g, l, false);
 }
 
@@ -174,7 +161,6 @@ fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: 
             vis = sample_cloud_shadow_map(origin + ray_dir * (d * xj * xj), l, false);
         }
         @if(ATM_DBG_HAZE_NOSHADOW) { vis = 1.0; }
-        @if(ATM_DBG_HAZE_FLOOR) { vis = mix(HAZE_FAR_MS_FLOOR, 1.0, vis); }
         acc += max(cur - prev, vec3(0.0)) * vis;
         prev = cur;
     }
@@ -217,11 +203,9 @@ fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: 
             ms = min(ms * e_sun, sky_seg);
             // psi_ms assumes lit surroundings; under the deck about half of its sources are in
             // the cloud shadow too (sun:3 / hero:35 vs reference: none +34/-6, half -12/-10, full -58/-14).
-            @if(!ATM_DBG_FAR_MS_NOSHADOW && !ATM_DBG_FAR_MS_SHADOW) { ms *= mix(1.0, vis_far, 0.5); }
-            @if(ATM_DBG_FAR_MS_SHADOW) { ms *= vis_far; }
+            ms *= mix(1.0, vis_far, 0.5);
         }
         var far = (sky_seg - ms) * vis_far + ms;
-        @if(ATM_DBG_HAZE_FLOOR_CONST) { far = sky_seg * mix(HAZE_FAR_MS_FLOOR, 1.0, vis_far); }
         acc = mix(acc, far, w);
     }
     return acc;
@@ -581,9 +565,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         var fine_mode = false;
         var fine_empty: u32 = 0u;
         var step_i: u32 = 0u;
-        var max_steps = u32(CLOUD_MAX_STEPS);
-        var step_far = CLOUD_STEP_FAR_OFFSET_M;
-        @if(ATM_DBG_STEP_FINE) { max_steps *= 4u; step_far *= 0.25; }
+        let max_steps = u32(CLOUD_MAX_STEPS);
+        let step_far = CLOUD_STEP_FAR_OFFSET_M;
 
         loop {
             if (t >= t_end || step_i >= max_steps || transmittance < CLOUD_MIN_TRANSMITTANCE) {
@@ -662,7 +645,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 var n_taps = LIGHT_TAP_COUNT;
                 var tap_growth = LIGHT_TAP_GROWTH;
                 var tap_lod = LIGHT_TAP_LOD;
-                @if(ATM_DBG_LT_OLD) { n_taps = 6u; tap_growth = 2.0; tap_lod = 0.5; }
                 for (var k = 0u; k < n_taps; k++) {
                     let pk = p + l * (tap_t + 0.5 * tap_dt);
                     let dk = get_cloud_medium_density_lod(length(pk), pk, mip + tap_lod * f32(k));
@@ -706,14 +688,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 // Isotropic (1/4pi) floor: the old 1/pi floor saturated at the current extinction
                 // and over-counted back-scatter 4x.
                 let phase_floor = (0.25 / PI) * saturate(sigma_t * CLOUD_BACK_SCATTER_EXT_SCALE);
-                // Higher octaves need light to scatter again: scale them by the local cloud depth
-                // (Nubis dimensional profile, 0 at the edge -> 1 inside; Nubis3 1:40:50).
-                var oct_w = 1.0;
-                @if(ATM_DBG_OCT_PROFILE) { oct_w = saturate(dimensional_profile); }
-                @if(ATM_DBG_OCT_PROFILE_SQRT) { oct_w = sqrt(saturate(dimensional_profile)); }
-                var ms_a = MS_A;
-                @if(ATM_DBG_MSA7) { ms_a = 0.72; }
-                @if(ATM_DBG_MSA5) { ms_a = 0.5; }
+                let ms_a = MS_A;
                 var n_oct = MS_OCTAVES;
                 @if(CLOUD_TERM_S1) { n_oct = 1u; }
                 for (var o = 0u; o < n_oct; o++) {
@@ -721,7 +696,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     // Octave softening (b < 1) only on the local march: applied to the far
                     // shadow-map part it let tens of km of cloud deck transmit light at low sun.
                     direct += a * pow(t_local, b) * pow(t_far, max(b, CLOUD_FAR_SHADOW_MIN_EXP)) * phase
-                        * select(oct_w, dark_edge, o == 0u);
+                        * select(1.0, dark_edge, o == 0u);
                     a *= ms_a;
                     b *= MS_B;
                     c *= MS_C;
@@ -747,51 +722,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     let ms_vol = prof * ms_att
                         * pow(t_far, CLOUD_FAR_SHADOW_MIN_EXP);
                     direct = ss + ms_vol * (MS_A / (1.0 - MS_A)) * (0.25 / PI);
-                    // Diffusion limit: deep in an optically thick, near-conservative medium the
-                    // radiance is ~isotropic with flux ~ the incident flux, L ~ F / pi.
-                    @if(ATM_DBG_NUBIS_DIFF) { direct = ss + ms_vol / PI; }
-                }
-                // Forward deep scatter: diffusion through a lot of cloud stays forward-peaked
-                // (backlit cloud bodies, hero:35); only where the sun optical depth is high.
-                @if(ATM_DBG_DEEP_FWD) {
-                    let deep = (1.0 - exp(-0.5 * light_optical_depth)) * pow(max(t_cloud, 1e-6), 0.1);
-                    direct += 0.5 * deep * hg_phase(cos_theta, 0.6);
                 }
                 direct_sum += (*light).color.rgb * t_atm * direct;
             }
-            var sky_up = sky_irr;
-            @if(ATM_DBG_AMB_TOPSUN) {
-                if (lights.n_directional_lights > 0u) {
-                    let l0 = lights.directional_lights[0].direction_to_light;
-                    let mu0 = dot(l0, up);
-                    sky_up += lights.directional_lights[0].color.rgb * sample_transmittance_lut(r_p, mu0)
-                        * max(mu0, 0.0) / PI;
-                }
-            }
-            var ambient = cloud_ambient_term(sky_up, ground_rad, h_frac, sigma_t,
+            var ambient = cloud_ambient_term(sky_irr, ground_rad, h_frac, sigma_t,
                 cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start);
-            // Nubis3 ambient: attenuate the sky hemisphere by the density actually summed along a
-            // short upward probe (exp(-summed_ambient_density)), not the local density x distance
-            // to the layer top (bright wispy bases under thick bodies).
-            @if(ATM_DBG_AMB_PROBE) {
-                var od_up = 0.0;
-                var pt = 0.0;
-                var pdt = 60.0;
-                for (var k = 0u; k < 5u; k++) {
-                    let pk = p + up * (pt + 0.5 * pdt);
-                    od_up += get_cloud_medium_density_lod(length(pk), pk, mip + 1.0 + 0.5 * f32(k)) * pdt;
-                    pt += pdt;
-                    pdt *= 2.0;
-                }
-                var k_amb = CLOUD_AMBIENT_EXT_SCALE;
-                @if(ATM_DBG_AMB_PROBE_SIM) { k_amb = 0.15; }
-                let vis_up_p = exp(-k_amb * od_up * sigma_t_unit);
-                let ground_part = cloud_ambient_term(vec3(0.0), ground_rad, h_frac, sigma_t,
-                    cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start);
-                ambient = ground_part + 0.5 * CLOUD_AMBIENT_SCALE * sky_up * vis_up_p;
-            }
             // Nubis Cubed ambient scattering approximation: pow(1 - dimensional_profile, 0.5).
-            @if(ATM_DBG_NUBIS_MS && !ATM_DBG_NUBIS_NOAMBP) {
+            @if(ATM_DBG_NUBIS_MS) {
                 ambient *= sqrt(saturate(1.0 - dimensional_profile));
             }
             // Validation term toggles (CLOUD_TERMS=s1|sun|amb, see resources.rs).
@@ -826,30 +763,17 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             // T_sim = exp(-(τ_a + τ_s_ray + (1-g)τ_s_mie)) = T_bal · exp(τ_red),
             // τ_red = ∫ g·σ_s_mie from the transmittance LUT alpha (Rayleigh stays ballistic).
             // Homogeneous-haze MC: τ=1.2 T_bal 0.30 vs MC vis 0.73; T_sim 0.64 (progress run 10).
-            // Optional ATM_DBG_AP_BAL keeps ballistic T; ATM_DBG_AP_SIM retains the old T^0.37 probe.
+            // Optional ATM_DBG_AP_BAL keeps ballistic T.
             let tau_red = sample_transmittance_lut_segment_tau_red(r, mu, weighted_depth);
-            @if(ATM_DBG_AP_SIM) {
-                t_ap = pow(t_ap, vec3(0.37));
-            } @else {
-                @if(!ATM_DBG_AP_BAL) {
-                    // View-dependent weight: similarity is for extended sources seen through
-                    // forward-scattering media, not for the solar forward lobe (over-brightens
-                    // sun:3) or steep up-looks (little haze OD, still lifted L_c). Fade out
-                    // inside ~cos>0.92 of the sun and for mu≳0.2 (elev≳11°).
-                    var w_sim = 1.0;
-                    if (lights.n_directional_lights > 0u) {
-                        let cos_s = saturate(dot(ray_dir, lights.directional_lights[0].direction_to_light));
-                        w_sim = saturate((0.98 - cos_s) / 0.06);
-                        // The sun cone predates the atmosphere-space haze fix; with the deck
-                        // in-scatter it left bases toward the sun too dark (sun:3 0.77x vs 0.93x).
-                        @if(!ATM_DBG_SIM_CONE) { w_sim = 1.0; }
-                    }
-                    @if(!ATM_DBG_SIM_NOMU) { w_sim *= saturate(1.0 - max(mu, 0.0) / 0.20); }
-                    t_ap = t_ap * exp(tau_red * w_sim);
-                }
+            @if(!ATM_DBG_AP_BAL) {
+                // View-dependent weight (beyond research, design.md): similarity is for extended
+                // sources seen through forward-scattering haze, not steep up-looks (little haze
+                // OD, still lifted L_c): fade out for mu >= 0.2 (elev >= 11 deg). The former
+                // sun-cone fade left bases toward a low sun too dark and was removed.
+                let w_sim = saturate(1.0 - max(mu, 0.0) / 0.20);
+                t_ap = t_ap * exp(tau_red * w_sim);
             }
             var haze = cloud_shadowed_haze(uv, ray_origin, ray_dir, weighted_depth, r, mu, j);
-            @if(ATM_DBG_HAZE_SKY) { haze = sample_sky_view_lut(r, direction_world_to_atmosphere(ray_dir)) * (1.0 - sample_transmittance_lut_segment(r, mu, weighted_depth)); }
             @if(ATM_DBG_TAP_ONE) { t_ap = vec3(1.0); }
             lum = t_ap * luminance + (1.0 - transmittance) * haze;
         }

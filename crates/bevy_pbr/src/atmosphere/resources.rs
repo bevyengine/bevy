@@ -2002,7 +2002,20 @@ fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
     defs
 }
 
-/// Debug: arbitrary extra defs for the atmosphere shaders, e.g. `ATMOSPHERE_DBG=ATM_DBG_NOMS`.
+/// Debug: extra shader defs for the atmosphere shaders, comma separated
+/// (`ATMOSPHERE_DBG=ATM_DBG_NOMS,ATM_DBG_TAP_ONE`). Supported debug defs:
+/// - `ATM_DBG_NOSHADOW`: no cloud shadow on the atmosphere in-scatter.
+/// - `ATM_DBG_NOMS`: no atmosphere multiple scattering (single scatter only).
+/// - `ATM_DBG_HAZE_NOSHADOW`: unshadowed aerial perspective in front of clouds.
+/// - `ATM_DBG_AP_BAL`: ballistic (non-similarity) aerial-perspective transmittance.
+/// - `ATM_DBG_TAP_ONE`: no aerial-perspective transmittance on cloud luminance (term split).
+/// - `ATM_DBG_NO_FAR_SHADOW`: drop the cloud shadow map beyond the local light march.
+/// - `ATM_DBG_MIP0`: full-resolution cloud noise at any distance.
+/// - `ATM_DBG_OUT_H`: write height-in-layer / profile / depth instead of cloud colour.
+/// - `ATM_DBG_NO_SDF_SKIP`: disable cloud-SDF empty-space skipping.
+/// - `ATM_DBG_NUBIS_MS` (+ `ATM_DBG_NUBIS_OD`): Nubis Cubed secondary scattering and ambient
+///   (under investigation, see design.md).
+/// See also `CLOUD_TERMS=s1|sun|amb` and `CLOUD_REFERENCE=1`.
 fn atm_dbg_defs() -> Vec<bevy_shader::ShaderDefVal> {
     std::env::var("ATMOSPHERE_DBG")
         .map(|v| v.split(',').filter(|d| !d.is_empty()).map(|d| d.to_string().into()).collect())
