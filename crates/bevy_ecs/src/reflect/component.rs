@@ -59,7 +59,7 @@
 
 use super::from_reflect_with_fallback;
 use crate::{
-    change_detection::Mut,
+    change_detection::MutNoComp,
     component::{ComponentId, ComponentMutability},
     entity::{Entity, EntityMapper},
     prelude::Component,
@@ -123,14 +123,15 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::reflect()`].
     pub reflect: for<'w> fn(FilteredEntityRef<'w, '_>) -> Option<&'w dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-    pub reflect_mut: for<'w> fn(FilteredEntityMut<'w, '_>) -> Option<Mut<'w, dyn Reflect>>,
+    pub reflect_mut: for<'w> fn(FilteredEntityMut<'w, '_>) -> Option<MutNoComp<'w, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::map_entities()`].
     pub map_entities: fn(&mut dyn Reflect, &mut dyn EntityMapper),
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
     /// The function may only be called with an [`UnsafeEntityCell`] that can be used to mutably access the relevant component on the given entity.
-    pub reflect_unchecked_mut: unsafe fn(UnsafeEntityCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
+    pub reflect_unchecked_mut:
+        unsafe fn(UnsafeEntityCell<'_>) -> Option<MutNoComp<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::register_component()`].
@@ -217,7 +218,7 @@ impl ReflectComponent {
     pub fn reflect_mut<'w, 's>(
         &self,
         entity: impl Into<FilteredEntityMut<'w, 's>>,
-    ) -> Option<Mut<'w, dyn Reflect>> {
+    ) -> Option<MutNoComp<'w, dyn Reflect>> {
         (self.0.reflect_mut)(entity.into())
     }
 
@@ -233,7 +234,7 @@ impl ReflectComponent {
     pub unsafe fn reflect_unchecked_mut<'a>(
         &self,
         entity: UnsafeEntityCell<'a>,
-    ) -> Option<Mut<'a, dyn Reflect>> {
+    ) -> Option<MutNoComp<'a, dyn Reflect>> {
         // SAFETY: safety requirements deferred to caller
         unsafe { (self.0.reflect_unchecked_mut)(entity) }
     }
