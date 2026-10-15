@@ -600,10 +600,11 @@ impl RelationshipSourceCollection for VecDeque<Entity> {
     }
 
     fn add(&mut self, entity: Entity) -> bool {
-        self.push_front(entity);
+        self.push_back(entity);
         true
     }
 
+    /// Rmoves the given entity. If the entity is on the back or the front, it uses the respective pop implementation.
     fn remove(&mut self, entity: Entity) -> bool {
         if Some(&entity) == self.back() {
             self.pop_back();
@@ -637,6 +638,73 @@ impl RelationshipSourceCollection for VecDeque<Entity> {
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         self.extend(entities);
+    }
+}
+
+impl OrderedRelationshipSourceCollection for VecDeque<Entity> {
+    fn insert(&mut self, index: usize, entity: Entity) {
+        if index == 0 {
+            self.push_front(entity);
+        } else {
+            self.push_back(entity);
+            if index < self.len() {
+                self.swap(index, self.len());
+            }
+        }
+    }
+
+    fn remove_at(&mut self, index: usize) -> Option<Entity> {
+        if index == 0 {
+            self.pop_front()
+        } else if index == self.len() {
+            self.pop_back()
+        } else {
+            self.swap_remove_back(index)
+        }
+    }
+
+    fn insert_stable(&mut self, index: usize, entity: Entity) {
+        if index == 0 {
+            self.push_front(entity);
+        } else if index >= self.len() {
+            self.push_back(entity);
+        } else {
+            self.insert(index, entity);
+        }
+    }
+
+    fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
+        if index == 0 {
+            self.pop_front()
+        } else if index == self.len() {
+            self.pop_back()
+        } else {
+            self.remove(index)
+        }
+    }
+
+    fn sort(&mut self) {
+        self.make_contiguous().sort();
+    }
+
+    fn insert_sorted(&mut self, entity: Entity) {
+        let index = self
+            .binary_search(&entity)
+            .unwrap_or_else(std::convert::identity);
+        self.insert_stable(index, entity);
+    }
+
+    fn place_most_recent(&mut self, index: usize) {
+        let entity = self.pop_back();
+        if let Some(entity) = entity {
+            OrderedRelationshipSourceCollection::insert(self, index, entity);
+        }
+    }
+
+    fn place(&mut self, entity: Entity, index: usize) {
+        if RelationshipSourceCollection::remove(self, entity) {
+            OrderedRelationshipSourceCollection::insert(self, index, entity);
+        }
     }
 }
 
