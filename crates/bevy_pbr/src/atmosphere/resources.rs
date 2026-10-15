@@ -712,6 +712,7 @@ impl FromWorld for AtmosphereLutPipelines {
             .into_iter()
             .chain(cloud_reference_def())
             .chain(cloud_term_defs())
+            .chain(atm_dbg_defs())
             .collect(),
             ..default()
         });

@@ -381,6 +381,8 @@ pub fn render_sky(
             ("shadow_raw", &textures.cloud_shadow_map_tmp.texture),
             ("clouds_trace_prev", &textures.clouds_trace.texture),
             ("clouds_recon_prev", &textures.clouds.texture),
+            ("ms_lut", &textures.multiscattering_lut.texture),
+            ("sky_view_lut", &textures.sky_view_lut.texture),
         ] {
             d(command_encoder, name, t, 0, s2(t), 8, "rgba16f");
         }
