@@ -1,7 +1,7 @@
 ---
 title: Dock UI
 authors: ["@jbuehler23"]
-pull_requests: []
+pull_requests: [26183]
 ---
 
 `DockPlugin` builds UI for every entity with a `DockTree`. It is part of `UiWidgetsPlugins`, so `DefaultPlugins` includes it. Each split becomes a split pane with draggable handles, and each tab group becomes a tab list above a content area. When the tree changes, the UI is updated in place: groups and tabs that are still present keep their entities.
