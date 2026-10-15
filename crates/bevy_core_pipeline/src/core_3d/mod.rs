@@ -91,7 +91,7 @@ use crate::{
         OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey, ViewPrepassTextures,
         MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
-    schedule::Core3d,
+    schedule::{Core3d, Core3dShadows},
     skybox::SkyboxPlugin,
     tonemapping::{DebandDither, Tonemapping},
     Core3dSystems,
@@ -142,6 +142,7 @@ impl Plugin for Core3dPlugin {
                 ),
             )
             .add_schedule(Core3d::base_schedule())
+            .add_schedule(Core3dShadows::base_schedule())
             .add_systems(
                 Core3d,
                 (
