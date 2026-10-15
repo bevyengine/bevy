@@ -415,6 +415,7 @@ fn get_cloud_medium_density_lod(r: f32, world_pos: vec3<f32>, mip: f32) -> f32 {
 
 fn cloud_mip_from_distance(dist_m: f32) -> f32 {
     // Nubis3: mip = log2(1 + dist · k). k chosen so ~mip 0 near, ~mip 4 at ~16 km.
+    @if(ATM_DBG_MIP0) { return 0.0; }
     return log2(1.0 + dist_m * (1.0 / 4000.0));
 }
 

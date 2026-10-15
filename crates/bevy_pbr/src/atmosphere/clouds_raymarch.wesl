@@ -110,7 +110,9 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
     let k = sigma_t * CLOUD_AMBIENT_EXT_SCALE;
     let vis_up = exp(-k * (1.0 - h) * thickness);
     let vis_down = exp(-k * h * thickness);
-    return CLOUD_AMBIENT_SCALE * 0.5 * (sky_rad * vis_up + ground_rad * vis_down);
+    var g_scale = CLOUD_AMBIENT_SCALE;
+    @if(ATM_DBG_AMB_GROUND1) { g_scale = 1.0; }
+    return 0.5 * (CLOUD_AMBIENT_SCALE * sky_rad * vis_up + g_scale * ground_rad * vis_down);
 }
 
 // Aerial perspective between the camera and the cloud (at the transmittance-weighted depth d),
