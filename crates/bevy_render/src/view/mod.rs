@@ -1366,25 +1366,13 @@ pub fn cleanup_view_targets_for_resize(
 /// The settings that decide which cameras share main textures. Cameras with
 /// equal keys share one allocation in [`prepare_view_targets`], and
 /// [`resolve_composition_spaces`] groups them the same way.
-type MainTextureKey = (
-    Option<NormalizedRenderTarget>,
-    TextureUsages,
-    TextureFormat,
-    Msaa,
-);
+///
+/// [`CameraMainTextureUsages`] isn't part of the key, because render world
+/// systems can add usages after [`resolve_composition_spaces`] runs.
+type MainTextureKey = (Option<NormalizedRenderTarget>, TextureFormat, Msaa);
 
-fn main_texture_key(
-    camera: &ExtractedCamera,
-    view: &ExtractedView,
-    texture_usage: &CameraMainTextureUsages,
-    msaa: Msaa,
-) -> MainTextureKey {
-    (
-        camera.target.clone(),
-        texture_usage.0,
-        view.target_format,
-        msaa,
-    )
+fn main_texture_key(camera: &ExtractedCamera, view: &ExtractedView, msaa: Msaa) -> MainTextureKey {
+    (camera.target.clone(), view.target_format, msaa)
 }
 
 pub fn prepare_view_targets(
@@ -1405,8 +1393,15 @@ pub fn prepare_view_targets(
 ) {
     main_texture_atomics.retain(|_, weak| weak.strong_count() > 0);
 
+    let mut usages = <HashMap<_, TextureUsages>>::default();
+    for (_, camera, view, texture_usage, msaa, _) in cameras.iter() {
+        *usages
+            .entry(main_texture_key(camera, view, *msaa))
+            .or_insert(TextureUsages::empty()) |= texture_usage.0;
+    }
+
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, view, texture_usage, msaa, resolved_space) in cameras.iter() {
+    for (entity, camera, view, _, msaa, resolved_space) in cameras.iter() {
         let Some(target_size) = camera.physical_target_size else {
             // If we don't have a target size, we can't create the main texture and have to bail
             commands.entity(entity).try_remove::<ViewTarget>();
@@ -1443,7 +1438,7 @@ pub fn prepare_view_targets(
                 Some(CompositingSpace::Linear) | None => LinearRgba::from(color).into(),
             });
 
-        let key = main_texture_key(camera, view, texture_usage, *msaa);
+        let key = main_texture_key(camera, view, *msaa);
         let (a, b, sampled, main_texture) = textures.entry(key.clone()).or_insert_with(|| {
             let descriptor = TextureDescriptor {
                 label: None,
@@ -1452,7 +1447,7 @@ pub fn prepare_view_targets(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: main_texture_format,
-                usage: texture_usage.0,
+                usage: usages[&key],
                 view_formats: match main_texture_format {
                     TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
                     TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
