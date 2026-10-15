@@ -724,6 +724,40 @@ mod tests {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3};
 
     #[test]
+    fn look_to() {
+        let mut iso = Isometry3d::IDENTITY;
+        iso.look_to(Vec3::new(1.0, 0.0, 0.0), Vec3::Y);
+        assert_abs_diff_eq!(iso.forward(), Dir3::new_unchecked(Vec3::X));
+        assert_abs_diff_eq!(iso.up(), Dir3::new_unchecked(Vec3::Y));
+
+        iso.rotate(Quat::from_rotation_y(FRAC_PI_2));
+        assert_abs_diff_eq!(iso.forward(), Dir3::new_unchecked(Vec3::NEG_Z));
+        assert_abs_diff_eq!(iso.up(), Dir3::new_unchecked(Vec3::Y));
+    }
+
+    #[test]
+    fn look_lots_of_directions() {
+        use crate::ops::sin_cos;
+
+        let mut iso = Isometry3d::IDENTITY;
+        const STEPS: usize = 100;
+        for i in 0..STEPS {
+            let angle = i as f32 * (std::f32::consts::TAU / STEPS as f32);
+
+            let (sin, cos) = sin_cos(angle);
+            let direction = Vec3::new(sin, 0.0, cos);
+            iso.look_to(direction, Vec3::Y);
+
+            // asserting with abs_diff_eq on the direction has too large an error for some angles.
+            // -Z is forwards, so `quat * -Z` should equal the normalized direction.
+            assert!(
+                (iso.rotation * Vec3::NEG_Z - direction).length() < 1e-6,
+                "Failed for angle: {angle}"
+            );
+        }
+    }
+
+    #[test]
     fn mul_2d() {
         let iso1 = Isometry2d::new(vec2(1.0, 0.0), Rot2::FRAC_PI_2);
         let iso2 = Isometry2d::new(vec2(0.0, 1.0), Rot2::FRAC_PI_2);
