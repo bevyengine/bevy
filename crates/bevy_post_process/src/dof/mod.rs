@@ -161,21 +161,14 @@ pub struct DepthOfFieldUniform {
     /// The distance in meters to the location in focus.
     focal_distance: f32,
 
-    /// The focal length. See the comment in `DepthOfFieldParams` in `dof.wesl`
-    /// for more information.
-    focal_length: f32,
-
     /// The premultiplied factor that we scale the circle of confusion by.
     ///
-    /// For a perspective camera, this is calculated as:
-    /// ```text
-    /// focal_length² / (sensor_height * aperture_f_stops)
-    /// ```
-    /// For an orthographic camera:
+    /// This is calculated as:
     /// ```text
     /// sensor_height / (aperture_f_stops * view_height * (view_height - sensor_height))
     /// ```
-    /// See `calculate_circle_of_confusion` in `dof.wesl` for the derivation.
+    /// `view_height` is the height of the view at the focal plane. See
+    /// `calculate_circle_of_confusion` in `dof.wesl` for the derivation.
     coc_scale_factor: f32,
 
     /// The maximum circle of confusion diameter in pixels. See the comment in
@@ -192,6 +185,8 @@ pub struct DepthOfFieldUniform {
     pad_b: u32,
     /// Padding.
     pad_c: u32,
+    /// Padding.
+    pad_d: u32,
 }
 
 /// A key that uniquely identifies depth of field pipelines.
@@ -702,32 +697,17 @@ fn extract_depth_of_field_settings(
             .get_entity(entity)
             .expect("Depth of field entity wasn't synced.");
 
-        let (focal_length, coc_scale_factor) = match projection {
+        // The height of the view at the focal plane. Perspective and
+        // orthographic cameras with the same view height there, sensor height
+        // and f-stops get the same scale factor, so switching between them
+        // doesn't change the blur at the focal plane. See
+        // `calculate_circle_of_confusion` in `dof.wesl`.
+        let view_height = match projection {
             Projection::Perspective(perspective_projection) => {
-                let focal_length = calculate_focal_length(
-                    depth_of_field.sensor_height,
-                    perspective_projection.fov,
-                );
-                let coc_scale_factor = focal_length * focal_length
-                    / (depth_of_field.sensor_height * depth_of_field.aperture_f_stops);
-                (focal_length, coc_scale_factor)
+                2.0 * depth_of_field.focal_distance * ops::tan(0.5 * perspective_projection.fov)
             }
-            // This is the limit of the perspective scale factor as the FOV goes
-            // to zero with the view height at the focal plane held fixed, so
-            // switching between projections doesn't change the blur. See
-            // `calculate_circle_of_confusion` in `dof.wesl` for the derivation.
-            //
-            // The `max` stands in for the shader's `max(focus - f, EPSILON)`. At
-            // or below the sensor height, the limiting perspective camera is
-            // focused inside its focal length and its blur diverges, so clamp
-            // to a large finite scale.
             Projection::Orthographic(orthographic_projection) => {
-                let view_height = orthographic_projection.area.height();
-                let coc_scale_factor = depth_of_field.sensor_height
-                    / (depth_of_field.aperture_f_stops
-                        * view_height
-                        * (view_height - depth_of_field.sensor_height).max(f32::EPSILON));
-                (0.0, coc_scale_factor)
+                orthographic_projection.area.height()
             }
             // Depth of field is nonsensical for other projections.
             Projection::Custom(_) => {
@@ -740,18 +720,27 @@ fn extract_depth_of_field_settings(
             }
         };
 
+        // At or below the sensor height, a perspective camera would be focused
+        // inside its focal length, where its blur diverges. The `max` clamps
+        // the scale to a large finite value, which saturates at
+        // `max_circle_of_confusion_diameter`.
+        let coc_scale_factor = depth_of_field.sensor_height
+            / (depth_of_field.aperture_f_stops
+                * view_height
+                * (view_height - depth_of_field.sensor_height).max(f32::EPSILON));
+
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
         entity_commands.insert((
             *depth_of_field,
             DepthOfFieldUniform {
                 focal_distance: depth_of_field.focal_distance,
-                focal_length,
                 coc_scale_factor,
                 max_circle_of_confusion_diameter: depth_of_field.max_circle_of_confusion_diameter,
                 max_depth: depth_of_field.max_depth,
                 pad_a: 0,
                 pad_b: 0,
                 pad_c: 0,
+                pad_d: 0,
             },
         ));
     }
