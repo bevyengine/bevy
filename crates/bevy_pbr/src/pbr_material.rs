@@ -1448,6 +1448,11 @@ impl Material for StandardMaterial {
         self.uses_screen_space_specular_transmission()
     }
 
+    #[inline]
+    fn cull_mode(&self) -> Option<Face> {
+        self.cull_mode
+    }
+
     fn prepass_fragment_shader() -> ShaderRef {
         shader_ref(bevy_asset::embedded_path!("render/pbr_prepass.wesl"))
     }

@@ -188,6 +188,17 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         false
     }
 
+    #[inline]
+    /// Returns which faces of the mesh this material culls. `None` draws both
+    /// sides. Defaults to `None`; [`StandardMaterial`] overrides this with its
+    /// own `cull_mode`.
+    ///
+    /// Surfaced on [`MaterialProperties`] so render phases that build their own
+    /// pipelines can honor the material's culling.
+    fn cull_mode(&self) -> Option<Face> {
+        None
+    }
+
     /// Controls if the prepass is enabled for the Material.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     #[inline]
@@ -1746,6 +1757,7 @@ where
         };
         let alpha_mode = material.alpha_mode();
         let reads_view_transmission_texture = material.reads_view_transmission_texture();
+        let cull_mode = material.cull_mode();
 
         let mesh_pipeline_key_bits = MeshPipelineKey::empty();
         let mesh_pipeline_key_bits = ErasedMeshPipelineKey::new(mesh_pipeline_key_bits);
@@ -1772,6 +1784,7 @@ where
                 depth_bias: material.depth_bias(),
                 reads_view_transmission_texture,
                 render_phase_type,
+                cull_mode,
                 render_method,
                 mesh_pipeline_key_bits,
                 material_layout: Some(material_layout),
