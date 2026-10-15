@@ -17,7 +17,7 @@ import package::atmosphere::{
     bruneton_functions::{ray_intersects_ground, sample_transmittance_lut_segment, sample_transmittance_lut_segment_tau_red, distance_to_top_atmosphere_boundary},
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
-        sample_transmittance_lut, sample_sky_view_lut, sample_cloud_shadow_map, cloud_far_transmittance,
+        sample_transmittance_lut, sample_sky_view_lut, direction_world_to_atmosphere, sample_cloud_shadow_map, cloud_far_transmittance,
         hg_phase, sample_aerial_view_lut, sample_density_lut, sample_scattering_lut,
         ABSORPTION_DENSITY, SCATTERING_DENSITY,
     },
@@ -116,7 +116,7 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, h: f32, sigma_t
 // energy-conserving) integral of that segment; only the cloud-shadow visibility is assumed constant
 // per segment and taken at a blue-noise jittered position. Segments follow the LUT's squared depth
 // distribution and scale with distance; the half-res reconstruct accumulates the jitter.
-const HAZE_FAR_MS_FLOOR: f32 = 0.2;
+const HAZE_FAR_MS_FLOOR: f32 = 0.05;
 /// Cloud shadow on the ground point below a cloud sample (ground-bounce ambient). Uses the
 /// direct coarse march rather than the shadow map: the map's ground lookups disagreed with the
 /// out-of-volume fallback, so the map's xy boundary showed up as a hard straight edge in the
@@ -143,6 +143,8 @@ fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: 
         if (has_light) {
             vis = sample_cloud_shadow_map(origin + ray_dir * (d * xj * xj), l, false);
         }
+        @if(ATM_DBG_HAZE_NOSHADOW) { vis = 1.0; }
+        @if(ATM_DBG_HAZE_FLOOR) { vis = mix(HAZE_FAR_MS_FLOOR, 1.0, vis); }
         acc += max(cur - prev, vec3(0.0)) * vis;
         prev = cur;
     }
@@ -153,7 +155,7 @@ fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: 
     if (w > 0.0) {
         let t_full = sample_transmittance_lut(r, mu);
         let t_to = sample_transmittance_lut_segment(r, mu, d);
-        let sky = sample_sky_view_lut(r, ray_dir);
+        let sky = sample_sky_view_lut(r, direction_world_to_atmosphere(ray_dir));
         let frac = (1.0 - t_to) / max(vec3(1.0) - t_full, vec3(1e-4));
         // Shadow the far haze too (the shadow-map lookup falls back to a short density march
         // outside its volume). Unshadowed, the haze under the cloud deck glowed orange near the
@@ -166,6 +168,7 @@ fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: 
                 vis_far += 0.25 * sample_cloud_shadow_map(origin + ray_dir * tk, l, false);
             }
         }
+        @if(ATM_DBG_HAZE_NOSHADOW) { vis_far = 1.0; }
         acc = mix(acc, sky * saturate(frac) * mix(HAZE_FAR_MS_FLOOR, 1.0, vis_far), w);
     }
     return acc;
@@ -695,7 +698,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     t_ap = t_ap * exp(tau_red * w_sim);
                 }
             }
-            let haze = cloud_shadowed_haze(uv, ray_origin, ray_dir, weighted_depth, r, mu, j);
+            var haze = cloud_shadowed_haze(uv, ray_origin, ray_dir, weighted_depth, r, mu, j);
+            @if(ATM_DBG_HAZE_SKY) { haze = sample_sky_view_lut(r, direction_world_to_atmosphere(ray_dir)) * (1.0 - sample_transmittance_lut_segment(r, mu, weighted_depth)); }
+            @if(ATM_DBG_TAP_ONE) { t_ap = vec3(1.0); }
             lum = t_ap * luminance + (1.0 - transmittance) * haze;
         }
         result = vec4(lum * view.exposure, transmittance);
