@@ -886,7 +886,7 @@ fn hex_input_value_change(
     editable_text: &EditableText,
     commands: &mut Commands,
 ) {
-    if let Ok(new_rgb_color) = Srgba::hex(editable_text.value().to_string())
+    if let Ok(new_rgb_color) = Srgba::hex(editable_text.value())
         && state.rgb != new_rgb_color
     {
         state.rgb = new_rgb_color;
