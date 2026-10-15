@@ -1444,9 +1444,11 @@ fn chevron_on_press(
             Option<&NumberInputStep>,
             Option<&NumberInputWrap>,
             Has<InteractionDisabled>,
+            Option<&NumberInputUnits>,
         ),
         With<FeathersNumberInput>,
     >,
+    units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
     // Don't let the press reach the text input or the scrubber.
@@ -1459,11 +1461,15 @@ fn chevron_on_press(
     if let Ok(is_increment) = q_chevron.get(chevron_id)
         && let Ok(&ChildOf(text_id)) = q_parent.get(chevron_id)
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((&value, hard_limit, step, wrap, disabled)) = q_number_input.get(root_id)
+        && let Ok((&value, hard_limit, step, wrap, disabled, units)) = q_number_input.get(root_id)
         && !disabled
     {
+        // Step in display units.
+        let units = units_registry.resolve(units);
         let step = step.copied().unwrap_or_default().0;
-        let value = value.offset_by(if is_increment { step } else { -step });
+        let display =
+            units.canonical_to_display(value.as_f64()) + if is_increment { step } else { -step };
+        let value = NumericValue::from_f64(units.display_to_canonical(display), value.format());
         let value = apply_hard_limit(value, hard_limit, wrap);
         trigger_value_change(&mut commands, value, root_id, true);
     }
