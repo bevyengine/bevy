@@ -237,7 +237,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // See whether the `MeshInputUniform` was updated on this frame. If it
     // wasn't, then we know the transforms of this mesh must be identical to
     // those on the previous frame, and therefore we don't need to access the
-    // `previous_input_index` (in fact, we can't; that index are only valid for
+    // `previous_input_index` (in fact, we can't; that index is only valid for
     // one frame and will be invalid).
     let timestamp = current_input[input_index].timestamp;
     let mesh_changed_this_frame = timestamp == view.frame_count;

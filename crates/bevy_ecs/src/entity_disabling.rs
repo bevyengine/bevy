@@ -245,6 +245,7 @@ mod tests {
 
     use super::*;
     use crate::{
+        component::ComponentIds,
         prelude::{EntityMut, EntityRef, World},
         query::{Has, With},
     };
@@ -252,57 +253,60 @@ mod tests {
 
     #[test]
     fn filters_modify_access() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
         let mut filters = DefaultQueryFilters::empty();
-        filters.register_disabling_component(ComponentId::new(1));
+        filters.register_disabling_component(id_1);
 
         // A component access with an unrelated component
         let mut component_access = FilteredAccess::default();
-        component_access.access_mut().add_read(ComponentId::new(2));
+        component_access.access_mut().add_read(id_2);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(0, applied_access.with_filters().count());
         assert_eq!(
-            vec![ComponentId::new(1)],
+            vec![id_1],
             applied_access.without_filters().collect::<Vec<_>>()
         );
 
         // We add a with filter, now we expect to see both filters
-        component_access.and_with(ComponentId::new(4));
+        component_access.and_with(id_4);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::new(4)],
+            vec![id_4],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(
-            vec![ComponentId::new(1)],
+            vec![id_1],
             applied_access.without_filters().collect::<Vec<_>>()
         );
 
         let copy = component_access.clone();
         // We add a rule targeting a default component, that filter should no longer be added
-        component_access.and_with(ComponentId::new(1));
+        component_access.and_with(id_1);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::new(1), ComponentId::new(4)],
+            vec![id_1, id_4],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(0, applied_access.without_filters().count());
 
         // Archetypal access should also filter rules
         component_access = copy.clone();
-        component_access
-            .access_mut()
-            .add_archetypal(ComponentId::new(1));
+        component_access.access_mut().add_archetypal(id_1);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::new(4)],
+            vec![id_4],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(0, applied_access.without_filters().count());

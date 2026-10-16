@@ -11,7 +11,7 @@ fn main() {
 
 /// set up a simple 3D scene
 fn scene() -> impl SceneList {
-    bsn! {
+    bsn_list! {
         #CircularBase
         Mesh3d(asset_value(Circle::new(4.0)))
         MeshMaterial3d::<StandardMaterial>(asset_value(Color::WHITE))

@@ -8,7 +8,7 @@ use bevy::{
     camera::primitives::CubemapLayout,
     color::palettes::css::{SILVER, YELLOW},
     feathers::{
-        controls::{FeathersNumberInput, FeathersRadio, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersNumberInput, FeathersRadio, NumberInputPrecision},
         theme::UiTheme,
         FeathersPlugins,
     },
@@ -18,7 +18,7 @@ use bevy::{
     prelude::*,
     render::renderer::{RenderAdapter, RenderDevice},
     ui::Checked,
-    ui_widgets::ValueChange,
+    ui_widgets::{NumericValue, ValueChange},
 };
 use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
 use number_input_f32::number_input_f32;
@@ -350,7 +350,7 @@ fn handle_value_change_number_input(
         }
         commands
             .entity(value_change.source)
-            .insert(NumberInputValue::F32(value_change.value));
+            .insert(NumericValue::F32(value_change.value));
     }
 }
 
@@ -425,12 +425,12 @@ fn handle_selection_change(
                         let scale_multiplier = transform.scale.x / base_scale.0.x;
                         commands
                             .entity(input_entity)
-                            .insert(NumberInputValue::F32(scale_multiplier));
+                            .insert(NumericValue::F32(scale_multiplier));
                     } else {
                         let roll = transform.rotation.to_euler(EulerRot::YXZ).2;
                         commands
                             .entity(input_entity)
-                            .insert(NumberInputValue::F32(roll));
+                            .insert(NumericValue::F32(roll));
                     }
                 }
             }
