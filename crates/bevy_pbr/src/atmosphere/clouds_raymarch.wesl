@@ -624,7 +624,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     // Undo the leap that landed here (not the current step, which with the
                     // budget stretch can exceed the fine run since the last hit: the march
                     // then moved backwards until the budget ran out).
-                    t = max(t_start, t - last_leap);
+                    // The fine run then starts a jittered fraction of a fine step in: coarse
+                    // leaps (budget stretch, SDF) are much longer than the ray-start jitter, so
+                    // hits land at nearly the same distances on every pixel and frame, and the
+                    // fine slices line up into bands and rings that crawl with the camera.
+                    t = max(t_start, t - last_leap + jitter * dist_step);
                     fine_mode = true;
                     fine_empty = 0u;
                     continue;
