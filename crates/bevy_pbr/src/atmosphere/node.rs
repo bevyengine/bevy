@@ -215,33 +215,40 @@ pub fn atmosphere_luts(
         }
         dispatch_2d(&mut luts_pass, settings.sky_view_lut_size);
 
-        if let Some((cloud_off, _, abg, _, ap)) = cloud_luts {
-            luts_pass.set_pipeline(ap);
-            luts_pass.set_bind_group(
-                0,
-                abg,
-                &[
-                    atmosphere_uniforms_offset.index(),
-                    settings_uniforms_offset.index(),
-                    view_uniforms_offset.offset,
-                    lights_uniforms_offset.offset,
-                    cloud_off,
-                ],
-            );
-        } else {
-            luts_pass.set_pipeline(aerial_view_lut_pipeline);
-            luts_pass.set_bind_group(
-                0,
-                &bind_groups.aerial_view_lut,
-                &[
-                    atmosphere_uniforms_offset.index(),
-                    settings_uniforms_offset.index(),
-                    view_uniforms_offset.offset,
-                    lights_uniforms_offset.offset,
-                ],
-            );
+        // The aerial-perspective LUT is only read by render_sky's lookup-texture path; in
+        // raymarched mode every pixel's haze is marched (render_sky / its haze prepass, and the
+        // cloud pass in front of clouds), so building the 32^3 cloud-shadowed LUT was wasted.
+        let need_ap_lut = settings.rendering_method != 1
+            || std::env::var_os("ATMOSPHERE_DBG").is_some_and(|v| v.to_string_lossy().contains("ATM_DBG_HAZE_AP_LUT"));
+        if need_ap_lut {
+            if let Some((cloud_off, _, abg, _, ap)) = cloud_luts {
+                luts_pass.set_pipeline(ap);
+                luts_pass.set_bind_group(
+                    0,
+                    abg,
+                    &[
+                        atmosphere_uniforms_offset.index(),
+                        settings_uniforms_offset.index(),
+                        view_uniforms_offset.offset,
+                        lights_uniforms_offset.offset,
+                        cloud_off,
+                    ],
+                );
+            } else {
+                luts_pass.set_pipeline(aerial_view_lut_pipeline);
+                luts_pass.set_bind_group(
+                    0,
+                    &bind_groups.aerial_view_lut,
+                    &[
+                        atmosphere_uniforms_offset.index(),
+                        settings_uniforms_offset.index(),
+                        view_uniforms_offset.offset,
+                        lights_uniforms_offset.offset,
+                    ],
+                );
+            }
+            dispatch_2d(&mut luts_pass, settings.aerial_view_lut_size.xy());
         }
-        dispatch_2d(&mut luts_pass, settings.aerial_view_lut_size.xy());
         pass_span.end(&mut luts_pass);
     }
 
