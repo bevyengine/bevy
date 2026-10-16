@@ -1,6 +1,7 @@
 import package::realtime::gbuffer_utils::gpixel_resolve;
 import package::realtime::initial_path::generate_initial_path;
 import package::realtime::bindings::{constants, depth_buffer, gbuffer, view, view_output};
+import bevy_render::view::apply_hdr_ceiling;
 import package::scene::bindings::RAY_T_MAX;
 import package::realtime::world_cache_query::{query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
@@ -23,8 +24,8 @@ fn initial_and_shade(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(gl
     var pixel_color = path.radiance;
     pixel_color += surface.material.emissive;
     pixel_color *= view.exposure;
-    textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
+    textureStore(view_output, global_id.xy, vec4(apply_hdr_ceiling(pixel_color), 1.0));
 
     @if(VISUALIZE_WORLD_CACHE)
-    textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, RAY_T_MAX, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure, 1.0));
+    textureStore(view_output, global_id.xy, vec4(apply_hdr_ceiling(query_world_cache(surface.world_position, surface.world_normal, view.world_position, RAY_T_MAX, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure), 1.0));
 }

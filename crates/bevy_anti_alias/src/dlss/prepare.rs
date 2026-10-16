@@ -1,4 +1,4 @@
-use super::{Dlss, DlssFeature, DlssSdk};
+use super::{Dlss, DlssFeature, DlssSdk, DlssSuperResolutionFeature};
 use bevy_camera::{Camera3d, CameraMainTextureUsages, MainPassResolutionOverride};
 use bevy_core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass};
 use bevy_diagnostic::FrameCount;
@@ -8,10 +8,13 @@ use bevy_ecs::{
     query::With,
     system::{Commands, Query, Res},
 };
-use bevy_math::Vec4Swizzles;
+use bevy_math::{ops, Vec4Swizzles};
 use bevy_render::{
-    camera::{MipBias, TemporalJitter},
-    render_resource::TextureUsages,
+    camera::{ExtractedCamera, MipBias, TemporalJitter},
+    render_resource::{
+        Extent3d, TexelCopyBufferLayout, Texture, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
+    },
     renderer::{RenderDevice, RenderQueue},
     view::ExtractedView,
 };
@@ -71,8 +74,7 @@ pub fn prepare_dlss<F: DlssFeature>(
 
         let dlss_feature_flags = DlssFeatureFlags::LowResolutionMotionVectors
             | DlssFeatureFlags::InvertedDepth
-            | DlssFeatureFlags::HighDynamicRange
-            | DlssFeatureFlags::AutoExposure; // TODO
+            | DlssFeatureFlags::HighDynamicRange;
 
         match dlss_context.as_deref_mut() {
             Some(dlss_context)
@@ -110,6 +112,70 @@ pub fn prepare_dlss<F: DlssFeature>(
                     },
                     MainPassResolutionOverride(render_resolution),
                 ));
+            }
+        }
+    }
+}
+
+/// The exposure DLSS Super Resolution is given for a view without a
+/// [`ViewExposureTexture`](bevy_core_pipeline::tonemapping::ViewExposureTexture): the view's
+/// exposure times the color grading exposure.
+#[derive(Component)]
+pub struct DlssExposure {
+    texture: Texture,
+    pub texture_view: TextureView,
+}
+
+impl DlssExposure {
+    fn new(render_device: &RenderDevice) -> Self {
+        let texture = render_device.create_texture(&TextureDescriptor {
+            label: Some("dlss_exposure"),
+            size: Extent3d::default(),
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::R32Float,
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        Self {
+            texture_view: texture.create_view(&TextureViewDescriptor::default()),
+            texture,
+        }
+    }
+
+    fn write(&self, render_queue: &RenderQueue, exposure: f32) {
+        render_queue.write_texture(
+            self.texture.as_image_copy(),
+            &exposure.to_le_bytes(),
+            TexelCopyBufferLayout::default(),
+            Extent3d::default(),
+        );
+    }
+}
+
+pub fn prepare_dlss_exposure(
+    views: Query<
+        (
+            Entity,
+            &ExtractedCamera,
+            &ExtractedView,
+            Option<&DlssExposure>,
+        ),
+        With<Dlss<DlssSuperResolutionFeature>>,
+    >,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut commands: Commands,
+) {
+    for (entity, camera, view, dlss_exposure) in &views {
+        let exposure = camera.exposure * ops::exp2(view.color_grading.global.exposure);
+        match dlss_exposure {
+            Some(dlss_exposure) => dlss_exposure.write(&render_queue, exposure),
+            None => {
+                let dlss_exposure = DlssExposure::new(&render_device);
+                dlss_exposure.write(&render_queue, exposure);
+                commands.entity(entity).insert(dlss_exposure);
             }
         }
     }

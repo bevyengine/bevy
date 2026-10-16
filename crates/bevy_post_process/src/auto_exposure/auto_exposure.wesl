@@ -1,8 +1,8 @@
 //! Auto exposure
 //!
 //! This shader meters the scene's absolute luminance and moves an adapted exposure gradually
-//! toward it. The tone mapping shader applies the difference between the adapted exposure and the
-//! camera's own, so the image doesn't depend on the exposure the view was rendered with.
+//! toward it. Tonemapping applies the difference between the adapted exposure and the exposure the
+//! view was rendered with.
 //!
 //! The adapted exposure is computed in two passes:
 //! * The compute_histogram pass calculates a histogram of the scene luminance in EV100,
@@ -47,6 +47,8 @@ struct AutoExposure {
     exponential_transition_distance: f32,
     correction_min: f32,
     correction_max: f32,
+    /// The camera's `Exposure`, in EV100, which the correction range is relative to.
+    camera_ev100: f32,
     /// Real time since the previous frame, in seconds.
     delta_time: f32,
     /// Nonzero when no pipeline is waiting to compile, or the startup timeout has passed.
@@ -84,6 +86,9 @@ struct AutoExposureState {
 @group(0) @binding(6) var<storage, read_write> state: AutoExposureState;
 
 @group(0) @binding(7) var<storage, read_write> view: View;
+
+/// The view's `ViewExposureTexture`: the factor from scene luminance to the tonemapping input.
+@group(0) @binding(8) var exposure_texture: texture_storage_2d<r32float, write>;
 
 var<workgroup> histogram_shared: array<atomic<u32>, BIN_COUNT>;
 
@@ -231,20 +236,25 @@ fn compute_average() {
         ev100 = state.ev100 + clamp(delta * exponential, -speed, speed);
     }
 
-    // Keep the correction relative to the camera's exposure within the configured range, and
+    // Keep the correction relative to the camera's `Exposure` within the configured range, and
     // store the clamped exposure so adaptation continues from what is displayed.
-    let camera_ev100 = -log2(view.exposure) - LOG2_EXPOSURE_SCALE;
     ev100 = clamp(
         ev100,
-        camera_ev100 - settings.correction_max,
-        camera_ev100 - settings.correction_min,
+        settings.camera_ev100 - settings.correction_max,
+        settings.camera_ev100 - settings.correction_min,
     );
     state.ev100 = ev100;
     if metered && settings.pipelines_ready != 0u {
         state.initialized = 1u;
     }
 
-    // Apply the correction to the color grading settings, from where it will be used for the
-    // color grading pass.
-    view.color_grading.exposure += camera_ev100 - ev100;
+    // The view was rendered with the camera's `Exposure` or, with pre-exposure, an earlier adapted
+    // exposure. Apply the difference through the color grading exposure, which tonemapping reads.
+    let view_ev100 = -log2(view.exposure) - LOG2_EXPOSURE_SCALE;
+    view.color_grading.exposure += view_ev100 - ev100;
+    textureStore(
+        exposure_texture,
+        vec2(0),
+        vec4(view.exposure * exp2(view.color_grading.exposure), 0.0, 0.0, 0.0),
+    );
 }
