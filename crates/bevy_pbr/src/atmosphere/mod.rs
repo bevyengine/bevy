@@ -10,8 +10,9 @@
 //! account the directional light color and direction.
 //!
 //! To add the atmosphere to your scene, spawn an entity with the [`Atmosphere`] component and
-//! [`bevy_transform::components::GlobalTransform`], optionally add [`CloudLayer`] for volumetric
-//! clouds, and add [`AtmosphereSettings`] to each 3D camera that should render it. Detailed
+//! [`bevy_transform::components::GlobalTransform`], optionally add [`CloudLayer`] (volumetric
+//! cumulus) and/or [`CirrusLayer`] (high-altitude ice cloud), and add [`AtmosphereSettings`] to
+//! each 3D camera that should render it. Detailed
 //! documentation is on the [`Atmosphere`] component.
 //!
 //! Placement and scene scale come from the entity's transform. With several atmospheres in one
@@ -158,7 +159,7 @@ impl Plugin for AtmospherePlugin {
             SyncComponentPlugin::<AtmosphereSettings>::default(),
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
-            UniformComponentPlugin::<CloudLayer>::default(),
+            UniformComponentPlugin::<GpuCloudLayers>::default(),
         ))
         .add_observer(on_insert_atmosphere_environment_map_light)
         .add_observer(on_remove_atmosphere_environment_map_light)
@@ -303,19 +304,24 @@ impl Plugin for AtmospherePlugin {
 }
 
 /// For each camera with [`AtmosphereSettings`], picks the nearest [`Atmosphere`] by world-space
-/// distance to its origin, copies it as [`ExtractedAtmosphere`], optionally copies [`CloudLayer`],
-/// and builds [`GpuAtmosphereSettings`].
+/// distance to its origin, copies it as [`ExtractedAtmosphere`], combines its optional
+/// [`CloudLayer`] and [`CirrusLayer`] into [`GpuCloudLayers`], and builds [`GpuAtmosphereSettings`].
 pub fn extract_atmosphere(
     mut commands: Commands,
     atmosphere_entities: Extract<
-        Query<(Entity, &Atmosphere, &GlobalTransform, Option<&CloudLayer>)>,
+        Query<(
+            Entity,
+            &Atmosphere,
+            &GlobalTransform,
+            Option<&CloudLayer>,
+            Option<&CirrusLayer>,
+        )>,
     >,
     cameras: Extract<
         Query<(RenderEntity, Option<&AtmosphereSettings>, &GlobalTransform), With<Camera3d>>,
     >,
 ) {
-    let candidates: Vec<(Entity, &Atmosphere, &GlobalTransform, Option<&CloudLayer>)> =
-        atmosphere_entities.iter().collect();
+    let candidates: Vec<_> = atmosphere_entities.iter().collect();
 
     for (render_entity, settings, cam_global) in &cameras {
         // Remove any stale render-world state when AtmosphereSettings is removed or candidates is empty
@@ -328,7 +334,7 @@ pub fn extract_atmosphere(
                 AtmosphereTransformsOffset,
                 RenderSkyPipelineId,
                 AtmosphereBindGroups,
-                CloudLayer,
+                GpuCloudLayers,
             )>();
             continue;
         };
@@ -336,7 +342,7 @@ pub fn extract_atmosphere(
         let cam_world = cam_global.translation();
         let selected = candidates
             .iter()
-            .min_by(|(ea, _, gt_a, _), (eb, _, gt_b, _)| {
+            .min_by(|(ea, _, gt_a, _, _), (eb, _, gt_b, _, _)| {
                 let da = cam_world.distance(gt_a.translation());
                 let db = cam_world.distance(gt_b.translation());
                 da.total_cmp(&db).then_with(|| ea.cmp(eb))
@@ -345,6 +351,7 @@ pub fn extract_atmosphere(
         let atmo = selected.1;
         let gt = selected.2;
         let cloud_layer = selected.3;
+        let cirrus_layer = selected.4;
         // Atmospheres are spherically symmetric, so ignore their orientation.
         let (scale, _, translation) = gt.to_scale_rotation_translation();
 
@@ -362,10 +369,12 @@ pub fn extract_atmosphere(
         commands
             .entity(render_entity)
             .insert(GpuAtmosphereSettings::from(settings.clone()));
-        if let Some(cloud_layer) = cloud_layer {
-            commands.entity(render_entity).insert(cloud_layer.clone());
+        if cloud_layer.is_some() || cirrus_layer.is_some() {
+            commands
+                .entity(render_entity)
+                .insert(GpuCloudLayers::new(cloud_layer, cirrus_layer));
         } else {
-            commands.entity(render_entity).remove::<CloudLayer>();
+            commands.entity(render_entity).remove::<GpuCloudLayers>();
         }
     }
 }
@@ -755,7 +764,7 @@ impl Default for VolumetricCloudSettings {
 ///
 /// Add this component to an [`Atmosphere`] entity to enable volumetric clouds for cameras
 /// that select that atmosphere.
-#[derive(Clone, Component, Reflect, ShaderType)]
+#[derive(Clone, Component, Reflect)]
 #[reflect(Clone, Default)]
 #[require(CloudWeather)]
 pub struct CloudLayer {
@@ -831,22 +840,6 @@ pub struct CloudLayer {
     /// Accumulated cloud time (s), advanced by [`advance_cloud_wind`]; drives the life cycle.
     pub evolution_time: f32,
 
-    /// Radius (from the planet center, like [`CloudLayer::cloud_layer_start`]) of the cirrus
-    /// shell: a thin ice-cloud slab. High clouds sit at 5-13 km in mid-latitudes (WMO
-    /// International Cloud Atlas); default 9 km.
-    /// units: m
-    pub cirrus_altitude: f32,
-    /// Peak cirrus optical depth at normal incidence; 0 disables the cirrus. Sassen & Cho 1992
-    /// (J. Appl. Meteor. 31): subvisual < 0.03 < thin < 0.3 < opaque < 3. Default 0.3 (thin).
-    pub cirrus_optical_depth: f32,
-    /// Fraction of the sky with cirrus patches, in [0, 1].
-    pub cirrus_coverage: f32,
-    /// Width scale of the cirrus fibre pattern (one detail-noise tile across the streaks).
-    /// units: m
-    pub cirrus_scale: f32,
-    /// Elongation of the cirrus fibres along the wind shear (fall streaks drawn out by the
-    /// shear); 1 = isotropic.
-    pub cirrus_stretch: f32,
 }
 
 impl CloudLayer {
@@ -916,11 +909,6 @@ impl Default for CloudLayer {
             updraft_speed: 3.0,
             lifetime: 1200.0,
             evolution_time: 0.0,
-            cirrus_altitude: 6_369_000.0,
-            cirrus_optical_depth: 0.3,
-            cirrus_coverage: 0.35,
-            cirrus_scale: 3000.0,
-            cirrus_stretch: 12.0,
         }
         .with_liquid_water(Self::CUMULUS_LIQUID_WATER, Self::CUMULUS_EFFECTIVE_RADIUS)
     }
@@ -928,6 +916,216 @@ impl Default for CloudLayer {
 
 impl SyncComponent<RenderApp> for CloudLayer {
     type Target = Self;
+}
+
+/// A high-altitude cirrus layer (thin ice cloud). Add it to an [`Atmosphere`] entity, with or
+/// without a [`CloudLayer`] (cumulus).
+///
+/// Structure after Hogan & Kew (2005, Q. J. R. Meteorol. Soc. 131, "A 3D stochastic cloud model
+/// for investigating the radiative properties of inhomogeneous cirrus clouds"): at the generating
+/// level (cloud top) the log ice water content is a turbulent tracer with a -5/3 power spectrum up
+/// to an outer scale, and below it the ice falls at [`CirrusLayer::fall_speed`] through the wind
+/// shear, displacing that pattern into fall streaks (Marshall 1953: x = S dz^2 / (2 w) for
+/// constant shear S and fall speed w). Light: single scattering by an ice slab with the
+/// asymmetry of roughened ice crystals.
+#[derive(Clone, Component, Reflect)]
+#[reflect(Clone, Default)]
+pub struct CirrusLayer {
+    /// Radius (from the planet center, like [`CloudLayer::cloud_layer_start`]) of the generating
+    /// level, the cirrus top. High clouds: 5-13 km in mid-latitudes (WMO International Cloud
+    /// Atlas); Hogan & Kew's case: 9.1 km.
+    /// units: m
+    pub top: f32,
+    /// Depth of the ice below the generating level (fall-streak length). Cirrus are typically
+    /// 1-2 km thick (e.g. Sassen & Campbell 2001, J. Atmos. Sci. 58).
+    /// units: m
+    pub thickness: f32,
+    /// Mean optical depth of the cloudy columns at normal incidence; 0 disables the layer. Sassen
+    /// & Cho 1992 (J. Appl. Meteor. 31): subvisual < 0.03 < thin < 0.3 < opaque < 3.
+    pub optical_depth: f32,
+    /// Cloud fraction at each level, in [0, 1].
+    pub coverage: f32,
+    /// Standard deviation of ln(ice water content) across the layer: Hogan & Kew Fig. 2(d),
+    /// 0.5-2.5 for the underlying distribution (<= 1.5 near cloud base).
+    pub ln_iwc_std: f32,
+    /// Outer scale: the -5/3 spectrum flattens beyond it (Hogan & Kew: ~50 km). Sets the
+    /// generating texture's tile (1024 texels).
+    /// units: m
+    pub outer_scale: f32,
+    /// Ice fall speed (Hogan & Kew: a constant 0.8 m/s reproduced the observed fall streaks).
+    /// units: m/s
+    pub fall_speed: f32,
+    /// Relative spread of fall speeds (std / mean): it spreads the fall-streak displacement and
+    /// smooths the pattern below the top, steepening the spectrum with depth as observed.
+    pub fall_speed_spread: f32,
+    /// Wind at the generating level (horizontal); advects the layer.
+    /// units: m/s
+    pub wind: Vec3,
+    /// Vertical wind shear dU/dz across the layer (horizontal). Fall streaks trail by
+    /// -shear dz^2 / (2 fall_speed) at depth dz below the top.
+    /// units: 1/s
+    pub wind_shear: Vec3,
+    /// Asymmetry parameter g of the ice phase function: severely roughened aggregates, ~0.75 in
+    /// the visible (Baum et al. 2014, JQSRT 146).
+    pub asymmetry: f32,
+    /// Accumulated displacement (m), advanced by [`advance_cloud_wind`].
+    pub offset: Vec3,
+}
+
+impl Default for CirrusLayer {
+    fn default() -> Self {
+        Self {
+            top: 6_369_500.0,
+            thickness: 1500.0,
+            optical_depth: 0.3,
+            coverage: 0.35,
+            ln_iwc_std: 1.0,
+            outer_scale: 50_000.0,
+            fall_speed: 0.8,
+            fall_speed_spread: 0.25,
+            wind: Vec3::new(30.0, 0.0, 10.0),
+            wind_shear: Vec3::new(4.0e-3, 0.0, 1.0e-3),
+            asymmetry: 0.75,
+            offset: Vec3::ZERO,
+        }
+    }
+}
+
+/// Render-world uniform of the cloud layers on a view's atmosphere: [`CloudLayer`] (cumulus,
+/// optional) and [`CirrusLayer`] (optional). Field names match `clouds.wesl`.
+#[derive(Clone, Component, ShaderType)]
+pub struct GpuCloudLayers {
+    pub cloud_layer_start: f32,
+    pub cloud_layer_end: f32,
+    pub cloud_density: f32,
+    pub cloud_absorption: f32,
+    pub cloud_scattering: f32,
+    pub noise_scale: f32,
+    pub noise_offset: Vec3,
+    pub detail_noise_scale: f32,
+    pub detail_strength: f32,
+    pub wind: Vec3,
+    pub profile_bottom_exponent: f32,
+    pub profile_top_exponent: f32,
+    pub profile_top_min: f32,
+    pub wind_shear: Vec3,
+    pub updraft_speed: f32,
+    pub lifetime: f32,
+    pub evolution_time: f32,
+    pub cirrus_offset: Vec3,
+    pub cirrus_top: f32,
+    pub cirrus_wind_shear: Vec3,
+    pub cirrus_thickness: f32,
+    pub cirrus_optical_depth: f32,
+    /// Generating-field (unit Gaussian) threshold below which a level is clear: the
+    /// (1 - coverage) quantile of N(0, 1).
+    pub cirrus_threshold: f32,
+    pub cirrus_ln_iwc_std: f32,
+    /// Normalisation of exp(sigma g) to an in-cloud mean of 1 above the threshold.
+    pub cirrus_norm: f32,
+    pub cirrus_fall_speed: f32,
+    pub cirrus_fall_speed_spread: f32,
+    pub cirrus_outer_scale: f32,
+    pub cirrus_asymmetry: f32,
+}
+
+impl GpuCloudLayers {
+    pub fn new(cumulus: Option<&CloudLayer>, cirrus: Option<&CirrusLayer>) -> Self {
+        let disabled_cumulus = CloudLayer {
+            cloud_density: 0.0,
+            ..CloudLayer::default()
+        };
+        let c = cumulus.unwrap_or(&disabled_cumulus);
+        let disabled_cirrus = CirrusLayer {
+            optical_depth: 0.0,
+            ..CirrusLayer::default()
+        };
+        let ci = cirrus.unwrap_or(&disabled_cirrus);
+        // Log-normal extinction exp(sigma g), g ~ N(0, 1), cloudy where g > g_c with
+        // P(g > g_c) = coverage. In-cloud mean of exp(sigma g):
+        // E[exp(sigma g) | g > g_c] = exp(sigma^2 / 2) Q(g_c - sigma) / Q(g_c), Q = 1 - Phi.
+        let coverage = ci.coverage.clamp(1e-4, 1.0);
+        let threshold = if coverage >= 1.0 { -40.0 } else { normal_quantile(1.0 - coverage) };
+        let sigma = ci.ln_iwc_std.max(0.0);
+        let in_cloud_mean = (0.5 * sigma * sigma).exp() * normal_sf(threshold - sigma)
+            / normal_sf(threshold).max(1e-12);
+        Self {
+            cloud_layer_start: c.cloud_layer_start,
+            cloud_layer_end: c.cloud_layer_end,
+            cloud_density: c.cloud_density,
+            cloud_absorption: c.cloud_absorption,
+            cloud_scattering: c.cloud_scattering,
+            noise_scale: c.noise_scale,
+            noise_offset: c.noise_offset,
+            detail_noise_scale: c.detail_noise_scale,
+            detail_strength: c.detail_strength,
+            wind: c.wind,
+            profile_bottom_exponent: c.profile_bottom_exponent,
+            profile_top_exponent: c.profile_top_exponent,
+            profile_top_min: c.profile_top_min,
+            wind_shear: c.wind_shear,
+            updraft_speed: c.updraft_speed,
+            lifetime: c.lifetime,
+            evolution_time: c.evolution_time,
+            cirrus_offset: ci.offset,
+            cirrus_top: ci.top,
+            cirrus_wind_shear: ci.wind_shear,
+            cirrus_thickness: ci.thickness.max(0.0),
+            cirrus_optical_depth: ci.optical_depth.max(0.0),
+            cirrus_threshold: threshold,
+            cirrus_ln_iwc_std: sigma,
+            cirrus_norm: 1.0 / in_cloud_mean.max(1e-12),
+            cirrus_fall_speed: ci.fall_speed.max(1e-3),
+            cirrus_fall_speed_spread: ci.fall_speed_spread.max(0.0),
+            cirrus_outer_scale: ci.outer_scale.max(1.0),
+            cirrus_asymmetry: ci.asymmetry.clamp(-0.99, 0.99),
+        }
+    }
+}
+
+/// Upper tail of the standard normal distribution, Q(x) = erfc(x / sqrt 2) / 2.
+fn normal_sf(x: f32) -> f32 {
+    0.5 * erfc(x as f64 / core::f64::consts::SQRT_2) as f32
+}
+
+/// Complementary error function (Numerical Recipes `erfcc`, Chebyshev fit, |rel. error| < 1.2e-7).
+fn erfc(x: f64) -> f64 {
+    let z = x.abs();
+    let t = 1.0 / (1.0 + 0.5 * z);
+    let r = t * (-z * z - 1.265_512_23
+        + t * (1.000_023_68
+            + t * (0.374_091_96
+                + t * (0.096_784_18
+                    + t * (-0.186_288_06
+                        + t * (0.278_868_07
+                            + t * (-1.135_203_98
+                                + t * (1.488_515_87 + t * (-0.822_152_23 + t * 0.170_872_77)))))))))
+        .exp();
+    if x >= 0.0 { r } else { 2.0 - r }
+}
+
+/// Standard normal quantile Phi^-1(p) (Acklam's rational approximation, |rel. error| < 1.2e-9).
+fn normal_quantile(p: f32) -> f32 {
+    let p = (p as f64).clamp(1e-12, 1.0 - 1e-12);
+    const A: [f64; 6] = [-3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2, 1.383577518672690e2, -3.066479806614716e1, 2.506628277459239];
+    const B: [f64; 5] = [-5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2, 6.680131188771972e1, -1.328068155288572e1];
+    const C: [f64; 6] = [-7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+    const D: [f64; 4] = [7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996, 3.754408661907416];
+    let x = if p < 0.02425 {
+        let q = (-2.0 * p.ln()).sqrt();
+        (((((C[0] * q + C[1]) * q + C[2]) * q + C[3]) * q + C[4]) * q + C[5])
+            / ((((D[0] * q + D[1]) * q + D[2]) * q + D[3]) * q + 1.0)
+    } else if p > 1.0 - 0.02425 {
+        let q = (-2.0 * (1.0 - p).ln()).sqrt();
+        -(((((C[0] * q + C[1]) * q + C[2]) * q + C[3]) * q + C[4]) * q + C[5])
+            / ((((D[0] * q + D[1]) * q + D[2]) * q + D[3]) * q + 1.0)
+    } else {
+        let q = p - 0.5;
+        let r = q * q;
+        (((((A[0] * r + A[1]) * r + A[2]) * r + A[3]) * r + A[4]) * r + A[5]) * q
+            / (((((B[0] * r + B[1]) * r + B[2]) * r + B[3]) * r + B[4]) * r + 1.0)
+    };
+    x as f32
 }
 
 /// Multiplier on the cloud clock (advection, rising thermals, life cycle), e.g. for time-lapse.
@@ -947,6 +1145,7 @@ pub fn advance_cloud_wind(
     time: Res<Time>,
     scale: Option<Res<CloudTimeScale>>,
     mut layers: Query<&mut CloudLayer>,
+    mut cirrus_layers: Query<&mut CirrusLayer>,
 ) {
     let dt = time.delta_secs() * scale.map_or(1.0, |s| s.0);
     if dt <= 0.0 {
@@ -956,6 +1155,10 @@ pub fn advance_cloud_wind(
         let step = Vec3::new(layer.wind.x, layer.updraft_speed, layer.wind.z) * dt;
         layer.noise_offset += step;
         layer.evolution_time += dt;
+    }
+    for mut cirrus in &mut cirrus_layers {
+        let step = Vec3::new(cirrus.wind.x, 0.0, cirrus.wind.z) * dt;
+        cirrus.offset += step;
     }
 }
 

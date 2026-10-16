@@ -18,7 +18,7 @@ use super::{
         AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTextures,
         AtmosphereTransformsOffset, RenderSkyPipelineId,
     },
-    CloudLayer, GpuAtmosphereSettings,
+    GpuCloudLayers, GpuAtmosphereSettings,
 };
 
 pub fn atmosphere_luts(
@@ -31,7 +31,7 @@ pub fn atmosphere_luts(
         &AtmosphereTransformsOffset,
         &ViewUniformOffset,
         &ViewLightsUniformOffset,
-        Option<&DynamicUniformIndex<CloudLayer>>,
+        Option<&DynamicUniformIndex<GpuCloudLayers>>,
         &super::ExtractedAtmosphere,
     )>,
     pipelines: Res<AtmosphereLutPipelines>,
@@ -430,7 +430,7 @@ pub fn render_sky(
         &AtmosphereTransformsOffset,
         &ViewUniformOffset,
         &ViewLightsUniformOffset,
-        Option<&DynamicUniformIndex<CloudLayer>>,
+        Option<&DynamicUniformIndex<GpuCloudLayers>>,
         &RenderSkyPipelineId,
         Option<&MainPassResolutionOverride>,
         &AtmosphereTextures,

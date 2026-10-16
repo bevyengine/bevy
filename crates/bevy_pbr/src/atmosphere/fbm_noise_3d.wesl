@@ -17,6 +17,7 @@ struct FbmParams {
 }
 
 @group(0) @binding(14) var<uniform> fbm_params: FbmParams;
+@group(0) @binding(15) var cirrus_out: texture_storage_2d<r16float, write>;
 
 /// Random tile offset of life-cycle generation `n` (generation 0 is the unshifted map, so
 /// the scene at time 0 does not depend on the life cycle).
@@ -211,4 +212,40 @@ fn perlin_fbm_tiled(uvc: vec2<f32>, period: i32, octaves: u32) -> f32 {
         amp *= 0.5;
     }
     return clamp(value / norm * 0.9 + 0.5, 0.0, 1.0);
+}
+
+/// Cirrus generating field (Hogan & Kew 2005, QJRMS 131): ln IWC at the generating level is a
+/// turbulent tracer with a 1-D power spectrum ~ k^(-5/3) up to the outer scale (flat beyond).
+/// fBm with Hurst exponent H = 1/3 has a 1-D spectrum ~ k^(-(2H + 1)) = k^(-5/3): octave
+/// amplitudes in the ratio 2^(-1/3), lowest octave at the outer scale (= the tile), 10 octaves
+/// down to 2 texels. Normalised to unit variance: one 2D gradient-noise octave with uniform unit
+/// gradients and quintic fade has a standard deviation of 0.2164 (Monte Carlo, 8e6 samples), and
+/// independent octaves add in variance. The sum of 10 octaves is close to Gaussian.
+const CIRRUS_OCTAVES: u32 = 10u;
+const PERLIN_2D_STD: f32 = 0.2164;
+
+@compute
+@workgroup_size(8, 8, 1)
+fn cirrus(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let size = textureDimensions(cirrus_out);
+    if (gid.x >= size.x || gid.y >= size.y) {
+        return;
+    }
+    let uv = (vec2<f32>(gid.xy) + 0.5) / vec2<f32>(size);
+    // Each mip is the band-limited field: only the octaves it resolves (period <= size / 2), the
+    // exact low-pass of this construction; normalised by the full field's variance.
+    let resolved = u32(round(log2(f32(size.x))));
+    var sum = 0.0;
+    var var_sum = 0.0;
+    var amp = 1.0;
+    var per = 1;
+    for (var o = 0u; o < CIRRUS_OCTAVES; o++) {
+        if (o < resolved) {
+            sum += amp * perlin_tiled(uv, per, 1000u + o * 13u);
+        }
+        var_sum += amp * amp;
+        amp *= 0.7937005; // 2^(-1/3)
+        per *= 2;
+    }
+    textureStore(cirrus_out, vec2<i32>(gid.xy), vec4(sum / (PERLIN_2D_STD * sqrt(var_sum)), 0.0, 0.0, 0.0));
 }

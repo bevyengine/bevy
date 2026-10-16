@@ -1,6 +1,6 @@
 use crate::{
     curl_noise::CurlNoiseTexture, detail_noise::DetailNoiseTexture, fbm_noise::FbmNoiseTexture, perlin_worley_noise::PerlinWorleyNoiseTexture, Bluenoise,
-    CloudLayer, ExtractedAtmosphere, ExtractedDirectionalLight, GpuLights, GpuScatteringMedium,
+    GpuCloudLayers, ExtractedAtmosphere, ExtractedDirectionalLight, GpuLights, GpuScatteringMedium,
     LightMeta, ScatteringMediumSampler, ShadowSamplers, ViewShadowBindings,
 };
 use bevy_asset::{load_embedded_asset, AssetId, Handle};
@@ -93,7 +93,7 @@ fn cloud_pass_output_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArr
 /// or the clouds_reconstruct history/storage bindings (28..=32).
 fn cloud_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<8> {
     (
-        (20, uniform_buffer::<CloudLayer>(true)), // cloud layer parameters
+        (20, uniform_buffer::<GpuCloudLayers>(true)), // cloud layer parameters
         // 2D noise texture for cloud coverage / weather
         (
             21,
@@ -288,7 +288,7 @@ impl AtmosphereBindGroupLayouts {
                     (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
-                    (20, uniform_buffer::<CloudLayer>(true)),
+                    (20, uniform_buffer::<GpuCloudLayers>(true)),
                     (
                         21,
                         texture_2d(TextureSampleType::Float { filterable: true }),
@@ -432,6 +432,8 @@ impl AtmosphereBindGroupLayouts {
                 (44, texture_3d(TextureSampleType::Float { filterable: true })),
                 // Escape probability of multiply scattered light (`cloud_field.wesl` escape).
                 (48, texture_3d(TextureSampleType::Float { filterable: true })),
+                // Cirrus generating field (`fbm_noise_3d.wesl` cirrus).
+                (49, texture_2d(TextureSampleType::Float { filterable: true })),
             )),
         );
 
@@ -543,7 +545,7 @@ pub struct CloudsTemporalParamsUniform(pub UniformBuffer<CloudsTemporalParams>);
 /// previous `clip_from_world` (keyed by retained view entity) for history reprojection.
 pub(super) fn prepare_clouds_temporal_params(
     views: Query<
-        (Entity, &ExtractedView, &AtmosphereTextures, Option<&CloudLayer>),
+        (Entity, &ExtractedView, &AtmosphereTextures, Option<&GpuCloudLayers>),
         With<ExtractedAtmosphere>,
     >,
     mut previous: bevy_ecs::system::Local<HashMap<RetainedViewEntity, (Mat4, UVec2, Vec3)>>,
@@ -614,7 +616,7 @@ pub struct CloudShadowTemporalState {
     pub basis_x: Vec3,
     pub basis_y: Vec3,
     pub initialized: bool,
-    /// Cloud field displacement ([`CloudLayer::noise_offset`]) when the map was last filtered.
+    /// Cloud field displacement ([`crate::CloudLayer::noise_offset`]) when the map was last filtered.
     pub cloud_offset: Vec3,
 }
 
@@ -971,7 +973,7 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
 }
 
 pub(super) fn queue_render_sky_pipelines(
-    views: Query<(Entity, &Msaa, Option<&CloudLayer>), (With<Camera>, With<ExtractedAtmosphere>)>,
+    views: Query<(Entity, &Msaa, Option<&GpuCloudLayers>), (With<Camera>, With<ExtractedAtmosphere>)>,
     pipeline_cache: Res<PipelineCache>,
     layouts: Res<RenderSkyBindGroupLayouts>,
     mut specializer: ResMut<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>,
@@ -1422,7 +1424,7 @@ enum AtmosphereBindGroupError {
 
 pub(super) fn prepare_cloud_shadow_temporal_params(
     views: Query<
-        (&ExtractedView, &ExtractedAtmosphere, &GpuAtmosphereSettings, Option<&CloudLayer>),
+        (&ExtractedView, &ExtractedAtmosphere, &GpuAtmosphereSettings, Option<&GpuCloudLayers>),
         (With<Camera3d>, With<ExtractedAtmosphere>),
     >,
     directional_lights: Query<&ExtractedDirectionalLight>,
@@ -1560,7 +1562,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &ViewDepthStencilTexture,
             &ViewShadowBindings,
             &Msaa,
-            Option<&CloudLayer>,
+            Option<&GpuCloudLayers>,
             Option<&GpuAtmosphereSettings>,
             Option<&CloudsTemporalParamsUniform>,
         ),
@@ -1588,7 +1590,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     medium_sampler: Res<ScatteringMediumSampler>,
     pipeline_cache: Res<PipelineCache>,
     (cloud_layer_uniforms, fbm_noise_texture, perlin_worley_noise_texture, detail_noise_texture, curl_noise_texture, temporal_params): (
-        Res<ComponentUniforms<CloudLayer>>,
+        Res<ComponentUniforms<GpuCloudLayers>>,
         Res<FbmNoiseTexture>,
         Res<PerlinWorleyNoiseTexture>,
         Res<DetailNoiseTexture>,
@@ -1977,6 +1979,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (27, &textures.clouds_trace_depth.default_view),
                         (44, &textures.cloud_field_sdf.default_view),
                         (48, &textures.cloud_field_esc.default_view),
+                        (49, &fbm_noise_texture.cirrus.default_view),
                     )),
                 )
             });
@@ -2160,7 +2163,7 @@ pub(crate) fn prepare_atmosphere_buffers(
             &GpuAtmosphere,
             &GpuAtmosphereSettings,
             Option<&mut AtmosphereBuffer>,
-            bevy_ecs::query::Has<CloudLayer>,
+            bevy_ecs::query::Has<GpuCloudLayers>,
         ),
         With<ExtractedAtmosphere>,
     >,

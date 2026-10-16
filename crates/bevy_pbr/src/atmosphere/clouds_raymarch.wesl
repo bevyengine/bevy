@@ -24,7 +24,7 @@ import package::atmosphere::{
     clouds::{
         cloud_layer_segment, get_cloud_medium_density_coarse,
         get_cloud_medium_density_lod, cloud_mip_from_distance, get_cloud_scattering_coeff,
-        get_cloud_absorption_coeff, cloud_density_context, cloud_layer, cirrus_optical_depth,
+        get_cloud_absorption_coeff, cloud_density_context, cloud_layer, noise_sampler_3d,
         cloud_field_uvw, cloud_field_voxel_m, CLOUD_FIELD_EXTENT_M,
     },
 };
@@ -190,11 +190,52 @@ fn ground_sun_visibility(p: vec3<f32>, l: vec3<f32>) -> f32 {
 // 2020 AP volume; RDR2 / Bauer 2019 froxel fog with cloud shadows; UE5 volumetric cloud shadow on
 // the SkyAtmosphere): low-frequency and temporally stable. The former per-pixel shadow-map march
 // along the ray was noisy at the horizon and blue-shifted it (purple line).
-// Cirrus: ice crystals, severely roughened aggregates (Baum et al. 2014, JQSRT 146, "Ice cloud
-// single-scattering property models with the full phase matrix at wavelengths from 0.2 to
-// 100 um"): asymmetry g ~ 0.75 in the visible, single-scattering albedo ~ 1, smooth forward peak
-// without the 22 degree halo of pristine hexagonal crystals.
-const CIRRUS_ICE_G: f32 = 0.75;
+// Cirrus generating field (fbm_noise_3d.wesl `cirrus`): unit Gaussian, -5/3 spectrum, tile =
+// outer scale, mips = band-limited fields.
+@group(0) @binding(49) var cirrus_field: texture_2d<f32>;
+const CIRRUS_SLICES: u32 = 8u;
+
+/// Generating field at `q` (m, in the layer's moving frame) smoothed to `width` (m): trilinear
+/// over the band-limited mips (the noise sampler selects mips nearest).
+fn cirrus_field_at(q: vec2<f32>, width: f32) -> f32 {
+    let texel = cloud_layer.cirrus_outer_scale / f32(textureDimensions(cirrus_field).x);
+    let lod = clamp(log2(max(width, texel) / texel), 0.0, f32(textureNumLevels(cirrus_field) - 1u));
+    let uv = q / cloud_layer.cirrus_outer_scale;
+    let a = textureSampleLevel(cirrus_field, noise_sampler_3d, uv, floor(lod)).r;
+    let b = textureSampleLevel(cirrus_field, noise_sampler_3d, uv, ceil(lod)).r;
+    return mix(a, b, fract(lod));
+}
+
+/// Cirrus optical depth along the view ray through the layer (Hogan & Kew 2005, QJRMS 131):
+/// ice at depth dz below the generating level (cloud top) came from the generating cell
+/// displaced by the fall streak x(dz) = -S dz^2 / (2 w) (their eq. 2 with constant shear S and fall
+/// speed w; Marshall 1953), so each depth slice samples the generating field g at p - x. The
+/// fall-speed spread spreads that displacement, smoothing deeper slices (the observed spectral
+/// steepening below the top). ln IWC = sigma g (log-normal), clear where g < the coverage
+/// threshold; normalised to an in-cloud mean of 1 per level, so cloudy columns average the layer's
+/// optical depth at normal incidence. Slices are taken where the view ray crosses each depth
+/// (parallax across the layer's thickness); the result is the slant optical depth over mu.
+fn cirrus_slant_optical_depth(origin: vec3<f32>, dir: vec3<f32>, t_mid: f32, up_comp: f32,
+    footprint_m: f32) -> f32 {
+    let h = cloud_layer.cirrus_thickness;
+    let w = cloud_layer.cirrus_fall_speed;
+    let shear = cloud_layer.cirrus_wind_shear.xz;
+    var sum = 0.0;
+    for (var k = 0u; k < CIRRUS_SLICES; k++) {
+        let dz = h * (f32(k) + 0.5) / f32(CIRRUS_SLICES);
+        let t_k = t_mid + (0.5 * h - dz) / up_comp;
+        let p_k = origin + dir * t_k;
+        let x = -shear * (dz * dz / (2.0 * w));
+        let q = p_k.xz - cloud_layer.cirrus_offset.xz - x;
+        let spread = length(x) * cloud_layer.cirrus_fall_speed_spread;
+        let g = cirrus_field_at(q, max(footprint_m, spread));
+        // Cloud boundary (Hogan & Kew's IWC threshold), antialiased: a hard step drew the
+        // overlapping slices' edges as angular facets.
+        let cloudy = smoothstep(cloud_layer.cirrus_threshold - 0.15, cloud_layer.cirrus_threshold + 0.15, g);
+        sum += cloudy * cloud_layer.cirrus_norm * exp(cloud_layer.cirrus_ln_iwc_std * g);
+    }
+    return cloud_layer.cirrus_optical_depth * sum / f32(CIRRUS_SLICES) / abs(up_comp);
+}
 
 /// Single scattering by a plane-parallel slab of optical depth `tau` (Liou, An Introduction to
 /// Atmospheric Radiation, ch. 3/6): radiance per unit (albedo x phase x normal sun irradiance).
@@ -219,7 +260,9 @@ fn slab_single_scatter(tau: f32, mu0: f32, mu: f32, same_side: bool) -> f32 {
 /// neglected: ~25 % of the Rayleigh depth, weighted by the cirrus opacity 1 - T_ci).
 fn composite_cirrus(c: vec4<f32>, depth_io: ptr<function, f32>, origin: vec3<f32>, dir: vec3<f32>,
     r: f32, mu: f32, t_scene: f32) -> vec4<f32> {
-    let r_ci = cloud_layer.cirrus_altitude;
+    // The layer's mid-level shell sets the compositing distance; the optical depth integrates
+    // the whole thickness along the ray.
+    let r_ci = cloud_layer.cirrus_top - 0.5 * cloud_layer.cirrus_thickness;
     let b = r * mu;
     let disc = b * b - (r * r - r_ci * r_ci);
     if (disc <= 0.0) {
@@ -232,13 +275,16 @@ fn composite_cirrus(c: vec4<f32>, depth_io: ptr<function, f32>, origin: vec3<f32
     }
     let p = origin + dir * t_ci;
     let up = p / r_ci;
-    let mu_v = max(abs(dot(dir, up)), 1e-3);
+    let up_comp = dot(dir, up);
+    let mu_v = max(abs(up_comp), 1e-3);
     // Pixel footprint on the shell (half-res pixel ~2.2 mrad, stretched by the slant).
-    let tau = cirrus_optical_depth(p, t_ci * 2.2e-3 / mu_v);
-    if (tau <= 0.0) {
+    let tau_slant = cirrus_slant_optical_depth(origin, dir, t_ci, select(-mu_v, mu_v, up_comp > 0.0), t_ci * 2.2e-3 / mu_v);
+    if (tau_slant <= 0.0) {
         return c;
     }
-    let t_view = exp(-tau / mu_v);
+    // Normal-incidence optical depth of the column the ray crosses (slab formulas below).
+    let tau = tau_slant * mu_v;
+    let t_view = exp(-tau_slant);
     var l_ci = vec3(0.0);
     let sky_down = sample_sky_irradiance(r_ci);
     var ground_up = sample_sky_irradiance(atmosphere.inner_radius);
@@ -248,7 +294,7 @@ fn composite_cirrus(c: vec4<f32>, depth_io: ptr<function, f32>, origin: vec3<f32
         let mu0 = dot(l, up);
         let t_atm = sample_transmittance_lut(r_ci, mu0) * f32(!ray_intersects_ground(r_ci, mu0));
         let k = slab_single_scatter(tau, max(abs(mu0), 1e-3), mu_v, (mu0 > 0.0) != below);
-        l_ci += (*light).color.rgb * t_atm * hg_phase(dot(l, dir), CIRRUS_ICE_G) * k;
+        l_ci += (*light).color.rgb * t_atm * hg_phase(dot(l, dir), cloud_layer.cirrus_asymmetry) * k;
         // Sunlit ground below (Lambertian), seen as flux-equivalent radiance from beneath.
         let mu_g = dot(l, normalize(p));
         ground_up += (*light).color.rgb * sample_transmittance_lut(atmosphere.inner_radius, mu_g)
@@ -633,7 +679,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     result = vec4(rp.c.rgb * view.exposure, rp.c.a);
     }
     @if(!CLOUD_REFERENCE) {
-    if (seg.z > 0.5 && t_end > t_start) {
+    if (seg.z > 0.5 && t_end > t_start && cloud_layer.cloud_density > 0.0) {
         // Per-pixel jitter of the ray start (STBN when bound, IGN otherwise).
         let stbn_dims = textureDimensions(stbn_texture);
         var jitter: f32;

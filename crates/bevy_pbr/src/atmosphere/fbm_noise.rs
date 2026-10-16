@@ -100,6 +100,11 @@ impl FromWorld for FbmNoiseBindGroupLayout {
                         14,
                         uniform_buffer::<FbmNoiseParams>(false),
                     ),
+                    (
+                        // Cirrus generating field (`cirrus` entry point).
+                        15,
+                        texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
+                    ),
                 ),
             ),
         );
@@ -115,6 +120,7 @@ impl FromWorld for FbmNoiseBindGroupLayout {
 #[derive(Resource)]
 pub struct FbmNoisePipeline {
     pub pipeline: CachedComputePipelineId,
+    pub cirrus_pipeline: CachedComputePipelineId,
 }
 
 impl FromWorld for FbmNoisePipeline {
@@ -126,10 +132,18 @@ impl FromWorld for FbmNoisePipeline {
             label: Some("fbm_noise_2d_pipeline".into()),
             layout: vec![layout.descriptor.clone()],
             shader: load_embedded_asset!(world, "fbm_noise_3d.wesl"),
+            entry_point: Some("main".into()),
+            ..default()
+        });
+        let cirrus_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("cirrus_field_pipeline".into()),
+            layout: vec![layout.descriptor.clone()],
+            shader: load_embedded_asset!(world, "fbm_noise_3d.wesl"),
+            entry_point: Some("cirrus".into()),
             ..default()
         });
 
-        Self { pipeline }
+        Self { pipeline, cirrus_pipeline }
     }
 }
 
@@ -138,12 +152,22 @@ impl FromWorld for FbmNoisePipeline {
 pub struct FbmNoiseTexture {
     pub texture: CachedTexture,
     pub size: UVec2,
+    /// Cirrus generating field (R16F, unit Gaussian, -5/3 spectrum; tile = cirrus outer scale),
+    /// with a mip chain; each mip is generated as the band-limited field (its resolvable octaves).
+    pub cirrus: CachedTexture,
+    /// Single-mip views of [`FbmNoiseTexture::cirrus`] for generation.
+    pub cirrus_mips: Vec<TextureView>,
 }
+
+/// Size of the cirrus generating-field texture.
+pub const CIRRUS_TEXTURE_SIZE: u32 = 1024;
 
 /// Resource containing the bind group for the noise generation pass
 #[derive(Resource)]
 pub struct FbmNoiseBindGroup {
     pub bind_group: BindGroup,
+    /// One per cirrus mip (binding 15 = that mip).
+    pub cirrus_bind_groups: Vec<BindGroup>,
 }
 
 /// Resource containing the uniform buffer for FBM parameters
@@ -181,12 +205,42 @@ pub fn init_fbm_noise_texture(
     let texture = render_device.create_texture(&texture_descriptor);
     let default_view = texture.create_view(&TextureViewDescriptor::default());
 
+    let cirrus_texture = render_device.create_texture(&TextureDescriptor {
+        label: Some("cirrus_generating_field_texture"),
+        size: Extent3d {
+            width: CIRRUS_TEXTURE_SIZE,
+            height: CIRRUS_TEXTURE_SIZE,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: CIRRUS_TEXTURE_SIZE.ilog2() + 1,
+        sample_count: 1,
+        dimension: TextureDimension::D2,
+        format: TextureFormat::R16Float,
+        usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC,
+        view_formats: &[],
+    });
+    let cirrus_view = cirrus_texture.create_view(&TextureViewDescriptor::default());
+    let cirrus_mips = (0..CIRRUS_TEXTURE_SIZE.ilog2() + 1)
+        .map(|mip| {
+            cirrus_texture.create_view(&TextureViewDescriptor {
+                base_mip_level: mip,
+                mip_level_count: Some(1),
+                ..TextureViewDescriptor::default()
+            })
+        })
+        .collect();
+
     commands.insert_resource(FbmNoiseTexture {
         texture: CachedTexture {
             texture,
             default_view,
         },
         size: size.size,
+        cirrus: CachedTexture {
+            texture: cirrus_texture,
+            default_view: cirrus_view,
+        },
+        cirrus_mips,
     });
 }
 
@@ -204,10 +258,29 @@ pub fn prepare_fbm_noise_bind_group(
         &BindGroupEntries::with_indices((
             (13, &texture.texture.default_view),
             (14, params_buffer.buffer.as_entire_binding()),
+            (15, &texture.cirrus_mips[0]),
         )),
     );
+    let cirrus_bind_groups = texture
+        .cirrus_mips
+        .iter()
+        .map(|view| {
+            render_device.create_bind_group(
+                "cirrus_field_bind_group",
+                &layout.layout,
+                &BindGroupEntries::with_indices((
+                    (13, &texture.texture.default_view),
+                    (14, params_buffer.buffer.as_entire_binding()),
+                    (15, view),
+                )),
+            )
+        })
+        .collect();
 
-    commands.insert_resource(FbmNoiseBindGroup { bind_group });
+    commands.insert_resource(FbmNoiseBindGroup {
+        bind_group,
+        cirrus_bind_groups,
+    });
 }
 
 /// System to initialize the FBM noise parameters buffer
@@ -248,8 +321,9 @@ pub fn generate_fbm_noise_once(
     bind_group: Option<Res<FbmNoiseBindGroup>>,
     texture: Res<FbmNoiseTexture>,
     params_buffer: Option<Res<FbmNoiseParamsBuffer>>,
-    layers: bevy_ecs::system::Query<&crate::CloudLayer>,
+    layers: bevy_ecs::system::Query<&crate::GpuCloudLayers>,
     mut last_life_t: bevy_ecs::system::Local<Option<f32>>,
+    mut cirrus_done: bevy_ecs::system::Local<bool>,
     mut noise_generated: ResMut<NoiseGenerated>,
 ) {
     let life = layers
@@ -264,7 +338,7 @@ pub fn generate_fbm_noise_once(
         (None, _) => true,
         _ => false,
     };
-    if noise_generated.0 && unchanged {
+    if noise_generated.0 && unchanged && *cirrus_done {
         return;
     }
     if let Some(params_buffer) = params_buffer.as_ref() {
@@ -299,6 +373,19 @@ pub fn generate_fbm_noise_once(
 
         let dispatch_size = get_noise_dispatch_size(texture.size);
         compute_pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, 1);
+
+        // The cirrus generating field does not evolve: generate it once.
+        if !*cirrus_done {
+            if let Some(cirrus_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.cirrus_pipeline) {
+                compute_pass.set_pipeline(cirrus_pipeline);
+                for (mip, mip_bind_group) in bind_group.cirrus_bind_groups.iter().enumerate() {
+                    compute_pass.set_bind_group(0, mip_bind_group, &[]);
+                    let n = get_noise_dispatch_size(UVec2::splat((CIRRUS_TEXTURE_SIZE >> mip).max(1)));
+                    compute_pass.dispatch_workgroups(n.x, n.y, 1);
+                }
+                *cirrus_done = true;
+            }
+        }
     }
 
     let command_buffer = encoder.finish();

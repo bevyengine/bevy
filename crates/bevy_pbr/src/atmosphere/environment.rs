@@ -3,7 +3,7 @@ use crate::{
         AtmosphereSampler, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
         AtmosphereTransformsOffset, GpuAtmosphere,
     },
-    CloudLayer, ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta,
+    GpuCloudLayers, ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta,
     ScatteringMediumSampler, ViewLightsUniformOffset,
 };
 use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages};
@@ -135,7 +135,7 @@ pub fn init_atmosphere_probe_layout(mut commands: Commands) {
                 (11, texture_3d(TextureSampleType::default())), // aerial view
                 (12, sampler(SamplerBindingType::Filtering)),
                 // cloud bindings (match `clouds.wesl` / `bindings.wesl`)
-                (20, uniform_buffer::<CloudLayer>(true)),
+                (20, uniform_buffer::<GpuCloudLayers>(true)),
                 (
                     21,
                     texture_2d(TextureSampleType::Float { filterable: true }),
@@ -208,7 +208,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
         Res<AtmosphereTransforms>,
         Res<ComponentUniforms<GpuAtmosphere>>,
         Res<ComponentUniforms<GpuAtmosphereSettings>>,
-        Res<ComponentUniforms<CloudLayer>>,
+        Res<ComponentUniforms<GpuCloudLayers>>,
         Res<FbmNoiseTexture>,
         Res<PerlinWorleyNoiseTexture>,
         Res<DetailNoiseTexture>,
@@ -483,7 +483,7 @@ pub fn atmosphere_environment(
         &AtmosphereTransformsOffset,
         &ViewUniformOffset,
         &ViewLightsUniformOffset,
-        Option<&DynamicUniformIndex<CloudLayer>>,
+        Option<&DynamicUniformIndex<GpuCloudLayers>>,
     )>,
     probe_query: Query<(&AtmosphereProbeBindGroups, &AtmosphereEnvironmentMap)>,
     pipeline_cache: Res<PipelineCache>,

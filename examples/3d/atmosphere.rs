@@ -2,7 +2,8 @@
 //!
 //! Environment variables (all optional; used by the cloud validation scripts):
 //! - Scene: `ATMOSPHERE_VIEW=hero|sun|up|under|backlit`, `ATMOSPHERE_CAM`, `ATMOSPHERE_SUN_ELEV_DEG`,
-//!   `ATMOSPHERE_SUNSET`, `ATMOSPHERE_TERRAIN`, `ATMOSPHERE_NO_CLOUDS`, `ATMOSPHERE_MIE_SCALE`, `ATMOSPHERE_MIE_G`,
+//!   `ATMOSPHERE_SUNSET`, `ATMOSPHERE_TERRAIN`, `ATMOSPHERE_NO_CLOUDS`, `ATMOSPHERE_NO_CIRRUS`,
+//!   `ATMOSPHERE_MIE_SCALE`, `ATMOSPHERE_MIE_G`,
 //!   `ATMOSPHERE_CLOUD_PROFILE=nubis`, `ATMOSPHERE_CLOUD_LWC=<g/m3>`,
 //!   `ATMOSPHERE_LUT_MODE`.
 //! - Time: `ATMOSPHERE_CAM_STEP`, `ATMOSPHERE_FREEZE`, `ATMOSPHERE_FIXED_DT`,
@@ -36,7 +37,7 @@ use bevy::{
         VolumetricLight,
     },
     pbr::{
-        AtmosphereMode, AtmosphereSettings, CloudLayer, CloudTimeScale, CloudWeather,
+        AtmosphereMode, AtmosphereSettings, CirrusLayer, CloudLayer, CloudTimeScale, CloudWeather,
         DefaultOpaqueRendererMethod,
         VolumetricCloudSettings,
         ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
@@ -520,6 +521,11 @@ fn setup_camera_fog(
             CloudLayer::ADIABATIC_PROFILE
         }),
         CloudWeather::default(),
+        // High-altitude cirrus (thin ice cloud at 9 km); `ATMOSPHERE_NO_CIRRUS` removes it.
+        CirrusLayer {
+            optical_depth: if std::env::var("ATMOSPHERE_NO_CIRRUS").is_ok() { 0.0 } else { 0.3 },
+            ..default()
+        },
     ));
 
     let mut camera = commands.spawn_empty();

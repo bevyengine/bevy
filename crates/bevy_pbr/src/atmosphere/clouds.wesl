@@ -25,11 +25,19 @@ struct CloudLayer {
     updraft_speed: f32,
     lifetime: f32,
     evolution_time: f32,
-    cirrus_altitude: f32,
+    // Cirrus (CirrusLayer, mod.rs GpuCloudLayers).
+    cirrus_offset: vec3<f32>,
+    cirrus_top: f32,
+    cirrus_wind_shear: vec3<f32>,
+    cirrus_thickness: f32,
     cirrus_optical_depth: f32,
-    cirrus_coverage: f32,
-    cirrus_scale: f32,
-    cirrus_stretch: f32,
+    cirrus_threshold: f32,
+    cirrus_ln_iwc_std: f32,
+    cirrus_norm: f32,
+    cirrus_fall_speed: f32,
+    cirrus_fall_speed_spread: f32,
+    cirrus_outer_scale: f32,
+    cirrus_asymmetry: f32,
 }
 
 @group(0) @binding(20) var<uniform> cloud_layer: CloudLayer;
@@ -604,39 +612,3 @@ fn cloud_field_uvw(p: vec3<f32>, cell: vec2<f32>) -> vec3<f32> {
     return vec3(uv, w);
 }
 
-/// Cirrus optical depth (normal incidence) at a point on the cirrus shell; `footprint_m` is the
-/// pixel footprint there (texture LOD). Structure: fibres ("fall streaks", ice crystals falling
-/// through the sheared wind) from the curly-alligator detail noise, stretched along the wind
-/// shear by `cirrus_stretch`, inside patches from the low-frequency Perlin-Worley noise thresholded
-/// at `cirrus_coverage`. The shell moves with the wind aloft: base wind plus the shear over the
-/// height difference.
-fn cirrus_optical_depth(p: vec3<f32>, footprint_m: f32) -> f32 {
-    let dz = cloud_layer.cirrus_altitude - cloud_layer.cloud_layer_start;
-    let drift = cloud_layer.noise_offset.xz + cloud_layer.wind_shear.xz * dz * cloud_layer.evolution_time;
-    let q = p.xz - drift;
-    var along = cloud_layer.wind_shear.xz;
-    if (dot(along, along) < 1e-12) {
-        along = cloud_layer.wind.xz;
-    }
-    along = select(vec2(1.0, 0.0), normalize(along), dot(along, along) > 1e-12);
-    let across = vec2(-along.y, along.x);
-    let scale = max(cloud_layer.cirrus_scale, 1.0);
-    let s = vec2(dot(q, along) / max(cloud_layer.cirrus_stretch, 1.0), dot(q, across));
-    // Patches: ~8 fibre tiles across, drawn out along the shear like the fibres (sqrt of the
-    // fibre elongation).
-    let patch_uv = vec2(s.x * sqrt(max(cloud_layer.cirrus_stretch, 1.0)) / max(cloud_layer.cirrus_stretch, 1.0), s.y) / (8.0 * scale);
-    let patch_lod = max(log2(footprint_m * 128.0 / (8.0 * scale)), 0.0);
-    let pw = textureSampleLevel(perlin_worley_noise_3d, noise_sampler_3d, vec3(patch_uv, 0.37), patch_lod).r;
-    let c = cloud_layer.cirrus_coverage;
-    // 0 at coverage 0 everywhere, 1 at coverage 1 everywhere; 0.25-wide soft patch edges.
-    let patches = smoothstep(0.0, 1.0, (pw - (1.0 - c)) / 0.25 + c);
-    if (patches <= 0.0) {
-        return 0.0;
-    }
-    let fibre_lod = max(log2(footprint_m * 128.0 / scale), 0.0);
-    let n = textureSampleLevel(detail_worley_noise_3d, noise_sampler_3d, vec3(s / scale, 0.5), fibre_lod);
-    // Filaments modulate a continuous veil (cirrus fibratus / cirrostratus), rather than being
-    // thresholded into isolated islands.
-    let fibres = saturate((mix(n.r, n.g, 0.5) - 0.1) / 0.7);
-    return cloud_layer.cirrus_optical_depth * patches * (0.25 + 0.75 * fibres);
-}
