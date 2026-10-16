@@ -214,7 +214,7 @@ fn slab_single_scatter(tau: f32, mu0: f32, mu: f32, same_side: bool) -> f32 {
 /// with L_ap(0..t) ~ the sky-view radiance of the full path (the in-scatter above 9 km is
 /// neglected: ~25 % of the Rayleigh depth, weighted by the cirrus opacity 1 - T_ci).
 fn composite_cirrus(c: vec4<f32>, depth_io: ptr<function, f32>, origin: vec3<f32>, dir: vec3<f32>,
-    r: f32, mu: f32, t_scene: f32) -> vec4<f32> {
+    r: f32, mu: f32, t_scene: f32, slice_jitter: f32) -> vec4<f32> {
     // The layer's mid-level shell sets the compositing distance; the optical depth integrates
     // the whole thickness along the ray.
     let r_ci = cloud_layer.cirrus_top - 0.5 * cloud_layer.cirrus_thickness;
@@ -233,7 +233,7 @@ fn composite_cirrus(c: vec4<f32>, depth_io: ptr<function, f32>, origin: vec3<f32
     let up_comp = dot(dir, up);
     let mu_v = max(abs(up_comp), 1e-3);
     // Pixel footprint on the shell (half-res pixel ~2.2 mrad, stretched by the slant).
-    let tau_slant = cirrus_slant_optical_depth(origin, dir, t_ci, select(-mu_v, mu_v, up_comp > 0.0), t_ci * 2.2e-3 / mu_v, CIRRUS_SLICES);
+    let tau_slant = cirrus_slant_optical_depth(origin, dir, t_ci, select(-mu_v, mu_v, up_comp > 0.0), t_ci * 2.2e-3 / mu_v, CIRRUS_SLICES, slice_jitter);
     if (tau_slant <= 0.0) {
         return c;
     }
@@ -875,7 +875,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         if (depth > 0.0) {
             t_scene = ndc_to_camera_dist(vec3(uv_to_ndc(uv), depth));
         }
-        result = composite_cirrus(result, &weighted_depth, ray_origin, ray_dir, r, mu, t_scene);
+        // Slice-depth jitter: blue noise per pixel and frame (decorrelated from the ray start).
+        let j = fract(interleaved_gradient_noise(vec2<f32>(half_px), view.frame_count % 64u) + 0.5);
+        result = composite_cirrus(result, &weighted_depth, ray_origin, ray_dir, r, mu, t_scene, j);
     }
     }
     textureStore(out_clouds, id.xy, result);

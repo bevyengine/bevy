@@ -639,13 +639,16 @@ fn cirrus_field_at(q: vec2<f32>, width: f32) -> f32 {
 /// optical depth at normal incidence. Slices are taken where the view ray crosses each depth
 /// (parallax across the layer's thickness); the result is the slant optical depth over mu.
 fn cirrus_slant_optical_depth(origin: vec3<f32>, dir: vec3<f32>, t_mid: f32, up_comp: f32,
-    footprint_m: f32, slices: u32) -> f32 {
+    footprint_m: f32, slices: u32, jitter: f32) -> f32 {
     let h = cloud_layer.cirrus_thickness;
     let w = cloud_layer.cirrus_fall_speed;
     let shear = cloud_layer.cirrus_wind_shear.xz;
     var sum = 0.0;
     for (var k = 0u; k < slices; k++) {
-        let dz = h * (f32(k) + 0.5) / f32(slices);
+        // Stratified, jittered depths: fixed slice depths drew each feature as discrete shifted
+        // copies (fall-streak displacement + parallax) at slant views; the jitter (per pixel and
+        // frame) lets the temporal reconstruction integrate the depth continuously.
+        let dz = h * (f32(k) + jitter) / f32(slices);
         let t_k = t_mid + (0.5 * h - dz) / up_comp;
         let p_k = origin + dir * t_k;
         let x = -shear * (dz * dz / (2.0 * w));

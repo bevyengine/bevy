@@ -150,7 +150,7 @@ fn thin_layer_shadow_od(p0: vec3<f32>, trace_dir: vec3<f32>, uv: vec2<f32>, xy: 
     let up_comp = dot(l, (p0 + l * s) / r_mid);
     let texel_m = length(cloud_shadow_uv_to_xy(uv + 1.0 / vec2<f32>(size), extent) - xy);
     return (1.0 - cloud_layer.cirrus_asymmetry)
-        * cirrus_slant_optical_depth(p0, l, s, max(up_comp, 1e-3), texel_m, CIRRUS_SLICES / 4u);
+        * cirrus_slant_optical_depth(p0, l, s, max(up_comp, 1e-3), texel_m, CIRRUS_SLICES / 4u, 0.5);
 }
 
 @compute
