@@ -139,13 +139,34 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, tau_up: f32, ta
     return mix(sky_rad, ground_rad, w);
 }
 
-/// Cloud shadow on the ground point below a cloud sample (ground-bounce ambient). Uses the
-/// direct coarse march rather than the shadow map: the map's ground lookups disagreed with the
-/// out-of-volume fallback, so the map's xy boundary showed up as a hard straight edge in the
-/// cloud ambient (up:35).
-fn ground_cloud_shadow(p_g: vec3<f32>, l: vec3<f32>) -> f32 {
-    return cloud_far_transmittance(p_g, l, false);
+/// Mean sun visibility of the ground a point at `p` sees below it: the ground radiance enters the
+/// ambient as a mean intensity (uniform in solid angle, i.e. uniform in mu = cos(nadir angle)),
+/// so it averages the ground over kilometres. Sampling only the point straight below projected
+/// the crisp cloud-shadow pattern on the ground back onto the cloud bases, offset by
+/// H tan(sun zenith) (it lined up only with the sun overhead). Quadrature: midpoint nodes
+/// mu = 0.25, 0.75 x 4 azimuths; ground point at horizontal distance H sqrt(1 - mu^2) / mu.
+fn ground_sun_visibility(p: vec3<f32>, l: vec3<f32>) -> f32 {
+    let r_g = atmosphere.inner_radius;
+    let up = normalize(p);
+    let height = max(length(p) - r_g, 0.0);
+    let t1 = normalize(cross(up, select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(up.x) > 0.9)));
+    let t2 = cross(up, t1);
+    var vis = 0.0;
+    for (var i = 0u; i < 2u; i++) {
+        let mu = 0.25 + 0.5 * f32(i);
+        let rho = height * sqrt(1.0 - mu * mu) / mu;
+        for (var k = 0u; k < 4u; k++) {
+            let a = (f32(k) + 0.5 * f32(i)) * 1.5707963;
+            let p_g = normalize(up * r_g + (t1 * cos(a) + t2 * sin(a)) * rho) * r_g;
+            // Shadow map (texture lookup; falls back to the march outside its extent), optical
+            // depth only: the ground is below every cloud, and the per-texel front-depth test
+            // made the average blocky.
+            vis += sample_cloud_shadow_map(p_g, l, true);
+        }
+    }
+    return vis / 8.0;
 }
+
 
 // Aerial perspective between the camera and the cloud (at the transmittance-weighted depth d).
 // The cloud shadow is baked into the aerial-perspective froxel LUT and the sky-view LUT (Hillaire
@@ -512,6 +533,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         // Sky irradiance once per ray (reduction stand-in); height/profile modulate per sample.
         let sky_irr = sample_sky_irradiance(r);
 
+
         // Coarse/fine march (HZD15 / Nubis17 / design.md §1.4): large steps with weather+profile
         // only; on hit, step back and switch to fine with full noise. After N empty fine samples
         // return to coarse. Light taps only in fine mode with density > 0.
@@ -628,13 +650,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 let away = saturate(0.5 - 0.5 * cos_theta);
                 let dark_edge = mix(1.0, powder, CLOUD_DARK_EDGE_STRENGTH * away);
                 // Sunlit ground below this sample (Lambert, albedo): sun irradiance through the
-                // atmosphere and the cloud shadow map at the ground point.
+                // atmosphere times the mean cloud-shadow visibility of the ground it sees.
                 if (light_i == 0u) {
                     let r_g = atmosphere.inner_radius;
-                    let p_g = up * r_g;
                     let mu_g = dot(l, up);
                     let e_sun = (*light).color.rgb * sample_transmittance_lut(r_g, mu_g) * max(mu_g, 0.0)
-                        * ground_cloud_shadow(p_g, l);
+                        * ground_sun_visibility(p, l);
                     ground_rad = CLOUD_GROUND_ALBEDO * (e_sun / PI + sky_irr);
                 }
                 // Extinction-driven Lambert floor on the phase (RDR2 slide 30), isotropic 1/4pi.
