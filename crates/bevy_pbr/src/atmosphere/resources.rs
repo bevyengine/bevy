@@ -80,12 +80,15 @@ fn shadow_map_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArr
 /// Cloud bind group layout entries (cloud layer uniform, noise textures, cloud shadow map, STBN).
 /// Sampled outputs of the `clouds_raymarch` pass, read by `render_sky` (26: luminance and
 /// transmittance, 27: transmittance-weighted cloud depth).
-fn cloud_pass_output_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<3> {
+fn cloud_pass_output_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<5> {
     (
         (26, texture_2d(TextureSampleType::Float { filterable: true })),
         (27, texture_2d(TextureSampleType::Float { filterable: false })),
         // Cloud field: SDF (r) + blurred column optical depth (g), `cloud_field.wesl`.
         (44, texture_3d(TextureSampleType::Float { filterable: true })),
+        // Half-res haze from the `haze` prepass (render_sky.wesl): in-scattering, transmittance.
+        (50, texture_2d(TextureSampleType::Float { filterable: true })),
+        (51, texture_2d(TextureSampleType::Float { filterable: true })),
     )
 }
 
@@ -901,6 +904,8 @@ pub(crate) struct RenderSkyPipelineKey {
     pub msaa_samples: u32,
     pub dual_source_blending: bool,
     pub clouds_enabled: bool,
+    /// The half-resolution haze prepass (`haze` entry point) instead of the full-res pass.
+    pub haze_prepass: bool,
 }
 
 impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
@@ -925,6 +930,10 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             // The cloud field (SDF + blurred column optical depth) is bound at 44.
             shader_defs.push("CLOUD_FIELD_BOUND".into());
             shader_defs.extend(cloud_reference_def());
+            // The atmosphere march at half resolution (prepass) + depth-aware upsample.
+            if key.msaa_samples == 1 {
+                shader_defs.push("SKY_HAZE_HALF_RES".into());
+            }
         } else {
             shader_defs.extend(atm_dbg_defs());
         }
@@ -934,6 +943,27 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
         } else {
             BlendFactor::SrcAlpha
         };
+
+        if key.haze_prepass {
+            let target = Some(ColorTargetState {
+                format: TextureFormat::Rgba16Float,
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            });
+            return RenderPipelineDescriptor {
+                label: Some("render_sky_haze_pipeline".into()),
+                layout: vec![self.render_sky_clouds.clone()],
+                vertex: self.fullscreen_shader.to_vertex_state(),
+                fragment: Some(FragmentState {
+                    shader: self.fragment_shader.clone(),
+                    shader_defs,
+                    entry_point: Some("haze".into()),
+                    targets: vec![target.clone(), target],
+                    ..default()
+                }),
+                ..default()
+            };
+        }
 
         RenderPipelineDescriptor {
             label: Some(format!("render_sky_pipeline_{}", key.msaa_samples).into()),
@@ -963,6 +993,7 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
+                entry_point: Some("main".into()),
                 ..default()
             }),
             multisample: MultisampleState {
@@ -992,11 +1023,31 @@ pub(super) fn queue_render_sky_pipelines(
                     .features()
                     .contains(WgpuFeatures::DUAL_SOURCE_BLENDING),
                 clouds_enabled: cloud_layer.is_some(),
+                haze_prepass: false,
             },
         );
         commands.entity(entity).insert(RenderSkyPipelineId(id));
+        if cloud_layer.is_some() && msaa.samples() == 1 {
+            let haze = specializer.specialize(
+                &pipeline_cache,
+                &layouts,
+                RenderSkyPipelineKey {
+                    msaa_samples: 1,
+                    dual_source_blending: false,
+                    clouds_enabled: true,
+                    haze_prepass: true,
+                },
+            );
+            commands.entity(entity).insert(RenderSkyHazePipelineId(haze));
+        } else {
+            commands.entity(entity).remove::<RenderSkyHazePipelineId>();
+        }
     }
 }
+
+/// The render_sky half-resolution haze prepass pipeline (views with clouds, no MSAA).
+#[derive(Component)]
+pub struct RenderSkyHazePipelineId(pub CachedRenderPipelineId);
 
 #[derive(Component)]
 pub struct AtmosphereTextures {
@@ -1009,6 +1060,12 @@ pub struct AtmosphereTextures {
     pub cloud_shadow_map_history: CachedTexture,
     /// Low-res cloud raymarch output: rgb = pre-exposed luminance, a = transmittance.
     pub clouds: CachedTexture,
+    /// Half-res haze (render_sky `haze` prepass): pre-exposure in-scattering (rgb).
+    pub haze_inscattering: CachedTexture,
+    /// Half-res haze: transmittance (rgb), ray length in km (a).
+    pub haze_transmittance: CachedTexture,
+    /// 1x1 placeholder bound in the haze slots while the prepass writes the haze textures.
+    pub haze_placeholder: CachedTexture,
     /// Low-res transmittance-weighted cloud distance (m).
     pub clouds_depth: CachedTexture,
     /// Previous frame's [`Self::clouds`] / [`Self::clouds_depth`] (ping-pong by frame parity).
@@ -1215,6 +1272,10 @@ pub(super) fn prepare_atmosphere_textures(
             } else {
                 (clouds_b, clouds_a, clouds_depth_b, clouds_depth_a)
             };
+        let haze_usage = TextureUsages::RENDER_ATTACHMENT;
+        let haze_inscattering = get("haze_inscattering", TextureFormat::Rgba16Float, clouds_size, haze_usage);
+        let haze_transmittance = get("haze_transmittance", TextureFormat::Rgba16Float, clouds_size, haze_usage);
+        let haze_placeholder = get("haze_placeholder", TextureFormat::Rgba16Float, UVec2::ONE, none);
         let clouds_trace = get(
             "clouds_trace",
             TextureFormat::Rgba16Float,
@@ -1238,6 +1299,9 @@ pub(super) fn prepare_atmosphere_textures(
                 cloud_shadow_map_tmp,
                 cloud_shadow_map_history,
                 clouds,
+                haze_inscattering,
+                haze_transmittance,
+                haze_placeholder,
                 clouds_depth,
                 clouds_history,
                 clouds_depth_history,
@@ -1398,6 +1462,8 @@ pub(crate) struct AtmosphereBindGroups {
     /// Temporal filter bind group; present when cloud_shadow_temporal_enabled.
     pub cloud_shadow_temporal: Option<BindGroup>,
     pub render_sky_clouds: Option<BindGroup>,
+    /// `render_sky_clouds` with placeholders in the haze slots, for the haze prepass.
+    pub render_sky_haze: Option<BindGroup>,
     pub render_sky_no_clouds: BindGroup,
     /// `clouds_raymarch` pass (only for non-MSAA views with a `VolumetricCloudLayer`).
     pub clouds_raymarch: Option<BindGroup>,
@@ -1896,12 +1962,15 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         // Only create clouds bind group for views that have VolumetricCloudLayer; otherwise use no_clouds
         // to avoid passing clouds layout to no_clouds pipeline when disabling clouds.
-        let render_sky_clouds = cloud_layer_binding
+        // The haze prepass writes the half-res haze textures, so its bind group carries a
+        // placeholder in their slots (a texture cannot be sampled and rendered to in one pass).
+        let make_render_sky_clouds = |label: &'static str, haze_l: &TextureView, haze_t: &TextureView| {
+            cloud_layer_binding
             .as_ref()
             .filter(|_| cloud_layer.is_some())
             .map(|cloud_layer_binding| {
                 render_device.create_bind_group(
-                    "render_sky_bind_group_clouds",
+                    label,
                     &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
                         &render_sky_layouts.render_sky_clouds
                     } else {
@@ -1944,9 +2013,23 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (26, &textures.clouds.default_view),
                         (27, &textures.clouds_depth.default_view),
                         (44, &textures.cloud_field_sdf.default_view),
+                        (50, haze_l),
+                        (51, haze_t),
                     )),
                 )
-            });
+            })
+        };
+        let render_sky_clouds = make_render_sky_clouds(
+            "render_sky_bind_group_clouds",
+            &textures.haze_inscattering.default_view,
+            &textures.haze_transmittance.default_view,
+        );
+        let render_sky_haze = make_render_sky_clouds(
+            "render_sky_haze_bind_group",
+            &textures.haze_placeholder.default_view,
+            &textures.haze_placeholder.default_view,
+        )
+        .filter(|_| *msaa == Msaa::Off);
 
         let clouds_raymarch = cloud_layer_binding
             .as_ref()
@@ -2122,6 +2205,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             cloud_shadow_filter_b_to_a,
             cloud_shadow_temporal,
             render_sky_clouds,
+            render_sky_haze,
             render_sky_no_clouds,
             clouds_raymarch,
             clouds_reconstruct,

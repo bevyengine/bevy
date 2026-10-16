@@ -16,7 +16,7 @@ use crate::{resources::GpuAtmosphere, ViewLightsUniformOffset};
 use super::{
     resources::{
         AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTextures,
-        AtmosphereTransformsOffset, RenderSkyPipelineId,
+        AtmosphereTransformsOffset, RenderSkyHazePipelineId, RenderSkyPipelineId,
     },
     GpuCloudLayers, GpuAtmosphereSettings,
 };
@@ -434,6 +434,7 @@ pub fn render_sky(
         &RenderSkyPipelineId,
         Option<&MainPassResolutionOverride>,
         &AtmosphereTextures,
+        Option<&RenderSkyHazePipelineId>,
     )>,
     pipeline_cache: Res<PipelineCache>,
     pipelines: Res<AtmosphereLutPipelines>,
@@ -457,6 +458,7 @@ pub fn render_sky(
         render_sky_pipeline_id,
         resolution_override,
         textures,
+        haze_pipeline_id,
     ) = view.into_inner();
 
     let Some(render_sky_pipeline) = pipeline_cache.get_render_pipeline(render_sky_pipeline_id.0)
@@ -584,6 +586,56 @@ pub fn render_sky(
             pass.dispatch_workgroups(size.width.div_ceil(8), size.height.div_ceil(8), 1);
             pass_span.end(&mut pass);
         }
+    }
+
+    // Half-resolution haze prepass (render_sky.wesl `haze`): the per-pixel atmosphere march at
+    // half resolution, upsampled depth-aware by render_sky. Same bind group layout as render_sky
+    // (cloud and geometry shadows), with placeholders in the haze slots it writes.
+    if let (Some(haze_id), Some(haze_bg), Some(cloud_offset)) = (
+        haze_pipeline_id,
+        atmosphere_bind_groups.render_sky_haze.as_ref(),
+        cloud_layer_uniforms_offset.as_ref(),
+    ) && let Some(haze_pipeline) = pipeline_cache.get_render_pipeline(haze_id.0)
+    {
+        fn attachment(
+            view: &bevy_render::render_resource::TextureView,
+        ) -> Option<bevy_render::render_resource::RenderPassColorAttachment<'_>> {
+            Some(bevy_render::render_resource::RenderPassColorAttachment {
+                view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: bevy_render::render_resource::Operations {
+                    load: bevy_render::render_resource::LoadOp::Clear(Default::default()),
+                    store: bevy_render::render_resource::StoreOp::Store,
+                },
+            })
+        }
+        let mut haze_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+            label: Some("render_sky_haze"),
+            color_attachments: &[
+                attachment(&textures.haze_inscattering.default_view),
+                attachment(&textures.haze_transmittance.default_view),
+            ],
+            depth_stencil_attachment: None,
+            timestamp_writes: super::gpu_timing::render(&timing_device, "render_sky_haze"),
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        haze_pass.set_pipeline(haze_pipeline);
+        haze_pass.set_bind_group(
+            0,
+            haze_bg,
+            &[
+                atmosphere_uniforms_offset.index(),
+                settings_uniforms_offset.index(),
+                atmosphere_transforms_offset.index(),
+                view_uniforms_offset.offset,
+                lights_uniforms_offset.offset,
+                cloud_offset.index(),
+            ],
+        );
+        haze_pass.draw(0..3, 0..1);
+        drop(haze_pass);
     }
 
     let mut render_sky_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {

@@ -35,6 +35,120 @@ enable dual_source_blending;
 @if(CLOUDS_ENABLED)
 @group(0) @binding(27) var cloud_depth_texture: texture_2d<f32>;
 
+// Half-resolution atmosphere (haze) from the `haze` prepass: rgb = pre-exposure in-scattering;
+// rgb = transmittance, a = ray distance (km) the haze was integrated to.
+@if(SKY_HAZE_HALF_RES)
+@group(0) @binding(50) var haze_inscattering: texture_2d<f32>;
+@if(SKY_HAZE_HALF_RES)
+@group(0) @binding(51) var haze_transmittance: texture_2d<f32>;
+
+// Distance used for sky pixels' haze lookups and as the depth key (km): the ray's length to the
+// ground or the top of the atmosphere.
+fn sky_ray_length(r: f32, mu: f32) -> f32 {
+    return max_atmosphere_distance(r, mu);
+}
+
+const HAZE_SAMPLE_SCALE: u32 = 2u;
+
+struct HazeOutput {
+    @location(0) inscattering: vec4<f32>,
+    @location(1) transmittance: vec4<f32>,
+}
+
+/// Half-resolution haze prepass: the per-pixel atmosphere raymarch (or LUT lookup) at one
+/// full-res texel of each 2x2 block, the farthest one (the background, as the cloud pass), plus
+/// its ray length as the upsampling depth key. The march is the dominant cost of render_sky at
+/// full resolution (16 shadowed samples per pixel); the haze is smooth except at silhouettes,
+/// which the depth-aware upsample in `main` handles.
+@if(SKY_HAZE_HALF_RES)
+@fragment
+fn haze(in: FullscreenVertexOutput) -> HazeOutput {
+    let full = vec2<i32>(textureDimensions(depth_texture));
+    let base = vec2<i32>(floor(in.position.xy)) * 2;
+    var px = base;
+    var depth = 1.0;
+    for (var k = 0; k < 4; k++) {
+        let p = min(base + vec2(k & 1, k >> 1), full - 1);
+        let d = textureLoad(depth_texture, p, 0);
+        if (d <= depth) {
+            depth = d;
+            px = p;
+        }
+    }
+    let uv = (vec2<f32>(px) + 0.5) / vec2<f32>(full);
+    let samples = settings.sky_max_samples * HAZE_SAMPLE_SCALE;
+    // The march's `uv` only drives its jitter noise (uv x full-res viewport = noise pixel). At
+    // half resolution that read every other texel of the blue-noise tile, which loses its
+    // blue-noise property (a visible hatch); use this pass's own contiguous pixel lattice.
+    let noise_uv = in.position.xy / view.viewport.zw;
+    let ray_dir_ws = uv_to_ray_direction(uv);
+    let world_pos = get_view_position();
+    let r = length(world_pos);
+    let mu = dot(ray_dir_ws, normalize(world_pos));
+    var t: f32;
+    var inscattering: vec3<f32>;
+    var transmittance: vec3<f32>;
+    if depth == 0.0 {
+        t = sky_ray_length(r, mu);
+        transmittance = sample_transmittance_lut(r, mu);
+        inscattering = sample_sky_view_lut(r, direction_world_to_atmosphere(ray_dir_ws));
+        if settings.rendering_method == 1u {
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, samples, noise_uv, true);
+            inscattering = result.inscattering;
+            transmittance = result.transmittance;
+        }
+    } else {
+        t = ndc_to_camera_dist(vec3(uv_to_ndc(uv), depth));
+        inscattering = sample_aerial_view_lut(uv, t);
+        transmittance = sample_transmittance_lut_segment(r, mu, t);
+        if settings.rendering_method == 1u {
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, samples, noise_uv, false);
+            inscattering = result.inscattering;
+            transmittance = result.transmittance;
+        }
+    }
+    return HazeOutput(vec4(inscattering, 0.0), vec4(transmittance, t * 0.001));
+}
+
+/// Joint-bilateral upsample of the half-res haze: bilinear weights times a depth-similarity
+/// weight on the ray length (relative tolerance 10 %), falling back to the closest-depth tap
+/// when no neighbour matches (thin features).
+@if(SKY_HAZE_HALF_RES)
+fn upsample_haze(uv: vec2<f32>, t: f32) -> array<vec3<f32>, 2> {
+    let dims_u = textureDimensions(haze_inscattering);
+    let coord = uv * vec2<f32>(dims_u) - 0.5;
+    let base = vec2<i32>(floor(coord));
+    let f = coord - floor(coord);
+    let t_km = t * 0.001;
+    var l = vec3(0.0);
+    var tr = vec3(0.0);
+    var w_sum = 0.0;
+    var best = 1e30;
+    var best_l = vec3(0.0);
+    var best_tr = vec3(1.0);
+    for (var k = 0; k < 4; k++) {
+        let o = vec2(k & 1, k >> 1);
+        let p = clamp(base + o, vec2(0), vec2<i32>(dims_u) - 1);
+        let tap_l = textureLoad(haze_inscattering, p, 0).rgb;
+        let tap = textureLoad(haze_transmittance, p, 0);
+        let rel = abs(tap.a - t_km) / max(t_km, 1e-3);
+        let bw = select(1.0 - f.x, f.x, o.x == 1) * select(1.0 - f.y, f.y, o.y == 1);
+        let w = bw * exp(-rel / 0.1);
+        l += w * tap_l;
+        tr += w * tap.rgb;
+        w_sum += w;
+        if (rel < best) {
+            best = rel;
+            best_l = tap_l;
+            best_tr = tap.rgb;
+        }
+    }
+    if (w_sum < 1e-3) {
+        return array(best_l, best_tr);
+    }
+    return array(l / w_sum, tr / w_sum);
+}
+
 struct RenderSkyOutput {
     @if(DUAL_SOURCE_BLENDING)
     @location(0) @blend_src(0) inscattering: vec4<f32>,
@@ -62,6 +176,22 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
 
     let sun_radiance = sample_sun_radiance(ray_dir_ws);
 
+    @if(SKY_HAZE_HALF_RES) {
+    var t_pixel = sky_ray_length(r, mu);
+    if depth != 0.0 {
+        t_pixel = ndc_to_camera_dist(vec3(uv_to_ndc(in.uv), depth));
+    }
+    let haze = upsample_haze(in.uv, t_pixel);
+    inscattering = haze[0];
+    transmittance = haze[1];
+    if depth == 0.0 {
+        inscattering += sun_radiance * transmittance;
+        if ray_intersects_ground(r, mu) {
+            transmittance = vec3(0.0);
+        }
+    }
+    }
+    @if(!SKY_HAZE_HALF_RES) {
     if depth == 0.0 {
         let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws);
         transmittance = sample_transmittance_lut(r, mu);
@@ -87,6 +217,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
+    }
     }
 
     // exposure compensation
