@@ -93,7 +93,6 @@ const LIGHT_TAP_STEP_M: f32 = 20.0;
 const LIGHT_TAP_GROWTH: f32 = 1.4;
 const LIGHT_TAP_LOD: f32 = 0.25;
 const LIGHT_LONG_TAP_M: f32 = 1500.0;
-const CLOUD_GROUND_ALBEDO: f32 = 0.28;
 
 // Order in which the 4 pixels of each 2x2 half-res block are traced (shared with reconstruct).
 const CHECKER_OFFSETS: array<vec2<u32>, 4> = array(
@@ -192,7 +191,7 @@ fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: 
 // + cloud inside the cloud shell), ratio tracking for camera-ray transmittance and sun shadow
 // rays through the clouds; air transmittance toward the sun from the transmittance LUT (exact
 // integral of the same medium). Sun is the only light: no sky LUT, space is black; ground is a
-// Lambertian sphere (albedo CLOUD_GROUND_ALBEDO) with sun NEE and cosine-sampled bounces.
+// Lambertian sphere (albedo atmosphere.ground_albedo) with sun NEE and cosine-sampled bounces.
 // Unlimited bounces with Russian roulette. RGB via hero-channel sampling: each traced sample
 // handles one channel (cycled per pixel sample), weighted by 3.
 // Output: rgb = in-scattered radiance along the camera ray up to the scene depth (sky pixels: the
@@ -617,7 +616,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let up = p / r_p;
             let dens_ctx = cloud_density_context(r_p, p);
             let esc_col = cloud_escape_and_column(p);
-            var ground_rad = sky_irr * CLOUD_GROUND_ALBEDO;
+            var ground_rad = sky_irr * atmosphere.ground_albedo;
 
             var direct_sum = vec3(0.0);
             for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
@@ -661,7 +660,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     let mu_g = dot(l, up);
                     let e_sun = (*light).color.rgb * sample_transmittance_lut(r_g, mu_g) * max(mu_g, 0.0)
                         * ground_sun_visibility(p, l);
-                    ground_rad = CLOUD_GROUND_ALBEDO * (e_sun / PI + sky_irr);
+                    ground_rad = atmosphere.ground_albedo * (e_sun / PI + sky_irr);
                 }
                 // Nubis Cubed structure (Schneider, Advances 2023, "Direct = Transmittance * Phase +
                 // Multiple Scattering * Secondary Phase") with physically derived terms. Multiple
