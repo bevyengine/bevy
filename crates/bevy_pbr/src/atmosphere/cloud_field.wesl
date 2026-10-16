@@ -5,8 +5,11 @@
 //   edt_x/edt_y/edt_z: separable exact Euclidean distance transform (Felzenszwalb & Huttenlocher
 //          2012 lower-envelope form, brute-force within a window) for both the outside and the
 //          inside distance. edt_z writes the final signed distance in metres (negative inside).
+//   escape: per-voxel escape probability of multiply scattered light (Hillaire 2020 f_ms with the
+//          similarity-reduced optical depth, see `escape`), from the extinction written by init.
 
 import package::atmosphere::bindings::{atmosphere, view};
+import package::atmosphere::functions::CLOUD_MIE_MEAN_COS;
 import package::atmosphere::clouds::{
     cloud_layer,
     get_cloud_medium_density_coarse,
@@ -24,6 +27,11 @@ import package::atmosphere::clouds::{
 @group(0) @binding(41) var in_field: texture_3d<f32>;
 @group(0) @binding(42) var out_field: texture_storage_3d<rgba16float, write>;
 @group(0) @binding(43) var out_field_sdf: texture_storage_3d<rgba16float, write>;
+// Extinction per voxel (r, m^-1), vertical voxel size (g, m), build cell (ba). Written by init.
+@group(0) @binding(45) var out_field_ext: texture_storage_3d<rgba16float, write>;
+@group(0) @binding(47) var in_field_ext: texture_3d<f32>;
+// Escape probability (r) and build cell (ba). Written by escape, read by clouds_raymarch.
+@group(0) @binding(46) var out_field_esc: texture_storage_3d<rgba16float, write>;
 
 // Squared distances are stored in xy-voxel units (fp16-safe: < 2048 within the windows).
 const BIG: f32 = 60000.0;
@@ -65,6 +73,63 @@ fn init(@builtin(global_invocation_id) id: vec3<u32>) {
     // b: the build cell (x at z = 0, z at z = 1) and dz / vox (z >= 2) travel to edt_z.
     let cell_c = select(select(dz / vox, cell.y, id.z == 1u), cell.x, id.z == 0u);
     textureStore(out_field_init, id, vec4(select(BIG, 0.0, inside), select(0.0, BIG, inside), cell_c, od));
+    textureStore(out_field_ext, id, vec4(od / dz, dz, cell));
+}
+
+// Escape probability of multiply scattered light, P_esc(x) = (1/4pi) ∫ exp(-tau'(x, w)) dw, with
+// the similarity-reduced optical depth tau' = (1 - <cos>) tau (Joseph, Wiscombe & Weinman 1976:
+// for orders >= 2 a forward-scattering medium acts like an isotropic one with sigma (1 - g)).
+// The cloud pass turns it into Hillaire 2020's transfer fraction f_ms = albedo (1 - P_esc) and
+// the series 1 / (1 - f_ms). Validated against MC (validation/sky/ms_depth_mc.py,
+// ms_models_vs_mc.py). Quadrature: the 14 cube directions (6 faces, 8 corners), equal weights.
+// March: steps growing x1.35 from 40 m (12 steps, ~4 km) through the voxel extinction; the
+// layer top/bottom and the grid side end the path (no cloud beyond). Stored at half the field's
+// horizontal resolution (375 m): P_esc varies over the reduced mean free path 1/((1-g) sigma),
+// ~400 m at full density.
+const ESC_STEPS: u32 = 12u;
+const ESC_STEP0_M: f32 = 40.0;
+const ESC_STEP_GROWTH: f32 = 1.35;
+const ESC_XY_DOWNSAMPLE: u32 = 2u;
+const ESC_DIRS: array<vec3<f32>, 14> = array(
+    vec3(1.0, 0.0, 0.0), vec3(-1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0),
+    vec3(0.0, -1.0, 0.0), vec3(0.0, 0.0, 1.0), vec3(0.0, 0.0, -1.0),
+    vec3(0.57735, 0.57735, 0.57735), vec3(-0.57735, 0.57735, 0.57735),
+    vec3(0.57735, -0.57735, 0.57735), vec3(-0.57735, -0.57735, 0.57735),
+    vec3(0.57735, 0.57735, -0.57735), vec3(-0.57735, 0.57735, -0.57735),
+    vec3(0.57735, -0.57735, -0.57735), vec3(-0.57735, -0.57735, -0.57735),
+);
+
+@compute @workgroup_size(4, 4, 4)
+fn escape(@builtin(global_invocation_id) id: vec3<u32>) {
+    let res_xy = CLOUD_FIELD_RES_XY / ESC_XY_DOWNSAMPLE;
+    if (id.x >= res_xy || id.y >= res_xy || id.z >= CLOUD_FIELD_RES_Z) {
+        return;
+    }
+    // Centre of the 2x2 block in field-voxel coordinates.
+    let centre = vec3(vec2<f32>(id.xy * ESC_XY_DOWNSAMPLE) + 0.5 * f32(ESC_XY_DOWNSAMPLE), f32(id.z) + 0.5);
+    let e0 = textureLoad(in_field_ext, vec3<u32>(id.xy * ESC_XY_DOWNSAMPLE, id.z), 0);
+    let dz = e0.g;
+    let vox = cloud_field_voxel_m();
+    // Grid space (voxels): x, y horizontal (field xy), z vertical.
+    let scale = vec3(1.0 / vox, 1.0 / vox, 1.0 / max(dz, 1e-3));
+    let res = vec3(f32(CLOUD_FIELD_RES_XY), f32(CLOUD_FIELD_RES_XY), f32(CLOUD_FIELD_RES_Z));
+    let k = 1.0 - CLOUD_MIE_MEAN_COS;
+    var p_esc = 0.0;
+    for (var d = 0u; d < 14u; d++) {
+        let dir = ESC_DIRS[d] * scale;
+        var t = 0.0;
+        var dt = ESC_STEP0_M;
+        var tau = 0.0;
+        for (var s = 0u; s < ESC_STEPS; s++) {
+            let q = centre + dir * (t + 0.5 * dt);
+            if (any(q < vec3(0.0)) || any(q >= res)) { break; }
+            tau += textureLoad(in_field_ext, vec3<i32>(q), 0).r * dt;
+            t += dt;
+            dt *= ESC_STEP_GROWTH;
+        }
+        p_esc += exp(-k * tau);
+    }
+    textureStore(out_field_esc, id, vec4(p_esc / 14.0, 0.0, e0.ba));
 }
 
 // One workgroup per grid line: the line is loaded into workgroup memory once, so each voxel's

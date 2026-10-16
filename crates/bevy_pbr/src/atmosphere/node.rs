@@ -301,6 +301,7 @@ pub fn atmosphere_luts(
             pipelines.cloud_field_edt_x,
             pipelines.cloud_field_edt_y,
             pipelines.cloud_field_edt_z,
+            pipelines.cloud_field_escape,
         ];
         let resolved: Option<Vec<_>> = ids.iter().map(|id| pipeline_cache.get_compute_pipeline(*id)).collect();
         if let Some(resolved) = resolved {
@@ -309,8 +310,8 @@ pub fn atmosphere_luts(
                 super::resources::CLOUD_FIELD_RES_XY.div_ceil(8),
                 super::resources::CLOUD_FIELD_RES_Z,
             );
-            // Amortised rebuild: one stage per frame (init, x, y, z), then 4 idle frames, so the
-            // field follows weather/wind within 8 frames at ~1/8 of the full cost per frame.
+            // Amortised rebuild: one stage per frame (init, x, y, z, escape), then 3 idle frames, so
+            // the field follows weather/wind within 8 frames at ~1/8 of the full cost per frame.
             let stage = (*field_frame % 8) as usize;
             *field_frame = field_frame.wrapping_add(1);
             for (i, pipeline) in resolved.into_iter().enumerate() {
@@ -321,7 +322,7 @@ pub fn atmosphere_luts(
                     label: Some("cloud_field"),
                     timestamp_writes: super::gpu_timing::compute(
                         &timing_device,
-                        ["cloud_field", "cloud_field_edt_x", "cloud_field_edt_y", "cloud_field_edt_z"][i],
+                        ["cloud_field", "cloud_field_edt_x", "cloud_field_edt_y", "cloud_field_edt_z", "cloud_field_escape"][i],
                     ),
                 });
                 pass.set_pipeline(pipeline);
@@ -346,7 +347,9 @@ pub fn atmosphere_luts(
                     0 => pass.dispatch_workgroups(groups.x, groups.y, groups.z),
                     1 => pass.dispatch_workgroups(1, n_xy, n_z),
                     2 => pass.dispatch_workgroups(n_xy, 1, n_z),
-                    _ => pass.dispatch_workgroups(n_xy, n_xy, 1),
+                    3 => pass.dispatch_workgroups(n_xy, n_xy, 1),
+                    // escape: half horizontal resolution, 4x4x4 groups.
+                    _ => pass.dispatch_workgroups(n_xy / 8, n_xy / 8, n_z.div_ceil(4)),
                 }
             }
         }

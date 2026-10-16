@@ -18,7 +18,7 @@ import package::atmosphere::{
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
         sample_transmittance_lut, sample_multiscattering_lut, sample_sky_view_lut, direction_world_to_atmosphere, sample_cloud_shadow_map, cloud_far_transmittance,
-        hg_phase, cloud_mie_phase, sample_aerial_view_lut, raymarch_atmosphere, sample_density_lut, sample_scattering_lut,
+        hg_phase, cloud_mie_phase, CLOUD_MIE_MEAN_COS, sample_aerial_view_lut, raymarch_atmosphere, sample_density_lut, sample_scattering_lut,
         ABSORPTION_DENSITY, SCATTERING_DENSITY,
     },
     clouds::{
@@ -38,14 +38,19 @@ const CLOUD_DIST_UNKNOWN: f32 = 1e9;
 // trilinear filtering of a distance field under-/over-shoots by up to ~1 voxel (Hart 1996 sphere
 // tracing needs a conservative bound), plus 0.5 voxel for the coarse-density seed threshold.
 const CLOUD_SDF_SKIP_MARGIN_VOXELS: f32 = 2.5;
-// Nubis Cubed (Schneider, SIGGRAPH 2023) secondary-scattering remap ranges:
-// Remap(sun_dod, 0, 0.9, 0.25, Remap(cloud_distance, -128, 0, 0.05, 0.25)).
-const NUBIS_MS_DIST_RANGE_M: f32 = 128.0;
-const NUBIS_MS_K_DEEP: f32 = 0.05;
-const NUBIS_MS_K_EDGE: f32 = 0.25;
-const NUBIS_MS_DOT_RANGE: f32 = 0.9;
-/// Nubis Cubed light-march sample spacing ("256 meter, ten sample light ray march", 2:11:00).
-const NUBIS_LIGHT_SAMPLE_M: f32 = 25.6;
+// Escape probability of multiply scattered light (cloud_field.wesl `escape`): r, build cell ba.
+@group(0) @binding(48) var cloud_field_esc: texture_3d<f32>;
+/// Outside the field grid: the escape probability at a slab surface (half the sphere open), the
+/// limit for distant clouds, which are seen at their surfaces.
+const CLOUD_ESC_SURFACE: f32 = 0.5;
+
+fn cloud_escape_probability(p: vec3<f32>) -> f32 {
+    let uvw = cloud_field_uvw(p, textureLoad(cloud_field_esc, vec3(0), 0).ba);
+    if (any(uvw.xy < vec2(0.0)) || any(uvw.xy > vec2(1.0))) {
+        return CLOUD_ESC_SURFACE;
+    }
+    return textureSampleLevel(cloud_field_esc, atmosphere_lut_sampler, saturate(uvw), 0.0).r;
+}
 /// Nubis Cubed GetVoxelCloudDistance: signed distance (m, negative inside) from the coarse SDF
 /// (cloud_field.wesl). Outside the grid: CLOUD_DIST_UNKNOWN. Positive distances are capped by
 /// the distance to the grid's side so clouds beyond the grid are never skipped over.
@@ -73,8 +78,6 @@ const CLOUD_COARSE_DENSITY_EPS: f32 = 0.0005;
 const CLOUD_MAX_DISTANCE_M: f32 = 350000.0;
 const CLOUD_MIN_TRANSMITTANCE: f32 = 0.01;
 
-// Multiple-scattering octaves (Wrenninge 2013; FB16 §5.8 eq. 19-20), with a <= b.
-const MS_A: f32 = 0.65; // scattering attenuation per octave
 // Short light taps toward the sun for near-surface self-shadowing detail (Nubis3 2:09:52: "the
 // first two samples are taken as before"; the cloud shadow map covers the long range).
 // 12 taps growing x1.4 from 20 m (~2.8 km) with a gentler LOD ramp: the old 6 doubling taps
@@ -623,37 +626,21 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
                 // Extinction-driven Lambert floor on the phase (RDR2 slide 30), isotropic 1/4pi.
                 let phase_floor = (0.25 / PI) * saturate(sigma_t * CLOUD_BACK_SCATTER_EXT_SCALE);
-                // Nubis Cubed (Schneider, Advances 2023, "Light Energy = Direct + Ambient +
-                // Secondary Scattering"). Direct: single scattering. Secondary scattering as a
-                // probability field ms_volume = dimensional_profile * exp(-summed_density *
-                // Remap(sun_dod, 0, 0.9, 0.25, Remap(cloud_distance, -128, 0, 0.05, 0.25))).
-                // Its energy keeps the Wrenninge series of the replaced octaves, a / (1 - a),
-                // isotropic.
-                let prof = saturate(dimensional_profile);
+                // Nubis Cubed structure (Schneider, Advances 2023, "Direct = Transmittance * Phase +
+                // Multiple Scattering * Secondary Phase") with physically derived terms. Multiple
+                // scattering (orders >= 2), isotropic: E_sun * exp(-(1 - g) tau_sun) * F_ms / 4pi.
+                //  - exp(-(1 - g) tau_sun): diffuse sunlight under similarity scaling (Joseph,
+                //    Wiscombe & Weinman 1976), tau_sun = local march + shadow-map optical depth.
+                //  - F_ms = f_ms / (1 - f_ms), f_ms = albedo (1 - P_esc): Hillaire 2020's transfer
+                //    series with the escape probability on the reduced optical depth (cloud field).
+                // vs MC (validation/sky/ms_models_vs_mc.py, tau <= 5): median error -29..+25 %.
                 var direct = t_local * t_far * max(cloud_phase(cos_theta), phase_floor) * dark_edge;
                 @if(!CLOUD_TERM_S1) {
-                    // Cloud distance from the SDF; outside the grid the profile stands in
-                    // (-128 m deep inside).
-                    var c_dist = cloud_distance(p, ray_origin);
-                    if (c_dist >= CLOUD_DIST_UNKNOWN) { c_dist = -NUBIS_MS_DIST_RANGE_M * prof; }
-                    let k_dist = mix(NUBIS_MS_K_DEEP, NUBIS_MS_K_EDGE,
-                        saturate((c_dist + NUBIS_MS_DIST_RANGE_M) / NUBIS_MS_DIST_RANGE_M));
-                    let k_ms = mix(NUBIS_MS_K_EDGE, k_dist, saturate(cos_theta / NUBIS_MS_DOT_RANGE));
-                    // inSunLightSummedDensitySamples: normalised density summed per light sample.
-                    // Nubis Cubed (2:11:00) replaced a "256 meter, ten sample light ray march" with
-                    // precomputed voxel density toward the sun (which also carries the long-distance
-                    // shadows), so one sample ~ 25.6 m: sum = integral(rho_n ds) / 25.6 m. The local
-                    // march gives the near integral; the cloud shadow map (our precomputed
-                    // light-space density) gives the rest, recovered from its optical depth. No
-                    // separate far-shadow factor (Nubis has none).
-                    let rho_unit = max(cloud_layer.cloud_density, 1e-6);
-                    let near_len = light_od / rho_unit;
-                    let far_len = -log(max(t_far, 1e-6)) / max(sigma_t_unit * rho_unit, 1e-9);
-                    var sample_m = NUBIS_LIGHT_SAMPLE_M;
-                    @if(ATM_DBG_NUBIS_SAMPLE2X) { sample_m *= 2.0; }
-                    let summed = (near_len + far_len) / sample_m;
-                    let ms_vol = prof * exp(-summed * k_ms);
-                    direct += ms_vol * (MS_A / (1.0 - MS_A)) * (0.25 / PI);
+                    let tau_sun = light_optical_depth - log(max(t_far, 1e-6));
+                    let albedo = sigma_s_unit / max(sigma_t_unit, 1e-9);
+                    let f_ms = albedo * (1.0 - cloud_escape_probability(p));
+                    let ms_vol = exp(-(1.0 - CLOUD_MIE_MEAN_COS) * tau_sun) * f_ms / (1.0 - f_ms);
+                    direct += ms_vol * (0.25 / PI);
                 }
                 direct_sum += (*light).color.rgb * t_atm * direct;
             }

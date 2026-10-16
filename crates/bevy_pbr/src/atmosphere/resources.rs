@@ -146,6 +146,8 @@ pub(crate) struct AtmosphereBindGroupLayouts {
     /// Cloud SDF separable distance-transform passes (`cloud_field.wesl`).
     pub cloud_field_edt: BindGroupLayoutDescriptor,
     pub cloud_field_final: BindGroupLayoutDescriptor,
+    /// Escape-probability pass (`cloud_field.wesl` escape).
+    pub cloud_field_escape: BindGroupLayoutDescriptor,
 }
 
 #[derive(Resource)]
@@ -319,6 +321,14 @@ impl AtmosphereBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ),
+                    // Cloud field extinction (`cloud_field.wesl` init), read by `escape`.
+                    (
+                        45,
+                        texture_storage_3d(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
                     (
                         13,
                         texture_storage_2d(
@@ -420,6 +430,8 @@ impl AtmosphereBindGroupLayouts {
                 ),
                 // Cloud signed-distance field (`cloud_field.wesl`).
                 (44, texture_3d(TextureSampleType::Float { filterable: true })),
+                // Escape probability of multiply scattered light (`cloud_field.wesl` escape).
+                (48, texture_3d(TextureSampleType::Float { filterable: true })),
             )),
         );
 
@@ -484,6 +496,19 @@ impl AtmosphereBindGroupLayouts {
                         (41, texture_3d(TextureSampleType::Float { filterable: false })),
                         (
                             43,
+                            texture_storage_3d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
+                        ),
+                    ),
+                ),
+            ),
+            cloud_field_escape: BindGroupLayoutDescriptor::new(
+                "cloud_field_escape_bind_group_layout",
+                &BindGroupLayoutEntries::with_indices(
+                    ShaderStages::COMPUTE,
+                    (
+                        (47, texture_3d(TextureSampleType::Float { filterable: false })),
+                        (
+                            46,
                             texture_storage_3d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
                         ),
                     ),
@@ -706,6 +731,7 @@ pub(crate) struct AtmosphereLutPipelines {
     pub cloud_field_edt_x: CachedComputePipelineId,
     pub cloud_field_edt_y: CachedComputePipelineId,
     pub cloud_field_edt_z: CachedComputePipelineId,
+    pub cloud_field_escape: CachedComputePipelineId,
 }
 
 impl FromWorld for AtmosphereLutPipelines {
@@ -849,6 +875,7 @@ impl FromWorld for AtmosphereLutPipelines {
             cloud_field_edt_x: field("cloud_field_edt_x_pipeline", &layouts.cloud_field_edt, "edt_x"),
             cloud_field_edt_y: field("cloud_field_edt_y_pipeline", &layouts.cloud_field_edt, "edt_y"),
             cloud_field_edt_z: field("cloud_field_edt_z_pipeline", &layouts.cloud_field_final, "edt_z"),
+            cloud_field_escape: field("cloud_field_escape_pipeline", &layouts.cloud_field_escape, "escape"),
         }
     }
 }
@@ -981,6 +1008,8 @@ pub struct AtmosphereTextures {
     pub cloud_field_a: CachedTexture,
     pub cloud_field_b: CachedTexture,
     pub cloud_field_sdf: CachedTexture,
+    pub cloud_field_ext: CachedTexture,
+    pub cloud_field_esc: CachedTexture,
 }
 
 pub(super) fn prepare_atmosphere_textures(
@@ -1072,6 +1101,25 @@ pub(super) fn prepare_atmosphere_textures(
         let cloud_field_a = field_tex("cloud_field_a", TextureFormat::Rgba16Float);
         let cloud_field_b = field_tex("cloud_field_b", TextureFormat::Rgba16Float);
         let cloud_field_sdf = field_tex("cloud_field_sdf", TextureFormat::Rgba16Float);
+        let cloud_field_ext = field_tex("cloud_field_ext", TextureFormat::Rgba16Float);
+        // Escape probability at half the horizontal resolution (`cloud_field.wesl` escape).
+        let cloud_field_esc = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("cloud_field_esc"),
+                size: Extent3d {
+                    width: CLOUD_FIELD_RES_XY / 2,
+                    height: CLOUD_FIELD_RES_XY / 2,
+                    depth_or_array_layers: CLOUD_FIELD_RES_Z,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D3,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        );
 
         let cloud_shadow_map = texture_cache.get(
             &render_device,
@@ -1185,6 +1233,8 @@ pub(super) fn prepare_atmosphere_textures(
                 cloud_field_a,
                 cloud_field_b,
                 cloud_field_sdf,
+                cloud_field_ext,
+                cloud_field_esc,
             }
         });
     }
@@ -1341,7 +1391,8 @@ pub(crate) struct AtmosphereBindGroups {
     /// `clouds_reconstruct` pass (same conditions as `clouds_raymarch`).
     pub clouds_reconstruct: Option<BindGroup>,
     /// Cloud SDF passes: x (a->b), y (b->a), z (a->sdf).
-    pub cloud_field_edt: Option<[BindGroup; 3]>,
+    /// edt_x, edt_y, edt_z, escape.
+    pub cloud_field_edt: Option<[BindGroup; 4]>,
 }
 
 #[derive(Copy, Clone, Debug, thiserror::Error)]
@@ -1729,6 +1780,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                     (34, &curl_noise_texture.texture.default_view),
                     (13, trace_storage),
                     (40, &textures.cloud_field_a.default_view),
+                    (45, &textures.cloud_field_ext.default_view),
                 )),
             )
         });
@@ -1904,6 +1956,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (26, &textures.clouds_trace.default_view),
                         (27, &textures.clouds_trace_depth.default_view),
                         (44, &textures.cloud_field_sdf.default_view),
+                        (48, &textures.cloud_field_esc.default_view),
                     )),
                 )
             });
@@ -1948,6 +2001,14 @@ pub(super) fn prepare_atmosphere_bind_groups(
                     &BindGroupEntries::with_indices((
                         (41, &textures.cloud_field_a.default_view),
                         (43, &textures.cloud_field_sdf.default_view),
+                    )),
+                ),
+                render_device.create_bind_group(
+                    "cloud_field_escape_bind_group",
+                    &pipeline_cache.get_bind_group_layout(&layouts.cloud_field_escape),
+                    &BindGroupEntries::with_indices((
+                        (47, &textures.cloud_field_ext.default_view),
+                        (46, &textures.cloud_field_esc.default_view),
                     )),
                 ),
             ]
@@ -2139,8 +2200,6 @@ fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
 /// - `ATM_DBG_MIP0`: full-resolution cloud noise at any distance.
 /// - `ATM_DBG_OUT_H`: write height-in-layer / profile / depth instead of cloud colour.
 /// - `ATM_DBG_NO_SDF_SKIP`: disable cloud-SDF empty-space skipping.
-/// - `ATM_DBG_NUBIS_SAMPLE2X`: Nubis summed-density sample spacing 51.2 m instead of 25.6 m
-///   (under investigation, see design.md).
 /// See also `CLOUD_TERMS=s1|sun|amb` and `CLOUD_REFERENCE=1`.
 fn atm_dbg_defs() -> Vec<bevy_shader::ShaderDefVal> {
     std::env::var("ATMOSPHERE_DBG")
