@@ -487,6 +487,70 @@ impl App {
         self
     }
 
+    /// Inserts a [`Resource`], initialized with its default value, to be shared
+    /// by all systems in a [`SystemSet`], if there is no existing instance of `T`
+    /// for that set.
+    ///
+    /// Once inserted, the resource may be accessed by systems in that set with
+    /// [`SetLocal<T>`](bevy_ecs::system::SetLocal) and
+    /// [`SetLocalMut<T>`](bevy_ecs::system::SetLocalMut).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Resource, Default)]
+    /// struct Score(u32);
+    ///
+    /// #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+    /// struct RedTeam;
+    ///
+    /// fn score(mut score: SetLocalMut<Score>) {
+    ///     score.0 += 1;
+    /// }
+    ///
+    /// App::new()
+    ///     .init_set_local::<Score>(RedTeam)
+    ///     .add_systems(Update, score.in_set(RedTeam));
+    /// ```
+    pub fn init_set_local<T: Resource + FromWorld>(&mut self, set: impl SystemSet) -> &mut Self {
+        self.world_mut().init_set_local::<T>(set);
+        self
+    }
+
+    /// Inserts a [`Resource`] to be shared by all systems
+    /// in a [`SystemSet`], overwriting any existing data
+    /// of the same type for the set.
+    ///
+    /// Once inserted, the resource may be accessed by systems in that set with
+    /// [`SetLocal<T>`](bevy_ecs::system::SetLocal) and
+    /// [`SetLocalMut<T>`](bevy_ecs::system::SetLocalMut).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Resource)]
+    /// struct Score(u32);
+    ///
+    /// #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+    /// struct RedTeam;
+    ///
+    /// fn score(mut score: SetLocalMut<Score>) {
+    ///     score.0 += 1;
+    /// }
+    ///
+    /// App::new()
+    ///     .insert_set_local(RedTeam, Score(10))
+    ///     .add_systems(Update, score.in_set(RedTeam));
+    /// ```
+    pub fn insert_set_local<T: Resource>(&mut self, set: impl SystemSet, value: T) -> &mut Self {
+        self.world_mut().insert_set_local(set, value);
+        self
+    }
+
     /// Inserts the [`!Send`](Send) data into the app, overwriting any existing data
     /// of the same type.
     ///

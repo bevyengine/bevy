@@ -112,6 +112,7 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
+    use crate::system::SystemInitContext;
     use crate::{
         change_detection::ContiguousRef,
         component::Component,
@@ -724,7 +725,7 @@ mod tests {
                 assert_eq!(has_a_and_b.iter_many(&has_a).count(), 3);
             }
             let mut system = IntoSystem::into_system(system);
-            system.initialize(&mut world);
+            system.initialize(&mut world, &SystemInitContext::default());
             system.run((), &mut world).unwrap();
         }
         {
@@ -735,7 +736,7 @@ mod tests {
                 }
             }
             let mut system = IntoSystem::into_system(system);
-            system.initialize(&mut world);
+            system.initialize(&mut world, &SystemInitContext::default());
             system.run((), &mut world).unwrap();
         }
         {
@@ -748,7 +749,7 @@ mod tests {
                 }
             }
             let mut system = IntoSystem::into_system(system);
-            system.initialize(&mut world);
+            system.initialize(&mut world, &SystemInitContext::default());
             system.run((), &mut world).unwrap();
         }
     }

@@ -6,12 +6,12 @@ use crate::{
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemAccess, SystemIn,
-        SystemInput, SystemParam, SystemParamAccessConflict, SystemParamItem,
+        SystemInitContext, SystemInput, SystemParam, SystemParamAccessConflict, SystemParamItem,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
-use alloc::{borrow::Cow, format, string::String, vec, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, format, string::String, vec, vec::Vec};
 use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
@@ -35,6 +35,8 @@ pub struct SystemMeta {
     // SystemParams from overriding each other
     flags: SystemStateFlags,
     pub(crate) last_run: Tick,
+    /// The system sets this system belongs to, from [`SystemInitContext::system_sets`].
+    system_sets: Box<[InternedSystemSet]>,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
     #[cfg(feature = "trace")]
@@ -54,6 +56,7 @@ impl SystemMeta {
             name,
             flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
+            system_sets: Box::default(),
         }
     }
 
@@ -66,6 +69,14 @@ impl SystemMeta {
     /// Returns the system's state flags
     pub fn flags(&self) -> SystemStateFlags {
         self.flags
+    }
+
+    /// Returns the system sets that the system belongs to, either directly or indirectly.
+    ///
+    /// Set during initialization in [`System::initialize`]  by [`SystemInitContext::system_sets`].
+    #[inline]
+    pub fn system_sets(&self) -> &[InternedSystemSet] {
+        &self.system_sets
     }
 
     /// Sets the name of this system.
@@ -877,7 +888,7 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> SystemAccess {
+    fn initialize(&mut self, world: &mut World, context: &SystemInitContext) -> SystemAccess {
         if let Some(state) = &self.state {
             assert_eq!(
                 state.world_id,
@@ -899,6 +910,7 @@ where
             }
         }
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
+        self.system_meta.system_sets = context.system_sets().into();
         let access =
             init_param_or_panic::<F::Param>(&state.param, &mut self.system_meta, world.into());
         self.is_exclusive = access.is_exclusive();
@@ -957,6 +969,7 @@ where
 /// To create something like [`PipeSystem`], but in entirely safe code.
 ///
 /// ```
+/// # use bevy_ecs::system::SystemInitContext;
 /// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
@@ -989,7 +1002,7 @@ where
 ///     // Type annotations should only needed when using `StaticSystemInput` as input
 ///     // AND the input type isn't constrained by nearby code.
 ///     let mut piped_system = IntoSystem::<(), Option<usize>, _>::into_system(pipe(parse_message, filter));
-///     piped_system.initialize(&mut world);
+///     piped_system.initialize(&mut world, &SystemInitContext::default());
 ///     assert_eq!(piped_system.run((), &mut world).unwrap(), Some(42));
 /// }
 ///

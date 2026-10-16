@@ -3,7 +3,10 @@ use bevy_utils::prelude::DebugName;
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::Result,
-    system::{input::SystemIn, BoxedSystem, RunSystemError, System, SystemAccess, SystemInput},
+    system::{
+        input::SystemIn, BoxedSystem, RunSystemError, System, SystemAccess, SystemInitContext,
+        SystemInput,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
@@ -83,8 +86,8 @@ where
         self.system.queue_deferred(world);
     }
 
-    fn initialize(&mut self, world: &mut World) -> SystemAccess {
-        self.system.initialize(world)
+    fn initialize(&mut self, world: &mut World, context: &SystemInitContext) -> SystemAccess {
+        self.system.initialize(world, context)
     }
 
     fn check_change_tick(&mut self, check: CheckChangeTicks) {
@@ -174,11 +177,11 @@ where
         self.system.queue_deferred(world);
     }
 
-    fn initialize(&mut self, world: &mut World) -> SystemAccess {
+    fn initialize(&mut self, world: &mut World, context: &SystemInitContext) -> SystemAccess {
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }
-        self.system.initialize(world)
+        self.system.initialize(world, context)
     }
 
     fn check_change_tick(&mut self, check: CheckChangeTicks) {

@@ -187,6 +187,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # Examples
     ///
     /// ```
+    /// # use bevy_ecs::system::SystemInitContext;
     /// # use bevy_ecs::{prelude::*, schedule::common_conditions::resource_changed};
     /// #[derive(Resource, PartialEq, Eq)]
     /// pub struct Score(u32);
@@ -198,7 +199,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # let mut world = World::new();
     /// # world.insert_resource(Score(1));
     /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>);
-    /// # score_changed.initialize(&mut world);
+    /// # score_changed.initialize(&mut world, &SystemInitContext::default());
     /// # score_changed.run((), &mut world);
     /// #
     /// # let mut schedule = Schedule::default();
@@ -249,6 +250,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # Examples
     ///
     /// ```
+    /// # use bevy_ecs::system::SystemInitContext;
     /// # use bevy_ecs::{prelude::*, schedule::common_conditions::{resource_changed, on_message}};
     /// #[derive(Resource, PartialEq, Eq)]
     /// pub struct Score(u32);
@@ -274,11 +276,11 @@ pub trait DetectChangesMut: DetectChanges {
     /// # world.insert_resource(Messages::<ScoreChanged>::default());
     /// # world.insert_resource(Score(1));
     /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>);
-    /// # score_changed.initialize(&mut world);
+    /// # score_changed.initialize(&mut world, &SystemInitContext::default());
     /// # score_changed.run((), &mut world);
     /// #
     /// # let mut score_changed_event = IntoSystem::into_system(on_message::<ScoreChanged>);
-    /// # score_changed_event.initialize(&mut world);
+    /// # score_changed_event.initialize(&mut world, &SystemInitContext::default());
     /// # score_changed_event.run((), &mut world);
     /// #
     /// # let mut schedule = Schedule::default();
@@ -322,6 +324,7 @@ pub trait DetectChangesMut: DetectChanges {
     ///
     /// # Examples
     /// ```
+    /// # use bevy_ecs::system::SystemInitContext;
     /// # extern crate alloc;
     /// # use alloc::borrow::ToOwned;
     /// # use bevy_ecs::{prelude::*, schedule::common_conditions::resource_changed};
@@ -335,7 +338,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # let mut world = World::new();
     /// # world.insert_resource(Message("initial string".into()));
     /// # let mut message_changed = IntoSystem::into_system(resource_changed::<Message>);
-    /// # message_changed.initialize(&mut world);
+    /// # message_changed.initialize(&mut world, &SystemInitContext::default());
     /// # message_changed.run((), &mut world);
     /// #
     /// # let mut schedule = Schedule::default();

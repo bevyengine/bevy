@@ -7,7 +7,7 @@ use crate::{
     prelude::{FromTemplate, Template},
     system::{
         input::SystemInput, BoxedSystem, Commands, If, IntoSystem, Res, RunSystemError,
-        SystemParamValidationError,
+        SystemInitContext, SystemParamValidationError,
     },
     template::TemplateContext,
     world::World,
@@ -708,7 +708,7 @@ impl World {
 
         // Initialize the system
         if !registered_system.initialized {
-            system.initialize(self);
+            system.initialize(self, &SystemInitContext::default());
         }
 
         // refresh hotpatches for stored systems
