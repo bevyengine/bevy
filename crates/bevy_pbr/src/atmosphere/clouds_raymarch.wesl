@@ -174,13 +174,15 @@ fn ground_sun_visibility(p: vec3<f32>, l: vec3<f32>) -> f32 {
 // along the ray was noisy at the horizon and blue-shifted it (purple line).
 fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: f32, r: f32, mu: f32, j: f32) -> vec3<f32> {
     // Composited by the caller as L = T_ap * L_cloud + (1 - T_cloud) * L_ap (Hillaire 2020 §5.2):
-    // the cloud is never replaced by sky colour. Inside the froxel range L_ap comes from the AP
-    // LUT; beyond it the AP LUT would clamp at its far slice (under-hazing far clouds), so the
-    // segment is integrated with the same atmosphere raymarch the sky uses (cloud-shadowed via
-    // sample_local_inscattering), as UE5 does past the AP volume depth.
-    let ap_max = settings.aerial_view_lut_max_distance;
-    if (d <= ap_max) {
-        return sample_aerial_view_lut(uv, d);
+    // the cloud is never replaced by sky colour. L_ap is the same per-pixel, cloud-shadowed
+    // atmosphere raymarch the sky pixels use (RDR2 integrates haze along the cloud ray too), so
+    // light shafts are continuous across cloud edges. The 32x32-froxel AP LUT (Hillaire 2020,
+    // which assumes no clouds) made shafts in front of clouds blocky and speckled
+    // (ATM_DBG_HAZE_AP_LUT restores it). Cost: ~+0.1 ms clouds_raymarch (hero:35).
+    @if(ATM_DBG_HAZE_AP_LUT) {
+        if (d <= settings.aerial_view_lut_max_distance) {
+            return sample_aerial_view_lut(uv, d);
+        }
     }
     return raymarch_atmosphere(origin, ray_dir, d, settings.sky_max_samples, uv, false).inscattering;
 }
