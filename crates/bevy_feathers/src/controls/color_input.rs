@@ -12,7 +12,7 @@ use bevy_ecs::{
     lifecycle::Despawn,
     observer::On,
     query::{Changed, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectResource},
     relationship::Relationship,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -28,6 +28,8 @@ use bevy_log::warn;
 use bevy_math::{UVec2, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, Ready};
+#[cfg(feature = "bevy_settings")]
+use bevy_settings::{ReflectSettingsGroup, SettingsGroup};
 use bevy_text::{EditableText, FontSize, Justify, LineHeight, TextEdit, TextLayout};
 use bevy_ui::{
     prelude::AccessibleLabel, px, AlignItems, AlignSelf, Display, FlexDirection, GridPlacement,
@@ -84,8 +86,15 @@ pub enum ColorInputMode {
 /// the picker will be in that mode. The assumption is that artists have a preferred mode and will
 /// generally stick with it. (Also, we have no way to store the user's preference on a
 /// per-attribute basis.)
-#[derive(Resource, Default)]
-// #[derive(SettingsGroup)] // TODO
+///
+/// To save color input preferences between app runs, enable the `bevy_settings` feature,
+/// add `FeathersPlugins` before `SettingsPlugin` to your app, and trigger a save. See the
+/// [settings example](https://github.com/bevyengine/bevy/blob/latest/examples/app/settings.rs)
+/// for a complete demonstration.
+#[derive(Resource, Reflect, Default, Clone, PartialEq)]
+#[reflect(Resource, Default)]
+#[cfg_attr(feature = "bevy_settings", derive(SettingsGroup))]
+#[cfg_attr(feature = "bevy_settings", reflect(SettingsGroup))]
 pub struct ColorInputSettings {
     /// Which color space we're editing
     pub mode: ColorInputMode,
@@ -116,9 +125,9 @@ impl ColorInputSettings {
 /// This is spawnable by inheriting it as a "scene component" with optional
 /// [`FeathersColorInputProps`].
 ///
-/// The picker contains a number of user preferences which are sticky, and which
-/// are stored on the [`ColorInputSettings`] resource. If the bevy settings plugin in installed,
-/// these user preferences will be saved along with the user's settings.
+/// The picker has a number of sticky user preferences, stored on the
+/// [`ColorInputSettings`] resource. See its documentation for details on
+/// saving these preferences between app runs.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 #[scene(FeathersColorInputProps)]
@@ -1343,6 +1352,10 @@ pub struct ColorInputPlugin;
 impl Plugin for ColorInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<ColorInputSettings>();
+
+        #[cfg(feature = "bevy_settings")]
+        app.register_type::<ColorInputSettings>();
+
         app.add_systems(
             PostUpdate,
             (update_mode_selector, color_input_value_change).chain(),
