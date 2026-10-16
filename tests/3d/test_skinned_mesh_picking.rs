@@ -28,21 +28,18 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
-    commands.spawn((
-        Text::new("space: play / pause\n"),
+    commands.spawn_scene_list(bsn_list! {
+        Text::new("space: play / pause\n")
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
             left: px(12),
-            ..default()
-        },
-    ));
-
-    commands.spawn((
-        Camera3d::default(),
-        FreeCamera::default(),
-        Transform::from_xyz(0.8, 1.8, 1.2).looking_at(Vec3::new(-0.1, 1.3, 0.0), Vec3::Y),
-    ));
+        }
+        --
+        Camera3d::default()
+        FreeCamera::default()
+        Transform::from_xyz(0.8, 1.8, 1.2).looking_at(Vec3::new(-0.1, 1.3, 0.0), Vec3::Y)
+    });
 
     const GLTF: &str = "models/animated/Fox.glb";
 
