@@ -92,12 +92,13 @@ pub struct DepthOfField {
     /// Focal length is derived from the FOV and this value. The default is
     /// 18.66mm, matching the [Super 35] format, which is popular in cinema.
     ///
-    /// An orthographic camera can be thought of as a perspective camera with an infinite focal length,
-    /// pulled back to infinity while its FOV shrinks so that its view height at the focal plane stays
-    /// equal to the orthographic view height.
-    /// Blurring an orthographic camera works in this way works the same as a perspective camera:
-    /// `sensor_height` and `aperture_f_stops` are applied in the same fashion.
-    /// If the view height is at or below `sensor_height`, everything out of focus will get the maximum blur.
+    /// An orthographic camera can be thought of as a perspective camera with an
+    /// infinite focal length, pulled back to infinity while its FOV shrinks so
+    /// that its view height at the focal plane stays equal to the orthographic
+    /// view height. Blurring an orthographic camera in this way works the same
+    /// as a perspective camera: `sensor_height` and `aperture_f_stops` are
+    /// applied in the same fashion. If the view height is at or below
+    /// `sensor_height`, everything out of focus will get the maximum blur.
     ///
     /// [image sensor format]: https://en.wikipedia.org/wiki/Image_sensor_format
     ///
@@ -119,17 +120,22 @@ pub struct DepthOfField {
     /// Objects are never considered to be farther away than this distance as
     /// far as depth of field is concerned, even if they actually are.
     ///
-    /// This is primarily useful to control the blur on backgrounds, such as skyboxes.
+    /// This is primarily useful to control the blur on backgrounds, such as
+    /// skyboxes.
     ///
     /// These are treated as being very far away:
-    ///  - when using a perspective camera, the sky box is considered to be at infinity
-    ///  - when using an orthographic camera, the sky box is considered to be at the far plane
+    ///  - when using a perspective camera, the skybox is considered to be at
+    ///    infinity
+    ///  - when using an orthographic camera, the skybox is considered to be at
+    ///    the far plane
     ///
-    /// In both cases, their circle of confusion can be very large, capped only by
-    /// the `max_circle_of_confusion_diameter`, resulting in an extremely strong blur.
+    /// In both cases, their circle of confusion can be very large, capped only
+    /// by the `max_circle_of_confusion_diameter`, resulting in an extremely
+    /// strong blur.
     ///
-    /// This value caps the strength of the blur, by controlling the maximum "perceived" depth,
-    /// allowing it to be used to essentially adjust how "far away" the skybox or background appear.
+    /// This value caps the strength of the blur, by controlling the maximum
+    /// "perceived" depth, allowing it to be used to essentially adjust how "far
+    /// away" the skybox or background appear.
     pub max_depth: f32,
 }
 
