@@ -46,7 +46,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Density scale (Nubis NVDF): 1 = full density. The procedural map does not modulate it
     // (LWC sets the physical magnitude); a painted weather map can.
     let density_scale = 1.0;
-    let spare = 0.0;
+    // Mesoscale cloud fraction (A): sampled at 4x the tile (clouds.wesl `sample_weather`), so its
+    // periods of 2/4/8 cells give 64/32/16 km structure at the default 32 km tile. Cumulus fields
+    // organise at 10-100 km (cloudy clusters and clear gaps); a single 4 km fBm with a fixed
+    // threshold was statistically uniform beyond 4 km, so low sun found no clear path to light
+    // cloud bases.
+    let spare = perlin_fbm_tiled(uv + vec2(0.71, 0.53), 2, 3);
 
     textureStore(
         noise_texture_out,

@@ -70,7 +70,13 @@ fn sample_weather(world_pos: vec3<f32>, weather_scale: f32) -> vec4<f32> {
     ); // 30 degrees
     let xz = rot * world_pos.xz;
     let uv = (xz + cloud_layer.noise_offset.xz) / max(1.0, weather_scale);
-    return textureSampleLevel(noise_texture_2d, noise_sampler_3d, uv, 0.0);
+    var w = textureSampleLevel(noise_texture_2d, noise_sampler_3d, uv, 0.0);
+    // Mesoscale cloud fraction from the A channel at 4x the tile (64/32/16 km): erodes coverage
+    // (Nubis ValueErosion form), keeping it in cloudy regions and clearing gaps between them.
+    let meso = textureSampleLevel(noise_texture_2d, noise_sampler_3d, uv * 0.25 + vec2(0.37, 0.61), 0.0).a;
+    let erosion = 1.0 - smoothstep(0.30, 0.65, meso);
+    w.r = saturate((w.r - erosion) / max(1.0 - erosion, 1e-3));
+    return w;
 }
 
 fn sample_shape_noise(world_pos: vec3<f32>, h: f32, mip: f32) -> vec4<f32> {
