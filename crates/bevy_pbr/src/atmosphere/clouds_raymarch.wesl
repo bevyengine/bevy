@@ -13,11 +13,11 @@
 import bevy_render::maths::{PI, ray_sphere_intersect};
 import package::render::utils::interleaved_gradient_noise;
 import package::atmosphere::{
-    bindings::{atmosphere, settings, view, lights, stbn_texture, atmosphere_lut_sampler, cloud_field_sdf},
+    bindings::{atmosphere, settings, view, lights, stbn_texture, atmosphere_lut_sampler, cloud_field_sdf, cloud_shadow_map},
     bruneton_functions::{ray_intersects_ground, sample_transmittance_lut_segment, sample_transmittance_lut_segment_tau_red, distance_to_top_atmosphere_boundary},
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
-        sample_transmittance_lut, sample_multiscattering_lut, sample_sky_view_lut, direction_world_to_atmosphere, sample_cloud_shadow_map, cloud_far_transmittance,
+        sample_transmittance_lut, sample_multiscattering_lut, sample_sky_view_lut, direction_world_to_atmosphere, sample_cloud_shadow_map, cloud_shadow_frame, cloud_shadow_ground_uv, cloud_shadow_optical_depth, cloud_far_transmittance,
         hg_phase, cloud_mie_phase, CLOUD_MIE_MEAN_COS, CLOUD_MIE_G_HG, CLOUD_MIE_G_D, CLOUD_MIE_ALPHA, CLOUD_MIE_W_D, sample_aerial_view_lut, raymarch_atmosphere, sample_density_lut, sample_scattering_lut,
         ABSORPTION_DENSITY, SCATTERING_DENSITY,
     },
@@ -154,7 +154,10 @@ fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, tau_up: f32, ta
 /// so it averages the ground over kilometres. Sampling only the point straight below projected
 /// the crisp cloud-shadow pattern on the ground back onto the cloud bases, offset by
 /// H tan(sun zenith) (it lined up only with the sun overhead). Quadrature: midpoint nodes
-/// mu = 0.25, 0.75 x 4 azimuths; ground point at horizontal distance H sqrt(1 - mu^2) / mu.
+/// mu = 1/4, 3/4 x 8 azimuths (staggered); ground point at horizontal distance
+/// H sqrt(1 - mu^2) / mu. The ground's sun visibility is a sharp pattern, and the nodes sweep
+/// across it as the height changes: with 8 nodes each crossing stepped the average by 1/8 (16 nodes: 1/16),
+/// which showed as fixed horizontal bands on the shadowed sides of clouds (ambient-lit).
 fn ground_sun_visibility(p: vec3<f32>, l: vec3<f32>) -> f32 {
     let r_g = atmosphere.inner_radius;
     let up = normalize(p);
@@ -162,19 +165,23 @@ fn ground_sun_visibility(p: vec3<f32>, l: vec3<f32>) -> f32 {
     let t1 = normalize(cross(up, select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(up.x) > 0.9)));
     let t2 = cross(up, t1);
     var vis = 0.0;
+    let frame = cloud_shadow_frame(l);
     for (var i = 0u; i < 2u; i++) {
-        let mu = 0.25 + 0.5 * f32(i);
+        let mu = (f32(i) + 0.5) / 2.0;
         let rho = height * sqrt(1.0 - mu * mu) / mu;
-        for (var k = 0u; k < 4u; k++) {
-            let a = (f32(k) + 0.5 * f32(i)) * 1.5707963;
+        for (var k = 0u; k < 8u; k++) {
+            let a = (f32(k) + 0.5 * f32(i)) * 0.78539816;
             let p_g = normalize(up * r_g + (t1 * cos(a) + t2 * sin(a)) * rho) * r_g;
-            // Shadow map (texture lookup; falls back to the march outside its extent), optical
-            // depth only: the ground is below every cloud, and the per-texel front-depth test
-            // made the average blocky.
-            vis += sample_cloud_shadow_map(p_g, l, true);
+            // Shadow map, optical depth only (the ground is below every cloud), one bilinear tap.
+            let uv = cloud_shadow_ground_uv(frame, p_g);
+            if (uv.x < 0.0) {
+                vis += cloud_far_transmittance(p_g, l, true);
+            } else {
+                vis += cloud_shadow_optical_depth(textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv, 0.0).rgb);
+            }
         }
     }
-    return vis / 8.0;
+    return vis / 16.0;
 }
 
 

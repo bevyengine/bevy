@@ -390,6 +390,73 @@ fn cloud_far_transmittance(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
     return exp(-od);
 }
 
+/// Light-space frame of the cloud shadow map (anchor and basis), for many lookups per invocation.
+@if(CLOUDS_ENABLED)
+struct CloudShadowFrame {
+    anchor: vec3<f32>,
+    bx: vec3<f32>,
+    by: vec3<f32>,
+}
+
+@if(CLOUDS_ENABLED)
+fn cloud_shadow_frame(direction_to_light: vec3<f32>) -> CloudShadowFrame {
+    let basis = build_light_basis(safe_normalize(-direction_to_light));
+    let anchor = snap_anchor_to_texel_grid(get_view_position(), basis, settings.cloud_shadow_map_extent, settings.cloud_shadow_map_size);
+    return CloudShadowFrame(anchor, basis.x, basis.y);
+}
+
+/// Shadow-map texture coordinate of a point below every cloud (ground), or -1 outside the map.
+@if(CLOUDS_ENABLED)
+fn cloud_shadow_ground_uv(frame: CloudShadowFrame, world_pos: vec3<f32>) -> vec2<f32> {
+    let extent = settings.cloud_shadow_map_extent;
+    let rel = world_pos - frame.anchor;
+    let xy = vec2(dot(rel, frame.bx), dot(rel, frame.by));
+    if (extent <= 0.0 || any(abs(xy) > vec2(extent))) {
+        return vec2(-1.0);
+    }
+    return cloud_shadow_xy_to_uv(xy, extent);
+}
+
+/// Sun transmittance of a ground point: cubic B-spline filter (4x4 texels) of the per-texel
+/// transmittance. Cumulus shadows are nearly binary (tau ~ 50), and around the camera the warped
+/// map's texels are 100-200 m on the ground, so filtering only the 2x2 nearest texels (or the
+/// stored optical depth) drew the texel grid as staircase outlines (streaks at low sun). The
+/// B-spline is C2 over ~2 texels, comparable to real shadow-edge softness seen from altitude
+/// (cloud-edge diffuseness plus the sun's penumbra, 0.0093 x cloud height).
+@if(CLOUDS_ENABLED)
+fn sample_cloud_shadow_ground(world_pos: vec3<f32>, direction_to_light: vec3<f32>) -> f32 {
+    let uv = cloud_shadow_ground_uv(cloud_shadow_frame(direction_to_light), world_pos);
+    if (uv.x < 0.0) {
+        return cloud_far_transmittance(world_pos, direction_to_light, true);
+    }
+    let size = vec2<i32>(textureDimensions(cloud_shadow_map));
+    let st = uv * vec2<f32>(size) - 0.5;
+    let i0 = vec2<i32>(floor(st)) - 1;
+    let f = st - floor(st);
+    // Uniform cubic B-spline weights for offsets -1, 0, 1, 2.
+    let wx = cubic_bspline_weights(f.x);
+    let wy = cubic_bspline_weights(f.y);
+    var t = 0.0;
+    for (var y = 0; y < 4; y++) {
+        var row = 0.0;
+        for (var x = 0; x < 4; x++) {
+            let c = clamp(i0 + vec2(x, y), vec2(0), size - 1);
+            row += wx[x] * cloud_shadow_optical_depth(textureLoad(cloud_shadow_map, c, 0).rgb);
+        }
+        t += wy[y] * row;
+    }
+    return t;
+}
+
+fn cubic_bspline_weights(f: f32) -> vec4<f32> {
+    let f2 = f * f;
+    let f3 = f2 * f;
+    let w0 = (1.0 - f) * (1.0 - f) * (1.0 - f) / 6.0;
+    let w1 = (3.0 * f3 - 6.0 * f2 + 4.0) / 6.0;
+    let w2 = (-3.0 * f3 + 3.0 * f2 + 3.0 * f + 1.0) / 6.0;
+    return vec4(w0, w1, w2, f3 / 6.0);
+}
+
 @if(CLOUDS_ENABLED)
 fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>, use_optical_depth_only: bool) -> f32 {
 
@@ -965,7 +1032,7 @@ fn raymarch_atmosphere(
             let transmittance_to_light = sample_transmittance_lut(atmosphere.inner_radius, mu_light);
             var light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
             @if(CLOUDS_ENABLED) {
-            light_luminance *= sample_cloud_shadow_map(sphere_point, light_dir, true);
+            light_luminance *= sample_cloud_shadow_ground(sphere_point, light_dir);
             }
             // Normalized Lambert BRDF
             let ground_luminance = transmittance_to_ground * atmosphere.ground_albedo / PI;
@@ -1009,26 +1076,43 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
         // similarity); at grazing sun (mu0 0.05) that is 0.4x the mu0-free form.
         e_top *= 0.35 + 0.9 * max(mu_l, 0.0);
     }
-    // Clear-sky irradiance from the sky-view LUT (cosine-weighted directions).
+    // Sky irradiance from the sky-view LUT over cosine-weighted directions, each occluded by the
+    // clouds along it: tilted independent column approximation (Varnai & Davies 1999), the cloud
+    // field's column optical depth where the direction crosses mid-layer, over mu. A single
+    // vertical exp(-1.66 tau) of the blurred column (UE5-style cloud AO) blacked out the sky
+    // under every cumulus out to the blur radius (exp of a blurred tau, not a blurred exp), a
+    // dark pattern on the ground that did not follow the sun; around a small cloud most of the
+    // sky is open. Occluded directions see the cloud base lit by diffusely transmitted sunlight
+    // (Lambertian, PI * L).
+    let tau0 = cloud_column_optical_depth(p);
+    let h_mid = 0.5 * (cloud_layer.cloud_layer_start + cloud_layer.cloud_layer_end) - length(p);
     var sky = vec3(0.0);
     for (var k = 0u; k < GROUND_SKY_DIRS; k++) {
         let u = (f32(k) + 0.5) / f32(GROUND_SKY_DIRS);
         let phi = f32(k) * 2.399963;
-        let d = normalize(n * sqrt(1.0 - u) + (tx * cos(phi) + ty * sin(phi)) * sqrt(u));
-        sky += sample_sky_view_lut(r_cam, direction_world_to_atmosphere(d));
+        let horiz = tx * cos(phi) + ty * sin(phi);
+        let mu = sqrt(1.0 - u);
+        let d = normalize(n * mu + horiz * sqrt(u));
+        let tau = cloud_column_optical_depth_field(p + horiz * (max(h_mid, 0.0) * sqrt(u) / mu), tau0);
+        let t_cloud = exp(-tau / mu);
+        sky += sample_sky_view_lut(r_cam, direction_world_to_atmosphere(d)) * t_cloud
+            + (1.0 - t_cloud) * e_top / (1.0 + 0.75 * (1.0 - CLOUD_MIE_MEAN_COS) * tau);
     }
-    sky *= PI / f32(GROUND_SKY_DIRS);
-    // Cloud AO (UE5 volumetric clouds): sky visibility from the blurred column optical depth of
-    // the cloud field above the point, exp(-tau). Outside the field, a vertical density march.
-    // Hemispherical (diffuse) transmittance of a slab of vertical optical depth tau: the
-    // diffusivity approximation T_diff ~ exp(-1.66 tau) (Elsasser 1942; standard two-stream
-    // radiative transfer), since skylight arrives along slant paths.
-    let tau = cloud_column_optical_depth(p);
-    let v = exp(-CLOUD_AO_DIFFUSIVITY * tau);
-    // Occluded part: cloud bases lit by diffusely transmitted sunlight (Lambertian, PI * L).
-    return sky * v + (1.0 - v) * PI * e_top / (1.0 + 0.75 * (1.0 - CLOUD_MIE_MEAN_COS) * tau);
+    return sky * (PI / f32(GROUND_SKY_DIRS));
 }
-const CLOUD_AO_DIFFUSIVITY: f32 = 1.66;
+
+/// Column optical depth from the cloud field at `p` (no march); `fallback` outside the field.
+@if(CLOUDS_ENABLED)
+fn cloud_column_optical_depth_field(p: vec3<f32>, fallback: f32) -> f32 {
+    @if(CLOUD_FIELD_BOUND) {
+        let uvw = cloud_field_uvw(p, textureLoad(cloud_field_sdf, vec3(0), 0).ba);
+        if (all(uvw.xy >= vec2(0.0)) && all(uvw.xy <= vec2(1.0))) {
+            return textureSampleLevel(cloud_field_sdf, atmosphere_lut_sampler, vec3(uvw.xy, 0.5), 0.0).g
+                * settings.cloud_shadow_map_strength;
+        }
+    }
+    return fallback;
+}
 
 /// Blurred cloud column optical depth above an atmosphere-space point (cloud AO).
 @if(CLOUDS_ENABLED)

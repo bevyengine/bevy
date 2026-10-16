@@ -42,25 +42,32 @@ fn safe_normalize(v: vec3<f32>) -> vec3<f32> {
 // - G: cloud type (0 stratus → 0.5 stratocumulus → 1 cumulus)
 // - B: density scale
 // - A: spare
-/// Warped cloud-shadow-map coordinates: light-space x/extent = a s + (1 - a) s^3, s = 2 uv - 1.
+/// Warped cloud-shadow-map coordinates: light-space |xy|/extent = a rho + (1 - a) rho^3, rho = |2 uv - 1|.
 /// Texels are a x the linear size at the anchor and (3 - 2a) x at the border, a single-map "near
 /// cascade": looking along the light, near haze and ground shadows read one texel per screen
 /// region, and uniform 125 m texels showed as straight-edged patches. The cubic keeps the fine
 /// texels further out than a quadratic.
 const CLOUD_SHADOW_WARP_A: f32 = 0.125;
 fn cloud_shadow_uv_to_xy(uv: vec2<f32>, extent: f32) -> vec2<f32> {
+    // Radial: the warp acts on the distance from the anchor, so texels stay near square (aspect
+    // <= ~3). The separable form (per axis) made texels slabs up to (3 - 2a) / a = 22:1 along
+    // the map axes, and nearly binary cumulus shadows on the ground came out as blocky
+    // staircases (streaks at low sun).
     let s = 2.0 * uv - 1.0;
-    return extent * (CLOUD_SHADOW_WARP_A * s + (1.0 - CLOUD_SHADOW_WARP_A) * s * s * s);
+    let rho = length(s);
+    let r = CLOUD_SHADOW_WARP_A * rho + (1.0 - CLOUD_SHADOW_WARP_A) * rho * rho * rho;
+    return extent * s * (r / max(rho, 1e-6));
 }
 fn cloud_shadow_xy_to_uv(xy: vec2<f32>, extent: f32) -> vec2<f32> {
-    // s^3 + p s + q = 0, p > 0: the hyperbolic form of the single real root is stable near
-    // s = 0 (Cardano's difference of cube roots cancelled there, so uv -> xy -> uv drifted and
+    // rho^3 + p rho + q = 0, p > 0: the hyperbolic form of the single real root is stable near
+    // rho = 0 (Cardano's difference of cube roots cancelled there, so uv -> xy -> uv drifted and
     // the temporal reprojection crawled).
+    let r = length(xy) / extent;
     let p = CLOUD_SHADOW_WARP_A / (1.0 - CLOUD_SHADOW_WARP_A);
-    let q = -(xy / extent) / (1.0 - CLOUD_SHADOW_WARP_A);
+    let q = -r / (1.0 - CLOUD_SHADOW_WARP_A);
     let k = 2.0 * sqrt(p / 3.0);
-    let s = -k * sinh(asinh(1.5 * q / p * sqrt(3.0 / p)) / 3.0);
-    return 0.5 * s + 0.5;
+    let rho = -k * sinh(asinh(1.5 * q / p * sqrt(3.0 / p)) / 3.0);
+    return 0.5 * (xy / extent) * (rho / max(r, 1e-6)) + 0.5;
 }
 
 fn sample_weather(world_pos: vec3<f32>, weather_scale: f32) -> vec4<f32> {
