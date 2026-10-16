@@ -158,7 +158,7 @@ fn stepping_button(call: SteppingCall, label: &'static str) -> impl Scene {
     }
 }
 
-/// Observer queueing the `stepping.*` call of a clicked [`SteppingButton`].
+/// Observer queuing the `stepping.*` call of a clicked [`SteppingButton`].
 pub fn stepping_button_clicked(
     activate: On<Activate>,
     buttons: Query<&SteppingButton>,
