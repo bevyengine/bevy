@@ -4,8 +4,12 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
 };
-use bevy_mesh::{Indices, Mesh, MeshRaytracingFlags};
+use bevy_mesh::{
+    DecodedPositions, Indices, Mesh, MeshAttributeCompressionFlags, MeshRaytracingFlags,
+    MeshVertexAttribute, VertexFormat,
+};
 use bevy_platform::collections::HashMap;
+use bevy_render::settings::WgpuFeatures;
 use bevy_render::{
     diagnostic::{DiagnosticsRecorder, RecordDiagnostics},
     mesh::{
@@ -16,6 +20,8 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
 };
+use bevy_utils::once;
+use tracing::warn;
 
 /// After compacting this many vertices worth of meshes per frame, no further BLAS will be compacted.
 /// Lower this number to distribute the work across more frames.
@@ -166,6 +172,18 @@ impl BlasOpacity {
     }
 }
 
+/// A BLAS built this frame.
+struct BlasInput<'a> {
+    key: BlasKey,
+    vertex_stride: u64,
+    vertex_slice: MeshBufferSlice<'a>,
+    index_slice: MeshBufferSlice<'a>,
+    size: BlasTriangleGeometrySizeDescriptor,
+    /// The offset of the transform from compressed positions to mesh space, if positions are
+    /// compressed.
+    transform_offset: Option<BufferAddress>,
+}
+
 pub fn prepare_raytracing_blas(
     mut blas_manager: ResMut<BlasManager>,
     extracted_meshes: Res<ExtractedAssets<RenderMesh>>,
@@ -190,54 +208,112 @@ pub fn prepare_raytracing_blas(
     }
 
     // Record which BLAS added or changed meshes declare, even if none
+    let features = render_device.features();
     for (asset_id, mesh) in &extracted_meshes.extracted {
-        if is_mesh_raytracing_compatible(mesh) {
+        if is_mesh_raytracing_compatible(mesh, features) {
             blas_manager.require(*asset_id, mesh.raytracing);
         }
     }
 
-    // Create a BLAS for each opacity that added or changed meshes declare
-    let blas_resources = extracted_meshes
+    // Create a BLAS for each opacity that added or changed meshes declare. Compressed positions
+    // are relative to the mesh's AABB, so their geometry is built with a transform back to mesh
+    // space.
+    let mut transforms = Vec::<[f32; 12]>::new();
+    let blas_inputs = extracted_meshes
         .extracted
         .iter()
-        .filter(|(_, mesh)| is_mesh_raytracing_compatible(mesh))
+        .filter(|(_, mesh)| is_mesh_raytracing_compatible(mesh, features))
         .flat_map(|(asset_id, mesh)| {
-            BlasOpacity::declared(mesh.raytracing).map(|opacity| BlasKey {
-                mesh: *asset_id,
-                opacity,
+            BlasOpacity::declared(mesh.raytracing).map(move |opacity| {
+                (
+                    BlasKey {
+                        mesh: *asset_id,
+                        opacity,
+                    },
+                    mesh,
+                )
             })
         })
-        .map(|key| {
+        .map(|(key, mesh)| {
             let vertex_slice = mesh_allocator.mesh_vertex_slice(&key.mesh).unwrap();
             let index_slice = mesh_allocator.mesh_index_slice(&key.mesh).unwrap();
+            let compressed_positions = match mesh.decoded_positions() {
+                Some(DecodedPositions::Compressed {
+                    center, half_size, ..
+                }) => Some((center, half_size)),
+                _ => None,
+            };
+            let transform_offset = compressed_positions.map(|(center, half_size)| {
+                transforms.push([
+                    half_size.x,
+                    0.0,
+                    0.0,
+                    center.x, //
+                    0.0,
+                    half_size.y,
+                    0.0,
+                    center.y, //
+                    0.0,
+                    0.0,
+                    half_size.z,
+                    center.z,
+                ]);
+                ((transforms.len() - 1) * size_of::<[f32; 12]>()) as BufferAddress
+            });
+            let position_format = if compressed_positions.is_some() {
+                VertexFormat::Snorm16x4
+            } else {
+                Mesh::ATTRIBUTE_POSITION.format
+            };
 
-            let (blas, blas_size) = allocate_blas(&vertex_slice, &index_slice, key, &render_device);
+            let (blas, size) = allocate_blas(
+                &vertex_slice,
+                &index_slice,
+                position_format,
+                key,
+                &render_device,
+            );
 
             blas_manager.insert(key, blas);
             blas_manager
                 .compaction_queue
-                .push_back((key, blas_size.vertex_count, false));
+                .push_back((key, size.vertex_count, false));
 
-            (key, vertex_slice, index_slice, blas_size)
+            BlasInput {
+                key,
+                vertex_stride: mesh.get_vertex_size(),
+                vertex_slice,
+                index_slice,
+                size,
+                transform_offset,
+            }
         })
         .collect::<Vec<_>>();
 
+    let transform_buffer = (!transforms.is_empty()).then(|| {
+        render_device.create_buffer_with_data(&BufferInitDescriptor {
+            label: Some("blas_position_transforms"),
+            contents: bytemuck::cast_slice(&transforms),
+            usage: BufferUsages::BLAS_INPUT,
+        })
+    });
+
     // Build geometry into each BLAS
-    let build_entries = blas_resources
+    let build_entries = blas_inputs
         .iter()
-        .map(|(key, vertex_slice, index_slice, blas_size)| {
+        .map(|input| {
             let geometry = BlasTriangleGeometry {
-                size: blas_size,
-                vertex_buffer: vertex_slice.buffer,
-                first_vertex: vertex_slice.range.start,
-                vertex_stride: 48,
-                index_buffer: Some(index_slice.buffer),
-                first_index: Some(index_slice.range.start),
-                transform_buffer: None,
-                transform_buffer_offset: None,
+                size: &input.size,
+                vertex_buffer: input.vertex_slice.buffer,
+                first_vertex: input.vertex_slice.range.start,
+                vertex_stride: input.vertex_stride,
+                index_buffer: Some(input.index_slice.buffer),
+                first_index: Some(input.index_slice.range.start),
+                transform_buffer: input.transform_offset.and(transform_buffer.as_deref()),
+                transform_buffer_offset: input.transform_offset,
             };
             BlasBuildEntry {
-                blas: blas_manager.get(key).unwrap(),
+                blas: blas_manager.get(&input.key).unwrap(),
                 geometry: BlasGeometries::TriangleGeometries(vec![geometry]),
             }
         })
@@ -316,11 +392,12 @@ pub fn delete_raytracing_blas(
 fn allocate_blas(
     vertex_slice: &MeshBufferSlice,
     index_slice: &MeshBufferSlice,
+    position_format: VertexFormat,
     key: BlasKey,
     render_device: &RenderDevice,
 ) -> (Blas, BlasTriangleGeometrySizeDescriptor) {
     let blas_size = BlasTriangleGeometrySizeDescriptor {
-        vertex_format: Mesh::ATTRIBUTE_POSITION.format,
+        vertex_format: position_format,
         vertex_count: vertex_slice.range.len() as u32,
         index_format: Some(IndexFormat::Uint32),
         index_count: Some(index_slice.range.len() as u32),
@@ -333,7 +410,12 @@ fn allocate_blas(
         &CreateBlasDescriptor {
             label: Some(&format!("{} {:?}", key.mesh, key.opacity)),
             flags: AccelerationStructureFlags::PREFER_FAST_TRACE
-                | AccelerationStructureFlags::ALLOW_COMPACTION,
+                | AccelerationStructureFlags::ALLOW_COMPACTION
+                | if position_format == Mesh::ATTRIBUTE_POSITION.format {
+                    AccelerationStructureFlags::empty()
+                } else {
+                    AccelerationStructureFlags::USE_TRANSFORM
+                },
             update_mode: AccelerationStructureUpdateMode::Build,
         },
         BlasGeometrySizeDescriptors::Triangles {
@@ -344,17 +426,36 @@ fn allocate_blas(
     (blas, blas_size)
 }
 
-fn is_mesh_raytracing_compatible(mesh: &Mesh) -> bool {
+fn is_mesh_raytracing_compatible(mesh: &Mesh, features: WgpuFeatures) -> bool {
+    const ATTRIBUTES: [MeshVertexAttribute; 4] = [
+        Mesh::ATTRIBUTE_POSITION,
+        Mesh::ATTRIBUTE_NORMAL,
+        Mesh::ATTRIBUTE_UV_0,
+        Mesh::ATTRIBUTE_TANGENT,
+    ];
     let triangle_list = mesh.primitive_topology() == PrimitiveTopology::TriangleList;
+    // Each attribute is either uncompressed or in the format its compression flag gives it.
+    let compression = mesh.attribute_compression();
     let vertex_attributes = mesh
         .attributes()
         .map(|(attribute, _)| (attribute.id, attribute.format))
-        .eq([
-            (Mesh::ATTRIBUTE_POSITION.id, Mesh::ATTRIBUTE_POSITION.format),
-            (Mesh::ATTRIBUTE_NORMAL.id, Mesh::ATTRIBUTE_NORMAL.format),
-            (Mesh::ATTRIBUTE_UV_0.id, Mesh::ATTRIBUTE_UV_0.format),
-            (Mesh::ATTRIBUTE_TANGENT.id, Mesh::ATTRIBUTE_TANGENT.format),
-        ]);
+        .eq(ATTRIBUTES.map(|attribute| {
+            let format = match MeshAttributeCompressionFlags::for_attribute(attribute.id) {
+                Some((flag, format)) if compression.contains(flag) => format,
+                _ => attribute.format,
+            };
+            (attribute.id, format)
+        }));
     let indexed_32 = matches!(mesh.indices(), Some(Indices::U32(..)));
-    triangle_list && vertex_attributes && indexed_32
+    // Acceleration structures built from compressed positions need an extended vertex format.
+    let position_format_supported = !compression
+        .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+        || features.contains(WgpuFeatures::EXTENDED_ACCELERATION_STRUCTURE_VERTEX_FORMATS);
+    if !position_format_supported {
+        once!(warn!(
+            "Meshes with compressed positions are not raytraced, as the GPU lacks {:?}.",
+            WgpuFeatures::EXTENDED_ACCELERATION_STRUCTURE_VERTEX_FORMATS
+        ));
+    }
+    triangle_list && vertex_attributes && indexed_32 && position_format_supported
 }
