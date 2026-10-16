@@ -7,7 +7,7 @@ use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
 use proc_macro2::{Delimiter, Group, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use syn::{parse::Parse, Ident, Lit, Member, Path};
+use syn::{parse::Parse, ExprTuple, Ident, Lit, Member, Path};
 
 /// Tracks named entity references and assigns them unique, sequential indices
 /// during the code generation process.
@@ -59,6 +59,7 @@ impl HoistedExpressions {
 pub(crate) struct BsnCodegenCtx<'a> {
     pub bevy_scene: &'a Path,
     pub bevy_ecs: &'a Path,
+    pub invocation_index: ExprTuple,
     pub entity_refs: &'a mut EntityRefs,
     pub hoisted_expressions: &'a mut HoistedExpressions,
     /// Accumulated parsing and validation errors.
@@ -383,10 +384,11 @@ impl BsnEntry {
             }
             BsnEntry::Name(ident) => {
                 let (name, index) = ctx.fixed_entity_ref(&ident);
+                let invocation_loc = ctx.invocation_index.clone();
                 EntryResult::CombinedSceneFunction(quote! {
                     #bevy_scene::NameEntityReference {
                         name: #bevy_ecs::name::Name(#name.into()),
-                        reference: #bevy_ecs::template::SceneEntityReference::new(_invocation_id, #index, _call_id)
+                        reference: #bevy_ecs::template::SceneEntityReference::new(#invocation_loc, _invocation_id, #index, _call_id)
                     }.resolve_inline(_context, _scene);
                 })
             }
@@ -818,8 +820,9 @@ impl BsnValue {
             BsnValue::Name(ident) => {
                 let index = ctx.entity_refs.get(ident.to_string());
                 let bevy_ecs = ctx.bevy_ecs;
+                let invocation_loc = ctx.invocation_index.clone();
                 quote! {
-                    #bevy_ecs::template::EntityTemplate::from_reference(_invocation_id, #index, _call_id)
+                    #bevy_ecs::template::EntityTemplate::from_reference(#invocation_loc, _invocation_id, #index, _call_id)
                 }
             }
             BsnValue::Range {
@@ -909,9 +912,10 @@ impl BsnFnArg {
             }
             BsnFnArg::EntityName(ident) => {
                 let index = ctx.entity_refs.get(ident.to_string());
+                let invocation_loc = ctx.invocation_index.clone();
                 quote! {
                     #bevy_ecs::template::EntityTemplate::SceneEntityReference(
-                        #bevy_ecs::template::SceneEntityReference::new(_invocation_id, #index, _call_id)
+                        #bevy_ecs::template::SceneEntityReference::new(#invocation_loc, _invocation_id, #index, _call_id)
                     )
                 }
             }
@@ -1019,6 +1023,7 @@ mod tests {
                 bevy_scene: &self.bevy_scene,
                 bevy_ecs: &self.bevy_ecs,
                 entity_refs: refs,
+                invocation_index: parse_quote!(("", 0, 0)),
                 hoisted_expressions,
                 errors: Vec::new(),
                 deprecations: Vec::new(),
