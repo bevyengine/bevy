@@ -725,11 +725,13 @@ fn extract_depth_of_field_settings(
         // At or below the sensor height, a perspective camera would be focused
         // inside its focal length, where its blur diverges. The `max` clamps
         // the scale to a large finite value, which saturates at
-        // `max_circle_of_confusion_diameter`.
+        // `max_circle_of_confusion_diameter`. It also keeps the scale finite
+        // when `focal_distance` is zero, which gives no blur rather than NaN.
         let coc_scale_factor = depth_of_field.sensor_height
             / (depth_of_field.aperture_f_stops
                 * view_height
-                * (view_height - depth_of_field.sensor_height).max(f32::EPSILON));
+                * (view_height - depth_of_field.sensor_height))
+                .max(f32::EPSILON);
 
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
         entity_commands.insert((
