@@ -155,7 +155,7 @@
 //!
 //! The `#Name` syntax assigns a [`Name`] to an entity and registers it for cross-referencing within the same macro invocation.
 //! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`],
-//! which is a [`Template`] that resolves to an [`Entity`]. 
+//! which is a [`Template`] that resolves to an [`Entity`].
 //!
 //! Note that a "child entity" can reference its ancestors using the #Name declared in the "root entity".
 //!
