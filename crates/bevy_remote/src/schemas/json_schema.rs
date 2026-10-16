@@ -69,13 +69,13 @@ fn default_value(reg: &TypeRegistration, registry: &TypeRegistry) -> Option<Valu
     .ok()
 }
 
-/// Adds a `hints` key to `schema` when `attributes` contain any annotation.
-fn with_hints(mut schema: Value, attributes: &CustomAttributes) -> Value {
-    if let (Some(hints), Some(object)) = (
-        SchemaHints::from_attributes(attributes),
+/// Adds an `annotations` key to `schema` when `attributes` contain any annotation.
+fn with_annotations(mut schema: Value, attributes: &CustomAttributes) -> Value {
+    if let (Some(annotations), Some(object)) = (
+        SchemaAnnotations::from_attributes(attributes),
         schema.as_object_mut(),
     ) {
-        object.insert("hints".into(), json!(hints));
+        object.insert("annotations".into(), json!(annotations));
     }
     schema
 }
@@ -135,10 +135,12 @@ impl
                 relationship_kind,
             }
         });
-        typed_schema.hints = match t {
-            TypeInfo::Struct(info) => SchemaHints::from_attributes(info.custom_attributes()),
-            TypeInfo::TupleStruct(info) => SchemaHints::from_attributes(info.custom_attributes()),
-            TypeInfo::Enum(info) => SchemaHints::from_attributes(info.custom_attributes()),
+        typed_schema.annotations = match t {
+            TypeInfo::Struct(info) => SchemaAnnotations::from_attributes(info.custom_attributes()),
+            TypeInfo::TupleStruct(info) => {
+                SchemaAnnotations::from_attributes(info.custom_attributes())
+            }
+            TypeInfo::Enum(info) => SchemaAnnotations::from_attributes(info.custom_attributes()),
             _ => None,
         };
         match t {
@@ -176,7 +178,7 @@ impl
                     typed_schema.schema_type = SchemaType::Object;
                     typed_schema.one_of = info
                 .iter()
-                .map(|variant| with_hints(match variant {
+                .map(|variant| with_annotations(match variant {
                     VariantInfo::Struct(v) => json!({
                         "type": "object",
                         "kind": "Struct",
@@ -342,18 +344,18 @@ pub struct JsonSchemaBevyType {
     /// Only present when the type registers [`ReflectDefault`].
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub default: Option<Value>,
-    /// Editor hints from the type's [`bevy_annotations`], such as `tooltip`,
+    /// The type's [`bevy_annotations`], such as `tooltip`,
     /// `displayName` and `readOnly`.
     ///
-    /// Fields and enum variants carry the same object under their own `hints` key.
+    /// Fields and enum variants carry the same object under their own `annotations` key.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub hints: Option<SchemaHints>,
+    pub annotations: Option<SchemaAnnotations>,
 }
 
-/// Editor hints read from [`bevy_annotations`] on a type, field or enum variant.
+/// Annotations read from [`bevy_annotations`] on a type, field or enum variant.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase", default)]
-pub struct SchemaHints {
+pub struct SchemaAnnotations {
     /// Inclusive `[min, max]` bounds, from [`ValueRange`] or a bare numeric range.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub range: Option<[f64; 2]>,
@@ -374,10 +376,10 @@ pub struct SchemaHints {
     pub display_name: Option<String>,
 }
 
-impl SchemaHints {
-    /// Reads the hints from `attributes`, returning `None` when no annotation is present.
+impl SchemaAnnotations {
+    /// Reads the annotations from `attributes`, returning `None` when no annotation is present.
     pub fn from_attributes(attributes: &CustomAttributes) -> Option<Self> {
-        let hints = Self {
+        let annotations = Self {
             range: ValueRange::from_attributes(attributes).map(|range| [range.min(), range.max()]),
             step: attributes.get::<Step>().map(|step| step.0),
             unit: attributes.get::<Unit>().map(|unit| unit.0.to_owned()),
@@ -389,7 +391,7 @@ impl SchemaHints {
                 .get::<DisplayName>()
                 .map(|name| name.0.to_owned()),
         };
-        (hints != Self::default()).then_some(hints)
+        (annotations != Self::default()).then_some(annotations)
     }
 }
 
@@ -550,7 +552,7 @@ impl SchemaJsonReference for &bevy_reflect::Type {
 impl SchemaJsonReference for &bevy_reflect::UnnamedField {
     fn ref_type(self) -> Value {
         let path = self.type_path();
-        with_hints(
+        with_annotations(
             json!({"type": json!({ "$ref": format!("#/$defs/{path}") })}),
             self.custom_attributes(),
         )
@@ -566,7 +568,7 @@ trait SchemaJsonProperty {
 impl SchemaJsonProperty for &NamedField {
     fn property(self, index: usize) -> Value {
         let type_path = self.type_path();
-        with_hints(
+        with_annotations(
             json!({
                 "type": { "$ref": format!("#/$defs/{type_path}") },
                 "fieldIndex": index,
@@ -1011,7 +1013,7 @@ mod tests {
     }
 
     #[test]
-    fn reflect_export_annotation_hints() {
+    fn reflect_export_annotations() {
         use bevy_annotations::{DisplayName, ReadOnly, Step, Tooltip, Unit, ValueRange};
 
         #[derive(Reflect)]
@@ -1077,39 +1079,45 @@ mod tests {
 
         let schema = export(TypeId::of::<Movement>());
         assert_eq!(
-            schema["hints"],
+            schema["annotations"],
             json!({ "tooltip": "Movement settings", "displayName": "Movement", "readOnly": true })
         );
         let properties = &schema["properties"];
         assert_eq!(
-            properties["speed"]["hints"],
+            properties["speed"]["annotations"],
             json!({ "range": [0.0, 20.0], "step": 0.5, "unit": "m/s" })
         );
         assert_eq!(
-            properties["jump"]["hints"],
+            properties["jump"]["annotations"],
             json!({ "displayName": "Jump Height", "tooltip": "Peak height of a jump" })
         );
-        assert_eq!(properties["grounded"]["hints"], json!({ "readOnly": true }));
         assert_eq!(
-            properties["friction"]["hints"],
+            properties["grounded"]["annotations"],
+            json!({ "readOnly": true })
+        );
+        assert_eq!(
+            properties["friction"]["annotations"],
             json!({ "range": [0.0, 1.0] })
         );
-        assert!(properties["plain"].get("hints").is_none());
+        assert!(properties["plain"].get("annotations").is_none());
 
         let schema = export(TypeId::of::<Meters>());
-        assert!(schema.get("hints").is_none());
-        assert_eq!(schema["prefixItems"][0]["hints"], json!({ "unit": "m" }));
-        assert!(schema["prefixItems"][1].get("hints").is_none());
+        assert!(schema.get("annotations").is_none());
+        assert_eq!(
+            schema["prefixItems"][0]["annotations"],
+            json!({ "unit": "m" })
+        );
+        assert!(schema["prefixItems"][1].get("annotations").is_none());
 
         let schema = export(TypeId::of::<Shape>());
         let circle = &schema["oneOf"][0];
-        assert_eq!(circle["hints"], json!({ "tooltip": "A circle" }));
+        assert_eq!(circle["annotations"], json!({ "tooltip": "A circle" }));
         assert_eq!(
-            circle["properties"]["radius"]["hints"],
+            circle["properties"]["radius"]["annotations"],
             json!({ "range": [0.0, 10.0] })
         );
-        assert!(circle["properties"]["plain"].get("hints").is_none());
-        assert!(schema["oneOf"][1].get("hints").is_none());
+        assert!(circle["properties"]["plain"].get("annotations").is_none());
+        assert!(schema["oneOf"][1].get("annotations").is_none());
     }
 
     /// This function exist to avoid false failures due to ordering differences between `serde_json` values.
