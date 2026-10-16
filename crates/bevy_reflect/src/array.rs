@@ -59,6 +59,12 @@ pub trait Array: PartialReflect {
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
 
+    /// Swaps two elements in place.
+    ///
+    /// # Panics
+    /// Panics if `a` or `b` are out of bounds.
+    fn swap(&mut self, a: usize, b: usize);
+
     /// Returns the number of elements in the array.
     fn len(&self) -> usize;
 
@@ -300,6 +306,11 @@ impl Array for DynamicArray {
     #[inline]
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
         self.values.get_mut(index).map(|value| &mut **value)
+    }
+
+    #[inline]
+    fn swap(&mut self, a: usize, b: usize) {
+        self.values.swap(a, b);
     }
 
     #[inline]
@@ -556,5 +567,22 @@ mod tests {
         assert!(iter.index == SIZE);
         assert!(iter.next().is_none());
         assert!(iter.index == SIZE);
+    }
+
+    #[test]
+    fn test_swap() {
+        let mut b = Box::new([0usize, 1usize]).into_reflect();
+        let array = b.reflect_mut().as_array().unwrap();
+        array.swap(0, 1);
+        assert_eq!(array.get(0).unwrap().try_downcast_ref(), Some(&1usize));
+        assert_eq!(array.get(1).unwrap().try_downcast_ref(), Some(&0usize));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_swap_oob() {
+        let mut b = Box::new([(); 2]).into_reflect();
+        let array = b.reflect_mut().as_array().unwrap();
+        array.swap(0, 10);
     }
 }
