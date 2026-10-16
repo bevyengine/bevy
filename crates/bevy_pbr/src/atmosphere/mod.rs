@@ -352,7 +352,8 @@ impl Default for AtmosphereSettings {
         Self {
             transmittance_lut_size: UVec2::new(256, 128),
             transmittance_lut_samples: 40,
-            multiscattering_lut_size: UVec2::new(32, 32),
+            // Wider along the sun angle, where the factor falls fastest near the horizon.
+            multiscattering_lut_size: UVec2::new(64, 32),
             multiscattering_lut_dirs: 64,
             multiscattering_lut_samples: 20,
             sky_view_lut_size: UVec2::new(400, 200),
