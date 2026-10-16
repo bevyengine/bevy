@@ -886,8 +886,12 @@ fn raymarch_atmosphere(
     // (thousands of meters long on sky rays) skipped the dense near-surface Mie/haze layers and
     // dropped the last segment, leaving the sky 2-3x too dark and blue-shifted.
     let n_steps = max(1u, u32(sample_count));
+    // One IGN value per pixel and frame, golden-ratio stratified across steps. Seeding IGN with
+    // the step index alone gave a fixed per-pixel pattern that TAA cannot average (dither visible
+    // in crepuscular rays, backlit:20).
+    let jitter0 = interleaved_gradient_noise(pixel_coords, view.frame_count % 64u);
     for (var s = 0u; s < n_steps; s += 1u) {
-        let jitter = interleaved_gradient_noise(pixel_coords, s); // [0, 1]
+        let jitter = fract(jitter0 + f32(s) * 0.618033988749895); // [0, 1]
         let u0 = f32(s) / f32(n_steps);
         let u1 = f32(s + 1u) / f32(n_steps);
         let t0 = t_start + t_total * u0 * u0;
