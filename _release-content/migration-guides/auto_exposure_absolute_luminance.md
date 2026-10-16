@@ -1,6 +1,6 @@
 ---
 title: "`AutoExposure` meters absolute scene luminance"
-pull_requests: []
+pull_requests: [26210]
 ---
 
 `AutoExposure` now meters absolute scene luminance in EV100, with the camera's `Exposure` divided
