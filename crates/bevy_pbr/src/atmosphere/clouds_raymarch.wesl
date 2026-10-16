@@ -104,19 +104,22 @@ fn cloud_phase(cos_theta: f32) -> f32 {
     return cloud_mie_phase(cos_theta);
 }
 
-/// Cheap sky-irradiance stand-in: average a few sky-view LUT directions (upper hemisphere)
-/// plus a Lambertian ground bounce (design.md §1.5; RDR2 slide 36 / FB16 §5.5.1).
+/// Flux-equivalent sky radiance E_sky / pi at the camera radius: the boundary value of the sky
+/// side of the ambient two-stream (Marshak boundary condition: incoming hemispheric flux) and the
+/// sky part of the Lambertian ground. Cosine-weighted quadrature over the sky-view LUT (atmosphere
+/// space): mu = sqrt(1 - u) for stratified u, golden-angle azimuths, so the plain mean of the
+/// samples is E / pi.
+const CLOUD_SKY_IRR_DIRS: u32 = 16u;
 fn sample_sky_irradiance(r: f32) -> vec3<f32> {
-    // Directions are in atmosphere space (the sky-view LUT's sun-relative frame): zenith plus 8
-    // uniform azimuths at elevation ~24 deg. World-space directions used to sample a fixed,
-    // non-uniform azimuth set relative to the sun.
-    var sum = 2.0 * sample_sky_view_lut(r, vec3(0.0, 1.0, 0.0));
-    let elev = 0.45;
-    for (var i = 0u; i < 8u; i++) {
-        let a = f32(i) * 0.7853982;
-        sum += sample_sky_view_lut(r, normalize(vec3(sin(a), elev, -cos(a))));
+    var sum = vec3(0.0);
+    for (var i = 0u; i < CLOUD_SKY_IRR_DIRS; i++) {
+        let u = (f32(i) + 0.5) / f32(CLOUD_SKY_IRR_DIRS);
+        let mu = sqrt(1.0 - u);
+        let s = sqrt(u);
+        let a = f32(i) * 2.399963;
+        sum += sample_sky_view_lut(r, vec3(s * sin(a), mu, -s * cos(a)));
     }
-    return sum / 10.0;
+    return sum / f32(CLOUD_SKY_IRR_DIRS);
 }
 
 /// Isotropic ambient in-scatter radiance (per unit sigma_s): the mean intensity of the diffuse
