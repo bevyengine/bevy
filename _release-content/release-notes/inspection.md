@@ -1,7 +1,7 @@
 ---
 title: Entity inspection tools
 authors: ["@jbuehler23", "@alice-i-cecile", "@Nilirad", "@Zeophlite"]
-pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885, 25923, 26014, 26063, 26172, 26171, 26163]
+pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885, 25923, 26014, 26063, 26172, 26171, 26163, 26200]
 ---
 
 `bevy_dev_tools::inspection` is gaining a backend for inspecting worlds, entities, components, and resources.
