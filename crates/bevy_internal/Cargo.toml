@@ -522,6 +522,7 @@ bevy_settings = ["bevy-settings", "bevy_feathers?/bevy_settings"]
 
 [dependencies]
 # bevy (no_std)
+bevy_annotations = { path = "../bevy_annotations", version = "0.20.0-dev", default-features = false }
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }

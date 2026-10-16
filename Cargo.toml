@@ -3113,6 +3113,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "annotations"
+path = "examples/reflection/annotations.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.annotations]
+name = "Annotations"
+description = "Annotating reflected types with tooltips, ranges and units for tools"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "dynamic_types"
 path = "examples/reflection/dynamic_types.rs"
 doc-scrape-examples = true
