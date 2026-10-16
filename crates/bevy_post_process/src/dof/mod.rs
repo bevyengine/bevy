@@ -107,6 +107,11 @@ pub struct DepthOfField {
 
     /// Along with the focal length, controls how much objects not in focus are
     /// blurred.
+    ///
+    /// **Tip:** For an orthographic camera, set `sensor_height` to half the
+    /// height of the view in world units. Then `aperture_f_stops` is precisely
+    /// the distance, in world units, from the focal plane at which the blur is
+    /// one world unit in diameter.
     pub aperture_f_stops: f32,
 
     /// The maximum diameter, in pixels, that we allow a circle of confusion to be.
