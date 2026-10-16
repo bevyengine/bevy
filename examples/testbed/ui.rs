@@ -4163,7 +4163,7 @@ mod inline_image {
             Camera2d
             DespawnOnExit<Scene>(Scene::InlineImage)
             --
-            Text::new("Head")
+            Text::new("head ")
             DespawnOnExit<Scene>(Scene::InlineImage)
             Children [
                 TextSpan::new("before image ")
@@ -4172,7 +4172,7 @@ mod inline_image {
                     color: Color::WHITE,
                     image: "branding/bevy_logo_dark.png",
                     flip_x: true,
-                    height: {Some(20.0)},
+                    height: {Some(20.)},
                 }
                 --
                 TextSpan::new(" after image")
