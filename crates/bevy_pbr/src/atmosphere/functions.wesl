@@ -905,10 +905,15 @@ fn raymarch_atmosphere(
     // (thousands of meters long on sky rays) skipped the dense near-surface Mie/haze layers and
     // dropped the last segment, leaving the sky 2-3x too dark and blue-shifted.
     let n_steps = max(1u, u32(sample_count));
-    // One IGN value per pixel and frame, golden-ratio stratified across steps. Seeding IGN with
-    // the step index alone gave a fixed per-pixel pattern that TAA cannot average (dither visible
-    // in crepuscular rays, backlit:20).
-    let jitter0 = interleaved_gradient_noise(pixel_coords, view.frame_count % 64u);
+    // One IGN value per pixel (and frame, in screen passes), golden-ratio stratified across steps.
+    // Seeding IGN with the step index alone gave a fixed per-pixel pattern that TAA cannot average
+    // (dither visible in crepuscular rays, backlit:20).
+    // Screen passes vary it per frame (TAA / cloud reconstruction average it); the sky-view LUT
+    // has no temporal accumulation, so a per-frame jitter there flickered everything that samples
+    // the LUT (cloud ambient, ground skylight).
+    var jitter_frame = view.frame_count % 64u;
+    @if(SKY_VIEW_LUT_PASS) { jitter_frame = 0u; }
+    let jitter0 = interleaved_gradient_noise(pixel_coords, jitter_frame);
     for (var s = 0u; s < n_steps; s += 1u) {
         let jitter = fract(jitter0 + f32(s) * 0.618033988749895); // [0, 1]
         let u0 = f32(s) / f32(n_steps);
