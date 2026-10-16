@@ -551,12 +551,21 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             .layout
             .insert(3, self.properties.material_layout.as_ref().unwrap().clone());
 
-        descriptor.primitive.cull_mode = self.properties.cull_mode;
+        // Generally we cull the faces requested by the material's `cull_mode`.
+        // However, if the view has `INVERT_CULLING` on (usually used for mirrors
+        // and the like), we cull the opposite faces instead.
+        descriptor.primitive.cull_mode =
+            if concrete_mesh_key.contains(MeshPipelineKey::INVERT_CULLING) {
+                match self.properties.cull_mode {
+                    Some(Face::Front) => Some(Face::Back),
+                    Some(Face::Back) => Some(Face::Front),
+                    None => None,
+                }
+            } else {
+                self.properties.cull_mode
+            };
 
-        if key
-            .mesh_key
-            .downcast::<MeshPipelineKey>()
-            .contains(MeshPipelineKey::OIT_ENABLED)
+        if concrete_mesh_key.contains(MeshPipelineKey::OIT_ENABLED)
             && self.properties.oit_enabled
             && matches!(
                 self.properties.alpha_mode,
