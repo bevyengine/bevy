@@ -1,4 +1,5 @@
-//! Tileable 3D Worley detail noise (Nubis/HZD 32³) for cloud erosion.
+//! Tileable 3D cloud detail noise after Nubis Cubed (128³: curly alligator / alligator), see
+//! `detail_noise_3d.wesl`.
 
 use bevy_asset::load_embedded_asset;
 use bevy_ecs::{
@@ -22,7 +23,8 @@ use super::perlin_worley_noise::{
 #[repr(C)]
 pub struct DetailNoiseParams {
     pub base_frequency: u32,
-    pub _pad0: u32,
+    /// 0: raw turbulence sums (calibration, `CLOUD_DETAIL_NOISE_RAW=1`), 1: final channels.
+    pub mode: u32,
     pub _pad1: f32,
     pub _pad2: f32,
 }
@@ -31,7 +33,10 @@ impl Default for DetailNoiseParams {
     fn default() -> Self {
         Self {
             base_frequency: 4,
-            _pad0: 0,
+            mode: std::env::var("CLOUD_DETAIL_NOISE_RAW")
+                .ok()
+                .and_then(|v| v.parse::<u32>().ok())
+                .map_or(1, |m| if m == 2 { 2 } else { 0 }),
             _pad1: 0.0,
             _pad2: 0.0,
         }
@@ -46,7 +51,7 @@ pub struct DetailNoiseTextureSize {
 impl Default for DetailNoiseTextureSize {
     fn default() -> Self {
         Self {
-            size: UVec3::new(32, 32, 32),
+            size: UVec3::new(128, 128, 128),
         }
     }
 }
