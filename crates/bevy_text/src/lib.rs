@@ -59,7 +59,6 @@ pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
 pub use inline_box::*;
-pub use masking::CharacterMask;
 pub use parley_context::*;
 pub use pipeline::*;
 pub use scroll::*;

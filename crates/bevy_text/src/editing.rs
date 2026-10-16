@@ -18,7 +18,7 @@
 //! - Multi-click: double-click to select a word, triple-click to select a line
 //! - Optional select-all on focus via the `SelectAllOnFocus` component
 //! - Per-character input filtering via the [`EditableTextFilter`] component
-//! - Password-style character masking via the [`CharacterMask`](crate::CharacterMask) component
+//! - Password-style character masking via [`EditableText::mask`]
 //! - Max character limits via [`EditableText::max_characters`]
 //! - Cursor blinking
 //! - Newline support for multi-line input
@@ -84,7 +84,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec2;
 use core::time::Duration;
-use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
+use parley::{FontContext, LayoutContext, PlainEditor};
 
 /// A plain-text text input field.
 ///
@@ -155,13 +155,25 @@ pub struct EditableText {
     pub visible_width: Option<f32>,
     /// Allow new lines
     pub allow_newlines: bool,
-    /// The authoritative text while a presentation layer substitutes the
-    /// editor's buffer content (currently [`CharacterMask`](crate::CharacterMask),
-    /// which fills the buffer with mask glyphs while the entered text lives
-    /// here).
+    /// Password-style masking: when `Some`, every character is displayed as
+    /// this glyph. [`value`](Self::value) still returns the entered text.
     ///
-    /// `None` for normal text fields.
-    pub shadow_value: ShadowValue,
+    /// While masked, copy is disabled, cut only deletes, IME composition is
+    /// suppressed (commit per key), and word-wise deletion without a selection
+    /// clears to the start/end. [`max_characters`](Self::max_characters) and
+    /// [`EditableTextFilter`] apply to the entered characters.
+    ///
+    /// The editor holds the glyphs, so changes to the text must go through
+    /// [`queue_edit`](Self::queue_edit) or [`clear`](Self::clear). Anything
+    /// written to [`editor`](Self::editor) directly while masked is discarded.
+    ///
+    /// Bevy's default font has no `•` (U+2022), so use `*` unless the field's
+    /// font covers it.
+    pub mask: Option<char>,
+    /// The entered text while [`mask`](Self::mask) is applied. Managed by
+    /// `bevy_text`: replacing it while masked (e.g. with the default) makes
+    /// the displayed glyphs the entered text.
+    pub mask_state: MaskState,
 }
 
 impl Default for EditableText {
@@ -179,7 +191,8 @@ impl Default for EditableText {
             visible_lines: Some(1.),
             visible_width: None,
             allow_newlines: false,
-            shadow_value: ShadowValue::default(),
+            mask: None,
+            mask_state: MaskState::default(),
         }
     }
 }
@@ -207,15 +220,14 @@ impl EditableText {
 
     /// Get the current text input as a [`Cow<str>`].
     ///
-    /// This is always the *entered* text: a
-    /// [`CharacterMask`](crate::CharacterMask) affects display only. IME
-    /// preedit (in-progress composition) is excluded.
+    /// This is always the *entered* text: [`mask`](Self::mask) affects
+    /// display only. IME preedit (in-progress composition) is excluded.
     ///
     /// Borrowed as default, owned copy returned when there is a split
     /// (e.g. IME preedit).
     pub fn value(&self) -> Cow<'_, str> {
-        if let Some(shadow) = &self.shadow_value.0 {
-            return Cow::Borrowed(shadow);
+        if let Some(masked) = &self.mask_state.0 {
+            return Cow::Borrowed(&masked.value);
         }
         let mut segments = self.editor.text().into_iter();
         let first = segments.next().unwrap_or("");
@@ -227,13 +239,23 @@ impl EditableText {
         }
     }
 
-    /// The text physically present in the editor's buffer, preedit excluded.
-    ///
-    /// Unlike [`value`](Self::value) this never reads the shadow: while a
-    /// [`CharacterMask`](crate::CharacterMask) is active this is the mask
-    /// string, not the entered text.
-    pub(crate) fn editor_text(&self) -> SplitString<'_> {
+    /// The text in the editor's buffer, preedit excluded: the glyphs while
+    /// masked.
+    #[cfg(test)]
+    pub(crate) fn editor_text(&self) -> parley::SplitString<'_> {
         self.editor.text()
+    }
+
+    /// Whether the editor already shows [`mask`](Self::mask) (or the plain
+    /// text when unmasked).
+    fn mask_in_sync(&self) -> bool {
+        match (self.mask, &self.mask_state.0) {
+            (None, None) => true,
+            (Some(glyph), Some(masked)) => {
+                glyph == masked.glyph && crate::masking::shows(&self.editor, masked)
+            }
+            _ => false,
+        }
     }
 
     /// Queue a [`TextEdit`] action to be applied later by the [`apply_text_edits`] system.
@@ -256,7 +278,6 @@ impl EditableText {
         layout_context: &mut LayoutContext<TextBrush>,
         clipboard: &mut bevy_clipboard::Clipboard,
         char_filter: impl Fn(char) -> bool,
-        mask: Option<&crate::CharacterMask>,
     ) {
         let Self {
             editor,
@@ -265,13 +286,17 @@ impl EditableText {
             max_characters,
             viewport,
             cursor_margin,
-            shadow_value,
+            mask,
+            mask_state,
             ..
         } = self;
 
         let mut driver = editor.driver(font_context, layout_context);
 
-        // First: resolve any paste carried over from a previous frame. If it's still
+        // Apply `mask` changes first so the edits below see the right buffer.
+        crate::masking::sync(*mask, mask_state, &mut driver);
+
+        // Resolve any paste carried over from a previous frame. If it's still
         // pending, hold the remaining edits (untouched in `pending_edits`) for next frame
         // so ordering relative to the paste is preserved.
         if let Some(mut read) = pending_paste.take() {
@@ -281,13 +306,7 @@ impl EditableText {
                 &mut driver,
                 *max_characters,
                 &char_filter,
-                // While a `CharacterMask` is present, the `shadow_value` is
-                // guaranteed to be `Some` and in case it isn't, the default
-                // is injected instead.
-                match mask {
-                    Some(mask) => Some((mask, shadow_value.0.get_or_insert_default())),
-                    None => None,
-                },
+                mask_state.0.as_mut(),
             ) {
                 *pending_paste = Some(read);
                 return;
@@ -311,10 +330,7 @@ impl EditableText {
                         &mut driver,
                         *max_characters,
                         &char_filter,
-                        match mask {
-                            Some(mask) => Some((mask, shadow_value.0.get_or_insert_default())),
-                            None => None,
-                        },
+                        mask_state.0.as_mut(),
                     ) {
                         *pending_paste = Some(read);
                         pending_edits.extend(edits);
@@ -324,11 +340,10 @@ impl EditableText {
                         reveal_cursor(&mut driver, viewport, *cursor_margin);
                     }
                 }
-                other => match mask {
-                    Some(mask) => crate::masking::apply_masked_edit(
+                other => match mask_state.0.as_mut() {
+                    Some(masked) => crate::masking::apply_masked_edit(
                         other,
-                        mask,
-                        shadow_value.0.get_or_insert_default(),
+                        masked,
                         &mut driver,
                         viewport,
                         *cursor_margin,
@@ -355,8 +370,8 @@ impl EditableText {
     /// will still complete, but its result is discarded.
     pub fn clear(&mut self) {
         self.editor.set_text("");
-        if let Some(shadow) = &mut self.shadow_value.0 {
-            shadow.clear();
+        if let Some(masked) = &mut self.mask_state.0 {
+            masked.value.clear();
         }
         self.pending_edits.clear();
         self.pending_paste = None;
@@ -372,18 +387,12 @@ impl EditableText {
     }
 }
 
-/// The authoritative text while a presentation layer substitutes the
-/// editor's buffer content (see [`EditableText::shadow_value`]).
+/// The entered text of a masked [`EditableText`] (see [`EditableText::mask`]).
 ///
-/// Deliberately opaque: the only value constructible outside `bevy_text`
-/// is the default (empty), so struct-literal construction of
-/// [`EditableText`] keeps working while the contents are managed
-/// exclusively by the substituting layer (currently
-/// [`CharacterMask`](crate::CharacterMask)). A publicly writable
-/// `Option<String>` here would allow for state desync without an
-/// automated heal.
+/// Opaque so struct-literal construction of [`EditableText`] keeps working
+/// with `..default()`, while only `bevy_text` can change the contents.
 #[derive(Clone, Default)]
-pub struct ShadowValue(pub(crate) Option<String>);
+pub struct MaskState(pub(crate) Option<crate::masking::Masked>);
 
 /// Wrapper around a `parley::Generation`. Used to track when `TextLayoutInfo` is stale and needs reupdating.
 /// The initial `Generation` of the `PlainEditor` is not equal to the default `Generation` value, so the
@@ -425,23 +434,20 @@ pub fn apply_text_edits(
         &mut EditableText,
         Option<&EditableTextFilter>,
         &EditableTextGeneration,
-        Option<&crate::CharacterMask>,
     )>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
     mut clipboard: ResMut<bevy_clipboard::Clipboard>,
     mut commands: Commands,
 ) {
-    for (entity, mut editable_text, filter, generation, mask) in query.iter_mut() {
-        // The editor must hold exactly the mask string for the real value.
-        // Rebuilds the mask from editor content on external `set_text`.
-        if let Some(mask) = mask {
-            crate::masking::reconcile(mask, &mut editable_text);
-        }
-
+    for (entity, mut editable_text, filter, generation) in query.iter_mut() {
         // `pending_paste` can hold a cross-frame paste even when no new edits are queued,
-        // so check for either before doing work.
-        if !editable_text.pending_edits.is_empty() || editable_text.pending_paste.is_some() {
+        // and a `mask` change needs applying even without edits, so check for any of them
+        // before doing work.
+        if !editable_text.pending_edits.is_empty()
+            || editable_text.pending_paste.is_some()
+            || !editable_text.mask_in_sync()
+        {
             editable_text.apply_pending_edits(
                 &mut font_context,
                 &mut layout_context.0,
@@ -450,7 +456,6 @@ pub fn apply_text_edits(
                     Some(EditableTextFilter(Some(filter))) => filter.as_ref(),
                     _ => &|_| true,
                 },
-                mask,
             );
         }
 
@@ -491,7 +496,6 @@ mod tests {
             &mut layout_context,
             &mut clipboard,
             |_| true,
-            None,
         );
 
         text.clear();
@@ -501,7 +505,6 @@ mod tests {
             &mut layout_context,
             &mut clipboard,
             |_| true,
-            None,
         );
         text.value().to_string()
     }
