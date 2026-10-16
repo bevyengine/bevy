@@ -14,14 +14,10 @@
 //! [2]: http://www.alexandre-pestana.com/volumetric-lights/
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
-import package::atmosphere::{
-    functions::{calculate_visible_sun_ratio, clamp_to_surface},
-    bruneton_functions::transmittance_lut_r_mu_to_uv,
-};
+import package::atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface};
 import package::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
 import package::render::mesh_view_bindings::{
-    globals, lights, view, clustered_lights,
-    atmosphere, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
+    globals, lights, view, clustered_lights, atmosphere
 };
 import package::render::mesh_view_types::{
     DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
@@ -47,6 +43,7 @@ import package::render::view_transformations::{
 import bevy_render::maths::orthonormalize;
 import package::render::clustered_forward as clustering;
 import package::render::pbr_lighting::getDistanceAttenuation;
+@if(ATMOSPHERE) import package::render::pbr_lighting::sample_transmittance_lut;
 
 /// The GPU version of [`VolumetricFog`]. See the comments in
 /// `volumetric_fog/mod.rs` for descriptions of the fields here.
@@ -519,12 +516,4 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fra
         frag_coord_xy,
         SPOT_SHADOW_TEXEL_SIZE
     );
-}
-
-@if(ATMOSPHERE)
-fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
-    let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
-    return textureSampleLevel(
-        atmosphere_transmittance_texture,
-        atmosphere_transmittance_sampler, uv, 0.0).rgb;
 }
