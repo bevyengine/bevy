@@ -18,6 +18,9 @@ struct CloudLayer {
     detail_noise_scale: f32,
     detail_strength: f32,
     wind: vec3<f32>,
+    profile_bottom_exponent: f32,
+    profile_top_exponent: f32,
+    profile_top_min: f32,
 }
 
 @group(0) @binding(20) var<uniform> cloud_layer: CloudLayer;
@@ -115,36 +118,28 @@ fn remap(x: f32, a: f32, b: f32, c: f32, d: f32) -> f32 {
     return mix(c, d, t);
 }
 
-// Analytic vertical profiles (stand-in for a 1×128 height LUT; design.md §1.3).
-fn cloud_bottom_profile(h: f32, cloud_type: f32) -> f32 {
-    // Type 0 (stratus): thin, low; type 1 (cumulus): thick base build-up.
-    let knee = mix(0.25, 0.08, cloud_type);
-    let x = smoothstep(0.0, knee, h);
-    let exp = mix(2.0, 0.7, cloud_type);
-    return pow(x, exp);
-}
-
-fn cloud_top_profile(h: f32, cloud_type: f32) -> f32 {
-    // Top of the cloud: stratus ~30 % of the layer, cumulus the full layer.
-    let top_h = mix(0.3, 1.0, cloud_type);
-    let t = top_h - h;
-    let knee = mix(0.12, 0.40, cloud_type) * top_h;
-    let x = smoothstep(0.0, knee, t);
-    let exp = mix(1.1, 2.8, cloud_type);
-    return pow(x, exp);
-}
-
-/// Dimensional profile with coverage-dependent cloud height (Nubis "height ~ coverage"): the
-/// top scales with coverage, so cells taper from a tall core to low edges and get rounded,
-/// domed tops instead of the 2D weather map extruded into vertical columns. Bases stay flat.
+/// Dimensional profile (Nubis Evolved 2022 sky model: vertical_profile * coverage) with a
+/// parameterized vertical envelope, h' = height / cloud-top height of the column:
+///   vertical_profile = norm * h'^a * (1 - h')^b,  norm = 1 / max (peak 1 at h' = a / (a + b)).
+/// a = profile_bottom_exponent, b = profile_top_exponent (`CloudLayer`):
+///  - physical default a = b = 1: adiabatic liquid water grows linearly above the flat
+///    condensation base, and entrainment lowers the adiabatic fraction ~linearly toward the top
+///    (cloud-physics texts, e.g. Rogers & Yau, A Short Course in Cloud Physics, ch. 2-3);
+///  - Nubis Evolved envelope model (2022 p97): a = 2, b = 1.5.
+/// The column's cloud top rises with coverage from profile_top_min to the layer top (Nubis:
+/// cloud height follows coverage), so cells are domed rather than extruded.
 fn cloud_dimensional_profile(h: f32, coverage: f32, cloud_type: f32) -> f32 {
-    let top_scale = mix(0.25, 1.0, sqrt(coverage));
-    let hs = h / max(top_scale, 1e-3);
-    let vertical_profile = clamp(cloud_bottom_profile(h, cloud_type) * cloud_top_profile(min(hs, 1.0), cloud_type), 0.0, 1.0)
-        * f32(hs < 1.0);
-    // Edge gradient: thin out the low-coverage rim more at altitude (anvil-like taper).
-    let cov = max(coverage - pow(h, mix(8.0, 4.0, cloud_type)) * 0.35, 0.0);
-    return clamp(vertical_profile * cov, 0.0, 1.0);
+    let a = cloud_layer.profile_bottom_exponent;
+    let b = cloud_layer.profile_top_exponent;
+    let top = mix(cloud_layer.profile_top_min, 1.0, coverage);
+    let x = h / max(top, 1e-3);
+    if (x >= 1.0 || coverage <= 0.0) {
+        return 0.0;
+    }
+    let peak = a / max(a + b, 1e-6);
+    let max_v = max(pow(peak, a) * pow(1.0 - peak, b), 1e-6);
+    let vertical_profile = pow(x, a) * pow(1.0 - x, b) / max_v;
+    return saturate(vertical_profile * coverage);
 }
 
 /// Nubis-style density (design.md §1.3):
@@ -166,7 +161,7 @@ fn cloud_density_context(r: f32, world_pos: vec3<f32>) -> vec4<f32> {
     let weather = sample_weather(sample_pos, cloud_layer.noise_scale);
     var coverage = clamp(weather.r, 0.0, 1.0);
     let cloud_type = clamp(weather.g, 0.0, 1.0);
-    let density_scale = mix(0.35, 1.0, clamp(weather.b, 0.0, 1.0));
+    let density_scale = pow(clamp(weather.b, 0.0, 1.0), 4.0);
     let dimensional_profile = cloud_dimensional_profile(h, coverage, cloud_type);
     // Return profile, density_scale, h, cloud_type (sample_pos reconstructed by callers).
     return vec4(dimensional_profile, density_scale, h, cloud_type);
@@ -205,39 +200,42 @@ fn sample_cumulus_shape_lod(r: f32, world_pos: vec3<f32>, mip: f32) -> f32 {
     let sample_pos = cloud_sample_pos_with_wind_curl(world_pos, h, true);
 
     let weather = sample_weather(sample_pos, cloud_layer.noise_scale);
-    var coverage = clamp(weather.r, 0.0, 1.0);
-    let cloud_type = clamp(weather.g, 0.0, 1.0);
-    let density_scale = mix(0.35, 1.0, clamp(weather.b, 0.0, 1.0));
-    let dimensional_profile = cloud_dimensional_profile(h, coverage, cloud_type);
+    let coverage = clamp(weather.r, 0.0, 1.0);
+    // Nubis detail type (0 wispy, 1 billowy) and density scale: authored weather fields.
+    let detail_type = clamp(weather.g, 0.0, 1.0);
+    let density_scale = clamp(weather.b, 0.0, 1.0);
+    // Nubis Evolved (2022) sky model: dimensional_profile = vertical_profile * coverage.
+    let base_profile = cloud_dimensional_profile(h, coverage, detail_type);
+    if (base_profile <= 0.0) {
+        return 0.0;
+    }
 
+    // Large-scale shape from the 2022 noise (low-frequency Perlin-Worley eroded by Worley fBm,
+    // HZD15: fbm = 0.625 lo + 0.25 med + 0.125 hi, remap(pw, fbm - 1, 1, 0, 1)), applied as the
+    // 2022 sky density: saturate(noise - (1 - dimensional_profile)).
     let pw = sample_shape_noise(sample_pos, h, mip);
-    let worley = pw.yzw;
-    let wfbm = worley.x * 0.625 + worley.y * 0.125 + worley.z * 0.25;
-    var shape_billowy = remap(pw.x, wfbm - 1.0, 1.0, 0.0, 1.0);
-    shape_billowy = clamp(shape_billowy, 0.0, 1.0);
-    let shape_wispy = clamp(pw.x, 0.0, 1.0);
-    let billowy_gate = pow(dimensional_profile, 0.25);
-    let shape_noise = mix(shape_wispy, shape_billowy, cloud_type) * mix(0.55, 1.0, billowy_gate);
+    let wfbm = pw.y * 0.625 + pw.z * 0.25 + pw.w * 0.125;
+    let shape_noise = saturate(remap(pw.x, wfbm - 1.0, 1.0, 0.0, 1.0));
+    let profile = saturate(shape_noise - (1.0 - base_profile));
 
-    let detail = sample_detail_noise(sample_pos, h, mip);
-    // Nubis³ (Advances 2023, 2:04-2:05): low-frequency detail toward the core, high-frequency at
-    // the edges, blended over the dimensional profile.
-    let detail_hi = detail.g * 0.5 + detail.b * 0.5;
-    let detail_lo = detail.r * 0.75 + detail.g * 0.25;
-    let detail_raw = mix(detail_hi, detail_lo, saturate(dimensional_profile * 1.5));
-    // HZD15 / Nubis17: wispy (Worley) erosion at the base, inverted (billowy) higher up.
-    let detail_fbm = mix(detail_raw, 1.0 - detail_raw, saturate(h * 4.0));
-    // Nubis: erode edges with detail noise (wispy at base, billowy higher); keep cores intact
-    // via the dimensional-profile subtraction below rather than damping erosion.
-    let erosion_strength = cloud_layer.detail_strength * mix(0.35, 0.8, h);
-    // Nubis/HZD remap erosion: carves proportionally more at low shape values (edges).
-    let noise_composite = remap(shape_noise, detail_fbm * erosion_strength, 1.0, 0.0, 1.0);
-
-    var dens = remap(noise_composite, 1.0 - dimensional_profile, 1.0, 0.0, 1.0) * dimensional_profile;
-    dens *= density_scale;
-    // Sharpen the edge falloff (soft gamma made every boundary a wide translucent fringe).
-    dens = clamp(dens * 2.0, 0.0, 1.0);
-    return clamp(dens, 0.0, 1.0);
+    // Nubis Cubed (2023) up-res of that profile (Guerrilla's VoxelCloudSampler,
+    // GetUprezzedVoxelCloudDensity): wispy = lerp(R, G, profile), billowy = lerp(B, A,
+    // profile^0.25) * 0.3, composite = lerp(wispy, billowy, detail_type), value erosion of the
+    // profile by the composite, density scale^4, sharpened by pow(d, lerp(0.3, 0.6, scale^4)).
+    // The near-camera high-high-frequency fold (< 150 m) is not applied.
+    // Detail LOD from the sample footprint (anti-aliasing and cache): `mip` is log2(1 + d / 4 km)
+    // (shape noise); a half-res pixel spans ~2.2 mrad, and a detail texel is detail_noise_scale /
+    // 128, so the footprint LOD is mip + log2(4000 m * 2.2e-3 / texel).
+    let detail_texel = max(cloud_layer.detail_noise_scale, 1.0) / 128.0;
+    let n = sample_detail_noise(sample_pos, h, mip + max(log2(4000.0 * 2.2e-3 / detail_texel), 0.0));
+    let wispy = mix(n.r, n.g, profile);
+    let billowy = mix(n.b * 0.3, n.a * 0.3, pow(profile, 0.25));
+    let composite = mix(wispy, billowy, detail_type) * cloud_layer.detail_strength;
+    var dens = saturate((profile - composite) / max(1.0 - composite, 1e-4));
+    let powered_scale = pow(density_scale, 4.0);
+    dens *= powered_scale;
+    dens = pow(dens, mix(0.3, 0.6, max(1e-4, powered_scale)));
+    return dens;
 }
 
 fn sample_cumulus_shape(r: f32, world_pos: vec3<f32>) -> f32 {

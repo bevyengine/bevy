@@ -795,9 +795,34 @@ pub struct CloudLayer {
 
     /// Wind velocity in m/s. Advects `noise_offset` on the CPU and drives height skew in the density sampler (design.md §1.3 / §3.1).
     pub wind: Vec3,
+
+    /// Vertical density envelope `h'^bottom * (1 - h')^top` (normalized to a peak of 1), with h'
+    /// the height relative to the column's cloud top. The defaults (1, 1) are physical: adiabatic
+    /// liquid water grows linearly above the flat base, and entrainment lowers it toward the
+    /// top. [`CloudLayer::NUBIS_ENVELOPE`] gives Nubis's (2, 1.5).
+    pub profile_bottom_exponent: f32,
+    /// See [`CloudLayer::profile_bottom_exponent`].
+    pub profile_top_exponent: f32,
+    /// Cloud-top height (fraction of the layer) of the thinnest cells; the top rises linearly
+    /// with weather coverage to the layer top.
+    pub profile_top_min: f32,
 }
 
 impl CloudLayer {
+    /// Nubis Evolved (SIGGRAPH 2022) envelope-model vertical gradients:
+    /// bottom `pow(h, 2)`, top `pow(1 - h, 1.5)`. Use with [`CloudLayer::with_vertical_profile`].
+    pub const NUBIS_ENVELOPE: (f32, f32) = (2.0, 1.5);
+    /// Physical default: adiabatic liquid water (linear above the base) times a linearly
+    /// decreasing adiabatic fraction (entrainment).
+    pub const ADIABATIC_PROFILE: (f32, f32) = (1.0, 1.0);
+
+    /// Sets the vertical envelope exponents `(bottom, top)`.
+    pub fn with_vertical_profile(mut self, (bottom, top): (f32, f32)) -> Self {
+        self.profile_bottom_exponent = bottom;
+        self.profile_top_exponent = top;
+        self
+    }
+
     /// Typical cumulus liquid water content (0.1-1 g/m^3), used by the default layer.
     /// units: kg/m^3
     pub const CUMULUS_LIQUID_WATER: f32 = 0.5e-3;
@@ -837,9 +862,12 @@ impl Default for CloudLayer {
             cloud_scattering: 0.0,
             noise_scale: 32_000.0, // weather tile; shape noise period = 1/8 (4 km)
             noise_offset: Vec3::ZERO,
-            detail_noise_scale: 600.0,
+            detail_noise_scale: 100.0,
             detail_strength: 1.0,
             wind: Vec3::new(15.0, 0.0, 5.0),
+            profile_bottom_exponent: Self::ADIABATIC_PROFILE.0,
+            profile_top_exponent: Self::ADIABATIC_PROFILE.1,
+            profile_top_min: 0.25,
         }
         .with_liquid_water(Self::CUMULUS_LIQUID_WATER, Self::CUMULUS_EFFECTIVE_RADIUS)
     }

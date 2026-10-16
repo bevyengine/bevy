@@ -43,7 +43,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let coverage = smoothstep(0.40, 0.75, coverage_raw);
     // Cloud type varies smoothly over ~8 km.
     let cloud_type = clamp(smoothstep(0.3, 0.7, perlin_fbm_tiled(uv + vec2(0.37, 0.11), 4, 2)) * 0.6 + 0.4, 0.0, 1.0);
-    let density_scale = perlin_fbm_tiled(uv + vec2(0.5, 0.21), 8, 3);
+    // Density scale (Nubis NVDF): 1 = full density. The procedural map does not modulate it
+    // (LWC sets the physical magnitude); a painted weather map can.
+    let density_scale = 1.0;
     let spare = 0.0;
 
     textureStore(

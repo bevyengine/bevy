@@ -3,6 +3,7 @@
 //! Environment variables (all optional; used by the cloud validation scripts):
 //! - Scene: `ATMOSPHERE_VIEW=hero|sun|up|under|backlit`, `ATMOSPHERE_CAM`, `ATMOSPHERE_SUN_ELEV_DEG`,
 //!   `ATMOSPHERE_SUNSET`, `ATMOSPHERE_TERRAIN`, `ATMOSPHERE_NO_CLOUDS`, `ATMOSPHERE_MIE_SCALE`,
+//!   `ATMOSPHERE_CLOUD_PROFILE=nubis`,
 //!   `ATMOSPHERE_LUT_MODE`.
 //! - Time: `ATMOSPHERE_CAM_STEP`, `ATMOSPHERE_FREEZE`, `ATMOSPHERE_ANIMATE`, `ATMOSPHERE_FIXED_DT`.
 //! - Cloud shadows: `ATMOSPHERE_SHADOW_INTERLEAVE`, `ATMOSPHERE_SHADOW_SAMPLES`,
@@ -483,12 +484,18 @@ fn setup_camera_fog(
             // Larger scale = larger cloud features (more “big cumulus”, less “small puffs”)
             noise_scale: 32_000.0, // weather tile; shape noise period = 1/8 (4 km)
             noise_offset: Vec3::ZERO,
-            detail_noise_scale: 600.0, // Smaller scale = higher-frequency breakup
+            detail_noise_scale: 100.0, // Nubis Cubed detail noise tile (pos * 0.01)
             detail_strength: 1.0,
             wind: Vec3::new(20.0, 0.0, 8.0),
             ..default()
         }
-        .with_liquid_water(CloudLayer::CUMULUS_LIQUID_WATER, CloudLayer::CUMULUS_EFFECTIVE_RADIUS),
+        .with_liquid_water(CloudLayer::CUMULUS_LIQUID_WATER, CloudLayer::CUMULUS_EFFECTIVE_RADIUS)
+        // `ATMOSPHERE_CLOUD_PROFILE=nubis`: Nubis envelope instead of the adiabatic default.
+        .with_vertical_profile(if std::env::var("ATMOSPHERE_CLOUD_PROFILE").as_deref() == Ok("nubis") {
+            CloudLayer::NUBIS_ENVELOPE
+        } else {
+            CloudLayer::ADIABATIC_PROFILE
+        }),
         CloudWeather::default(),
     ));
 
