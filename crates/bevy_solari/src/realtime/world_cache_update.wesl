@@ -69,7 +69,9 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
 
     // https://bsky.app/profile/gboisse.bsky.social/post/3m5blga3ftk2a
     let sample_count = min(old_radiance.a + 1.0, constants.world_cache_max_temporal_samples);
-    let alpha = abs(luminance_delta) / max(luminance(old_radiance.rgb), 0.001);
+    // The cache holds absolute radiance; dividing the floor by the exposure lets a sharp change
+    // speed up the blend at any light level.
+    let alpha = abs(luminance_delta) / max(luminance(old_radiance.rgb), 0.001 / view.exposure);
     let max_sample_count = mix(constants.world_cache_max_temporal_samples, 1.0, pow(saturate(alpha), 1.0 / 8.0));
     var blend_amount = 1.0 / min(sample_count, max_sample_count);
     if bool(constants.reset) {

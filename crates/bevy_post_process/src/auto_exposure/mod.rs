@@ -18,14 +18,18 @@ use bevy_render::{
 mod buffers;
 mod compensation_curve;
 mod pipeline;
+mod readback;
 mod settings;
 
-use buffers::{extract_buffers, prepare_buffers, AutoExposureBuffers};
+use buffers::{
+    apply_pre_exposure, extract_auto_exposure, prepare_buffers, AutoExposureBuffers,
+    ExtractedAutoExposure,
+};
 pub use compensation_curve::{AutoExposureCompensationCurve, AutoExposureCompensationCurveError};
 use pipeline::{
     AutoExposurePass, AutoExposurePipeline, AutoExposureUniform, ViewAutoExposurePipeline,
 };
-pub use settings::AutoExposure;
+pub use settings::{AutoExposure, AutoExposureState};
 
 use crate::auto_exposure::{
     compensation_curve::GpuAutoExposureCompensationCurve, pipeline::init_auto_exposure_pipeline,
@@ -66,14 +70,16 @@ impl Plugin for AutoExposurePlugin {
         render_app
             .init_gpu_resource::<SpecializedComputePipelines<AutoExposurePipeline>>()
             .init_resource::<AutoExposureBuffers>()
+            .init_resource::<ExtractedAutoExposure>()
             .add_systems(
                 RenderStartup,
                 (init_auto_exposure_pipeline, init_auto_exposure_resources),
             )
-            .add_systems(ExtractSchedule, extract_buffers)
+            .add_systems(ExtractSchedule, extract_auto_exposure)
             .add_systems(
                 Render,
                 (
+                    apply_pre_exposure.in_set(RenderSystems::CreateViews),
                     prepare_buffers.in_set(RenderSystems::Prepare),
                     queue_view_auto_exposure_pipelines.in_set(RenderSystems::Queue),
                 ),
@@ -197,6 +203,7 @@ fn auto_exposure(
                 size: Some(ViewUniform::min_size()),
                 offset: 0,
             },
+            &auto_exposure_buffer.exposure,
         )),
     );
 
@@ -224,4 +231,10 @@ fn auto_exposure(
     }
 
     time_span.end(ctx.command_encoder());
+
+    if let Some(state) = auto_exposure_buffer.state.buffer() {
+        auto_exposure_buffer
+            .readback
+            .copy(ctx.command_encoder(), state);
+    }
 }
