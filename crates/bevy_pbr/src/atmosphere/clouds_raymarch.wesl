@@ -95,8 +95,6 @@ const LIGHT_TAP_LOD: f32 = 0.25;
 const LIGHT_LONG_TAP_M: f32 = 1500.0;
 const CLOUD_GROUND_ALBEDO: f32 = 0.28;
 const CLOUD_DARK_EDGE_STRENGTH: f32 = 0.5;
-// Extinction scale for the Lambert back-scatter clamp (RDR2 slide 30).
-const CLOUD_BACK_SCATTER_EXT_SCALE: f32 = 2500.0;
 
 // Order in which the 4 pixels of each 2x2 half-res block are traced (shared with reconstruct).
 const CHECKER_OFFSETS: array<vec2<u32>, 4> = array(
@@ -672,8 +670,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                         * ground_sun_visibility(p, l);
                     ground_rad = CLOUD_GROUND_ALBEDO * (e_sun / PI + sky_irr);
                 }
-                // Extinction-driven Lambert floor on the phase (RDR2 slide 30), isotropic 1/4pi.
-                let phase_floor = (0.25 / PI) * saturate(sigma_t * CLOUD_BACK_SCATTER_EXT_SCALE);
                 // Nubis Cubed structure (Schneider, Advances 2023, "Direct = Transmittance * Phase +
                 // Multiple Scattering * Secondary Phase") with physically derived terms. Multiple
                 // scattering (orders >= 2), isotropic: E_sun * exp(-(1 - g) tau_sun) * F_ms / 4pi.
@@ -682,7 +678,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 //  - F_ms = f_ms / (1 - f_ms), f_ms = albedo (1 - P_esc): Hillaire 2020's transfer
                 //    series with the escape probability on the reduced optical depth (cloud field).
                 // vs MC (validation/sky/ms_models_vs_mc.py, tau <= 5): median error -29..+25 %.
-                var direct = t_local * t_far * max(cloud_phase(cos_theta), phase_floor) * dark_edge;
+                var direct = t_local * t_far * cloud_phase(cos_theta) * dark_edge;
                 @if(!CLOUD_TERM_S1) {
                     let tau_sun = light_optical_depth - log(max(t_far, 1e-6));
                     let albedo = sigma_s_unit / max(sigma_t_unit, 1e-9);
