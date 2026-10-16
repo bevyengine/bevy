@@ -1,6 +1,6 @@
 ---
 title: "Exposed light written to the HDR main texture is capped"
-pull_requests: []
+pull_requests: [26211]
 ---
 
 Bevy's shaders that write exposed light to a view's HDR main texture now scale their output down,

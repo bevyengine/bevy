@@ -1,6 +1,6 @@
 ---
 title: "`AutoExposure` pre-exposes the view"
-pull_requests: []
+pull_requests: [26211]
 ---
 
 A camera with `AutoExposure` now renders with its adapted exposure, read back from the GPU,
