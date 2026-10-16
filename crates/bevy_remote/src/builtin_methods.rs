@@ -464,6 +464,18 @@ pub struct JsonSchemaTypeLimit {
     pub with: Vec<String>,
 }
 
+/// The response to `registry.schema` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpJsonSchemaResponse {
+    /// Id that serves as anchor for json schema validators.
+    #[serde(rename = "$id")]
+    pub id: String,
+
+    /// Schema itself
+    #[serde(flatten)]
+    pub schema: BTreeMap<String, JsonSchemaBevyType>,
+}
+
 /// A response from the world to the client that specifies a single entity.
 ///
 /// This is sent in response to `world.spawn_entity`.
@@ -1778,7 +1790,11 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
         })
         .collect::<BTreeMap<String, JsonSchemaBevyType>>();
 
-    serde_json::to_value(schemas).map_err(BrpError::internal)
+    serde_json::to_value(BrpJsonSchemaResponse {
+        id: "urn:bevy-remote:registry".into(),
+        schema: schemas,
+    })
+    .map_err(BrpError::internal)
 }
 
 /// Handles an `app.info` request coming from a client connected to the main app.
@@ -2394,10 +2410,11 @@ mod tests {
         let result_value =
             export_registry_types(params_value, &world).expect("Failed to export registry types");
 
-        let result: HashMap<String, JsonSchemaBevyType> =
+        let result: BrpJsonSchemaResponse =
             parse(result_value).expect("Failed to parse exported registry types");
 
         let actual_following = result
+            .schema
             .get("bevy_remote::builtin_methods::tests::Following")
             .expect("Missing Following type in result")
             .component_info
@@ -2410,6 +2427,7 @@ mod tests {
             relationship_kind: Some(RelationshipKind::Relationship),
         });
         let actual_followed_by = result
+            .schema
             .get("bevy_remote::builtin_methods::tests::FollowedBy")
             .expect("Missing FollowedBy type in result")
             .component_info
