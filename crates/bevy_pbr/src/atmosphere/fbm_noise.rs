@@ -31,6 +31,12 @@ pub struct FbmNoiseParams {
     pub lacunarity: f32,
     /// Amplitude multiplier for each octave (typically 0.5)
     pub persistence: f32,
+    /// Cloud life-cycle phase, `evolution_time / lifetime + 0.5` ([`crate::CloudLayer`]).
+    pub life_t: f32,
+    /// 1 when the life cycle is on (`lifetime > 0`).
+    pub life_enabled: u32,
+    pub _pad0: u32,
+    pub _pad1: u32,
 }
 
 impl Default for FbmNoiseParams {
@@ -41,6 +47,10 @@ impl Default for FbmNoiseParams {
             amplitude: 1.0,
             lacunarity: 2.0,
             persistence: 0.5,
+            life_t: 0.5,
+            life_enabled: 0,
+            _pad0: 0,
+            _pad1: 0,
         }
     }
 }
@@ -228,7 +238,8 @@ pub fn get_noise_dispatch_size(texture_size: UVec2) -> UVec2 {
 #[derive(Resource, Default)]
 pub struct NoiseGenerated(pub bool);
 
-/// System to generate the FBM noise texture (runs once)
+/// System to generate the weather map: once, and again whenever the cloud life-cycle clock
+/// ([`crate::CloudLayer::evolution_time`]) advances (the map holds the blended generations).
 pub fn generate_fbm_noise_once(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -236,11 +247,33 @@ pub fn generate_fbm_noise_once(
     pipeline: Res<FbmNoisePipeline>,
     bind_group: Option<Res<FbmNoiseBindGroup>>,
     texture: Res<FbmNoiseTexture>,
+    params_buffer: Option<Res<FbmNoiseParamsBuffer>>,
+    layers: bevy_ecs::system::Query<&crate::CloudLayer>,
+    mut last_life_t: bevy_ecs::system::Local<Option<f32>>,
     mut noise_generated: ResMut<NoiseGenerated>,
 ) {
-    // Only generate once
-    if noise_generated.0 {
+    let life = layers
+        .iter()
+        .next()
+        .filter(|layer| layer.lifetime > 0.0)
+        .map(|layer| layer.evolution_time / layer.lifetime + 0.5);
+    // Re-bake only when the phase moved by > 1/2000 of a cycle (a weight change far below
+    // visibility; at 1x with a 20 min life time that is every ~0.6 s).
+    let unchanged = match (life, *last_life_t) {
+        (Some(t), Some(last)) => (t - last).abs() < 5e-4,
+        (None, _) => true,
+        _ => false,
+    };
+    if noise_generated.0 && unchanged {
         return;
+    }
+    if let Some(params_buffer) = params_buffer.as_ref() {
+        let params = FbmNoiseParams {
+            life_t: life.unwrap_or(0.5),
+            life_enabled: life.is_some() as u32,
+            ..FbmNoiseParams::default()
+        };
+        render_queue.write_buffer(&params_buffer.buffer, 0, bytemuck::cast_slice(&[params]));
     }
 
     let Some(bind_group) = bind_group else {
@@ -272,4 +305,5 @@ pub fn generate_fbm_noise_once(
     render_queue.submit([command_buffer]);
 
     noise_generated.0 = true;
+    *last_life_t = life;
 }

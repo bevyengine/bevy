@@ -528,10 +528,11 @@ const CLOUD_RECON_NEW_SAMPLE_WEIGHT: f32 = 0.1;
 #[derive(Clone, Copy, ShaderType)]
 pub struct CloudsTemporalParams {
     pub prev_clip_from_world: Mat4,
+    /// Horizontal displacement of the cloud field since the previous frame (atmosphere space, m):
+    /// a cloud point at `p` was at `p - cloud_motion` (wind advection).
+    pub cloud_motion: Vec3,
     pub history_valid: u32,
     pub new_sample_weight: f32,
-    pub _pad0: f32,
-    pub _pad1: f32,
 }
 
 /// Per-view uniform for [`CloudsTemporalParams`].
@@ -541,36 +542,40 @@ pub struct CloudsTemporalParamsUniform(pub UniformBuffer<CloudsTemporalParams>);
 /// Writes [`CloudsTemporalParams`] for every atmosphere view, remembering each view's
 /// previous `clip_from_world` (keyed by retained view entity) for history reprojection.
 pub(super) fn prepare_clouds_temporal_params(
-    views: Query<(Entity, &ExtractedView, &AtmosphereTextures), With<ExtractedAtmosphere>>,
-    mut previous: bevy_ecs::system::Local<HashMap<RetainedViewEntity, (Mat4, UVec2)>>,
+    views: Query<
+        (Entity, &ExtractedView, &AtmosphereTextures, Option<&CloudLayer>),
+        With<ExtractedAtmosphere>,
+    >,
+    mut previous: bevy_ecs::system::Local<HashMap<RetainedViewEntity, (Mat4, UVec2, Vec3)>>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut commands: Commands,
 ) {
     let mut seen = HashMap::default();
-    for (entity, view, textures) in &views {
+    for (entity, view, textures, cloud_layer) in &views {
+        let offset = cloud_layer.map_or(Vec3::ZERO, |c| c.noise_offset);
         let clip_from_world = view.clip_from_world.unwrap_or_else(|| {
             view.clip_from_view * view.world_from_view.to_matrix().inverse()
         });
         let size = textures.clouds.texture.size();
         let size = UVec2::new(size.width, size.height);
-        let (prev_clip_from_world, history_valid) =
+        let (prev_clip_from_world, history_valid, prev_offset) =
             match previous.get(&view.retained_view_entity) {
-                Some((prev, prev_size)) if *prev_size == size => (*prev, 1),
-                _ => (clip_from_world, 0),
+                Some((prev, prev_size, prev_offset)) if *prev_size == size => (*prev, 1, *prev_offset),
+                _ => (clip_from_world, 0, offset),
             };
+        let motion = offset - prev_offset;
         let mut buffer = UniformBuffer::from(CloudsTemporalParams {
             prev_clip_from_world,
+            cloud_motion: Vec3::new(motion.x, 0.0, motion.z),
             history_valid,
             new_sample_weight: CLOUD_RECON_NEW_SAMPLE_WEIGHT,
-            _pad0: 0.0,
-            _pad1: 0.0,
         });
         buffer.write_buffer(&render_device, &render_queue);
         commands
             .entity(entity)
             .insert(CloudsTemporalParamsUniform(buffer));
-        seen.insert(view.retained_view_entity, (clip_from_world, size));
+        seen.insert(view.retained_view_entity, (clip_from_world, size, offset));
     }
     *previous = seen;
 }
@@ -596,6 +601,8 @@ pub struct CloudShadowTemporalParams {
     pub interleave: u32,
     /// Frame index used to select the traced texel in each tile (matches `view.frame_count`).
     pub frame_index: u32,
+    /// Horizontal displacement of the cloud field since the previous frame (atmosphere space, m).
+    pub cloud_motion: Vec3,
 }
 
 /// Per-view state for cloud shadow temporal filtering.
@@ -607,6 +614,8 @@ pub struct CloudShadowTemporalState {
     pub basis_x: Vec3,
     pub basis_y: Vec3,
     pub initialized: bool,
+    /// Cloud field displacement ([`CloudLayer::noise_offset`]) when the map was last filtered.
+    pub cloud_offset: Vec3,
 }
 
 impl FromWorld for RenderSkyBindGroupLayouts {
@@ -1413,7 +1422,7 @@ enum AtmosphereBindGroupError {
 
 pub(super) fn prepare_cloud_shadow_temporal_params(
     views: Query<
-        (&ExtractedView, &ExtractedAtmosphere, &GpuAtmosphereSettings),
+        (&ExtractedView, &ExtractedAtmosphere, &GpuAtmosphereSettings, Option<&CloudLayer>),
         (With<Camera3d>, With<ExtractedAtmosphere>),
     >,
     directional_lights: Query<&ExtractedDirectionalLight>,
@@ -1423,7 +1432,7 @@ pub(super) fn prepare_cloud_shadow_temporal_params(
     render_queue: Res<RenderQueue>,
     frame_count: Res<FrameCount>,
 ) {
-    let Some((view, atmosphere, settings)) = views.iter().next() else {
+    let Some((view, atmosphere, settings, cloud_layer)) = views.iter().next() else {
         return;
     };
     if !settings.cloud_shadow_uses_temporal_pass() {
@@ -1484,12 +1493,19 @@ pub(super) fn prepare_cloud_shadow_temporal_params(
     let light_rotated = prev_light_dir.dot(light_dir.normalize_or_zero()) < light_rot_cos;
     let history_valid = temporal_state.initialized && !light_rotated;
 
+    let cloud_offset = cloud_layer.map_or(Vec3::ZERO, |c| c.noise_offset);
+    let cloud_motion = if history_valid {
+        cloud_offset - temporal_state.cloud_offset
+    } else {
+        Vec3::ZERO
+    };
     *temporal_state = CloudShadowTemporalState {
         anchor,
         light_dir: light_dir.normalize_or_zero(),
         basis_x,
         basis_y,
         initialized: true,
+        cloud_offset,
     };
 
     let prev_anchor = if history_valid { prev_anchor } else { anchor };
@@ -1528,6 +1544,7 @@ pub(super) fn prepare_cloud_shadow_temporal_params(
             size,
             interleave: settings.cloud_shadow_map_update_interleave.max(1),
             frame_index: frame_count.0,
+            cloud_motion: Vec3::new(cloud_motion.x, 0.0, cloud_motion.z),
         });
     temporal_params_buffer
         .buffer
@@ -2203,6 +2220,7 @@ fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
 /// - `ATM_DBG_MIP0`: full-resolution cloud noise at any distance.
 /// - `ATM_DBG_OUT_H`: write height-in-layer / profile / depth instead of cloud colour.
 /// - `ATM_DBG_NO_SDF_SKIP`: disable cloud-SDF empty-space skipping.
+/// - `ATM_DBG_NO_CLOUD_MOTION`: reproject the cloud history without the wind displacement.
 /// - `ATM_DBG_NO_COARSE`: fine samples everywhere, no step budget (with `ATM_DBG_NO_SDF_SKIP`:
 ///   the ground-truth march for validating empty-space skipping).
 /// See also `CLOUD_TERMS=s1|sun|amb` and `CLOUD_REFERENCE=1`.

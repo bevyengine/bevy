@@ -10,9 +10,34 @@ struct FbmParams {
     amplitude: f32,
     lacunarity: f32,
     persistence: f32,
+    life_t: f32,
+    life_enabled: u32,
+    _pad0: u32,
+    _pad1: u32,
 }
 
 @group(0) @binding(14) var<uniform> fbm_params: FbmParams;
+
+/// Random tile offset of life-cycle generation `n` (generation 0 is the unshifted map, so
+/// the scene at time 0 does not depend on the life cycle).
+fn cycle_offset(n: f32) -> vec2<f32> {
+    return select(fract(sin(vec2(n * 12.9898 + 1.3, n * 78.233 + 4.1)) * 43758.5453), vec2(0.0), n == 0.0);
+}
+
+/// Coverage potential: tileable gradient (Perlin) fBm with a light domain warp (rounded,
+/// non-axis-aligned cells). Lattice periods are in cells per tile: with the default 32 km tile,
+/// period 16 gives ~2 km base coverage cells, octaves down to ~250 m. (A value noise on a 2-texel
+/// lattice was near white noise, which bilinear filtering smeared into overcast haze; weak float
+/// hashes gave boxy coverage edges.)
+fn weather_generation(uv: vec2<f32>) -> f32 {
+    let warp = vec2(perlin_fbm_tiled(uv + vec2(0.31, 0.77), 8, 3), perlin_fbm_tiled(uv + vec2(0.63, 0.19), 8, 3)) - 0.5;
+    return perlin_fbm_tiled(uv + warp * 0.03, 8, 4);
+}
+
+/// Cloud type varies smoothly over ~8 km.
+fn weather_type(uv: vec2<f32>) -> f32 {
+    return clamp(smoothstep(0.3, 0.7, perlin_fbm_tiled(uv + vec2(0.37, 0.11), 4, 2)) * 0.6 + 0.4, 0.0, 1.0);
+}
 
 @compute
 @workgroup_size(8, 8, 1)
@@ -26,23 +51,32 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Normalized coordinates [0, 1)
     let uv = (vec2<f32>(gid.xy) + 0.5) / vec2<f32>(texture_size);
 
-    // Generate packed *tileable* cloud noise.
-    // We work in "cell space" where the period matches the texture dimensions so wrapping with
-    // sampler repeat is seamless (no hard seam/wall at the edges).
-    // Lattice periods are expressed in cells per tile (not texels) so features have a sensible
-    // world size: with the default 32 km tile, period 16 → ~2 km base coverage cells, octaves down
-    // to ~250 m. (Previously the base lattice was 2 texels ≈ 125-250 m, i.e. near white noise,
-    // which bilinear filtering smeared into uniform overcast haze.)
-    // Tileable gradient (Perlin) FBM with a light domain warp: rounded, non-axis-aligned cells.
-    // The previous value noise (weak float hash on small lattice ints) gave boxy coverage edges,
-    // and `value_noise_tiled(uv * 4, 4)` repeated the cloud-type pattern 4x4 with sharp ramps,
-    // which stepped cloud heights between cells (blocky slabs / dark rectangular patches).
-    let warp = vec2(perlin_fbm_tiled(uv + vec2(0.31, 0.77), 8, 3), perlin_fbm_tiled(uv + vec2(0.63, 0.19), 8, 3)) - 0.5;
-    let coverage_raw = perlin_fbm_tiled(uv + warp * 0.03, 8, 4);
+    // Tileable: lattice periods are whole cells per tile, so sampler repeat wraps seamlessly.
+    // Cloud life cycle (CloudLayer::lifetime): the coverage potential (a symmetric fBm, mean
+    // 0.5) cross-fades between independent generations (the same tileable pattern at a new
+    // random offset each cycle) with triangle weights. Variance-preserving blend about the mean
+    // (a sum of independent Gaussian-like fields keeps its distribution; cf. Heitz & Neyret
+    // 2018, histogram-preserving blending), so cloud amount and size statistics stay constant
+    // (coverage mean within 1.5 % over the cycle) while each cloud grows and decays. The cloud
+    // top follows coverage, so clouds grow taller as they grow wider.
+    var potential: f32;
+    var cloud_type: f32;
+    if (fbm_params.life_enabled == 0u) {
+        potential = weather_generation(uv);
+        cloud_type = weather_type(uv);
+    } else {
+        let t = fbm_params.life_t;
+        let wa = 1.0 - abs(2.0 * fract(t) - 1.0);
+        let wb = 1.0 - wa;
+        let oa = uv + cycle_offset(floor(t));
+        let ob = uv + cycle_offset(floor(t + 0.5) + 0.5);
+        let a = weather_generation(oa);
+        let b = weather_generation(ob);
+        potential = 0.5 + (wa * (a - 0.5) + wb * (b - 0.5)) * inverseSqrt(wa * wa + wb * wb);
+        cloud_type = wa * weather_type(oa) + wb * weather_type(ob);
+    }
     // Cumulus-style coverage: carve out clear sky between distinct cells.
-    let coverage = smoothstep(0.40, 0.75, coverage_raw);
-    // Cloud type varies smoothly over ~8 km.
-    let cloud_type = clamp(smoothstep(0.3, 0.7, perlin_fbm_tiled(uv + vec2(0.37, 0.11), 4, 2)) * 0.6 + 0.4, 0.0, 1.0);
+    let coverage = smoothstep(0.40, 0.75, potential);
     // Density scale (Nubis NVDF): 1 = full density. The procedural map does not modulate it
     // (LWC sets the physical magnitude); a painted weather map can.
     let density_scale = 1.0;

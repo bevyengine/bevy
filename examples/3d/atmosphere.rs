@@ -5,7 +5,8 @@
 //!   `ATMOSPHERE_SUNSET`, `ATMOSPHERE_TERRAIN`, `ATMOSPHERE_NO_CLOUDS`, `ATMOSPHERE_MIE_SCALE`, `ATMOSPHERE_MIE_G`,
 //!   `ATMOSPHERE_CLOUD_PROFILE=nubis`, `ATMOSPHERE_CLOUD_LWC=<g/m3>`,
 //!   `ATMOSPHERE_LUT_MODE`.
-//! - Time: `ATMOSPHERE_CAM_STEP`, `ATMOSPHERE_FREEZE`, `ATMOSPHERE_ANIMATE`, `ATMOSPHERE_FIXED_DT`.
+//! - Time: `ATMOSPHERE_CAM_STEP`, `ATMOSPHERE_FREEZE`, `ATMOSPHERE_FIXED_DT`,
+//!   `ATMOSPHERE_CLOUD_TIMESCALE=<x>` (cloud clock multiplier; `T` toggles a 60x time-lapse).
 //! - Cloud shadows: `ATMOSPHERE_SHADOW_INTERLEAVE`, `ATMOSPHERE_SHADOW_SAMPLES`,
 //!   `ATMOSPHERE_SHADOW_TEMPORAL_ALPHA`.
 //! - Capture / runs: `ATMOSPHERE_BACKGROUND`, `ATMOSPHERE_SCREENSHOT`, `ATMOSPHERE_SCREENSHOT_SECS`,
@@ -35,7 +36,8 @@ use bevy::{
         VolumetricLight,
     },
     pbr::{
-        AtmosphereMode, AtmosphereSettings, CloudLayer, CloudWeather, DefaultOpaqueRendererMethod,
+        AtmosphereMode, AtmosphereSettings, CloudLayer, CloudTimeScale, CloudWeather,
+        DefaultOpaqueRendererMethod,
         VolumetricCloudSettings,
         ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
@@ -153,9 +155,11 @@ fn main() {
     }
     // `ATMOSPHERE_FREEZE=1`: pause virtual time (sun motion, wind/noise offsets, animations) so
     // realtime and reference renders see identical clouds.
-    // Cloud motion is paused by default for now; `ATMOSPHERE_ANIMATE=1` re-enables it.
-    if std::env::var("ATMOSPHERE_FREEZE").is_ok() || std::env::var("ATMOSPHERE_ANIMATE").is_err() {
+    if std::env::var("ATMOSPHERE_FREEZE").is_ok() {
         app.add_systems(Startup, |mut time: ResMut<Time<Virtual>>| time.pause());
+    }
+    if let Some(scale) = std::env::var("ATMOSPHERE_CLOUD_TIMESCALE").ok().and_then(|v| v.parse().ok()) {
+        app.insert_resource(CloudTimeScale(scale));
     }
     // `ATMOSPHERE_FIXED_DT=1`: advance time by exactly 1/60 s per frame, so animated captures at
     // a given frame are reproducible regardless of GPU speed.
@@ -268,6 +272,7 @@ fn print_controls() {
     println!("    C          - Toggle cloud layer");
     println!("    Left/Right - Decrease/Increase cloud density");
     println!("    Enter      - Pause/Resume sun motion");
+    println!("    T          - Toggle 60x cloud time-lapse (wind, rising thermals, cloud life cycle)");
     println!("    Right drag - Slide the time of day (sun position)");
     println!("    Up/Down    - Increase/Decrease exposure");
 }
@@ -282,6 +287,7 @@ fn atmosphere_controls(
     atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
     mut camera_exposure: Query<&mut Exposure, With<Camera3d>>,
+    mut cloud_time_scale: ResMut<CloudTimeScale>,
     time: Res<Time>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Digit3) {
@@ -380,6 +386,10 @@ fn atmosphere_controls(
 
     if keyboard_input.just_pressed(KeyCode::Enter) {
         game_state.paused = !game_state.paused;
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyT) {
+        cloud_time_scale.0 = if cloud_time_scale.0 > 1.0 { 1.0 } else { 60.0 };
     }
 
     if keyboard_input.pressed(KeyCode::ArrowUp) {

@@ -36,6 +36,8 @@ struct CloudShadowTemporalParams {
     size: vec2<u32>,
     interleave: u32,
     frame_index: u32,
+    // Cloud field displacement since the previous frame (atmosphere space, wind advection).
+    cloud_motion: vec3<f32>,
 }
 
 // Time-slicing: the texel (within each N x N tile) traced on a given frame, in Bayer order so
@@ -110,7 +112,9 @@ fn reproject_cloud_shadow_history(coord: vec2<i32>, uv: vec2<f32>, extent: f32, 
     if (depth_estimate >= 0.999 * max_t) {
         depth_estimate = half_depth;
     }
-    let world_pos = curr_ray_origin + temporal_params.curr_light_dir * depth_estimate;
+    // The occluder moved with the wind: look it up where it was last frame.
+    let world_pos = curr_ray_origin + temporal_params.curr_light_dir * depth_estimate
+        - temporal_params.cloud_motion;
 
     let prev_ray_origin = temporal_params.prev_anchor - temporal_params.prev_light_dir * half_depth;
     let prev_rel = world_pos - temporal_params.prev_anchor;

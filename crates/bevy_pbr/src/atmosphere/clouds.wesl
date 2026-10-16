@@ -21,6 +21,10 @@ struct CloudLayer {
     profile_bottom_exponent: f32,
     profile_top_exponent: f32,
     profile_top_min: f32,
+    wind_shear: vec3<f32>,
+    updraft_speed: f32,
+    lifetime: f32,
+    evolution_time: f32,
 }
 
 @group(0) @binding(20) var<uniform> cloud_layer: CloudLayer;
@@ -76,7 +80,9 @@ fn sample_weather(world_pos: vec3<f32>, weather_scale: f32) -> vec4<f32> {
         0.5, 0.8660254
     ); // 30 degrees
     let xz = rot * world_pos.xz;
-    let uv = (xz + cloud_layer.noise_offset.xz) / max(1.0, weather_scale);
+    let uv = xz / max(1.0, weather_scale);
+    // R is the current coverage: the weather generator bakes the cloud life cycle into the map
+    // (fbm_noise_3d.wesl), so one sample serves every density lookup.
     var w = textureSampleLevel(noise_texture_2d, noise_sampler_3d, uv, 0.0);
     // Mesoscale cloud fraction from the A channel at 4x the tile (64/32/16 km): subtracts from
     // the coverage, keeping it in cloudy regions and clearing gaps between them. Subtractive,
@@ -96,13 +102,14 @@ fn sample_shape_noise(world_pos: vec3<f32>, h: f32, mip: f32) -> vec4<f32> {
         0.8660254, -0.5,
         0.5, 0.8660254
     );
-    let xz = rot * (world_pos.xz + cloud_layer.noise_offset.xz);
+    let xz = rot * world_pos.xz;
     // Shape tiles at noise_scale; height uses normalized layer height + slow vertical scroll.
     // Isotropic period in meters (Nubis: 128³ shape tile spans a few km). Using normalized
     // layer height for w made the vertical period ≈ layer thickness while xz spanned 16 km.
     let period = max(1.0, cloud_layer.noise_scale * 0.125);
     let uv = xz / period;
-    let w = (h * cloud_layer_thickness_m() + cloud_layer.noise_offset.y) / period;
+    // Rising thermals: the noise moves up through the fixed vertical envelope (noise_offset.y).
+    let w = (h * cloud_layer_thickness_m() - cloud_layer.noise_offset.y) / period;
     return textureSampleLevel(perlin_worley_noise_3d, noise_sampler_3d, vec3(uv, w), mip);
 }
 
@@ -111,10 +118,10 @@ fn sample_detail_noise(world_pos: vec3<f32>, h: f32, mip: f32) -> vec4<f32> {
         0.8660254, -0.5,
         0.5, 0.8660254
     );
-    let xz = rot * (world_pos.xz + cloud_layer.noise_offset.xz * 1.7);
+    let xz = rot * world_pos.xz;
     let period = max(1.0, cloud_layer.detail_noise_scale);
     let uv = xz / period;
-    let w = (h * cloud_layer_thickness_m() + cloud_layer.noise_offset.y * 2.0) / period;
+    let w = (h * cloud_layer_thickness_m() - cloud_layer.noise_offset.y) / period;
     return textureSampleLevel(detail_worley_noise_3d, noise_sampler_3d, vec3(uv, w), mip);
 }
 
@@ -186,7 +193,7 @@ fn cloud_density_context(r: f32, world_pos: vec3<f32>) -> vec4<f32> {
 
     // Must match the fine density's sample position: the coarse density is the empty-space
     // predicate (ray march, SDF seeds).
-    let sample_pos = cloud_sample_pos(world_pos);
+    let sample_pos = cloud_sample_pos(world_pos, r);
     let weather = sample_weather(sample_pos, cloud_layer.noise_scale);
     var coverage = clamp(weather.r, 0.0, 1.0);
     let cloud_type = clamp(weather.g, 0.0, 1.0);
@@ -196,12 +203,17 @@ fn cloud_density_context(r: f32, world_pos: vec3<f32>) -> vec4<f32> {
     return vec4(dimensional_profile, density_scale, h, cloud_type);
 }
 
-/// Noise sample position. Nubis (2022 sky and 2023 voxel samplers) only scrolls the noise with
-/// the wind (noise_offset, applied in the samplers); there is no height skew and no curl
-/// displacement of the position. The curl turbulence lives in the detail noise ("curly
-/// alligator", Nubis Cubed; HZD15 also curls only the detail noise).
-fn cloud_sample_pos(world_pos: vec3<f32>) -> vec3<f32> {
-    return world_pos;
+/// Sample position in the moving cloud field (all density inputs: weather, shape, detail):
+/// - advection: the field moves with the cloud-base wind, density at `p` is the pattern at
+///   `p - noise_offset` (horizontal);
+/// - shear lean: a parcel rising at updraft speed w through wind shear S above the base drifts
+///   x(z) = S z^2 / (2 w) downwind at height z, so the column is displaced by that much (static:
+///   clouds are renewed by new thermals, the lean does not accumulate).
+/// Nubis/HZD scroll the noise with the wind (pseudo-motion); HZD15 also skews with height.
+fn cloud_sample_pos(world_pos: vec3<f32>, r: f32) -> vec3<f32> {
+    let z = max(r - cloud_layer.cloud_layer_start, 0.0);
+    let lean = cloud_layer.wind_shear * (z * z / (2.0 * max(cloud_layer.updraft_speed, 0.1)));
+    return world_pos - vec3(cloud_layer.noise_offset.x + lean.x, 0.0, cloud_layer.noise_offset.z + lean.z);
 }
 
 /// Coarse density: weather + vertical profile only (no 3D noise), an upper bound of the fine
@@ -220,7 +232,7 @@ fn sample_cumulus_shape_lod(r: f32, world_pos: vec3<f32>, mip: f32) -> f32 {
     let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
     let height_in_layer = r - cloud_layer.cloud_layer_start;
     let h = clamp(height_in_layer / max(1.0, layer_thickness), 0.0, 1.0);
-    let sample_pos = cloud_sample_pos(world_pos);
+    let sample_pos = cloud_sample_pos(world_pos, r);
 
     let weather = sample_weather(sample_pos, cloud_layer.noise_scale);
     let coverage = clamp(weather.r, 0.0, 1.0);

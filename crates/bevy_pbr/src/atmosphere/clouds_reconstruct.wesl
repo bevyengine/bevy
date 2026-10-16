@@ -14,11 +14,11 @@ import package::atmosphere::{
 
 struct CloudsTemporalParams {
     prev_clip_from_world: mat4x4<f32>,
+    // Cloud field displacement since the previous frame (atmosphere space, wind advection).
+    cloud_motion: vec3<f32>,
     history_valid: u32,
     // Weight of the new sample for the pixel traced this frame.
     new_sample_weight: f32,
-    _pad0: f32,
-    _pad1: f32,
 }
 
 @group(0) @binding(26) var trace_texture: texture_2d<f32>;
@@ -88,7 +88,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let uv = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(size);
         let ray_dir = uv_to_ray_direction(uv);
         let d = select(NO_CLOUD_REPROJECTION_DISTANCE_M, center_depth, center_depth > 0.0);
-        let p_atmo = get_view_position() + ray_dir * d;
+        // Cloud points moved with the wind since last frame (RDR2 uses the wind as the motion
+        // vector of its volumes); clear rays reproject by rotation only.
+        var motion = select(vec3(0.0), params.cloud_motion, center_depth > 0.0);
+        @if(ATM_DBG_NO_CLOUD_MOTION) { motion = vec3(0.0); }
+        let p_atmo = get_view_position() + ray_dir * d - motion;
         let p_world = (atmosphere.atmosphere_to_world * vec4(p_atmo, 1.0)).xyz;
         let prev_clip = params.prev_clip_from_world * vec4(p_world, 1.0);
         let prev_ndc = prev_clip.xy / prev_clip.w;

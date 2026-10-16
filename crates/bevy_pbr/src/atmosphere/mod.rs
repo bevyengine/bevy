@@ -162,6 +162,7 @@ impl Plugin for AtmospherePlugin {
         ))
         .add_observer(on_insert_atmosphere_environment_map_light)
         .add_observer(on_remove_atmosphere_environment_map_light)
+        .init_resource::<CloudTimeScale>()
         .add_systems(Update, (advance_cloud_wind, apply_volumetric_cloud_settings));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -668,7 +669,8 @@ pub struct CloudWeather {
     pub offset: Vec2,
     /// Meters/second advection of the weather UV offset (applied on the CPU later).
     pub offset_velocity: Vec2,
-    /// Optional painted weather map (RGBA: coverage, type, density scale, spare).
+    /// Optional painted weather map (RGBA: coverage, type, density scale, mesoscale cloud
+    /// fraction). The cloud life cycle applies to the procedural map only.
     /// When set, the procedural GPU weather map is skipped and this image is bound
     /// instead (design.md §3.2). Changing the handle or clearing it triggers a rebind.
     pub texture: Option<Handle<Image>>,
@@ -782,7 +784,11 @@ pub struct CloudLayer {
     /// `noise_scale / 8` m (isotropic) and curl every `noise_scale / 8` m.
     pub noise_scale: f32,
 
-    /// Accumulated noise/weather UV offset (meters). Advanced each frame by [`CloudLayer::wind`].
+    /// Accumulated displacement of the cloud field (m): xz by [`CloudLayer::wind`] (advection;
+    /// the density at `p` is the pattern at `p - noise_offset`), y by
+    /// [`CloudLayer::updraft_speed`] (the noise rises through the fixed vertical envelope:
+    /// thermals rise and turrets form at the base and dissolve at the top). Advanced each frame by
+    /// [`advance_cloud_wind`].
     pub noise_offset: Vec3,
 
     /// Tile size of the Nubis Cubed detail noise. 600 m puts the low-frequency billow cells (tile / 3)
@@ -795,7 +801,7 @@ pub struct CloudLayer {
     /// 0 = disabled, 1 = full modulation.
     pub detail_strength: f32,
 
-    /// Wind velocity in m/s. Advects `noise_offset` on the CPU and drives height skew in the density sampler (design.md §1.3 / §3.1).
+    /// Wind velocity at the cloud base (m/s, horizontal). Advects the cloud field.
     pub wind: Vec3,
 
     /// Vertical density envelope `h'^bottom * (1 - h')^top` (normalized to a peak of 1), with h'
@@ -808,6 +814,22 @@ pub struct CloudLayer {
     /// Cloud-top height (fraction of the layer) of the thinnest cells; the top rises linearly
     /// with weather coverage to the layer top.
     pub profile_top_min: f32,
+
+    /// Vertical wind shear dU/dz above the cloud base (1/s, horizontal; 1e-3 = 1 m/s per km).
+    /// Clouds lean downwind like the trajectory of a parcel rising at
+    /// [`CloudLayer::updraft_speed`] through the sheared flow: x(z) = shear z^2 / (2 w). The lean
+    /// is static (a cloud is continuously renewed by new thermals), not accumulated over time.
+    pub wind_shear: Vec3,
+    /// Cumulus updraft speed (m/s). Fair-weather cumulus: ~1-5 m/s (textbook range, e.g.
+    /// Stull, Practical Meteorology). Sets the shear lean and the rise of the internal structure.
+    pub updraft_speed: f32,
+    /// Life time of a cloud (s), 0 = static weather: the procedural weather map cross-fades
+    /// between independent coverage patterns over this period, so each cloud grows (wider and
+    /// taller, as the top follows coverage) and decays. Small cumulus live ~10-30 min (textbook
+    /// range, e.g. Houze, Cloud Dynamics).
+    pub lifetime: f32,
+    /// Accumulated cloud time (s), advanced by [`advance_cloud_wind`]; drives the life cycle.
+    pub evolution_time: f32,
 }
 
 impl CloudLayer {
@@ -873,6 +895,10 @@ impl Default for CloudLayer {
             profile_bottom_exponent: Self::ADIABATIC_PROFILE.0,
             profile_top_exponent: Self::ADIABATIC_PROFILE.1,
             profile_top_min: 0.25,
+            wind_shear: Vec3::new(1.0e-3, 0.0, 0.33e-3),
+            updraft_speed: 3.0,
+            lifetime: 1200.0,
+            evolution_time: 0.0,
         }
         .with_liquid_water(Self::CUMULUS_LIQUID_WATER, Self::CUMULUS_EFFECTIVE_RADIUS)
     }
@@ -882,14 +908,32 @@ impl SyncComponent<RenderApp> for CloudLayer {
     type Target = Self;
 }
 
-/// Integrate [`CloudLayer::wind`] into [`CloudLayer::noise_offset`] each frame (design.md §1.3).
-pub fn advance_cloud_wind(time: Res<Time>, mut layers: Query<&mut CloudLayer>) {
-    let dt = time.delta_secs();
+/// Multiplier on the cloud clock (advection, rising thermals, life cycle), e.g. for time-lapse.
+#[derive(bevy_ecs::resource::Resource, Clone, Copy, Debug, Reflect)]
+#[reflect(Clone, Debug)]
+pub struct CloudTimeScale(pub f32);
+
+impl Default for CloudTimeScale {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+/// Advances the cloud field each frame: advection by [`CloudLayer::wind`], rise at
+/// [`CloudLayer::updraft_speed`] and the life-cycle clock [`CloudLayer::evolution_time`].
+pub fn advance_cloud_wind(
+    time: Res<Time>,
+    scale: Option<Res<CloudTimeScale>>,
+    mut layers: Query<&mut CloudLayer>,
+) {
+    let dt = time.delta_secs() * scale.map_or(1.0, |s| s.0);
     if dt <= 0.0 {
         return;
     }
     for mut layer in &mut layers {
-        let wind = layer.wind; layer.noise_offset += wind * dt;
+        let step = Vec3::new(layer.wind.x, layer.updraft_speed, layer.wind.z) * dt;
+        layer.noise_offset += step;
+        layer.evolution_time += dt;
     }
 }
 
