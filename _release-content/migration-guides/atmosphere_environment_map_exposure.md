@@ -1,6 +1,6 @@
 ---
 title: "`AtmosphereEnvironmentMapLight` cubemaps are pre-exposed"
-pull_requests: []
+pull_requests: [26208]
 ---
 
 The cubemap generated for `AtmosphereEnvironmentMapLight` samples the pre-exposed sky-view LUT, so

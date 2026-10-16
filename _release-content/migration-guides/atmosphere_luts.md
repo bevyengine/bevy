@@ -1,6 +1,6 @@
 ---
 title: "Atmosphere lookup textures are pre-exposed and store optical depth"
-pull_requests: []
+pull_requests: [26208]
 ---
 
 The atmosphere's lookup textures (LUTs) store different values, which affects custom shaders that
