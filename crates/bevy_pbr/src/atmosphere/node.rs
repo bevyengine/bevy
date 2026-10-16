@@ -310,12 +310,14 @@ pub fn atmosphere_luts(
                 super::resources::CLOUD_FIELD_RES_XY.div_ceil(8),
                 super::resources::CLOUD_FIELD_RES_Z,
             );
-            // Amortised rebuild: one stage per frame (init, x, y, z, escape), then 3 idle frames, so
-            // the field follows weather/wind within 8 frames at ~1/8 of the full cost per frame.
+            // Amortised rebuild: one stage per frame (init, x, y, z + escape), then 4 idle frames,
+            // so the field follows weather/wind within 8 frames at ~1/8 of the full cost per frame.
             let stage = (*field_frame % 8) as usize;
             *field_frame = field_frame.wrapping_add(1);
             for (i, pipeline) in resolved.into_iter().enumerate() {
-                if i != stage {
+                // escape (4) runs right after edt_z (3) in the same frame: both switch to the new
+                // build cell together (clouds_raymarch reads the escape volume with the SDF's cell).
+                if i != stage && !(i == 4 && stage == 3) {
                     continue;
                 }
                 let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {

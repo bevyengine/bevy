@@ -38,18 +38,24 @@ const CLOUD_DIST_UNKNOWN: f32 = 1e9;
 // trilinear filtering of a distance field under-/over-shoots by up to ~1 voxel (Hart 1996 sphere
 // tracing needs a conservative bound), plus 0.5 voxel for the coarse-density seed threshold.
 const CLOUD_SDF_SKIP_MARGIN_VOXELS: f32 = 2.5;
-// Escape probability of multiply scattered light (cloud_field.wesl `escape`): r, build cell ba.
+// Escape probability of multiply scattered light (r) and the vertical optical depths to the
+// layer top (g) and bottom (b) (cloud_field.wesl `escape`; cell from cloud_field_sdf).
 @group(0) @binding(48) var cloud_field_esc: texture_3d<f32>;
 /// Outside the field grid: the escape probability at a slab surface (half the sphere open), the
 /// limit for distant clouds, which are seen at their surfaces.
 const CLOUD_ESC_SURFACE: f32 = 0.5;
 
-fn cloud_escape_probability(p: vec3<f32>) -> f32 {
-    let uvw = cloud_field_uvw(p, textureLoad(cloud_field_esc, vec3(0), 0).ba);
+/// (P_esc, tau_up, tau_down). Outside the grid: the slab-surface P_esc and the coarse march
+/// toward the layer top and bottom (cloud_far_transmittance).
+fn cloud_escape_and_column(p: vec3<f32>) -> vec3<f32> {
+    let uvw = cloud_field_uvw(p, textureLoad(cloud_field_sdf, vec3(0), 0).ba);
     if (any(uvw.xy < vec2(0.0)) || any(uvw.xy > vec2(1.0))) {
-        return CLOUD_ESC_SURFACE;
+        let n = normalize(p);
+        return vec3(CLOUD_ESC_SURFACE,
+            -log(max(cloud_far_transmittance(p, n, true), 1e-6)),
+            -log(max(cloud_far_transmittance(p, -n, true), 1e-6)));
     }
-    return textureSampleLevel(cloud_field_esc, atmosphere_lut_sampler, saturate(uvw), 0.0).r;
+    return textureSampleLevel(cloud_field_esc, atmosphere_lut_sampler, saturate(uvw), 0.0).rgb;
 }
 /// Nubis Cubed GetVoxelCloudDistance: signed distance (m, negative inside) from the coarse SDF
 /// (cloud_field.wesl). Outside the grid: CLOUD_DIST_UNKNOWN. Positive distances are capped by
@@ -117,13 +123,20 @@ fn sample_sky_irradiance(r: f32) -> vec3<f32> {
     return sum / 10.0;
 }
 
-/// Isotropic ambient in-scatter radiance (per unit sigma_s): the average incident radiance over
-/// the sphere, 1/2 sky hemisphere (`sky_rad`, mean sky radiance) + 1/2 ground hemisphere
-/// (`ground_rad`, Lambertian bounce of sun + sky) (FB16 §5.5.1 top/bottom ambient; RDR2 slide 36
-/// sky + ground). Unit gain and no in-cloud visibility term (Nubis Cubed): the caller's
-/// pow(1 - dimensional_profile, 0.5) is the only in-cloud attenuation.
-fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>) -> vec3<f32> {
-    return 0.5 * (sky_rad + ground_rad);
+/// Isotropic ambient in-scatter radiance (per unit sigma_s): the mean intensity of the diffuse
+/// field driven by the sky above (`sky_rad`, mean sky radiance) and the ground below
+/// (`ground_rad`, Lambertian bounce of sun + sky); Nubis Cubed's sky-ward ambient attenuation
+/// (talk 135:16) in physical form. A conservative medium leaves a uniform isotropic field
+/// unchanged, so the in-cloud gradient comes from the sky/ground contrast: the diffusion
+/// (two-stream) solution of a slab in similarity-reduced depth tau' = (1 - g) tau, with the
+/// extrapolation length z0 = 2/3,
+///   J = L_sky + (L_ground - L_sky) (tau'_up + z0) / (tau'_up + tau'_down + 2 z0).
+/// No cloud: (L_sky + L_ground) / 2. vs MC (validation/sky/amb_slab_mc.py): within 3 %.
+const CLOUD_DIFFUSION_Z0: f32 = 2.0 / 3.0;
+fn cloud_ambient_term(sky_rad: vec3<f32>, ground_rad: vec3<f32>, tau_up: f32, tau_down: f32) -> vec3<f32> {
+    let k = 1.0 - CLOUD_MIE_MEAN_COS;
+    let w = (k * tau_up + CLOUD_DIFFUSION_Z0) / (k * (tau_up + tau_down) + 2.0 * CLOUD_DIFFUSION_Z0);
+    return mix(sky_rad, ground_rad, w);
 }
 
 /// Cloud shadow on the ground point below a cloud sample (ground-bounce ambient). Uses the
@@ -570,7 +583,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let sigma_s = density * sigma_s_unit;
             let up = p / r_p;
             let dens_ctx = cloud_density_context(r_p, p);
-            let dimensional_profile = dens_ctx.x;
+            let esc_col = cloud_escape_and_column(p);
             var ground_rad = sky_irr * CLOUD_GROUND_ALBEDO;
 
             var direct_sum = vec3(0.0);
@@ -638,15 +651,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 @if(!CLOUD_TERM_S1) {
                     let tau_sun = light_optical_depth - log(max(t_far, 1e-6));
                     let albedo = sigma_s_unit / max(sigma_t_unit, 1e-9);
-                    let f_ms = albedo * (1.0 - cloud_escape_probability(p));
+                    let f_ms = albedo * (1.0 - esc_col.x);
                     let ms_vol = exp(-(1.0 - CLOUD_MIE_MEAN_COS) * tau_sun) * f_ms / (1.0 - f_ms);
                     direct += ms_vol * (0.25 / PI);
                 }
                 direct_sum += (*light).color.rgb * t_atm * direct;
             }
-            var ambient = cloud_ambient_term(sky_irr, ground_rad);
-            // Nubis Cubed ambient scattering approximation: pow(1 - dimensional_profile, 0.5).
-            ambient *= sqrt(saturate(1.0 - dimensional_profile));
+            var ambient = cloud_ambient_term(sky_irr, ground_rad, esc_col.y, esc_col.z);
             // Validation term toggles (CLOUD_TERMS=s1|sun|amb, see resources.rs).
             @if(CLOUD_TERM_NO_AMB) { ambient = vec3(0.0); }
             @if(CLOUD_TERM_NO_SUN) { direct_sum = vec3(0.0); }

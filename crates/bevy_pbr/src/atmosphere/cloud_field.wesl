@@ -30,7 +30,8 @@ import package::atmosphere::clouds::{
 // Extinction per voxel (r, m^-1), vertical voxel size (g, m), build cell (ba). Written by init.
 @group(0) @binding(45) var out_field_ext: texture_storage_3d<rgba16float, write>;
 @group(0) @binding(47) var in_field_ext: texture_3d<f32>;
-// Escape probability (r) and build cell (ba). Written by escape, read by clouds_raymarch.
+// Escape probability (r), optical depth to the layer top (g) and bottom (b). Written by escape
+// in the same frame as edt_z, so it shares cloud_field_sdf's build cell.
 @group(0) @binding(46) var out_field_esc: texture_storage_3d<rgba16float, write>;
 
 // Squared distances are stored in xy-voxel units (fp16-safe: < 2048 within the windows).
@@ -115,6 +116,7 @@ fn escape(@builtin(global_invocation_id) id: vec3<u32>) {
     let res = vec3(f32(CLOUD_FIELD_RES_XY), f32(CLOUD_FIELD_RES_XY), f32(CLOUD_FIELD_RES_Z));
     let k = 1.0 - CLOUD_MIE_MEAN_COS;
     var p_esc = 0.0;
+    var tau_vert = vec2(0.0);
     for (var d = 0u; d < 14u; d++) {
         let dir = ESC_DIRS[d] * scale;
         var t = 0.0;
@@ -128,8 +130,12 @@ fn escape(@builtin(global_invocation_id) id: vec3<u32>) {
             dt *= ESC_STEP_GROWTH;
         }
         p_esc += exp(-k * tau);
+        // Directions 4 and 5 are straight up and down (grid z): the column above and below,
+        // for the ambient (clouds_raymarch `cloud_ambient_term`).
+        if (d == 4u) { tau_vert.x = tau; }
+        if (d == 5u) { tau_vert.y = tau; }
     }
-    textureStore(out_field_esc, id, vec4(p_esc / 14.0, 0.0, e0.ba));
+    textureStore(out_field_esc, id, vec4(p_esc / 14.0, tau_vert, 0.0));
 }
 
 // One workgroup per grid line: the line is loaded into workgroup memory once, so each voxel's
