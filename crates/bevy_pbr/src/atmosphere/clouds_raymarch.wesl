@@ -18,7 +18,7 @@ import package::atmosphere::{
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
         sample_transmittance_lut, sample_multiscattering_lut, sample_sky_view_lut, direction_world_to_atmosphere, sample_cloud_shadow_map, cloud_far_transmittance,
-        hg_phase, sample_aerial_view_lut, raymarch_atmosphere, sample_density_lut, sample_scattering_lut,
+        hg_phase, cloud_mie_phase, sample_aerial_view_lut, raymarch_atmosphere, sample_density_lut, sample_scattering_lut,
         ABSORPTION_DENSITY, SCATTERING_DENSITY,
     },
     clouds::{
@@ -94,9 +94,9 @@ const CHECKER_OFFSETS: array<vec2<u32>, 4> = array(
     vec2(0u, 0u), vec2(1u, 1u), vec2(1u, 0u), vec2(0u, 1u)
 );
 
-fn cloud_phase(cos_theta: f32, g_scale: f32) -> f32 {
-    // Dual-lobe HG, same lobes as the previous in-atmosphere integration.
-    return mix(hg_phase(cos_theta, 0.85 * g_scale), hg_phase(cos_theta, -0.2 * g_scale), 0.5);
+fn cloud_phase(cos_theta: f32) -> f32 {
+    // Droplet Mie phase (Jendersie & d'Eon 2023 HG + Draine fit, d = 20 um; functions.wesl).
+    return cloud_mie_phase(cos_theta);
 }
 
 /// Cheap sky-irradiance stand-in: average a few sky-view LUT directions (upper hemisphere)
@@ -382,7 +382,7 @@ fn cloud_reference_trace(origin: vec3<f32>, view_dir: vec3<f32>, t_scene: f32, p
         } else if (f.event == 2u) {
             // Cloud scatter (albedo folded into the analog absorption event).
             if (has_light) {
-                L += thr * cloud_phase(dot(l, d), 1.0) * sun * ref_sun_vis(p, l, ch);
+                L += thr * cloud_phase(dot(l, d)) * sun * ref_sun_vis(p, l, ch);
             }
             let g = select(-0.2, 0.85, ref_rand() < 0.5);
             d = ref_dir_around(d, clamp(ref_sample_hg(g), -1.0, 1.0));
@@ -630,7 +630,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 // Its energy keeps the Wrenninge series of the replaced octaves, a / (1 - a),
                 // isotropic.
                 let prof = saturate(dimensional_profile);
-                var direct = t_local * t_far * max(cloud_phase(cos_theta, 1.0), phase_floor) * dark_edge;
+                var direct = t_local * t_far * max(cloud_phase(cos_theta), phase_floor) * dark_edge;
                 @if(!CLOUD_TERM_S1) {
                     // Cloud distance from the SDF; outside the grid the profile stands in
                     // (-128 m deep inside).

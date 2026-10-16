@@ -71,6 +71,33 @@ fn hg_phase(cos_theta: f32, g: f32) -> f32 {
     return FRAC_4_PI * (1.0 - gg) / pow(max(1.0 + gg - 2.0 * g * cos_theta, 1e-6), 1.5);
 }
 
+/// Draine (2003, doi:10.1086/379118) phase: HG generalised by alpha (second moment).
+fn draine_phase(cos_theta: f32, g: f32, alpha: f32) -> f32 {
+    let gg = g * g;
+    let f = max(1.0 + gg - 2.0 * g * cos_theta, 1e-6);
+    return FRAC_4_PI * (1.0 - gg) * (1.0 + alpha * cos_theta * cos_theta)
+        / ((1.0 + alpha * (1.0 + 2.0 * gg) / 3.0) * f * sqrt(f));
+}
+
+/// Cloud droplet phase: Jendersie & d'Eon 2023 ("An Approximate Mie Scattering Function for Fog
+/// and Cloud Rendering", SIGGRAPH Talks; supplemental eq. 7-10, valid 5 <= d <= 50 um), the HG +
+/// Draine blend fitted to Mie for water droplets of diameter d. d = 20 um (effective radius 10 um,
+/// typical cumulus; also Blender Cycles' Mie default):
+///   g_HG = exp(-0.0990567 / (d - 1.67154))          = 0.99460
+///   g_D  = exp(-2.20679 / (d + 3.91029) - 0.428934) = 0.59382
+///   alpha = exp(3.62489 - 8.29288 / (d + 5.52825))  = 27.112
+///   w_D  = exp(-0.599085 / (d - 0.641583) - 0.665888) = 0.49821
+/// Mean cosine <cos> = 0.8793 (CLOUD_MIE_MEAN_COS).
+const CLOUD_MIE_G_HG: f32 = 0.99460;
+const CLOUD_MIE_G_D: f32 = 0.59382;
+const CLOUD_MIE_ALPHA: f32 = 27.112;
+const CLOUD_MIE_W_D: f32 = 0.49821;
+const CLOUD_MIE_MEAN_COS: f32 = 0.8793;
+fn cloud_mie_phase(cos_theta: f32) -> f32 {
+    return mix(hg_phase(cos_theta, CLOUD_MIE_G_HG),
+        draine_phase(cos_theta, CLOUD_MIE_G_D, CLOUD_MIE_ALPHA), CLOUD_MIE_W_D);
+}
+
 /// Dual-lobe HG phase (Frostbite-style): blend a forward and backward lobe.
 fn dual_lobe_hg_phase(cos_theta: f32, g_fwd: f32, g_bwd: f32, lobe_lerp: f32) -> f32 {
     return mix(hg_phase(cos_theta, g_fwd), hg_phase(cos_theta, g_bwd), lobe_lerp);
@@ -475,18 +502,10 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         // Water droplet clouds have scattering ~0.0008-0.001 m^-1 per unit density
         let cloud_scattering_coeff = cloud_density * get_cloud_scattering_coeff();
         
-        // Henyey-Greenstein phase function for anisotropic cloud scattering
-        // NUBIS/Frostbite-style: dual-lobe HG to better match real clouds.
-        //
-        // `neg_LdotV` here is dot(L, ray_dir); see sign convention note above.
+        // Droplet Mie phase (same as the cloud pass). `neg_LdotV` here is dot(L, ray_dir); see
+        // sign convention note above.
         let cos_theta = clamp(neg_LdotV, -1.0, 1.0);
-
-        // Forward lobe (strong forward scattering) and a weaker backward lobe.
-        // Matches the approach used in `bevy-volumetric-clouds` (Frostbite-inspired).
-        let g_fwd = 0.85;
-        let g_bwd = -0.2;
-        let lobe_lerp = 0.5;
-        let cloud_phase = dual_lobe_hg_phase(cos_theta, g_fwd, g_bwd, lobe_lerp);
+        let cloud_phase = cloud_mie_phase(cos_theta);
         
         // Add cloud scattering contribution: σ_s_cloud * p(θ)
         scattering_coeff += cloud_scattering_coeff * cloud_phase;
@@ -973,8 +992,9 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
         e_top = lights.directional_lights[0].color.rgb * max(mu_l, 0.0)
             * sample_transmittance_lut(cloud_layer.cloud_layer_end, mu_l) / PI;
         // Diffuse transmission depends on the sun's incidence at the cloud top: Monte Carlo slab
-        // (HG 0.85, conservative, validation/sky/slab_t.py) fits T ~ (0.35 + 0.9 mu0) / (1 + 0.1125 tau)
-        // within ~8 % for tau >= 5; at grazing sun (mu0 0.05) that is 0.4x the mu0-free form.
+        // (conservative, cloud_mie_phase, validation/sky/slab_t_mie.py) fits
+        // T ~ (0.35 + 0.9 mu0) / (1 + 0.75 (1 - <cos>) tau) within ~6 % for tau >= 5 (two-stream
+        // similarity); at grazing sun (mu0 0.05) that is 0.4x the mu0-free form.
         e_top *= 0.35 + 0.9 * max(mu_l, 0.0);
     }
     // Clear-sky irradiance from the sky-view LUT (cosine-weighted directions).
@@ -994,7 +1014,7 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
     let tau = cloud_column_optical_depth(p);
     let v = exp(-CLOUD_AO_DIFFUSIVITY * tau);
     // Occluded part: cloud bases lit by diffusely transmitted sunlight (Lambertian, PI * L).
-    return sky * v + (1.0 - v) * PI * e_top / (1.0 + 0.1125 * tau);
+    return sky * v + (1.0 - v) * PI * e_top / (1.0 + 0.75 * (1.0 - CLOUD_MIE_MEAN_COS) * tau);
 }
 const CLOUD_AO_DIFFUSIVITY: f32 = 1.66;
 
