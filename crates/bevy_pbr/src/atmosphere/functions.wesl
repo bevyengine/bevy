@@ -46,6 +46,7 @@ import package::atmosphere::{
         get_cloud_absorption_coeff,
         get_cloud_scattering_coeff,
         sample_cloud_contribution,
+        cloud_shadow_xy_to_uv,
     },
 };
 
@@ -315,9 +316,10 @@ fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, 
     // Snap in large steps (UE5 r.VolumetricCloud.ShadowMap.SnapLength, 20 km), a whole number of
     // texels: the map stays fixed in the world while the camera flies, so shadow texels do not
     // crawl (snapping per texel shifted the time-sliced, temporally filtered map every ~125 m).
-    // A quarter of the half-extent keeps the camera in the map's central half.
+    // 1/16 of the half-extent (4 km at 64 km) keeps the camera within 2 km of the warped map's
+    // fine-texel centre; each snap re-maps the map once (reprojected by the temporal pass).
     let texel = (2.0 * extent) / max(res, vec2(1.0));
-    let texel_size = max(round(0.25 * extent / texel), vec2(1.0)) * texel;
+    let texel_size = max(round(0.0625 * extent / texel), vec2(1.0)) * texel;
 
     let ax = dot(anchor, basis.x);
     let ay = dot(anchor, basis.y);
@@ -423,7 +425,7 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
         return cloud_far_transmittance(world_pos, direction_to_light, use_optical_depth_only);
     }
 
-    let uv = vec2(x, y) / (2.0 * extent) + vec2(0.5);
+    let uv = cloud_shadow_xy_to_uv(vec2(x, y), extent);
 
     @if(CLOUD_SHADOW_SIMPLE_SAMPLING) {
     let d = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv, 0.0).rgb;

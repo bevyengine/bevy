@@ -15,6 +15,7 @@ import package::atmosphere::clouds::{
     get_cloud_medium_density_lod,
     get_cloud_scattering_coeff,
     get_cloud_absorption_coeff,
+    cloud_shadow_uv_to_xy,
 };
 
 @group(0) @binding(25) var stbn_texture: texture_2d_array<f32>;
@@ -87,9 +88,10 @@ fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, 
     // Snap in large steps (UE5 r.VolumetricCloud.ShadowMap.SnapLength, 20 km), a whole number of
     // texels: the map stays fixed in the world while the camera flies, so shadow texels do not
     // crawl (snapping per texel shifted the time-sliced, temporally filtered map every ~125 m).
-    // A quarter of the half-extent keeps the camera in the map's central half.
+    // 1/16 of the half-extent (4 km at 64 km) keeps the camera within 2 km of the warped map's
+    // fine-texel centre; each snap re-maps the map once (reprojected by the temporal pass).
     let texel = (2.0 * extent) / max(res, vec2(1.0));
-    let texel_size = max(round(0.25 * extent / texel), vec2(1.0)) * texel;
+    let texel_size = max(round(0.0625 * extent / texel), vec2(1.0)) * texel;
 
     let ax = dot(anchor, basis.x);
     let ay = dot(anchor, basis.y);
@@ -157,7 +159,7 @@ fn main(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 
     // Map texel -> light-space XY in [-extent, extent].
     let uv = (vec2<f32>(gid.xy) + vec2(0.5)) / vec2<f32>(size);
-    let xy = (uv - vec2(0.5)) * (2.0 * extent);
+    let xy = cloud_shadow_uv_to_xy(uv, extent);
 
     var anchor = get_view_position();
     anchor = snap_anchor_to_texel_grid(anchor, basis, extent, size);

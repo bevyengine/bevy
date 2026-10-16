@@ -526,7 +526,7 @@ impl Default for AtmosphereSettings {
             shadows_enabled: true,
 
             // Cloud shadow map defaults (only used by Raymarched mode).
-            cloud_shadow_map_size: UVec2::new(1024, 1024),
+            cloud_shadow_map_size: UVec2::new(512, 512),
             cloud_shadow_map_extent: 64_000.0,
             cloud_shadow_map_samples: 24,
             cloud_shadow_map_strength: 1.0,

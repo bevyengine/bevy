@@ -1470,7 +1470,7 @@ pub(super) fn prepare_cloud_shadow_temporal_params(
     // Same coarse snap as `snap_anchor_to_texel_grid` (shaders): a quarter of the half-extent,
     // a whole number of texels (UE5 cloud shadow map SnapLength).
     let texel = (2.0 * extent) / res.max(Vec2::ONE);
-    let texel_size = ((0.25 * extent) / texel).round().max(Vec2::ONE) * texel;
+    let texel_size = ((0.0625 * extent) / texel).round().max(Vec2::ONE) * texel;
     let ax = anchor.dot(basis_x);
     let ay = anchor.dot(basis_y);
     let snapped_ax = (ax / texel_size.x).round() * texel_size.x;
