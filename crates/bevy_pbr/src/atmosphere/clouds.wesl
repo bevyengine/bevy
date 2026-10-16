@@ -192,11 +192,15 @@ fn cloud_sample_pos(world_pos: vec3<f32>) -> vec3<f32> {
     return world_pos;
 }
 
-/// Coarse density: weather + vertical profile only (no 3D noise). Used for empty-space skipping.
+/// Coarse density: weather + vertical profile only (no 3D noise), an upper bound of the fine
+/// density (`sample_cumulus_shape_lod`) used as the empty-space predicate (ray march, SDF seeds).
+/// The fine density is at most (profile * scale^4)^lerp(0.3, 0.6, scale^4) (noise <= 1, erosion
+/// only removes); the bound must carry the same power, or thin low-density-scale clouds, which
+/// the power lifts by orders of magnitude (2e-4 -> 0.08), fall under the empty threshold.
 fn sample_cumulus_shape_coarse(r: f32, world_pos: vec3<f32>) -> f32 {
     let ctx = cloud_density_context(r, world_pos);
-    // Soft threshold so coarse overestimates occupancy slightly (safer for step-back).
-    return clamp(ctx.x * ctx.y * 1.15, 0.0, 1.0);
+    let x = saturate(ctx.x * ctx.y);
+    return select(0.0, pow(x, mix(0.3, 0.6, max(1e-4, ctx.y))), x > 0.0);
 }
 
 /// Fine density with mip LOD (design.md §1.3 / §1.4).

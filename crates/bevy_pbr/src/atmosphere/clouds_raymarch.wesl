@@ -77,7 +77,6 @@ const CLOUD_MAX_STEPS_IN_LAYER: f32 = 1024.0;
 const CLOUD_STEP_NEAR_M: f32 = 40.0;
 const CLOUD_STEP_FAR_OFFSET_M: f32 = 220.0;
 const CLOUD_STEP_FAR_REF_M: f32 = 16384.0;
-const CLOUD_COARSE_STEP_SCALE: f32 = 3.0;
 const CLOUD_FINE_EMPTY_TO_COARSE: u32 = 10u;
 const CLOUD_COARSE_DENSITY_EPS: f32 = 0.0005;
 // Grazing rays enter a 1.5-4 km shell ~140-230 km away, so keep the horizon covered.
@@ -554,12 +553,15 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         // return to coarse. Light taps only in fine mode with density > 0.
         var t = t_start + jitter * CLOUD_STEP_NEAR_M;
         var fine_mode = false;
+        @if(ATM_DBG_NO_COARSE) { fine_mode = true; }
         var fine_empty: u32 = 0u;
         var step_i: u32 = 0u;
         // Inside the layer every ray is a long in-slab path (UE5 volumetric clouds scale the view
         // sample count with the traced in-layer distance up to a maximum).
         let in_layer = r > cloud_layer.cloud_layer_start && r < cloud_layer.cloud_layer_end;
-        let max_steps = select(u32(CLOUD_MAX_STEPS), u32(CLOUD_MAX_STEPS_IN_LAYER), in_layer);
+        var max_steps = select(u32(CLOUD_MAX_STEPS), u32(CLOUD_MAX_STEPS_IN_LAYER), in_layer);
+        // Ground-truth march for skip validation: fine samples everywhere, no budget limit.
+        @if(ATM_DBG_NO_COARSE) { max_steps = 16384u; }
         let step_far = CLOUD_STEP_FAR_OFFSET_M;
 
         loop {
@@ -575,7 +577,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let remaining = max(t_end - t, 0.0) / f32(max_steps - step_i + 1u);
             let dist_step = CLOUD_STEP_NEAR_M
                 + step_far * clamp(t / CLOUD_STEP_FAR_REF_M, 0.0, 8.0);
-            let dt = select(dist_step, max(dist_step * CLOUD_COARSE_STEP_SCALE, remaining), !fine_mode);
+            // Coarse (empty-space) samples use the fine spacing: the coarse predicate is only
+            // sampled, so a longer step (HZD15's 3x) hops over the thin cloud caps a grazing ray
+            // crosses, and those clouds pop in and out as the camera moves. Coarse mode stays
+            // cheaper per sample (weather only), and the SDF and the budget stretch make the leaps.
+            let dt = select(dist_step, max(dist_step, remaining), !fine_mode);
             let p = ray_origin + ray_dir * t;
             let r_p = length(p);
             let mip = cloud_mip_from_distance(t);
@@ -585,7 +591,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 density = get_cloud_medium_density_lod(r_p, p, mip);
                 if (density <= 0.0) {
                     fine_empty += 1u;
-                    if (fine_empty >= CLOUD_FINE_EMPTY_TO_COARSE) {
+                    var to_coarse = fine_empty >= CLOUD_FINE_EMPTY_TO_COARSE;
+                    @if(ATM_DBG_NO_COARSE) { to_coarse = false; }
+                    if (to_coarse) {
                         fine_mode = false;
                         fine_empty = 0u;
                     }
@@ -605,11 +613,15 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 // Nubis Cubed SDF ray march: step = max(sdf_cloud_distance, adaptive_step).
                 // Margin: trilinear SDF error (~half a voxel diagonal) plus up to one voxel of
                 // camera-snap offset, since the field is rebuilt over 4 of every 8 frames.
+                // Inside the field grid the SDF bounds the skip; the budget stretch (`remaining`)
+                // applies only beyond it, where it would otherwise step over whole clouds that the
+                // SDF knows about (holes that depend on how much budget nearer clouds used).
                 var skip = dt;
                 @if(!ATM_DBG_NO_SDF_SKIP) {
                     let d_sdf = cloud_distance(p, ray_origin);
                     if (d_sdf < CLOUD_DIST_UNKNOWN) {
-                        skip = max(dt, d_sdf - CLOUD_SDF_SKIP_MARGIN_VOXELS * cloud_field_voxel_m());
+                        skip = max(dist_step,
+                            d_sdf - CLOUD_SDF_SKIP_MARGIN_VOXELS * cloud_field_voxel_m());
                     }
                 }
                 t += skip;

@@ -2203,6 +2203,8 @@ fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
 /// - `ATM_DBG_MIP0`: full-resolution cloud noise at any distance.
 /// - `ATM_DBG_OUT_H`: write height-in-layer / profile / depth instead of cloud colour.
 /// - `ATM_DBG_NO_SDF_SKIP`: disable cloud-SDF empty-space skipping.
+/// - `ATM_DBG_NO_COARSE`: fine samples everywhere, no step budget (with `ATM_DBG_NO_SDF_SKIP`:
+///   the ground-truth march for validating empty-space skipping).
 /// See also `CLOUD_TERMS=s1|sun|amb` and `CLOUD_REFERENCE=1`.
 fn atm_dbg_defs() -> Vec<bevy_shader::ShaderDefVal> {
     std::env::var("ATMOSPHERE_DBG")
