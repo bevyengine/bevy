@@ -471,14 +471,14 @@ impl SchemaJsonType for OpaqueInfo {
 impl SchemaJsonReference for &bevy_reflect::Type {
     fn ref_type(self) -> Value {
         let path = self.path();
-        json!({ "$ref": format!("#/{path}") }) // To be standard-compliant, reference to the type(type fragment) should be emitted directly.
+        json!({ "$ref": format!("#/{path}") }) // Reference to another schema according json schema specification.
     }
 }
 
 impl SchemaJsonReference for &bevy_reflect::UnnamedField {
     fn ref_type(self) -> Value {
         let path = self.type_path();
-        json!({ "$ref": format!("#/{path}") }) // To be standard-compliant, reference to the type(type fragment) should be emitted directly.
+        json!({ "$ref": format!("#/{path}") }) // Reference to another schema according json schema specification.
     }
 }
 
@@ -492,7 +492,7 @@ impl SchemaJsonProperty for &NamedField {
     fn property(self, index: usize) -> Value {
         let type_path = self.type_path();
         json!({
-            "$ref": format!("#/{type_path}"), // To be standard-compliant, reference to the type(type fragment) should be emitted directly.
+            "$ref": format!("#/{type_path}"), // Reference to another schema according json schema specification.
             "fieldIndex": index, // Non-standard fields are ignored by schema validators
         })
     }
