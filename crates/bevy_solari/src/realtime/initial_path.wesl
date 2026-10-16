@@ -232,7 +232,7 @@ fn generate_nee_candidate(
     if rand_f(rng) >= p_keep { return; }
 
     // Trace visibility
-    di.unbiased_contribution_weight *= trace_visibility((*path).ray_origin, di.world_position);
+    di.unbiased_contribution_weight *= trace_visibility((*path).ray_origin, di.world_position, RAY_FLAG_NONE);
     if di.unbiased_contribution_weight <= 0.0 { return; }
 
     // MIS against the BRDF strategy. RIS over N candidates makes the effective NEE pdf at the
