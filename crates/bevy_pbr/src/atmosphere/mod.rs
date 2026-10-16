@@ -830,6 +830,23 @@ pub struct CloudLayer {
     pub lifetime: f32,
     /// Accumulated cloud time (s), advanced by [`advance_cloud_wind`]; drives the life cycle.
     pub evolution_time: f32,
+
+    /// Radius (from the planet center, like [`CloudLayer::cloud_layer_start`]) of the cirrus
+    /// shell: a thin ice-cloud slab. High clouds sit at 5-13 km in mid-latitudes (WMO
+    /// International Cloud Atlas); default 9 km.
+    /// units: m
+    pub cirrus_altitude: f32,
+    /// Peak cirrus optical depth at normal incidence; 0 disables the cirrus. Sassen & Cho 1992
+    /// (J. Appl. Meteor. 31): subvisual < 0.03 < thin < 0.3 < opaque < 3. Default 0.3 (thin).
+    pub cirrus_optical_depth: f32,
+    /// Fraction of the sky with cirrus patches, in [0, 1].
+    pub cirrus_coverage: f32,
+    /// Width scale of the cirrus fibre pattern (one detail-noise tile across the streaks).
+    /// units: m
+    pub cirrus_scale: f32,
+    /// Elongation of the cirrus fibres along the wind shear (fall streaks drawn out by the
+    /// shear); 1 = isotropic.
+    pub cirrus_stretch: f32,
 }
 
 impl CloudLayer {
@@ -899,6 +916,11 @@ impl Default for CloudLayer {
             updraft_speed: 3.0,
             lifetime: 1200.0,
             evolution_time: 0.0,
+            cirrus_altitude: 6_369_000.0,
+            cirrus_optical_depth: 0.3,
+            cirrus_coverage: 0.35,
+            cirrus_scale: 3000.0,
+            cirrus_stretch: 12.0,
         }
         .with_liquid_water(Self::CUMULUS_LIQUID_WATER, Self::CUMULUS_EFFECTIVE_RADIUS)
     }

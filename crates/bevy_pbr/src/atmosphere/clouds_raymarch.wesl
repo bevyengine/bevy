@@ -24,7 +24,7 @@ import package::atmosphere::{
     clouds::{
         cloud_layer_segment, get_cloud_medium_density_coarse,
         get_cloud_medium_density_lod, cloud_mip_from_distance, get_cloud_scattering_coeff,
-        get_cloud_absorption_coeff, cloud_density_context, cloud_layer,
+        get_cloud_absorption_coeff, cloud_density_context, cloud_layer, cirrus_optical_depth,
         cloud_field_uvw, cloud_field_voxel_m, CLOUD_FIELD_EXTENT_M,
     },
 };
@@ -190,6 +190,93 @@ fn ground_sun_visibility(p: vec3<f32>, l: vec3<f32>) -> f32 {
 // 2020 AP volume; RDR2 / Bauer 2019 froxel fog with cloud shadows; UE5 volumetric cloud shadow on
 // the SkyAtmosphere): low-frequency and temporally stable. The former per-pixel shadow-map march
 // along the ray was noisy at the horizon and blue-shifted it (purple line).
+// Cirrus: ice crystals, severely roughened aggregates (Baum et al. 2014, JQSRT 146, "Ice cloud
+// single-scattering property models with the full phase matrix at wavelengths from 0.2 to
+// 100 um"): asymmetry g ~ 0.75 in the visible, single-scattering albedo ~ 1, smooth forward peak
+// without the 22 degree halo of pristine hexagonal crystals.
+const CIRRUS_ICE_G: f32 = 0.75;
+
+/// Single scattering by a plane-parallel slab of optical depth `tau` (Liou, An Introduction to
+/// Atmospheric Radiation, ch. 3/6): radiance per unit (albedo x phase x normal sun irradiance).
+/// Sun and viewer on the same side (reflection): mu0 / (mu0 + mu) (1 - exp(-tau (1/mu0 + 1/mu)));
+/// opposite sides (transmission): mu0 / (mu0 - mu) (exp(-tau/mu0) - exp(-tau/mu)).
+/// mu0, mu: |cosines| of the sun and view directions to the slab normal. Multiple scattering is
+/// neglected: the similarity-reduced depth (1 - g) tau <= 0.08 for thin cirrus.
+fn slab_single_scatter(tau: f32, mu0: f32, mu: f32, same_side: bool) -> f32 {
+    if (same_side) {
+        return mu0 / (mu0 + mu) * (1.0 - exp(-tau * (1.0 / mu0 + 1.0 / mu)));
+    }
+    if (abs(mu0 - mu) < 1e-3) {
+        return tau / mu * exp(-tau / mu);
+    }
+    return mu0 / (mu0 - mu) * (exp(-tau / mu0) - exp(-tau / mu));
+}
+
+/// Composites the cirrus shell into the cloud result (rgb pre-exposed, a = transmittance) and its
+/// transmittance-weighted depth. Behind the cumulus when the camera is below the shell, in front
+/// when above. Haze in front of the cirrus as for the cumulus: T_ap(0..t) L_ci + (1 - T_ci) L_ap,
+/// with L_ap(0..t) ~ the sky-view radiance of the full path (the in-scatter above 9 km is
+/// neglected: ~25 % of the Rayleigh depth, weighted by the cirrus opacity 1 - T_ci).
+fn composite_cirrus(c: vec4<f32>, depth_io: ptr<function, f32>, origin: vec3<f32>, dir: vec3<f32>,
+    r: f32, mu: f32, t_scene: f32) -> vec4<f32> {
+    let r_ci = cloud_layer.cirrus_altitude;
+    let b = r * mu;
+    let disc = b * b - (r * r - r_ci * r_ci);
+    if (disc <= 0.0) {
+        return c;
+    }
+    let below = r < r_ci;
+    let t_ci = select(-b - sqrt(disc), -b + sqrt(disc), below);
+    if (t_ci <= 0.0 || t_ci > t_scene || (below && ray_intersects_ground(r, mu))) {
+        return c;
+    }
+    let p = origin + dir * t_ci;
+    let up = p / r_ci;
+    let mu_v = max(abs(dot(dir, up)), 1e-3);
+    // Pixel footprint on the shell (half-res pixel ~2.2 mrad, stretched by the slant).
+    let tau = cirrus_optical_depth(p, t_ci * 2.2e-3 / mu_v);
+    if (tau <= 0.0) {
+        return c;
+    }
+    let t_view = exp(-tau / mu_v);
+    var l_ci = vec3(0.0);
+    let sky_down = sample_sky_irradiance(r_ci);
+    var ground_up = sample_sky_irradiance(atmosphere.inner_radius);
+    for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
+        let light = &lights.directional_lights[light_i];
+        let l = (*light).direction_to_light;
+        let mu0 = dot(l, up);
+        let t_atm = sample_transmittance_lut(r_ci, mu0) * f32(!ray_intersects_ground(r_ci, mu0));
+        let k = slab_single_scatter(tau, max(abs(mu0), 1e-3), mu_v, (mu0 > 0.0) != below);
+        l_ci += (*light).color.rgb * t_atm * hg_phase(dot(l, dir), CIRRUS_ICE_G) * k;
+        // Sunlit ground below (Lambertian), seen as flux-equivalent radiance from beneath.
+        let mu_g = dot(l, normalize(p));
+        ground_up += (*light).color.rgb * sample_transmittance_lut(atmosphere.inner_radius, mu_g)
+            * max(mu_g, 0.0) / PI;
+    }
+    // Diffuse sky (above) and ground (below, albedo) light: isotropic mean intensity over both
+    // hemispheres; single scattering of diffuse light by the slab ~ (1 - T) J.
+    let j = 0.5 * (sky_down + atmosphere.ground_albedo * ground_up);
+    l_ci += j * (1.0 - t_view);
+    var t_ap = sample_transmittance_lut_segment(r, mu, t_ci);
+    t_ap = t_ap * exp(sample_transmittance_lut_segment_tau_red(r, mu, t_ci));
+    let lum_ci = (t_ap * l_ci + (1.0 - t_view) * sample_sky_view_lut(r, dir)) * view.exposure;
+    var out: vec4<f32>;
+    var w_ci: f32;
+    let w_c = 1.0 - c.a;
+    if (below) {
+        out = vec4(c.rgb + c.a * lum_ci, c.a * t_view);
+        w_ci = c.a * (1.0 - t_view);
+    } else {
+        out = vec4(lum_ci + t_view * c.rgb, c.a * t_view);
+        w_ci = 1.0 - t_view;
+    }
+    if (w_c + w_ci > 0.0) {
+        *depth_io = (w_c * *depth_io + w_ci * t_ci) / (w_c + w_ci);
+    }
+    return out;
+}
+
 fn cloud_shadowed_haze(uv: vec2<f32>, origin: vec3<f32>, ray_dir: vec3<f32>, d: f32, r: f32, mu: f32, j: f32) -> vec3<f32> {
     // Composited by the caller as L = T_ap * L_cloud + (1 - T_cloud) * L_ap (Hillaire 2020 §5.2):
     // the cloud is never replaced by sky colour. L_ap is the same per-pixel, cloud-shadowed
@@ -781,6 +868,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
+    // Cirrus slab (thin ice cloud above the cumulus layer).
+    if (cloud_layer.cirrus_optical_depth > 0.0) {
+        var t_scene = 1e30;
+        if (depth > 0.0) {
+            t_scene = ndc_to_camera_dist(vec3(uv_to_ndc(uv), depth));
+        }
+        result = composite_cirrus(result, &weighted_depth, ray_origin, ray_dir, r, mu, t_scene);
+    }
     }
     textureStore(out_clouds, id.xy, result);
     textureStore(out_clouds_depth, id.xy, vec4(weighted_depth, 0.0, 0.0, 0.0));
