@@ -1,7 +1,7 @@
 //! This example showcases pbr atmospheric scattering
 //!
 //! Environment variables (all optional; used by the cloud validation scripts):
-//! - Scene: `ATMOSPHERE_VIEW=hero|sun|up|under`, `ATMOSPHERE_CAM`, `ATMOSPHERE_SUN_ELEV_DEG`,
+//! - Scene: `ATMOSPHERE_VIEW=hero|sun|up|under|backlit`, `ATMOSPHERE_CAM`, `ATMOSPHERE_SUN_ELEV_DEG`,
 //!   `ATMOSPHERE_SUNSET`, `ATMOSPHERE_TERRAIN`, `ATMOSPHERE_NO_CLOUDS`, `ATMOSPHERE_MIE_SCALE`,
 //!   `ATMOSPHERE_LUT_MODE`.
 //! - Time: `ATMOSPHERE_CAM_STEP`, `ATMOSPHERE_FREEZE`, `ATMOSPHERE_ANIMATE`, `ATMOSPHERE_FIXED_DT`.
@@ -131,6 +131,7 @@ fn main() {
             Update,
             (
                 dynamic_scene,
+                sun_drag,
                 atmosphere_controls,
                 visibility_toggle.after(atmosphere_controls),
             ),
@@ -266,6 +267,7 @@ fn print_controls() {
     println!("    C          - Toggle cloud layer");
     println!("    Left/Right - Decrease/Increase cloud density");
     println!("    Enter      - Pause/Resume sun motion");
+    println!("    Right drag - Slide the time of day (sun position)");
     println!("    Up/Down    - Increase/Decrease exposure");
 }
 
@@ -529,6 +531,13 @@ fn setup_camera_fog(
             // Down at the ground from 1 km: cloud shadow map stability.
             Ok("ground") => Transform::from_xyz(-2.8, 1000.0, 0.0)
                 .looking_at(Vec3::new(0.0, 0.0, 1500.0), Vec3::Y),
+            // Sun behind a cumulus top (silver lining, crepuscular rays), framed like a photo
+            // reference. Aimed at the sun for ATMOSPHERE_SUN_ELEV_DEG=20; the camera position was
+            // picked by a grid search for an occluded sun pixel.
+            Ok("backlit") => Transform::from_xyz(-6000.0, 2.0, 9000.0).looking_at(
+                Vec3::new(-6000.0 + 20f32.to_radians().cos(), 2.0 + 20f32.to_radians().sin(), 9000.0),
+                Vec3::Y,
+            ),
             Ok("wide") => Transform::from_xyz(-2.8, 0.045, 0.0)
                 .looking_at(Vec3::new(-2.8, 0.25, -3.0), Vec3::Y),
             _ => Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -572,8 +581,12 @@ fn setup_camera_fog(
         Bloom::NATURAL,
         // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
         AtmosphereEnvironmentMapLight::default(),
+        // Left-drag looks around; right-drag is the time-of-day slider (`sun_drag`).
         #[cfg(feature = "free_camera")]
-        FreeCamera::default(),
+        FreeCamera {
+            mouse_key_cursor_grab: MouseButton::Left,
+            ..default()
+        },
         VolumetricFog {
             ambient_intensity: 0.0,
             ..default()
@@ -749,6 +762,22 @@ fn dynamic_scene(
     if !sun_motion_state.paused {
         suns.iter_mut()
             .for_each(|mut tf| tf.rotate_x(-time.delta_secs() * PI / 40.0));
+    }
+}
+
+/// Right-drag slides the time of day: horizontal mouse motion swings the sun along its arc
+/// (rotation about world Z, the same plane as `ATMOSPHERE_SUN_ELEV_DEG`), 0.15 deg per pixel.
+fn sun_drag(
+    buttons: Res<ButtonInput<MouseButton>>,
+    motion: Res<bevy::input::mouse::AccumulatedMouseMotion>,
+    mut suns: Query<&mut Transform, With<DirectionalLight>>,
+) {
+    if !buttons.pressed(MouseButton::Right) || motion.delta.x == 0.0 {
+        return;
+    }
+    let rotation = Quat::from_rotation_z(-motion.delta.x * 0.15f32.to_radians());
+    for mut tf in &mut suns {
+        tf.rotation = rotation * tf.rotation;
     }
 }
 
