@@ -4155,8 +4155,8 @@ mod block {
 }
 
 mod inline_image {
-    use bevy::prelude::*;
     use super::Scene;
+    use bevy::prelude::*;
 
     pub fn scene() -> impl SceneList {
         bsn_list! {
