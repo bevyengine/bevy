@@ -18,7 +18,7 @@ import package::atmosphere::{
     functions::{
         uv_to_ray_direction, uv_to_ndc, ndc_to_camera_dist, get_view_position,
         sample_transmittance_lut, sample_multiscattering_lut, sample_sky_view_lut, direction_world_to_atmosphere, sample_cloud_shadow_map, cloud_far_transmittance,
-        hg_phase, cloud_mie_phase, CLOUD_MIE_MEAN_COS, sample_aerial_view_lut, raymarch_atmosphere, sample_density_lut, sample_scattering_lut,
+        hg_phase, cloud_mie_phase, CLOUD_MIE_MEAN_COS, CLOUD_MIE_G_HG, CLOUD_MIE_G_D, CLOUD_MIE_ALPHA, CLOUD_MIE_W_D, sample_aerial_view_lut, raymarch_atmosphere, sample_density_lut, sample_scattering_lut,
         ABSORPTION_DENSITY, SCATTERING_DENSITY,
     },
     clouds::{
@@ -314,6 +314,21 @@ fn ref_sample_hg(g: f32) -> f32 {
     return (1.0 + g * g - s * s) / (2.0 * g);
 }
 
+/// Samples cos(theta) from cloud_mie_phase exactly: the HG lobe with probability 1 - w_D, else the
+/// Draine lobe by rejection (Draine = HG(g_D) * (1 + alpha mu^2) / norm: propose HG(g_D), accept
+/// with (1 + alpha mu^2) / (1 + alpha)).
+fn ref_sample_cloud_phase() -> f32 {
+    if (ref_rand() >= CLOUD_MIE_W_D) {
+        return ref_sample_hg(CLOUD_MIE_G_HG);
+    }
+    var mu = ref_sample_hg(CLOUD_MIE_G_D);
+    for (var i = 0u; i < 64u; i++) {
+        if (ref_rand() * (1.0 + CLOUD_MIE_ALPHA) <= 1.0 + CLOUD_MIE_ALPHA * mu * mu) { break; }
+        mu = ref_sample_hg(CLOUD_MIE_G_D);
+    }
+    return mu;
+}
+
 fn ref_dir_around(d: vec3<f32>, cos_t: f32) -> vec3<f32> {
     let sin_t = sqrt(max(0.0, 1.0 - cos_t * cos_t));
     let phi = 2.0 * PI * ref_rand();
@@ -421,8 +436,7 @@ fn cloud_reference_trace(origin: vec3<f32>, view_dir: vec3<f32>, t_scene: f32, p
             if (has_light) {
                 L += thr * cloud_phase(dot(l, d)) * sun * ref_sun_vis(p, l, ch);
             }
-            let g = select(-0.2, 0.85, ref_rand() < 0.5);
-            d = ref_dir_around(d, clamp(ref_sample_hg(g), -1.0, 1.0));
+            d = ref_dir_around(d, clamp(ref_sample_cloud_phase(), -1.0, 1.0));
         } else {
             // Air scatter: phase = scattering LUT (sum_i sigma_s,i * p_i) / sigma_s.
             let r = length(p);
