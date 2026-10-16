@@ -28,7 +28,6 @@ struct CloudLayer {
 @group(0) @binding(22) var noise_sampler_3d: sampler;
 @group(0) @binding(24) var perlin_worley_noise_3d: texture_3d<f32>;
 @group(0) @binding(33) var detail_worley_noise_3d: texture_3d<f32>;
-@group(0) @binding(34) var curl_noise_2d: texture_2d<f32>;
 
 fn safe_normalize(v: vec3<f32>) -> vec3<f32> {
     let l2 = dot(v, v);
@@ -84,10 +83,6 @@ fn cloud_layer_thickness_m() -> f32 {
     return max(1.0, cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start);
 }
 
-fn sample_curl(world_pos: vec3<f32>) -> vec2<f32> {
-    let uv = (world_pos.xz + cloud_layer.noise_offset.xz * 0.5) / max(1.0, cloud_layer.noise_scale * 0.125);
-    return textureSampleLevel(curl_noise_2d, noise_sampler_3d, uv, 0.0).xy;
-}
 
 /// Get cloud scattering coefficient per unit density
 fn get_cloud_scattering_coeff() -> f32 {
@@ -142,22 +137,17 @@ fn cloud_dimensional_profile(h: f32, coverage: f32, cloud_type: f32) -> f32 {
     return saturate(vertical_profile * coverage);
 }
 
-/// Nubis-style density (design.md §1.3):
-/// dimensional_profile = vertical_profile(type, h) · coverage
-/// density = saturate(noise_composite − (1 − profile)) · density_scale
-/// with wispy/billowy blend, detail erosion, and curl distortion.
-/// Shared prep for coarse/fine density: wind skew + weather + dimensional profile.
-/// Returns (sample_pos, h, dimensional_profile, density_scale, cloud_type).
+/// Coarse density context: weather + dimensional profile (Nubis 2022 vertical_profile *
+/// coverage) at the same sample position as the fine density (sample_cumulus_shape_lod).
+/// Returns (dimensional_profile, density_scale^4, h, cloud_type).
 fn cloud_density_context(r: f32, world_pos: vec3<f32>) -> vec4<f32> {
     let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
     let height_in_layer = r - cloud_layer.cloud_layer_start;
     let h = clamp(height_in_layer / max(1.0, layer_thickness), 0.0, 1.0);
 
-    // Same wind skew + curl displacement as the fine density (sample_cumulus_shape_lod). The
-    // coarse density is the empty-space predicate (ray march, SDF seeds): evaluated at the
-    // undisplaced position, its coverage-dependent top lay below the fine cloud's wherever curl
-    // moved the weather lookup, and the march skipped those slabs (straight-edged holes, up:35).
-    let sample_pos = cloud_sample_pos_with_wind_curl(world_pos, h, true);
+    // Must match the fine density's sample position: the coarse density is the empty-space
+    // predicate (ray march, SDF seeds).
+    let sample_pos = cloud_sample_pos(world_pos);
     let weather = sample_weather(sample_pos, cloud_layer.noise_scale);
     var coverage = clamp(weather.r, 0.0, 1.0);
     let cloud_type = clamp(weather.g, 0.0, 1.0);
@@ -167,22 +157,12 @@ fn cloud_density_context(r: f32, world_pos: vec3<f32>) -> vec4<f32> {
     return vec4(dimensional_profile, density_scale, h, cloud_type);
 }
 
-fn cloud_sample_pos_with_wind_curl(world_pos: vec3<f32>, h: f32, apply_curl: bool) -> vec3<f32> {
-    let wind_xz = cloud_layer.wind.xz;
-    let wind_len = length(wind_xz);
-    let skew = select(vec2(0.0), normalize(wind_xz) * (h * min(wind_len, 8000.0) * 0.15), wind_len > 1e-3);
-    var sample_pos = world_pos;
-    sample_pos.x += skew.x;
-    sample_pos.z += skew.y;
-    if (apply_curl) {
-        let curl = sample_curl(sample_pos);
-        // Curl distortion strongest at the base where wisps form (Nubis³: curly distortion where
-        // density decreases; HZD15 base wisps), weaker on the billowy tops.
-        let curl_str = 160.0 * (1.0 - 0.6 * h);
-        sample_pos.x += curl.x * curl_str;
-        sample_pos.z += curl.y * curl_str;
-    }
-    return sample_pos;
+/// Noise sample position. Nubis (2022 sky and 2023 voxel samplers) only scrolls the noise with
+/// the wind (noise_offset, applied in the samplers); there is no height skew and no curl
+/// displacement of the position. The curl turbulence lives in the detail noise ("curly
+/// alligator", Nubis Cubed; HZD15 also curls only the detail noise).
+fn cloud_sample_pos(world_pos: vec3<f32>) -> vec3<f32> {
+    return world_pos;
 }
 
 /// Coarse density: weather + vertical profile only (no 3D noise). Used for empty-space skipping.
@@ -197,7 +177,7 @@ fn sample_cumulus_shape_lod(r: f32, world_pos: vec3<f32>, mip: f32) -> f32 {
     let layer_thickness = cloud_layer.cloud_layer_end - cloud_layer.cloud_layer_start;
     let height_in_layer = r - cloud_layer.cloud_layer_start;
     let h = clamp(height_in_layer / max(1.0, layer_thickness), 0.0, 1.0);
-    let sample_pos = cloud_sample_pos_with_wind_curl(world_pos, h, true);
+    let sample_pos = cloud_sample_pos(world_pos);
 
     let weather = sample_weather(sample_pos, cloud_layer.noise_scale);
     let coverage = clamp(weather.r, 0.0, 1.0);
@@ -222,7 +202,8 @@ fn sample_cumulus_shape_lod(r: f32, world_pos: vec3<f32>, mip: f32) -> f32 {
     // GetUprezzedVoxelCloudDensity): wispy = lerp(R, G, profile), billowy = lerp(B, A,
     // profile^0.25) * 0.3, composite = lerp(wispy, billowy, detail_type), value erosion of the
     // profile by the composite, density scale^4, sharpened by pow(d, lerp(0.3, 0.6, scale^4)).
-    // The near-camera high-high-frequency fold (< 150 m) is not applied.
+    // Nubis's extra near-camera density fade (x0.25 at 10 m, for player visibility) is not
+    // applied: density does not depend on the camera.
     // Detail LOD from the sample footprint (anti-aliasing and cache): `mip` is log2(1 + d / 4 km)
     // (shape noise); a half-res pixel spans ~2.2 mrad, and a detail texel is detail_noise_scale /
     // 128, so the footprint LOD is mip + log2(4000 m * 2.2e-3 / texel).
@@ -230,11 +211,20 @@ fn sample_cumulus_shape_lod(r: f32, world_pos: vec3<f32>, mip: f32) -> f32 {
     let n = sample_detail_noise(sample_pos, h, mip + max(log2(4000.0 * 2.2e-3 / detail_texel), 0.0));
     let wispy = mix(n.r, n.g, profile);
     let billowy = mix(n.b * 0.3, n.a * 0.3, pow(profile, 0.25));
-    let composite = mix(wispy, billowy, detail_type) * cloud_layer.detail_strength;
+    var composite = mix(wispy, billowy, detail_type) * cloud_layer.detail_strength;
+    // Near-camera high-frequency detail (Nubis Cubed sampler, inHFDetails): the highest-frequency
+    // wispy (G) and billowy (A) noise folded twice over 0, blended in within 150 m of the camera.
+    // The camera distance follows from the shape LOD, mip = log2(1 + d / 4 km).
+    let cam_dist = (exp2(mip) - 1.0) * 4000.0;
+    let hhf = saturate(mix(1.0 - pow(abs(abs(n.g * 2.0 - 1.0) * 2.0 - 1.0), 4.0),
+        pow(abs(abs(n.a * 2.0 - 1.0) * 2.0 - 1.0), 2.0), detail_type));
+    let hf_blend = saturate((cam_dist - 50.0) / 100.0);
+    composite = mix(hhf, composite, mix(0.9, 1.0, hf_blend));
     var dens = saturate((profile - composite) / max(1.0 - composite, 1e-4));
     let powered_scale = pow(density_scale, 4.0);
     dens *= powered_scale;
     dens = pow(dens, mix(0.3, 0.6, max(1e-4, powered_scale)));
+    dens = pow(dens, mix(0.5, 1.0, hf_blend)) * mix(0.666, 1.0, hf_blend);
     return dens;
 }
 
