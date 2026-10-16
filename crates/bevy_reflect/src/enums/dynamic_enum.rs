@@ -1,6 +1,7 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
+    dynamic::DynamicValue,
     enums::{
         enum_debug, enum_hash, enum_partial_cmp, enum_partial_eq, Enum, VariantFieldIter,
         VariantType,
@@ -219,7 +220,7 @@ impl DynamicEnum {
             VariantType::Tuple => {
                 let mut data = DynamicTuple::default();
                 for field in value.iter_fields() {
-                    data.insert_boxed(field.value().to_dynamic()?);
+                    data.insert(DynamicValue::try_from_reflect(field.value())?);
                 }
                 DynamicEnum::new_with_index(
                     value.variant_index(),
@@ -231,7 +232,7 @@ impl DynamicEnum {
                 let mut data = DynamicStruct::default();
                 for field in value.iter_fields() {
                     let name = field.name().unwrap();
-                    data.insert_boxed(name, field.value().to_dynamic()?);
+                    data.insert(name, DynamicValue::try_from_reflect(field.value())?);
                 }
                 DynamicEnum::new_with_index(
                     value.variant_index(),
@@ -388,14 +389,17 @@ impl PartialReflect for DynamicEnum {
                 VariantType::Tuple => {
                     let mut dyn_tuple = DynamicTuple::default();
                     for field in value.iter_fields() {
-                        dyn_tuple.insert_boxed(field.value().to_dynamic()?);
+                        dyn_tuple.insert(DynamicValue::try_from_reflect(field.value())?);
                     }
                     DynamicVariant::Tuple(dyn_tuple)
                 }
                 VariantType::Struct => {
                     let mut dyn_struct = DynamicStruct::default();
                     for field in value.iter_fields() {
-                        dyn_struct.insert_boxed(field.name().unwrap(), field.value().to_dynamic()?);
+                        dyn_struct.insert(
+                            field.name().unwrap(),
+                            DynamicValue::try_from_reflect(field.value())?,
+                        );
                     }
                     DynamicVariant::Struct(dyn_struct)
                 }

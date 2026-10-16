@@ -1,6 +1,7 @@
 //! Traits and types used to power [array-like] operations via reflection.
 //!
 //! [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
+use crate::dynamic::DynamicValue;
 use crate::generics::impl_generic_info_methods;
 use crate::{
     ty::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
@@ -87,7 +88,7 @@ pub trait Array: PartialReflect {
             represented_type: self.get_represented_type_info(),
             values: self
                 .iter()
-                .map(PartialReflect::to_dynamic)
+                .map(DynamicValue::try_from_reflect)
                 .collect::<Result<_, _>>()?,
         })
     }
@@ -179,13 +180,31 @@ impl ArrayInfo {
 #[derive(Debug)]
 pub struct DynamicArray {
     pub(crate) represented_type: Option<&'static TypeInfo>,
-    pub(crate) values: Box<[Box<dyn PartialReflect>]>,
+    pub(crate) values: Box<[DynamicValue]>,
 }
 
 impl DynamicArray {
+    /// Creates an equivalent dynamic representation of `value`.
+    ///
+    /// This function clones opaque fields out of the original `value`, which can fail if a field
+    /// does not implement [`Clone`].
+    pub fn try_from_reflect(value: &dyn Array) -> Result<Self, ReflectCloneError> {
+        let represented_type = value.get_represented_type_info();
+
+        let mut values = Vec::with_capacity(value.len());
+        for value in value.iter() {
+            values.push(DynamicValue::try_from_reflect(value)?);
+        }
+
+        Ok(Self {
+            represented_type,
+            values: values.into_boxed_slice(),
+        })
+    }
+
     /// Creates a new [`DynamicArray`].
     #[inline]
-    pub fn new(values: Box<[Box<dyn PartialReflect>]>) -> Self {
+    pub fn new(values: Box<[DynamicValue]>) -> Self {
         Self {
             represented_type: None,
             values,
@@ -208,6 +227,14 @@ impl DynamicArray {
         }
 
         self.represented_type = represented_type;
+    }
+
+    /// Takes the values that make up this dynamic array.
+    pub fn into_boxed_values(self) -> Vec<Box<dyn PartialReflect>> {
+        self.values
+            .into_iter()
+            .map(DynamicValue::as_boxed_partial_reflect)
+            .collect()
     }
 }
 
@@ -300,12 +327,14 @@ impl PartialReflect for DynamicArray {
 impl Array for DynamicArray {
     #[inline]
     fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.values.get(index).map(|value| &**value)
+        self.values.get(index).map(DynamicValue::as_partial_reflect)
     }
 
     #[inline]
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.values.get_mut(index).map(|value| &mut **value)
+        self.values
+            .get_mut(index)
+            .map(DynamicValue::as_partial_reflect_mut)
     }
 
     #[inline]
@@ -325,30 +354,25 @@ impl Array for DynamicArray {
 
     #[inline]
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        self.values.into_vec()
+        self.into_boxed_values()
     }
 }
 
-impl FromIterator<Box<dyn PartialReflect>> for DynamicArray {
-    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(values: I) -> Self {
+impl<T: Into<DynamicValue>> FromIterator<T> for DynamicArray {
+    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
         Self {
             represented_type: None,
-            values: values.into_iter().collect::<Vec<_>>().into_boxed_slice(),
+            values: values
+                .into_iter()
+                .map(Into::into)
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
         }
     }
 }
 
-impl<T: PartialReflect> FromIterator<T> for DynamicArray {
-    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
-        values
-            .into_iter()
-            .map(|value| Box::new(value).into_partial_reflect())
-            .collect()
-    }
-}
-
 impl IntoIterator for DynamicArray {
-    type Item = Box<dyn PartialReflect>;
+    type Item = DynamicValue;
     type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {

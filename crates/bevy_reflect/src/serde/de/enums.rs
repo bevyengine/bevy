@@ -72,7 +72,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for EnumVisitor<'_, P> {
                         self.processor,
                     ))?;
                 let mut dynamic_tuple = DynamicTuple::default();
-                dynamic_tuple.insert_boxed(value);
+                dynamic_tuple.insert(value);
                 dynamic_tuple.into()
             }
             VariantInfo::Tuple(tuple_info) => variant

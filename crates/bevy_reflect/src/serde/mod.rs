@@ -301,7 +301,11 @@ mod tests {
                             let registration = self
                                 .registry
                                 .get_with_type_path(
-                                    enemy.get_represented_type_info().unwrap().type_path(),
+                                    enemy
+                                        .as_partial_reflect()
+                                        .get_represented_type_info()
+                                        .unwrap()
+                                        .type_path(),
                                 )
                                 .unwrap();
 
@@ -309,7 +313,7 @@ mod tests {
                             let enemy = registration
                                 .data::<ReflectFromReflect>()
                                 .unwrap()
-                                .from_reflect(&*enemy)
+                                .from_reflect(enemy.as_partial_reflect())
                                 .unwrap();
 
                             // 2. Convert the concrete value to a boxed trait object
@@ -390,7 +394,7 @@ mod tests {
             let reflect_deserializer = ReflectDeserializer::new(&registry);
             let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-            let output = Level::from_reflect(&*value).unwrap();
+            let output = Level::from_reflect(value.as_partial_reflect()).unwrap();
 
             let expected = Level {
                 name: String::from("Level 1"),
@@ -467,7 +471,7 @@ mod tests {
 
                 let mut deserializer = serde_json::Deserializer::from_str(&serde_serialize);
                 let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-                let _ = T::from_reflect(&*reflect_value).unwrap();
+                let _ = T::from_reflect(reflect_value.as_partial_reflect()).unwrap();
             }
 
             assert_serialize(&tuple_struct, &registry);

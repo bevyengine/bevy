@@ -4,6 +4,7 @@
 use bevy_reflect_derive::impl_type_path;
 use variadics_please::all_tuples;
 
+use crate::dynamic::DynamicValue;
 use crate::generics::impl_generic_info_methods;
 use crate::{
     ty::impl_type_methods, utility::GenericTypePathCell, ApplyError, FromReflect, Generics,
@@ -66,7 +67,7 @@ pub trait Tuple: PartialReflect {
             represented_type: self.get_represented_type_info(),
             fields: self
                 .iter_fields()
-                .map(PartialReflect::to_dynamic)
+                .map(DynamicValue::try_from_reflect)
                 .collect::<Result<_, _>>()?,
         })
     }
@@ -228,10 +229,28 @@ impl TupleInfo {
 #[derive(Default, Debug)]
 pub struct DynamicTuple {
     represented_type: Option<&'static TypeInfo>,
-    fields: Vec<Box<dyn PartialReflect>>,
+    pub(crate) fields: Vec<DynamicValue>,
 }
 
 impl DynamicTuple {
+    /// Creates an equivalent dynamic representation of `value`.
+    ///
+    /// This function clones opaque fields out of the original `value`, which can fail if a field
+    /// does not implement [`Clone`].
+    pub fn try_from_reflect(value: &dyn Tuple) -> Result<Self, ReflectCloneError> {
+        let represented_type = value.get_represented_type_info();
+
+        let mut fields = Vec::with_capacity(value.field_len());
+        for field in value.iter_fields() {
+            fields.push(DynamicValue::try_from_reflect(field)?);
+        }
+
+        Ok(Self {
+            represented_type,
+            fields,
+        })
+    }
+
     /// Sets the [type] to be represented by this `DynamicTuple`.
     ///
     /// # Panics
@@ -250,27 +269,31 @@ impl DynamicTuple {
     }
 
     /// Appends an element with value `value` to the tuple.
-    pub fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) {
+    pub fn insert(&mut self, value: impl Into<DynamicValue>) {
         self.represented_type = None;
-        self.fields.push(value);
+        self.fields.push(value.into());
     }
 
-    /// Appends a typed element with value `value` to the tuple.
-    pub fn insert<T: PartialReflect>(&mut self, value: T) {
-        self.represented_type = None;
-        self.insert_boxed(Box::new(value));
+    /// Takes the fields that make up this dynamic tuple.
+    pub fn into_boxed_fields(self) -> Vec<Box<dyn PartialReflect>> {
+        self.fields
+            .into_iter()
+            .map(DynamicValue::as_boxed_partial_reflect)
+            .collect()
     }
 }
 
 impl Tuple for DynamicTuple {
     #[inline]
     fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.fields.get(index).map(|field| &**field)
+        self.fields.get(index).map(DynamicValue::as_partial_reflect)
     }
 
     #[inline]
     fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.fields.get_mut(index).map(|field| &mut **field)
+        self.fields
+            .get_mut(index)
+            .map(DynamicValue::as_partial_reflect_mut)
     }
 
     #[inline]
@@ -288,7 +311,7 @@ impl Tuple for DynamicTuple {
 
     #[inline]
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        self.fields
+        self.into_boxed_fields()
     }
 }
 
@@ -373,17 +396,17 @@ impl PartialReflect for DynamicTuple {
 
 impl_type_path!((in bevy_reflect) DynamicTuple);
 
-impl FromIterator<Box<dyn PartialReflect>> for DynamicTuple {
-    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(fields: I) -> Self {
+impl<T: Into<DynamicValue>> FromIterator<T> for DynamicTuple {
+    fn from_iter<I: IntoIterator<Item = T>>(fields: I) -> Self {
         Self {
             represented_type: None,
-            fields: fields.into_iter().collect(),
+            fields: fields.into_iter().map(Into::into).collect(),
         }
     }
 }
 
 impl IntoIterator for DynamicTuple {
-    type Item = Box<dyn PartialReflect>;
+    type Item = DynamicValue;
     type IntoIter = vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {

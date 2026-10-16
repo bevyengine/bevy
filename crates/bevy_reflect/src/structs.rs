@@ -1,6 +1,7 @@
 //! Traits and types used to power [struct-like] operations via reflection.
 //!
 //! [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
+use crate::dynamic::DynamicValue;
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
@@ -8,7 +9,7 @@ use crate::{
     ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectCloneError, ReflectKind,
     ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
-use alloc::{borrow::Cow, boxed::Box, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, string::ToString, vec::Vec};
 use bevy_platform::collections::HashMap;
 use bevy_reflect_derive::impl_type_path;
 use core::{
@@ -83,7 +84,7 @@ pub trait Struct: PartialReflect {
         let mut dynamic_struct = DynamicStruct::default();
         dynamic_struct.set_represented_type(self.get_represented_type_info());
         for (name, value) in self.iter_fields() {
-            dynamic_struct.insert_boxed(name, value.to_dynamic()?);
+            dynamic_struct.insert(name, DynamicValue::try_from_reflect(value)?);
         }
         Ok(dynamic_struct)
     }
@@ -305,12 +306,35 @@ impl GetField for dyn Struct {
 #[derive(Default)]
 pub struct DynamicStruct {
     represented_type: Option<&'static TypeInfo>,
-    fields: Vec<Box<dyn PartialReflect>>,
+    fields: Vec<DynamicValue>,
     field_names: Vec<Cow<'static, str>>,
     field_indices: HashMap<Cow<'static, str>, usize>,
 }
 
 impl DynamicStruct {
+    /// Creates an equivalent dynamic representation of `value`.
+    ///
+    /// This function clones opaque fields out of the original `value`, which can fail if a field
+    /// does not implement [`Clone`].
+    pub fn try_from_reflect(value: &dyn Struct) -> Result<Self, ReflectCloneError> {
+        let represented_type = value.get_represented_type_info();
+        let mut fields = Vec::with_capacity(value.field_len());
+        let mut field_names = Vec::with_capacity(value.field_len());
+        let mut field_indices = HashMap::new();
+        for (index, (name, value)) in value.iter_fields().enumerate() {
+            fields.push(DynamicValue::try_from_reflect(value)?);
+            field_names.push(name.to_string().into());
+            field_indices.insert(name.to_string().into(), index);
+        }
+
+        Ok(Self {
+            represented_type,
+            fields,
+            field_names,
+            field_indices,
+        })
+    }
+
     /// Sets the [type] to be represented by this `DynamicStruct`.
     ///
     /// # Panics
@@ -332,12 +356,9 @@ impl DynamicStruct {
     /// Inserts a field named `name` with value `value` into the struct.
     ///
     /// If the field already exists, it is overwritten.
-    pub fn insert_boxed<'a>(
-        &mut self,
-        name: impl Into<Cow<'a, str>>,
-        field: Box<dyn PartialReflect>,
-    ) {
+    pub fn insert<'a>(&mut self, name: impl Into<Cow<'a, str>>, field: impl Into<DynamicValue>) {
         let name: Cow<str> = name.into();
+        let field = field.into();
         if let Some(index) = self.field_indices.get(&name) {
             self.fields[*index] = field;
         } else {
@@ -346,13 +367,6 @@ impl DynamicStruct {
                 .insert(Cow::Owned(name.clone().into_owned()), self.fields.len() - 1);
             self.field_names.push(Cow::Owned(name.into_owned()));
         }
-    }
-
-    /// Inserts a field named `name` with the typed value `value` into the struct.
-    ///
-    /// If the field already exists, it is overwritten.
-    pub fn insert<'a, T: PartialReflect>(&mut self, name: impl Into<Cow<'a, str>>, field: T) {
-        self.insert_boxed(name, Box::new(field));
     }
 
     /// Removes a field at `index`.
@@ -383,7 +397,7 @@ impl DynamicStruct {
             .expect("Invalid index for `extract.nth(index)`");
         extract.for_each(drop); // Fully evaluate the rest of the iterator, so we don't short-circuit the extract.
 
-        Some((name, self.fields.remove(index)))
+        Some((name, self.fields.remove(index).as_boxed_partial_reflect()))
     }
 
     /// Removes the first field that satisfies the given predicate, `f`.
@@ -395,7 +409,7 @@ impl DynamicStruct {
             .field_names
             .iter()
             .zip(self.fields.iter())
-            .position(|(name, field)| f((name.as_ref(), field.as_ref())))
+            .position(|(name, field)| f((name.as_ref(), field.as_partial_reflect())))
         {
             self.remove_at(index)
         } else {
@@ -421,13 +435,13 @@ impl Struct for DynamicStruct {
     fn field(&self, name: &str) -> Option<&dyn PartialReflect> {
         self.field_indices
             .get(name)
-            .map(|index| &*self.fields[*index])
+            .map(|index| self.fields[*index].as_partial_reflect())
     }
 
     #[inline]
     fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect> {
         if let Some(index) = self.index_of_name(name) {
-            Some(self.fields[index].as_mut())
+            Some(self.fields[index].as_partial_reflect_mut())
         } else {
             None
         }
@@ -435,12 +449,14 @@ impl Struct for DynamicStruct {
 
     #[inline]
     fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.fields.get(index).map(AsRef::as_ref)
+        self.fields.get(index).map(DynamicValue::as_partial_reflect)
     }
 
     #[inline]
     fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.fields.get_mut(index).map(AsMut::as_mut)
+        self.fields
+            .get_mut(index)
+            .map(DynamicValue::as_partial_reflect_mut)
     }
 
     #[inline]
@@ -556,26 +572,27 @@ impl Debug for DynamicStruct {
     }
 }
 
-impl<'a, N> FromIterator<(N, Box<dyn PartialReflect>)> for DynamicStruct
+impl<'a, N, V> FromIterator<(N, V)> for DynamicStruct
 where
     N: Into<Cow<'a, str>>,
+    V: Into<DynamicValue>,
 {
     /// Create a dynamic struct that doesn't represent a type from the
     /// field name, field value pairs.
-    fn from_iter<I: IntoIterator<Item = (N, Box<dyn PartialReflect>)>>(fields: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = (N, V)>>(fields: I) -> Self {
         let mut dynamic_struct = Self::default();
         for (name, value) in fields.into_iter() {
-            dynamic_struct.insert_boxed(name, value);
+            dynamic_struct.insert(name, value);
         }
         dynamic_struct
     }
 }
 
 impl IntoIterator for DynamicStruct {
-    type Item = (Cow<'static, str>, Box<dyn PartialReflect>);
+    type Item = (Cow<'static, str>, DynamicValue);
     type IntoIter = core::iter::Zip<
         alloc::vec::IntoIter<Cow<'static, str>>,
-        alloc::vec::IntoIter<Box<dyn PartialReflect>>,
+        alloc::vec::IntoIter<DynamicValue>,
     >;
 
     fn into_iter(self) -> Self::IntoIter {

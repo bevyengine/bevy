@@ -10,7 +10,7 @@ use core::{
 
 use bevy_reflect_derive::impl_type_path;
 
-use crate::generics::impl_generic_info_methods;
+use crate::{dynamic::DynamicValue, generics::impl_generic_info_methods};
 use crate::{
     ty::impl_type_methods, utility::reflect_hasher, ApplyError, FromReflect, Generics, MaybeTyped,
     PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
@@ -122,7 +122,7 @@ pub trait List: PartialReflect {
             represented_type: self.get_represented_type_info(),
             values: self
                 .iter()
-                .map(PartialReflect::to_dynamic)
+                .map(DynamicValue::try_from_reflect)
                 .collect::<Result<_, _>>()?,
         })
     }
@@ -193,10 +193,28 @@ impl ListInfo {
 #[derive(Default)]
 pub struct DynamicList {
     represented_type: Option<&'static TypeInfo>,
-    values: Vec<Box<dyn PartialReflect>>,
+    values: Vec<DynamicValue>,
 }
 
 impl DynamicList {
+    /// Creates an equivalent dynamic representation of `value`.
+    ///
+    /// This function clones opaque fields out of the original `value`, which can fail if a field
+    /// does not implement [`Clone`].
+    pub fn try_from_reflect(value: &dyn List) -> Result<Self, ReflectCloneError> {
+        let represented_type = value.get_represented_type_info();
+
+        let mut values = Vec::with_capacity(value.len());
+        for value in value.iter() {
+            values.push(DynamicValue::try_from_reflect(value)?);
+        }
+
+        Ok(Self {
+            represented_type,
+            values,
+        })
+    }
+
     /// Sets the [type] to be represented by this `DynamicList`.
     /// # Panics
     ///
@@ -215,39 +233,41 @@ impl DynamicList {
     }
 
     /// Appends a typed value to the list.
-    pub fn push<T: PartialReflect>(&mut self, value: T) {
-        self.values.push(Box::new(value));
-    }
-
-    /// Appends a [`Reflect`] trait object to the list.
-    pub fn push_box(&mut self, value: Box<dyn PartialReflect>) {
-        self.values.push(value);
+    pub fn push(&mut self, value: impl Into<DynamicValue>) {
+        self.values.push(value.into());
     }
 }
 
 impl List for DynamicList {
     fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.values.get(index).map(|value| &**value)
+        self.values.get(index).map(DynamicValue::as_partial_reflect)
     }
 
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.values.get_mut(index).map(|value| &mut **value)
+        self.values
+            .get_mut(index)
+            .map(DynamicValue::as_partial_reflect_mut)
     }
 
     fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>) {
+        // TODO: Don't unwrap here.
+        let element = DynamicValue::try_from_reflect(&*element).unwrap();
         self.values.insert(index, element);
     }
 
     fn remove(&mut self, index: usize) -> Box<dyn PartialReflect> {
-        self.values.remove(index)
+        self.values.remove(index).as_boxed_partial_reflect()
     }
 
     fn push(&mut self, value: Box<dyn PartialReflect>) {
-        DynamicList::push_box(self, value);
+        // TODO: Don't unwrap here.
+        DynamicList::push(self, DynamicValue::try_from_reflect(&*value).unwrap());
     }
 
     fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
-        self.values.pop()
+        self.values
+            .pop()
+            .map(DynamicValue::as_boxed_partial_reflect)
     }
 
     fn len(&self) -> usize {
@@ -260,6 +280,9 @@ impl List for DynamicList {
 
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
         core::mem::take(&mut self.values)
+            .into_iter()
+            .map(DynamicValue::as_boxed_partial_reflect)
+            .collect()
     }
 
     fn swap(&mut self, a: usize, b: usize) {
@@ -361,26 +384,17 @@ impl Debug for DynamicList {
     }
 }
 
-impl FromIterator<Box<dyn PartialReflect>> for DynamicList {
-    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(values: I) -> Self {
+impl<T: Into<DynamicValue>> FromIterator<T> for DynamicList {
+    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
         Self {
             represented_type: None,
-            values: values.into_iter().collect(),
+            values: values.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl<T: PartialReflect> FromIterator<T> for DynamicList {
-    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
-        values
-            .into_iter()
-            .map(|field| Box::new(field).into_partial_reflect())
-            .collect()
-    }
-}
-
 impl IntoIterator for DynamicList {
-    type Item = Box<dyn PartialReflect>;
+    type Item = DynamicValue;
     type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {

@@ -1,5 +1,5 @@
 use crate::{
-    map::{DynamicMap, Map, MapInfo},
+    map::{DynamicMap, MapInfo},
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
     TypeRegistry,
 };
@@ -41,7 +41,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for MapVisitor<'_, P> {
                 self.registry,
                 self.processor.as_deref_mut(),
             ))?;
-            dynamic_map.insert_boxed(key, value);
+            dynamic_map.insert(key, value);
         }
 
         Ok(dynamic_map)

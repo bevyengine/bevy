@@ -8,9 +8,9 @@ use bevy_platform::collections::{hash_table::OccupiedEntry as HashTableOccupiedE
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    generics::impl_generic_info_methods, hash_error, ty::impl_type_methods, ApplyError, Generics,
-    PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    Type, TypeInfo, TypePath,
+    dynamic::DynamicValue, generics::impl_generic_info_methods, hash_error, ty::impl_type_methods,
+    ApplyError, Generics, PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -155,10 +155,40 @@ impl SetInfo {
 #[derive(Default)]
 pub struct DynamicSet {
     represented_type: Option<&'static TypeInfo>,
-    hash_table: HashTable<Box<dyn PartialReflect>>,
+    hash_table: HashTable<DynamicValue>,
 }
 
 impl DynamicSet {
+    /// Creates an equivalent dynamic representation of `value`.
+    ///
+    /// This function clones opaque fields out of the original `value`, which can fail if a field
+    /// does not implement [`Clone`].
+    pub fn try_from_reflect(value: &dyn Set) -> Result<Self, ReflectCloneError> {
+        let represented_type = value.get_represented_type_info();
+
+        let mut hash_table = HashTable::new();
+        for value in value.iter() {
+            let value = DynamicValue::try_from_reflect(value)?;
+            let hash = Self::internal_hash(value.as_partial_reflect());
+            let eq = Self::internal_eq(value.as_partial_reflect());
+            match hash_table.find_mut(hash, eq) {
+                Some(old) => {
+                    *old = value;
+                }
+                None => {
+                    hash_table.insert_unique(hash, value, |value| {
+                        Self::internal_hash(value.as_partial_reflect())
+                    });
+                }
+            }
+        }
+
+        Ok(Self {
+            represented_type,
+            hash_table,
+        })
+    }
+
     /// Sets the [type] to be represented by this `DynamicSet`.
     ///
     /// # Panics
@@ -178,20 +208,41 @@ impl DynamicSet {
     }
 
     /// Inserts a typed value into the set.
-    pub fn insert<V: Reflect>(&mut self, value: V) {
-        self.insert_boxed(Box::new(value));
+    pub fn insert(&mut self, value: impl Into<DynamicValue>) -> bool {
+        let value = value.into();
+        assert_eq!(
+            value
+                .as_partial_reflect()
+                .reflect_partial_eq(value.as_partial_reflect()),
+            Some(true),
+            "Values inserted in `Set` like types are expected to reflect `PartialEq`"
+        );
+        let hash = Self::internal_hash(value.as_partial_reflect());
+        match self
+            .hash_table
+            .find_mut(hash, Self::internal_eq(value.as_partial_reflect()))
+        {
+            Some(old) => {
+                *old = value;
+                false
+            }
+            None => {
+                self.hash_table.insert_unique(hash, value, |value| {
+                    Self::internal_hash(value.as_partial_reflect())
+                });
+                true
+            }
+        }
     }
 
     fn internal_hash(value: &dyn PartialReflect) -> u64 {
         value.reflect_hash().expect(&hash_error!(value))
     }
 
-    fn internal_eq(
-        value: &dyn PartialReflect,
-    ) -> impl FnMut(&Box<dyn PartialReflect>) -> bool + '_ {
+    fn internal_eq(value: &dyn PartialReflect) -> impl FnMut(&DynamicValue) -> bool + '_ {
         |other| {
             value
-                .reflect_partial_eq(&**other)
+                .reflect_partial_eq(other.as_partial_reflect())
                 .expect("Underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
         }
     }
@@ -201,7 +252,7 @@ impl Set for DynamicSet {
     fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
         self.hash_table
             .find(Self::internal_hash(value), Self::internal_eq(value))
-            .map(|value| &**value)
+            .map(DynamicValue::as_partial_reflect)
     }
 
     fn len(&self) -> usize {
@@ -209,41 +260,26 @@ impl Set for DynamicSet {
     }
 
     fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_> {
-        let iter = self.hash_table.iter().map(|v| &**v);
+        let iter = self.hash_table.iter().map(DynamicValue::as_partial_reflect);
         Box::new(iter)
     }
 
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
-        self.hash_table.drain().collect::<Vec<_>>()
+        self.hash_table
+            .drain()
+            .map(DynamicValue::as_boxed_partial_reflect)
+            .collect::<Vec<_>>()
     }
 
     fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect) -> bool) {
-        self.hash_table.retain(move |value| f(&**value));
+        self.hash_table
+            .retain(move |value| f(value.as_partial_reflect()));
     }
 
     fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
-        assert_eq!(
-            value.reflect_partial_eq(&*value),
-            Some(true),
-            "Values inserted in `Set` like types are expected to reflect `PartialEq`"
-        );
-        match self
-            .hash_table
-            .find_mut(Self::internal_hash(&*value), Self::internal_eq(&*value))
-        {
-            Some(old) => {
-                *old = value;
-                false
-            }
-            None => {
-                self.hash_table.insert_unique(
-                    Self::internal_hash(value.as_ref()),
-                    value,
-                    |boxed| Self::internal_hash(boxed.as_ref()),
-                );
-                true
-            }
-        }
+        // TODO: Make this not unwrap.
+        let value = DynamicValue::try_from_reflect(&*value).unwrap();
+        self.insert(value)
     }
 
     fn remove(&mut self, value: &dyn PartialReflect) -> bool {
@@ -375,7 +411,7 @@ impl<T: Reflect> FromIterator<T> for DynamicSet {
 }
 
 impl IntoIterator for DynamicSet {
-    type Item = Box<dyn PartialReflect>;
+    type Item = DynamicValue;
     type IntoIter = bevy_platform::collections::hash_table::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -384,14 +420,11 @@ impl IntoIterator for DynamicSet {
 }
 
 impl<'a> IntoIterator for &'a DynamicSet {
-    type Item = &'a dyn PartialReflect;
-    type IntoIter = core::iter::Map<
-        bevy_platform::collections::hash_table::Iter<'a, Box<dyn PartialReflect>>,
-        fn(&'a Box<dyn PartialReflect>) -> Self::Item,
-    >;
+    type Item = &'a DynamicValue;
+    type IntoIter = bevy_platform::collections::hash_table::Iter<'a, DynamicValue>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.hash_table.iter().map(|v| v.as_ref())
+        self.hash_table.iter()
     }
 }
 

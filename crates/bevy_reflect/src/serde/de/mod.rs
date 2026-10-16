@@ -25,7 +25,6 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use alloc::{
-        boxed::Box,
         string::{String, ToString},
         vec,
         vec::Vec,
@@ -37,6 +36,7 @@ mod tests {
     use bevy_platform::collections::{HashMap, HashSet};
 
     use crate::{
+        dynamic::DynamicValue,
         enums::DynamicEnum,
         serde::{
             ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
@@ -247,7 +247,8 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output =
+            <MyStruct as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -332,7 +333,8 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output = <OptionTest as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output =
+            <OptionTest as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
         assert_eq!(expected, output, "failed to deserialize Options");
 
         // === Implicit Some === //
@@ -354,7 +356,8 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output = <OptionTest as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output =
+            <OptionTest as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
         assert_eq!(
             expected, output,
             "failed to deserialize Options with implicit Some"
@@ -380,7 +383,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let output = SomeType::from_reflect(&*output).unwrap();
+        let output = SomeType::from_reflect(output.as_partial_reflect()).unwrap();
         assert_eq!(output.value, 17);
     }
 
@@ -408,7 +411,7 @@ mod tests {
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         // Using the full name is totally fine.
-        let output = some_mod::Ambiguous::from_reflect(&*output).unwrap();
+        let output = some_mod::Ambiguous::from_reflect(output.as_partial_reflect()).unwrap();
         assert_eq!(output.0, 17);
 
         let ambiguous_input = r#"{
@@ -449,7 +452,9 @@ mod tests {
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         let expected = DynamicEnum::try_from(MyEnum::Unit).unwrap();
-        assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
+        assert!(expected
+            .reflect_partial_eq(output.as_partial_reflect())
+            .unwrap());
 
         // === NewType Variant === //
         let input = r#"{
@@ -460,7 +465,9 @@ mod tests {
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         let expected = DynamicEnum::try_from(MyEnum::NewType(123)).unwrap();
-        assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
+        assert!(expected
+            .reflect_partial_eq(output.as_partial_reflect())
+            .unwrap());
 
         // === Tuple Variant === //
         let input = r#"{
@@ -534,7 +541,8 @@ mod tests {
             .deserialize(&mut postcard::Deserializer::from_bytes(&input))
             .unwrap();
 
-        let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output =
+            <MyStruct as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -565,7 +573,8 @@ mod tests {
             .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
             .unwrap();
 
-        let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output =
+            <MyStruct as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -602,13 +611,13 @@ mod tests {
                 registration: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<DynamicValue, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 if registration.type_id() == TypeId::of::<i64>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    Ok(Ok(Box::new(456_i64)))
+                    Ok(Ok(DynamicValue::from(456_i64)))
                 } else {
                     Ok(Err(deserializer))
                 }
@@ -654,16 +663,16 @@ mod tests {
                 registration: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<DynamicValue, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 if registration.type_id() == TypeId::of::<i32>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    Ok(Ok(Box::new(123_i32)))
+                    Ok(Ok(DynamicValue::from(123_i32)))
                 } else if registration.type_id() == TypeId::of::<i64>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    Ok(Ok(Box::new(456_i64)))
+                    Ok(Ok(DynamicValue::from(456_i64)))
                 } else {
                     Ok(Err(deserializer))
                 }
@@ -703,7 +712,7 @@ mod tests {
                 registration: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<DynamicValue, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
@@ -749,13 +758,13 @@ mod tests {
                 _: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<DynamicValue, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 let _ = deserializer.deserialize_ignored_any(IgnoredAny)?;
                 *self.values_found += 1;
-                Ok(Ok(Box::new(123_i32)))
+                Ok(Ok(DynamicValue::from(123_i32)))
             }
         }
 
@@ -791,13 +800,13 @@ mod tests {
                 registration: &TypeRegistration,
                 _registry: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<DynamicValue, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 if registration.type_id() == TypeId::of::<i32>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    Ok(Ok(Box::new(42_i64)))
+                    Ok(Ok(DynamicValue::from(42_i64)))
                 } else {
                     Ok(Err(deserializer))
                 }

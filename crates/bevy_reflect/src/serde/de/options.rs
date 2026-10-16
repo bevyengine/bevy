@@ -51,7 +51,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for OptionVisitor<'_, P>
                     self.processor,
                 );
                 let mut value = DynamicTuple::default();
-                value.insert_boxed(de.deserialize(deserializer)?);
+                value.insert(de.deserialize(deserializer)?);
                 let mut option = DynamicEnum::default();
                 option.set_variant("Some", value);
                 Ok(option)

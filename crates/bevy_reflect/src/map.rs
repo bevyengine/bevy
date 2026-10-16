@@ -7,9 +7,9 @@ use bevy_platform::collections::HashTable;
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    generics::impl_generic_info_methods, ty::impl_type_methods, ApplyError, Generics, MaybeTyped,
-    PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    Type, TypeInfo, TypePath,
+    dynamic::DynamicValue, generics::impl_generic_info_methods, ty::impl_type_methods, ApplyError,
+    Generics, MaybeTyped, PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 use alloc::{boxed::Box, vec::Vec};
 
@@ -225,10 +225,41 @@ macro_rules! hash_error {
 #[derive(Default)]
 pub struct DynamicMap {
     represented_type: Option<&'static TypeInfo>,
-    hash_table: HashTable<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>,
+    hash_table: HashTable<(DynamicValue, DynamicValue)>,
 }
 
 impl DynamicMap {
+    /// Creates an equivalent dynamic representation of `value`.
+    ///
+    /// This function clones opaque fields out of the original `value`, which can fail if a field
+    /// does not implement [`Clone`].
+    pub fn try_from_reflect(value: &dyn Map) -> Result<Self, ReflectCloneError> {
+        let represented_type = value.get_represented_type_info();
+
+        let mut hash_table = HashTable::new();
+        for (key, value) in value.iter() {
+            let key = DynamicValue::try_from_reflect(key)?;
+            let value = DynamicValue::try_from_reflect(value)?;
+            let hash = Self::internal_hash(key.as_partial_reflect());
+            let eq = Self::internal_eq(key.as_partial_reflect());
+            match hash_table.find_mut(hash, eq) {
+                Some((_, old)) => {
+                    *old = value;
+                }
+                None => {
+                    hash_table.insert_unique(hash, (key, value), |(key, _)| {
+                        Self::internal_hash(key.as_partial_reflect())
+                    });
+                }
+            }
+        }
+
+        Ok(Self {
+            represented_type,
+            hash_table,
+        })
+    }
+
     /// Sets the [type] to be represented by this `DynamicMap`.
     ///
     /// # Panics
@@ -248,8 +279,32 @@ impl DynamicMap {
     }
 
     /// Inserts a typed key-value pair into the map.
-    pub fn insert<K: PartialReflect, V: PartialReflect>(&mut self, key: K, value: V) {
-        self.insert_boxed(Box::new(key), Box::new(value));
+    pub fn insert<K: Into<DynamicValue>, V: Into<DynamicValue>>(
+        &mut self,
+        key: K,
+        value: V,
+    ) -> Option<DynamicValue> {
+        let key = key.into();
+        let value = value.into();
+        assert_eq!(
+            key.as_partial_reflect()
+                .reflect_partial_eq(key.as_partial_reflect()),
+            Some(true),
+            "keys inserted in `Map`-like types are expected to reflect `PartialEq`"
+        );
+
+        let hash = Self::internal_hash(key.as_partial_reflect());
+        let eq = Self::internal_eq(key.as_partial_reflect());
+        match self.hash_table.find_mut(hash, eq) {
+            Some((_, old)) => Some(core::mem::replace(old, value)),
+            None => {
+                self.hash_table
+                    .insert_unique(hash, (key, value), |(key, _)| {
+                        Self::internal_hash(key.as_partial_reflect())
+                    });
+                None
+            }
+        }
     }
 
     fn internal_hash(value: &dyn PartialReflect) -> u64 {
@@ -258,10 +313,10 @@ impl DynamicMap {
 
     fn internal_eq(
         key: &dyn PartialReflect,
-    ) -> impl FnMut(&(Box<dyn PartialReflect>, Box<dyn PartialReflect>)) -> bool + '_ {
+    ) -> impl FnMut(&(DynamicValue, DynamicValue)) -> bool + '_ {
         |(other, _)| {
             key
-            .reflect_partial_eq(&**other)
+            .reflect_partial_eq(other.as_partial_reflect())
             .expect("underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
         }
     }
@@ -271,13 +326,13 @@ impl Map for DynamicMap {
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
         self.hash_table
             .find(Self::internal_hash(key), Self::internal_eq(key))
-            .map(|(_, value)| &**value)
+            .map(|(_, value)| value.as_partial_reflect())
     }
 
     fn get_mut(&mut self, key: &dyn PartialReflect) -> Option<&mut dyn PartialReflect> {
         self.hash_table
             .find_mut(Self::internal_hash(key), Self::internal_eq(key))
-            .map(|(_, value)| &mut **value)
+            .map(|(_, value)| value.as_partial_reflect_mut())
     }
 
     fn len(&self) -> usize {
@@ -285,17 +340,31 @@ impl Map for DynamicMap {
     }
 
     fn iter(&self) -> Box<dyn Iterator<Item = (&dyn PartialReflect, &dyn PartialReflect)> + '_> {
-        let iter = self.hash_table.iter().map(|(k, v)| (&**k, &**v));
+        let iter = self
+            .hash_table
+            .iter()
+            .map(|(k, v)| (k.as_partial_reflect(), v.as_partial_reflect()));
         Box::new(iter)
     }
 
     fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
-        self.hash_table.drain().collect()
+        self.hash_table
+            .drain()
+            .map(|(key, value)| {
+                // Note: the non-dynamic maps also Box their keys/values, so it's ok to do that here
+                // too.
+                (
+                    key.as_boxed_partial_reflect(),
+                    value.as_boxed_partial_reflect(),
+                )
+            })
+            .collect()
     }
 
     fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool) {
-        self.hash_table
-            .retain(move |(key, value)| f(&**key, &mut **value));
+        self.hash_table.retain(move |(key, value)| {
+            f(key.as_partial_reflect(), value.as_partial_reflect_mut())
+        });
     }
 
     fn insert_boxed(
@@ -303,25 +372,11 @@ impl Map for DynamicMap {
         key: Box<dyn PartialReflect>,
         value: Box<dyn PartialReflect>,
     ) -> Option<Box<dyn PartialReflect>> {
-        assert_eq!(
-            key.reflect_partial_eq(&*key),
-            Some(true),
-            "keys inserted in `Map`-like types are expected to reflect `PartialEq`"
-        );
-
-        let hash = Self::internal_hash(&*key);
-        let eq = Self::internal_eq(&*key);
-        match self.hash_table.find_mut(hash, eq) {
-            Some((_, old)) => Some(core::mem::replace(old, value)),
-            None => {
-                self.hash_table.insert_unique(
-                    Self::internal_hash(key.as_ref()),
-                    (key, value),
-                    |(key, _)| Self::internal_hash(&**key),
-                );
-                None
-            }
-        }
+        // TODO: Don't unwrap here.
+        let key = DynamicValue::try_from_reflect(&*key).unwrap();
+        let value = DynamicValue::try_from_reflect(&*value).unwrap();
+        self.insert(key, value)
+            .map(DynamicValue::as_boxed_partial_reflect)
     }
 
     fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>> {
@@ -330,7 +385,7 @@ impl Map for DynamicMap {
         match self.hash_table.find_entry(hash, eq) {
             Ok(entry) => {
                 let ((_, old_value), _) = entry.remove();
-                Some(old_value)
+                Some(old_value.as_boxed_partial_reflect())
             }
             Err(_) => None,
         }
@@ -441,7 +496,7 @@ impl<K: Reflect, V: Reflect> FromIterator<(K, V)> for DynamicMap {
 }
 
 impl IntoIterator for DynamicMap {
-    type Item = (Box<dyn PartialReflect>, Box<dyn PartialReflect>);
+    type Item = (DynamicValue, DynamicValue);
     type IntoIter = bevy_platform::collections::hash_table::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -450,19 +505,14 @@ impl IntoIterator for DynamicMap {
 }
 
 impl<'a> IntoIterator for &'a DynamicMap {
-    type Item = (&'a dyn PartialReflect, &'a dyn PartialReflect);
+    type Item = (&'a DynamicValue, &'a DynamicValue);
     type IntoIter = core::iter::Map<
-        bevy_platform::collections::hash_table::Iter<
-            'a,
-            (Box<dyn PartialReflect>, Box<dyn PartialReflect>),
-        >,
-        fn(&'a (Box<dyn PartialReflect>, Box<dyn PartialReflect>)) -> Self::Item,
+        bevy_platform::collections::hash_table::Iter<'a, (DynamicValue, DynamicValue)>,
+        fn(&'a (DynamicValue, DynamicValue)) -> Self::Item,
     >;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.hash_table
-            .iter()
-            .map(|(k, v)| (k.as_ref(), v.as_ref()))
+        self.hash_table.iter().map(|(k, v)| (k, v))
     }
 }
 

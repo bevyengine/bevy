@@ -35,7 +35,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for ListVisitor<'_, P> {
             self.registry,
             self.processor.as_deref_mut(),
         ))? {
-            list.push_box(value);
+            list.push(value);
         }
         Ok(list)
     }

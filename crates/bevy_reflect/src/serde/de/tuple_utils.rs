@@ -94,7 +94,7 @@ where
 
     for index in 0..len {
         if let Some(value) = serialization_data.and_then(|data| data.generate_default(index)) {
-            tuple.insert_boxed(value.into_partial_reflect());
+            tuple.insert(value);
             continue;
         }
 
@@ -105,7 +105,7 @@ where
                 processor.as_deref_mut(),
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
-        tuple.insert_boxed(value);
+        tuple.insert(value);
     }
 
     Ok(tuple)

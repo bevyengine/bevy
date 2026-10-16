@@ -503,11 +503,10 @@ fn write_opaque(
 mod tests {
     use super::*;
     use crate::{
-        array::DynamicArray, map::DynamicMap, set::DynamicSet, structs::DynamicStruct,
-        tuple::DynamicTuple, tuple_struct::DynamicTupleStruct, Reflect,
+        array::DynamicArray, dynamic::DynamicValue, map::DynamicMap, set::DynamicSet,
+        structs::DynamicStruct, tuple::DynamicTuple, tuple_struct::DynamicTupleStruct, Reflect,
     };
     use alloc::{
-        boxed::Box,
         collections::BTreeMap,
         format,
         string::{String, ToString},
@@ -997,9 +996,9 @@ bevy_reflect::display::tests::MyEnum::Struct {
     fn array_of_scalars() {
         let array = DynamicArray::new(
             vec![
-                Box::new(1u32) as Box<dyn PartialReflect>,
-                Box::new(2u32),
-                Box::new(3u32),
+                DynamicValue::from(1u32),
+                DynamicValue::from(2u32),
+                DynamicValue::from(3u32),
             ]
             .into_boxed_slice(),
         );

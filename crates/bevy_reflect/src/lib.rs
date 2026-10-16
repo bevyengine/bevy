@@ -414,6 +414,7 @@
 //! # use serde::de::DeserializeSeed;
 //! # use bevy_reflect::{
 //! #     serde::{ReflectSerializer, ReflectDeserializer},
+//! #     dynamic::DynamicValue,
 //! #     Reflect, PartialReflect, FromReflect, TypeRegistry
 //! # };
 //! #[derive(Reflect, PartialEq, Debug)]
@@ -435,12 +436,12 @@
 //!
 //! // Deserialize
 //! let reflect_deserializer = ReflectDeserializer::new(&registry);
-//! let deserialized_value: Box<dyn PartialReflect> = reflect_deserializer.deserialize(
+//! let deserialized_value: DynamicValue = reflect_deserializer.deserialize(
 //!   &mut ron::Deserializer::from_str(&serialized_value).unwrap()
 //! ).unwrap();
 //!
 //! // Convert
-//! let converted_value = <MyStruct as FromReflect>::from_reflect(&*deserialized_value).unwrap();
+//! let converted_value = <MyStruct as FromReflect>::from_reflect(deserialized_value.as_partial_reflect()).unwrap();
 //!
 //! assert_eq!(original_value, converted_value);
 //! ```
@@ -597,6 +598,7 @@ extern crate self as bevy_reflect;
 
 pub mod array;
 pub mod display;
+pub mod dynamic;
 mod error;
 mod fields;
 mod from_reflect;
@@ -1071,7 +1073,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "the dynamic type `bevy_reflect::DynamicStruct` (representing `bevy_reflect::tests::Foo`) does not support hashing"
+        expected = "the dynamic type `bevy_reflect::DynamicValueWrapper` (representing `bevy_reflect::tests::Foo`) does not support hashing"
     )]
     fn reflect_map_no_hash_dynamic_representing() {
         #[derive(Reflect, Hash)]
@@ -1090,7 +1092,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "the dynamic type `bevy_reflect::DynamicStruct` does not support hashing"
+        expected = "the dynamic type `bevy_reflect::DynamicValueWrapper` does not support hashing"
     )]
     fn reflect_map_no_hash_dynamic() {
         #[allow(
@@ -2497,7 +2499,7 @@ mod tests {
 
         let tuple = (0usize, "1".to_string(), 2.0f32);
         let mut dyn_tuple = tuple.to_dynamic_tuple().unwrap();
-        dyn_tuple.insert::<usize>(3);
+        dyn_tuple.insert(3);
         assert_ne!(
             dyn_tuple.reflect_type_path(),
             <(usize, String, f32, usize)>::type_path()
@@ -4092,7 +4094,8 @@ bevy_reflect::tests::Test {
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = ReflectDeserializer::new(&registry);
         let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let point = <Point as FromReflect>::from_reflect(&*deserialized).unwrap();
+        let point =
+            <Point as FromReflect>::from_reflect(deserialized.as_partial_reflect()).unwrap();
         assert_eq!(point, Point(external_crate::Vector2([1, 2])));
     }
 

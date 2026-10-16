@@ -3,10 +3,11 @@
 //! [tuple-struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
 use bevy_reflect_derive::impl_type_path;
 
+use crate::dynamic::DynamicValue;
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
-    tuple::{DynamicTuple, Tuple},
+    tuple::DynamicTuple,
     ty::impl_type_methods,
     ApplyError, Generics, PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
@@ -66,7 +67,7 @@ pub trait TupleStruct: PartialReflect {
             represented_type: self.get_represented_type_info(),
             fields: self
                 .iter_fields()
-                .map(PartialReflect::to_dynamic)
+                .map(DynamicValue::try_from_reflect)
                 .collect::<Result<_, _>>()?,
         })
     }
@@ -243,10 +244,28 @@ impl GetTupleStructField for dyn TupleStruct {
 #[derive(Default)]
 pub struct DynamicTupleStruct {
     represented_type: Option<&'static TypeInfo>,
-    fields: Vec<Box<dyn PartialReflect>>,
+    fields: Vec<DynamicValue>,
 }
 
 impl DynamicTupleStruct {
+    /// Creates an equivalent dynamic representation of `value`.
+    ///
+    /// This function clones opaque fields out of the original `value`, which can fail if a field
+    /// does not implement [`Clone`].
+    pub fn try_from_reflect(value: &dyn TupleStruct) -> Result<Self, ReflectCloneError> {
+        let represented_type = value.get_represented_type_info();
+
+        let mut fields = Vec::with_capacity(value.field_len());
+        for field in value.iter_fields() {
+            fields.push(DynamicValue::try_from_reflect(field)?);
+        }
+
+        Ok(Self {
+            represented_type,
+            fields,
+        })
+    }
+
     /// Sets the [type] to be represented by this `DynamicTupleStruct`.
     ///
     /// # Panics
@@ -265,26 +284,23 @@ impl DynamicTupleStruct {
         self.represented_type = represented_type;
     }
 
-    /// Appends an element with value `value` to the tuple struct.
-    pub fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) {
-        self.fields.push(value);
-    }
-
     /// Appends a typed element with value `value` to the tuple struct.
-    pub fn insert<T: PartialReflect>(&mut self, value: T) {
-        self.insert_boxed(Box::new(value));
+    pub fn insert(&mut self, value: impl Into<DynamicValue>) {
+        self.fields.push(value.into());
     }
 }
 
 impl TupleStruct for DynamicTupleStruct {
     #[inline]
     fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.fields.get(index).map(|field| &**field)
+        self.fields.get(index).map(DynamicValue::as_partial_reflect)
     }
 
     #[inline]
     fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.fields.get_mut(index).map(|field| &mut **field)
+        self.fields
+            .get_mut(index)
+            .map(DynamicValue::as_partial_reflect_mut)
     }
 
     #[inline]
@@ -399,22 +415,22 @@ impl From<DynamicTuple> for DynamicTupleStruct {
     fn from(value: DynamicTuple) -> Self {
         Self {
             represented_type: None,
-            fields: Box::new(value).drain(),
+            fields: value.fields,
         }
     }
 }
 
-impl FromIterator<Box<dyn PartialReflect>> for DynamicTupleStruct {
-    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(fields: I) -> Self {
+impl<T: Into<DynamicValue>> FromIterator<T> for DynamicTupleStruct {
+    fn from_iter<I: IntoIterator<Item = T>>(fields: I) -> Self {
         Self {
             represented_type: None,
-            fields: fields.into_iter().collect(),
+            fields: fields.into_iter().map(Into::into).collect(),
         }
     }
 }
 
 impl IntoIterator for DynamicTupleStruct {
-    type Item = Box<dyn PartialReflect>;
+    type Item = DynamicValue;
     type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
