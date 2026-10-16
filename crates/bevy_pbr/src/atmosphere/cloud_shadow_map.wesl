@@ -84,7 +84,12 @@ fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, 
     // Snap the anchor in the shadow-map XY plane to stabilize the map under camera motion.
     // This mirrors Unreal's stabilized shadow-map anchor strategy.
     let res = vec2<f32>(size);
-    let texel_size = (2.0 * extent) / max(res, vec2(1.0));
+    // Snap in large steps (UE5 r.VolumetricCloud.ShadowMap.SnapLength, 20 km), a whole number of
+    // texels: the map stays fixed in the world while the camera flies, so shadow texels do not
+    // crawl (snapping per texel shifted the time-sliced, temporally filtered map every ~125 m).
+    // A quarter of the half-extent keeps the camera in the map's central half.
+    let texel = (2.0 * extent) / max(res, vec2(1.0));
+    let texel_size = max(round(0.25 * extent / texel), vec2(1.0)) * texel;
 
     let ax = dot(anchor, basis.x);
     let ay = dot(anchor, basis.y);
