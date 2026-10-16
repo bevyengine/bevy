@@ -55,12 +55,14 @@ fn setup(
     ));
 
     commands.insert_resource(ExampleResources {
+        // x is the metered scene luminance in EV100, y the compensation in stops: darker views
+        // get darker and brighter views brighter than metering alone would make them.
         basic_compensation_curve: compensation_curves.add(
             AutoExposureCompensationCurve::from_curve(LinearSpline::new([
-                vec2(-4.0, -2.0),
-                vec2(0.0, 0.0),
-                vec2(2.0, 0.0),
-                vec2(4.0, 2.0),
+                vec2(9.0, -2.0),
+                vec2(13.0, 0.0),
+                vec2(15.0, 0.0),
+                vec2(17.0, 2.0),
             ]))
             .unwrap(),
         ),

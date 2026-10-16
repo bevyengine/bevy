@@ -4,13 +4,12 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::ExtractComponentPlugin,
-    globals::GlobalsBuffer,
     render_asset::{RenderAssetPlugin, RenderAssets},
     render_resource::{
         BindGroupEntries, Buffer, BufferBinding, BufferDescriptor, BufferUsages,
         ComputePassDescriptor, PipelineCache, ShaderType, SpecializedComputePipelines,
     },
-    renderer::{RenderContext, RenderDevice, ViewQuery},
+    renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
@@ -23,7 +22,9 @@ mod settings;
 
 use buffers::{extract_buffers, prepare_buffers, AutoExposureBuffers};
 pub use compensation_curve::{AutoExposureCompensationCurve, AutoExposureCompensationCurveError};
-use pipeline::{AutoExposurePass, AutoExposurePipeline, ViewAutoExposurePipeline};
+use pipeline::{
+    AutoExposurePass, AutoExposurePipeline, AutoExposureUniform, ViewAutoExposurePipeline,
+};
 pub use settings::AutoExposure;
 
 use crate::auto_exposure::{
@@ -119,6 +120,9 @@ fn queue_view_auto_exposure_pipelines(
     }
 }
 
+/// Real time after which auto exposure starts adapting even if pipelines are still compiling.
+const STARTUP_TIMEOUT_SECS: f32 = 2.0;
+
 fn auto_exposure(
     view: ViewQuery<(
         &ViewUniformOffset,
@@ -130,8 +134,8 @@ fn auto_exposure(
     pipeline: Res<AutoExposurePipeline>,
     resources: Res<AutoExposureResources>,
     view_uniforms: Res<ViewUniforms>,
-    globals_buffer: Res<GlobalsBuffer>,
     auto_exposure_buffers: Res<AutoExposureBuffers>,
+    render_queue: Res<RenderQueue>,
     fallback: Res<FallbackImage>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     compensation_curves: Res<RenderAssets<GpuAutoExposureCompensationCurve>>,
@@ -152,6 +156,17 @@ fn auto_exposure(
         return;
     };
 
+    // Draws whose pipelines are still compiling are skipped, so a frame rendered while any are
+    // waiting doesn't start adaptation. The pipeline queue is processed just before rendering, so
+    // this is current. Overwrites `pipelines_ready`, the last field of the uniform uploaded in
+    // `prepare_buffers`.
+    let pipelines_ready = pipeline_cache.waiting_pipelines().next().is_none()
+        || auto_exposure_buffer.started.elapsed().as_secs_f32() > STARTUP_TIMEOUT_SECS;
+    if let Some(settings) = auto_exposure_buffer.settings.buffer() {
+        let offset = AutoExposureUniform::min_size().get() - 4;
+        render_queue.write_buffer(settings, offset, &u32::from(pipelines_ready).to_le_bytes());
+    }
+
     let view_uniforms_buffer = view_uniforms.uniforms.buffer().unwrap();
     let source = view_target.main_texture_view();
 
@@ -170,7 +185,6 @@ fn auto_exposure(
         None,
         &pipeline_cache.get_bind_group_layout(&pipeline.histogram_layout),
         &BindGroupEntries::sequential((
-            &globals_buffer.buffer,
             &auto_exposure_buffer.settings,
             source,
             mask,
