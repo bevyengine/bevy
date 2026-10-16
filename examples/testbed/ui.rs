@@ -4172,7 +4172,7 @@ mod inline_image {
                     color: Color::WHITE,
                     image: "branding/bevy_logo_dark.png",
                     flip_x: true,
-                    height: Option::Some(20.0),
+                    height: {Some(20.0)},
                 }
                 --
                 TextSpan::new(" after image")
