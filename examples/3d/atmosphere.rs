@@ -484,7 +484,11 @@ fn setup_camera_fog(
             // Larger scale = larger cloud features (more “big cumulus”, less “small puffs”)
             noise_scale: 32_000.0, // weather tile; shape noise period = 1/8 (4 km)
             noise_offset: Vec3::ZERO,
-            detail_noise_scale: 100.0, // Nubis Cubed detail noise tile (pos * 0.01)
+            // Detail noise tile; `ATMOSPHERE_CLOUD_DETAIL_SCALE=<m>` overrides (validation).
+            detail_noise_scale: std::env::var("ATMOSPHERE_CLOUD_DETAIL_SCALE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(600.0),
             detail_strength: 1.0,
             wind: Vec3::new(20.0, 0.0, 8.0),
             ..default()

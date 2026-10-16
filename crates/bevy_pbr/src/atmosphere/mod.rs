@@ -785,7 +785,9 @@ pub struct CloudLayer {
     /// Accumulated noise/weather UV offset (meters). Advanced each frame by [`CloudLayer::wind`].
     pub noise_offset: Vec3,
 
-    /// Scale of the detail noise in world space (smaller = higher frequency detail).
+    /// Tile size of the Nubis Cubed detail noise. 600 m puts the low-frequency billow cells (tile / 3)
+    /// at ~200 m, the scale of cumulus turrets (thermal bubbles ~100-500 m); Nubis's own 100 m tile
+    /// is for close-up voxel clouds and left large sky clouds without mid-scale breakup.
     /// units: m
     pub detail_noise_scale: f32,
 
@@ -862,7 +864,7 @@ impl Default for CloudLayer {
             cloud_scattering: 0.0,
             noise_scale: 32_000.0, // weather tile; shape noise period = 1/8 (4 km)
             noise_offset: Vec3::ZERO,
-            detail_noise_scale: 100.0,
+            detail_noise_scale: 600.0,
             detail_strength: 1.0,
             wind: Vec3::new(15.0, 0.0, 5.0),
             profile_bottom_exponent: Self::ADIABATIC_PROFILE.0,
