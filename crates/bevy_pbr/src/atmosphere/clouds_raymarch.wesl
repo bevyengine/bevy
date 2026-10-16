@@ -94,7 +94,6 @@ const LIGHT_TAP_GROWTH: f32 = 1.4;
 const LIGHT_TAP_LOD: f32 = 0.25;
 const LIGHT_LONG_TAP_M: f32 = 1500.0;
 const CLOUD_GROUND_ALBEDO: f32 = 0.28;
-const CLOUD_DARK_EDGE_STRENGTH: f32 = 0.5;
 
 // Order in which the 4 pixels of each 2x2 half-res block are traced (shared with reconstruct).
 const CHECKER_OFFSETS: array<vec2<u32>, 4> = array(
@@ -655,12 +654,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 let t_local = exp(-light_optical_depth);
                 let t_cloud = t_far * t_local;
                 let cos_theta = dot(l, ray_dir);
-                // Beer-Powder (HZD15): dark edges only when looking away from the sun, and only on
-                // the single-scatter octave (it models missing in-scatter near the surface, so it
-                // must not also kill the multi-scatter octaves or sun-facing edges).
-                let powder = 1.0 - exp(-2.0 * light_optical_depth);
-                let away = saturate(0.5 - 0.5 * cos_theta);
-                let dark_edge = mix(1.0, powder, CLOUD_DARK_EDGE_STRENGTH * away);
                 // Sunlit ground below this sample (Lambert, albedo): sun irradiance through the
                 // atmosphere times the mean cloud-shadow visibility of the ground it sees.
                 if (light_i == 0u) {
@@ -678,7 +671,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 //  - F_ms = f_ms / (1 - f_ms), f_ms = albedo (1 - P_esc): Hillaire 2020's transfer
                 //    series with the escape probability on the reduced optical depth (cloud field).
                 // vs MC (validation/sky/ms_models_vs_mc.py, tau <= 5): median error -29..+25 %.
-                var direct = t_local * t_far * cloud_phase(cos_theta) * dark_edge;
+                var direct = t_local * t_far * cloud_phase(cos_theta);
                 @if(!CLOUD_TERM_S1) {
                     let tau_sun = light_optical_depth - log(max(t_far, 1e-6));
                     let albedo = sigma_s_unit / max(sigma_t_unit, 1e-9);
