@@ -719,12 +719,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             // Optional ATM_DBG_AP_BAL keeps ballistic T.
             let tau_red = sample_transmittance_lut_segment_tau_red(r, mu, weighted_depth);
             @if(!ATM_DBG_AP_BAL) {
-                // View-dependent weight (beyond research, design.md): similarity is for extended
-                // sources seen through forward-scattering haze, not steep up-looks (little haze
-                // OD, still lifted L_c): fade out for mu >= 0.2 (elev >= 11 deg). The former
-                // sun-cone fade left bases toward a low sun too dark and was removed.
-                let w_sim = saturate(1.0 - max(mu, 0.0) / 0.20);
-                t_ap = t_ap * exp(tau_red * w_sim);
+                // Similarity (delta-scaling, Joseph, Wiscombe & Weinman 1976) applied uniformly:
+                // assumes the cloud is extended relative to the haze's forward lobe, so light
+                // scattered out of the line of sight is replaced from neighbouring cloud.
+                t_ap = t_ap * exp(tau_red);
             }
             var haze = cloud_shadowed_haze(uv, ray_origin, ray_dir, weighted_depth, r, mu, j);
             @if(ATM_DBG_TAP_ONE) { t_ap = vec3(1.0); }
