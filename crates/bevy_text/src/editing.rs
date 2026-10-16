@@ -75,7 +75,8 @@
 use crate::{
     scroll::TextViewport,
     text_edit::{poll_and_apply_paste, reveal_cursor, TextEdit},
-    FontCx, FontHinting, LayoutCx, LineHeight, TextBrush, TextColor, TextFont, TextLayout,
+    FontCx, FontHinting, FontStyle, FontWeight, LayoutCx, LineHeight, TextBrush, TextColor,
+    TextFont, TextLayout,
 };
 use alloc::borrow::Cow;
 use alloc::string::String;
@@ -326,6 +327,11 @@ pub struct Placeholder {
     /// `None` draws the hint in the field's [`TextColor`], with its alpha
     /// scaled by [`Placeholder::DEFAULT_ALPHA`].
     pub color: Option<Color>,
+    /// Overrides the field's [`TextFont::style`], e.g. italic hints.
+    /// Like any text, this needs a font with that face.
+    pub font_style: Option<FontStyle>,
+    /// Overrides the field's [`TextFont::weight`].
+    pub font_weight: Option<FontWeight>,
     /// When the hint is shown, relative to focus.
     pub mode: PlaceholderMode,
 }
@@ -340,6 +346,8 @@ impl Placeholder {
         Self {
             text: text.into(),
             color: None,
+            font_style: None,
+            font_weight: None,
             mode: PlaceholderMode::default(),
         }
     }

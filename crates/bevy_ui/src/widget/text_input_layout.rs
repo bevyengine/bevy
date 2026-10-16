@@ -530,7 +530,7 @@ pub fn update_editable_text_layout(
 
         // The placeholder is laid out by a copy of the field's own editor, so
         // font, scale, width, wrapping and alignment match the editor's text
-        // and caret exactly.
+        // and caret, apart from the placeholder's own style overrides.
         match placeholder {
             Some(placeholder)
                 if layout_changed
@@ -542,6 +542,13 @@ pub fn update_editable_text_layout(
                 if placeholder.is_shown(&editable_text, is_focused) {
                     let mut editor = editable_text.editor.clone();
                     editor.set_text(&placeholder.text);
+                    let styles = editor.edit_styles();
+                    if let Some(style) = placeholder.font_style {
+                        styles.insert(StyleProperty::FontStyle(style.into()));
+                    }
+                    if let Some(weight) = placeholder.font_weight {
+                        styles.insert(StyleProperty::FontWeight(weight.into()));
+                    }
                     let mut driver = editor.driver(font_cx.as_mut(), layout_cx.as_mut());
                     for (line_index, line) in driver.layout().lines().enumerate() {
                         for item in line.items() {
