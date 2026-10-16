@@ -80,7 +80,7 @@ fn shadow_map_layout_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArr
 /// Cloud bind group layout entries (cloud layer uniform, noise textures, cloud shadow map, STBN).
 /// Sampled outputs of the `clouds_raymarch` pass, read by `render_sky` (26: luminance and
 /// transmittance, 27: transmittance-weighted cloud depth).
-fn cloud_pass_output_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<5> {
+fn cloud_pass_output_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArray<6> {
     (
         (26, texture_2d(TextureSampleType::Float { filterable: true })),
         (27, texture_2d(TextureSampleType::Float { filterable: false })),
@@ -89,6 +89,8 @@ fn cloud_pass_output_entries() -> impl IntoIndexedBindGroupLayoutEntryBuilderArr
         // Half-res haze from the `haze` prepass (render_sky.wesl): in-scattering, transmittance.
         (50, texture_2d(TextureSampleType::Float { filterable: true })),
         (51, texture_2d(TextureSampleType::Float { filterable: true })),
+        // Reprojection (previous clip-from-world, history validity) for the haze history.
+        (52, uniform_buffer::<CloudsTemporalParams>(false)),
     )
 }
 
@@ -1060,12 +1062,13 @@ pub struct AtmosphereTextures {
     pub cloud_shadow_map_history: CachedTexture,
     /// Low-res cloud raymarch output: rgb = pre-exposed luminance, a = transmittance.
     pub clouds: CachedTexture,
-    /// Half-res haze (render_sky `haze` prepass): pre-exposure in-scattering (rgb).
+    /// Half-res haze (render_sky `haze` prepass), this frame: pre-exposure in-scattering (rgb).
     pub haze_inscattering: CachedTexture,
-    /// Half-res haze: transmittance (rgb), ray length in km (a).
+    /// Half-res haze, this frame: transmittance (rgb), ray length in km (a).
     pub haze_transmittance: CachedTexture,
-    /// 1x1 placeholder bound in the haze slots while the prepass writes the haze textures.
-    pub haze_placeholder: CachedTexture,
+    /// Previous frame's haze (ping-pong), the prepass's temporal history.
+    pub haze_history_inscattering: CachedTexture,
+    pub haze_history_transmittance: CachedTexture,
     /// Low-res transmittance-weighted cloud distance (m).
     pub clouds_depth: CachedTexture,
     /// Previous frame's [`Self::clouds`] / [`Self::clouds_depth`] (ping-pong by frame parity).
@@ -1273,9 +1276,16 @@ pub(super) fn prepare_atmosphere_textures(
                 (clouds_b, clouds_a, clouds_depth_b, clouds_depth_a)
             };
         let haze_usage = TextureUsages::RENDER_ATTACHMENT;
-        let haze_inscattering = get("haze_inscattering", TextureFormat::Rgba16Float, clouds_size, haze_usage);
-        let haze_transmittance = get("haze_transmittance", TextureFormat::Rgba16Float, clouds_size, haze_usage);
-        let haze_placeholder = get("haze_placeholder", TextureFormat::Rgba16Float, UVec2::ONE, none);
+        let haze_l_a = get("haze_inscattering_a", TextureFormat::Rgba16Float, clouds_size, haze_usage);
+        let haze_l_b = get("haze_inscattering_b", TextureFormat::Rgba16Float, clouds_size, haze_usage);
+        let haze_t_a = get("haze_transmittance_a", TextureFormat::Rgba16Float, clouds_size, haze_usage);
+        let haze_t_b = get("haze_transmittance_b", TextureFormat::Rgba16Float, clouds_size, haze_usage);
+        let (haze_inscattering, haze_history_inscattering, haze_transmittance, haze_history_transmittance) =
+            if frame_count.0 % 2 == 0 {
+                (haze_l_a, haze_l_b, haze_t_a, haze_t_b)
+            } else {
+                (haze_l_b, haze_l_a, haze_t_b, haze_t_a)
+            };
         let clouds_trace = get(
             "clouds_trace",
             TextureFormat::Rgba16Float,
@@ -1301,7 +1311,8 @@ pub(super) fn prepare_atmosphere_textures(
                 clouds,
                 haze_inscattering,
                 haze_transmittance,
-                haze_placeholder,
+                haze_history_inscattering,
+                haze_history_transmittance,
                 clouds_depth,
                 clouds_history,
                 clouds_depth_history,
@@ -1962,13 +1973,15 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         // Only create clouds bind group for views that have VolumetricCloudLayer; otherwise use no_clouds
         // to avoid passing clouds layout to no_clouds pipeline when disabling clouds.
-        // The haze prepass writes the half-res haze textures, so its bind group carries a
-        // placeholder in their slots (a texture cannot be sampled and rendered to in one pass).
+        // The haze prepass writes this frame's half-res haze, so its bind group carries the
+        // previous frame's (its temporal history) in the haze slots.
+        let haze_params = temporal_uniform.and_then(|u| u.0.binding());
         let make_render_sky_clouds = |label: &'static str, haze_l: &TextureView, haze_t: &TextureView| {
             cloud_layer_binding
             .as_ref()
             .filter(|_| cloud_layer.is_some())
-            .map(|cloud_layer_binding| {
+            .zip(haze_params.clone())
+            .map(|(cloud_layer_binding, haze_params)| {
                 render_device.create_bind_group(
                     label,
                     &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
@@ -2015,6 +2028,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (44, &textures.cloud_field_sdf.default_view),
                         (50, haze_l),
                         (51, haze_t),
+                        (52, haze_params),
                     )),
                 )
             })
@@ -2026,8 +2040,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
         );
         let render_sky_haze = make_render_sky_clouds(
             "render_sky_haze_bind_group",
-            &textures.haze_placeholder.default_view,
-            &textures.haze_placeholder.default_view,
+            &textures.haze_history_inscattering.default_view,
+            &textures.haze_history_transmittance.default_view,
         )
         .filter(|_| *msaa == Msaa::Off);
 

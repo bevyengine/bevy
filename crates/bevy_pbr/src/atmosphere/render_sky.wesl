@@ -1,5 +1,5 @@
 import package::atmosphere::{
-    bindings::{view, settings, cloud_shadow_map, atmosphere_lut_sampler},
+    bindings::{atmosphere, view, settings, cloud_shadow_map, atmosphere_lut_sampler},
     bruneton_functions::{sample_transmittance_lut_segment, ray_intersects_ground},
     functions::{
         sample_transmittance_lut,
@@ -36,11 +36,28 @@ enable dual_source_blending;
 @group(0) @binding(27) var cloud_depth_texture: texture_2d<f32>;
 
 // Half-resolution atmosphere (haze) from the `haze` prepass: rgb = pre-exposure in-scattering;
-// rgb = transmittance, a = ray distance (km) the haze was integrated to.
+// rgb = transmittance, a = ray distance (km) the haze was integrated to. In `main` this frame's
+// haze; in the `haze` prepass the previous frame's (its temporal history).
 @if(SKY_HAZE_HALF_RES)
 @group(0) @binding(50) var haze_inscattering: texture_2d<f32>;
 @if(SKY_HAZE_HALF_RES)
 @group(0) @binding(51) var haze_transmittance: texture_2d<f32>;
+
+// Shared with clouds_reconstruct (resources.rs `CloudsTemporalParams`).
+struct CloudsTemporalParams {
+    prev_clip_from_world: mat4x4<f32>,
+    cloud_motion: vec3<f32>,
+    history_valid: u32,
+    new_sample_weight: f32,
+}
+@if(SKY_HAZE_HALF_RES)
+@group(0) @binding(52) var<uniform> haze_temporal: CloudsTemporalParams;
+
+// Weight of this frame's march in the haze history (exponential average over ~1 / w frames). The
+// march is jittered per pixel and frame (blue noise), so averaging stands in for samples.
+const HAZE_NEW_SAMPLE_WEIGHT: f32 = 0.2;
+// History is rejected where its ray length differs by more than this fraction (disocclusion).
+const HAZE_DEPTH_TOLERANCE: f32 = 0.1;
 
 // Distance used for sky pixels' haze lookups and as the depth key (km): the ray's length to the
 // ground or the top of the atmosphere.
@@ -48,7 +65,7 @@ fn sky_ray_length(r: f32, mu: f32) -> f32 {
     return max_atmosphere_distance(r, mu);
 }
 
-const HAZE_SAMPLE_SCALE: u32 = 2u;
+const HAZE_SAMPLE_SCALE: u32 = 1u;
 
 struct HazeOutput {
     @location(0) inscattering: vec4<f32>,
@@ -107,7 +124,24 @@ fn haze(in: FullscreenVertexOutput) -> HazeOutput {
             transmittance = result.transmittance;
         }
     }
-    return HazeOutput(vec4(inscattering, 0.0), vec4(transmittance, t * 0.001));
+    // Temporal accumulation: reproject the previous frame's haze at the point this ray's haze
+    // ends (scene point, or the ray's far end for the sky; rotation dominates for those) and
+    // blend, unless the history's ray length disagrees (disocclusion) or it is off screen.
+    let t_km = t * 0.001;
+    if (haze_temporal.history_valid != 0u) {
+        let p_world = (atmosphere.atmosphere_to_world * vec4(world_pos + ray_dir_ws * t, 1.0)).xyz;
+        let prev_clip = haze_temporal.prev_clip_from_world * vec4(p_world, 1.0);
+        let prev_uv = (prev_clip.xy / prev_clip.w) * vec2(0.5, -0.5) + vec2(0.5);
+        if (prev_clip.w > 0.0 && all(prev_uv >= vec2(0.0)) && all(prev_uv <= vec2(1.0))) {
+            let hist_l = textureSampleLevel(haze_inscattering, atmosphere_lut_sampler, prev_uv, 0.0).rgb;
+            let hist_t = textureSampleLevel(haze_transmittance, atmosphere_lut_sampler, prev_uv, 0.0);
+            if (abs(hist_t.a - t_km) < HAZE_DEPTH_TOLERANCE * max(t_km, 1e-3)) {
+                inscattering = mix(hist_l, inscattering, HAZE_NEW_SAMPLE_WEIGHT);
+                transmittance = mix(hist_t.rgb, transmittance, HAZE_NEW_SAMPLE_WEIGHT);
+            }
+        }
+    }
+    return HazeOutput(vec4(inscattering, 0.0), vec4(transmittance, t_km));
 }
 
 /// Joint-bilateral upsample of the half-res haze: bilinear weights times a depth-similarity
