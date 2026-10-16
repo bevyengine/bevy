@@ -2,7 +2,7 @@
 //!
 //! Environment variables (all optional; used by the cloud validation scripts):
 //! - Scene: `ATMOSPHERE_VIEW=hero|sun|up|under|backlit`, `ATMOSPHERE_CAM`, `ATMOSPHERE_SUN_ELEV_DEG`,
-//!   `ATMOSPHERE_SUNSET`, `ATMOSPHERE_TERRAIN`, `ATMOSPHERE_NO_CLOUDS`, `ATMOSPHERE_MIE_SCALE`,
+//!   `ATMOSPHERE_SUNSET`, `ATMOSPHERE_TERRAIN`, `ATMOSPHERE_NO_CLOUDS`, `ATMOSPHERE_MIE_SCALE`, `ATMOSPHERE_MIE_G`,
 //!   `ATMOSPHERE_CLOUD_PROFILE=nubis`, `ATMOSPHERE_CLOUD_LWC=<g/m3>`,
 //!   `ATMOSPHERE_LUT_MODE`.
 //! - Time: `ATMOSPHERE_CAM_STEP`, `ATMOSPHERE_FREEZE`, `ATMOSPHERE_ANIMATE`, `ATMOSPHERE_FIXED_DT`.
@@ -438,17 +438,23 @@ fn setup_camera_fog(
     // Bruneton 2017 Earth Mie is τ≈0.005 (very clear). Real continental AOD is
     // ~0.05–0.2; with τ≈0.005 the clear-sky anti-sun L/Lz is 1.5–2.3× steeper than
     // CIE S 011/E:2003 type 12 and Poly Haven HDRs (validation/sky/pref_mie_*.log).
-    // Scale the Earth Mie term only (asymmetry 0.8); leave the local haze term alone.
-    // ATMOSPHERE_MIE_SCALE=1 restores Bruneton-clear. Default 15 → τ≈0.075.
+    // Scale the Earth Mie term only; leave the local haze term alone. Default 10 → τ≈0.05
+    // (+ ~0.02 ground haze ≈ 0.07, clean continental AERONET range 0.05–0.15).
+    // ATMOSPHERE_MIE_SCALE=1 restores Bruneton-clear.
     let mie_scale: f32 = std::env::var("ATMOSPHERE_MIE_SCALE")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(15.0);
+        .unwrap_or(10.0);
+    // Mie asymmetry 0.7: continental aerosol retrievals give g ≈ 0.6-0.7 at 550 nm (AERONET,
+    // Dubovik et al. 2002); Bruneton's 0.8 over-concentrated the haze glow and shafts around the
+    // sun. `ATMOSPHERE_MIE_G=<g>` overrides it.
+    let mie_g: f32 = std::env::var("ATMOSPHERE_MIE_G").ok().and_then(|s| s.parse().ok()).unwrap_or(0.7);
     for term in &mut medium.terms {
         if let PhaseFunction::Mie { asymmetry } = term.phase {
             if (asymmetry - 0.8).abs() < 0.01 {
                 term.scattering *= mie_scale;
                 term.absorption *= mie_scale;
+                term.phase = PhaseFunction::Mie { asymmetry: mie_g };
             }
         }
     }
