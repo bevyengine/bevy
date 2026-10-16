@@ -502,13 +502,7 @@ fn write_opaque(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        dynamic::{
-            DynamicArray, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple, DynamicTupleStruct,
-            DynamicValue,
-        },
-        Reflect,
-    };
+    use crate::Reflect;
     use alloc::{
         collections::BTreeMap,
         format,
@@ -977,91 +971,6 @@ bevy_reflect::display::tests::MyEnum::Struct {
   },
 }";
         assert_eq!(format!("{}", &map as &dyn PartialReflect), expected);
-    }
-
-    #[test]
-    fn map_with_struct_key() {
-        let mut map = DynamicMap::default();
-        map.insert(
-            Inner {
-                a: 1,
-                b: "key".to_string(),
-            },
-            "value".to_string(),
-        );
-        assert_eq!(
-            format!("{}", &map as &dyn PartialReflect),
-            "{\n  bevy_reflect::display::tests::Inner {\n    a: 1,\n    b: \"key\",\n  }: \"value\",\n}"
-        );
-    }
-
-    #[test]
-    fn array_of_scalars() {
-        let array = DynamicArray::new(
-            vec![
-                DynamicValue::from(1u32),
-                DynamicValue::from(2u32),
-                DynamicValue::from(3u32),
-            ]
-            .into_boxed_slice(),
-        );
-        assert_eq!(
-            format!("{}", &array as &dyn PartialReflect),
-            "[\n  1,\n  2,\n  3,\n]"
-        );
-    }
-
-    #[test]
-    fn set_with_one_element() {
-        let mut set = DynamicSet::default();
-        set.insert(42u32);
-        assert_eq!(format!("{}", &set as &dyn PartialReflect), "{\n  42,\n}");
-    }
-
-    #[test]
-    fn set_with_struct_element() {
-        let mut set = DynamicSet::default();
-        set.insert(Inner {
-            a: 10,
-            b: "x".to_string(),
-        });
-        assert_eq!(
-            format!("{}", &set as &dyn PartialReflect),
-            "{\n  bevy_reflect::display::tests::Inner {\n    a: 10,\n    b: \"x\",\n  },\n}"
-        );
-    }
-
-    #[test]
-    fn dynamic_struct_fallback_name() {
-        let mut dyn_struct = DynamicStruct::default();
-        dyn_struct.insert("x", 1u32);
-        dyn_struct.insert("y", 2u32);
-        assert_eq!(
-            format!("{}", &dyn_struct as &dyn PartialReflect),
-            "<Unknown Struct> {\n  x: 1,\n  y: 2,\n}"
-        );
-    }
-
-    #[test]
-    fn dynamic_tuple_displays() {
-        let mut dyn_tuple = DynamicTuple::default();
-        dyn_tuple.insert(42u32);
-        dyn_tuple.insert("hi".to_string());
-        assert_eq!(
-            format!("{}", &dyn_tuple as &dyn PartialReflect),
-            "(\n  42,\n  \"hi\",\n)"
-        );
-    }
-
-    #[test]
-    fn dynamic_tuple_struct_fallback_name() {
-        let mut dyn_tuple_struct = DynamicTupleStruct::default();
-        dyn_tuple_struct.insert(42u32);
-        dyn_tuple_struct.insert("hi".to_string());
-        assert_eq!(
-            format!("{}", &dyn_tuple_struct as &dyn PartialReflect),
-            "<Unknown TupleStruct>(\n  42,\n  \"hi\",\n)"
-        );
     }
 
     #[test]

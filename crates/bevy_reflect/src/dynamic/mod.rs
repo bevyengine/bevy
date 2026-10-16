@@ -105,6 +105,29 @@ impl DynamicValue {
         })
     }
 
+    /// Apply the values in `self` to the provided `reflect` using reflection.
+    ///
+    /// If this function fails, the `reflect` may be partially mutated.
+    pub fn try_apply(self, reflect: &mut dyn Reflect) -> Result<(), ApplyError> {
+        match self {
+            Self::Struct(value) => value.try_apply(reflect.reflect_mut().as_struct()?),
+            Self::TupleStruct(value) => value.try_apply(reflect.reflect_mut().as_tuple_struct()?),
+            Self::Tuple(value) => value.try_apply(reflect.reflect_mut().as_tuple()?),
+            Self::List(value) => value.try_apply(reflect.reflect_mut().as_list()?),
+            Self::Array(value) => value.try_apply(reflect.reflect_mut().as_array()?),
+            Self::Map(value) => value.try_apply(reflect.reflect_mut().as_map()?),
+            Self::Set(value) => value.try_apply(reflect.reflect_mut().as_set()?),
+            Self::Enum(value) => value.try_apply(reflect.reflect_mut().as_enum()?),
+            Self::Concrete(value) => {
+                let value_type = value.reflect_type_info().type_path();
+                reflect.set(value).map_err(|_| ApplyError::MismatchedTypes {
+                    from_type: value_type.into(),
+                    to_type: reflect.reflect_type_path().into(),
+                })
+            }
+        }
+    }
+
     /// Attempts to take a concrete value of type `T` out of this possibly-dynamic value.
     ///
     /// Returns [`Self`] if this is a dynamic representation of a value, or if the stored concrete
@@ -1339,6 +1362,10 @@ impl List for DynamicValueWrapper {
             .map(DynamicValue::as_partial_reflect_mut)
     }
 
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+        Some(dynamic.as_boxed_partial_reflect())
+    }
+
     fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>) {
         // TODO: Don't unwrap here.
         self.as_list_mut()
@@ -1433,6 +1460,14 @@ impl Array for DynamicValueWrapper {
 }
 
 impl Map for DynamicValueWrapper {
+    fn key_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+        Some(dynamic.as_boxed_partial_reflect())
+    }
+
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+        Some(dynamic.as_boxed_partial_reflect())
+    }
+
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
         // TODO: Don't unwrap here.
         self.as_map()
@@ -1499,6 +1534,10 @@ impl Map for DynamicValueWrapper {
 }
 
 impl Set for DynamicValueWrapper {
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+        Some(dynamic.as_boxed_partial_reflect())
+    }
+
     fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
         // TODO: Don't unwrap here.
         let value = DynamicValue::try_from_reflect(value).unwrap();
@@ -1552,6 +1591,11 @@ impl Set for DynamicValueWrapper {
 }
 
 impl Enum for DynamicValueWrapper {
+    fn set_from_dynamic(&mut self, dynamic: DynamicEnum) -> Result<(), ApplyError> {
+        self.0 = DynamicValue::Enum(dynamic);
+        Ok(())
+    }
+
     fn field(&self, name: &str) -> Option<&dyn PartialReflect> {
         self.as_enum()
             .field(name)
@@ -1648,6 +1692,23 @@ impl DynamicStruct {
             field_names,
             field_indices,
         })
+    }
+
+    /// Apply the values in `self` to the provided `reflect` using reflection.
+    ///
+    /// If this function fails, the `reflect` may be partially mutated.
+    pub fn try_apply(self, reflect: &mut dyn Struct) -> Result<(), ApplyError> {
+        for (name, value) in self.field_names.into_iter().zip(self.fields.into_iter()) {
+            let Some(field) = reflect.field_mut(&name) else {
+                // TODO: Should this be an error?
+                continue;
+            };
+            // This unwrap should be safe since the original value was `Reflect`, so all of
+            // its fields should also be `Reflect`.
+            let field = field.try_as_reflect_mut().unwrap();
+            value.try_apply(field)?;
+        }
+        Ok(())
     }
 
     /// Attempts to clone this value's data.
@@ -1909,6 +1970,23 @@ impl DynamicTupleStruct {
         })
     }
 
+    /// Apply the values in `self` to the provided `reflect` using reflection.
+    ///
+    /// If this function fails, the `reflect` may be partially mutated.
+    pub fn try_apply(self, reflect: &mut dyn TupleStruct) -> Result<(), ApplyError> {
+        for (index, value) in self.fields.into_iter().enumerate() {
+            let Some(field) = reflect.field_mut(index) else {
+                // TODO: Should this be an error?
+                continue;
+            };
+            // This unwrap should be safe since the original value was `Reflect`, so all of
+            // its fields should also be `Reflect`.
+            let field = field.try_as_reflect_mut().unwrap();
+            value.try_apply(field)?;
+        }
+        Ok(())
+    }
+
     /// Attempts to clone this value's data.
     ///
     /// May fail if an opaque value cannot be cloned.
@@ -2052,6 +2130,23 @@ impl DynamicTuple {
         })
     }
 
+    /// Apply the values in `self` to the provided `reflect` using reflection.
+    ///
+    /// If this function fails, the `reflect` may be partially mutated.
+    pub fn try_apply(self, reflect: &mut dyn Tuple) -> Result<(), ApplyError> {
+        for (index, value) in self.fields.into_iter().enumerate() {
+            let Some(field) = reflect.field_mut(index) else {
+                // TODO: Should this be an error?
+                continue;
+            };
+            // This unwrap should be safe since the original value was `Reflect`, so all of
+            // its fields should also be `Reflect`.
+            let field = field.try_as_reflect_mut().unwrap();
+            value.try_apply(field)?;
+        }
+        Ok(())
+    }
+
     /// Attempts to clone this value's data.
     ///
     /// May fail if an opaque value cannot be cloned.
@@ -2184,6 +2279,31 @@ impl DynamicList {
             represented_type,
             values,
         })
+    }
+
+    /// Apply the values in `self` to the provided `reflect` using reflection.
+    ///
+    /// If this function fails, the `reflect` may be partially mutated.
+    pub fn try_apply(self, reflect: &mut dyn List) -> Result<(), ApplyError> {
+        for (index, value) in self.values.into_iter().enumerate() {
+            if index < reflect.len() {
+                let Some(reflect_value) = reflect.get_mut(index) else {
+                    // TODO: This should be an error. Their list impl is bad.
+                    continue;
+                };
+                // This unwrap should be safe since the original value was `Reflect`, so all of
+                // its fields should also be `Reflect`.
+                let reflect_value = reflect_value.try_as_reflect_mut().unwrap();
+                value.try_apply(reflect_value)?;
+            } else {
+                let value = match reflect.value_from_dynamic(value) {
+                    None => return Err(ApplyError::InvalidDynamicValueForCollection),
+                    Some(value) => value,
+                };
+                reflect.push(value);
+            }
+        }
+        Ok(())
     }
 
     /// Attempts to clone this value's data.
@@ -2353,6 +2473,26 @@ impl DynamicArray {
         })
     }
 
+    /// Apply the values in `self` to the provided `reflect` using reflection.
+    ///
+    /// If this function fails, the `reflect` may be partially mutated.
+    pub fn try_apply(self, reflect: &mut dyn Array) -> Result<(), ApplyError> {
+        if self.len() != reflect.len() {
+            return Err(ApplyError::DifferentSize {
+                from_size: self.len(),
+                to_size: reflect.len(),
+            });
+        }
+        for (index, value) in self.values.into_iter().enumerate() {
+            let reflect_value = reflect.get_mut(index).unwrap();
+            // This unwrap should be safe since the original value was `Reflect`, so all of
+            // its values should also be `Reflect`.
+            let reflect_value = reflect_value.try_as_reflect_mut().unwrap();
+            value.try_apply(reflect_value)?;
+        }
+        Ok(())
+    }
+
     /// Attempts to clone this value's data.
     ///
     /// May fail if an opaque value cannot be cloned.
@@ -2507,6 +2647,47 @@ impl DynamicMap {
                 ))
             }))?,
         })
+    }
+
+    /// Apply the values in `self` to the provided `reflect` using reflection.
+    ///
+    /// If this function fails, the `reflect` may be partially mutated.
+    pub fn try_apply(mut self, reflect: &mut dyn Map) -> Result<(), ApplyError> {
+        let mut result = Ok(());
+        reflect.retain(&mut |k, v| {
+            if result.is_err() {
+                return true;
+            }
+            let k = k.try_as_reflect().unwrap();
+            let v = v.try_as_reflect_mut().unwrap();
+            let k_ref = DynamicValueRef::Concrete(k);
+            let hash = DynamicMap::internal_hash(k_ref);
+            let eq = DynamicMap::internal_eq(k_ref);
+            match self.hash_table.find_entry(hash, eq) {
+                Ok(entry) => {
+                    let dynamic_value = entry.remove().0 .1;
+                    result = dynamic_value.try_apply(v);
+                    true
+                }
+                Err(_) => false,
+            }
+        });
+        result?;
+
+        for (key, value) in self.hash_table.into_iter() {
+            let Some(key) = reflect.key_from_dynamic(key) else {
+                return Err(ApplyError::InvalidDynamicValueForCollection);
+            };
+            let Some(value) = reflect.value_from_dynamic(value) else {
+                return Err(ApplyError::InvalidDynamicValueForCollection);
+            };
+            reflect.insert_boxed(
+                key.try_into_reflect().unwrap(),
+                value.try_into_reflect().unwrap(),
+            );
+        }
+
+        Ok(())
     }
 
     /// Attempts to clone this value's data.
@@ -2746,6 +2927,33 @@ impl DynamicSet {
         })
     }
 
+    /// Apply the values in `self` to the provided `reflect` using reflection.
+    ///
+    /// If this function fails, the `reflect` may be partially mutated.
+    pub fn try_apply(mut self, reflect: &mut dyn Set) -> Result<(), ApplyError> {
+        reflect.retain(&mut |reflect_value| {
+            let reflect_value = reflect_value.try_as_reflect().unwrap();
+            let reflect_value_ref = DynamicValueRef::Concrete(reflect_value);
+            let hash = DynamicSet::internal_hash(reflect_value_ref);
+            let eq = DynamicSet::internal_eq(reflect_value_ref);
+            match self.hash_table.find_entry(hash, eq) {
+                Ok(entry) => {
+                    entry.remove();
+                    true
+                }
+                Err(_) => false,
+            }
+        });
+
+        for value in self.hash_table.into_iter() {
+            let Some(value) = reflect.value_from_dynamic(value) else {
+                return Err(ApplyError::InvalidDynamicValueForCollection);
+            };
+            reflect.insert_boxed(value.try_into_reflect().unwrap());
+        }
+        Ok(())
+    }
+
     /// Attempts to clone this value's data.
     ///
     /// May fail if an opaque value cannot be cloned.
@@ -2960,6 +3168,7 @@ fn hash_error(value: DynamicValueRef<'_>) -> ! {
 mod tests {
     use super::*;
     use alloc::borrow::ToOwned;
+    use bevy_platform::collections::HashSet;
 
     #[derive(Reflect, Default)]
     struct MyStruct {
@@ -3143,20 +3352,41 @@ mod tests {
         map.insert(0, 0);
         map.insert(1, 1);
 
-        assert_eq!(map.remove(&0).unwrap().try_downcast_ref(), Some(&0));
-        assert!(map.get(&0).is_none());
-        assert_eq!(map.get(&1).unwrap().try_downcast_ref(), Some(&1));
+        assert_eq!(
+            map.remove((&0).into())
+                .unwrap()
+                .as_concrete()
+                .unwrap()
+                .downcast_ref(),
+            Some(&0)
+        );
+        assert!(map.get((&0).into()).is_none());
+        assert_eq!(
+            map.get((&1).into())
+                .unwrap()
+                .as_concrete()
+                .unwrap()
+                .downcast_ref(),
+            Some(&1)
+        );
 
-        assert_eq!(map.remove(&1).unwrap().try_downcast_ref(), Some(&1));
-        assert!(map.get(&1).is_none());
+        assert_eq!(
+            map.remove((&1).into())
+                .unwrap()
+                .as_concrete()
+                .unwrap()
+                .downcast_ref(),
+            Some(&1)
+        );
+        assert!(map.get((&1).into()).is_none());
 
-        assert!(map.remove(&1).is_none());
-        assert!(map.get(&1).is_none());
+        assert!(map.remove((&1).into()).is_none());
+        assert!(map.get((&1).into()).is_none());
     }
 
     #[test]
     fn map_apply() {
-        let mut map_a = DynamicMap::default();
+        let mut map_a = HashMap::new();
         map_a.insert(0, 0);
         map_a.insert(1, 1);
 
@@ -3164,11 +3394,11 @@ mod tests {
         map_b.insert(10, 10);
         map_b.insert(1, 5);
 
-        map_a.apply(&map_b);
+        map_b.try_apply(&mut map_a).unwrap();
 
         assert!(map_a.get(&0).is_none());
-        assert_eq!(map_a.get(&1).unwrap().try_downcast_ref(), Some(&5));
-        assert_eq!(map_a.get(&10).unwrap().try_downcast_ref(), Some(&10));
+        assert_eq!(map_a.get(&1), Some(&5));
+        assert_eq!(map_a.get(&10), Some(&10));
     }
 
     #[test]
@@ -3195,7 +3425,7 @@ mod tests {
 
     #[test]
     fn set_apply() {
-        let mut map_a = DynamicSet::default();
+        let mut map_a = HashSet::new();
         map_a.insert(0);
         map_a.insert(1);
 
@@ -3203,10 +3433,10 @@ mod tests {
         map_b.insert(1);
         map_b.insert(2);
 
-        map_a.apply(&map_b);
+        map_b.try_apply(&mut map_a).unwrap();
 
         assert!(map_a.get(&0).is_none());
-        assert_eq!(map_a.get(&1).unwrap().try_downcast_ref(), Some(&1));
-        assert_eq!(map_a.get(&2).unwrap().try_downcast_ref(), Some(&2));
+        assert_eq!(map_a.get(&1), Some(&1));
+        assert_eq!(map_a.get(&2), Some(&2));
     }
 }

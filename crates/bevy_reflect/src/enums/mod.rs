@@ -92,13 +92,13 @@ mod tests {
         // === Unit === //
         let mut value = MyEnum::A;
         let dyn_enum = DynamicEnum::try_from(MyEnum::A).unwrap();
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(MyEnum::A, value);
 
         // === Tuple === //
         let mut value = MyEnum::B(0, 0);
         let dyn_enum = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(MyEnum::B(123, 321), value);
 
         // === Struct === //
@@ -111,7 +111,7 @@ mod tests {
             bar: true,
         })
         .unwrap();
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(
             MyEnum::C {
                 foo: 1.23,
@@ -131,7 +131,7 @@ mod tests {
 
         let mut dyn_enum = DynamicEnum::default();
         dyn_enum.set_variant("B", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(MyEnum::B(123, 0), value);
 
         // === Struct === //
@@ -145,7 +145,7 @@ mod tests {
 
         let mut dyn_enum = DynamicEnum::default();
         dyn_enum.set_variant("C", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(
             MyEnum::C {
                 foo: 1.23,
@@ -156,33 +156,16 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_enum_should_apply_dynamic_enum() {
-        let mut a = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
-        let b = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
-
-        // Sanity check that equality check works
-        assert!(
-            a.reflect_partial_eq(&b).unwrap_or_default(),
-            "dynamic enums should be equal"
-        );
-
-        a.set_variant("A", ());
-        assert!(
-            !a.reflect_partial_eq(&b).unwrap_or_default(),
-            "dynamic enums should not be equal"
-        );
-
-        a.apply(&b);
-        assert!(a.reflect_partial_eq(&b).unwrap_or_default());
-    }
-
-    #[test]
     fn dynamic_enum_should_change_variant() {
         let mut value = MyEnum::A;
 
         // === MyEnum::A -> MyEnum::B === //
         let mut dyn_enum = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
-        value.apply(&dyn_enum);
+        dyn_enum
+            .dynamic_clone()
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert_eq!(MyEnum::B(123, 321), value);
 
         // === MyEnum::B -> MyEnum::C === //
@@ -190,7 +173,11 @@ mod tests {
         data.insert("foo", 1.23_f32);
         data.insert("bar", true);
         dyn_enum.set_variant("C", data);
-        value.apply(&dyn_enum);
+        dyn_enum
+            .dynamic_clone()
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert_eq!(
             MyEnum::C {
                 foo: 1.23,
@@ -204,19 +191,21 @@ mod tests {
         data.insert(123_usize);
         data.insert(321_i32);
         dyn_enum.set_variant("B", data);
-        value.apply(&dyn_enum);
+        dyn_enum
+            .dynamic_clone()
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert_eq!(MyEnum::B(123, 321), value);
 
         // === MyEnum::B -> MyEnum::A === //
         dyn_enum.set_variant("A", ());
-        value.apply(&dyn_enum);
+        dyn_enum
+            .dynamic_clone()
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert_eq!(MyEnum::A, value);
-    }
-
-    #[test]
-    fn dynamic_enum_should_return_is_dynamic() {
-        let dyn_enum = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
-        assert!(dyn_enum.is_dynamic());
     }
 
     #[test]
@@ -309,14 +298,13 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "called `Result::unwrap()` on an `Err` value: MismatchedKinds { from_kind: Tuple, to_kind: Enum }"
-    )]
     fn applying_non_enum_should_panic() {
         let mut value = MyEnum::B(0, 0);
         let mut dyn_tuple = DynamicTuple::default();
         dyn_tuple.insert((123_usize, 321_i32));
-        value.apply(&dyn_tuple);
+        assert!(DynamicValue::Tuple(dyn_tuple)
+            .try_apply(&mut value)
+            .is_err());
     }
 
     #[test]
@@ -411,14 +399,14 @@ mod tests {
         let mut data = DynamicTuple::default();
         data.insert(1.23_f32);
         let dyn_enum = DynamicEnum::new("B", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(TestEnum::B(1.23), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", 1.23_f32);
         let dyn_enum = DynamicEnum::new("C", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(TestEnum::C { value: 1.23 }, value);
     }
 
@@ -440,14 +428,14 @@ mod tests {
         let mut data = DynamicTuple::default();
         data.insert(TestStruct(123));
         let dyn_enum = DynamicEnum::new("B", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(TestEnum::B(TestStruct(123)), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", TestStruct(123));
         let dyn_enum = DynamicEnum::new("C", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(
             TestEnum::C {
                 value: TestStruct(123)
@@ -478,14 +466,14 @@ mod tests {
         let mut data = DynamicTuple::default();
         data.insert(OtherEnum::B(123));
         let dyn_enum = DynamicEnum::new("B", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(TestEnum::B(OtherEnum::B(123)), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", OtherEnum::C { value: 1.23 });
         let dyn_enum = DynamicEnum::new("C", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(
             TestEnum::C {
                 value: OtherEnum::C { value: 1.23 }

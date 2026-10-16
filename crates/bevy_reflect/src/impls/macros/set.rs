@@ -6,6 +6,12 @@ macro_rules! impl_reflect_for_hashset {
                 V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
+                fn value_from_dynamic(&self, dynamic: $crate::dynamic::DynamicValue) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
+                    V::take_from_reflect(dynamic.as_boxed_partial_reflect())
+                        .ok()
+                        .map(|value| bevy_platform::prelude::Box::new(value) as _)
+                }
+
                 fn get(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<&dyn $crate::reflect::PartialReflect> {
                     value
                         .try_downcast_ref::<V>()

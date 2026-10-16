@@ -36,12 +36,12 @@ mod tests {
     use bevy_platform::collections::{HashMap, HashSet};
 
     use crate::{
-        dynamic::{DynamicEnum, DynamicValue},
+        dynamic::{DynamicEnum, DynamicValue, DynamicValueRef},
         serde::{
             ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
             TypedReflectDeserializer,
         },
-        FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistration, TypeRegistry,
+        FromReflect, Reflect, ReflectDeserialize, TypeRegistration, TypeRegistry,
     };
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -451,9 +451,9 @@ mod tests {
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         let expected = DynamicEnum::try_from(MyEnum::Unit).unwrap();
-        assert!(expected
-            .reflect_partial_eq(output.as_partial_reflect())
-            .unwrap());
+        assert!(
+            DynamicValueRef::dynamic_partial_eq(&From::from(&expected), output.as_ref()).unwrap()
+        );
 
         // === NewType Variant === //
         let input = r#"{
@@ -464,9 +464,9 @@ mod tests {
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         let expected = DynamicEnum::try_from(MyEnum::NewType(123)).unwrap();
-        assert!(expected
-            .reflect_partial_eq(output.as_partial_reflect())
-            .unwrap());
+        assert!(
+            DynamicValueRef::dynamic_partial_eq(&From::from(&expected), output.as_ref()).unwrap()
+        );
 
         // === Tuple Variant === //
         let input = r#"{
@@ -477,9 +477,9 @@ mod tests {
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         let expected = DynamicEnum::try_from(MyEnum::Tuple(1.23, 3.21)).unwrap();
-        assert!(expected
-            .reflect_partial_eq(output.as_partial_reflect())
-            .unwrap());
+        assert!(
+            DynamicValueRef::dynamic_partial_eq(&From::from(&expected), output.as_ref()).unwrap()
+        );
 
         // === Struct Variant === //
         let input = r#"{
@@ -495,9 +495,9 @@ mod tests {
             value: String::from("I <3 Enums"),
         })
         .unwrap();
-        assert!(expected
-            .reflect_partial_eq(output.as_partial_reflect())
-            .unwrap());
+        assert!(
+            DynamicValueRef::dynamic_partial_eq(&From::from(&expected), output.as_ref()).unwrap()
+        );
     }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/12462

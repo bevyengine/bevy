@@ -49,6 +49,9 @@ use crate::{
 // Prevents unexpectedly importing this trait when trying to call, for example, `HashSet::iter`
 #[rust_analyzer::completions(ignore_flyimport_methods)]
 pub trait Set: PartialReflect {
+    /// Constructs a value for this set from a dynamic value representation.
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>>;
+
     /// Returns a reference to the value.
     ///
     /// If no value is contained, returns `None`.
@@ -160,8 +163,9 @@ impl SetLike for DynamicSet {
 }
 
 impl SetLike for dyn Set {
-    fn get(&self, _value: DynamicValueRef<'_>) -> Option<DynamicValueRef<'_>> {
-        todo!()
+    fn get(&self, value: DynamicValueRef<'_>) -> Option<DynamicValueRef<'_>> {
+        self.get(value.as_concrete()?)
+            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
     }
 
     fn len(&self) -> usize {

@@ -1,4 +1,6 @@
+use crate::dynamic::DynamicEnum;
 use crate::generics::impl_generic_info_methods;
+use crate::ApplyError;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     enums::{VariantInfo, VariantType},
@@ -94,6 +96,13 @@ use core::slice::Iter;
 /// [`Some`]: Option<T>::Some
 /// [`Reflect`]: bevy_reflect_derive::Reflect
 pub trait Enum: PartialReflect {
+    /// Sets this value to one constructed from `dynamic`.
+    ///
+    /// This is equivalent to calling [`FromReflect`] and then assigning this value, but all
+    /// dynamically.
+    ///
+    /// [`FromReflect`]: crate::FromReflect
+    fn set_from_dynamic(&mut self, dynamic: DynamicEnum) -> Result<(), ApplyError>;
     /// Returns a reference to the value of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.

@@ -64,6 +64,9 @@ pub trait List: PartialReflect {
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
 
+    /// Constructs a value for this list from a dynamic value representation.
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>>;
+
     /// Inserts an element at position `index` within the list,
     /// shifting all elements after it towards the back of the list.
     ///

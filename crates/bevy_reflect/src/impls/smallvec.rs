@@ -1,4 +1,5 @@
 use crate::{
+    dynamic::DynamicValue,
     list::{List, ListInfo, ListIter},
     utility::GenericTypeInfoCell,
     ApplyError, FromReflect, Generics, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect,
@@ -29,6 +30,12 @@ where
         } else {
             None
         }
+    }
+
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+        T::Item::take_from_reflect(dynamic.as_boxed_partial_reflect())
+            .ok()
+            .map(|value| Box::new(value) as _)
     }
 
     fn insert(&mut self, index: usize, value: Box<dyn PartialReflect>) {

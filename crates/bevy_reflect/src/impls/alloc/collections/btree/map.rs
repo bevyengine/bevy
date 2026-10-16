@@ -1,4 +1,5 @@
 use crate::{
+    dynamic::DynamicValue,
     error::ReflectCloneError,
     generics::{Generics, TypeParamInfo},
     info::{MaybeTyped, TypeInfo, Typed},
@@ -18,6 +19,18 @@ where
     K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
     V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
+    fn key_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+        K::take_from_reflect(dynamic.as_boxed_partial_reflect())
+            .ok()
+            .map(|value| Box::new(value) as _)
+    }
+
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+        V::take_from_reflect(dynamic.as_boxed_partial_reflect())
+            .ok()
+            .map(|value| Box::new(value) as _)
+    }
+
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
         key.try_downcast_ref::<K>()
             .and_then(|key| Self::get(self, key))

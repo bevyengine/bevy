@@ -7,6 +7,18 @@ macro_rules! impl_reflect_for_hashmap {
                 V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
+                fn key_from_dynamic(&self, dynamic: $crate::dynamic::DynamicValue) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
+                    K::take_from_reflect(dynamic.as_boxed_partial_reflect())
+                        .ok()
+                        .map(|value| bevy_platform::prelude::Box::new(value) as _)
+                }
+
+                fn value_from_dynamic(&self, dynamic: $crate::dynamic::DynamicValue) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
+                    V::take_from_reflect(dynamic.as_boxed_partial_reflect())
+                        .ok()
+                        .map(|value| bevy_platform::prelude::Box::new(value) as _)
+                }
+
                 fn get(&self, key: &dyn $crate::reflect::PartialReflect) -> Option<&dyn $crate::reflect::PartialReflect> {
                     key.try_downcast_ref::<K>()
                         .and_then(|key| Self::get(self, key))

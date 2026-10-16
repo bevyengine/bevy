@@ -1,8 +1,14 @@
 use crate::{
-    array::array_debug, enums::enum_debug, list::list_debug, map::map_debug, set::set_debug,
-    structs::struct_debug, tuple::tuple_debug, tuple_struct::tuple_struct_debug, DynamicTypePath,
-    DynamicTyped, OpaqueInfo, ReflectCloneError, ReflectKind, ReflectKindMismatchError, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
+    array::array_debug,
+    enums::{enum_debug, VariantType},
+    list::list_debug,
+    map::map_debug,
+    set::set_debug,
+    structs::struct_debug,
+    tuple::tuple_debug,
+    tuple_struct::tuple_struct_debug,
+    DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectCloneError, ReflectKind,
+    ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -37,6 +43,19 @@ pub enum ApplyError {
         /// Name of the enum variant.
         variant_name: Box<str>,
     },
+
+    #[error("attempted to apply enum variant type {from_type:?} to {to_type:?}")]
+    /// Attempted to apply the wrong enum [`VariantType`].
+    WrongEnumVariantType {
+        /// Type of the enum variant we attempted to apply.
+        from_type: VariantType,
+        /// Type of the enum variant we attempted to apply the value to.
+        to_type: VariantType,
+    },
+
+    #[error("failed to convert dynamic value into concrete value for list/map/set")]
+    /// Failed to construct a concrete value for a list/map/set from its dynamic representation.
+    InvalidDynamicValueForCollection,
 
     #[error("`{from_type}` is not `{to_type}`")]
     /// Tried to apply incompatible types.

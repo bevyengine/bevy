@@ -1,4 +1,5 @@
 use crate::{
+    dynamic::DynamicValue,
     error::ReflectCloneError,
     info::{MaybeTyped, OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
@@ -152,6 +153,12 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
         self.to_mut()
             .get_mut(index)
             .map(|x| x as &mut dyn PartialReflect)
+    }
+
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+        T::take_from_reflect(dynamic.as_boxed_partial_reflect())
+            .ok()
+            .map(|value| Box::new(value) as _)
     }
 
     fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>) {

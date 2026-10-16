@@ -248,6 +248,53 @@ impl DynamicEnum {
         Ok(dyn_enum)
     }
 
+    /// Apply the values in `self` to the provided `reflect` using reflection.
+    ///
+    /// If this function fails, the `reflect` may be partially mutated.
+    pub fn try_apply(self, reflect: &mut dyn Enum) -> Result<(), ApplyError> {
+        if self.variant_name != reflect.variant_name() {
+            // New variant -> perform a switch.
+            return reflect.set_from_dynamic(self);
+        }
+
+        if self.variant_type() != reflect.variant_type() {
+            return Err(ApplyError::WrongEnumVariantType {
+                from_type: self.variant_type(),
+                to_type: reflect.variant_type(),
+            });
+        }
+
+        // Same variant -> just update fields
+        match self.variant {
+            DynamicVariant::Unit => {}
+            DynamicVariant::Struct(value) => {
+                for (name, value) in value.field_names.into_iter().zip(value.fields.into_iter()) {
+                    let Some(field) = reflect.field_mut(&name) else {
+                        // TODO: Should this be an error?
+                        continue;
+                    };
+                    // This unwrap should be safe since the original value was `Reflect`, so all of
+                    // its fields should also be `Reflect`.
+                    let field = field.try_as_reflect_mut().unwrap();
+                    value.try_apply(field)?;
+                }
+            }
+            DynamicVariant::Tuple(value) => {
+                for (index, value) in value.fields.into_iter().enumerate() {
+                    let Some(field) = reflect.field_at_mut(index) else {
+                        // TODO: Should this be an error?
+                        continue;
+                    };
+                    // This unwrap should be safe since the original value was `Reflect`, so all of
+                    // its fields should also be `Reflect`.
+                    let field = field.try_as_reflect_mut().unwrap();
+                    value.try_apply(field)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Attempts to clone this value's data.
     ///
     /// May fail if an opaque value cannot be cloned.

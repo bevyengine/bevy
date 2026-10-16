@@ -1,4 +1,5 @@
 use crate::{
+    dynamic::DynamicValue,
     set::{Set, SetInfo},
     utility::GenericTypeInfoCell,
     FromReflect, Generics, GetTypeRegistration, PartialReflect, Reflect, ReflectCloneError,
@@ -20,6 +21,18 @@ where
     V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
+    fn key_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+        K::take_from_reflect(dynamic.as_boxed_partial_reflect())
+            .ok()
+            .map(|value| Box::new(value) as _)
+    }
+
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+        V::take_from_reflect(dynamic.as_boxed_partial_reflect())
+            .ok()
+            .map(|value| Box::new(value) as _)
+    }
+
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
         key.try_downcast_ref::<K>()
             .and_then(|key| Self::get(self, key))
@@ -269,6 +282,12 @@ where
     T: Reflect + FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+        T::take_from_reflect(dynamic.as_boxed_partial_reflect())
+            .ok()
+            .map(|value| Box::new(value) as _)
+    }
+
     fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
         value
             .try_downcast_ref::<T>()

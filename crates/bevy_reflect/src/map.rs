@@ -53,6 +53,12 @@ use alloc::{boxed::Box, vec::Vec};
 // Prevents unexpectedly importing this trait when trying to call, for example, `HashMap::get`
 #[rust_analyzer::completions(ignore_flyimport_methods)]
 pub trait Map: PartialReflect {
+    /// Constructs a key for this map from a dynamic value representation.
+    fn key_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>>;
+
+    /// Constructs a value for this map from a dynamic value representation.
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>>;
+
     /// Returns a reference to the value associated with the given key.
     ///
     /// If no value is associated with `key`, returns `None`.
@@ -208,9 +214,9 @@ impl MapLike for DynamicMap {
 }
 
 impl MapLike for dyn Map {
-    fn get(&self, _key: DynamicValueRef<'_>) -> Option<DynamicValueRef<'_>> {
-        // This is broken until Map can figure out what it's keyed by.
-        todo!()
+    fn get(&self, key: DynamicValueRef<'_>) -> Option<DynamicValueRef<'_>> {
+        self.get(key.as_concrete()?)
+            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
     }
 
     fn len(&self) -> usize {

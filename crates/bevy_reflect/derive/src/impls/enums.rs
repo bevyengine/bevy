@@ -25,6 +25,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         quote!(self)
     };
 
+    let dynamic_name = Ident::new("__dynamic_param", Span::call_site());
     let ref_name = Ident::new("__name_param", Span::call_site());
     let ref_index = Ident::new("__index_param", Span::call_site());
     let ref_value = Ident::new("__value_param", Span::call_site());
@@ -87,6 +88,22 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         #auto_register
 
         impl #impl_generics #bevy_reflect_path::enums::Enum for #enum_path #ty_generics #where_reflect_clause {
+            fn set_from_dynamic(&mut self, #dynamic_name: #bevy_reflect_path::dynamic::DynamicEnum) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
+                let #dynamic_name = #bevy_reflect_path::dynamic::DynamicValue::Enum(#dynamic_name);
+                *self = match <Self as #bevy_reflect_path::FromReflect>::from_reflect(#dynamic_name.as_partial_reflect()) {
+                    Some(#ref_value) => #ref_value,
+                    None => return #FQResult::Err(
+                        #bevy_reflect_path::ApplyError::InvalidEnumVariant {
+                            variant_name: match #dynamic_name {
+                                #bevy_reflect_path::dynamic::DynamicValue::Enum(#dynamic_name) => #FQInto::into(#dynamic_name.variant_name()),
+                                _ => ::core::unreachable!(),
+                            },
+                        }
+                    ),
+                };
+                #FQResult::Ok(())
+            }
+
             fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
                  match #match_this {
                     #(#enum_field,)*

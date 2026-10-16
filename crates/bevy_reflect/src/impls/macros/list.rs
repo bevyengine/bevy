@@ -12,6 +12,12 @@ macro_rules! impl_reflect_for_veclike {
                     <$sub>::get_mut(self, index).map(|value| value as &mut dyn $crate::reflect::PartialReflect)
                 }
 
+                fn value_from_dynamic(&self, dynamic: $crate::dynamic::DynamicValue) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
+                    T::take_from_reflect(dynamic.as_boxed_partial_reflect())
+                        .ok()
+                        .map(|value| bevy_platform::prelude::Box::new(value) as _)
+                }
+
                 fn insert(&mut self, index: usize, value: bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>) {
                     let value = value.try_take::<T>().unwrap_or_else(|value| {
                         T::from_reflect(&*value).unwrap_or_else(|| {
