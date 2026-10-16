@@ -77,6 +77,18 @@ const CLOUD_MAX_STEPS_IN_LAYER: f32 = 1024.0;
 const CLOUD_STEP_NEAR_M: f32 = 40.0;
 const CLOUD_STEP_FAR_OFFSET_M: f32 = 220.0;
 const CLOUD_STEP_FAR_REF_M: f32 = 16384.0;
+// Near the camera the step is a fixed fraction of the distance (like exponential froxel slices):
+// a constant 40 m step at 100 m puts a cloud into a few translucent slices whose spacing is a
+// large fraction of the view distance, and they slide visibly as the camera moves (crawl).
+// Floor: the detail-noise texel (the density has no finer structure to sample).
+const CLOUD_STEP_REL: f32 = 0.1;
+
+/// View-ray step length (m) at distance `t`.
+fn cloud_view_step(t: f32) -> f32 {
+    let far = CLOUD_STEP_NEAR_M + CLOUD_STEP_FAR_OFFSET_M * clamp(t / CLOUD_STEP_FAR_REF_M, 0.0, 8.0);
+    let floor_m = max(cloud_layer.detail_noise_scale, 1.0) / 128.0;
+    return min(far, max(CLOUD_STEP_REL * t, floor_m));
+}
 const CLOUD_FINE_EMPTY_TO_COARSE: u32 = 10u;
 const CLOUD_COARSE_DENSITY_EPS: f32 = 0.0005;
 // Grazing rays enter a 1.5-4 km shell ~140-230 km away, so keep the horizon covered.
@@ -551,10 +563,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         // Coarse/fine march (HZD15 / Nubis17 / design.md §1.4): large steps with weather+profile
         // only; on hit, step back and switch to fine with full noise. After N empty fine samples
         // return to coarse. Light taps only in fine mode with density > 0.
-        var t = t_start + jitter * CLOUD_STEP_NEAR_M;
+        var t = t_start + jitter * cloud_view_step(t_start);
         var fine_mode = false;
         @if(ATM_DBG_NO_COARSE) { fine_mode = true; }
         var fine_empty: u32 = 0u;
+        // Length of the last coarse leap: a coarse hit steps back over it, and only it.
+        var last_leap = 0.0;
         var step_i: u32 = 0u;
         // Step budget from the traced in-layer distance (UE5 volumetric clouds scale the view
         // sample count with it up to a maximum), not from where the camera is: a near-horizontal
@@ -565,7 +579,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         var max_steps = select(u32(budget), u32(CLOUD_MAX_STEPS_IN_LAYER), in_layer);
         // Ground-truth march for skip validation: fine samples everywhere, no budget limit.
         @if(ATM_DBG_NO_COARSE) { max_steps = 16384u; }
-        let step_far = CLOUD_STEP_FAR_OFFSET_M;
 
         loop {
             if (t >= t_end || step_i >= max_steps || transmittance < CLOUD_MIN_TRANSMITTANCE) {
@@ -578,8 +591,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             // spends its budget on near wisps and distant clouds were clipped away.
             // Only empty-space (coarse) steps stretch; in-cloud steps keep their spacing.
             let remaining = max(t_end - t, 0.0) / f32(max_steps - step_i + 1u);
-            let dist_step = CLOUD_STEP_NEAR_M
-                + step_far * clamp(t / CLOUD_STEP_FAR_REF_M, 0.0, 8.0);
+            let dist_step = cloud_view_step(t);
             // Coarse (empty-space) samples use the fine spacing: the coarse predicate is only
             // sampled, so a longer step (HZD15's 3x) hops over the thin cloud caps a grazing ray
             // crosses, and those clouds pop in and out as the camera moves. Coarse mode stays
@@ -598,6 +610,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     @if(ATM_DBG_NO_COARSE) { to_coarse = false; }
                     if (to_coarse) {
                         fine_mode = false;
+                        last_leap = 0.0;
                         fine_empty = 0u;
                     }
                     t += dt;
@@ -608,7 +621,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 let coarse = get_cloud_medium_density_coarse(r_p, p);
                 if (coarse > CLOUD_COARSE_DENSITY_EPS) {
                     // Step back and enter fine mode (Nubis17).
-                    t = max(t_start, t - dt);
+                    // Undo the leap that landed here (not the current step, which with the
+                    // budget stretch can exceed the fine run since the last hit: the march
+                    // then moved backwards until the budget ran out).
+                    t = max(t_start, t - last_leap);
                     fine_mode = true;
                     fine_empty = 0u;
                     continue;
@@ -628,6 +644,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                     }
                 }
                 t += skip;
+                last_leap = skip;
                 continue;
             }
 
