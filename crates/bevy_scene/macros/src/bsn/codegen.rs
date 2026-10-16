@@ -121,17 +121,21 @@ impl BsnTokenStream for BsnRoot {
         let errors = ctx.errors.iter().map(syn::Error::to_compile_error);
         let bevy_scene = ctx.bevy_scene;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
-        let call_id = if !ctx.entity_refs.refs.is_empty() {
+        let unique_ids = if !ctx.entity_refs.refs.is_empty() {
             Some(quote! {
-                static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
-                let _call_id = _CALL_ID.increment();
+                static _INVOCATION_ID: #bevy_scene::macro_utils::LazyLock::<u64> =
+                    #bevy_scene::macro_utils::get_lazy_invocation_id();
+                let _invocation_id = *_INVOCATION_ID;
+                static _CALL_COUNTER: #bevy_scene::macro_utils::IdCounter =
+                    #bevy_scene::macro_utils::IdCounter::new();
+                let _call_id = _CALL_COUNTER.next();
             })
         } else {
             None
         };
 
         let deprecations = ctx.deprecations.iter();
-        if call_id.is_some()
+        if unique_ids.is_some()
             || hoisted_exprs.len() > 0
             || errors.len() > 0
             || !ctx.deprecations.is_empty()
@@ -139,7 +143,7 @@ impl BsnTokenStream for BsnRoot {
             quote! {
                 #bevy_scene::SceneScope({
                     #(#deprecations)*
-                    #call_id
+                    #unique_ids
                     #(#hoisted_exprs)*
                     #(#errors)*
                     #tokens
@@ -160,10 +164,14 @@ impl BsnTokenStream for BsnListRoot {
         let errors = ctx.errors.iter().map(syn::Error::to_compile_error);
         let bevy_scene = ctx.bevy_scene;
         let hoisted_exprs = ctx.hoisted_expressions.expressions.drain(..);
-        let call_id = if !ctx.entity_refs.refs.is_empty() {
+        let unique_ids = if !ctx.entity_refs.refs.is_empty() {
             Some(quote! {
-                static _CALL_ID: #bevy_scene::macro_utils::CallCounter = #bevy_scene::macro_utils::CallCounter::new();
-                let _call_id = _CALL_ID.increment();
+                static _INVOCATION_ID: #bevy_scene::macro_utils::LazyLock::<u64> =
+                    #bevy_scene::macro_utils::get_lazy_invocation_id();
+                let _invocation_id = *_INVOCATION_ID;
+                static _CALL_COUNTER: #bevy_scene::macro_utils::IdCounter =
+                    #bevy_scene::macro_utils::IdCounter::new();
+                let _call_id = _CALL_COUNTER.next();
             })
         } else {
             None
@@ -172,13 +180,13 @@ impl BsnTokenStream for BsnListRoot {
         let deprecations = ctx.deprecations.iter();
         if errors.len() > 0
             || hoisted_exprs.len() > 0
-            || call_id.is_some()
+            || unique_ids.is_some()
             || !ctx.deprecations.is_empty()
         {
             quote! {
                 {
                     #(#deprecations)*
-                    #call_id
+                    #unique_ids
                     #(#hoisted_exprs)*
                     #(#errors)*
                     #bevy_scene::SceneListScope(#tokens)
@@ -376,9 +384,12 @@ impl BsnEntry {
             }
             BsnEntry::Name(ident) => {
                 let (name, index) = ctx.fixed_entity_ref(&ident);
-                let invocation = ctx.invocation_index.clone();
+                let invocation_loc = ctx.invocation_index.clone();
                 EntryResult::CombinedSceneFunction(quote! {
-                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
+                    #bevy_scene::NameEntityReference {
+                        name: #bevy_ecs::name::Name(#name.into()),
+                        reference: #bevy_ecs::template::SceneEntityReference::new(#invocation_loc, _invocation_id, #index, _call_id)
+                    }.resolve_inline(_context, _scene);
                 })
             }
             BsnEntry::TemplateValue(token_stream) => EntryResult::CombinedSceneFunction(quote! {
@@ -809,9 +820,9 @@ impl BsnValue {
             BsnValue::Name(ident) => {
                 let index = ctx.entity_refs.get(ident.to_string());
                 let bevy_ecs = ctx.bevy_ecs;
-                let invocation = ctx.invocation_index.clone();
+                let invocation_loc = ctx.invocation_index.clone();
                 quote! {
-                    #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index,  _call_id)
+                    #bevy_ecs::template::EntityTemplate::from_reference(#invocation_loc, _invocation_id, #index, _call_id)
                 }
             }
             BsnValue::Range {
@@ -901,10 +912,10 @@ impl BsnFnArg {
             }
             BsnFnArg::EntityName(ident) => {
                 let index = ctx.entity_refs.get(ident.to_string());
-                let invocation = ctx.invocation_index.clone();
+                let invocation_loc = ctx.invocation_index.clone();
                 quote! {
                     #bevy_ecs::template::EntityTemplate::SceneEntityReference(
-                        #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id)
+                        #bevy_ecs::template::SceneEntityReference::new(#invocation_loc, _invocation_id, #index, _call_id)
                     )
                 }
             }
