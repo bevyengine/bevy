@@ -556,10 +556,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         @if(ATM_DBG_NO_COARSE) { fine_mode = true; }
         var fine_empty: u32 = 0u;
         var step_i: u32 = 0u;
-        // Inside the layer every ray is a long in-slab path (UE5 volumetric clouds scale the view
-        // sample count with the traced in-layer distance up to a maximum).
+        // Step budget from the traced in-layer distance (UE5 volumetric clouds scale the view
+        // sample count with it up to a maximum), not from where the camera is: a near-horizontal
+        // ray from just below the base (or above the top) is as long an in-slab path as one from
+        // inside, and a fixed 96 steps ran out in the first clouds, leaving the rest unmarched.
         let in_layer = r > cloud_layer.cloud_layer_start && r < cloud_layer.cloud_layer_end;
-        var max_steps = select(u32(CLOUD_MAX_STEPS), u32(CLOUD_MAX_STEPS_IN_LAYER), in_layer);
+        let budget = clamp((t_end - t_start) / CLOUD_STEP_NEAR_M, CLOUD_MAX_STEPS, CLOUD_MAX_STEPS_IN_LAYER);
+        var max_steps = select(u32(budget), u32(CLOUD_MAX_STEPS_IN_LAYER), in_layer);
         // Ground-truth march for skip validation: fine samples everywhere, no budget limit.
         @if(ATM_DBG_NO_COARSE) { max_steps = 16384u; }
         let step_far = CLOUD_STEP_FAR_OFFSET_M;
