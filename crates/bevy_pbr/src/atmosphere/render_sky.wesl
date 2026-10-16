@@ -11,6 +11,7 @@ import package::atmosphere::{
 };
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
+import bevy_render::view::apply_hdr_ceiling;
 
 @if(DUAL_SOURCE_BLENDING)
 enable dual_source_blending;
@@ -69,8 +70,8 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     }
 
     // exposure compensation
-    inscattering *= view.exposure;
-    
+    inscattering = apply_hdr_ceiling(inscattering * view.exposure);
+
     @if(DUAL_SOURCE_BLENDING)
     return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));
     @if(!DUAL_SOURCE_BLENDING)

@@ -1,6 +1,5 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::Exposure;
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::With,
@@ -68,15 +67,12 @@ impl SyncComponent<RenderApp, SkyboxPlugin> for Skybox {
 pub fn extract_skybox(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(RenderEntity, &Skybox, Option<&Exposure>)>>,
+    query: Extract<Query<(RenderEntity, &Skybox)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, skybox, exposure) in &query {
-        let exposure = exposure
-            .map(Exposure::exposure)
-            .unwrap_or_else(|| Exposure::default().exposure());
+    for (entity, skybox) in &query {
         let uniforms = SkyboxUniforms {
-            brightness: skybox.brightness * exposure,
+            brightness: skybox.brightness,
             transform: Transform::from_rotation(skybox.rotation.inverse()).to_matrix(),
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_8b: 0,

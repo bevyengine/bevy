@@ -229,6 +229,9 @@ pub struct ComputedCameraValues {
 
 /// How much energy a [`Camera3d`](crate::Camera3d) absorbs from incoming light.
 ///
+/// The camera stores light in its main texture multiplied by this exposure, unless
+/// `AutoExposure` (in `bevy_post_process`) pre-exposes the view with its adapted exposure.
+///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(opaque)]

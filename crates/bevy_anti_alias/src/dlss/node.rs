@@ -1,12 +1,13 @@
 use super::{
-    prepare::DlssRenderContext, Dlss, DlssRayReconstructionFeature, DlssSuperResolutionFeature,
+    prepare::{DlssExposure, DlssRenderContext},
+    Dlss, DlssRayReconstructionFeature, DlssSuperResolutionFeature,
     ViewDlssRayReconstructionTextures,
 };
 use bevy_camera::MainPassResolutionOverride;
-use bevy_core_pipeline::prepass::ViewPrepassTextures;
+use bevy_core_pipeline::{prepass::ViewPrepassTextures, tonemapping::ViewExposureTexture};
 use bevy_ecs::system::Res;
 use bevy_render::{
-    camera::TemporalJitter,
+    camera::{ExtractedCamera, TemporalJitter},
     diagnostic::RecordDiagnostics,
     renderer::{RenderAdapter, RenderContext, ViewQuery},
     view::ViewTarget,
@@ -22,6 +23,9 @@ pub fn dlss_super_resolution(
     view: ViewQuery<(
         &Dlss<DlssSuperResolutionFeature>,
         &DlssRenderContext<DlssSuperResolutionFeature>,
+        &DlssExposure,
+        Option<&ViewExposureTexture>,
+        &ExtractedCamera,
         &MainPassResolutionOverride,
         &TemporalJitter,
         &ViewTarget,
@@ -30,8 +34,17 @@ pub fn dlss_super_resolution(
     adapter: Res<RenderAdapter>,
     mut ctx: RenderContext,
 ) {
-    let (dlss, dlss_context, resolution_override, temporal_jitter, view_target, prepass_textures) =
-        view.into_inner();
+    let (
+        dlss,
+        dlss_context,
+        exposure,
+        view_exposure,
+        camera,
+        resolution_override,
+        temporal_jitter,
+        view_target,
+        prepass_textures,
+    ) = view.into_inner();
 
     let (Some(prepass_depth_texture), Some(prepass_motion_vectors_texture)) =
         (&prepass_textures.depth, &prepass_textures.motion_vectors)
@@ -46,8 +59,13 @@ pub fn dlss_super_resolution(
         color: &view_target.source,
         depth: &prepass_depth_texture.texture.default_view,
         motion_vectors: &prepass_motion_vectors_texture.texture.default_view,
-        exposure: DlssSuperResolutionExposure::Automatic, // TODO
-        bias: None,                                       // TODO
+        exposure: DlssSuperResolutionExposure::Manual {
+            exposure: view_exposure
+                .map_or(&exposure.texture_view, |view_exposure| &view_exposure.0),
+            exposure_scale: None,
+            pre_exposure: Some(camera.exposure),
+        },
+        bias: None, // TODO
         dlss_output: &view_target.destination,
         reset: dlss.reset,
         jitter_offset: (-temporal_jitter.offset).to_array(),

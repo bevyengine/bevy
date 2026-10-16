@@ -21,13 +21,29 @@ use bevy_utils::default;
 /// highlights can be ignored, and certain areas can be given more (or less)
 /// weight based on a mask.
 ///
-/// Metering uses absolute scene luminance in [EV100], with the camera's
-/// [`Exposure`] divided out. The adapted exposure moves gradually toward the
-/// metered target over real time ([`Time<Real>`](bevy_time::Real)), so it keeps
-/// adapting while virtual time is paused, and a newly added camera starts at
-/// its first metered target. Tonemapping applies the difference between the
-/// adapted exposure and the camera's [`Exposure`]; auto exposure doesn't modify
-/// the [`Exposure`] component.
+/// Metering uses absolute scene luminance in [EV100], with the exposure the
+/// view was rendered with divided out. The adapted exposure moves gradually
+/// toward the metered target over real time ([`Time<Real>`](bevy_time::Real)),
+/// so it keeps adapting while virtual time is paused, and a newly added camera
+/// starts at its first metered target. Tonemapping applies the difference
+/// between the adapted exposure and the exposure the view was rendered with.
+///
+/// # Pre-exposure
+///
+/// With [`pre_exposure`](Self::pre_exposure) on (the default), the view renders
+/// with the adapted exposure, so its HDR main texture keeps its precision for
+/// scenes within the metering [`range`](Self::range). The adapted exposure is read back from the GPU, so it
+/// is a few frames old, usually one to three. Until
+/// the first readback arrives, and after a [`reset`](Self::reset) until the
+/// next one, the view renders with the camera's [`Exposure`].
+///
+/// Auto exposure never writes the camera's [`Exposure`]. It is the reference
+/// for [`correction_range`](Self::correction_range), and the exposure the view
+/// renders with when pre-exposure is off.
+///
+/// [`AutoExposureState`] holds the adapted exposure in the main world. In the
+/// render world, auto exposure writes the displayed exposure to the view's
+/// [`ViewExposureTexture`](bevy_core_pipeline::tonemapping::ViewExposureTexture).
 ///
 /// [EV100]: https://en.wikipedia.org/wiki/Exposure_value
 /// [`Exposure`]: bevy_camera::Exposure
@@ -37,7 +53,7 @@ use bevy_utils::default;
 /// **Auto Exposure requires compute shaders and is not compatible with WebGL2.**
 #[derive(Component, Clone, Reflect, ExtractComponent)]
 #[reflect(Component, Default, Clone)]
-#[require(Hdr)]
+#[require(Hdr, AutoExposureState)]
 #[extract_app(RenderApp)]
 pub struct AutoExposure {
     /// The range of scene luminance the histogram covers, in EV100.
@@ -114,7 +130,7 @@ pub struct AutoExposure {
     ///
     /// A correction of `1.0` brightens the image by one stop, and `-1.0` darkens it by one stop.
     /// This limits the automatic correction independently of the luminance [`range`](Self::range)
-    /// used for the histogram. Setting this to `0.0..=0.0` renders at the camera's exposure.
+    /// used for the histogram. Setting this to `0.0..=0.0` displays the camera's exposure.
     ///
     /// The applied correction, including compensation from
     /// [`compensation_curve`](Self::compensation_curve), always stays within this range, and the
@@ -126,6 +142,33 @@ pub struct AutoExposure {
     ///
     /// The default value is `f32::MIN..=f32::MAX`, which does not limit the correction.
     pub correction_range: RangeInclusive<f32>,
+
+    /// Whether the view renders with the adapted exposure instead of the camera's
+    /// [`Exposure`](bevy_camera::Exposure). See [pre-exposure](Self#pre-exposure).
+    ///
+    /// Turn this off when the app sets the camera's exposure itself to keep the main texture in
+    /// range.
+    ///
+    /// The default value is `true`.
+    pub pre_exposure: bool,
+
+    /// Set to true to jump the adapted exposure to the metered target this frame instead of
+    /// adapting toward it, such as at a camera cut.
+    ///
+    /// It is set back to false when the camera is extracted.
+    pub reset: bool,
+}
+
+/// The adapted exposure of a camera with [`AutoExposure`], read back from the GPU.
+///
+/// Auto exposure writes this; changes made to it are overwritten. The value is a few frames old,
+/// usually one to three, and holds its last value while the camera is inactive.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Reflect)]
+#[reflect(Component, Default, Clone, Debug, PartialEq)]
+pub struct AutoExposureState {
+    /// The adapted exposure, in EV100: the exposure the image is displayed with. `None` until a
+    /// readback arrives, and again from a [`reset`](AutoExposure::reset) until the next one.
+    pub ev100: Option<f32>,
 }
 
 impl Default for AutoExposure {
@@ -139,6 +182,8 @@ impl Default for AutoExposure {
             metering_mask: default(),
             compensation_curve: default(),
             correction_range: f32::MIN..=f32::MAX,
+            pre_exposure: true,
+            reset: false,
         }
     }
 }
