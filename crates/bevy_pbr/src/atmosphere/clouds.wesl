@@ -550,7 +550,12 @@ fn cloud_field_voxel_m() -> f32 {
 /// Field cell of the camera: integer voxel index (stored in the field so consumers use the
 /// origin the field was actually built with; the build is spread over several frames).
 fn cloud_field_cell(cam: vec3<f32>) -> vec2<f32> {
-    return floor(cam.xz / cloud_field_voxel_m());
+    // Whole escape-volume blocks (cloud_field.wesl ESC_XY_DOWNSAMPLE = 2 voxels), so both the
+    // field voxels and the half-resolution escape voxels stay fixed in the world as the grid
+    // follows the camera. An odd cell shifted the escape lattice by half a block, and every
+    // interpolated escape probability (multiple scattering) jumped when the camera crossed a
+    // voxel boundary.
+    return 2.0 * floor(cam.xz / (2.0 * cloud_field_voxel_m()));
 }
 
 fn cloud_field_origin_from_cell(cell: vec2<f32>) -> vec2<f32> {
