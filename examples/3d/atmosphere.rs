@@ -473,28 +473,22 @@ fn setup_camera_fog(
             ground_albedo: Vec3::splat(0.28),
             ..Atmosphere::earth(earth_medium)
         },
-        // Add a volumetric cloud layer using 3D FBM noise
-        // Physically realistic parameters (units: m^-1 per unit density):
-        // - Density is normalized to [0, 1] in the shader
-        // - cloud_scattering: 0.0008 m^-1 per unit density (physically correct for water droplets)
-        //   At max density (1.0): scattering_coeff = 0.0008
-        //   After phase amplification (~6.5x at forward angles): 0.0008 * 6.5 ≈ 0.005
-        //   This matches atmospheric scattering magnitudes (~0.001-0.01 range)
-        // - cloud_absorption: 0.00005 m^-1 per unit density (realistic for water clouds)
-        //   Single-scattering albedo ≈ 0.94 (typical water clouds have albedo 0.95-0.99)
+        // Volumetric cloud layer. Scattering/absorption come from droplet microphysics
+        // (`CloudLayer::with_liquid_water`): cumulus liquid water content 0.5 g/m^3 at density 1,
+        // effective radius 10 um.
         CloudLayer {
             cloud_layer_start: 6_361_500.0, // cloud base 1.5 km above the surface
             cloud_layer_end: 6_364_000.0,   // tops 4 km (2.5 km thick layer)
             cloud_density: 1.0, // Used for enabling/disabling, actual density comes from noise (normalized [0, 1])
-            cloud_absorption: 0.000_02, // single-scattering albedo ~0.999
-            cloud_scattering: 0.02, // ~50 m mean free path at full density (cumulus 0.02-0.1 m^-1)
             // Larger scale = larger cloud features (more “big cumulus”, less “small puffs”)
             noise_scale: 32_000.0, // weather tile; shape noise period = 1/8 (4 km)
             noise_offset: Vec3::ZERO,
             detail_noise_scale: 600.0, // Smaller scale = higher-frequency breakup
             detail_strength: 1.0,
             wind: Vec3::new(20.0, 0.0, 8.0),
-        },
+            ..default()
+        }
+        .with_liquid_water(CloudLayer::CUMULUS_LIQUID_WATER, CloudLayer::CUMULUS_EFFECTIVE_RADIUS),
         CloudWeather::default(),
     ));
 

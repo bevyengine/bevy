@@ -768,10 +768,14 @@ pub struct CloudLayer {
     /// Density multiplier for the clouds
     pub cloud_density: f32,
 
-    /// Absorption coefficient for clouds
+    /// Absorption coefficient for clouds at density 1. Use [`CloudLayer::with_liquid_water`]
+    /// to derive it from the droplet microphysics.
+    /// units: m^-1
     pub cloud_absorption: f32,
 
-    /// Scattering coefficient for clouds
+    /// Scattering coefficient for clouds at density 1. Use [`CloudLayer::with_liquid_water`]
+    /// to derive it from the droplet microphysics.
+    /// units: m^-1
     pub cloud_scattering: f32,
 
     /// World-space size (m) of one weather-map tile. The 128³ shape noise repeats every
@@ -793,20 +797,51 @@ pub struct CloudLayer {
     pub wind: Vec3,
 }
 
+impl CloudLayer {
+    /// Typical cumulus liquid water content (0.1-1 g/m^3), used by the default layer.
+    /// units: kg/m^3
+    pub const CUMULUS_LIQUID_WATER: f32 = 0.5e-3;
+    /// Typical cumulus droplet effective radius, matching the droplet Mie phase the clouds
+    /// use (Jendersie & d'Eon 2023 fit at diameter 20 um).
+    /// units: m
+    pub const CUMULUS_EFFECTIVE_RADIUS: f32 = 10.0e-6;
+
+    /// Sets the scattering and absorption coefficients from droplet microphysics: the liquid
+    /// water content at density 1 (kg/m^3) and the droplet effective radius (m).
+    ///
+    /// For a droplet size distribution, `sigma = (3/4) <Q> LWC / (rho_water r_e)`.
+    /// The size-averaged Mie efficiencies come from exact Mie at 550 nm for a gamma distribution
+    /// (Hansen 1971, effective variance 0.1) with the water index of Hale & Querry 1973
+    /// (`validation/mie/extinction.py`). `<Q_ext>` = 2.09 (2.08-2.11 for r_e 8-12 um,
+    /// 450-650 nm), and `<Q_abs>` = 8.7e-7 at r_e 10 um, which scales ~linearly with r_e
+    /// (weak absorption). The resulting single-scattering albedo is 0.9999996.
+    pub fn with_liquid_water(mut self, liquid_water_content: f32, effective_radius: f32) -> Self {
+        const RHO_WATER: f32 = 1000.0;
+        const Q_EXT: f32 = 2.09;
+        const Q_ABS_PER_M: f32 = 8.7e-7 / 10.0e-6;
+        let geometric = 0.75 * liquid_water_content / (RHO_WATER * effective_radius);
+        let q_abs = Q_ABS_PER_M * effective_radius;
+        self.cloud_scattering = (Q_EXT - q_abs) * geometric;
+        self.cloud_absorption = q_abs * geometric;
+        self
+    }
+}
+
 impl Default for CloudLayer {
     fn default() -> Self {
         Self {
             cloud_layer_start: 6_361_500.0, // cloud base 1.5 km above the surface
             cloud_layer_end: 6_364_000.0,   // tops 4 km (2.5 km thick layer)
             cloud_density: 1.0,
-            cloud_absorption: 0.000_02, // single-scattering albedo ~0.999
-            cloud_scattering: 0.02, // ~50 m mean free path at full density (cumulus 0.02-0.1 m^-1)
+            cloud_absorption: 0.0,
+            cloud_scattering: 0.0,
             noise_scale: 32_000.0, // weather tile; shape noise period = 1/8 (4 km)
             noise_offset: Vec3::ZERO,
             detail_noise_scale: 600.0,
             detail_strength: 1.0,
             wind: Vec3::new(15.0, 0.0, 5.0),
         }
+        .with_liquid_water(Self::CUMULUS_LIQUID_WATER, Self::CUMULUS_EFFECTIVE_RADIUS)
     }
 }
 
