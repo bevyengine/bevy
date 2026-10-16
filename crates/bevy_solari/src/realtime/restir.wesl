@@ -3,6 +3,7 @@
 import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_u, sample_disk};
 import bevy_render::utils::octahedral_decode;
+import bevy_render::view::apply_hdr_ceiling;
 import package::scene::brdf::{brdf_pdf, evaluate_brdf, F_AB};
 import package::realtime::gbuffer_utils::{gpixel_resolve, permute_pixel, pixel_dissimilar};
 import package::realtime::initial_path::{generate_initial_path, InitialSamplingResult, nee_probability};
@@ -30,7 +31,8 @@ fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
     let initial = generate_initial_path(surface.world_position, surface.world_normal, surface.material, workgroup_id.xy, global_id.xy, &rng);
-    textureStore(view_output, global_id.xy, vec4(initial.radiance, 0.0));
+    // Pre-exposed like the rest of the output; spatial_and_shade adds it.
+    textureStore(view_output, global_id.xy, vec4(apply_hdr_ceiling(initial.radiance * view.exposure), 0.0));
 
     let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
     let previous_camera_homogeneous = previous_view.world_from_clip * (previous_view.clip_from_view * vec4(0.0, 0.0, 0.0, 1.0));
@@ -64,12 +66,12 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     var pixel_color = merge_result.selected_sample_brdf_radiance * merge_result.merged_reservoir.unbiased_contribution_weight;
     pixel_color += surface.material.emissive;
-    pixel_color += textureLoad(view_output, global_id.xy).rgb;
     pixel_color *= view.exposure;
-    textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
+    pixel_color += textureLoad(view_output, global_id.xy).rgb;
+    textureStore(view_output, global_id.xy, vec4(apply_hdr_ceiling(pixel_color), 1.0));
 
     @if(VISUALIZE_WORLD_CACHE)
-    textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, RAY_T_MAX, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure, 1.0));
+    textureStore(view_output, global_id.xy, vec4(apply_hdr_ceiling(query_world_cache(surface.world_position, surface.world_normal, view.world_position, RAY_T_MAX, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure), 1.0));
 }
 
 fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> NeighborInfo {
