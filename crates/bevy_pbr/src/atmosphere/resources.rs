@@ -329,6 +329,8 @@ impl AtmosphereBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ),
+                    // Cirrus generating field (thin-layer shadow in the map's alpha).
+                    (49, texture_2d(TextureSampleType::Float { filterable: true })),
                     (
                         13,
                         texture_storage_2d(
@@ -1803,6 +1805,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                     (13, trace_storage),
                     (40, &textures.cloud_field_a.default_view),
                     (45, &textures.cloud_field_ext.default_view),
+                    (49, &fbm_noise_texture.cirrus.default_view),
                 )),
             )
         });
@@ -2224,6 +2227,7 @@ fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
 /// - `ATM_DBG_OUT_H`: write height-in-layer / profile / depth instead of cloud colour.
 /// - `ATM_DBG_NO_SDF_SKIP`: disable cloud-SDF empty-space skipping.
 /// - `ATM_DBG_NO_CLOUD_MOTION`: reproject the cloud history without the wind displacement.
+/// - `ATM_DBG_NO_THIN_SHADOW`: no thin-layer (cirrus) shadow in the cloud shadow map's alpha.
 /// - `ATM_DBG_NO_COARSE`: fine samples everywhere, no step budget (with `ATM_DBG_NO_SDF_SKIP`:
 ///   the ground-truth march for validating empty-space skipping).
 /// See also `CLOUD_TERMS=s1|sun|amb` and `CLOUD_REFERENCE=1`.

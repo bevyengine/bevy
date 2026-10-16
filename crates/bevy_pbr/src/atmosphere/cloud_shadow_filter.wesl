@@ -66,6 +66,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let p = vec2<i32>(gid.xy);
     let center = load_shadow(p);
+    // Thin-layer (cirrus) optical depth in alpha: smooth already, passed through.
+    let thin_od = textureSampleLevel(cloud_shadow_src, atmosphere_lut_sampler,
+        (vec2<f32>(p) + vec2(0.5)) / vec2<f32>(settings.cloud_shadow_map_size), 0.0).a;
 
     // 3x3 tent-ish kernel weights:
     // 1 2 1
@@ -129,7 +132,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let depth_out = mix(center.x, depth_med, DEPTH_DENOISE_ALPHA);
 
     let out_rgb = vec3(depth_out, max(0.0, mean_ext_out), max(0.0, od_out));
-    textureStore(cloud_shadow_dst, p, vec4(out_rgb, 0.0));
+    textureStore(cloud_shadow_dst, p, vec4(out_rgb, thin_od));
 }
 
 

@@ -302,6 +302,12 @@ fn cloud_shadow_transmittance(data: vec3<f32>, d_sample: f32) -> f32 {
     return exp(-tau);
 }
 
+/// 1 below the thin (cirrus) layer's mid level, where its shadow (the map's alpha) applies.
+@if(CLOUDS_ENABLED)
+fn cloud_thin_shadow_weight(world_pos: vec3<f32>) -> f32 {
+    return f32(length(world_pos) < cloud_layer.cirrus_top - 0.5 * cloud_layer.cirrus_thickness);
+}
+
 /// Ground illuminance variant: uses only the stored optical depth (B channel), ignoring front depth.
 @if(CLOUDS_ENABLED)
 fn cloud_shadow_optical_depth(data: vec3<f32>) -> f32 {
@@ -441,7 +447,8 @@ fn sample_cloud_shadow_ground(world_pos: vec3<f32>, direction_to_light: vec3<f32
         var row = 0.0;
         for (var x = 0; x < 4; x++) {
             let c = clamp(i0 + vec2(x, y), vec2(0), size - 1);
-            row += wx[x] * cloud_shadow_optical_depth(textureLoad(cloud_shadow_map, c, 0).rgb);
+            let d = textureLoad(cloud_shadow_map, c, 0);
+            row += wx[x] * cloud_shadow_optical_depth(d.rgb) * exp(-d.a);
         }
         t += wy[y] * row;
     }
@@ -493,13 +500,17 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
     }
 
     let uv = cloud_shadow_xy_to_uv(vec2(x, y), extent);
+    // Thin layers (alpha) shadow only points below them.
+    let thin = cloud_thin_shadow_weight(world_pos);
 
     @if(CLOUD_SHADOW_SIMPLE_SAMPLING) {
-    let d = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv, 0.0).rgb;
+    let d4 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv, 0.0);
+    let d = d4.rgb;
+    let t_thin = exp(-thin * d4.a);
     if (use_optical_depth_only) {
-        return cloud_shadow_optical_depth(d);
+        return cloud_shadow_optical_depth(d) * t_thin;
     }
-    return cloud_shadow_transmittance(d, d_sample);
+    return cloud_shadow_transmittance(d, d_sample) * t_thin;
     } @else {
     // 4-tap PCF (2x2 half-texel) to reduce aliasing and soften shadow edges.
     // Samples are offset by ±0.25 texels so the 2x2 footprint covers the sampling area.
@@ -511,17 +522,22 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
     var o = 0.25 * texel;
     @if(ATMOSPHERE_LUT_CLOUD_SHADOW) { o = 1.0 * texel; }
 
-    let d00 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(-o.x, -o.y), 0.0).rgb;
-    let d10 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(o.x, -o.y), 0.0).rgb;
-    let d01 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(-o.x, o.y), 0.0).rgb;
-    let d11 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(o.x, o.y), 0.0).rgb;
+    let q00 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(-o.x, -o.y), 0.0);
+    let q10 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(o.x, -o.y), 0.0);
+    let q01 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(-o.x, o.y), 0.0);
+    let q11 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(o.x, o.y), 0.0);
+    let d00 = q00.rgb;
+    let d10 = q10.rgb;
+    let d01 = q01.rgb;
+    let d11 = q11.rgb;
+    let thin_t = exp(-thin * vec4(q00.a, q10.a, q01.a, q11.a));
 
     let t00 = select(cloud_shadow_transmittance(d00, d_sample), cloud_shadow_optical_depth(d00), use_optical_depth_only);
     let t10 = select(cloud_shadow_transmittance(d10, d_sample), cloud_shadow_optical_depth(d10), use_optical_depth_only);
     let t01 = select(cloud_shadow_transmittance(d01, d_sample), cloud_shadow_optical_depth(d01), use_optical_depth_only);
     let t11 = select(cloud_shadow_transmittance(d11, d_sample), cloud_shadow_optical_depth(d11), use_optical_depth_only);
 
-    return (t00 + t10 + t01 + t11) * 0.25;
+    return dot(vec4(t00, t10, t01, t11), thin_t) * 0.25;
     }
 }
 

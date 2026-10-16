@@ -7,6 +7,7 @@
 // - R: front depth (km) from light-volume near plane
 // - G: mean extinction (1/m)
 // - B: max optical depth (unitless)
+// - A: thin cloud layers' (cirrus) similarity-reduced slant optical depth along the light ray
 //
 // Note: We do NOT import bindings::settings here because it would conflict
 // with our binding 1 (curr_cloud_shadow). Size is passed via temporal_params.
@@ -123,20 +124,20 @@ fn reproject_cloud_shadow_history(coord: vec2<i32>, uv: vec2<f32>, extent: f32, 
         dot(prev_rel, temporal_params.prev_basis_y),
     );
     if (any(abs(prev_xy) > vec2(extent))) {
-        return vec4(0.0);
+        return vec4(-1.0);
     }
     let prev_uv = cloud_shadow_xy_to_uv(prev_xy, extent);
     if (any(prev_uv < vec2(0.0)) || any(prev_uv > vec2(1.0))) {
-        return vec4(0.0);
+        return vec4(-1.0);
     }
 
-    var prev: vec3<f32>;
+    var prev: vec4<f32>;
     if (nearest) {
         let size = vec2<i32>(temporal_params.size);
         let prev_coord = clamp(vec2<i32>(floor(prev_uv * vec2<f32>(size))), vec2(0), size - vec2(1));
-        prev = textureLoad(prev_cloud_shadow, prev_coord, 0).rgb;
+        prev = textureLoad(prev_cloud_shadow, prev_coord, 0);
     } else {
-        prev = textureSampleLevel(prev_cloud_shadow, prev_cloud_sampler, prev_uv, 0.0).rgb;
+        prev = textureSampleLevel(prev_cloud_shadow, prev_cloud_sampler, prev_uv, 0.0);
     }
     // Front depth: previous near plane -> current near plane (keeps "no cloud" at max depth).
     // Only when the anchor moved: the map is Rgba16Float, so converting every frame (e.g. for the
@@ -148,7 +149,7 @@ fn reproject_cloud_shadow_history(coord: vec2<i32>, uv: vec2<f32>, extent: f32, 
             + temporal_params.prev_light_dir * (prev.r * 1000.0);
         prev.r = clamp(dot(prev_pos - curr_ray_origin, temporal_params.curr_light_dir), 0.0, max_t) * 0.001;
     }
-    return vec4(prev, 1.0);
+    return prev;
 }
 
 @compute
@@ -167,7 +168,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // Current frame data (traced output). With time-slicing, only one texel per N x N tile was
     // traced this frame; the others still hold the value traced on an earlier frame.
-    let curr_data = textureLoad(curr_cloud_shadow, coord).rgb;
+    let curr_data = textureLoad(curr_cloud_shadow, coord);
     let interleave = max(1u, temporal_params.interleave);
     let slot = cloud_shadow_interleave_slot(temporal_params.frame_index, interleave);
     let traced_this_frame = all((gid.xy % vec2(interleave)) == slot);
@@ -179,15 +180,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (!traced_this_frame) {
         let size_i = vec2<i32>(size);
         let tile_coord = min(coord - (coord % vec2<i32>(i32(interleave))) + vec2<i32>(slot), size_i - 1);
-        filtered_data = textureLoad(curr_cloud_shadow, tile_coord).rgb;
+        filtered_data = textureLoad(curr_cloud_shadow, tile_coord);
     }
 
     if (temporal_params.history_valid != 0u && !traced_this_frame) {
         // Not traced this frame: reproject the previous filtered result (falls back to the
         // stale traced value when the history is out of bounds).
         let reprojected = reproject_cloud_shadow_history(coord, uv, extent, half_depth, true);
-        if (reprojected.w > 0.5) {
-            filtered_data = reprojected.rgb;
+        if (reprojected.r >= 0.0) {
+            filtered_data = reprojected;
         }
     } else if (temporal_params.history_valid != 0u) {
         // Clamp-to-neighborhood (AABB): compute min/max of G and B in 3x3 neighborhood.
@@ -197,11 +198,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         var g_max = curr_data.g;
         var b_min = curr_data.b;
         var b_max = curr_data.b;
+        var a_min = curr_data.a;
+        var a_max = curr_data.a;
         let size_i = vec2<i32>(size);
         for (var dy = -1; dy <= 1; dy += 1) {
             for (var dx = -1; dx <= 1; dx += 1) {
                 let nc = clamp(coord + vec2<i32>(dx, dy), vec2<i32>(0, 0), size_i - vec2<i32>(1, 1));
-                let n = textureLoad(curr_cloud_shadow, nc).rgb;
+                let n = textureLoad(curr_cloud_shadow, nc);
+                a_min = min(a_min, n.a);
+                a_max = max(a_max, n.a);
                 g_min = min(g_min, n.g);
                 g_max = max(g_max, n.g);
                 b_min = min(b_min, n.b);
@@ -210,21 +215,23 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         }
 
         let reprojected = reproject_cloud_shadow_history(coord, uv, extent, half_depth, false);
-        if (reprojected.w > 0.5) {
-            var prev = reprojected.rgb;
+        if (reprojected.r >= 0.0) {
+            var prev = reprojected;
 
             // Clamp history to neighborhood AABB before blending (reduces edge jitter)
             prev.g = clamp(prev.g, g_min, g_max);
             prev.b = clamp(prev.b, b_min, b_max);
+            prev.a = clamp(prev.a, a_min, a_max);
 
             // Temporal blend: prev + alpha * (curr - prev)
             // Do NOT filter depth (Unreal: precision/convergence issues)
             let alpha = temporal_params.temporal_alpha;
             filtered_data.g = prev.g + alpha * (curr_data.g - prev.g);
             filtered_data.b = prev.b + alpha * (curr_data.b - prev.b);
+            filtered_data.a = prev.a + alpha * (curr_data.a - prev.a);
             filtered_data.r = curr_data.r;
         }
     }
 
-    textureStore(out_cloud_shadow, coord, vec4(max(filtered_data, vec3(0.0)), 0.0));
+    textureStore(out_cloud_shadow, coord, max(filtered_data, vec4(0.0)));
 }

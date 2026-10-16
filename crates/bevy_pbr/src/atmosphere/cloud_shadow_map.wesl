@@ -16,6 +16,9 @@ import package::atmosphere::clouds::{
     get_cloud_scattering_coeff,
     get_cloud_absorption_coeff,
     cloud_shadow_uv_to_xy,
+    cloud_layer,
+    cirrus_slant_optical_depth,
+    CIRRUS_SLICES,
 };
 
 @group(0) @binding(25) var stbn_texture: texture_2d_array<f32>;
@@ -125,6 +128,31 @@ fn cloud_shadow_interleave_slot(frame: u32, n: u32) -> vec2<u32> {
 
 const CLOUD_SHADOW_NOISE_MIP: f32 = 2.0;
 
+// Thin layers (cirrus) lie above everything they shadow, so they contribute one factor per
+// light ray (alpha): the slant optical depth where the ray toward the sun from the anchor plane
+// crosses the layer, similarity-reduced, tau' = (1 - g) tau (Joseph, Wiscombe & Weinman 1976):
+// light scattered into the forward peak still arrives from about the sun's direction. Consumers
+// apply exp(-alpha) below the layer. Evaluated after the cumulus march (register pressure).
+fn thin_layer_shadow_od(p0: vec3<f32>, trace_dir: vec3<f32>, uv: vec2<f32>, xy: vec2<f32>, extent: f32, size: vec2<u32>) -> f32 {
+    var thin_on = cloud_layer.cirrus_optical_depth > 0.0;
+    @if(ATM_DBG_NO_THIN_SHADOW) { thin_on = false; }
+    if (!thin_on) {
+        return 0.0;
+    }
+    let l = -trace_dir;
+    let r_mid = cloud_layer.cirrus_top - 0.5 * cloud_layer.cirrus_thickness;
+    let b = dot(p0, l);
+    let disc = b * b - (dot(p0, p0) - r_mid * r_mid);
+    let s = -b + sqrt(max(disc, 0.0));
+    if (disc <= 0.0 || s <= 0.0 || length(p0) >= r_mid) {
+        return 0.0;
+    }
+    let up_comp = dot(l, (p0 + l * s) / r_mid);
+    let texel_m = length(cloud_shadow_uv_to_xy(uv + 1.0 / vec2<f32>(size), extent) - xy);
+    return (1.0 - cloud_layer.cirrus_asymmetry)
+        * cirrus_slant_optical_depth(p0, l, s, max(up_comp, 1e-3), texel_m, CIRRUS_SLICES / 4u);
+}
+
 @compute
 @workgroup_size(16, 16, 1)
 fn main(@builtin(global_invocation_id) thread_id: vec3<u32>) {
@@ -170,14 +198,14 @@ fn main(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     // Intersect the ray with the cloud layer shell and clamp to our light volume depth.
     let seg = cloud_layer_segment(ray_origin, trace_dir);
     if (seg.z < 0.5) {
-        textureStore(out_cloud_shadow_map, vec2<i32>(gid.xy), vec4(max_t_km, 0.0, 0.0, 0.0));
+        textureStore(out_cloud_shadow_map, vec2<i32>(gid.xy), vec4(max_t_km, 0.0, 0.0, thin_layer_shadow_od(ray_origin + trace_dir * half_depth, trace_dir, uv, xy, extent, size)));
         return;
     }
 
     let t_start = max(0.0, seg.x);
     let t_end = min(seg.y, max_t);
     if (t_end <= t_start) {
-        textureStore(out_cloud_shadow_map, vec2<i32>(gid.xy), vec4(max_t_km, 0.0, 0.0, 0.0));
+        textureStore(out_cloud_shadow_map, vec2<i32>(gid.xy), vec4(max_t_km, 0.0, 0.0, thin_layer_shadow_od(ray_origin + trace_dir * half_depth, trace_dir, uv, xy, extent, size)));
         return;
     }
 
@@ -258,7 +286,7 @@ fn main(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let out_mean_ext = mean_ext * strength;
     let out_max_od = max_optical_depth * strength;
 
-    textureStore(out_cloud_shadow_map, vec2<i32>(gid.xy), vec4(front_depth * 0.001, out_mean_ext, out_max_od, 0.0));
+    textureStore(out_cloud_shadow_map, vec2<i32>(gid.xy), vec4(front_depth * 0.001, out_mean_ext, out_max_od, thin_layer_shadow_od(ray_origin + trace_dir * half_depth, trace_dir, uv, xy, extent, size)));
 }
 
 
