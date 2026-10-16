@@ -186,7 +186,7 @@ unsafe impl<'a, T: Resource> SystemParam for SetLocal<'a, T> {
 // SAFETY: `init_access` declares write access to the resource that `get_param` reads, and
 // returns an error if that conflicts with another param of the system.
 unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for SetLocalMut<'a, T> {
-    /// Cloned from [`SetLocalIds<T>`]
+    // Cloned from [`SetLocalIds<T>`]
     type State = Arc<HashMap<InternedSystemSet, ComponentId>>;
     type Item<'w, 's> = SetLocalMut<'w, T>;
 
