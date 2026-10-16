@@ -4164,6 +4164,7 @@ mod inline_image {
             DespawnOnExit<Scene>(Scene::InlineImage)
             --
             Text::new("Head")
+            DespawnOnExit<Scene>(Scene::InlineImage)
             Children [
                 TextSpan::new("before image ")
                 --
