@@ -3,7 +3,7 @@
 //! Environment variables (all optional; used by the cloud validation scripts):
 //! - Scene: `ATMOSPHERE_VIEW=hero|sun|up|under|backlit`, `ATMOSPHERE_CAM`, `ATMOSPHERE_SUN_ELEV_DEG`,
 //!   `ATMOSPHERE_SUNSET`, `ATMOSPHERE_TERRAIN`, `ATMOSPHERE_NO_CLOUDS`, `ATMOSPHERE_MIE_SCALE`,
-//!   `ATMOSPHERE_CLOUD_PROFILE=nubis`,
+//!   `ATMOSPHERE_CLOUD_PROFILE=nubis`, `ATMOSPHERE_CLOUD_LWC=<g/m3>`,
 //!   `ATMOSPHERE_LUT_MODE`.
 //! - Time: `ATMOSPHERE_CAM_STEP`, `ATMOSPHERE_FREEZE`, `ATMOSPHERE_ANIMATE`, `ATMOSPHERE_FIXED_DT`.
 //! - Cloud shadows: `ATMOSPHERE_SHADOW_INTERLEAVE`, `ATMOSPHERE_SHADOW_SAMPLES`,
@@ -475,7 +475,7 @@ fn setup_camera_fog(
             ..Atmosphere::earth(earth_medium)
         },
         // Volumetric cloud layer. Scattering/absorption come from droplet microphysics
-        // (`CloudLayer::with_liquid_water`): cumulus liquid water content 0.5 g/m^3 at density 1,
+        // (`CloudLayer::with_liquid_water`): peak cumulus liquid water content 1 g/m^3 at density 1,
         // effective radius 10 um.
         CloudLayer {
             cloud_layer_start: 6_361_500.0, // cloud base 1.5 km above the surface
@@ -493,7 +493,10 @@ fn setup_camera_fog(
             wind: Vec3::new(20.0, 0.0, 8.0),
             ..default()
         }
-        .with_liquid_water(CloudLayer::CUMULUS_LIQUID_WATER, CloudLayer::CUMULUS_EFFECTIVE_RADIUS)
+        .with_liquid_water(
+            std::env::var("ATMOSPHERE_CLOUD_LWC").ok().and_then(|v| v.parse::<f32>().ok()).map_or(CloudLayer::CUMULUS_LIQUID_WATER, |g| g * 1e-3),
+            CloudLayer::CUMULUS_EFFECTIVE_RADIUS,
+        )
         // `ATMOSPHERE_CLOUD_PROFILE=nubis`: Nubis envelope instead of the adiabatic default.
         .with_vertical_profile(if std::env::var("ATMOSPHERE_CLOUD_PROFILE").as_deref() == Ok("nubis") {
             CloudLayer::NUBIS_ENVELOPE

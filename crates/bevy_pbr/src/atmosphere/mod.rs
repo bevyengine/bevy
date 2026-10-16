@@ -825,9 +825,12 @@ impl CloudLayer {
         self
     }
 
-    /// Typical cumulus liquid water content (0.1-1 g/m^3), used by the default layer.
+    /// Peak cumulus liquid water content, i.e. the LWC at density 1 (the peak of the adiabatic x
+    /// entrainment vertical profile, ~mid-height). The saturated-adiabatic liquid water gradient
+    /// is ~2 g/m^3 per km for a ~10 C cloud base, so ~1 km above the base the adiabatic LWC is ~2
+    /// g/m^3; cumulus cores keep ~half of it after entrainment (Warner 1955), so ~1 g/m^3.
     /// units: kg/m^3
-    pub const CUMULUS_LIQUID_WATER: f32 = 0.5e-3;
+    pub const CUMULUS_LIQUID_WATER: f32 = 1.0e-3;
     /// Typical cumulus droplet effective radius, matching the droplet Mie phase the clouds
     /// use (Jendersie & d'Eon 2023 fit at diameter 20 um).
     /// units: m
