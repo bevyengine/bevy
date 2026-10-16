@@ -158,14 +158,11 @@ fn cloud_density_context(r: f32, world_pos: vec3<f32>) -> vec4<f32> {
     let height_in_layer = r - cloud_layer.cloud_layer_start;
     let h = clamp(height_in_layer / max(1.0, layer_thickness), 0.0, 1.0);
 
-    let wind_xz = cloud_layer.wind.xz;
-    let wind_len = length(wind_xz);
-    let skew = select(vec2(0.0), normalize(wind_xz) * (h * min(wind_len, 8000.0) * 0.15), wind_len > 1e-3);
-    var sample_pos = world_pos;
-    sample_pos.x += skew.x;
-    sample_pos.z += skew.y;
-
-    // Pack sample_pos into return via side channel is awkward in WESL; apply curl in fine path.
+    // Same wind skew + curl displacement as the fine density (sample_cumulus_shape_lod). The
+    // coarse density is the empty-space predicate (ray march, SDF seeds): evaluated at the
+    // undisplaced position, its coverage-dependent top lay below the fine cloud's wherever curl
+    // moved the weather lookup, and the march skipped those slabs (straight-edged holes, up:35).
+    let sample_pos = cloud_sample_pos_with_wind_curl(world_pos, h, true);
     let weather = sample_weather(sample_pos, cloud_layer.noise_scale);
     var coverage = clamp(weather.r, 0.0, 1.0);
     let cloud_type = clamp(weather.g, 0.0, 1.0);
