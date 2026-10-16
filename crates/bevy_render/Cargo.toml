@@ -100,7 +100,7 @@ downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 encase = "0.13"
-glam = { version = "0.33.9", default-features = false, features = [
+glam = { version = "0.34.1", default-features = false, features = [
   "std",
   "encase-013",
 ] }
