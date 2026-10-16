@@ -31,7 +31,7 @@ pub struct FbmNoiseParams {
     pub lacunarity: f32,
     /// Amplitude multiplier for each octave (typically 0.5)
     pub persistence: f32,
-    /// Cloud life-cycle phase, `evolution_time / lifetime + 0.5` ([`crate::CloudLayer`]).
+    /// Cloud life-cycle phase, `evolution_time / lifetime + 0.5` ([`crate::VolumetricCloudLayer`]).
     pub life_t: f32,
     /// 1 when the life cycle is on (`lifetime > 0`).
     pub life_enabled: u32,
@@ -312,7 +312,7 @@ pub fn get_noise_dispatch_size(texture_size: UVec2) -> UVec2 {
 pub struct NoiseGenerated(pub bool);
 
 /// System to generate the weather map: once, and again whenever the cloud life-cycle clock
-/// ([`crate::CloudLayer::evolution_time`]) advances (the map holds the blended generations).
+/// ([`crate::VolumetricCloudLayer::evolution_time`]) advances (the map holds the blended generations).
 pub fn generate_fbm_noise_once(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,

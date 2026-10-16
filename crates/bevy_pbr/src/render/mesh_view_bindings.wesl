@@ -97,7 +97,7 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(31) var atmosphere_transmittance_texture: texture_2d<f32>;
 @group(0) @binding(32) var atmosphere_transmittance_sampler: sampler;
 @group(0) @binding(33) var<storage> atmosphere_data: atmosphere_types::AtmosphereData;
-// Cloud shadow map of the atmosphere's `CloudLayer` (front depth km, mean extinction, max OD).
+// Cloud shadow map of the atmosphere's `VolumetricCloudLayer` (front depth km, mean extinction, max OD).
 @group(0) @binding(39) var atmosphere_cloud_shadow_map: texture_2d<f32>;
 }
 

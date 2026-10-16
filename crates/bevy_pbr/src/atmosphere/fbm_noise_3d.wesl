@@ -53,7 +53,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let uv = (vec2<f32>(gid.xy) + 0.5) / vec2<f32>(texture_size);
 
     // Tileable: lattice periods are whole cells per tile, so sampler repeat wraps seamlessly.
-    // Cloud life cycle (CloudLayer::lifetime): the coverage potential (a symmetric fBm, mean
+    // Cloud life cycle (VolumetricCloudLayer::lifetime): the coverage potential (a symmetric fBm, mean
     // 0.5) cross-fades between independent generations (the same tileable pattern at a new
     // random offset each cycle) with triangle weights. Variance-preserving blend about the mean
     // (a sum of independent Gaussian-like fields keeps its distribution; cf. Heitz & Neyret

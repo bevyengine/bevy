@@ -153,8 +153,8 @@ pub(crate) struct AtmosphereBindGroupLayouts {
 #[derive(Resource)]
 pub(crate) struct RenderSkyBindGroupLayouts {
     // Two variants:
-    // - *_clouds: includes CloudLayer + cloud noise + cloud shadow map bindings
-    // - *_no_clouds: omits cloud-related bindings (cheaper, and works when CloudLayer is removed)
+    // - *_clouds: includes VolumetricCloudLayer + cloud noise + cloud shadow map bindings
+    // - *_no_clouds: omits cloud-related bindings (cheaper, and works when VolumetricCloudLayer is removed)
     pub render_sky_clouds: BindGroupLayoutDescriptor,
     pub render_sky_msaa_clouds: BindGroupLayoutDescriptor,
     pub render_sky_no_clouds: BindGroupLayoutDescriptor,
@@ -618,7 +618,7 @@ pub struct CloudShadowTemporalState {
     pub basis_x: Vec3,
     pub basis_y: Vec3,
     pub initialized: bool,
-    /// Cloud field displacement ([`crate::CloudLayer::noise_offset`]) when the map was last filtered.
+    /// Cloud field displacement ([`crate::VolumetricCloudLayer::noise_offset`]) when the map was last filtered.
     pub cloud_offset: Vec3,
 }
 
@@ -652,7 +652,7 @@ impl FromWorld for RenderSkyBindGroupLayouts {
         };
 
         // Two variants:
-        // - *_clouds: base + CloudLayer + cloud noise + cloud shadow map + STBN (20..=25)
+        // - *_clouds: base + VolumetricCloudLayer + cloud noise + cloud shadow map + STBN (20..=25)
         // - *_no_clouds: base only
         let render_sky_no_clouds = BindGroupLayoutDescriptor::new(
             "render_sky_bind_group_layout_no_clouds",
@@ -916,7 +916,7 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             shader_defs.push("DUAL_SOURCE_BLENDING".into());
         }
 
-        // Enable cloud rendering only when a CloudLayer component is present.
+        // Enable cloud rendering only when a VolumetricCloudLayer component is present.
         if key.clouds_enabled {
             shader_defs.push("CLOUDS_ENABLED".into());
             shader_defs.push("CLOUD_SHADOW_SIMPLE_SAMPLING".into());
@@ -1385,7 +1385,7 @@ pub(crate) struct AtmosphereBindGroups {
     pub multiscattering_lut: BindGroup,
     pub sky_view_lut: BindGroup,
     pub aerial_view_lut: BindGroup,
-    /// Cloud-shadowed LUT bind groups (views with a `CloudLayer`).
+    /// Cloud-shadowed LUT bind groups (views with a `VolumetricCloudLayer`).
     pub sky_view_lut_clouds: Option<BindGroup>,
     pub aerial_view_lut_clouds: Option<BindGroup>,
     pub cloud_shadow_map: Option<BindGroup>,
@@ -1399,7 +1399,7 @@ pub(crate) struct AtmosphereBindGroups {
     pub cloud_shadow_temporal: Option<BindGroup>,
     pub render_sky_clouds: Option<BindGroup>,
     pub render_sky_no_clouds: BindGroup,
-    /// `clouds_raymarch` pass (only for non-MSAA views with a `CloudLayer`).
+    /// `clouds_raymarch` pass (only for non-MSAA views with a `VolumetricCloudLayer`).
     pub clouds_raymarch: Option<BindGroup>,
     /// `clouds_reconstruct` pass (same conditions as `clouds_raymarch`).
     pub clouds_reconstruct: Option<BindGroup>,
@@ -1628,7 +1628,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .binding()
         .ok_or(AtmosphereBindGroupError::LightUniforms)?;
 
-    // Optional: when no view has a CloudLayer component, the uniform buffer can be absent.
+    // Optional: when no view has a VolumetricCloudLayer component, the uniform buffer can be absent.
     // We build no-cloud bind groups in that case.
     let cloud_layer_binding = cloud_layer_uniforms.binding();
 
@@ -1894,7 +1894,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
-        // Only create clouds bind group for views that have CloudLayer; otherwise use no_clouds
+        // Only create clouds bind group for views that have VolumetricCloudLayer; otherwise use no_clouds
         // to avoid passing clouds layout to no_clouds pipeline when disabling clouds.
         let render_sky_clouds = cloud_layer_binding
             .as_ref()
@@ -2176,7 +2176,7 @@ pub(crate) fn prepare_atmosphere_buffers(
         let mut settings = settings.clone();
         if !has_clouds {
             // PBR shading skips the cloud shadow map lookup when the extent is zero, so a
-            // stale map from a removed `CloudLayer` never darkens surfaces.
+            // stale map from a removed `VolumetricCloudLayer` never darkens surfaces.
             settings.cloud_shadow_map_extent = 0.0;
         }
         let data = AtmosphereData {

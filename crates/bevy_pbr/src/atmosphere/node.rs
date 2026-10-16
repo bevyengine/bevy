@@ -173,7 +173,7 @@ pub fn atmosphere_luts(
             );
         }
 
-        // Sky View / Aerial View LUTs. With a CloudLayer, the cloud-shadowed variants (the cloud
+        // Sky View / Aerial View LUTs. With a VolumetricCloudLayer, the cloud-shadowed variants (the cloud
         // shadow map darkens their sun in-scattering; it is last frame's map, traced below).
         let cloud_luts = match (
             cloud_layer_uniforms_offset.as_ref(),
@@ -611,8 +611,8 @@ pub fn render_sky(
 
     render_sky_pass.set_pipeline(render_sky_pipeline);
 
-    // Select correct bind group + dynamic offsets based on whether the view has CloudLayer.
-    // No-cloud variant omits the CloudLayer binding entirely.
+    // Select correct bind group + dynamic offsets based on whether the view has VolumetricCloudLayer.
+    // No-cloud variant omits the VolumetricCloudLayer binding entirely.
     //
     // If cloud bind group isn't ready yet, skip this pass (pipeline cache will catch up next frame).
     let (bind_group, cloud_layer_offset) = match (

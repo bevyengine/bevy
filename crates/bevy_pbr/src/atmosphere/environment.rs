@@ -269,7 +269,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
             )),
         );
 
-        // Optional clouds-enabled bind group (requires CloudLayer + scattering medium + noise textures).
+        // Optional clouds-enabled bind group (requires VolumetricCloudLayer + scattering medium + noise textures).
         let environment_clouds = (|| -> Option<BindGroup> {
             let cloud_layer_binding = cloud_layer_uniforms.binding()?;
             // `gpu_medium` comes from the selected view's atmosphere above.

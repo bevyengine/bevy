@@ -10,9 +10,10 @@
 //! account the directional light color and direction.
 //!
 //! To add the atmosphere to your scene, spawn an entity with the [`Atmosphere`] component and
-//! [`bevy_transform::components::GlobalTransform`], optionally add [`CloudLayer`] (volumetric
-//! cumulus) and/or [`CirrusLayer`] (high-altitude ice cloud), and add [`AtmosphereSettings`] to
-//! each 3D camera that should render it. Detailed
+//! [`bevy_transform::components::GlobalTransform`], optionally add a [`VolumetricCloudLayer`]
+//! (e.g. [`VolumetricCloudLayer::cumulus`]) and/or a [`ThinCloudLayer`] (e.g.
+//! [`ThinCloudLayer::cirrus`]), both moved by the atmosphere's [`AtmosphereWind`] profile, and add
+//! [`AtmosphereSettings`] to each 3D camera that should render it. Detailed
 //! documentation is on the [`Atmosphere`] component.
 //!
 //! Placement and scene scale come from the entity's transform. With several atmospheres in one
@@ -305,7 +306,7 @@ impl Plugin for AtmospherePlugin {
 
 /// For each camera with [`AtmosphereSettings`], picks the nearest [`Atmosphere`] by world-space
 /// distance to its origin, copies it as [`ExtractedAtmosphere`], combines its optional
-/// [`CloudLayer`] and [`CirrusLayer`] into [`GpuCloudLayers`], and builds [`GpuAtmosphereSettings`].
+/// [`VolumetricCloudLayer`] and [`ThinCloudLayer`] into [`GpuCloudLayers`], and builds [`GpuAtmosphereSettings`].
 pub fn extract_atmosphere(
     mut commands: Commands,
     atmosphere_entities: Extract<
@@ -313,8 +314,9 @@ pub fn extract_atmosphere(
             Entity,
             &Atmosphere,
             &GlobalTransform,
-            Option<&CloudLayer>,
-            Option<&CirrusLayer>,
+            Option<&VolumetricCloudLayer>,
+            Option<&ThinCloudLayer>,
+            Option<&AtmosphereWind>,
         )>,
     >,
     cameras: Extract<
@@ -342,7 +344,7 @@ pub fn extract_atmosphere(
         let cam_world = cam_global.translation();
         let selected = candidates
             .iter()
-            .min_by(|(ea, _, gt_a, _, _), (eb, _, gt_b, _, _)| {
+            .min_by(|(ea, _, gt_a, _, _, _), (eb, _, gt_b, _, _, _)| {
                 let da = cam_world.distance(gt_a.translation());
                 let db = cam_world.distance(gt_b.translation());
                 da.total_cmp(&db).then_with(|| ea.cmp(eb))
@@ -352,6 +354,7 @@ pub fn extract_atmosphere(
         let gt = selected.2;
         let cloud_layer = selected.3;
         let cirrus_layer = selected.4;
+        let wind = selected.5;
         // Atmospheres are spherically symmetric, so ignore their orientation.
         let (scale, _, translation) = gt.to_scale_rotation_translation();
 
@@ -372,7 +375,7 @@ pub fn extract_atmosphere(
         if cloud_layer.is_some() || cirrus_layer.is_some() {
             commands
                 .entity(render_entity)
-                .insert(GpuCloudLayers::new(cloud_layer, cirrus_layer));
+                .insert(GpuCloudLayers::new(cloud_layer, cirrus_layer, wind, atmo.inner_radius));
         } else {
             commands.entity(render_entity).remove::<GpuCloudLayers>();
         }
@@ -766,8 +769,8 @@ impl Default for VolumetricCloudSettings {
 /// that select that atmosphere.
 #[derive(Clone, Component, Reflect)]
 #[reflect(Clone, Default)]
-#[require(CloudWeather)]
-pub struct CloudLayer {
+#[require(CloudWeather, AtmosphereWind)]
+pub struct VolumetricCloudLayer {
     /// Altitude at which the cloud layer starts (from planet center)
     /// units: m
     pub cloud_layer_start: f32,
@@ -779,12 +782,12 @@ pub struct CloudLayer {
     /// Density multiplier for the clouds
     pub cloud_density: f32,
 
-    /// Absorption coefficient for clouds at density 1. Use [`CloudLayer::with_liquid_water`]
+    /// Absorption coefficient for clouds at density 1. Use [`VolumetricCloudLayer::with_liquid_water`]
     /// to derive it from the droplet microphysics.
     /// units: m^-1
     pub cloud_absorption: f32,
 
-    /// Scattering coefficient for clouds at density 1. Use [`CloudLayer::with_liquid_water`]
+    /// Scattering coefficient for clouds at density 1. Use [`VolumetricCloudLayer::with_liquid_water`]
     /// to derive it from the droplet microphysics.
     /// units: m^-1
     pub cloud_scattering: f32,
@@ -793,9 +796,9 @@ pub struct CloudLayer {
     /// `noise_scale / 8` m (isotropic) and curl every `noise_scale / 8` m.
     pub noise_scale: f32,
 
-    /// Accumulated displacement of the cloud field (m): xz by [`CloudLayer::wind`] (advection;
+    /// Accumulated displacement of the cloud field (m): xz by [`VolumetricCloudLayer::wind`] (advection;
     /// the density at `p` is the pattern at `p - noise_offset`), y by
-    /// [`CloudLayer::updraft_speed`] (the noise rises through the fixed vertical envelope:
+    /// [`VolumetricCloudLayer::updraft_speed`] (the noise rises through the fixed vertical envelope:
     /// thermals rise and turrets form at the base and dissolve at the top). Advanced each frame by
     /// [`advance_cloud_wind`].
     pub noise_offset: Vec3,
@@ -810,25 +813,27 @@ pub struct CloudLayer {
     /// 0 = disabled, 1 = full modulation.
     pub detail_strength: f32,
 
-    /// Wind velocity at the cloud base (m/s, horizontal). Advects the cloud field.
-    pub wind: Vec3,
+    /// Override of the wind at the cloud base (m/s, horizontal), which advects the cloud field.
+    /// `None`: [`AtmosphereWind`] at the base altitude.
+    pub wind: Option<Vec3>,
 
     /// Vertical density envelope `h'^bottom * (1 - h')^top` (normalized to a peak of 1), with h'
     /// the height relative to the column's cloud top. The defaults (1, 1) are physical: adiabatic
     /// liquid water grows linearly above the flat base, and entrainment lowers it toward the
-    /// top. [`CloudLayer::NUBIS_ENVELOPE`] gives Nubis's (2, 1.5).
+    /// top. [`VolumetricCloudLayer::NUBIS_ENVELOPE`] gives Nubis's (2, 1.5).
     pub profile_bottom_exponent: f32,
-    /// See [`CloudLayer::profile_bottom_exponent`].
+    /// See [`VolumetricCloudLayer::profile_bottom_exponent`].
     pub profile_top_exponent: f32,
     /// Cloud-top height (fraction of the layer) of the thinnest cells; the top rises linearly
     /// with weather coverage to the layer top.
     pub profile_top_min: f32,
 
-    /// Vertical wind shear dU/dz above the cloud base (1/s, horizontal; 1e-3 = 1 m/s per km).
-    /// Clouds lean downwind like the trajectory of a parcel rising at
-    /// [`CloudLayer::updraft_speed`] through the sheared flow: x(z) = shear z^2 / (2 w). The lean
-    /// is static (a cloud is continuously renewed by new thermals), not accumulated over time.
-    pub wind_shear: Vec3,
+    /// Override of the vertical wind shear dU/dz above the cloud base (1/s, horizontal; 1e-3 =
+    /// 1 m/s per km). `None`: the mean shear of [`AtmosphereWind`] over the layer. Clouds lean
+    /// downwind like the trajectory of a parcel rising at [`VolumetricCloudLayer::updraft_speed`]
+    /// through the sheared flow: x(z) = shear z^2 / (2 w). The lean is static (a cloud is
+    /// continuously renewed by new thermals), not accumulated over time.
+    pub wind_shear: Option<Vec3>,
     /// Cumulus updraft speed (m/s). Fair-weather cumulus: ~1-5 m/s (textbook range, e.g.
     /// Stull, Practical Meteorology). Sets the shear lean and the rise of the internal structure.
     pub updraft_speed: f32,
@@ -842,9 +847,9 @@ pub struct CloudLayer {
 
 }
 
-impl CloudLayer {
+impl VolumetricCloudLayer {
     /// Nubis Evolved (SIGGRAPH 2022) envelope-model vertical gradients:
-    /// bottom `pow(h, 2)`, top `pow(1 - h, 1.5)`. Use with [`CloudLayer::with_vertical_profile`].
+    /// bottom `pow(h, 2)`, top `pow(1 - h, 1.5)`. Use with [`VolumetricCloudLayer::with_vertical_profile`].
     pub const NUBIS_ENVELOPE: (f32, f32) = (2.0, 1.5);
     /// Physical default: adiabatic liquid water (linear above the base) times a linearly
     /// decreasing adiabatic fraction (entrainment).
@@ -889,7 +894,7 @@ impl CloudLayer {
     }
 }
 
-impl Default for CloudLayer {
+impl Default for VolumetricCloudLayer {
     fn default() -> Self {
         Self {
             cloud_layer_start: 6_361_500.0, // cloud base 1.5 km above the surface
@@ -901,11 +906,11 @@ impl Default for CloudLayer {
             noise_offset: Vec3::ZERO,
             detail_noise_scale: 600.0,
             detail_strength: 1.0,
-            wind: Vec3::new(15.0, 0.0, 5.0),
+            wind: None,
             profile_bottom_exponent: Self::ADIABATIC_PROFILE.0,
             profile_top_exponent: Self::ADIABATIC_PROFILE.1,
             profile_top_min: 0.25,
-            wind_shear: Vec3::new(1.0e-3, 0.0, 0.33e-3),
+            wind_shear: None,
             updraft_speed: 3.0,
             lifetime: 1200.0,
             evolution_time: 0.0,
@@ -914,24 +919,25 @@ impl Default for CloudLayer {
     }
 }
 
-impl SyncComponent<RenderApp> for CloudLayer {
+impl SyncComponent<RenderApp> for VolumetricCloudLayer {
     type Target = Self;
 }
 
 /// A high-altitude cirrus layer (thin ice cloud). Add it to an [`Atmosphere`] entity, with or
-/// without a [`CloudLayer`] (cumulus).
+/// without a [`VolumetricCloudLayer`] (cumulus).
 ///
 /// Structure after Hogan & Kew (2005, Q. J. R. Meteorol. Soc. 131, "A 3D stochastic cloud model
 /// for investigating the radiative properties of inhomogeneous cirrus clouds"): at the generating
 /// level (cloud top) the log ice water content is a turbulent tracer with a -5/3 power spectrum up
-/// to an outer scale, and below it the ice falls at [`CirrusLayer::fall_speed`] through the wind
+/// to an outer scale, and below it the ice falls at [`ThinCloudLayer::fall_speed`] through the wind
 /// shear, displacing that pattern into fall streaks (Marshall 1953: x = S dz^2 / (2 w) for
 /// constant shear S and fall speed w). Light: single scattering by an ice slab with the
 /// asymmetry of roughened ice crystals.
 #[derive(Clone, Component, Reflect)]
 #[reflect(Clone, Default)]
-pub struct CirrusLayer {
-    /// Radius (from the planet center, like [`CloudLayer::cloud_layer_start`]) of the generating
+#[require(AtmosphereWind)]
+pub struct ThinCloudLayer {
+    /// Radius (from the planet center, like [`VolumetricCloudLayer::cloud_layer_start`]) of the generating
     /// level, the cirrus top. High clouds: 5-13 km in mid-latitudes (WMO International Cloud
     /// Atlas); Hogan & Kew's case: 9.1 km.
     /// units: m
@@ -958,13 +964,15 @@ pub struct CirrusLayer {
     /// Relative spread of fall speeds (std / mean): it spreads the fall-streak displacement and
     /// smooths the pattern below the top, steepening the spectrum with depth as observed.
     pub fall_speed_spread: f32,
-    /// Wind at the generating level (horizontal); advects the layer.
+    /// Override of the wind at the generating level (horizontal), which advects the layer.
+    /// `None`: [`AtmosphereWind`] at [`ThinCloudLayer::top`].
     /// units: m/s
-    pub wind: Vec3,
-    /// Vertical wind shear dU/dz across the layer (horizontal). Fall streaks trail by
-    /// -shear dz^2 / (2 fall_speed) at depth dz below the top.
+    pub wind: Option<Vec3>,
+    /// Override of the vertical wind shear dU/dz across the layer (horizontal). Fall streaks
+    /// trail by -shear dz^2 / (2 fall_speed) at depth dz below the top. `None`: the mean shear of
+    /// [`AtmosphereWind`] over the layer's thickness.
     /// units: 1/s
-    pub wind_shear: Vec3,
+    pub wind_shear: Option<Vec3>,
     /// Asymmetry parameter g of the ice phase function: severely roughened aggregates, ~0.75 in
     /// the visible (Baum et al. 2014, JQSRT 146).
     pub asymmetry: f32,
@@ -972,7 +980,7 @@ pub struct CirrusLayer {
     pub offset: Vec3,
 }
 
-impl Default for CirrusLayer {
+impl Default for ThinCloudLayer {
     fn default() -> Self {
         Self {
             top: 6_369_500.0,
@@ -983,16 +991,136 @@ impl Default for CirrusLayer {
             outer_scale: 50_000.0,
             fall_speed: 0.8,
             fall_speed_spread: 0.25,
-            wind: Vec3::new(30.0, 0.0, 10.0),
-            wind_shear: Vec3::new(4.0e-3, 0.0, 1.0e-3),
+            wind: None,
+            wind_shear: None,
             asymmetry: 0.75,
             offset: Vec3::ZERO,
         }
     }
 }
 
-/// Render-world uniform of the cloud layers on a view's atmosphere: [`CloudLayer`] (cumulus,
-/// optional) and [`CirrusLayer`] (optional). Field names match `clouds.wesl`.
+impl VolumetricCloudLayer {
+    /// Fair-weather cumulus (the default): base 1.5 km, tops up to 4 km, adiabatic profile,
+    /// 1 g/m^3 peak liquid water.
+    pub fn cumulus() -> Self {
+        Self::default()
+    }
+
+    /// Wind at the base and shear over the layer: the overrides, or the atmosphere's profile.
+    pub fn resolved_wind(&self, profile: &AtmosphereWind, inner_radius: f32) -> (Vec3, Vec3) {
+        let base = self.cloud_layer_start - inner_radius;
+        let top = self.cloud_layer_end - inner_radius;
+        (
+            self.wind.unwrap_or_else(|| profile.at(base)),
+            self.wind_shear.unwrap_or_else(|| profile.mean_shear(base, top)),
+        )
+    }
+}
+
+impl ThinCloudLayer {
+    /// Cirrus (the default): thin (tau 0.3), patchy (35 %), fall streaks.
+    pub fn cirrus() -> Self {
+        Self::default()
+    }
+
+    /// Cirrostratus: a nearly continuous, more uniform ice veil. Optical depth 0.6 (Sassen & Cho
+    /// 1992's "opaque" class 0.3-3, the range of halo-producing sheets), cloud fraction 0.9, a
+    /// smaller ln IWC spread (0.5) and a deeper layer (2 km).
+    pub fn cirrostratus() -> Self {
+        Self {
+            optical_depth: 0.6,
+            coverage: 0.9,
+            ln_iwc_std: 0.5,
+            thickness: 2000.0,
+            ..Self::default()
+        }
+    }
+
+    /// Wind at the generating level and shear over the thickness: the overrides, or the
+    /// atmosphere's profile.
+    pub fn resolved_wind(&self, profile: &AtmosphereWind, inner_radius: f32) -> (Vec3, Vec3) {
+        let top = self.top - inner_radius;
+        (
+            self.wind.unwrap_or_else(|| profile.at(top)),
+            self.wind_shear
+                .unwrap_or_else(|| profile.mean_shear(top - self.thickness, top)),
+        )
+    }
+}
+
+/// Horizontal wind profile of the atmosphere, u(z): one profile for all cloud layers, so the
+/// cumulus advection and lean, the cirrus drift and fall streaks, and their relative motion are
+/// consistent. Layers take their wind and shear at their own altitude unless they override them
+/// ([`VolumetricCloudLayer::wind`], [`ThinCloudLayer::wind`]). Required by the cloud layers
+/// (default: [`AtmosphereWind::fair_weather`]).
+#[derive(Clone, Component, Reflect, Debug)]
+#[reflect(Clone, Default, Debug)]
+pub struct AtmosphereWind {
+    /// (altitude above the ground in m, horizontal wind in m/s), sorted by altitude; linear in
+    /// between, constant beyond the first and last level.
+    pub levels: Vec<(f32, Vec3)>,
+}
+
+impl Default for AtmosphereWind {
+    fn default() -> Self {
+        Self::fair_weather()
+    }
+}
+
+impl AtmosphereWind {
+    /// No wind.
+    pub fn calm() -> Self {
+        Self::constant(Vec3::ZERO)
+    }
+
+    /// The same wind at every altitude (no shear).
+    pub fn constant(velocity: Vec3) -> Self {
+        Self {
+            levels: vec![(0.0, velocity)],
+        }
+    }
+
+    /// An illustrative mid-latitude fair-weather profile (an input, like a sounding): light
+    /// surface wind, ~1 m/s per km of shear through the cumulus layer, and stronger shear
+    /// (~4 m/s per km) toward the upper-tropospheric jet where cirrus form.
+    pub fn fair_weather() -> Self {
+        let dir = Vec3::new(3.0, 0.0, 1.0).normalize();
+        Self {
+            levels: vec![
+                (0.0, dir * 8.0),
+                (1500.0, dir * 15.8),
+                (4000.0, dir * 18.4),
+                (8000.0, dir * 27.0),
+                (9500.0, dir * 33.3),
+            ],
+        }
+    }
+
+    /// Wind at `altitude` (m above the ground).
+    pub fn at(&self, altitude: f32) -> Vec3 {
+        let Some(&(z0, v0)) = self.levels.first() else {
+            return Vec3::ZERO;
+        };
+        if altitude <= z0 {
+            return v0;
+        }
+        for pair in self.levels.windows(2) {
+            let ((za, va), (zb, vb)) = (pair[0], pair[1]);
+            if altitude <= zb {
+                return va.lerp(vb, (altitude - za) / (zb - za).max(1e-3));
+            }
+        }
+        self.levels.last().map_or(Vec3::ZERO, |&(_, v)| v)
+    }
+
+    /// Mean shear dU/dz between two altitudes (1/s).
+    pub fn mean_shear(&self, low: f32, high: f32) -> Vec3 {
+        (self.at(high) - self.at(low)) / (high - low).max(1.0)
+    }
+}
+
+/// Render-world uniform of the cloud layers on a view's atmosphere: [`VolumetricCloudLayer`] (cumulus,
+/// optional) and [`ThinCloudLayer`] (optional). Field names match `clouds.wesl`.
 #[derive(Clone, Component, ShaderType)]
 pub struct GpuCloudLayers {
     pub cloud_layer_start: f32,
@@ -1030,17 +1158,26 @@ pub struct GpuCloudLayers {
 }
 
 impl GpuCloudLayers {
-    pub fn new(cumulus: Option<&CloudLayer>, cirrus: Option<&CirrusLayer>) -> Self {
-        let disabled_cumulus = CloudLayer {
+    pub fn new(
+        cumulus: Option<&VolumetricCloudLayer>,
+        cirrus: Option<&ThinCloudLayer>,
+        wind: Option<&AtmosphereWind>,
+        inner_radius: f32,
+    ) -> Self {
+        let default_wind = AtmosphereWind::default();
+        let wind = wind.unwrap_or(&default_wind);
+        let disabled_cumulus = VolumetricCloudLayer {
             cloud_density: 0.0,
-            ..CloudLayer::default()
+            ..VolumetricCloudLayer::default()
         };
         let c = cumulus.unwrap_or(&disabled_cumulus);
-        let disabled_cirrus = CirrusLayer {
+        let disabled_cirrus = ThinCloudLayer {
             optical_depth: 0.0,
-            ..CirrusLayer::default()
+            ..ThinCloudLayer::default()
         };
         let ci = cirrus.unwrap_or(&disabled_cirrus);
+        let (c_wind, c_shear) = c.resolved_wind(wind, inner_radius);
+        let (_, ci_shear) = ci.resolved_wind(wind, inner_radius);
         // Log-normal extinction exp(sigma g), g ~ N(0, 1), cloudy where g > g_c with
         // P(g > g_c) = coverage. In-cloud mean of exp(sigma g):
         // E[exp(sigma g) | g > g_c] = exp(sigma^2 / 2) Q(g_c - sigma) / Q(g_c), Q = 1 - Phi.
@@ -1059,17 +1196,17 @@ impl GpuCloudLayers {
             noise_offset: c.noise_offset,
             detail_noise_scale: c.detail_noise_scale,
             detail_strength: c.detail_strength,
-            wind: c.wind,
+            wind: c_wind,
             profile_bottom_exponent: c.profile_bottom_exponent,
             profile_top_exponent: c.profile_top_exponent,
             profile_top_min: c.profile_top_min,
-            wind_shear: c.wind_shear,
+            wind_shear: c_shear,
             updraft_speed: c.updraft_speed,
             lifetime: c.lifetime,
             evolution_time: c.evolution_time,
             cirrus_offset: ci.offset,
             cirrus_top: ci.top,
-            cirrus_wind_shear: ci.wind_shear,
+            cirrus_wind_shear: ci_shear,
             cirrus_thickness: ci.thickness.max(0.0),
             cirrus_optical_depth: ci.optical_depth.max(0.0),
             cirrus_threshold: threshold,
@@ -1139,25 +1276,28 @@ impl Default for CloudTimeScale {
     }
 }
 
-/// Advances the cloud field each frame: advection by [`CloudLayer::wind`], rise at
-/// [`CloudLayer::updraft_speed`] and the life-cycle clock [`CloudLayer::evolution_time`].
+/// Advances the cloud field each frame: advection by [`VolumetricCloudLayer::wind`], rise at
+/// [`VolumetricCloudLayer::updraft_speed`] and the life-cycle clock [`VolumetricCloudLayer::evolution_time`].
 pub fn advance_cloud_wind(
     time: Res<Time>,
     scale: Option<Res<CloudTimeScale>>,
-    mut layers: Query<&mut CloudLayer>,
-    mut cirrus_layers: Query<&mut CirrusLayer>,
+    mut layers: Query<(&mut VolumetricCloudLayer, Option<&AtmosphereWind>, &Atmosphere)>,
+    mut cirrus_layers: Query<(&mut ThinCloudLayer, Option<&AtmosphereWind>, &Atmosphere)>,
 ) {
+    let default_wind = AtmosphereWind::default();
     let dt = time.delta_secs() * scale.map_or(1.0, |s| s.0);
     if dt <= 0.0 {
         return;
     }
-    for mut layer in &mut layers {
-        let step = Vec3::new(layer.wind.x, layer.updraft_speed, layer.wind.z) * dt;
+    for (mut layer, wind, atmosphere) in &mut layers {
+        let (wind, _) = layer.resolved_wind(wind.unwrap_or(&default_wind), atmosphere.inner_radius);
+        let step = Vec3::new(wind.x, layer.updraft_speed, wind.z) * dt;
         layer.noise_offset += step;
         layer.evolution_time += dt;
     }
-    for mut cirrus in &mut cirrus_layers {
-        let step = Vec3::new(cirrus.wind.x, 0.0, cirrus.wind.z) * dt;
+    for (mut cirrus, wind, atmosphere) in &mut cirrus_layers {
+        let (wind, _) = cirrus.resolved_wind(wind.unwrap_or(&default_wind), atmosphere.inner_radius);
+        let step = Vec3::new(wind.x, 0.0, wind.z) * dt;
         cirrus.offset += step;
     }
 }
@@ -1186,3 +1326,43 @@ pub fn apply_volumetric_cloud_settings(
     }
 }
 
+
+#[cfg(test)]
+mod cloud_layer_tests {
+    use super::*;
+
+    #[test]
+    fn wind_profile_interpolates_and_clamps() {
+        let wind = AtmosphereWind {
+            levels: vec![(1000.0, Vec3::X * 10.0), (3000.0, Vec3::X * 30.0)],
+        };
+        assert_eq!(wind.at(0.0), Vec3::X * 10.0);
+        assert!((wind.at(2000.0) - Vec3::X * 20.0).length() < 1e-4);
+        assert_eq!(wind.at(5000.0), Vec3::X * 30.0);
+        assert!((wind.mean_shear(1000.0, 3000.0) - Vec3::X * 0.01).length() < 1e-6);
+        assert_eq!(AtmosphereWind::calm().at(1234.0), Vec3::ZERO);
+    }
+
+    #[test]
+    fn layer_wind_overrides_profile() {
+        let profile = AtmosphereWind::constant(Vec3::X * 5.0);
+        let cumulus = VolumetricCloudLayer {
+            wind: Some(Vec3::Z * 2.0),
+            ..VolumetricCloudLayer::cumulus()
+        };
+        let (w, shear) = cumulus.resolved_wind(&profile, 6_360_000.0);
+        assert_eq!(w, Vec3::Z * 2.0);
+        assert_eq!(shear, Vec3::ZERO);
+        let (w, _) = ThinCloudLayer::cirrus().resolved_wind(&profile, 6_360_000.0);
+        assert_eq!(w, Vec3::X * 5.0);
+    }
+
+    #[test]
+    fn normal_quantile_and_tail_are_consistent() {
+        for p in [0.01_f32, 0.2, 0.5, 0.65, 0.99] {
+            let x = normal_quantile(p);
+            assert!((1.0 - normal_sf(x) - p).abs() < 1e-5, "p = {p}, x = {x}");
+        }
+        assert!((normal_quantile(0.975) - 1.959_964).abs() < 1e-4);
+    }
+}

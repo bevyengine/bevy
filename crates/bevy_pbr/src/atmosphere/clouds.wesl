@@ -7,7 +7,7 @@ import package::atmosphere::{
     bindings::{settings, atmosphere},
 };
 
-struct CloudLayer {
+struct GpuCloudLayers {
     cloud_layer_start: f32,
     cloud_layer_end: f32,
     cloud_density: f32,
@@ -25,7 +25,7 @@ struct CloudLayer {
     updraft_speed: f32,
     lifetime: f32,
     evolution_time: f32,
-    // Cirrus (CirrusLayer, mod.rs GpuCloudLayers).
+    // Cirrus (ThinCloudLayer, mod.rs GpuCloudLayers).
     cirrus_offset: vec3<f32>,
     cirrus_top: f32,
     cirrus_wind_shear: vec3<f32>,
@@ -40,7 +40,7 @@ struct CloudLayer {
     cirrus_asymmetry: f32,
 }
 
-@group(0) @binding(20) var<uniform> cloud_layer: CloudLayer;
+@group(0) @binding(20) var<uniform> cloud_layer: GpuCloudLayers;
 @group(0) @binding(21) var noise_texture_2d: texture_2d<f32>;
 @group(0) @binding(22) var noise_sampler_3d: sampler;
 @group(0) @binding(24) var perlin_worley_noise_3d: texture_3d<f32>;
@@ -175,7 +175,7 @@ fn remap(x: f32, a: f32, b: f32, c: f32, d: f32) -> f32 {
 /// Dimensional profile (Nubis Evolved 2022 sky model: vertical_profile * coverage) with a
 /// parameterized vertical envelope, h' = height / cloud-top height of the column:
 ///   vertical_profile = norm * h'^a * (1 - h')^b,  norm = 1 / max (peak 1 at h' = a / (a + b)).
-/// a = profile_bottom_exponent, b = profile_top_exponent (`CloudLayer`):
+/// a = profile_bottom_exponent, b = profile_top_exponent (`VolumetricCloudLayer`):
 ///  - physical default a = b = 1: adiabatic liquid water grows linearly above the flat
 ///    condensation base, and entrainment lowers the adiabatic fraction ~linearly toward the top
 ///    (cloud-physics texts, e.g. Rogers & Yau, A Short Course in Cloud Physics, ch. 2-3);

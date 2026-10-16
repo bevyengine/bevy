@@ -1129,7 +1129,7 @@ fn rect_light(
 
 /// Sun visibility through the atmosphere's volumetric clouds, from the cloud shadow map
 /// (same projection as `atmosphere::functions::sample_cloud_shadow_map`; design.md §1.6).
-/// Returns 1 when the view has no `CloudLayer` (the extent is zeroed on the CPU).
+/// Returns 1 when the view has no `VolumetricCloudLayer` (the extent is zeroed on the CPU).
 @if(ATMOSPHERE)
 fn sample_atmosphere_cloud_shadow(P_as: vec3<f32>, L: vec3<f32>) -> f32 {
     let settings = view_bindings::atmosphere_data.settings;

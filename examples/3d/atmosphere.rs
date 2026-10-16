@@ -37,7 +37,8 @@ use bevy::{
         VolumetricLight,
     },
     pbr::{
-        AtmosphereMode, AtmosphereSettings, CirrusLayer, CloudLayer, CloudTimeScale, CloudWeather,
+        AtmosphereMode, AtmosphereSettings, AtmosphereWind, CloudTimeScale, CloudWeather,
+        ThinCloudLayer, VolumetricCloudLayer,
         DefaultOpaqueRendererMethod,
         VolumetricCloudSettings,
         ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
@@ -226,14 +227,14 @@ fn bench_hooks(
     time: Res<Time<Real>>,
     mut bench: ResMut<BenchSettings>,
     mut exit: MessageWriter<AppExit>,
-    cloud_layers: Query<Entity, With<CloudLayer>>,
+    cloud_layers: Query<Entity, With<VolumetricCloudLayer>>,
     offscreen: Option<Res<OffscreenTarget>>,
 ) {
     let offscreen = OffscreenTarget(offscreen.and_then(|o| o.0.clone()));
     let _sunset = bench.sunset; // sun tilt applied at spawn via ATMOSPHERE_SUNSET
     if bench.no_clouds {
         for entity in &cloud_layers {
-            commands.entity(entity).remove::<CloudLayer>();
+            commands.entity(entity).remove::<VolumetricCloudLayer>();
         }
     }
     let elapsed = time.elapsed_secs();
@@ -283,7 +284,7 @@ fn atmosphere_controls(
     mut planet_atmosphere: Query<(&mut Atmosphere, &mut GlobalTransform)>,
     mut camera_settings: Query<&mut AtmosphereSettings, With<Camera3d>>,
     mut sun_disks: Query<&mut SunDisk, With<DirectionalLight>>,
-    mut atmosphere_entities: Query<(Entity, Option<&mut CloudLayer>), With<Atmosphere>>,
+    mut atmosphere_entities: Query<(Entity, Option<&mut VolumetricCloudLayer>), With<Atmosphere>>,
     mut commands: Commands,
     atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
@@ -354,12 +355,12 @@ fn atmosphere_controls(
             .collect();
         if has_clouds {
             for entity in entities {
-                commands.entity(entity).remove::<CloudLayer>();
+                commands.entity(entity).remove::<VolumetricCloudLayer>();
             }
             println!("Cloud layer disabled");
         } else {
             for entity in entities {
-                commands.entity(entity).insert(CloudLayer::default());
+                commands.entity(entity).insert(VolumetricCloudLayer::default());
             }
             println!("Cloud layer enabled");
         }
@@ -492,9 +493,9 @@ fn setup_camera_fog(
             ..Atmosphere::earth(earth_medium)
         },
         // Volumetric cloud layer. Scattering/absorption come from droplet microphysics
-        // (`CloudLayer::with_liquid_water`): peak cumulus liquid water content 1 g/m^3 at density 1,
+        // (`VolumetricCloudLayer::with_liquid_water`): peak cumulus liquid water content 1 g/m^3 at density 1,
         // effective radius 10 um.
-        CloudLayer {
+        VolumetricCloudLayer {
             cloud_layer_start: 6_361_500.0, // cloud base 1.5 km above the surface
             cloud_layer_end: 6_364_000.0,   // tops 4 km (2.5 km thick layer)
             cloud_density: 1.0, // Used for enabling/disabling, actual density comes from noise (normalized [0, 1])
@@ -507,25 +508,26 @@ fn setup_camera_fog(
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(600.0),
             detail_strength: 1.0,
-            wind: Vec3::new(20.0, 0.0, 8.0),
             ..default()
         }
         .with_liquid_water(
-            std::env::var("ATMOSPHERE_CLOUD_LWC").ok().and_then(|v| v.parse::<f32>().ok()).map_or(CloudLayer::CUMULUS_LIQUID_WATER, |g| g * 1e-3),
-            CloudLayer::CUMULUS_EFFECTIVE_RADIUS,
+            std::env::var("ATMOSPHERE_CLOUD_LWC").ok().and_then(|v| v.parse::<f32>().ok()).map_or(VolumetricCloudLayer::CUMULUS_LIQUID_WATER, |g| g * 1e-3),
+            VolumetricCloudLayer::CUMULUS_EFFECTIVE_RADIUS,
         )
         // `ATMOSPHERE_CLOUD_PROFILE=nubis`: Nubis envelope instead of the adiabatic default.
         .with_vertical_profile(if std::env::var("ATMOSPHERE_CLOUD_PROFILE").as_deref() == Ok("nubis") {
-            CloudLayer::NUBIS_ENVELOPE
+            VolumetricCloudLayer::NUBIS_ENVELOPE
         } else {
-            CloudLayer::ADIABATIC_PROFILE
+            VolumetricCloudLayer::ADIABATIC_PROFILE
         }),
         CloudWeather::default(),
         // High-altitude cirrus (thin ice cloud at 9 km); `ATMOSPHERE_NO_CIRRUS` removes it.
-        CirrusLayer {
+        ThinCloudLayer {
             optical_depth: if std::env::var("ATMOSPHERE_NO_CIRRUS").is_ok() { 0.0 } else { 0.3 },
-            ..default()
+            ..ThinCloudLayer::cirrus()
         },
+        // One wind profile for both layers (each takes its wind and shear at its altitude).
+        AtmosphereWind::fair_weather(),
     ));
 
     let mut camera = commands.spawn_empty();
