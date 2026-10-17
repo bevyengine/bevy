@@ -41,19 +41,31 @@ const CLOUD_SDF_SKIP_MARGIN_VOXELS: f32 = 2.5;
 // Escape probability of multiply scattered light (r) and the vertical optical depths to the
 // layer top (g) and bottom (b) (cloud_field.wesl `escape`; cell from cloud_field_sdf).
 @group(0) @binding(48) var cloud_field_esc: texture_3d<f32>;
-/// Outside the field grid: the escape probability at a slab surface (half the sphere open), the
-/// limit for distant clouds, which are seen at their surfaces.
-const CLOUD_ESC_SURFACE: f32 = 0.5;
+/// Second exponential integral E2(x) = int_1^inf exp(-x t) / t^2 dt (the hemispheric escape of a
+/// slab of optical depth x). Rational fit exp(-x) (x^2 + a x + b) / (x^3 + c x^2 + d x + b),
+/// E2(0) = 1, max relative error 0.64 % on [0, 40] (least squares against scipy.special.expn).
+fn exp_integral_e2(x: f32) -> f32 {
+    return exp(-x) * (x * x + 1.6706291 * x + 0.13822509)
+        / (x * x * x + 3.6251676 * x * x + 2.2005648 * x + 0.13822509);
+}
 
-/// (P_esc, tau_up, tau_down). Outside the grid: the slab-surface P_esc and the coarse march
+/// (P_esc, tau_up, tau_down). Outside the grid: the plane-parallel P_esc from the coarse march
 /// toward the layer top and bottom (cloud_far_transmittance).
 fn cloud_escape_and_column(p: vec3<f32>) -> vec3<f32> {
     let uvw = cloud_field_uvw(p, textureLoad(cloud_field_sdf, vec3(0), 0).ba);
-    if (any(uvw.xy < vec2(0.0)) || any(uvw.xy > vec2(1.0))) {
+    var outside = any(uvw.xy < vec2(0.0)) || any(uvw.xy > vec2(1.0));
+    @if(ATM_DBG_ESC_FALLBACK) { outside = true; }
+    if (outside) {
+        // Plane-parallel limit of the same escape integral (1/4pi) int exp(-tau'(w)) dw over the
+        // two hemispheres, from the vertical columns: P_esc = (E2(tau'_up) + E2(tau'_down)) / 2,
+        // tau' = (1 - <cos>) tau (similarity). The former constant (a slab surface's 0.5)
+        // under-lit every cloud beyond the field grid (seen from far away or from space).
         let n = normalize(p);
-        return vec3(CLOUD_ESC_SURFACE,
-            -log(max(cloud_far_transmittance(p, n, true), 1e-6)),
-            -log(max(cloud_far_transmittance(p, -n, true), 1e-6)));
+        let tau_up = -log(max(cloud_far_transmittance(p, n, true), 1e-6));
+        let tau_down = -log(max(cloud_far_transmittance(p, -n, true), 1e-6));
+        let k = 1.0 - CLOUD_MIE_MEAN_COS;
+        let p_esc = 0.5 * (exp_integral_e2(k * tau_up) + exp_integral_e2(k * tau_down));
+        return vec3(p_esc, tau_up, tau_down);
     }
     return textureSampleLevel(cloud_field_esc, atmosphere_lut_sampler, saturate(uvw), 0.0).rgb;
 }
