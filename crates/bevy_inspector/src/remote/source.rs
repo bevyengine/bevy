@@ -28,7 +28,7 @@ use bevy_remote::{
         BrpQueryRow, ComponentSelector, BRP_APP_INFO_METHOD, BRP_QUERY_METHOD,
     },
     client::{BrpClient, BrpClientError},
-    http::{DEFAULT_PORT, DEFAULT_RENDER_PORT},
+    http::DEFAULT_PORT,
 };
 use bevy_tasks::{block_on, poll_once, IoTaskPool, Task, TaskPool};
 use bevy_time::{Real, Time};
@@ -40,7 +40,7 @@ use crate::{
     details_panel::{DetailsCollapsed, DetailsColumnSplits, DetailsPanelSync},
     entity_tree::{clear_rows, EntityTreeSync},
     remote::world::RemoteWorlds,
-    InspectableEntity, InspectorSelection, InspectorSource,
+    InspectableEntity, InspectorSelection, InspectorSource, InspectorSources,
 };
 
 const NAME: &str = "bevy_ecs::name::Name";
@@ -64,37 +64,69 @@ const FULL_REFRESH_INTERVAL: Duration = Duration::from_secs(10);
 const FULL_MIN_INTERVAL: Duration = Duration::from_secs(2);
 
 /// The address of the remote app the inspector reads from.
-#[derive(Debug, Clone, PartialEq, Eq, Reflect)]
+#[derive(Debug, Clone, PartialEq, Eq, Reflect, Hash)]
 #[reflect(Debug, Default, Clone, PartialEq)]
 pub struct RemoteSource {
     /// The host the remote app serves the Bevy Remote Protocol on.
     pub host: String,
-    /// The port the remote main app serves the Bevy Remote Protocol on.
-    pub main_port: u16,
-    /// The port the remote render app serves the Bevy Remote Protocol on.
-    pub render_port: u16,
+    /// The port the remote app serves the Bevy Remote Protocol on.
+    pub port: u16,
+    /// The subapp of the remote app.
+    pub subapp: RemoteSubApp,
+}
+
+/// The sub app of the remote connected to
+#[derive(Debug, Default, Clone, PartialEq, Eq, Reflect, Hash)]
+#[reflect(Debug, Default, Clone, PartialEq)]
+pub enum RemoteSubApp {
+    /// Main subapp
+    #[default]
+    Main,
+    /// Render subapp
+    Render,
 }
 
 impl Default for RemoteSource {
     fn default() -> Self {
-        Self::localhost(DEFAULT_PORT, DEFAULT_RENDER_PORT)
+        Self::localhost(DEFAULT_PORT)
     }
 }
 
 impl RemoteSource {
     /// A source reading from `host:port`.
-    pub fn new(host: impl Into<String>, main_port: u16, render_port: u16) -> Self {
+    pub fn new(host: impl Into<String>, port: u16, subapp: RemoteSubApp) -> Self {
         Self {
             host: host.into(),
-            main_port,
-            render_port,
+            port,
+            subapp,
         }
     }
 
     /// A source reading from `127.0.0.1:port`.
-    pub fn localhost(main_port: u16, render_port: u16) -> Self {
-        Self::new("127.0.0.1", main_port, render_port)
+    pub fn localhost(port: u16) -> Self {
+        Self::new("127.0.0.1", port, RemoteSubApp::Main)
     }
+}
+
+/// Looks at [`InspectorSources`] and gets the corresponding remote worlds
+pub fn get_remote_worlds(world: &World) -> Vec<(bool, &World, &RemoteSource)> {
+    let inspector_sources = world.resource::<InspectorSources>();
+
+    let remote_worlds = inspector_sources
+        .sources
+        .iter()
+        .map(|is| match is {
+            InspectorSource::Local => None,
+            InspectorSource::Remote(rem) => {
+                let is_main = rem.subapp == RemoteSubApp::Main;
+                let inspected = crate::world_to_inspect(world, is.clone());
+                Some((is_main, inspected, rem))
+            }
+        })
+        .flatten()
+        .collect();
+
+    remote_worlds
 }
 
 /// The state of the connection to the remote app.
@@ -342,36 +374,32 @@ impl RemoteSnapshot {
     }
 }
 
-/// Whether the inspector currently reads from a remote app.
-pub(crate) fn is_remote(world: &World) -> bool {
-    matches!(
-        world.get_resource::<InspectorSource>(),
-        Some(InspectorSource::Remote(_))
-    )
-}
-
 /// Sets the connection up for the current [`InspectorSource`] when it changes, clearing the
 /// [`RemoteWorld`] and the selection.
 pub fn sync_remote_source(world: &mut World) {
-    _sync_remote_source(world, true);
-    _sync_remote_source(world, false);
+    let inspector_sources = world.resource::<InspectorSources>().sources.clone();
+
+    for inspector_source in inspector_sources.iter() {
+        match inspector_source {
+            InspectorSource::Local => {}
+            InspectorSource::Remote(rem) => {
+                let is_main = rem.subapp == RemoteSubApp::Main;
+                foo_sync_remote_source(world, is_main, rem);
+            }
+        }
+    }
 }
 
-fn _sync_remote_source(world: &mut World, is_main: bool) {
-    let source = match world.get_resource::<InspectorSource>() {
-        Some(InspectorSource::Remote(source)) => Some(source),
-        _ => None,
-    };
+fn foo_sync_remote_source(world: &mut World, is_main: bool, source: &RemoteSource) {
     let remote_connections = world.resource::<RemoteConnections>();
     let connection = if is_main {
         &remote_connections.main
     } else {
         &remote_connections.render
     };
-    if connection.source.as_ref() == source {
+    if connection.source.as_ref() == Some(source) {
         return;
     }
-    let source = source.cloned();
 
     let mut snapshots = world.resource_mut::<RemoteSnapshots>();
     if is_main {
@@ -391,17 +419,8 @@ fn _sync_remote_source(world: &mut World, is_main: bool) {
     connection.state = RemoteConnectionState::Disconnected;
     connection.next_poll = Duration::ZERO;
     connection.next_full = Duration::ZERO;
-    connection.client = source.as_ref().map(|source| {
-        BrpClient::new(
-            source.host.clone(),
-            if is_main {
-                source.main_port
-            } else {
-                source.render_port
-            },
-        )
-    });
-    connection.source = source;
+    connection.client = Some(BrpClient::new(source.host.clone(), source.port));
+    connection.source = Some(source.clone());
 }
 
 /// Rebuilds the [`RemoteWorld`] empty, and clears the state tied to the previous source: the
@@ -744,14 +763,20 @@ fn finish_call(
 /// generation than the one mirrored, the remote app restarted: the world is rebuilt, the poll
 /// written again, and a full poll requested.
 pub fn sync_remote_world(world: &mut World) {
-    _sync_remote_world(world, true);
-    _sync_remote_world(world, false);
+    let inspector_sources = world.resource::<InspectorSources>().sources.clone();
+
+    for inspector_source in inspector_sources.iter() {
+        match inspector_source {
+            InspectorSource::Local => {}
+            InspectorSource::Remote(rem) => {
+                let is_main = rem.subapp == RemoteSubApp::Main;
+                foo_sync_remote_world(world, is_main);
+            }
+        }
+    }
 }
 
-fn _sync_remote_world(world: &mut World, is_main: bool) {
-    if !is_remote(world) {
-        return;
-    }
+fn foo_sync_remote_world(world: &mut World, is_main: bool) {
     let mut snapshots = world.resource_mut::<RemoteSnapshots>();
     let snapshot = if is_main {
         &mut snapshots.main
@@ -893,10 +918,7 @@ pub(crate) mod tests {
             registry.register::<Children>();
         }
         world.insert_resource(registry);
-        world.insert_resource(InspectorSource::Remote(RemoteSource::localhost(
-            DEFAULT_PORT,
-            DEFAULT_RENDER_PORT,
-        )));
+        world.insert_resource(InspectorSources::remote_main("localhost", DEFAULT_PORT));
         world.init_resource::<InspectorSelection>();
         world.init_resource::<RemoteConnections>();
         world.init_resource::<RemoteSnapshots>();
@@ -1427,7 +1449,7 @@ pub(crate) mod tests {
             .0
             .insert(key, 0.3);
 
-        world.insert_resource(InspectorSource::Local);
+        world.insert_resource(InspectorSources::local());
         sync_remote_source(&mut world);
 
         assert!(world
@@ -1448,11 +1470,11 @@ pub(crate) mod tests {
     #[test]
     fn every_source_change_clears_the_selection() {
         let mut world = test_world();
-        world.insert_resource(InspectorSource::Local);
+        world.insert_resource(InspectorSources::local());
         let local = world.spawn_empty().id();
         world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, true));
 
-        world.insert_resource(InspectorSource::Remote(RemoteSource::localhost(1, 2)));
+        world.insert_resource(InspectorSources::remote_main("localhost", 1));
         sync_remote_source(&mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
@@ -1464,12 +1486,12 @@ pub(crate) mod tests {
             "an unchanged source keeps the selection"
         );
 
-        world.insert_resource(InspectorSource::Remote(RemoteSource::localhost(3, 4)));
+        world.insert_resource(InspectorSources::remote_main("localhost", 3));
         sync_remote_source(&mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
         world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, true));
-        world.insert_resource(InspectorSource::Local);
+        world.insert_resource(InspectorSources::local());
         sync_remote_source(&mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
     }

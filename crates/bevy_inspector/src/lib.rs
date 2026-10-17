@@ -32,6 +32,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     world::World,
 };
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::UiSystems;
 
@@ -41,10 +42,64 @@ use crate::details_panel::{
     DetailsColumnSplits, DetailsIndex, DetailsPanelSync,
 };
 use crate::entity_tree::{sync_entity_tree, EntityTreeSync, TreeRowIndex};
+use crate::remote::RemoteSubApp;
 
 /// Where the inspector reads its data from.
-#[derive(Resource, Debug, Default, Clone, PartialEq, Eq, Reflect)]
+#[derive(Resource, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
+pub struct InspectorSources {
+    /// The sources the inspector reads data from
+    pub sources: HashSet<InspectorSource>,
+}
+
+impl Default for InspectorSources {
+    fn default() -> Self {
+        InspectorSources::local()
+    }
+}
+
+impl InspectorSources {
+    /// Local inspection
+    pub fn local() -> Self {
+        let mut t = HashSet::new();
+        t.insert(InspectorSource::Local);
+        InspectorSources { sources: t }
+    }
+
+    /// Remote inspection (main and render)
+    #[cfg(feature = "remote")]
+    pub fn remote(host: impl Into<String>, main_port: u16, render_port: u16) -> Self {
+        let mut t = HashSet::new();
+        let host = host.into();
+        t.insert(InspectorSource::Remote(remote::RemoteSource::new(
+            host.clone(),
+            main_port,
+            RemoteSubApp::Main,
+        )));
+        t.insert(InspectorSource::Remote(remote::RemoteSource::new(
+            host,
+            render_port,
+            RemoteSubApp::Render,
+        )));
+        InspectorSources { sources: t }
+    }
+
+    /// Remote inspection (main only)
+    #[cfg(feature = "remote")]
+    pub fn remote_main(host: impl Into<String>, main_port: u16) -> Self {
+        let mut t = HashSet::new();
+        t.insert(InspectorSource::Remote(remote::RemoteSource::new(
+            host,
+            main_port,
+            RemoteSubApp::Main,
+        )));
+        InspectorSources { sources: t }
+    }
+}
+
+/// A single source to read data from
+#[derive(Debug, Default, Clone, PartialEq, Eq, Reflect, Hash)]
+#[reflect(Debug, Default, Clone, PartialEq)]
 pub enum InspectorSource {
     /// The world the inspector itself runs in.
     #[default]
@@ -54,19 +109,29 @@ pub enum InspectorSource {
     Remote(remote::RemoteSource),
 }
 
+/// Whether the inspector currently reads from a remote app.
+pub fn is_remote(inspector_source: InspectorSource) -> bool {
+    match inspector_source {
+        InspectorSource::Local => false,
+        InspectorSource::Remote(_) => true,
+    }
+}
+
 /// The world the panels read: the `RemoteWorld` while the inspector reads from a remote
 /// app, and `world` otherwise.
-pub(crate) fn world_to_inspect(world: &World, is_main: bool) -> &World {
+///
+/// NOTE: we currently restrict to at most 1x main app and 1x render app.
+pub(crate) fn world_to_inspect(world: &World, inspector_source: InspectorSource) -> &World {
     #[cfg(feature = "remote")]
-    if remote::is_remote(world)
+    if let InspectorSource::Remote(rem) = inspector_source
         && let Some(remote) = world.get_resource::<remote::RemoteWorlds>()
     {
-        if is_main {
+        if rem.subapp == RemoteSubApp::Main {
             return remote.main.world();
         }
         return remote.render.world();
     }
-    let _ = is_main;
+    let _ = inspector_source;
     world
 }
 
@@ -133,7 +198,7 @@ impl Plugin for InspectorPlugin {
             app.add_plugins(ColumnSplitPlugin);
         }
 
-        app.init_resource::<InspectorSource>()
+        app.init_resource::<InspectorSources>()
             .init_resource::<InspectorSelection>()
             .init_resource::<TreeRowIndex>()
             .init_resource::<EntityTreeSync>()
@@ -168,10 +233,7 @@ impl Plugin for InspectorPlugin {
             )
             .add_systems(
                 PostUpdate,
-                (
-                    connection_panel::init_address_input,
-                    connection_panel::sync_connection_status,
-                )
+                connection_panel::sync_connection_status
                     .after(remote::poll_remote_connection)
                     .before(UiSystems::Prepare),
             );

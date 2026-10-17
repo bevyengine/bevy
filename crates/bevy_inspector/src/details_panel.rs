@@ -72,7 +72,7 @@ use bevy_utils::prelude::{DebugName, ShortName};
 use crate::{
     column_split::{ColumnSplit, ColumnSplitLeading},
     entity_tree::InspectorUi,
-    InspectableEntity, InspectorSelection, InspectorSource,
+    InspectableEntity, InspectorSelection, InspectorSource, InspectorSources,
 };
 
 /// The deepest nesting level whose fields are rendered.
@@ -744,9 +744,13 @@ pub(crate) fn apply_field_edit(edit: On<FieldEdit>, mut commands: Commands) {
 /// The details panel is refreshed on the next tick whenever the field does not end up holding the
 /// edited value, so that its widget is reverted.
 fn write_field_edit(world: &mut World, edit: &FieldEdit) {
-    if world.get_resource::<InspectorSource>() != Some(&InspectorSource::Local) {
+    let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
+        return;
+    };
+    if inspector_sources.sources.contains(&InspectorSource::Local) {
         return;
     }
+
     let Some(registry) = world.get_resource::<AppTypeRegistry>().cloned() else {
         return;
     };
@@ -1129,7 +1133,9 @@ pub fn sync_details_panel(world: &mut World) {
     let is_main = selection.is_none_or(|s| s.is_main);
     let maybe_selected = selection.map(|s| s.entity);
 
-    let inspected = crate::world_to_inspect(world, is_main);
+    let inspector_source = get_inspector_source(&world, is_main);
+
+    let inspected = crate::world_to_inspect(world, inspector_source);
     let components = inspect_components(inspected, selection);
     let empty = empty_state(inspected, maybe_selected, &components);
 
@@ -1140,6 +1146,36 @@ pub fn sync_details_panel(world: &mut World) {
     if empty.is_none() {
         sync_groups(world, body, &components);
     }
+}
+
+fn get_inspector_source(world: &World, is_main: bool) -> InspectorSource {
+    let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
+        return InspectorSource::Local;
+    };
+
+    let local = inspector_sources.sources.contains(&InspectorSource::Local);
+    if local {
+        return InspectorSource::Local;
+    }
+
+    #[cfg(feature = "remote")]
+    for inspector_source in inspector_sources.sources.iter() {
+        match inspector_source {
+            InspectorSource::Local => {
+                return InspectorSource::Local;
+            }
+            InspectorSource::Remote(rem) => {
+                if is_main && rem.subapp == crate::remote::RemoteSubApp::Main {
+                    return inspector_source.clone();
+                }
+                if !is_main && rem.subapp == crate::remote::RemoteSubApp::Render {
+                    return inspector_source.clone();
+                }
+            }
+        }
+    }
+
+    InspectorSource::Local
 }
 
 /// The body of the details panel, found through its [`InspectorDetailsBody`] marker.
@@ -1175,7 +1211,11 @@ pub(crate) fn inspect_components(
         return Vec::new();
     };
     let registry = registry.read();
-    let local = world.get_resource::<InspectorSource>() == Some(&InspectorSource::Local);
+
+    let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
+        return Vec::new();
+    };
+    let local = inspector_sources.sources.contains(&InspectorSource::Local);
 
     let mut components: Vec<ComponentDetails> = inspection
         .components
@@ -2984,7 +3024,7 @@ mod tests {
             .world_mut()
             .spawn((Subject::default(), Wrapper::default()))
             .id();
-        select(&mut app, Some(other));
+        select(&mut app, Some(InspectableEntity::new(other, true)));
 
         let index = app.world().resource::<DetailsIndex>();
         assert!(index.group(subject).is_some());
@@ -4516,7 +4556,7 @@ mod tests {
     #[test]
     fn ignores_edits_outside_local_mode() {
         let mut app = test_app();
-        app.world_mut().remove_resource::<InspectorSource>();
+        app.world_mut().remove_resource::<InspectorSources>();
         let subject = inspect(
             &mut app,
             Subject {
@@ -4541,7 +4581,8 @@ mod tests {
     fn picking_a_color_edits_the_field() {
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(entity, true));
         app.update();
         let mut pickers = app
             .world_mut()
@@ -4580,7 +4621,8 @@ mod tests {
             .init_resource::<bevy_clipboard::Clipboard>()
             .add_systems(bevy_app::Update, bevy_text::apply_text_edits);
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(entity, true));
         app.update();
         let mut inputs = app
             .world_mut()
