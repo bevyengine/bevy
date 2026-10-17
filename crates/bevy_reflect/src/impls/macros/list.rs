@@ -28,6 +28,11 @@ macro_rules! impl_reflect_for_veclike {
                     bevy_platform::prelude::Box::new($remove(self, index))
                 }
 
+                #[inline]
+                fn swap(&mut self, a: usize, b: usize) {
+                    <$sub>::swap(self, a, b);
+                }
+
                 fn push(&mut self, value: bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>) {
                     let value = T::take_from_reflect(value).unwrap_or_else(|value| {
                         panic!(
