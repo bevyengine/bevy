@@ -1062,7 +1062,7 @@ fn raymarch_atmosphere(
             // The sky-view LUT has no clouds: per skylight direction, replace the clear sky by
             // dimmer cloud bases using the cloud transmittance along it (floor = light the clouds
             // scatter down).
-            e_sky = ground_sky_irradiance_clouds(sphere_point);
+            e_sky = ground_sky_irradiance_clouds(sphere_point, pixel_coords);
         }
         result.inscattering += exp(-optical_depth) * atmosphere.ground_albedo / PI * e_sky;
     }
@@ -1073,7 +1073,7 @@ fn raymarch_atmosphere(
 /// Sky irradiance on a horizontal ground point: cosine-weighted directions (E = pi * mean(L)),
 /// each a short quadratically spaced single + LUT-multiple scattering march.
 @if(CLOUDS_ENABLED)
-fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
+fn ground_sky_irradiance_clouds(p: vec3<f32>, pixel_coords: vec2<f32>) -> vec3<f32> {
     let n = normalize(p);
     let tx = normalize(select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(n.x) > 0.9) - n * dot(n, select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), abs(n.x) > 0.9)));
     let ty = cross(n, tx);
@@ -1101,10 +1101,16 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
     // sky is open. Occluded directions see the cloud base lit by diffusely transmitted sunlight
     // (Lambertian, PI * L).
     let h_mid = 0.5 * (cloud_layer.cloud_layer_start + cloud_layer.cloud_layer_end) - length(p);
+    // The directions are randomly rotated and stratified per pixel and frame (TAA averages them).
+    // A fixed set of 6 gave 6 shifted hard-edged copies of each cloud's occlusion, stacked into
+    // plateaus of constant brightness inside the shadows; each direction stands for a cone of
+    // the hemisphere, and the jitter integrates over it.
+    let j = interleaved_gradient_noise(pixel_coords, 3000u + view.frame_count % 64u);
+    let phi0 = j * 6.2831853;
     var sky = vec3(0.0);
     for (var k = 0u; k < GROUND_SKY_DIRS; k++) {
-        let u = (f32(k) + 0.5) / f32(GROUND_SKY_DIRS);
-        let phi = f32(k) * 2.399963;
+        let u = (f32(k) + fract(j * 7.0 + f32(k) * 0.618034)) / f32(GROUND_SKY_DIRS);
+        let phi = phi0 + f32(k) * 2.399963;
         let horiz = tx * cos(phi) + ty * sin(phi);
         let mu = sqrt(1.0 - u);
         let d = normalize(n * mu + horiz * sqrt(u));
